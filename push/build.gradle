@@ -1,10 +1,11 @@
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 
-repositories {
-    maven { url 'https://dl.bintray.com/heruoxin/icebox' }
+allprojects {
+    repositories {
+        maven { url 'https://jitpack.io' }
+    }
 }
-
 
 android {
     compileSdkVersion rootProject.ext.compileSdkVersion
@@ -42,28 +43,6 @@ android {
     }
 
     signingConfigs {
-        debug {
-            def locale = null
-            def keystorePwd = null
-            def alias = null
-            def pwd = null
-            if (project.rootProject.file('local.properties').exists()) {
-                Properties properties = new Properties()
-                properties.load(project.rootProject.file('local.properties').newDataInputStream())
-                locale = properties.getProperty("KEY_LOCATE")
-                keystorePwd = properties.getProperty("KEYSTORE_PASSWORD")
-                alias = properties.getProperty("KEYSTORE_ALIAS")
-                pwd = properties.getProperty("KEY_PASSWORD")
-            }
-
-            storeFile file(locale != null ? locale : project.rootProject.file(".yuuta.jks"))
-            storePassword keystorePwd != null ?
-                    keystorePwd : System.getenv("KEYSTORE_PASS")
-            keyAlias alias != null ?
-                    alias : System.getenv("ALIAS_NAME")
-            keyPassword pwd != null ?
-                    pwd : System.getenv("ALIAS_PASS")
-        }
         release {
             // 满足下面两个条件时需要此配置
             // 1. Gradle版本 >= 2.14.1
@@ -111,7 +90,7 @@ dependencies {
     implementation project(':extenders')
     implementation "com.android.support:palette-v7:$supportLibraryVersion"
 
-    implementation 'com.catchingnow.icebox:SDK:1.0.5'
+    implementation 'com.github.heruoxin:IceBox-SDK:55dd857d74'
 
     implementation('com.github.AndroidSnippet:SetupWizardLibCompat:0.3', {
         exclude group: 'com.android.support'
@@ -130,10 +109,10 @@ dependencies {
     implementation 'moe.shizuku.preference:preference-simplemenu:2.2.3'
 
     // Help
-    implementation('moe.shizuku.support:helplib:1.1.0', {
+    implementation('com.github.yfdyh000.RikkaX:helplib:mipush_helplib-SNAPSHOT', {
         exclude group: 'moe.shizuku.preference'
         exclude group: 'com.android.support'
-    })
+    }) // same to moe.shizuku.support:helplib:1.1.0
     // RxJava & RxAndroid
     implementation("io.reactivex.rxjava2:rxandroid:$rxAndroidVersion", {
         exclude group: 'com.android.support'
