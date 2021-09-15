@@ -7,7 +7,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest, windows-latest, macOS-latest ]
+        os: [ ubuntu-latest ]
 
     steps:
       - name: Check out
@@ -37,6 +37,19 @@ jobs:
         run: |
           ./gradlew exportVersion --daemon
           ./gradlew :push:assembleRelease --daemon --parallel
+        
+      - name: Sign Apk
+        run: |
+          PASSWD=$(echo $RANDOM | md5sum | head -c 15)
+          ALIAS="random"
+          keytool -genkey -noprompt -v -keystore android.keystore -alias ${ALIAS} -keyalg RSA -keysize 2048 -validity 10000 -keypass ${PASSWD} -storepass ${PASSWD} -dname "CN=xx, OU=xx, O=xx, L=xx, S=xx, C=xx"
+          apksigner=${ANDROID_SDK_ROOT}/build-tools/30.0.3/apksigner
+          $apksigner sign --ks ./android.keystore \
+          --ks-pass pass:${PASSWD} \
+          --ks-key-alias ${ALIAS} \
+          --key-pass pass:${PASSWD} \
+          --in "./push/build/outputs/apk/release/push-release.apk" \
+          --out "./push/build/outputs/apk/release/push-release-signed.apk"
         
       - name: List out dir
         run: ls -l ./push/build/outputs/apk/release
