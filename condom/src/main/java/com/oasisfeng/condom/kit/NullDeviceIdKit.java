@@ -18,6 +18,7 @@
 package com.oasisfeng.condom.kit;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyManager;
@@ -34,6 +35,7 @@ import static android.telephony.PhoneStateListener.LISTEN_SIGNAL_STRENGTH;
  *
  * Created by Oasis on 2017/7/21.
  */
+@SuppressLint("MissingPermission")
 public class NullDeviceIdKit implements CondomKit, CondomKit.SystemServiceSupplier {
 
 	@Override public void onRegister(final CondomKitRegistry registry) {

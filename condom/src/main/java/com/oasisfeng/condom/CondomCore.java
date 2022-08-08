@@ -115,6 +115,7 @@ class CondomCore {
 		return mOutboundJudge != null && ! mOutboundJudge.shouldAllow(type, intent, target_pkg) && ! mDryRun;
 	}
 
+	@SuppressLint("WrongConstant")
 	private int adjustIntentFlags(final OutboundType type, final Intent intent) {
 		final int original_flags = intent.getFlags();
 		if (mDryRun) return original_flags;
