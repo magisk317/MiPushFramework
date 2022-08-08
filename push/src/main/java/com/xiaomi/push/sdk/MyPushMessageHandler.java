@@ -82,33 +82,24 @@ public class MyPushMessageHandler extends IntentService {
 
         activeApp(targetPackage);
 
-        runWithAppStateElevatedToForeground(targetPackage, elevated -> {
-            final Intent localIntent = MyMIPushNotificationHelper.buildTargetIntentWithoutExtras(targetPackage, metaInfo);
-            PendingIntent pi = PendingIntent.getService(this, 0, localIntent, PendingIntent.FLAG_NO_CREATE);
-            if (pi == null) {
-                logger.e("Error retrieving target intent for "+ targetPackage);
-                return;
-            }
-            final PendingIntent clone;
-            if (elevated && SDK_INT > P
-                    && (clone = BackgroundActivityStartEnabler.clonePendingIntentForBackgroundActivityStart(pi)) != null) {
-                pi = clone;
-            } else {
-                pullUpApp(targetPackage, container);
-            }
+        pullUpApp(targetPackage, container);
 
-            try {
-                logger.d("send to service " + targetPackage);
-                final Intent extras = new Intent().putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, payload)
-                        .putExtra(MIPushNotificationHelper.FROM_NOTIFICATION, true);
-                pi.send(this, 0, extras);
+        final Intent localIntent = new Intent(PushConstants.MIPUSH_ACTION_NEW_MESSAGE);
+        localIntent.setComponent(new ComponentName(targetPackage, "com.xiaomi.mipush.sdk.PushMessageHandler"));
+        localIntent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, payload);
+        localIntent.putExtra(MIPushNotificationHelper.FROM_NOTIFICATION, true);
+        localIntent.addCategory(String.valueOf(metaInfo.getNotifyId()));
+        try {
+            logger.d("send to service " + targetPackage);
 
-                final int id = MyClientEventDispatcher.getNotificationId(container);
+            if (startService(localIntent) != null) {
+                int id = MyClientEventDispatcher.getNotificationId(container);
                 NotificationController.cancel(this, id);
-            } catch (Exception e) {
-                logger.e(e.getLocalizedMessage(), e);
             }
-        });
+        } catch (Exception e) {
+            logger.e(e.getLocalizedMessage(), e);
+        }
+
     }
 
     private void activeApp(String targetPackage) {
