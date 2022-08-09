@@ -77,27 +77,27 @@ public class NotificationController {
         NotificationChannel notificationChannel = manager.getNotificationChannel(channelId);
 
         if (notificationChannel != null) {
-            if (ID_GROUP_APPLICATIONS.equals(notificationChannel.getGroup()) || TextUtils.isEmpty(notificationChannel.getGroup())) {
-                manager.deleteNotificationChannel(channelId);
-                notificationChannel = null;
+            final boolean isValidGroup =
+                    !ID_GROUP_APPLICATIONS.equals(notificationChannel.getGroup()) &&
+                            !TextUtils.isEmpty(notificationChannel.getGroup());
+            if (isValidGroup) {
+                return notificationChannel;
             }
+            manager.deleteNotificationChannel(channelId);
         }
 
-        if (notificationChannel == null) {
-
-            CharSequence name = ApplicationNameCache.getInstance().getAppName(context, packageName);
-            if (name == null) {
-                return null;
-            }
-
-            NotificationChannelGroup notificationChannelGroup = createGroupWithPackage(packageName, name);
-            manager.createNotificationChannelGroup(notificationChannelGroup);
-
-            notificationChannel = createChannelWithPackage(packageName, name);
-            notificationChannel.setGroup(notificationChannelGroup.getId());
-
-            manager.createNotificationChannel(notificationChannel);
+        CharSequence name = ApplicationNameCache.getInstance().getAppName(context, packageName);
+        if (name == null) {
+            return null;
         }
+
+        NotificationChannelGroup notificationChannelGroup = createGroupWithPackage(packageName, name);
+        manager.createNotificationChannelGroup(notificationChannelGroup);
+
+        notificationChannel = createChannelWithPackage(packageName, name);
+        notificationChannel.setGroup(notificationChannelGroup.getId());
+
+        manager.createNotificationChannel(notificationChannel);
 
         return notificationChannel;
 
