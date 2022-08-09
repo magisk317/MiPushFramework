@@ -156,7 +156,7 @@ public class NotificationController {
         }
     }
 
-    public static void publish(Context context, int id, String packageName, Notification.Builder localBuilder) {
+    public static void publish(Context context, int notificationId, String packageName, Notification.Builder localBuilder) {
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
 
         // Make the behavior consistent with official MIUI
@@ -183,7 +183,7 @@ public class NotificationController {
         }
 
         Notification notification = localBuilder.build();
-        manager.notify(id, notification);
+        manager.notify(notificationId, notification);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             updateSummaryNotification(context, packageName, getGroupIdByPkg(packageName));

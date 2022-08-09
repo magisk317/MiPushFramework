@@ -42,16 +42,16 @@ public class MyMIPushNotificationHelper {
     /**
      * @see MIPushNotificationHelper#notifyPushMessage
      */
-    static void notifyPushMessage(XMPushService var0, XmPushActionContainer buildContainer, byte[] var1, long var2) {
+    static void notifyPushMessage(XMPushService xmPushService, XmPushActionContainer buildContainer, byte[] var1, long var2) {
         PushMetaInfo metaInfo = buildContainer.getMetaInfo();
         String packageName = buildContainer.getPackageName();
 
         String title = metaInfo.getTitle();
         String description = metaInfo.getDescription();
 
-        int id = MyClientEventDispatcher.getNotificationId(buildContainer);
+        int notificationId = MyClientEventDispatcher.getNotificationId(buildContainer);
 
-        Notification.Builder localBuilder = new Notification.Builder(var0);
+        Notification.Builder localBuilder = new Notification.Builder(xmPushService);
 
         logger.i("title:" + title + "  description:" + description);
 
@@ -65,14 +65,14 @@ public class MyMIPushNotificationHelper {
 
 
         // Set small icon
-        NotificationController.processSmallIcon(var0, packageName, localBuilder);
+        NotificationController.processSmallIcon(xmPushService, packageName, localBuilder);
 
-        PendingIntent localPendingIntent = getClickedPendingIntent(var0, buildContainer, metaInfo, var1);
+        PendingIntent localPendingIntent = getClickedPendingIntent(xmPushService, buildContainer, metaInfo, var1);
         if (localPendingIntent != null) {
             localBuilder.setContentIntent(localPendingIntent);
             // Also carry along the target PendingIntent, whose target will get temporarily whitelisted for background-activity-start upon sent.
             final Intent targetIntent = buildTargetIntentWithoutExtras(buildContainer.getPackageName(), metaInfo);
-            final PendingIntent pi = PendingIntent.getService(var0, 0, targetIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+            final PendingIntent pi = PendingIntent.getService(xmPushService, 0, targetIntent, PendingIntent.FLAG_UPDATE_CURRENT);
             localBuilder.getExtras().putParcelable("mipush.target", pi);
         }
 
@@ -90,19 +90,19 @@ public class MyMIPushNotificationHelper {
             if (BuildConfig.DEBUG) {
                 int i = R.drawable.ic_notifications_black_24dp;
 
-                PendingIntent pendingIntentOpenActivity = openActivityPendingIntent(var0, buildContainer, metaInfo, var1);
+                PendingIntent pendingIntentOpenActivity = openActivityPendingIntent(xmPushService, buildContainer, metaInfo, var1);
                 if (pendingIntentOpenActivity != null) {
                     localBuilder.addAction(new Notification.Action(i, "Open App", pendingIntentOpenActivity));
                 }
 
-                PendingIntent pendingIntentJump = startServicePendingIntent(var0, buildContainer, metaInfo, var1);
+                PendingIntent pendingIntentJump = startServicePendingIntent(xmPushService, buildContainer, metaInfo, var1);
                 if (pendingIntentJump != null) {
                     localBuilder.addAction(new Notification.Action(i, "Jump", pendingIntentJump));
                 }
 
-                Intent sdkIntentJump = getSdkIntent(var0, packageName, buildContainer);
+                Intent sdkIntentJump = getSdkIntent(xmPushService, packageName, buildContainer);
                 if (sdkIntentJump != null) {
-                    PendingIntent pendingIntent = PendingIntent.getActivity(var0, 0, sdkIntentJump, PendingIntent.FLAG_UPDATE_CURRENT);
+                    PendingIntent pendingIntent = PendingIntent.getActivity(xmPushService, 0, sdkIntentJump, PendingIntent.FLAG_UPDATE_CURRENT);
                     localBuilder.addAction(new Notification.Action(i, "SDK Intent", pendingIntent));
                 }
 
@@ -112,7 +112,7 @@ public class MyMIPushNotificationHelper {
             localBuilder.setShowWhen(true);
         }
 
-        String[] titleAndDesp = determineTitleAndDespByDIP(var0, metaInfo);
+        String[] titleAndDesp = determineTitleAndDespByDIP(xmPushService, metaInfo);
         localBuilder.setContentTitle(titleAndDesp[0]);
         localBuilder.setContentText(titleAndDesp[1]);
 
@@ -120,11 +120,11 @@ public class MyMIPushNotificationHelper {
         // Fill app name
         Bundle extras = new Bundle();
 
-        NotificationController.buildExtraSubText(var0, packageName, localBuilder, extras);
+        NotificationController.buildExtraSubText(xmPushService, packageName, localBuilder, extras);
 
         localBuilder.setExtras(extras);
 
-        NotificationController.publish(var0, id, packageName, localBuilder);
+        NotificationController.publish(xmPushService, notificationId, packageName, localBuilder);
 
     }
 
