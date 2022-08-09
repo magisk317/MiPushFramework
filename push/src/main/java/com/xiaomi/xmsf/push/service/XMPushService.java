@@ -12,6 +12,7 @@ import android.widget.Toast;
 import com.elvishew.xlog.Logger;
 import com.elvishew.xlog.XLog;
 import com.xiaomi.push.service.PushServiceMain;
+import com.xiaomi.xmpush.thrift.PushMetaInfo;
 import com.xiaomi.xmsf.R;
 import com.xiaomi.xmsf.push.notification.NotificationController;
 import com.xiaomi.xmsf.push.utils.RemoveTremblingUtils;
@@ -48,7 +49,7 @@ public class XMPushService extends IntentService {
                 logger.d("Don't register multi request " + pkg);
                 register = false;
             }
-            NotificationController.registerChannelIfNeeded(this, pkg);
+            NotificationController.registerChannelIfNeeded(this, new PushMetaInfo(), pkg);
             RegisteredApplication application = RegisteredApplicationDb
                     .registerApplication(pkg, true, this, null);
 

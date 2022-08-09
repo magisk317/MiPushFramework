@@ -16,6 +16,7 @@ import android.support.v4.app.NotificationCompat;
 import android.support.v4.graphics.ColorUtils;
 import android.text.TextUtils;
 
+import com.xiaomi.xmpush.thrift.PushMetaInfo;
 import com.xiaomi.xmsf.R;
 import com.xiaomi.xmsf.utils.ColorUtil;
 
@@ -26,6 +27,8 @@ import top.trumeet.common.utils.NotificationUtils;
 
 import static top.trumeet.common.utils.NotificationUtils.getChannelIdByPkg;
 import static top.trumeet.common.utils.NotificationUtils.getGroupIdByPkg;
+
+import java.util.Map;
 
 /**
  * @author Trumeet
@@ -40,6 +43,8 @@ public class NotificationController {
 
     public static final String CHANNEL_WARN = "warn";
 
+    public static final String CHANNEL_NAME = "channel_name";
+
     @TargetApi(26)
     public static void deleteOldNotificationChannelGroup(@NonNull Context context) {
         try {
@@ -53,27 +58,40 @@ public class NotificationController {
 
     @TargetApi(26)
     private static NotificationChannelGroup createGroupWithPackage(@NonNull String packageName,
-                                                                   @NonNull CharSequence name) {
-        return new NotificationChannelGroup(getGroupIdByPkg(packageName), name);
+                                                                   @NonNull CharSequence appName) {
+        return new NotificationChannelGroup(getGroupIdByPkg(packageName), appName);
     }
 
     @TargetApi(26)
-    private static NotificationChannel createChannelWithPackage(@NonNull String packageName,
-                                                                @NonNull CharSequence name) {
-        NotificationChannel channel = new NotificationChannel(getChannelIdByPkg(packageName),
-                name, NotificationManager.IMPORTANCE_DEFAULT);
+    private static NotificationChannel createChannelWithPackage(@NonNull PushMetaInfo metaInfo,
+                                                                @NonNull String packageName) {
+        final Map<String, String> extra = metaInfo.getExtra();
+        String channelName = extra != null && extra.containsKey(CHANNEL_NAME) ?
+                extra.get(CHANNEL_NAME) : "未分类";
+
+        NotificationChannel channel = new NotificationChannel(getChannelId(metaInfo, packageName),
+                channelName, NotificationManager.IMPORTANCE_DEFAULT);
         channel.enableVibration(true);
         return channel;
     }
 
-    public static NotificationChannel registerChannelIfNeeded(Context context, String packageName) {
+    private static String getChannelId(@NonNull PushMetaInfo metaInfo,
+                                       @NonNull String packageName) {
+        final Map<String, String> extra = metaInfo.getExtra();
+        String channelName = extra != null && extra.containsKey(CHANNEL_NAME) ?
+                extra.get(CHANNEL_NAME) : "UnknownChannel";
+        return "ch_" + packageName + "_" + channelName;
+    }
+
+
+    public static NotificationChannel registerChannelIfNeeded(Context context, PushMetaInfo metaInfo, String packageName) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             return null;
         }
 
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
 
-        String channelId = getChannelIdByPkg(packageName);
+        String channelId = getChannelId(metaInfo, packageName);
         NotificationChannel notificationChannel = manager.getNotificationChannel(channelId);
 
         if (notificationChannel != null) {
@@ -86,15 +104,15 @@ public class NotificationController {
             manager.deleteNotificationChannel(channelId);
         }
 
-        CharSequence name = ApplicationNameCache.getInstance().getAppName(context, packageName);
-        if (name == null) {
+        CharSequence appName = ApplicationNameCache.getInstance().getAppName(context, packageName);
+        if (appName == null) {
             return null;
         }
 
-        NotificationChannelGroup notificationChannelGroup = createGroupWithPackage(packageName, name);
+        NotificationChannelGroup notificationChannelGroup = createGroupWithPackage(packageName, appName);
         manager.createNotificationChannelGroup(notificationChannelGroup);
 
-        notificationChannel = createChannelWithPackage(packageName, name);
+        notificationChannel = createChannelWithPackage(metaInfo, packageName);
         notificationChannel.setGroup(notificationChannelGroup.getId());
 
         manager.createNotificationChannel(notificationChannel);
@@ -156,7 +174,7 @@ public class NotificationController {
         }
     }
 
-    public static void publish(Context context, int notificationId, String packageName, Notification.Builder localBuilder) {
+    public static void publish(Context context, PushMetaInfo metaInfo, int notificationId, String packageName, Notification.Builder localBuilder) {
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
 
         // Make the behavior consistent with official MIUI
@@ -166,9 +184,9 @@ public class NotificationController {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             //Forward Compatibility
-            registerChannelIfNeeded(context, packageName);
+            registerChannelIfNeeded(context, metaInfo, packageName);
 
-            localBuilder.setChannelId(getChannelIdByPkg(packageName));
+            localBuilder.setChannelId(getChannelId(metaInfo, packageName));
             localBuilder.setGroup(getGroupIdByPkg(packageName));
             localBuilder.setGroupAlertBehavior(Notification.GROUP_ALERT_CHILDREN);
         } else {
@@ -285,7 +303,7 @@ public class NotificationController {
 
 
     public static void test(Context context, String packageName, String title, String description) {
-        NotificationController.registerChannelIfNeeded(context, packageName);
+        NotificationController.registerChannelIfNeeded(context, new PushMetaInfo(), packageName);
 
         int id = (int) (System.currentTimeMillis() / 1000L);
 
@@ -302,7 +320,7 @@ public class NotificationController {
             localBuilder.setShowWhen(true);
         }
 
-        NotificationController.publish(context, id, packageName, localBuilder);
+        NotificationController.publish(context, new PushMetaInfo(), id, packageName, localBuilder);
     }
 
 }

@@ -124,7 +124,7 @@ public class MyMIPushNotificationHelper {
 
         localBuilder.setExtras(extras);
 
-        NotificationController.publish(xmPushService, notificationId, packageName, localBuilder);
+        NotificationController.publish(xmPushService, metaInfo, notificationId, packageName, localBuilder);
 
     }
 
