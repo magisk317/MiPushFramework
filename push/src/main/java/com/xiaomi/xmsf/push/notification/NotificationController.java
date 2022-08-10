@@ -20,6 +20,7 @@ import android.support.v4.graphics.ColorUtils;
 import android.text.TextUtils;
 
 import com.xiaomi.xmpush.thrift.PushMetaInfo;
+import com.xiaomi.xmpush.thrift.XmPushActionContainer;
 import com.xiaomi.xmsf.R;
 import com.xiaomi.xmsf.utils.ColorUtil;
 
@@ -136,7 +137,7 @@ public class NotificationController {
 
 
     @TargetApi(Build.VERSION_CODES.N)
-    private static void updateSummaryNotification(Context context, String packageName, String groupId) {
+    private static void updateSummaryNotification(Context context, PushMetaInfo metaInfo, String packageName, String groupId) {
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         int notificationCntInGroup = getNotificationCountOfGroup(groupId, manager);
 
@@ -174,9 +175,9 @@ public class NotificationController {
                     .setGroupSummary(true)
                     .setGroup(groupId);
             Notification notification = builder.build();
-            manager.notify(packageName.hashCode(), notification);
+            manager.notify(groupId.hashCode(), notification);
         } else {
-            manager.cancel(packageName.hashCode());
+            manager.cancel(groupId.hashCode());
         }
     }
 
@@ -206,29 +207,23 @@ public class NotificationController {
             registerChannelIfNeeded(context, metaInfo, packageName);
 
             localBuilder.setChannelId(getChannelId(metaInfo, packageName));
-            localBuilder.setGroup(getGroupIdByPkg(packageName));
             localBuilder.setGroupAlertBehavior(Notification.GROUP_ALERT_CHILDREN);
         } else {
-
-
             //for VERSION < Oero
             localBuilder.setDefaults(Notification.DEFAULT_ALL);
             localBuilder.setPriority(Notification.PRIORITY_HIGH);
-
-
-            localBuilder.setGroup(getGroupIdByPkg(packageName));
         }
 
         Notification notification = localBuilder.build();
         manager.notify(notificationId, notification);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            updateSummaryNotification(context, packageName, getGroupIdByPkg(packageName));
+            updateSummaryNotification(context, metaInfo, packageName, notification.getGroup());
         }
     }
 
 
-    public static void cancel(Context context, int id) {
+    public static void cancel(Context context, XmPushActionContainer container, int id) {
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
 
         String groupId = null;
@@ -248,7 +243,7 @@ public class NotificationController {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (groupId != null) {
-                updateSummaryNotification(context, NotificationUtils.getPackageName(groupId), groupId);
+                updateSummaryNotification(context, container.getMetaInfo(), container.getPackageName(), groupId);
             }
         }
     }

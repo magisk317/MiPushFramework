@@ -14,6 +14,7 @@ public class NotificationUtils {
     public static final String EXTRA_CHANNEL_NAME = "channel_name";
     public static final String EXTRA_CHANNEL_DESCRIPTION = "channel_description";
     public static final String EXTRA_SOUND_URL = "sound_url";
+    public static final String EXTRA_JOBKEY = "jobkey";
 
     public static String getChannelIdByPkg(@NonNull String packageName) {
         // update version 2

@@ -27,6 +27,7 @@ import java.net.URL;
 import java.util.Map;
 
 import static com.xiaomi.push.service.MIPushNotificationHelper.isBusinessMessage;
+import static top.trumeet.common.utils.NotificationUtils.*;
 
 /**
  * @author zts1993
@@ -115,6 +116,12 @@ public class MyMIPushNotificationHelper {
         String[] titleAndDesp = determineTitleAndDespByDIP(xmPushService, metaInfo);
         localBuilder.setContentTitle(titleAndDesp[0]);
         localBuilder.setContentText(titleAndDesp[1]);
+        String jobKey = getExtraField(metaInfo.getExtra(), EXTRA_JOBKEY, null);
+        if (jobKey != null) {
+            localBuilder.setGroup(packageName + "_" + jobKey);
+        } else {
+            localBuilder.setGroup(packageName);
+        }
 
 
         // Fill app name
