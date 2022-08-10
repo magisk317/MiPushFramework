@@ -28,8 +28,7 @@ import top.trumeet.common.cache.ApplicationNameCache;
 import top.trumeet.common.cache.IconCache;
 import top.trumeet.common.utils.NotificationUtils;
 
-import static top.trumeet.common.utils.NotificationUtils.getChannelIdByPkg;
-import static top.trumeet.common.utils.NotificationUtils.getGroupIdByPkg;
+import static top.trumeet.common.utils.NotificationUtils.*;
 
 import java.util.Map;
 
@@ -46,10 +45,6 @@ public class NotificationController {
 
     public static final String CHANNEL_WARN = "warn";
 
-    public static final String EXTRA_CHANNEL_ID = "channel_id";
-    public static final String EXTRA_CHANNEL_NAME = "channel_name";
-    public static final String EXTRA_CHANNEL_DESCRIPTION = "channel_description";
-    public static final String EXTRA_SOUND_URL = "sound_url";
 
     @TargetApi(26)
     public static void deleteOldNotificationChannelGroup(@NonNull Context context) {
@@ -88,11 +83,6 @@ public class NotificationController {
             channel.setSound(Uri.parse(sound), attr);
         }
         return channel;
-    }
-
-    private static String getExtraField(Map<String, String> extra, String extraChannelName, String defaultValue) {
-        return extra != null && extra.containsKey(extraChannelName) ?
-                extra.get(extraChannelName) : defaultValue;
     }
 
     private static String getChannelId(@NonNull PushMetaInfo metaInfo,
