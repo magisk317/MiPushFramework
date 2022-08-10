@@ -96,7 +96,7 @@ dependencies {
         exclude group: 'com.android.support'
     })
     // Recycler
-    implementation('me.drakeet.multitype:multitype:3.3.0', {
+    implementation('com.github.drakeet:MultiType:v3.3.0', {
         exclude group: 'com.android.support'
     })
     // Support
