@@ -137,7 +137,6 @@ public class MyMIPushMessageProcessor {
     private static void userProcessMIPushMessage(XMPushService paramXMPushService, XmPushActionContainer buildContainer, byte[] paramArrayOfByte, long var2, Intent paramIntent, boolean isGeoMessage) {
         //var5 buildContainer
         //var6 metaInfo
-        boolean shouldNotify = true;
 
         boolean pkgInstalled = AppInfoUtils.isPkgInstalled(paramXMPushService, buildContainer.packageName);
         if (!pkgInstalled) {
@@ -189,15 +188,6 @@ public class MyMIPushMessageProcessor {
 
         }
 
-        int uniqueHashCode = targetPackage.hashCode();
-        if (!TextUtils.isEmpty(title)) {
-            uniqueHashCode += title.hashCode();
-        }
-        if (!TextUtils.isEmpty(description)) {
-            uniqueHashCode += description.hashCode();
-        }
-        shouldNotify = !MiPushMessageDuplicate.isDuplicateMessage(paramXMPushService, targetPackage, uniqueHashCode + "");
-
         String idKey = null;
         if (metaInfo.extra != null) {
             idKey = metaInfo.extra.get("jobkey");
@@ -212,10 +202,7 @@ public class MyMIPushMessageProcessor {
             if (isDuplicateMessage) {
                 logger.w("drop a duplicate message, key=" + idKey);
             } else {
-
-                if (shouldNotify) {
-                    MyMIPushNotificationHelper.notifyPushMessage(paramXMPushService, buildContainer, paramArrayOfByte, var2);
-                }
+                MyMIPushNotificationHelper.notifyPushMessage(paramXMPushService, buildContainer, paramArrayOfByte, var2);
 
                 //send broadcast
                 if (!isBusinessMessage) {
