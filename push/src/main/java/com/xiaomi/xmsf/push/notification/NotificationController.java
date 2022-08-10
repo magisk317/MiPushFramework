@@ -8,10 +8,13 @@ import android.app.NotificationManager;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Icon;
+import android.media.AudioAttributes;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.service.notification.StatusBarNotification;
 import android.support.annotation.NonNull;
+import android.support.annotation.RequiresApi;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.graphics.ColorUtils;
 import android.text.TextUtils;
@@ -43,7 +46,10 @@ public class NotificationController {
 
     public static final String CHANNEL_WARN = "warn";
 
-    public static final String CHANNEL_NAME = "channel_name";
+    public static final String EXTRA_CHANNEL_ID = "channel_id";
+    public static final String EXTRA_CHANNEL_NAME = "channel_name";
+    public static final String EXTRA_CHANNEL_DESCRIPTION = "channel_description";
+    public static final String EXTRA_SOUND_URL = "sound_url";
 
     @TargetApi(26)
     public static void deleteOldNotificationChannelGroup(@NonNull Context context) {
@@ -66,21 +72,34 @@ public class NotificationController {
     private static NotificationChannel createChannelWithPackage(@NonNull PushMetaInfo metaInfo,
                                                                 @NonNull String packageName) {
         final Map<String, String> extra = metaInfo.getExtra();
-        String channelName = extra != null && extra.containsKey(CHANNEL_NAME) ?
-                extra.get(CHANNEL_NAME) : "未分类";
+        String channelName = getExtraField(extra, EXTRA_CHANNEL_NAME, "未分类");
+        String channelDescription = getExtraField(extra, EXTRA_CHANNEL_DESCRIPTION, null);
+        String sound = getExtraField(extra, EXTRA_SOUND_URL, null);
 
         NotificationChannel channel = new NotificationChannel(getChannelId(metaInfo, packageName),
                 channelName, NotificationManager.IMPORTANCE_DEFAULT);
-        channel.enableVibration(true);
+        if (channelDescription != null) {
+            channel.setDescription(channelDescription);
+        }
+        if (sound != null) {
+            AudioAttributes attr = new AudioAttributes.Builder()
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build();
+            channel.setSound(Uri.parse(sound), attr);
+        }
         return channel;
+    }
+
+    private static String getExtraField(Map<String, String> extra, String extraChannelName, String defaultValue) {
+        return extra != null && extra.containsKey(extraChannelName) ?
+                extra.get(extraChannelName) : defaultValue;
     }
 
     private static String getChannelId(@NonNull PushMetaInfo metaInfo,
                                        @NonNull String packageName) {
         final Map<String, String> extra = metaInfo.getExtra();
-        String channelName = extra != null && extra.containsKey(CHANNEL_NAME) ?
-                extra.get(CHANNEL_NAME) : "UnknownChannel";
-        return "ch_" + packageName + "_" + channelName;
+        String channelId = getExtraField(extra, EXTRA_CHANNEL_ID, "");
+        return getChannelIdByPkg(packageName) + "_" + channelId;
     }
 
 
@@ -109,16 +128,20 @@ public class NotificationController {
             return null;
         }
 
+        return createNotificationChannel(metaInfo, packageName, manager, appName);
+
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    private static NotificationChannel createNotificationChannel(PushMetaInfo metaInfo, String packageName, NotificationManager manager, CharSequence appName) {
         NotificationChannelGroup notificationChannelGroup = createGroupWithPackage(packageName, appName);
         manager.createNotificationChannelGroup(notificationChannelGroup);
 
-        notificationChannel = createChannelWithPackage(metaInfo, packageName);
+        NotificationChannel notificationChannel = createChannelWithPackage(metaInfo, packageName);
         notificationChannel.setGroup(notificationChannelGroup.getId());
 
         manager.createNotificationChannel(notificationChannel);
-
         return notificationChannel;
-
     }
 
 

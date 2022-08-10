@@ -49,7 +49,6 @@ public class XMPushService extends IntentService {
                 logger.d("Don't register multi request " + pkg);
                 register = false;
             }
-            NotificationController.registerChannelIfNeeded(this, new PushMetaInfo(), pkg);
             RegisteredApplication application = RegisteredApplicationDb
                     .registerApplication(pkg, true, this, null);
 
