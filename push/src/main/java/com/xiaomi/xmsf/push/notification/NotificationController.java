@@ -138,15 +138,8 @@ public class NotificationController {
     @TargetApi(Build.VERSION_CODES.N)
     private static void updateSummaryNotification(Context context, String packageName, String groupId) {
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-        StatusBarNotification[] activeNotifications = manager.getActiveNotifications();
+        int notificationCntInGroup = getNotificationCountOfGroup(groupId, manager);
 
-        
-        int notificationCntInGroup = 0;
-        for (StatusBarNotification statusBarNotification : activeNotifications) {
-            if (groupId.equals(statusBarNotification.getNotification().getGroup())) {
-                notificationCntInGroup++;
-            }
-        }
 
         if (notificationCntInGroup > 1) {
 
@@ -185,6 +178,19 @@ public class NotificationController {
         } else {
             manager.cancel(packageName.hashCode());
         }
+    }
+
+    private static int getNotificationCountOfGroup(String groupId, NotificationManager manager) {
+        StatusBarNotification[] activeNotifications = manager.getActiveNotifications();
+
+
+        int notificationCntInGroup = 0;
+        for (StatusBarNotification statusBarNotification : activeNotifications) {
+            if (groupId.equals(statusBarNotification.getNotification().getGroup())) {
+                notificationCntInGroup++;
+            }
+        }
+        return notificationCntInGroup;
     }
 
     public static void publish(Context context, PushMetaInfo metaInfo, int notificationId, String packageName, Notification.Builder localBuilder) {
