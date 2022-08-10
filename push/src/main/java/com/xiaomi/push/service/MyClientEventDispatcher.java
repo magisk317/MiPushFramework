@@ -11,6 +11,7 @@ import com.xiaomi.smack.packet.Message;
 import com.xiaomi.smack.packet.Packet;
 import com.xiaomi.smack.util.TrafficUtils;
 import com.xiaomi.xmpush.thrift.ActionType;
+import com.xiaomi.xmpush.thrift.PushMetaInfo;
 import com.xiaomi.xmpush.thrift.XmPushActionContainer;
 import com.xiaomi.xmsf.push.type.TypeFactory;
 
@@ -88,9 +89,10 @@ public class MyClientEventDispatcher extends ClientEventDispatcher {
     }
 
     public static int getNotificationId(XmPushActionContainer paramXmPushActionContainer) {
-        return paramXmPushActionContainer.getMetaInfo().getNotifyId() +
-                paramXmPushActionContainer.getMetaInfo().id.hashCode() +
-                ((MIPushNotificationHelper.getTargetPackage(paramXmPushActionContainer).hashCode() / 10) * 10);
+        final PushMetaInfo metaInfo = paramXmPushActionContainer.getMetaInfo();
+        String id = metaInfo.isSetNotifyId() ? String.valueOf(metaInfo.getNotifyId()) : metaInfo.getId();
+        String idWithPackage = MIPushNotificationHelper.getTargetPackage(paramXmPushActionContainer) + "_" + id;
+        return idWithPackage.hashCode();
     }
 
     /**
