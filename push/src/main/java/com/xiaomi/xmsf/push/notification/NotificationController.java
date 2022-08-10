@@ -148,7 +148,7 @@ public class NotificationController {
             Bundle extras = new Bundle();
             Notification.Builder builder;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                builder = new Notification.Builder(context, getChannelIdByPkg(packageName));
+                builder = new Notification.Builder(context, getChannelId(metaInfo, packageName));
                 builder.setGroupAlertBehavior(Notification.GROUP_ALERT_CHILDREN);
             } else {
                 builder = new Notification.Builder(context);
