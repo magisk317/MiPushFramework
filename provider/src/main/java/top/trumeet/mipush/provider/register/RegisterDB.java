@@ -47,7 +47,9 @@ public class RegisterDB {
                         true /* Allow push */,
                         true /* Allow receive result */,
                         true /* Allow receive command */,
-                        true /* Notification on register */);
+                        true /* Notification on register */,
+                        false
+                );
         getDao()
                 .insert(registeredApplication);
         return registeredApplication;

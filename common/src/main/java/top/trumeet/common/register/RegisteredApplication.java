@@ -34,6 +34,7 @@ public class RegisteredApplication implements Parcelable {
     public static final String KEY_ALLOW_RECEIVE_REGISTER_RESULT = "allow_receive_register_result";
     public static final String KEY_ALLOW_RECEIVE_COMMAND = "allow_receive_command_without_register_result";
     public static final String KEY_NOTIFICATION_ON_REGISTER = "notification_on_register";
+    public static final String KEY_GROUP_NOTIFICATIONS_FOR_SAME_SESSION = "group_notifications_for_same_session";
 
     private Long id;
 
@@ -58,6 +59,8 @@ public class RegisteredApplication implements Parcelable {
 
     private boolean notificationOnRegister;
 
+    private boolean groupNotificationsForSameSession;
+
     protected RegisteredApplication(Parcel in) {
         if (in.readByte() == 0) {
             id = null;
@@ -71,6 +74,7 @@ public class RegisteredApplication implements Parcelable {
         allowReceiveCommand = in.readByte() != 0;
         registeredType = in.readInt();
         notificationOnRegister = in.readByte() != 0;
+        groupNotificationsForSameSession = in.readByte() != 0;
     }
 
     public static final Creator<RegisteredApplication> CREATOR = new Creator<RegisteredApplication>() {
@@ -105,6 +109,7 @@ public class RegisteredApplication implements Parcelable {
         parcel.writeByte((byte) (allowReceiveCommand ? 1 : 0));
         parcel.writeInt(registeredType);
         parcel.writeByte((byte) (notificationOnRegister ? 1 : 0));
+        parcel.writeByte((byte) (groupNotificationsForSameSession ? 1 : 0));
     }
 
     @android.support.annotation.IntDef({Type.ASK, Type.ALLOW, Type.DENY, Type.ALLOW_ONCE})
@@ -129,7 +134,8 @@ public class RegisteredApplication implements Parcelable {
     public RegisteredApplication(Long id, String packageName, int type,
                                  boolean allowReceivePush, boolean allowReceiveRegisterResult,
                                  boolean allowReceiveCommand, int registeredType,
-                                 boolean notificationOnRegister) {
+                                 boolean notificationOnRegister,
+                                 boolean groupNotificationsForSameSession) {
         this.id = id;
         this.packageName = packageName;
         this.type = type;
@@ -138,6 +144,7 @@ public class RegisteredApplication implements Parcelable {
         this.allowReceiveCommand = allowReceiveCommand;
         this.registeredType = registeredType;
         this.notificationOnRegister = notificationOnRegister;
+        this.groupNotificationsForSameSession = groupNotificationsForSameSession;
     }
 
     public RegisteredApplication() {
@@ -199,6 +206,14 @@ public class RegisteredApplication implements Parcelable {
         this.notificationOnRegister = notificationOnRegister;
     }
 
+    public boolean isGroupNotificationsForSameSession() {
+        return this.groupNotificationsForSameSession;
+    }
+
+    public void setGroupNotificationsForSameSession(boolean groupNotificationsForSameSession) {
+        this.groupNotificationsForSameSession = groupNotificationsForSameSession;
+    }
+
     @android.support.annotation.NonNull
     public CharSequence getLabel (Context context) {
         PackageManager pm = context.getPackageManager();
@@ -244,7 +259,9 @@ public class RegisteredApplication implements Parcelable {
                 /* allow receive register result */,
                 cursor.getInt(cursor.getColumnIndex(KEY_ALLOW_RECEIVE_COMMAND)) > 0 /* allow receive command */,
                 0 /* RegisteredType, Do not save to DB */,
-                cursor.getInt(cursor.getColumnIndex(KEY_NOTIFICATION_ON_REGISTER)) > 0);
+                cursor.getInt(cursor.getColumnIndex(KEY_NOTIFICATION_ON_REGISTER)) > 0,
+                cursor.getInt(cursor.getColumnIndex(KEY_GROUP_NOTIFICATIONS_FOR_SAME_SESSION)) > 0
+        );
     }
 
     /**
@@ -261,6 +278,7 @@ public class RegisteredApplication implements Parcelable {
         values.put(KEY_ALLOW_RECEIVE_REGISTER_RESULT, getAllowReceiveRegisterResult());
         values.put(KEY_ALLOW_RECEIVE_COMMAND, isAllowReceiveCommand());
         values.put(KEY_NOTIFICATION_ON_REGISTER, isNotificationOnRegister());
+        values.put(KEY_GROUP_NOTIFICATIONS_FOR_SAME_SESSION, isGroupNotificationsForSameSession());
         return values;
     }
 

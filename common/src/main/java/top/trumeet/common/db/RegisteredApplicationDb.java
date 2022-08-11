@@ -81,7 +81,9 @@ public class RegisteredApplicationDb {
                         true /* Allow receive result */,
                         true /* Allow receive command */,
                         0 /* registeredType Don't store to DB */,
-                        true /* notification on register */);
+                        true /* notification on register */,
+                        false
+                );
         insert(registeredApplication, context);
 
         // Very bad

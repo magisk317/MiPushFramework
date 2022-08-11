@@ -115,9 +115,13 @@ public class RegisteredApplication implements Parcelable {
     @Property(nameInDb = "notification_on_register")
     private boolean notificationOnRegister;
 
-    @Generated(hash = 1033351065)
+    @Property(nameInDb = "group_notifications_for_same_session")
+    private boolean groupNotificationsForSameSession;
+
+    @Generated(hash = 520935688)
     public RegisteredApplication(Long id, String packageName, int type, boolean allowReceivePush,
-            boolean allowReceiveRegisterResult, boolean allowReceiveCommand, boolean notificationOnRegister) {
+            boolean allowReceiveRegisterResult, boolean allowReceiveCommand, boolean notificationOnRegister,
+            boolean groupNotificationsForSameSession) {
         this.id = id;
         this.packageName = packageName;
         this.type = type;
@@ -125,6 +129,7 @@ public class RegisteredApplication implements Parcelable {
         this.allowReceiveRegisterResult = allowReceiveRegisterResult;
         this.allowReceiveCommand = allowReceiveCommand;
         this.notificationOnRegister = notificationOnRegister;
+        this.groupNotificationsForSameSession = groupNotificationsForSameSession;
     }
 
     public RegisteredApplication() {
@@ -231,14 +236,16 @@ public class RegisteredApplication implements Parcelable {
                 original.allowReceiveRegisterResult,
                 original.allowReceiveCommand,
                 0,
-                original.notificationOnRegister);
+                original.notificationOnRegister,
+                original.groupNotificationsForSameSession);
     }
 
     @NonNull
     public static RegisteredApplication from (@NonNull top.trumeet.common.register.RegisteredApplication original) {
         return new RegisteredApplication(original.getId(), original.getPackageName(), original.getType(),
                 original.getAllowReceivePush(), original.getAllowReceiveRegisterResult(),
-                original.isAllowReceiveCommand(), original.isNotificationOnRegister());
+                original.isAllowReceiveCommand(), original.isNotificationOnRegister(),
+                original.isGroupNotificationsForSameSession());
     }
 
     public boolean isAllowReceiveCommand() {
@@ -255,5 +262,13 @@ public class RegisteredApplication implements Parcelable {
 
     public boolean getNotificationOnRegister() {
         return this.notificationOnRegister;
+    }
+
+    public boolean getGroupNotificationsForSameSession() {
+        return this.groupNotificationsForSameSession;
+    }
+
+    public void setGroupNotificationsForSameSession(boolean groupNotificationsForSameSession) {
+        this.groupNotificationsForSameSession = groupNotificationsForSameSession;
     }
 }
