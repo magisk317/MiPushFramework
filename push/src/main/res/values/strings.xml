@@ -220,6 +220,10 @@ Registration is determined and initiated by the application and generally begins
     <string name="fake_enable_detail">Fake the phone to Xiaomi via an Xposed module or Magisk module, enable other applications to registers. (Require Root)</string>
     <string name="fake_enable_detail_not_suggested">Not recommended for this app, it may not work properly.</string>
     <string name="fake_enable_global">Global faking enabled</string>
+
+    <string name="group_notifications_for_same_session_title">Group all notifications for the same session</string>
+    <string name="group_notifications_for_same_session_detail">the same session notifications will be group, and the non-session notifications will not be group</string>
+
     <string name="helplib_action_about">About</string>
     <string name="helplib_action_issue">Feedback</string>
     <string name="helplib_action_telegram_group">Join Telegram group</string>

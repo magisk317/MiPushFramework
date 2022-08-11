@@ -265,8 +265,8 @@ public class ManagePermissionsActivity extends AppCompatActivity {
             PreferenceScreen screen = getPreferenceManager()
                     .createPreferenceScreen(getActivity());
 
-            Preference appPreferenceOreo = EntityHeaderController.newInstance((AppCompatActivity)getActivity(),
-                    this, null)
+            Preference appPreferenceOreo = EntityHeaderController.newInstance((AppCompatActivity) getActivity(),
+                            this, null)
                     .setRecyclerView(getListView())
                     .setIcon(mApplicationItem.getIcon(getContext()))
                     .setLabel(mApplicationItem.getLabel(getContext()))
@@ -274,7 +274,7 @@ public class ManagePermissionsActivity extends AppCompatActivity {
                     .setPackageName(mApplicationItem.getPackageName())
                     .setButtonActions(EntityHeaderController.ActionType.ACTION_APP_INFO
                             , EntityHeaderController.ActionType.ACTION_NONE)
-                    .done((AppCompatActivity)getActivity(), getContext());
+                    .done((AppCompatActivity) getActivity(), getContext());
             screen.addPreference(appPreferenceOreo);
 
             boolean suggestFake = suggestEnableFake(mApplicationItem.getPackageName());
@@ -355,8 +355,8 @@ public class ManagePermissionsActivity extends AppCompatActivity {
 
             // TODO: Switch HEAVY works to background thread
             SwitchPreferenceCompat fakeSwtich = addItem(new File(String.format(Constants.FAKE_CONFIGURATION_NAME_TEMPLATE,
-                    UserHandleOverride.getUserHandleForUid(mApplicationItem.getUid(getActivity())).hashCode(),
-                    mApplicationItem.getPackageName())).exists(),
+                            UserHandleOverride.getUserHandleForUid(mApplicationItem.getUid(getActivity())).hashCode(),
+                            mApplicationItem.getPackageName())).exists(),
                     (preference, newValue) -> {
                         changeFakeSettings = (boolean) newValue;
                         return true;
@@ -374,11 +374,20 @@ public class ManagePermissionsActivity extends AppCompatActivity {
 
             addItem(mApplicationItem.isNotificationOnRegister(),
                     (preference, newValue) -> {
-                        mApplicationItem.setNotificationOnRegister(((Boolean)newValue));
+                        mApplicationItem.setNotificationOnRegister(((Boolean) newValue));
                         return true;
                     },
                     getString(R.string.permission_notification_on_register),
                     getString(R.string.permission_summary_notification_on_register),
+                    screen);
+
+            addItem(mApplicationItem.isGroupNotificationsForSameSession(),
+                    (preference, newValue) -> {
+                        mApplicationItem.setGroupNotificationsForSameSession(((Boolean) newValue));
+                        return true;
+                    },
+                    getString(R.string.group_notifications_for_same_session_title),
+                    getString(R.string.group_notifications_for_same_session_detail),
                     screen);
 
             PreferenceCategory category = new PreferenceCategory(getActivity(), null, moe.shizuku.preference.R.attr.preferenceCategoryStyle,
@@ -391,15 +400,15 @@ public class ManagePermissionsActivity extends AppCompatActivity {
 
             addItem(mApplicationItem.getAllowReceivePush(),
                     (preference, newValue) -> {
-                        mApplicationItem.setAllowReceivePush(((Boolean)newValue));
+                        mApplicationItem.setAllowReceivePush(((Boolean) newValue));
                         return true;
                     },
-            getString(R.string.permission_allow_receive),
+                    getString(R.string.permission_allow_receive),
                     category);
 
             addItem(mApplicationItem.isAllowReceiveCommand(),
                     (preference, newValue) -> {
-                        mApplicationItem.setAllowReceiveCommand(((Boolean)newValue));
+                        mApplicationItem.setAllowReceiveCommand(((Boolean) newValue));
                         return true;
                     },
                     getString(R.string.permission_allow_receive_command),
@@ -407,7 +416,7 @@ public class ManagePermissionsActivity extends AppCompatActivity {
 
             addItem(mApplicationItem.getAllowReceiveRegisterResult(),
                     (preference, newValue) -> {
-                        mApplicationItem.setAllowReceiveRegisterResult(((Boolean)newValue));
+                        mApplicationItem.setAllowReceiveRegisterResult(((Boolean) newValue));
                         return true;
                     },
                     getString(R.string.permission_allow_receive_register_result),
