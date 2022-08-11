@@ -29,6 +29,9 @@ import java.util.Map;
 import static com.xiaomi.push.service.MIPushNotificationHelper.isBusinessMessage;
 import static top.trumeet.common.utils.NotificationUtils.*;
 
+import top.trumeet.common.db.RegisteredApplicationDb;
+import top.trumeet.common.register.RegisteredApplication;
+
 /**
  * @author zts1993
  * @date 2018/2/8
@@ -50,7 +53,7 @@ public class MyMIPushNotificationHelper {
         String title = metaInfo.getTitle();
         String description = metaInfo.getDescription();
 
-        int notificationId = MyClientEventDispatcher.getNotificationId(buildContainer);
+        int notificationId = MyClientEventDispatcher.getNotificationId(xmPushService, buildContainer);
 
         Notification.Builder localBuilder = new Notification.Builder(xmPushService);
 
@@ -120,7 +123,14 @@ public class MyMIPushNotificationHelper {
         if (jobKey != null) {
             localBuilder.setGroup(packageName + "_" + jobKey);
         } else {
-            localBuilder.setGroup(packageName);
+            RegisteredApplication application = RegisteredApplicationDb.registerApplication(
+                    packageName, false, xmPushService, null);
+            if (application != null && application.isGroupNotificationsForSameSession()) {
+                String id = metaInfo.isSetNotifyId() ? String.valueOf(metaInfo.getNotifyId()) : "";
+                localBuilder.setGroup(packageName + "_" + id);
+            } else {
+                localBuilder.setGroup(packageName);
+            }
         }
 
 
@@ -157,7 +167,7 @@ public class MyMIPushNotificationHelper {
         }
         PendingIntent localPendingIntent;
 
-        int id = MyClientEventDispatcher.getNotificationId(paramXmPushActionContainer);
+        int id = MyClientEventDispatcher.getNotificationId(paramContext, paramXmPushActionContainer);
 
         {
             //Jump web

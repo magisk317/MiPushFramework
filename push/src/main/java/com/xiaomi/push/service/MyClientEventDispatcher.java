@@ -88,10 +88,17 @@ public class MyClientEventDispatcher extends ClientEventDispatcher {
         super.notifyPacketArrival(xMPushService, str, blob);
     }
 
-    public static int getNotificationId(XmPushActionContainer paramXmPushActionContainer) {
+    public static int getNotificationId(Context context, XmPushActionContainer paramXmPushActionContainer) {
         final PushMetaInfo metaInfo = paramXmPushActionContainer.getMetaInfo();
         String id = metaInfo.isSetNotifyId() ? String.valueOf(metaInfo.getNotifyId()) : metaInfo.getId();
         String idWithPackage = MIPushNotificationHelper.getTargetPackage(paramXmPushActionContainer) + "_" + id;
+
+        RegisteredApplication application = RegisteredApplicationDb.registerApplication(
+                MIPushNotificationHelper.getTargetPackage(paramXmPushActionContainer),
+                false, context, null);
+        if (application != null && application.isGroupNotificationsForSameSession()) {
+            idWithPackage += metaInfo.getId();
+        }
         return idWithPackage.hashCode();
     }
 
