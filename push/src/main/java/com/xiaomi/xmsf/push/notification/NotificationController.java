@@ -40,6 +40,7 @@ import java.util.Map;
 
 public class NotificationController {
 
+    private static final String NOTIFICATION_LARGE_ICON = "mipush_notification";
     private static final String NOTIFICATION_SMALL_ICON = "mipush_small_notification";
 
     private static final String ID_GROUP_APPLICATIONS = "applications";
@@ -274,10 +275,21 @@ public class NotificationController {
 
 
     public static void processSmallIcon(Context context, String packageName, Notification.Builder notificationBuilder) {
+        // refer: https://dev.mi.com/console/doc/detail?pId=2625#_5_0
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            int iconSmallId = getIconId(context, packageName, NOTIFICATION_SMALL_ICON);
-            if (iconSmallId > 0) {
-                notificationBuilder.setSmallIcon(Icon.createWithResource(packageName, iconSmallId));
+            int largeIconId = getIconId(context, packageName, NOTIFICATION_LARGE_ICON);
+            int smallIconId = getIconId(context, packageName, NOTIFICATION_SMALL_ICON);
+
+            if (largeIconId > 0) {
+                notificationBuilder.setLargeIcon(Icon.createWithResource(packageName, largeIconId));
+            }
+
+            if (smallIconId > 0) {
+                notificationBuilder.setSmallIcon(Icon.createWithResource(packageName, smallIconId));
+                return;
+            }
+            if (largeIconId > 0) {
+                notificationBuilder.setSmallIcon(Icon.createWithResource(packageName, largeIconId));
                 return;
             }
 
