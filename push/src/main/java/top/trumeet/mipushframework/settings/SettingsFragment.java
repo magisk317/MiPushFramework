@@ -22,7 +22,6 @@ import com.xiaomi.xmsf.R;
 import top.trumeet.mipushframework.MainActivity;
 import top.trumeet.mipushframework.utils.ShellUtils;
 
-import static top.trumeet.common.Constants.FAKE_CONFIGURATION_PATH;
 import static top.trumeet.common.utils.rom.RomUtils.ROM_H2OS;
 import static top.trumeet.common.utils.rom.RomUtils.ROM_MIUI;
 import static top.trumeet.common.utils.rom.RomUtils.ROM_UNKNOWN;
@@ -48,37 +47,6 @@ public class SettingsFragment extends PreferenceFragment {
                             Constants.SHARE_LOG_COMPONENT_NAME)));
             return true;
         });
-
-
-        String globalFake = Constants.FAKE_CONFIGURATION_GLOBAL;
-        addItem(new File(globalFake).exists(), (preference, newValue) -> {
-                    boolean enabled = (boolean) newValue;
-
-                    List<String> commands = new ArrayList<>(3);
-                    if (!new File(FAKE_CONFIGURATION_PATH).exists()) {
-                        commands.add("mkdir -p " + FAKE_CONFIGURATION_PATH);
-                    }
-
-                    if (new File(FAKE_CONFIGURATION_PATH).isFile()) {
-                        commands.add("rm -rf " + FAKE_CONFIGURATION_PATH);
-                    }
-
-
-                    if (enabled) {
-                        if (!new File(globalFake).exists()) commands.add("touch " + globalFake);
-                    } else {
-                        commands.add("rm " + globalFake);
-                    }
-
-                    Log.i(TAG, "Final Commands: " + commands.toString());
-                    // About permissions and groups: these commands below with root WILL make the file accessible (not editable) for all apps.
-                    Log.d(TAG, "Exit: " + ShellUtils.execCmd(commands, true, true).toString());
-                    return true;
-                },
-                getString(R.string.fake_global_enable_title),
-                getString(R.string.fake_enable_detail),
-                getPreferenceScreen().findPreference("activity_push_advance_setting").getParent()
-        );
 
     }
 

@@ -208,12 +208,7 @@
     ]]></string>
     <string name="status_app_not_registered_title">未注册</string>
     <string name="status_app_registered_error_title">注册异常</string>
-    <string name="fake_enable_title">伪装为MIUI设备</string>
-    <string name="fake_global_enable_title">全局伪装为MIUI设备</string>
-    <string name="fake_enable_detail">通过 Xposed 伪装模块或 Magisk 单应用伪装模块，使其他应用误认本机为MIUI设备，从而增加注册的数量（需要 ROOT 权限）</string>
 
-    <string name="fake_enable_detail_not_suggested">不建议对此应用开启，可能影响正常运行</string>
-    <string name="fake_enable_global">全局伪装已开启</string>
     <string name="settings_debug">调试</string>
     <string name="help_article_can_not_receive_push">无法收到推送</string>
     <string name="help_article_register_error">注册异常</string>

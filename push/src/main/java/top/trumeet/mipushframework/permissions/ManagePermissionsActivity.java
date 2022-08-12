@@ -51,7 +51,6 @@ import top.trumeet.mipushframework.widgets.InfoPreference;
 import static android.os.Build.VERSION_CODES.O;
 import static android.provider.Settings.EXTRA_APP_PACKAGE;
 import static android.provider.Settings.EXTRA_CHANNEL_ID;
-import static top.trumeet.common.Constants.FAKE_CONFIGURATION_PATH;
 import static top.trumeet.common.utils.NotificationUtils.getChannelIdByPkg;
 
 /**
@@ -353,25 +352,6 @@ public class ManagePermissionsActivity extends AppCompatActivity {
             screen.addPreference(preferenceRegisterMode);
             screen.addPreference(viewRecentActivityPreference);
 
-            // TODO: Switch HEAVY works to background thread
-            SwitchPreferenceCompat fakeSwtich = addItem(new File(String.format(Constants.FAKE_CONFIGURATION_NAME_TEMPLATE,
-                            UserHandleOverride.getUserHandleForUid(mApplicationItem.getUid(getActivity())).hashCode(),
-                            mApplicationItem.getPackageName())).exists(),
-                    (preference, newValue) -> {
-                        changeFakeSettings = (boolean) newValue;
-                        return true;
-                    },
-                    getString(R.string.fake_enable_title),
-                    getString(suggestFake ? R.string.fake_enable_detail : R.string.fake_enable_detail_not_suggested),
-                    screen);
-
-            if (new File(Constants.FAKE_CONFIGURATION_GLOBAL).exists()) {
-                fakeSwtich.setSummary(R.string.fake_enable_global);
-                fakeSwtich.setEnabled(false);
-                fakeSwtich.setChecked(true);
-            }
-
-
             addItem(mApplicationItem.isNotificationOnRegister(),
                     (preference, newValue) -> {
                         mApplicationItem.setNotificationOnRegister(((Boolean) newValue));
@@ -474,30 +454,6 @@ public class ManagePermissionsActivity extends AppCompatActivity {
                 if (mApplicationItem != null && mApplicationItem.getRegisteredType() != 0) {
                     RegisteredApplicationDb.update(mApplicationItem,
                             getActivity());
-                }
-                if (changeFakeSettings != null) {
-                    String path = String.format(Constants.FAKE_CONFIGURATION_NAME_TEMPLATE,
-                            UserHandleOverride.getUserHandleForUid(mApplicationItem.getUid(getActivity())).hashCode(),
-                            mApplicationItem.getPackageName());
-                    Log.d(TAG, "path: " + path);
-                    List<String> commands = new ArrayList<>(3);
-                    if (changeFakeSettings) {
-                        if (new File(FAKE_CONFIGURATION_PATH).isFile()) {
-                            commands.add("rm -rf " + FAKE_CONFIGURATION_PATH);
-                        }
-                        if (!new File(FAKE_CONFIGURATION_PATH).exists()) {
-                            commands.add("mkdir -p " + FAKE_CONFIGURATION_PATH);
-                        }
-                    }
-
-                    if (changeFakeSettings) {
-                        if (!new File(path).exists()) commands.add("touch " + path);
-                    } else {
-                        commands.add("rm " + path);
-                    }
-                    Log.i(TAG, "Final Commands: " + commands.toString());
-                    // About permissions and groups: these commands below with root WILL make the file accessible (not editable) for all apps.
-                    Log.d(TAG, "Exit: " + ShellUtils.execCmd(commands, true, true).toString());
                 }
                 return null;
             }
