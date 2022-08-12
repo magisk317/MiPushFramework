@@ -57,7 +57,6 @@ ext {
     minSdkVersion = 21
     compileSdkVersion = 28
     targetSdkVersion = 27
-    buildToolsVersion = "27.0.3"
     versionCode = currentVersionCode
     pushVersionCode = 7
     snapshot = false
