@@ -276,21 +276,18 @@ public class NotificationController {
     public static void processSmallIcon(Context context, String packageName, Notification.Builder notificationBuilder) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             int iconSmallId = getIconId(context, packageName, NOTIFICATION_SMALL_ICON);
-            if (iconSmallId <= 0) {
-
-                Icon iconCache = IconCache.getInstance().getIconCache(context, packageName, (ctx, b) -> Icon.createWithBitmap(b));
-                if (iconCache != null) {
-                    notificationBuilder.setSmallIcon(iconCache);
-                } else {
-                    notificationBuilder.setSmallIcon(R.drawable.ic_notifications_black_24dp);
-                }
-
-            } else {
+            if (iconSmallId > 0) {
                 notificationBuilder.setSmallIcon(Icon.createWithResource(packageName, iconSmallId));
+                return;
             }
-        } else {
-            notificationBuilder.setSmallIcon(R.drawable.ic_notifications_black_24dp);
+
+            Icon iconCache = IconCache.getInstance().getIconCache(context, packageName, (ctx, b) -> Icon.createWithBitmap(b));
+            if (iconCache != null) {
+                notificationBuilder.setSmallIcon(iconCache);
+                return;
+            }
         }
+        notificationBuilder.setSmallIcon(R.drawable.ic_notifications_black_24dp);
     }
 
 
@@ -310,8 +307,8 @@ public class NotificationController {
 
 
 
-    private static int getIconId(Context context, String str, String str2) {
-        return context.getResources().getIdentifier(str2, "drawable", str);
+    private static int getIconId(Context context, String packageName, String resourceName) {
+        return context.getResources().getIdentifier(resourceName, "drawable", packageName);
     }
 
 
