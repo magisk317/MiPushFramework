@@ -86,7 +86,6 @@ dependencies {
     implementation project(':condom')
     implementation "com.android.support:support-v4:$supportLibraryVersion"
     implementation project(':provider')
-    implementation project(':extenders')
     implementation "com.android.support:palette-v7:$supportLibraryVersion"
 
     implementation 'com.github.heruoxin:IceBox-SDK:55dd857d74'
