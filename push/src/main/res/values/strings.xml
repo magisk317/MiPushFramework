@@ -171,6 +171,9 @@ Please grant the <b>Run in the background or wake up</b> permissions.
         <item>@string/register_type_deny</item>
     </string-array>
 
+
+    <string name="notification_channels">Notification Channels</string>
+
     <!-- Settings -->
     <string name="settings_enhance">Enhances</string>
     <string name="settings_service_setting">Push configs</string>

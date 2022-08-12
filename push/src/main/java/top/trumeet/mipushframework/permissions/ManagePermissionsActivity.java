@@ -1,5 +1,8 @@
 package top.trumeet.mipushframework.permissions;
 
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
@@ -22,8 +25,6 @@ import android.widget.Toast;
 
 import com.android.settings.widget.EntityHeaderController;
 
-import java.io.File;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -39,13 +40,11 @@ import moe.shizuku.preference.SwitchPreferenceCompat;
 import top.trumeet.common.Constants;
 import top.trumeet.common.db.EventDb;
 import top.trumeet.common.db.RegisteredApplicationDb;
-import top.trumeet.common.override.UserHandleOverride;
 import top.trumeet.common.register.RegisteredApplication;
 import top.trumeet.common.utils.Utils;
 import com.xiaomi.xmsf.R;
 import top.trumeet.mipushframework.control.CheckPermissionsUtils;
 import top.trumeet.mipushframework.event.RecentActivityActivity;
-import top.trumeet.mipushframework.utils.ShellUtils;
 import top.trumeet.mipushframework.widgets.InfoPreference;
 
 import static android.os.Build.VERSION_CODES.O;
@@ -302,21 +301,6 @@ public class ManagePermissionsActivity extends AppCompatActivity {
                 screen.addPreference(preferenceStatus);
             }
 
-            if (Build.VERSION.SDK_INT >= O) {
-                Preference manageNotificationPreference = new Preference(getActivity());
-                manageNotificationPreference.setTitle(R.string.settings_manage_app_notifications);
-                manageNotificationPreference.setSummary(R.string.settings_manage_app_notifications_summary);
-                manageNotificationPreference.setOnPreferenceClickListener(preference -> {
-                    startActivity(new Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
-                            .putExtra(EXTRA_APP_PACKAGE, Constants.SERVICE_APP_NAME)
-                            .putExtra(EXTRA_CHANNEL_ID, getChannelIdByPkg(mApplicationItem.getPackageName())));
-                    return true;
-                });
-                if (mApplicationItem.getRegisteredType() == 0) {
-                    manageNotificationPreference.setEnabled(false);
-                }
-                screen.addPreference(manageNotificationPreference);
-            }
 
             final SimpleMenuPreference preferenceRegisterMode =
                     new SimpleMenuPreference(getActivity(),
@@ -401,6 +385,45 @@ public class ManagePermissionsActivity extends AppCompatActivity {
                     },
                     getString(R.string.permission_allow_receive_register_result),
                     category);
+
+
+            PreferenceCategory notificationChannelsCategory = new PreferenceCategory(
+                    getActivity(), null, moe.shizuku.preference.R.attr.preferenceCategoryStyle,
+                    R.style.Preference_Category_Material);
+            notificationChannelsCategory.setTitle(R.string.notification_channels);
+            screen.addPreference(notificationChannelsCategory);
+
+            NotificationManager manager = (NotificationManager) getActivity().getSystemService(Context.NOTIFICATION_SERVICE);
+            if (Build.VERSION.SDK_INT >= O) {
+                List<NotificationChannel> notificationChannels = manager.getNotificationChannels();
+                notificationChannels.stream().filter(NotificationChannel -> {
+                    return NotificationChannel.getId().startsWith(getChannelIdByPkg(mApplicationItem.getPackageName()));
+                }).forEach(channel -> {
+                    Preference item = new Preference(getActivity());
+                    item.setTitle(channel.getName());
+                    item.setSummary(channel.getDescription());
+                    item.setOnPreferenceClickListener(preference -> {
+                        startActivity(new Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                                .putExtra(EXTRA_APP_PACKAGE, Constants.SERVICE_APP_NAME)
+                                .putExtra(EXTRA_CHANNEL_ID, channel.getId()));
+                        return true;
+                    });
+                    notificationChannelsCategory.addPreference(item);
+                });
+            } else {
+                Preference manageNotificationPreference = new Preference(getActivity());
+                manageNotificationPreference.setTitle(R.string.settings_manage_app_notifications);
+                manageNotificationPreference.setSummary(R.string.settings_manage_app_notifications_summary);
+                manageNotificationPreference.setOnPreferenceClickListener(preference -> {
+                    startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(EXTRA_APP_PACKAGE, Constants.SERVICE_APP_NAME));
+                    return true;
+                });
+                if (mApplicationItem.getRegisteredType() == 0) {
+                    manageNotificationPreference.setEnabled(false);
+                }
+                notificationChannelsCategory.addPreference(manageNotificationPreference);
+            }
 
             setPreferenceScreen(screen);
         }
