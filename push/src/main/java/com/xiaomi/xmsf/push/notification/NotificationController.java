@@ -139,6 +139,9 @@ public class NotificationController {
 
     @TargetApi(Build.VERSION_CODES.N)
     private static void updateSummaryNotification(Context context, PushMetaInfo metaInfo, String packageName, String groupId) {
+        if (groupId == null) {
+            return;
+        }
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         int notificationCntInGroup = getNotificationCountOfGroup(groupId, manager);
 
