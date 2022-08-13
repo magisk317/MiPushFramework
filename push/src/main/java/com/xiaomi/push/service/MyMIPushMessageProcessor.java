@@ -188,7 +188,13 @@ public class MyMIPushMessageProcessor {
 
         }
 
-        String idKey = metaInfo.getId();
+        String idKey = null;
+        if (metaInfo.extra != null) {
+            idKey = metaInfo.extra.get("jobkey");
+        }
+        if (TextUtils.isEmpty(idKey)) {
+            idKey = metaInfo.getId();
+        }
         boolean isDuplicateMessage = MiPushMessageDuplicate.isDuplicateMessage(paramXMPushService, targetPackage, idKey);
 
         if (!TextUtils.isEmpty(metaInfo.getTitle()) && !TextUtils.isEmpty(metaInfo.getDescription())) {
