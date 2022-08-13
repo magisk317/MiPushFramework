@@ -119,9 +119,10 @@ public class MyMIPushNotificationHelper {
         String[] titleAndDesp = determineTitleAndDespByDIP(xmPushService, metaInfo);
         localBuilder.setContentTitle(titleAndDesp[0]);
         localBuilder.setContentText(titleAndDesp[1]);
-        String jobKey = getExtraField(metaInfo.getExtra(), EXTRA_JOBKEY, null);
-        if (jobKey != null) {
-            localBuilder.setGroup(packageName + "_" + jobKey);
+
+        String group = getExtraField(metaInfo.getExtra(), "notification_group", null);
+        if (group != null) {
+            localBuilder.setGroup(packageName + "_" + group);
         } else {
             RegisteredApplication application = RegisteredApplicationDb.registerApplication(
                     packageName, false, xmPushService, null);
@@ -132,7 +133,6 @@ public class MyMIPushNotificationHelper {
                 localBuilder.setGroup(packageName);
             }
         }
-
 
         // Fill app name
         Bundle extras = new Bundle();
