@@ -188,17 +188,16 @@ public class MyMIPushMessageProcessor {
 
         }
 
-        String idKey = null;
-        if (metaInfo.extra != null) {
-            idKey = metaInfo.extra.get("jobkey");
-        }
-        if (TextUtils.isEmpty(idKey)) {
-            idKey = metaInfo.getId();
-        }
-        boolean isDuplicateMessage = MiPushMessageDuplicate.isDuplicateMessage(paramXMPushService, targetPackage, idKey);
-
         if (!TextUtils.isEmpty(metaInfo.getTitle()) && !TextUtils.isEmpty(metaInfo.getDescription()) && metaInfo.passThrough != 1) {
 
+            String idKey = null;
+            if (metaInfo.extra != null) {
+                idKey = metaInfo.extra.get("jobkey");
+            }
+            if (TextUtils.isEmpty(idKey)) {
+                idKey = metaInfo.getId();
+            }
+            boolean isDuplicateMessage = MiPushMessageDuplicate.isDuplicateMessage(paramXMPushService, targetPackage, idKey);
             if (isDuplicateMessage) {
                 logger.w("drop a duplicate message, key=" + idKey);
             } else {
@@ -228,12 +227,9 @@ public class MyMIPushMessageProcessor {
                 MIPushEventProcessor.sendGeoAck(paramXMPushService, buildContainer, false, true, false);
             } else {
                 sendAckMessage(paramXMPushService, buildContainer);
-
             }
         } else if (shouldSendBroadcast(paramXMPushService, targetPackage, buildContainer, metaInfo)) {
-
             paramXMPushService.sendBroadcast(paramIntent, ClientEventDispatcher.getReceiverPermission(targetPackage));
-
         }
 
     }
