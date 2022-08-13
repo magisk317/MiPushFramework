@@ -148,8 +148,6 @@ public class NotificationController {
 
         if (notificationCntInGroup > 1) {
 
-            CharSequence appName = ApplicationNameCache.getInstance().getAppName(context, packageName);
-
             Bundle extras = new Bundle();
             Notification.Builder builder;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -159,17 +157,7 @@ public class NotificationController {
                 builder = new Notification.Builder(context);
             }
 
-            int color = getIconColor(context, packageName);
-            if (color != Notification.COLOR_DEFAULT) {
-                CharSequence subText = ColorUtil.createColorSubtext(appName, color);
-                if (subText != null) {
-                    extras.putCharSequence(NotificationCompat.EXTRA_SUB_TEXT, subText);
-                }
-                builder.setColor(color);
-            } else {
-                extras.putCharSequence(NotificationCompat.EXTRA_SUB_TEXT, appName);
-            }
-
+            buildExtraSubText(context, packageName, builder, extras);
             builder.setExtras(extras);
 
             // Set small icon
