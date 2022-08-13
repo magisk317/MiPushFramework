@@ -205,20 +205,12 @@ public class MyMIPushMessageProcessor {
 
                 //send broadcast
                 if (!isBusinessMessage) {
-
                     Intent localIntent = new Intent(PushConstants.MIPUSH_ACTION_MESSAGE_ARRIVED);
                     localIntent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, paramArrayOfByte);
                     localIntent.putExtra(MIPushNotificationHelper.FROM_NOTIFICATION, true);
                     localIntent.setPackage(targetPackage);
 
-                    try {
-                        List<ResolveInfo> localList = paramXMPushService.getPackageManager().queryBroadcastReceivers(localIntent, 0);
-                        if ((localList != null) && (!localList.isEmpty())) {
-                            paramXMPushService.sendBroadcast(localIntent, ClientEventDispatcher.getReceiverPermission(targetPackage));
-                        }
-                    } catch (Exception ignore) {
-                    }
-
+                    paramXMPushService.sendBroadcast(localIntent, ClientEventDispatcher.getReceiverPermission(targetPackage));
                 }
 
             }
