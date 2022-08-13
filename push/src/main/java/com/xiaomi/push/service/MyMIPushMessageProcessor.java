@@ -197,7 +197,7 @@ public class MyMIPushMessageProcessor {
         }
         boolean isDuplicateMessage = MiPushMessageDuplicate.isDuplicateMessage(paramXMPushService, targetPackage, idKey);
 
-        if (!TextUtils.isEmpty(metaInfo.getTitle()) && !TextUtils.isEmpty(metaInfo.getDescription())) {
+        if (!TextUtils.isEmpty(metaInfo.getTitle()) && !TextUtils.isEmpty(metaInfo.getDescription()) && metaInfo.passThrough != 1) {
 
             if (isDuplicateMessage) {
                 logger.w("drop a duplicate message, key=" + idKey);
