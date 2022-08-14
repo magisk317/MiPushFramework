@@ -143,30 +143,31 @@ public class NotificationController {
             return;
         }
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-        if (needGroupOfNotifications(groupId, manager)) {
-            Bundle extras = new Bundle();
-            Notification.Builder builder;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                builder = new Notification.Builder(context, getChannelId(metaInfo, packageName));
-                builder.setGroupAlertBehavior(Notification.GROUP_ALERT_CHILDREN);
-            } else {
-                builder = new Notification.Builder(context);
-            }
-
-            buildExtraSubText(context, packageName, builder, extras);
-            builder.setExtras(extras);
-
-            // Set small icon
-            NotificationController.processSmallIcon(context, packageName, builder);
-
-            builder.setCategory(Notification.CATEGORY_EVENT)
-                    .setGroupSummary(true)
-                    .setGroup(groupId);
-            Notification notification = builder.build();
-            manager.notify(groupId.hashCode(), notification);
-        } else {
+        if (!needGroupOfNotifications(groupId, manager)) {
             manager.cancel(groupId.hashCode());
+            return;
         }
+
+        Bundle extras = new Bundle();
+        Notification.Builder builder;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            builder = new Notification.Builder(context, getChannelId(metaInfo, packageName));
+            builder.setGroupAlertBehavior(Notification.GROUP_ALERT_CHILDREN);
+        } else {
+            builder = new Notification.Builder(context);
+        }
+
+        buildExtraSubText(context, packageName, builder, extras);
+        builder.setExtras(extras);
+
+        // Set small icon
+        NotificationController.processSmallIcon(context, packageName, builder);
+
+        builder.setCategory(Notification.CATEGORY_EVENT)
+                .setGroupSummary(true)
+                .setGroup(groupId);
+        Notification notification = builder.build();
+        manager.notify(groupId.hashCode(), notification);
     }
 
     private static boolean needGroupOfNotifications(String groupId, NotificationManager manager) {
