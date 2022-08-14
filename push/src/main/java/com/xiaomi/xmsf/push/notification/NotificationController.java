@@ -148,7 +148,6 @@ public class NotificationController {
             return;
         }
 
-        Bundle extras = new Bundle();
         Notification.Builder builder;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             builder = new Notification.Builder(context, getChannelId(metaInfo, packageName));
@@ -157,6 +156,7 @@ public class NotificationController {
             builder = new Notification.Builder(context);
         }
 
+        Bundle extras = new Bundle();
         buildExtraSubText(context, packageName, builder, extras);
         builder.setExtras(extras);
 
