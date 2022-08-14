@@ -49,11 +49,11 @@ public class RemoveTremblingUtils {
      * @param packageName Package name
      * @return Allow
      */
-    private boolean shouldAllow(String packageName) {
-        return !mLocalTimeMap.containsKey(packageName) || shouldAllow(mLocalTimeMap.get(packageName), new Date());
+    private boolean expired(String packageName) {
+        return !mLocalTimeMap.containsKey(packageName) || expired(mLocalTimeMap.get(packageName), new Date());
     }
 
-    private boolean shouldAllow(Date inSet, Date now) {
+    private boolean expired(Date inSet, Date now) {
         Calendar calendarCurrent = Calendar.getInstance();
         calendarCurrent.setTime(now);
         Calendar calendarServer = Calendar.getInstance();
@@ -73,7 +73,7 @@ public class RemoveTremblingUtils {
      * @return Allow register status, allow: true
      */
     public boolean onCallRegister(String packageName) {
-        if (!shouldAllow(packageName)) {
+        if (!expired(packageName)) {
             return false;
         }
         mLocalTimeMap.put(packageName, new Date());
@@ -85,11 +85,10 @@ public class RemoveTremblingUtils {
      * Auto remove expired values in map to reduce memory
      */
     private void removeOldValues() {
-        Date date = new Date();
+        Date now = new Date();
         Set<String> keys = new HashSet<>(mLocalTimeMap.keySet());
         for (String key : keys) {
-            if (shouldAllow(mLocalTimeMap.get(key),
-                    date)) {
+            if (expired(mLocalTimeMap.get(key), now)) {
                 // Remove it to reduce memory
                 mLocalTimeMap.remove(key);
             }
