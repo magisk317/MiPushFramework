@@ -42,12 +42,10 @@ public class XMPushService extends IntentService {
                 logger.e("Package name is NULL!");
                 return;
             }
-            int result;
-            boolean register = true;
             // Check multi request
-            if (!RemoveTremblingUtils.getInstance().onCallRegister(pkg)) {
+            boolean register = RemoveTremblingUtils.getInstance().onCallRegister(pkg);
+            if (!register) {
                 logger.d("Don't register multi request " + pkg);
-                register = false;
             }
             RegisteredApplication application = RegisteredApplicationDb
                     .registerApplication(pkg, true, this, null);
