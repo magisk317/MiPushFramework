@@ -54,11 +54,7 @@ public class XMPushService extends IntentService {
                 return;
             }
 
-            Intent intent2 = new Intent();
-            intent2.setComponent(new ComponentName(this, PushServiceMain.class));
-            intent2.setAction(intent.getAction());
-            intent2.putExtras(intent);
-            ContextCompat.startForegroundService(this, intent2);
+            forwardToPushServiceMain(intent);
 
             if (register) {
                 boolean notificationOnRegister = ConfigCenter.getInstance().isNotificationOnRegister(this);
@@ -85,6 +81,14 @@ public class XMPushService extends IntentService {
             logger.e("XMPushService::onHandleIntent: ", e);
             Toast.makeText(this, getString(R.string.common_err, e.getMessage()), Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private void forwardToPushServiceMain(Intent intent) {
+        Intent intent2 = new Intent();
+        intent2.setComponent(new ComponentName(this, PushServiceMain.class));
+        intent2.setAction(intent.getAction());
+        intent2.putExtras(intent);
+        ContextCompat.startForegroundService(this, intent2);
     }
 
 }
