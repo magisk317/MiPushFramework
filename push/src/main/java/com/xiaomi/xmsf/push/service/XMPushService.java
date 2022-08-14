@@ -57,7 +57,7 @@ public class XMPushService extends IntentService {
             forwardToPushServiceMain(intent);
 
             if (register) {
-                showRegisterToastIfExistsConfiguration(pkg, application);
+                showRegisterToastIfExistsConfiguration(application);
                 EventDb.insertEvent(Event.ResultType.OK, new top.trumeet.common.event.type.RegistrationType(null, pkg), this);
             }
         } catch (RuntimeException e) {
@@ -66,7 +66,8 @@ public class XMPushService extends IntentService {
         }
     }
 
-    private void showRegisterToastIfExistsConfiguration(String pkg, RegisteredApplication application) {
+    private void showRegisterToastIfExistsConfiguration(RegisteredApplication application) {
+        String pkg = application.getPackageName();
         boolean notificationOnRegister = ConfigCenter.getInstance().isNotificationOnRegister(this);
         notificationOnRegister = notificationOnRegister && application.isNotificationOnRegister();
         if (notificationOnRegister) {
