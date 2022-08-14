@@ -143,11 +143,7 @@ public class NotificationController {
             return;
         }
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-        int notificationCntInGroup = getNotificationCountOfGroup(groupId, manager);
-
-
-        if (notificationCntInGroup > 1) {
-
+        if (needGroupOfNotifications(groupId, manager)) {
             Bundle extras = new Bundle();
             Notification.Builder builder;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -171,6 +167,11 @@ public class NotificationController {
         } else {
             manager.cancel(groupId.hashCode());
         }
+    }
+
+    private static boolean needGroupOfNotifications(String groupId, NotificationManager manager) {
+        int notificationCntInGroup = getNotificationCountOfGroup(groupId, manager);
+        return notificationCntInGroup > 1;
     }
 
     private static int getNotificationCountOfGroup(String groupId, NotificationManager manager) {
