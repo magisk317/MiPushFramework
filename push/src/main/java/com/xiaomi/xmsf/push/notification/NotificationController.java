@@ -143,27 +143,47 @@ public class NotificationController {
             return;
         }
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        int notificationCntInGroup = getNotificationCountOfGroup(groupId, manager);
 
-        Bundle extras = new Bundle();
-        Notification.Builder builder;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            builder = new Notification.Builder(context, getChannelId(metaInfo, packageName));
-            builder.setGroupAlertBehavior(Notification.GROUP_ALERT_CHILDREN);
+
+        if (notificationCntInGroup > 1) {
+
+            Bundle extras = new Bundle();
+            Notification.Builder builder;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                builder = new Notification.Builder(context, getChannelId(metaInfo, packageName));
+                builder.setGroupAlertBehavior(Notification.GROUP_ALERT_CHILDREN);
+            } else {
+                builder = new Notification.Builder(context);
+            }
+
+            buildExtraSubText(context, packageName, builder, extras);
+            builder.setExtras(extras);
+
+            // Set small icon
+            NotificationController.processSmallIcon(context, packageName, builder);
+
+            builder.setCategory(Notification.CATEGORY_EVENT)
+                    .setGroupSummary(true)
+                    .setGroup(groupId);
+            Notification notification = builder.build();
+            manager.notify(groupId.hashCode(), notification);
         } else {
-            builder = new Notification.Builder(context);
+            manager.cancel(groupId.hashCode());
         }
+    }
 
-        buildExtraSubText(context, packageName, builder, extras);
-        builder.setExtras(extras);
+    private static int getNotificationCountOfGroup(String groupId, NotificationManager manager) {
+        StatusBarNotification[] activeNotifications = manager.getActiveNotifications();
 
-        // Set small icon
-        NotificationController.processSmallIcon(context, packageName, builder);
 
-        builder.setCategory(Notification.CATEGORY_EVENT)
-                .setGroupSummary(true)
-                .setGroup(groupId);
-        Notification notification = builder.build();
-        manager.notify(groupId.hashCode(), notification);
+        int notificationCntInGroup = 0;
+        for (StatusBarNotification statusBarNotification : activeNotifications) {
+            if (groupId.equals(statusBarNotification.getNotification().getGroup())) {
+                notificationCntInGroup++;
+            }
+        }
+        return notificationCntInGroup;
     }
 
     public static void publish(Context context, PushMetaInfo metaInfo, int notificationId, String packageName, Notification.Builder localBuilder) {
