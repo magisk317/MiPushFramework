@@ -57,29 +57,33 @@ public class XMPushService extends IntentService {
             forwardToPushServiceMain(intent);
 
             if (register) {
-                boolean notificationOnRegister = ConfigCenter.getInstance().isNotificationOnRegister(this);
-                notificationOnRegister = notificationOnRegister && application.isNotificationOnRegister();
-                if (notificationOnRegister) {
-                    CharSequence appName = ApplicationNameCache.getInstance().getAppName(this, pkg);
-                    CharSequence usedString = getString(R.string.notification_registerAllowed, appName);
-                    new Handler(Looper.getMainLooper()).post(() -> {
-                        try {
-                            Toast.makeText(this, usedString,
-                                    Toast.LENGTH_SHORT)
-                                    .show();
-                        } catch (Throwable ignored) {
-                            // TODO: It's a bad way to switch to main thread.
-                            // Ignored service death
-                        }
-                    });
-                } else {
-                    Log.e("XMPushService Bridge", "Notification disabled");
-                }
+                showRegisterToastIfExistsConfiguration(pkg, application);
                 EventDb.insertEvent(Event.ResultType.OK, new top.trumeet.common.event.type.RegistrationType(null, pkg), this);
             }
         } catch (RuntimeException e) {
             logger.e("XMPushService::onHandleIntent: ", e);
             Toast.makeText(this, getString(R.string.common_err, e.getMessage()), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void showRegisterToastIfExistsConfiguration(String pkg, RegisteredApplication application) {
+        boolean notificationOnRegister = ConfigCenter.getInstance().isNotificationOnRegister(this);
+        notificationOnRegister = notificationOnRegister && application.isNotificationOnRegister();
+        if (notificationOnRegister) {
+            CharSequence appName = ApplicationNameCache.getInstance().getAppName(this, pkg);
+            CharSequence usedString = getString(R.string.notification_registerAllowed, appName);
+            new Handler(Looper.getMainLooper()).post(() -> {
+                try {
+                    Toast.makeText(this, usedString,
+                            Toast.LENGTH_SHORT)
+                            .show();
+                } catch (Throwable ignored) {
+                    // TODO: It's a bad way to switch to main thread.
+                    // Ignored service death
+                }
+            });
+        } else {
+            Log.e("XMPushService Bridge", "Notification disabled");
         }
     }
 
