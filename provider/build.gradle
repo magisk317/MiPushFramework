@@ -32,7 +32,7 @@ android.libraryVariants.all { variant ->
     task "${taskName}" {
         doLast { delete "${buildDir}/intermediates/classes/${variant.name}" + "/android" }
     }
-    variant.processJavaResources.dependsOn(taskName)
+    variant.getProcessJavaResourcesProvider().get().dependsOn(taskName)
 }
 
 dependencies {
