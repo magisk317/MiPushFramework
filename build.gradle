@@ -43,7 +43,6 @@ def gitCommitId = 'git rev-parse --short HEAD'.execute([], project.rootDir).text
 def majorVersion = 0
 def minorVersion = 3
 def buildVersion = 7
-def currentVersionCode = (majorVersion + 1) * 200 + minorVersion * 20 + buildVersion
 
 def baseVersionName = "${majorVersion}.${minorVersion}.${buildVersion}"
 
@@ -57,7 +56,6 @@ ext {
     minSdkVersion = 21
     compileSdkVersion = 28
     targetSdkVersion = 30
-    versionCode = currentVersionCode
     pushVersionCode = 7
     snapshot = false
     versionBase = "${baseVersionName}.${releaseTime()}.${gitCommitId}"
