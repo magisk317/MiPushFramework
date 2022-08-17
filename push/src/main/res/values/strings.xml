@@ -227,7 +227,7 @@ Registration is determined and initiated by the application and generally begins
     <string name="helplib_title"><![CDATA[Help & Support]]></string>
     <string name="helplib_title_contact">Contact us</string>
     <string name="helplib_title_faq">Frequently asked questions</string>
-    <string name="status_app_registered_error_title">Unregistered</string>
+    <string name="status_app_registered_error_title">Abnormal registration</string>
     <string name="status_app_registered_error_desc"><![CDATA[
 This could be the application doing a reverse registration, or the registration mismatch with the Push service. See also <b><a href="https://github.com/MiPushFramework/MiPushFramework/wiki/%5B%E5%B8%AE%E5%8A%A9%5D-%E6%B3%A8%E5%86%8C%E5%BC%82%E5%B8%B8">[帮助] 注册异常</a></b>.
     ]]></string>
