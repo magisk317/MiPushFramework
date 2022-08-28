@@ -19,6 +19,7 @@ import android.support.v4.app.NotificationCompat;
 import android.support.v4.graphics.ColorUtils;
 import android.text.TextUtils;
 
+import com.xiaomi.push.service.MIPushNotificationHelper;
 import com.xiaomi.xmpush.thrift.PushMetaInfo;
 import com.xiaomi.xmpush.thrift.XmPushActionContainer;
 import com.xiaomi.xmsf.R;
@@ -31,6 +32,8 @@ import top.trumeet.common.utils.NotificationUtils;
 
 import static top.trumeet.common.utils.NotificationUtils.*;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Map;
 
 /**
@@ -167,6 +170,7 @@ public class NotificationController {
                 .setGroupSummary(true)
                 .setGroup(groupId);
         Notification notification = builder.build();
+        setTargetPackage(notification, packageName);
         manager.notify(groupId.hashCode(), notification);
     }
 
@@ -209,6 +213,7 @@ public class NotificationController {
         }
 
         Notification notification = localBuilder.build();
+        setTargetPackage(notification, packageName);
         manager.notify(notificationId, notification);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -216,6 +221,20 @@ public class NotificationController {
         }
     }
 
+    private static void setTargetPackage(Notification notification, String packageName) {
+        try {
+            Method setTargetPackage = MIPushNotificationHelper.class
+                    .getDeclaredMethod("setTargetPackage", Notification.class, String.class);
+            setTargetPackage.setAccessible(true);
+            setTargetPackage.invoke(null, notification, packageName);
+        } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        }
+    }
 
     public static void cancel(Context context, XmPushActionContainer container, int id) {
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
