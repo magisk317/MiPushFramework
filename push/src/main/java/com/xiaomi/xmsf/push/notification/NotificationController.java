@@ -234,11 +234,9 @@ public class NotificationController {
             setTargetPackage.setAccessible(true);
             setTargetPackage.invoke(null, notification, packageName);
         } catch (NoSuchMethodException e) {
-            e.printStackTrace();
         } catch (InvocationTargetException e) {
-            e.printStackTrace();
+            logger.e(e.getCause().getMessage());
         } catch (IllegalAccessException e) {
-            e.printStackTrace();
         }
     }
 
