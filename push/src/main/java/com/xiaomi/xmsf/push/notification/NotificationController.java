@@ -169,9 +169,7 @@ public class NotificationController {
         builder.setCategory(Notification.CATEGORY_EVENT)
                 .setGroupSummary(true)
                 .setGroup(groupId);
-        Notification notification = builder.build();
-        setTargetPackage(notification, packageName);
-        manager.notify(groupId.hashCode(), notification);
+        notify(context, groupId.hashCode(), packageName, builder);
     }
 
     private static boolean needGroupOfNotifications(String groupId, NotificationManager manager) {
