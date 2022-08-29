@@ -193,13 +193,6 @@ public class NotificationController {
     }
 
     public static void publish(Context context, PushMetaInfo metaInfo, int notificationId, String packageName, Notification.Builder localBuilder) {
-        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-
-        // Make the behavior consistent with official MIUI
-        Bundle extras = new Bundle();
-        extras.putString("target_package", packageName);
-        localBuilder.addExtras(extras);
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             //Forward Compatibility
             registerChannelIfNeeded(context, metaInfo, packageName);
@@ -212,13 +205,25 @@ public class NotificationController {
             localBuilder.setPriority(Notification.PRIORITY_HIGH);
         }
 
-        Notification notification = localBuilder.build();
-        setTargetPackage(notification, packageName);
-        manager.notify(notificationId, notification);
+        Notification notification = notify(context, notificationId, packageName, localBuilder);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             updateSummaryNotification(context, metaInfo, packageName, notification.getGroup());
         }
+    }
+
+    private static Notification notify(Context context, int notificationId, String packageName, Notification.Builder localBuilder) {
+        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+
+        // Make the behavior consistent with official MIUI
+        Bundle extras = new Bundle();
+        extras.putString("target_package", packageName);
+        localBuilder.addExtras(extras);
+
+        Notification notification = localBuilder.build();
+        setTargetPackage(notification, packageName);
+        manager.notify(notificationId, notification);
+        return notification;
     }
 
     private static void setTargetPackage(Notification notification, String packageName) {
