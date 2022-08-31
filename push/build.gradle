@@ -21,7 +21,7 @@ android {
         // @see com.xiaomi.mipush.sdk.PushServiceClient#createServiceIntent
         // @see com.xiaomi.mipush.sdk.PushServiceClient#getPushServiceName
         versionCode 105
-        versionName rootProject.ext.versionName + "_framework"
+        versionName rootProject.ext.versionName
 
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
