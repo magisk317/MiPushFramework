@@ -8,7 +8,7 @@ import android.database.Cursor;
 import android.graphics.drawable.Drawable;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.support.v4.content.ContextCompat;
+import androidx.core.content.ContextCompat;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -112,7 +112,7 @@ public class RegisteredApplication implements Parcelable {
         parcel.writeByte((byte) (groupNotificationsForSameSession ? 1 : 0));
     }
 
-    @android.support.annotation.IntDef({Type.ASK, Type.ALLOW, Type.DENY, Type.ALLOW_ONCE})
+    @androidx.annotation.IntDef({Type.ASK, Type.ALLOW, Type.DENY, Type.ALLOW_ONCE})
     @Retention(SOURCE)
     @Target({ElementType.PARAMETER, ElementType.TYPE,
             ElementType.FIELD, ElementType.METHOD})
@@ -214,7 +214,7 @@ public class RegisteredApplication implements Parcelable {
         this.groupNotificationsForSameSession = groupNotificationsForSameSession;
     }
 
-    @android.support.annotation.NonNull
+    @androidx.annotation.NonNull
     public CharSequence getLabel (Context context) {
         PackageManager pm = context.getPackageManager();
         try {
@@ -224,7 +224,7 @@ public class RegisteredApplication implements Parcelable {
         }
     }
 
-    @android.support.annotation.NonNull
+    @androidx.annotation.NonNull
     public Drawable getIcon (Context context) {
         PackageManager pm = context.getPackageManager();
         try {
@@ -249,8 +249,8 @@ public class RegisteredApplication implements Parcelable {
      * @param cursor cursor
      * @return Event object
      */
-    @android.support.annotation.NonNull
-    public static RegisteredApplication create (@android.support.annotation.NonNull Cursor cursor) {
+    @androidx.annotation.NonNull
+    public static RegisteredApplication create (@androidx.annotation.NonNull Cursor cursor) {
         return new RegisteredApplication(cursor.getLong(cursor.getColumnIndex(KEY_ID)) /* id */,
                 cursor.getString(cursor.getColumnIndex(KEY_PACKAGE_NAME)) /* package name */,
                 cursor.getInt(cursor.getColumnIndex(KEY_TYPE)) /* type */,
@@ -268,7 +268,7 @@ public class RegisteredApplication implements Parcelable {
      * Convert to ContentValues
      * @return values object
      */
-    @android.support.annotation.NonNull
+    @androidx.annotation.NonNull
     public ContentValues toValues () {
         ContentValues values = new ContentValues();
         values.put(KEY_ID, getId());

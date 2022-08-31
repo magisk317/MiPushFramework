@@ -41,9 +41,9 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.UserHandle;
-import android.support.annotation.Keep;
-import android.support.annotation.RequiresApi;
-import android.support.annotation.RestrictTo;
+import androidx.annotation.Keep;
+import androidx.annotation.RequiresApi;
+import androidx.annotation.RestrictTo;
 import android.view.Display;
 
 import java.io.File;

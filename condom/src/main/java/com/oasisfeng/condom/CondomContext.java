@@ -37,11 +37,11 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Process;
 import android.os.UserHandle;
-import android.support.annotation.CheckResult;
-import android.support.annotation.Keep;
-import android.support.annotation.Nullable;
-import android.support.annotation.RequiresApi;
-import android.support.annotation.Size;
+import androidx.annotation.CheckResult;
+import androidx.annotation.Keep;
+import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
+import androidx.annotation.Size;
 import android.util.Log;
 
 import com.oasisfeng.condom.util.Lazy;

@@ -23,7 +23,7 @@ android {
         versionCode 105
         versionName rootProject.ext.versionName + "_framework"
 
-        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
         ndk {
             abiFilters 'armeabi', 'armeabi-v7a', 'x86', "arm64-v8a", "x86_64"
@@ -83,13 +83,13 @@ dependencies {
     })
     // Hook
     testImplementation 'junit:junit:4.12'
-    androidTestImplementation 'com.android.support.test:runner:1.0.1'
-    androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.1'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.1'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.1.0'
     implementation project(':common')
     implementation project(':condom')
-    implementation "com.android.support:support-v4:$supportLibraryVersion"
+    implementation 'androidx.legacy:legacy-support-v4:1.0.0'
     implementation project(':provider')
-    implementation "com.android.support:palette-v7:$supportLibraryVersion"
+    implementation 'androidx.palette:palette:1.0.0'
 
     implementation 'com.github.heruoxin:IceBox-SDK:55dd857d74'
 
@@ -101,8 +101,8 @@ dependencies {
         exclude group: 'com.android.support'
     })
     // Support
-    implementation "com.android.support:recyclerview-v7:$supportLibraryVersion"
-    implementation "com.android.support:appcompat-v7:$supportLibraryVersion"
+    implementation 'androidx.recyclerview:recyclerview:1.0.0'
+    implementation 'androidx.appcompat:appcompat:1.0.0'
     // Preference
     implementation 'moe.shizuku.preference:preference:2.2.3'
     implementation 'moe.shizuku.preference:preference-switchcompat:2.2.3'
@@ -130,6 +130,6 @@ dependencies {
         exclude group: 'com.android.support'
     })
     // Work
-    implementation "android.arch.work:work-runtime:$work_version"
+    implementation 'androidx.work:work-runtime:2.0.1'
 
 }

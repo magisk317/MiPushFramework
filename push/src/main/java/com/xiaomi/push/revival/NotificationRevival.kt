@@ -21,7 +21,7 @@ import android.os.Build.VERSION_CODES.M
 import android.os.Build.VERSION_CODES.O
 import android.os.SystemClock
 import android.service.notification.StatusBarNotification
-import android.support.annotation.RequiresApi
+import androidx.annotation.RequiresApi
 import android.util.Log
 import com.xiaomi.xmsf.BuildConfig
 

@@ -8,7 +8,7 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         buildConfigField "boolean", "DEBUG_CONDOM", "true"
 
-        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
     }
 
@@ -29,9 +29,9 @@ android {
 
 dependencies {
     implementation 'com.google.code.findbugs:jsr305:3.0.1'
-    implementation "com.android.support:support-annotations:$supportLibraryVersion"
+    implementation 'androidx.annotation:annotation:1.0.0'
 
-    androidTestImplementation 'com.android.support.test:runner:0.5'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.1'
 
     testImplementation 'junit:junit:4.12'
 }

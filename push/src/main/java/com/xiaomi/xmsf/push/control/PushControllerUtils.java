@@ -13,7 +13,7 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Process;
 import android.preference.PreferenceManager;
-import android.support.v4.content.ContextCompat;
+import androidx.core.content.ContextCompat;
 
 import com.elvishew.xlog.Logger;
 import com.elvishew.xlog.XLog;
@@ -25,7 +25,6 @@ import com.xiaomi.xmsf.push.service.receivers.BootReceiver;
 import com.xiaomi.xmsf.push.service.receivers.KeepAliveReceiver;
 
 import top.trumeet.common.Constants;
-import top.trumeet.common.utils.ServiceRunningChecker;
 
 import static top.trumeet.common.Constants.APP_ID;
 import static top.trumeet.common.Constants.APP_KEY;

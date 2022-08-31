@@ -100,7 +100,7 @@
             android:theme="@style/HelpTheme.DayNight" />
 
         <provider
-            android:name="android.support.v4.content.FileProvider"
+            android:name="androidx.core.content.FileProvider"
             android:authorities="top.trumeet.mipushframework.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">

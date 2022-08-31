@@ -2,7 +2,7 @@ package top.trumeet.common.event;
 
 import android.content.ContentValues;
 import android.database.Cursor;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -30,7 +30,7 @@ public class Event {
     public static final String KEY_NOTIFICATION_TITLE = "noti_title";
     public static final String KEY_NOTIFICATION_SUMMARY = "noti_summary";
 
-    @android.support.annotation.IntDef({Type.Notification,
+    @androidx.annotation.IntDef({Type.Notification,
             Type.Command, Type.AckMessage, Type.Registration,
     Type.MultiConnectionBroadcast, Type.MultiConnectionResult,
     Type.UnRegistration, Type.ReportFeedback, Type.SetConfig, Type.Subscription,
@@ -66,7 +66,7 @@ public class Event {
         int RegistrationResult = 21;
     }
 
-    @android.support.annotation.IntDef({ResultType.OK, ResultType.DENY_DISABLED, ResultType.DENY_USER})
+    @androidx.annotation.IntDef({ResultType.OK, ResultType.DENY_DISABLED, ResultType.DENY_USER})
     @Retention(SOURCE)
     @Target({ElementType.PARAMETER, ElementType.TYPE,
             ElementType.FIELD, ElementType.METHOD})
@@ -182,7 +182,7 @@ public class Event {
      * @return Event object
      */
     @NonNull
-    public static Event create (@android.support.annotation.NonNull Cursor cursor) {
+    public static Event create (@androidx.annotation.NonNull Cursor cursor) {
         return new Event(cursor.getLong(cursor.getColumnIndex(KEY_ID)) /* id */,
                 cursor.getString(cursor.getColumnIndex(KEY_PKG)) /* pkg */,
                 cursor.getInt(cursor.getColumnIndex(KEY_TYPE)) /* type */,

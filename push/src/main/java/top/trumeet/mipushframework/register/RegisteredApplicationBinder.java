@@ -2,7 +2,7 @@ package top.trumeet.mipushframework.register;
 
 import android.content.Intent;
 import android.graphics.Color;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 import top.trumeet.common.register.RegisteredApplication;
 import com.xiaomi.xmsf.R;

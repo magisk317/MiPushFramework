@@ -1,23 +1,31 @@
 package com.xiaomi.xmsf.push.notification;
 
+import static top.trumeet.common.utils.NotificationUtils.EXTRA_CHANNEL_DESCRIPTION;
+import static top.trumeet.common.utils.NotificationUtils.EXTRA_CHANNEL_ID;
+import static top.trumeet.common.utils.NotificationUtils.EXTRA_CHANNEL_NAME;
+import static top.trumeet.common.utils.NotificationUtils.EXTRA_SOUND_URL;
+import static top.trumeet.common.utils.NotificationUtils.getChannelIdByPkg;
+import static top.trumeet.common.utils.NotificationUtils.getExtraField;
+import static top.trumeet.common.utils.NotificationUtils.getGroupIdByPkg;
+
 import android.annotation.TargetApi;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationChannelGroup;
 import android.app.NotificationManager;
 import android.content.Context;
-import android.graphics.Bitmap;
 import android.graphics.drawable.Icon;
 import android.media.AudioAttributes;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.service.notification.StatusBarNotification;
-import android.support.annotation.NonNull;
-import android.support.annotation.RequiresApi;
-import android.support.v4.app.NotificationCompat;
-import android.support.v4.graphics.ColorUtils;
 import android.text.TextUtils;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
+import androidx.core.app.NotificationCompat;
+import androidx.core.graphics.ColorUtils;
 
 import com.elvishew.xlog.Logger;
 import com.elvishew.xlog.XLog;
@@ -27,16 +35,12 @@ import com.xiaomi.xmpush.thrift.XmPushActionContainer;
 import com.xiaomi.xmsf.R;
 import com.xiaomi.xmsf.utils.ColorUtil;
 
-
-import top.trumeet.common.cache.ApplicationNameCache;
-import top.trumeet.common.cache.IconCache;
-import top.trumeet.common.utils.NotificationUtils;
-
-import static top.trumeet.common.utils.NotificationUtils.*;
-
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Map;
+
+import top.trumeet.common.cache.ApplicationNameCache;
+import top.trumeet.common.cache.IconCache;
 
 /**
  * @author Trumeet

@@ -16,17 +16,18 @@
 
 package android.support.design.internal;
 
+import static androidx.annotation.RestrictTo.Scope.GROUP_ID;
+
 import android.content.Context;
 import android.os.Parcelable;
-import android.support.annotation.RestrictTo;
-import android.support.v7.view.menu.MenuBuilder;
-import android.support.v7.view.menu.MenuItemImpl;
-import android.support.v7.view.menu.MenuPresenter;
-import android.support.v7.view.menu.MenuView;
-import android.support.v7.view.menu.SubMenuBuilder;
 import android.view.ViewGroup;
 
-import static android.support.annotation.RestrictTo.Scope.GROUP_ID;
+import androidx.annotation.RestrictTo;
+import androidx.appcompat.view.menu.MenuBuilder;
+import androidx.appcompat.view.menu.MenuItemImpl;
+import androidx.appcompat.view.menu.MenuPresenter;
+import androidx.appcompat.view.menu.MenuView;
+import androidx.appcompat.view.menu.SubMenuBuilder;
 
 /**
  * @hide

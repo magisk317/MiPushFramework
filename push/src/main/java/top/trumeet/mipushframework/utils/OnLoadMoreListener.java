@@ -1,7 +1,7 @@
 package top.trumeet.mipushframework.utils;
 
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import android.util.Log;
 
 public abstract class OnLoadMoreListener extends RecyclerView.OnScrollListener {
