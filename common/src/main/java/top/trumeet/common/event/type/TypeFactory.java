@@ -11,18 +11,18 @@ public class TypeFactory {
         switch (event.getType()) {
             case Event.Type.Command:
                 return new CommandType(event.getInfo(),
-                        pkg);
+                        pkg, event.getPayload());
             case Event.Type.Notification:
                 return new NotificationType(event.getInfo(), pkg, event.getNotificationTitle(),
-                        event.getNotificationSummary());
+                        event.getNotificationSummary(), event.getPayload());
             case Event.Type.Registration:
                 return new RegistrationType(event.getInfo(),
-                        pkg);
+                        pkg, event.getPayload());
             case Event.Type.RegistrationResult:
                 return new RegistrationResultType(event.getInfo(),
-                        pkg);
+                        pkg, event.getPayload());
             default:
-                return new UnknownType(event.getType(), event.getInfo(), pkg);
+                return new UnknownType(event.getType(), event.getInfo(), pkg, event.getPayload());
         }
     }
 }

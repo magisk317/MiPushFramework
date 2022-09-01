@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 
 import com.xiaomi.xmpush.thrift.ActionType;
 import com.xiaomi.xmpush.thrift.XmPushActionContainer;
+import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils;
 
 import top.trumeet.common.event.Event;
 import top.trumeet.common.event.type.EventType;
@@ -53,18 +54,19 @@ public class TypeFactory {
         ActionType rawType = buildContainer.getAction();
         int type = getTypeId(rawType);
         String info = buildContainer.toString();
+        byte[] payload = XmPushThriftSerializeUtils.convertThriftObjectToBytes(buildContainer);
         switch (buildContainer.getAction()) {
             case Command:
                 break;
             case SendMessage:
                 return new NotificationType(info, pkg, buildContainer.getMetaInfo().getTitle(),
-                        buildContainer.getMetaInfo().getDescription());
+                        buildContainer.getMetaInfo().getDescription(), payload);
             case Notification:
                 return new NotificationType(info, pkg, buildContainer.getMetaInfo().getTitle(),
-                        buildContainer.getMetaInfo().getDescription());
+                        buildContainer.getMetaInfo().getDescription(), payload);
             case Registration:
-                return new RegistrationResultType(info, pkg);
+                return new RegistrationResultType(info, pkg, payload);
         }
-        return new UnknownType(type, info, pkg);
+        return new UnknownType(type, info, pkg, payload);
     }
 }

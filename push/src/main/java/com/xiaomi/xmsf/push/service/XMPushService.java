@@ -56,7 +56,9 @@ public class XMPushService extends IntentService {
 
             if (register) {
                 showRegisterToastIfExistsConfiguration(application);
-                EventDb.insertEvent(Event.ResultType.OK, new top.trumeet.common.event.type.RegistrationType(null, pkg), this);
+                EventDb.insertEvent(Event.ResultType.OK,
+                        new top.trumeet.common.event.type.RegistrationType(null, pkg, null),
+                        this);
             }
         } catch (RuntimeException e) {
             logger.e("XMPushService::onHandleIntent: ", e);

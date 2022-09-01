@@ -17,8 +17,8 @@ public class NotificationType extends EventType {
     private final String mNotificationTitle;
     private final String mNotificationDetail;
 
-    public NotificationType(String mInfo, String pkg, String mNotificationTitle, String mNotificationDetail) {
-        super(Event.Type.Notification, mInfo, pkg);
+    public NotificationType(String mInfo, String pkg, String mNotificationTitle, String mNotificationDetail, byte[] payload) {
+        super(Event.Type.Notification, mInfo, pkg, payload);
         this.mNotificationTitle = mNotificationTitle;
         this.mNotificationDetail = mNotificationDetail;
     }

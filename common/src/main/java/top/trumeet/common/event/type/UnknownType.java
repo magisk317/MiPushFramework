@@ -13,8 +13,8 @@ import top.trumeet.common.event.Event;
 
 public class UnknownType extends EventType {
 
-    public UnknownType(int mType, String mInfo, String pkg) {
-        super(mType, mInfo, pkg);
+    public UnknownType(int mType, String mInfo, String pkg, byte[] payload) {
+        super(mType, mInfo, pkg, payload);
     }
 
     @Nullable

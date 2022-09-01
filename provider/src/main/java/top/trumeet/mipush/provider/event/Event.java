@@ -61,13 +61,16 @@ public class Event {
     @Property(nameInDb = "noti_summary")
     private String notificationSummary;
 
+    @Property(nameInDb = "payload")
+    private byte[] payload;
+
     @Generated(hash = 344677835)
     public Event() {
     }
 
-    @Generated(hash = 722821452)
+    @Generated(hash = 662802757)
     public Event(Long id, @NotNull String pkg, int type, long date, int result, String info, String notificationTitle,
-            String notificationSummary) {
+            String notificationSummary, byte[] payload) {
         this.id = id;
         this.pkg = pkg;
         this.type = type;
@@ -76,6 +79,7 @@ public class Event {
         this.info = info;
         this.notificationTitle = notificationTitle;
         this.notificationSummary = notificationSummary;
+        this.payload = payload;
     }
 
     public String getNotificationTitle() {
@@ -134,7 +138,6 @@ public class Event {
         this.result = result;
     }
 
-
     public top.trumeet.common.event.Event convertTo () {
         return convertTo(this);
     }
@@ -148,20 +151,30 @@ public class Event {
     @NonNull
     public static top.trumeet.common.event.Event convertTo
     (@NonNull Event original) {
-        return new top.trumeet.common.event.Event(original.id,
+        return new top.trumeet.common.event.Event(
+                original.id,
                 original.pkg,
-                original.type, original.date,
+                original.type,
+                original.date,
                 original.result,
                 original.notificationTitle,
                 original.notificationSummary,
-                original.info);
+                original.info,
+                original.payload);
     }
 
     @NonNull
     public static Event from (@NonNull top.trumeet.common.event.Event original) {
-        return new Event(original.getId(), original.getPkg(), original.getType(),
-                original.getDate(), original.getResult(), original.getNotificationTitle(), original.getNotificationSummary(),
-                original.getInfo());
+        return new Event(
+                original.getId(),
+                original.getPkg(),
+                original.getType(),
+                original.getDate(),
+                original.getResult(),
+                original.getNotificationTitle(),
+                original.getNotificationSummary(),
+                original.getInfo(),
+                original.getPayload());
     }
 
     public String getInfo() {
@@ -170,5 +183,13 @@ public class Event {
 
     public void setInfo(String info) {
         this.info = info;
+    }
+
+    public byte[] getPayload() {
+        return this.payload;
+    }
+
+    public void setPayload(byte[] payload) {
+        this.payload = payload;
     }
 }

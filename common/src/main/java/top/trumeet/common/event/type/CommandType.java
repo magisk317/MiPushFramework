@@ -12,8 +12,8 @@ import top.trumeet.common.event.Event;
 
 public class CommandType extends EventType {
 
-    public CommandType(String mInfo, String pkg) {
-        super(Event.Type.Command, mInfo, pkg);
+    public CommandType(String mInfo, String pkg, byte[] payload) {
+        super(Event.Type.Command, mInfo, pkg, payload);
     }
 
     @Nullable

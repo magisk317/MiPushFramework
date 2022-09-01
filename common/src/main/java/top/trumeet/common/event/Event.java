@@ -25,6 +25,7 @@ public class Event {
     public static final String KEY_DATE = "date";
     public static final String KEY_RESULT = "result";
     public static final String KEY_INFO = "dev_info";
+    public static final String KEY_PAYLOAD = "payload";
 
     // Meta info
     public static final String KEY_NOTIFICATION_TITLE = "noti_title";
@@ -122,7 +123,9 @@ public class Event {
 
     private String info;
 
-    public Event(Long id, @NonNull String pkg, int type, long date, int result, String notificationTitle, String notificationSummary, String info) {
+    private byte[] payload;
+
+    public Event(Long id, @NonNull String pkg, int type, long date, int result, String notificationTitle, String notificationSummary, String info, byte[] payload) {
         this.id = id;
         this.pkg = pkg;
         this.type = type;
@@ -131,6 +134,7 @@ public class Event {
         this.notificationTitle = notificationTitle;
         this.notificationSummary = notificationSummary;
         this.info = info;
+        this.payload = payload;
     }
 
     public Event() {
@@ -176,6 +180,14 @@ public class Event {
         this.result = result;
     }
 
+    public byte[] getPayload() {
+        return this.payload;
+    }
+
+    public void setPayload(byte[] payload) {
+        this.payload = payload;
+    }
+
     /**
      * Create from cursor
      * @param cursor cursor
@@ -183,14 +195,16 @@ public class Event {
      */
     @NonNull
     public static Event create (@androidx.annotation.NonNull Cursor cursor) {
-        return new Event(cursor.getLong(cursor.getColumnIndex(KEY_ID)) /* id */,
-                cursor.getString(cursor.getColumnIndex(KEY_PKG)) /* pkg */,
-                cursor.getInt(cursor.getColumnIndex(KEY_TYPE)) /* type */,
-                cursor.getLong(cursor.getColumnIndex(KEY_DATE)) /* date */,
-                cursor.getInt(cursor.getColumnIndex(KEY_RESULT)) /* result */,
-                cursor.getString(cursor.getColumnIndex(KEY_NOTIFICATION_TITLE)) /* notification title */,
-                cursor.getString(cursor.getColumnIndex(KEY_NOTIFICATION_SUMMARY)) /* notification summary */,
-                cursor.getString(cursor.getColumnIndex(KEY_INFO)) /* dev info */);
+        return new Event(cursor.getLong(cursor.getColumnIndex(KEY_ID)),
+                cursor.getString(cursor.getColumnIndex(KEY_PKG)),
+                cursor.getInt(cursor.getColumnIndex(KEY_TYPE)),
+                cursor.getLong(cursor.getColumnIndex(KEY_DATE)),
+                cursor.getInt(cursor.getColumnIndex(KEY_RESULT)),
+                cursor.getString(cursor.getColumnIndex(KEY_NOTIFICATION_TITLE)),
+                cursor.getString(cursor.getColumnIndex(KEY_NOTIFICATION_SUMMARY)),
+                cursor.getString(cursor.getColumnIndex(KEY_INFO)),
+                cursor.getBlob(cursor.getColumnIndex(KEY_PAYLOAD))
+        );
     }
 
     /**
@@ -208,6 +222,7 @@ public class Event {
         values.put(KEY_NOTIFICATION_TITLE, getNotificationTitle());
         values.put(KEY_NOTIFICATION_SUMMARY, getNotificationSummary());
         values.put(KEY_INFO, getInfo());
+        values.put(KEY_PAYLOAD, getPayload());
         return values;
     }
 

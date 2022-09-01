@@ -3,9 +3,10 @@ package top.trumeet.common.event.type;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.text.Html;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import android.text.Html;
 
 import top.trumeet.common.event.Event;
 
@@ -24,10 +25,13 @@ public abstract class EventType {
 
     private final String pkg;
 
-    public EventType(int mType, String mInfo, String pkg) {
+    private final byte[] payload;
+
+    public EventType(int mType, String mInfo, String pkg, byte[] payload) {
         this.mType = mType;
         this.mInfo = mInfo;
         this.pkg = pkg;
+        this.payload = payload;
     }
 
     @NonNull
@@ -71,6 +75,10 @@ public abstract class EventType {
 
     public String getInfo() {
         return mInfo;
+    }
+
+    public byte[] getPayload() {
+        return payload;
     }
 
     /**

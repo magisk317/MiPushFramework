@@ -11,8 +11,8 @@ import top.trumeet.common.event.Event;
  */
 
 public class RegistrationType extends EventType {
-    public RegistrationType(String mInfo, String pkg) {
-        super(Event.Type.Registration, mInfo, pkg);
+    public RegistrationType(String mInfo, String pkg, byte[] payload) {
+        super(Event.Type.Registration, mInfo, pkg, payload);
     }
 
     @Nullable

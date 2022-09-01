@@ -4,9 +4,9 @@ import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.CancellationSignal;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresPermission;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -45,8 +45,17 @@ public class EventDb {
     public static Uri insertEvent(@Event.ResultType int result,
                                   EventType type,
                                   Context context) {
-        return insertEvent(type.fillEvent(new Event(null, type.getPkg(), type.getType(), Utils.getUTC().getTime()
-                , result, null, null, type.getInfo())), context);
+        return insertEvent(type.fillEvent(new Event(
+                null,
+                type.getPkg(),
+                type.getType(),
+                Utils.getUTC().getTime(),
+                result,
+                null,
+                null,
+                type.getInfo(),
+                type.getPayload()
+        )), context);
     }
 
 
