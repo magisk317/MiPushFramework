@@ -22,7 +22,17 @@
     <uses-permission android:name="android.permission.UPDATE_APP_OPS_STATS"
         tools:ignore="ProtectedPermissions" />
 
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
+    <queries>
+        <intent>
+            <action android:name="com.xiaomi.mipush.RECEIVE_MESSAGE" />
+        </intent>
+        <intent>
+            <action android:name="com.xiaomi.mipush.MESSAGE_ARRIVED" />
+        </intent>
+        <intent>
+            <action android:name="com.xiaomi.mipush.ERROR" />
+        </intent>
+    </queries>
 
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
