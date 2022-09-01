@@ -236,6 +236,7 @@
     <string name="notification_channels">通知渠道</string>
     <string name="message_type_notification">通知消息</string>
     <string name="message_type_pass_through">透传消息</string>
+    <string name="action_notify">通知</string>
 
 
 </resources>

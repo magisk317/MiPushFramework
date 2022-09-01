@@ -5,9 +5,10 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
-import androidx.core.content.ContextCompat;
 import android.util.Log;
 import android.widget.Toast;
+
+import androidx.core.content.ContextCompat;
 
 import com.elvishew.xlog.Logger;
 import com.elvishew.xlog.XLog;

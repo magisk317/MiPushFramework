@@ -154,8 +154,10 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <!-- For Long ago format -->
     <string name="date_format_long">%1$s</string>
 
-    <!-- Permission -->
     <string name="action_edit_permission">Edit Permissions</string>
+    <string name="action_notify">notify</string>
+
+    <!-- Permission -->
     <string name="permissions">Permissions</string>
     <string name="permission_allow_receive">Receive notification message</string>
     <string name="permission_allow_receive_command">Receive command</string>

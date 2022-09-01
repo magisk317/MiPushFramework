@@ -11,6 +11,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 
+import com.xiaomi.push.service.MIPushEventProcessor;
+import com.xiaomi.push.service.MyMIPushNotificationHelper;
 import com.xiaomi.xmsf.R;
 
 import java.util.Date;
@@ -96,7 +98,7 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
         final CharSequence info = type.getInfo(context);
         if (info == null)
             return null;
-        return new AlertDialog.Builder(context)
+        AlertDialog.Builder build = new AlertDialog.Builder(context)
                 .setMessage(info)
                 .setNeutralButton(android.R.string.copy, new DialogInterface.OnClickListener() {
                     @Override
@@ -111,8 +113,21 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
                     public void onClick(DialogInterface dialogInterface, int i) {
                         startManagePermissions(type, context);
                     }
-                })
-                .create();
+                });
+        if (type.getPayload() != null) {
+            build.setPositiveButton(R.string.action_notify, new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialogInterface, int i) {
+                    MyMIPushNotificationHelper.notifyPushMessage(context,
+                            MIPushEventProcessor.buildContainer(type.getPayload()),
+                            type.getPayload(),
+                            type.getPayload().length
+                    );
+                }
+            });
+        }
+
+        return build.create();
     }
 
     private static void startManagePermissions (EventType type, Context context) {

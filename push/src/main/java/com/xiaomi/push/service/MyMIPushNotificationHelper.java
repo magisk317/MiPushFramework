@@ -46,7 +46,7 @@ public class MyMIPushNotificationHelper {
     /**
      * @see MIPushNotificationHelper#notifyPushMessage
      */
-    static void notifyPushMessage(XMPushService xmPushService, XmPushActionContainer buildContainer, byte[] var1, long var2) {
+    public static void notifyPushMessage(Context xmPushService, XmPushActionContainer buildContainer, byte[] var1, long var2) {
         PushMetaInfo metaInfo = buildContainer.getMetaInfo();
         String packageName = buildContainer.getPackageName();
 
