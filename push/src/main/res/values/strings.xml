@@ -124,6 +124,8 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="status_ok">OK</string>
     <string name="status_deny_disable">Push disabled</string>
     <string name="status_deny_user">Rejected by you</string>
+    <string name="message_type_notification">notification message</string>
+    <string name="message_type_pass_through">pass through message</string>
 
     <!-- Date parse -->
     <eat-comment />

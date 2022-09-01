@@ -234,6 +234,8 @@
     <string name="group_notifications_for_same_session_title">堆叠同一会话的所有通知</string>
     <string name="group_notifications_for_same_session_detail">同一会话的所有通知将会堆叠为一组，这会导致非会话通知无法堆叠</string>
     <string name="notification_channels">通知渠道</string>
+    <string name="message_type_notification">通知消息</string>
+    <string name="message_type_pass_through">透传消息</string>
 
 
 </resources>

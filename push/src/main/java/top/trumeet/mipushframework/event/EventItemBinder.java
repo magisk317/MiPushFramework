@@ -5,10 +5,13 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.view.View;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
-import android.view.View;
+
+import com.xiaomi.xmsf.R;
 
 import java.util.Date;
 
@@ -16,7 +19,6 @@ import top.trumeet.common.event.Event;
 import top.trumeet.common.event.type.EventType;
 import top.trumeet.common.event.type.TypeFactory;
 import top.trumeet.common.utils.Utils;
-import com.xiaomi.xmsf.R;
 import top.trumeet.mipushframework.permissions.ManagePermissionsActivity;
 import top.trumeet.mipushframework.utils.BaseAppsBinder;
 import top.trumeet.mipushframework.utils.ParseUtils;
@@ -48,6 +50,15 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
             case Event.ResultType.OK :
                 status = holder.itemView.getContext()
                         .getString(R.string.status_ok);
+                if (item.getInfo() != null) {
+                    if (item.getInfo().contains("passThrough:0")) {
+                        status = holder.itemView.getContext()
+                                .getString(R.string.message_type_notification);
+                    } else if (item.getInfo().contains("passThrough:1")) {
+                        status = holder.itemView.getContext()
+                                .getString(R.string.message_type_pass_through);
+                    }
+                }
                 break;
             case Event.ResultType.DENY_DISABLED:
                 status = holder.itemView.getContext()
