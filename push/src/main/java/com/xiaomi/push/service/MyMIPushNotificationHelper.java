@@ -53,8 +53,6 @@ public class MyMIPushNotificationHelper {
         String title = metaInfo.getTitle();
         String description = metaInfo.getDescription();
 
-        int notificationId = MyClientEventDispatcher.getNotificationId(xmPushService, buildContainer);
-
         Notification.Builder localBuilder = new Notification.Builder(xmPushService);
 
         logger.i("title:" + title + "  description:" + description);
@@ -120,13 +118,15 @@ public class MyMIPushNotificationHelper {
         localBuilder.setContentTitle(titleAndDesp[0]);
         localBuilder.setContentText(titleAndDesp[1]);
 
+        boolean groupSession = false;
         String group = getExtraField(metaInfo.getExtra(), "notification_group", null);
         if (group != null) {
             localBuilder.setGroup(packageName + "_" + group);
         } else {
             RegisteredApplication application = RegisteredApplicationDb.registerApplication(
                     packageName, false, xmPushService, null);
-            if (application != null && application.isGroupNotificationsForSameSession()) {
+            groupSession = application != null && application.isGroupNotificationsForSameSession();
+            if (groupSession) {
                 String id = metaInfo.isSetNotifyId() ? String.valueOf(metaInfo.getNotifyId()) : "";
                 localBuilder.setGroup(packageName + "_" + id);
             } else {
@@ -141,6 +141,10 @@ public class MyMIPushNotificationHelper {
 
         localBuilder.setExtras(extras);
 
+        int notificationId = MyClientEventDispatcher.getNotificationId(xmPushService, buildContainer);
+        if (groupSession) {
+            notificationId = (notificationId + "_" + System.currentTimeMillis()).hashCode();
+        }
         NotificationController.publish(xmPushService, metaInfo, notificationId, packageName, localBuilder);
 
     }
