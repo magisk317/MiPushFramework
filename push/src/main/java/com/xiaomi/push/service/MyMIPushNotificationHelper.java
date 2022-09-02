@@ -89,26 +89,7 @@ public class MyMIPushNotificationHelper {
 //                logger.e(e.getLocalizedMessage(), e);
 //            }
 
-            if (BuildConfig.DEBUG) {
-                int i = R.drawable.ic_notifications_black_24dp;
-
-                PendingIntent pendingIntentOpenActivity = openActivityPendingIntent(xmPushService, buildContainer, metaInfo, var1);
-                if (pendingIntentOpenActivity != null) {
-                    localBuilder.addAction(new Notification.Action(i, "Open App", pendingIntentOpenActivity));
-                }
-
-                PendingIntent pendingIntentJump = startServicePendingIntent(xmPushService, buildContainer, metaInfo, var1);
-                if (pendingIntentJump != null) {
-                    localBuilder.addAction(new Notification.Action(i, "Jump", pendingIntentJump));
-                }
-
-                Intent sdkIntentJump = getSdkIntent(xmPushService, packageName, buildContainer);
-                if (sdkIntentJump != null) {
-                    PendingIntent pendingIntent = PendingIntent.getActivity(xmPushService, 0, sdkIntentJump, PendingIntent.FLAG_UPDATE_CURRENT);
-                    localBuilder.addAction(new Notification.Action(i, "SDK Intent", pendingIntent));
-                }
-
-            }
+            addDebugAction(xmPushService, buildContainer, var1, metaInfo, packageName, localBuilder);
 
             localBuilder.setWhen(System.currentTimeMillis());
             localBuilder.setShowWhen(true);
@@ -147,6 +128,29 @@ public class MyMIPushNotificationHelper {
         }
         NotificationController.publish(xmPushService, metaInfo, notificationId, packageName, localBuilder);
 
+    }
+
+    private static void addDebugAction(Context xmPushService, XmPushActionContainer buildContainer, byte[] var1, PushMetaInfo metaInfo, String packageName, Notification.Builder localBuilder) {
+        if (BuildConfig.DEBUG) {
+            int i = R.drawable.ic_notifications_black_24dp;
+
+            PendingIntent pendingIntentOpenActivity = openActivityPendingIntent(xmPushService, buildContainer, metaInfo, var1);
+            if (pendingIntentOpenActivity != null) {
+                localBuilder.addAction(new Notification.Action(i, "Open App", pendingIntentOpenActivity));
+            }
+
+            PendingIntent pendingIntentJump = startServicePendingIntent(xmPushService, buildContainer, metaInfo, var1);
+            if (pendingIntentJump != null) {
+                localBuilder.addAction(new Notification.Action(i, "Jump", pendingIntentJump));
+            }
+
+            Intent sdkIntentJump = getSdkIntent(xmPushService, packageName, buildContainer);
+            if (sdkIntentJump != null) {
+                PendingIntent pendingIntent = PendingIntent.getActivity(xmPushService, 0, sdkIntentJump, PendingIntent.FLAG_UPDATE_CURRENT);
+                localBuilder.addAction(new Notification.Action(i, "SDK Intent", pendingIntent));
+            }
+
+        }
     }
 
     public static Intent buildTargetIntentWithoutExtras(final String pkg, final PushMetaInfo metaInfo) {
