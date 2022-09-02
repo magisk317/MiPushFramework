@@ -6,7 +6,6 @@ import static top.trumeet.common.Constants.TAG_CONDOM;
 
 import android.app.Application;
 import android.app.Notification;
-import android.app.NotificationChannelGroup;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.ComponentName;
@@ -16,6 +15,7 @@ import android.content.SharedPreferences;
 import android.os.Build;
 
 import androidx.core.app.NotificationChannelCompat;
+import androidx.core.app.NotificationChannelGroupCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
@@ -86,7 +86,8 @@ public class MiPushFrameworkApp extends Application {
                             .Builder(CHANNEL_WARN, NotificationManager.IMPORTANCE_HIGH)
                             .setName(getString(R.string.wizard_title_doze_whitelist));
 
-                    NotificationChannelGroup notificationChannelGroup = new NotificationChannelGroup(CHANNEL_WARN, CHANNEL_WARN);
+                    NotificationChannelGroupCompat notificationChannelGroup =
+                            new NotificationChannelGroupCompat.Builder(CHANNEL_WARN).setName(CHANNEL_WARN).build();
                     manager.createNotificationChannelGroup(notificationChannelGroup);
                     channel.setGroup(notificationChannelGroup.getId());
                     manager.createNotificationChannel(channel.build());

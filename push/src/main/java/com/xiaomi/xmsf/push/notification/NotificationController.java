@@ -10,7 +10,6 @@ import static top.trumeet.common.utils.NotificationUtils.getGroupIdByPkg;
 
 import android.annotation.TargetApi;
 import android.app.Notification;
-import android.app.NotificationChannelGroup;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -25,6 +24,7 @@ import android.text.TextUtils;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationChannelCompat;
+import androidx.core.app.NotificationChannelGroupCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.graphics.ColorUtils;
@@ -72,9 +72,9 @@ public class NotificationController {
     }
 
     @TargetApi(26)
-    private static NotificationChannelGroup createGroupWithPackage(@NonNull String packageName,
+    private static NotificationChannelGroupCompat createGroupWithPackage(@NonNull String packageName,
                                                                    @NonNull CharSequence appName) {
-        return new NotificationChannelGroup(getGroupIdByPkg(packageName), appName);
+        return new NotificationChannelGroupCompat.Builder(getGroupIdByPkg(packageName)).setName(appName).build();
     }
 
     private static NotificationChannelCompat.Builder createChannelWithPackage(@NonNull PushMetaInfo metaInfo,
@@ -136,9 +136,8 @@ public class NotificationController {
 
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
     private static NotificationChannelCompat createNotificationChannel(PushMetaInfo metaInfo, String packageName, NotificationManagerCompat manager, CharSequence appName) {
-        NotificationChannelGroup notificationChannelGroup = createGroupWithPackage(packageName, appName);
+        NotificationChannelGroupCompat notificationChannelGroup = createGroupWithPackage(packageName, appName);
         manager.createNotificationChannelGroup(notificationChannelGroup);
 
         NotificationChannelCompat.Builder notificationChannelBuilder = createChannelWithPackage(metaInfo, packageName);
