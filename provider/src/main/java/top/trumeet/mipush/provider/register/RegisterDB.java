@@ -42,17 +42,18 @@ public class RegisterDB {
 
     private static RegisteredApplication create (String pkg) {
         RegisteredApplication registeredApplication =
-                new RegisteredApplication(null, pkg
-                        , RegisteredApplication.Type.ASK,
-                        true /* Allow push */,
-                        true /* Allow receive result */,
-                        true /* Allow receive command */,
-                        true /* Notification on register */,
-                        false,
-                        false
+                new RegisteredApplication(null
+                        , pkg
+                        , RegisteredApplication.Type.ASK
+                        , true
+                        , true
+                        , true
+                        , true
+                        , false
+                        , false
+                        , false
                 );
-        getDao()
-                .insert(registeredApplication);
+        getDao().insert(registeredApplication);
         return registeredApplication;
     }
 }

@@ -75,14 +75,15 @@ public class RegisteredApplicationDb {
         // TODO: Configurable defaults; use null for optional and global options?
         RegisteredApplication registeredApplication =
                 new RegisteredApplication(null, pkg
-                        , RegisteredApplication.Type.ASK,
-                        true /* Allow push */,
-                        true /* Allow receive result */,
-                        true /* Allow receive command */,
-                        0 /* registeredType Don't store to DB */,
-                        true /* notification on register */,
-                        false,
-                        false
+                        , RegisteredApplication.Type.ASK
+                        , true
+                        , true
+                        , true
+                        , 0
+                        , true
+                        , false
+                        , false
+                        , false
                 );
         insert(registeredApplication, context);
 

@@ -122,10 +122,13 @@ public class RegisteredApplication implements Parcelable {
     @Property(nameInDb = "clear_all_notifications_of_session")
     private boolean clearAllNotificationsOfSession;
 
-    @Generated(hash = 1336536443)
+    @Property(nameInDb = "show_pass_through")
+    private boolean showPassThrough;
+
+    @Generated(hash = 1523571055)
     public RegisteredApplication(Long id, String packageName, int type, boolean allowReceivePush,
             boolean allowReceiveRegisterResult, boolean allowReceiveCommand, boolean notificationOnRegister,
-            boolean groupNotificationsForSameSession, boolean clearAllNotificationsOfSession) {
+            boolean groupNotificationsForSameSession, boolean clearAllNotificationsOfSession, boolean showPassThrough) {
         this.id = id;
         this.packageName = packageName;
         this.type = type;
@@ -135,6 +138,7 @@ public class RegisteredApplication implements Parcelable {
         this.notificationOnRegister = notificationOnRegister;
         this.groupNotificationsForSameSession = groupNotificationsForSameSession;
         this.clearAllNotificationsOfSession = clearAllNotificationsOfSession;
+        this.showPassThrough = showPassThrough;
     }
 
     public RegisteredApplication() {
@@ -235,25 +239,31 @@ public class RegisteredApplication implements Parcelable {
     @NonNull
     public static top.trumeet.common.register.RegisteredApplication convertTo
     (@NonNull RegisteredApplication original) {
-        return new top.trumeet.common.register.RegisteredApplication(original.id,
-                original.packageName,
-                original.type, original.allowReceivePush,
-                original.allowReceiveRegisterResult,
-                original.allowReceiveCommand,
-                0,
-                original.notificationOnRegister,
-                original.groupNotificationsForSameSession,
-                original.clearAllNotificationsOfSession
+        return new top.trumeet.common.register.RegisteredApplication(original.id
+                , original.packageName
+                , original.type, original.allowReceivePush
+                , original.allowReceiveRegisterResult
+                , original.allowReceiveCommand
+                , 0
+                , original.notificationOnRegister
+                , original.groupNotificationsForSameSession
+                , original.clearAllNotificationsOfSession
+                , original.showPassThrough
                 );
     }
 
     @NonNull
     public static RegisteredApplication from (@NonNull top.trumeet.common.register.RegisteredApplication original) {
-        return new RegisteredApplication(original.getId(), original.getPackageName(), original.getType(),
-                original.getAllowReceivePush(), original.getAllowReceiveRegisterResult(),
-                original.isAllowReceiveCommand(), original.isNotificationOnRegister(),
-                original.isGroupNotificationsForSameSession(),
-                original.isClearAllNotificationsOfSession()
+        return new RegisteredApplication(original.getId()
+                , original.getPackageName()
+                , original.getType()
+                , original.getAllowReceivePush()
+                , original.getAllowReceiveRegisterResult()
+                , original.isAllowReceiveCommand()
+                , original.isNotificationOnRegister()
+                , original.isGroupNotificationsForSameSession()
+                , original.isClearAllNotificationsOfSession()
+                , original.isShowPassThrough()
                 );
     }
 
@@ -287,5 +297,13 @@ public class RegisteredApplication implements Parcelable {
 
     public void setClearAllNotificationsOfSession(boolean clearAllNotificationsOfSession) {
         this.clearAllNotificationsOfSession = clearAllNotificationsOfSession;
+    }
+
+    public boolean getShowPassThrough() {
+        return this.showPassThrough;
+    }
+
+    public void setShowPassThrough(boolean showPassThrough) {
+        this.showPassThrough = showPassThrough;
     }
 }
