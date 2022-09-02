@@ -22,6 +22,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.NotificationChannelCompat;
 import androidx.core.app.NotificationManagerCompat;
@@ -449,6 +450,14 @@ public class ManagePermissionsActivity extends AppCompatActivity {
 
         private SwitchPreferenceCompat addItem (boolean value, Preference.OnPreferenceChangeListener listener,
                               CharSequence title, CharSequence summary, PreferenceGroup parent) {
+            SwitchPreferenceCompat preference = createPreference(value, listener, title, summary);
+            parent.addPreference(preference);
+
+            return preference;
+        }
+
+        @NonNull
+        private SwitchPreferenceCompat createPreference(boolean value, Preference.OnPreferenceChangeListener listener, CharSequence title, CharSequence summary) {
             SwitchPreferenceCompat preference = new SwitchPreferenceCompat(getActivity(),
                     null, moe.shizuku.preference.R.attr.switchPreferenceStyle,
                     R.style.Preference_SwitchPreferenceCompat);
@@ -456,8 +465,6 @@ public class ManagePermissionsActivity extends AppCompatActivity {
             preference.setTitle(title);
             preference.setSummary(summary);
             preference.setChecked(value);
-            parent.addPreference(preference);
-
             return preference;
         }
 
