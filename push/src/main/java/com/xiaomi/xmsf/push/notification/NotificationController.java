@@ -10,7 +10,6 @@ import static top.trumeet.common.utils.NotificationUtils.getGroupIdByPkg;
 
 import android.annotation.TargetApi;
 import android.app.Notification;
-import android.app.NotificationChannel;
 import android.app.NotificationChannelGroup;
 import android.app.NotificationManager;
 import android.content.Context;
@@ -25,6 +24,7 @@ import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
+import androidx.core.app.NotificationChannelCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.graphics.ColorUtils;
@@ -77,16 +77,16 @@ public class NotificationController {
         return new NotificationChannelGroup(getGroupIdByPkg(packageName), appName);
     }
 
-    @TargetApi(26)
-    private static NotificationChannel createChannelWithPackage(@NonNull PushMetaInfo metaInfo,
-                                                                @NonNull String packageName) {
+    private static NotificationChannelCompat.Builder createChannelWithPackage(@NonNull PushMetaInfo metaInfo,
+                                                                      @NonNull String packageName) {
         final Map<String, String> extra = metaInfo.getExtra();
         String channelName = getExtraField(extra, EXTRA_CHANNEL_NAME, "未分类");
         String channelDescription = getExtraField(extra, EXTRA_CHANNEL_DESCRIPTION, null);
         String sound = getExtraField(extra, EXTRA_SOUND_URL, null);
 
-        NotificationChannel channel = new NotificationChannel(getChannelId(metaInfo, packageName),
-                channelName, NotificationManager.IMPORTANCE_DEFAULT);
+        NotificationChannelCompat.Builder channel = new NotificationChannelCompat
+                .Builder(getChannelId(metaInfo, packageName), NotificationManager.IMPORTANCE_DEFAULT)
+                .setName(channelName);
         if (channelDescription != null) {
             channel.setDescription(channelDescription);
         }
@@ -107,7 +107,7 @@ public class NotificationController {
     }
 
 
-    public static NotificationChannel registerChannelIfNeeded(Context context, PushMetaInfo metaInfo, String packageName) {
+    public static NotificationChannelCompat registerChannelIfNeeded(Context context, PushMetaInfo metaInfo, String packageName) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             return null;
         }
@@ -115,14 +115,14 @@ public class NotificationController {
         NotificationManagerCompat manager = NotificationManagerCompat.from(context);
 
         String channelId = getChannelId(metaInfo, packageName);
-        NotificationChannel notificationChannel = manager.getNotificationChannel(channelId);
+        NotificationChannelCompat notificationChannelCompat = manager.getNotificationChannelCompat(channelId);
 
-        if (notificationChannel != null) {
+        if (notificationChannelCompat != null) {
             final boolean isValidGroup =
-                    !ID_GROUP_APPLICATIONS.equals(notificationChannel.getGroup()) &&
-                            !TextUtils.isEmpty(notificationChannel.getGroup());
+                    !ID_GROUP_APPLICATIONS.equals(notificationChannelCompat.getGroup()) &&
+                            !TextUtils.isEmpty(notificationChannelCompat.getGroup());
             if (isValidGroup) {
-                return notificationChannel;
+                return notificationChannelCompat;
             }
             manager.deleteNotificationChannel(channelId);
         }
@@ -137,13 +137,14 @@ public class NotificationController {
     }
 
     @RequiresApi(api = Build.VERSION_CODES.O)
-    private static NotificationChannel createNotificationChannel(PushMetaInfo metaInfo, String packageName, NotificationManagerCompat manager, CharSequence appName) {
+    private static NotificationChannelCompat createNotificationChannel(PushMetaInfo metaInfo, String packageName, NotificationManagerCompat manager, CharSequence appName) {
         NotificationChannelGroup notificationChannelGroup = createGroupWithPackage(packageName, appName);
         manager.createNotificationChannelGroup(notificationChannelGroup);
 
-        NotificationChannel notificationChannel = createChannelWithPackage(metaInfo, packageName);
-        notificationChannel.setGroup(notificationChannelGroup.getId());
+        NotificationChannelCompat.Builder notificationChannelBuilder = createChannelWithPackage(metaInfo, packageName);
+        notificationChannelBuilder.setGroup(notificationChannelGroup.getId());
 
+        NotificationChannelCompat notificationChannel = notificationChannelBuilder.build();
         manager.createNotificationChannel(notificationChannel);
         return notificationChannel;
     }

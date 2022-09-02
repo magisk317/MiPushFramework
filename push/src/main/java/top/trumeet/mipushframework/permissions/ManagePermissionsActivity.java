@@ -5,7 +5,6 @@ import static android.provider.Settings.EXTRA_APP_PACKAGE;
 import static android.provider.Settings.EXTRA_CHANNEL_ID;
 import static top.trumeet.common.utils.NotificationUtils.getChannelIdByPkg;
 
-import android.app.NotificationChannel;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
@@ -24,6 +23,7 @@ import android.view.MenuItem;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.NotificationChannelCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.drawable.DrawableCompat;
@@ -395,9 +395,9 @@ public class ManagePermissionsActivity extends AppCompatActivity {
 
             NotificationManagerCompat manager = NotificationManagerCompat.from(getActivity());
             if (Build.VERSION.SDK_INT >= O) {
-                List<NotificationChannel> notificationChannels = manager.getNotificationChannels();
-                notificationChannels.stream().filter(NotificationChannel -> {
-                    return NotificationChannel.getId().startsWith(getChannelIdByPkg(mApplicationItem.getPackageName()));
+                List<NotificationChannelCompat> notificationChannelsCompat = manager.getNotificationChannelsCompat();
+                notificationChannelsCompat.stream().filter(NotificationChannelCompat -> {
+                    return NotificationChannelCompat.getId().startsWith(getChannelIdByPkg(mApplicationItem.getPackageName()));
                 }).forEach(channel -> {
                     Preference item = new Preference(getActivity());
                     item.setTitle(channel.getName());

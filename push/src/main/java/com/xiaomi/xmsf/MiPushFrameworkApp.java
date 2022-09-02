@@ -6,7 +6,6 @@ import static top.trumeet.common.Constants.TAG_CONDOM;
 
 import android.app.Application;
 import android.app.Notification;
-import android.app.NotificationChannel;
 import android.app.NotificationChannelGroup;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -16,6 +15,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
 
+import androidx.core.app.NotificationChannelCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
@@ -82,14 +82,14 @@ public class MiPushFrameworkApp extends Application {
             if (!PushServiceAccessibility.isInDozeWhiteList(this)) {
                 NotificationManagerCompat manager = NotificationManagerCompat.from(this);
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    NotificationChannel channel = new NotificationChannel(CHANNEL_WARN,
-                            getString(R.string.wizard_title_doze_whitelist),
-                            NotificationManager.IMPORTANCE_HIGH);
+                    NotificationChannelCompat.Builder channel = new NotificationChannelCompat
+                            .Builder(CHANNEL_WARN, NotificationManager.IMPORTANCE_HIGH)
+                            .setName(getString(R.string.wizard_title_doze_whitelist));
 
                     NotificationChannelGroup notificationChannelGroup = new NotificationChannelGroup(CHANNEL_WARN, CHANNEL_WARN);
                     manager.createNotificationChannelGroup(notificationChannelGroup);
                     channel.setGroup(notificationChannelGroup.getId());
-                    manager.createNotificationChannel(channel);
+                    manager.createNotificationChannel(channel.build());
                 }
 
                 PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, new Intent()
