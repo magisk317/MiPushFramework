@@ -25,6 +25,7 @@ import com.xiaomi.xmsf.utils.ConfigCenter;
 
 import java.util.function.Consumer;
 
+import top.trumeet.common.Constants;
 import top.trumeet.common.ita.ITopActivity;
 import top.trumeet.common.ita.TopActivityFactory;
 import top.trumeet.common.utils.Utils;
@@ -91,7 +92,7 @@ public class MyPushMessageHandler extends IntentService {
             logger.d("send to service " + targetPackage);
 
             if (startService(localIntent) != null) {
-                int id = MyClientEventDispatcher.getNotificationId(this, container);
+                int id = intent.getIntExtra(Constants.INTENT_NOTIFICATION_ID, 0);
                 NotificationController.cancel(this, container, id);
             }
         } catch (Exception e) {

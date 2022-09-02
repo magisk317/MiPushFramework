@@ -29,6 +29,7 @@ import java.util.Map;
 import static com.xiaomi.push.service.MIPushNotificationHelper.isBusinessMessage;
 import static top.trumeet.common.utils.NotificationUtils.*;
 
+import top.trumeet.common.Constants;
 import top.trumeet.common.db.RegisteredApplicationDb;
 import top.trumeet.common.register.RegisteredApplication;
 
@@ -63,15 +64,6 @@ public class MyMIPushNotificationHelper {
             style.setBigContentTitle(title);
             style.setSummaryText(description);
             localBuilder.setStyle(style);
-        }
-
-        PendingIntent localPendingIntent = getClickedPendingIntent(xmPushService, buildContainer, payload);
-        if (localPendingIntent != null) {
-            localBuilder.setContentIntent(localPendingIntent);
-            // Also carry along the target PendingIntent, whose target will get temporarily whitelisted for background-activity-start upon sent.
-            final Intent targetIntent = buildTargetIntentWithoutExtras(buildContainer.getPackageName(), metaInfo);
-            final PendingIntent pi = PendingIntent.getService(xmPushService, 0, targetIntent, PendingIntent.FLAG_UPDATE_CURRENT);
-            localBuilder.getExtras().putParcelable("mipush.target", pi);
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -118,6 +110,16 @@ public class MyMIPushNotificationHelper {
         if (groupSession) {
             notificationId = (notificationId + "_" + System.currentTimeMillis()).hashCode();
         }
+
+        PendingIntent localPendingIntent = getClickedPendingIntent(xmPushService, buildContainer, payload, notificationId);
+        if (localPendingIntent != null) {
+            localBuilder.setContentIntent(localPendingIntent);
+            // Also carry along the target PendingIntent, whose target will get temporarily whitelisted for background-activity-start upon sent.
+            final Intent targetIntent = buildTargetIntentWithoutExtras(buildContainer.getPackageName(), metaInfo);
+            final PendingIntent pi = PendingIntent.getService(xmPushService, 0, targetIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+            localBuilder.getExtras().putParcelable("mipush.target", pi);
+        }
+
         NotificationController.publish(xmPushService, metaInfo, notificationId, packageName, localBuilder);
 
     }
@@ -162,13 +164,12 @@ public class MyMIPushNotificationHelper {
     }
 
     private static PendingIntent getClickedPendingIntent(
-            Context paramContext, XmPushActionContainer paramXmPushActionContainer, byte[] payload) {
+            Context paramContext, XmPushActionContainer paramXmPushActionContainer, byte[] payload,
+            int notificationId) {
         PushMetaInfo metaInfo = paramXmPushActionContainer.getMetaInfo();
         if (metaInfo == null) {
             return null;
         }
-
-        int id = MyClientEventDispatcher.getNotificationId(paramContext, paramXmPushActionContainer);
 
         {
             //Jump web
@@ -195,6 +196,7 @@ public class MyMIPushNotificationHelper {
         }
         localIntent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, payload);
         localIntent.putExtra(MIPushNotificationHelper.FROM_NOTIFICATION, true);
+        localIntent.putExtra(Constants.INTENT_NOTIFICATION_ID, notificationId);
         localIntent.addCategory(String.valueOf(metaInfo.getNotifyId()));
         return PendingIntent.getService(paramContext, notificationId, localIntent, PendingIntent.FLAG_UPDATE_CURRENT);
     }
