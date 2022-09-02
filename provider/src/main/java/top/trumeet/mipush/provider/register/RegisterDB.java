@@ -48,6 +48,7 @@ public class RegisterDB {
                         true /* Allow receive result */,
                         true /* Allow receive command */,
                         true /* Notification on register */,
+                        false,
                         false
                 );
         getDao()

@@ -1,22 +1,22 @@
 package top.trumeet.common.db;
 
+import static top.trumeet.common.BuildConfig.DEBUG;
+import static top.trumeet.common.register.RegisteredApplication.KEY_PACKAGE_NAME;
+
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.CancellationSignal;
+import android.util.Log;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresPermission;
-import android.util.Log;
 
 import java.util.List;
 
 import top.trumeet.common.register.RegisteredApplication;
 import top.trumeet.common.utils.DatabaseUtils;
-
-import static top.trumeet.common.BuildConfig.DEBUG;
-import static top.trumeet.common.register.RegisteredApplication.KEY_PACKAGE_NAME;
 
 /**
  * Created by Trumeet on 2017/12/23.
@@ -81,6 +81,7 @@ public class RegisteredApplicationDb {
                         true /* Allow receive command */,
                         0 /* registeredType Don't store to DB */,
                         true /* notification on register */,
+                        false,
                         false
                 );
         insert(registeredApplication, context);

@@ -35,6 +35,7 @@ public class RegisteredApplication implements Parcelable {
     public static final String KEY_ALLOW_RECEIVE_COMMAND = "allow_receive_command_without_register_result";
     public static final String KEY_NOTIFICATION_ON_REGISTER = "notification_on_register";
     public static final String KEY_GROUP_NOTIFICATIONS_FOR_SAME_SESSION = "group_notifications_for_same_session";
+    public static final String KEY_CLEAR_ALL_NOTIFICATIONS_OF_SESSION = "clear_all_notifications_of_session";
 
     private Long id;
 
@@ -61,6 +62,8 @@ public class RegisteredApplication implements Parcelable {
 
     private boolean groupNotificationsForSameSession;
 
+    private boolean clearAllNotificationsOfSession;
+
     protected RegisteredApplication(Parcel in) {
         if (in.readByte() == 0) {
             id = null;
@@ -75,6 +78,7 @@ public class RegisteredApplication implements Parcelable {
         registeredType = in.readInt();
         notificationOnRegister = in.readByte() != 0;
         groupNotificationsForSameSession = in.readByte() != 0;
+        clearAllNotificationsOfSession = in.readByte() != 0;
     }
 
     public static final Creator<RegisteredApplication> CREATOR = new Creator<RegisteredApplication>() {
@@ -110,6 +114,7 @@ public class RegisteredApplication implements Parcelable {
         parcel.writeInt(registeredType);
         parcel.writeByte((byte) (notificationOnRegister ? 1 : 0));
         parcel.writeByte((byte) (groupNotificationsForSameSession ? 1 : 0));
+        parcel.writeByte((byte) (clearAllNotificationsOfSession ? 1 : 0));
     }
 
     @androidx.annotation.IntDef({Type.ASK, Type.ALLOW, Type.DENY, Type.ALLOW_ONCE})
@@ -135,7 +140,9 @@ public class RegisteredApplication implements Parcelable {
                                  boolean allowReceivePush, boolean allowReceiveRegisterResult,
                                  boolean allowReceiveCommand, int registeredType,
                                  boolean notificationOnRegister,
-                                 boolean groupNotificationsForSameSession) {
+                                 boolean groupNotificationsForSameSession,
+                                 boolean clearAllNotificationsOfSession
+                                 ) {
         this.id = id;
         this.packageName = packageName;
         this.type = type;
@@ -145,6 +152,7 @@ public class RegisteredApplication implements Parcelable {
         this.registeredType = registeredType;
         this.notificationOnRegister = notificationOnRegister;
         this.groupNotificationsForSameSession = groupNotificationsForSameSession;
+        this.clearAllNotificationsOfSession = clearAllNotificationsOfSession;
     }
 
     public RegisteredApplication() {
@@ -214,6 +222,14 @@ public class RegisteredApplication implements Parcelable {
         this.groupNotificationsForSameSession = groupNotificationsForSameSession;
     }
 
+    public boolean isClearAllNotificationsOfSession() {
+        return this.clearAllNotificationsOfSession;
+    }
+
+    public void setClearAllNotificationsOfSession(boolean clearAllNotificationsOfSession) {
+        this.clearAllNotificationsOfSession = clearAllNotificationsOfSession;
+    }
+
     @androidx.annotation.NonNull
     public CharSequence getLabel (Context context) {
         PackageManager pm = context.getPackageManager();
@@ -260,7 +276,8 @@ public class RegisteredApplication implements Parcelable {
                 cursor.getInt(cursor.getColumnIndex(KEY_ALLOW_RECEIVE_COMMAND)) > 0 /* allow receive command */,
                 0 /* RegisteredType, Do not save to DB */,
                 cursor.getInt(cursor.getColumnIndex(KEY_NOTIFICATION_ON_REGISTER)) > 0,
-                cursor.getInt(cursor.getColumnIndex(KEY_GROUP_NOTIFICATIONS_FOR_SAME_SESSION)) > 0
+                cursor.getInt(cursor.getColumnIndex(KEY_GROUP_NOTIFICATIONS_FOR_SAME_SESSION)) > 0,
+                cursor.getInt(cursor.getColumnIndex(KEY_CLEAR_ALL_NOTIFICATIONS_OF_SESSION)) > 0
         );
     }
 
@@ -279,6 +296,7 @@ public class RegisteredApplication implements Parcelable {
         values.put(KEY_ALLOW_RECEIVE_COMMAND, isAllowReceiveCommand());
         values.put(KEY_NOTIFICATION_ON_REGISTER, isNotificationOnRegister());
         values.put(KEY_GROUP_NOTIFICATIONS_FOR_SAME_SESSION, isGroupNotificationsForSameSession());
+        values.put(KEY_CLEAR_ALL_NOTIFICATIONS_OF_SESSION, isClearAllNotificationsOfSession());
         return values;
     }
 

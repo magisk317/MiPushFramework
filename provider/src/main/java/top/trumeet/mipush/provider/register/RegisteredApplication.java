@@ -1,11 +1,14 @@
 package top.trumeet.mipush.provider.register;
 
+import static java.lang.annotation.RetentionPolicy.SOURCE;
+
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.os.Parcel;
 import android.os.Parcelable;
+
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
@@ -19,8 +22,6 @@ import org.greenrobot.greendao.annotation.Unique;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
-
-import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 /**
  * Created by Trumeet on 2017/8/26.
@@ -118,10 +119,13 @@ public class RegisteredApplication implements Parcelable {
     @Property(nameInDb = "group_notifications_for_same_session")
     private boolean groupNotificationsForSameSession;
 
-    @Generated(hash = 520935688)
+    @Property(nameInDb = "clear_all_notifications_of_session")
+    private boolean clearAllNotificationsOfSession;
+
+    @Generated(hash = 1336536443)
     public RegisteredApplication(Long id, String packageName, int type, boolean allowReceivePush,
             boolean allowReceiveRegisterResult, boolean allowReceiveCommand, boolean notificationOnRegister,
-            boolean groupNotificationsForSameSession) {
+            boolean groupNotificationsForSameSession, boolean clearAllNotificationsOfSession) {
         this.id = id;
         this.packageName = packageName;
         this.type = type;
@@ -130,6 +134,7 @@ public class RegisteredApplication implements Parcelable {
         this.allowReceiveCommand = allowReceiveCommand;
         this.notificationOnRegister = notificationOnRegister;
         this.groupNotificationsForSameSession = groupNotificationsForSameSession;
+        this.clearAllNotificationsOfSession = clearAllNotificationsOfSession;
     }
 
     public RegisteredApplication() {
@@ -237,7 +242,9 @@ public class RegisteredApplication implements Parcelable {
                 original.allowReceiveCommand,
                 0,
                 original.notificationOnRegister,
-                original.groupNotificationsForSameSession);
+                original.groupNotificationsForSameSession,
+                original.clearAllNotificationsOfSession
+                );
     }
 
     @NonNull
@@ -245,7 +252,9 @@ public class RegisteredApplication implements Parcelable {
         return new RegisteredApplication(original.getId(), original.getPackageName(), original.getType(),
                 original.getAllowReceivePush(), original.getAllowReceiveRegisterResult(),
                 original.isAllowReceiveCommand(), original.isNotificationOnRegister(),
-                original.isGroupNotificationsForSameSession());
+                original.isGroupNotificationsForSameSession(),
+                original.isClearAllNotificationsOfSession()
+                );
     }
 
     public boolean isAllowReceiveCommand() {
@@ -270,5 +279,13 @@ public class RegisteredApplication implements Parcelable {
 
     public void setGroupNotificationsForSameSession(boolean groupNotificationsForSameSession) {
         this.groupNotificationsForSameSession = groupNotificationsForSameSession;
+    }
+
+    public boolean getClearAllNotificationsOfSession() {
+        return this.clearAllNotificationsOfSession;
+    }
+
+    public void setClearAllNotificationsOfSession(boolean clearAllNotificationsOfSession) {
+        this.clearAllNotificationsOfSession = clearAllNotificationsOfSession;
     }
 }
