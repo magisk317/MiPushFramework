@@ -166,9 +166,7 @@ public class NotificationController {
             builder = new Notification.Builder(context);
         }
 
-        Bundle extras = new Bundle();
-        buildExtraSubText(context, packageName, builder, extras);
-        builder.setExtras(extras);
+        buildExtraSubText(context, packageName, builder);
 
         builder.setCategory(Notification.CATEGORY_EVENT)
                 .setGroupSummary(true)
@@ -323,7 +321,8 @@ public class NotificationController {
     }
 
 
-    public static void buildExtraSubText(Context var0, String packageName, Notification.Builder localBuilder, Bundle extras) {
+    public static void buildExtraSubText(Context var0, String packageName, Notification.Builder localBuilder) {
+        Bundle extras = localBuilder.getExtras();
         CharSequence appName = ApplicationNameCache.getInstance().getAppName(var0, packageName);
         int color = getIconColor(var0, packageName);
         if (color != Notification.COLOR_DEFAULT) {
