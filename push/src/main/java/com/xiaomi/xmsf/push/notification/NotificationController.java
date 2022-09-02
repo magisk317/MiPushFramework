@@ -16,7 +16,6 @@ import android.app.NotificationManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.BitmapFactory;
-import android.graphics.drawable.Icon;
 import android.media.AudioAttributes;
 import android.net.Uri;
 import android.os.Build;
@@ -27,6 +26,7 @@ import android.text.TextUtils;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 import androidx.core.graphics.ColorUtils;
 import androidx.core.graphics.drawable.IconCompat;
 
@@ -61,10 +61,9 @@ public class NotificationController {
     public static final String CHANNEL_WARN = "warn";
 
 
-    @TargetApi(26)
     public static void deleteOldNotificationChannelGroup(@NonNull Context context) {
         try {
-            NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            NotificationManagerCompat manager = NotificationManagerCompat.from(context);
             manager.deleteNotificationChannelGroup(ID_GROUP_APPLICATIONS);
         } catch (Exception ignore) {
 
@@ -113,7 +112,7 @@ public class NotificationController {
             return null;
         }
 
-        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        NotificationManagerCompat manager = NotificationManagerCompat.from(context);
 
         String channelId = getChannelId(metaInfo, packageName);
         NotificationChannel notificationChannel = manager.getNotificationChannel(channelId);
@@ -138,7 +137,7 @@ public class NotificationController {
     }
 
     @RequiresApi(api = Build.VERSION_CODES.O)
-    private static NotificationChannel createNotificationChannel(PushMetaInfo metaInfo, String packageName, NotificationManager manager, CharSequence appName) {
+    private static NotificationChannel createNotificationChannel(PushMetaInfo metaInfo, String packageName, NotificationManagerCompat manager, CharSequence appName) {
         NotificationChannelGroup notificationChannelGroup = createGroupWithPackage(packageName, appName);
         manager.createNotificationChannelGroup(notificationChannelGroup);
 
@@ -155,8 +154,8 @@ public class NotificationController {
         if (groupId == null) {
             return;
         }
-        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-        if (!needGroupOfNotifications(groupId, manager)) {
+        NotificationManagerCompat manager = NotificationManagerCompat.from(context);
+        if (!needGroupOfNotifications(context, groupId)) {
             manager.cancel(groupId.hashCode());
             return;
         }
@@ -171,12 +170,15 @@ public class NotificationController {
         notify(context, groupId.hashCode(), packageName, builder);
     }
 
-    private static boolean needGroupOfNotifications(String groupId, NotificationManager manager) {
-        int notificationCntInGroup = getNotificationCountOfGroup(groupId, manager);
+    @RequiresApi(api = Build.VERSION_CODES.M)
+    private static boolean needGroupOfNotifications(Context context, String groupId) {
+        int notificationCntInGroup = getNotificationCountOfGroup(context, groupId);
         return notificationCntInGroup > 1;
     }
 
-    private static int getNotificationCountOfGroup(String groupId, NotificationManager manager) {
+    @RequiresApi(api = Build.VERSION_CODES.M)
+    private static int getNotificationCountOfGroup(Context context, String groupId) {
+        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         StatusBarNotification[] activeNotifications = manager.getActiveNotifications();
 
 
@@ -206,7 +208,7 @@ public class NotificationController {
     }
 
     private static Notification notify(Context context, int notificationId, String packageName, NotificationCompat.Builder localBuilder) {
-        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        NotificationManagerCompat manager = NotificationManagerCompat.from(context);
 
         // Make the behavior consistent with official MIUI
         Bundle extras = new Bundle();

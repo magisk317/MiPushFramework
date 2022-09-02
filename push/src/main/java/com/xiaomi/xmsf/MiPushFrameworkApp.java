@@ -1,5 +1,9 @@
 package com.xiaomi.xmsf;
 
+import static com.xiaomi.xmsf.push.control.PushControllerUtils.isAppMainProc;
+import static com.xiaomi.xmsf.push.notification.NotificationController.CHANNEL_WARN;
+import static top.trumeet.common.Constants.TAG_CONDOM;
+
 import android.app.Application;
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -11,8 +15,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
+
 import androidx.core.app.NotificationCompat;
-import androidx.core.content.ContextCompat;
+import androidx.core.app.NotificationManagerCompat;
 
 import com.elvishew.xlog.XLog;
 import com.oasisfeng.condom.CondomOptions;
@@ -30,10 +35,6 @@ import rx_activity_result2.RxActivityResult;
 import top.trumeet.common.Constants;
 import top.trumeet.common.push.PushServiceAccessibility;
 import top.trumeet.mipush.provider.DatabaseUtils;
-
-import static com.xiaomi.xmsf.push.control.PushControllerUtils.isAppMainProc;
-import static com.xiaomi.xmsf.push.notification.NotificationController.CHANNEL_WARN;
-import static top.trumeet.common.Constants.TAG_CONDOM;
 
 public class MiPushFrameworkApp extends Application {
     private com.elvishew.xlog.Logger logger;
@@ -75,13 +76,11 @@ public class MiPushFrameworkApp extends Application {
             }
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationController.deleteOldNotificationChannelGroup(this);
-        }
+        NotificationController.deleteOldNotificationChannelGroup(this);
 
         try {
             if (!PushServiceAccessibility.isInDozeWhiteList(this)) {
-                NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                NotificationManagerCompat manager = NotificationManagerCompat.from(this);
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     NotificationChannel channel = new NotificationChannel(CHANNEL_WARN,
                             getString(R.string.wizard_title_doze_whitelist),

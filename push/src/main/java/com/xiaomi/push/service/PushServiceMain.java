@@ -1,5 +1,11 @@
 package com.xiaomi.push.service;
 
+import static android.os.Build.VERSION.SDK_INT;
+import static android.os.Build.VERSION_CODES.N;
+import static android.os.Build.VERSION_CODES.O;
+import static android.os.Build.VERSION_CODES.P;
+import static top.trumeet.common.Constants.TAG_CONDOM;
+
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -7,8 +13,10 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
+
 import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 
 import com.elvishew.xlog.Logger;
 import com.elvishew.xlog.XLog;
@@ -21,13 +29,6 @@ import com.xiaomi.xmsf.R;
 import com.xiaomi.xmsf.push.control.XMOutbound;
 
 import org.apache.thrift.TBase;
-
-
-import static android.os.Build.VERSION.SDK_INT;
-import static android.os.Build.VERSION_CODES.N;
-import static android.os.Build.VERSION_CODES.O;
-import static android.os.Build.VERSION_CODES.P;
-import static top.trumeet.common.Constants.TAG_CONDOM;
 
 /**
  * @author Trumeet
@@ -129,8 +130,7 @@ public class PushServiceMain extends XMPushService {
 
 
     private void startForeground() {
-        NotificationManager manager = (NotificationManager)
-                getApplicationContext().getSystemService(NOTIFICATION_SERVICE);
+        NotificationManagerCompat manager = NotificationManagerCompat.from(getApplicationContext());
         if (SDK_INT >= O) {
             NotificationChannel channel = new NotificationChannel(CHANNEL_STATUS,
                     getString(R.string.notification_category_alive),

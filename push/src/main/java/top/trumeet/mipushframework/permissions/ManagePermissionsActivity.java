@@ -1,8 +1,11 @@
 package top.trumeet.mipushframework.permissions;
 
+import static android.os.Build.VERSION_CODES.O;
+import static android.provider.Settings.EXTRA_APP_PACKAGE;
+import static android.provider.Settings.EXTRA_CHANNEL_ID;
+import static top.trumeet.common.utils.NotificationUtils.getChannelIdByPkg;
+
 import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
@@ -13,9 +16,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.provider.Settings;
-import androidx.core.content.ContextCompat;
-import androidx.core.graphics.drawable.DrawableCompat;
-import androidx.appcompat.app.AppCompatActivity;
 import android.text.Html;
 import android.util.Log;
 import android.view.Menu;
@@ -23,7 +23,13 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.NotificationManagerCompat;
+import androidx.core.content.ContextCompat;
+import androidx.core.graphics.drawable.DrawableCompat;
+
 import com.android.settings.widget.EntityHeaderController;
+import com.xiaomi.xmsf.R;
 
 import java.util.Arrays;
 import java.util.List;
@@ -42,15 +48,9 @@ import top.trumeet.common.db.EventDb;
 import top.trumeet.common.db.RegisteredApplicationDb;
 import top.trumeet.common.register.RegisteredApplication;
 import top.trumeet.common.utils.Utils;
-import com.xiaomi.xmsf.R;
 import top.trumeet.mipushframework.control.CheckPermissionsUtils;
 import top.trumeet.mipushframework.event.RecentActivityActivity;
 import top.trumeet.mipushframework.widgets.InfoPreference;
-
-import static android.os.Build.VERSION_CODES.O;
-import static android.provider.Settings.EXTRA_APP_PACKAGE;
-import static android.provider.Settings.EXTRA_CHANNEL_ID;
-import static top.trumeet.common.utils.NotificationUtils.getChannelIdByPkg;
 
 /**
  * Created by Trumeet on 2017/8/27.
@@ -393,7 +393,7 @@ public class ManagePermissionsActivity extends AppCompatActivity {
             notificationChannelsCategory.setTitle(R.string.notification_channels);
             screen.addPreference(notificationChannelsCategory);
 
-            NotificationManager manager = (NotificationManager) getActivity().getSystemService(Context.NOTIFICATION_SERVICE);
+            NotificationManagerCompat manager = NotificationManagerCompat.from(getActivity());
             if (Build.VERSION.SDK_INT >= O) {
                 List<NotificationChannel> notificationChannels = manager.getNotificationChannels();
                 notificationChannels.stream().filter(NotificationChannel -> {
