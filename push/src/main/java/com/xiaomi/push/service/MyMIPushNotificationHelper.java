@@ -1,6 +1,8 @@
 package com.xiaomi.push.service;
 
-import android.app.Notification;
+import static com.xiaomi.push.service.MIPushNotificationHelper.isBusinessMessage;
+import static top.trumeet.common.utils.NotificationUtils.getExtraField;
+
 import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
@@ -8,8 +10,9 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
-import android.os.Bundle;
 import android.text.TextUtils;
+
+import androidx.core.app.NotificationCompat;
 
 import com.elvishew.xlog.Logger;
 import com.elvishew.xlog.XLog;
@@ -25,9 +28,6 @@ import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Map;
-
-import static com.xiaomi.push.service.MIPushNotificationHelper.isBusinessMessage;
-import static top.trumeet.common.utils.NotificationUtils.*;
 
 import top.trumeet.common.Constants;
 import top.trumeet.common.db.RegisteredApplicationDb;
@@ -54,12 +54,12 @@ public class MyMIPushNotificationHelper {
         String title = metaInfo.getTitle();
         String description = metaInfo.getDescription();
 
-        Notification.Builder localBuilder = new Notification.Builder(xmPushService);
+        NotificationCompat.Builder localBuilder = new NotificationCompat.Builder(xmPushService);
 
         logger.i("title:" + title + "  description:" + description);
 
         if (description.length() > NOTIFICATION_BIG_STYLE_MIN_LEN) {
-            Notification.BigTextStyle style = new Notification.BigTextStyle();
+            NotificationCompat.BigTextStyle style = new NotificationCompat.BigTextStyle();
             style.bigText(description);
             style.setBigContentTitle(title);
             style.setSummaryText(description);
@@ -67,7 +67,6 @@ public class MyMIPushNotificationHelper {
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-
 //            try {
 //                RemoteViews localRemoteViews = JavaCalls.callStaticMethodOrThrow(MIPushNotificationHelper.class, "getNotificationForCustomLayout", var0.getApplicationContext(), buildContainer, var1);
 //                if (localRemoteViews != null) {
@@ -76,12 +75,12 @@ public class MyMIPushNotificationHelper {
 //            } catch (Exception e) {
 //                logger.e(e.getLocalizedMessage(), e);
 //            }
-
-            addDebugAction(xmPushService, buildContainer, payload, metaInfo, packageName, localBuilder);
-
-            localBuilder.setWhen(System.currentTimeMillis());
-            localBuilder.setShowWhen(true);
         }
+
+        addDebugAction(xmPushService, buildContainer, payload, metaInfo, packageName, localBuilder);
+
+        localBuilder.setWhen(System.currentTimeMillis());
+        localBuilder.setShowWhen(true);
 
         String[] titleAndDesp = determineTitleAndDespByDIP(xmPushService, metaInfo);
         localBuilder.setContentTitle(titleAndDesp[0]);
@@ -122,24 +121,24 @@ public class MyMIPushNotificationHelper {
 
     }
 
-    private static void addDebugAction(Context xmPushService, XmPushActionContainer buildContainer, byte[] var1, PushMetaInfo metaInfo, String packageName, Notification.Builder localBuilder) {
+    private static void addDebugAction(Context xmPushService, XmPushActionContainer buildContainer, byte[] var1, PushMetaInfo metaInfo, String packageName, NotificationCompat.Builder localBuilder) {
         if (BuildConfig.DEBUG) {
             int i = R.drawable.ic_notifications_black_24dp;
 
             PendingIntent pendingIntentOpenActivity = openActivityPendingIntent(xmPushService, buildContainer, metaInfo, var1);
             if (pendingIntentOpenActivity != null) {
-                localBuilder.addAction(new Notification.Action(i, "Open App", pendingIntentOpenActivity));
+                localBuilder.addAction(new NotificationCompat.Action(i, "Open App", pendingIntentOpenActivity));
             }
 
             PendingIntent pendingIntentJump = startServicePendingIntent(xmPushService, buildContainer, metaInfo, var1);
             if (pendingIntentJump != null) {
-                localBuilder.addAction(new Notification.Action(i, "Jump", pendingIntentJump));
+                localBuilder.addAction(new NotificationCompat.Action(i, "Jump", pendingIntentJump));
             }
 
             Intent sdkIntentJump = getSdkIntent(xmPushService, packageName, buildContainer);
             if (sdkIntentJump != null) {
                 PendingIntent pendingIntent = PendingIntent.getActivity(xmPushService, 0, sdkIntentJump, PendingIntent.FLAG_UPDATE_CURRENT);
-                localBuilder.addAction(new Notification.Action(i, "SDK Intent", pendingIntent));
+                localBuilder.addAction(new NotificationCompat.Action(i, "SDK Intent", pendingIntent));
             }
 
         }

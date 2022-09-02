@@ -1,15 +1,16 @@
 package top.trumeet.common.cache;
 
+import static top.trumeet.common.utils.ImgUtils.drawableToBitmap;
+
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
-import android.graphics.drawable.Icon;
+
 import androidx.collection.LruCache;
+import androidx.core.graphics.drawable.IconCompat;
 
 import top.trumeet.common.utils.ImgUtils;
-
-import static top.trumeet.common.utils.ImgUtils.drawableToBitmap;
 
 /**
  * Author: TimothyZhang023
@@ -19,7 +20,7 @@ public class IconCache {
 
     private volatile static IconCache cache = null;
     private LruCache<String, Bitmap> bitmapLruCache;
-    private LruCache<String, Icon> mIconMemoryCaches;
+    private LruCache<String, IconCompat> mIconMemoryCaches;
 
 
     private LruCache<String, Integer> appColorCache;
@@ -69,10 +70,10 @@ public class IconCache {
         }.get("raw_" + pkg);
     }
 
-    public Icon getIconCache(final Context ctx, final String pkg, Converter<Bitmap, Icon> callback) {
-        return new AbstractCacheAspect<Icon>(mIconMemoryCaches) {
+    public IconCompat getIconCache(final Context ctx, final String pkg, Converter<Bitmap, IconCompat> callback) {
+        return new AbstractCacheAspect<IconCompat>(mIconMemoryCaches) {
             @Override
-            Icon gen() {
+            IconCompat gen() {
                 Bitmap rawIconBitmap = getRawIconBitmap(ctx, pkg);
                 if (rawIconBitmap == null) {
                     return null;

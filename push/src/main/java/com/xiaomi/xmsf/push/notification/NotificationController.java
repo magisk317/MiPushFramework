@@ -14,6 +14,8 @@ import android.app.NotificationChannel;
 import android.app.NotificationChannelGroup;
 import android.app.NotificationManager;
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.graphics.BitmapFactory;
 import android.graphics.drawable.Icon;
 import android.media.AudioAttributes;
 import android.net.Uri;
@@ -26,6 +28,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationCompat;
 import androidx.core.graphics.ColorUtils;
+import androidx.core.graphics.drawable.IconCompat;
 
 import com.elvishew.xlog.Logger;
 import com.elvishew.xlog.XLog;
@@ -158,13 +161,9 @@ public class NotificationController {
             return;
         }
 
-        Notification.Builder builder;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            builder = new Notification.Builder(context, getChannelId(metaInfo, packageName));
-            builder.setGroupAlertBehavior(Notification.GROUP_ALERT_CHILDREN);
-        } else {
-            builder = new Notification.Builder(context);
-        }
+        NotificationCompat.Builder builder;
+        builder = new NotificationCompat.Builder(context, getChannelId(metaInfo, packageName));
+        builder.setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN);
 
         builder.setCategory(Notification.CATEGORY_EVENT)
                 .setGroupSummary(true)
@@ -190,27 +189,23 @@ public class NotificationController {
         return notificationCntInGroup;
     }
 
-    public static void publish(Context context, PushMetaInfo metaInfo, int notificationId, String packageName, Notification.Builder localBuilder) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            //Forward Compatibility
-            registerChannelIfNeeded(context, metaInfo, packageName);
+    public static void publish(Context context, PushMetaInfo metaInfo, int notificationId, String packageName, NotificationCompat.Builder localBuilder) {
+        // Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+        registerChannelIfNeeded(context, metaInfo, packageName);
 
-            localBuilder.setChannelId(getChannelId(metaInfo, packageName));
-            localBuilder.setGroupAlertBehavior(Notification.GROUP_ALERT_CHILDREN);
-        } else {
-            //for VERSION < Oero
-            localBuilder.setDefaults(Notification.DEFAULT_ALL);
-            localBuilder.setPriority(Notification.PRIORITY_HIGH);
-        }
+        localBuilder.setChannelId(getChannelId(metaInfo, packageName));
+        localBuilder.setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN);
+
+        //for VERSION < Oero
+        localBuilder.setDefaults(Notification.DEFAULT_ALL);
+        localBuilder.setPriority(Notification.PRIORITY_HIGH);
 
         Notification notification = notify(context, notificationId, packageName, localBuilder);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            updateSummaryNotification(context, metaInfo, packageName, notification.getGroup());
-        }
+        updateSummaryNotification(context, metaInfo, packageName, notification.getGroup());
     }
 
-    private static Notification notify(Context context, int notificationId, String packageName, Notification.Builder localBuilder) {
+    private static Notification notify(Context context, int notificationId, String packageName, NotificationCompat.Builder localBuilder) {
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
 
         // Make the behavior consistent with official MIUI
@@ -293,47 +288,53 @@ public class NotificationController {
     }
 
 
-    public static void processSmallIcon(Context context, String packageName, Notification.Builder notificationBuilder) {
+    public static void processSmallIcon(Context context, String packageName, NotificationCompat.Builder notificationBuilder) {
         // refer: https://dev.mi.com/console/doc/detail?pId=2625#_5_0
+        Context pkgContext = null;
+        try {
+            pkgContext = context.createPackageContext(packageName, Context.CONTEXT_INCLUDE_CODE | Context.CONTEXT_IGNORE_SECURITY);
+        } catch (PackageManager.NameNotFoundException e) {
+            return;
+        }
+        int largeIconId = getIconId(context, packageName, NOTIFICATION_LARGE_ICON);
+        int smallIconId = getIconId(context, packageName, NOTIFICATION_SMALL_ICON);
+
+        if (largeIconId > 0) {
+            notificationBuilder.setLargeIcon(BitmapFactory.decodeResource(pkgContext.getResources(), largeIconId));
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            int largeIconId = getIconId(context, packageName, NOTIFICATION_LARGE_ICON);
-            int smallIconId = getIconId(context, packageName, NOTIFICATION_SMALL_ICON);
-
-            if (largeIconId > 0) {
-                notificationBuilder.setLargeIcon(Icon.createWithResource(packageName, largeIconId));
-            }
-
             if (smallIconId > 0) {
-                notificationBuilder.setSmallIcon(Icon.createWithResource(packageName, smallIconId));
+                notificationBuilder.setSmallIcon(IconCompat.createWithResource(pkgContext, smallIconId));
                 return;
             }
             if (largeIconId > 0) {
-                notificationBuilder.setSmallIcon(Icon.createWithResource(packageName, largeIconId));
+                notificationBuilder.setSmallIcon(IconCompat.createWithResource(pkgContext, largeIconId));
                 return;
             }
 
-            Icon iconCache = IconCache.getInstance().getIconCache(context, packageName, (ctx, b) -> Icon.createWithBitmap(b));
+            IconCompat iconCache = IconCache.getInstance().getIconCache(context, packageName, (ctx, b) -> IconCompat.createWithBitmap(b));
             if (iconCache != null) {
                 notificationBuilder.setSmallIcon(iconCache);
                 return;
             }
         }
+
         notificationBuilder.setSmallIcon(R.drawable.ic_notifications_black_24dp);
     }
 
 
-    public static void buildExtraSubText(Context var0, String packageName, Notification.Builder localBuilder) {
-        Bundle extras = localBuilder.getExtras();
-        CharSequence appName = ApplicationNameCache.getInstance().getAppName(var0, packageName);
-        int color = getIconColor(var0, packageName);
-        if (color != Notification.COLOR_DEFAULT) {
-            CharSequence subText = ColorUtil.createColorSubtext(appName, color);
-            if (subText != null) {
-                extras.putCharSequence(NotificationCompat.EXTRA_SUB_TEXT, subText);
-            }
-            localBuilder.setColor(color);
-        } else {
-            extras.putCharSequence(NotificationCompat.EXTRA_SUB_TEXT, appName);
+    public static void buildExtraSubText(Context context, String packageName, NotificationCompat.Builder localBuilder) {
+        CharSequence appName = ApplicationNameCache.getInstance().getAppName(context, packageName);
+        int color = getIconColor(context, packageName);
+        if (color == Notification.COLOR_DEFAULT) {
+            localBuilder.setSubText(appName);
+            return;
+        }
+        localBuilder.setColor(color);
+        CharSequence subText = ColorUtil.createColorSubtext(appName, color);
+        if (subText != null) {
+            localBuilder.setSubText(subText);
         }
     }
 
@@ -350,17 +351,15 @@ public class NotificationController {
 
         int id = (int) (System.currentTimeMillis() / 1000L);
 
-        Notification.Builder localBuilder = new Notification.Builder(context);
+        NotificationCompat.Builder localBuilder = new NotificationCompat.Builder(context);
 
-        Notification.BigTextStyle style = new Notification.BigTextStyle();
+        NotificationCompat.BigTextStyle style = new NotificationCompat.BigTextStyle();
         style.bigText(description);
         style.setBigContentTitle(title);
         style.setSummaryText(description);
         localBuilder.setStyle(style);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            localBuilder.setWhen(System.currentTimeMillis());
-            localBuilder.setShowWhen(true);
-        }
+        localBuilder.setWhen(System.currentTimeMillis());
+        localBuilder.setShowWhen(true);
 
         NotificationController.publish(context, new PushMetaInfo(), id, packageName, localBuilder);
     }
