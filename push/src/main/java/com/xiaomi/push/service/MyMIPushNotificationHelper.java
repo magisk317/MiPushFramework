@@ -65,10 +65,6 @@ public class MyMIPushNotificationHelper {
             localBuilder.setStyle(style);
         }
 
-
-        // Set small icon
-        NotificationController.processSmallIcon(xmPushService, packageName, localBuilder);
-
         PendingIntent localPendingIntent = getClickedPendingIntent(xmPushService, buildContainer, metaInfo, var1);
         if (localPendingIntent != null) {
             localBuilder.setContentIntent(localPendingIntent);

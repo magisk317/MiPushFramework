@@ -170,9 +170,6 @@ public class NotificationController {
         buildExtraSubText(context, packageName, builder, extras);
         builder.setExtras(extras);
 
-        // Set small icon
-        NotificationController.processSmallIcon(context, packageName, builder);
-
         builder.setCategory(Notification.CATEGORY_EVENT)
                 .setGroupSummary(true)
                 .setGroup(groupId);
@@ -224,6 +221,9 @@ public class NotificationController {
         Bundle extras = new Bundle();
         extras.putString("target_package", packageName);
         localBuilder.addExtras(extras);
+
+        // Set small icon
+        NotificationController.processSmallIcon(context, packageName, localBuilder);
 
         Notification notification = localBuilder.build();
         setTargetPackage(notification, packageName);
@@ -357,7 +357,6 @@ public class NotificationController {
         style.setBigContentTitle(title);
         style.setSummaryText(description);
         localBuilder.setStyle(style);
-        NotificationController.processSmallIcon(context, packageName, localBuilder);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             localBuilder.setWhen(System.currentTimeMillis());
             localBuilder.setShowWhen(true);
