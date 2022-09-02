@@ -1,9 +1,18 @@
 package com.xiaomi.push.service;
 
+import static com.xiaomi.push.service.MiPushMsgAck.geoMessageIsValidated;
+import static com.xiaomi.push.service.MiPushMsgAck.processGeoMessage;
+import static com.xiaomi.push.service.MiPushMsgAck.sendAckMessage;
+import static com.xiaomi.push.service.MiPushMsgAck.sendAppAbsentAck;
+import static com.xiaomi.push.service.MiPushMsgAck.sendAppNotInstallNotification;
+import static com.xiaomi.push.service.MiPushMsgAck.sendErrorAck;
+import static com.xiaomi.push.service.MiPushMsgAck.shouldSendBroadcast;
+import static com.xiaomi.push.service.MiPushMsgAck.verifyGeoMessage;
+import static com.xiaomi.push.service.PushServiceConstants.PREF_KEY_REGISTERED_PKGS;
+
 import android.accounts.Account;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.pm.ResolveInfo;
 import android.text.TextUtils;
 
 import com.elvishew.xlog.Logger;
@@ -17,20 +26,11 @@ import com.xiaomi.xmpush.thrift.XmPushActionContainer;
 import com.xiaomi.xmsf.BuildConfig;
 import com.xiaomi.xmsf.R;
 
-import java.util.List;
 import java.util.Map;
 
 import top.trumeet.common.cache.ApplicationNameCache;
-
-import static com.xiaomi.push.service.MiPushMsgAck.geoMessageIsValidated;
-import static com.xiaomi.push.service.MiPushMsgAck.processGeoMessage;
-import static com.xiaomi.push.service.MiPushMsgAck.sendAckMessage;
-import static com.xiaomi.push.service.MiPushMsgAck.sendAppAbsentAck;
-import static com.xiaomi.push.service.MiPushMsgAck.sendAppNotInstallNotification;
-import static com.xiaomi.push.service.MiPushMsgAck.sendErrorAck;
-import static com.xiaomi.push.service.MiPushMsgAck.shouldSendBroadcast;
-import static com.xiaomi.push.service.MiPushMsgAck.verifyGeoMessage;
-import static com.xiaomi.push.service.PushServiceConstants.PREF_KEY_REGISTERED_PKGS;
+import top.trumeet.common.db.RegisteredApplicationDb;
+import top.trumeet.common.register.RegisteredApplication;
 
 
 /**
@@ -188,7 +188,11 @@ public class MyMIPushMessageProcessor {
 
         }
 
-        if (!TextUtils.isEmpty(metaInfo.getTitle()) && !TextUtils.isEmpty(metaInfo.getDescription()) && metaInfo.passThrough != 1) {
+
+        RegisteredApplication application = RegisteredApplicationDb.registerApplication(
+                targetPackage, false, paramXMPushService, null);
+        if (!TextUtils.isEmpty(metaInfo.getTitle()) && !TextUtils.isEmpty(metaInfo.getDescription()) &&
+                (metaInfo.passThrough != 1 || application.isShowPassThrough())) {
 
             String idKey = null;
             if (metaInfo.extra != null) {
