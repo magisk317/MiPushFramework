@@ -346,14 +346,31 @@ public class ManagePermissionsActivity extends AppCompatActivity {
                     getString(R.string.permission_summary_notification_on_register),
                     screen);
 
+            SwitchPreferenceCompat clearAllNotificationsOfSession =
+                    createPreference(mApplicationItem.isClearAllNotificationsOfSession(),
+                            (preference, newValue) -> {
+                                mApplicationItem.setClearAllNotificationsOfSession((Boolean) newValue);
+                                return true;
+                            },
+                            getString(R.string.group_notifications_for_same_session_clear_title),
+                            null);
+
             addItem(mApplicationItem.isGroupNotificationsForSameSession(),
                     (preference, newValue) -> {
                         mApplicationItem.setGroupNotificationsForSameSession(((Boolean) newValue));
+                        clearAllNotificationsOfSession.setEnabled((Boolean) newValue);
                         return true;
                     },
                     getString(R.string.group_notifications_for_same_session_title),
                     getString(R.string.group_notifications_for_same_session_detail),
                     screen);
+
+
+            screen.addPreference(clearAllNotificationsOfSession);
+
+            if (!mApplicationItem.isGroupNotificationsForSameSession()) {
+                clearAllNotificationsOfSession.setEnabled(false);
+            }
 
             PreferenceCategory category = new PreferenceCategory(getActivity(), null, moe.shizuku.preference.R.attr.preferenceCategoryStyle,
                     R.style.Preference_Category_Material);
