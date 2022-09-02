@@ -46,7 +46,7 @@ public class MyMIPushNotificationHelper {
     /**
      * @see MIPushNotificationHelper#notifyPushMessage
      */
-    public static void notifyPushMessage(Context xmPushService, XmPushActionContainer buildContainer, byte[] var1, long var2) {
+    public static void notifyPushMessage(Context xmPushService, XmPushActionContainer buildContainer, byte[] payload, long var2) {
         PushMetaInfo metaInfo = buildContainer.getMetaInfo();
         String packageName = buildContainer.getPackageName();
 
@@ -65,7 +65,7 @@ public class MyMIPushNotificationHelper {
             localBuilder.setStyle(style);
         }
 
-        PendingIntent localPendingIntent = getClickedPendingIntent(xmPushService, buildContainer, metaInfo, var1);
+        PendingIntent localPendingIntent = getClickedPendingIntent(xmPushService, buildContainer, payload);
         if (localPendingIntent != null) {
             localBuilder.setContentIntent(localPendingIntent);
             // Also carry along the target PendingIntent, whose target will get temporarily whitelisted for background-activity-start upon sent.
@@ -85,7 +85,7 @@ public class MyMIPushNotificationHelper {
 //                logger.e(e.getLocalizedMessage(), e);
 //            }
 
-            addDebugAction(xmPushService, buildContainer, var1, metaInfo, packageName, localBuilder);
+            addDebugAction(xmPushService, buildContainer, payload, metaInfo, packageName, localBuilder);
 
             localBuilder.setWhen(System.currentTimeMillis());
             localBuilder.setShowWhen(true);
@@ -161,29 +161,29 @@ public class MyMIPushNotificationHelper {
         return null;
     }
 
-    private static PendingIntent getClickedPendingIntent(Context paramContext, XmPushActionContainer paramXmPushActionContainer, PushMetaInfo paramPushMetaInfo, byte[] paramArrayOfByte) {
-        if (paramPushMetaInfo == null) {
+    private static PendingIntent getClickedPendingIntent(
+            Context paramContext, XmPushActionContainer paramXmPushActionContainer, byte[] payload) {
+        PushMetaInfo metaInfo = paramXmPushActionContainer.getMetaInfo();
+        if (metaInfo == null) {
             return null;
         }
-        PendingIntent localPendingIntent;
 
         int id = MyClientEventDispatcher.getNotificationId(paramContext, paramXmPushActionContainer);
 
         {
             //Jump web
             String urlJump = null;
-            if (!TextUtils.isEmpty(paramPushMetaInfo.url)) {
-                urlJump = paramPushMetaInfo.url;
-            } else if (paramPushMetaInfo.getExtra() != null) {
-                urlJump = paramPushMetaInfo.getExtra().get(PushConstants.EXTRA_PARAM_WEB_URI);
+            if (!TextUtils.isEmpty(metaInfo.url)) {
+                urlJump = metaInfo.url;
+            } else if (metaInfo.getExtra() != null) {
+                urlJump = metaInfo.getExtra().get(PushConstants.EXTRA_PARAM_WEB_URI);
             }
 
             if (!TextUtils.isEmpty(urlJump)) {
                 Intent localIntent3 = new Intent("android.intent.action.VIEW");
                 localIntent3.setData(Uri.parse(urlJump));
                 localIntent3.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-                localPendingIntent = PendingIntent.getActivity(paramContext, id, localIntent3, PendingIntent.FLAG_UPDATE_CURRENT);
-                return localPendingIntent;
+                return PendingIntent.getActivity(paramContext, notificationId, localIntent3, PendingIntent.FLAG_UPDATE_CURRENT);
             }
         }
 
@@ -193,11 +193,10 @@ public class MyMIPushNotificationHelper {
         } else {
             localIntent.setComponent(new ComponentName("com.xiaomi.xmsf", "com.xiaomi.push.sdk.MyPushMessageHandler"));
         }
-        localIntent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, paramArrayOfByte);
+        localIntent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, payload);
         localIntent.putExtra(MIPushNotificationHelper.FROM_NOTIFICATION, true);
-        localIntent.addCategory(String.valueOf(paramPushMetaInfo.getNotifyId()));
-        localPendingIntent = PendingIntent.getService(paramContext, id, localIntent, PendingIntent.FLAG_UPDATE_CURRENT);
-        return localPendingIntent;
+        localIntent.addCategory(String.valueOf(metaInfo.getNotifyId()));
+        return PendingIntent.getService(paramContext, notificationId, localIntent, PendingIntent.FLAG_UPDATE_CURRENT);
     }
 
     /**
