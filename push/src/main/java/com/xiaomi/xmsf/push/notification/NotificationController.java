@@ -44,6 +44,8 @@ import java.util.Map;
 
 import top.trumeet.common.cache.ApplicationNameCache;
 import top.trumeet.common.cache.IconCache;
+import top.trumeet.common.db.RegisteredApplicationDb;
+import top.trumeet.common.register.RegisteredApplication;
 
 /**
  * @author Trumeet
@@ -257,6 +259,17 @@ public class NotificationController {
         }
 
         manager.cancel(id);
+
+        RegisteredApplication application = RegisteredApplicationDb.registerApplication(
+                container.getPackageName(), false, context, null);
+        boolean isClearAllNotificationsOfSession = application != null &&
+                application.isGroupNotificationsForSameSession() &&
+                application.isClearAllNotificationsOfSession();
+
+        if (isClearAllNotificationsOfSession) {
+            manager.cancel(groupId.hashCode());
+            return;
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (groupId != null) {
