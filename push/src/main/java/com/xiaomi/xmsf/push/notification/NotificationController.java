@@ -166,8 +166,6 @@ public class NotificationController {
             builder = new Notification.Builder(context);
         }
 
-        buildExtraSubText(context, packageName, builder);
-
         builder.setCategory(Notification.CATEGORY_EVENT)
                 .setGroupSummary(true)
                 .setGroup(groupId);
@@ -222,6 +220,9 @@ public class NotificationController {
 
         // Set small icon
         NotificationController.processSmallIcon(context, packageName, localBuilder);
+
+        // Fill app name
+        NotificationController.buildExtraSubText(context, packageName, localBuilder);
 
         Notification notification = localBuilder.build();
         setTargetPackage(notification, packageName);

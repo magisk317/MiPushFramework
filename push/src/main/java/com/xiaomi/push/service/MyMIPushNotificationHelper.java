@@ -103,8 +103,6 @@ public class MyMIPushNotificationHelper {
             }
         }
 
-        // Fill app name
-        NotificationController.buildExtraSubText(xmPushService, packageName, localBuilder);
 
         int notificationId = MyClientEventDispatcher.getNotificationId(xmPushService, buildContainer);
         if (groupSession) {
