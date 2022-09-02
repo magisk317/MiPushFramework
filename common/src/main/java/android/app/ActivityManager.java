@@ -14,8 +14,10 @@ import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
-import androidx.annotation.RequiresPermission;
 import android.util.Size;
+
+import androidx.annotation.RequiresPermission;
+import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.FileDescriptor;
 import java.util.List;
@@ -61,7 +63,7 @@ public class ActivityManager {
         throw new RuntimeException("Stub!");
     }
 
-    public int addAppTask(Activity activity, Intent intent, ActivityManager.TaskDescription description, Bitmap thumbnail) {
+    public int addAppTask(AppCompatActivity activity, Intent intent, ActivityManager.TaskDescription description, Bitmap thumbnail) {
         throw new RuntimeException("Stub!");
     }
 

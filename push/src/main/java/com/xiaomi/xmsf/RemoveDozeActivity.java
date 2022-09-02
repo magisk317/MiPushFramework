@@ -7,9 +7,11 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
-import androidx.annotation.Nullable;
 import android.util.Log;
 import android.widget.Toast;
+
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
 
 import top.trumeet.common.push.PushServiceAccessibility;
 
@@ -18,7 +20,7 @@ import top.trumeet.common.push.PushServiceAccessibility;
  * @date 2018/1/24
  */
 
-public class RemoveDozeActivity extends Activity {
+public class RemoveDozeActivity extends AppCompatActivity {
     private static final int RC_REQUEST = 0;
     private static final String TAG = "RemoveDozeActivity";
 

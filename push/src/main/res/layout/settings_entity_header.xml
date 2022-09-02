@@ -18,10 +18,11 @@
 <!-- Entity header -->
 <RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     style="@style/EntityHeader"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:paddingStart="?android:attr/listPreferredItemPaddingStart"
+    android:paddingStart="?attr/listPreferredItemPaddingStart"
     android:paddingEnd="0dp"
     android:paddingTop="24dp"
     android:paddingBottom="24dp">
@@ -48,8 +49,8 @@
             android:layout_weight="1"
             android:layout_height="0dp"
             android:minWidth="@dimen/min_tap_target_size"
-            android:src="@drawable/ic_settings_24dp"
-            android:tint="?android:attr/colorAccent" />
+            app:srcCompat="@drawable/ic_settings_24dp"
+            android:tint="?attr/colorAccent" />
 
         <ImageButton
             android:id="@android:id/button2"
@@ -58,8 +59,8 @@
             android:layout_weight="1"
             android:layout_height="0dp"
             android:minWidth="@dimen/min_tap_target_size"
-            android:src="@null"
-            android:tint="?android:attr/colorAccent" />
+            app:srcCompat="@null"
+            android:tint="?attr/colorAccent" />
 
     </LinearLayout>
 
@@ -90,7 +91,7 @@
             android:gravity="start"
             android:singleLine="true"
             android:ellipsize="marquee"
-            android:textAppearance="@android:style/TextAppearance.Material.Body1"
+            android:textAppearance="@style/TextAppearance.AppCompat.Body1"
             android:textColor="?android:attr/textColorSecondary" />
 
         <TextView
@@ -101,7 +102,7 @@
             android:singleLine="true"
             android:ellipsize="marquee"
             android:textAlignment="viewStart"
-            android:textAppearance="@android:style/TextAppearance.Material.Body1"
+            android:textAppearance="@style/TextAppearance.AppCompat.Body1"
             android:textColor="?android:attr/textColorSecondary" />
 
     </LinearLayout>

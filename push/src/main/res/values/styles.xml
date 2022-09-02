@@ -35,11 +35,11 @@
     </style>
 
     <style name="EntityHeader">
-        <item name="android:background">?colorSettings</item>
+        <item name="background">?colorSettings</item>
         <item name="android:gravity">center_horizontal</item>
         <item name="android:paddingTop">16dp</item>
-        <item name="android:paddingStart">16dp</item>
-        <item name="android:paddingEnd">16dp</item>
+        <item name="paddingStart">16dp</item>
+        <item name="paddingEnd">16dp</item>
         <item name="android:paddingBottom">8dp</item>
     </style>
 
@@ -54,7 +54,7 @@
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowContentOverlay">@null</item>
-        <item name="android:windowNoTitle">true</item>
+        <item name="windowNoTitle">true</item>
         <item name="android:windowIsFloating">true</item>
         <item name="android:backgroundDimEnabled">false</item>
     </style>

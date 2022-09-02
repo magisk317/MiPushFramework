@@ -1,9 +1,10 @@
 package top.trumeet.common.widget;
 
-import android.app.AlertDialog;
 import android.content.Context;
 import android.text.method.LinkMovementMethod;
 import android.widget.TextView;
+
+import androidx.appcompat.app.AlertDialog;
 
 import top.trumeet.common.R;
 

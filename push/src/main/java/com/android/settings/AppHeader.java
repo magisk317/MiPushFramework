@@ -16,9 +16,10 @@
 
 package com.android.settings;
 
-import android.app.Fragment;
 import android.content.Intent;
 import android.os.Bundle;
+
+import androidx.fragment.app.Fragment;
 
 public class AppHeader {
 

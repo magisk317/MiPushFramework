@@ -1,12 +1,12 @@
 package com.xiaomi.xmsf;
 
-import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.widget.Toast;
 
-import com.xiaomi.xmsf.utils.LogUtils;
+import androidx.appcompat.app.AppCompatActivity;
 
+import com.xiaomi.xmsf.utils.LogUtils;
 
 
 /**
@@ -15,7 +15,7 @@ import com.xiaomi.xmsf.utils.LogUtils;
  * @date 2017/12/29
  */
 
-public class ShareLogActivity extends Activity {
+public class ShareLogActivity extends AppCompatActivity {
     @Override
     public void onCreate (Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
