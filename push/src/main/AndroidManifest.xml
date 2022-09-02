@@ -32,6 +32,7 @@
         <intent>
             <action android:name="com.xiaomi.mipush.ERROR" />
         </intent>
+        <package android:name="com.catchingnow.icebox" />
     </queries>
 
     <uses-permission
