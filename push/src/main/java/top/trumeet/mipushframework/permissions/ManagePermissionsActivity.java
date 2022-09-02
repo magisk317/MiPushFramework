@@ -372,6 +372,17 @@ public class ManagePermissionsActivity extends AppCompatActivity {
                 clearAllNotificationsOfSession.setEnabled(false);
             }
 
+
+            addItem(mApplicationItem.isShowPassThrough(),
+                    (preference, newValue) -> {
+                        mApplicationItem.setShowPassThrough((Boolean) newValue);
+                        return true;
+                    },
+                    getString(R.string.show_pass_through),
+                    null,
+                    screen);
+
+
             PreferenceCategory category = new PreferenceCategory(getActivity(), null, moe.shizuku.preference.R.attr.preferenceCategoryStyle,
                     R.style.Preference_Category_Material);
             category.setTitle(R.string.permissions);
