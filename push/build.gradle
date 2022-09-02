@@ -84,8 +84,8 @@ dependencies {
     })
     // Hook
     testImplementation 'junit:junit:4.12'
-    androidTestImplementation 'androidx.test.ext:junit:1.1.1'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.1.0'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.3'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
     implementation project(':common')
     implementation project(':condom')
     implementation 'androidx.legacy:legacy-support-v4:1.0.0'
@@ -102,8 +102,8 @@ dependencies {
         exclude group: 'com.android.support'
     })
     // Support
-    implementation 'androidx.recyclerview:recyclerview:1.0.0'
-    implementation 'androidx.appcompat:appcompat:1.0.0'
+    implementation 'androidx.recyclerview:recyclerview:1.2.1'
+    implementation 'androidx.appcompat:appcompat:1.5.0'
     // Preference
     implementation 'moe.shizuku.preference:preference:2.2.3'
     implementation 'moe.shizuku.preference:preference-switchcompat:2.2.3'
@@ -131,6 +131,6 @@ dependencies {
         exclude group: 'com.android.support'
     })
     // Work
-    implementation 'androidx.work:work-runtime:2.0.1'
+    implementation 'androidx.work:work-runtime:2.7.1'
 
 }
