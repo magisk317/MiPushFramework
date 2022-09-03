@@ -14,7 +14,6 @@ import com.catchingnow.icebox.sdk_client.IceBox;
 import com.elvishew.xlog.Logger;
 import com.elvishew.xlog.XLog;
 import com.xiaomi.push.service.MIPushNotificationHelper;
-import com.xiaomi.push.service.MyClientEventDispatcher;
 import com.xiaomi.push.service.MyMIPushNotificationHelper;
 import com.xiaomi.push.service.PushConstants;
 import com.xiaomi.xmpush.thrift.PushMetaInfo;
@@ -96,10 +95,12 @@ public class MyPushMessageHandler extends IntentService {
             if (startService(localIntent) != null) {
                 int notificationId = intent.getIntExtra(Constants.INTENT_NOTIFICATION_ID, 0);
                 String notificationGroup = intent.getStringExtra(Constants.INTENT_NOTIFICATION_GROUP);
+                boolean groupOfSession = intent.getBooleanExtra(Constants.INTENT_NOTIFICATION_GROUP_OF_SESSION, false);
 
                 RegisteredApplication application = RegisteredApplicationDb.registerApplication(
                         container.getPackageName(), false, this, null);
-                boolean isClearAllNotificationsOfSession = application != null &&
+                boolean isClearAllNotificationsOfSession = groupOfSession &&
+                        application != null &&
                         application.isGroupNotificationsForSameSession() &&
                         application.isClearAllNotificationsOfSession();
 

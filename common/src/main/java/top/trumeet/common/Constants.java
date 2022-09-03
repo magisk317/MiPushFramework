@@ -99,4 +99,5 @@ public final class Constants {
 
     public static final String INTENT_NOTIFICATION_ID = "mipush_notification_id";
     public static final String INTENT_NOTIFICATION_GROUP = "mipush_notification_group";
+    public static final String INTENT_NOTIFICATION_GROUP_OF_SESSION = "mipush_notification_group_of_session";
 }

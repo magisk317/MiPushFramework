@@ -88,6 +88,7 @@ public class MyMIPushNotificationHelper {
         localBuilder.setContentText(titleAndDesp[1]);
 
         boolean groupSession = false;
+        boolean groupOfSession = false;
         String group = getExtraField(metaInfo.getExtra(), "notification_group", null);
         if (group != null) {
             localBuilder.setGroup(packageName + "_" + group);
@@ -98,6 +99,7 @@ public class MyMIPushNotificationHelper {
             if (groupSession) {
                 String id = metaInfo.isSetNotifyId() ? String.valueOf(metaInfo.getNotifyId()) : "";
                 localBuilder.setGroup(packageName + "_" + id);
+                groupOfSession = true;
             } else {
                 localBuilder.setGroup(packageName);
             }
@@ -112,6 +114,7 @@ public class MyMIPushNotificationHelper {
         Intent intentExtra = new Intent();
         intentExtra.putExtra(Constants.INTENT_NOTIFICATION_ID, notificationId);
         intentExtra.putExtra(Constants.INTENT_NOTIFICATION_GROUP, localBuilder.build().getGroup());
+        intentExtra.putExtra(Constants.INTENT_NOTIFICATION_GROUP_OF_SESSION, groupOfSession);
 
         PendingIntent localPendingIntent = getClickedPendingIntent(
                 xmPushService, buildContainer, payload, notificationId, intentExtra.getExtras());
