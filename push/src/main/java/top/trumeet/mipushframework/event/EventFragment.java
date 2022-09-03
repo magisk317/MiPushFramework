@@ -3,16 +3,17 @@ package top.trumeet.mipushframework.event;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.CancellationSignal;
-import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
-import androidx.recyclerview.widget.DividerItemDecoration;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.DividerItemDecoration;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import java.util.List;
 
@@ -145,15 +146,19 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
                 mAdapter.getItems().clear();
             }
 
+            appendItemToAdapter(list);
+            mLoadPage = mTargetPage;
+
+            swipeRefreshLayout.setRefreshing(false);
+            mLoadTask = null;
+        }
+
+        private void appendItemToAdapter(List<Event> list) {
             int start = mAdapter.getItemCount();
             Items items = new Items(mAdapter.getItems());
             items.addAll(list);
             mAdapter.setItems(items);
             mAdapter.notifyItemRangeInserted(start, list.size());
-            mLoadPage = mTargetPage;
-
-            swipeRefreshLayout.setRefreshing(false);
-            mLoadTask = null;
         }
 
         @Override
