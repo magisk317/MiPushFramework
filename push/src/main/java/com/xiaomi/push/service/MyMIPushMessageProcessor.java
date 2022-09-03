@@ -42,7 +42,7 @@ import top.trumeet.common.register.RegisteredApplication;
 public class MyMIPushMessageProcessor {
     private static Logger logger = XLog.tag("MyMIPushMessageProcessor").build();
 
-    public static void process(XMPushService paramXMPushService, XmPushActionContainer buildContainer, byte[] paramArrayOfByte, long var2, Intent localIntent) {
+    public static void process(XMPushService paramXMPushService, XmPushActionContainer buildContainer, byte[] payload, long sizeContainPayload, Intent localIntent) {
         try {
             long current = System.currentTimeMillis();
             PushMetaInfo localPushMetaInfo = buildContainer.getMetaInfo();
@@ -114,14 +114,14 @@ public class MyMIPushMessageProcessor {
                         return;
                     }
 
-                    boolean var10 = processGeoMessage(paramXMPushService, localPushMetaInfo, paramArrayOfByte);
+                    boolean var10 = processGeoMessage(paramXMPushService, localPushMetaInfo, payload);
                     MIPushEventProcessor.sendGeoAck(paramXMPushService, buildContainer, true, false, false);
                     if (!var10) {
                         return;
                     }
                 }
 
-                userProcessMIPushMessage(paramXMPushService, buildContainer, paramArrayOfByte, var2, localIntent, isGeoMessage);
+                userProcessMIPushMessage(paramXMPushService, buildContainer, payload, sizeContainPayload, localIntent, isGeoMessage);
             }
 
 
@@ -134,7 +134,7 @@ public class MyMIPushMessageProcessor {
     /**
      * @see MIPushEventProcessor#postProcessMIPushMessage
      */
-    private static void userProcessMIPushMessage(XMPushService paramXMPushService, XmPushActionContainer buildContainer, byte[] paramArrayOfByte, long var2, Intent paramIntent, boolean isGeoMessage) {
+    private static void userProcessMIPushMessage(XMPushService paramXMPushService, XmPushActionContainer buildContainer, byte[] payload, long sizeContainPayload, Intent paramIntent, boolean isGeoMessage) {
         //var5 buildContainer
         //var6 metaInfo
 
@@ -205,12 +205,12 @@ public class MyMIPushMessageProcessor {
             if (isDuplicateMessage) {
                 logger.w("drop a duplicate message, key=" + idKey);
             } else {
-                MyMIPushNotificationHelper.notifyPushMessage(paramXMPushService, buildContainer, paramArrayOfByte, var2);
+                MyMIPushNotificationHelper.notifyPushMessage(paramXMPushService, buildContainer, payload, sizeContainPayload);
 
                 //send broadcast
                 if (!isBusinessMessage) {
                     Intent localIntent = new Intent(PushConstants.MIPUSH_ACTION_MESSAGE_ARRIVED);
-                    localIntent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, paramArrayOfByte);
+                    localIntent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, payload);
                     localIntent.putExtra(MIPushNotificationHelper.FROM_NOTIFICATION, true);
                     localIntent.setPackage(targetPackage);
 

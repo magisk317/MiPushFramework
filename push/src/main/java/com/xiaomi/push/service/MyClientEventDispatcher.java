@@ -100,7 +100,7 @@ public class MyClientEventDispatcher extends ClientEventDispatcher {
      */
     private static class MessageProcessor {
         private static Logger logger = XLog.tag("EventProcessorI").build();
-        private static boolean shouldAllow(EventType type, Context context) {
+        private static boolean userAllow(EventType type, Context context) {
             RegisteredApplication application = RegisteredApplicationDb.registerApplication(type.getPkg(),
                     false, context, null);
             if (application == null) {
@@ -128,17 +128,17 @@ public class MyClientEventDispatcher extends ClientEventDispatcher {
 
     private static class EventProcessor extends MIPushEventProcessor {
         private static Logger logger = XLog.tag("MyClientEventDispatcherD").build();
-        private static void runProcessMIPushMessage(XMPushService xmPushService, byte[] payload, long var2) {
+        private static void runProcessMIPushMessage(XMPushService xmPushService, byte[] payload, long sizeContainPayload) {
             XmPushActionContainer buildContainer = buildContainer(payload);
             if (BuildConfig.DEBUG) {
                 logger.i("buildContainer: " + buildContainer.toString());
             }
             EventType type = TypeFactory.create(buildContainer, buildContainer.packageName);
-            if (MessageProcessor.shouldAllow(type, xmPushService) ||
+            if (MessageProcessor.userAllow(type, xmPushService) ||
                     PushConstants.PUSH_SERVICE_PACKAGE_NAME.equals(buildContainer.packageName)) {
 
                 Intent localIntent = buildIntent(payload, System.currentTimeMillis());
-                MyMIPushMessageProcessor.process(xmPushService, buildContainer, payload, var2, localIntent);
+                MyMIPushMessageProcessor.process(xmPushService, buildContainer, payload, sizeContainPayload, localIntent);
 
             } else {
                 if (BuildConfig.DEBUG) {
