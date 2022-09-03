@@ -44,8 +44,6 @@ import java.util.Map;
 
 import top.trumeet.common.cache.ApplicationNameCache;
 import top.trumeet.common.cache.IconCache;
-import top.trumeet.common.db.RegisteredApplicationDb;
-import top.trumeet.common.register.RegisteredApplication;
 
 /**
  * @author Trumeet
@@ -243,18 +241,12 @@ public class NotificationController {
     }
 
     public static void cancel(Context context, XmPushActionContainer container,
-                              int notificationId, String notificationGroup) {
+                              int notificationId, String notificationGroup, boolean clearGroup) {
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
 
         manager.cancel(notificationId);
 
-        RegisteredApplication application = RegisteredApplicationDb.registerApplication(
-                container.getPackageName(), false, context, null);
-        boolean isClearAllNotificationsOfSession = application != null &&
-                application.isGroupNotificationsForSameSession() &&
-                application.isClearAllNotificationsOfSession();
-
-        if (isClearAllNotificationsOfSession) {
+        if (clearGroup) {
             manager.cancel(notificationGroup.hashCode());
             return;
         }

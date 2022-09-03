@@ -26,8 +26,10 @@ import com.xiaomi.xmsf.utils.ConfigCenter;
 import java.util.function.Consumer;
 
 import top.trumeet.common.Constants;
+import top.trumeet.common.db.RegisteredApplicationDb;
 import top.trumeet.common.ita.ITopActivity;
 import top.trumeet.common.ita.TopActivityFactory;
+import top.trumeet.common.register.RegisteredApplication;
 import top.trumeet.common.utils.Utils;
 
 import static android.os.Build.VERSION.SDK_INT;
@@ -94,7 +96,15 @@ public class MyPushMessageHandler extends IntentService {
             if (startService(localIntent) != null) {
                 int notificationId = intent.getIntExtra(Constants.INTENT_NOTIFICATION_ID, 0);
                 String notificationGroup = intent.getStringExtra(Constants.INTENT_NOTIFICATION_GROUP);
-                NotificationController.cancel(this, container, notificationId, notificationGroup);
+
+                RegisteredApplication application = RegisteredApplicationDb.registerApplication(
+                        container.getPackageName(), false, this, null);
+                boolean isClearAllNotificationsOfSession = application != null &&
+                        application.isGroupNotificationsForSameSession() &&
+                        application.isClearAllNotificationsOfSession();
+
+                NotificationController.cancel(this, container,
+                        notificationId, notificationGroup, isClearAllNotificationsOfSession);
             }
         } catch (Exception e) {
             logger.e(e.getLocalizedMessage(), e);
