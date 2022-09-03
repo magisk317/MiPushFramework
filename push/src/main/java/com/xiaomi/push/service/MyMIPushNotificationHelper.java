@@ -95,6 +95,8 @@ public class MyMIPushNotificationHelper {
         String group = getExtraField(metaInfo.getExtra(), "notification_group", null);
         if (group != null) {
             localBuilder.setGroup(packageName + "_" + group);
+        } else if (metaInfo.isSetPassThrough()) {
+            localBuilder.setGroup(packageName);
         } else if (groupSession) {
             String id = metaInfo.isSetNotifyId() ? String.valueOf(metaInfo.getNotifyId()) : "";
             localBuilder.setGroup(packageName + "_" + id);
