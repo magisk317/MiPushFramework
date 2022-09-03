@@ -108,7 +108,9 @@ public class MyMIPushNotificationHelper {
             notificationId = (notificationId + "_" + System.currentTimeMillis()).hashCode();
         }
 
-        PendingIntent localPendingIntent = getClickedPendingIntent(xmPushService, buildContainer, payload, notificationId);
+        PendingIntent localPendingIntent = getClickedPendingIntent(
+                xmPushService, buildContainer, payload,
+                notificationId, localBuilder.build().getGroup());
         if (localPendingIntent != null) {
             localBuilder.setContentIntent(localPendingIntent);
             // Also carry along the target PendingIntent, whose target will get temporarily whitelisted for background-activity-start upon sent.
@@ -162,7 +164,7 @@ public class MyMIPushNotificationHelper {
 
     private static PendingIntent getClickedPendingIntent(
             Context paramContext, XmPushActionContainer paramXmPushActionContainer, byte[] payload,
-            int notificationId) {
+            int notificationId, String notificationGroup) {
         PushMetaInfo metaInfo = paramXmPushActionContainer.getMetaInfo();
         if (metaInfo == null) {
             return null;
@@ -194,6 +196,7 @@ public class MyMIPushNotificationHelper {
         localIntent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, payload);
         localIntent.putExtra(MIPushNotificationHelper.FROM_NOTIFICATION, true);
         localIntent.putExtra(Constants.INTENT_NOTIFICATION_ID, notificationId);
+        localIntent.putExtra(Constants.INTENT_NOTIFICATION_GROUP, notificationGroup);
         localIntent.addCategory(String.valueOf(metaInfo.getNotifyId()));
         return PendingIntent.getService(paramContext, notificationId, localIntent, PendingIntent.FLAG_UPDATE_CURRENT);
     }

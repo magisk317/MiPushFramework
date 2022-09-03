@@ -98,4 +98,5 @@ public final class Constants {
             SERVICE_APP_NAME + ".RemoveDozeActivity";
 
     public static final String INTENT_NOTIFICATION_ID = "mipush_notification_id";
+    public static final String INTENT_NOTIFICATION_GROUP = "mipush_notification_group";
 }
