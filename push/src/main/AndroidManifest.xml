@@ -32,6 +32,11 @@
         <intent>
             <action android:name="com.xiaomi.mipush.ERROR" />
         </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
         <package android:name="com.catchingnow.icebox" />
     </queries>
 
