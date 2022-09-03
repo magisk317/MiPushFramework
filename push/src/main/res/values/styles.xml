@@ -1,21 +1,10 @@
-<resources xmlns:tools="http://schemas.android.com/tools">
-    <style name="AppTheme" parent="Theme.AppCompat.Light">
-        <item name="actionBarTheme">@style/ColorTheme.O.ActionBar</item>
-        <item name="preferenceTheme">@style/AppTheme.PreferenceTheme</item>
-        <item name="colorSettings">#ffeeeeee</item><!-- material gray 200 -->
+<resources>
+    <style name="BaseTheme" parent="Theme.Material3.DynamicColors.DayNight">
+        <item name="actionBarTheme">@style/AppTheme</item>
+        <item name="preferenceTheme">@style/AppTheme</item>
+        <item name="android:statusBarColor">?android:colorBackground</item>
     </style>
-
-    <style name="ColorTheme.O.ActionBar" parent="ThemeOverlay.AppCompat.ActionBar">
-        <!--<item name="android:colorControlNormal">?android:textColorSecondary</item>-->
-        <item name="android:textColorPrimary">?colorAccent</item>
-        <item name="android:textColorSecondary">?colorAccent</item>
-    </style>
-
-    <style name="AppTheme.PreferenceTheme" parent="PreferenceThemeOverlay">
-        <!-- Only need this on pre-Lollipop -->
-        <item name="accentColorCompat">?colorAccent</item>
-        <item name="switchPreferenceCompatStyle">@style/Preference.SwitchPreferenceCompat</item>
-        <item name="simpleMenuPreferenceStyle">@style/SimpleMenuPreference</item>
+    <style name="AppTheme" parent="BaseTheme">
     </style>
 
     <style name="SimpleMenuPreference" parent="Preference.SimpleMenuPreference">
@@ -27,7 +16,7 @@
 
     <style name="AppTheme.Wizard" parent="@style/SuwThemeMaterial.Light">
         <item name="colorPrimaryDark">@color/suw_color_accent_light</item>
-        <item name="android:statusBarColor" tools:ignore="NewApi">@color/suw_color_accent_light</item>
+        <item name="android:statusBarColor">@color/suw_color_accent_light</item>
     </style>
 
     <style name="Widget.Design.BottomNavigationView" parent="">

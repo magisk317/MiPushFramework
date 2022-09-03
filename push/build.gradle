@@ -82,6 +82,7 @@ dependencies {
     implementation('com.elvishew:xlog:1.6.1', {
         exclude group: 'com.android.support'
     })
+    implementation 'com.google.android.material:material:1.6.1'
     // Hook
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'androidx.test.ext:junit:1.1.3'
