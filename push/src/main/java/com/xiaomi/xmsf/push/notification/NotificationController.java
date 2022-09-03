@@ -304,6 +304,8 @@ public class NotificationController {
 
 
     public static void processSmallIcon(Context context, String packageName, NotificationCompat.Builder notificationBuilder) {
+        notificationBuilder.setSmallIcon(R.drawable.ic_notifications_black_24dp);
+
         // refer: https://dev.mi.com/console/doc/detail?pId=2625#_5_0
         Context pkgContext = null;
         try {
@@ -334,8 +336,6 @@ public class NotificationController {
                 return;
             }
         }
-
-        notificationBuilder.setSmallIcon(R.drawable.ic_notifications_black_24dp);
     }
 
 
