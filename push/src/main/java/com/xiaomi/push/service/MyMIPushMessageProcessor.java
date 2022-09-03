@@ -42,8 +42,14 @@ import top.trumeet.common.register.RegisteredApplication;
 public class MyMIPushMessageProcessor {
     private static Logger logger = XLog.tag("MyMIPushMessageProcessor").build();
 
-    public static void process(XMPushService paramXMPushService, XmPushActionContainer buildContainer, byte[] payload, long sizeContainPayload, Intent localIntent) {
+    public static void process(XMPushService paramXMPushService, byte[] payload, long sizeContainPayload) {
         try {
+            XmPushActionContainer buildContainer = MIPushEventProcessor.buildContainer(payload);
+            if (buildContainer == null) {
+                return;
+            }
+
+            Intent localIntent = MIPushEventProcessor.buildIntent(payload, System.currentTimeMillis());
             long current = System.currentTimeMillis();
             PushMetaInfo localPushMetaInfo = buildContainer.getMetaInfo();
             if (localPushMetaInfo != null) {

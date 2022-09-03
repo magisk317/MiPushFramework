@@ -137,8 +137,7 @@ public class MyClientEventDispatcher extends ClientEventDispatcher {
             if (MessageProcessor.userAllow(type, xmPushService) ||
                     PushConstants.PUSH_SERVICE_PACKAGE_NAME.equals(buildContainer.packageName)) {
 
-                Intent localIntent = buildIntent(payload, System.currentTimeMillis());
-                MyMIPushMessageProcessor.process(xmPushService, buildContainer, payload, sizeContainPayload, localIntent);
+                MyMIPushMessageProcessor.process(xmPushService, payload, sizeContainPayload);
 
             } else {
                 if (BuildConfig.DEBUG) {
