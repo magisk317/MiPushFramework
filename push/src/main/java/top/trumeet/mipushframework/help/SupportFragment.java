@@ -7,12 +7,13 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 
+import com.xiaomi.xmsf.R;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 import moe.shizuku.support.helplib.HelpFragment;
-import com.xiaomi.xmsf.R;
 
 /**
  * Created by Trumeet on 2018/2/8.
@@ -29,13 +30,13 @@ public class SupportFragment extends HelpFragment {
         getPreferenceScreen()
                 .findPreference(KEY_ISSUE)
                 .setIntent(new Intent(Intent.ACTION_VIEW)
-                .setData(Uri.parse("https://github.com/MiPushFramework/MiPushFramework/issues")));
+                        .setData(Uri.parse("https://github.com/NihilityT/MiPushFramework/issues")));
         getPreferenceScreen()
                 .findPreference(KEY_MAIL)
                 .setVisible(false);
         getPreferenceScreen().findPreference(KEY_TELEGRAM)
                 .setIntent(new Intent(Intent.ACTION_VIEW)
-                .setData(Uri.parse("http://t.me/mipushframework")));
+                        .setData(Uri.parse("http://t.me/mipushframework")));
         load();
     }
 
