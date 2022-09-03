@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat;
 
 import com.elvishew.xlog.Logger;
 import com.elvishew.xlog.XLog;
+import com.xiaomi.push.service.PushConstants;
 import com.xiaomi.push.service.PushServiceMain;
 import com.xiaomi.xmsf.R;
 import com.xiaomi.xmsf.push.utils.RemoveTremblingUtils;
@@ -35,6 +36,12 @@ public class XMPushService extends IntentService {
     @Override
     protected void onHandleIntent(Intent intent) {
         try {
+            forwardToPushServiceMain(intent);
+
+            if (!PushConstants.MIPUSH_ACTION_REGISTER_APP.equals(intent.getAction())) {
+                return;
+            }
+
             logger.d("onHandleIntent -> A application want to register push");
             String pkg = intent.getStringExtra(Constants.EXTRA_MI_PUSH_PACKAGE);
             if (pkg == null) {
@@ -42,8 +49,8 @@ public class XMPushService extends IntentService {
                 return;
             }
             // Check multi request
-            boolean register = RemoveTremblingUtils.getInstance().onCallRegister(pkg);
-            if (!register) {
+            boolean needRegister = RemoveTremblingUtils.getInstance().onCallRegister(pkg);
+            if (!needRegister) {
                 logger.d("Don't register multi request " + pkg);
             }
             RegisteredApplication application = RegisteredApplicationDb
@@ -53,9 +60,7 @@ public class XMPushService extends IntentService {
                 return;
             }
 
-            forwardToPushServiceMain(intent);
-
-            if (register) {
+            if (needRegister) {
                 showRegisterToastIfExistsConfiguration(application);
                 EventDb.insertEvent(Event.ResultType.OK,
                         new top.trumeet.common.event.type.RegistrationType(null, pkg, null),
