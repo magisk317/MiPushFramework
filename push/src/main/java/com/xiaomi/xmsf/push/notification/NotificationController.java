@@ -242,23 +242,11 @@ public class NotificationController {
         }
     }
 
-    public static void cancel(Context context, XmPushActionContainer container, int id) {
+    public static void cancel(Context context, XmPushActionContainer container,
+                              int notificationId, String notificationGroup) {
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
 
-        String groupId = null;
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            StatusBarNotification[] activeNotifications = manager.getActiveNotifications();
-            for (StatusBarNotification activeNotification : activeNotifications) {
-                if (activeNotification.getId() == id) {
-                    groupId = activeNotification.getNotification().getGroup();
-                    break;
-                }
-
-            }
-        }
-
-        manager.cancel(id);
+        manager.cancel(notificationId);
 
         RegisteredApplication application = RegisteredApplicationDb.registerApplication(
                 container.getPackageName(), false, context, null);
@@ -267,13 +255,13 @@ public class NotificationController {
                 application.isClearAllNotificationsOfSession();
 
         if (isClearAllNotificationsOfSession) {
-            manager.cancel(groupId.hashCode());
+            manager.cancel(notificationGroup.hashCode());
             return;
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            if (groupId != null) {
-                updateSummaryNotification(context, container.getMetaInfo(), container.getPackageName(), groupId);
+            if (notificationGroup != null) {
+                updateSummaryNotification(context, container.getMetaInfo(), container.getPackageName(), notificationGroup);
             }
         }
     }

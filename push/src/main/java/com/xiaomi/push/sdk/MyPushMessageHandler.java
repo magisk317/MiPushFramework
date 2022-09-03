@@ -92,8 +92,9 @@ public class MyPushMessageHandler extends IntentService {
             logger.d("send to service " + targetPackage);
 
             if (startService(localIntent) != null) {
-                int id = intent.getIntExtra(Constants.INTENT_NOTIFICATION_ID, 0);
-                NotificationController.cancel(this, container, id);
+                int notificationId = intent.getIntExtra(Constants.INTENT_NOTIFICATION_ID, 0);
+                String notificationGroup = intent.getStringExtra(Constants.INTENT_NOTIFICATION_GROUP);
+                NotificationController.cancel(this, container, notificationId, notificationGroup);
             }
         } catch (Exception e) {
             logger.e(e.getLocalizedMessage(), e);
