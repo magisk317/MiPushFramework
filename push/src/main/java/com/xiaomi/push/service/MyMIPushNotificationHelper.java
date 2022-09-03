@@ -87,22 +87,20 @@ public class MyMIPushNotificationHelper {
         localBuilder.setContentTitle(titleAndDesp[0]);
         localBuilder.setContentText(titleAndDesp[1]);
 
-        boolean groupSession = false;
+        RegisteredApplication application = RegisteredApplicationDb.registerApplication(
+                packageName, false, xmPushService, null);
+
+        boolean groupSession = application != null && application.isGroupNotificationsForSameSession();
         boolean groupOfSession = false;
         String group = getExtraField(metaInfo.getExtra(), "notification_group", null);
         if (group != null) {
             localBuilder.setGroup(packageName + "_" + group);
+        } else if (groupSession) {
+            String id = metaInfo.isSetNotifyId() ? String.valueOf(metaInfo.getNotifyId()) : "";
+            localBuilder.setGroup(packageName + "_" + id);
+            groupOfSession = true;
         } else {
-            RegisteredApplication application = RegisteredApplicationDb.registerApplication(
-                    packageName, false, xmPushService, null);
-            groupSession = application != null && application.isGroupNotificationsForSameSession();
-            if (groupSession) {
-                String id = metaInfo.isSetNotifyId() ? String.valueOf(metaInfo.getNotifyId()) : "";
-                localBuilder.setGroup(packageName + "_" + id);
-                groupOfSession = true;
-            } else {
-                localBuilder.setGroup(packageName);
-            }
+            localBuilder.setGroup(packageName);
         }
 
 
