@@ -179,7 +179,7 @@
 
     <!-- Recent Activity -->
     <string name="action_update">检查更新</string>
-    <string name="update_toast">您可以从 Releases 页面下载最新版本的两份 APK 文件用以安装。</string>
+    <string name="update_toast">您可以从 Releases 页面下载最新版本的 APK 文件用以安装。</string>
 
     <!-- Update -->
     <string name="application_info_label">应用信息</string>
