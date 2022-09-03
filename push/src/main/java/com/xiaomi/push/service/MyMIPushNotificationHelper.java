@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
 import android.text.TextUtils;
 
 import androidx.core.app.NotificationCompat;
@@ -108,9 +109,12 @@ public class MyMIPushNotificationHelper {
             notificationId = (notificationId + "_" + System.currentTimeMillis()).hashCode();
         }
 
+        Intent intentExtra = new Intent();
+        intentExtra.putExtra(Constants.INTENT_NOTIFICATION_ID, notificationId);
+        intentExtra.putExtra(Constants.INTENT_NOTIFICATION_GROUP, localBuilder.build().getGroup());
+
         PendingIntent localPendingIntent = getClickedPendingIntent(
-                xmPushService, buildContainer, payload,
-                notificationId, localBuilder.build().getGroup());
+                xmPushService, buildContainer, payload, notificationId, intentExtra.getExtras());
         if (localPendingIntent != null) {
             localBuilder.setContentIntent(localPendingIntent);
             // Also carry along the target PendingIntent, whose target will get temporarily whitelisted for background-activity-start upon sent.
@@ -164,7 +168,7 @@ public class MyMIPushNotificationHelper {
 
     private static PendingIntent getClickedPendingIntent(
             Context paramContext, XmPushActionContainer paramXmPushActionContainer, byte[] payload,
-            int notificationId, String notificationGroup) {
+            int notificationId, Bundle extra) {
         PushMetaInfo metaInfo = paramXmPushActionContainer.getMetaInfo();
         if (metaInfo == null) {
             return null;
@@ -195,8 +199,7 @@ public class MyMIPushNotificationHelper {
         }
         localIntent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, payload);
         localIntent.putExtra(MIPushNotificationHelper.FROM_NOTIFICATION, true);
-        localIntent.putExtra(Constants.INTENT_NOTIFICATION_ID, notificationId);
-        localIntent.putExtra(Constants.INTENT_NOTIFICATION_GROUP, notificationGroup);
+        localIntent.putExtras(extra);
         localIntent.addCategory(String.valueOf(metaInfo.getNotifyId()));
         return PendingIntent.getService(paramContext, notificationId, localIntent, PendingIntent.FLAG_UPDATE_CURRENT);
     }
