@@ -80,7 +80,7 @@ public class MyMIPushNotificationHelper {
 
         addDebugAction(xmPushService, buildContainer, payload, metaInfo, packageName, localBuilder);
 
-        localBuilder.setWhen(System.currentTimeMillis());
+        localBuilder.setWhen(metaInfo.getMessageTs());
         localBuilder.setShowWhen(true);
 
         String[] titleAndDesp = determineTitleAndDespByDIP(xmPushService, metaInfo);
