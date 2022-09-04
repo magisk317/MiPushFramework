@@ -38,10 +38,6 @@ public class XMPushService extends IntentService {
         try {
             forwardToPushServiceMain(intent);
 
-            if (!PushConstants.MIPUSH_ACTION_REGISTER_APP.equals(intent.getAction())) {
-                return;
-            }
-
             logger.d("onHandleIntent -> A application want to register push");
             String pkg = intent.getStringExtra(Constants.EXTRA_MI_PUSH_PACKAGE);
             if (pkg == null) {
@@ -60,6 +56,9 @@ public class XMPushService extends IntentService {
                 return;
             }
 
+            if (!PushConstants.MIPUSH_ACTION_REGISTER_APP.equals(intent.getAction())) {
+                return;
+            }
             if (needRegister) {
                 showRegisterToastIfExistsConfiguration(application);
                 EventDb.insertEvent(Event.ResultType.OK,
