@@ -81,40 +81,44 @@ public class MiPushFrameworkApp extends Application {
         try {
             if (!PushServiceAccessibility.isInDozeWhiteList(this)) {
                 NotificationManagerCompat manager = NotificationManagerCompat.from(this);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    NotificationChannelCompat.Builder channel = new NotificationChannelCompat
-                            .Builder(CHANNEL_WARN, NotificationManager.IMPORTANCE_HIGH)
-                            .setName(getString(R.string.wizard_title_doze_whitelist));
-
-                    NotificationChannelGroupCompat notificationChannelGroup =
-                            new NotificationChannelGroupCompat.Builder(CHANNEL_WARN).setName(CHANNEL_WARN).build();
-                    manager.createNotificationChannelGroup(notificationChannelGroup);
-                    channel.setGroup(notificationChannelGroup.getId());
-                    manager.createNotificationChannel(channel.build());
-                }
-
-                PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, new Intent()
-                        .setComponent(new ComponentName(Constants.SERVICE_APP_NAME,
-                                Constants.REMOVE_DOZE_COMPONENT_NAME)), PendingIntent.FLAG_UPDATE_CURRENT);
-                Notification notification = new NotificationCompat.Builder(this,
-                        CHANNEL_WARN)
-                        .setContentInfo(getString(R.string.wizard_title_doze_whitelist))
-                        .setContentTitle(getString(R.string.wizard_title_doze_whitelist))
-                        .setContentText(getString(R.string.wizard_descr_doze_whitelist))
-                        .setTicker(getString(R.string.wizard_descr_doze_whitelist))
-                        .setSmallIcon(R.drawable.ic_notifications_black_24dp)
-                        .setPriority(NotificationCompat.PRIORITY_MAX)
-                        .setContentIntent(pendingIntent)
-                        .setShowWhen(true)
-                        .setAutoCancel(true)
-                        .build();
-                manager.notify(getClass().getSimpleName(), 100, notification);  // Use tag to avoid conflict with push notifications.
+                notifyDozeWhiteListRequest(manager);
             }
         } catch (RuntimeException e) {
             logger.e(e.getMessage(), e);
         }
 
 
+    }
+
+    private void notifyDozeWhiteListRequest(NotificationManagerCompat manager) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannelCompat.Builder channel = new NotificationChannelCompat
+                    .Builder(CHANNEL_WARN, NotificationManager.IMPORTANCE_HIGH)
+                    .setName(getString(R.string.wizard_title_doze_whitelist));
+
+            NotificationChannelGroupCompat notificationChannelGroup =
+                    new NotificationChannelGroupCompat.Builder(CHANNEL_WARN).setName(CHANNEL_WARN).build();
+            manager.createNotificationChannelGroup(notificationChannelGroup);
+            channel.setGroup(notificationChannelGroup.getId());
+            manager.createNotificationChannel(channel.build());
+        }
+
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, new Intent()
+                .setComponent(new ComponentName(Constants.SERVICE_APP_NAME,
+                        Constants.REMOVE_DOZE_COMPONENT_NAME)), PendingIntent.FLAG_UPDATE_CURRENT);
+        Notification notification = new NotificationCompat.Builder(this,
+                CHANNEL_WARN)
+                .setContentInfo(getString(R.string.wizard_title_doze_whitelist))
+                .setContentTitle(getString(R.string.wizard_title_doze_whitelist))
+                .setContentText(getString(R.string.wizard_descr_doze_whitelist))
+                .setTicker(getString(R.string.wizard_descr_doze_whitelist))
+                .setSmallIcon(R.drawable.ic_notifications_black_24dp)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setContentIntent(pendingIntent)
+                .setShowWhen(true)
+                .setAutoCancel(true)
+                .build();
+        manager.notify(getClass().getSimpleName(), 100, notification);  // Use tag to avoid conflict with push notifications.
     }
 
     /**
