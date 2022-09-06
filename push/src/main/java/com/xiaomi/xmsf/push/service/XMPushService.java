@@ -15,7 +15,6 @@ import com.elvishew.xlog.XLog;
 import com.xiaomi.push.service.PushConstants;
 import com.xiaomi.push.service.PushServiceMain;
 import com.xiaomi.xmsf.R;
-import com.xiaomi.xmsf.push.utils.RemoveTremblingUtils;
 import com.xiaomi.xmsf.utils.ConfigCenter;
 
 import top.trumeet.common.Constants;
@@ -44,11 +43,7 @@ public class XMPushService extends IntentService {
                 logger.e("Package name is NULL!");
                 return;
             }
-            // Check multi request
-            boolean needRegister = RemoveTremblingUtils.getInstance().onCallRegister(pkg);
-            if (!needRegister) {
-                logger.d("Don't register multi request " + pkg);
-            }
+
             RegisteredApplication application = RegisteredApplicationDb
                     .registerApplication(pkg, true, this, null);
 
@@ -59,12 +54,10 @@ public class XMPushService extends IntentService {
             if (!PushConstants.MIPUSH_ACTION_REGISTER_APP.equals(intent.getAction())) {
                 return;
             }
-            if (needRegister) {
-                showRegisterToastIfExistsConfiguration(application);
-                EventDb.insertEvent(Event.ResultType.OK,
-                        new top.trumeet.common.event.type.RegistrationType(null, pkg, null),
-                        this);
-            }
+            showRegisterToastIfExistsConfiguration(application);
+            EventDb.insertEvent(Event.ResultType.OK,
+                    new top.trumeet.common.event.type.RegistrationType(null, pkg, null),
+                    this);
         } catch (RuntimeException e) {
             logger.e("XMPushService::onHandleIntent: ", e);
             Toast.makeText(this, getString(R.string.common_err, e.getMessage()), Toast.LENGTH_SHORT).show();
