@@ -355,10 +355,22 @@ public class ManagePermissionsActivity extends AppCompatActivity {
                             getString(R.string.group_notifications_for_same_session_clear_title),
                             null);
 
+            SwitchPreferenceCompat groupNotificationsByTitle =
+                    createPreference(mApplicationItem.isGroupNotificationsByTitle(),
+                            (preference, newValue) -> {
+                                mApplicationItem.setGroupNotificationsByTitle((Boolean) newValue);
+                                return true;
+                            },
+                            getString(R.string.group_notifications_by_title_title),
+                            getString(R.string.group_notifications_by_title_detail));
+
+
             addItem(mApplicationItem.isGroupNotificationsForSameSession(),
                     (preference, newValue) -> {
-                        mApplicationItem.setGroupNotificationsForSameSession(((Boolean) newValue));
-                        clearAllNotificationsOfSession.setEnabled((Boolean) newValue);
+                        boolean val = (Boolean) newValue;
+                        mApplicationItem.setGroupNotificationsForSameSession(val);
+                        clearAllNotificationsOfSession.setEnabled(val);
+                        groupNotificationsByTitle.setEnabled(val);
                         return true;
                     },
                     getString(R.string.group_notifications_for_same_session_title),
@@ -367,9 +379,11 @@ public class ManagePermissionsActivity extends AppCompatActivity {
 
 
             screen.addPreference(clearAllNotificationsOfSession);
+            screen.addPreference(groupNotificationsByTitle);
 
             if (!mApplicationItem.isGroupNotificationsForSameSession()) {
                 clearAllNotificationsOfSession.setEnabled(false);
+                groupNotificationsByTitle.setEnabled(false);
             }
 
 

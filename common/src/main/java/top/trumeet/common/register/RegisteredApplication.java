@@ -1,5 +1,7 @@
 package top.trumeet.common.register;
 
+import static java.lang.annotation.RetentionPolicy.SOURCE;
+
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -8,6 +10,7 @@ import android.database.Cursor;
 import android.graphics.drawable.Drawable;
 import android.os.Parcel;
 import android.os.Parcelable;
+
 import androidx.core.content.ContextCompat;
 
 import java.lang.annotation.ElementType;
@@ -15,8 +18,6 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
 import top.trumeet.common.utils.DatabaseUtils;
-
-import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 /**
  *
