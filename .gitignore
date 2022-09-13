@@ -10,3 +10,6 @@
 .idea/
 .yuuta.jks
 gradle.properties
+gen/
+debug/
+release/
