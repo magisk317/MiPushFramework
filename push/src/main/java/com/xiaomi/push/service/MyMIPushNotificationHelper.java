@@ -94,17 +94,17 @@ public class MyMIPushNotificationHelper {
         boolean groupOfSession = false;
         String group = getExtraField(metaInfo.getExtra(), "notification_group", null);
         if (group != null) {
-            localBuilder.setGroup(packageName + "_" + group);
+            group = packageName + "_" + group;
         } else if (metaInfo.passThrough == 1) {
-            localBuilder.setGroup(packageName);
+            group = packageName;
         } else if (groupSession) {
             String id = metaInfo.isSetNotifyId() ? String.valueOf(metaInfo.getNotifyId()) : "";
-            localBuilder.setGroup(packageName + "_" + id);
+            group = packageName + "_" + id;
             groupOfSession = true;
         } else {
-            localBuilder.setGroup(packageName);
+            group = packageName;
         }
-
+        localBuilder.setGroup(group);
 
         int notificationId = MyClientEventDispatcher.getNotificationId(xmPushService, buildContainer);
         if (groupSession) {
