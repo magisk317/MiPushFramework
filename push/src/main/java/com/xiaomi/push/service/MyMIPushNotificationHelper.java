@@ -94,15 +94,15 @@ public class MyMIPushNotificationHelper {
         boolean groupOfSession = false;
         String group = getExtraField(metaInfo.getExtra(), "notification_group", null);
         if (group != null) {
-            group = packageName + "_" + group;
+            group = packageName + "_group_" + group;
         } else if (groupSession && application.isGroupNotificationsByTitle()) {
-            group = packageName + "_" + metaInfo.getTitle().hashCode();
+            group = packageName + "_title_" + metaInfo.getTitle().hashCode();
             groupOfSession = true;
         } else if (metaInfo.passThrough == 1) {
-            group = packageName;
+            group = packageName + "_pass_through";
         } else if (groupSession) {
             String id = metaInfo.isSetNotifyId() ? String.valueOf(metaInfo.getNotifyId()) : "";
-            group = packageName + "_" + id;
+            group = packageName + "_id_" + id;
             groupOfSession = true;
         } else {
             group = packageName;
