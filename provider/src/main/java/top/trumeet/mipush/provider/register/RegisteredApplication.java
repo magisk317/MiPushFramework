@@ -125,10 +125,14 @@ public class RegisteredApplication implements Parcelable {
     @Property(nameInDb = "show_pass_through")
     private boolean showPassThrough;
 
-    @Generated(hash = 1523571055)
+    @Property(nameInDb = "group_notifications_by_title")
+    private boolean groupNotificationsByTitle;
+
+    @Generated(hash = 409356025)
     public RegisteredApplication(Long id, String packageName, int type, boolean allowReceivePush,
             boolean allowReceiveRegisterResult, boolean allowReceiveCommand, boolean notificationOnRegister,
-            boolean groupNotificationsForSameSession, boolean clearAllNotificationsOfSession, boolean showPassThrough) {
+            boolean groupNotificationsForSameSession, boolean clearAllNotificationsOfSession, boolean showPassThrough,
+            boolean groupNotificationsByTitle) {
         this.id = id;
         this.packageName = packageName;
         this.type = type;
@@ -139,6 +143,7 @@ public class RegisteredApplication implements Parcelable {
         this.groupNotificationsForSameSession = groupNotificationsForSameSession;
         this.clearAllNotificationsOfSession = clearAllNotificationsOfSession;
         this.showPassThrough = showPassThrough;
+        this.groupNotificationsByTitle = groupNotificationsByTitle;
     }
 
     public RegisteredApplication() {
@@ -249,6 +254,7 @@ public class RegisteredApplication implements Parcelable {
                 , original.groupNotificationsForSameSession
                 , original.clearAllNotificationsOfSession
                 , original.showPassThrough
+                , original.groupNotificationsByTitle
                 );
     }
 
@@ -264,6 +270,7 @@ public class RegisteredApplication implements Parcelable {
                 , original.isGroupNotificationsForSameSession()
                 , original.isClearAllNotificationsOfSession()
                 , original.isShowPassThrough()
+                , original.isGroupNotificationsByTitle()
                 );
     }
 
@@ -305,5 +312,13 @@ public class RegisteredApplication implements Parcelable {
 
     public void setShowPassThrough(boolean showPassThrough) {
         this.showPassThrough = showPassThrough;
+    }
+
+    public boolean getGroupNotificationsByTitle() {
+        return this.groupNotificationsByTitle;
+    }
+
+    public void setGroupNotificationsByTitle(boolean groupNotificationsByTitle) {
+        this.groupNotificationsByTitle = groupNotificationsByTitle;
     }
 }

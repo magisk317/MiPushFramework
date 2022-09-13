@@ -84,6 +84,7 @@ public class RegisteredApplicationDb {
                         , false
                         , false
                         , false
+                        , false
                 );
         insert(registeredApplication, context);
 
