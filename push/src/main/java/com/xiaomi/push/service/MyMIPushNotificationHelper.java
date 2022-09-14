@@ -92,10 +92,7 @@ public class MyMIPushNotificationHelper {
         localBuilder.setContentTitle(titleAndDesp[0]);
         localBuilder.setContentText(titleAndDesp[1]);
 
-        RegisteredApplication application = RegisteredApplicationDb.registerApplication(
-                packageName, false, xmPushService, null);
-
-        String group = getGroupName(metaInfo, application);
+        String group = getGroupName(xmPushService, buildContainer);
         localBuilder.setGroup(group);
 
         boolean isGroupOfSession = group.contains(GROUP_TYPE_SAME_TITLE) ||
@@ -125,8 +122,12 @@ public class MyMIPushNotificationHelper {
 
     }
 
-    private static String getGroupName(PushMetaInfo metaInfo, RegisteredApplication application) {
-        String packageName = application.getPackageName();
+    private static String getGroupName(Context xmPushService, XmPushActionContainer buildContainer) {
+        PushMetaInfo metaInfo = buildContainer.getMetaInfo();
+        String packageName = buildContainer.getPackageName();
+        RegisteredApplication application = RegisteredApplicationDb.registerApplication(
+                packageName, false, xmPushService, null);
+
         boolean groupSession = application != null && application.isGroupNotificationsForSameSession();
         String group = getExtraField(metaInfo.getExtra(), "notification_group", null);
         if (group != null) {
