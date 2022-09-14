@@ -95,25 +95,13 @@ public class MyMIPushNotificationHelper {
         RegisteredApplication application = RegisteredApplicationDb.registerApplication(
                 packageName, false, xmPushService, null);
 
-        boolean groupSession = application != null && application.isGroupNotificationsForSameSession();
-        String group = getExtraField(metaInfo.getExtra(), "notification_group", null);
-        if (group != null) {
-            group = packageName + "_" + GROUP_TYPE_MIPUSH_GROUP + "_" + group;
-        } else if (groupSession && application.isGroupNotificationsByTitle()) {
-            group = packageName + "_" + GROUP_TYPE_SAME_TITLE + "_" + metaInfo.getTitle().hashCode();
-        } else if (metaInfo.passThrough == 1) {
-            group = packageName + "_" + GROUP_TYPE_PASS_THROUGH;
-        } else if (groupSession) {
-            String id = metaInfo.isSetNotifyId() ? String.valueOf(metaInfo.getNotifyId()) : "";
-            group = packageName + "_" + GROUP_TYPE_SAME_NOTIFICATION_ID + "_" + id;
-        } else {
-            group = packageName;
-        }
+        String group = getGroupName(metaInfo, application);
         boolean isGroupOfSession = group.contains(GROUP_TYPE_SAME_TITLE) ||
                 group.contains(GROUP_TYPE_SAME_NOTIFICATION_ID);
         localBuilder.setGroup(group);
 
         int notificationId = MyClientEventDispatcher.getNotificationId(xmPushService, buildContainer);
+        boolean groupSession = application != null && application.isGroupNotificationsForSameSession();
         if (groupSession) {
             notificationId = (notificationId + "_" + System.currentTimeMillis()).hashCode();
         }
@@ -135,6 +123,25 @@ public class MyMIPushNotificationHelper {
 
         NotificationController.publish(xmPushService, metaInfo, notificationId, packageName, localBuilder);
 
+    }
+
+    private static String getGroupName(PushMetaInfo metaInfo, RegisteredApplication application) {
+        String packageName = application.getPackageName();
+        boolean groupSession = application != null && application.isGroupNotificationsForSameSession();
+        String group = getExtraField(metaInfo.getExtra(), "notification_group", null);
+        if (group != null) {
+            group = packageName + "_" + GROUP_TYPE_MIPUSH_GROUP + "_" + group;
+        } else if (groupSession && application.isGroupNotificationsByTitle()) {
+            group = packageName + "_" + GROUP_TYPE_SAME_TITLE + "_" + metaInfo.getTitle().hashCode();
+        } else if (metaInfo.passThrough == 1) {
+            group = packageName + "_" + GROUP_TYPE_PASS_THROUGH;
+        } else if (groupSession) {
+            String id = metaInfo.isSetNotifyId() ? String.valueOf(metaInfo.getNotifyId()) : "";
+            group = packageName + "_" + GROUP_TYPE_SAME_NOTIFICATION_ID + "_" + id;
+        } else {
+            group = packageName;
+        }
+        return group;
     }
 
     private static void addDebugAction(Context xmPushService, XmPushActionContainer buildContainer, byte[] var1, PushMetaInfo metaInfo, String packageName, NotificationCompat.Builder localBuilder) {
