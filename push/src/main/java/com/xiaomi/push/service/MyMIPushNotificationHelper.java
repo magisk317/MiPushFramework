@@ -96,13 +96,13 @@ public class MyMIPushNotificationHelper {
                 packageName, false, xmPushService, null);
 
         String group = getGroupName(metaInfo, application);
-        boolean isGroupOfSession = group.contains(GROUP_TYPE_SAME_TITLE) ||
-                group.contains(GROUP_TYPE_SAME_NOTIFICATION_ID);
         localBuilder.setGroup(group);
 
+        boolean isGroupOfSession = group.contains(GROUP_TYPE_SAME_TITLE) ||
+                group.contains(GROUP_TYPE_SAME_NOTIFICATION_ID);
+
         int notificationId = MyClientEventDispatcher.getNotificationId(xmPushService, buildContainer);
-        boolean groupSession = application != null && application.isGroupNotificationsForSameSession();
-        if (groupSession) {
+        if (isGroupOfSession) {
             notificationId = (notificationId + "_" + System.currentTimeMillis()).hashCode();
         }
 
