@@ -45,6 +45,11 @@ public class MyMIPushNotificationHelper {
 
     private static final int NOTIFICATION_BIG_STYLE_MIN_LEN = 25;
 
+    private static final String GROUP_TYPE_MIPUSH_GROUP = "group";
+    private static final String GROUP_TYPE_SAME_TITLE = "title";
+    private static final String GROUP_TYPE_SAME_NOTIFICATION_ID = "id";
+    private static final String GROUP_TYPE_PASS_THROUGH = "pass_through";
+
     /**
      * @see MIPushNotificationHelper#notifyPushMessage
      */
@@ -94,15 +99,15 @@ public class MyMIPushNotificationHelper {
         boolean isGroupOfSession = false;
         String group = getExtraField(metaInfo.getExtra(), "notification_group", null);
         if (group != null) {
-            group = packageName + "_group_" + group;
+            group = packageName + "_" + GROUP_TYPE_MIPUSH_GROUP + "_" + group;
         } else if (groupSession && application.isGroupNotificationsByTitle()) {
-            group = packageName + "_title_" + metaInfo.getTitle().hashCode();
+            group = packageName + "_" + GROUP_TYPE_SAME_TITLE + "_" + metaInfo.getTitle().hashCode();
             isGroupOfSession = true;
         } else if (metaInfo.passThrough == 1) {
-            group = packageName + "_pass_through";
+            group = packageName + "_" + GROUP_TYPE_PASS_THROUGH;
         } else if (groupSession) {
             String id = metaInfo.isSetNotifyId() ? String.valueOf(metaInfo.getNotifyId()) : "";
-            group = packageName + "_id_" + id;
+            group = packageName + "_" + GROUP_TYPE_SAME_NOTIFICATION_ID + "_" + id;
             isGroupOfSession = true;
         } else {
             group = packageName;
