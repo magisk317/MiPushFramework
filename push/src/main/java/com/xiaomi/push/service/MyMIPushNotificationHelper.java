@@ -112,14 +112,19 @@ public class MyMIPushNotificationHelper {
                 xmPushService, buildContainer, payload, notificationId, intentExtra.getExtras());
         if (localPendingIntent != null) {
             localBuilder.setContentIntent(localPendingIntent);
-            // Also carry along the target PendingIntent, whose target will get temporarily whitelisted for background-activity-start upon sent.
-            final Intent targetIntent = buildTargetIntentWithoutExtras(buildContainer.getPackageName(), metaInfo);
-            final PendingIntent pi = PendingIntent.getService(xmPushService, 0, targetIntent, PendingIntent.FLAG_UPDATE_CURRENT);
-            localBuilder.getExtras().putParcelable("mipush.target", pi);
+            carryPendingIntentForTemporarilyWhitelisted(xmPushService, buildContainer, localBuilder);
         }
 
         NotificationController.publish(xmPushService, metaInfo, notificationId, packageName, localBuilder);
 
+    }
+
+    private static void carryPendingIntentForTemporarilyWhitelisted(Context xmPushService, XmPushActionContainer buildContainer, NotificationCompat.Builder localBuilder) {
+        PushMetaInfo metaInfo = buildContainer.getMetaInfo();
+        // Also carry along the target PendingIntent, whose target will get temporarily whitelisted for background-activity-start upon sent.
+        final Intent targetIntent = buildTargetIntentWithoutExtras(buildContainer.getPackageName(), metaInfo);
+        final PendingIntent pi = PendingIntent.getService(xmPushService, 0, targetIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+        localBuilder.getExtras().putParcelable("mipush.target", pi);
     }
 
     private static String getGroupName(Context xmPushService, XmPushActionContainer buildContainer) {
