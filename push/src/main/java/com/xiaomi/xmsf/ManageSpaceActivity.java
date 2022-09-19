@@ -3,12 +3,13 @@ package com.xiaomi.xmsf;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.preference.Preference;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceFragment;
+import android.preference.SwitchPreference;
+import android.widget.Toast;
+
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import android.widget.Toast;
 
 import com.catchingnow.icebox.sdk_client.IceBox;
 import com.xiaomi.xmsf.push.notification.NotificationController;
@@ -72,16 +73,20 @@ public class ManageSpaceActivity extends PreferenceActivity {
                 return true;
             });
 
-            Preference iceboxSupported = getPreferenceScreen().findPreference("IceboxSupported");
+            SwitchPreference iceboxSupported = (SwitchPreference) getPreferenceScreen().findPreference("IceboxSupported");
             if (!Utils.isAppInstalled(IceBox.PACKAGE_NAME)) {
                 iceboxSupported.setEnabled(false);
                 iceboxSupported.setTitle(R.string.settings_icebox_not_installed);
             } else {
+                if (!iceBoxPermissionGranted()) {
+                    iceboxSupported.setChecked(false);
+                }
                 iceboxSupported.setOnPreferenceChangeListener((preference, newValue) -> {
                     Boolean value = (Boolean) newValue;
                     if (value) {
                         if (!iceBoxPermissionGranted()) {
                             requestIceBoxPermission();
+                            return iceBoxPermissionGranted();
                         } else {
                             Toast.makeText(context, getString(R.string.icebox_permission_granted), Toast.LENGTH_SHORT).show();
                         }
