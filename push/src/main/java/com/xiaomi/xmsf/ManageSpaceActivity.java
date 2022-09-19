@@ -83,15 +83,20 @@ public class ManageSpaceActivity extends PreferenceActivity {
                 }
                 iceboxSupported.setOnPreferenceChangeListener((preference, newValue) -> {
                     Boolean value = (Boolean) newValue;
-                    if (value) {
-                        if (!iceBoxPermissionGranted()) {
-                            requestIceBoxPermission();
-                            return iceBoxPermissionGranted();
-                        } else {
-                            Toast.makeText(context, getString(R.string.icebox_permission_granted), Toast.LENGTH_SHORT).show();
-                        }
+                    if (value == false) {
+                        return true;
                     }
-                    return true;
+                    if (!iceBoxPermissionGranted()) {
+                        requestIceBoxPermission();
+                    }
+
+                    boolean granted = iceBoxPermissionGranted();
+                    Toast.makeText(context,
+                            getString(granted ?
+                                    R.string.icebox_permission_granted :
+                                    R.string.icebox_permission_not_granted),
+                            Toast.LENGTH_SHORT).show();
+                    return granted;
                 });
 
             }

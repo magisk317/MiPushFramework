@@ -73,6 +73,7 @@
     <string name="settings_icebox_permission_summary">Auto enable app by IceBox SDK.
         require IceBox( version > 3.6.0) installed </string>
     <string name="icebox_permission_granted">IceBox permission granted</string>
+    <string name="icebox_permission_not_granted">IceBox permission not granted</string>
 
 
     <string name="settings_mock_notification">Simulate received a message</string>
