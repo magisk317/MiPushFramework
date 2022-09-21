@@ -8,6 +8,7 @@ import android.preference.PreferenceFragment;
 import android.preference.SwitchPreference;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
@@ -24,17 +25,33 @@ import top.trumeet.common.utils.Utils;
 
 public class ManageSpaceActivity extends PreferenceActivity {
 
+    private MyPreferenceFragment preferenceFragment;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         top.trumeet.mipush.provider.DatabaseUtils.init(this);
-
-        getFragmentManager().beginTransaction().replace(android.R.id.content, new MyPreferenceFragment()).commit();
+        preferenceFragment = new MyPreferenceFragment();
+        getFragmentManager().beginTransaction().replace(android.R.id.content, preferenceFragment).commit();
     }
 
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 0x233) {
+            boolean granted = grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            SwitchPreference iceboxSupported = (SwitchPreference) preferenceFragment
+                    .getPreferenceScreen().findPreference("IceboxSupported");
+            iceboxSupported.setChecked(granted);
+            Toast.makeText(getApplicationContext(),
+                    getString(granted ?
+                            R.string.icebox_permission_granted :
+                            R.string.icebox_permission_not_granted),
+                    Toast.LENGTH_SHORT).show();
+        }
+    }
 
     public static class MyPreferenceFragment extends PreferenceFragment {
-
 
         public MyPreferenceFragment() {
         }
@@ -83,20 +100,10 @@ public class ManageSpaceActivity extends PreferenceActivity {
                 }
                 iceboxSupported.setOnPreferenceChangeListener((preference, newValue) -> {
                     Boolean value = (Boolean) newValue;
-                    if (value == false) {
-                        return true;
-                    }
-                    if (!iceBoxPermissionGranted()) {
+                    if (value && !iceBoxPermissionGranted()) {
                         requestIceBoxPermission();
                     }
-
-                    boolean granted = iceBoxPermissionGranted();
-                    Toast.makeText(context,
-                            getString(granted ?
-                                    R.string.icebox_permission_granted :
-                                    R.string.icebox_permission_not_granted),
-                            Toast.LENGTH_SHORT).show();
-                    return granted;
+                    return true;
                 });
 
             }
