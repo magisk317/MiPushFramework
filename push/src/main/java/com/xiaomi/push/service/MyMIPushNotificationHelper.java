@@ -19,11 +19,13 @@ import com.elvishew.xlog.Logger;
 import com.elvishew.xlog.XLog;
 import com.xiaomi.channel.commonutils.logger.MyLog;
 import com.xiaomi.channel.commonutils.reflect.JavaCalls;
+import com.xiaomi.push.sdk.MyPushMessageHandler;
 import com.xiaomi.xmpush.thrift.PushMetaInfo;
 import com.xiaomi.xmpush.thrift.XmPushActionContainer;
 import com.xiaomi.xmsf.BuildConfig;
 import com.xiaomi.xmsf.R;
 import com.xiaomi.xmsf.push.notification.NotificationController;
+import com.xiaomi.xmsf.push.utils.Configurations;
 
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
@@ -59,6 +61,14 @@ public class MyMIPushNotificationHelper {
 
         String title = metaInfo.getTitle();
         String description = metaInfo.getDescription();
+
+        if (Configurations.getInstance().needOpen(packageName, metaInfo)) {
+            MyPushMessageHandler.startService(xmPushService, buildContainer, payload);
+        }
+
+        if (Configurations.getInstance().needIgnore(packageName, metaInfo)) {
+            return;
+        }
 
         NotificationCompat.Builder localBuilder = new NotificationCompat.Builder(xmPushService);
 
