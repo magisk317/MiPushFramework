@@ -1,11 +1,15 @@
 package com.xiaomi.xmsf.push.utils;
 
+import static top.trumeet.common.utils.NotificationUtils.*;
+
 import android.content.Context;
 import android.net.Uri;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.documentfile.provider.DocumentFile;
+
+import com.xiaomi.xmpush.thrift.PushMetaInfo;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -22,6 +26,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 import top.trumeet.common.Constants;
 
@@ -44,6 +49,27 @@ public class Configurations {
         String regexTitle;
         String regexDescription;
         String operation;
+
+        public boolean match(PushMetaInfo metaInfo) {
+            return metaInfo != null
+                    && match(String.valueOf(metaInfo.getNotifyId()), this.regexChannelId)
+                    && match(getExtraField(metaInfo.getExtra(), EXTRA_CHANNEL_NAME, ""), this.regexChannelName)
+                    && match(getExtraField(metaInfo.getExtra(), EXTRA_CHANNEL_ID, ""), this.regexChannelId)
+                    && match(metaInfo.getTitle(), this.regexTitle)
+                    && match(metaInfo.getDescription(), this.regexDescription)
+                    ;
+        }
+
+        private boolean match(String text, String regex) {
+            if (regex == null) {
+                return true;
+            }
+            if (text == null) {
+                return false;
+            }
+            Pattern pattern = Pattern.compile(regex);
+            return pattern.matcher(text).find();
+        }
     }
 
     private String version;
@@ -156,5 +182,33 @@ public class Configurations {
             e.printStackTrace();
         }
         return stringBuilder.toString();
+    }
+
+    public boolean needOpen(String packageName, PushMetaInfo metaInfo) {
+        List<PackageConfig> configs = packageConfigs.get(packageName);
+        if (configs == null) {
+            return false;
+        }
+
+        for (PackageConfig config : configs) {
+            if (config.operation.contains(PackageConfig.OPERATION_OPEN) && config.match(metaInfo)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean needIgnore(String packageName, PushMetaInfo metaInfo) {
+        List<PackageConfig> configs = packageConfigs.get(packageName);
+        if (configs == null) {
+            return false;
+        }
+
+        for (PackageConfig config : configs) {
+            if (config.operation.contains(PackageConfig.OPERATION_IGNORE) && config.match(metaInfo)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
