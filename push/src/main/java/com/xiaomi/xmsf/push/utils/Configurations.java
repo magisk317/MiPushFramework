@@ -9,6 +9,8 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.documentfile.provider.DocumentFile;
 
+import com.elvishew.xlog.Logger;
+import com.elvishew.xlog.XLog;
 import com.xiaomi.xmpush.thrift.PushMetaInfo;
 
 import org.json.JSONArray;
@@ -31,6 +33,7 @@ import java.util.regex.Pattern;
 import top.trumeet.common.Constants;
 
 public class Configurations {
+    private static Logger logger = XLog.tag(Configurations.class.getSimpleName()).build();
 
     class PackageConfig {
         public static final String KEY_CHANNEL_ID = "channel_id";
@@ -186,12 +189,14 @@ public class Configurations {
 
     public boolean needOpen(String packageName, PushMetaInfo metaInfo) {
         List<PackageConfig> configs = packageConfigs.get(packageName);
+        logger.i("package: " + packageName + ", config count: " + (configs == null ? 0 : configs.size()));
         if (configs == null) {
             return false;
         }
 
         for (PackageConfig config : configs) {
             if (config.operation.contains(PackageConfig.OPERATION_OPEN) && config.match(metaInfo)) {
+                logger.i("notification need open");
                 return true;
             }
         }
@@ -200,12 +205,14 @@ public class Configurations {
 
     public boolean needIgnore(String packageName, PushMetaInfo metaInfo) {
         List<PackageConfig> configs = packageConfigs.get(packageName);
+        logger.i("package: " + packageName + ", config count: " + (configs == null ? 0 : configs.size()));
         if (configs == null) {
             return false;
         }
 
         for (PackageConfig config : configs) {
             if (config.operation.contains(PackageConfig.OPERATION_IGNORE) && config.match(metaInfo)) {
+                logger.i("notification need ignore");
                 return true;
             }
         }
