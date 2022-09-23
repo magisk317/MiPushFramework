@@ -1,5 +1,6 @@
 package top.trumeet.mipushframework;
 
+import android.content.ComponentName;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.net.Uri;
@@ -16,10 +17,12 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.xiaomi.channel.commonutils.android.DeviceInfo;
 import com.xiaomi.channel.commonutils.android.MIUIUtils;
 import com.xiaomi.xmsf.R;
+import com.xiaomi.xmsf.push.service.XMPushService;
 import com.xiaomi.xmsf.push.utils.Configurations;
 import com.xiaomi.xmsf.utils.ConfigCenter;
 
 import io.reactivex.disposables.CompositeDisposable;
+import top.trumeet.common.Constants;
 import top.trumeet.mipushframework.control.CheckPermissionsUtils;
 
 /**
@@ -44,6 +47,11 @@ public abstract class MainActivity extends AppCompatActivity {
 
         Configurations.getInstance().init(this,
                 ConfigCenter.getInstance().getConfigurationDirectory(this));
+
+        Intent intent = new Intent();
+        intent.setComponent(new ComponentName(this, XMPushService.class));
+        intent.setAction(Constants.CONFIGURATIONS_UPDATE_ACTION);
+        this.startService(intent);
     }
 
 

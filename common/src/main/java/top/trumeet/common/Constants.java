@@ -102,4 +102,5 @@ public final class Constants {
     public static final String INTENT_NOTIFICATION_GROUP_OF_SESSION = "mipush_notification_group_of_session";
 
     public static final String CONFIGURATIONS_FILE_NAME = "configs.json";
+    public static final String CONFIGURATIONS_UPDATE_ACTION = "__MIPUSH_CONFIGURATIONS_UPDATE__";
 }
