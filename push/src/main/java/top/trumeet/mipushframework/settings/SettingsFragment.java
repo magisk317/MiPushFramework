@@ -109,6 +109,7 @@ public class SettingsFragment extends PreferenceFragment {
             Preference preference = getPreference("configuration_directory");
             preference.setSummary(uri.toString());
             ConfigCenter.getInstance().setConfigurationDirectory(getContext(), uri);
+            ConfigCenter.getInstance().loadConfigurations(getActivity());
         }
     }
 }
