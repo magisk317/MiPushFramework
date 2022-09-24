@@ -40,7 +40,7 @@ import static android.os.Build.VERSION_CODES.P;
  */
 
 public class MyPushMessageHandler extends IntentService {
-    private Logger logger = XLog.tag("MyPushMessageHandler").build();
+    private static Logger logger = XLog.tag("MyPushMessageHandler").build();
 
     private static final int APP_CHECK_FRONT_MAX_RETRY = 8;
     private static final int APP_CHECK_SLEEP_DURATION_MS = 500;
@@ -69,7 +69,7 @@ public class MyPushMessageHandler extends IntentService {
         }
 
         try {
-            if (startService(container, payload) != null) {
+            if (startService(this, container, payload) != null) {
                 int notificationId = intent.getIntExtra(Constants.INTENT_NOTIFICATION_ID, 0);
                 String notificationGroup = intent.getStringExtra(Constants.INTENT_NOTIFICATION_GROUP);
                 boolean groupOfSession = intent.getBooleanExtra(Constants.INTENT_NOTIFICATION_GROUP_OF_SESSION, false);
@@ -90,22 +90,22 @@ public class MyPushMessageHandler extends IntentService {
 
     }
 
-    private ComponentName startService(XmPushActionContainer container, byte[] payload) {
+    public static ComponentName startService(Context context, XmPushActionContainer container, byte[] payload) {
         if (iTopActivity == null) {
-            iTopActivity = TopActivityFactory.newInstance(ConfigCenter.getInstance().getAccessMode(this));
+            iTopActivity = TopActivityFactory.newInstance(ConfigCenter.getInstance().getAccessMode(context));
         }
 
-        if (!iTopActivity.isEnabled(this)) {
-            iTopActivity.guideToEnable(this);
+        if (!iTopActivity.isEnabled(context)) {
+            iTopActivity.guideToEnable(context);
             return null;
         }
 
         PushMetaInfo metaInfo = container.getMetaInfo();
         String targetPackage = container.getPackageName();
 
-        activeApp(targetPackage);
+        activeApp(context, targetPackage);
 
-        pullUpApp(targetPackage, container);
+        pullUpApp(context, targetPackage, container);
 
         final Intent localIntent = new Intent(PushConstants.MIPUSH_ACTION_NEW_MESSAGE);
         localIntent.setComponent(new ComponentName(targetPackage, "com.xiaomi.mipush.sdk.PushMessageHandler"));
@@ -113,13 +113,13 @@ public class MyPushMessageHandler extends IntentService {
         localIntent.putExtra(MIPushNotificationHelper.FROM_NOTIFICATION, true);
         localIntent.addCategory(String.valueOf(metaInfo.getNotifyId()));
         logger.d("send to service " + targetPackage);
-        ComponentName componentName = startService(localIntent);
+        ComponentName componentName = context.startService(localIntent);
         return componentName;
     }
 
-    private void activeApp(String targetPackage) {
+    private static void activeApp(Context context, String targetPackage) {
         try {
-            if (!ConfigCenter.getInstance().isIceboxSupported(this)) {
+            if (!ConfigCenter.getInstance().isIceboxSupported(context)) {
                 return;
             }
 
@@ -127,12 +127,12 @@ public class MyPushMessageHandler extends IntentService {
                 return;
             }
 
-            if (ContextCompat.checkSelfPermission(this, IceBox.SDK_PERMISSION) == PackageManager.PERMISSION_GRANTED) {
+            if (ContextCompat.checkSelfPermission(context, IceBox.SDK_PERMISSION) == PackageManager.PERMISSION_GRANTED) {
 
-                int enabledSetting = IceBox.getAppEnabledSetting(this, targetPackage);
+                int enabledSetting = IceBox.getAppEnabledSetting(context, targetPackage);
                 if (enabledSetting != 0) {
                     logger.w("active app " + targetPackage + " by IceBox SDK");
-                    IceBox.setAppEnabledSettings(this, true, targetPackage);
+                    IceBox.setAppEnabledSettings(context, true, targetPackage);
                 }
 
             } else {
@@ -144,18 +144,18 @@ public class MyPushMessageHandler extends IntentService {
     }
 
 
-    private Intent getJumpIntent(String targetPackage, XmPushActionContainer container) {
-        Intent intent = MyMIPushNotificationHelper.getSdkIntent(this, targetPackage, container);
+    private static Intent getJumpIntent(Context context, String targetPackage, XmPushActionContainer container) {
+        Intent intent = MyMIPushNotificationHelper.getSdkIntent(context, targetPackage, container);
         if (intent == null) {
-            intent = getJumpIntentFromPkg(targetPackage, container);
+            intent = getJumpIntentFromPkg(context, targetPackage, container);
         }
         return intent;
     }
 
-    private Intent getJumpIntentFromPkg(String targetPackage, XmPushActionContainer container) {
+    private static Intent getJumpIntentFromPkg(Context context, String targetPackage, XmPushActionContainer container) {
         Intent intent = null;
         try {
-            intent = getPackageManager().getLaunchIntentForPackage(targetPackage);
+            intent = context.getPackageManager().getLaunchIntentForPackage(targetPackage);
         } catch (RuntimeException ignore) {
         }
         return intent;
@@ -189,16 +189,16 @@ public class MyPushMessageHandler extends IntentService {
         if (! successful) task.accept(Boolean.FALSE);
     }
 
-    private long pullUpApp(String targetPackage, XmPushActionContainer container) {
+    private static long pullUpApp(Context context, String targetPackage, XmPushActionContainer container) {
         long start = System.currentTimeMillis();
 
         try {
 
 
-            if (!iTopActivity.isAppForeground(this, targetPackage)) {
+            if (!iTopActivity.isAppForeground(context, targetPackage)) {
                 logger.d("app is not at front , let's pull up");
 
-                Intent intent = getJumpIntent(targetPackage, container);
+                Intent intent = getJumpIntent(context, targetPackage, container);
 
                 if (intent == null) {
                     throw new RuntimeException("can not get default activity for " + targetPackage);
@@ -206,7 +206,7 @@ public class MyPushMessageHandler extends IntentService {
                     intent.addCategory(Intent.CATEGORY_DEFAULT);
                     intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
-                    startActivity(intent);
+                    context.startActivity(intent);
                     logger.d("start activity " + targetPackage);
                 }
 
@@ -214,17 +214,17 @@ public class MyPushMessageHandler extends IntentService {
                 //wait
                 for (int i = 0; i < APP_CHECK_FRONT_MAX_RETRY; i++) {
 
-                    if (!iTopActivity.isAppForeground(this, targetPackage)) {
+                    if (!iTopActivity.isAppForeground(context, targetPackage)) {
                         Thread.sleep(APP_CHECK_SLEEP_DURATION_MS);
                     } else {
                         break;
                     }
 
                     if (i == (APP_CHECK_FRONT_MAX_RETRY / 2)) {
-                        intent = getJumpIntentFromPkg(targetPackage, container);
+                        intent = getJumpIntentFromPkg(context, targetPackage, container);
                         intent.addCategory(Intent.CATEGORY_DEFAULT);
                         intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                        startActivity(intent);
+                        context.startActivity(intent);
                     }
                 }
 
