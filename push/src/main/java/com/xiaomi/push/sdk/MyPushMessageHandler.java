@@ -54,15 +54,6 @@ public class MyPushMessageHandler extends IntentService {
 
     @Override
     protected void onHandleIntent(final Intent intent) {
-        if (iTopActivity == null) {
-            iTopActivity = TopActivityFactory.newInstance(ConfigCenter.getInstance().getAccessMode(this));
-        }
-
-        if (!iTopActivity.isEnabled(this)) {
-            iTopActivity.guideToEnable(this);
-            return;
-        }
-
         byte[] payload = intent.getByteArrayExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD);
         if (payload == null) {
             logger.e("mipush_payload is null");
@@ -77,22 +68,8 @@ public class MyPushMessageHandler extends IntentService {
             return;
         }
 
-        PushMetaInfo metaInfo = container.getMetaInfo();
-        String targetPackage = container.getPackageName();
-
-        activeApp(targetPackage);
-
-        pullUpApp(targetPackage, container);
-
-        final Intent localIntent = new Intent(PushConstants.MIPUSH_ACTION_NEW_MESSAGE);
-        localIntent.setComponent(new ComponentName(targetPackage, "com.xiaomi.mipush.sdk.PushMessageHandler"));
-        localIntent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, payload);
-        localIntent.putExtra(MIPushNotificationHelper.FROM_NOTIFICATION, true);
-        localIntent.addCategory(String.valueOf(metaInfo.getNotifyId()));
         try {
-            logger.d("send to service " + targetPackage);
-
-            if (startService(localIntent) != null) {
+            if (startService(container, payload) != null) {
                 int notificationId = intent.getIntExtra(Constants.INTENT_NOTIFICATION_ID, 0);
                 String notificationGroup = intent.getStringExtra(Constants.INTENT_NOTIFICATION_GROUP);
                 boolean groupOfSession = intent.getBooleanExtra(Constants.INTENT_NOTIFICATION_GROUP_OF_SESSION, false);
@@ -111,6 +88,33 @@ public class MyPushMessageHandler extends IntentService {
             logger.e(e.getLocalizedMessage(), e);
         }
 
+    }
+
+    private ComponentName startService(XmPushActionContainer container, byte[] payload) {
+        if (iTopActivity == null) {
+            iTopActivity = TopActivityFactory.newInstance(ConfigCenter.getInstance().getAccessMode(this));
+        }
+
+        if (!iTopActivity.isEnabled(this)) {
+            iTopActivity.guideToEnable(this);
+            return null;
+        }
+
+        PushMetaInfo metaInfo = container.getMetaInfo();
+        String targetPackage = container.getPackageName();
+
+        activeApp(targetPackage);
+
+        pullUpApp(targetPackage, container);
+
+        final Intent localIntent = new Intent(PushConstants.MIPUSH_ACTION_NEW_MESSAGE);
+        localIntent.setComponent(new ComponentName(targetPackage, "com.xiaomi.mipush.sdk.PushMessageHandler"));
+        localIntent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, payload);
+        localIntent.putExtra(MIPushNotificationHelper.FROM_NOTIFICATION, true);
+        localIntent.addCategory(String.valueOf(metaInfo.getNotifyId()));
+        logger.d("send to service " + targetPackage);
+        ComponentName componentName = startService(localIntent);
+        return componentName;
     }
 
     private void activeApp(String targetPackage) {
