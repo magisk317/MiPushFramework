@@ -2,6 +2,7 @@ package com.xiaomi.xmsf.utils;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.net.Uri;
 
 import com.xiaomi.xmsf.BuildConfig;
 
@@ -40,5 +41,16 @@ public class ConfigCenter {
 
     public boolean isIceboxSupported(Context ctx) {
         return getSharedPreferences(ctx).getBoolean("IceboxSupported", false);
+    }
+
+    public Uri getConfigurationDirectory(Context ctx) {
+        String uri = getSharedPreferences(ctx).getString("ConfigurationDirectory", null);
+        return uri == null ? null : Uri.parse(uri);
+    }
+
+    public boolean setConfigurationDirectory(Context ctx, Uri treeUri) {
+        return getSharedPreferences(ctx).edit()
+                .putString("ConfigurationDirectory", treeUri.toString())
+                .commit();
     }
 }
