@@ -45,6 +45,7 @@ public class Configurations {
 
         public static final String OPERATION_OPEN = "open";
         public static final String OPERATION_IGNORE = "ignore";
+        public static final String OPERATION_NOTIFY = "notify";
 
         String regexChannelId;
         String regexChannelName;
@@ -211,9 +212,19 @@ public class Configurations {
         }
 
         for (PackageConfig config : configs) {
-            if (config.operation.contains(PackageConfig.OPERATION_IGNORE) && config.match(metaInfo)) {
-                logger.i("notification need ignore");
-                return true;
+            boolean isNotifyOp = config.operation.contains(PackageConfig.OPERATION_NOTIFY);
+            boolean isIgnoreOp = config.operation.contains(PackageConfig.OPERATION_IGNORE);
+            if (!isNotifyOp && !isIgnoreOp) {
+                continue;
+            }
+            if (config.match(metaInfo)) {
+                if (isIgnoreOp) {
+                    logger.i("notification need ignore");
+                    return true;
+                } else {
+                    logger.i("notification need notify");
+                    return false;
+                }
             }
         }
         return false;
