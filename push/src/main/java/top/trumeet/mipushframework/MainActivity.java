@@ -45,13 +45,7 @@ public abstract class MainActivity extends AppCompatActivity {
         hookTest();
         checkAndConnect();
 
-        Configurations.getInstance().init(this,
-                ConfigCenter.getInstance().getConfigurationDirectory(this));
-
-        Intent intent = new Intent();
-        intent.setComponent(new ComponentName(this, XMPushService.class));
-        intent.setAction(Constants.CONFIGURATIONS_UPDATE_ACTION);
-        this.startService(intent);
+        ConfigCenter.getInstance().loadConfigurations(this);
     }
 
 

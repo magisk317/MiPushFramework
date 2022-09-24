@@ -1,10 +1,16 @@
 package com.xiaomi.xmsf.utils;
 
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 
 import com.xiaomi.xmsf.BuildConfig;
+import com.xiaomi.xmsf.push.service.XMPushService;
+import com.xiaomi.xmsf.push.utils.Configurations;
+
+import top.trumeet.common.Constants;
 
 
 /**
@@ -52,5 +58,14 @@ public class ConfigCenter {
         return getSharedPreferences(ctx).edit()
                 .putString("ConfigurationDirectory", treeUri.toString())
                 .commit();
+    }
+
+    public void loadConfigurations(Context context) {
+        Configurations.getInstance().init(context,
+                ConfigCenter.getInstance().getConfigurationDirectory(context));
+        Intent intent = new Intent();
+        intent.setComponent(new ComponentName(context, XMPushService.class));
+        intent.setAction(Constants.CONFIGURATIONS_UPDATE_ACTION);
+        context.startService(intent);
     }
 }
