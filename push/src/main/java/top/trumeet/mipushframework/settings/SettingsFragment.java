@@ -63,8 +63,11 @@ public class SettingsFragment extends PreferenceFragment {
     }
 
     private void setPreferenceOnclick(String key, Preference.OnPreferenceClickListener onPreferenceClickListener) {
-        getPreferenceScreen().findPreference(key).setOnPreferenceClickListener(onPreferenceClickListener);
+        getPreference(key).setOnPreferenceClickListener(onPreferenceClickListener);
+    }
 
+    private Preference getPreference(String key) {
+        return getPreferenceScreen().findPreference(key);
     }
 
     @Override
