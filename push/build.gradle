@@ -46,6 +46,28 @@ android {
     }
 
     signingConfigs {
+        debug {
+            def locale = null
+            def keystorePwd = null
+            def alias = null
+            def pwd = null
+            if (project.rootProject.file('local.properties').exists()) {
+                Properties properties = new Properties()
+                properties.load(project.rootProject.file('local.properties').newDataInputStream())
+                locale = properties.getProperty("KEY_LOCATE")
+                keystorePwd = properties.getProperty("KEYSTORE_PASSWORD")
+                alias = properties.getProperty("KEYSTORE_ALIAS")
+                pwd = properties.getProperty("KEY_PASSWORD")
+            }
+
+            storeFile file(locale != null ? locale : project.rootProject.file(".yuuta.jks"))
+            storePassword keystorePwd != null ?
+                    keystorePwd : System.getenv("KEYSTORE_PASS")
+            keyAlias alias != null ?
+                    alias : System.getenv("ALIAS_NAME")
+            keyPassword pwd != null ?
+                    pwd : System.getenv("ALIAS_PASS")
+        }
         release {
             // 满足下面两个条件时需要此配置
             // 1. Gradle版本 >= 2.14.1
