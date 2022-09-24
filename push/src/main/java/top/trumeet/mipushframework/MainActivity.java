@@ -5,16 +5,19 @@ import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
-import androidx.annotation.UiThread;
-import androidx.appcompat.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewPropertyAnimator;
 import android.widget.Toast;
 
+import androidx.annotation.UiThread;
+import androidx.appcompat.app.AppCompatActivity;
+
 import com.xiaomi.channel.commonutils.android.DeviceInfo;
 import com.xiaomi.channel.commonutils.android.MIUIUtils;
 import com.xiaomi.xmsf.R;
+import com.xiaomi.xmsf.push.utils.Configurations;
+import com.xiaomi.xmsf.utils.ConfigCenter;
 
 import io.reactivex.disposables.CompositeDisposable;
 import top.trumeet.mipushframework.control.CheckPermissionsUtils;
@@ -38,6 +41,9 @@ public abstract class MainActivity extends AppCompatActivity {
 
         hookTest();
         checkAndConnect();
+
+        Configurations.getInstance().init(this,
+                ConfigCenter.getInstance().getConfigurationDirectory(this));
     }
 
 
