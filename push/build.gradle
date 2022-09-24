@@ -47,10 +47,10 @@ android {
 
     signingConfigs {
         debug {
-            def locale = null
-            def keystorePwd = null
-            def alias = null
-            def pwd = null
+            def locale = project.rootProject.file(".yuuta.jks")
+            def keystorePwd = System.getenv("KEYSTORE_PASS")
+            def alias = System.getenv("ALIAS_NAME")
+            def pwd = System.getenv("ALIAS_PASS")
             if (project.rootProject.file('local.properties').exists()) {
                 Properties properties = new Properties()
                 properties.load(project.rootProject.file('local.properties').newDataInputStream())
@@ -60,13 +60,12 @@ android {
                 pwd = properties.getProperty("KEY_PASSWORD")
             }
 
-            storeFile file(locale != null ? locale : project.rootProject.file(".yuuta.jks"))
-            storePassword keystorePwd != null ?
-                    keystorePwd : System.getenv("KEYSTORE_PASS")
-            keyAlias alias != null ?
-                    alias : System.getenv("ALIAS_NAME")
-            keyPassword pwd != null ?
-                    pwd : System.getenv("ALIAS_PASS")
+            if (locale != null) {
+                storeFile file(locale)
+                storePassword keystorePwd
+                keyAlias alias
+                keyPassword pwd
+            }
         }
         release {
             // 满足下面两个条件时需要此配置
