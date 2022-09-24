@@ -12,6 +12,9 @@
                 android:targetPackage="com.xiaomi.xmsf" />
         </Preference>
 
+        <Preference
+            android:key="configuration_directory"
+            android:title="@string/settings_configuration_directory" />
 
     </PreferenceCategory>
 

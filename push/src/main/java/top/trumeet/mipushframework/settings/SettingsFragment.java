@@ -1,30 +1,25 @@
 package top.trumeet.mipushframework.settings;
 
+import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Intent;
-import android.os.AsyncTask;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.DocumentsContract;
 import android.util.Log;
 
-import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
+import com.xiaomi.xmsf.R;
+import com.xiaomi.xmsf.utils.ConfigCenter;
 
 import moe.shizuku.preference.Preference;
 import moe.shizuku.preference.PreferenceFragment;
 import moe.shizuku.preference.PreferenceGroup;
 import moe.shizuku.preference.SwitchPreferenceCompat;
 import top.trumeet.common.Constants;
-import top.trumeet.common.utils.rom.RomUtils;
-
-import com.xiaomi.xmsf.R;
-
 import top.trumeet.mipushframework.MainActivity;
-import top.trumeet.mipushframework.utils.ShellUtils;
-
-import static top.trumeet.common.utils.rom.RomUtils.ROM_H2OS;
-import static top.trumeet.common.utils.rom.RomUtils.ROM_MIUI;
-import static top.trumeet.common.utils.rom.RomUtils.ROM_UNKNOWN;
 
 /**
  * Created by Trumeet on 2017/8/27.
@@ -48,6 +43,16 @@ public class SettingsFragment extends PreferenceFragment {
             return true;
         });
 
+        Preference preference = getPreference("configuration_directory");
+        Uri treeUri = ConfigCenter.getInstance().getConfigurationDirectory(getActivity());
+        if (treeUri != null) {
+            preference.setSummary(treeUri.toString());
+        }
+        preference.setOnPreferenceClickListener(pref -> {
+            openDirectory(Uri.fromFile(
+                    getActivity().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)));
+            return true;
+        });
     }
 
     private void addItem(boolean value, Preference.OnPreferenceChangeListener listener,
@@ -78,4 +83,32 @@ public class SettingsFragment extends PreferenceFragment {
                 time));
     }
 
+    private void openDirectory(Uri uriToLoad) {
+        // Choose a directory using the system's file picker.
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+
+        // Optionally, specify a URI for the directory that should be opened in
+        // the system file picker when it loads.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, uriToLoad);
+        }
+
+        startActivityForResult(intent, 123);
+    }
+
+    @SuppressLint("WrongConstant")
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 123 && resultCode == Activity.RESULT_OK && data != null) {
+            Uri uri = data.getData();
+            final int takeFlags = data.getFlags()
+                    & (Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            getContext().getContentResolver().takePersistableUriPermission(uri, takeFlags);
+            Preference preference = getPreference("configuration_directory");
+            preference.setSummary(uri.toString());
+            ConfigCenter.getInstance().setConfigurationDirectory(getContext(), uri);
+        }
+    }
 }
