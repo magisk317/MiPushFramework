@@ -112,7 +112,7 @@ public class MyPushMessageHandler extends IntentService {
         localIntent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, payload);
         localIntent.putExtra(MIPushNotificationHelper.FROM_NOTIFICATION, true);
         localIntent.addCategory(String.valueOf(metaInfo.getNotifyId()));
-        logger.d("send to service " + targetPackage);
+        logger.d(packageInfo(targetPackage, "send to service"));
         ComponentName componentName = context.startService(localIntent);
         return componentName;
     }
@@ -131,15 +131,15 @@ public class MyPushMessageHandler extends IntentService {
 
                 int enabledSetting = IceBox.getAppEnabledSetting(context, targetPackage);
                 if (enabledSetting != 0) {
-                    logger.w("active app " + targetPackage + " by IceBox SDK");
+                    logger.w(packageInfo(targetPackage, "active app by IceBox SDK"));
                     IceBox.setAppEnabledSettings(context, true, targetPackage);
                 }
 
             } else {
-                logger.w("skip active app " + targetPackage + " by IceBox SDK due to lack of permissions");
+                logger.w(packageInfo(targetPackage, "skip active app by IceBox SDK due to lack of permissions"));
             }
         } catch (Throwable e) {
-            logger.e("activeApp failed " + e.getLocalizedMessage(), e);
+            logger.e(packageInfo(targetPackage, "activeApp failed " + e.getLocalizedMessage()), e);
         }
     }
 
@@ -196,7 +196,7 @@ public class MyPushMessageHandler extends IntentService {
 
 
             if (!iTopActivity.isAppForeground(context, targetPackage)) {
-                logger.d("app is not at front , let's pull up");
+                logger.d(packageInfo(targetPackage, "app is not at front , let's pull up"));
 
                 Intent intent = getJumpIntent(context, targetPackage, container);
 
@@ -207,7 +207,7 @@ public class MyPushMessageHandler extends IntentService {
                     intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
                     context.startActivity(intent);
-                    logger.d("start activity " + targetPackage);
+                    logger.d(packageInfo(targetPackage, "start activity"));
                 }
 
 
@@ -229,17 +229,17 @@ public class MyPushMessageHandler extends IntentService {
                 }
 
                 if ((System.currentTimeMillis() - start) >= APP_CHECK_SLEEP_MAX_TIMEOUT_MS) {
-                    logger.w("pull up app timeout" + targetPackage);
+                    logger.w(packageInfo(targetPackage, "pull up app timeout"));
                 }
 
             } else {
-                logger.d("app is at foreground" + targetPackage);
+                logger.d(packageInfo(targetPackage, "app is at foreground"));
             }
 
         } catch (InterruptedException e) {
             e.printStackTrace();
         } catch (RuntimeException e) {
-            logger.e("pullUpApp failed " + e.getLocalizedMessage(), e);
+            logger.e(packageInfo(targetPackage, "pullUpApp failed " + e.getLocalizedMessage()), e);
         }
 
 
@@ -248,5 +248,8 @@ public class MyPushMessageHandler extends IntentService {
 
     }
 
+    private static String packageInfo(String packageName, String message) {
+        return "[" + packageName +"] " + message;
+    }
 }
 
