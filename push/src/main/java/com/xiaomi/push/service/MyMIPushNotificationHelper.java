@@ -12,6 +12,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.widget.Toast;
 
 import androidx.core.app.NotificationCompat;
 
@@ -62,12 +63,17 @@ public class MyMIPushNotificationHelper {
         String title = metaInfo.getTitle();
         String description = metaInfo.getDescription();
 
-        if (Configurations.getInstance().needOpen(packageName, metaInfo)) {
-            MyPushMessageHandler.startService(xmPushService, buildContainer, payload);
-        }
+        try {
+            if (Configurations.getInstance().needOpen(packageName, metaInfo)) {
+                MyPushMessageHandler.startService(xmPushService, buildContainer, payload);
+            }
 
-        if (Configurations.getInstance().needIgnore(packageName, metaInfo)) {
-            return;
+            if (Configurations.getInstance().needIgnore(packageName, metaInfo)) {
+                return;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(xmPushService, e.toString(), Toast.LENGTH_LONG).show();
         }
 
         NotificationCompat.Builder localBuilder = new NotificationCompat.Builder(xmPushService);
