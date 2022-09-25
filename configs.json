@@ -1,0 +1,42 @@
+{
+    "version": "0.1.0",
+    "configs": {
+        "com.tencent.mobileqq": [
+            {
+                "metaInfo": {
+                    "notifyId": "^0$",
+                    "description": "正在呼叫你"
+                },
+                "operation": "open"
+            }
+        ],
+        "com.jingyao.easybike": [
+            {
+                "metaInfo": {
+                    "title": "车主",
+                    "extra": {
+                        "channel_id": null
+                    }
+                },
+                "operation": "notify"
+            },
+            {
+                "metaInfo": {
+                    "description": "车主",
+                    "extra": {
+                        "channel_id": null
+                    }
+                },
+                "operation": "notify"
+            },
+            {
+                "metaInfo": {
+                    "extra": {
+                        "channel_id": null
+                    }
+                },
+                "operation": "ignore"
+            }
+        ]
+    }
+}
