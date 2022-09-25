@@ -20,11 +20,14 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import top.trumeet.common.Constants;
@@ -32,7 +35,7 @@ import top.trumeet.common.Constants;
 public class Configurations {
     private static Logger logger = XLog.tag(Configurations.class.getSimpleName()).build();
 
-    class PackageConfig {
+    public class PackageConfig {
         public static final String KEY_META_INFO = "metaInfo";
         public static final String KEY_OPERATION = "operation";
 
@@ -41,7 +44,7 @@ public class Configurations {
         public static final String OPERATION_NOTIFY = "notify";
 
         JSONObject metaInfoObj;
-        String operation;
+        Set<String> operation = new HashSet<>();
 
         public boolean match(PushMetaInfo metaInfo) throws NoSuchFieldException, IllegalAccessException, JSONException {
             if (metaInfoObj == null) {
@@ -167,7 +170,8 @@ public class Configurations {
             config.metaInfoObj = configObj.getJSONObject(PackageConfig.KEY_META_INFO);
         }
         if (!configObj.isNull(PackageConfig.KEY_OPERATION)) {
-            config.operation = configObj.getString(PackageConfig.KEY_OPERATION);
+            String operations = configObj.getString(PackageConfig.KEY_OPERATION);
+            config.operation = new HashSet<>(Arrays.asList(operations.split("[\\s|]+")));
         }
         return config;
     }
@@ -189,45 +193,17 @@ public class Configurations {
         return stringBuilder.toString();
     }
 
-    public boolean needOpen(String packageName, PushMetaInfo metaInfo) throws JSONException, NoSuchFieldException, IllegalAccessException {
+    public Set<String> existRule(String packageName, PushMetaInfo metaInfo) throws JSONException, NoSuchFieldException, IllegalAccessException {
         List<PackageConfig> configs = packageConfigs.get(packageName);
         logger.i("package: " + packageName + ", config count: " + (configs == null ? 0 : configs.size()));
-        if (configs == null) {
-            return false;
-        }
-
-        for (PackageConfig config : configs) {
-            if (config.operation.contains(PackageConfig.OPERATION_OPEN) && config.match(metaInfo)) {
-                logger.i("notification need open");
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public boolean needIgnore(String packageName, PushMetaInfo metaInfo) throws JSONException, NoSuchFieldException, IllegalAccessException {
-        List<PackageConfig> configs = packageConfigs.get(packageName);
-        logger.i("package: " + packageName + ", config count: " + (configs == null ? 0 : configs.size()));
-        if (configs == null) {
-            return false;
-        }
-
-        for (PackageConfig config : configs) {
-            boolean isNotifyOp = config.operation.contains(PackageConfig.OPERATION_NOTIFY);
-            boolean isIgnoreOp = config.operation.contains(PackageConfig.OPERATION_IGNORE);
-            if (!isNotifyOp && !isIgnoreOp) {
-                continue;
-            }
-            if (config.match(metaInfo)) {
-                if (isIgnoreOp) {
-                    logger.i("notification need ignore");
-                    return true;
-                } else {
-                    logger.i("notification need notify");
-                    return false;
+        if (configs != null) {
+            for (PackageConfig config : configs) {
+                if (config.match(metaInfo)) {
+                    return config.operation;
                 }
             }
         }
-        return false;
+        return new HashSet<>();
     }
+
 }

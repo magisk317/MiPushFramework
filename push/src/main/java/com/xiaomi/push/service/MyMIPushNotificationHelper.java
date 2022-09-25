@@ -32,6 +32,7 @@ import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Map;
+import java.util.Set;
 
 import top.trumeet.common.Constants;
 import top.trumeet.common.db.RegisteredApplicationDb;
@@ -64,11 +65,12 @@ public class MyMIPushNotificationHelper {
         String description = metaInfo.getDescription();
 
         try {
-            if (Configurations.getInstance().needOpen(packageName, metaInfo)) {
+            Set<String> operations = Configurations.getInstance().existRule(packageName, metaInfo);
+            if (operations.contains(Configurations.PackageConfig.OPERATION_OPEN)) {
                 MyPushMessageHandler.startService(xmPushService, buildContainer, payload);
             }
 
-            if (Configurations.getInstance().needIgnore(packageName, metaInfo)) {
+            if (operations.contains(Configurations.PackageConfig.OPERATION_IGNORE)) {
                 return;
             }
         } catch (Exception e) {
