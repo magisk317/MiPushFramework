@@ -38,6 +38,7 @@ public class Configurations {
     public class PackageConfig {
         public static final String KEY_META_INFO = "metaInfo";
         public static final String KEY_OPERATION = "operation";
+        public static final String KEY_STOP = "stop";
 
         public static final String OPERATION_OPEN = "open";
         public static final String OPERATION_IGNORE = "ignore";
@@ -45,6 +46,7 @@ public class Configurations {
 
         JSONObject metaInfoObj;
         Set<String> operation = new HashSet<>();
+        boolean stop = true;
 
         public boolean match(PushMetaInfo metaInfo) throws NoSuchFieldException, IllegalAccessException, JSONException {
             if (metaInfoObj == null) {
@@ -173,6 +175,9 @@ public class Configurations {
             String operations = configObj.getString(PackageConfig.KEY_OPERATION);
             config.operation = new HashSet<>(Arrays.asList(operations.split("[\\s|]+")));
         }
+        if (!configObj.isNull(PackageConfig.KEY_STOP)) {
+            config.stop = configObj.getBoolean(PackageConfig.KEY_STOP);
+        }
         return config;
     }
 
@@ -196,14 +201,18 @@ public class Configurations {
     public Set<String> existRule(String packageName, PushMetaInfo metaInfo) throws JSONException, NoSuchFieldException, IllegalAccessException {
         List<PackageConfig> configs = packageConfigs.get(packageName);
         logger.i("package: " + packageName + ", config count: " + (configs == null ? 0 : configs.size()));
+        Set<String> operations = new HashSet<>();
         if (configs != null) {
             for (PackageConfig config : configs) {
                 if (config.match(metaInfo)) {
-                    return config.operation;
+                    operations.addAll(config.operation);
+                    if (config.stop) {
+                        return operations;
+                    }
                 }
             }
         }
-        return new HashSet<>();
+        return operations;
     }
 
 }
