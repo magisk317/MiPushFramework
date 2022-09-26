@@ -11,8 +11,11 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.PowerManager;
 import android.text.TextUtils;
+import android.widget.Toast;
 
 import androidx.core.app.NotificationCompat;
 
@@ -27,6 +30,7 @@ import com.xiaomi.xmsf.BuildConfig;
 import com.xiaomi.xmsf.R;
 import com.xiaomi.xmsf.push.notification.NotificationController;
 import com.xiaomi.xmsf.push.utils.Configurations;
+import com.xiaomi.xmsf.utils.ConfigCenter;
 
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
@@ -54,12 +58,28 @@ public class MyMIPushNotificationHelper {
     private static final String GROUP_TYPE_SAME_NOTIFICATION_ID = "id";
     private static final String GROUP_TYPE_PASS_THROUGH = "pass_through";
 
+    private static boolean tryLoadConfigurations = false;
+
     /**
      * @see MIPushNotificationHelper#notifyPushMessage
      */
     public static void notifyPushMessage(Context xmPushService, XmPushActionContainer buildContainer, byte[] payload, long var2) {
         PushMetaInfo metaInfo = buildContainer.getMetaInfo();
         String packageName = buildContainer.getPackageName();
+
+        if (!tryLoadConfigurations) {
+            tryLoadConfigurations = true;
+            boolean success = false;
+            Handler handler = new Handler(Looper.getMainLooper());
+            try {
+                 success = Configurations.getInstance().init(xmPushService,
+                        ConfigCenter.getInstance().getConfigurationDirectory(xmPushService));
+            } catch (Exception e) {
+                handler.post(() -> Toast.makeText(xmPushService, e.toString(), Toast.LENGTH_LONG).show());
+            }
+            boolean finalSuccess = success;
+            handler.post(() -> Toast.makeText(xmPushService, "configurations loaded: " + finalSuccess, Toast.LENGTH_SHORT).show());
+        }
 
         try {
             Set<String> operations = Configurations.getInstance().handle(packageName, metaInfo);

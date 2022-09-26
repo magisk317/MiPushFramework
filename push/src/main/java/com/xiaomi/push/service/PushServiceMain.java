@@ -12,7 +12,6 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
-import android.widget.Toast;
 
 import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationChannelCompat;
@@ -28,8 +27,6 @@ import com.xiaomi.xmpush.thrift.ActionType;
 import com.xiaomi.xmpush.thrift.PushMetaInfo;
 import com.xiaomi.xmsf.R;
 import com.xiaomi.xmsf.push.control.XMOutbound;
-import com.xiaomi.xmsf.push.utils.Configurations;
-import com.xiaomi.xmsf.utils.ConfigCenter;
 
 import org.apache.thrift.TBase;
 
@@ -91,10 +88,6 @@ public class PushServiceMain extends XMPushService {
 
     @Override
     public void onCreate() {
-        boolean success = Configurations.getInstance().init(this,
-                ConfigCenter.getInstance().getConfigurationDirectory(this));
-        Toast.makeText(this, "configurations loaded: " + success, Toast.LENGTH_SHORT).show();
-
         super.onCreate();
         logger.d("Service started");
 
