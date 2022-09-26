@@ -147,12 +147,12 @@ public class MyPushMessageHandler extends IntentService {
     private static Intent getJumpIntent(Context context, String targetPackage, XmPushActionContainer container) {
         Intent intent = MyMIPushNotificationHelper.getSdkIntent(context, targetPackage, container);
         if (intent == null) {
-            intent = getJumpIntentFromPkg(context, targetPackage, container);
+            intent = getJumpIntentFromPkg(context, targetPackage);
         }
         return intent;
     }
 
-    private static Intent getJumpIntentFromPkg(Context context, String targetPackage, XmPushActionContainer container) {
+    private static Intent getJumpIntentFromPkg(Context context, String targetPackage) {
         Intent intent = null;
         try {
             intent = context.getPackageManager().getLaunchIntentForPackage(targetPackage);
@@ -221,7 +221,7 @@ public class MyPushMessageHandler extends IntentService {
                     }
 
                     if (i == (APP_CHECK_FRONT_MAX_RETRY / 2)) {
-                        intent = getJumpIntentFromPkg(context, targetPackage, container);
+                        intent = getJumpIntentFromPkg(context, targetPackage);
                         intent.addCategory(Intent.CATEGORY_DEFAULT);
                         intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
                         context.startActivity(intent);
