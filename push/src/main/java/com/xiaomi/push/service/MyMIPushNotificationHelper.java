@@ -31,6 +31,7 @@ import com.xiaomi.xmsf.push.utils.Configurations;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -61,21 +62,26 @@ public class MyMIPushNotificationHelper {
         PushMetaInfo metaInfo = buildContainer.getMetaInfo();
         String packageName = buildContainer.getPackageName();
 
-        String title = metaInfo.getTitle();
-        String description = metaInfo.getDescription();
-
         try {
             Set<String> operations = Configurations.getInstance().existRule(packageName, metaInfo);
+
+            if (!operations.contains(Configurations.PackageConfig.OPERATION_IGNORE)) {
+                doNotifyPushMessage(xmPushService, buildContainer, payload);
+            }
             if (operations.contains(Configurations.PackageConfig.OPERATION_OPEN)) {
                 MyPushMessageHandler.startService(xmPushService, buildContainer, payload);
-            }
-
-            if (operations.contains(Configurations.PackageConfig.OPERATION_IGNORE)) {
-                return;
             }
         } catch (Exception e) {
             logger.e(e.getLocalizedMessage(), e);
         }
+    }
+
+    private static void doNotifyPushMessage(Context xmPushService, XmPushActionContainer buildContainer, byte[] payload) {
+        PushMetaInfo metaInfo = buildContainer.getMetaInfo();
+        String packageName = buildContainer.getPackageName();
+
+        String title = metaInfo.getTitle();
+        String description = metaInfo.getDescription();
 
         NotificationCompat.Builder localBuilder = new NotificationCompat.Builder(xmPushService);
 
@@ -133,7 +139,6 @@ public class MyMIPushNotificationHelper {
         }
 
         NotificationController.publish(xmPushService, metaInfo, notificationId, packageName, localBuilder);
-
     }
 
     private static void carryPendingIntentForTemporarilyWhitelisted(Context xmPushService, XmPushActionContainer buildContainer, NotificationCompat.Builder localBuilder) {
