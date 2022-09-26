@@ -43,6 +43,7 @@ public class Configurations {
         public static final String OPERATION_OPEN = "open";
         public static final String OPERATION_IGNORE = "ignore";
         public static final String OPERATION_NOTIFY = "notify";
+        public static final String OPERATION_WAKE = "wake";
 
         JSONObject metaInfoObj;
         Set<String> operation = new HashSet<>();

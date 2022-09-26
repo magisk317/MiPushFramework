@@ -11,8 +11,8 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.PowerManager;
 import android.text.TextUtils;
-import android.widget.Toast;
 
 import androidx.core.app.NotificationCompat;
 
@@ -31,7 +31,6 @@ import com.xiaomi.xmsf.push.utils.Configurations;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -65,6 +64,15 @@ public class MyMIPushNotificationHelper {
         try {
             Set<String> operations = Configurations.getInstance().existRule(packageName, metaInfo);
 
+            if (operations.contains(Configurations.PackageConfig.OPERATION_WAKE)) {
+                PowerManager powerManager = (PowerManager) xmPushService.getSystemService(Context.POWER_SERVICE);
+                PowerManager.WakeLock fullWakeLock = powerManager.newWakeLock((
+                        PowerManager.SCREEN_BRIGHT_WAKE_LOCK |
+                                PowerManager.FULL_WAKE_LOCK |
+                                PowerManager.ACQUIRE_CAUSES_WAKEUP
+                ), "xmsf: configurations of " + packageName);
+                fullWakeLock.acquire(10000);
+            }
             if (!operations.contains(Configurations.PackageConfig.OPERATION_IGNORE)) {
                 doNotifyPushMessage(xmPushService, buildContainer, payload);
             }
