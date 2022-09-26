@@ -74,8 +74,7 @@ public class MyMIPushNotificationHelper {
                 return;
             }
         } catch (Exception e) {
-            e.printStackTrace();
-            Toast.makeText(xmPushService, e.toString(), Toast.LENGTH_LONG).show();
+            logger.e(e.getLocalizedMessage(), e);
         }
 
         NotificationCompat.Builder localBuilder = new NotificationCompat.Builder(xmPushService);
