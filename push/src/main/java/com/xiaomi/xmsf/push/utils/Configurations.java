@@ -2,6 +2,7 @@ package com.xiaomi.xmsf.push.utils;
 
 import android.content.Context;
 import android.net.Uri;
+import android.os.Build;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import top.trumeet.common.Constants;
@@ -53,7 +55,10 @@ public class Configurations {
         Set<String> operation = new HashSet<>();
         boolean stop = true;
 
+        Map<String, String> matchGroup;
+
         public boolean match(PushMetaInfo metaInfo) throws NoSuchFieldException, IllegalAccessException, JSONException {
+            matchGroup = new HashMap<>();
             if (metaInfoObj == null) {
                 return true;
             }
@@ -104,7 +109,9 @@ public class Configurations {
                         if (subObj.isNull(subKey)) {
                             subMap.remove(subKey);
                         } else {
-                            subMap.put(subKey, subObj.getString(subKey));
+                            String value = subObj.getString(subKey);
+                            value = replace(value);
+                            subMap.put(subKey, value);
                         }
                     }
                 } else if (metaInfoObj.isNull(key)) {
@@ -122,11 +129,25 @@ public class Configurations {
                         typedValue = Boolean.parseBoolean(value);
                     } else {
                         // Assume String
+                        value = replace(value);
                         typedValue = value;
                     }
                     field.set(metaInfo, typedValue);
                 }
             }
+        }
+
+        @NonNull
+        private String replace(String value) {
+            Pattern pattern = Pattern.compile("(?<!\\\\)\\$\\{([^}]+)\\}");
+            Matcher matcher = pattern.matcher(value);
+            while (matcher.find()) {
+                String groupName = matcher.group(1);
+                if (matchGroup.containsKey(groupName)) {
+                    value = value.replaceAll(Pattern.quote(matcher.group()), matchGroup.get(groupName));
+                }
+            }
+            return value;
         }
 
         private boolean mismatchField(JSONObject obj, String key, Object value) throws JSONException {
@@ -136,14 +157,29 @@ public class Configurations {
                 return true;
             }
 
-            Pattern pattern = Pattern.compile(obj.getString(key));
-            if (!pattern.matcher(value.toString()).find()) {
+            String regex = obj.getString(key);
+            Pattern pattern = Pattern.compile(regex);
+            Matcher matcher = pattern.matcher(value.toString());
+            if (!matcher.find()) {
                 return true;
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Set<String> groups = getNamedGroupCandidates(regex);
+                for (String name : groups) {
+                    matchGroup.put(name, matcher.group(name));
+                }
             }
             return false;
         }
 
-
+        private Set<String> getNamedGroupCandidates(String regex) {
+            Set<String> namedGroups = new HashSet<>();
+            Matcher m = Pattern.compile("\\(\\?<([a-zA-Z][a-zA-Z0-9]*)>").matcher(regex);
+            while (m.find()) {
+                namedGroups.add(m.group(1));
+            }
+            return namedGroups;
+        }
     }
 
     private String version;
