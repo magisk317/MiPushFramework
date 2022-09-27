@@ -19,6 +19,8 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -37,6 +39,7 @@ public class Configurations {
 
     public class PackageConfig {
         public static final String KEY_META_INFO = "metaInfo";
+        public static final String KEY_NEW_META_INFO = "newMetaInfo";
         public static final String KEY_OPERATION = "operation";
         public static final String KEY_STOP = "stop";
 
@@ -46,6 +49,7 @@ public class Configurations {
         public static final String OPERATION_WAKE = "wake";
 
         JSONObject metaInfoObj;
+        JSONObject newMetaInfoObj;
         Set<String> operation = new HashSet<>();
         boolean stop = true;
 
@@ -77,6 +81,52 @@ public class Configurations {
                 }
             }
             return true;
+        }
+
+        public void replace(PushMetaInfo metaInfo) throws NoSuchFieldException, IllegalAccessException, JSONException, NoSuchMethodException, InvocationTargetException {
+            JSONObject metaInfoObj = newMetaInfoObj;
+            if (metaInfoObj == null) {
+                return;
+            }
+            Iterator<String> keys = metaInfoObj.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                final Field field = PushMetaInfo.class.getDeclaredField(key);
+                final Class<?> type = field.getType();
+
+                if (Map.class.isAssignableFrom(field.getType())) {
+                    Map subMap = (Map) field.get(metaInfo);
+                    JSONObject subObj = metaInfoObj.getJSONObject(key);
+
+                    Iterator<String> subKeys = subObj.keys();
+                    while (subKeys.hasNext()) {
+                        String subKey = subKeys.next();
+                        if (subObj.isNull(subKey)) {
+                            subMap.remove(subKey);
+                        } else {
+                            subMap.put(subKey, subObj.getString(subKey));
+                        }
+                    }
+                } else if (metaInfoObj.isNull(key)) {
+                    String capitalizedKey = key.substring(0, 1).toUpperCase() + key.substring(1);
+                    final Method method = PushMetaInfo.class.getDeclaredMethod("unset" + capitalizedKey);
+                    method.invoke(metaInfo);
+                } else {
+                    String value = metaInfoObj.getString(key);
+                    Object typedValue = null;
+                    if (long.class == type) {
+                        typedValue = Long.parseLong(value);
+                    } else if (int.class == type) {
+                        typedValue = Integer.parseInt(value);
+                    } else if (boolean.class == type) {
+                        typedValue = Boolean.parseBoolean(value);
+                    } else {
+                        // Assume String
+                        typedValue = value;
+                    }
+                    field.set(metaInfo, typedValue);
+                }
+            }
         }
 
         private boolean mismatchField(JSONObject obj, String key, Object value) throws JSONException {
@@ -171,6 +221,9 @@ public class Configurations {
         PackageConfig config = new PackageConfig();
         if (!configObj.isNull(PackageConfig.KEY_META_INFO)) {
             config.metaInfoObj = configObj.getJSONObject(PackageConfig.KEY_META_INFO);
+        }
+        if (!configObj.isNull(PackageConfig.KEY_NEW_META_INFO)) {
+            config.newMetaInfoObj = configObj.getJSONObject(PackageConfig.KEY_NEW_META_INFO);
         }
         if (!configObj.isNull(PackageConfig.KEY_OPERATION)) {
             String operations = configObj.getString(PackageConfig.KEY_OPERATION);
