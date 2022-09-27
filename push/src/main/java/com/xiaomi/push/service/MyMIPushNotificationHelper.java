@@ -62,7 +62,7 @@ public class MyMIPushNotificationHelper {
         String packageName = buildContainer.getPackageName();
 
         try {
-            Set<String> operations = Configurations.getInstance().existRule(packageName, metaInfo);
+            Set<String> operations = Configurations.getInstance().handle(packageName, metaInfo);
 
             if (operations.contains(Configurations.PackageConfig.OPERATION_WAKE)) {
                 wakeScreen(xmPushService, packageName);

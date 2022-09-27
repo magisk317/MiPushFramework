@@ -252,13 +252,14 @@ public class Configurations {
         return stringBuilder.toString();
     }
 
-    public Set<String> existRule(String packageName, PushMetaInfo metaInfo) throws JSONException, NoSuchFieldException, IllegalAccessException {
+    public Set<String> handle(String packageName, PushMetaInfo metaInfo) throws JSONException, NoSuchFieldException, IllegalAccessException, InvocationTargetException, NoSuchMethodException {
         List<PackageConfig> configs = packageConfigs.get(packageName);
         logger.i("package: " + packageName + ", config count: " + (configs == null ? 0 : configs.size()));
         Set<String> operations = new HashSet<>();
         if (configs != null) {
             for (PackageConfig config : configs) {
                 if (config.match(metaInfo)) {
+                    config.replace(metaInfo);
                     operations.addAll(config.operation);
                     if (config.stop) {
                         return operations;
