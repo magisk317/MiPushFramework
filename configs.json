@@ -7,7 +7,7 @@
                     "notifyId": "^0$",
                     "description": "正在呼叫你"
                 },
-                "operation": "open"
+                "operation": "wake|open"
             }
         ],
         "com.jingyao.easybike": [

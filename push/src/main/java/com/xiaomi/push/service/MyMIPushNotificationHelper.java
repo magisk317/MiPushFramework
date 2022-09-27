@@ -65,13 +65,7 @@ public class MyMIPushNotificationHelper {
             Set<String> operations = Configurations.getInstance().existRule(packageName, metaInfo);
 
             if (operations.contains(Configurations.PackageConfig.OPERATION_WAKE)) {
-                PowerManager powerManager = (PowerManager) xmPushService.getSystemService(Context.POWER_SERVICE);
-                PowerManager.WakeLock fullWakeLock = powerManager.newWakeLock((
-                        PowerManager.SCREEN_BRIGHT_WAKE_LOCK |
-                                PowerManager.FULL_WAKE_LOCK |
-                                PowerManager.ACQUIRE_CAUSES_WAKEUP
-                ), "xmsf: configurations of " + packageName);
-                fullWakeLock.acquire(10000);
+                wakeScreen(xmPushService, packageName);
             }
             if (!operations.contains(Configurations.PackageConfig.OPERATION_IGNORE)) {
                 doNotifyPushMessage(xmPushService, buildContainer, payload);
@@ -82,6 +76,16 @@ public class MyMIPushNotificationHelper {
         } catch (Exception e) {
             logger.e(e.getLocalizedMessage(), e);
         }
+    }
+
+    private static void wakeScreen(Context context, String sourcePackage) {
+        PowerManager powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+        PowerManager.WakeLock fullWakeLock = powerManager.newWakeLock((
+                PowerManager.SCREEN_BRIGHT_WAKE_LOCK |
+                        PowerManager.FULL_WAKE_LOCK |
+                        PowerManager.ACQUIRE_CAUSES_WAKEUP
+        ), "xmsf: configurations of " + sourcePackage);
+        fullWakeLock.acquire(10000);
     }
 
     private static void doNotifyPushMessage(Context xmPushService, XmPushActionContainer buildContainer, byte[] payload) {
