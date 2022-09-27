@@ -6,6 +6,7 @@ import android.os.Build;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.documentfile.provider.DocumentFile;
 
 import com.elvishew.xlog.Logger;
@@ -288,22 +289,34 @@ public class Configurations {
         return stringBuilder.toString();
     }
 
-    public Set<String> handle(String packageName, PushMetaInfo metaInfo) throws JSONException, NoSuchFieldException, IllegalAccessException, InvocationTargetException, NoSuchMethodException {
+    public Set<String> handle(String packageName, PushMetaInfo metaInfo)
+            throws JSONException, NoSuchFieldException, IllegalAccessException, InvocationTargetException, NoSuchMethodException {
         List<PackageConfig> configs = packageConfigs.get(packageName);
         logger.i("package: " + packageName + ", config count: " + (configs == null ? 0 : configs.size()));
         Set<String> operations = new HashSet<>();
+        boolean stop = doHandle(metaInfo, configs, operations);
+        if (stop) {
+            return operations;
+        };
+        doHandle(metaInfo, packageConfigs.get("*"), operations);
+        return operations;
+    }
+
+    @Nullable
+    private boolean doHandle(PushMetaInfo metaInfo, List<PackageConfig> configs, Set<String> operations)
+            throws NoSuchFieldException, IllegalAccessException, JSONException, NoSuchMethodException, InvocationTargetException {
         if (configs != null) {
             for (PackageConfig config : configs) {
                 if (config.match(metaInfo)) {
                     config.replace(metaInfo);
                     operations.addAll(config.operation);
                     if (config.stop) {
-                        return operations;
+                        return true;
                     }
                 }
             }
         }
-        return operations;
+        return false;
     }
 
 }
