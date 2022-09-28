@@ -5,7 +5,11 @@
             {
                 "metaInfo": {
                     "notifyId": "^0$",
-                    "description": "正在呼叫你"
+                    "description": "(?<name>.*) (?<content>正在呼叫你.*)"
+                },
+                "newMetaInfo": {
+                    "title": "${name}",
+                    "description": "${content}"
                 },
                 "operation": "wake|open"
             }
