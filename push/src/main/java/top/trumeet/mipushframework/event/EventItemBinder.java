@@ -47,11 +47,9 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
         holder.title.setText(type.getTitle(holder.itemView.getContext()));
         holder.summary.setText(type.getSummary(holder.itemView.getContext()));
 
-        String status;
+        String status = "";
         switch (item.getResult()) {
             case Event.ResultType.OK :
-                status = holder.itemView.getContext()
-                        .getString(R.string.status_ok);
                 if (item.getInfo() != null) {
                     if (item.getInfo().contains("passThrough:0")) {
                         status = holder.itemView.getContext()
@@ -71,7 +69,6 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
                         .getString(R.string.status_deny_user);
                 break;
             default:
-                status = "";
                 break;
         }
         holder.text2.setText(
