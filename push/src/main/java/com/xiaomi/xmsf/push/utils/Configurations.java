@@ -246,9 +246,13 @@ public class Configurations {
     private ArrayList<PackageConfig> parseConfigs(JSONArray configsObj) throws JSONException {
         ArrayList<PackageConfig> configs = new ArrayList<>();
         for (int i = 0; i < configsObj.length(); ++i) {
-            JSONObject configObj = configsObj.getJSONObject(i);
-            PackageConfig config = parseConfig(configObj);
-            configs.add(config);
+            Object config = configsObj.get(i);
+            if (config instanceof String) {
+                List<PackageConfig> existConfigs = this.packageConfigs.get(config.toString());
+                configs.addAll(existConfigs);
+            } else {
+                configs.add(parseConfig(configsObj.getJSONObject(i)));
+            }
         }
         return configs;
     }
