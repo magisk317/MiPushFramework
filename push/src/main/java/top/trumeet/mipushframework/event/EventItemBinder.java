@@ -13,6 +13,7 @@ import androidx.appcompat.app.AlertDialog;
 
 import com.xiaomi.push.service.MIPushEventProcessor;
 import com.xiaomi.push.service.MyMIPushNotificationHelper;
+import com.xiaomi.xmpush.thrift.XmPushActionContainer;
 import com.xiaomi.xmsf.R;
 
 import java.util.Date;
@@ -50,13 +51,16 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
         String status = "";
         switch (item.getResult()) {
             case Event.ResultType.OK :
-                if (item.getInfo() != null) {
-                    if (item.getInfo().contains("passThrough:0")) {
-                        status = holder.itemView.getContext()
-                                .getString(R.string.message_type_notification);
-                    } else if (item.getInfo().contains("passThrough:1")) {
-                        status = holder.itemView.getContext()
-                                .getString(R.string.message_type_pass_through);
+                if (item.getPayload() != null) {
+                    XmPushActionContainer container = MIPushEventProcessor.buildContainer(item.getPayload());
+                    if (container.metaInfo.isSetPassThrough()) {
+                        if (container.metaInfo.passThrough == 0) {
+                            status = holder.itemView.getContext()
+                                    .getString(R.string.message_type_notification);
+                        } else if (container.metaInfo.passThrough == 1) {
+                            status = holder.itemView.getContext()
+                                    .getString(R.string.message_type_pass_through);
+                        }
                     }
                 }
                 break;
