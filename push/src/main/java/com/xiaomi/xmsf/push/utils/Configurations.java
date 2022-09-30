@@ -291,14 +291,16 @@ public class Configurations {
 
     public Set<String> handle(String packageName, PushMetaInfo metaInfo)
             throws JSONException, NoSuchFieldException, IllegalAccessException, InvocationTargetException, NoSuchMethodException {
-        List<PackageConfig> configs = packageConfigs.get(packageName);
-        logger.i("package: " + packageName + ", config count: " + (configs == null ? 0 : configs.size()));
+        String[] checkPkgs = new String[]{"^", packageName, "$"};
         Set<String> operations = new HashSet<>();
-        boolean stop = doHandle(metaInfo, configs, operations);
-        if (stop) {
-            return operations;
-        };
-        doHandle(metaInfo, packageConfigs.get("*"), operations);
+        for (String pkg : checkPkgs) {
+            List<PackageConfig> configs = packageConfigs.get(pkg);
+            logger.i("package: " + packageName + ", config count: " + (configs == null ? 0 : configs.size()));
+            boolean stop = doHandle(metaInfo, configs, operations);
+            if (stop) {
+                return operations;
+            };
+        }
         return operations;
     }
 
