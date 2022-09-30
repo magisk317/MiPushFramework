@@ -7,7 +7,7 @@
     <string name="end">End</string>
 
     <!-- Event -->
-    <string name="event_register">Register push</string>
+    <string name="event_register">Try to register push</string>
     <string name="event_register_result">Receive register result</string>
 
     <!-- Notification but no title -->

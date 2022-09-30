@@ -8,7 +8,7 @@
 
 
     <!-- Event -->
-    <string name="event_register">注册推送</string>
+    <string name="event_register">尝试注册推送</string>
     <string name="event_register_result">收到注册结果</string>
 
     <!-- Notification but no title -->
