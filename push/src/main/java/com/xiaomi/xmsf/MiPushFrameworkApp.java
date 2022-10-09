@@ -57,12 +57,11 @@ public class MiPushFrameworkApp extends Application {
         logger.i("App starts at " + System.currentTimeMillis());
 
         initMiSdkLogger();
+        initPushLogger();
 
         CondomOptions options = XMOutbound.create(this, TAG_CONDOM + "_PROCESS",
                 false);
         CondomProcess.installExceptDefaultProcess(this, options);
-
-        initPushLogger();
 
         PushControllerUtils.setAllEnable(true, this);
 
