@@ -155,6 +155,9 @@ public class MiPushFrameworkApp extends Application {
 
     private void initMiSdkLogger() {
         MyLog.setLogger(buildMiSDKLogger());
+        if (BuildConfig.DEBUG) {
+            MyLog.setLogLevel(MyLog.INFO);
+        }
     }
 
 
