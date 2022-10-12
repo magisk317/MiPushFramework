@@ -1,5 +1,7 @@
 package com.xiaomi.xmsf.push.control;
 
+import static top.trumeet.common.Constants.TAG_CONDOM;
+
 import android.annotation.SuppressLint;
 import android.app.ActivityManager;
 import android.app.job.JobScheduler;
@@ -11,24 +13,30 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Process;
 import android.preference.PreferenceManager;
+import android.text.TextUtils;
+
 import androidx.core.content.ContextCompat;
 
 import com.elvishew.xlog.Logger;
 import com.elvishew.xlog.XLog;
 import com.oasisfeng.condom.CondomContext;
+import com.xiaomi.channel.commonutils.logger.MyLog;
+import com.xiaomi.channel.commonutils.misc.ScheduledJobManager;
 import com.xiaomi.mipush.sdk.MiPushClient;
 import com.xiaomi.push.service.PushServiceConstants;
 import com.xiaomi.push.service.PushServiceMain;
+import com.xiaomi.xmsf.FirstRegister;
+import com.xiaomi.xmsf.RetryRegister;
 import com.xiaomi.xmsf.push.service.receivers.BootReceiver;
 import com.xiaomi.xmsf.push.service.receivers.KeepAliveReceiver;
 
-import top.trumeet.common.Constants;
+import java.util.Objects;
 
-import static top.trumeet.common.Constants.APP_ID;
-import static top.trumeet.common.Constants.APP_KEY;
-import static top.trumeet.common.Constants.TAG_CONDOM;
+import top.trumeet.common.Constants;
 
 /**
  * Created by Trumeet on 2017/8/25.
@@ -41,6 +49,21 @@ public class PushControllerUtils {
     private static Logger logger = XLog.tag(PushControllerUtils.class.getSimpleName()).build();
 
     private static BroadcastReceiver liveReceiver = new KeepAliveReceiver();
+
+    private static final int[] RetryInterval = {3600000, 7200000, 14400000, 28800000, 86400000};
+
+    public static void registerPush(Context context, int i) {
+        Objects.requireNonNull(context);
+        int[] retryInterval = RetryInterval;
+        int length = retryInterval.length;
+        long intervalMs = i < length ? retryInterval[i] : retryInterval[length - 1];
+        MyLog.i("for make sure xmsf register push succ, schedule register after " + intervalMs / 1000 + " sec");
+        new Handler(Looper.getMainLooper()).postDelayed(new RetryRegister(context, i), intervalMs);
+    }
+
+    public static boolean pushRegistered(final Context context) {
+        return !TextUtils.isEmpty(MiPushClient.getRegId(context));
+    }
 
     private static SharedPreferences getPrefs(Context context) {
         return PreferenceManager.getDefaultSharedPreferences(context.getApplicationContext());
@@ -101,7 +124,8 @@ public class PushControllerUtils {
 
 
             if (isAppMainProc(context)) {
-                MiPushClient.registerPush(wrapContext(context), APP_ID, APP_KEY);
+                ScheduledJobManager.getInstance(wrapContext(context))
+                        .addOneShootJob(new FirstRegister(wrapContext(context)));
             }
 
             try {
@@ -167,5 +191,4 @@ public class PushControllerUtils {
         return CondomContext.wrap(context, TAG_CONDOM, XMOutbound.create(context,
                 TAG_CONDOM));
     }
-
 }
