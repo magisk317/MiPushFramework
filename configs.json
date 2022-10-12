@@ -1,7 +1,21 @@
 {
     "version": "0.1.0",
     "configs": {
+        "通知默认不成组": [
+            {
+                "metaInfo": {
+                    "notifyId": "(?<id>.*)"
+                },
+                "newMetaInfo": {
+                    "extra": {
+                        "notification_group": "${id}"
+                    }
+                },
+                "stop": false
+            }
+        ],
         "com.tencent.mobileqq": [
+            "通知默认不成组",
             {
                 "metaInfo": {
                     "notifyId": "^0$",
