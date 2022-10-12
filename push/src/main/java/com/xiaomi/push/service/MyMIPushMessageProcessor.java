@@ -1,5 +1,7 @@
 package com.xiaomi.push.service;
 
+import static com.xiaomi.push.service.MIPushEventProcessor.buildContainer;
+import static com.xiaomi.push.service.MIPushEventProcessor.buildIntent;
 import static com.xiaomi.push.service.MiPushMsgAck.geoMessageIsValidated;
 import static com.xiaomi.push.service.MiPushMsgAck.processGeoMessage;
 import static com.xiaomi.push.service.MiPushMsgAck.sendAckMessage;
@@ -19,7 +21,6 @@ import com.elvishew.xlog.Logger;
 import com.elvishew.xlog.XLog;
 import com.xiaomi.channel.commonutils.android.AppInfoUtils;
 import com.xiaomi.channel.commonutils.android.MIIDUtils;
-import com.xiaomi.channel.commonutils.logger.MyLog;
 import com.xiaomi.xmpush.thrift.ActionType;
 import com.xiaomi.xmpush.thrift.PushMetaInfo;
 import com.xiaomi.xmpush.thrift.XmPushActionContainer;
@@ -42,59 +43,58 @@ import top.trumeet.common.register.RegisteredApplication;
 public class MyMIPushMessageProcessor {
     private static Logger logger = XLog.tag("MyMIPushMessageProcessor").build();
 
-    public static void process(XMPushService paramXMPushService, byte[] payload, long sizeContainPayload) {
+    public static void process(XMPushService pushService, byte[] decryptedContent, long packetBytesLen) {
         try {
-            XmPushActionContainer buildContainer = MIPushEventProcessor.buildContainer(payload);
-            if (buildContainer == null) {
+            XmPushActionContainer container = buildContainer(decryptedContent);
+            if (container == null) {
                 return;
             }
 
-            Intent localIntent = MIPushEventProcessor.buildIntent(payload, System.currentTimeMillis());
-            long current = System.currentTimeMillis();
-            PushMetaInfo localPushMetaInfo = buildContainer.getMetaInfo();
-            if (localPushMetaInfo != null) {
-                localPushMetaInfo.putToExtra("mrt", Long.toString(current));
+            Long receiveTime = Long.valueOf(System.currentTimeMillis());
+            Intent intent = buildIntent(decryptedContent, receiveTime.longValue());
+            String realTargetPackage = MIPushNotificationHelper.getTargetPackage(container);
+            PushMetaInfo metaInfo = container.getMetaInfo();
+            if (metaInfo != null) {
+                metaInfo.putToExtra(PushConstants.MESSAGE_RECEIVE_TIME, Long.toString(receiveTime.longValue()));
             }
 
-            boolean isSendMessage = ActionType.SendMessage == buildContainer.getAction();
-            boolean isBusinessMessage = MIPushNotificationHelper.isBusinessMessage(buildContainer);
+            boolean isSendMessage = ActionType.SendMessage == container.getAction();
+            boolean isBusinessMessage = MIPushNotificationHelper.isBusinessMessage(container);
 
-            if (isSendMessage && MIPushAppInfo.getInstance(paramXMPushService).isUnRegistered(buildContainer.packageName) && !isBusinessMessage) {
-                String var20 = "";
-                if (localPushMetaInfo != null) {
-                    var20 = localPushMetaInfo.getId();
+            if (isSendMessage && MIPushAppInfo.getInstance(pushService).isUnRegistered(container.packageName) && !isBusinessMessage) {
+                String msgId = "";
+                if (metaInfo != null) {
+                    msgId = metaInfo.getId();
                 }
-
-                logger.w("Drop a message for unregistered, msgid=" + var20);
-                sendAppAbsentAck(paramXMPushService, buildContainer, buildContainer.packageName);
-            } else if (isSendMessage && MIPushAppInfo.getInstance(paramXMPushService).isPushDisabled4User(buildContainer.packageName) && !isBusinessMessage) {
-                String var19 = "";
-                if (localPushMetaInfo != null) {
-                    var19 = localPushMetaInfo.getId();
+                logger.w("Drop a message for unregistered, msgid=" + msgId);
+                sendAppAbsentAck(pushService, container, container.packageName);
+            } else if (isSendMessage && MIPushAppInfo.getInstance(pushService).isPushDisabled4User(container.packageName) && !isBusinessMessage) {
+                String msgId2 = "";
+                if (metaInfo != null) {
+                    msgId2 = metaInfo.getId();
                 }
-
-                logger.w("Drop a message for push closed, msgid=" + var19);
-                sendAppAbsentAck(paramXMPushService, buildContainer, buildContainer.packageName);
-            } else if (isSendMessage && !TextUtils.equals(paramXMPushService.getPackageName(), PushConstants.PUSH_SERVICE_PACKAGE_NAME) && !TextUtils.equals(paramXMPushService.getPackageName(), buildContainer.packageName)) {
-                logger.w("Receive a message with wrong package name, expect " + paramXMPushService.getPackageName() + ", received " + buildContainer.packageName);
-                sendErrorAck(paramXMPushService, buildContainer, "unmatched_package", "package should be " + paramXMPushService.getPackageName() + ", but got " + buildContainer.packageName);
+                logger.w("Drop a message for push closed, msgid=" + msgId2);
+                sendAppAbsentAck(pushService, container, container.packageName);
+            } else if (isSendMessage && !TextUtils.equals(pushService.getPackageName(), PushConstants.PUSH_SERVICE_PACKAGE_NAME) && !TextUtils.equals(pushService.getPackageName(), container.packageName)) {
+                logger.w("Receive a message with wrong package name, expect " + pushService.getPackageName() + ", received " + container.packageName);
+                sendErrorAck(pushService, container, "unmatched_package", "package should be " + pushService.getPackageName() + ", but got " + container.packageName);
             } else {
-                if (localPushMetaInfo != null && localPushMetaInfo.getId() != null) {
-                    logger.i(String.format("receive a message, appid=%s, msgid= %s", buildContainer.getAppid(), localPushMetaInfo.getId()));
+                if (metaInfo != null && metaInfo.getId() != null) {
+                    logger.i(String.format("receive a message, appid=%s, msgid= %s", container.getAppid(), metaInfo.getId()));
                 }
 
-                if (localPushMetaInfo != null) {
-                    Map<String, String> var17 = localPushMetaInfo.getExtra();
+                if (metaInfo != null) {
+                    Map<String, String> var17 = metaInfo.getExtra();
                     if (var17 != null && var17.containsKey("hide") && "true".equalsIgnoreCase(var17.get("hide"))) {
-                        logger.i(String.format("hide a message, appid=%s, msgid= %s", buildContainer.getAppid(), localPushMetaInfo.getId()));
-                        sendAckMessage(paramXMPushService, buildContainer);
+                        logger.i(String.format("hide a message, appid=%s, msgid= %s", container.getAppid(), metaInfo.getId()));
+                        sendAckMessage(pushService, container);
                         return;
                     }
                 }
 
-                if ((localPushMetaInfo != null) && (localPushMetaInfo.getExtra() != null) && (localPushMetaInfo.getExtra().containsKey("__miid"))) {
-                    String str2 = localPushMetaInfo.getExtra().get("__miid");
-                    Account localAccount = MIIDUtils.getXiaomiAccount(paramXMPushService);
+                if ((metaInfo != null) && (metaInfo.getExtra() != null) && (metaInfo.getExtra().containsKey("__miid"))) {
+                    String str2 = metaInfo.getExtra().get("__miid");
+                    Account localAccount = MIIDUtils.getXiaomiAccount(pushService);
                     String oldAccount = "";
                     if (localAccount == null) {
                         // xiaomi account login ?
@@ -110,24 +110,25 @@ public class MyMIPushMessageProcessor {
 
                     if (!oldAccount.isEmpty()) {
                         logger.w("miid already logout or anther already login :" + oldAccount);
-                        sendErrorAck(paramXMPushService, buildContainer, "miid already logout or anther already login", oldAccount);
+                        sendErrorAck(pushService, container, "miid already logout or anther already login", oldAccount);
                     }
                 }
 
-                boolean isGeoMessage = (localPushMetaInfo != null && verifyGeoMessage(localPushMetaInfo.getExtra()));
-                if (isGeoMessage) {
-                    if (!geoMessageIsValidated(paramXMPushService, buildContainer)) {
+                boolean relatedToGeo = metaInfo != null && verifyGeoMessage(metaInfo.getExtra());
+                if (relatedToGeo) {
+                    if (!geoMessageIsValidated(pushService, container)) {
                         return;
                     }
 
-                    boolean var10 = processGeoMessage(paramXMPushService, localPushMetaInfo, payload);
-                    MIPushEventProcessor.sendGeoAck(paramXMPushService, buildContainer, true, false, false);
+                    boolean var10 = processGeoMessage(pushService, metaInfo, decryptedContent);
+                    MIPushEventProcessor.sendGeoAck(pushService, container, true, false, false);
                     if (!var10) {
                         return;
                     }
                 }
 
-                userProcessMIPushMessage(paramXMPushService, buildContainer, payload, sizeContainPayload, localIntent, isGeoMessage);
+                postProcessMIPushMessage(pushService, realTargetPackage, decryptedContent, intent, relatedToGeo);
+
             }
 
 
@@ -140,40 +141,38 @@ public class MyMIPushMessageProcessor {
     /**
      * @see MIPushEventProcessor#postProcessMIPushMessage
      */
-    private static void userProcessMIPushMessage(XMPushService paramXMPushService, XmPushActionContainer buildContainer, byte[] payload, long sizeContainPayload, Intent paramIntent, boolean isGeoMessage) {
-        //var5 buildContainer
-        //var6 metaInfo
+    private static void postProcessMIPushMessage(XMPushService pushService, String realTargetPackage, byte[] decryptedContent, Intent intent, boolean relateToGeo) {
+        XmPushActionContainer container = buildContainer(decryptedContent);
+        PushMetaInfo metaInfo = container.getMetaInfo();
 
-        boolean pkgInstalled = AppInfoUtils.isPkgInstalled(paramXMPushService, buildContainer.packageName);
+        boolean pkgInstalled = AppInfoUtils.isPkgInstalled(pushService, container.packageName);
         if (!pkgInstalled) {
-            sendAppNotInstallNotification(paramXMPushService, buildContainer);
+            sendAppNotInstallNotification(pushService, container);
             return;
         }
 
-        String targetPackage = MIPushNotificationHelper.getTargetPackage(buildContainer);
+        String targetPackage = MIPushNotificationHelper.getTargetPackage(container);
 
-        boolean isBusinessMessage = MIPushNotificationHelper.isBusinessMessage(buildContainer);
+        boolean isBusinessMessage = MIPushNotificationHelper.isBusinessMessage(container);
         if (isBusinessMessage) {
-            if (ActionType.Registration == buildContainer.getAction()) {
-                String str2 = buildContainer.getPackageName();
-                SharedPreferences.Editor localEditor = paramXMPushService.getSharedPreferences(PREF_KEY_REGISTERED_PKGS, 0).edit();
-                localEditor.putString(str2, buildContainer.appid);
+            if (ActionType.Registration == container.getAction()) {
+                String str2 = container.getPackageName();
+                SharedPreferences.Editor localEditor = pushService.getSharedPreferences(PREF_KEY_REGISTERED_PKGS, 0).edit();
+                localEditor.putString(str2, container.appid);
                 localEditor.apply();
-                com.xiaomi.tinyData.TinyDataManager.getInstance(paramXMPushService).processPendingData("Register Success, package name is " + str2);
+                com.xiaomi.tinyData.TinyDataManager.getInstance(pushService).processPendingData("Register Success, package name is " + str2);
             }
         }
-
-        PushMetaInfo metaInfo = buildContainer.getMetaInfo();
 
         if (metaInfo == null) {
             return;
         }
 
         //abtest
-        if (BuildConfig.APPLICATION_ID.contains(targetPackage) && !buildContainer.isEncryptAction() &&
+        if (BuildConfig.APPLICATION_ID.contains(targetPackage) && !container.isEncryptAction() &&
                 metaInfo.getExtra() != null && metaInfo.getExtra().containsKey("ab")) {
-            sendAckMessage(paramXMPushService, buildContainer);
-            MyLog.i("receive abtest message. ack it." + metaInfo.getId());
+            sendAckMessage(pushService, container);
+            logger.i("receive abtest message. ack it." + metaInfo.getId());
             return;
         }
 
@@ -184,19 +183,19 @@ public class MyMIPushMessageProcessor {
         } else {
 
             if (TextUtils.isEmpty(title)) {
-                CharSequence appName = ApplicationNameCache.getInstance().getAppName(paramXMPushService, targetPackage);
+                CharSequence appName = ApplicationNameCache.getInstance().getAppName(pushService, targetPackage);
                 metaInfo.setTitle(appName.toString());
             }
 
             if (TextUtils.isEmpty(description)) {
-                metaInfo.setDescription(paramXMPushService.getString(R.string.see_pass_though_msg));
+                metaInfo.setDescription(pushService.getString(R.string.see_pass_though_msg));
             }
 
         }
 
 
         RegisteredApplication application = RegisteredApplicationDb.registerApplication(
-                targetPackage, false, paramXMPushService, null);
+                targetPackage, false, pushService, null);
         if (!TextUtils.isEmpty(metaInfo.getTitle()) && !TextUtils.isEmpty(metaInfo.getDescription()) &&
                 (metaInfo.passThrough != 1 || application.isShowPassThrough())) {
 
@@ -207,31 +206,31 @@ public class MyMIPushMessageProcessor {
             if (TextUtils.isEmpty(idKey)) {
                 idKey = metaInfo.getId();
             }
-            boolean isDuplicateMessage = MiPushMessageDuplicate.isDuplicateMessage(paramXMPushService, targetPackage, idKey);
+            boolean isDuplicateMessage = MiPushMessageDuplicate.isDuplicateMessage(pushService, targetPackage, idKey);
             if (isDuplicateMessage) {
                 logger.w("drop a duplicate message, key=" + idKey);
             } else {
-                MyMIPushNotificationHelper.notifyPushMessage(paramXMPushService, buildContainer, payload, sizeContainPayload);
+                MyMIPushNotificationHelper.notifyPushMessage(pushService, container, decryptedContent);
 
                 //send broadcast
                 if (!isBusinessMessage) {
                     Intent localIntent = new Intent(PushConstants.MIPUSH_ACTION_MESSAGE_ARRIVED);
-                    localIntent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, payload);
+                    localIntent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, decryptedContent);
                     localIntent.putExtra(MIPushNotificationHelper.FROM_NOTIFICATION, true);
                     localIntent.setPackage(targetPackage);
 
-                    paramXMPushService.sendBroadcast(localIntent, ClientEventDispatcher.getReceiverPermission(targetPackage));
+                    pushService.sendBroadcast(localIntent, ClientEventDispatcher.getReceiverPermission(targetPackage));
                 }
 
             }
 
-            if (isGeoMessage) {
-                MIPushEventProcessor.sendGeoAck(paramXMPushService, buildContainer, false, true, false);
+            if (relateToGeo) {
+                MIPushEventProcessor.sendGeoAck(pushService, container, false, true, false);
             } else {
-                sendAckMessage(paramXMPushService, buildContainer);
+                sendAckMessage(pushService, container);
             }
-        } else if (shouldSendBroadcast(paramXMPushService, targetPackage, buildContainer, metaInfo)) {
-            paramXMPushService.sendBroadcast(paramIntent, ClientEventDispatcher.getReceiverPermission(targetPackage));
+        } else if (shouldSendBroadcast(pushService, targetPackage, container, metaInfo)) {
+            pushService.sendBroadcast(intent, ClientEventDispatcher.getReceiverPermission(targetPackage));
         }
 
     }

@@ -1,5 +1,6 @@
 package com.xiaomi.push.service;
 
+import static com.xiaomi.push.service.MIPushNotificationHelper.*;
 import static com.xiaomi.push.service.MIPushNotificationHelper.isBusinessMessage;
 import static top.trumeet.common.utils.NotificationUtils.getExtraField;
 
@@ -63,35 +64,35 @@ public class MyMIPushNotificationHelper {
     /**
      * @see MIPushNotificationHelper#notifyPushMessage
      */
-    public static void notifyPushMessage(Context xmPushService, XmPushActionContainer buildContainer, byte[] payload, long var2) {
-        PushMetaInfo metaInfo = buildContainer.getMetaInfo();
-        String packageName = buildContainer.getPackageName();
+    public static void notifyPushMessage(Context context, XmPushActionContainer container, byte[] decryptedContent) {
+        PushMetaInfo metaInfo = container.getMetaInfo();
+        String packageName = container.getPackageName();
 
         if (!tryLoadConfigurations) {
             tryLoadConfigurations = true;
             boolean success = false;
             Handler handler = new Handler(Looper.getMainLooper());
             try {
-                 success = Configurations.getInstance().init(xmPushService,
-                        ConfigCenter.getInstance().getConfigurationDirectory(xmPushService));
+                 success = Configurations.getInstance().init(context,
+                        ConfigCenter.getInstance().getConfigurationDirectory(context));
             } catch (Exception e) {
-                handler.post(() -> Toast.makeText(xmPushService, e.toString(), Toast.LENGTH_LONG).show());
+                handler.post(() -> Toast.makeText(context, e.toString(), Toast.LENGTH_LONG).show());
             }
             boolean finalSuccess = success;
-            handler.post(() -> Toast.makeText(xmPushService, "configurations loaded: " + finalSuccess, Toast.LENGTH_SHORT).show());
+            handler.post(() -> Toast.makeText(context, "configurations loaded: " + finalSuccess, Toast.LENGTH_SHORT).show());
         }
 
         try {
             Set<String> operations = Configurations.getInstance().handle(packageName, metaInfo);
 
             if (operations.contains(Configurations.PackageConfig.OPERATION_WAKE)) {
-                wakeScreen(xmPushService, packageName);
+                wakeScreen(context, packageName);
             }
             if (!operations.contains(Configurations.PackageConfig.OPERATION_IGNORE)) {
-                doNotifyPushMessage(xmPushService, buildContainer, payload);
+                doNotifyPushMessage(context, container, decryptedContent);
             }
             if (operations.contains(Configurations.PackageConfig.OPERATION_OPEN)) {
-                MyPushMessageHandler.startService(xmPushService, buildContainer, payload);
+                MyPushMessageHandler.startService(context, container, decryptedContent);
             }
         } catch (Exception e) {
             logger.e(e.getLocalizedMessage(), e);
@@ -108,14 +109,14 @@ public class MyMIPushNotificationHelper {
         fullWakeLock.acquire(10000);
     }
 
-    private static void doNotifyPushMessage(Context xmPushService, XmPushActionContainer buildContainer, byte[] payload) {
-        PushMetaInfo metaInfo = buildContainer.getMetaInfo();
-        String packageName = buildContainer.getPackageName();
+    private static void doNotifyPushMessage(Context context, XmPushActionContainer container, byte[] decryptedContent) {
+        PushMetaInfo metaInfo = container.getMetaInfo();
+        String packageName = container.getPackageName();
 
         String title = metaInfo.getTitle();
         String description = metaInfo.getDescription();
 
-        NotificationCompat.Builder localBuilder = new NotificationCompat.Builder(xmPushService);
+        NotificationCompat.Builder localBuilder = new NotificationCompat.Builder(context);
 
         logger.i("title:" + title + "  description:" + description);
 
@@ -138,22 +139,22 @@ public class MyMIPushNotificationHelper {
 //            }
         }
 
-        addDebugAction(xmPushService, buildContainer, payload, metaInfo, packageName, localBuilder);
+        addDebugAction(context, container, decryptedContent, metaInfo, packageName, localBuilder);
 
         localBuilder.setWhen(metaInfo.getMessageTs());
         localBuilder.setShowWhen(true);
 
-        String[] titleAndDesp = determineTitleAndDespByDIP(xmPushService, metaInfo);
+        String[] titleAndDesp = determineTitleAndDespByDIP(context, metaInfo);
         localBuilder.setContentTitle(titleAndDesp[0]);
         localBuilder.setContentText(titleAndDesp[1]);
 
-        String group = getGroupName(xmPushService, buildContainer);
+        String group = getGroupName(context, container);
         localBuilder.setGroup(group);
 
         boolean isGroupOfSession = group.contains(GROUP_TYPE_SAME_TITLE) ||
                 group.contains(GROUP_TYPE_SAME_NOTIFICATION_ID);
 
-        int notificationId = MyClientEventDispatcher.getNotificationId(xmPushService, buildContainer);
+        int notificationId = MyClientEventDispatcher.getNotificationId(context, container);
         if (isGroupOfSession) {
             notificationId = (notificationId + "_" + System.currentTimeMillis()).hashCode();
         }
@@ -164,13 +165,13 @@ public class MyMIPushNotificationHelper {
         intentExtra.putExtra(Constants.INTENT_NOTIFICATION_GROUP_OF_SESSION, isGroupOfSession);
 
         PendingIntent localPendingIntent = getClickedPendingIntent(
-                xmPushService, buildContainer, payload, notificationId, intentExtra.getExtras());
+                context, container, decryptedContent, notificationId, intentExtra.getExtras());
         if (localPendingIntent != null) {
             localBuilder.setContentIntent(localPendingIntent);
-            carryPendingIntentForTemporarilyWhitelisted(xmPushService, buildContainer, localBuilder);
+            carryPendingIntentForTemporarilyWhitelisted(context, container, localBuilder);
         }
 
-        NotificationController.publish(xmPushService, metaInfo, notificationId, packageName, localBuilder);
+        NotificationController.publish(context, metaInfo, notificationId, packageName, localBuilder);
     }
 
     private static void carryPendingIntentForTemporarilyWhitelisted(Context xmPushService, XmPushActionContainer buildContainer, NotificationCompat.Builder localBuilder) {
@@ -244,41 +245,38 @@ public class MyMIPushNotificationHelper {
     }
 
     private static PendingIntent getClickedPendingIntent(
-            Context paramContext, XmPushActionContainer paramXmPushActionContainer, byte[] payload,
+            Context context, XmPushActionContainer container, byte[] decryptedContent,
             int notificationId, Bundle extra) {
-        PushMetaInfo metaInfo = paramXmPushActionContainer.getMetaInfo();
+        PushMetaInfo metaInfo = container.getMetaInfo();
         if (metaInfo == null) {
             return null;
         }
 
-        {
-            //Jump web
-            String urlJump = null;
-            if (!TextUtils.isEmpty(metaInfo.url)) {
-                urlJump = metaInfo.url;
-            } else if (metaInfo.getExtra() != null) {
-                urlJump = metaInfo.getExtra().get(PushConstants.EXTRA_PARAM_WEB_URI);
-            }
-
-            if (!TextUtils.isEmpty(urlJump)) {
-                Intent localIntent3 = new Intent("android.intent.action.VIEW");
-                localIntent3.setData(Uri.parse(urlJump));
-                localIntent3.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-                return PendingIntent.getActivity(paramContext, notificationId, localIntent3, PendingIntent.FLAG_UPDATE_CURRENT);
-            }
+        //Jump web
+        String urlJump = null;
+        if (!TextUtils.isEmpty(metaInfo.url)) {
+            urlJump = metaInfo.url;
+        } else if (metaInfo.getExtra() != null) {
+            urlJump = metaInfo.getExtra().get(PushConstants.EXTRA_PARAM_WEB_URI);
         }
 
-        Intent localIntent = new Intent();
-        if (isBusinessMessage(paramXmPushActionContainer)) {
-            localIntent.setComponent(new ComponentName("com.xiaomi.xmsf", "com.xiaomi.mipush.sdk.PushMessageHandler"));
-        } else {
-            localIntent.setComponent(new ComponentName("com.xiaomi.xmsf", "com.xiaomi.push.sdk.MyPushMessageHandler"));
+        if (!TextUtils.isEmpty(urlJump)) {
+            Intent intent = new Intent("android.intent.action.VIEW");
+            intent.setData(Uri.parse(urlJump));
+            intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+            return PendingIntent.getActivity(context, notificationId, intent, PendingIntent.FLAG_UPDATE_CURRENT);
         }
-        localIntent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, payload);
-        localIntent.putExtra(MIPushNotificationHelper.FROM_NOTIFICATION, true);
-        localIntent.putExtras(extra);
-        localIntent.addCategory(String.valueOf(metaInfo.getNotifyId()));
-        return PendingIntent.getService(paramContext, notificationId, localIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+        Intent intent = new Intent();
+        intent.setComponent(new ComponentName("com.xiaomi.xmsf",
+                isBusinessMessage(container) ?
+                        "com.xiaomi.mipush.sdk.PushMessageHandler" :
+                        "com.xiaomi.push.sdk.MyPushMessageHandler"));
+        intent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, decryptedContent);
+        intent.putExtra(FROM_NOTIFICATION, true);
+        intent.putExtras(extra);
+        intent.addCategory(String.valueOf(metaInfo.getNotifyId()));
+        return PendingIntent.getService(context, notificationId, intent, PendingIntent.FLAG_UPDATE_CURRENT);
     }
 
     /**
@@ -403,14 +401,14 @@ public class MyMIPushNotificationHelper {
             Intent localIntent = new Intent();
             localIntent.setComponent(new ComponentName("com.xiaomi.xmsf", "com.xiaomi.mipush.sdk.PushMessageHandler"));
             localIntent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, paramArrayOfByte);
-            localIntent.putExtra(MIPushNotificationHelper.FROM_NOTIFICATION, true);
+            localIntent.putExtra(FROM_NOTIFICATION, true);
             localIntent.addCategory(String.valueOf(paramPushMetaInfo.getNotifyId()));
             localPendingIntent = PendingIntent.getService(paramContext, 0, localIntent, PendingIntent.FLAG_UPDATE_CURRENT);
         } else {
             Intent localIntent = new Intent("com.xiaomi.mipush.RECEIVE_MESSAGE");
             localIntent.setComponent(new ComponentName(paramXmPushActionContainer.packageName, "com.xiaomi.mipush.sdk.PushMessageHandler"));
             localIntent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, paramArrayOfByte);
-            localIntent.putExtra(MIPushNotificationHelper.FROM_NOTIFICATION, true);
+            localIntent.putExtra(FROM_NOTIFICATION, true);
             localIntent.addCategory(String.valueOf(paramPushMetaInfo.getNotifyId()));
             localPendingIntent = PendingIntent.getService(paramContext, 0, localIntent, PendingIntent.FLAG_UPDATE_CURRENT);
         }

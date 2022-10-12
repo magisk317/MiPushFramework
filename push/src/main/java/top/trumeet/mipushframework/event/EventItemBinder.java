@@ -121,8 +121,7 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
                 public void onClick(DialogInterface dialogInterface, int i) {
                     MyMIPushNotificationHelper.notifyPushMessage(context,
                             MIPushEventProcessor.buildContainer(type.getPayload()),
-                            type.getPayload(),
-                            type.getPayload().length
+                            type.getPayload()
                     );
                 }
             });

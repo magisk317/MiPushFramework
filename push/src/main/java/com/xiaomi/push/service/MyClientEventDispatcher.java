@@ -128,16 +128,16 @@ public class MyClientEventDispatcher extends ClientEventDispatcher {
 
     private static class EventProcessor extends MIPushEventProcessor {
         private static Logger logger = XLog.tag("MyClientEventDispatcherD").build();
-        private static void runProcessMIPushMessage(XMPushService xmPushService, byte[] payload, long sizeContainPayload) {
-            XmPushActionContainer buildContainer = buildContainer(payload);
+        private static void runProcessMIPushMessage(XMPushService pushService, byte[] decryptedContent, long packetBytesLen) {
+            XmPushActionContainer buildContainer = buildContainer(decryptedContent);
             if (BuildConfig.DEBUG) {
                 logger.i("buildContainer: " + buildContainer.toString());
             }
             EventType type = TypeFactory.create(buildContainer, buildContainer.packageName);
-            if (MessageProcessor.userAllow(type, xmPushService) ||
+            if (MessageProcessor.userAllow(type, pushService) ||
                     PushConstants.PUSH_SERVICE_PACKAGE_NAME.equals(buildContainer.packageName)) {
 
-                MyMIPushMessageProcessor.process(xmPushService, payload, sizeContainPayload);
+                MyMIPushMessageProcessor.process(pushService, decryptedContent, packetBytesLen);
 
             } else {
                 if (BuildConfig.DEBUG) {
@@ -147,31 +147,35 @@ public class MyClientEventDispatcher extends ClientEventDispatcher {
         }
 
         @Override
-        public void processNewPacket(XMPushService xMPushService, Blob blob, PushClientsManager.ClientLoginInfo clientLoginInfo) {
+        public void processNewPacket(XMPushService pushService, Blob blob, PushClientsManager.ClientLoginInfo loginInfo) {
             try {
-                runProcessMIPushMessage(xMPushService, blob.getDecryptedPayload(clientLoginInfo.security), (long) blob.getSerializedSize());
-            } catch (Throwable e) {
-                logger.e("", e);
+                byte[] decryptedContent = blob.getDecryptedPayload(loginInfo.security);
+                runProcessMIPushMessage(pushService, decryptedContent, blob.getSerializedSize());
+            } catch (IllegalArgumentException e) {
+                logger.e(e);
             }
         }
 
         @Override
-        public void processNewPacket(XMPushService xMPushService, Packet packet, PushClientsManager.ClientLoginInfo clientLoginInfo) {
+        public void processNewPacket(XMPushService pushService, Packet packet, PushClientsManager.ClientLoginInfo loginInfo) {
             if (packet instanceof Message) {
-                Message message = (Message) packet;
-                CommonPacketExtension extension = message.getExtension("s");
+                Message miMessage = (Message) packet;
+                CommonPacketExtension extension = miMessage.getExtension("s");
                 if (extension != null) {
                     try {
-                        runProcessMIPushMessage(xMPushService, RC4Cryption.decrypt(RC4Cryption.generateKeyForRC4(clientLoginInfo.security, message.getPacketID()), extension.getText()), (long) TrafficUtils.getTrafficFlow(packet.toXML()));
+                        byte[] key = RC4Cryption.generateKeyForRC4(loginInfo.security, miMessage.getPacketID());
+                        byte[] decryptedContent = RC4Cryption.decrypt(key, extension.getText());
+                        runProcessMIPushMessage(pushService, decryptedContent, TrafficUtils.getTrafficFlow(packet.toXML()));
                         return;
-                    } catch (Throwable e) {
-                        logger.e("", e);
+                    } catch (IllegalArgumentException e) {
+                        logger.e(e);
                         return;
                     }
                 }
                 return;
             }
-            logger.e("not a mipush message");
+            logger.w("not a mipush message");
         }
+
     }
 }
