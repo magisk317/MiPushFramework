@@ -96,10 +96,10 @@ public class PushControllerUtils {
     }
 
     /**
-     * Check is in main app process
+     * Check is in main app processMIPushMessage
      *
      * @param context Context param
-     * @return is in main process
+     * @return is in main processMIPushMessage
      */
     public static boolean isAppMainProc(Context context) {
         for (ActivityManager.RunningAppProcessInfo runningAppProcessInfo : ((ActivityManager)

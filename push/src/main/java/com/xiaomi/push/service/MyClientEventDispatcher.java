@@ -137,7 +137,7 @@ public class MyClientEventDispatcher extends ClientEventDispatcher {
             if (MessageProcessor.userAllow(type, pushService) ||
                     PushConstants.PUSH_SERVICE_PACKAGE_NAME.equals(buildContainer.packageName)) {
 
-                MyMIPushMessageProcessor.process(pushService, decryptedContent, packetBytesLen);
+                MyMIPushMessageProcessor.processMIPushMessage(pushService, decryptedContent, packetBytesLen);
 
             } else {
                 if (BuildConfig.DEBUG) {
