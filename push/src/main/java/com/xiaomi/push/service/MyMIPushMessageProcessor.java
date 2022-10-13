@@ -155,14 +155,11 @@ public class MyMIPushMessageProcessor {
                 !JavaCalls.<Boolean>callStaticMethod(MIPushEventProcessor.class.getName(), "isMIUIPushSupported", pushService, realTargetPackage) &&
                 !JavaCalls.<Boolean>callStaticMethod(MIPushEventProcessor.class.getName(), "predefinedNotification", container)) {
             JavaCalls.callStaticMethod(MIPushEventProcessor.class.getName(), "sendMIUINewAdsAckMessage", pushService, container);
-        } else if ((!isBusinessMessage || !pkgInstalled) &&
-                !JavaCalls.<Boolean>callStaticMethod(MIPushEventProcessor.class.getName(), "isIntentAvailable", pushService, intent)) {
+        } else {
             if (!pkgInstalled) {
                 sendAppNotInstallNotification(pushService, container);
-            } else {
-                logger.w("receive a mipush message, we can see the app, but we can't see the receiver.");
+                return;
             }
-        } else {
             if (ActionType.Registration == container.getAction()) {
                 String pkgName = container.getPackageName();
                 SharedPreferences sp = pushService.getSharedPreferences(PushServiceConstants.PREF_KEY_REGISTERED_PKGS, 0);
