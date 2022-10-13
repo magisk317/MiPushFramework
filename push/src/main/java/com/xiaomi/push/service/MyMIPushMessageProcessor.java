@@ -51,6 +51,10 @@ public class MyMIPushMessageProcessor {
             if (container == null) {
                 return;
             }
+            if (TextUtils.isEmpty(container.packageName)) {
+                logger.w("receive a mipush message without package name");
+                return;
+            }
 
             Long receiveTime = Long.valueOf(System.currentTimeMillis());
             Intent intent = buildIntent(decryptedContent, receiveTime.longValue());
@@ -86,27 +90,25 @@ public class MyMIPushMessageProcessor {
                 }
 
                 if (metaInfo != null) {
-                    Map<String, String> var17 = metaInfo.getExtra();
-                    if (var17 != null && var17.containsKey("hide") && "true".equalsIgnoreCase(var17.get("hide"))) {
+                    Map<String, String> extra = metaInfo.getExtra();
+                    if (extra != null && extra.containsKey("hide") && "true".equalsIgnoreCase(extra.get("hide"))) {
                         logger.i(String.format("hide a message, appid=%s, msgid= %s", container.getAppid(), metaInfo.getId()));
                         sendAckMessage(pushService, container);
                         return;
                     }
                 }
 
-                if ((metaInfo != null) && (metaInfo.getExtra() != null) && (metaInfo.getExtra().containsKey("__miid"))) {
-                    String str2 = metaInfo.getExtra().get("__miid");
-                    Account localAccount = MIIDUtils.getXiaomiAccount(pushService);
+                if (metaInfo != null && metaInfo.getExtra() != null && metaInfo.getExtra().containsKey(PushConstants.EXTRA_PARAM_MIID)) {
+                    String miid = metaInfo.getExtra().get(PushConstants.EXTRA_PARAM_MIID);
+                    Account miAccount = MIIDUtils.getXiaomiAccount(pushService);
                     String oldAccount = "";
-                    if (localAccount == null) {
+                    if (miAccount == null) {
                         // xiaomi account login ?
                         oldAccount = "nothing";
                     } else {
-                        if (TextUtils.equals(str2, localAccount.name)) {
-
-                        } else {
-                            oldAccount = localAccount.name;
-                            logger.w(str2 + " should be login, but got " + localAccount);
+                        if (!TextUtils.equals(miid, miAccount.name)) {
+                            oldAccount = miAccount.name;
+                            logger.w(miid + " should be login, but got " + miAccount);
                         }
                     }
 
