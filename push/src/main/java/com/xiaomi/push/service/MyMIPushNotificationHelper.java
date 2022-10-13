@@ -1,6 +1,7 @@
 package com.xiaomi.push.service;
 
-import static com.xiaomi.push.service.MIPushNotificationHelper.*;
+import static com.xiaomi.push.service.MIPushNotificationHelper.FROM_NOTIFICATION;
+import static com.xiaomi.push.service.MIPushNotificationHelper.getTargetPackage;
 import static com.xiaomi.push.service.MIPushNotificationHelper.isBusinessMessage;
 import static top.trumeet.common.utils.NotificationUtils.getExtraField;
 
@@ -22,7 +23,7 @@ import androidx.core.app.NotificationCompat;
 
 import com.elvishew.xlog.Logger;
 import com.elvishew.xlog.XLog;
-import com.xiaomi.channel.commonutils.logger.MyLog;
+import com.xiaomi.channel.commonutils.android.AppInfoUtils;
 import com.xiaomi.channel.commonutils.reflect.JavaCalls;
 import com.xiaomi.push.sdk.MyPushMessageHandler;
 import com.xiaomi.xmpush.thrift.PushMetaInfo;
@@ -65,37 +66,46 @@ public class MyMIPushNotificationHelper {
      * @see MIPushNotificationHelper#notifyPushMessage
      */
     public static void notifyPushMessage(Context context, XmPushActionContainer container, byte[] decryptedContent) {
-        PushMetaInfo metaInfo = container.getMetaInfo();
-        String packageName = container.getPackageName();
+        AppInfoUtils.AppNotificationOp notificationOp = AppInfoUtils.getAppNotificationOp(context, getTargetPackage(container));
+        if (notificationOp == AppInfoUtils.AppNotificationOp.NOT_ALLOWED) {
+            logger.w("Do not notify because user block " + getTargetPackage(container) + "'s notification");
+        } else if (TypedShieldHelper.isShield(context, container)) {
+            String shieldTypeName = TypedShieldHelper.getShieldType(container);
+            logger.w("Do not notify because user block " + shieldTypeName + "'s notification");
+        } else {
 
-        if (!tryLoadConfigurations) {
-            tryLoadConfigurations = true;
-            boolean success = false;
-            Handler handler = new Handler(Looper.getMainLooper());
+            PushMetaInfo metaInfo = container.getMetaInfo();
+            String packageName = container.getPackageName();
+
+            if (!tryLoadConfigurations) {
+                tryLoadConfigurations = true;
+                boolean success = false;
+                Handler handler = new Handler(Looper.getMainLooper());
+                try {
+                    success = Configurations.getInstance().init(context,
+                            ConfigCenter.getInstance().getConfigurationDirectory(context));
+                } catch (Exception e) {
+                    handler.post(() -> Toast.makeText(context, e.toString(), Toast.LENGTH_LONG).show());
+                }
+                boolean finalSuccess = success;
+                handler.post(() -> Toast.makeText(context, "configurations loaded: " + finalSuccess, Toast.LENGTH_SHORT).show());
+            }
+
             try {
-                 success = Configurations.getInstance().init(context,
-                        ConfigCenter.getInstance().getConfigurationDirectory(context));
+                Set<String> operations = Configurations.getInstance().handle(packageName, metaInfo);
+
+                if (operations.contains(Configurations.PackageConfig.OPERATION_WAKE)) {
+                    wakeScreen(context, packageName);
+                }
+                if (!operations.contains(Configurations.PackageConfig.OPERATION_IGNORE)) {
+                    doNotifyPushMessage(context, container, decryptedContent);
+                }
+                if (operations.contains(Configurations.PackageConfig.OPERATION_OPEN)) {
+                    MyPushMessageHandler.startService(context, container, decryptedContent);
+                }
             } catch (Exception e) {
-                handler.post(() -> Toast.makeText(context, e.toString(), Toast.LENGTH_LONG).show());
+                logger.e(e.getLocalizedMessage(), e);
             }
-            boolean finalSuccess = success;
-            handler.post(() -> Toast.makeText(context, "configurations loaded: " + finalSuccess, Toast.LENGTH_SHORT).show());
-        }
-
-        try {
-            Set<String> operations = Configurations.getInstance().handle(packageName, metaInfo);
-
-            if (operations.contains(Configurations.PackageConfig.OPERATION_WAKE)) {
-                wakeScreen(context, packageName);
-            }
-            if (!operations.contains(Configurations.PackageConfig.OPERATION_IGNORE)) {
-                doNotifyPushMessage(context, container, decryptedContent);
-            }
-            if (operations.contains(Configurations.PackageConfig.OPERATION_OPEN)) {
-                MyPushMessageHandler.startService(context, container, decryptedContent);
-            }
-        } catch (Exception e) {
-            logger.e(e.getLocalizedMessage(), e);
         }
     }
 
@@ -300,7 +310,7 @@ public class MyMIPushNotificationHelper {
             try {
                 intent = context.getPackageManager().getLaunchIntentForPackage(pkgName);
             } catch (Exception e2) {
-                MyLog.e("Cause: " + e2.getMessage());
+                logger.e("Cause: " + e2.getMessage());
             }
         } else if (PushConstants.NOTIFICATION_CLICK_INTENT.equals(typeId)) {
 
@@ -311,7 +321,7 @@ public class MyMIPushNotificationHelper {
                         intent = Intent.parseUri(intentStr, Intent.URI_INTENT_SCHEME);
                         intent.setPackage(pkgName);
                     } catch (URISyntaxException e3) {
-                        MyLog.e("Cause: " + e3.getMessage());
+                        logger.e("Cause: " + e3.getMessage());
                     }
                 }
             } else {
@@ -324,7 +334,7 @@ public class MyMIPushNotificationHelper {
                             intent.setFlags(Integer.parseInt(extra.get(PushConstants.EXTRA_PARAM_INTENT_FLAG)));
                         }
                     } catch (NumberFormatException e4) {
-                        MyLog.e("Cause by intent_flag: " + e4.getMessage());
+                        logger.e("Cause by intent_flag: " + e4.getMessage());
                     }
 
                 }
@@ -351,7 +361,7 @@ public class MyMIPushNotificationHelper {
                     intent = intent2;
                 } catch (MalformedURLException e6) {
                     e = e6;
-                    MyLog.e("Cause: " + e.getMessage());
+                    logger.e("Cause: " + e.getMessage());
                     return null;
                 }
             }
