@@ -16,6 +16,7 @@
 
 package com.android.settings.widget;
 
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
@@ -24,13 +25,6 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.provider.Settings;
-import androidx.annotation.IdRes;
-import androidx.annotation.IntDef;
-import androidx.annotation.VisibleForTesting;
-import androidx.fragment.app.Fragment;
-import androidx.appcompat.app.ActionBar;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.recyclerview.widget.RecyclerView;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -38,15 +32,25 @@ import android.view.View;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.annotation.IdRes;
+import androidx.annotation.IntDef;
+import androidx.annotation.VisibleForTesting;
+import androidx.appcompat.app.ActionBar;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.settings.applications.LayoutPreference;
+import com.xiaomi.push.service.PushConstants;
+import com.xiaomi.xmsf.R;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 import top.trumeet.common.register.RegisteredApplication;
 import top.trumeet.common.utils.Utils;
-import com.xiaomi.xmsf.R;
 
 public class EntityHeaderController {
 
@@ -88,7 +92,7 @@ public class EntityHeaderController {
      * @param header   Optional: header view if it's already created.
      */
     public static EntityHeaderController newInstance(AppCompatActivity activity, Fragment fragment,
-            View header) {
+                                                     View header) {
         return new EntityHeaderController(activity, fragment, header);
     }
 
@@ -157,7 +161,7 @@ public class EntityHeaderController {
     }
 
     public EntityHeaderController setButtonActions(@ActionType int action1,
-            @ActionType int action2) {
+                                                   @ActionType int action2) {
         mAction1 = action1;
         mAction2 = action2;
         return this;
@@ -193,6 +197,16 @@ public class EntityHeaderController {
         if (iconView != null) {
             iconView.setImageDrawable(mIcon);
             iconView.setContentDescription(mIconContentDescription);
+            iconView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Intent intent = new Intent();
+                    intent.setComponent(new ComponentName(mPackageName, "com.xiaomi.mipush.sdk.PushMessageHandler"));
+                    intent.putExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE, mAppContext.getPackageName());
+                    ComponentName name = mAppContext.startService(intent);
+                    Toast.makeText(mAppContext, "enable push of " + name, Toast.LENGTH_SHORT).show();
+                }
+            });
         }
         setText(R.id.entity_header_title, mLabel);
         setText(R.id.entity_header_summary, mSummary);
@@ -258,8 +272,8 @@ public class EntityHeaderController {
                     public void onClick(View v) {
                         Uri uri = Uri.fromParts("package", mPackageName, null);
                         mAppContext.startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                        .setData(uri)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                                .setData(uri)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
                     }
                 });
                 button.setVisibility(View.VISIBLE);
