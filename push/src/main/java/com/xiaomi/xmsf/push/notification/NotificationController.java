@@ -26,7 +26,6 @@ import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationChannelCompat;
 import androidx.core.app.NotificationChannelGroupCompat;
 import androidx.core.app.NotificationCompat;
-import androidx.core.app.NotificationManagerCompat;
 import androidx.core.graphics.ColorUtils;
 import androidx.core.graphics.drawable.IconCompat;
 
@@ -60,10 +59,13 @@ public class NotificationController {
 
     public static final String CHANNEL_WARN = "warn";
 
+    public static INotificationManager createNotificationManager(@NonNull Context context) {
+        return new NormalNotificationManager(context);
+    }
 
     public static void deleteOldNotificationChannelGroup(@NonNull Context context) {
         try {
-            NotificationManagerCompat manager = NotificationManagerCompat.from(context);
+            INotificationManager manager = createNotificationManager(context);
             manager.deleteNotificationChannelGroup(ID_GROUP_APPLICATIONS);
         } catch (Exception ignore) {
 
@@ -112,7 +114,7 @@ public class NotificationController {
             return null;
         }
 
-        NotificationManagerCompat manager = NotificationManagerCompat.from(context);
+        INotificationManager manager = createNotificationManager(context);
 
         String channelId = getChannelId(metaInfo, packageName);
         NotificationChannelCompat notificationChannelCompat = manager.getNotificationChannelCompat(channelId);
@@ -136,7 +138,7 @@ public class NotificationController {
 
     }
 
-    private static NotificationChannelCompat createNotificationChannel(PushMetaInfo metaInfo, String packageName, NotificationManagerCompat manager, CharSequence appName) {
+    private static NotificationChannelCompat createNotificationChannel(PushMetaInfo metaInfo, String packageName, INotificationManager manager, CharSequence appName) {
         NotificationChannelGroupCompat notificationChannelGroup = createGroupWithPackage(packageName, appName);
         manager.createNotificationChannelGroup(notificationChannelGroup);
 
@@ -154,7 +156,7 @@ public class NotificationController {
         if (groupId == null) {
             return;
         }
-        NotificationManagerCompat manager = NotificationManagerCompat.from(context);
+        INotificationManager manager = createNotificationManager(context);
         if (!needGroupOfNotifications(context, groupId)) {
             manager.cancel(groupId.hashCode());
             return;
@@ -178,7 +180,7 @@ public class NotificationController {
 
     @RequiresApi(api = Build.VERSION_CODES.M)
     private static int getNotificationCountOfGroup(Context context, String groupId) {
-        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        INotificationManager manager = createNotificationManager(context);
         StatusBarNotification[] activeNotifications = manager.getActiveNotifications();
 
 
@@ -208,7 +210,7 @@ public class NotificationController {
     }
 
     private static Notification notify(Context context, int notificationId, String packageName, NotificationCompat.Builder localBuilder) {
-        NotificationManagerCompat manager = NotificationManagerCompat.from(context);
+        INotificationManager manager = createNotificationManager(context);
 
         // Make the behavior consistent with official MIUI
         Bundle extras = new Bundle();
