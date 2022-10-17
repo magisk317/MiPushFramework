@@ -45,7 +45,6 @@ public class XMPushService extends IntentService {
         try {
             forwardToPushServiceMain(intent);
 
-            logger.d("onHandleIntent -> A application want to register push");
             String pkg = intent.getStringExtra(Constants.EXTRA_MI_PUSH_PACKAGE);
             if (pkg == null) {
                 logger.e("Package name is NULL!");
@@ -62,6 +61,7 @@ public class XMPushService extends IntentService {
             if (!PushConstants.MIPUSH_ACTION_REGISTER_APP.equals(intent.getAction())) {
                 return;
             }
+            logger.d("onHandleIntent -> A application want to register push");
             showRegisterToastIfExistsConfiguration(application);
             EventDb.insertEvent(Event.ResultType.OK,
                     new top.trumeet.common.event.type.RegistrationType(null, pkg, null),
