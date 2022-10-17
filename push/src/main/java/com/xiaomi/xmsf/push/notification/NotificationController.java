@@ -7,6 +7,7 @@ import static top.trumeet.common.utils.NotificationUtils.EXTRA_SOUND_URL;
 import static top.trumeet.common.utils.NotificationUtils.getChannelIdByPkg;
 import static top.trumeet.common.utils.NotificationUtils.getExtraField;
 import static top.trumeet.common.utils.NotificationUtils.getGroupIdByPkg;
+import static top.trumeet.common.utils.NotificationUtils.getPackageName;
 
 import android.annotation.TargetApi;
 import android.app.Notification;
@@ -59,13 +60,13 @@ public class NotificationController {
 
     public static final String CHANNEL_WARN = "warn";
 
-    public static INotificationManager createNotificationManager(@NonNull Context context) {
+    public static INotificationManager createNotificationManager(@NonNull Context context, @NonNull String packageName) {
         return new NormalNotificationManager(context);
     }
 
     public static void deleteOldNotificationChannelGroup(@NonNull Context context) {
         try {
-            INotificationManager manager = createNotificationManager(context);
+            INotificationManager manager = new NormalNotificationManager(context);
             manager.deleteNotificationChannelGroup(ID_GROUP_APPLICATIONS);
         } catch (Exception ignore) {
 
@@ -114,7 +115,7 @@ public class NotificationController {
             return null;
         }
 
-        INotificationManager manager = createNotificationManager(context);
+        INotificationManager manager = createNotificationManager(context, packageName);
 
         String channelId = getChannelId(metaInfo, packageName);
         NotificationChannelCompat notificationChannelCompat = manager.getNotificationChannelCompat(channelId);
@@ -156,8 +157,8 @@ public class NotificationController {
         if (groupId == null) {
             return;
         }
-        INotificationManager manager = createNotificationManager(context);
-        if (!needGroupOfNotifications(context, groupId)) {
+        INotificationManager manager = createNotificationManager(context, packageName);
+        if (!needGroupOfNotifications(manager, groupId)) {
             manager.cancel(groupId.hashCode());
             return;
         }
@@ -173,14 +174,13 @@ public class NotificationController {
     }
 
     @RequiresApi(api = Build.VERSION_CODES.M)
-    private static boolean needGroupOfNotifications(Context context, String groupId) {
-        int notificationCntInGroup = getNotificationCountOfGroup(context, groupId);
+    private static boolean needGroupOfNotifications(INotificationManager manager, String groupId) {
+        int notificationCntInGroup = getNotificationCountOfGroup(manager, groupId);
         return notificationCntInGroup > 1;
     }
 
     @RequiresApi(api = Build.VERSION_CODES.M)
-    private static int getNotificationCountOfGroup(Context context, String groupId) {
-        INotificationManager manager = createNotificationManager(context);
+    private static int getNotificationCountOfGroup(INotificationManager manager, String groupId) {
         StatusBarNotification[] activeNotifications = manager.getActiveNotifications();
 
 
@@ -210,7 +210,7 @@ public class NotificationController {
     }
 
     private static Notification notify(Context context, int notificationId, String packageName, NotificationCompat.Builder localBuilder) {
-        INotificationManager manager = createNotificationManager(context);
+        INotificationManager manager = createNotificationManager(context, packageName);
 
         // Make the behavior consistent with official MIUI
         Bundle extras = new Bundle();
