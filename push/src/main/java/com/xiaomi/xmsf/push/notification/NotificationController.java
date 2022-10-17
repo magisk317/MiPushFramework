@@ -11,6 +11,8 @@ import static top.trumeet.common.utils.NotificationUtils.getPackageName;
 
 import android.annotation.TargetApi;
 import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationChannelGroup;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -24,8 +26,6 @@ import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
-import androidx.core.app.NotificationChannelCompat;
-import androidx.core.app.NotificationChannelGroupCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.graphics.ColorUtils;
 import androidx.core.graphics.drawable.IconCompat;
@@ -75,29 +75,28 @@ public class NotificationController {
     }
 
     @TargetApi(26)
-    private static NotificationChannelGroupCompat createGroupWithPackage(@NonNull String packageName,
+    private static NotificationChannelGroup createGroupWithPackage(@NonNull String packageName,
                                                                    @NonNull CharSequence appName) {
-        return new NotificationChannelGroupCompat.Builder(getGroupIdByPkg(packageName)).setName(appName).build();
+        return new NotificationChannelGroup(getGroupIdByPkg(packageName), appName);
     }
 
-    private static NotificationChannelCompat.Builder createChannelWithPackage(@NonNull PushMetaInfo metaInfo,
-                                                                      @NonNull String packageName) {
+    private static NotificationChannel createChannelWithPackage(@NonNull PushMetaInfo metaInfo,
+                                                                @NonNull String packageName) {
         final Map<String, String> extra = metaInfo.getExtra();
         String channelName = getExtraField(extra, EXTRA_CHANNEL_NAME, "未分类");
         String channelDescription = getExtraField(extra, EXTRA_CHANNEL_DESCRIPTION, null);
         String sound = getExtraField(extra, EXTRA_SOUND_URL, null);
 
-        NotificationChannelCompat.Builder channel = new NotificationChannelCompat
-                .Builder(getChannelId(metaInfo, packageName), NotificationManager.IMPORTANCE_DEFAULT)
-                .setName(channelName);
-        if (channelDescription != null) {
+        NotificationChannel channel = null;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            channel = new NotificationChannel(getChannelId(metaInfo, packageName), channelName, NotificationManager.IMPORTANCE_DEFAULT);
             channel.setDescription(channelDescription);
-        }
-        if (sound != null) {
-            AudioAttributes attr = new AudioAttributes.Builder()
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                    .build();
-            channel.setSound(Uri.parse(sound), attr);
+            if (sound != null) {
+                AudioAttributes attr = new AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build();
+                channel.setSound(Uri.parse(sound), attr);
+            }
         }
         return channel;
     }
@@ -110,7 +109,7 @@ public class NotificationController {
     }
 
 
-    public static NotificationChannelCompat registerChannelIfNeeded(Context context, PushMetaInfo metaInfo, String packageName) {
+    public static NotificationChannel registerChannelIfNeeded(Context context, PushMetaInfo metaInfo, String packageName) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             return null;
         }
@@ -118,14 +117,14 @@ public class NotificationController {
         INotificationManager manager = createNotificationManager(context, packageName);
 
         String channelId = getChannelId(metaInfo, packageName);
-        NotificationChannelCompat notificationChannelCompat = manager.getNotificationChannelCompat(channelId);
+        NotificationChannel notificationChannel = manager.getNotificationChannel(channelId);
 
-        if (notificationChannelCompat != null) {
+        if (notificationChannel != null) {
             final boolean isValidGroup =
-                    !ID_GROUP_APPLICATIONS.equals(notificationChannelCompat.getGroup()) &&
-                            !TextUtils.isEmpty(notificationChannelCompat.getGroup());
+                    !ID_GROUP_APPLICATIONS.equals(notificationChannel.getGroup()) &&
+                            !TextUtils.isEmpty(notificationChannel.getGroup());
             if (isValidGroup) {
-                return notificationChannelCompat;
+                return notificationChannel;
             }
             manager.deleteNotificationChannel(channelId);
         }
@@ -139,14 +138,15 @@ public class NotificationController {
 
     }
 
-    private static NotificationChannelCompat createNotificationChannel(PushMetaInfo metaInfo, String packageName, INotificationManager manager, CharSequence appName) {
-        NotificationChannelGroupCompat notificationChannelGroup = createGroupWithPackage(packageName, appName);
+    private static NotificationChannel createNotificationChannel(PushMetaInfo metaInfo, String packageName, INotificationManager manager, CharSequence appName) {
+        NotificationChannelGroup notificationChannelGroup = createGroupWithPackage(packageName, appName);
         manager.createNotificationChannelGroup(notificationChannelGroup);
 
-        NotificationChannelCompat.Builder notificationChannelBuilder = createChannelWithPackage(metaInfo, packageName);
-        notificationChannelBuilder.setGroup(notificationChannelGroup.getId());
+        NotificationChannel notificationChannel = createChannelWithPackage(metaInfo, packageName);
+        if (notificationChannel != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            notificationChannel.setGroup(notificationChannelGroup.getId());
+        }
 
-        NotificationChannelCompat notificationChannel = notificationChannelBuilder.build();
         manager.createNotificationChannel(notificationChannel);
         return notificationChannel;
     }
@@ -163,8 +163,7 @@ public class NotificationController {
             return;
         }
 
-        NotificationCompat.Builder builder;
-        builder = new NotificationCompat.Builder(context, getChannelId(metaInfo, packageName));
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, getChannelId(metaInfo, packageName));
         builder.setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN);
 
         builder.setCategory(Notification.CATEGORY_EVENT)
@@ -336,11 +335,9 @@ public class NotificationController {
     }
 
 
-
     private static int getIconId(Context context, String packageName, String resourceName) {
         return context.getResources().getIdentifier(resourceName, "drawable", packageName);
     }
-
 
 
     public static void test(Context context, String packageName, String title, String description) {

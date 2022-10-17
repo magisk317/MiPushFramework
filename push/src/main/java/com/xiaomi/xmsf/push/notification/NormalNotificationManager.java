@@ -1,14 +1,14 @@
 package com.xiaomi.xmsf.push.notification;
 
 import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationChannelGroup;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.os.Build;
 import android.service.notification.StatusBarNotification;
 
 import androidx.annotation.NonNull;
-import androidx.core.app.NotificationChannelCompat;
-import androidx.core.app.NotificationChannelGroupCompat;
 import androidx.core.app.NotificationManagerCompat;
 
 class NormalNotificationManager implements INotificationManager {
@@ -22,28 +22,39 @@ class NormalNotificationManager implements INotificationManager {
     }
 
     @Override
-    public void createNotificationChannelGroup(@NonNull NotificationChannelGroupCompat group) {
-        manager.createNotificationChannelGroup(group);
+    public void createNotificationChannelGroup(@NonNull NotificationChannelGroup group) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            manager.createNotificationChannelGroup(group);
+        }
     }
 
     @Override
     public void deleteNotificationChannelGroup(@NonNull String groupId) {
-        manager.deleteNotificationChannelGroup(groupId);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            manager.deleteNotificationChannelGroup(groupId);
+        }
     }
 
     @Override
-    public NotificationChannelCompat getNotificationChannelCompat(@NonNull String channelId) {
-        return manager.getNotificationChannelCompat(channelId);
+    public NotificationChannel getNotificationChannel(@NonNull String channelId) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            return manager.getNotificationChannel(channelId);
+        }
+        return null;
     }
 
     @Override
-    public void createNotificationChannel(@NonNull NotificationChannelCompat channel) {
-        manager.createNotificationChannel(channel);
+    public void createNotificationChannel(@NonNull NotificationChannel channel) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            manager.createNotificationChannel(channel);
+        }
     }
 
     @Override
     public void deleteNotificationChannel(@NonNull String channelId) {
-        manager.deleteNotificationChannel(channelId);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            manager.deleteNotificationChannel(channelId);
+        }
     }
 
     @Override
