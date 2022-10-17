@@ -106,23 +106,23 @@ public class MyClientEventDispatcher extends ClientEventDispatcher {
             if (application == null) {
                 return false;
             }
-            boolean allow;
-            switch (type.getType()) {
-                case Event.Type.Command:
-                    allow = application.isAllowReceiveCommand();
-                    break;
-                case Event.Type.Notification:
-                    allow = application.getAllowReceivePush();
-                    break;
-                default:
-                    logger.e("Unknown type: " + type.getType());
-                    allow = true;
-                    break;
-            }
+            boolean allow = isAllowByConfig(type, application);
             logger.d("insertEvent -> " + type);
             EventDb.insertEvent(allow ? Event.ResultType.OK : Event.ResultType.DENY_USER
                     , type, context);
             return allow;
+        }
+
+        private static boolean isAllowByConfig(EventType type, RegisteredApplication application) {
+            switch (type.getType()) {
+                case Event.Type.Command:
+                    return application.isAllowReceiveCommand();
+                case Event.Type.Notification:
+                    return application.getAllowReceivePush();
+                default:
+                    logger.e("Unknown type: " + type.getType());
+                    return true;
+            }
         }
     }
 
