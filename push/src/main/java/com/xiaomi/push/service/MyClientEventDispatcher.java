@@ -102,7 +102,7 @@ public class MyClientEventDispatcher extends ClientEventDispatcher {
         private static Logger logger = XLog.tag("EventProcessorI").build();
         private static boolean userAllow(EventType type, Context context) {
             RegisteredApplication application = RegisteredApplicationDb.registerApplication(type.getPkg(),
-                    false, context, null);
+                    true, context, null);
             if (application == null) {
                 return false;
             }
