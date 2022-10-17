@@ -179,25 +179,19 @@ public class RegisteredApplicationFragment extends Fragment implements SwipeRefr
                 pool.submit(() -> {
                     String currentAppPkgName = info.packageName;
                     if (info.services == null) info.services = new ServiceInfo[]{};
-                    if (TextUtils.equals(SERVICE_APP_NAME, currentAppPkgName) ||
-                            TextUtils.equals(BuildConfig.APPLICATION_ID, currentAppPkgName)) {
-                        return;
-                    }
 
                     if (registeredPkgs.containsKey(currentAppPkgName)) {
                         RegisteredApplication application = registeredPkgs.get(currentAppPkgName);
                         application.setRegisteredType(actuallyRegisteredPkgs.contains(currentAppPkgName) ? 1 : 2);
                         res.add(application);
+                    } else if (finalChecker != null && finalChecker.checkServices(info)) {
+                        // checkReceivers will use Class#forName, but we can't change our classloader to target app's.
+                        RegisteredApplication application = new RegisteredApplication();
+                        application.setPackageName(currentAppPkgName);
+                        application.setRegisteredType(0);
+                        res.add(application);
                     } else {
-                        if (finalChecker != null && finalChecker.checkServices(info)) {
-                            // checkReceivers will use Class#forName, but we can't change our classloader to target app's.
-                            RegisteredApplication application = new RegisteredApplication();
-                            application.setPackageName(currentAppPkgName);
-                            application.setRegisteredType(0);
-                            res.add(application);
-                        } else {
-                            Log.d(TAG, "not use mipush : " + currentAppPkgName);
-                        }
+                        Log.d(TAG, "not use mipush : " + currentAppPkgName);
                     }
                 });
             }
