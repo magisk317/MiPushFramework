@@ -223,7 +223,6 @@ public class NotificationController {
         NotificationController.buildExtraSubText(context, packageName, localBuilder);
 
         Notification notification = localBuilder.build();
-        setTargetPackage(notification, packageName);
         manager.notify(notificationId, notification);
         return notification;
     }
