@@ -55,10 +55,10 @@ public class MyMIPushNotificationHelper {
 
     private static final int NOTIFICATION_BIG_STYLE_MIN_LEN = 25;
 
-    private static final String GROUP_TYPE_MIPUSH_GROUP = "group";
-    private static final String GROUP_TYPE_SAME_TITLE = "title";
-    private static final String GROUP_TYPE_SAME_NOTIFICATION_ID = "id";
-    private static final String GROUP_TYPE_PASS_THROUGH = "pass_through";
+    private static final String GROUP_TYPE_MIPUSH_GROUP = "#group#";
+    private static final String GROUP_TYPE_SAME_TITLE = "#title#";
+    private static final String GROUP_TYPE_SAME_NOTIFICATION_ID = "#id#";
+    private static final String GROUP_TYPE_PASS_THROUGH = "#pass_through#";
 
     private static boolean tryLoadConfigurations = false;
 
@@ -161,11 +161,10 @@ public class MyMIPushNotificationHelper {
         String group = getGroupName(context, container);
         notificationBuilder.setGroup(group);
 
-        boolean isGroupOfSession = group.contains(GROUP_TYPE_SAME_TITLE) ||
-                group.contains(GROUP_TYPE_SAME_NOTIFICATION_ID);
-
         RegisteredApplication application = RegisteredApplicationDb.registerApplication(
                 packageName, false, context, null);
+        boolean isGroupOfSession = application.isGroupNotificationsForSameSession();
+
 
         int notificationId = application.isGroupNotificationsByTitle() ?
                 (container.packageName + "_" + metaInfo.title).hashCode() :
