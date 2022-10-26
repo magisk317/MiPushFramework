@@ -192,37 +192,37 @@ public class NotificationController {
         return notificationCntInGroup;
     }
 
-    public static void publish(Context context, PushMetaInfo metaInfo, int notificationId, String packageName, NotificationCompat.Builder localBuilder) {
+    public static void publish(Context context, PushMetaInfo metaInfo, int notificationId, String packageName, NotificationCompat.Builder notificationBuilder) {
         // Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
         registerChannelIfNeeded(context, metaInfo, packageName);
 
-        localBuilder.setChannelId(getChannelId(metaInfo, packageName));
-        localBuilder.setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN);
+        notificationBuilder.setChannelId(getChannelId(metaInfo, packageName));
+        notificationBuilder.setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN);
 
         //for VERSION < Oero
-        localBuilder.setDefaults(Notification.DEFAULT_ALL);
-        localBuilder.setPriority(Notification.PRIORITY_HIGH);
+        notificationBuilder.setDefaults(Notification.DEFAULT_ALL);
+        notificationBuilder.setPriority(Notification.PRIORITY_HIGH);
 
-        Notification notification = notify(context, notificationId, packageName, localBuilder);
+        Notification notification = notify(context, notificationId, packageName, notificationBuilder);
 
         updateSummaryNotification(context, metaInfo, packageName, notification.getGroup());
     }
 
-    private static Notification notify(Context context, int notificationId, String packageName, NotificationCompat.Builder localBuilder) {
+    private static Notification notify(Context context, int notificationId, String packageName, NotificationCompat.Builder notificationBuilder) {
         INotificationManager manager = createNotificationManager(context, packageName);
 
         // Make the behavior consistent with official MIUI
         Bundle extras = new Bundle();
         extras.putString("target_package", packageName);
-        localBuilder.addExtras(extras);
+        notificationBuilder.addExtras(extras);
 
         // Set small icon
-        NotificationController.processSmallIcon(context, packageName, localBuilder);
+        NotificationController.processSmallIcon(context, packageName, notificationBuilder);
 
         // Fill app name
-        NotificationController.buildExtraSubText(context, packageName, localBuilder);
+        NotificationController.buildExtraSubText(context, packageName, notificationBuilder);
 
-        Notification notification = localBuilder.build();
+        Notification notification = notificationBuilder.build();
         manager.notify(notificationId, notification);
         return notification;
     }

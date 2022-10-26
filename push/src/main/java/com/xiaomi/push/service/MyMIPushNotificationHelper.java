@@ -126,7 +126,7 @@ public class MyMIPushNotificationHelper {
         String title = metaInfo.getTitle();
         String description = metaInfo.getDescription();
 
-        NotificationCompat.Builder localBuilder = new NotificationCompat.Builder(context);
+        NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(context);
 
         logger.i("title:" + title + "  description:" + description);
 
@@ -135,7 +135,7 @@ public class MyMIPushNotificationHelper {
             style.bigText(description);
             style.setBigContentTitle(title);
             style.setSummaryText(description);
-            localBuilder.setStyle(style);
+            notificationBuilder.setStyle(style);
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -149,17 +149,17 @@ public class MyMIPushNotificationHelper {
 //            }
         }
 
-        addDebugAction(context, container, decryptedContent, metaInfo, packageName, localBuilder);
+        addDebugAction(context, container, decryptedContent, metaInfo, packageName, notificationBuilder);
 
-        localBuilder.setWhen(metaInfo.getMessageTs());
-        localBuilder.setShowWhen(true);
+        notificationBuilder.setWhen(metaInfo.getMessageTs());
+        notificationBuilder.setShowWhen(true);
 
         String[] titleAndDesp = determineTitleAndDespByDIP(context, metaInfo);
-        localBuilder.setContentTitle(titleAndDesp[0]);
-        localBuilder.setContentText(titleAndDesp[1]);
+        notificationBuilder.setContentTitle(titleAndDesp[0]);
+        notificationBuilder.setContentText(titleAndDesp[1]);
 
         String group = getGroupName(context, container);
-        localBuilder.setGroup(group);
+        notificationBuilder.setGroup(group);
 
         boolean isGroupOfSession = group.contains(GROUP_TYPE_SAME_TITLE) ||
                 group.contains(GROUP_TYPE_SAME_NOTIFICATION_ID);
@@ -171,17 +171,17 @@ public class MyMIPushNotificationHelper {
 
         Intent intentExtra = new Intent();
         intentExtra.putExtra(Constants.INTENT_NOTIFICATION_ID, notificationId);
-        intentExtra.putExtra(Constants.INTENT_NOTIFICATION_GROUP, localBuilder.build().getGroup());
+        intentExtra.putExtra(Constants.INTENT_NOTIFICATION_GROUP, notificationBuilder.build().getGroup());
         intentExtra.putExtra(Constants.INTENT_NOTIFICATION_GROUP_OF_SESSION, isGroupOfSession);
 
         PendingIntent localPendingIntent = getClickedPendingIntent(
                 context, container, decryptedContent, notificationId, intentExtra.getExtras());
         if (localPendingIntent != null) {
-            localBuilder.setContentIntent(localPendingIntent);
-            carryPendingIntentForTemporarilyWhitelisted(context, container, localBuilder);
+            notificationBuilder.setContentIntent(localPendingIntent);
+            carryPendingIntentForTemporarilyWhitelisted(context, container, notificationBuilder);
         }
 
-        NotificationController.publish(context, metaInfo, notificationId, packageName, localBuilder);
+        NotificationController.publish(context, metaInfo, notificationId, packageName, notificationBuilder);
     }
 
     private static void carryPendingIntentForTemporarilyWhitelisted(Context xmPushService, XmPushActionContainer buildContainer, NotificationCompat.Builder localBuilder) {
