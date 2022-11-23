@@ -15,8 +15,6 @@ import static com.xiaomi.push.service.MiPushMsgAck.verifyGeoMessage;
 import android.accounts.Account;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
 import android.text.TextUtils;
 
 import com.elvishew.xlog.Logger;
@@ -29,7 +27,6 @@ import com.xiaomi.xmpush.thrift.PushMetaInfo;
 import com.xiaomi.xmpush.thrift.XmPushActionContainer;
 import com.xiaomi.xmsf.R;
 
-import java.util.List;
 import java.util.Map;
 
 import top.trumeet.common.cache.ApplicationNameCache;
@@ -217,21 +214,6 @@ public class MyMIPushMessageProcessor {
                     logger.w("drop a duplicate message, key=" + key);
                 } else {
                     MyMIPushNotificationHelper.notifyPushMessage(pushService, container, decryptedContent);
-
-                    if (!isBusinessMessage) {
-                        Intent messageArrivedIntent = new Intent(PushConstants.MIPUSH_ACTION_MESSAGE_ARRIVED);
-                        messageArrivedIntent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, decryptedContent);
-                        messageArrivedIntent.setPackage(container.packageName);
-                        try {
-                            PackageManager pm = pushService.getPackageManager();
-                            List<ResolveInfo> receiverList = pm.queryBroadcastReceivers(messageArrivedIntent, 0);
-                            if (receiverList != null && !receiverList.isEmpty()) {
-                                pushService.sendBroadcast(messageArrivedIntent, ClientEventDispatcher.getReceiverPermission(container.packageName));
-                            }
-                        } catch (Exception e) {
-                            pushService.sendBroadcast(messageArrivedIntent, ClientEventDispatcher.getReceiverPermission(container.packageName));
-                        }
-                    }
                 }
 
                 if (relateToGeo) {
