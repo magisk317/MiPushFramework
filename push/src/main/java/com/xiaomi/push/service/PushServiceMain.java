@@ -15,6 +15,7 @@ import android.content.res.Configuration;
 
 import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationChannelCompat;
+import androidx.core.app.NotificationChannelGroupCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
@@ -132,10 +133,17 @@ public class PushServiceMain extends XMPushService {
     private void startForeground() {
         NotificationManagerCompat manager = NotificationManagerCompat.from(getApplicationContext());
         if (SDK_INT >= O) {
+            String groupId = "status_group";
+            NotificationChannelGroupCompat.Builder group =
+                    new NotificationChannelGroupCompat.Builder(groupId)
+                            .setName(CHANNEL_STATUS);
+            manager.createNotificationChannelGroup(group.build());
+
             NotificationChannelCompat.Builder channel = new NotificationChannelCompat
                     .Builder(CHANNEL_STATUS, NotificationManager.IMPORTANCE_MIN)
-                    .setName(getString(R.string.notification_category_alive));
+                    .setName(getString(R.string.notification_category_alive)).setGroup(groupId);
             manager.createNotificationChannel(channel.build());
+
         }
         //if (ConfigCenter.getInstance().foregroundNotification || Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         {
