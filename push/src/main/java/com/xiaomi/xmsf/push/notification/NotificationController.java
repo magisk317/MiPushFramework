@@ -7,7 +7,7 @@ import static top.trumeet.common.utils.NotificationUtils.EXTRA_SOUND_URL;
 import static top.trumeet.common.utils.NotificationUtils.getChannelIdByPkg;
 import static top.trumeet.common.utils.NotificationUtils.getExtraField;
 import static top.trumeet.common.utils.NotificationUtils.getGroupIdByPkg;
-import static top.trumeet.common.utils.NotificationUtils.getPackageName;
+import static top.trumeet.common.utils.Utils.getApplication;
 
 import android.annotation.TargetApi;
 import android.app.Notification;
@@ -32,6 +32,7 @@ import androidx.core.graphics.drawable.IconCompat;
 
 import com.elvishew.xlog.Logger;
 import com.elvishew.xlog.XLog;
+import com.nihility.notification.NotificationManagerEx;
 import com.xiaomi.push.service.MIPushNotificationHelper;
 import com.xiaomi.xmpush.thrift.PushMetaInfo;
 import com.xiaomi.xmpush.thrift.XmPushActionContainer;
@@ -40,6 +41,7 @@ import com.xiaomi.xmsf.utils.ColorUtil;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.Map;
 
 import top.trumeet.common.cache.ApplicationNameCache;
@@ -60,18 +62,13 @@ public class NotificationController {
 
     public static final String CHANNEL_WARN = "warn";
 
-    public static INotificationManager createNotificationManager(@NonNull Context context, @NonNull String packageName) {
-        return new NormalNotificationManager(context);
+    public static NotificationManagerEx getNotificationManagerEx() {
+        return NotificationManagerEx.INSTANCE;
     }
 
     public static void deleteOldNotificationChannelGroup(@NonNull Context context) {
-        try {
-            INotificationManager manager = new NormalNotificationManager(context);
-            manager.deleteNotificationChannelGroup(ID_GROUP_APPLICATIONS);
-        } catch (Exception ignore) {
-
-        }
-
+        getNotificationManagerEx().deleteNotificationChannelGroup(
+                getApplication().getPackageName(), ID_GROUP_APPLICATIONS);
     }
 
     @TargetApi(26)
@@ -114,11 +111,9 @@ public class NotificationController {
             return null;
         }
 
-        INotificationManager manager = createNotificationManager(context, packageName);
-
         String channelId = getChannelId(metaInfo, packageName);
-        NotificationChannel notificationChannel = manager.getNotificationChannel(channelId);
-
+        NotificationChannel notificationChannel = getNotificationManagerEx().getNotificationChannel(
+                packageName, channelId);
         if (notificationChannel != null) {
             final boolean isValidGroup =
                     !ID_GROUP_APPLICATIONS.equals(notificationChannel.getGroup()) &&
@@ -126,7 +121,7 @@ public class NotificationController {
             if (isValidGroup) {
                 return notificationChannel;
             }
-            manager.deleteNotificationChannel(channelId);
+            getNotificationManagerEx().deleteNotificationChannel(packageName, channelId);
         }
 
         CharSequence appName = ApplicationNameCache.getInstance().getAppName(context, packageName);
@@ -134,20 +129,22 @@ public class NotificationController {
             return null;
         }
 
-        return createNotificationChannel(metaInfo, packageName, manager, appName);
+        return createNotificationChannel(metaInfo, packageName, appName);
 
     }
 
-    private static NotificationChannel createNotificationChannel(PushMetaInfo metaInfo, String packageName, INotificationManager manager, CharSequence appName) {
+    private static NotificationChannel createNotificationChannel(PushMetaInfo metaInfo, String packageName, CharSequence appName) {
         NotificationChannelGroup notificationChannelGroup = createGroupWithPackage(packageName, appName);
-        manager.createNotificationChannelGroup(notificationChannelGroup);
+        getNotificationManagerEx().createNotificationChannelGroups(
+                packageName, Arrays.asList(notificationChannelGroup));
 
         NotificationChannel notificationChannel = createChannelWithPackage(metaInfo, packageName);
         if (notificationChannel != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             notificationChannel.setGroup(notificationChannelGroup.getId());
         }
 
-        manager.createNotificationChannel(notificationChannel);
+        getNotificationManagerEx().createNotificationChannels(
+                packageName, Arrays.asList(notificationChannel));
         return notificationChannel;
     }
 
@@ -157,9 +154,8 @@ public class NotificationController {
         if (groupId == null) {
             return;
         }
-        INotificationManager manager = createNotificationManager(context, packageName);
-        if (!needGroupOfNotifications(manager, groupId)) {
-            manager.cancel(groupId.hashCode());
+        if (!needGroupOfNotifications(packageName, groupId)) {
+            getNotificationManagerEx().cancel(packageName, null, groupId.hashCode());
             return;
         }
 
@@ -173,14 +169,15 @@ public class NotificationController {
     }
 
     @RequiresApi(api = Build.VERSION_CODES.M)
-    private static boolean needGroupOfNotifications(INotificationManager manager, String groupId) {
-        int notificationCntInGroup = getNotificationCountOfGroup(manager, groupId);
+    private static boolean needGroupOfNotifications(String packageName, String groupId) {
+        int notificationCntInGroup = getNotificationCountOfGroup(packageName, groupId);
         return notificationCntInGroup > 1;
     }
 
     @RequiresApi(api = Build.VERSION_CODES.M)
-    private static int getNotificationCountOfGroup(INotificationManager manager, String groupId) {
-        StatusBarNotification[] activeNotifications = manager.getActiveNotifications();
+    private static int getNotificationCountOfGroup(String packageName, String groupId) {
+        StatusBarNotification[] activeNotifications =
+                getNotificationManagerEx().getActiveNotifications(packageName);
 
 
         int notificationCntInGroup = 0;
@@ -209,8 +206,6 @@ public class NotificationController {
     }
 
     private static Notification notify(Context context, int notificationId, String packageName, NotificationCompat.Builder notificationBuilder) {
-        INotificationManager manager = createNotificationManager(context, packageName);
-
         // Make the behavior consistent with official MIUI
         Bundle extras = new Bundle();
         extras.putString("target_package", packageName);
@@ -223,7 +218,7 @@ public class NotificationController {
         NotificationController.buildExtraSubText(context, packageName, notificationBuilder);
 
         Notification notification = notificationBuilder.build();
-        manager.notify(notificationId, notification);
+        getNotificationManagerEx().notify(packageName, null, notificationId, notification);
         return notification;
     }
 
@@ -242,12 +237,10 @@ public class NotificationController {
 
     public static void cancel(Context context, XmPushActionContainer container,
                               int notificationId, String notificationGroup, boolean clearGroup) {
-        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-
-        manager.cancel(notificationId);
+        getNotificationManagerEx().cancel(container.getPackageName(), null, notificationId);
 
         if (clearGroup) {
-            manager.cancel(notificationGroup.hashCode());
+            getNotificationManagerEx().cancel(container.getPackageName(), null, notificationGroup.hashCode());
             return;
         }
 

@@ -1,5 +1,7 @@
 package top.trumeet.mipushframework;
 
+import android.app.NotificationManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.net.Uri;
@@ -14,6 +16,7 @@ import android.widget.Toast;
 import androidx.annotation.UiThread;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.nihility.notification.NotificationManagerEx;
 import com.xiaomi.channel.commonutils.android.DeviceInfo;
 import com.xiaomi.channel.commonutils.android.MIUIUtils;
 import com.xiaomi.xmsf.R;

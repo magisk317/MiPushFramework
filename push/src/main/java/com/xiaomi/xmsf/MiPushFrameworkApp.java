@@ -20,6 +20,7 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
 import com.elvishew.xlog.XLog;
+import com.nihility.notification.NotificationManagerEx;
 import com.oasisfeng.condom.CondomOptions;
 import com.oasisfeng.condom.CondomProcess;
 import com.xiaomi.channel.commonutils.logger.LoggerInterface;
@@ -50,6 +51,9 @@ public class MiPushFrameworkApp extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        NotificationManagerEx.notificationManager = (NotificationManager)
+                getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
+
         RxActivityResult.register(this);
 
         LogUtils.init(this);
