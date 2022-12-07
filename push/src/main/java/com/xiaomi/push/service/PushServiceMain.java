@@ -108,6 +108,7 @@ public class PushServiceMain extends XMPushService {
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
+        startForeground();
         super.onStartCommand(intent, flags, startId);
         return Service.START_STICKY;
     }
