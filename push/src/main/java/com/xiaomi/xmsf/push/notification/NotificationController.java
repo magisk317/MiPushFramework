@@ -22,7 +22,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.service.notification.StatusBarNotification;
-import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
@@ -109,19 +108,6 @@ public class NotificationController {
     public static NotificationChannel registerChannelIfNeeded(Context context, PushMetaInfo metaInfo, String packageName) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             return null;
-        }
-
-        String channelId = getChannelId(metaInfo, packageName);
-        NotificationChannel notificationChannel = getNotificationManagerEx().getNotificationChannel(
-                packageName, channelId);
-        if (notificationChannel != null) {
-            final boolean isValidGroup =
-                    !ID_GROUP_APPLICATIONS.equals(notificationChannel.getGroup()) &&
-                            !TextUtils.isEmpty(notificationChannel.getGroup());
-            if (isValidGroup) {
-                return notificationChannel;
-            }
-            getNotificationManagerEx().deleteNotificationChannel(packageName, channelId);
         }
 
         CharSequence appName = ApplicationNameCache.getInstance().getAppName(context, packageName);
