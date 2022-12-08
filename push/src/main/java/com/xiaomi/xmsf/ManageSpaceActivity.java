@@ -18,7 +18,6 @@ import com.xiaomi.xmsf.utils.LogUtils;
 
 import java.util.Date;
 
-import top.trumeet.common.Constants;
 import top.trumeet.common.db.EventDb;
 import top.trumeet.common.utils.Utils;
 
@@ -82,7 +81,7 @@ public class ManageSpaceActivity extends PreferenceActivity {
 
 
             getPreferenceScreen().findPreference("mock_notification").setOnPreferenceClickListener(preference -> {
-                String packageName = Constants.MANAGER_APP_NAME;
+                String packageName = BuildConfig.APPLICATION_ID;
                 Date date = new Date();
                 String title = context.getString(R.string.debug_test_title);
                 String description = context.getString(R.string.debug_test_content) + date.toString();
