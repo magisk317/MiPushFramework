@@ -55,8 +55,12 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
                     XmPushActionContainer container = MIPushEventProcessor.buildContainer(item.getPayload());
                     if (container.metaInfo.isSetPassThrough()) {
                         if (container.metaInfo.passThrough == 0) {
-                            status = holder.itemView.getContext()
-                                    .getString(R.string.message_type_notification);
+                            try {
+                                status = container.getMetaInfo().getExtra().get("channel_name");
+                            } catch (Throwable e) {
+                                status = holder.itemView.getContext()
+                                        .getString(R.string.message_type_notification);
+                            }
                         } else if (container.metaInfo.passThrough == 1) {
                             status = holder.itemView.getContext()
                                     .getString(R.string.message_type_pass_through);
