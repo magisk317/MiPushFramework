@@ -1,5 +1,7 @@
 package top.trumeet.mipushframework.event;
 
+import static com.xiaomi.push.service.MIPushEventProcessor.buildContainer;
+
 import android.app.Dialog;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -11,6 +13,10 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 
+import com.google.gson.ExclusionStrategy;
+import com.google.gson.FieldAttributes;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.xiaomi.push.service.MIPushEventProcessor;
 import com.xiaomi.push.service.MyMIPushNotificationHelper;
 import com.xiaomi.xmpush.thrift.XmPushActionContainer;
@@ -100,7 +106,29 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
 
     @Nullable
     private Dialog createInfoDialog (final EventType type, final Context context) {
-        final CharSequence info = type.getInfo(context);
+        XmPushActionContainer container = buildContainer(type.getPayload());
+        Gson gson = new GsonBuilder()
+                .disableHtmlEscaping()
+                .setPrettyPrinting()
+                .setExclusionStrategies(new ExclusionStrategy() {
+                    @Override
+                    public boolean shouldSkipField(FieldAttributes f) {
+                        String[] exclude = { "hb", "__isset_bit_vector" };
+                        for (String field : exclude) {
+                            if (f.getName().equals(field)) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    }
+
+                    @Override
+                    public boolean shouldSkipClass(Class<?> clazz) {
+                        return false;
+                    }
+                })
+                .create();
+        final CharSequence info = gson.toJson(container);
         if (info == null)
             return null;
         AlertDialog.Builder build = new AlertDialog.Builder(context)
@@ -124,7 +152,7 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
                 @Override
                 public void onClick(DialogInterface dialogInterface, int i) {
                     MyMIPushNotificationHelper.notifyPushMessage(context,
-                            MIPushEventProcessor.buildContainer(type.getPayload()),
+                            buildContainer(type.getPayload()),
                             type.getPayload()
                     );
                 }
