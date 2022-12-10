@@ -222,7 +222,15 @@ public class Configurations {
                 parse(json);
             } catch (JSONException e) {
                 e.printStackTrace();
-                Toast.makeText(context, e.toString(), Toast.LENGTH_LONG).show();
+
+                String errmsg = e.toString();
+                Pattern pattern = Pattern.compile("\\d+");
+                Matcher matcher = pattern.matcher(errmsg);
+                if (matcher.find()) {
+                    int pos = Integer.parseInt(matcher.group());
+                    errmsg = errmsg.substring(0, matcher.end()) + errmsg.substring(pos);
+                }
+                Toast.makeText(context, errmsg, Toast.LENGTH_LONG).show();
                 break;
             }
             return true;
