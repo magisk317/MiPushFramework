@@ -7,7 +7,10 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.Typeface;
 import android.view.View;
+import android.widget.ScrollView;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -131,8 +134,19 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
         final CharSequence info = gson.toJson(container);
         if (info == null)
             return null;
+
+        TextView showText = new TextView(context);
+        showText.setText(info);
+        showText.setTextSize(18);
+        showText.setTextIsSelectable(true);
+        showText.setTypeface(Typeface.MONOSPACE);
+
+        final ScrollView scrollView = new ScrollView(context);
+        scrollView.addView(showText);
+
         AlertDialog.Builder build = new AlertDialog.Builder(context)
-                .setMessage(info)
+                .setView(scrollView)
+                .setTitle("Developer Info")
                 .setNeutralButton(android.R.string.copy, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialogInterface, int i) {
