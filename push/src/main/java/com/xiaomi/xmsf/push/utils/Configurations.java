@@ -164,18 +164,20 @@ public class Configurations {
             if (!matcher.find()) {
                 return true;
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                Set<String> groups = getNamedGroupCandidates(regex);
-                for (String name : groups) {
-                    matchGroup.put(name, matcher.group(name));
-                }
+            List<String> groups = getNamedGroupCandidates(regex);
+            for (int i = 0; i < groups.size(); ++i) {
+                String name = groups.get(i);
+                matchGroup.put(name,
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ?
+                                matcher.group(name) :
+                                matcher.group(i + 1));
             }
             return false;
         }
 
-        private Set<String> getNamedGroupCandidates(String regex) {
-            Set<String> namedGroups = new HashSet<>();
-            Matcher m = Pattern.compile("\\(\\?<([a-zA-Z][a-zA-Z0-9]*)>").matcher(regex);
+        private ArrayList<String> getNamedGroupCandidates(String regex) {
+            ArrayList<String> namedGroups = new ArrayList<>();
+            Matcher m = Pattern.compile("(?<!\\\\)\\(\\?<([a-zA-Z][a-zA-Z0-9]*)>").matcher(regex);
             while (m.find()) {
                 namedGroups.add(m.group(1));
             }
