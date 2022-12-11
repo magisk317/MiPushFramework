@@ -38,7 +38,7 @@ import java.util.regex.Pattern;
 import top.trumeet.common.Constants;
 
 public class Configurations {
-    private static Logger logger = XLog.tag(Configurations.class.getSimpleName()).build();
+    private static final Logger logger = XLog.tag(Configurations.class.getSimpleName()).build();
 
     public class PackageConfig {
         public static final String KEY_META_INFO = "metaInfo";
@@ -184,7 +184,7 @@ public class Configurations {
     }
 
     private String version;
-    private Map<String, List<PackageConfig>> packageConfigs = new HashMap<>();
+    private Map<String, List<Object>> packageConfigs = new HashMap<>();
 
     private static Configurations instance = null;
 
@@ -251,13 +251,12 @@ public class Configurations {
     }
 
     @NonNull
-    private ArrayList<PackageConfig> parseConfigs(JSONArray configsObj) throws JSONException {
-        ArrayList<PackageConfig> configs = new ArrayList<>();
+    private ArrayList<Object> parseConfigs(JSONArray configsObj) throws JSONException {
+        ArrayList<Object> configs = new ArrayList<>();
         for (int i = 0; i < configsObj.length(); ++i) {
             Object config = configsObj.get(i);
             if (config instanceof String) {
-                List<PackageConfig> existConfigs = this.packageConfigs.get(config.toString());
-                configs.addAll(existConfigs);
+                configs.add(config);
             } else {
                 configs.add(parseConfig(configsObj.getJSONObject(i)));
             }
@@ -306,25 +305,34 @@ public class Configurations {
         String[] checkPkgs = new String[]{"^", packageName, "$"};
         Set<String> operations = new HashSet<>();
         for (String pkg : checkPkgs) {
-            List<PackageConfig> configs = packageConfigs.get(pkg);
+            List<Object> configs = packageConfigs.get(pkg);
             logger.i("package: " + packageName + ", config count: " + (configs == null ? 0 : configs.size()));
             boolean stop = doHandle(metaInfo, configs, operations);
             if (stop) {
                 return operations;
-            };
+            }
         }
         return operations;
     }
 
     @Nullable
-    private boolean doHandle(PushMetaInfo metaInfo, List<PackageConfig> configs, Set<String> operations)
+    private boolean doHandle(PushMetaInfo metaInfo, List<Object> configs, Set<String> operations)
             throws NoSuchFieldException, IllegalAccessException, JSONException, NoSuchMethodException, InvocationTargetException {
         if (configs != null) {
-            for (PackageConfig config : configs) {
-                if (config.match(metaInfo)) {
-                    config.replace(metaInfo);
-                    operations.addAll(config.operation);
-                    if (config.stop) {
+            for (Object configItem : configs) {
+                if (configItem instanceof PackageConfig) {
+                    PackageConfig config = (PackageConfig) configItem;
+                    if (config.match(metaInfo)) {
+                        config.replace(metaInfo);
+                        operations.addAll(config.operation);
+                        if (config.stop) {
+                            return true;
+                        }
+                    }
+                } else {
+                    List<Object> refConfigs = packageConfigs.get(configItem);
+                    boolean stop = doHandle(metaInfo, refConfigs, operations);
+                    if (stop) {
                         return true;
                     }
                 }
