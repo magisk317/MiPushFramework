@@ -6,11 +6,11 @@ import android.os.Build;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.documentfile.provider.DocumentFile;
 
 import com.elvishew.xlog.Logger;
 import com.elvishew.xlog.XLog;
+import com.google.gson.GsonBuilder;
 import com.xiaomi.xmpush.thrift.PushMetaInfo;
 
 import org.json.JSONArray;
@@ -306,7 +306,7 @@ public class Configurations {
         Set<String> operations = new HashSet<>();
         for (String pkg : checkPkgs) {
             List<Object> configs = packageConfigs.get(pkg);
-            logger.i("package: " + packageName + ", config count: " + (configs == null ? 0 : configs.size()));
+            logger.d("package: " + packageName + ", config count: " + (configs == null ? 0 : configs.size()));
             boolean stop = doHandle(metaInfo, configs, operations);
             if (stop) {
                 return operations;
@@ -315,14 +315,20 @@ public class Configurations {
         return operations;
     }
 
-    @Nullable
     private boolean doHandle(PushMetaInfo metaInfo, List<Object> configs, Set<String> operations)
+            throws JSONException, NoSuchFieldException, InvocationTargetException, IllegalAccessException, NoSuchMethodException {
+        return doHandle(metaInfo, configs, operations, new ArrayList<>());
+    }
+
+    private boolean doHandle(PushMetaInfo metaInfo, List<Object> configs, Set<String> operations, List<Object> matched)
             throws NoSuchFieldException, IllegalAccessException, JSONException, NoSuchMethodException, InvocationTargetException {
-        if (configs != null) {
+        if (configs != null && !matched.contains(configs)) {
+            matched.add(configs);
             for (Object configItem : configs) {
                 if (configItem instanceof PackageConfig) {
                     PackageConfig config = (PackageConfig) configItem;
                     if (config.match(metaInfo)) {
+                        logger.d(new GsonBuilder().disableHtmlEscaping().create().toJson(config));
                         config.replace(metaInfo);
                         operations.addAll(config.operation);
                         if (config.stop) {
