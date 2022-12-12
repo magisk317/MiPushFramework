@@ -5,6 +5,7 @@ import static android.provider.Settings.EXTRA_APP_PACKAGE;
 import static android.provider.Settings.EXTRA_CHANNEL_ID;
 import static top.trumeet.common.utils.NotificationUtils.getChannelIdByPkg;
 
+import android.app.NotificationChannel;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
@@ -24,12 +25,11 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.NotificationChannelCompat;
-import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.drawable.DrawableCompat;
 
 import com.android.settings.widget.EntityHeaderController;
+import com.nihility.notification.NotificationManagerEx;
 import com.xiaomi.xmsf.R;
 
 import java.util.Arrays;
@@ -434,18 +434,21 @@ public class ManagePermissionsActivity extends AppCompatActivity {
             notificationChannelsCategory.setTitle(R.string.notification_channels);
             screen.addPreference(notificationChannelsCategory);
 
-            NotificationManagerCompat manager = NotificationManagerCompat.from(getActivity());
             if (Build.VERSION.SDK_INT >= O) {
-                List<NotificationChannelCompat> notificationChannelsCompat = manager.getNotificationChannelsCompat();
-                notificationChannelsCompat.stream().filter(NotificationChannelCompat -> {
-                    return NotificationChannelCompat.getId().startsWith(getChannelIdByPkg(mApplicationItem.getPackageName()));
-                }).forEach(channel -> {
+                String configApp = NotificationManagerEx.INSTANCE.isSystemHookReady() ?
+                        mApplicationItem.getPackageName() :
+                        Constants.SERVICE_APP_NAME;
+                List<NotificationChannel> notificationChannels =
+                        NotificationManagerEx.INSTANCE.getNotificationChannels(mApplicationItem.getPackageName());
+                notificationChannels.stream().filter(NotificationChannelCompat ->
+                        NotificationChannelCompat.getId().startsWith(getChannelIdByPkg(mApplicationItem.getPackageName()))
+                ).forEach(channel -> {
                     Preference item = new Preference(getActivity());
                     item.setTitle(channel.getName());
                     item.setSummary(channel.getDescription());
                     item.setOnPreferenceClickListener(preference -> {
                         startActivity(new Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
-                                .putExtra(EXTRA_APP_PACKAGE, Constants.SERVICE_APP_NAME)
+                                .putExtra(EXTRA_APP_PACKAGE, configApp)
                                 .putExtra(EXTRA_CHANNEL_ID, channel.getId()));
                         return true;
                     });
