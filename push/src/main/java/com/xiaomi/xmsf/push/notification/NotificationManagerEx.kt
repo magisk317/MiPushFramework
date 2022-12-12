@@ -7,11 +7,16 @@ import android.app.NotificationManager
 import android.os.Build
 import android.service.notification.StatusBarNotification
 import com.elvishew.xlog.XLog
+import com.xiaomi.channel.commonutils.reflect.JavaCalls
 
 object NotificationManagerEx {
     private const val TAG = "NotificationManagerEx"
 
     lateinit var notificationManager: NotificationManager
+
+    val isSystemHookReady: Boolean by lazy {
+        true == JavaCalls.callMethod(notificationManager, "isSystemConditionProviderEnabled", "is_system_hook_ready")
+    }
 
     fun notify(
         packageName: String,
