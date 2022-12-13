@@ -25,6 +25,7 @@ android {
         daoPackage 'top.trumeet.mipush.provider.gen.db'
         targetGenDir 'src/main/java'
     }
+    namespace 'top.trumeet.mipush.provider'
 }
 
 android.libraryVariants.all { variant ->

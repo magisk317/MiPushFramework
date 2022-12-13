@@ -25,6 +25,7 @@ android {
             consumerProguardFiles 'proguard-rules.pro'
         }
     }
+    namespace 'com.oasisfeng.condom'
 }
 
 dependencies {
@@ -55,7 +56,7 @@ task javadoc(type: Javadoc) {
     options.charSet = 'UTF-8'
     failOnError false
     source = android.sourceSets.main.java.srcDirs
-    classpath += project.files(android.getBootClasspath().join(File.pathSeparator)) + configurations.compile
+    classpath += project.files(android.getBootClasspath().join(File.pathSeparator)) + configurations.implementation
 
     exclude "com/oasisfeng/condom/util/**.java"
     exclude "android/**.java"

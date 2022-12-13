@@ -1,4 +1,4 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.oasisfeng.condom">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
         <provider
             android:authorities="com.oasisfeng.condom.test"

@@ -85,6 +85,7 @@ android {
         // but continue the build even when errors are found:
         abortOnError false
     }
+    namespace 'com.xiaomi.xmsf'
 }
 
 android.applicationVariants.all { variant ->
