@@ -24,6 +24,7 @@ import com.xiaomi.push.service.MIPushEventProcessor;
 import com.xiaomi.push.service.MyMIPushNotificationHelper;
 import com.xiaomi.xmpush.thrift.XmPushActionContainer;
 import com.xiaomi.xmsf.R;
+import com.xiaomi.xmsf.push.utils.Configurations;
 
 import java.util.Date;
 
@@ -65,6 +66,7 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
                     if (container.metaInfo.isSetPassThrough()) {
                         if (container.metaInfo.passThrough == 0) {
                             try {
+                                Configurations.getInstance().handle(container.getPackageName(), container.getMetaInfo());
                                 status = container.getMetaInfo().getExtra().get("channel_name");
                             } catch (Throwable e) {
                                 status = holder.itemView.getContext()
