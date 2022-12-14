@@ -36,6 +36,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import top.trumeet.common.Constants;
+import top.trumeet.common.utils.Utils;
 
 public class Configurations {
     private static final Logger logger = XLog.tag(Configurations.class.getSimpleName()).build();
@@ -232,7 +233,7 @@ public class Configurations {
                     int pos = Integer.parseInt(matcher.group());
                     errmsg = errmsg.substring(0, matcher.end()) + errmsg.substring(pos);
                 }
-                Toast.makeText(context, errmsg, Toast.LENGTH_LONG).show();
+                Utils.makeText(context, errmsg, Toast.LENGTH_LONG);
                 break;
             }
             return true;
@@ -297,7 +298,7 @@ public class Configurations {
             }
         } catch (Exception e) {
             e.printStackTrace();
-            Toast.makeText(context, e.toString(), Toast.LENGTH_LONG).show();
+            Utils.makeText(context, e.toString(), Toast.LENGTH_LONG);
         }
         return stringBuilder.toString();
     }

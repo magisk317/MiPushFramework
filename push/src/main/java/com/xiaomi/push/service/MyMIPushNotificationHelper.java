@@ -13,8 +13,6 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.os.PowerManager;
 import android.text.TextUtils;
 import android.widget.Toast;
@@ -43,6 +41,7 @@ import java.util.Set;
 import top.trumeet.common.Constants;
 import top.trumeet.common.db.RegisteredApplicationDb;
 import top.trumeet.common.register.RegisteredApplication;
+import top.trumeet.common.utils.Utils;
 
 /**
  * @author zts1993
@@ -80,15 +79,13 @@ public class MyMIPushNotificationHelper {
             if (!tryLoadConfigurations) {
                 tryLoadConfigurations = true;
                 boolean success = false;
-                Handler handler = new Handler(Looper.getMainLooper());
                 try {
                     success = Configurations.getInstance().init(context,
                             ConfigCenter.getInstance().getConfigurationDirectory(context));
                 } catch (Exception e) {
-                    handler.post(() -> Toast.makeText(context, e.toString(), Toast.LENGTH_LONG).show());
+                    Utils.makeText(context, e.toString(), Toast.LENGTH_LONG);
                 }
-                boolean finalSuccess = success;
-                handler.post(() -> Toast.makeText(context, "configurations loaded: " + finalSuccess, Toast.LENGTH_SHORT).show());
+                Utils.makeText(context, "configurations loaded: " + success, Toast.LENGTH_SHORT);
             }
 
             try {

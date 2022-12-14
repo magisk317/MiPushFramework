@@ -3,8 +3,6 @@ package com.xiaomi.xmsf.push.service;
 import android.app.IntentService;
 import android.content.ComponentName;
 import android.content.Intent;
-import android.os.Handler;
-import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -24,6 +22,7 @@ import top.trumeet.common.db.EventDb;
 import top.trumeet.common.db.RegisteredApplicationDb;
 import top.trumeet.common.event.Event;
 import top.trumeet.common.register.RegisteredApplication;
+import top.trumeet.common.utils.Utils;
 
 public class XMPushService extends IntentService {
     private static final String TAG = "XMPushService Bridge";
@@ -38,7 +37,7 @@ public class XMPushService extends IntentService {
         if (Constants.CONFIGURATIONS_UPDATE_ACTION.equals(intent.getAction())) {
             boolean success = Configurations.getInstance().init(this,
                     ConfigCenter.getInstance().getConfigurationDirectory(this));
-            makeText("configurations loaded: " + success);
+            Utils.makeText(this, "configurations loaded: " + success, Toast.LENGTH_SHORT);
             return;
         }
 
@@ -68,7 +67,7 @@ public class XMPushService extends IntentService {
                     this);
         } catch (RuntimeException e) {
             logger.e("XMPushService::onHandleIntent: ", e);
-            makeText(getString(R.string.common_err, e.getMessage()));
+            Utils.makeText(this, getString(R.string.common_err, e.getMessage()), Toast.LENGTH_LONG);
         }
     }
 
@@ -79,23 +78,10 @@ public class XMPushService extends IntentService {
         if (notificationOnRegister) {
             CharSequence appName = ApplicationNameCache.getInstance().getAppName(this, pkg);
             CharSequence usedString = getString(R.string.notification_registerAllowed, appName);
-            makeText(usedString);
+            Utils.makeText(this, usedString, Toast.LENGTH_SHORT);
         } else {
             Log.e("XMPushService Bridge", "Notification disabled");
         }
-    }
-
-    private void makeText(CharSequence usedString) {
-        new Handler(Looper.getMainLooper()).post(() -> {
-            try {
-                Toast.makeText(this, usedString,
-                                Toast.LENGTH_SHORT)
-                        .show();
-            } catch (Throwable ignored) {
-                // TODO: It's a bad way to switch to main thread.
-                // Ignored service death
-            }
-        });
     }
 
     private void forwardToPushServiceMain(Intent intent) {
