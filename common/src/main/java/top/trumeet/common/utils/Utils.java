@@ -1,5 +1,7 @@
 package top.trumeet.common.utils;
 
+import static android.content.Context.APP_OPS_SERVICE;
+
 import android.app.AppGlobals;
 import android.app.AppOpsManager;
 import android.app.Application;
@@ -7,18 +9,20 @@ import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.res.TypedArray;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Process;
+import android.text.Html;
+import android.widget.Toast;
+
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.StringRes;
-import android.text.Html;
 
 import java.util.Calendar;
 import java.util.Date;
 
 import top.trumeet.common.override.AppOpsManagerOverride;
-
-import static android.content.Context.APP_OPS_SERVICE;
 
 public final class Utils {
     public static int myUid() {
@@ -91,5 +95,16 @@ public final class Utils {
         } catch (PackageManager.NameNotFoundException ignored) {
             return false;
         }
+    }
+
+    public static void makeText(Context context, CharSequence usedString, int duration) {
+        new Handler(Looper.getMainLooper()).post(() -> {
+            try {
+                Toast.makeText(context, usedString, duration).show();
+            } catch (Throwable ignored) {
+                // TODO: It's a bad way to switch to main thread.
+                // Ignored service death
+            }
+        });
     }
 }
