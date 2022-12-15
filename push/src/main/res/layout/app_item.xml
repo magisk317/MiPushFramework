@@ -19,7 +19,6 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:minHeight="72dp"
-    android:gravity="center"
     android:columnCount="2"
     android:duplicateParentState="true">
 
@@ -27,6 +26,7 @@
         android:id="@android:id/icon"
         android:layout_width="40dp"
         android:layout_height="40dp"
+        android:layout_centerVertical="true"
         android:layout_marginEnd="16dip"
         android:contentDescription="@null"
         android:duplicateParentState="true"
@@ -35,26 +35,26 @@
     <LinearLayout
         android:orientation="vertical"
         android:layout_gravity="center"
+        android:layout_centerVertical="true"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="5dip"
+        android:layout_marginBottom="5dip"
         android:layout_toEndOf="@android:id/icon">
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
             <TextView
-                android:id="@android:id/title"
+                android:id="@+id/text_status"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:duplicateParentState="true"
-                android:ellipsize="marquee"
+                android:layout_gravity="center"
                 android:gravity="start"
-                android:singleLine="true"
-                android:textAlignment="viewStart"
-                android:textAppearance="@style/TextAppearance.AppCompat.Subhead"
-                android:textColor="?android:attr/textColorPrimary" />
+                android:textSize="12sp" />
 
             <TextView
                 android:id="@android:id/text2"
@@ -72,10 +72,28 @@
             android:orientation="horizontal">
 
             <TextView
-                android:id="@android:id/summary"
-                android:layout_width="0dp"
+                android:id="@android:id/title"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
+                android:duplicateParentState="true"
+                android:ellipsize="marquee"
+                android:gravity="start"
+                android:singleLine="true"
+                android:textAlignment="viewStart"
+                android:textAppearance="@style/TextAppearance.AppCompat.Subhead"
+                android:textColor="?android:attr/textColorPrimary" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@android:id/summary"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:duplicateParentState="true"
                 android:ellipsize="marquee"
                 android:gravity="start"
@@ -83,13 +101,6 @@
                 android:textAppearance="@style/TextAppearance.AppCompat.Subhead"
                 android:textColor="?android:attr/textColorSecondary" />
 
-            <TextView
-                android:id="@+id/text_status"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:gravity="end"
-                android:textSize="12sp" />
         </LinearLayout>
     </LinearLayout>
 
