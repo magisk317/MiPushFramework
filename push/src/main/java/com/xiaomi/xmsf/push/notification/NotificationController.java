@@ -4,6 +4,7 @@ import static top.trumeet.common.utils.NotificationUtils.EXTRA_CHANNEL_DESCRIPTI
 import static top.trumeet.common.utils.NotificationUtils.EXTRA_CHANNEL_ID;
 import static top.trumeet.common.utils.NotificationUtils.EXTRA_CHANNEL_NAME;
 import static top.trumeet.common.utils.NotificationUtils.EXTRA_SOUND_URL;
+import static top.trumeet.common.utils.NotificationUtils.EXTRA_SUB_TEXT;
 import static top.trumeet.common.utils.NotificationUtils.getChannelIdByPkg;
 import static top.trumeet.common.utils.NotificationUtils.getExtraField;
 import static top.trumeet.common.utils.NotificationUtils.getGroupIdByPkg;
@@ -154,7 +155,7 @@ public class NotificationController {
         builder.setCategory(Notification.CATEGORY_EVENT)
                 .setGroupSummary(true)
                 .setGroup(groupId);
-        notify(context, groupId.hashCode(), packageName, builder);
+        notify(context, groupId.hashCode(), packageName, builder, metaInfo);
     }
 
     @RequiresApi(api = Build.VERSION_CODES.M)
@@ -189,12 +190,14 @@ public class NotificationController {
         notificationBuilder.setDefaults(Notification.DEFAULT_ALL);
         notificationBuilder.setPriority(Notification.PRIORITY_HIGH);
 
-        Notification notification = notify(context, notificationId, packageName, notificationBuilder);
+        Notification notification = notify(context, notificationId, packageName, notificationBuilder, metaInfo);
 
         updateSummaryNotification(context, metaInfo, packageName, notification.getGroup());
     }
 
-    private static Notification notify(Context context, int notificationId, String packageName, NotificationCompat.Builder notificationBuilder) {
+    private static Notification notify(
+            Context context, int notificationId, String packageName,
+            NotificationCompat.Builder notificationBuilder, PushMetaInfo metaInfo) {
         // Make the behavior consistent with official MIUI
         Bundle extras = new Bundle();
         extras.putString("target_package", packageName);
@@ -203,8 +206,8 @@ public class NotificationController {
         // Set small icon
         NotificationController.processSmallIcon(context, packageName, notificationBuilder);
 
-        // Fill app name
-        NotificationController.buildExtraSubText(context, packageName, notificationBuilder);
+        String subText = getExtraField(metaInfo.getExtra(), EXTRA_SUB_TEXT, null);
+        NotificationController.buildExtraSubText(context, packageName, notificationBuilder, subText);
 
         Notification notification = notificationBuilder.build();
         getNotificationManagerEx().notify(packageName, null, notificationId, notification);
@@ -300,21 +303,21 @@ public class NotificationController {
         }
     }
 
-
-    public static void buildExtraSubText(Context context, String packageName, NotificationCompat.Builder localBuilder) {
-        CharSequence appName = ApplicationNameCache.getInstance().getAppName(context, packageName);
+    public static void buildExtraSubText(Context context, String packageName, NotificationCompat.Builder localBuilder, CharSequence text) {
+        if (text == null) {
+            text = ApplicationNameCache.getInstance().getAppName(context, packageName);
+        }
         int color = getIconColor(context, packageName);
         if (color == Notification.COLOR_DEFAULT) {
-            localBuilder.setSubText(appName);
+            localBuilder.setSubText(text);
             return;
         }
         localBuilder.setColor(color);
-        CharSequence subText = ColorUtil.createColorSubtext(appName, color);
+        CharSequence subText = ColorUtil.createColorSubtext(text, color);
         if (subText != null) {
             localBuilder.setSubText(subText);
         }
     }
-
 
     private static int getIconId(Context context, String packageName, String resourceName) {
         return context.getResources().getIdentifier(resourceName, "drawable", packageName);
