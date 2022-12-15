@@ -70,6 +70,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal">
+
             <TextView
                 android:id="@android:id/summary"
                 android:layout_width="0dp"
@@ -78,7 +79,7 @@
                 android:duplicateParentState="true"
                 android:ellipsize="marquee"
                 android:gravity="start"
-                android:singleLine="true"
+                android:maxLines="3"
                 android:textAppearance="@style/TextAppearance.AppCompat.Subhead"
                 android:textColor="?android:attr/textColorSecondary" />
 
