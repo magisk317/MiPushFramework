@@ -26,15 +26,16 @@ import com.xiaomi.xmpush.thrift.XmPushActionContainer;
 import com.xiaomi.xmsf.R;
 import com.xiaomi.xmsf.push.utils.Configurations;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 
 import top.trumeet.common.event.Event;
 import top.trumeet.common.event.type.EventType;
 import top.trumeet.common.event.type.TypeFactory;
-import top.trumeet.common.utils.Utils;
 import top.trumeet.mipushframework.permissions.ManagePermissionsActivity;
 import top.trumeet.mipushframework.utils.BaseAppsBinder;
-import top.trumeet.mipushframework.utils.ParseUtils;
 
 /**
  * Created by Trumeet on 2017/8/26.
@@ -90,9 +91,16 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
             default:
                 break;
         }
-        holder.text2.setText(
-                ParseUtils.getFriendlyDateString(new Date(item.getDate()),
-                        Utils.getUTC(), holder.itemView.getContext()));
+
+        Calendar calendarServer = Calendar.getInstance();
+        calendarServer.setTime(new Date(item.getDate()));
+        int zoneOffset = calendarServer.get(java.util.Calendar.ZONE_OFFSET);
+        int dstOffset = calendarServer.get(java.util.Calendar.DST_OFFSET);
+        calendarServer.add(java.util.Calendar.MILLISECOND, (zoneOffset + dstOffset));
+        DateFormat formatter = SimpleDateFormat.getDateTimeInstance();
+
+        holder.text2.setText(holder.itemView.getContext().getString(R.string.date_format_long,
+                formatter.format(calendarServer.getTime())));
         holder.status.setText(status);
 
         holder.itemView.setOnClickListener(new View.OnClickListener() {
