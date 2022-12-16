@@ -216,25 +216,28 @@ public class Configurations {
             if (documentFile == null) {
                 break;
             }
-            DocumentFile configs = documentFile.findFile(Constants.CONFIGURATIONS_FILE_NAME);
-            if (configs == null) {
-                break;
-            }
-            String json = readTextFromUri(context, configs.getUri());
-            try {
-                parse(json);
-            } catch (JSONException e) {
-                e.printStackTrace();
-
-                String errmsg = e.toString();
-                Pattern pattern = Pattern.compile("\\d+");
-                Matcher matcher = pattern.matcher(errmsg);
-                if (matcher.find()) {
-                    int pos = Integer.parseInt(matcher.group());
-                    errmsg = errmsg.substring(0, matcher.end()) + errmsg.substring(pos);
+            DocumentFile[] files = documentFile.listFiles();
+            for (DocumentFile file : files) {
+                if (!file.getName().endsWith(".json")) {
+                    continue;
                 }
-                Utils.makeText(context, errmsg, Toast.LENGTH_LONG);
-                break;
+                String json = readTextFromUri(context, file.getUri());
+                try {
+                    parse(json);
+                } catch (JSONException e) {
+                    e.printStackTrace();
+
+                    String errmsg = e.toString();
+                    Pattern pattern = Pattern.compile("\\d+");
+                    Matcher matcher = pattern.matcher(errmsg);
+                    if (matcher.find()) {
+                        int pos = Integer.parseInt(matcher.group());
+                        errmsg = errmsg.substring(0, matcher.end()) + errmsg.substring(pos);
+                    }
+                    errmsg = file.getName() + "\n" + errmsg;
+                    Utils.makeText(context, errmsg, Toast.LENGTH_LONG);
+                    break;
+                }
             }
             return true;
         } while (false);
