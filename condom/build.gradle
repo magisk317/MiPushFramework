@@ -51,25 +51,8 @@ task sourcesJar(type: Jar) {
     classifier = 'sources'
 }
 
-task javadoc(type: Javadoc) {
-    options.encoding = 'UTF-8'
-    options.charSet = 'UTF-8'
-    failOnError false
-    source = android.sourceSets.main.java.srcDirs
-    classpath += project.files(android.getBootClasspath().join(File.pathSeparator)) + configurations.implementation
-
-    exclude "com/oasisfeng/condom/util/**.java"
-    exclude "android/**.java"
-}
-
-task javadocJar(type: Jar, dependsOn: 'javadoc') {
-    from javadoc
-    classifier = 'javadoc'
-}
-
 artifacts {
     archives sourcesJar
-    archives javadocJar
 }
 
 if (file('deploy.gradle').exists()) apply from: 'deploy.gradle'
