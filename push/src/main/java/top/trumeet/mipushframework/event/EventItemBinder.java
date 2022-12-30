@@ -16,15 +16,24 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 
+import com.elvishew.xlog.Logger;
+import com.elvishew.xlog.XLog;
 import com.google.gson.ExclusionStrategy;
 import com.google.gson.FieldAttributes;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.xiaomi.mipush.sdk.DecryptException;
+import com.xiaomi.mipush.sdk.PushContainerHelper;
 import com.xiaomi.push.service.MIPushEventProcessor;
 import com.xiaomi.push.service.MyMIPushNotificationHelper;
 import com.xiaomi.xmpush.thrift.XmPushActionContainer;
 import com.xiaomi.xmsf.R;
 import com.xiaomi.xmsf.push.utils.Configurations;
+
+import org.apache.thrift.TBase;
+import org.apache.thrift.TException;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -45,6 +54,7 @@ import top.trumeet.mipushframework.utils.BaseAppsBinder;
  */
 
 public class EventItemBinder extends BaseAppsBinder<Event> {
+    private static Logger logger = XLog.tag(EventItemBinder.class.getSimpleName()).build();
 
     private boolean isSpecificApp = true;
     EventItemBinder(boolean isSpecificApp) {
@@ -141,7 +151,21 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
                     }
                 })
                 .create();
-        final CharSequence info = gson.toJson(container);
+        JsonElement jsonElement = gson.toJsonTree(container);
+        if (jsonElement.isJsonObject()) {
+            JsonObject json = jsonElement.getAsJsonObject();
+            String pushAction = "pushAction";
+            try {
+                TBase message = PushContainerHelper.getResponseMessageBodyFromContainer(context, container);
+                json.add(pushAction, gson.toJsonTree(message));
+            } catch (TException e) {
+                logger.e(e.getLocalizedMessage(), e);
+            } catch (DecryptException e) {
+                json.add(pushAction, gson.toJsonTree(e));
+            }
+            jsonElement = json;
+        }
+        final CharSequence info = gson.toJson(jsonElement);
         if (info == null)
             return null;
 
