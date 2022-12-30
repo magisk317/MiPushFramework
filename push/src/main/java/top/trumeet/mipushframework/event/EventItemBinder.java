@@ -39,6 +39,7 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.Map;
 
 import top.trumeet.common.event.Event;
 import top.trumeet.common.event.type.EventType;
@@ -141,6 +142,10 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
                             if (f.getName().equals(field)) {
                                 return true;
                             }
+                        }
+                        if (f.getDeclaredClass() == Map.class && f.getName().equals("internal"))
+                        {
+                            return true;
                         }
                         return false;
                     }
