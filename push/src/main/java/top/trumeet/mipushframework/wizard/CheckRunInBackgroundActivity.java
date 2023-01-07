@@ -5,9 +5,10 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import androidx.annotation.Nullable;
 import android.text.Html;
 import android.widget.Toast;
+
+import androidx.annotation.Nullable;
 
 import com.android.setupwizardlib.view.NavigationBar;
 import com.xiaomi.xmsf.R;
@@ -29,7 +30,7 @@ public class CheckRunInBackgroundActivity extends PushControllerWizardActivity i
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || !canFix()) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || !canAppOpsPermission()) {
             nextPage();
             finish();
             return;
@@ -41,7 +42,7 @@ public class CheckRunInBackgroundActivity extends PushControllerWizardActivity i
     public void onResume() {
         super.onResume();
 
-        if (!canFix()) {
+        if (!canAppOpsPermission()) {
             nextPage();
             finish();
             return;
@@ -88,11 +89,13 @@ public class CheckRunInBackgroundActivity extends PushControllerWizardActivity i
 
     @Override
     public void onNavigateNext() {
-        if (!allow && canFix()) {
-            lunchAppOps();
-        } else {
-            nextPage();
+        if (!allow && canAppOpsPermission()) {
+            lunchAppOps(
+                    String.valueOf(AppOpsManagerOverride.OP_RUN_IN_BACKGROUND),
+                    Utils.getString(R.string.rikka_appops_help_toast, this));
+            return;
         }
+        nextPage();
     }
 
     private void nextPage() {
@@ -100,19 +103,16 @@ public class CheckRunInBackgroundActivity extends PushControllerWizardActivity i
                 UsageStatsPermissionActivity.class));
     }
 
-    private boolean canFix() {
+    private boolean canAppOpsPermission() {
         return Utils.isAppOpsInstalled() ||
                 ShellUtils.isSuAvailable();
     }
 
-    private void lunchAppOps() {
+    private boolean lunchAppOps(String permission, CharSequence tips) {
         // root first
         if (ShellUtils.isSuAvailable()) {
-            if (ShellUtils.exec("appops set --user " + Utils.myUid() +
-                    " " + Constants.SERVICE_APP_NAME + " " + AppOpsManagerOverride.OP_RUN_IN_BACKGROUND +
-                    " " + AppOpsManager.MODE_ALLOWED)) {
-                nextPage();
-                return;
+            if (allowPermission(permission)) {
+                return true;
             } else {
                 Toast.makeText(this, R.string.fail, Toast.LENGTH_SHORT).show();
             }
@@ -127,7 +127,16 @@ public class CheckRunInBackgroundActivity extends PushControllerWizardActivity i
                     .setData(Uri.parse("package:" + Constants.SERVICE_APP_NAME))
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(intent);
-            Toast.makeText(this, Utils.getString(R.string.rikka_appops_help_toast, this), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, tips, Toast.LENGTH_LONG).show();
+            return true;
         }
+
+        return false;
+    }
+
+    private boolean allowPermission(String permission) {
+        return ShellUtils.exec("appops set --user " + Utils.myUid() +
+                " " + Constants.SERVICE_APP_NAME + " " + permission +
+                " " + AppOpsManager.MODE_ALLOWED);
     }
 }
