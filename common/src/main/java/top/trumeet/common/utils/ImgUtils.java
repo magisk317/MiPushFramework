@@ -6,7 +6,8 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
-import android.util.Log;
+
+import androidx.annotation.NonNull;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -86,94 +87,57 @@ public class ImgUtils {
         //todo use bwareaopen
         denoiseWhitePoint(width, height, pixels, 3);
 
-        int top = 0;
-        int left = 0;
-        int right = 0;
-        int bottom = 0;
+        return cropTransparent(width, height, pixels);
+    }
 
-        for (int h = 0; h < bitmap.getHeight(); h++) {
-            boolean holdBlackPix = false;
-            for (int w = 0; w < bitmap.getWidth(); w++) {
+    @NonNull
+    private static Bitmap cropTransparent(int width, int height, int[] pixels) {
+        int topPadding = height;
+        int leftPadding = width;
+        int rightPadding = width;
+        int bottomPadding = height;
+
+
+        for (int h = 0; h < height; h++) {
+            for (int w = 0; w < width; w++) {
                 if (pixels[width * h + w] != Color.TRANSPARENT) {
-                    holdBlackPix = true;
-                    break;
+                    topPadding = Math.min(topPadding, h);
+                    leftPadding = Math.min(leftPadding, w);
+                    rightPadding = Math.min(rightPadding, width - 1 - w);
+                    bottomPadding = Math.min(bottomPadding, height - 1 - h);
+
                 }
             }
-
-            if (holdBlackPix) {
-                break;
-            }
-            top++;
         }
 
-        for (int w = 0; w < bitmap.getWidth(); w++) {
-            boolean holdBlackPix = false;
-            for (int h = 0; h < bitmap.getHeight(); h++) {
-                if (pixels[width * h + w] != Color.TRANSPARENT) {
-                    holdBlackPix = true;
-                    break;
-                }
-            }
-            if (holdBlackPix) {
-                break;
-            }
-            left++;
-        }
+        int verticalPadding = bottomPadding + topPadding;
+        int horizontalPadding = leftPadding + rightPadding;
+        int diff = verticalPadding - horizontalPadding;
+        if (verticalPadding > horizontalPadding) {
+            bottomPadding -= (diff / 2);
+            topPadding -= (diff / 2);
 
-        for (int w = bitmap.getWidth() - 1; w >= 0; w--) {
-            boolean holdBlackPix = false;
-            for (int h = 0; h < bitmap.getHeight(); h++) {
-                if (pixels[width * h + w] != Color.TRANSPARENT) {
-                    holdBlackPix = true;
-                    break;
-                }
-            }
-            if (holdBlackPix) {
-                break;
-            }
-            right++;
-        }
+            bottomPadding = Math.max(bottomPadding, 0);
+            topPadding = Math.max(topPadding, 0);
 
-        for (int h = bitmap.getHeight() - 1; h >= 0; h--) {
-            boolean holdBlackPix = false;
-            for (int w = 0; w < bitmap.getWidth(); w++) {
-                if (pixels[width * h + w] != Color.TRANSPARENT) {
-                    holdBlackPix = true;
-                    break;
-                }
-            }
-            if (holdBlackPix) {
-                break;
-            }
-            bottom++;
-        }
-
-        int diff = (bottom + top) - (left + right);
-        if (diff > 0) {
-            bottom -= (diff / 2);
-            top -= (diff / 2);
-
-            bottom = bottom < 0 ? 0 : bottom;
-            top = top < 0 ? 0 : top;
-
-        } else if (diff < 0) {
-            left += (diff / 2);
-            right += (diff / 2);
-            left = left < 0 ? 0 : left;
-            right = right < 0 ? 0 : right;
+        } else if (verticalPadding < horizontalPadding) {
+            leftPadding += (diff / 2);
+            rightPadding += (diff / 2);
+            leftPadding = Math.max(leftPadding, 0);
+            rightPadding = Math.max(rightPadding, 0);
         }
 
 
-        int cropHeight = bitmap.getHeight() - bottom - top;
-        int cropWidth = bitmap.getWidth() - left - right;
+        int cropHeight = height - bottomPadding - topPadding;
+        int cropWidth = width - leftPadding - rightPadding;
 
         int padding = (cropHeight + cropWidth) / 16;
 
         int[] newPix = new int[cropWidth * cropHeight];
 
         int i = 0;
-        for (int h = top; h < top + cropHeight; h++) {
-            for (int w = left; w < left + cropWidth; w++) {
+        for (int h = topPadding; h < topPadding + cropHeight; h++) {
+            for (int w = leftPadding; w < leftPadding + cropWidth; w++) {
                 newPix[i++] = pixels[width * h + w];
             }
         }
