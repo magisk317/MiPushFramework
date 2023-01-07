@@ -123,8 +123,11 @@
     ]]></string>
 
     <string name="wizard_title_stats_permission">使用情况统计</string>
-
     <string name="wizard_title_stats_permission_text">您需要授予“使用情况”权限，否则您无法接收通知。</string>
+
+    <string name="wizard_title_alert_window_permission">显示在其他应用上层</string>
+    <string name="wizard_title_alert_window_text">您需要授予“显示在其他应用上层”权限，否则您无法通过配置自动调起应用。</string>
+
     <string name="wizard_descr_finish">大功告成！本软件已准备就绪。</string>
     <string name="status_ok">成功</string>
 

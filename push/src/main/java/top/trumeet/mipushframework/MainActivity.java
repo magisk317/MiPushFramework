@@ -1,11 +1,8 @@
 package top.trumeet.mipushframework;
 
-import android.app.NotificationManager;
-import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
@@ -16,7 +13,6 @@ import android.widget.Toast;
 import androidx.annotation.UiThread;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.nihility.notification.NotificationManagerEx;
 import com.xiaomi.channel.commonutils.android.DeviceInfo;
 import com.xiaomi.channel.commonutils.android.MIUIUtils;
 import com.xiaomi.xmsf.R;
@@ -44,14 +40,6 @@ public abstract class MainActivity extends AppCompatActivity {
 
         hookTest();
         checkAndConnect();
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if(!Settings.canDrawOverlays(this)) {
-                Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:" + getPackageName()));
-                startActivityForResult(intent, 233);
-            }
-        }
 
         ConfigCenter.getInstance().loadConfigurations(this);
     }

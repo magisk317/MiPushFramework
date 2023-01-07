@@ -2,18 +2,18 @@ package top.trumeet.mipushframework.wizard;
 
 import android.app.AppOpsManager;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.text.Html;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 
 import com.android.setupwizardlib.view.NavigationBar;
 import com.xiaomi.xmsf.R;
 
-import top.trumeet.common.override.AppOpsManagerOverride;
-import top.trumeet.common.utils.Utils;
 import top.trumeet.mipushframework.utils.PermissionUtils;
 
 /**
@@ -22,7 +22,8 @@ import top.trumeet.mipushframework.utils.PermissionUtils;
  * @author Trumeet
  */
 
-public class UsageStatsPermissionActivity extends PushControllerWizardActivity implements NavigationBar.NavigationBarListener {
+@RequiresApi(api = Build.VERSION_CODES.M)
+public class AlertWindowPermissionActivity extends PushControllerWizardActivity implements NavigationBar.NavigationBarListener {
     private boolean allow;
     private boolean nextClicked = false;
 
@@ -53,8 +54,7 @@ public class UsageStatsPermissionActivity extends PushControllerWizardActivity i
     }
 
     private void check() {
-        int result = Utils.checkOp(this, AppOpsManagerOverride.OP_GET_USAGE_STATS);
-        allow = (result == AppOpsManager.MODE_ALLOWED);
+        allow = Settings.canDrawOverlays(this);
     }
 
     @Override
@@ -69,8 +69,8 @@ public class UsageStatsPermissionActivity extends PushControllerWizardActivity i
         }
         layout.getNavigationBar()
                 .setNavigationBarListener(this);
-        mText.setText(Html.fromHtml(getString(R.string.wizard_title_stats_permission_text)));
-        layout.setHeaderText(Html.fromHtml(getString(R.string.wizard_title_stats_permission)));
+        mText.setText(Html.fromHtml(getString(R.string.wizard_title_alert_window_text)));
+        layout.setHeaderText(Html.fromHtml(getString(R.string.wizard_title_alert_window_permission)));
         setContentView(layout);
     }
 
@@ -84,12 +84,13 @@ public class UsageStatsPermissionActivity extends PushControllerWizardActivity i
         if (!allow) {
             if (!nextClicked || !PermissionUtils.canAppOpsPermission()) {
                 nextClicked = true;
-                startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
+                Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:" + getPackageName()));
+                startActivity(intent);
             } else {
                 PermissionUtils.lunchAppOps(this,
-                        AppOpsManager.OPSTR_GET_USAGE_STATS,
-                        getString(R.string.wizard_title_stats_permission_text));
-                check();
+                        AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW,
+                        getString(R.string.wizard_title_alert_window_text));
             }
         } else {
             nextPage();
@@ -97,13 +98,8 @@ public class UsageStatsPermissionActivity extends PushControllerWizardActivity i
     }
 
     private void nextPage() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            startActivity(new Intent(this,
-                    AlertWindowPermissionActivity.class));
-        } else {
-            startActivity(new Intent(this,
-                    FinishWizardActivity.class));
-        }
+        startActivity(new Intent(this,
+                FinishWizardActivity.class));
     }
 
 }
