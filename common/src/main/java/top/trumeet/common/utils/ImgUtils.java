@@ -78,11 +78,11 @@ public class ImgUtils {
             }
         }
 
-        trimImgToCircle(Color.TRANSPARENT, width, height, pixels, 5);
+        trimImgToCircle(Color.TRANSPARENT, width, height, pixels, 0);
 
         invertColorIfWhitePredominate(width, height, pixels);
 
-        trimImgToCircle(Color.TRANSPARENT, width, height, pixels, 5);
+        trimImgToCircle(Color.TRANSPARENT, width, height, pixels, 0);
 
         //todo use bwareaopen
         denoiseWhitePoint(width, height, pixels, 3);
@@ -175,8 +175,8 @@ public class ImgUtils {
     }
 
     private static void denoiseWhitePoint(int width, int height, int[] pixels, int exThre) {
-        for (int i = 1; i < height - 1; i++) {
-            for (int j = 1; j < width - 1; j++) {
+        for (int i = 1; i < height; i++) {
+            for (int j = 1; j < width; j++) {
                 int[] dots = new int[]{
                         getPixel(width, pixels, i - 1, j - 1),
                         getPixel(width, pixels, i - 1, j),
@@ -199,15 +199,21 @@ public class ImgUtils {
                     }
                 }
 
-                if (trCnt > (dots.length - exThre)) {
+                if (trCnt + exThre > dots.length) {
                     pixels[width * i + j] = Color.TRANSPARENT;
                 }
             }
         }
     }
 
-    private static int getPixel(int width, int[] pixels, int i, int j) {
-        return pixels[width * i + j];
+    private static int getPixel(int width, int[] pixels, int h, int w) {
+        if (w >= width) {
+            return Color.TRANSPARENT;
+        }
+        if (width * h + w >= pixels.length) {
+            return Color.TRANSPARENT;
+        }
+        return pixels[width * h + w];
     }
 
     private static void getGreyHistogram(Bitmap bitmap, int[] histogram) {
