@@ -39,13 +39,13 @@ public class ImgUtils {
     }
 
     private static void trimImgToCircle(int color, int width, int height, int[] pixels, int rExpand) {
-
-        int r = (width < height ? width : height) / 2 + rExpand;
+        double r = Math.min(width, height) / 2.0 + rExpand;
 
         for (int i = 0; i < height; i++) {
             for (int j = 0; j < width; j++) {
-
-                if ((i - width / 2) * (i - width / 2) + (j - height / 2) * (j - height / 2) > r * r) {
+                double a = (i - width / 2.0);
+                double b = (j - height / 2.0);
+                if (a * a + b * b > r * r) {
                     pixels[width * i + j] = color;
                 }
 
