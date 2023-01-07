@@ -61,9 +61,6 @@ public class ImgUtils {
         int[] pixels = new int[width * height];
         bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
 
-        int whiteCnt = 0;
-        int tsCnt = 0;
-
         for (int i = 0; i < height; i++) {
             for (int j = 0; j < width; j++) {
                 int dot = pixels[width * i + j];
@@ -74,29 +71,15 @@ public class ImgUtils {
 
                 if (gray > calculateThreshold) {
                     pixels[width * i + j] = Color.TRANSPARENT;
-                    tsCnt++;
                 } else {
                     pixels[width * i + j] = Color.WHITE;
-                    whiteCnt++;
                 }
             }
         }
 
         trimImgToCircle(Color.TRANSPARENT, width, height, pixels, 5);
 
-        if (whiteCnt > tsCnt) {
-            //revert WHITE and TRANSPARENT
-            for (int i = 0; i < height; i++) {
-                for (int j = 0; j < width; j++) {
-                    int dot = pixels[width * i + j];
-                    if (dot == Color.WHITE) {
-                        pixels[width * i + j] = Color.TRANSPARENT;
-                    } else {
-                        pixels[width * i + j] = Color.WHITE;
-                    }
-                }
-            }
-        }
+        invertColorIfWhitePredominate(width, height, pixels);
 
         trimImgToCircle(Color.TRANSPARENT, width, height, pixels, 5);
 
@@ -199,6 +182,32 @@ public class ImgUtils {
         newBmp.setPixels(newPix, 0, cropWidth, padding, padding, cropWidth, cropHeight);
 
         return newBmp;
+    }
+
+    private static void invertColorIfWhitePredominate(int width, int height, int[] pixels) {
+        int whiteCnt = 0;
+        int tsCnt = 0;
+        for (int color : pixels) {
+            if (color == Color.TRANSPARENT) {
+                tsCnt++;
+            } else {
+                whiteCnt++;
+            }
+        }
+
+        if (whiteCnt > tsCnt) {
+            //revert WHITE and TRANSPARENT
+            for (int i = 0; i < height; i++) {
+                for (int j = 0; j < width; j++) {
+                    int dot = pixels[width * i + j];
+                    if (dot == Color.WHITE) {
+                        pixels[width * i + j] = Color.TRANSPARENT;
+                    } else {
+                        pixels[width * i + j] = Color.WHITE;
+                    }
+                }
+            }
+        }
     }
 
     private static void denoiseWhitePoint(int width, int height, int[] pixels, int exThre) {
