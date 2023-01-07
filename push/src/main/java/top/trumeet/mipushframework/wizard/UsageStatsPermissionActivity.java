@@ -5,14 +5,16 @@ import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
-import androidx.annotation.Nullable;
 import android.text.Html;
+
+import androidx.annotation.Nullable;
 
 import com.android.setupwizardlib.view.NavigationBar;
 import com.xiaomi.xmsf.R;
 
 import top.trumeet.common.override.AppOpsManagerOverride;
 import top.trumeet.common.utils.Utils;
+import top.trumeet.mipushframework.utils.PermissionUtils;
 
 /**
  * Created by Trumeet on 2017/8/25.
@@ -22,6 +24,7 @@ import top.trumeet.common.utils.Utils;
 
 public class UsageStatsPermissionActivity extends PushControllerWizardActivity implements NavigationBar.NavigationBarListener {
     private boolean allow;
+    private boolean nextClicked = false;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -42,7 +45,10 @@ public class UsageStatsPermissionActivity extends PushControllerWizardActivity i
         if (allow) {
             nextPage();
             finish();
-
+        } else if (nextClicked) {
+            layout.getNavigationBar()
+                    .getNextButton()
+                    .setText(R.string.retry);
         }
     }
 
@@ -76,7 +82,15 @@ public class UsageStatsPermissionActivity extends PushControllerWizardActivity i
     @Override
     public void onNavigateNext() {
         if (!allow) {
-            startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
+            if (!nextClicked || !PermissionUtils.canAppOpsPermission()) {
+                nextClicked = true;
+                startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
+            } else {
+                PermissionUtils.lunchAppOps(this,
+                        AppOpsManager.OPSTR_GET_USAGE_STATS,
+                        getString(R.string.wizard_title_stats_permission_text));
+                check();
+            }
         } else {
             nextPage();
         }

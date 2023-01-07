@@ -118,7 +118,7 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     ]]></string>
 
     <string name="wizard_title_stats_permission">Usage stats</string>
-    <string name="wizard_title_stats_permission_text">You need to grant "Usage" permission or you will not be able to receive notifications.</string>
+    <string name="wizard_title_stats_permission_text">You need to grant \"Usage stats\" permission or you will not be able to receive notifications.</string>
 
     <string name="wizard_descr_finish">Everything is ready. Enjoy!</string>
 
