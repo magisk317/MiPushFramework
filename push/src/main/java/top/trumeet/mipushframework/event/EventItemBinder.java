@@ -40,6 +40,7 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Map;
+import java.util.Set;
 
 import top.trumeet.common.event.Event;
 import top.trumeet.common.event.type.EventType;
@@ -78,8 +79,11 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
                     if (container.metaInfo.isSetPassThrough()) {
                         if (container.metaInfo.passThrough == 0) {
                             try {
-                                Configurations.getInstance().handle(container.getPackageName(), container.getMetaInfo());
+                                Set<String> ops = Configurations.getInstance().handle(container.getPackageName(), container.getMetaInfo());
                                 status = container.getMetaInfo().getExtra().get("channel_name");
+                                if (!ops.isEmpty()) {
+                                    status = ops + " " + status;
+                                }
                             } catch (Throwable e) {
                                 status = holder.itemView.getContext()
                                         .getString(R.string.message_type_notification);
