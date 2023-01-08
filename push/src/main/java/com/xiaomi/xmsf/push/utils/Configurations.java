@@ -35,7 +35,6 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import top.trumeet.common.Constants;
 import top.trumeet.common.utils.Utils;
 
 public class Configurations {
@@ -218,7 +217,7 @@ public class Configurations {
             }
             DocumentFile[] files = documentFile.listFiles();
             for (DocumentFile file : files) {
-                if (!file.getName().endsWith(".json")) {
+                if (!"application/json".equals(file.getType())) {
                     continue;
                 }
                 String json = readTextFromUri(context, file.getUri());
