@@ -319,9 +319,10 @@ public class Configurations {
         try (InputStream inputStream = context.getContentResolver().openInputStream(uri);
              BufferedReader reader = new BufferedReader(
                      new InputStreamReader(Objects.requireNonNull(inputStream)))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                stringBuilder.append(line);
+            char[] buffer = new char[1024];
+            int len;
+            while ((len = reader.read(buffer)) != -1) {
+                stringBuilder.append(buffer, 0, len);
             }
         } catch (Exception e) {
             e.printStackTrace();
