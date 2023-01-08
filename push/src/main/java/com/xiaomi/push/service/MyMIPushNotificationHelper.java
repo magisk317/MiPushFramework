@@ -235,7 +235,6 @@ public class MyMIPushNotificationHelper {
                 PendingIntent pendingIntent = PendingIntent.getActivity(xmPushService, 0, sdkIntentJump, PendingIntent.FLAG_UPDATE_CURRENT);
                 localBuilder.addAction(new NotificationCompat.Action(i, "SDK Intent", pendingIntent));
             }
-
         }
     }
 
@@ -406,24 +405,26 @@ public class MyMIPushNotificationHelper {
         if (paramPushMetaInfo == null) {
             return null;
         }
-        PendingIntent localPendingIntent;
 
+        Intent localIntent;
         if (isBusinessMessage(paramXmPushActionContainer)) {
-            Intent localIntent = new Intent();
+            localIntent = new Intent();
             localIntent.setComponent(new ComponentName("com.xiaomi.xmsf", "com.xiaomi.mipush.sdk.PushMessageHandler"));
             localIntent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, paramArrayOfByte);
             localIntent.putExtra(FROM_NOTIFICATION, true);
             localIntent.addCategory(String.valueOf(paramPushMetaInfo.getNotifyId()));
-            localPendingIntent = PendingIntent.getService(paramContext, 0, localIntent, PendingIntent.FLAG_UPDATE_CURRENT);
         } else {
-            Intent localIntent = new Intent("com.xiaomi.mipush.RECEIVE_MESSAGE");
+            localIntent = new Intent(PushConstants.MIPUSH_ACTION_NEW_MESSAGE);
             localIntent.setComponent(new ComponentName(paramXmPushActionContainer.packageName, "com.xiaomi.mipush.sdk.PushMessageHandler"));
             localIntent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, paramArrayOfByte);
             localIntent.putExtra(FROM_NOTIFICATION, true);
             localIntent.addCategory(String.valueOf(paramPushMetaInfo.getNotifyId()));
-            localPendingIntent = PendingIntent.getService(paramContext, 0, localIntent, PendingIntent.FLAG_UPDATE_CURRENT);
         }
-        return localPendingIntent;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            return PendingIntent.getForegroundService(paramContext, 0, localIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+        } else {
+            return PendingIntent.getService(paramContext, 0, localIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+        }
     }
 
     /**
