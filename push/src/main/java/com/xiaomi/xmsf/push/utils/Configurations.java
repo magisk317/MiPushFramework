@@ -3,6 +3,7 @@ package com.xiaomi.xmsf.push.utils;
 import android.content.Context;
 import android.net.Uri;
 import android.os.Build;
+import android.util.Pair;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -211,19 +212,22 @@ public class Configurations {
             if (context == null || treeUri == null) {
                 break;
             }
-            DocumentFile documentFile = DocumentFile.fromTreeUri(context, treeUri);
-            if (documentFile == null) {
-                break;
-            }
-            DocumentFile[] files = documentFile.listFiles();
-            for (DocumentFile file : files) {
-                if (!"application/json".equals(file.getType())) {
-                    continue;
+            List<Pair<DocumentFile, JSONException>> exceptions = new ArrayList<>();
+            List<DocumentFile> loadedFiles = new ArrayList<>();
+            parseDirectory(context, treeUri, exceptions, loadedFiles);
+
+            if (!loadedFiles.isEmpty()) {
+                StringBuilder loadedList = new StringBuilder("loaded configuration list:");
+                for (DocumentFile file : loadedFiles) {
+                    loadedList.append('\n');
+                    loadedList.append(file.getName());
                 }
-                String json = readTextFromUri(context, file.getUri());
-                try {
-                    parse(json);
-                } catch (JSONException e) {
+                Utils.makeText(context, loadedList, Toast.LENGTH_SHORT);
+            }
+            if (!exceptions.isEmpty()) {
+                for (Pair<DocumentFile, JSONException> pair : exceptions) {
+                    DocumentFile file = pair.first;
+                    JSONException e = pair.second;
                     e.printStackTrace();
 
                     String errmsg = e.toString();
@@ -235,11 +239,32 @@ public class Configurations {
                     }
                     errmsg = file.getName() + "\n" + errmsg;
                     Utils.makeText(context, errmsg, Toast.LENGTH_LONG);
-                    break;
                 }
+                break;
             }
             return true;
         } while (false);
+        return false;
+    }
+
+    private boolean parseDirectory(Context context, Uri treeUri, List<Pair<DocumentFile, JSONException>> exceptions, List<DocumentFile> loadedFiles) {
+        DocumentFile documentFile = DocumentFile.fromTreeUri(context, treeUri);
+        if (documentFile == null) {
+            return true;
+        }
+        DocumentFile[] files = documentFile.listFiles();
+        for (DocumentFile file : files) {
+            if (!"application/json".equals(file.getType())) {
+                continue;
+            }
+            String json = readTextFromUri(context, file.getUri());
+            try {
+                parse(json);
+                loadedFiles.add(file);
+            } catch (JSONException e) {
+                exceptions.add(new Pair<>(file, e));
+            }
+        }
         return false;
     }
 
