@@ -230,15 +230,33 @@ public class Configurations {
                     JSONException e = pair.second;
                     e.printStackTrace();
 
-                    String errmsg = e.toString();
-                    Pattern pattern = Pattern.compile("\\d+");
-                    Matcher matcher = pattern.matcher(errmsg);
+                    StringBuilder errmsg = new StringBuilder(e.toString());
+                    Pattern pattern = Pattern.compile(" character (\\d+) of ");
+                    Matcher matcher = pattern.matcher(errmsg.toString());
                     if (matcher.find()) {
-                        int pos = Integer.parseInt(matcher.group());
-                        errmsg = errmsg.substring(0, matcher.end()) + errmsg.substring(pos);
+                        int pos = Integer.parseInt(matcher.group(1));
+                        String json = readTextFromUri(context, file.getUri());
+                        String[] beforeErr = json.substring(0, pos).split("\n");
+                        int errorLine = beforeErr.length;
+                        int errorColumn = beforeErr[beforeErr.length - 1].length();
+                        String exceptionMessage = errmsg.substring(0, matcher.start())
+                                .replace("org.json.JSONException: ", "")
+                                .replaceFirst("(after )(.*)( at)", "$1\"$2\"$3");
+                        errmsg = new StringBuilder(String.format("%s line %d column %d", exceptionMessage, errorLine, errorColumn));
+
+                        String[] jsonLine = json.split("\n");
+                        jsonLine[errorLine - 1] = jsonLine[errorLine - 1].substring(0, errorColumn - 1) +
+                                "┋" +
+                                jsonLine[errorLine - 1].substring(errorColumn - 1);
+                        for (int i = Math.max(0, errorLine - 2); i <= Math.min(jsonLine.length - 1, errorLine); ++i) {
+                            errmsg.append('\n');
+                            errmsg.append(i + 1);
+                            errmsg.append(": ");
+                            errmsg.append(jsonLine[i]);
+                        }
                     }
-                    errmsg = file.getName() + "\n" + errmsg;
-                    Utils.makeText(context, errmsg, Toast.LENGTH_LONG);
+                    errmsg.insert(0, file.getName() + "\n");
+                    Utils.makeText(context, errmsg.toString(), Toast.LENGTH_LONG);
                 }
                 break;
             }
