@@ -207,7 +207,7 @@ public class Configurations {
     }
 
     public boolean init(Context context, Uri treeUri) {
-        packageConfigs = new HashMap<>();
+        packageConfigs.clear();
         do {
             if (context == null || treeUri == null) {
                 break;
@@ -226,36 +226,7 @@ public class Configurations {
             }
             if (!exceptions.isEmpty()) {
                 for (Pair<DocumentFile, JSONException> pair : exceptions) {
-                    DocumentFile file = pair.first;
-                    JSONException e = pair.second;
-                    e.printStackTrace();
-
-                    StringBuilder errmsg = new StringBuilder(e.toString());
-                    Pattern pattern = Pattern.compile(" character (\\d+) of ");
-                    Matcher matcher = pattern.matcher(errmsg.toString());
-                    if (matcher.find()) {
-                        int pos = Integer.parseInt(matcher.group(1));
-                        String json = readTextFromUri(context, file.getUri());
-                        String[] beforeErr = json.substring(0, pos).split("\n");
-                        int errorLine = beforeErr.length;
-                        int errorColumn = beforeErr[beforeErr.length - 1].length();
-                        String exceptionMessage = errmsg.substring(0, matcher.start())
-                                .replace("org.json.JSONException: ", "")
-                                .replaceFirst("(after )(.*)( at)", "$1\"$2\"$3");
-                        errmsg = new StringBuilder(String.format("%s line %d column %d", exceptionMessage, errorLine, errorColumn));
-
-                        String[] jsonLine = json.split("\n");
-                        jsonLine[errorLine - 1] = jsonLine[errorLine - 1].substring(0, errorColumn - 1) +
-                                "┋" +
-                                jsonLine[errorLine - 1].substring(errorColumn - 1);
-                        for (int i = Math.max(0, errorLine - 2); i <= Math.min(jsonLine.length - 1, errorLine); ++i) {
-                            errmsg.append('\n');
-                            errmsg.append(i + 1);
-                            errmsg.append(": ");
-                            errmsg.append(jsonLine[i]);
-                        }
-                    }
-                    errmsg.insert(0, file.getName() + "\n");
+                    StringBuilder errmsg = getJsonExceptionMessage(context, pair);
                     Utils.makeText(context, errmsg.toString(), Toast.LENGTH_LONG);
                 }
                 break;
@@ -263,6 +234,41 @@ public class Configurations {
             return true;
         } while (false);
         return false;
+    }
+
+    @NonNull
+    public static StringBuilder getJsonExceptionMessage(Context context, Pair<DocumentFile, JSONException> pair) {
+        DocumentFile file = pair.first;
+        JSONException e = pair.second;
+        e.printStackTrace();
+
+        StringBuilder errmsg = new StringBuilder(e.toString());
+        Pattern pattern = Pattern.compile(" character (\\d+) of ");
+        Matcher matcher = pattern.matcher(errmsg.toString());
+        if (matcher.find()) {
+            int pos = Integer.parseInt(matcher.group(1));
+            String json = readTextFromUri(context, file.getUri());
+            String[] beforeErr = json.substring(0, pos).split("\n");
+            int errorLine = beforeErr.length;
+            int errorColumn = beforeErr[beforeErr.length - 1].length();
+            String exceptionMessage = errmsg.substring(0, matcher.start())
+                    .replace("org.json.JSONException: ", "")
+                    .replaceFirst("(after )(.*)( at)", "$1\"$2\"$3");
+            errmsg = new StringBuilder(String.format("%s line %d column %d", exceptionMessage, errorLine, errorColumn));
+
+            String[] jsonLine = json.split("\n");
+            jsonLine[errorLine - 1] = jsonLine[errorLine - 1].substring(0, errorColumn - 1) +
+                    "┋" +
+                    jsonLine[errorLine - 1].substring(errorColumn - 1);
+            for (int i = Math.max(0, errorLine - 2); i <= Math.min(jsonLine.length - 1, errorLine); ++i) {
+                errmsg.append('\n');
+                errmsg.append(i + 1);
+                errmsg.append(": ");
+                errmsg.append(jsonLine[i]);
+            }
+        }
+        errmsg.insert(0, file.getName() + "\n");
+        return errmsg;
     }
 
     private boolean parseDirectory(Context context, Uri treeUri, List<Pair<DocumentFile, JSONException>> exceptions, List<DocumentFile> loadedFiles) {
@@ -332,7 +338,7 @@ public class Configurations {
     }
 
 
-    private String readTextFromUri(Context context, Uri uri) {
+    public static String readTextFromUri(Context context, Uri uri) {
         StringBuilder stringBuilder = new StringBuilder();
         try (InputStream inputStream = context.getContentResolver().openInputStream(uri);
              BufferedReader reader = new BufferedReader(
