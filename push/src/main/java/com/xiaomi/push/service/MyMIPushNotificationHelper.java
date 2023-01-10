@@ -37,6 +37,8 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import top.trumeet.common.Constants;
 import top.trumeet.common.db.RegisteredApplicationDb;
@@ -60,6 +62,8 @@ public class MyMIPushNotificationHelper {
     private static final String GROUP_TYPE_PASS_THROUGH = "#pass_through#";
 
     private static boolean tryLoadConfigurations = false;
+
+    private static ExecutorService executorService = Executors.newFixedThreadPool(3);
 
     /**
      * @see MIPushNotificationHelper#notifyPushMessage
@@ -95,7 +99,7 @@ public class MyMIPushNotificationHelper {
                     wakeScreen(context, packageName);
                 }
                 if (!operations.contains(Configurations.PackageConfig.OPERATION_IGNORE)) {
-                    doNotifyPushMessage(context, container, decryptedContent);
+                    executorService.execute(() -> doNotifyPushMessage(context, container, decryptedContent));
                 }
                 if (operations.contains(Configurations.PackageConfig.OPERATION_OPEN)) {
                     MyPushMessageHandler.startService(context, container, decryptedContent);
