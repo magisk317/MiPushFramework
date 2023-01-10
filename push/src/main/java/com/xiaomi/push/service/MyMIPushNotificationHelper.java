@@ -30,6 +30,7 @@ import com.xiaomi.xmsf.BuildConfig;
 import com.xiaomi.xmsf.R;
 import com.xiaomi.xmsf.push.notification.NotificationController;
 import com.xiaomi.xmsf.push.utils.Configurations;
+import com.xiaomi.xmsf.push.utils.IconConfigurations;
 import com.xiaomi.xmsf.utils.ConfigCenter;
 
 import java.net.MalformedURLException;
@@ -85,7 +86,9 @@ public class MyMIPushNotificationHelper {
                 boolean success = false;
                 try {
                     success = Configurations.getInstance().init(context,
-                            ConfigCenter.getInstance().getConfigurationDirectory(context));
+                            ConfigCenter.getInstance().getConfigurationDirectory(context)) &&
+                            IconConfigurations.getInstance().init(context,
+                                    ConfigCenter.getInstance().getConfigurationDirectory(context));
                 } catch (Exception e) {
                     Utils.makeText(context, e.toString(), Toast.LENGTH_LONG);
                 }

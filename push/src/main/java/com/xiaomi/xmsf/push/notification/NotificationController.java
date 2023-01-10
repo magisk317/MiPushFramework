@@ -44,6 +44,7 @@ import com.xiaomi.xmpush.thrift.PushMetaInfo;
 import com.xiaomi.xmpush.thrift.XmPushActionContainer;
 import com.xiaomi.xmsf.ManageSpaceActivity;
 import com.xiaomi.xmsf.R;
+import com.xiaomi.xmsf.push.utils.IconConfigurations;
 import com.xiaomi.xmsf.utils.ColorUtil;
 
 import java.lang.reflect.InvocationTargetException;
@@ -321,12 +322,29 @@ public class NotificationController {
 
         notificationBuilder.setColor(getIconColor(context, packageName));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            IconConfigurations.IconConfig iconConfig = IconConfigurations.getInstance().get(packageName);
+            if (iconConfig != null && iconConfig.isEnabled && iconConfig.isEnabledAll) {
+                Bitmap iconBitmap = iconConfig.bitmap();
+                if (iconBitmap != null) {
+                    notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(iconBitmap));
+                    notificationBuilder.setColor(iconConfig.color());
+                    return;
+                }
+            }
+
             if (smallIconId > 0) {
                 notificationBuilder.setSmallIcon(IconCompat.createWithResource(pkgContext, smallIconId));
                 return;
             }
             if (largeIconId > 0) {
                 notificationBuilder.setSmallIcon(IconCompat.createWithResource(pkgContext, largeIconId));
+                return;
+            }
+
+            Bitmap iconBitmap = iconConfig == null ? null : iconConfig.bitmap();
+            if (iconBitmap != null && iconConfig.isEnabled) {
+                notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(iconBitmap));
+                notificationBuilder.setColor(iconConfig.color());
                 return;
             }
 

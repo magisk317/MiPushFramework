@@ -9,6 +9,7 @@ import android.net.Uri;
 import com.xiaomi.xmsf.BuildConfig;
 import com.xiaomi.xmsf.push.service.XMPushService;
 import com.xiaomi.xmsf.push.utils.Configurations;
+import com.xiaomi.xmsf.push.utils.IconConfigurations;
 
 import top.trumeet.common.Constants;
 
@@ -62,6 +63,8 @@ public class ConfigCenter {
 
     public void loadConfigurations(Context context) {
         Configurations.getInstance().init(context,
+                ConfigCenter.getInstance().getConfigurationDirectory(context));
+        IconConfigurations.getInstance().init(context,
                 ConfigCenter.getInstance().getConfigurationDirectory(context));
         Intent intent = new Intent();
         intent.setComponent(new ComponentName(context, XMPushService.class));
