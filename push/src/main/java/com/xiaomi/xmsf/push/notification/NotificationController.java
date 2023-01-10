@@ -319,6 +319,7 @@ public class NotificationController {
             notificationBuilder.setLargeIcon(BitmapFactory.decodeResource(pkgContext.getResources(), largeIconId));
         }
 
+        notificationBuilder.setColor(getIconColor(context, packageName));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (smallIconId > 0) {
                 notificationBuilder.setSmallIcon(IconCompat.createWithResource(pkgContext, smallIconId));
@@ -341,16 +342,13 @@ public class NotificationController {
         if (text == null) {
             text = ApplicationNameCache.getInstance().getAppName(context, packageName);
         }
-        int color = getIconColor(context, packageName);
+        int color = localBuilder.getColor();
         if (color == Notification.COLOR_DEFAULT) {
             localBuilder.setSubText(text);
             return;
         }
-        localBuilder.setColor(color);
         CharSequence subText = ColorUtil.createColorSubtext(text, color);
-        if (subText != null) {
-            localBuilder.setSubText(subText);
-        }
+        localBuilder.setSubText(subText);
     }
 
     private static int getIconId(Context context, String packageName, String resourceName) {
