@@ -21,6 +21,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.media.AudioAttributes;
 import android.net.Uri;
 import android.os.Build;
@@ -52,6 +53,7 @@ import java.util.Map;
 
 import top.trumeet.common.cache.ApplicationNameCache;
 import top.trumeet.common.cache.IconCache;
+import top.trumeet.common.utils.ImgUtils;
 
 /**
  * @author Trumeet
@@ -69,6 +71,7 @@ public class NotificationController {
     public static final String CHANNEL_WARN = "warn";
 
     private static final String NOTIFICATION_LARGE_ICON_URI = "notification_large_icon_uri";
+    private static final String EXTRA_ROUND_LARGE_ICON = "__mi_push_round_large_icon";
 
     public static NotificationManagerEx getNotificationManagerEx() {
         return NotificationManagerEx.INSTANCE;
@@ -214,6 +217,9 @@ public class NotificationController {
         String iconUri = getExtraField(metaInfo.getExtra(), NOTIFICATION_LARGE_ICON_URI, null);
         Bitmap largeIcon = getBitmapFromUri(context, iconUri);
         if (largeIcon != null) {
+            if (getExtraField(metaInfo.getExtra(), EXTRA_ROUND_LARGE_ICON, null) != null) {
+                largeIcon = ImgUtils.trimImgToCircle(largeIcon, Color.TRANSPARENT);
+            }
             notificationBuilder.setLargeIcon(largeIcon);
         }
 

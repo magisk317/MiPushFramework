@@ -25,7 +25,7 @@ public class ImgUtils {
 
     private static int NUM_256 = 256;
 
-    private static Bitmap trimImgToCircle(Bitmap bitmap, int color) {
+    public static Bitmap trimImgToCircle(Bitmap bitmap, int color) {
         int width = bitmap.getWidth();
         int height = bitmap.getHeight();
         int[] pixels = new int[width * height];
@@ -39,7 +39,7 @@ public class ImgUtils {
         return newBmp;
     }
 
-    private static void trimImgToCircle(int color, int width, int height, int[] pixels, int rExpand) {
+    public static void trimImgToCircle(int color, int width, int height, int[] pixels, int rExpand) {
         double r = Math.min(width, height) / 2.0 + rExpand;
 
         for (int i = 0; i < height; i++) {
