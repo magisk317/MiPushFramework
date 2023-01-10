@@ -215,7 +215,8 @@ public class NotificationController {
         processIcon(context, packageName, notificationBuilder);
 
         String iconUri = getExtraField(metaInfo.getExtra(), NOTIFICATION_LARGE_ICON_URI, null);
-        Bitmap largeIcon = getBitmapFromUri(context, iconUri);
+        Bitmap largeIcon = IconCache.getInstance().getBitmap(context, iconUri,
+                NotificationController::getBitmapFromUri);
         if (largeIcon != null) {
             if (getExtraField(metaInfo.getExtra(), EXTRA_ROUND_LARGE_ICON, null) != null) {
                 largeIcon = ImgUtils.trimImgToCircle(largeIcon, Color.TRANSPARENT);
