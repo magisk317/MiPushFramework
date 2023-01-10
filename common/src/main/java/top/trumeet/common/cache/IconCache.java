@@ -21,14 +21,14 @@ public class IconCache {
     private volatile static IconCache cache = null;
     private LruCache<String, Bitmap> bitmapLruCache;
     private LruCache<String, IconCompat> mIconMemoryCaches;
-
-
     private LruCache<String, Integer> appColorCache;
+    private LruCache<String, Bitmap> bitmapCache;
 
     private IconCache() {
         bitmapLruCache = new LruCache<>(100);
         mIconMemoryCaches = new LruCache<>(100);
         appColorCache = new LruCache<>(100);
+        bitmapCache = new LruCache<>(100);
         //TODO check cacheSizes is correct ?
     }
 
@@ -45,6 +45,18 @@ public class IconCache {
 
     public Bitmap getRawIconBitmapWithoutLoader(final Context ctx, final String pkg) {
         return bitmapLruCache.get("raw_" + pkg);
+    }
+
+    public Bitmap getBitmap(final Context ctx, final String key, Converter<String, Bitmap> callback) {
+        if (key == null) {
+            return null;
+        }
+        return new AbstractCacheAspect<Bitmap>(bitmapCache) {
+            @Override
+            Bitmap gen() {
+                return callback.convert(ctx, key);
+            }
+        }.get(key);
     }
 
     public Bitmap getRawIconBitmap(final Context ctx, final String pkg) {
