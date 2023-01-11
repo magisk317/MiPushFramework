@@ -138,7 +138,7 @@ public class MyMIPushNotificationHelper {
             NotificationCompat.BigTextStyle style = new NotificationCompat.BigTextStyle();
             style.bigText(description);
             style.setBigContentTitle(title);
-            style.setSummaryText(description);
+//            style.setSummaryText(description);
             notificationBuilder.setStyle(style);
         }
 

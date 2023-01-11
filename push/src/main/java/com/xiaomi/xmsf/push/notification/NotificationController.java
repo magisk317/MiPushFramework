@@ -357,6 +357,10 @@ public class NotificationController {
     }
 
     public static void buildExtraSubText(Context context, String packageName, NotificationCompat.Builder localBuilder, CharSequence text) {
+        if ("".equals(text)) {
+            localBuilder.setSubText(null);
+            return;
+        }
         if (text == null) {
             text = ApplicationNameCache.getInstance().getAppName(context, packageName);
         }
