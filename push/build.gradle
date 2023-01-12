@@ -22,7 +22,7 @@ android {
         // @see com.xiaomi.mipush.sdk.PushServiceClient#getPushServiceName
         versionCode 105
         versionName rootProject.ext.versionName
-        archivesBaseName = "${applicationId}_${versionName}"
+        archivesBaseName = "xmsf_${versionName}"
 
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
