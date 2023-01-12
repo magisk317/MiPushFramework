@@ -414,6 +414,8 @@ public class Configurations {
                         if (value instanceof JSONObject) {
                             refConfigs = new ArrayList<>();
                             refConfigs.add(parseConfig((JSONObject) value));
+                        } else if (value != null) {
+                            refConfigs = packageConfigs.get(value.toString());
                         }
                     } else {
                         refConfigs = packageConfigs.get(configItem);
@@ -449,6 +451,11 @@ public class Configurations {
         return false;
     }
 
+    @FunctionalInterface
+    public interface Callable {
+        Object run();
+    }
+
     private Object evaluate(Object expr, PackageConfig env) {
         return evaluate(expr, env, null);
     }
@@ -478,33 +485,31 @@ public class Configurations {
 
         int length = expr.length();
         try {
-            switch (method) {
-                case "cond": {
-                    for (int i = 1; i < length; ++i) {
-                        JSONArray clause = expr.optJSONArray(i);
-                        Object test = clause.opt(0);
-                        if (test instanceof JSONObject) {
-                            if (parseConfig((JSONObject) test).match(metaInfo)) {
-                                return clause.opt(1);
-                            }
-                        }
-                        if (test instanceof String) {
-                            if (match(metaInfo, packageConfigs.get(test), new ArrayList<>())) {
-                                return clause.opt(1);
-                            }
-                        }
-                        if (test instanceof JSONArray) {
-                            if (Boolean.TRUE.equals(evaluate(test, config, metaInfo))) {
-                                Object ret = null;
-                                for (int j = 1; j < clause.length(); ++j) {
-                                    ret = evaluate(expr.opt(j), config);
-                                }
-                                return ret;
-                            }
+            if ("cond".equals(method)) {
+                for (int i = 1; i < length; ++i) {
+                    JSONArray clause = expr.optJSONArray(i);
+                    Object test = clause.opt(0);
+                    if (test instanceof JSONObject) {
+                        if (parseConfig((JSONObject) test).match(metaInfo)) {
+                            return clause.opt(1);
                         }
                     }
-                    return null;
+                    if (test instanceof String) {
+                        if (match(metaInfo, packageConfigs.get(test), new ArrayList<>())) {
+                            return clause.opt(1);
+                        }
+                    }
+                    if (test instanceof JSONArray) {
+                        if (Boolean.TRUE.equals(evaluate(test, config, metaInfo))) {
+                            Object ret = null;
+                            for (int j = 1; j < clause.length(); ++j) {
+                                ret = evaluate(expr.opt(j), config);
+                            }
+                            return ret;
+                        }
+                    }
                 }
+                return null;
             }
         } catch (Throwable e) {
             e.printStackTrace();
@@ -516,29 +521,37 @@ public class Configurations {
         for (int i = 1; i < length; ++i) {
             evaluated.put(evaluate(expr.opt(i), config));
         }
-        try {
-            switch (method) {
-                case "$":
-                    return config.matchGroup.get(evaluated.optString(1));
-                case "decode-uri":
-                    return URLDecoder.decode(evaluated.optString(1), StandardCharsets.UTF_8.name());
-                case "parse-json":
-                    return new JSONTokener(evaluated.optString(1)).nextValue();
-                case "property": {
-                    Object obj = evaluated.opt(2);
-                    if (obj instanceof JSONObject) {
-                        return ((JSONObject) obj).opt(evaluated.optString(1));
-                    }
-                    if (obj instanceof JSONArray) {
-                        return ((JSONArray) obj).opt(evaluated.optInt(1));
-                    }
-                }
-                default:
-                    return null;
+
+        Map<String, Callable> methods = new HashMap<>();
+        methods.put("$", () -> config.matchGroup.get(evaluated.optString(1)));
+        methods.put("decode-uri", () -> {
+            try {
+                return URLDecoder.decode(evaluated.optString(1), StandardCharsets.UTF_8.name());
+            } catch (UnsupportedEncodingException e) {
+                e.printStackTrace();
+                return null;
             }
-        } catch (Throwable e) {
-            e.printStackTrace();
-        }
-        return null;
+        });
+        methods.put("parse-json", () -> {
+            try {
+                return new JSONTokener(evaluated.optString(1)).nextValue();
+            } catch (JSONException e) {
+                e.printStackTrace();
+                return null;
+            }
+        });
+        methods.put("property", () -> {
+            Object obj = evaluated.opt(2);
+            if (obj instanceof JSONObject) {
+                return ((JSONObject) obj).opt(evaluated.optString(1));
+            }
+            if (obj instanceof JSONArray) {
+                return ((JSONArray) obj).opt(evaluated.optInt(1));
+            }
+            return null;
+        });
+
+        Callable ret = methods.get(method);
+        return ret == null ? null : ret.run();
     }
 }
