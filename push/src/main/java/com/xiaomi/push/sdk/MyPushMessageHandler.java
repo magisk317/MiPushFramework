@@ -90,22 +90,27 @@ public class MyPushMessageHandler extends IntentService {
 
     }
 
-    public static ComponentName startService(Context context, XmPushActionContainer container, byte[] payload) {
+    public static void launchApp(Context context, XmPushActionContainer container) {
         if (iTopActivity == null) {
             iTopActivity = TopActivityFactory.newInstance(ConfigCenter.getInstance().getAccessMode(context));
         }
 
         if (!iTopActivity.isEnabled(context)) {
             iTopActivity.guideToEnable(context);
-            return null;
+            return;
         }
 
-        PushMetaInfo metaInfo = container.getMetaInfo();
         String targetPackage = container.getPackageName();
 
         activeApp(context, targetPackage);
-
         pullUpApp(context, targetPackage, container);
+    }
+
+    public static ComponentName startService(Context context, XmPushActionContainer container, byte[] payload) {
+        launchApp(context, container);
+
+        PushMetaInfo metaInfo = container.getMetaInfo();
+        String targetPackage = container.getPackageName();
 
         final Intent localIntent = new Intent(PushConstants.MIPUSH_ACTION_NEW_MESSAGE);
         localIntent.setComponent(new ComponentName(targetPackage, "com.xiaomi.mipush.sdk.PushMessageHandler"));

@@ -43,7 +43,17 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.settings.applications.LayoutPreference;
+import com.xiaomi.channel.commonutils.reflect.JavaCalls;
+import com.xiaomi.mipush.sdk.MiPushClient;
+import com.xiaomi.mipush.sdk.PushContainerHelper;
+import com.xiaomi.mipush.sdk.PushMessageHelper;
+import com.xiaomi.push.sdk.MyPushMessageHandler;
 import com.xiaomi.push.service.PushConstants;
+import com.xiaomi.xmpush.thrift.NotificationType;
+import com.xiaomi.xmpush.thrift.PushMetaInfo;
+import com.xiaomi.xmpush.thrift.XmPushActionContainer;
+import com.xiaomi.xmpush.thrift.XmPushActionNotification;
+import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils;
 import com.xiaomi.xmsf.R;
 
 import java.lang.annotation.Retention;
@@ -197,15 +207,19 @@ public class EntityHeaderController {
         if (iconView != null) {
             iconView.setImageDrawable(mIcon);
             iconView.setContentDescription(mIconContentDescription);
-            iconView.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    Intent intent = new Intent();
-                    intent.setComponent(new ComponentName(mPackageName, "com.xiaomi.mipush.sdk.PushMessageHandler"));
-                    intent.putExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE, mAppContext.getPackageName());
-                    ComponentName name = mAppContext.startService(intent);
-                    Toast.makeText(mAppContext, "enable push of " + name, Toast.LENGTH_SHORT).show();
-                }
+            iconView.setOnClickListener(v -> {
+                String id = JavaCalls.callStaticMethod(MiPushClient.class.getName(), "generatePacketID");
+                XmPushActionNotification regIdExpiredNotification = new XmPushActionNotification();
+                regIdExpiredNotification.setType(NotificationType.RegIdExpired.value);
+                regIdExpiredNotification.setId(id);
+                PushMetaInfo metaInfo = new PushMetaInfo();
+                metaInfo.setId(id);
+                XmPushActionContainer regIdExpiredContainer = JavaCalls.callStaticMethod(PushContainerHelper.class.getName(), "generateRequestContainer",
+                        mAppContext, regIdExpiredNotification,
+                        com.xiaomi.xmpush.thrift.ActionType.Notification, false,
+                        mPackageName, "");
+                regIdExpiredContainer.setMetaInfo(metaInfo);
+                launchAndSendMessage(regIdExpiredContainer);
             });
         }
         setText(R.id.entity_header_title, mLabel);
@@ -216,6 +230,19 @@ public class EntityHeaderController {
         }
 
         return mHeader;
+    }
+
+    private void launchAndSendMessage(XmPushActionContainer sendMsgContainer) {
+        MyPushMessageHandler.launchApp(mAppContext, sendMsgContainer);
+
+        byte[] msgBytes = XmPushThriftSerializeUtils.convertThriftObjectToBytes(sendMsgContainer);
+        Intent intent = new Intent(PushConstants.MIPUSH_ACTION_NEW_MESSAGE);
+        intent.setComponent(new ComponentName(mPackageName, "com.xiaomi.mipush.sdk.PushMessageHandler"));
+        intent.putExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE, mPackageName);
+        intent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, msgBytes);
+        intent.getIntExtra(PushMessageHelper.MESSAGE_TYPE, 1);
+        ComponentName name = mAppContext.startService(intent);
+        Toast.makeText(mAppContext, "enable push of " + name, Toast.LENGTH_SHORT).show();
     }
 
     /**
