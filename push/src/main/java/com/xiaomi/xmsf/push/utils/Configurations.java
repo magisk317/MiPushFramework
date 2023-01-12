@@ -407,13 +407,22 @@ public class Configurations {
                             return true;
                         }
                     }
-                } else if (configItem instanceof JSONArray) {
-
                 } else {
-                    List<Object> refConfigs = packageConfigs.get(configItem);
-                    boolean stop = doHandle(metaInfo, refConfigs, operations);
-                    if (stop) {
-                        return true;
+                    List<Object> refConfigs = null;
+                    if (configItem instanceof JSONArray) {
+                        Object value = evaluate(configItem, metaInfo);
+                        if (value instanceof JSONObject) {
+                            refConfigs = new ArrayList<>();
+                            refConfigs.add(parseConfig((JSONObject) value));
+                        }
+                    } else {
+                        refConfigs = packageConfigs.get(configItem);
+                    }
+                    if (refConfigs != null) {
+                        boolean stop = doHandle(metaInfo, refConfigs, operations);
+                        if (stop) {
+                            return true;
+                        }
                     }
                 }
             }
@@ -421,39 +430,114 @@ public class Configurations {
         return false;
     }
 
+    private boolean match(PushMetaInfo metaInfo, List<Object> configs, List<Object> matched)
+            throws NoSuchFieldException, IllegalAccessException, JSONException {
+        if (configs != null && !matched.contains(configs)) {
+            matched.add(configs);
+            for (Object configItem : configs) {
+                if (configItem instanceof PackageConfig) {
+                    PackageConfig config = (PackageConfig) configItem;
+                    if (config.match(metaInfo)) {
+                        return true;
+                    }
+                } else {
+                    List<Object> refConfigs = packageConfigs.get(configItem);
+                    return match(metaInfo, refConfigs, matched);
+                }
+            }
+        }
+        return false;
+    }
+
     private Object evaluate(Object expr, PackageConfig env) {
+        return evaluate(expr, env, null);
+    }
+
+    private Object evaluate(Object expr, PushMetaInfo env) {
+        return evaluate(expr, null, env);
+    }
+
+    private Object evaluate(Object expr, PackageConfig config, PushMetaInfo metaInfo) {
         if (expr instanceof String) {
             return expr;
         }
+        if (expr instanceof JSONObject) {
+            return expr;
+        }
         if (expr instanceof JSONArray) {
-            JSONArray expression = (JSONArray) expr;
-            JSONArray evaluated = new JSONArray();
-            int length = expression.length();
-            for (int i = 0; i < length; ++i) {
-                evaluated.put(evaluate(expression.opt(i), env));
-            }
-            try {
-                switch (evaluated.optString(0)) {
-                    case "$":
-                        return env.matchGroup.get(evaluated.optString(1));
-                    case "decode-uri":
-                        return URLDecoder.decode(evaluated.optString(1), StandardCharsets.UTF_8.name());
-                    case "parse-json":
-                        return new JSONTokener(evaluated.optString(1)).nextValue();
-                    case "property":
-                        Object obj = evaluated.opt(2);
-                        if (obj instanceof JSONObject) {
-                            return ((JSONObject) obj).opt(evaluated.optString(1));
+            return evaluate((JSONArray) expr, config, metaInfo);
+        }
+        return null;
+    }
+
+    private Object evaluate(JSONArray expr, PackageConfig config, PushMetaInfo metaInfo) {
+        String method = (String) evaluate(expr.opt(0), config);
+        if (method == null) {
+            return null;
+        }
+
+        int length = expr.length();
+        try {
+            switch (method) {
+                case "cond": {
+                    for (int i = 1; i < length; ++i) {
+                        JSONArray clause = expr.optJSONArray(i);
+                        Object test = clause.opt(0);
+                        if (test instanceof JSONObject) {
+                            if (parseConfig((JSONObject) test).match(metaInfo)) {
+                                return clause.opt(1);
+                            }
                         }
-                        if (obj instanceof JSONArray) {
-                            return ((JSONArray) obj).opt(evaluated.optInt(1));
+                        if (test instanceof String) {
+                            if (match(metaInfo, packageConfigs.get(test), new ArrayList<>())) {
+                                return clause.opt(1);
+                            }
                         }
-                    default:
-                        return null;
+                        if (test instanceof JSONArray) {
+                            if (Boolean.TRUE.equals(evaluate(test, config, metaInfo))) {
+                                Object ret = null;
+                                for (int j = 1; j < clause.length(); ++j) {
+                                    ret = evaluate(expr.opt(j), config);
+                                }
+                                return ret;
+                            }
+                        }
+                    }
+                    return null;
                 }
-            } catch (UnsupportedEncodingException | JSONException e) {
-                e.printStackTrace();
             }
+        } catch (Throwable e) {
+            e.printStackTrace();
+            return null;
+        }
+
+        JSONArray evaluated = new JSONArray();
+        evaluated.put(method);
+        for (int i = 1; i < length; ++i) {
+            evaluated.put(evaluate(expr.opt(i), config));
+        }
+        try {
+            switch (method) {
+                case "$":
+                    return config.matchGroup.get(evaluated.optString(1));
+                case "decode-uri":
+                    return URLDecoder.decode(evaluated.optString(1), StandardCharsets.UTF_8.name());
+                case "parse-json":
+                    return new JSONTokener(evaluated.optString(1)).nextValue();
+                case "property": {
+                    Object obj = evaluated.opt(2);
+                    if (obj instanceof JSONObject) {
+                        return ((JSONObject) obj).opt(evaluated.optString(1));
+                    }
+                    if (obj instanceof JSONArray) {
+                        return ((JSONArray) obj).opt(evaluated.optInt(1));
+                    }
+                }
+                default:
+                    return null;
+            }
+        } catch (Throwable e) {
+            e.printStackTrace();
         }
         return null;
     }
