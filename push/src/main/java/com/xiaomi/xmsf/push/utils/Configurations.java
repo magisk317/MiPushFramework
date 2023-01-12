@@ -17,13 +17,17 @@ import com.xiaomi.xmpush.thrift.PushMetaInfo;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.json.JSONTokener;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -111,9 +115,19 @@ public class Configurations {
                         if (subObj.isNull(subKey)) {
                             subMap.remove(subKey);
                         } else {
-                            String value = subObj.getString(subKey);
-                            value = replace(value);
-                            subMap.put(subKey, value);
+                            Object subVal = subObj.opt(subKey);
+                            if (subVal instanceof JSONArray) {
+                                Object value = evaluate((JSONArray) subVal);
+                                if (value == null) {
+                                    subMap.remove(subKey);
+                                } else {
+                                    subMap.put(subKey, value.toString());
+                                }
+                            } else {
+                                String value = subObj.getString(subKey);
+                                value = replace(value);
+                                subMap.put(subKey, value);
+                            }
                         }
                     }
                 } else if (metaInfoObj.isNull(key)) {
@@ -137,6 +151,43 @@ public class Configurations {
                     field.set(metaInfo, typedValue);
                 }
             }
+        }
+
+        private Object evaluate(Object expr) {
+            if (expr instanceof String) {
+                return expr;
+            }
+            if (expr instanceof JSONArray) {
+                JSONArray expression = (JSONArray) expr;
+                JSONArray evaluated = new JSONArray();
+                int length = expression.length();
+                for (int i = 0; i < length; ++i) {
+                    evaluated.put(evaluate(expression.opt(i)));
+                }
+                try {
+                    switch (evaluated.optString(0)) {
+                        case "$":
+                            return matchGroup.get(evaluated.optString(1));
+                        case "decode-uri":
+                            return URLDecoder.decode(evaluated.optString(1), StandardCharsets.UTF_8.name());
+                        case "parse-json":
+                            return new JSONTokener(evaluated.optString(1)).nextValue();
+                        case "property":
+                            Object obj = evaluated.opt(2);
+                            if (obj instanceof JSONObject) {
+                                return ((JSONObject) obj).opt(evaluated.optString(1));
+                            }
+                            if (obj instanceof JSONArray) {
+                                return ((JSONArray) obj).opt(evaluated.optInt(1));
+                            }
+                        default:
+                            return null;
+                    }
+                } catch (UnsupportedEncodingException | JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+            return null;
         }
 
         @NonNull
@@ -385,6 +436,7 @@ public class Configurations {
                     if (config.match(metaInfo)) {
                         logger.d(new GsonBuilder().disableHtmlEscaping().create().toJson(config));
                         config.replace(metaInfo);
+                        logger.d(new GsonBuilder().disableHtmlEscaping().create().toJson(metaInfo));
                         operations.addAll(config.operation);
                         if (config.stop) {
                             return true;
