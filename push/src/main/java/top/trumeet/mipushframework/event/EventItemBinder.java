@@ -208,10 +208,7 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
             build.setPositiveButton(R.string.action_notify, new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialogInterface, int i) {
-                    MyMIPushNotificationHelper.notifyPushMessage(context,
-                            buildContainer(type.getPayload()),
-                            type.getPayload()
-                    );
+                    MyMIPushNotificationHelper.notifyPushMessage(context, type.getPayload());
                 }
             });
         }

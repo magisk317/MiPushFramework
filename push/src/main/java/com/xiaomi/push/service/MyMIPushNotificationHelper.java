@@ -1,5 +1,6 @@
 package com.xiaomi.push.service;
 
+import static com.xiaomi.push.service.MIPushEventProcessor.buildContainer;
 import static com.xiaomi.push.service.MIPushNotificationHelper.FROM_NOTIFICATION;
 import static com.xiaomi.push.service.MIPushNotificationHelper.getTargetPackage;
 import static com.xiaomi.push.service.MIPushNotificationHelper.isBusinessMessage;
@@ -69,7 +70,8 @@ public class MyMIPushNotificationHelper {
     /**
      * @see MIPushNotificationHelper#notifyPushMessage
      */
-    public static void notifyPushMessage(Context context, XmPushActionContainer container, byte[] decryptedContent) {
+    public static void notifyPushMessage(Context context, byte[] decryptedContent) {
+        XmPushActionContainer container = buildContainer(decryptedContent);
         AppInfoUtils.AppNotificationOp notificationOp = AppInfoUtils.getAppNotificationOp(context, getTargetPackage(container));
         if (notificationOp == AppInfoUtils.AppNotificationOp.NOT_ALLOWED) {
             logger.w("Do not notify because user block " + getTargetPackage(container) + "'s notification");

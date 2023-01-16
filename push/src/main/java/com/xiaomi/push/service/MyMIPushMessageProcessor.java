@@ -213,7 +213,7 @@ public class MyMIPushMessageProcessor {
                 if (isDupMessage) {
                     logger.w("drop a duplicate message, key=" + key);
                 } else {
-                    MyMIPushNotificationHelper.notifyPushMessage(pushService, container, decryptedContent);
+                    MyMIPushNotificationHelper.notifyPushMessage(pushService, decryptedContent);
                 }
 
                 if (relateToGeo) {
