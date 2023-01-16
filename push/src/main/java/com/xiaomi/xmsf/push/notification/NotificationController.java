@@ -39,6 +39,7 @@ import com.elvishew.xlog.Logger;
 import com.elvishew.xlog.XLog;
 import com.nihility.notification.NotificationManagerEx;
 import com.xiaomi.push.service.MIPushNotificationHelper;
+import com.xiaomi.push.service.MyNotificationIconHelper;
 import com.xiaomi.push.service.NotificationIconHelper;
 import com.xiaomi.xmpush.thrift.PushMetaInfo;
 import com.xiaomi.xmpush.thrift.XmPushActionContainer;
@@ -238,7 +239,7 @@ public class NotificationController {
         Bitmap bitmap = null;
         if (iconUri != null) {
             if (iconUri.startsWith("http")) {
-                NotificationIconHelper.GetIconResult result = NotificationIconHelper.getIconFromUrl(context, iconUri);
+                MyNotificationIconHelper.GetIconResult result = MyNotificationIconHelper.getIconFromUrl(context, iconUri);
                 if (result != null) {
                     bitmap = result.bitmap;
                 }
