@@ -41,6 +41,10 @@ public class ConfigCenter {
         return getSharedPreferences(ctx).getBoolean("NotificationOnRegister", false);
     }
 
+    public boolean isShowConfigurationListOnLoaded(Context ctx) {
+        return getSharedPreferences(ctx).getBoolean("ShowConfigurationListOnLoaded", false);
+    }
+
     public int getAccessMode(Context ctx) {
         String mode = getSharedPreferences(ctx).getString("AccessMode", "0");
         return Integer.valueOf(mode);

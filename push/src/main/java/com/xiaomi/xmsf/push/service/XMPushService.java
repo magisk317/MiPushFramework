@@ -42,7 +42,6 @@ public class XMPushService extends IntentService {
                         ConfigCenter.getInstance().getConfigurationDirectory(this)) &&
                         IconConfigurations.getInstance().init(this,
                                 ConfigCenter.getInstance().getConfigurationDirectory(this));
-                Utils.makeText(this, "configurations loaded: " + success, Toast.LENGTH_SHORT);
             }
             return;
         }

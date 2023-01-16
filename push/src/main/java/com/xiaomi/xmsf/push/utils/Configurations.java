@@ -13,6 +13,7 @@ import com.elvishew.xlog.Logger;
 import com.elvishew.xlog.XLog;
 import com.google.gson.GsonBuilder;
 import com.xiaomi.xmpush.thrift.PushMetaInfo;
+import com.xiaomi.xmsf.utils.ConfigCenter;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -230,7 +231,7 @@ public class Configurations {
             List<DocumentFile> loadedFiles = new ArrayList<>();
             parseDirectory(context, treeUri, exceptions, loadedFiles);
 
-            if (!loadedFiles.isEmpty()) {
+            if (!loadedFiles.isEmpty() && ConfigCenter.getInstance().isShowConfigurationListOnLoaded(context)) {
                 StringBuilder loadedList = new StringBuilder("loaded configuration list:");
                 for (DocumentFile file : loadedFiles) {
                     loadedList.append('\n');

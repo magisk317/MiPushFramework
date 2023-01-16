@@ -41,6 +41,10 @@
             android:key="NotificationOnRegister"
             android:title="@string/settings_notify_on_register" />
 
+        <SwitchPreference
+            android:defaultValue="false"
+            android:key="ShowConfigurationListOnLoaded"
+            android:title="@string/settings_show_loaded_file_after_configurations_loaded" />
 
         <!-- TODO: entryValues's height is insufficient for 'en' locale. -->
         <ListPreference

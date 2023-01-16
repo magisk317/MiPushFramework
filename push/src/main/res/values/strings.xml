@@ -82,6 +82,7 @@
     <string name="debug_test_content">This is Content</string>
     <string name="accessibility_desc">Used for the alternate foreground application detection mode, higher compatibility, but poor performance.</string>
     <string name="settings_notify_on_register">Notify On App Register</string>
+    <string name="settings_show_loaded_file_after_configurations_loaded">Show Loaded File After Configurations Loaded</string>
 
 
 

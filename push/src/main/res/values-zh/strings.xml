@@ -77,6 +77,7 @@
 
     <string name="debug_test_content">这是一个测试内容</string>
     <string name="settings_notify_on_register">应用注册时显示通知</string>
+    <string name="settings_show_loaded_file_after_configurations_loaded">在配置加载完成后显示加载成功的配置文件</string>
 
     <string name="settings_icebox_permission">开启冰箱(IceBox)自动解冻支持</string>
     <string name="settings_icebox_permission_summary">点击通知栏时自动解冻冻结的App。

@@ -94,7 +94,6 @@ public class MyMIPushNotificationHelper {
                 } catch (Exception e) {
                     Utils.makeText(context, e.toString(), Toast.LENGTH_LONG);
                 }
-                Utils.makeText(context, "configurations loaded: " + success, Toast.LENGTH_SHORT);
             }
 
             try {
