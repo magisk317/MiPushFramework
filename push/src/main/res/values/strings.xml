@@ -264,10 +264,8 @@ This could be the application doing a reverse registration, or the registration 
 
     <string name="settings_manage_app_notifications">Manage notifications</string>
     <string name="settings_manage_app_notifications_summary">Control the sound, importance level, etc. of the app notifications.</string>
-    <string name="group_notifications_by_title_title">treat notifications with the same title as the same session</string>
     <string name="group_notifications_for_same_session_clear_title">clear all notifications of session when the notification of session was clicked</string>
     <string name="show_pass_through">show \"pass through\" message as notification</string>
-    <string name="group_notifications_by_title_detail">This invalidates application-defined session concepts</string>
 
 
 </resources>
