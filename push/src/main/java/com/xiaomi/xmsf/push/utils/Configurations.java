@@ -104,7 +104,6 @@ public class Configurations {
             while (keys.hasNext()) {
                 String key = keys.next();
                 final Field field = PushMetaInfo.class.getDeclaredField(key);
-                final Class<?> type = field.getType();
 
                 if (Map.class.isAssignableFrom(field.getType())) {
                     Map subMap = (Map) field.get(metaInfo);
@@ -118,7 +117,7 @@ public class Configurations {
                         } else {
                             Object subVal = subObj.opt(subKey);
                             if (subVal instanceof JSONArray) {
-                                Object value = evaluate((JSONArray) subVal, this);
+                                Object value = evaluate(subVal, this);
                                 if (value == null) {
                                     subMap.remove(subKey);
                                 } else {
@@ -131,25 +130,35 @@ public class Configurations {
                             }
                         }
                     }
-                } else if (metaInfoObj.isNull(key)) {
-                    String capitalizedKey = key.substring(0, 1).toUpperCase() + key.substring(1);
-                    final Method method = PushMetaInfo.class.getDeclaredMethod("unset" + capitalizedKey);
-                    method.invoke(metaInfo);
                 } else {
-                    String value = metaInfoObj.getString(key);
-                    Object typedValue = null;
-                    if (long.class == type) {
-                        typedValue = Long.parseLong(value);
-                    } else if (int.class == type) {
-                        typedValue = Integer.parseInt(value);
-                    } else if (boolean.class == type) {
-                        typedValue = Boolean.parseBoolean(value);
-                    } else {
-                        // Assume String
-                        value = replace(value);
-                        typedValue = value;
+                    Object valueObj = metaInfoObj.get(key);
+                    boolean evaluated = valueObj instanceof JSONArray;
+                    if (evaluated) {
+                        valueObj = evaluate(valueObj, this);
                     }
-                    field.set(metaInfo, typedValue);
+                    if (metaInfoObj.isNull(key) || valueObj == null) {
+                        String capitalizedKey = key.substring(0, 1).toUpperCase() + key.substring(1);
+                        final Method method = PushMetaInfo.class.getDeclaredMethod("unset" + capitalizedKey);
+                        method.invoke(metaInfo);
+                    } else {
+                        String value = valueObj.toString();
+                        if (!evaluated) {
+                            value = replace(value);
+                        }
+                        Object typedValue = null;
+                        final Class<?> fieldType = field.getType();
+                        if (long.class == fieldType) {
+                            typedValue = Long.parseLong(value);
+                        } else if (int.class == fieldType) {
+                            typedValue = (int) Long.parseLong(value);
+                        } else if (boolean.class == fieldType) {
+                            typedValue = Boolean.parseBoolean(value);
+                        } else {
+                            // Assume String
+                            typedValue = value;
+                        }
+                        field.set(metaInfo, typedValue);
+                    }
                 }
             }
         }
