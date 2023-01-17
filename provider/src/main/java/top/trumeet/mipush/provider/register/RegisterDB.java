@@ -52,7 +52,6 @@ public class RegisterDB {
                         , false
                         , false
                         , false
-                        , false
                 );
         getDao().insert(registeredApplication);
         return registeredApplication;

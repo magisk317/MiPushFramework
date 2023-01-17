@@ -37,7 +37,6 @@ public class RegisteredApplication implements Parcelable {
     public static final String KEY_GROUP_NOTIFICATIONS_FOR_SAME_SESSION = "group_notifications_for_same_session";
     public static final String KEY_CLEAR_ALL_NOTIFICATIONS_OF_SESSION = "clear_all_notifications_of_session";
     public static final String KEY_SHOW_PASS_THROUGH = "show_pass_through";
-    public static final String KEY_GROUP_NOTIFICATIONS_BY_TITLE = "group_notifications_by_title";
 
     private Long id;
 
@@ -68,8 +67,6 @@ public class RegisteredApplication implements Parcelable {
 
     private boolean showPassThrough;
 
-    private boolean groupNotificationsByTitle;
-
     protected RegisteredApplication(Parcel in) {
         if (in.readByte() == 0) {
             id = null;
@@ -86,7 +83,6 @@ public class RegisteredApplication implements Parcelable {
         groupNotificationsForSameSession = in.readByte() != 0;
         clearAllNotificationsOfSession = in.readByte() != 0;
         showPassThrough = in.readByte() != 0;
-        groupNotificationsByTitle = in.readByte() != 0;
     }
 
     public static final Creator<RegisteredApplication> CREATOR = new Creator<RegisteredApplication>() {
@@ -124,7 +120,6 @@ public class RegisteredApplication implements Parcelable {
         parcel.writeByte((byte) (groupNotificationsForSameSession ? 1 : 0));
         parcel.writeByte((byte) (clearAllNotificationsOfSession ? 1 : 0));
         parcel.writeByte((byte) (showPassThrough ? 1 : 0));
-        parcel.writeByte((byte) (groupNotificationsByTitle ? 1 : 0));
     }
 
     @androidx.annotation.IntDef({Type.ASK, Type.ALLOW, Type.DENY, Type.ALLOW_ONCE})
@@ -156,7 +151,6 @@ public class RegisteredApplication implements Parcelable {
             , boolean groupNotificationsForSameSession
             , boolean clearAllNotificationsOfSession
             , boolean showPassThrough
-            , boolean groupNotificationsByTitle
     ) {
         this.id = id;
         this.packageName = packageName;
@@ -169,7 +163,6 @@ public class RegisteredApplication implements Parcelable {
         this.groupNotificationsForSameSession = groupNotificationsForSameSession;
         this.clearAllNotificationsOfSession = clearAllNotificationsOfSession;
         this.showPassThrough = showPassThrough;
-        this.groupNotificationsByTitle = groupNotificationsByTitle;
     }
 
     public RegisteredApplication() {
@@ -255,14 +248,6 @@ public class RegisteredApplication implements Parcelable {
         this.showPassThrough = showPassThrough;
     }
 
-    public boolean isGroupNotificationsByTitle() {
-        return this.groupNotificationsByTitle;
-    }
-
-    public void setGroupNotificationsByTitle(boolean groupNotificationsByTitle) {
-        this.groupNotificationsByTitle = groupNotificationsByTitle;
-    }
-
     @androidx.annotation.NonNull
     public CharSequence getLabel (Context context) {
         PackageManager pm = context.getPackageManager();
@@ -312,7 +297,6 @@ public class RegisteredApplication implements Parcelable {
                 , cursor.getInt(cursor.getColumnIndex(KEY_GROUP_NOTIFICATIONS_FOR_SAME_SESSION)) > 0
                 , cursor.getInt(cursor.getColumnIndex(KEY_CLEAR_ALL_NOTIFICATIONS_OF_SESSION)) > 0
                 , cursor.getInt(cursor.getColumnIndex(KEY_SHOW_PASS_THROUGH)) > 0
-                , cursor.getInt(cursor.getColumnIndex(KEY_GROUP_NOTIFICATIONS_BY_TITLE)) > 0
         );
     }
 
@@ -333,7 +317,6 @@ public class RegisteredApplication implements Parcelable {
         values.put(KEY_GROUP_NOTIFICATIONS_FOR_SAME_SESSION, isGroupNotificationsForSameSession());
         values.put(KEY_CLEAR_ALL_NOTIFICATIONS_OF_SESSION, isClearAllNotificationsOfSession());
         values.put(KEY_SHOW_PASS_THROUGH, isShowPassThrough());
-        values.put(KEY_GROUP_NOTIFICATIONS_BY_TITLE, isGroupNotificationsByTitle());
         return values;
     }
 
