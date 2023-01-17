@@ -4,6 +4,7 @@ import static com.xiaomi.push.service.MIPushEventProcessor.buildContainer;
 import static com.xiaomi.push.service.MIPushNotificationHelper.FROM_NOTIFICATION;
 import static com.xiaomi.push.service.MIPushNotificationHelper.getTargetPackage;
 import static com.xiaomi.push.service.MIPushNotificationHelper.isBusinessMessage;
+import static com.xiaomi.push.service.MyNotificationIconHelper.MiB;
 import static top.trumeet.common.utils.NotificationUtils.getExtraField;
 
 import android.app.PendingIntent;
@@ -11,6 +12,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -43,6 +45,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import top.trumeet.common.Constants;
+import top.trumeet.common.cache.IconCache;
 import top.trumeet.common.db.RegisteredApplicationDb;
 import top.trumeet.common.register.RegisteredApplication;
 import top.trumeet.common.utils.Utils;
@@ -135,23 +138,21 @@ public class MyMIPushNotificationHelper {
 
         logger.i("title:" + title + "  description:" + description);
 
-        if (description.length() > NOTIFICATION_BIG_STYLE_MIN_LEN) {
+
+        String bigPicUri = getExtraField(metaInfo.getExtra(), "notification_bigPic_uri", null);
+        Bitmap bigPic = IconCache.getInstance().getBitmap(context, bigPicUri,
+                (context1, iconUri) -> NotificationController.getBitmapFromUri(
+                        context1, iconUri, 1 * MiB));
+        if (bigPic != null) {
+            NotificationCompat.BigPictureStyle style = new NotificationCompat.BigPictureStyle();
+            style.bigPicture(bigPic);
+            style.setBigContentTitle(title);
+            notificationBuilder.setStyle(style);
+        } else if (description.length() > NOTIFICATION_BIG_STYLE_MIN_LEN) {
             NotificationCompat.BigTextStyle style = new NotificationCompat.BigTextStyle();
             style.bigText(description);
             style.setBigContentTitle(title);
-//            style.setSummaryText(description);
             notificationBuilder.setStyle(style);
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-//            try {
-//                RemoteViews localRemoteViews = JavaCalls.callStaticMethodOrThrow(MIPushNotificationHelper.class, "getNotificationForCustomLayout", var0.getApplicationContext(), buildContainer, var1);
-//                if (localRemoteViews != null) {
-//                    localBuilder.setCustomContentView(localRemoteViews);
-//                }
-//            } catch (Exception e) {
-//                logger.e(e.getLocalizedMessage(), e);
-//            }
         }
 
         addDebugAction(context, container, decryptedContent, metaInfo, packageName, notificationBuilder);
