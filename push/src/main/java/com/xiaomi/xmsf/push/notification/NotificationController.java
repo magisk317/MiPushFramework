@@ -1,5 +1,6 @@
 package com.xiaomi.xmsf.push.notification;
 
+import static com.xiaomi.push.service.MyNotificationIconHelper.KiB;
 import static top.trumeet.common.utils.NotificationUtils.EXTRA_CHANNEL_DESCRIPTION;
 import static top.trumeet.common.utils.NotificationUtils.EXTRA_CHANNEL_ID;
 import static top.trumeet.common.utils.NotificationUtils.EXTRA_CHANNEL_NAME;
@@ -218,7 +219,7 @@ public class NotificationController {
 
         String iconUri = getExtraField(metaInfo.getExtra(), NOTIFICATION_LARGE_ICON_URI, null);
         Bitmap largeIcon = IconCache.getInstance().getBitmap(context, iconUri,
-                NotificationController::getBitmapFromUri);
+                (context1, iconUri1) -> getBitmapFromUri(context1, iconUri1, 200 * KiB));
         if (largeIcon != null) {
             if (getExtraField(metaInfo.getExtra(), EXTRA_ROUND_LARGE_ICON, null) != null) {
                 largeIcon = ImgUtils.trimImgToCircle(largeIcon, Color.TRANSPARENT);
@@ -235,16 +236,17 @@ public class NotificationController {
     }
 
     @Nullable
-    private static Bitmap getBitmapFromUri(Context context, String iconUri) {
+    public static Bitmap getBitmapFromUri(Context context, String iconUri, int maxDownloadBytes) {
         Bitmap bitmap = null;
         if (iconUri != null) {
             if (iconUri.startsWith("http")) {
-                MyNotificationIconHelper.GetIconResult result = MyNotificationIconHelper.getIconFromUrl(context, iconUri);
+                MyNotificationIconHelper.GetIconResult result =
+                        MyNotificationIconHelper.getIconFromUrl(context, iconUri, maxDownloadBytes);
                 if (result != null) {
                     bitmap = result.bitmap;
                 }
             } else {
-                bitmap = NotificationIconHelper.getIconFromUri(context, iconUri);
+                bitmap = MyNotificationIconHelper.getIconFromUri(context, iconUri);
             }
         }
         return bitmap;

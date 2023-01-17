@@ -17,8 +17,10 @@ import java.net.URL;
 
 /* loaded from: classes.dex */
 public class MyNotificationIconHelper {
+    public static final int KiB = 1024;
+    public static final int MiB = 1024 * KiB;
+
     private static final int CONNECT_TIMEOUT = 8000;
-    private static final int MAX_SIZE = 200 * 1024; // 200 KiB
     private static final int READ_TIMEOUT = 20000;
     private static final int READ_UNIT = 1024;
     private static final int STANDARD_DENSITY = 160;
@@ -35,11 +37,11 @@ public class MyNotificationIconHelper {
         }
     }
 
-    public static GetIconResult getIconFromUrl(Context context, String urlStr) {
+    public static GetIconResult getIconFromUrl(Context context, String urlStr, int maxDownloadBytes) {
         InputStream isForBitmapSize = null;
         GetIconResult result = new GetIconResult(null, 0L);
         try {
-            GetDataResult getDataResult = getDataFromUrl(urlStr);
+            GetDataResult getDataResult = getDataFromUrl(urlStr, maxDownloadBytes);
             if (getDataResult != null) {
                 result.downloadSize = getDataResult.downloadSize;
                 byte[] data = getDataResult.data;
@@ -80,7 +82,7 @@ public class MyNotificationIconHelper {
         }
     }
 
-    private static GetDataResult getDataFromUrl(String urlStr) {
+    private static GetDataResult getDataFromUrl(String urlStr, int maxDownloadBytes) {
         GetDataResult getDataResult;
         HttpURLConnection conn = null;
         try {
@@ -91,8 +93,8 @@ public class MyNotificationIconHelper {
                 conn2.setReadTimeout(READ_TIMEOUT);
                 conn2.connect();
                 int contentLen = conn2.getContentLength();
-                if (contentLen > MAX_SIZE) {
-                    MyLog.w("Bitmap size is too big, max size is " + MAX_SIZE + "  contentLen size is " + contentLen + " from url " + urlStr);
+                if (contentLen > maxDownloadBytes) {
+                    MyLog.w("Bitmap size is too big, max size is " + maxDownloadBytes + "  contentLen size is " + contentLen + " from url " + urlStr);
                     IOUtils.closeQuietly((InputStream) null);
                     if (conn2 != null) {
                         conn2.disconnect();
@@ -110,7 +112,7 @@ public class MyNotificationIconHelper {
                 }
                 InputStream inputStream = conn2.getInputStream();
                 ByteArrayOutputStream tempOutStream = new ByteArrayOutputStream();
-                int availableSpace = MAX_SIZE;
+                int availableSpace = maxDownloadBytes;
                 byte[] dataUnit = new byte[READ_UNIT];
                 while (availableSpace > 0) {
                     int readCount = inputStream.read(dataUnit, 0, READ_UNIT);
@@ -121,8 +123,8 @@ public class MyNotificationIconHelper {
                     tempOutStream.write(dataUnit, 0, readCount);
                 }
                 if (availableSpace <= 0) {
-                    MyLog.w("length " + MAX_SIZE + " exhausted.");
-                    getDataResult = new GetDataResult(null, MAX_SIZE);
+                    MyLog.w("length " + maxDownloadBytes + " exhausted.");
+                    getDataResult = new GetDataResult(null, maxDownloadBytes);
                     IOUtils.closeQuietly(inputStream);
                     if (conn2 == null) {
                         return getDataResult;
