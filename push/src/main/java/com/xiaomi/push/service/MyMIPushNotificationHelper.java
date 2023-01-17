@@ -7,11 +7,13 @@ import static com.xiaomi.push.service.MIPushNotificationHelper.isBusinessMessage
 import static com.xiaomi.push.service.MyNotificationIconHelper.MiB;
 import static top.trumeet.common.utils.NotificationUtils.getExtraField;
 
+import android.annotation.TargetApi;
 import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
@@ -65,6 +67,30 @@ public class MyMIPushNotificationHelper {
     private static final String GROUP_TYPE_SAME_TITLE = "#title#";
     private static final String GROUP_TYPE_SAME_NOTIFICATION_ID = "#id#";
     private static final String GROUP_TYPE_PASS_THROUGH = "#pass_through#";
+
+    private static final int NOTIFICATION_ACTION_BUTTON_PLACE_LEFT = 1;
+    private static final int NOTIFICATION_ACTION_BUTTON_PLACE_MID = 2;
+    private static final int NOTIFICATION_ACTION_BUTTON_PLACE_RIGHT = 3;
+    private static final String NOTIFICATION_STYLE_BIG_PICTURE = "2";
+    private static final String NOTIFICATION_STYLE_BIG_PICTURE_URI = "notification_bigPic_uri";
+    private static final String NOTIFICATION_STYLE_BIG_TEXT = "1";
+    private static final String NOTIFICATION_STYLE_BUTTON_LEFT_INTENT_CLASS = "notification_style_button_left_intent_class";
+    private static final String NOTIFICATION_STYLE_BUTTON_LEFT_INTENT_URI = "notification_style_button_left_intent_uri";
+    private static final String NOTIFICATION_STYLE_BUTTON_LEFT_NAME = "notification_style_button_left_name";
+    private static final String NOTIFICATION_STYLE_BUTTON_LEFT_NOTIFY_EFFECT = "notification_style_button_left_notify_effect";
+    private static final String NOTIFICATION_STYLE_BUTTON_LEFT_WEB_URI = "notification_style_button_left_web_uri";
+    private static final String NOTIFICATION_STYLE_BUTTON_MID_INTENT_CLASS = "notification_style_button_mid_intent_class";
+    private static final String NOTIFICATION_STYLE_BUTTON_MID_INTENT_URI = "notification_style_button_mid_intent_uri";
+    private static final String NOTIFICATION_STYLE_BUTTON_MID_NAME = "notification_style_button_mid_name";
+    private static final String NOTIFICATION_STYLE_BUTTON_MID_NOTIFY_EFFECT = "notification_style_button_mid_notify_effect";
+    private static final String NOTIFICATION_STYLE_BUTTON_MID_WEB_URI = "notification_style_button_mid_web_uri";
+    private static final String NOTIFICATION_STYLE_BUTTON_RIGHT_INTENT_CLASS = "notification_style_button_right_intent_class";
+    private static final String NOTIFICATION_STYLE_BUTTON_RIGHT_INTENT_URI = "notification_style_button_right_intent_uri";
+    private static final String NOTIFICATION_STYLE_BUTTON_RIGHT_NAME = "notification_style_button_right_name";
+    private static final String NOTIFICATION_STYLE_BUTTON_RIGHT_NOTIFY_EFFECT = "notification_style_button_right_notify_effect";
+    private static final String NOTIFICATION_STYLE_BUTTON_RIGHT_WEB_URI = "notification_style_button_right_web_uri";
+    private static final String NOTIFICATION_STYLE_TYPE = "notification_style_type";
+
 
     private static boolean tryLoadConfigurations = false;
 
@@ -155,6 +181,9 @@ public class MyMIPushNotificationHelper {
             notificationBuilder.setStyle(style);
         }
 
+        if (metaInfo.getExtra() != null) {
+            setNotificationStyleAction(notificationBuilder, context, packageName, metaInfo.getExtra());
+        }
         addDebugAction(context, container, decryptedContent, metaInfo, packageName, notificationBuilder);
 
         notificationBuilder.setWhen(metaInfo.getMessageTs());
@@ -443,6 +472,117 @@ public class MyMIPushNotificationHelper {
             logger.e(e.getMessage(), e);
             return new String[]{paramPushMetaInfo.getTitle(), paramPushMetaInfo.getDescription()};
         }
+    }
+
+    // from sdk 3.7.2
+    @TargetApi(16)
+    private static NotificationCompat.Builder setNotificationStyleAction(NotificationCompat.Builder builder, Context context, String pkgName, Map<String, String> metaExtra) {
+        PendingIntent stylePendingIntent = getStylePendingIntent(context, pkgName, NOTIFICATION_ACTION_BUTTON_PLACE_LEFT, metaExtra);
+        if (stylePendingIntent != null && !TextUtils.isEmpty(metaExtra.get(NOTIFICATION_STYLE_BUTTON_LEFT_NAME))) {
+            builder.addAction(0, metaExtra.get(NOTIFICATION_STYLE_BUTTON_LEFT_NAME), stylePendingIntent);
+        }
+        PendingIntent stylePendingIntent2 = getStylePendingIntent(context, pkgName, NOTIFICATION_ACTION_BUTTON_PLACE_MID, metaExtra);
+        if (stylePendingIntent2 != null && !TextUtils.isEmpty(metaExtra.get(NOTIFICATION_STYLE_BUTTON_MID_NAME))) {
+            builder.addAction(0, metaExtra.get(NOTIFICATION_STYLE_BUTTON_MID_NAME), stylePendingIntent2);
+        }
+        PendingIntent stylePendingIntent3 = getStylePendingIntent(context, pkgName, NOTIFICATION_ACTION_BUTTON_PLACE_RIGHT, metaExtra);
+        if (stylePendingIntent3 != null && !TextUtils.isEmpty(metaExtra.get(NOTIFICATION_STYLE_BUTTON_RIGHT_NAME))) {
+            builder.addAction(0, metaExtra.get(NOTIFICATION_STYLE_BUTTON_RIGHT_NAME), stylePendingIntent3);
+        }
+        return builder;
+    }
+
+    private static PendingIntent getStylePendingIntent(Context context, String pkgName, int place, Map<String, String> metaExtra) {
+        Intent intent;
+        if (metaExtra == null || (intent = getPendingIntentFromExtra(context, pkgName, place, metaExtra)) == null) {
+            return null;
+        }
+        return PendingIntent.getActivity(context, 0, intent, 0);
+    }
+
+    private static Intent getPendingIntentFromExtra(Context context, String pkgName, int place, Map<String, String> extra) {
+        String str;
+        String webUriKey;
+        String intentUriKey;
+        String intentClassKey;
+        if (place < NOTIFICATION_ACTION_BUTTON_PLACE_MID) {
+            str = NOTIFICATION_STYLE_BUTTON_LEFT_NOTIFY_EFFECT;
+        } else {
+            str = place < NOTIFICATION_ACTION_BUTTON_PLACE_RIGHT ? NOTIFICATION_STYLE_BUTTON_MID_NOTIFY_EFFECT : NOTIFICATION_STYLE_BUTTON_RIGHT_NOTIFY_EFFECT;
+        }
+        String typeId = extra.get(str);
+        if (TextUtils.isEmpty(typeId)) {
+            return null;
+        }
+        Intent intent = null;
+        if (PushConstants.NOTIFICATION_CLICK_DEFAULT.equals(typeId)) {
+            try {
+                intent = context.getPackageManager().getLaunchIntentForPackage(pkgName);
+            } catch (Exception e) {
+                logger.e("Cause: " + e.getMessage());
+            }
+        } else if (PushConstants.NOTIFICATION_CLICK_INTENT.equals(typeId)) {
+            if (place < NOTIFICATION_ACTION_BUTTON_PLACE_MID) {
+                intentUriKey = NOTIFICATION_STYLE_BUTTON_LEFT_INTENT_URI;
+            } else {
+                intentUriKey = place < NOTIFICATION_ACTION_BUTTON_PLACE_RIGHT ? NOTIFICATION_STYLE_BUTTON_MID_INTENT_URI : NOTIFICATION_STYLE_BUTTON_RIGHT_INTENT_URI;
+            }
+            if (place < NOTIFICATION_ACTION_BUTTON_PLACE_MID) {
+                intentClassKey = NOTIFICATION_STYLE_BUTTON_LEFT_INTENT_CLASS;
+            } else {
+                intentClassKey = place < NOTIFICATION_ACTION_BUTTON_PLACE_RIGHT ? NOTIFICATION_STYLE_BUTTON_MID_INTENT_CLASS : NOTIFICATION_STYLE_BUTTON_RIGHT_INTENT_CLASS;
+            }
+            if (extra.containsKey(intentUriKey)) {
+                String intentStr = extra.get(intentUriKey);
+                if (intentStr != null) {
+                    try {
+                        intent = Intent.parseUri(intentStr, Intent.URI_INTENT_SCHEME);
+                        intent.setPackage(pkgName);
+                    } catch (URISyntaxException e2) {
+                        logger.e("Cause: " + e2.getMessage());
+                    }
+                }
+            } else if (extra.containsKey(intentClassKey)) {
+                String className = extra.get(intentClassKey);
+                intent = new Intent();
+                intent.setComponent(new ComponentName(pkgName, className));
+            }
+        } else if (PushConstants.NOTIFICATION_CLICK_WEB_PAGE.equals(typeId)) {
+            if (place < NOTIFICATION_ACTION_BUTTON_PLACE_MID) {
+                webUriKey = NOTIFICATION_STYLE_BUTTON_LEFT_WEB_URI;
+            } else {
+                webUriKey = place < NOTIFICATION_ACTION_BUTTON_PLACE_RIGHT ? NOTIFICATION_STYLE_BUTTON_MID_WEB_URI : NOTIFICATION_STYLE_BUTTON_RIGHT_WEB_URI;
+            }
+            String uri = extra.get(webUriKey);
+            if (!TextUtils.isEmpty(uri)) {
+                String tmp = uri.trim();
+                if (!tmp.startsWith("http://") && !tmp.startsWith("https://")) {
+                    tmp = "http://" + tmp;
+                }
+                try {
+                    URL url = new URL(tmp);
+                    String protocol = url.getProtocol();
+                    if ("http".equals(protocol) || "https".equals(protocol)) {
+                        intent = new Intent("android.intent.action.VIEW");
+                        intent.setData(Uri.parse(tmp));
+                    }
+                } catch (MalformedURLException e3) {
+                    logger.e("Cause: " + e3.getMessage());
+                }
+            }
+        }
+        if (intent != null) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try {
+                ResolveInfo rinfo = context.getPackageManager().resolveActivity(intent, Intent.FLAG_ACTIVITY_NO_ANIMATION);
+                if (rinfo != null) {
+                    return intent;
+                }
+            } catch (Exception e4) {
+                logger.e("Cause: " + e4.getMessage());
+            }
+        }
+        return null;
     }
 
 
