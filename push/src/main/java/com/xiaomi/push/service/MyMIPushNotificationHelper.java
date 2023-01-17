@@ -209,8 +209,6 @@ public class MyMIPushNotificationHelper {
         String group = getExtraField(metaInfo.getExtra(), "notification_group", null);
         if (group != null) {
             group = packageName + "_" + GROUP_TYPE_MIPUSH_GROUP + "_" + group;
-        } else if (groupSession && application.isGroupNotificationsByTitle()) {
-            group = packageName + "_" + GROUP_TYPE_SAME_TITLE + "_" + metaInfo.getTitle().hashCode();
         } else if (metaInfo.passThrough == 1) {
             group = packageName + "_" + GROUP_TYPE_PASS_THROUGH;
         } else if (groupSession) {
