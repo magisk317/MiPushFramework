@@ -534,6 +534,7 @@ public class Configurations {
 
         Map<String, Callable> methods = new HashMap<>();
         methods.put("$", () -> config.matchGroup.get(evaluated.optString(1)));
+        methods.put("hash", evaluated.optString(1)::hashCode);
         methods.put("decode-uri", () -> {
             try {
                 return URLDecoder.decode(evaluated.optString(1), StandardCharsets.UTF_8.name());
