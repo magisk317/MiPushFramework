@@ -171,9 +171,7 @@ public class MyMIPushNotificationHelper {
         boolean isGroupOfSession = application.isGroupNotificationsForSameSession();
 
 
-        int notificationId = application.isGroupNotificationsByTitle() ?
-                (container.packageName + "_" + metaInfo.title).hashCode() :
-                MyClientEventDispatcher.getNotificationId(context, container);
+        int notificationId = MyClientEventDispatcher.getNotificationId(context, container);
         if (isGroupOfSession) {
             notificationId = (notificationId + "_" + System.currentTimeMillis()).hashCode();
         }
