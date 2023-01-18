@@ -4,6 +4,12 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
+import android.graphics.Paint;
+import android.graphics.PorterDuff;
+import android.graphics.Rect;
+import android.graphics.RectF;
+import android.graphics.Xfermode;
+import android.graphics.PorterDuffXfermode;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 
@@ -25,21 +31,36 @@ public class ImgUtils {
 
     private static int NUM_256 = 256;
 
-    public static Bitmap trimImgToCircle(Bitmap bitmap, int color) {
+    public static Bitmap trimImgToCircle(Bitmap bitmap, int colorOutsideCircle) {
         int width = bitmap.getWidth();
         int height = bitmap.getHeight();
-        int[] pixels = new int[width * height];
-        bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
 
-        trimImgToCircle(color, width, height, pixels, 0);
+        int radius = Math.min(width, height);
+        width = radius;
+        height = radius;
 
-        Bitmap newBmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-        newBmp.setPixels(pixels, 0, width, 0, 0, width, height);
+        Bitmap bmOut = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bmOut);
 
-        return newBmp;
+        Paint paint = new Paint();
+        paint.setAntiAlias(true);
+        paint.setColor(-1);
+
+        Rect rect = new Rect(0, 0, width, height);
+        RectF rectF = new RectF(rect);
+
+        canvas.drawColor(colorOutsideCircle);
+        canvas.drawCircle(
+                (float) (rectF.left + rectF.width() / 2.0), (float) (rectF.top + rectF.height() / 2.0),
+                (float) (radius / 2.0), paint);
+
+        paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_IN));
+        canvas.drawBitmap(bitmap, rect, rect, paint);
+
+        return bmOut;
     }
 
-    public static void trimImgToCircle(int color, int width, int height, int[] pixels, int rExpand) {
+    public static void trimImgToCircle(int colorOutsideCircle, int width, int height, int[] pixels, int rExpand) {
         double r = Math.min(width, height) / 2.0 + rExpand;
 
         for (int i = 0; i < height; i++) {
@@ -47,7 +68,7 @@ public class ImgUtils {
                 double a = (i - width / 2.0);
                 double b = (j - height / 2.0);
                 if (a * a + b * b > r * r) {
-                    pixels[width * i + j] = color;
+                    pixels[width * i + j] = colorOutsideCircle;
                 }
 
             }
