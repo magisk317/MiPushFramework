@@ -41,7 +41,6 @@ import com.elvishew.xlog.XLog;
 import com.nihility.notification.NotificationManagerEx;
 import com.xiaomi.push.service.MIPushNotificationHelper;
 import com.xiaomi.push.service.MyNotificationIconHelper;
-import com.xiaomi.push.service.NotificationIconHelper;
 import com.xiaomi.xmpush.thrift.PushMetaInfo;
 import com.xiaomi.xmpush.thrift.XmPushActionContainer;
 import com.xiaomi.xmsf.ManageSpaceActivity;
@@ -218,12 +217,8 @@ public class NotificationController {
         processIcon(context, packageName, notificationBuilder);
 
         String iconUri = getExtraField(metaInfo.getExtra(), NOTIFICATION_LARGE_ICON_URI, null);
-        Bitmap largeIcon = IconCache.getInstance().getBitmap(context, iconUri,
-                (context1, iconUri1) -> getBitmapFromUri(context1, iconUri1, 200 * KiB));
+        Bitmap largeIcon = getLargeIcon(context, metaInfo, iconUri);
         if (largeIcon != null) {
-            if (getExtraField(metaInfo.getExtra(), EXTRA_ROUND_LARGE_ICON, null) != null) {
-                largeIcon = ImgUtils.trimImgToCircle(largeIcon, Color.TRANSPARENT);
-            }
             notificationBuilder.setLargeIcon(largeIcon);
         }
 
@@ -233,6 +228,18 @@ public class NotificationController {
         Notification notification = notificationBuilder.build();
         getNotificationManagerEx().notify(packageName, null, notificationId, notification);
         return notification;
+    }
+
+    @Nullable
+    public static Bitmap getLargeIcon(Context context, PushMetaInfo metaInfo, String iconUri) {
+        Bitmap largeIcon = IconCache.getInstance().getBitmap(context, iconUri,
+                (context1, iconUri1) -> getBitmapFromUri(context1, iconUri1, 200 * KiB));
+        if (largeIcon != null) {
+            if (getExtraField(metaInfo.getExtra(), EXTRA_ROUND_LARGE_ICON, null) != null) {
+                largeIcon = ImgUtils.trimImgToCircle(largeIcon, Color.TRANSPARENT);
+            }
+        }
+        return largeIcon;
     }
 
     @Nullable
