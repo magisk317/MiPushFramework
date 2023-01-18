@@ -72,8 +72,17 @@ public class NotificationController {
 
     public static final String CHANNEL_WARN = "warn";
 
-    private static final String NOTIFICATION_LARGE_ICON_URI = "notification_large_icon_uri";
-    private static final String EXTRA_ROUND_LARGE_ICON = "__mi_push_round_large_icon";
+    public static final String NOTIFICATION_LARGE_ICON_URI = "notification_large_icon_uri";
+    public static final String EXTRA_ROUND_LARGE_ICON = "__mi_push_round_large_icon";
+    public static final String EXTRA_USE_MESSAGING_STYLE = "__mi_push_use_messaging_style";
+    public static final String EXTRA_CONVERSATION_TITLE = "__mi_push_conversation_title";
+    public static final String EXTRA_CONVERSATION_ID = "__mi_push_conversation_id";
+    public static final String EXTRA_CONVERSATION_ICON = "__mi_push_conversation_icon";
+    public static final String EXTRA_CONVERSATION_IMPORTANT = "__mi_push_conversation_important";
+    public static final String EXTRA_CONVERSATION_SENDER = "__mi_push_conversation_sender";
+    public static final String EXTRA_CONVERSATION_SENDER_ID = "__mi_push_conversation_sender_id";
+    public static final String EXTRA_CONVERSATION_SENDER_ICON = "__mi_push_conversation_sender_icon";
+    public static final String EXTRA_CONVERSATION_MESSAGE = "__mi_push_conversation_message";
 
     public static NotificationManagerEx getNotificationManagerEx() {
         return NotificationManagerEx.INSTANCE;

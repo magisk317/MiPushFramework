@@ -5,9 +5,22 @@ import static com.xiaomi.push.service.MIPushNotificationHelper.FROM_NOTIFICATION
 import static com.xiaomi.push.service.MIPushNotificationHelper.getTargetPackage;
 import static com.xiaomi.push.service.MIPushNotificationHelper.isBusinessMessage;
 import static com.xiaomi.push.service.MyNotificationIconHelper.MiB;
+import static com.xiaomi.xmsf.push.notification.NotificationController.EXTRA_CONVERSATION_ICON;
+import static com.xiaomi.xmsf.push.notification.NotificationController.EXTRA_CONVERSATION_ID;
+import static com.xiaomi.xmsf.push.notification.NotificationController.EXTRA_CONVERSATION_IMPORTANT;
+import static com.xiaomi.xmsf.push.notification.NotificationController.EXTRA_CONVERSATION_MESSAGE;
+import static com.xiaomi.xmsf.push.notification.NotificationController.EXTRA_CONVERSATION_SENDER;
+import static com.xiaomi.xmsf.push.notification.NotificationController.EXTRA_CONVERSATION_SENDER_ICON;
+import static com.xiaomi.xmsf.push.notification.NotificationController.EXTRA_CONVERSATION_SENDER_ID;
+import static com.xiaomi.xmsf.push.notification.NotificationController.EXTRA_CONVERSATION_TITLE;
+import static com.xiaomi.xmsf.push.notification.NotificationController.EXTRA_USE_MESSAGING_STYLE;
+import static com.xiaomi.xmsf.push.notification.NotificationController.getBitmapFromUri;
+import static com.xiaomi.xmsf.push.notification.NotificationController.getLargeIcon;
+import static com.xiaomi.xmsf.push.notification.NotificationController.getNotificationManagerEx;
 import static top.trumeet.common.utils.NotificationUtils.getExtraField;
 
 import android.annotation.TargetApi;
+import android.app.Notification;
 import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
@@ -19,13 +32,21 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.PowerManager;
+import android.service.notification.StatusBarNotification;
 import android.text.TextUtils;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.Person;
+import androidx.core.content.pm.ShortcutInfoCompat;
+import androidx.core.content.pm.ShortcutManagerCompat;
+import androidx.core.graphics.drawable.IconCompat;
 
 import com.elvishew.xlog.Logger;
 import com.elvishew.xlog.XLog;
+import com.nihility.notification.NotificationManagerEx;
 import com.xiaomi.channel.commonutils.android.AppInfoUtils;
 import com.xiaomi.channel.commonutils.reflect.JavaCalls;
 import com.xiaomi.push.sdk.MyPushMessageHandler;
@@ -153,6 +174,34 @@ public class MyMIPushNotificationHelper {
         fullWakeLock.acquire(10000);
     }
 
+    private static Notification findActiveNotification(String packageName, int notificationId) {
+        StatusBarNotification[] notifications = getNotificationManagerEx().getActiveNotifications(packageName);
+        for (StatusBarNotification notification : notifications) {
+            if (notification.getId() == notificationId) {
+                return notification.getNotification();
+            }
+        }
+        return null;
+    }
+
+    private static NotificationCompat.Builder addMessage(
+            Context context, String packageName, int notificationId,
+            NotificationCompat.MessagingStyle.Message message) {
+
+        Notification activeNotification = findActiveNotification(packageName, notificationId);
+        if (activeNotification == null) {
+            return null;
+        }
+        NotificationCompat.MessagingStyle activeStyle = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(activeNotification);
+        if (activeStyle == null) {
+            return null;
+        }
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, activeNotification);
+        activeStyle.addMessage(message);
+        builder.setStyle(activeStyle);
+        return builder;
+    }
+
     private static void doNotifyPushMessage(Context context, XmPushActionContainer container, byte[] decryptedContent) {
         PushMetaInfo metaInfo = container.getMetaInfo();
         String packageName = container.getPackageName();
@@ -165,20 +214,77 @@ public class MyMIPushNotificationHelper {
         logger.i("title:" + title + "  description:" + description);
 
 
-        String bigPicUri = getExtraField(metaInfo.getExtra(), "notification_bigPic_uri", null);
-        Bitmap bigPic = IconCache.getInstance().getBitmap(context, bigPicUri,
-                (context1, iconUri) -> NotificationController.getBitmapFromUri(
-                        context1, iconUri, 1 * MiB));
-        if (bigPic != null) {
-            NotificationCompat.BigPictureStyle style = new NotificationCompat.BigPictureStyle();
-            style.bigPicture(bigPic);
-            style.setBigContentTitle(title);
-            notificationBuilder.setStyle(style);
-        } else if (description.length() > NOTIFICATION_BIG_STYLE_MIN_LEN) {
-            NotificationCompat.BigTextStyle style = new NotificationCompat.BigTextStyle();
-            style.bigText(description);
-            style.setBigContentTitle(title);
-            notificationBuilder.setStyle(style);
+        RegisteredApplication application = RegisteredApplicationDb.registerApplication(
+                packageName, false, context, null);
+        boolean isGroupOfSession = application.isGroupNotificationsForSameSession();
+
+        NotificationCompat.MessagingStyle.Message message = getMessage(context, container);
+        boolean useMessagingStyle = message != null &&
+                getExtraField(metaInfo.getExtra(), EXTRA_USE_MESSAGING_STYLE, null) != null;
+
+        int notificationId = MyClientEventDispatcher.getNotificationId(context, container);
+        if (isGroupOfSession && !useMessagingStyle) {
+            notificationId = (notificationId + "_" + System.currentTimeMillis()).hashCode();
+        }
+
+        if (useMessagingStyle) {
+            NotificationCompat.Builder messagingBuilder = addMessage(
+                    context, packageName, notificationId, message);
+            if (messagingBuilder != null) {
+                notificationBuilder = messagingBuilder;
+            } else {
+                Person group = getGroup(context, metaInfo).build();
+                NotificationCompat.MessagingStyle style =
+                        new NotificationCompat.MessagingStyle(group);
+                style.setConversationTitle(group.getName());
+                style.setGroupConversation(isGroupConversation(metaInfo));
+                style.addMessage(message);
+                notificationBuilder.setStyle(style);
+
+                String key = group.getKey() != null ? group.getKey() : group.getName().toString();
+                Intent intent = getSdkIntent(context, packageName, container);
+                if (intent == null) {
+                    PackageManager packageManager = context.getPackageManager();
+                    intent = packageManager.getLaunchIntentForPackage(packageName);
+                }
+                Context pkgCtx = context;
+                if (NotificationManagerEx.INSTANCE.isSystemHookReady()) {
+                    try {
+                        pkgCtx = context.createPackageContext(packageName, 0);
+                    } catch (PackageManager.NameNotFoundException e) {
+                        e.printStackTrace();
+                    }
+                }
+                ShortcutInfoCompat shortcut = new ShortcutInfoCompat.Builder(pkgCtx, key)
+                        .setIntent(intent)
+                        .setLongLived(true)
+                        .setShortLabel(group.getName())
+                        .setIcon(group.getIcon())
+                        .build();
+
+                ShortcutManagerCompat.pushDynamicShortcut(pkgCtx, shortcut);
+                notificationBuilder.setShortcutInfo(shortcut);
+            }
+        } else {
+            String bigPicUri = getExtraField(metaInfo.getExtra(), "notification_bigPic_uri", null);
+            Bitmap bigPic = IconCache.getInstance().getBitmap(context, bigPicUri,
+                    (context1, iconUri) -> getBitmapFromUri(
+                            context1, iconUri, 1 * MiB));
+            if (bigPic != null) {
+                NotificationCompat.BigPictureStyle style = new NotificationCompat.BigPictureStyle();
+                style.bigPicture(bigPic);
+                style.setBigContentTitle(title);
+                notificationBuilder.setStyle(style);
+            } else if (description.length() > NOTIFICATION_BIG_STYLE_MIN_LEN) {
+                NotificationCompat.BigTextStyle style = new NotificationCompat.BigTextStyle();
+                style.bigText(description);
+                style.setBigContentTitle(title);
+                notificationBuilder.setStyle(style);
+            }
+
+            String[] titleAndDesp = determineTitleAndDespByDIP(context, metaInfo);
+            notificationBuilder.setContentTitle(titleAndDesp[0]);
+            notificationBuilder.setContentText(titleAndDesp[1]);
         }
 
         if (metaInfo.getExtra() != null) {
@@ -189,22 +295,8 @@ public class MyMIPushNotificationHelper {
         notificationBuilder.setWhen(metaInfo.getMessageTs());
         notificationBuilder.setShowWhen(true);
 
-        String[] titleAndDesp = determineTitleAndDespByDIP(context, metaInfo);
-        notificationBuilder.setContentTitle(titleAndDesp[0]);
-        notificationBuilder.setContentText(titleAndDesp[1]);
-
         String group = getGroupName(context, container);
         notificationBuilder.setGroup(group);
-
-        RegisteredApplication application = RegisteredApplicationDb.registerApplication(
-                packageName, false, context, null);
-        boolean isGroupOfSession = application.isGroupNotificationsForSameSession();
-
-
-        int notificationId = MyClientEventDispatcher.getNotificationId(context, container);
-        if (isGroupOfSession) {
-            notificationId = (notificationId + "_" + System.currentTimeMillis()).hashCode();
-        }
 
         Intent intentExtra = new Intent();
         intentExtra.putExtra(Constants.INTENT_NOTIFICATION_ID, notificationId);
@@ -213,12 +305,81 @@ public class MyMIPushNotificationHelper {
 
         PendingIntent localPendingIntent = getClickedPendingIntent(
                 context, container, decryptedContent, notificationId, intentExtra.getExtras());
+
         if (localPendingIntent != null) {
             notificationBuilder.setContentIntent(localPendingIntent);
             carryPendingIntentForTemporarilyWhitelisted(context, container, notificationBuilder);
         }
 
         NotificationController.publish(context, metaInfo, notificationId, packageName, notificationBuilder);
+    }
+
+    @Nullable
+    private static NotificationCompat.MessagingStyle.Message getMessage(Context context, XmPushActionContainer container) {
+        PushMetaInfo metaInfo = container.metaInfo;
+        String senderMessage = getExtraField(metaInfo.getExtra(), EXTRA_CONVERSATION_MESSAGE, null);
+        if (senderMessage == null) {
+            return null;
+        }
+        boolean atLeastP = false;
+        try {
+            atLeastP = context.createPackageContext(container.packageName, 0).
+                    getApplicationInfo().targetSdkVersion >= Build.VERSION_CODES.P;
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        Person person = null;
+        if (isGroupConversation(metaInfo) || atLeastP) {
+            person = getPerson(context, metaInfo).build();
+        }
+        return new NotificationCompat.MessagingStyle.Message(
+                senderMessage, metaInfo.getMessageTs(), person);
+    }
+
+    private static boolean isGroupConversation(PushMetaInfo metaInfo) {
+        String conversation = getExtraField(metaInfo.getExtra(), EXTRA_CONVERSATION_TITLE, null);
+        return conversation != null;
+    }
+
+    @NonNull
+    private static Person.Builder getGroup(Context context, PushMetaInfo metaInfo) {
+        String conversation = getExtraField(metaInfo.getExtra(), EXTRA_CONVERSATION_TITLE, null);
+        String conversationIcon = getExtraField(metaInfo.getExtra(), EXTRA_CONVERSATION_ICON, null);
+        String conversationId = getExtraField(metaInfo.getExtra(), EXTRA_CONVERSATION_ID, null);
+
+        Person.Builder personBuilder = getPerson(context, metaInfo);
+        if (conversation != null) {
+            personBuilder.setName(conversation);
+        } else if (personBuilder.build().getName() == null) {
+            personBuilder.setName(metaInfo.getTitle());
+        }
+        if (conversationId != null) {
+            personBuilder.setKey(conversationId);
+        }
+        Bitmap largeIcon = getLargeIcon(context, metaInfo, conversationIcon);
+        if (largeIcon != null) {
+            personBuilder.setIcon(IconCompat.createWithBitmap(largeIcon));
+        }
+        return personBuilder;
+    }
+
+    @NonNull
+    private static Person.Builder getPerson(Context context, PushMetaInfo metaInfo) {
+        String sender = getExtraField(metaInfo.getExtra(), EXTRA_CONVERSATION_SENDER, null);
+        String senderId = getExtraField(metaInfo.getExtra(), EXTRA_CONVERSATION_SENDER_ID, null);
+        String senderIcon = getExtraField(metaInfo.getExtra(), EXTRA_CONVERSATION_SENDER_ICON, null);
+
+        Person.Builder personBuilder = new Person.Builder().setName(sender);
+        personBuilder.setImportant(getExtraField(metaInfo.getExtra(), EXTRA_CONVERSATION_IMPORTANT, null) != null);
+        if (senderId != null) {
+            personBuilder.setKey(senderId);
+        }
+        Bitmap largeIcon = getLargeIcon(context, metaInfo, senderIcon);
+        if (largeIcon != null) {
+            personBuilder.setIcon(IconCompat.createWithBitmap(largeIcon));
+        }
+        return personBuilder;
     }
 
     private static void carryPendingIntentForTemporarilyWhitelisted(Context xmPushService, XmPushActionContainer buildContainer, NotificationCompat.Builder localBuilder) {
