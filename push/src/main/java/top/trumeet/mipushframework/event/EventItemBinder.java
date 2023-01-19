@@ -5,7 +5,6 @@ import static com.xiaomi.push.service.MIPushEventProcessor.buildContainer;
 import android.app.Dialog;
 import android.content.ClipboardManager;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Typeface;
 import android.view.View;
@@ -50,15 +49,17 @@ import top.trumeet.mipushframework.utils.BaseAppsBinder;
 
 /**
  * Created by Trumeet on 2017/8/26.
+ *
+ * @author Trumeet
  * @see Event
  * @see EventFragment
- * @author Trumeet
  */
 
 public class EventItemBinder extends BaseAppsBinder<Event> {
     private static Logger logger = XLog.tag(EventItemBinder.class.getSimpleName()).build();
 
     private boolean isSpecificApp = true;
+
     EventItemBinder(boolean isSpecificApp) {
         super();
         this.isSpecificApp = isSpecificApp;
@@ -73,7 +74,7 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
 
         String status = "";
         switch (item.getResult()) {
-            case Event.ResultType.OK :
+            case Event.ResultType.OK:
                 if (item.getPayload() != null) {
                     XmPushActionContainer container = MIPushEventProcessor.buildContainer(item.getPayload());
                     if (container.metaInfo.isSetPassThrough()) {
@@ -133,22 +134,55 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
     }
 
     @Nullable
-    private Dialog createInfoDialog (final EventType type, final Context context) {
+    private Dialog createInfoDialog(final EventType type, final Context context) {
         XmPushActionContainer container = buildContainer(type.getPayload());
+        final CharSequence info = containerToJson(context, container);
+        if (info == null)
+            return null;
+
+        TextView showText = new TextView(context);
+        showText.setText(info);
+        showText.setTextSize(18);
+        showText.setTextIsSelectable(true);
+        showText.setTypeface(Typeface.MONOSPACE);
+
+        final ScrollView scrollView = new ScrollView(context);
+        scrollView.addView(showText);
+
+        AlertDialog.Builder build = new AlertDialog.Builder(context)
+                .setView(scrollView)
+                .setTitle("Developer Info")
+                .setNeutralButton(android.R.string.copy, (dialogInterface, i) -> {
+                    ClipboardManager clipboardManager = (ClipboardManager)
+                            context.getSystemService(Context.CLIPBOARD_SERVICE);
+                    clipboardManager.setText(info);
+                })
+                .setNegativeButton(R.string.action_edit_permission, (dialogInterface, i) ->
+                        startManagePermissions(type, context));
+
+        if (type.getPayload() != null) {
+            build.setPositiveButton(R.string.action_notify, (dialogInterface, i) ->
+                    MyMIPushNotificationHelper.notifyPushMessage(context, type.getPayload()));
+            build.setNeutralButton(R.string.action_configurate, null);
+        }
+        return build.create();
+
+    }
+
+    private CharSequence containerToJson(Context context, XmPushActionContainer container) {
         Gson gson = new GsonBuilder()
                 .disableHtmlEscaping()
                 .setPrettyPrinting()
                 .setExclusionStrategies(new ExclusionStrategy() {
                     @Override
                     public boolean shouldSkipField(FieldAttributes f) {
-                        String[] exclude = { "hb", "__isset_bit_vector" };
+                        String[] exclude = {"hb", "__isset_bit_vector"};
                         for (String field : exclude) {
                             if (f.getName().equals(field)) {
                                 return true;
                             }
                         }
-                        if (f.getDeclaredClass() == Map.class && f.getName().equals("internal"))
-                        {
+                        if (f.getDeclaredClass() == Map.class && f.getName().equals("internal")) {
                             return true;
                         }
                         return false;
@@ -175,48 +209,10 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
             jsonElement = json;
         }
         final CharSequence info = gson.toJson(jsonElement);
-        if (info == null)
-            return null;
-
-        TextView showText = new TextView(context);
-        showText.setText(info);
-        showText.setTextSize(18);
-        showText.setTextIsSelectable(true);
-        showText.setTypeface(Typeface.MONOSPACE);
-
-        final ScrollView scrollView = new ScrollView(context);
-        scrollView.addView(showText);
-
-        AlertDialog.Builder build = new AlertDialog.Builder(context)
-                .setView(scrollView)
-                .setTitle("Developer Info")
-                .setNeutralButton(android.R.string.copy, new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
-                        ClipboardManager clipboardManager = (ClipboardManager)
-                                context.getSystemService(Context.CLIPBOARD_SERVICE);
-                        clipboardManager.setText(info);
-                    }
-                })
-                .setNegativeButton(R.string.action_edit_permission, new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
-                        startManagePermissions(type, context);
-                    }
-                });
-        if (type.getPayload() != null) {
-            build.setPositiveButton(R.string.action_notify, new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialogInterface, int i) {
-                    MyMIPushNotificationHelper.notifyPushMessage(context, type.getPayload());
-                }
-            });
-        }
-
-        return build.create();
+        return info;
     }
 
-    private static void startManagePermissions (EventType type, Context context) {
+    private static void startManagePermissions(EventType type, Context context) {
         // Issue: This currently allows overlapping opens.
         context.startActivity(new Intent(context,
                 ManagePermissionsActivity.class)
