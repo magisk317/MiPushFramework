@@ -123,7 +123,7 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
             public void onClick(View view) {
                 Dialog dialog = createInfoDialog(type,
                         holder.itemView.getContext()); // "Developer info" dialog for event messages
-                if (dialog != null && isSpecificApp) {
+                if (dialog != null) {
                     dialog.show();
                 } else {
                     startManagePermissions(type, holder.itemView.getContext());
