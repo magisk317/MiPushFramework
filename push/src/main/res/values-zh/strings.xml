@@ -247,6 +247,7 @@
     <string name="message_type_notification">通知消息</string>
     <string name="message_type_pass_through">透传消息</string>
     <string name="action_notify">发出通知</string>
+    <string name="action_configurate">执行配置</string>
 
 
 </resources>

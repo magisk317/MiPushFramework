@@ -8,6 +8,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Typeface;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
@@ -160,13 +161,30 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
                 .setNegativeButton(R.string.action_edit_permission, (dialogInterface, i) ->
                         startManagePermissions(type, context));
 
+        AlertDialog dialog;
         if (type.getPayload() != null) {
             build.setPositiveButton(R.string.action_notify, (dialogInterface, i) ->
                     MyMIPushNotificationHelper.notifyPushMessage(context, type.getPayload()));
             build.setNeutralButton(R.string.action_configurate, null);
-        }
-        return build.create();
 
+            dialog = build.create();
+            dialog.setOnShowListener(dialogInterface -> {
+
+                Button button = ((AlertDialog) dialog).getButton(AlertDialog.BUTTON_NEUTRAL);
+                button.setOnClickListener(view -> {
+                    try {
+                        Configurations.getInstance().handle(container.packageName, container.metaInfo);
+                        showText.setText(containerToJson(context, container));
+                    } catch (Throwable e) {
+                        e.printStackTrace();
+                        showText.setText(e.toString());
+                    }
+                });
+            });
+        } else {
+            dialog = build.create();
+        }
+        return dialog;
     }
 
     private CharSequence containerToJson(Context context, XmPushActionContainer container) {
