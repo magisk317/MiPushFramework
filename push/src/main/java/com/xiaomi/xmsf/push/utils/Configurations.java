@@ -165,15 +165,37 @@ public class Configurations {
 
         @NonNull
         private String replace(String value) {
-            Pattern pattern = Pattern.compile("(?<!\\\\)\\$\\{([^}]+)\\}");
+            Pattern pattern = Pattern.compile("\\${2}|\\$\\{([^}]+)\\}");
             Matcher matcher = pattern.matcher(value);
+            StringBuilder sb = new StringBuilder(value);
+            class Pair {
+                int start;
+                int end;
+                String str = null;
+            }
+            List<Pair> pairs = new ArrayList<>();
             while (matcher.find()) {
-                String groupName = matcher.group(1);
-                if (matchGroup.containsKey(groupName)) {
-                    value = value.replaceAll(Pattern.quote(matcher.group()), matchGroup.get(groupName));
+                Pair pair = new Pair();
+                pair.start = matcher.start();
+                pair.end = matcher.end();
+                if (matcher.groupCount() == 0) {
+                    pair.str = "$";
+                } else {
+                    String groupName = matcher.group(1);
+                    if (matchGroup.containsKey(groupName)) {
+                        pair.str = matchGroup.get(groupName);
+                    }
+                }
+                if (pair.str != null) {
+                    pairs.add(pair);
                 }
             }
-            return value;
+
+            for (int i = pairs.size() - 1; i >= 0; --i) {
+                Pair pair = pairs.get(i);
+                sb.replace(pair.start, pair.end, pair.str);
+            }
+            return sb.toString();
         }
 
         private boolean mismatchField(JSONObject obj, String key, Object value) throws JSONException {
