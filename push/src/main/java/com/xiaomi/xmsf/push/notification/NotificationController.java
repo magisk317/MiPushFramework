@@ -225,6 +225,7 @@ public class NotificationController {
         String subText = getExtraField(metaInfo.getExtra(), EXTRA_SUB_TEXT, null);
         buildExtraSubText(context, packageName, notificationBuilder, subText);
 
+        notificationBuilder.setAutoCancel(true);
         Notification notification = notificationBuilder.build();
         getNotificationManagerEx().notify(packageName, null, notificationId, notification);
         return notification;
