@@ -218,7 +218,15 @@ public class MyMIPushNotificationHelper {
                 packageName, false, context, null);
         boolean isGroupOfSession = application.isGroupNotificationsForSameSession();
 
-        NotificationCompat.MessagingStyle.Message message = getMessage(context, container);
+        Context pkgCtx = context;
+        if (NotificationManagerEx.INSTANCE.isSystemHookReady()) {
+            try {
+                pkgCtx = context.createPackageContext(packageName, 0);
+            } catch (PackageManager.NameNotFoundException e) {
+                e.printStackTrace();
+            }
+        }
+        NotificationCompat.MessagingStyle.Message message = getMessage(context, container, pkgCtx);
         boolean useMessagingStyle = message != null &&
                 getExtraField(metaInfo.getExtra(), EXTRA_USE_MESSAGING_STYLE, null) != null;
 
@@ -246,14 +254,6 @@ public class MyMIPushNotificationHelper {
                 if (intent == null) {
                     PackageManager packageManager = context.getPackageManager();
                     intent = packageManager.getLaunchIntentForPackage(packageName);
-                }
-                Context pkgCtx = context;
-                if (NotificationManagerEx.INSTANCE.isSystemHookReady()) {
-                    try {
-                        pkgCtx = context.createPackageContext(packageName, 0);
-                    } catch (PackageManager.NameNotFoundException e) {
-                        e.printStackTrace();
-                    }
                 }
                 ShortcutInfoCompat shortcut = new ShortcutInfoCompat.Builder(pkgCtx, key)
                         .setIntent(intent)
@@ -315,19 +315,14 @@ public class MyMIPushNotificationHelper {
     }
 
     @Nullable
-    private static NotificationCompat.MessagingStyle.Message getMessage(Context context, XmPushActionContainer container) {
+    private static NotificationCompat.MessagingStyle.Message getMessage(Context context, XmPushActionContainer container, Context pkgCtx) {
         PushMetaInfo metaInfo = container.metaInfo;
         String senderMessage = getExtraField(metaInfo.getExtra(), EXTRA_CONVERSATION_MESSAGE, null);
         if (senderMessage == null) {
             return null;
         }
-        boolean atLeastP = false;
-        try {
-            atLeastP = context.createPackageContext(container.packageName, 0).
-                    getApplicationInfo().targetSdkVersion >= Build.VERSION_CODES.P;
-        } catch (PackageManager.NameNotFoundException e) {
-            e.printStackTrace();
-        }
+        boolean atLeastP = pkgCtx != null &&
+                pkgCtx.getApplicationInfo().targetSdkVersion >= Build.VERSION_CODES.P;
 
         Person person = null;
         if (isGroupConversation(metaInfo) || atLeastP) {
