@@ -1,0 +1,9 @@
+shelf/
+workspace.xml
+misc.xml
+gradle.xml
+modules.xml
+vcs.xml
+kotlinc.xml
+/compiler.xml
+/jarRepositories.xml
