@@ -57,6 +57,7 @@ import com.xiaomi.xmsf.R;
 import com.xiaomi.xmsf.push.notification.NotificationController;
 import com.xiaomi.xmsf.push.utils.Configurations;
 import com.xiaomi.xmsf.push.utils.IconConfigurations;
+import com.xiaomi.xmsf.push.utils.PackageConfig;
 import com.xiaomi.xmsf.utils.ConfigCenter;
 
 import java.net.MalformedURLException;
@@ -149,13 +150,13 @@ public class MyMIPushNotificationHelper {
             try {
                 Set<String> operations = Configurations.getInstance().handle(packageName, metaInfo);
 
-                if (operations.contains(Configurations.PackageConfig.OPERATION_WAKE)) {
+                if (operations.contains(PackageConfig.OPERATION_WAKE)) {
                     wakeScreen(context, packageName);
                 }
-                if (!operations.contains(Configurations.PackageConfig.OPERATION_IGNORE)) {
+                if (!operations.contains(PackageConfig.OPERATION_IGNORE)) {
                     executorService.execute(() -> doNotifyPushMessage(context, container, decryptedContent));
                 }
-                if (operations.contains(Configurations.PackageConfig.OPERATION_OPEN)) {
+                if (operations.contains(PackageConfig.OPERATION_OPEN)) {
                     MyPushMessageHandler.startService(context, container, decryptedContent);
                 }
             } catch (Exception e) {
