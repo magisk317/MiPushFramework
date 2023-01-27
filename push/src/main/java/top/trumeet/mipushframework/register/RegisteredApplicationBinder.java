@@ -2,10 +2,12 @@ package top.trumeet.mipushframework.register;
 
 import android.content.Intent;
 import android.graphics.Color;
+
 import androidx.annotation.NonNull;
 
-import top.trumeet.common.register.RegisteredApplication;
 import com.xiaomi.xmsf.R;
+
+import top.trumeet.common.register.RegisteredApplication;
 import top.trumeet.mipushframework.permissions.ManagePermissionsActivity;
 import top.trumeet.mipushframework.utils.BaseAppsBinder;
 
@@ -38,6 +40,7 @@ public class RegisteredApplicationBinder extends BaseAppsBinder<RegisteredApplic
             }
             case 0: {
                 holder.text2.setText(R.string.status_app_not_registered);
+                holder.text2.setTextColor(holder.title.getTextColors());
                 break;
             }
         }
