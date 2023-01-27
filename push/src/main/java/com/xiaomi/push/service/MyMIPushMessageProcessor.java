@@ -203,7 +203,24 @@ public class MyMIPushMessageProcessor {
 
             RegisteredApplication application = RegisteredApplicationDb.registerApplication(
                     realTargetPackage, false, pushService, null);
-
+            PushMetaInfo decoratedMetaInfo = metaInfo.deepCopy();
+            try {
+                Configurations.getInstance().handle(realTargetPackage, decoratedMetaInfo);
+            } catch (Throwable e) {
+                e.printStackTrace();
+                logger.w(e.getLocalizedMessage(), e);
+            }
+            boolean awake = Boolean.parseBoolean(
+                    NotificationUtils.getExtraField(
+                            decoratedMetaInfo.getExtra(), PushConstants.EXTRA_PARAM_AWAKE, null));
+            boolean isSystemApp = false;
+            try {
+                int flags = pushService.getPackageManager().getApplicationInfo(realTargetPackage, 0).flags &
+                        (ApplicationInfo.FLAG_SYSTEM | ApplicationInfo.FLAG_UPDATED_SYSTEM_APP);
+                isSystemApp = flags != 0;
+            } catch (PackageManager.NameNotFoundException e) {
+                e.printStackTrace();
+            }
             if (metaInfo == null || TextUtils.isEmpty(metaInfo.getTitle()) || TextUtils.isEmpty(metaInfo.getDescription()) ||
                     (metaInfo.passThrough == 1 && !application.isShowPassThrough()) /* ||
                     (!MIPushNotificationHelper.isNotifyForeground(metaInfo.getExtra()) && MIPushNotificationHelper.isApplicationForeground(pushService, container.packageName)) */) {
@@ -212,11 +229,8 @@ public class MyMIPushMessageProcessor {
                         metaInfo.getExtra().containsKey("ab")) {
                     sendAckMessage(pushService, container);
                     logger.v("receive abtest message. ack it." + metaInfo.getId());
-                } else {
-                    boolean shouldSendBroadcast = shouldSendBroadcast(pushService, realTargetPackage, container, metaInfo);
-                    if (shouldSendBroadcast) {
-                        pushService.sendBroadcast(intent, ClientEventDispatcher.getReceiverPermission(container.packageName));
-                    }
+                } else if (awake || container.action != ActionType.SendMessage || isSystemApp) {
+                    pushService.sendBroadcast(intent, ClientEventDispatcher.getReceiverPermission(container.packageName));
                 }
             } else {
                 String key = null;
@@ -231,6 +245,17 @@ public class MyMIPushMessageProcessor {
                     logger.w("drop a duplicate message, key=" + key);
                 } else {
                     MyMIPushNotificationHelper.notifyPushMessage(pushService, decryptedContent);
+
+                    if (awake || isSystemApp) {
+                        if (metaInfo.passThrough == 1) {
+                            pushService.sendBroadcast(intent, ClientEventDispatcher.getReceiverPermission(container.packageName));
+                        } else if (!isBusinessMessage) {
+                            Intent messageArrivedIntent = new Intent(PushConstants.MIPUSH_ACTION_MESSAGE_ARRIVED);
+                            messageArrivedIntent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, decryptedContent);
+                            messageArrivedIntent.setPackage(container.packageName);
+                            pushService.sendBroadcast(messageArrivedIntent, ClientEventDispatcher.getReceiverPermission(container.packageName));
+                        }
+                    }
                 }
 
                 if (relateToGeo) {
