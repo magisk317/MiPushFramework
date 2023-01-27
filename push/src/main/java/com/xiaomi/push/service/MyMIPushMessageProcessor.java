@@ -41,8 +41,10 @@ import top.trumeet.common.register.RegisteredApplication;
 
 public class MyMIPushMessageProcessor {
     private static Logger logger = XLog.tag("MyMIPushMessageProcessor").build();
-
-    public static void processMIPushMessage(XMPushService pushService, byte[] decryptedContent, long packetBytesLen) {
+    public static void processMIPushMessage(XMPushService pushService, byte[] decryptedContent) {
+        processMIPushMessage(pushService, decryptedContent, false);
+    }
+    public static void processMIPushMessage(XMPushService pushService, byte[] decryptedContent, boolean moke) {
         try {
             XmPushActionContainer container = buildContainer(decryptedContent);
             if (container == null) {
@@ -128,7 +130,7 @@ public class MyMIPushMessageProcessor {
                     }
                 }
 
-                postProcessMIPushMessage(pushService, realTargetPackage, decryptedContent, intent, relatedToGeo);
+                postProcessMIPushMessage(pushService, realTargetPackage, decryptedContent, intent, relatedToGeo, moke);
             }
         } catch (RuntimeException e2) {
             logger.e("fallbackProcessMIPushMessage failed at" + System.currentTimeMillis(), e2);
@@ -139,7 +141,7 @@ public class MyMIPushMessageProcessor {
     /**
      * @see MIPushEventProcessor#postProcessMIPushMessage
      */
-    private static void postProcessMIPushMessage(XMPushService pushService, String realTargetPackage, byte[] decryptedContent, Intent intent, boolean relateToGeo) {
+    private static void postProcessMIPushMessage(XMPushService pushService, String realTargetPackage, byte[] decryptedContent, Intent intent, boolean relateToGeo, boolean moke) {
         XmPushActionContainer container = buildContainer(decryptedContent);
         PushMetaInfo metaInfo = container.getMetaInfo();
         boolean isBusinessMessage = MIPushNotificationHelper.isBusinessMessage(container);

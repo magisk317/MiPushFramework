@@ -27,7 +27,8 @@ import com.google.gson.JsonObject;
 import com.xiaomi.mipush.sdk.DecryptException;
 import com.xiaomi.mipush.sdk.PushContainerHelper;
 import com.xiaomi.push.service.MIPushEventProcessor;
-import com.xiaomi.push.service.MyMIPushNotificationHelper;
+import com.xiaomi.push.service.MyMIPushMessageProcessor;
+import com.xiaomi.push.service.PushServiceMain;
 import com.xiaomi.xmpush.thrift.XmPushActionContainer;
 import com.xiaomi.xmsf.R;
 import com.xiaomi.xmsf.push.utils.Configurations;
@@ -164,7 +165,7 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
         AlertDialog dialog;
         if (type.getPayload() != null) {
             build.setPositiveButton(R.string.action_notify, (dialogInterface, i) ->
-                    MyMIPushNotificationHelper.notifyPushMessage(context, type.getPayload()));
+                    MyMIPushMessageProcessor.processMIPushMessage(PushServiceMain.sInstance, type.getPayload(), true));
             build.setNeutralButton(R.string.action_configurate, null);
 
             dialog = build.create();

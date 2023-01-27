@@ -84,6 +84,7 @@ public class PushServiceMain extends XMPushService {
 
     public static final String CHANNEL_STATUS = "status";
     public static final int NOTIFICATION_ALIVE_ID = 1;
+    public static PushServiceMain sInstance = null;
 
     @RequiresApi(N) private NotificationRevival mNotificationRevival;
 
@@ -98,6 +99,7 @@ public class PushServiceMain extends XMPushService {
             mNotificationRevival = new NotificationRevival(this, sbn -> sbn.getTag() == null);  // Only push notifications (tag == null)
             mNotificationRevival.initialize();
         }
+        sInstance = this;
     }
 
     @Override
