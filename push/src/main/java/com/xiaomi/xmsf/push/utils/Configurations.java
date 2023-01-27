@@ -46,6 +46,10 @@ public class Configurations {
     private Map<String, List<Object>> packageConfigs = new HashMap<>();
 
     private static Configurations instance = null;
+    private Context mContext = null;
+    private Uri mTreeUri = null;
+    private DocumentFile mDocumentFile = null;
+    private long mLastLoadTime = 0;
 
     public static Configurations getInstance() {
         if (instance == null) {
@@ -55,6 +59,7 @@ public class Configurations {
                 }
             }
         }
+        instance.reInitIfDirectoryUpdated();
         return instance;
     }
 
@@ -63,6 +68,7 @@ public class Configurations {
     }
 
     public boolean init(Context context, Uri treeUri) {
+        mLastLoadTime = System.currentTimeMillis();
         packageConfigs.clear();
         do {
             if (context == null || treeUri == null) {
@@ -132,6 +138,9 @@ public class Configurations {
         if (documentFile == null) {
             return true;
         }
+        mContext = context;
+        mTreeUri = treeUri;
+        mDocumentFile = documentFile;
         DocumentFile[] files = documentFile.listFiles();
         for (DocumentFile file : files) {
             if (!"application/json".equals(file.getType())) {
