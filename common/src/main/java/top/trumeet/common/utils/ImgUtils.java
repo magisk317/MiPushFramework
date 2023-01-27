@@ -6,10 +6,9 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
 import android.graphics.Rect;
 import android.graphics.RectF;
-import android.graphics.Xfermode;
-import android.graphics.PorterDuffXfermode;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 
@@ -268,14 +267,21 @@ public class ImgUtils {
 
 
     private static int calculateThreshold(Bitmap bitmap) {
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+        int[] pixels = new int[width * height];
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
 
-        bitmap = trimImgToCircle(bitmap, Color.WHITE);
+        trimImgToCircle(Color.WHITE, width, height, pixels, 0);
+
+        Bitmap newBmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        newBmp.setPixels(pixels, 0, width, 0, 0, width, height);
 
         int[] histogram = new int[NUM_256];
-        getGreyHistogram(bitmap, histogram);
+        getGreyHistogram(newBmp, histogram);
 
         ArrayList<Integer> thresholds = new ArrayList<>();
-        thresholds.add(calculateThresholdByOSTU(bitmap, histogram));
+        thresholds.add(calculateThresholdByOSTU(newBmp, histogram));
         thresholds.add(calculateThresholdByMinimum(histogram));
         thresholds.add(calculateThresholdByMean(histogram));
 
