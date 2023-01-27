@@ -23,6 +23,8 @@ import com.elvishew.xlog.XLog;
 import com.nihility.notification.NotificationManagerEx;
 import com.oasisfeng.condom.CondomOptions;
 import com.oasisfeng.condom.CondomProcess;
+import com.xiaomi.channel.commonutils.android.DeviceInfo;
+import com.xiaomi.channel.commonutils.android.MIUIUtils;
 import com.xiaomi.channel.commonutils.logger.LoggerInterface;
 import com.xiaomi.channel.commonutils.logger.MyLog;
 import com.xiaomi.mipush.sdk.Logger;
@@ -31,6 +33,8 @@ import com.xiaomi.xmsf.push.control.XMOutbound;
 import com.xiaomi.xmsf.push.notification.NotificationController;
 import com.xiaomi.xmsf.push.service.MiuiPushActivateService;
 import com.xiaomi.xmsf.utils.LogUtils;
+
+import java.lang.reflect.Field;
 
 import rx_activity_result2.RxActivityResult;
 import top.trumeet.common.Constants;
@@ -51,6 +55,18 @@ public class MiPushFrameworkApp extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        try {
+            Field MIUIUtils_isMIUI = MIUIUtils.class.getDeclaredField("isMIUI");
+            MIUIUtils_isMIUI.setAccessible(true);
+            MIUIUtils_isMIUI.setInt(null, 1);
+
+            Field DeviceInfo_sCachedIMEI = DeviceInfo.class.getDeclaredField("sCachedIMEI");
+            DeviceInfo_sCachedIMEI.setAccessible(true);
+            DeviceInfo_sCachedIMEI.set(null, "");
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
+
         NotificationManagerEx.notificationManager = (NotificationManager)
                 getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
 
