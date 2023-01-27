@@ -6,6 +6,7 @@ import android.app.Dialog;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Typeface;
 import android.view.View;
 import android.widget.Button;
@@ -24,18 +25,25 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.xiaomi.channel.commonutils.string.Base64Coder;
+import com.xiaomi.mipush.sdk.AppInfoHolder;
 import com.xiaomi.mipush.sdk.DecryptException;
 import com.xiaomi.mipush.sdk.PushContainerHelper;
 import com.xiaomi.push.service.MIPushEventProcessor;
 import com.xiaomi.push.service.MyMIPushMessageProcessor;
+import com.xiaomi.push.service.PushServiceConstants;
 import com.xiaomi.push.service.PushServiceMain;
+import com.xiaomi.xmpush.thrift.ActionType;
 import com.xiaomi.xmpush.thrift.XmPushActionContainer;
+import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils;
 import com.xiaomi.xmsf.R;
 import com.xiaomi.xmsf.push.utils.Configurations;
 
 import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -218,17 +226,49 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
             JsonObject json = jsonElement.getAsJsonObject();
             String pushAction = "pushAction";
             try {
-                TBase message = PushContainerHelper.getResponseMessageBodyFromContainer(context, container);
+                TBase message = getResponseMessageBodyFromContainer(context, container);
                 json.add(pushAction, gson.toJsonTree(message));
             } catch (TException e) {
                 logger.e(e.getLocalizedMessage(), e);
-            } catch (DecryptException e) {
+            } catch (Throwable e) {
                 json.add(pushAction, gson.toJsonTree(e));
             }
             jsonElement = json;
         }
         final CharSequence info = gson.toJson(jsonElement);
         return info;
+    }
+
+    public static TBase getResponseMessageBodyFromContainer(Context context, XmPushActionContainer container) throws TException, DecryptException, InvocationTargetException, NoSuchMethodException, IllegalAccessException {
+        byte[] oriMsgBytes;
+        boolean encrypted = container.isEncryptAction();
+        if (encrypted) {
+            SharedPreferences secSp = context.getSharedPreferences(PushServiceConstants.PREF_KEY_REGISTERED_PKGS + "_sec", 0);
+            String sec = secSp.getString(container.packageName, null);
+            if (sec == null) {
+                sec = AppInfoHolder.getInstance(context).getRegSecret();
+            }
+            byte[] keyBytes = Base64Coder.decode(sec);
+            try {
+                oriMsgBytes = PushContainerHelper.MIPushDecrypt(keyBytes, container.getPushAction());
+            } catch (Exception e) {
+                throw new DecryptException("the aes decrypt failed.", e);
+            }
+        } else {
+            oriMsgBytes = container.getPushAction();
+        }
+        try {
+            Method createRespMessageFromAction = PushContainerHelper.class.getDeclaredMethod("createRespMessageFromAction", ActionType.class , boolean.class);
+            createRespMessageFromAction.setAccessible(true);
+            TBase packet = (TBase) createRespMessageFromAction.invoke(null, container.getAction(), container.isRequest);
+            if (packet != null) {
+                XmPushThriftSerializeUtils.convertByteArrayToThriftObject(packet, oriMsgBytes);
+            }
+            return packet;
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     private static void startManagePermissions(EventType type, Context context) {

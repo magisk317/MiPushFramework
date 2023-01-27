@@ -9,12 +9,13 @@ import static com.xiaomi.push.service.MiPushMsgAck.sendAckMessage;
 import static com.xiaomi.push.service.MiPushMsgAck.sendAppAbsentAck;
 import static com.xiaomi.push.service.MiPushMsgAck.sendAppNotInstallNotification;
 import static com.xiaomi.push.service.MiPushMsgAck.sendErrorAck;
-import static com.xiaomi.push.service.MiPushMsgAck.shouldSendBroadcast;
 import static com.xiaomi.push.service.MiPushMsgAck.verifyGeoMessage;
 
 import android.accounts.Account;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.text.TextUtils;
 
 import com.elvishew.xlog.Logger;
@@ -22,16 +23,20 @@ import com.elvishew.xlog.XLog;
 import com.xiaomi.channel.commonutils.android.AppInfoUtils;
 import com.xiaomi.channel.commonutils.android.MIIDUtils;
 import com.xiaomi.channel.commonutils.reflect.JavaCalls;
+import com.xiaomi.mipush.sdk.PushContainerHelper;
 import com.xiaomi.xmpush.thrift.ActionType;
 import com.xiaomi.xmpush.thrift.PushMetaInfo;
 import com.xiaomi.xmpush.thrift.XmPushActionContainer;
+import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult;
 import com.xiaomi.xmsf.R;
+import com.xiaomi.xmsf.push.utils.Configurations;
 
 import java.util.Map;
 
 import top.trumeet.common.cache.ApplicationNameCache;
 import top.trumeet.common.db.RegisteredApplicationDb;
 import top.trumeet.common.register.RegisteredApplication;
+import top.trumeet.common.utils.NotificationUtils;
 
 
 /**
@@ -165,6 +170,16 @@ public class MyMIPushMessageProcessor {
                 SharedPreferences.Editor editor = sp.edit();
                 editor.putString(pkgName, container.appid);
                 editor.commit();
+                SharedPreferences secSp = pushService.getSharedPreferences(PushServiceConstants.PREF_KEY_REGISTERED_PKGS + "_sec", 0);
+                SharedPreferences.Editor secEditor = secSp.edit();
+                try {
+                    XmPushActionRegistrationResult result = (XmPushActionRegistrationResult) PushContainerHelper.getResponseMessageBodyFromContainer(pushService, container);
+                    secEditor.putString(pkgName, result.getRegSecret());
+                    secEditor.commit();
+                } catch (Throwable e) {
+                    e.printStackTrace();
+                }
+
                 com.xiaomi.tinyData.TinyDataManager.getInstance(pushService).processPendingData("Register Success, package name is " + pkgName);
             }
 
@@ -212,7 +227,7 @@ public class MyMIPushMessageProcessor {
                     key = metaInfo.getId();
                 }
                 boolean isDupMessage = MiPushMessageDuplicate.isDuplicateMessage(pushService, container.packageName, key);
-                if (isDupMessage) {
+                if (isDupMessage && !moke) {
                     logger.w("drop a duplicate message, key=" + key);
                 } else {
                     MyMIPushNotificationHelper.notifyPushMessage(pushService, decryptedContent);
