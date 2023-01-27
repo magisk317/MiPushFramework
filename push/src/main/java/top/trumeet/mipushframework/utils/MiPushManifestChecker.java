@@ -3,11 +3,21 @@ package top.trumeet.mipushframework.utils;
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import androidx.annotation.NonNull;
+import android.content.pm.ServiceInfo;
+import android.text.TextUtils;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
+
+import com.xiaomi.mipush.sdk.ManifestChecker;
+import com.xiaomi.mipush.sdk.MessageHandleService;
+import com.xiaomi.mipush.sdk.PushMessageHandler;
+import com.xiaomi.push.service.PushConstants;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.Map;
 
 import top.trumeet.common.Constants;
 
@@ -68,15 +78,50 @@ public class MiPushManifestChecker {
         return result;
     }
 
-    public boolean checkServices(PackageInfo packageInfo) {
+    public boolean checkServices(PackageInfo pkgInfo) {
         try {
-            checkServicesMethod.invoke(null, context, packageInfo);
+            Map<String, String> configServiceProcessMap = new HashMap<>();
+            Map<String, ManifestChecker.ServiceCheckInfo> requiredServicesMap = new HashMap<>();
+            requiredServicesMap.put(PushMessageHandler.class.getCanonicalName(), new ManifestChecker.ServiceCheckInfo(PushMessageHandler.class.getCanonicalName(), true, true, ""));
+            requiredServicesMap.put(MessageHandleService.class.getCanonicalName(), new ManifestChecker.ServiceCheckInfo(MessageHandleService.class.getCanonicalName(), true, false, ""));
+            if (pkgInfo.services != null) {
+                for (ServiceInfo info : pkgInfo.services) {
+                    if (!TextUtils.isEmpty(info.name) && requiredServicesMap.containsKey(info.name)) {
+                        ManifestChecker.ServiceCheckInfo checkInfo = requiredServicesMap.remove(info.name);
+                        boolean enabled = checkInfo.enabled;
+                        boolean exported = checkInfo.exported;
+                        String permission = checkInfo.permission;
+                        if (enabled != info.enabled) {
+                            throw new ManifestChecker.IllegalManifestException(String.format("<service android:name=\"%1$s\" .../> in AndroidManifest had the wrong enabled attribute, which should be android:enabled=%2$b.", info.name, Boolean.valueOf(enabled)));
+                        }
+                        if (exported != info.exported) {
+                            throw new ManifestChecker.IllegalManifestException(String.format("<service android:name=\"%1$s\" .../> in AndroidManifest had the wrong exported attribute, which should be android:exported=%2$b.", info.name, Boolean.valueOf(exported)));
+                        }
+                        if (!TextUtils.isEmpty(permission) && !TextUtils.equals(permission, info.permission)) {
+                            throw new ManifestChecker.IllegalManifestException(String.format("<service android:name=\"%1$s\" .../> in AndroidManifest had the wrong permission attribute, which should be android:permission=\"%2$s\".", info.name, permission));
+                        }
+                        configServiceProcessMap.put(info.name, info.processName);
+                        if (requiredServicesMap.isEmpty()) {
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!requiredServicesMap.isEmpty()) {
+                throw new ManifestChecker.IllegalManifestException(String.format("<service android:name=\"%1$s\" .../> is missing or disabled in AndroidManifest.", requiredServicesMap.keySet().iterator().next()));
+            }
+            if (!TextUtils.equals(configServiceProcessMap.get(PushMessageHandler.class.getCanonicalName()), configServiceProcessMap.get(MessageHandleService.class.getCanonicalName()))) {
+                throw new ManifestChecker.IllegalManifestException(String.format("\"%1$s\" and \"%2$s\" must be running in the same process.", PushMessageHandler.class.getCanonicalName(), MessageHandleService.class.getCanonicalName()));
+            }
+            if (configServiceProcessMap.containsKey(PushConstants.XM_SERVICE_CLASS_NAME_JAR) && configServiceProcessMap.containsKey(PushConstants.PUSH_SERVICE_CLASS_NAME_JAR) && !TextUtils.equals(configServiceProcessMap.get(PushConstants.XM_SERVICE_CLASS_NAME_JAR), configServiceProcessMap.get(PushConstants.PUSH_SERVICE_CLASS_NAME_JAR))) {
+                throw new ManifestChecker.IllegalManifestException(String.format("\"%1$s\" and \"%2$s\" must be running in the same process.", PushConstants.XM_SERVICE_CLASS_NAME_JAR, PushConstants.PUSH_SERVICE_CLASS_NAME_JAR));
+            }
             return true;
         } catch (Throwable e) {
             if (!isIllegalManifestException(e)) {
                 Log.e(TAG, "checkServices", e);
             } else {
-                Log.w(TAG, "checkServices: " + packageInfo.packageName + "," + ((InvocationTargetException) e).getCause().getMessage());
+                Log.w(TAG, "checkServices: " + pkgInfo.packageName + "," + ((InvocationTargetException) e).getCause().getMessage());
             }
             return false;
         }
