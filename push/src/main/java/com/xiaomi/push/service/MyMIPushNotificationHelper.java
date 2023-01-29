@@ -341,10 +341,12 @@ public class MyMIPushNotificationHelper {
     @NonNull
     private static Person.Builder getGroup(Context context, PushMetaInfo metaInfo) {
         String conversation = getExtraField(metaInfo.getExtra(), EXTRA_CONVERSATION_TITLE, null);
-        String conversationIcon = getExtraField(metaInfo.getExtra(), EXTRA_CONVERSATION_ICON, null);
         String conversationId = getExtraField(metaInfo.getExtra(), EXTRA_CONVERSATION_ID, null);
+        String conversationIcon = getExtraField(metaInfo.getExtra(), EXTRA_CONVERSATION_ICON, null);
 
-        Person.Builder personBuilder = getPerson(context, metaInfo);
+        Person.Builder personBuilder = isGroupConversation(metaInfo) ?
+                new Person.Builder() :
+                getPerson(context, metaInfo);
         if (conversation != null) {
             personBuilder.setName(conversation);
         } else if (personBuilder.build().getName() == null) {
