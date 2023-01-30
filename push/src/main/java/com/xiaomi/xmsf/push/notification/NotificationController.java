@@ -45,8 +45,11 @@ import com.xiaomi.xmpush.thrift.PushMetaInfo;
 import com.xiaomi.xmpush.thrift.XmPushActionContainer;
 import com.xiaomi.xmsf.ManageSpaceActivity;
 import com.xiaomi.xmsf.R;
+import com.xiaomi.xmsf.push.utils.Configurations;
 import com.xiaomi.xmsf.push.utils.IconConfigurations;
 import com.xiaomi.xmsf.utils.ColorUtil;
+
+import org.json.JSONException;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -293,7 +296,13 @@ public class NotificationController {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (notificationGroup != null) {
-                updateSummaryNotification(context, container.getMetaInfo(), container.getPackageName(), notificationGroup);
+                PushMetaInfo metaInfo = container.getMetaInfo().deepCopy();
+                try {
+                    Configurations.getInstance().handle(container.packageName, metaInfo);
+                } catch (Throwable e) {
+                    e.printStackTrace();
+                }
+                updateSummaryNotification(context, metaInfo, container.getPackageName(), notificationGroup);
             }
         }
     }
