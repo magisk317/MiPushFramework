@@ -31,9 +31,11 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import me.drakeet.multitype.Items;
 import me.drakeet.multitype.MultiTypeAdapter;
+import top.trumeet.common.cache.ApplicationNameCache;
 import top.trumeet.common.db.EventDb;
 import top.trumeet.common.db.RegisteredApplicationDb;
 import top.trumeet.common.register.RegisteredApplication;
@@ -209,9 +211,10 @@ public class RegisteredApplicationFragment extends Fragment implements SwipeRefr
             }
 
             Collections.sort(res, (o1, o2) -> {
+                final String o1Name = ApplicationNameCache.getInstance().getAppName(context, o1.getPackageName()).toString();
+                final String o2Name = ApplicationNameCache.getInstance().getAppName(context, o2.getPackageName()).toString();
                 if (o1.getId() == null && o2.getId() == null) {
-                    return o1.getPackageName().compareTo(o2.getPackageName());
-
+                    return o1Name.compareTo(o2Name);
                 }
 
                 if (o1.getId() == null) {
@@ -223,7 +226,7 @@ public class RegisteredApplicationFragment extends Fragment implements SwipeRefr
                 }
 
                 if (o1.getRegisteredType() == o2.getRegisteredType()) {
-                    return o2.getId().compareTo(o1.getId());
+                    return o1Name.compareTo(o2Name);
                 } else {
                     return o1.getRegisteredType() - o2.getRegisteredType();
 
