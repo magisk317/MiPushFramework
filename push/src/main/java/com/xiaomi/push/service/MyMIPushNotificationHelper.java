@@ -154,7 +154,13 @@ public class MyMIPushNotificationHelper {
                     wakeScreen(context, packageName);
                 }
                 if (!operations.contains(PackageConfig.OPERATION_IGNORE)) {
-                    executorService.execute(() -> doNotifyPushMessage(context, container, decryptedContent));
+                    executorService.execute(() -> {
+                        try {
+                            doNotifyPushMessage(context, container, decryptedContent);
+                        } catch (Exception e) {
+                            logger.e(e.getLocalizedMessage(), e);
+                        }
+                    });
                 }
                 if (operations.contains(PackageConfig.OPERATION_OPEN)) {
                     MyPushMessageHandler.startService(context, container, decryptedContent);
@@ -188,19 +194,23 @@ public class MyMIPushNotificationHelper {
     private static NotificationCompat.Builder addMessage(
             Context context, String packageName, int notificationId,
             NotificationCompat.MessagingStyle.Message message) {
-
-        Notification activeNotification = findActiveNotification(packageName, notificationId);
-        if (activeNotification == null) {
+        try {
+            Notification activeNotification = findActiveNotification(packageName, notificationId);
+            if (activeNotification == null) {
+                return null;
+            }
+            NotificationCompat.MessagingStyle activeStyle = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(activeNotification);
+            if (activeStyle == null) {
+                return null;
+            }
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(context, activeNotification);
+            activeStyle.addMessage(message);
+            builder.setStyle(activeStyle);
+            return builder;
+        } catch (Exception e) {
+            logger.e(e.getLocalizedMessage(), e);
             return null;
         }
-        NotificationCompat.MessagingStyle activeStyle = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(activeNotification);
-        if (activeStyle == null) {
-            return null;
-        }
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, activeNotification);
-        activeStyle.addMessage(message);
-        builder.setStyle(activeStyle);
-        return builder;
     }
 
     private static void doNotifyPushMessage(Context context, XmPushActionContainer container, byte[] decryptedContent) {
