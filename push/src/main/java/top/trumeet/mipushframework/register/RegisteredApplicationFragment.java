@@ -39,6 +39,8 @@ import top.trumeet.common.cache.ApplicationNameCache;
 import top.trumeet.common.db.EventDb;
 import top.trumeet.common.db.RegisteredApplicationDb;
 import top.trumeet.common.register.RegisteredApplication;
+
+import com.github.promeg.pinyinhelper.Pinyin;
 import com.xiaomi.xmsf.BuildConfig;
 import com.xiaomi.xmsf.R;
 import top.trumeet.mipushframework.utils.MiPushManifestChecker;
@@ -211,8 +213,12 @@ public class RegisteredApplicationFragment extends Fragment implements SwipeRefr
             }
 
             Collections.sort(res, (o1, o2) -> {
-                final String o1Name = ApplicationNameCache.getInstance().getAppName(context, o1.getPackageName()).toString();
-                final String o2Name = ApplicationNameCache.getInstance().getAppName(context, o2.getPackageName()).toString();
+                final String o1Name = Pinyin.toPinyin(
+                        ApplicationNameCache.getInstance().getAppName(context, o1.getPackageName()).toString(),
+                        "");
+                final String o2Name = Pinyin.toPinyin(
+                        ApplicationNameCache.getInstance().getAppName(context, o2.getPackageName()).toString(),
+                        "");
                 if (o1.getId() == null && o2.getId() == null) {
                     return o1Name.compareTo(o2Name);
                 }

@@ -3,6 +3,7 @@ apply plugin: 'kotlin-android'
 
 allprojects {
     repositories {
+        mavenCentral()
         maven { url 'https://jitpack.io' }
     }
 }
@@ -143,5 +144,9 @@ dependencies {
     })
 
     implementation 'com.google.code.gson:gson:2.10'
+
+    // https://mvnrepository.com/artifact/com.github.promeg/tinypinyin
+    implementation 'com.github.promeg:tinypinyin:2.0.3'
+
 
 }
