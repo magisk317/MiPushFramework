@@ -64,9 +64,25 @@ public class EventDb {
                                     @Nullable String pkg,
                                     Context context,
                                     @Nullable CancellationSignal signal) {
+ 		String cond = null;
+ 		if (pkg != null) {
+ 			cond = "";
+			String[] cols = new String[] {
+					Event.KEY_PKG,
+					Event.KEY_NOTIFICATION_TITLE,
+					Event.KEY_NOTIFICATION_SUMMARY,
+					Event.KEY_INFO,
+					Event.KEY_PAYLOAD,
+					Event.KEY_RESULT,
+			};
+ 			for (int i = 0; i < cols.length; i++) {
+ 				if (i > 0)
+ 					cond += " OR ";
+ 				cond += String.format("(%s LIKE '%%%s%%')", cols[i], pkg);
+ 			}
+ 		}
         return getInstance(context)
-                .queryAndConvert(signal, pkg == null ? null : Event.KEY_PKG + "=?",
-                        pkg != null ? new String[]{pkg} : null,
+                .queryAndConvert(signal, cond, null,
                         DatabaseUtils.order(Event.KEY_DATE, "desc") +
                                 DatabaseUtils.limitAndOffset(limit, skip),
                         new DatabaseUtils.Converter<Event>() {

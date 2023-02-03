@@ -37,7 +37,6 @@ import top.trumeet.mipushframework.settings.SettingsFragment;
 
 public class MainFragment extends Fragment implements OnConnectStatusChangedListener {
 
-
     private FragmentBroadcast mBroadcaster;
 
     private static final String FRAGMENT_EVENT = "event";
@@ -54,16 +53,14 @@ public class MainFragment extends Fragment implements OnConnectStatusChangedList
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == R.id.action_about) {
-            ((TextView) (new AlertDialog.Builder(getContext())
-                    .setView(R.layout.dialog_about)
-                    .show().findViewById(R.id.text_version))).setText(getString(R.string.about_version,
-                    BuildConfig.VERSION_NAME));
+            ((TextView) (new AlertDialog.Builder(getContext()).setView(R.layout.dialog_about).show()
+                    .findViewById(R.id.text_version)))
+                    .setText(getString(R.string.about_version, BuildConfig.VERSION_NAME));
             return true;
         } else if (item.getItemId() == R.id.action_update) {
             startActivity(new Intent(Intent.ACTION_VIEW)
                     .setData(Uri.parse("https://github.com/NihilityT/MiPushFramework/releases")));
-            Toast.makeText(getActivity(), R.string.update_toast, Toast.LENGTH_LONG)
-                    .show();
+            Toast.makeText(getActivity(), R.string.update_toast, Toast.LENGTH_LONG).show();
         } else if (item.getItemId() == R.id.action_help) {
             Intent intent = new Intent();
             intent.setClass(this.getContext(), HelpActivity.class);
@@ -80,14 +77,11 @@ public class MainFragment extends Fragment implements OnConnectStatusChangedList
         item.setActionView(R.layout.switch_layout);
     }
 
-
     @Override
-    public View onCreateView(LayoutInflater inflater,
-                             ViewGroup parent, Bundle savedInstanceState) {
+    public View onCreateView(LayoutInflater inflater, ViewGroup parent, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.activity_main, parent, false);
 
-        final BottomNavigationView bottomNavigationView =
-                view.findViewById(R.id.bottom_nav);
+        final BottomNavigationView bottomNavigationView = view.findViewById(R.id.bottom_nav);
         final ViewPager viewPager = view.findViewById(R.id.viewPager);
         viewPager.addOnPageChangeListener(new ViewPager.OnPageChangeListener() {
             @Override
@@ -97,19 +91,10 @@ public class MainFragment extends Fragment implements OnConnectStatusChangedList
 
             @Override
             public void onPageSelected(int position) {
-                bottomNavigationView.getMenu()
-                        .getItem(0)
-                        .setChecked(false);
-                bottomNavigationView.getMenu()
-                        .getItem(1)
-                        .setChecked(false);
-                bottomNavigationView.getMenu()
-                        .getItem(2)
-                        .setChecked(false);
-                bottomNavigationView
-                        .getMenu()
-                        .getItem(position)
-                        .setChecked(true);
+                bottomNavigationView.getMenu().getItem(0).setChecked(false);
+                bottomNavigationView.getMenu().getItem(1).setChecked(false);
+                bottomNavigationView.getMenu().getItem(2).setChecked(false);
+                bottomNavigationView.getMenu().getItem(position).setChecked(true);
             }
 
             @Override
@@ -132,8 +117,7 @@ public class MainFragment extends Fragment implements OnConnectStatusChangedList
                         if (mBroadcaster.hasFragment(FRAGMENT_APPLICATIONS)) {
                             return mBroadcaster.getFragment(FRAGMENT_APPLICATIONS);
                         }
-                        RegisteredApplicationFragment registeredApplicationFragment =
-                                new RegisteredApplicationFragment();
+                        RegisteredApplicationFragment registeredApplicationFragment = new RegisteredApplicationFragment();
                         mBroadcaster.registerFragment(FRAGMENT_APPLICATIONS, registeredApplicationFragment);
                         return registeredApplicationFragment;
                     case 2:
@@ -153,18 +137,18 @@ public class MainFragment extends Fragment implements OnConnectStatusChangedList
                 return 3;
             }
         });
-        bottomNavigationView.setOnNavigationItemSelectedListener(new BottomNavigationView.OnNavigationItemSelectedListener() {
-            @Override
-            public boolean onNavigationItemSelected(@NonNull MenuItem item) {
-                viewPager.setCurrentItem(item.getOrder());
-                return true;
-            }
-        });
+        bottomNavigationView.setOnNavigationItemSelectedListener(
+                new BottomNavigationView.OnNavigationItemSelectedListener() {
+                    @Override
+                    public boolean onNavigationItemSelected(@NonNull MenuItem item) {
+                        viewPager.setCurrentItem(item.getOrder());
+                        return true;
+                    }
+                });
         ViewCompat.setElevation(bottomNavigationView, 8f);
         viewPager.setCurrentItem(1);
         return view;
     }
-
 
     @Override
     public void onChange(@Status int newStatus) {

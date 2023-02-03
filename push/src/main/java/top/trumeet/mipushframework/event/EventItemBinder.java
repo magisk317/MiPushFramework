@@ -68,11 +68,8 @@ import top.trumeet.mipushframework.utils.BaseAppsBinder;
 public class EventItemBinder extends BaseAppsBinder<Event> {
     private static Logger logger = XLog.tag(EventItemBinder.class.getSimpleName()).build();
 
-    private boolean isSpecificApp = true;
-
-    EventItemBinder(boolean isSpecificApp) {
+    EventItemBinder() {
         super();
-        this.isSpecificApp = isSpecificApp;
     }
 
     @Override
