@@ -8,6 +8,8 @@ import android.os.CancellationSignal;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -62,27 +64,26 @@ public class EventDb {
     public static List<Event> query(@Nullable Integer skip,
                                     @Nullable Integer limit,
                                     @Nullable String pkg,
+                                    @Nullable String text,
                                     Context context,
                                     @Nullable CancellationSignal signal) {
- 		String cond = null;
- 		if (pkg != null) {
- 			cond = "";
-			String[] cols = new String[] {
-					Event.KEY_PKG,
-					Event.KEY_NOTIFICATION_TITLE,
-					Event.KEY_NOTIFICATION_SUMMARY,
-					Event.KEY_INFO,
-					Event.KEY_PAYLOAD,
-					Event.KEY_RESULT,
-			};
- 			for (int i = 0; i < cols.length; i++) {
- 				if (i > 0)
- 					cond += " OR ";
- 				cond += String.format("(%s LIKE '%%%s%%')", cols[i], pkg);
- 			}
- 		}
+        StringBuilder cond = new StringBuilder("");
+        ArrayList<String> args = new ArrayList<>();
+        if (pkg != null && pkg != "") {
+            cond.append("(");
+            cond.append(Event.KEY_PKG);
+            cond.append("=?)");
+            args.add(pkg);
+        }
+        if (text != null && text != "") {
+            if (cond.length() > 0) cond.append(" AND ");
+            cond.append("(");
+            cond.append(Event.KEY_INFO);
+            cond.append(" LIKE ?)");
+            args.add("%" + text + "%");
+        }
         return getInstance(context)
-                .queryAndConvert(signal, cond, null,
+                .queryAndConvert(signal, cond.toString(), args.toArray(new String[0]),
                         DatabaseUtils.order(Event.KEY_DATE, "desc") +
                                 DatabaseUtils.limitAndOffset(limit, skip),
                         new DatabaseUtils.Converter<Event>() {
@@ -154,12 +155,12 @@ public class EventDb {
     }
 
 
-    public static List<Event> query(String pkg, int page, Context context,
+    public static List<Event> query(String pkg, String text, int page, Context context,
                                     CancellationSignal cancellationSignal) {
         int skip;
         int limit;
         skip = Constants.PAGE_SIZE * (page - 1);
         limit = Constants.PAGE_SIZE;
-        return query(skip, limit, pkg, context, cancellationSignal);
+        return query(skip, limit, pkg, text, context, cancellationSignal);
     }
 }

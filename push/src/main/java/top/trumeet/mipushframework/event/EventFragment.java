@@ -47,9 +47,9 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
      * Already load page
      */
     private int mLoadPage;
+    private String mPacketName = null;
     private String mQuery = null;
     private LoadTask mLoadTask;
-    private boolean fromRecentActivity = false;
 
     public static EventFragment newInstance(String targetPackage) {
         EventFragment fragment = new EventFragment();
@@ -61,16 +61,14 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
 
     void setQuery(String query) {
         mQuery = query;
-        if (mQuery != null && mQuery.length() == 0)
-            mQuery = null;
+        if (mQuery != null && mQuery.length() == 0) mQuery = null;
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setQuery(getArguments() == null ? null : getArguments().getString(EXTRA_TARGET_PACKAGE));
-        fromRecentActivity = mQuery != null;
-        setHasOptionsMenu(!fromRecentActivity);
+        mPacketName = getArguments() == null ? null : getArguments().getString(EXTRA_TARGET_PACKAGE);
+        setHasOptionsMenu(true);
         mAdapter = new MultiTypeAdapter();
         mAdapter.register(Event.class, new EventItemBinder());
     }
@@ -102,7 +100,7 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
 
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
-        if (fromRecentActivity) {
+        if (mPacketName != null) {
             inflater.inflate(R.menu.menu_main, menu);
             menu.findItem(R.id.action_enable).setActionView(R.layout.switch_layout);
         }
@@ -119,12 +117,13 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
             @Override
             public boolean onQueryTextChange(String newText) {
                 setQuery(newText);
+                cancelPage();
                 onRefresh();
                 return true;
             }
 
             @Override
-            public boolean onQueryTextSubmit(String query) {
+            public boolean onQueryTextSubmit(String newText) {
                 return true;
             }
         });
@@ -155,12 +154,16 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
         mLoadTask.execute();
     }
 
-    @Override
-    public void onDetach() {
+    private void cancelPage() {
         if (mLoadTask != null && !mLoadTask.isCancelled()) {
             mLoadTask.cancel(true);
             mLoadTask = null;
         }
+    }
+
+    @Override
+    public void onDetach() {
+        cancelPage();
         super.onDetach();
     }
 
@@ -187,7 +190,7 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
         @Override
         protected List<Event> doInBackground(Integer... integers) {
             mSignal = new CancellationSignal();
-            return EventDb.query(mQuery, mTargetPage, getActivity(), mSignal);
+            return EventDb.query(mPacketName, mQuery, mTargetPage, getActivity(), mSignal);
         }
 
         @Override

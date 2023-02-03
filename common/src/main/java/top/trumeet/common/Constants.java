@@ -48,7 +48,7 @@ public final class Constants {
      * Every page item count
      * @see top.trumeet.mipushframework.event.EventFragment
      */
-    public static final int PAGE_SIZE = 20;
+    public static final int PAGE_SIZE = 10;
 
     /**
      * Package name extra when register push {@link com.xiaomi.xmsf.push.service.XMPushService}
