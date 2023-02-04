@@ -39,6 +39,7 @@ import top.trumeet.mipushframework.utils.OnLoadMoreListener;
 
 public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefreshListener {
     private static final String EXTRA_TARGET_PACKAGE = EventFragment.class.getName() + ".EXTRA_TARGET_PACKAGE";
+    private static final String EXTRA_QUERY = EventFragment.class.getName() + ".EXTRA_QUERY";
 
     private MultiTypeAdapter mAdapter;
     private static final String TAG = EventFragment.class.getSimpleName();
@@ -53,9 +54,7 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
 
     public static EventFragment newInstance(String targetPackage) {
         EventFragment fragment = new EventFragment();
-        Bundle args = new Bundle();
-        args.putString(EXTRA_TARGET_PACKAGE, targetPackage);
-        fragment.setArguments(args);
+        fragment.mPacketName = targetPackage;
         return fragment;
     }
 
@@ -67,10 +66,20 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        mPacketName = getArguments() == null ? null : getArguments().getString(EXTRA_TARGET_PACKAGE);
+        if (savedInstanceState != null) {
+            mPacketName = savedInstanceState.getString(EXTRA_TARGET_PACKAGE);
+            mQuery = savedInstanceState.getString(EXTRA_QUERY);
+        }
         setHasOptionsMenu(true);
         mAdapter = new MultiTypeAdapter();
         mAdapter.register(Event.class, new EventItemBinder());
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putString(EXTRA_TARGET_PACKAGE, mPacketName);
+        outState.putString(EXTRA_QUERY, mQuery);
     }
 
     SwipeRefreshLayout swipeRefreshLayout;
