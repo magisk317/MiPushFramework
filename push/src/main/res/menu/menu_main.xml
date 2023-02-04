@@ -7,11 +7,10 @@
         />
     <item
         android:id="@+id/action_search"
-        android:icon="@android:drawable/ic_menu_search"
         android:title="Search"
         android:visible="false"
         app:actionViewClass="android.widget.SearchView"
-        app:showAsAction="always|collapseActionView"
+        app:showAsAction="always"
         />
     <item
         android:id="@+id/action_help"
