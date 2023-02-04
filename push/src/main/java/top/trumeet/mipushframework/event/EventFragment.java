@@ -51,6 +51,7 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
     private String mPacketName = null;
     private String mQuery = null;
     private LoadTask mLoadTask;
+    private Boolean mAllEventLoaded = false;
 
     public static EventFragment newInstance(String targetPackage) {
         EventFragment fragment = new EventFragment();
@@ -166,6 +167,9 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
                 return;
             }
         }
+        if (mAllEventLoaded) {
+            return;
+        }
         swipeRefreshLayout.setRefreshing(true);
         mLoadTask = new LoadTask(mLoadedPageCount + 1);
         mLoadTask.execute();
@@ -210,6 +214,9 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
             if (mTargetPage == 1) {
                 mAdapter.notifyItemRangeRemoved(0, mAdapter.getItemCount());
                 mAdapter.getItems().clear();
+            }
+            if (list.isEmpty()) {
+                mAllEventLoaded = true;
             }
 
             appendItemToAdapter(list);

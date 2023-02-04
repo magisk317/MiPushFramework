@@ -1,13 +1,15 @@
 package top.trumeet.mipushframework.utils;
 
+import android.util.Log;
+
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import android.util.Log;
 
 public abstract class OnLoadMoreListener extends RecyclerView.OnScrollListener {
 
     private LinearLayoutManager layoutManager;
-    private int itemCount, lastPosition, lastItemCount;
+    private int itemCount;
+    private int lastPosition;
 
     public abstract void onLoadMore();
 
@@ -23,8 +25,7 @@ public abstract class OnLoadMoreListener extends RecyclerView.OnScrollListener {
             return;
         }
 
-        if (lastItemCount != itemCount && (lastPosition > itemCount - 3)) {
-            lastItemCount = itemCount;
+        if (lastPosition > itemCount - 3) {
             this.onLoadMore();
         }
     }
