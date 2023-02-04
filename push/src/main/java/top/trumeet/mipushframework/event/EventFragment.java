@@ -47,7 +47,7 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
     /**
      * Already load page
      */
-    private int mLoadPage;
+    private int mLoadedPageCount;
     private String mPacketName = null;
     private String mQuery = null;
     private LoadTask mLoadTask;
@@ -166,7 +166,8 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
                 return;
             }
         }
-        mLoadTask = new LoadTask(mLoadPage + 1);
+        swipeRefreshLayout.setRefreshing(true);
+        mLoadTask = new LoadTask(mLoadedPageCount + 1);
         mLoadTask.execute();
     }
 
@@ -186,13 +187,8 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
     @Override
     public void onRefresh() {
         Log.d(TAG, "refreshPage");
-        if (mLoadTask != null && !mLoadTask.isCancelled()) {
-            if (mLoadTask.getStatus() != AsyncTask.Status.FINISHED) {
-                return;
-            }
-        }
-        mLoadTask = new LoadTask(1);
-        mLoadTask.execute();
+        mLoadedPageCount = 0;
+        loadPage();
     }
 
     private class LoadTask extends AsyncTask<Integer, Void, List<Event>> {
@@ -217,7 +213,7 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
             }
 
             appendItemToAdapter(list);
-            mLoadPage = mTargetPage;
+            mLoadedPageCount = mTargetPage;
 
             swipeRefreshLayout.setRefreshing(false);
             mLoadTask = null;
