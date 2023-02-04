@@ -8,8 +8,8 @@ import android.os.CancellationSignal;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
-import android.view.MenuItem;
 import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.SearchView;
@@ -21,9 +21,9 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
-import java.util.List;
-
 import com.xiaomi.xmsf.R;
+
+import java.util.List;
 
 import me.drakeet.multitype.Items;
 import me.drakeet.multitype.MultiTypeAdapter;
@@ -33,7 +33,7 @@ import top.trumeet.mipushframework.utils.OnLoadMoreListener;
 
 /**
  * Created by Trumeet on 2017/8/26.
- * 
+ *
  * @author Trumeet
  */
 
@@ -86,7 +86,7 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
 
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
-            @Nullable Bundle savedInstanceState) {
+                             @Nullable Bundle savedInstanceState) {
         RecyclerView view = new RecyclerView(getActivity());
         view.setLayoutManager(
                 new LinearLayoutManager(getActivity(), LinearLayoutManager.VERTICAL, false));
@@ -119,12 +119,19 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
         MenuItem searchItem = menu.findItem(R.id.action_search);
         searchItem.setVisible(true);
 
-        SearchView searchView = (SearchView) searchItem.getActionView();
+        initSearchBar(searchItem);
+    }
+
+    private void initSearchBar(MenuItem searchItem) {
         SearchManager searchManager = (SearchManager) getActivity().getSystemService(Context.SEARCH_SERVICE);
+        SearchView searchView = (SearchView) searchItem.getActionView();
         searchView.setSearchableInfo(searchManager.getSearchableInfo(getActivity().getComponentName()));
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextChange(String newText) {
+                if (newText.equals(mQuery != null ? mQuery : "")) {
+                    return true;
+                }
                 setQuery(newText);
                 cancelPage();
                 onRefresh();
