@@ -48,10 +48,11 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
      * Already load page
      */
     private int mLoadedPageCount;
+    private Boolean mAllEventLoaded;
+
     private String mPacketName = null;
     private String mQuery = null;
     private LoadTask mLoadTask;
-    private Boolean mAllEventLoaded = false;
 
     public static EventFragment newInstance(String targetPackage) {
         EventFragment fragment = new EventFragment();
@@ -72,6 +73,7 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
             mQuery = savedInstanceState.getString(EXTRA_QUERY);
         }
         setHasOptionsMenu(true);
+        initLoadState();
         mAdapter = new MultiTypeAdapter();
         mAdapter.register(Event.class, new EventItemBinder());
     }
@@ -134,7 +136,6 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
                     return true;
                 }
                 setQuery(newText);
-                cancelPage();
                 onRefresh();
                 return true;
             }
@@ -191,8 +192,14 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
     @Override
     public void onRefresh() {
         Log.d(TAG, "refreshPage");
-        mLoadedPageCount = 0;
+        cancelPage();
+        initLoadState();
         loadPage();
+    }
+
+    private void initLoadState() {
+        mLoadedPageCount = 0;
+        mAllEventLoaded = false;
     }
 
     private class LoadTask extends AsyncTask<Integer, Void, List<Event>> {
