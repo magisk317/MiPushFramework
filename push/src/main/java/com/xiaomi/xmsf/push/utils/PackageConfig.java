@@ -103,9 +103,11 @@ public class PackageConfig {
             final Field field = data.getClass().getDeclaredField(cfgKey);
             Object value = field.get(data);
 
-            if (value instanceof Map) {
-                Map subMap = (Map) value;
-                JSONObject cfgSubObj = null;
+            boolean isMap = value instanceof Map;
+            boolean isTBase = value instanceof TBase;
+
+            JSONObject cfgSubObj = null;
+            if (isMap || isTBase) {
                 try {
                     cfgSubObj = cfgMatch.getJSONObject(cfgKey);
                 } catch (JSONException e) {
@@ -113,6 +115,10 @@ public class PackageConfig {
                             String.format("The type of field \"%s\" is %s, not %s", cfgKey,
                                     value.getClass().getSimpleName(), cfgMatch.opt(cfgKey).getClass()));
                 }
+            }
+
+            if (isMap) {
+                Map subMap = (Map) value;
 
                 Iterator<String> cfgSubKeys = cfgSubObj.keys();
                 while (cfgSubKeys.hasNext()) {
@@ -121,6 +127,12 @@ public class PackageConfig {
                         return null;
                     }
                 }
+            } else if (isTBase) {
+                Map<String, String> group = match((TBase) value, cfgSubObj);
+                if (group == null) {
+                    return null;
+                }
+                matchGroup.putAll(group);
             } else {
                 if (mismatchField(cfgMatch, cfgKey, value, matchGroup)) {
                     return null;
@@ -140,9 +152,11 @@ public class PackageConfig {
             String cfgKey = cfgKeys.next();
             final Field field = data.getClass().getDeclaredField(cfgKey);
 
-            if (Map.class.isAssignableFrom(field.getType())) {
-                Map subMap = (Map) field.get(data);
-                JSONObject cfgSubObj = null;
+            boolean isMap = Map.class.isAssignableFrom(field.getType());
+            boolean isTBase = TBase.class.isAssignableFrom(field.getType());
+
+            JSONObject cfgSubObj = null;
+            if (isMap || isTBase) {
                 try {
                     cfgSubObj = cfgReplace.getJSONObject(cfgKey);
                 } catch (JSONException e) {
@@ -150,6 +164,10 @@ public class PackageConfig {
                             String.format("The type of field \"%s\" is %s, not %s", cfgKey,
                                     field.getType().getSimpleName(), cfgReplace.opt(cfgKey).getClass()));
                 }
+            }
+
+            if (isMap) {
+                Map subMap = (Map) field.get(data);
 
                 Iterator<String> cfgSubKeys = cfgSubObj.keys();
                 while (cfgSubKeys.hasNext()) {
@@ -172,6 +190,8 @@ public class PackageConfig {
                         }
                     }
                 }
+            } else if (isTBase) {
+                replace((TBase) field.get(data), cfgSubObj, configurations, config);
             } else {
                 Object cfgValueObj = cfgReplace.opt(cfgKey);
                 boolean evaluated = cfgValueObj instanceof JSONArray;
