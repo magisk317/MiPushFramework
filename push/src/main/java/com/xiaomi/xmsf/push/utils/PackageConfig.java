@@ -46,7 +46,7 @@ public class PackageConfig {
         this.configurations = configurations;
     }
 
-    public boolean match(TBase data) throws NoSuchFieldException, IllegalAccessException, JSONException {
+    public boolean match(TBase data) throws NoSuchFieldException, IllegalAccessException {
         matchGroup = new HashMap<>();
         if (cfgMatch == null) {
             return true;
@@ -59,7 +59,14 @@ public class PackageConfig {
 
             if (value instanceof Map) {
                 Map subMap = (Map) value;
-                JSONObject cfgSubObj = cfgMatch.getJSONObject(cfgKey);
+                JSONObject cfgSubObj = null;
+                try {
+                    cfgSubObj = cfgMatch.getJSONObject(cfgKey);
+                } catch (JSONException e) {
+                    throw new NoSuchFieldException(
+                            String.format("The type of field \"%s\" is %s, not %s", cfgKey,
+                                    value.getClass().getSimpleName(), cfgMatch.opt(cfgKey).getClass()));
+                }
 
                 Iterator<String> cfgSubKeys = cfgSubObj.keys();
                 while (cfgSubKeys.hasNext()) {
@@ -77,7 +84,7 @@ public class PackageConfig {
         return true;
     }
 
-    public void replace(TBase data) throws NoSuchFieldException, IllegalAccessException, JSONException, NoSuchMethodException, InvocationTargetException {
+    public void replace(TBase data) throws NoSuchFieldException, IllegalAccessException {
         JSONObject cfgReplace = this.cfgReplace;
         if (cfgReplace == null) {
             return;
@@ -89,7 +96,14 @@ public class PackageConfig {
 
             if (Map.class.isAssignableFrom(field.getType())) {
                 Map subMap = (Map) field.get(data);
-                JSONObject cfgSubObj = cfgReplace.getJSONObject(cfgKey);
+                JSONObject cfgSubObj = null;
+                try {
+                    cfgSubObj = cfgReplace.getJSONObject(cfgKey);
+                } catch (JSONException e) {
+                    throw new NoSuchFieldException(
+                            String.format("The type of field \"%s\" is %s, not %s", cfgKey,
+                                    field.getType().getSimpleName(), cfgReplace.opt(cfgKey).getClass()));
+                }
 
                 Iterator<String> cfgSubKeys = cfgSubObj.keys();
                 while (cfgSubKeys.hasNext()) {
@@ -106,22 +120,27 @@ public class PackageConfig {
                                 subMap.put(cfgSubKey, value.toString());
                             }
                         } else {
-                            String cfgValue = cfgSubObj.getString(cfgSubKey);
+                            String cfgValue = cfgSubObj.optString(cfgSubKey);
                             cfgValue = replace(cfgValue);
                             subMap.put(cfgSubKey, cfgValue);
                         }
                     }
                 }
             } else {
-                Object cfgValueObj = cfgReplace.get(cfgKey);
+                Object cfgValueObj = cfgReplace.opt(cfgKey);
                 boolean evaluated = cfgValueObj instanceof JSONArray;
                 if (evaluated) {
                     cfgValueObj = configurations.evaluate(cfgValueObj, this);
                 }
                 if (cfgReplace.isNull(cfgKey) || cfgValueObj == null) {
-                    String capitalizedKey = cfgKey.substring(0, 1).toUpperCase() + cfgKey.substring(1);
-                    final Method method = data.getClass().getDeclaredMethod("unset" + capitalizedKey);
-                    method.invoke(data);
+                    try {
+                        String capitalizedKey = cfgKey.substring(0, 1).toUpperCase() + cfgKey.substring(1);
+                        final Method method;
+                        method = data.getClass().getDeclaredMethod("unset" + capitalizedKey);
+                        method.invoke(data);
+                    } catch (NoSuchMethodException | InvocationTargetException e) {
+                        // Ignore
+                    }
                 } else {
                     String value = cfgValueObj.toString();
                     if (!evaluated) {
@@ -180,14 +199,14 @@ public class PackageConfig {
         return sb.toString();
     }
 
-    private boolean mismatchField(JSONObject obj, String key, Object value) throws JSONException {
-        if (obj.isNull(key)) {
+    private boolean mismatchField(JSONObject obj, String cfgKey, Object value) {
+        if (obj.isNull(cfgKey)) {
             return value != null;
         } else if (value == null) {
             return true;
         }
 
-        String regex = obj.getString(key);
+        String regex = obj.optString(cfgKey);
         Pattern pattern = Pattern.compile(regex);
         Matcher matcher = pattern.matcher(value.toString());
         if (!matcher.find()) {
