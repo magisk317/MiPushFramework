@@ -174,10 +174,10 @@ public class ConfigurationsLoader {
     PackageConfig parseConfig(JSONObject configObj) throws JSONException {
         PackageConfig config = new PackageConfig(Configurations.getInstance());
         if (!configObj.isNull(PackageConfig.KEY_META_INFO)) {
-            config.metaInfoObj = configObj.getJSONObject(PackageConfig.KEY_META_INFO);
+            config.cfgMatch = configObj.getJSONObject(PackageConfig.KEY_META_INFO);
         }
         if (!configObj.isNull(PackageConfig.KEY_NEW_META_INFO)) {
-            config.newMetaInfoObj = configObj.getJSONObject(PackageConfig.KEY_NEW_META_INFO);
+            config.cfgReplace = configObj.getJSONObject(PackageConfig.KEY_NEW_META_INFO);
         }
         if (!configObj.isNull(PackageConfig.KEY_OPERATION)) {
             String operations = configObj.getString(PackageConfig.KEY_OPERATION);

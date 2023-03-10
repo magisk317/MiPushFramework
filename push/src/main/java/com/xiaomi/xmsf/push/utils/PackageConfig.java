@@ -4,8 +4,7 @@ import android.os.Build;
 
 import androidx.annotation.NonNull;
 
-import com.xiaomi.xmpush.thrift.PushMetaInfo;
-
+import org.apache.thrift.TBase;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -36,8 +35,8 @@ public class PackageConfig {
 
     private Configurations configurations;
 
-    JSONObject metaInfoObj;
-    JSONObject newMetaInfoObj;
+    JSONObject cfgMatch;
+    JSONObject cfgReplace;
     Set<String> operation = new HashSet<>();
     boolean stop = true;
 
@@ -47,30 +46,30 @@ public class PackageConfig {
         this.configurations = configurations;
     }
 
-    public boolean match(PushMetaInfo metaInfo) throws NoSuchFieldException, IllegalAccessException, JSONException {
+    public boolean match(TBase data) throws NoSuchFieldException, IllegalAccessException, JSONException {
         matchGroup = new HashMap<>();
-        if (metaInfoObj == null) {
+        if (cfgMatch == null) {
             return true;
         }
-        Iterator<String> keys = metaInfoObj.keys();
-        while (keys.hasNext()) {
-            String key = keys.next();
-            final Field field = PushMetaInfo.class.getDeclaredField(key);
-            Object value = field.get(metaInfo);
+        Iterator<String> cfgKeys = cfgMatch.keys();
+        while (cfgKeys.hasNext()) {
+            String cfgKey = cfgKeys.next();
+            final Field field = data.getClass().getDeclaredField(cfgKey);
+            Object value = field.get(data);
 
             if (value instanceof Map) {
                 Map subMap = (Map) value;
-                JSONObject subObj = metaInfoObj.getJSONObject(key);
+                JSONObject cfgSubObj = cfgMatch.getJSONObject(cfgKey);
 
-                Iterator<String> subKeys = subObj.keys();
-                while (subKeys.hasNext()) {
-                    String subKey = subKeys.next();
-                    if (mismatchField(subObj, subKey, subMap.get(subKey))) {
+                Iterator<String> cfgSubKeys = cfgSubObj.keys();
+                while (cfgSubKeys.hasNext()) {
+                    String cfgSubKey = cfgSubKeys.next();
+                    if (mismatchField(cfgSubObj, cfgSubKey, subMap.get(cfgSubKey))) {
                         return false;
                     }
                 }
             } else {
-                if (mismatchField(metaInfoObj, key, value)) {
+                if (mismatchField(cfgMatch, cfgKey, value)) {
                     return false;
                 }
             }
@@ -78,53 +77,53 @@ public class PackageConfig {
         return true;
     }
 
-    public void replace(PushMetaInfo metaInfo) throws NoSuchFieldException, IllegalAccessException, JSONException, NoSuchMethodException, InvocationTargetException {
-        JSONObject metaInfoObj = newMetaInfoObj;
-        if (metaInfoObj == null) {
+    public void replace(TBase data) throws NoSuchFieldException, IllegalAccessException, JSONException, NoSuchMethodException, InvocationTargetException {
+        JSONObject cfgReplace = this.cfgReplace;
+        if (cfgReplace == null) {
             return;
         }
-        Iterator<String> keys = metaInfoObj.keys();
-        while (keys.hasNext()) {
-            String key = keys.next();
-            final Field field = PushMetaInfo.class.getDeclaredField(key);
+        Iterator<String> cfgKeys = cfgReplace.keys();
+        while (cfgKeys.hasNext()) {
+            String cfgKey = cfgKeys.next();
+            final Field field = data.getClass().getDeclaredField(cfgKey);
 
             if (Map.class.isAssignableFrom(field.getType())) {
-                Map subMap = (Map) field.get(metaInfo);
-                JSONObject subObj = metaInfoObj.getJSONObject(key);
+                Map subMap = (Map) field.get(data);
+                JSONObject cfgSubObj = cfgReplace.getJSONObject(cfgKey);
 
-                Iterator<String> subKeys = subObj.keys();
-                while (subKeys.hasNext()) {
-                    String subKey = subKeys.next();
-                    if (subObj.isNull(subKey)) {
-                        subMap.remove(subKey);
+                Iterator<String> cfgSubKeys = cfgSubObj.keys();
+                while (cfgSubKeys.hasNext()) {
+                    String cfgSubKey = cfgSubKeys.next();
+                    if (cfgSubObj.isNull(cfgSubKey)) {
+                        subMap.remove(cfgSubKey);
                     } else {
-                        Object subVal = subObj.opt(subKey);
-                        if (subVal instanceof JSONArray) {
-                            Object value = configurations.evaluate(subVal, this);
+                        Object cfgSubVal = cfgSubObj.opt(cfgSubKey);
+                        if (cfgSubVal instanceof JSONArray) {
+                            Object value = configurations.evaluate(cfgSubVal, this);
                             if (value == null) {
-                                subMap.remove(subKey);
+                                subMap.remove(cfgSubKey);
                             } else {
-                                subMap.put(subKey, value.toString());
+                                subMap.put(cfgSubKey, value.toString());
                             }
                         } else {
-                            String value = subObj.getString(subKey);
-                            value = replace(value);
-                            subMap.put(subKey, value);
+                            String cfgValue = cfgSubObj.getString(cfgSubKey);
+                            cfgValue = replace(cfgValue);
+                            subMap.put(cfgSubKey, cfgValue);
                         }
                     }
                 }
             } else {
-                Object valueObj = metaInfoObj.get(key);
-                boolean evaluated = valueObj instanceof JSONArray;
+                Object cfgValueObj = cfgReplace.get(cfgKey);
+                boolean evaluated = cfgValueObj instanceof JSONArray;
                 if (evaluated) {
-                    valueObj = configurations.evaluate(valueObj, this);
+                    cfgValueObj = configurations.evaluate(cfgValueObj, this);
                 }
-                if (metaInfoObj.isNull(key) || valueObj == null) {
-                    String capitalizedKey = key.substring(0, 1).toUpperCase() + key.substring(1);
-                    final Method method = PushMetaInfo.class.getDeclaredMethod("unset" + capitalizedKey);
-                    method.invoke(metaInfo);
+                if (cfgReplace.isNull(cfgKey) || cfgValueObj == null) {
+                    String capitalizedKey = cfgKey.substring(0, 1).toUpperCase() + cfgKey.substring(1);
+                    final Method method = data.getClass().getDeclaredMethod("unset" + capitalizedKey);
+                    method.invoke(data);
                 } else {
-                    String value = valueObj.toString();
+                    String value = cfgValueObj.toString();
                     if (!evaluated) {
                         value = replace(value);
                     }
@@ -140,7 +139,7 @@ public class PackageConfig {
                         // Assume String
                         typedValue = value;
                     }
-                    field.set(metaInfo, typedValue);
+                    field.set(data, typedValue);
                 }
             }
         }
