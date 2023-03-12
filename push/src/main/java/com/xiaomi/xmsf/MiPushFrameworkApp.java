@@ -46,6 +46,12 @@ public class MiPushFrameworkApp extends Application {
 
     private static final String MIPUSH_EXTRA = "mipush_extra";
 
+    private static MiPushFrameworkApp instance;
+
+    public static Context getContext(){
+        return instance;
+    }
+
     @Override
     public void attachBaseContext(Context context) {
         super.attachBaseContext(context);
@@ -55,6 +61,7 @@ public class MiPushFrameworkApp extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        instance = this;
         try {
             Field MIUIUtils_isMIUI = MIUIUtils.class.getDeclaredField("isMIUI");
             MIUIUtils_isMIUI.setAccessible(true);
