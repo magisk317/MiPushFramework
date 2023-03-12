@@ -203,16 +203,15 @@ public class MyMIPushMessageProcessor {
 
             RegisteredApplication application = RegisteredApplicationDb.registerApplication(
                     realTargetPackage, false, pushService, null);
-            PushMetaInfo decoratedMetaInfo = metaInfo.deepCopy();
+            XmPushActionContainer decorated = container.deepCopy();
             try {
-                Configurations.getInstance().handle(realTargetPackage, decoratedMetaInfo);
+                Configurations.getInstance().handle(realTargetPackage, decorated);
             } catch (Throwable e) {
-                e.printStackTrace();
-                logger.w(e.getLocalizedMessage(), e);
+                // Ignore
             }
             boolean awake = Boolean.parseBoolean(
                     NotificationUtils.getExtraField(
-                            decoratedMetaInfo.getExtra(), PushConstants.EXTRA_PARAM_AWAKE, null));
+                            decorated.metaInfo.getExtra(), PushConstants.EXTRA_PARAM_AWAKE, null));
             boolean isSystemApp = false;
             try {
                 int flags = pushService.getPackageManager().getApplicationInfo(realTargetPackage, 0).flags &

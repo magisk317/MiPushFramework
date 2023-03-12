@@ -23,6 +23,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class PackageConfig {
+    public static final String KEY_MATCH = "match";
+    public static final String KEY_REPLACE = "replace";
     public static final String KEY_META_INFO = "metaInfo";
     public static final String KEY_NEW_META_INFO = "newMetaInfo";
     public static final String KEY_OPERATION = "operation";

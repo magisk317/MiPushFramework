@@ -131,7 +131,6 @@ public class MyMIPushNotificationHelper {
             logger.w("Do not notify because user block " + shieldTypeName + "'s notification");
         } else {
 
-            PushMetaInfo metaInfo = container.getMetaInfo();
             String packageName = container.getPackageName();
 
             if (!tryLoadConfigurations) {
@@ -148,7 +147,7 @@ public class MyMIPushNotificationHelper {
             }
 
             try {
-                Set<String> operations = Configurations.getInstance().handle(packageName, metaInfo);
+                Set<String> operations = Configurations.getInstance().handle(packageName, container);
 
                 if (operations.contains(PackageConfig.OPERATION_WAKE)) {
                     wakeScreen(context, packageName);

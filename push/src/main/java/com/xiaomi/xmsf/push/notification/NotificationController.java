@@ -298,13 +298,13 @@ public class NotificationController {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (notificationGroup != null) {
-                PushMetaInfo metaInfo = container.getMetaInfo().deepCopy();
+                XmPushActionContainer copy = container.deepCopy();
                 try {
-                    Configurations.getInstance().handle(container.packageName, metaInfo);
+                    Configurations.getInstance().handle(container.packageName, copy);
                 } catch (Throwable e) {
                     e.printStackTrace();
                 }
-                updateSummaryNotification(context, metaInfo, container.getPackageName(), notificationGroup);
+                updateSummaryNotification(context, copy.metaInfo, container.getPackageName(), notificationGroup);
             }
         }
     }

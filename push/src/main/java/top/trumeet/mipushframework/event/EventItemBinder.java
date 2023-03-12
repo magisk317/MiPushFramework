@@ -87,7 +87,7 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
                     if (container.metaInfo.isSetPassThrough()) {
                         if (container.metaInfo.passThrough == 0) {
                             try {
-                                Set<String> ops = Configurations.getInstance().handle(container.getPackageName(), container.getMetaInfo());
+                                Set<String> ops = Configurations.getInstance().handle(container.getPackageName(), container);
                                 status = container.getMetaInfo().getExtra().get("channel_name");
                                 if (!ops.isEmpty()) {
                                     status = ops + " " + status;
@@ -179,7 +179,7 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
                 Button button = ((AlertDialog) dialog).getButton(AlertDialog.BUTTON_NEUTRAL);
                 button.setOnClickListener(view -> {
                     try {
-                        Configurations.getInstance().handle(container.packageName, container.metaInfo);
+                        Configurations.getInstance().handle(container.packageName, container);
                         showText.setText(containerToJson(context, container));
                     } catch (Throwable e) {
                         e.printStackTrace();

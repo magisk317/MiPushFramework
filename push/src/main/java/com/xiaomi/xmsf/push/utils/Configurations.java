@@ -5,7 +5,7 @@ import android.net.Uri;
 
 import com.elvishew.xlog.Logger;
 import com.elvishew.xlog.XLog;
-import com.xiaomi.xmpush.thrift.PushMetaInfo;
+import com.xiaomi.xmpush.thrift.XmPushActionContainer;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -48,14 +48,14 @@ public class Configurations {
         return loader.init(context, treeUri);
     }
 
-    public Set<String> handle(String packageName, PushMetaInfo metaInfo)
+    public Set<String> handle(String packageName, XmPushActionContainer data)
             throws JSONException, NoSuchFieldException, IllegalAccessException, InvocationTargetException, NoSuchMethodException {
         String[] checkPkgs = new String[]{"^", packageName, "$"};
         Set<String> operations = new HashSet<>();
         for (String pkg : checkPkgs) {
             List<Object> configs = loader.getConfigs().get(pkg);
             logger.d("package: " + packageName + ", config count: " + (configs == null ? 0 : configs.size()));
-            boolean stop = doHandle(metaInfo, configs, operations);
+            boolean stop = doHandle(data, configs, operations);
             if (stop) {
                 return operations;
             }
@@ -63,20 +63,20 @@ public class Configurations {
         return operations;
     }
 
-    private boolean doHandle(PushMetaInfo metaInfo, List<Object> configs, Set<String> operations)
+    private boolean doHandle(XmPushActionContainer data, List<Object> configs, Set<String> operations)
             throws JSONException, NoSuchFieldException, InvocationTargetException, IllegalAccessException, NoSuchMethodException {
-        return doHandle(metaInfo, configs, operations, new ArrayList<>());
+        return doHandle(data, configs, operations, new ArrayList<>());
     }
 
-    private boolean doHandle(PushMetaInfo metaInfo, List<Object> configs, Set<String> operations, List<Object> matched)
+    private boolean doHandle(XmPushActionContainer data, List<Object> configs, Set<String> operations, List<Object> matched)
             throws NoSuchFieldException, IllegalAccessException, JSONException, NoSuchMethodException, InvocationTargetException {
         if (configs != null && !matched.contains(configs)) {
             matched.add(configs);
             for (Object configItem : configs) {
                 if (configItem instanceof PackageConfig) {
                     PackageConfig config = (PackageConfig) configItem;
-                    if (config.match(metaInfo)) {
-                        config.replace(metaInfo);
+                    if (config.match(data)) {
+                        config.replace(data);
                         operations.addAll(config.operation);
                         if (config.stop) {
                             return true;
@@ -85,7 +85,7 @@ public class Configurations {
                 } else {
                     List<Object> refConfigs = null;
                     if (configItem instanceof JSONArray) {
-                        Object value = evaluate(configItem, metaInfo);
+                        Object value = evaluate(configItem, data);
                         if (value instanceof JSONObject) {
                             refConfigs = new ArrayList<>();
                             refConfigs.add(loader.parseConfig((JSONObject) value));
@@ -96,7 +96,7 @@ public class Configurations {
                         refConfigs = loader.getConfigs().get(configItem);
                     }
                     if (refConfigs != null) {
-                        boolean stop = doHandle(metaInfo, refConfigs, operations);
+                        boolean stop = doHandle(data, refConfigs, operations);
                         if (stop) {
                             return true;
                         }
@@ -107,19 +107,19 @@ public class Configurations {
         return false;
     }
 
-    private boolean match(PushMetaInfo metaInfo, List<Object> configs, List<Object> matched)
-            throws NoSuchFieldException, IllegalAccessException, JSONException {
+    private boolean match(XmPushActionContainer data, List<Object> configs, List<Object> matched)
+            throws NoSuchFieldException, IllegalAccessException {
         if (configs != null && !matched.contains(configs)) {
             matched.add(configs);
             for (Object configItem : configs) {
                 if (configItem instanceof PackageConfig) {
                     PackageConfig config = (PackageConfig) configItem;
-                    if (config.match(metaInfo)) {
+                    if (config.match(data)) {
                         return true;
                     }
                 } else {
                     List<Object> refConfigs = loader.getConfigs().get(configItem);
-                    return match(metaInfo, refConfigs, matched);
+                    return match(data, refConfigs, matched);
                 }
             }
         }
@@ -135,11 +135,11 @@ public class Configurations {
         return evaluate(expr, env, null);
     }
 
-    private Object evaluate(Object expr, PushMetaInfo env) {
+    private Object evaluate(Object expr, XmPushActionContainer env) {
         return evaluate(expr, null, env);
     }
 
-    private Object evaluate(Object expr, PackageConfig config, PushMetaInfo metaInfo) {
+    private Object evaluate(Object expr, PackageConfig config, XmPushActionContainer data) {
         if (expr instanceof String) {
             return expr;
         }
@@ -147,12 +147,12 @@ public class Configurations {
             return expr;
         }
         if (expr instanceof JSONArray) {
-            return evaluate((JSONArray) expr, config, metaInfo);
+            return evaluate((JSONArray) expr, config, data);
         }
         return null;
     }
 
-    private Object evaluate(JSONArray expr, PackageConfig config, PushMetaInfo metaInfo) {
+    private Object evaluate(JSONArray expr, PackageConfig config, XmPushActionContainer data) {
         String method = (String) evaluate(expr.opt(0), config);
         if (method == null) {
             return null;
@@ -165,17 +165,17 @@ public class Configurations {
                     JSONArray clause = expr.optJSONArray(i);
                     Object test = clause.opt(0);
                     if (test instanceof JSONObject) {
-                        if (loader.parseConfig((JSONObject) test).match(metaInfo)) {
+                        if (loader.parseConfig((JSONObject) test).match(data)) {
                             return clause.opt(1);
                         }
                     }
                     if (test instanceof String) {
-                        if (match(metaInfo, loader.getConfigs().get(test), new ArrayList<>())) {
+                        if (match(data, loader.getConfigs().get(test), new ArrayList<>())) {
                             return clause.opt(1);
                         }
                     }
                     if (test instanceof JSONArray) {
-                        if (Boolean.TRUE.equals(evaluate(test, config, metaInfo))) {
+                        if (Boolean.TRUE.equals(evaluate(test, config, data))) {
                             Object ret = null;
                             for (int j = 1; j < clause.length(); ++j) {
                                 ret = evaluate(expr.opt(j), config);
