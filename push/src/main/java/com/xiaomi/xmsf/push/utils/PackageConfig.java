@@ -92,7 +92,13 @@ public class PackageConfig {
         return sb.toString();
     }
 
-    private static Map<String, String> match(TBase data, JSONObject cfgMatch) throws NoSuchFieldException, IllegalAccessException {
+    private static Map<String, String> match(TBase data, JSONObject cfgMatch)
+            throws NoSuchFieldException, IllegalAccessException {
+        return match(data, data, cfgMatch, new String[]{});
+    }
+
+    private static Map<String, String> match(TBase root, TBase data, JSONObject cfgMatch, String[] path)
+            throws NoSuchFieldException, IllegalAccessException {
         Map<String, String> matchGroup = new HashMap<>();
         if (cfgMatch == null) {
             return matchGroup;
@@ -101,7 +107,8 @@ public class PackageConfig {
         while (cfgKeys.hasNext()) {
             String cfgKey = cfgKeys.next();
             final Field field = data.getClass().getDeclaredField(cfgKey);
-            Object value = field.get(data);
+            String[] newPath = concat(path, new String[]{cfgKey});
+            Object value = ConfigValueConverter.getInstance().convert(root, newPath, field.get(data));
 
             boolean isMap = value instanceof Map;
             boolean isTBase = value instanceof TBase;
@@ -123,12 +130,15 @@ public class PackageConfig {
                 Iterator<String> cfgSubKeys = cfgSubObj.keys();
                 while (cfgSubKeys.hasNext()) {
                     String cfgSubKey = cfgSubKeys.next();
-                    if (mismatchField(cfgSubObj, cfgSubKey, subMap.get(cfgSubKey), matchGroup)) {
+                    String[] subPath = concat(newPath, new String[]{cfgSubKey});
+                    if (mismatchField(cfgSubObj, cfgSubKey,
+                            ConfigValueConverter.getInstance().convert(root, subPath, subMap.get(cfgSubKey)),
+                            matchGroup)) {
                         return null;
                     }
                 }
             } else if (isTBase) {
-                Map<String, String> group = match((TBase) value, cfgSubObj);
+                Map<String, String> group = match(root, (TBase) value, cfgSubObj, newPath);
                 if (group == null) {
                     return null;
                 }
@@ -261,5 +271,12 @@ public class PackageConfig {
             namedGroups.add(m.group(1));
         }
         return namedGroups;
+    }
+
+    public static String[] concat(String[] first, String[] second) {
+        String[] result = new String[first.length + second.length];
+        System.arraycopy(first, 0, result, 0, first.length);
+        System.arraycopy(second, 0, result, first.length, second.length);
+        return result;
     }
 }
