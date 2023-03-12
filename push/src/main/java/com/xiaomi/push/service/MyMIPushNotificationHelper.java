@@ -503,7 +503,17 @@ public class MyMIPushNotificationHelper {
         intent.putExtra(FROM_NOTIFICATION, true);
         intent.putExtras(extra);
         intent.addCategory(String.valueOf(metaInfo.getNotifyId()));
-        return PendingIntent.getService(context, notificationId, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+        boolean useActivity = Boolean.parseBoolean(getExtraField(
+                container.metaInfo.getExtra(), "use_clicked_activity", null));
+        Intent activityIntent = getSdkIntent(context, container);
+        if (!useActivity || activityIntent == null) {
+            return PendingIntent.getService(context, notificationId, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+        }
+        activityIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        activityIntent.putExtra("mipush_serviceIntent", intent);
+        activityIntent.putExtras(intent);
+        return PendingIntent.getActivity(context, notificationId, activityIntent, PendingIntent.FLAG_UPDATE_CURRENT);
     }
 
     /**
