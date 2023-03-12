@@ -179,8 +179,9 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
                 Button button = ((AlertDialog) dialog).getButton(AlertDialog.BUTTON_NEUTRAL);
                 button.setOnClickListener(view -> {
                     try {
-                        Configurations.getInstance().handle(container.packageName, container);
-                        showText.setText(containerToJson(context, container));
+                        XmPushActionContainer newContainer = buildContainer(type.getPayload());
+                        Configurations.getInstance().handle(container.packageName, newContainer);
+                        showText.setText(containerToJson(context, newContainer));
                     } catch (Throwable e) {
                         e.printStackTrace();
                         showText.setText(e.toString());
