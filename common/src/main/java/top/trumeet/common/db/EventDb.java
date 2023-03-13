@@ -70,7 +70,7 @@ public class EventDb {
                                     @Nullable CancellationSignal signal) {
         StringBuilder cond = new StringBuilder("");
         ArrayList<String> args = new ArrayList<>();
-        if (pkg != null && pkg != "") {
+        if (pkg != null && !pkg.trim().isEmpty()) {
             cond.append("(");
             cond.append(Event.KEY_PKG);
             cond.append("=?)");
@@ -86,7 +86,7 @@ public class EventDb {
             cond.append(typesQuery);
             cond.append("))");
         }
-        if (text != null && text != "") {
+        if (text != null && !text.trim().isEmpty()) {
             if (cond.length() > 0) cond.append(" AND ");
             cond.append("(");
             cond.append(Event.KEY_INFO);
