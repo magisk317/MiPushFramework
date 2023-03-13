@@ -46,6 +46,12 @@
             android:key="ShowConfigurationListOnLoaded"
             android:title="@string/settings_show_loaded_file_after_configurations_loaded" />
 
+        <SwitchPreference
+                android:defaultValue="false"
+                android:key="DebugMode"
+                android:title="@string/settings_debug_mode"
+                android:summary="@string/settings_debug_mode_summary" />
+
         <!-- TODO: entryValues's height is insufficient for 'en' locale. -->
         <ListPreference
             android:defaultValue="0"

@@ -65,6 +65,10 @@ public class ConfigCenter {
                 .commit();
     }
 
+    public boolean isDebugMode(Context ctx) {
+        return getSharedPreferences(ctx).getBoolean("DebugMode", false);
+    }
+
     public void loadConfigurations(Context context) {
         Configurations.getInstance().init(context,
                 ConfigCenter.getInstance().getConfigurationDirectory(context));

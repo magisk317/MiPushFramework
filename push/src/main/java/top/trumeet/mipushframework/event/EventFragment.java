@@ -22,8 +22,11 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.xiaomi.xmsf.R;
+import com.xiaomi.xmsf.utils.ConfigCenter;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import me.drakeet.multitype.Items;
 import me.drakeet.multitype.MultiTypeAdapter;
@@ -213,7 +216,15 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
         @Override
         protected List<Event> doInBackground(Integer... integers) {
             mSignal = new CancellationSignal();
-            return EventDb.query(mPacketName, mQuery, mTargetPage, getActivity(), mSignal);
+            Set<Integer> types = null;
+            if (!ConfigCenter.getInstance().isDebugMode(getContext())) {
+                types = new HashSet<>();
+                types.add(Event.Type.SendMessage);
+                types.add(Event.Type.Registration);
+                types.add(Event.Type.RegistrationResult);
+                types.add(Event.Type.UnRegistration);
+            }
+            return EventDb.query(types, mPacketName, mQuery, mTargetPage, getActivity(), mSignal);
         }
 
         @Override

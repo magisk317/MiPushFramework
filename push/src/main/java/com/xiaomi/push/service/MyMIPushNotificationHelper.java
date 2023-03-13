@@ -434,7 +434,7 @@ public class MyMIPushNotificationHelper {
     }
 
     private static void addDebugAction(Context xmPushService, XmPushActionContainer buildContainer, byte[] var1, PushMetaInfo metaInfo, String packageName, NotificationCompat.Builder localBuilder) {
-        if (BuildConfig.DEBUG) {
+        if (ConfigCenter.getInstance().isDebugMode(xmPushService)) {
             int i = R.drawable.ic_notifications_black_24dp;
 
             PendingIntent pendingIntentOpenActivity = openActivityPendingIntent(xmPushService, buildContainer, metaInfo, var1);

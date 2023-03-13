@@ -63,6 +63,7 @@ public class EventDb {
 
     public static List<Event> query(@Nullable Integer skip,
                                     @Nullable Integer limit,
+                                    @Nullable Set<Integer> types,
                                     @Nullable String pkg,
                                     @Nullable String text,
                                     Context context,
@@ -74,6 +75,16 @@ public class EventDb {
             cond.append(Event.KEY_PKG);
             cond.append("=?)");
             args.add(pkg);
+        }
+        if (types != null && !types.isEmpty()) {
+            if (cond.length() > 0) cond.append(" AND ");
+            cond.append("(");
+            cond.append(Event.KEY_TYPE);
+            cond.append(" in (");
+            String typesQuery = types.toString();
+            typesQuery = typesQuery.substring(1, typesQuery.length() - 1);
+            cond.append(typesQuery);
+            cond.append("))");
         }
         if (text != null && text != "") {
             if (cond.length() > 0) cond.append(" AND ");
@@ -155,12 +166,13 @@ public class EventDb {
     }
 
 
-    public static List<Event> query(String pkg, String text, int page, Context context,
+    public static List<Event> query(@Nullable Set<Integer> types,
+                                    String pkg, String text, int page, Context context,
                                     CancellationSignal cancellationSignal) {
         int skip;
         int limit;
         skip = Constants.PAGE_SIZE * (page - 1);
         limit = Constants.PAGE_SIZE;
-        return query(skip, limit, pkg, text, context, cancellationSignal);
+        return query(skip, limit, types, pkg, text, context, cancellationSignal);
     }
 }
