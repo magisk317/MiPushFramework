@@ -15,6 +15,12 @@ public abstract class OnLoadMoreListener extends RecyclerView.OnScrollListener {
 
     @Override
     public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
+        if (needLoadMore(recyclerView)) {
+            this.onLoadMore();
+        };
+    }
+
+    private boolean needLoadMore(RecyclerView recyclerView) {
         if (recyclerView.getLayoutManager() instanceof LinearLayoutManager) {
             layoutManager = (LinearLayoutManager) recyclerView.getLayoutManager();
 
@@ -22,11 +28,9 @@ public abstract class OnLoadMoreListener extends RecyclerView.OnScrollListener {
             lastPosition = layoutManager.findLastCompletelyVisibleItemPosition();
         } else {
             Log.e("OnLoadMoreListener", "The OnLoadMoreListener only support LinearLayoutManager");
-            return;
+            return false;
         }
 
-        if (lastPosition > itemCount - 3) {
-            this.onLoadMore();
-        }
+        return lastPosition > itemCount - 3;
     }
 }
