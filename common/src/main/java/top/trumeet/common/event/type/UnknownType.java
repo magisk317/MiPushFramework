@@ -25,6 +25,8 @@ public class UnknownType extends EventType {
                 return "Registration";
             case Event.Type.Notification:
                 return "Notification";
+            case Event.Type.SendMessage:
+                return "SendMessage";
             case Event.Type.Command:
                 return "Command";
             case Event.Type.AckMessage:

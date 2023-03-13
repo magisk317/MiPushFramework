@@ -15,6 +15,11 @@ public class TypeFactory {
             case Event.Type.Notification:
                 return new NotificationType(event.getInfo(), pkg, event.getNotificationTitle(),
                         event.getNotificationSummary(), event.getPayload());
+            case Event.Type.SendMessage:
+                NotificationType type = new NotificationType(event.getInfo(), pkg, event.getNotificationTitle(),
+                        event.getNotificationSummary(), event.getPayload());
+                type.setType(Event.Type.SendMessage);
+                return type;
             case Event.Type.Registration:
                 return new RegistrationType(event.getInfo(),
                         pkg, event.getPayload());

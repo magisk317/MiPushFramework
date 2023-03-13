@@ -43,21 +43,21 @@ public class Event {
         @Deprecated
         int RECEIVE_PUSH = 0;
         @Deprecated
-        int REGISTER = 2;
-        @Deprecated
         int RECEIVE_COMMAND = 1;
+        @Deprecated
+        int REGISTER = 2;
 
         // Same to com.xiaomi.xmpush.thrift.ActionType
-        int AckMessage = 6;
-        int MultiConnectionBroadcast = 11;
-        int MultiConnectionResult = 12;
-        int SendMessage = RECEIVE_PUSH;
-        int SetConfig = 7;
         int Subscription = 3;
         int UnSubscription = 4;
-        int Notification = RECEIVE_PUSH;
-        int Command = 10;
+        int SendMessage = RECEIVE_PUSH;
+        int AckMessage = 6;
+        int SetConfig = 7;
         int ReportFeedback = 8;
+        int Notification = 9;
+        int Command = 10;
+        int MultiConnectionBroadcast = 11;
+        int MultiConnectionResult = 12;
 
         // 和上面的重复（
         int Registration = REGISTER;

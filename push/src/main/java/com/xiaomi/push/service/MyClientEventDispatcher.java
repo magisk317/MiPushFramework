@@ -112,6 +112,8 @@ public class MyClientEventDispatcher extends ClientEventDispatcher {
                     return application.isAllowReceiveCommand();
                 case Event.Type.Notification:
                     return application.getAllowReceivePush();
+                case Event.Type.SendMessage:
+                    return application.getAllowReceivePush();
                 default:
                     logger.e("Unknown type: " + type.getType());
                     return true;

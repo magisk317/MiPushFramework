@@ -18,7 +18,7 @@ import top.trumeet.common.event.Event;
 
 public abstract class EventType {
     @Event.Type
-    private final int mType;
+    private int mType;
 
     /* buildContainer info */
     private final String mInfo;
@@ -71,6 +71,9 @@ public abstract class EventType {
 
     public int getType() {
         return mType;
+    }
+    public void setType(@Event.Type int type) {
+        mType = type;
     }
 
     public String getInfo() {
