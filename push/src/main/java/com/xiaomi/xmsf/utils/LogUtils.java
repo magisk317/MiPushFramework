@@ -11,6 +11,7 @@ import android.widget.Toast;
 import com.elvishew.xlog.LogConfiguration;
 import com.elvishew.xlog.LogLevel;
 import com.elvishew.xlog.XLog;
+import com.elvishew.xlog.flattener.ClassicFlattener;
 import com.elvishew.xlog.formatter.message.json.DefaultJsonFormatter;
 import com.elvishew.xlog.formatter.message.xml.DefaultXmlFormatter;
 import com.elvishew.xlog.formatter.stacktrace.DefaultStackTraceFormatter;
@@ -56,6 +57,7 @@ public class LogUtils {
         Printer filePrinter = new FilePrinter.Builder(LogUtils.getLogFolder(context))
                 .fileNameGenerator(new DateFileNameGenerator())
                 .cleanStrategy(new FileLastModifiedCleanStrategy(7 * 24 * 60 * 60 * 1000 /* 7 days */))
+                .flattener(new ClassicFlattener())
                 .build();
         XLog.init(configuration, androidPrinter, filePrinter);
     }
