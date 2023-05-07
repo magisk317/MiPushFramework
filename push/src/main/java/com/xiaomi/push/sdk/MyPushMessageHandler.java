@@ -18,6 +18,7 @@ import androidx.core.content.ContextCompat;
 import com.catchingnow.icebox.sdk_client.IceBox;
 import com.elvishew.xlog.Logger;
 import com.elvishew.xlog.XLog;
+import com.topjohnwu.superuser.Shell;
 import com.xiaomi.push.service.MIPushEventProcessor;
 import com.xiaomi.push.service.MIPushNotificationHelper;
 import com.xiaomi.push.service.MyMIPushNotificationHelper;
@@ -145,29 +146,24 @@ public class MyPushMessageHandler extends IntentService {
     }
 
     private static void activeApp(Context context, String targetPackage) {
-        try {
-            if (!ConfigCenter.getInstance().isIceboxSupported(context)) {
-                return;
-            }
-
-            if (!Utils.isAppInstalled(IceBox.PACKAGE_NAME)) {
-                return;
-            }
-
-            if (ContextCompat.checkSelfPermission(context, IceBox.SDK_PERMISSION) == PackageManager.PERMISSION_GRANTED) {
-
-                int enabledSetting = IceBox.getAppEnabledSetting(context, targetPackage);
-                if (enabledSetting != 0) {
-                    logger.w(packageInfo(targetPackage, "active app by IceBox SDK"));
-                    IceBox.setAppEnabledSettings(context, true, targetPackage);
+        if (ConfigCenter.getInstance().isIceboxSupported(context) &&
+                Utils.isAppInstalled(IceBox.PACKAGE_NAME)) {
+            try {
+                if (ContextCompat.checkSelfPermission(context, IceBox.SDK_PERMISSION) == PackageManager.PERMISSION_GRANTED) {
+                    int enabledSetting = IceBox.getAppEnabledSetting(context, targetPackage);
+                    if (enabledSetting != 0) {
+                        logger.w(packageInfo(targetPackage, "active app by IceBox SDK"));
+                        IceBox.setAppEnabledSettings(context, true, targetPackage);
+                        return;
+                    }
+                } else {
+                    logger.w(packageInfo(targetPackage, "skip active app by IceBox SDK due to lack of permissions"));
                 }
-
-            } else {
-                logger.w(packageInfo(targetPackage, "skip active app by IceBox SDK due to lack of permissions"));
+            } catch (Throwable e) {
+                logger.e(packageInfo(targetPackage, "activeApp failed " + e.getLocalizedMessage()), e);
             }
-        } catch (Throwable e) {
-            logger.e(packageInfo(targetPackage, "activeApp failed " + e.getLocalizedMessage()), e);
         }
+        Shell.cmd("pm enable " + targetPackage).exec();
     }
 
 
