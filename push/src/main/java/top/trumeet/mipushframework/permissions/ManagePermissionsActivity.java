@@ -17,6 +17,7 @@ import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.provider.Settings;
 import android.text.Html;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -31,6 +32,7 @@ import androidx.core.graphics.drawable.DrawableCompat;
 import com.android.settings.widget.EntityHeaderController;
 import com.nihility.notification.NotificationManagerEx;
 import com.xiaomi.xmsf.R;
+import com.xiaomi.xmsf.push.notification.NotificationController;
 
 import java.util.Arrays;
 import java.util.List;
@@ -432,8 +434,20 @@ public class ManagePermissionsActivity extends AppCompatActivity {
                         NotificationChannelCompat.getId().startsWith(getChannelIdByPkg(mApplicationItem.getPackageName()))
                 ).forEach(channel -> {
                     Preference item = new Preference(getActivity());
-                    item.setTitle(channel.getName());
-                    item.setSummary(channel.getDescription());
+
+                    CharSequence title = channel.getName();
+                    if (!NotificationController.isNotificationChannelEnabled(channel)) {
+                        title = "[disable]" + title;
+                    }
+                    item.setTitle(title);
+
+                    String summary = "id: " + channel.getId();
+                    String description = channel.getDescription();
+                    if (!TextUtils.isEmpty(description)) {
+                        summary += "\n" + description;
+                    }
+                    item.setSummary(summary);
+
                     item.setOnPreferenceClickListener(preference -> {
                         startActivity(new Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
                                 .putExtra(EXTRA_APP_PACKAGE, configApp)

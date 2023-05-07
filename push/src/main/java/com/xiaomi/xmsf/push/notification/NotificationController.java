@@ -29,6 +29,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.service.notification.StatusBarNotification;
+import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -122,13 +123,29 @@ public class NotificationController {
         return channel;
     }
 
-    private static String getChannelId(@NonNull PushMetaInfo metaInfo,
-                                       @NonNull String packageName) {
+    public static String getChannelId(@NonNull PushMetaInfo metaInfo,
+                                      @NonNull String packageName) {
         final Map<String, String> extra = metaInfo.getExtra();
         String channelId = getExtraField(extra, EXTRA_CHANNEL_ID, "");
         return getChannelIdByPkg(packageName) + "_" + channelId;
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    public static boolean isNotificationChannelEnabled(@Nullable NotificationChannel channel){
+            return channel != null && channel.getImportance() != NotificationManager.IMPORTANCE_NONE;
+    }
+    public static boolean isNotificationChannelEnabled(@NonNull String packageName, @Nullable String channelId){
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if(!TextUtils.isEmpty(channelId)) {
+                NotificationChannel channel =
+                        NotificationManagerEx.INSTANCE.getNotificationChannel(packageName, channelId);
+                return isNotificationChannelEnabled(channel);
+            }
+            return false;
+        } else {
+            return NotificationManagerEx.INSTANCE.areNotificationsEnabled(packageName);
+        }
+    }
 
     public static NotificationChannel registerChannelIfNeeded(Context context, PushMetaInfo metaInfo, String packageName) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {

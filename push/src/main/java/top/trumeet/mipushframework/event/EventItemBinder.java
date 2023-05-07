@@ -37,6 +37,7 @@ import com.xiaomi.xmpush.thrift.ActionType;
 import com.xiaomi.xmpush.thrift.XmPushActionContainer;
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils;
 import com.xiaomi.xmsf.R;
+import com.xiaomi.xmsf.push.notification.NotificationController;
 import com.xiaomi.xmsf.push.utils.Configurations;
 
 import org.apache.thrift.TBase;
@@ -89,6 +90,12 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
                             try {
                                 Set<String> ops = Configurations.getInstance().handle(container.getPackageName(), container);
                                 status = container.getMetaInfo().getExtra().get("channel_name");
+                                if (!NotificationController.isNotificationChannelEnabled(
+                                        container.getPackageName(),
+                                        NotificationController.getChannelId(
+                                                container.metaInfo, container.getPackageName()))) {
+                                    ops.add("disable");
+                                }
                                 if (!ops.isEmpty()) {
                                     status = ops + " " + status;
                                 }
