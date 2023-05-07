@@ -149,7 +149,7 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
 
         TextView showText = new TextView(context);
         showText.setText(info);
-        showText.setTextSize(18);
+        showText.setTextSize(14);
         showText.setTextIsSelectable(true);
         showText.setTypeface(Typeface.MONOSPACE);
 
