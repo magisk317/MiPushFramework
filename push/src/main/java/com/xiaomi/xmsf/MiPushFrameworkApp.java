@@ -23,6 +23,7 @@ import com.elvishew.xlog.XLog;
 import com.nihility.notification.NotificationManagerEx;
 import com.oasisfeng.condom.CondomOptions;
 import com.oasisfeng.condom.CondomProcess;
+import com.topjohnwu.superuser.Shell;
 import com.xiaomi.channel.commonutils.android.DeviceInfo;
 import com.xiaomi.channel.commonutils.android.MIUIUtils;
 import com.xiaomi.channel.commonutils.logger.LoggerInterface;
@@ -41,12 +42,23 @@ import top.trumeet.common.Constants;
 import top.trumeet.common.push.PushServiceAccessibility;
 import top.trumeet.mipush.provider.DatabaseUtils;
 
+
 public class MiPushFrameworkApp extends Application {
     private com.elvishew.xlog.Logger logger;
 
     private static final String MIPUSH_EXTRA = "mipush_extra";
 
     private static MiPushFrameworkApp instance;
+
+
+    static {
+        // Set settings before the main shell can be created
+        Shell.enableVerboseLogging = BuildConfig.DEBUG;
+        Shell.setDefaultBuilder(Shell.Builder.create()
+                .setFlags(Shell.FLAG_REDIRECT_STDERR)
+                .setTimeout(10)
+        );
+    }
 
     public static Context getContext(){
         return instance;
@@ -61,6 +73,7 @@ public class MiPushFrameworkApp extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        Shell.getShell();
         instance = this;
         try {
             Field MIUIUtils_isMIUI = MIUIUtils.class.getDeclaredField("isMIUI");

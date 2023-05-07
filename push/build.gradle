@@ -149,4 +149,8 @@ dependencies {
     implementation 'com.github.promeg:tinypinyin:2.0.3'
 
 
+    def libsuVersion = '5.0.5'
+
+    // The core module that provides APIs to a shell
+    implementation "com.github.topjohnwu.libsu:core:${libsuVersion}"
 }
