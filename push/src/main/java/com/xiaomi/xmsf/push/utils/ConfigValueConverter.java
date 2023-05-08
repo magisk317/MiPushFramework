@@ -25,6 +25,7 @@ public class ConfigValueConverter {
                         MiPushFrameworkApp.getContext(), (XmPushActionContainer) root);
             } catch (Throwable e) {
                 logger.e("parse pushAction failed", e);
+                return null;
             }
         }
         return value;
