@@ -45,7 +45,6 @@ public class PermissionUtils {
 
         if (Utils.isAppOpsInstalled()) {
             Intent intent = new Intent(Intent.ACTION_SHOW_APP_INFO)
-                    .addCategory(Intent.CATEGORY_DEFAULT)
                     .setClassName("rikka.appops", "rikka.appops.appdetail.AppDetailActivity")
                     .putExtra("rikka.appops.intent.extra.USER_HANDLE", Utils.myUid())
                     .putExtra("rikka.appops.intent.extra.PACKAGE_NAME", Constants.SERVICE_APP_NAME)

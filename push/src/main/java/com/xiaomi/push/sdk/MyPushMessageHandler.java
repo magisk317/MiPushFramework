@@ -179,6 +179,7 @@ public class MyPushMessageHandler extends IntentService {
         Intent intent = null;
         try {
             intent = context.getPackageManager().getLaunchIntentForPackage(targetPackage);
+            logger.d(packageInfo(targetPackage, intent.toString()));
         } catch (RuntimeException ignore) {
         }
         return intent;
@@ -226,7 +227,6 @@ public class MyPushMessageHandler extends IntentService {
                 if (intent == null) {
                     throw new RuntimeException("can not get default activity for " + targetPackage);
                 } else {
-                    intent.addCategory(Intent.CATEGORY_DEFAULT);
                     intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
                     context.startActivity(intent);
@@ -245,7 +245,6 @@ public class MyPushMessageHandler extends IntentService {
 
                     if (i == (APP_CHECK_FRONT_MAX_RETRY / 2)) {
                         intent = getJumpIntentFromPkg(context, targetPackage);
-                        intent.addCategory(Intent.CATEGORY_DEFAULT);
                         intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
                         context.startActivity(intent);
                     }
