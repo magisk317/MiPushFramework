@@ -2,6 +2,8 @@ package top.trumeet.mipush.provider.event;
 
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
+import android.text.TextUtils;
+
 import org.greenrobot.greendao.annotation.Entity;
 import org.greenrobot.greendao.annotation.Generated;
 import org.greenrobot.greendao.annotation.Id;
@@ -11,6 +13,8 @@ import org.greenrobot.greendao.annotation.Property;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
+
+import top.trumeet.common.utils.Utils;
 
 /**
  * Created by Trumeet on 2017/8/26.
@@ -124,13 +128,16 @@ public class Event {
     @Property(nameInDb = "payload")
     private byte[] payload;
 
+    @Property(nameInDb = "reg_sec")
+    private String regSec;
+
     @Generated(hash = 344677835)
     public Event() {
     }
 
-    @Generated(hash = 662802757)
+    @Generated(hash = 715718956)
     public Event(Long id, @NotNull String pkg, int type, long date, int result, String info, String notificationTitle,
-            String notificationSummary, byte[] payload) {
+            String notificationSummary, byte[] payload, String regSec) {
         this.id = id;
         this.pkg = pkg;
         this.type = type;
@@ -140,6 +147,7 @@ public class Event {
         this.notificationTitle = notificationTitle;
         this.notificationSummary = notificationSummary;
         this.payload = payload;
+        this.regSec = regSec;
     }
 
     public String getNotificationTitle() {
@@ -212,5 +220,16 @@ public class Event {
 
     public void setPayload(byte[] payload) {
         this.payload = payload;
+    }
+
+    public String getRegSec() {
+        if (TextUtils.isEmpty(this.regSec)) {
+            return Utils.getRegSec(this.pkg);
+        }
+        return this.regSec;
+    }
+
+    public void setRegSec(String regSec) {
+        this.regSec = regSec;
     }
 }

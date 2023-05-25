@@ -55,6 +55,7 @@ public class EventDb {
                 , null
                 , null
                 , type.getPayload()
+                , Utils.getRegSec(type.getPkg())
         )));
     }
 
