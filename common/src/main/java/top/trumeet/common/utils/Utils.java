@@ -6,6 +6,7 @@ import android.app.AppGlobals;
 import android.app.AppOpsManager;
 import android.app.Application;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.res.TypedArray;
@@ -106,6 +107,16 @@ public final class Utils {
                 // Ignored service death
             }
         });
+    }
+
+    public static String getRegSec(String packageName) {
+        SharedPreferences secSp = getApplication().getSharedPreferences("pref_registered_pkg_names_sec", 0);
+        String sec = secSp.getString(packageName, null);
+        if (sec != null) {
+            return sec;
+        }
+        secSp = getApplication().getSharedPreferences("mipush", 0);
+        return secSp.getString(packageName, null);
     }
 
 }

@@ -6,7 +6,6 @@ import android.app.Dialog;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.graphics.Typeface;
 import android.view.View;
 import android.widget.Button;
@@ -26,12 +25,10 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.xiaomi.channel.commonutils.string.Base64Coder;
-import com.xiaomi.mipush.sdk.AppInfoHolder;
 import com.xiaomi.mipush.sdk.DecryptException;
 import com.xiaomi.mipush.sdk.PushContainerHelper;
 import com.xiaomi.push.service.MIPushEventProcessor;
 import com.xiaomi.push.service.MyMIPushMessageProcessor;
-import com.xiaomi.push.service.PushServiceConstants;
 import com.xiaomi.push.service.PushServiceMain;
 import com.xiaomi.xmpush.thrift.ActionType;
 import com.xiaomi.xmpush.thrift.XmPushActionContainer;
@@ -55,6 +52,7 @@ import java.util.Set;
 import top.trumeet.common.event.Event;
 import top.trumeet.common.event.type.EventType;
 import top.trumeet.common.event.type.TypeFactory;
+import top.trumeet.common.utils.Utils;
 import top.trumeet.mipushframework.permissions.ManagePermissionsActivity;
 import top.trumeet.mipushframework.utils.BaseAppsBinder;
 
@@ -231,7 +229,7 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
             JsonObject json = jsonElement.getAsJsonObject();
             String pushAction = "pushAction";
             try {
-                TBase message = getResponseMessageBodyFromContainer(context, container);
+                TBase message = getResponseMessageBodyFromContainer(container);
                 json.add(pushAction, gson.toJsonTree(message));
             } catch (TException e) {
                 logger.e(e.getLocalizedMessage(), e);
@@ -244,15 +242,11 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
         return info;
     }
 
-    public static TBase getResponseMessageBodyFromContainer(Context context, XmPushActionContainer container) throws TException, DecryptException, InvocationTargetException, NoSuchMethodException, IllegalAccessException {
+    public static TBase getResponseMessageBodyFromContainer(XmPushActionContainer container) throws TException, DecryptException, InvocationTargetException, NoSuchMethodException, IllegalAccessException {
         byte[] oriMsgBytes;
         boolean encrypted = container.isEncryptAction();
         if (encrypted) {
-            SharedPreferences secSp = context.getSharedPreferences(PushServiceConstants.PREF_KEY_REGISTERED_PKGS + "_sec", 0);
-            String sec = secSp.getString(container.packageName, null);
-            if (sec == null) {
-                sec = AppInfoHolder.getInstance(context).getRegSecret();
-            }
+            String sec = Utils.getRegSec(container.packageName);
             byte[] keyBytes = Base64Coder.decode(sec);
             try {
                 oriMsgBytes = PushContainerHelper.MIPushDecrypt(keyBytes, container.getPushAction());
