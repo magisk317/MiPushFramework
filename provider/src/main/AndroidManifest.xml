@@ -1,14 +1,2 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-    <application>
-        <provider
-            android:authorities="top.trumeet.mipush.providers.AppProvider"
-            android:name="top.trumeet.mipush.provider.register.AppProvider"
-            android:exported="false" />
-
-        <provider
-            android:authorities="top.trumeet.mipush.providers.EventProvider"
-            android:name="top.trumeet.mipush.provider.event.EventProvider"
-            android:exported="false" />
-    </application>
 </manifest>

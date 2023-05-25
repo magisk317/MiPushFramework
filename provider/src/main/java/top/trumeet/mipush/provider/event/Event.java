@@ -1,12 +1,16 @@
 package top.trumeet.mipush.provider.event;
 
-import androidx.annotation.NonNull;
+import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 import org.greenrobot.greendao.annotation.Entity;
 import org.greenrobot.greendao.annotation.Generated;
 import org.greenrobot.greendao.annotation.Id;
 import org.greenrobot.greendao.annotation.NotNull;
 import org.greenrobot.greendao.annotation.Property;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
 /**
  * Created by Trumeet on 2017/8/26.
@@ -16,6 +20,63 @@ import org.greenrobot.greendao.annotation.Property;
 
 @Entity
 public class Event {
+    @androidx.annotation.IntDef({Type.Notification,
+            Type.Command, Type.AckMessage, Type.Registration,
+            Type.MultiConnectionBroadcast, Type.MultiConnectionResult,
+            Type.UnRegistration, Type.ReportFeedback, Type.SetConfig, Type.Subscription,
+            Type.UnSubscription, Type.RegistrationResult})
+    @Retention(SOURCE)
+    @Target({ElementType.PARAMETER, ElementType.TYPE,
+            ElementType.FIELD, ElementType.METHOD})
+    public @interface Type {
+        @Deprecated
+        int RECEIVE_PUSH = 0;
+        @Deprecated
+        int RECEIVE_COMMAND = 1;
+        @Deprecated
+        int REGISTER = 2;
+
+        // Same to com.xiaomi.xmpush.thrift.ActionType
+        int Subscription = 3;
+        int UnSubscription = 4;
+        int SendMessage = RECEIVE_PUSH;
+        int AckMessage = 6;
+        int SetConfig = 7;
+        int ReportFeedback = 8;
+        int Notification = 9;
+        int Command = 10;
+        int MultiConnectionBroadcast = 11;
+        int MultiConnectionResult = 12;
+
+        // 和上面的重复（
+        int Registration = REGISTER;
+        int UnRegistration = 20;
+
+        // Custom
+        int RegistrationResult = 21;
+    }
+
+    @androidx.annotation.IntDef({ResultType.OK, ResultType.DENY_DISABLED, ResultType.DENY_USER})
+    @Retention(SOURCE)
+    @Target({ElementType.PARAMETER, ElementType.TYPE,
+            ElementType.FIELD, ElementType.METHOD})
+    public @interface ResultType {
+        /**
+         * Allowed
+         */
+        int OK = 0;
+
+        /**
+         * Deny because push is disabled by user
+         */
+        int DENY_DISABLED = 1;
+
+        /**
+         * User denied
+         */
+        int DENY_USER = 2;
+    }
+
     /**
      * Id
      */
@@ -31,10 +92,9 @@ public class Event {
 
     /**
      * Event type
-     * @see top.trumeet.common.event.Event.Type
      */
     @Property(nameInDb = "type")
-    @top.trumeet.common.event.Event.Type
+    @Type
     @NotNull
     private int type;
 
@@ -49,7 +109,7 @@ public class Event {
      * Operation result
      */
     @Property(nameInDb = "result")
-    @top.trumeet.common.event.Event.ResultType
+    @ResultType
     private int result;
 
     @Property(nameInDb = "dev_info")
@@ -136,45 +196,6 @@ public class Event {
 
     public void setResult(int result) {
         this.result = result;
-    }
-
-    public top.trumeet.common.event.Event convertTo () {
-        return convertTo(this);
-    }
-
-    /**
-     * 将 Provider 中的 Model 转换成 Xmsf 中用的 {@link top.trumeet.common.event.Event}
-     * （非常辣鸡
-     * @param original Original model
-     * @return Target model
-     */
-    @NonNull
-    public static top.trumeet.common.event.Event convertTo
-    (@NonNull Event original) {
-        return new top.trumeet.common.event.Event(
-                original.id,
-                original.pkg,
-                original.type,
-                original.date,
-                original.result,
-                original.notificationTitle,
-                original.notificationSummary,
-                original.info,
-                original.payload);
-    }
-
-    @NonNull
-    public static Event from (@NonNull top.trumeet.common.event.Event original) {
-        return new Event(
-                original.getId(),
-                original.getPkg(),
-                original.getType(),
-                original.getDate(),
-                original.getResult(),
-                original.getNotificationTitle(),
-                original.getNotificationSummary(),
-                original.getInfo(),
-                original.getPayload());
     }
 
     public String getInfo() {

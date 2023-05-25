@@ -18,8 +18,8 @@ import com.xiaomi.xmsf.utils.LogUtils;
 
 import java.util.Date;
 
-import top.trumeet.common.db.EventDb;
 import top.trumeet.common.utils.Utils;
+import top.trumeet.mipush.provider.db.EventDb;
 
 
 public class ManageSpaceActivity extends PreferenceActivity {

@@ -20,11 +20,12 @@ import com.xiaomi.xmsf.utils.ConfigCenter;
 
 import top.trumeet.common.Constants;
 import top.trumeet.common.cache.ApplicationNameCache;
-import top.trumeet.common.db.EventDb;
-import top.trumeet.common.db.RegisteredApplicationDb;
-import top.trumeet.common.event.Event;
-import top.trumeet.common.register.RegisteredApplication;
 import top.trumeet.common.utils.Utils;
+import top.trumeet.mipush.provider.db.EventDb;
+import top.trumeet.mipush.provider.db.RegisteredApplicationDb;
+import top.trumeet.mipush.provider.event.Event;
+import top.trumeet.mipush.provider.event.type.RegistrationType;
+import top.trumeet.mipush.provider.register.RegisteredApplication;
 
 public class XMPushService extends IntentService {
     private static final String TAG = "XMPushService Bridge";
@@ -68,7 +69,7 @@ public class XMPushService extends IntentService {
             logger.d("onHandleIntent -> A application want to register push");
             showRegisterToastIfExistsConfiguration(application);
             EventDb.insertEvent(Event.ResultType.OK,
-                    new top.trumeet.common.event.type.RegistrationType(null, pkg, null),
+                    new RegistrationType(null, pkg, null),
                     this);
         } catch (RuntimeException e) {
             logger.e("XMPushService::onHandleIntent: ", e);

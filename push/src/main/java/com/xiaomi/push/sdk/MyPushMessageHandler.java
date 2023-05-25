@@ -31,11 +31,11 @@ import com.xiaomi.xmsf.utils.ConfigCenter;
 import java.util.function.Consumer;
 
 import top.trumeet.common.Constants;
-import top.trumeet.common.db.RegisteredApplicationDb;
 import top.trumeet.common.ita.ITopActivity;
 import top.trumeet.common.ita.TopActivityFactory;
-import top.trumeet.common.register.RegisteredApplication;
 import top.trumeet.common.utils.Utils;
+import top.trumeet.mipush.provider.db.RegisteredApplicationDb;
+import top.trumeet.mipush.provider.register.RegisteredApplication;
 
 /**
  * @author zts1993
@@ -101,8 +101,8 @@ public class MyPushMessageHandler extends IntentService {
                 container.getPackageName(), false, context, null);
         boolean isClearAllNotificationsOfSession = groupOfSession &&
                 application != null &&
-                application.isGroupNotificationsForSameSession() &&
-                application.isClearAllNotificationsOfSession();
+                application.getGroupNotificationsForSameSession() &&
+                application.getClearAllNotificationsOfSession();
 
         NotificationController.cancel(context, container,
                 notificationId, notificationGroup, isClearAllNotificationsOfSession);

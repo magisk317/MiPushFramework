@@ -7,7 +7,7 @@ import androidx.annotation.NonNull;
 
 import com.xiaomi.xmsf.R;
 
-import top.trumeet.common.register.RegisteredApplication;
+import top.trumeet.mipush.provider.register.RegisteredApplication;
 import top.trumeet.mipushframework.permissions.ManagePermissionsActivity;
 import top.trumeet.mipushframework.utils.BaseAppsBinder;
 

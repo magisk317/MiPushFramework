@@ -49,10 +49,10 @@ import java.util.Date;
 import java.util.Map;
 import java.util.Set;
 
-import top.trumeet.common.event.Event;
-import top.trumeet.common.event.type.EventType;
-import top.trumeet.common.event.type.TypeFactory;
 import top.trumeet.common.utils.Utils;
+import top.trumeet.mipush.provider.event.Event;
+import top.trumeet.mipush.provider.event.EventType;
+import top.trumeet.mipush.provider.event.type.TypeFactory;
 import top.trumeet.mipushframework.permissions.ManagePermissionsActivity;
 import top.trumeet.mipushframework.utils.BaseAppsBinder;
 

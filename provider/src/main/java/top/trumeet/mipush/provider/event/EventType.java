@@ -1,4 +1,4 @@
-package top.trumeet.common.event.type;
+package top.trumeet.mipush.provider.event;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -8,7 +8,7 @@ import android.text.Html;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import top.trumeet.common.event.Event;
+import top.trumeet.mipush.provider.db.EventDb;
 
 /**
  * 喂给 {@link Event} 的详细信息。
@@ -87,7 +87,7 @@ public abstract class EventType {
     /**
      * Only used when type has meta data
      * @param original Event
-     * @see top.trumeet.common.db.EventDb#insertEvent(int, EventType, Context)
+     * @see EventDb#insertEvent(int, EventType, Context)
      */
     @NonNull
     public Event fillEvent (@NonNull Event original) {

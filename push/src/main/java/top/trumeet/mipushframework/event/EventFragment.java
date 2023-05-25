@@ -30,8 +30,8 @@ import java.util.Set;
 
 import me.drakeet.multitype.Items;
 import me.drakeet.multitype.MultiTypeAdapter;
-import top.trumeet.common.db.EventDb;
-import top.trumeet.common.event.Event;
+import top.trumeet.mipush.provider.db.EventDb;
+import top.trumeet.mipush.provider.event.Event;
 import top.trumeet.mipushframework.utils.OnLoadMoreListener;
 
 /**

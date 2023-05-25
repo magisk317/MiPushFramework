@@ -47,10 +47,10 @@ import moe.shizuku.preference.PreferenceScreen;
 import moe.shizuku.preference.SimpleMenuPreference;
 import moe.shizuku.preference.SwitchPreferenceCompat;
 import top.trumeet.common.Constants;
-import top.trumeet.common.db.EventDb;
-import top.trumeet.common.db.RegisteredApplicationDb;
-import top.trumeet.common.register.RegisteredApplication;
 import top.trumeet.common.utils.Utils;
+import top.trumeet.mipush.provider.db.EventDb;
+import top.trumeet.mipush.provider.db.RegisteredApplicationDb;
+import top.trumeet.mipush.provider.register.RegisteredApplication;
 import top.trumeet.mipushframework.control.CheckPermissionsUtils;
 import top.trumeet.mipushframework.event.RecentActivityActivity;
 import top.trumeet.mipushframework.widgets.InfoPreference;
@@ -349,7 +349,7 @@ public class ManagePermissionsActivity extends AppCompatActivity {
                     screen);
 
             SwitchPreferenceCompat clearAllNotificationsOfSession =
-                    createPreference(mApplicationItem.isClearAllNotificationsOfSession(),
+                    createPreference(mApplicationItem.getClearAllNotificationsOfSession(),
                             (preference, newValue) -> {
                                 mApplicationItem.setClearAllNotificationsOfSession((Boolean) newValue);
                                 return true;
@@ -357,7 +357,7 @@ public class ManagePermissionsActivity extends AppCompatActivity {
                             getString(R.string.group_notifications_for_same_session_clear_title),
                             null);
 
-            addItem(mApplicationItem.isGroupNotificationsForSameSession(),
+            addItem(mApplicationItem.getGroupNotificationsForSameSession(),
                     (preference, newValue) -> {
                         mApplicationItem.setGroupNotificationsForSameSession(((Boolean) newValue));
                         clearAllNotificationsOfSession.setEnabled((Boolean) newValue);
@@ -370,12 +370,12 @@ public class ManagePermissionsActivity extends AppCompatActivity {
 
             screen.addPreference(clearAllNotificationsOfSession);
 
-            if (!mApplicationItem.isGroupNotificationsForSameSession()) {
+            if (!mApplicationItem.getGroupNotificationsForSameSession()) {
                 clearAllNotificationsOfSession.setEnabled(false);
             }
 
 
-            addItem(mApplicationItem.isShowPassThrough(),
+            addItem(mApplicationItem.getShowPassThrough(),
                     (preference, newValue) -> {
                         mApplicationItem.setShowPassThrough((Boolean) newValue);
                         return true;

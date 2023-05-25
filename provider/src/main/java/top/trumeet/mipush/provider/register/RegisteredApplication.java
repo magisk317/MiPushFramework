@@ -17,6 +17,7 @@ import org.greenrobot.greendao.annotation.Entity;
 import org.greenrobot.greendao.annotation.Generated;
 import org.greenrobot.greendao.annotation.Id;
 import org.greenrobot.greendao.annotation.Property;
+import org.greenrobot.greendao.annotation.Transient;
 import org.greenrobot.greendao.annotation.Unique;
 
 import java.lang.annotation.ElementType;
@@ -125,6 +126,17 @@ public class RegisteredApplication implements Parcelable {
     @Property(nameInDb = "show_pass_through")
     private boolean showPassThrough;
 
+    /**
+     * 0: Not registered
+     * 1: Registered (both RegisteredApplication & Event)
+     * 2: Unregistered
+     */
+    @Transient
+    private int registeredType = 0;
+
+    @Transient
+    public boolean existServices = false;
+
     @Generated(hash = 1523571055)
     public RegisteredApplication(Long id, String packageName, int type, boolean allowReceivePush,
             boolean allowReceiveRegisterResult, boolean allowReceiveCommand, boolean notificationOnRegister,
@@ -226,47 +238,6 @@ public class RegisteredApplication implements Parcelable {
         this.notificationOnRegister = notificationOnRegister;
     }
 
-    public top.trumeet.common.register.RegisteredApplication convertTo () {
-        return convertTo(this);
-    }
-
-    /**
-     * 将 Provider 中的 Model 转换成 Xmsf 中用的 {@link top.trumeet.common.register.RegisteredApplication}
-     * （非常辣鸡
-     * @param original Original model
-     * @return Target model
-     */
-    @NonNull
-    public static top.trumeet.common.register.RegisteredApplication convertTo
-    (@NonNull RegisteredApplication original) {
-        return new top.trumeet.common.register.RegisteredApplication(original.id
-                , original.packageName
-                , original.type, original.allowReceivePush
-                , original.allowReceiveRegisterResult
-                , original.allowReceiveCommand
-                , 0
-                , original.notificationOnRegister
-                , original.groupNotificationsForSameSession
-                , original.clearAllNotificationsOfSession
-                , original.showPassThrough
-                );
-    }
-
-    @NonNull
-    public static RegisteredApplication from (@NonNull top.trumeet.common.register.RegisteredApplication original) {
-        return new RegisteredApplication(original.getId()
-                , original.getPackageName()
-                , original.getType()
-                , original.getAllowReceivePush()
-                , original.getAllowReceiveRegisterResult()
-                , original.isAllowReceiveCommand()
-                , original.isNotificationOnRegister()
-                , original.isGroupNotificationsForSameSession()
-                , original.isClearAllNotificationsOfSession()
-                , original.isShowPassThrough()
-                );
-    }
-
     public boolean isAllowReceiveCommand() {
         return allowReceiveCommand;
     }
@@ -305,5 +276,13 @@ public class RegisteredApplication implements Parcelable {
 
     public void setShowPassThrough(boolean showPassThrough) {
         this.showPassThrough = showPassThrough;
+    }
+
+    public int getRegisteredType() {
+        return this.registeredType;
+    }
+
+    public void setRegisteredType(int registeredType) {
+        this.registeredType = registeredType;
     }
 }

@@ -1,15 +1,15 @@
-package top.trumeet.common.db;
+package top.trumeet.mipush.provider.db;
+
+import static top.trumeet.mipush.provider.DatabaseUtils.daoSession;
 
 import android.content.Context;
-import android.database.Cursor;
 import android.net.Uri;
 import android.os.CancellationSignal;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import java.util.ArrayList;
-import java.util.Arrays;
+import org.greenrobot.greendao.query.QueryBuilder;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -17,10 +17,11 @@ import java.util.Map;
 import java.util.Set;
 
 import top.trumeet.common.Constants;
-import top.trumeet.common.event.Event;
-import top.trumeet.common.event.type.EventType;
 import top.trumeet.common.utils.DatabaseUtils;
 import top.trumeet.common.utils.Utils;
+import top.trumeet.mipush.provider.event.Event;
+import top.trumeet.mipush.provider.event.EventType;
+import top.trumeet.mipush.provider.gen.db.EventDao;
 
 /**
  * @author Trumeet
@@ -37,27 +38,24 @@ public class EventDb {
     }
 
 
-    public static Uri insertEvent(Event event,
-                                  Context context) {
-        return getInstance(context)
-                .insert(event.toValues());
+    public static long insertEvent(Event event) {
+        return daoSession.insert(event);
     }
 
 
-    public static Uri insertEvent(@Event.ResultType int result,
+    public static long insertEvent(@Event.ResultType int result,
                                   EventType type,
                                   Context context) {
-        return insertEvent(type.fillEvent(new Event(
-                null,
-                type.getPkg(),
-                type.getType(),
-                Utils.getUTC().getTime(),
-                result,
-                null,
-                null,
-                type.getInfo(),
-                type.getPayload()
-        )), context);
+        return insertEvent(type.fillEvent(new Event(null
+                , type.getPkg()
+                , type.getType()
+                , Utils.getUTC().getTime()
+                , result
+                , type.getInfo()
+                , null
+                , null
+                , type.getPayload()
+        )));
     }
 
 
@@ -68,62 +66,41 @@ public class EventDb {
                                     @Nullable String text,
                                     Context context,
                                     @Nullable CancellationSignal signal) {
-        StringBuilder cond = new StringBuilder("");
-        ArrayList<String> args = new ArrayList<>();
+        QueryBuilder<Event> query = daoSession.queryBuilder(Event.class)
+                .orderDesc(EventDao.Properties.Date)
+                .limit(limit)
+                .offset(skip)
+                ;
         if (pkg != null && !pkg.trim().isEmpty()) {
-            cond.append("(");
-            cond.append(Event.KEY_PKG);
-            cond.append("=?)");
-            args.add(pkg);
+            query.where(EventDao.Properties.Pkg.eq(pkg));
         }
         if (types != null && !types.isEmpty()) {
-            if (cond.length() > 0) cond.append(" AND ");
-            cond.append("(");
-            cond.append(Event.KEY_TYPE);
-            cond.append(" in (");
-            String typesQuery = types.toString();
-            typesQuery = typesQuery.substring(1, typesQuery.length() - 1);
-            cond.append(typesQuery);
-            cond.append("))");
+            query.where(EventDao.Properties.Type.in(types));
         }
         if (text != null && !text.trim().isEmpty()) {
-            if (cond.length() > 0) cond.append(" AND ");
-            cond.append("(");
-            cond.append(Event.KEY_INFO);
-            cond.append(" LIKE ?)");
-            args.add("%" + text + "%");
+            query.where(EventDao.Properties.Info.like("%" + text + "%"));
         }
-        return getInstance(context)
-                .queryAndConvert(signal, cond.toString(), args.toArray(new String[0]),
-                        DatabaseUtils.order(Event.KEY_DATE, "desc") +
-                                DatabaseUtils.limitAndOffset(limit, skip),
-                        new DatabaseUtils.Converter<Event>() {
-                            @Override
-                            @NonNull
-                            public Event convert(@NonNull Cursor cursor) {
-                                return Event.create(cursor);
-                            }
-                        });
+        return query.list();
     }
 
 
     public static void deleteHistory(Context context, CancellationSignal signal) {
         String data =  (Utils.getUTC().getTime() - 1000L * 3600L * 24 * 7) + "";
-        getInstance(context).delete("type in (0, 2, 10) and date < ?", new String[]{data});
+        QueryBuilder<Event> query = daoSession.queryBuilder(Event.class)
+                .where(EventDao.Properties.Type.in(Event.Type.RECEIVE_PUSH, Event.Type.REGISTER, Event.Type.Command))
+                .where(EventDao.Properties.Date.lt(data))
+                ;
+        query.buildDelete().executeDeleteWithoutDetachingEntities();
     }
 
 
     public static Set<String> queryRegistered(Context context, CancellationSignal signal) {
 
-        List<Event> registered = getInstance(context).queryAndConvert(signal, Event.KEY_TYPE + "=" + Event.Type.RegistrationResult, null,
-                DatabaseUtils.order(Event.KEY_DATE, "desc"),
-                new DatabaseUtils.Converter<Event>() {
-                    @Override
-                    @NonNull
-                    public Event convert(@NonNull Cursor cursor) {
-                        return Event.create(cursor);
-                    }
-                });
+        QueryBuilder<Event> query = daoSession.queryBuilder(Event.class)
+                .where(EventDao.Properties.Type.eq(Event.Type.RegistrationResult))
+                .orderDesc(EventDao.Properties.Date)
+                ;
+        List<Event> registered = query.list();
 
         //fuck java6
         Map<String, Event> registeredMap = new HashMap<>();
@@ -134,15 +111,11 @@ public class EventDb {
             }
         }
 
-        List<Event> unregistered = getInstance(context).queryAndConvert(signal, Event.KEY_TYPE + "=" + Event.Type.UnRegistration, null,
-                DatabaseUtils.order(Event.KEY_DATE, "desc"),
-                new DatabaseUtils.Converter<Event>() {
-                    @Override
-                    @NonNull
-                    public Event convert(@NonNull Cursor cursor) {
-                        return Event.create(cursor);
-                    }
-                });
+        query = daoSession.queryBuilder(Event.class)
+                .where(EventDao.Properties.Type.eq(Event.Type.UnRegistration))
+                .orderDesc(EventDao.Properties.Date)
+                ;
+        List<Event> unregistered = query.list();
 
         Map<String, Event> unRegisteredMap = new HashMap<>();
         for (Event event : unregistered) {

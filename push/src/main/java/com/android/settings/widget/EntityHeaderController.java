@@ -61,8 +61,8 @@ import com.xiaomi.xmsf.R;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
-import top.trumeet.common.register.RegisteredApplication;
 import top.trumeet.common.utils.Utils;
+import top.trumeet.mipush.provider.register.RegisteredApplication;
 
 public class EntityHeaderController {
 

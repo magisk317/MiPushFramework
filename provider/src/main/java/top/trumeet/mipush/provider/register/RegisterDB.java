@@ -3,12 +3,13 @@ package top.trumeet.mipush.provider.register;
 import java.util.List;
 
 import top.trumeet.mipush.provider.DatabaseUtils;
+import top.trumeet.mipush.provider.db.RegisteredApplicationDb;
 import top.trumeet.mipush.provider.gen.db.RegisteredApplicationDao;
 
 /**
  * Created by Trumeet on 2017/8/26.
  * DBUtils to manage registers.
- * 数据库内部实现，所有外部数据库操作均通过 {@link top.trumeet.common.db.RegisteredApplicationDb} 以及 Provider 实现。
+ * 数据库内部实现，所有外部数据库操作均通过 {@link RegisteredApplicationDb} 以及 Provider 实现。
  * @see RegisteredApplication
  * @author Trumeet
  */

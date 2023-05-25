@@ -1,11 +1,13 @@
-package top.trumeet.common.event.type;
+package top.trumeet.mipush.provider.event.type;
 
 import android.content.Context;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import top.trumeet.common.R;
-import top.trumeet.common.event.Event;
+import top.trumeet.mipush.provider.event.Event;
+import top.trumeet.mipush.provider.event.EventType;
 
 /**
  * 对应 {@link top.trumeet.common.event.Event.Type#SendMessage}

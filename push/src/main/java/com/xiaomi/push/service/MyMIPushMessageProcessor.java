@@ -34,9 +34,9 @@ import com.xiaomi.xmsf.push.utils.Configurations;
 import java.util.Map;
 
 import top.trumeet.common.cache.ApplicationNameCache;
-import top.trumeet.common.db.RegisteredApplicationDb;
-import top.trumeet.common.register.RegisteredApplication;
 import top.trumeet.common.utils.NotificationUtils;
+import top.trumeet.mipush.provider.db.RegisteredApplicationDb;
+import top.trumeet.mipush.provider.register.RegisteredApplication;
 
 
 /**
@@ -221,7 +221,7 @@ public class MyMIPushMessageProcessor {
                 e.printStackTrace();
             }
             if (metaInfo == null || TextUtils.isEmpty(metaInfo.getTitle()) || TextUtils.isEmpty(metaInfo.getDescription()) ||
-                    (metaInfo.passThrough == 1 && !application.isShowPassThrough()) /* ||
+                    (metaInfo.passThrough == 1 && !application.getShowPassThrough()) /* ||
                     (!MIPushNotificationHelper.isNotifyForeground(metaInfo.getExtra()) && MIPushNotificationHelper.isApplicationForeground(pushService, container.packageName)) */) {
                 if (PushConstants.PUSH_SERVICE_PACKAGE_NAME.contains(container.packageName) &&
                         !container.isEncryptAction() && metaInfo != null && metaInfo.getExtra() != null &&

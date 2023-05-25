@@ -11,18 +11,17 @@ import com.xiaomi.smack.packet.Message;
 import com.xiaomi.smack.packet.Packet;
 import com.xiaomi.smack.util.TrafficUtils;
 import com.xiaomi.xmpush.thrift.ActionType;
-import com.xiaomi.xmpush.thrift.PushMetaInfo;
 import com.xiaomi.xmpush.thrift.XmPushActionContainer;
 import com.xiaomi.xmsf.push.type.TypeFactory;
 
 import java.lang.reflect.Field;
 
 import top.trumeet.common.BuildConfig;
-import top.trumeet.common.db.EventDb;
-import top.trumeet.common.db.RegisteredApplicationDb;
-import top.trumeet.common.event.Event;
-import top.trumeet.common.event.type.EventType;
-import top.trumeet.common.register.RegisteredApplication;
+import top.trumeet.mipush.provider.db.EventDb;
+import top.trumeet.mipush.provider.db.RegisteredApplicationDb;
+import top.trumeet.mipush.provider.event.Event;
+import top.trumeet.mipush.provider.event.EventType;
+import top.trumeet.mipush.provider.register.RegisteredApplication;
 
 /**
  * Created by Trumeet on 2018/1/22.

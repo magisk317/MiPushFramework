@@ -52,7 +52,6 @@ import com.xiaomi.channel.commonutils.reflect.JavaCalls;
 import com.xiaomi.push.sdk.MyPushMessageHandler;
 import com.xiaomi.xmpush.thrift.PushMetaInfo;
 import com.xiaomi.xmpush.thrift.XmPushActionContainer;
-import com.xiaomi.xmsf.BuildConfig;
 import com.xiaomi.xmsf.R;
 import com.xiaomi.xmsf.push.notification.NotificationController;
 import com.xiaomi.xmsf.push.utils.Configurations;
@@ -70,9 +69,9 @@ import java.util.concurrent.Executors;
 
 import top.trumeet.common.Constants;
 import top.trumeet.common.cache.IconCache;
-import top.trumeet.common.db.RegisteredApplicationDb;
-import top.trumeet.common.register.RegisteredApplication;
 import top.trumeet.common.utils.Utils;
+import top.trumeet.mipush.provider.db.RegisteredApplicationDb;
+import top.trumeet.mipush.provider.register.RegisteredApplication;
 
 /**
  * @author zts1993
@@ -226,7 +225,7 @@ public class MyMIPushNotificationHelper {
 
         RegisteredApplication application = RegisteredApplicationDb.registerApplication(
                 packageName, false, context, null);
-        boolean isGroupOfSession = application.isGroupNotificationsForSameSession();
+        boolean isGroupOfSession = application.getGroupNotificationsForSameSession();
 
         Context pkgCtx = context;
         if (NotificationManagerEx.INSTANCE.isSystemHookReady()) {
@@ -418,7 +417,7 @@ public class MyMIPushNotificationHelper {
         RegisteredApplication application = RegisteredApplicationDb.registerApplication(
                 packageName, false, xmPushService, null);
 
-        boolean groupSession = application != null && application.isGroupNotificationsForSameSession();
+        boolean groupSession = application != null && application.getGroupNotificationsForSameSession();
         String group = getExtraField(metaInfo.getExtra(), "notification_group", null);
         if (group != null) {
             group = packageName + "_" + GROUP_TYPE_MIPUSH_GROUP + "_" + group;

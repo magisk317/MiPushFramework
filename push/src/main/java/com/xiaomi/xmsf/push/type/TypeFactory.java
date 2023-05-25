@@ -6,11 +6,11 @@ import com.xiaomi.xmpush.thrift.ActionType;
 import com.xiaomi.xmpush.thrift.XmPushActionContainer;
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils;
 
-import top.trumeet.common.event.Event;
-import top.trumeet.common.event.type.EventType;
-import top.trumeet.common.event.type.NotificationType;
-import top.trumeet.common.event.type.RegistrationResultType;
-import top.trumeet.common.event.type.UnknownType;
+import top.trumeet.mipush.provider.event.Event;
+import top.trumeet.mipush.provider.event.EventType;
+import top.trumeet.mipush.provider.event.type.NotificationType;
+import top.trumeet.mipush.provider.event.type.RegistrationResultType;
+import top.trumeet.mipush.provider.event.type.UnknownType;
 
 /**
  * Created by Trumeet on 2018/2/7.
