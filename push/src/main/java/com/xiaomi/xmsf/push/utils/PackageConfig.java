@@ -42,56 +42,65 @@ public class PackageConfig {
     Set<String> operation = new HashSet<>();
     boolean stop = true;
 
-    Map<String, String> matchGroup;
-
     public PackageConfig(Configurations configurations) {
         this.configurations = configurations;
     }
 
-    public boolean match(TBase data) throws NoSuchFieldException, IllegalAccessException {
-        matchGroup = match(data, cfgMatch);
-        return matchGroup != null;
-    }
+    public Walker getWalker(TBase data) { return new Walker(data); }
 
-    public void replace(TBase data) throws NoSuchFieldException, IllegalAccessException {
-        if (matchGroup != null) {
-            replace(data, cfgReplace, configurations, this);
-        }
-    }
+    class Walker {
+        Map<String, String> matchGroup;
+        TBase data;
 
-    @NonNull
-    private String replace(String value) {
-        Pattern pattern = Pattern.compile("\\${2}|\\$\\{([^}]+)\\}");
-        Matcher matcher = pattern.matcher(value);
-        StringBuilder sb = new StringBuilder(value);
-        class Pair {
-            int start;
-            int end;
-            String str = null;
+        Walker(TBase data) {
+            this.data = data;
         }
-        List<Pair> pairs = new ArrayList<>();
-        while (matcher.find()) {
-            Pair pair = new Pair();
-            pair.start = matcher.start();
-            pair.end = matcher.end();
-            if (matcher.groupCount() == 0) {
-                pair.str = "$";
-            } else {
-                String groupName = matcher.group(1);
-                if (matchGroup.containsKey(groupName)) {
-                    pair.str = matchGroup.get(groupName);
+
+        public boolean match() throws NoSuchFieldException, IllegalAccessException {
+            matchGroup = PackageConfig.match(data, cfgMatch);
+            return matchGroup != null;
+        }
+
+        public void replace() throws NoSuchFieldException, IllegalAccessException {
+            if (matchGroup != null) {
+                PackageConfig.replace(data, cfgReplace, configurations, this);
+            }
+        }
+
+        @NonNull
+        private String replace(String value) {
+            Pattern pattern = Pattern.compile("\\${2}|\\$\\{([^}]+)\\}");
+            Matcher matcher = pattern.matcher(value);
+            StringBuilder sb = new StringBuilder(value);
+            class Pair {
+                int start;
+                int end;
+                String str = null;
+            }
+            List<Pair> pairs = new ArrayList<>();
+            while (matcher.find()) {
+                Pair pair = new Pair();
+                pair.start = matcher.start();
+                pair.end = matcher.end();
+                if (matcher.groupCount() == 0) {
+                    pair.str = "$";
+                } else {
+                    String groupName = matcher.group(1);
+                    if (matchGroup.containsKey(groupName)) {
+                        pair.str = matchGroup.get(groupName);
+                    }
+                }
+                if (pair.str != null) {
+                    pairs.add(pair);
                 }
             }
-            if (pair.str != null) {
-                pairs.add(pair);
-            }
-        }
 
-        for (int i = pairs.size() - 1; i >= 0; --i) {
-            Pair pair = pairs.get(i);
-            sb.replace(pair.start, pair.end, pair.str);
+            for (int i = pairs.size() - 1; i >= 0; --i) {
+                Pair pair = pairs.get(i);
+                sb.replace(pair.start, pair.end, pair.str);
+            }
+            return sb.toString();
         }
-        return sb.toString();
     }
 
     private static Map<String, String> match(TBase data, JSONObject cfgMatch)
@@ -154,7 +163,7 @@ public class PackageConfig {
         return matchGroup;
     }
 
-    private static void replace(TBase data, JSONObject cfgReplace, Configurations configurations, PackageConfig config)
+    private static void replace(TBase data, JSONObject cfgReplace, Configurations configurations, PackageConfig.Walker configWalker)
             throws NoSuchFieldException, IllegalAccessException {
         if (cfgReplace == null) {
             return;
@@ -189,7 +198,7 @@ public class PackageConfig {
                     } else {
                         Object cfgSubVal = cfgSubObj.opt(cfgSubKey);
                         if (cfgSubVal instanceof JSONArray) {
-                            Object value = configurations.evaluate(cfgSubVal, config);
+                            Object value = configurations.evaluate(cfgSubVal, configWalker);
                             if (value == null) {
                                 subMap.remove(cfgSubKey);
                             } else {
@@ -197,18 +206,18 @@ public class PackageConfig {
                             }
                         } else {
                             String cfgValue = cfgSubObj.optString(cfgSubKey);
-                            cfgValue = config.replace(cfgValue);
+                            cfgValue = configWalker.replace(cfgValue);
                             subMap.put(cfgSubKey, cfgValue);
                         }
                     }
                 }
             } else if (isTBase) {
-                replace((TBase) field.get(data), cfgSubObj, configurations, config);
+                replace((TBase) field.get(data), cfgSubObj, configurations, configWalker);
             } else {
                 Object cfgValueObj = cfgReplace.opt(cfgKey);
                 boolean evaluated = cfgValueObj instanceof JSONArray;
                 if (evaluated) {
-                    cfgValueObj = configurations.evaluate(cfgValueObj, config);
+                    cfgValueObj = configurations.evaluate(cfgValueObj, configWalker);
                 }
                 if (cfgReplace.isNull(cfgKey) || cfgValueObj == null) {
                     try {
@@ -222,7 +231,7 @@ public class PackageConfig {
                 } else {
                     String value = cfgValueObj.toString();
                     if (!evaluated) {
-                        value = config.replace(value);
+                        value = configWalker.replace(value);
                     }
                     Object typedValue = null;
                     final Class<?> fieldType = field.getType();

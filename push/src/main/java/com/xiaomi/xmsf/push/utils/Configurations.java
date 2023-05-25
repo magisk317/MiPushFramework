@@ -77,8 +77,9 @@ public class Configurations {
             for (Object configItem : configs) {
                 if (configItem instanceof PackageConfig) {
                     PackageConfig config = (PackageConfig) configItem;
-                    if (config.match(data)) {
-                        config.replace(data);
+                    PackageConfig.Walker walker = config.getWalker(data);
+                    if (walker.match()) {
+                        walker.replace();
                         operations.addAll(config.operation);
                         if (config.stop) {
                             return true;
@@ -116,7 +117,8 @@ public class Configurations {
             for (Object configItem : configs) {
                 if (configItem instanceof PackageConfig) {
                     PackageConfig config = (PackageConfig) configItem;
-                    if (config.match(data)) {
+                    PackageConfig.Walker walker = config.getWalker(data);
+                    if (walker.match()) {
                         return true;
                     }
                 } else {
@@ -133,7 +135,7 @@ public class Configurations {
         Object run();
     }
 
-    Object evaluate(Object expr, PackageConfig env) {
+    Object evaluate(Object expr, PackageConfig.Walker env) {
         return evaluate(expr, env, null);
     }
 
@@ -141,7 +143,7 @@ public class Configurations {
         return evaluate(expr, null, env);
     }
 
-    private Object evaluate(Object expr, PackageConfig config, XmPushActionContainer data) {
+    private Object evaluate(Object expr, PackageConfig.Walker configWalker, XmPushActionContainer data) {
         if (expr instanceof String) {
             return expr;
         }
@@ -149,13 +151,13 @@ public class Configurations {
             return expr;
         }
         if (expr instanceof JSONArray) {
-            return evaluate((JSONArray) expr, config, data);
+            return evaluate((JSONArray) expr, configWalker, data);
         }
         return null;
     }
 
-    private Object evaluate(JSONArray expr, PackageConfig config, XmPushActionContainer data) {
-        String method = (String) evaluate(expr.opt(0), config);
+    private Object evaluate(JSONArray expr, PackageConfig.Walker configWalker, XmPushActionContainer data) {
+        String method = (String) evaluate(expr.opt(0), configWalker);
         if (method == null) {
             return null;
         }
@@ -167,7 +169,8 @@ public class Configurations {
                     JSONArray clause = expr.optJSONArray(i);
                     Object test = clause.opt(0);
                     if (test instanceof JSONObject) {
-                        if (loader.parseConfig((JSONObject) test).match(data)) {
+                        PackageConfig config = loader.parseConfig((JSONObject) test);
+                        if (config.getWalker(data).match()) {
                             return clause.opt(1);
                         }
                     }
@@ -177,10 +180,10 @@ public class Configurations {
                         }
                     }
                     if (test instanceof JSONArray) {
-                        if (Boolean.TRUE.equals(evaluate(test, config, data))) {
+                        if (Boolean.TRUE.equals(evaluate(test, configWalker, data))) {
                             Object ret = null;
                             for (int j = 1; j < clause.length(); ++j) {
-                                ret = evaluate(expr.opt(j), config);
+                                ret = evaluate(expr.opt(j), configWalker);
                             }
                             return ret;
                         }
@@ -196,11 +199,11 @@ public class Configurations {
         JSONArray evaluated = new JSONArray();
         evaluated.put(method);
         for (int i = 1; i < length; ++i) {
-            evaluated.put(evaluate(expr.opt(i), config));
+            evaluated.put(evaluate(expr.opt(i), configWalker));
         }
 
         Map<String, Callable> methods = new HashMap<>();
-        methods.put("$", () -> config.matchGroup.get(evaluated.optString(1)));
+        methods.put("$", () -> configWalker.matchGroup.get(evaluated.optString(1)));
         methods.put("hash", evaluated.optString(1)::hashCode);
         methods.put("decode-uri", () -> {
             try {
