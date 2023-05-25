@@ -49,7 +49,6 @@ import java.util.Date;
 import java.util.Map;
 import java.util.Set;
 
-import top.trumeet.common.utils.Utils;
 import top.trumeet.mipush.provider.event.Event;
 import top.trumeet.mipush.provider.event.EventType;
 import top.trumeet.mipush.provider.event.type.TypeFactory;
@@ -134,21 +133,21 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
         holder.itemView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Dialog dialog = createInfoDialog(type,
+                Dialog dialog = createInfoDialog(item,
                         holder.itemView.getContext()); // "Developer info" dialog for event messages
                 if (dialog != null) {
                     dialog.show();
                 } else {
-                    startManagePermissions(type, holder.itemView.getContext());
+                    startManagePermissions(type.getPkg(), holder.itemView.getContext());
                 }
             }
         });
     }
 
     @Nullable
-    private Dialog createInfoDialog(final EventType type, final Context context) {
-        XmPushActionContainer container = buildContainer(type.getPayload());
-        final CharSequence info = containerToJson(context, container);
+    private Dialog createInfoDialog(final Event event, final Context context) {
+        XmPushActionContainer container = buildContainer(event.getPayload());
+        final CharSequence info = containerToJson(container, event.getRegSec());
         if (info == null)
             return null;
 
@@ -170,12 +169,12 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
                     clipboardManager.setText(info);
                 })
                 .setNegativeButton(R.string.action_edit_permission, (dialogInterface, i) ->
-                        startManagePermissions(type, context));
+                        startManagePermissions(event.getPkg(), context));
 
         AlertDialog dialog;
-        if (type.getPayload() != null) {
+        if (event.getPayload() != null) {
             build.setPositiveButton(R.string.action_notify, (dialogInterface, i) ->
-                    MyMIPushMessageProcessor.processMIPushMessage(PushServiceMain.sInstance, type.getPayload(), true));
+                    MyMIPushMessageProcessor.processMIPushMessage(PushServiceMain.sInstance, event.getPayload(), true));
             build.setNeutralButton(R.string.action_configurate, null);
 
             dialog = build.create();
@@ -184,9 +183,9 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
                 Button button = ((AlertDialog) dialog).getButton(AlertDialog.BUTTON_NEUTRAL);
                 button.setOnClickListener(view -> {
                     try {
-                        XmPushActionContainer newContainer = buildContainer(type.getPayload());
+                        XmPushActionContainer newContainer = buildContainer(event.getPayload());
                         Configurations.getInstance().handle(container.packageName, newContainer);
-                        showText.setText(containerToJson(context, newContainer));
+                        showText.setText(containerToJson(newContainer, event.getRegSec()));
                     } catch (Throwable e) {
                         e.printStackTrace();
                         showText.setText(e.toString());
@@ -199,7 +198,7 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
         return dialog;
     }
 
-    private CharSequence containerToJson(Context context, XmPushActionContainer container) {
+    private CharSequence containerToJson(XmPushActionContainer container, String regSec) {
         Gson gson = new GsonBuilder()
                 .disableHtmlEscaping()
                 .setPrettyPrinting()
@@ -229,7 +228,7 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
             JsonObject json = jsonElement.getAsJsonObject();
             String pushAction = "pushAction";
             try {
-                TBase message = getResponseMessageBodyFromContainer(container);
+                TBase message = getResponseMessageBodyFromContainer(container, regSec);
                 json.add(pushAction, gson.toJsonTree(message));
             } catch (TException e) {
                 logger.e(e.getLocalizedMessage(), e);
@@ -242,12 +241,12 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
         return info;
     }
 
-    public static TBase getResponseMessageBodyFromContainer(XmPushActionContainer container) throws TException, DecryptException, InvocationTargetException, NoSuchMethodException, IllegalAccessException {
+    public static TBase getResponseMessageBodyFromContainer(XmPushActionContainer container, String regSec)
+            throws TException, DecryptException, InvocationTargetException, NoSuchMethodException, IllegalAccessException {
         byte[] oriMsgBytes;
         boolean encrypted = container.isEncryptAction();
         if (encrypted) {
-            String sec = Utils.getRegSec(container.packageName);
-            byte[] keyBytes = Base64Coder.decode(sec);
+            byte[] keyBytes = Base64Coder.decode(regSec);
             try {
                 oriMsgBytes = PushContainerHelper.MIPushDecrypt(keyBytes, container.getPushAction());
             } catch (Exception e) {
@@ -270,11 +269,9 @@ public class EventItemBinder extends BaseAppsBinder<Event> {
         }
     }
 
-    private static void startManagePermissions(EventType type, Context context) {
+    private static void startManagePermissions(String packageName, Context context) {
         // Issue: This currently allows overlapping opens.
-        context.startActivity(new Intent(context,
-                ManagePermissionsActivity.class)
-                .putExtra(ManagePermissionsActivity.EXTRA_PACKAGE_NAME,
-                        type.getPkg()));
+        context.startActivity(new Intent(context, ManagePermissionsActivity.class)
+                .putExtra(ManagePermissionsActivity.EXTRA_PACKAGE_NAME, packageName));
     }
 }
