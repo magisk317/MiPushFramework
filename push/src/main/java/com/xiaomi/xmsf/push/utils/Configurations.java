@@ -2,6 +2,7 @@ package com.xiaomi.xmsf.push.utils;
 
 import android.content.Context;
 import android.net.Uri;
+import android.os.Build;
 
 import com.elvishew.xlog.Logger;
 import com.elvishew.xlog.XLog;
@@ -17,6 +18,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -207,6 +209,28 @@ public class Configurations {
                 e.printStackTrace();
                 return null;
             }
+        });
+        methods.put("decode-base64", () -> {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    Base64.Decoder decoder;
+                    switch (evaluated.optString(2)) {
+                        case "url":
+                            decoder = Base64.getUrlDecoder();
+                            break;
+                        case "mime":
+                            decoder = Base64.getMimeDecoder();
+                            break;
+                        default:
+                            decoder = Base64.getDecoder();
+                            break;
+                    }
+                    return new String(decoder.decode(evaluated.optString(1)), StandardCharsets.UTF_8);
+                }
+            } catch (IllegalArgumentException  e) {
+                e.printStackTrace();
+            }
+            return null;
         });
         methods.put("parse-json", () -> {
             try {
