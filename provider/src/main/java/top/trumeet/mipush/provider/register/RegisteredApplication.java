@@ -136,6 +136,8 @@ public class RegisteredApplication implements Parcelable {
 
     @Transient
     public boolean existServices = false;
+    @Transient
+    public String appName = "";
 
     @Generated(hash = 1523571055)
     public RegisteredApplication(Long id, String packageName, int type, boolean allowReceivePush,

@@ -2,6 +2,7 @@ package top.trumeet.mipushframework.register;
 
 import static top.trumeet.common.Constants.TAG;
 
+import android.app.SearchManager;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
@@ -12,8 +13,12 @@ import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.SearchView;
 
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -57,6 +62,7 @@ public class RegisteredApplicationFragment extends Fragment implements SwipeRefr
 
     private MultiTypeAdapter mAdapter;
     private LoadTask mLoadTask;
+    private String mQuery = "";
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -64,6 +70,7 @@ public class RegisteredApplicationFragment extends Fragment implements SwipeRefr
         mAdapter = new MultiTypeAdapter();
         mAdapter.register(RegisteredApplication.class, new RegisteredApplicationBinder());
         mAdapter.register(Footer.class, new FooterItemBinder());
+        setHasOptionsMenu(true);
     }
 
     SwipeRefreshLayout swipeRefreshLayout;
@@ -88,6 +95,38 @@ public class RegisteredApplicationFragment extends Fragment implements SwipeRefr
         return swipeRefreshLayout;
     }
 
+    @Override
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        menu.findItem(R.id.action_enable).setVisible(false);
+        menu.findItem(R.id.action_help).setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
+
+        MenuItem searchItem = menu.findItem(R.id.action_search);
+        searchItem.setVisible(true);
+
+        initSearchBar(searchItem);
+    }
+
+    private void initSearchBar(MenuItem searchItem) {
+        SearchManager searchManager = (SearchManager) getActivity().getSystemService(Context.SEARCH_SERVICE);
+        SearchView searchView = (SearchView) searchItem.getActionView();
+        searchView.setSearchableInfo(searchManager.getSearchableInfo(getActivity().getComponentName()));
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                if (newText.equals(mQuery)) {
+                    return true;
+                }
+                mQuery = newText.toLowerCase();
+                onRefresh();
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextSubmit(String newText) {
+                return true;
+            }
+        });
+    }
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
@@ -171,13 +210,19 @@ public class RegisteredApplicationFragment extends Fragment implements SwipeRefr
                 if ((iterator.next().applicationInfo.flags & ApplicationInfo.FLAG_INSTALLED) == 0) iterator.remove();   // Exclude apps not installed in current user.
 
             int totalPkg = packageInfos.size();
-
             for (PackageInfo packageInfo : packageInfos) {
-
                 final PackageInfo info = packageInfo;
                 MiPushManifestChecker finalChecker = checker;
 
                 pool.submit(() -> {
+                    final String appName = ApplicationNameCache.getInstance()
+                            .getAppName(context, info.packageName).toString();
+                    if (!(info.packageName.toLowerCase().contains(mQuery) ||
+                            appName.toLowerCase().contains(mQuery) ||
+                            Pinyin.toPinyin(appName, "").contains(mQuery)
+                    )) {
+                        return;
+                    }
                     String currentAppPkgName = info.packageName;
                     if (info.services == null) info.services = new ServiceInfo[]{};
 
@@ -198,6 +243,7 @@ public class RegisteredApplicationFragment extends Fragment implements SwipeRefr
                     }
                     if (application != null) {
                         application.existServices = existServices;
+                        application.appName = appName;
                     }
                 });
             }
@@ -215,12 +261,8 @@ public class RegisteredApplicationFragment extends Fragment implements SwipeRefr
             }
 
             Collections.sort(res, (o1, o2) -> {
-                final String o1Name = Pinyin.toPinyin(
-                        ApplicationNameCache.getInstance().getAppName(context, o1.getPackageName()).toString(),
-                        "");
-                final String o2Name = Pinyin.toPinyin(
-                        ApplicationNameCache.getInstance().getAppName(context, o2.getPackageName()).toString(),
-                        "");
+                final String o1Name = Pinyin.toPinyin(o1.appName,"");
+                final String o2Name = Pinyin.toPinyin(o2.appName,"");
                 if (o1.getId() == null && o2.getId() == null) {
                     return o1Name.compareTo(o2Name);
                 }

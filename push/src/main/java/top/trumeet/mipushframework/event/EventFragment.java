@@ -54,7 +54,7 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
     private Boolean mAllEventLoaded;
 
     private String mPacketName = null;
-    private String mQuery = null;
+    private String mQuery = "";
     private LoadTask mLoadTask;
 
     public static EventFragment newInstance(String targetPackage) {
@@ -63,10 +63,6 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
         return fragment;
     }
 
-    void setQuery(String query) {
-        mQuery = query;
-        if (mQuery != null && mQuery.length() == 0) mQuery = null;
-    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -117,7 +113,6 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         if (mPacketName != null) {
             inflater.inflate(R.menu.menu_main, menu);
-            menu.findItem(R.id.action_enable).setActionView(R.layout.switch_layout);
         }
         menu.findItem(R.id.action_enable).setVisible(false);
         menu.findItem(R.id.action_help).setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
@@ -135,10 +130,10 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextChange(String newText) {
-                if (newText.equals(mQuery != null ? mQuery : "")) {
+                if (newText.equals(mQuery)) {
                     return true;
                 }
-                setQuery(newText);
+                mQuery = newText;
                 onRefresh();
                 return true;
             }

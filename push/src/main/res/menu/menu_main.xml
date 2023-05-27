@@ -1,15 +1,15 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
-        android:id="@+id/action_enable"
-        android:title="@string/enable"
-        android:actionLayout="@layout/switch_layout"
-        app:showAsAction="always"
-        />
-    <item
         android:id="@+id/action_search"
         android:title="@string/action_search"
         android:visible="false"
         app:actionViewClass="android.widget.SearchView"
+        app:showAsAction="always"
+        />
+    <item
+        android:id="@+id/action_enable"
+        android:title="@string/enable"
+        android:actionLayout="@layout/switch_layout"
         app:showAsAction="always"
         />
     <item
