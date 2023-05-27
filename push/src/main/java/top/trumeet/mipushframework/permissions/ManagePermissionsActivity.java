@@ -6,6 +6,8 @@ import static android.provider.Settings.EXTRA_CHANNEL_ID;
 import static top.trumeet.common.utils.NotificationUtils.getChannelIdByPkg;
 
 import android.app.NotificationChannel;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
@@ -25,6 +27,7 @@ import android.view.MenuItem;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.drawable.DrawableCompat;
@@ -44,6 +47,7 @@ import moe.shizuku.preference.PreferenceCategory;
 import moe.shizuku.preference.PreferenceFragment;
 import moe.shizuku.preference.PreferenceGroup;
 import moe.shizuku.preference.PreferenceScreen;
+import moe.shizuku.preference.PreferenceViewHolder;
 import moe.shizuku.preference.SimpleMenuPreference;
 import moe.shizuku.preference.SwitchPreferenceCompat;
 import top.trumeet.common.Constants;
@@ -449,9 +453,26 @@ public class ManagePermissionsActivity extends AppCompatActivity {
                     item.setSummary(summary);
 
                     item.setOnPreferenceClickListener(preference -> {
-                        startActivity(new Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
-                                .putExtra(EXTRA_APP_PACKAGE, configApp)
-                                .putExtra(EXTRA_CHANNEL_ID, channel.getId()));
+                        AlertDialog.Builder build = new AlertDialog.Builder(getContext())
+                                .setTitle(channel.getName())
+                                .setNegativeButton(R.string.notification_channels_delete, (dialogInterface, i) -> {
+                                    NotificationManagerEx.INSTANCE.deleteNotificationChannel(
+                                            mApplicationItem.getPackageName(),
+                                            channel.getId()
+                                    );
+                                    notificationChannelsCategory.removePreference(item);
+                                })
+                                .setNeutralButton(R.string.notification_channels_copy_id, (dialogInterface, i) -> {
+                                    ClipboardManager clipboardManager = (ClipboardManager)
+                                            getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                                    clipboardManager.setText(channel.getId());
+                                })
+                                .setPositiveButton(R.string.notification_channels_setting, (dialogInterface, i) -> {
+                                    startActivity(new Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                                            .putExtra(EXTRA_APP_PACKAGE, configApp)
+                                            .putExtra(EXTRA_CHANNEL_ID, channel.getId()));
+                                });
+                        build.create().show();
                         return true;
                     });
                     notificationChannelsCategory.addPreference(item);

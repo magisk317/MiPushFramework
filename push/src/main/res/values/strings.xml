@@ -186,6 +186,9 @@ Please grant the <b>Run in the background or wake up</b> permissions.
 
 
     <string name="notification_channels">Notification Channels</string>
+    <string name="notification_channels_delete">Delete</string>
+    <string name="notification_channels_setting">Setting</string>
+    <string name="notification_channels_copy_id">Copy ID</string>
 
     <!-- Settings -->
     <string name="settings_enhance">Enhances</string>

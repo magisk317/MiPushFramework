@@ -246,6 +246,10 @@
     <string name="group_notifications_for_same_session_clear_title">会话通知被点击时清空整个会话通知组</string>
     <string name="show_pass_through">将透传消息作为通知显示</string>
     <string name="notification_channels">通知渠道</string>
+    <string name="notification_channels_delete">删除</string>
+    <string name="notification_channels_setting">设置</string>
+    <string name="notification_channels_copy_id">复制 ID</string>
+
     <string name="message_type_notification">通知消息</string>
     <string name="message_type_pass_through">透传消息</string>
     <string name="action_notify">发出通知</string>
