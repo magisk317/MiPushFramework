@@ -3,9 +3,9 @@ package top.trumeet.mipushframework.permissions;
 import static android.os.Build.VERSION_CODES.O;
 import static android.provider.Settings.EXTRA_APP_PACKAGE;
 import static android.provider.Settings.EXTRA_CHANNEL_ID;
-import static top.trumeet.common.utils.NotificationUtils.getChannelIdByPkg;
 
 import android.app.NotificationChannel;
+import android.app.NotificationChannelGroup;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
@@ -27,6 +27,7 @@ import android.view.MenuItem;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
@@ -40,6 +41,7 @@ import com.xiaomi.xmsf.push.notification.NotificationController;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import io.reactivex.disposables.CompositeDisposable;
 import moe.shizuku.preference.Preference;
@@ -47,10 +49,10 @@ import moe.shizuku.preference.PreferenceCategory;
 import moe.shizuku.preference.PreferenceFragment;
 import moe.shizuku.preference.PreferenceGroup;
 import moe.shizuku.preference.PreferenceScreen;
-import moe.shizuku.preference.PreferenceViewHolder;
 import moe.shizuku.preference.SimpleMenuPreference;
 import moe.shizuku.preference.SwitchPreferenceCompat;
 import top.trumeet.common.Constants;
+import top.trumeet.common.utils.NotificationUtils;
 import top.trumeet.common.utils.Utils;
 import top.trumeet.mipush.provider.db.EventDb;
 import top.trumeet.mipush.provider.db.RegisteredApplicationDb;
@@ -422,62 +424,39 @@ public class ManagePermissionsActivity extends AppCompatActivity {
                     category);
 
 
-            PreferenceCategory notificationChannelsCategory = new PreferenceCategory(
-                    getActivity(), null, moe.shizuku.preference.R.attr.preferenceCategoryStyle,
-                    R.style.Preference_Category_Material);
-            notificationChannelsCategory.setTitle(R.string.notification_channels);
-            screen.addPreference(notificationChannelsCategory);
-
             if (Build.VERSION.SDK_INT >= O) {
-                String configApp = NotificationManagerEx.INSTANCE.isSystemHookReady() ?
-                        mApplicationItem.getPackageName() :
-                        Constants.SERVICE_APP_NAME;
-                List<NotificationChannel> notificationChannels =
-                        NotificationManagerEx.INSTANCE.getNotificationChannels(mApplicationItem.getPackageName());
-                notificationChannels.stream().filter(NotificationChannelCompat ->
-                        NotificationChannelCompat.getId().startsWith(getChannelIdByPkg(mApplicationItem.getPackageName()))
-                ).forEach(channel -> {
-                    Preference item = new Preference(getActivity());
+                String mipushGroup = NotificationUtils.getGroupIdByPkg(mApplicationItem.getPackageName());
 
-                    CharSequence title = channel.getName();
-                    if (!NotificationController.isNotificationChannelEnabled(channel)) {
-                        title = "[disable]" + title;
-                    }
-                    item.setTitle(title);
+                List<NotificationChannelGroup> groups = NotificationManagerEx.INSTANCE
+                        .getNotificationChannelGroups(mApplicationItem.getPackageName());
+                if (NotificationManagerEx.INSTANCE.isSystemHookReady()) {
+                    groups.sort((lhs, rhs) -> {
+                        if (TextUtils.equals(lhs.getId(), mipushGroup) || rhs.getId() == null) {
+                            return -1;
+                        }
+                        if (TextUtils.equals(rhs.getId(), mipushGroup) || lhs.getId() == null) {
+                            return 1;
+                        }
 
-                    String summary = "id: " + channel.getId();
-                    String description = channel.getDescription();
-                    if (!TextUtils.isEmpty(description)) {
-                        summary += "\n" + description;
-                    }
-                    item.setSummary(summary);
-
-                    item.setOnPreferenceClickListener(preference -> {
-                        AlertDialog.Builder build = new AlertDialog.Builder(getContext())
-                                .setTitle(channel.getName())
-                                .setNegativeButton(R.string.notification_channels_delete, (dialogInterface, i) -> {
-                                    NotificationManagerEx.INSTANCE.deleteNotificationChannel(
-                                            mApplicationItem.getPackageName(),
-                                            channel.getId()
-                                    );
-                                    notificationChannelsCategory.removePreference(item);
-                                })
-                                .setNeutralButton(R.string.notification_channels_copy_id, (dialogInterface, i) -> {
-                                    ClipboardManager clipboardManager = (ClipboardManager)
-                                            getContext().getSystemService(Context.CLIPBOARD_SERVICE);
-                                    clipboardManager.setText(channel.getId());
-                                })
-                                .setPositiveButton(R.string.notification_channels_setting, (dialogInterface, i) -> {
-                                    startActivity(new Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
-                                            .putExtra(EXTRA_APP_PACKAGE, configApp)
-                                            .putExtra(EXTRA_CHANNEL_ID, channel.getId()));
-                                });
-                        build.create().show();
-                        return true;
+                        return lhs.getId().compareTo(rhs.getId());
                     });
-                    notificationChannelsCategory.addPreference(item);
+                } else {
+                    groups.removeIf(group -> !TextUtils.equals(group.getId(), mipushGroup));
+                }
+                groups.forEach(group -> {
+                    String suffix = group.getId() == null ? "" : " (" + group.getId() + ")";
+                    addNotificationCategory(screen,
+                            getString(R.string.notification_channels) + suffix,
+                            notificationChannel -> TextUtils.equals(notificationChannel.getGroup(), group.getId()));
                 });
+
             } else {
+                PreferenceCategory notificationChannelsCategory = new PreferenceCategory(
+                        getActivity(), null, moe.shizuku.preference.R.attr.preferenceCategoryStyle,
+                        R.style.Preference_Category_Material);
+                notificationChannelsCategory.setTitle(R.string.notification_channels);
+                screen.addPreference(notificationChannelsCategory);
+
                 Preference manageNotificationPreference = new Preference(getActivity());
                 manageNotificationPreference.setTitle(R.string.settings_manage_app_notifications);
                 manageNotificationPreference.setSummary(R.string.settings_manage_app_notifications_summary);
@@ -493,6 +472,62 @@ public class ManagePermissionsActivity extends AppCompatActivity {
             }
 
             setPreferenceScreen(screen);
+        }
+
+        @RequiresApi(api = Build.VERSION_CODES.O)
+        private void addNotificationCategory(PreferenceScreen screen, String categoryName, Predicate<NotificationChannel> predicate) {
+            PreferenceCategory notificationChannelsCategory = new PreferenceCategory(
+                    getActivity(), null, moe.shizuku.preference.R.attr.preferenceCategoryStyle,
+                    R.style.Preference_Category_Material);
+            notificationChannelsCategory.setTitle(categoryName);
+            screen.addPreference(notificationChannelsCategory);
+
+            String configApp = NotificationManagerEx.INSTANCE.isSystemHookReady() ?
+                    mApplicationItem.getPackageName() :
+                    Constants.SERVICE_APP_NAME;
+            List<NotificationChannel> notificationChannels =
+                    NotificationManagerEx.INSTANCE.getNotificationChannels(mApplicationItem.getPackageName());
+            notificationChannels.stream().filter(predicate).forEach(channel -> {
+                Preference item = new Preference(getActivity());
+
+                CharSequence title = channel.getName();
+                if (!NotificationController.isNotificationChannelEnabled(channel)) {
+                    title = "[disable]" + title;
+                }
+                item.setTitle(title);
+
+                String summary = "id: " + channel.getId();
+                String description = channel.getDescription();
+                if (!TextUtils.isEmpty(description)) {
+                    summary += "\n" + description;
+                }
+                item.setSummary(summary);
+
+                item.setOnPreferenceClickListener(preference -> {
+                    AlertDialog.Builder build = new AlertDialog.Builder(getContext())
+                            .setTitle(channel.getName())
+                            .setNegativeButton(R.string.notification_channels_delete, (dialogInterface, i) -> {
+                                NotificationManagerEx.INSTANCE.deleteNotificationChannel(
+                                        mApplicationItem.getPackageName(),
+                                        channel.getId()
+                                );
+                                notificationChannelsCategory.removePreference(item);
+                            })
+                            .setNeutralButton(R.string.notification_channels_copy_id, (dialogInterface, i) -> {
+                                ClipboardManager clipboardManager = (ClipboardManager)
+                                        getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                                clipboardManager.setText(channel.getId());
+                            })
+                            .setPositiveButton(R.string.notification_channels_setting, (dialogInterface, i) -> {
+                                startActivity(new Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                                        .putExtra(EXTRA_APP_PACKAGE, configApp)
+                                        .putExtra(EXTRA_CHANNEL_ID, channel.getId()));
+                            });
+                    build.create().show();
+                    return true;
+                });
+                notificationChannelsCategory.addPreference(item);
+            });
         }
 
         private void updateRegisterType (@RegisteredApplication.Type int type,
