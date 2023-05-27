@@ -13,6 +13,7 @@ import android.widget.Toast;
 import androidx.annotation.UiThread;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.android.material.elevation.SurfaceColors;
 import com.xiaomi.channel.commonutils.android.DeviceInfo;
 import com.xiaomi.channel.commonutils.android.MIUIUtils;
 import com.xiaomi.xmsf.R;
@@ -42,6 +43,10 @@ public abstract class MainActivity extends AppCompatActivity {
         checkAndConnect();
 
         ConfigCenter.getInstance().loadConfigurations(this);
+
+        int color = SurfaceColors.SURFACE_2.getColor(this);
+        getWindow().setStatusBarColor(color);
+        getWindow().setNavigationBarColor(color);
     }
 
 

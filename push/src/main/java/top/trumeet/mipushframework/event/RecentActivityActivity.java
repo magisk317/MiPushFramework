@@ -4,6 +4,8 @@ import android.os.Bundle;
 import androidx.appcompat.app.AppCompatActivity;
 import android.view.MenuItem;
 
+import com.google.android.material.elevation.SurfaceColors;
+
 /**
  * Created by Trumeet on 2017/8/28.
  * 
@@ -21,6 +23,9 @@ public class RecentActivityActivity extends AppCompatActivity {
                     .commitAllowingStateLoss();
         }
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+
+        int color = SurfaceColors.SURFACE_2.getColor(this);
+        getWindow().setStatusBarColor(color);
     }
 
     @Override

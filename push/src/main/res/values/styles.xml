@@ -2,7 +2,8 @@
     <style name="BaseTheme" parent="Theme.Material3.DynamicColors.DayNight">
         <item name="actionBarTheme">@style/AppTheme</item>
         <item name="preferenceTheme">@style/AppTheme</item>
-        <item name="android:statusBarColor">?android:colorBackground</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
     <style name="AppTheme" parent="BaseTheme">
     </style>
