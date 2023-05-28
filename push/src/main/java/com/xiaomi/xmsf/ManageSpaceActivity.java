@@ -17,6 +17,7 @@ import com.xiaomi.xmsf.push.notification.NotificationController;
 import com.xiaomi.xmsf.utils.LogUtils;
 
 import java.util.Date;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import top.trumeet.common.utils.Utils;
 import top.trumeet.mipush.provider.db.EventDb;
@@ -51,6 +52,7 @@ public class ManageSpaceActivity extends PreferenceActivity {
     }
 
     public static class MyPreferenceFragment extends PreferenceFragment {
+        AtomicBoolean mClearingHistory = new AtomicBoolean(false);
 
         public MyPreferenceFragment() {
         }
@@ -66,16 +68,21 @@ public class ManageSpaceActivity extends PreferenceActivity {
 
             //TODO: Three messages seem to be too much, and need separate strings for toast.
             getPreferenceScreen().findPreference("clear_history").setOnPreferenceClickListener(preference -> {
-                Toast.makeText(context, getString(R.string.settings_clear_history) + getString(R.string.start), Toast.LENGTH_SHORT).show();
-                EventDb.deleteHistory(context, null);
-                Toast.makeText(context, getString(R.string.settings_clear_history) + getString(R.string.end), Toast.LENGTH_SHORT).show();
+                if (mClearingHistory.compareAndSet(false, true)) {
+                    new Thread(() -> {
+                        Utils.makeText(context, getString(R.string.settings_clear_history) + " " + getString(R.string.start), Toast.LENGTH_SHORT);
+                        EventDb.deleteHistory(context, null);
+                        Utils.makeText(context, getString(R.string.settings_clear_history) + " " + getString(R.string.end), Toast.LENGTH_SHORT);
+                        mClearingHistory.set(false);
+                    }).start();
+                }
                 return true;
             });
 
             getPreferenceScreen().findPreference("clear_log").setOnPreferenceClickListener(preference -> {
-                Toast.makeText(context, getString(R.string.settings_clear_log) + getString(R.string.start), Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, getString(R.string.settings_clear_log) + " " + getString(R.string.start), Toast.LENGTH_SHORT).show();
                 LogUtils.clearLog(context);
-                Toast.makeText(context, getString(R.string.settings_clear_log) + getString(R.string.end), Toast.LENGTH_SHORT).show();
+                Toast.makeText(context, getString(R.string.settings_clear_log) + " " + getString(R.string.end), Toast.LENGTH_SHORT).show();
                 return true;
             });
 
