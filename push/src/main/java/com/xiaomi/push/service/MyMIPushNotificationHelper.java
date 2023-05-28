@@ -5,15 +5,6 @@ import static com.xiaomi.push.service.MIPushNotificationHelper.FROM_NOTIFICATION
 import static com.xiaomi.push.service.MIPushNotificationHelper.getTargetPackage;
 import static com.xiaomi.push.service.MIPushNotificationHelper.isBusinessMessage;
 import static com.xiaomi.push.service.MyNotificationIconHelper.MiB;
-import static com.xiaomi.xmsf.push.notification.NotificationController.EXTRA_CONVERSATION_ICON;
-import static com.xiaomi.xmsf.push.notification.NotificationController.EXTRA_CONVERSATION_ID;
-import static com.xiaomi.xmsf.push.notification.NotificationController.EXTRA_CONVERSATION_IMPORTANT;
-import static com.xiaomi.xmsf.push.notification.NotificationController.EXTRA_CONVERSATION_MESSAGE;
-import static com.xiaomi.xmsf.push.notification.NotificationController.EXTRA_CONVERSATION_SENDER;
-import static com.xiaomi.xmsf.push.notification.NotificationController.EXTRA_CONVERSATION_SENDER_ICON;
-import static com.xiaomi.xmsf.push.notification.NotificationController.EXTRA_CONVERSATION_SENDER_ID;
-import static com.xiaomi.xmsf.push.notification.NotificationController.EXTRA_CONVERSATION_TITLE;
-import static com.xiaomi.xmsf.push.notification.NotificationController.EXTRA_USE_MESSAGING_STYLE;
 import static com.xiaomi.xmsf.push.notification.NotificationController.getBitmapFromUri;
 import static com.xiaomi.xmsf.push.notification.NotificationController.getLargeIcon;
 import static com.xiaomi.xmsf.push.notification.NotificationController.getNotificationManagerEx;
@@ -69,6 +60,7 @@ import java.util.concurrent.Executors;
 
 import top.trumeet.common.Constants;
 import top.trumeet.common.cache.IconCache;
+import top.trumeet.common.utils.CustomConfiguration;
 import top.trumeet.common.utils.Utils;
 import top.trumeet.mipush.provider.db.RegisteredApplicationDb;
 import top.trumeet.mipush.provider.register.RegisteredApplication;
@@ -236,8 +228,8 @@ public class MyMIPushNotificationHelper {
             }
         }
         NotificationCompat.MessagingStyle.Message message = getMessage(context, container, pkgCtx);
-        boolean useMessagingStyle = message != null &&
-                getExtraField(metaInfo.getExtra(), EXTRA_USE_MESSAGING_STYLE, null) != null;
+        CustomConfiguration custom = new CustomConfiguration(metaInfo.getExtra());
+        boolean useMessagingStyle = message != null && custom.useMessagingStyle(false);
 
         int notificationId = getNotificationId(container);
         if (isGroupOfSession && !useMessagingStyle) {
@@ -326,7 +318,8 @@ public class MyMIPushNotificationHelper {
     @Nullable
     private static NotificationCompat.MessagingStyle.Message getMessage(Context context, XmPushActionContainer container, Context pkgCtx) {
         PushMetaInfo metaInfo = container.metaInfo;
-        String senderMessage = getExtraField(metaInfo.getExtra(), EXTRA_CONVERSATION_MESSAGE, null);
+        CustomConfiguration custom = new CustomConfiguration(metaInfo.getExtra());
+        String senderMessage = custom.conversationMessage(null);
         if (senderMessage == null) {
             return null;
         }
@@ -342,15 +335,16 @@ public class MyMIPushNotificationHelper {
     }
 
     private static boolean isGroupConversation(PushMetaInfo metaInfo) {
-        String conversation = getExtraField(metaInfo.getExtra(), EXTRA_CONVERSATION_TITLE, null);
-        return conversation != null;
+        CustomConfiguration custom = new CustomConfiguration(metaInfo.getExtra());
+        return custom.conversationTitle(null) != null;
     }
 
     @NonNull
     private static Person.Builder getGroup(Context context, PushMetaInfo metaInfo) {
-        String conversation = getExtraField(metaInfo.getExtra(), EXTRA_CONVERSATION_TITLE, null);
-        String conversationId = getExtraField(metaInfo.getExtra(), EXTRA_CONVERSATION_ID, null);
-        String conversationIcon = getExtraField(metaInfo.getExtra(), EXTRA_CONVERSATION_ICON, null);
+        CustomConfiguration custom = new CustomConfiguration(metaInfo.getExtra());
+        String conversation = custom.conversationTitle(null);
+        String conversationId = custom.conversationId(null);
+        String conversationIcon = custom.conversationIcon(null);
 
         Person.Builder personBuilder = isGroupConversation(metaInfo) ?
                 new Person.Builder() :
@@ -372,12 +366,13 @@ public class MyMIPushNotificationHelper {
 
     @NonNull
     private static Person.Builder getPerson(Context context, PushMetaInfo metaInfo) {
-        String sender = getExtraField(metaInfo.getExtra(), EXTRA_CONVERSATION_SENDER, null);
-        String senderId = getExtraField(metaInfo.getExtra(), EXTRA_CONVERSATION_SENDER_ID, null);
-        String senderIcon = getExtraField(metaInfo.getExtra(), EXTRA_CONVERSATION_SENDER_ICON, null);
+        CustomConfiguration custom = new CustomConfiguration(metaInfo.getExtra());
+        String sender = custom.conversationSender(null);
+        String senderId = custom.conversationSenderId(null);
+        String senderIcon = custom.conversationSenderIcon(null);
 
         Person.Builder personBuilder = new Person.Builder().setName(sender);
-        personBuilder.setImportant(getExtraField(metaInfo.getExtra(), EXTRA_CONVERSATION_IMPORTANT, null) != null);
+        personBuilder.setImportant(custom.conversationImportant(false));
         if (senderId != null) {
             personBuilder.setKey(senderId);
         }

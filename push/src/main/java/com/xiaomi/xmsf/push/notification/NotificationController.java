@@ -6,7 +6,6 @@ import static top.trumeet.common.utils.NotificationUtils.EXTRA_CHANNEL_DESCRIPTI
 import static top.trumeet.common.utils.NotificationUtils.EXTRA_CHANNEL_ID;
 import static top.trumeet.common.utils.NotificationUtils.EXTRA_CHANNEL_NAME;
 import static top.trumeet.common.utils.NotificationUtils.EXTRA_SOUND_URL;
-import static top.trumeet.common.utils.NotificationUtils.EXTRA_SUB_TEXT;
 import static top.trumeet.common.utils.NotificationUtils.getChannelIdByPkg;
 import static top.trumeet.common.utils.NotificationUtils.getExtraField;
 import static top.trumeet.common.utils.NotificationUtils.getGroupIdByPkg;
@@ -58,6 +57,7 @@ import java.util.Map;
 
 import top.trumeet.common.cache.ApplicationNameCache;
 import top.trumeet.common.cache.IconCache;
+import top.trumeet.common.utils.CustomConfiguration;
 import top.trumeet.common.utils.ImgUtils;
 
 /**
@@ -76,16 +76,6 @@ public class NotificationController {
     public static final String CHANNEL_WARN = "warn";
 
     public static final String NOTIFICATION_LARGE_ICON_URI = "notification_large_icon_uri";
-    public static final String EXTRA_ROUND_LARGE_ICON = "__mi_push_round_large_icon";
-    public static final String EXTRA_USE_MESSAGING_STYLE = "__mi_push_use_messaging_style";
-    public static final String EXTRA_CONVERSATION_TITLE = "__mi_push_conversation_title";
-    public static final String EXTRA_CONVERSATION_ID = "__mi_push_conversation_id";
-    public static final String EXTRA_CONVERSATION_ICON = "__mi_push_conversation_icon";
-    public static final String EXTRA_CONVERSATION_IMPORTANT = "__mi_push_conversation_important";
-    public static final String EXTRA_CONVERSATION_SENDER = "__mi_push_conversation_sender";
-    public static final String EXTRA_CONVERSATION_SENDER_ID = "__mi_push_conversation_sender_id";
-    public static final String EXTRA_CONVERSATION_SENDER_ICON = "__mi_push_conversation_sender_icon";
-    public static final String EXTRA_CONVERSATION_MESSAGE = "__mi_push_conversation_message";
 
     public static NotificationManagerEx getNotificationManagerEx() {
         return NotificationManagerEx.INSTANCE;
@@ -250,7 +240,8 @@ public class NotificationController {
             notificationBuilder.setLargeIcon(largeIcon);
         }
 
-        String subText = getExtraField(metaInfo.getExtra(), EXTRA_SUB_TEXT, null);
+        CustomConfiguration custom = new CustomConfiguration(metaInfo.getExtra());
+        String subText = custom.subText(null);
         buildExtraSubText(context, packageName, notificationBuilder, subText);
 
         notificationBuilder.setAutoCancel(true);
@@ -265,7 +256,8 @@ public class NotificationController {
         Bitmap largeIcon = IconCache.getInstance().getBitmap(context, iconUri,
                 (context1, iconUri1) -> getBitmapFromUri(context1, iconUri1, 200 * KiB));
         if (largeIcon != null) {
-            if (getExtraField(metaInfo.getExtra(), EXTRA_ROUND_LARGE_ICON, null) != null) {
+            CustomConfiguration custom = new CustomConfiguration(metaInfo.getExtra());
+            if (custom.roundLargeIcon(false)) {
                 largeIcon = ImgUtils.trimImgToCircle(largeIcon, Color.TRANSPARENT);
             }
         }
