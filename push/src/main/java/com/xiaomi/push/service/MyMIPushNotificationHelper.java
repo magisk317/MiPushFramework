@@ -250,21 +250,25 @@ public class MyMIPushNotificationHelper {
                 style.addMessage(message);
                 notificationBuilder.setStyle(style);
 
-                String key = group.getKey() != null ? group.getKey() : group.getName().toString();
-                Intent intent = getSdkIntent(context, container);
-                if (intent == null) {
-                    PackageManager packageManager = context.getPackageManager();
-                    intent = packageManager.getLaunchIntentForPackage(packageName);
-                }
-                ShortcutInfoCompat shortcut = new ShortcutInfoCompat.Builder(pkgCtx, key)
-                        .setIntent(intent)
-                        .setLongLived(true)
-                        .setShortLabel(group.getName())
-                        .setIcon(group.getIcon())
-                        .build();
+                // if (Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                try {
+                    String key = group.getKey() != null ? group.getKey() : group.getName().toString();
+                    Intent intent = getSdkIntent(context, container);
+                    if (intent == null) {
+                        PackageManager packageManager = context.getPackageManager();
+                        intent = packageManager.getLaunchIntentForPackage(packageName);
+                    }
+                    ShortcutInfoCompat shortcut = new ShortcutInfoCompat.Builder(pkgCtx, key)
+                            .setIntent(intent)
+                            .setLongLived(true)
+                            .setShortLabel(group.getName())
+                            .setIcon(group.getIcon())
+                            .build();
 
-                ShortcutManagerCompat.pushDynamicShortcut(pkgCtx, shortcut);
-                notificationBuilder.setShortcutInfo(shortcut);
+                    ShortcutManagerCompat.pushDynamicShortcut(pkgCtx, shortcut);
+                    notificationBuilder.setShortcutInfo(shortcut);
+                } catch (Throwable ignore) {
+                }
             }
         } else {
             String bigPicUri = getExtraField(metaInfo.getExtra(), "notification_bigPic_uri", null);
