@@ -30,6 +30,7 @@ import java.util.Set;
 
 import me.drakeet.multitype.Items;
 import me.drakeet.multitype.MultiTypeAdapter;
+import top.trumeet.common.Constants;
 import top.trumeet.mipush.provider.db.EventDb;
 import top.trumeet.mipush.provider.event.Event;
 import top.trumeet.mipushframework.utils.OnLoadMoreListener;
@@ -219,7 +220,8 @@ public class EventFragment extends Fragment implements SwipeRefreshLayout.OnRefr
                 types.add(Event.Type.RegistrationResult);
                 types.add(Event.Type.UnRegistration);
             }
-            return EventDb.query(types, mPacketName, mQuery, mTargetPage, getActivity(), mSignal);
+            return EventDb.query(Constants.PAGE_SIZE * (mTargetPage - 1), Constants.PAGE_SIZE,
+                    types, mPacketName, mQuery, getActivity(), mSignal);
         }
 
         @Override

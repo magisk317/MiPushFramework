@@ -139,14 +139,4 @@ public class EventDb {
         return pkgs;
     }
 
-
-    public static List<Event> query(@Nullable Set<Integer> types,
-                                    String pkg, String text, int page, Context context,
-                                    CancellationSignal cancellationSignal) {
-        int skip;
-        int limit;
-        skip = Constants.PAGE_SIZE * (page - 1);
-        limit = Constants.PAGE_SIZE;
-        return query(skip, limit, types, pkg, text, context, cancellationSignal);
-    }
 }
