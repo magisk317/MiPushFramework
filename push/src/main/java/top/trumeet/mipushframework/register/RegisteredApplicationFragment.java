@@ -278,13 +278,14 @@ public class RegisteredApplicationFragment extends Fragment implements SwipeRefr
                     return -1;
                 }
 
-                if (o1.getRegisteredType() == o2.getRegisteredType()) {
-                    return o1Name.compareTo(o2Name);
-                } else {
+                if (o1.getRegisteredType() != o2.getRegisteredType()) {
                     return o1.getRegisteredType() - o2.getRegisteredType();
-
                 }
-
+                int cmp = o2.lastReceiveTime.compareTo(o1.lastReceiveTime);
+                if (cmp != 0) {
+                    return cmp;
+                }
+                return o1Name.compareTo(o2Name);
             });
             int notUseMiPushCount = totalPkg - registeredPkgs.size();
 
