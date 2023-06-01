@@ -138,6 +138,7 @@ public class RegisteredApplicationFragment extends Fragment implements SwipeRefr
         if (mLoadTask != null && !mLoadTask.isCancelled()) {
             return;
         }
+        swipeRefreshLayout.setRefreshing(true);
         mLoadTask = new LoadTask(getActivity());
         mLoadTask.execute();
     }
