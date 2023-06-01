@@ -255,6 +255,7 @@
     <string name="action_notify">发出通知</string>
     <string name="action_configurate">执行配置</string>
     <string name="action_search">搜索</string>
+    <string name="last_receive">最近推送：</string>
 
 
 </resources>

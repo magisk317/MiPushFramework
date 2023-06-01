@@ -23,6 +23,7 @@ import org.greenrobot.greendao.annotation.Unique;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
+import java.util.Date;
 
 /**
  * Created by Trumeet on 2017/8/26.
@@ -138,6 +139,8 @@ public class RegisteredApplication implements Parcelable {
     public boolean existServices = false;
     @Transient
     public String appName = "";
+    @Transient
+    public Date lastReceiveTime = new Date(0);
 
     @Generated(hash = 1523571055)
     public RegisteredApplication(Long id, String packageName, int type, boolean allowReceivePush,

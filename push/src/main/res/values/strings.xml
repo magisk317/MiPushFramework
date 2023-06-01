@@ -273,6 +273,7 @@ This could be the application doing a reverse registration, or the registration 
     <string name="group_notifications_for_same_session_clear_title">clear all notifications of session when the notification of session was clicked</string>
     <string name="show_pass_through">show \"pass through\" message as notification</string>
     <string name="action_search">Search</string>
+    <string name="last_receive">last receive: </string>
 
 
 </resources>

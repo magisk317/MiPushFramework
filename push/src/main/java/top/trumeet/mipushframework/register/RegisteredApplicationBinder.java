@@ -1,5 +1,6 @@
 package top.trumeet.mipushframework.register;
 
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 
@@ -7,9 +8,11 @@ import androidx.annotation.NonNull;
 
 import com.xiaomi.xmsf.R;
 
+import top.trumeet.common.utils.Utils;
 import top.trumeet.mipush.provider.register.RegisteredApplication;
 import top.trumeet.mipushframework.permissions.ManagePermissionsActivity;
 import top.trumeet.mipushframework.utils.BaseAppsBinder;
+import top.trumeet.mipushframework.utils.ParseUtils;
 
 /**
  * Created by Trumeet on 2017/8/26.
@@ -24,6 +27,7 @@ public class RegisteredApplicationBinder extends BaseAppsBinder<RegisteredApplic
     @Override
     protected void onBindViewHolder(@NonNull final ViewHolder holder
             , @NonNull final RegisteredApplication item) {
+        Context context = holder.itemView.getContext();
         fillData(item.getPackageName(), true,
                 holder);
         //todo res color
@@ -32,6 +36,12 @@ public class RegisteredApplicationBinder extends BaseAppsBinder<RegisteredApplic
         if (!item.existServices) {
             holder.status.setText("MiPush Services not found");
             holder.status.setTextColor(ErrorColor);
+        }
+        holder.summary.setText(null);
+        if (item.lastReceiveTime.getTime() != 0) {
+            holder.summary.setText(String.format("%s%s",
+                    context.getString(R.string.last_receive),
+                    ParseUtils.getFriendlyDateString(item.lastReceiveTime, Utils.getUTC(), context)));
         }
         switch (item.getRegisteredType()) {
             case 1: {
@@ -50,8 +60,8 @@ public class RegisteredApplicationBinder extends BaseAppsBinder<RegisteredApplic
                 break;
             }
         }
-        holder.itemView.setOnClickListener(view -> holder.itemView.getContext()
-                .startActivity(new Intent(holder.itemView.getContext(),
+        holder.itemView.setOnClickListener(view -> context
+                .startActivity(new Intent(context,
                         ManagePermissionsActivity.class)
                 .putExtra(ManagePermissionsActivity.EXTRA_PACKAGE_NAME,
                         item.getPackageName())

@@ -31,7 +31,9 @@ import com.github.promeg.pinyinhelper.Pinyin;
 import com.xiaomi.xmsf.R;
 
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +49,7 @@ import me.drakeet.multitype.MultiTypeAdapter;
 import top.trumeet.common.cache.ApplicationNameCache;
 import top.trumeet.mipush.provider.db.EventDb;
 import top.trumeet.mipush.provider.db.RegisteredApplicationDb;
+import top.trumeet.mipush.provider.event.Event;
 import top.trumeet.mipush.provider.register.RegisteredApplication;
 import top.trumeet.mipushframework.utils.MiPushManifestChecker;
 import top.trumeet.mipushframework.widgets.Footer;
@@ -210,6 +213,8 @@ public class RegisteredApplicationFragment extends Fragment implements SwipeRefr
             for (final Iterator<PackageInfo> iterator = packageInfos.iterator(); iterator.hasNext(); )
                 if ((iterator.next().applicationInfo.flags & ApplicationInfo.FLAG_INSTALLED) == 0) iterator.remove();   // Exclude apps not installed in current user.
 
+            HashSet<Integer> types = new HashSet<>();
+            types.add(Event.Type.SendMessage);
             int totalPkg = packageInfos.size();
             for (PackageInfo packageInfo : packageInfos) {
                 final PackageInfo info = packageInfo;
@@ -245,6 +250,12 @@ public class RegisteredApplicationFragment extends Fragment implements SwipeRefr
                     if (application != null) {
                         application.existServices = existServices;
                         application.appName = appName;
+                        List<Event> events = EventDb.query(0, 1, types,
+                                application.getPackageName(), mQuery, getActivity(), null);
+                        if (!events.isEmpty()) {
+                            Event event = events.get(0);
+                            application.lastReceiveTime = new Date(event.getDate());
+                        }
                     }
                 });
             }
