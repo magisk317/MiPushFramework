@@ -75,7 +75,7 @@ public class ParseUtils {
                                 .getQuantityString(R.plurals.date_hours,
                                         (int) hour));
             } else {
-                return parseDate(fromServer);
+                return parseDate(calendarServer.getTime());
 
             }
         } else if (day < 30) {
@@ -86,16 +86,12 @@ public class ParseUtils {
                                     (int) day));
         } else {
             return context.getString(R.string.date_format_long,
-                    parseDate(fromServer));
+                    parseDate(calendarServer.getTime()));
         }
-
-
     }
 
     private static String parseDate(Date date) {
-        TimeZone tz = TimeZone.getDefault();
         DateFormat formatter = DateFormat.getDateTimeInstance();
-        formatter.setTimeZone(tz);
         return formatter.format(date);
 
     }
