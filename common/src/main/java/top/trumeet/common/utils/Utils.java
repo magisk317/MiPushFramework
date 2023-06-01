@@ -14,6 +14,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Process;
 import android.text.Html;
+import android.text.TextUtils;
 import android.widget.Toast;
 
 import androidx.annotation.ColorInt;
@@ -117,6 +118,16 @@ public final class Utils {
         }
         secSp = getApplication().getSharedPreferences("mipush", 0);
         return secSp.getString(packageName, null);
+    }
+
+    public static void setRegSec(String pkgName, String regSec) {
+        if (TextUtils.isEmpty(regSec)) {
+            return;
+        }
+        SharedPreferences secSp = getApplication().getSharedPreferences("pref_registered_pkg_names_sec", 0);
+        SharedPreferences.Editor secEditor = secSp.edit();
+        secEditor.putString(pkgName, regSec);
+        secEditor.commit();
     }
 
 }

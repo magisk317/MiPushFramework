@@ -35,6 +35,7 @@ import java.util.Map;
 
 import top.trumeet.common.cache.ApplicationNameCache;
 import top.trumeet.common.utils.NotificationUtils;
+import top.trumeet.common.utils.Utils;
 import top.trumeet.mipush.provider.db.RegisteredApplicationDb;
 import top.trumeet.mipush.provider.register.RegisteredApplication;
 
@@ -170,15 +171,15 @@ public class MyMIPushMessageProcessor {
                 SharedPreferences.Editor editor = sp.edit();
                 editor.putString(pkgName, container.appid);
                 editor.commit();
-                SharedPreferences secSp = pushService.getSharedPreferences(PushServiceConstants.PREF_KEY_REGISTERED_PKGS + "_sec", 0);
-                SharedPreferences.Editor secEditor = secSp.edit();
+                String regSec = null;
+
                 try {
                     XmPushActionRegistrationResult result = (XmPushActionRegistrationResult) PushContainerHelper.getResponseMessageBodyFromContainer(pushService, container);
-                    secEditor.putString(pkgName, result.getRegSecret());
-                    secEditor.commit();
+                    regSec = result.getRegSecret();
                 } catch (Throwable e) {
                     e.printStackTrace();
                 }
+                Utils.setRegSec(pkgName, regSec);
 
                 com.xiaomi.tinyData.TinyDataManager.getInstance(pushService).processPendingData("Register Success, package name is " + pkgName);
             }
