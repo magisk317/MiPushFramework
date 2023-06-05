@@ -9,14 +9,12 @@ import android.os.CancellationSignal;
 import androidx.annotation.Nullable;
 
 import org.greenrobot.greendao.query.QueryBuilder;
+import org.greenrobot.greendao.query.WhereCondition;
 
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
-import top.trumeet.common.Constants;
 import top.trumeet.common.utils.DatabaseUtils;
 import top.trumeet.common.utils.Utils;
 import top.trumeet.mipush.provider.event.Event;
@@ -96,46 +94,20 @@ public class EventDb {
 
 
     public static Set<String> queryRegistered(Context context, CancellationSignal signal) {
-
         QueryBuilder<Event> query = daoSession.queryBuilder(Event.class)
-                .where(EventDao.Properties.Type.eq(Event.Type.RegistrationResult))
-                .orderDesc(EventDao.Properties.Date)
+                .where(EventDao.Properties.Type.in(Event.Type.RegistrationResult, Event.Type.UnRegistration))
+                .where(new WhereCondition.StringCondition("1" +
+                        " GROUP BY " + EventDao.Properties.Pkg.columnName +
+                        " HAVING MAX(" + EventDao.Properties.Date.columnName + ")"))
                 ;
-        List<Event> registered = query.list();
-
-        //fuck java6
-        Map<String, Event> registeredMap = new HashMap<>();
-        for (Event event : registered) {
-            String pkg = event.getPkg();
-            if (!registeredMap.containsKey(pkg)) {
-                registeredMap.put(event.getPkg(), event);
-            }
-        }
-
-        query = daoSession.queryBuilder(Event.class)
-                .where(EventDao.Properties.Type.eq(Event.Type.UnRegistration))
-                .orderDesc(EventDao.Properties.Date)
-                ;
-        List<Event> unregistered = query.list();
-
-        Map<String, Event> unRegisteredMap = new HashMap<>();
-        for (Event event : unregistered) {
-            String pkg = event.getPkg();
-            if (!unRegisteredMap.containsKey(pkg)) {
-                unRegisteredMap.put(event.getPkg(), event);
-            }
-        }
+        List<Event> events = query.list();
 
         Set<String> pkgs = new HashSet<>();
-        for (Event event : registeredMap.values()) {
-            Event unRegisterEvent = unRegisteredMap.get(event.getPkg());
-            if (unRegisterEvent != null && unRegisterEvent.getDate() > event.getDate()) {
-                continue;
+        for (Event event : events) {
+            if (event.getType() == Event.Type.RegistrationResult) {
+                pkgs.add(event.getPkg());
             }
-
-            pkgs.add(event.getPkg());
         }
-
         return pkgs;
     }
 
