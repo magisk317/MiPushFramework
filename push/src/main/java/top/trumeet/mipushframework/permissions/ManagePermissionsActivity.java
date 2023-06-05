@@ -444,7 +444,7 @@ public class ManagePermissionsActivity extends AppCompatActivity {
                     groups.removeIf(group -> !TextUtils.equals(group.getId(), mipushGroup));
                 }
                 groups.forEach(group -> {
-                    String suffix = group.getId() == null ? "" : " (" + group.getId() + ")";
+                    String suffix = group.getId() == null ? "" : String.format(": %s (%s)", group.getName(), group.getId());
                     addNotificationCategory(screen,
                             getString(R.string.notification_channels) + suffix,
                             notificationChannel -> TextUtils.equals(notificationChannel.getGroup(), group.getId()));
