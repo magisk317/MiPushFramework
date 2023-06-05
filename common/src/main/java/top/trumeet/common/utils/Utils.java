@@ -130,4 +130,18 @@ public final class Utils {
         secEditor.commit();
     }
 
+    public static Long getLastReceiveTime(String packageName) {
+        SharedPreferences secSp = getApplication().getSharedPreferences("last_receive_time", 0);
+        if (!secSp.contains(packageName)) {
+            return null;
+        }
+        return secSp.getLong(packageName, 0);
+    }
+
+    public static void setLastReceiveTime(String pkgName, long time) {
+        SharedPreferences secSp = getApplication().getSharedPreferences("last_receive_time", 0);
+        SharedPreferences.Editor secEditor = secSp.edit();
+        secEditor.putLong(pkgName, time);
+        secEditor.commit();
+    }
 }

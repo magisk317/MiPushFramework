@@ -37,6 +37,9 @@ public class EventDb {
 
 
     public static long insertEvent(Event event) {
+        if (event.getType() == Event.Type.SendMessage) {
+            Utils.setLastReceiveTime(event.getPkg(), event.getDate());
+        }
         return daoSession.insert(event);
     }
 
@@ -112,14 +115,21 @@ public class EventDb {
     }
 
     public static long getLastReceiveTime(String packageName) {
+        Long time = Utils.getLastReceiveTime(packageName);
+        if (time != null) {
+            return time;
+        }
+
         HashSet<Integer> types = new HashSet<>();
         types.add(Event.Type.SendMessage);
         List<Event> events = EventDb.query(0, 1, types,
                 packageName, null, Utils.getApplication(), null);
-        if (events.isEmpty()) {
-            return 0;
+        long lastReceiveTime = 0;
+        if (!events.isEmpty()) {
+            lastReceiveTime = events.get(0).getDate();
         }
-        return events.get(0).getDate();
+        Utils.setLastReceiveTime(packageName, lastReceiveTime);
+        return lastReceiveTime;
     }
 
 }
