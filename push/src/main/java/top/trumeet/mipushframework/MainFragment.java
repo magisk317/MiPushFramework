@@ -9,6 +9,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.SearchView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -42,6 +43,7 @@ public class MainFragment extends Fragment implements OnConnectStatusChangedList
     private static final String FRAGMENT_EVENT = "event";
     private static final String FRAGMENT_APPLICATIONS = "applications";
     private static final String FRAGMENT_SETTINGS = "settings";
+    private MenuItem mSearchItem;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -75,6 +77,7 @@ public class MainFragment extends Fragment implements OnConnectStatusChangedList
         inflater.inflate(R.menu.menu_main, menu);
         MenuItem item = menu.findItem(R.id.action_enable);
         item.setActionView(R.layout.switch_layout);
+        mSearchItem = menu.findItem(R.id.action_search);
     }
 
     @Override
@@ -141,6 +144,9 @@ public class MainFragment extends Fragment implements OnConnectStatusChangedList
                 new BottomNavigationView.OnNavigationItemSelectedListener() {
                     @Override
                     public boolean onNavigationItemSelected(@NonNull MenuItem item) {
+                        SearchView searchView = (SearchView) mSearchItem.getActionView();
+                        searchView.setIconified(true);
+                        searchView.setIconified(true);
                         viewPager.setCurrentItem(item.getOrder());
                         return true;
                     }
