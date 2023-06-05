@@ -140,6 +140,8 @@ public class RegisteredApplication implements Parcelable {
     @Transient
     public String appName = "";
     @Transient
+    public String appNamePinYin = "";
+    @Transient
     public Date lastReceiveTime = new Date(0);
 
     @Generated(hash = 1523571055)

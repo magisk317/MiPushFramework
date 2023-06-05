@@ -219,9 +219,10 @@ public class RegisteredApplicationFragment extends Fragment implements SwipeRefr
                 pool.submit(() -> {
                     final String appName = ApplicationNameCache.getInstance()
                             .getAppName(context, info.packageName).toString();
+                    final String pinYin = Pinyin.toPinyin(appName, "");
                     if (!(info.packageName.toLowerCase().contains(mQuery) ||
                             appName.toLowerCase().contains(mQuery) ||
-                            Pinyin.toPinyin(appName, "").contains(mQuery)
+                            pinYin.contains(mQuery)
                     )) {
                         return;
                     }
@@ -246,6 +247,7 @@ public class RegisteredApplicationFragment extends Fragment implements SwipeRefr
                     if (application != null) {
                         application.existServices = existServices;
                         application.appName = appName;
+                        application.appNamePinYin = pinYin;
                         application.lastReceiveTime = new Date(EventDb.getLastReceiveTime(application.getPackageName()));
                     }
                 });
@@ -264,10 +266,8 @@ public class RegisteredApplicationFragment extends Fragment implements SwipeRefr
             }
 
             Collections.sort(res, (o1, o2) -> {
-                final String o1Name = Pinyin.toPinyin(o1.appName,"");
-                final String o2Name = Pinyin.toPinyin(o2.appName,"");
                 if (o1.getId() == null && o2.getId() == null) {
-                    return o1Name.compareTo(o2Name);
+                    return o1.appNamePinYin.compareTo(o2.appNamePinYin);
                 }
 
                 if (o1.getId() == null) {
@@ -285,7 +285,7 @@ public class RegisteredApplicationFragment extends Fragment implements SwipeRefr
                 if (cmp != 0) {
                     return cmp;
                 }
-                return o1Name.compareTo(o2Name);
+                return o1.appNamePinYin.compareTo(o2.appNamePinYin);
             });
             int notUseMiPushCount = totalPkg - registeredPkgs.size();
 
