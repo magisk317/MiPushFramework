@@ -225,7 +225,7 @@ Please grant the <b>Run in the background or wake up</b> permissions.
 
     <string name="request_battery_whitelist">Push app needs to be added to the \"Battery Optimization\" whitelist to run properly.</string>
 
-    <string name="status_app_not_registered">Support but not registered</string>
+    <string name="status_app_not_registered">not registered</string>
     <string name="footer_app_ignored_not_registered">%1$s apps without MiPush SDK</string>
     <string name="status_app_not_registered_detail_without_fake_suggest"><![CDATA[
 Registration is determined and initiated by the application and generally begins automatically when the application is launched. Some apps are only registered when finding a XiaoMi devices. See also: <b><a href="https://github.com/MiPushFramework/MiPushFramework/wiki/%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BC%8F%E6%B3%A8%E5%86%8C%E9%97%AE%E9%A2%98%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88">应用程式注册问题解决方案</a></b> and <b><a href="https://github.com/MiPushFramework/MiPushFramework/wiki/%5B%E5%B8%AE%E5%8A%A9%5D-%E5%BA%94%E7%94%A8%E6%B3%A8%E5%86%8C%E9%97%AE%E9%A2%98">[帮助] 应用注册问题</a></b>.

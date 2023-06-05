@@ -203,7 +203,7 @@
 
 
     <string name="request_battery_whitelist">Push 应用需要被加入“电池优化”白名单才能正常运行</string>
-    <string name="status_app_not_registered">使用系统推送，但尚未注册</string>
+    <string name="status_app_not_registered">未注册</string>
     <string name="footer_app_ignored_not_registered">已忽略 %1$s 个未使用系统推送的应用</string>
 
     <string name="status_app_not_registered_detail_without_fake_suggest"><![CDATA[
