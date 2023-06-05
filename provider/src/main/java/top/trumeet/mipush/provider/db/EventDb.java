@@ -111,4 +111,15 @@ public class EventDb {
         return pkgs;
     }
 
+    public static long getLastReceiveTime(String packageName) {
+        HashSet<Integer> types = new HashSet<>();
+        types.add(Event.Type.SendMessage);
+        List<Event> events = EventDb.query(0, 1, types,
+                packageName, null, Utils.getApplication(), null);
+        if (events.isEmpty()) {
+            return 0;
+        }
+        return events.get(0).getDate();
+    }
+
 }
