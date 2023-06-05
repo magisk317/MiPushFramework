@@ -32,10 +32,10 @@ public class RegisteredApplicationBinder extends BaseAppsBinder<RegisteredApplic
                 holder);
         //todo res color
         int ErrorColor = Color.parseColor("#FFF41804");
-        holder.status.setText(null);
+        holder.text2.setText(null);
         if (!item.existServices) {
-            holder.status.setText("MiPush Services not found");
-            holder.status.setTextColor(ErrorColor);
+            holder.text2.setText("MiPush Services not found");
+            holder.text2.setTextColor(ErrorColor);
         }
         holder.summary.setText(null);
         if (item.lastReceiveTime.getTime() != 0) {
@@ -45,18 +45,18 @@ public class RegisteredApplicationBinder extends BaseAppsBinder<RegisteredApplic
         }
         switch (item.getRegisteredType()) {
             case 1: {
-                holder.text2.setText(R.string.app_registered);
-                holder.text2.setTextColor(Color.parseColor("#FF0B5B27"));
+                holder.status.setText(R.string.app_registered);
+                holder.status.setTextColor(Color.parseColor("#FF0B5B27"));
                 break;
             }
             case 2: {
-                holder.text2.setText(R.string.app_registered_error);
-                holder.text2.setTextColor(ErrorColor);
+                holder.status.setText(R.string.app_registered_error);
+                holder.status.setTextColor(ErrorColor);
                 break;
             }
             case 0: {
-                holder.text2.setText(R.string.status_app_not_registered);
-                holder.text2.setTextColor(holder.title.getTextColors());
+                holder.status.setText(R.string.status_app_not_registered);
+                holder.status.setTextColor(holder.title.getTextColors());
                 break;
             }
         }
