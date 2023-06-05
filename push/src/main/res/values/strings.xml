@@ -274,6 +274,7 @@ This could be the application doing a reverse registration, or the registration 
     <string name="show_pass_through">show \"pass through\" message as notification</string>
     <string name="action_search">Search</string>
     <string name="last_receive">last receive: </string>
+    <string name="mipush_services_not_found">MiPush Services not found, may affect push or notification click</string>
 
 
 </resources>

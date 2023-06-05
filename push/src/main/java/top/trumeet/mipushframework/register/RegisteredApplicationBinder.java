@@ -34,7 +34,7 @@ public class RegisteredApplicationBinder extends BaseAppsBinder<RegisteredApplic
         int ErrorColor = Color.parseColor("#FFF41804");
         holder.text2.setText(null);
         if (!item.existServices) {
-            holder.text2.setText("MiPush Services not found");
+            holder.text2.setText(R.string.mipush_services_not_found);
             holder.text2.setTextColor(ErrorColor);
         }
         holder.summary.setText(null);

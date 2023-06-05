@@ -256,6 +256,7 @@
     <string name="action_configurate">执行配置</string>
     <string name="action_search">搜索</string>
     <string name="last_receive">最近推送：</string>
+    <string name="mipush_services_not_found">找不到 MiPush 服务，可能会影响推送或通知点击</string>
 
 
 </resources>
