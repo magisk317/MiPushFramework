@@ -54,7 +54,7 @@ androidx-compose-material-icons-extended = { module = "androidx.compose.material
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
-google-material = { module = "com.google.android.material:material", version = "1.6.1" }
+google-material = { module = "com.google.android.material:material", version = "1.13.0" }
 legacy-support-v4 = { module = "androidx.legacy:legacy-support-v4", version = "1.0.0" }
 palette = { module = "androidx.palette:palette", version = "1.0.0" }
 
