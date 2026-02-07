@@ -4,21 +4,31 @@ package top.trumeet.mipushframework.main
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -29,12 +39,6 @@ import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
-import androidx.navigation.NavController
-import androidx.navigation.NavGraphBuilder
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
 import com.xiaomi.xmsf.R
 import top.trumeet.mipushframework.MainPageUtils
 import top.trumeet.mipushframework.component.SearchBar
@@ -46,6 +50,7 @@ import top.trumeet.mipushframework.main.subpage.EventListPreview
 import top.trumeet.mipushframework.main.subpage.Settings
 import top.trumeet.mipushframework.main.subpage.SettingsPagePreview
 import top.trumeet.ui.theme.Theme
+import kotlinx.coroutines.launch
 
 private val mainPageUtils1 = MainPageUtils()
 private var placeholder by mutableStateOf("Search...")
@@ -62,25 +67,12 @@ class MainPage : ComponentActivity() {
                     NavigationBarDefaults.Elevation
                 ).toArgb()
             }
-            Main(Screen.Apps.route.toString()) {
-                {
-                    composable(Screen.Events.route.toString()) {
-                        Column {
-                            var query by rememberSaveable { mutableStateOf("") }
-                            SearchBar(placeholder) { query = it }
-                            EventList(query)
-                        }
-                    }
-                    composable(Screen.Apps.route.toString()) {
-                        Column {
-                            var query by rememberSaveable { mutableStateOf("") }
-                            SearchBar(placeholder) { query = it }
-                            ApplicationList(query)
-                        }
-                    }
-                    composable(Screen.Settings.route.toString()) { Settings() }
-                }
-            }
+            Main(
+                Screen.Apps.route.toString(),
+                eventsPage = { query -> EventList(query) },
+                appsPage = { query -> ApplicationList(query) },
+                settingsPage = { Settings() }
+            )
         }
     }
 }
@@ -92,56 +84,87 @@ private sealed class Screen(val route: Int, val icon: Int) {
 }
 
 @Composable
-fun BottomNavigationBar(navController: NavController) {
-    val items = listOf(
-        Screen.Events, Screen.Apps, Screen.Settings
-    )
+fun BottomNavigationBar(
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit
+) {
+    val items = listOf(Screen.Events, Screen.Apps, Screen.Settings)
 
-    NavigationBar(Modifier.height(56.dp)) {
-        val navBackStackEntry by navController.currentBackStackEntryAsState()
-        val currentRoute = navBackStackEntry?.destination?.route
-
-        items.forEach { screen ->
+    NavigationBar(
+        modifier = Modifier
+            .navigationBarsPadding()
+            .height(72.dp),
+        tonalElevation = 0.dp,
+        windowInsets = NavigationBarDefaults.windowInsets,
+    ) {
+        items.forEachIndexed { index, screen ->
             val name = stringResource(screen.route)
             NavigationBarItem(
                 icon = { Icon(painterResource(id = screen.icon), contentDescription = name) },
-                selected = currentRoute == screen.route.toString(),
-                onClick = {
-                    navController.navigate(screen.route.toString()) {
-                        popUpTo(navController.graph.startDestinationId) {
-                            saveState = true
-                        }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                })
+                label = { androidx.compose.material3.Text(name) },
+                selected = selectedIndex == index,
+                alwaysShowLabel = false,
+                onClick = { onSelect(index) }
+            )
         }
     }
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 private fun Main(
     startDestination: String,
-    navContent: () -> NavGraphBuilder.() -> Unit
+    eventsPage: @Composable (String) -> Unit,
+    appsPage: @Composable (String) -> Unit,
+    settingsPage: @Composable () -> Unit
 ) {
-    val navController = rememberNavController()
+    val initialIndex = when (startDestination) {
+        Screen.Events.route.toString() -> 0
+        Screen.Apps.route.toString() -> 1
+        Screen.Settings.route.toString() -> 2
+        else -> 1
+    }
+    val pagerState = rememberPagerState(initialPage = initialIndex, pageCount = { 3 })
+    val scope = rememberCoroutineScope()
+    var eventsQuery by rememberSaveable { mutableStateOf("") }
+    var appsQuery by rememberSaveable { mutableStateOf("") }
+    val currentPage by remember { derivedStateOf { pagerState.currentPage } }
 
     Theme {
-        Column(
-            Modifier
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .fillMaxSize(),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(Modifier.weight(1f)) {
-                NavHost(
-                    navController = navController,
-                    startDestination = startDestination,
-                    builder = navContent()
-                )
+        Scaffold(
+            contentWindowInsets = WindowInsets.safeDrawing,
+            topBar = {
+                when (currentPage) {
+                    0 -> SearchBar(placeholder, eventsQuery) { eventsQuery = it }
+                    1 -> SearchBar(placeholder, appsQuery) { appsQuery = it }
+                    else -> CenterAlignedTopAppBar(
+                        title = { androidx.compose.material3.Text(stringResource(Screen.Settings.route)) },
+                        colors = TopAppBarDefaults.centerAlignedTopAppBarColors()
+                    )
+                }
+            },
+            bottomBar = {
+                BottomNavigationBar(currentPage) { index ->
+                    scope.launch { pagerState.animateScrollToPage(index) }
+                }
             }
-            BottomNavigationBar(navController)
+        ) { innerPadding ->
+            Column(
+                Modifier
+                    .padding(innerPadding)
+                    .fillMaxSize()
+            ) {
+                HorizontalPager(
+                    state = pagerState,
+                    beyondViewportPageCount = 1
+                ) { page ->
+                    when (page) {
+                        0 -> eventsPage(eventsQuery)
+                        1 -> appsPage(appsQuery)
+                        else -> settingsPage()
+                    }
+                }
+            }
         }
     }
 }
@@ -152,19 +175,16 @@ private fun Main(
 )
 @Composable
 private fun MainEventsPreview() {
-    Main(Screen.Events.route.toString()) {
-        {
-            composable(Screen.Events.route.toString()) {
-                Column {
-                    val onValueChange: (String) -> Unit = {}
-                    SearchBar(placeholder, onValueChange)
-                    EventListPreview()
-                }
+    Main(
+        Screen.Events.route.toString(),
+        eventsPage = { _ ->
+            Column {
+                EventListPreview()
             }
-            composable(Screen.Apps.route.toString()) { }
-            composable(Screen.Settings.route.toString()) { }
-        }
-    }
+        },
+        appsPage = { _ -> },
+        settingsPage = { }
+    )
 }
 
 @Preview(
@@ -173,19 +193,16 @@ private fun MainEventsPreview() {
 )
 @Composable
 private fun MainAppsPreview() {
-    Main(Screen.Apps.route.toString()) {
-        {
-            composable(Screen.Events.route.toString()) { }
-            composable(Screen.Apps.route.toString()) {
-                Column {
-                    val onValueChange: (String) -> Unit = {}
-                    SearchBar(placeholder, onValueChange)
-                    ApplicationListPreview()
-                }
+    Main(
+        Screen.Apps.route.toString(),
+        eventsPage = { _ -> },
+        appsPage = { _ ->
+            Column {
+                ApplicationListPreview()
             }
-            composable(Screen.Settings.route.toString()) { }
-        }
-    }
+        },
+        settingsPage = { }
+    )
 }
 
 @Preview(
@@ -194,13 +211,12 @@ private fun MainAppsPreview() {
 )
 @Composable
 private fun MainSettingsPreview() {
-    Main(Screen.Settings.route.toString()) {
-        {
-            composable(Screen.Events.route.toString()) { }
-            composable(Screen.Apps.route.toString()) { }
-            composable(Screen.Settings.route.toString()) { SettingsPagePreview() }
-        }
-    }
+    Main(
+        Screen.Settings.route.toString(),
+        eventsPage = { _ -> },
+        appsPage = { _ -> },
+        settingsPage = { SettingsPagePreview() }
+    )
 }
 
 @Preview(
@@ -209,13 +225,10 @@ private fun MainSettingsPreview() {
 )
 @Composable
 private fun MainDialogPreview() {
-    Main(Screen.Events.route.toString()) {
-        {
-            composable(Screen.Events.route.toString()) {
-                EventDetailsDialogPreview()
-            }
-            composable(Screen.Apps.route.toString()) { }
-            composable(Screen.Settings.route.toString()) { }
-        }
-    }
+    Main(
+        Screen.Events.route.toString(),
+        eventsPage = { _ -> EventDetailsDialogPreview() },
+        appsPage = { _ -> },
+        settingsPage = { }
+    )
 }

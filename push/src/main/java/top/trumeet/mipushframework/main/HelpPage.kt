@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Divider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -57,7 +58,11 @@ fun HelpPage(modifier: Modifier = Modifier) {
 @Composable
 fun HelpList(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = "list", modifier = modifier) {
+    NavHost(
+        navController = navController,
+        startDestination = "list",
+        modifier = modifier.statusBarsPadding()
+    ) {
         composable("list") { HelpList(navController) }
         composable("markdown/{markdownResId}") { backStackEntry ->
             val markdownResId = backStackEntry.arguments?.getString("markdownResId")?.toInt()

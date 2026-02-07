@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -55,6 +56,7 @@ private fun SettingsApp() {
     Theme {
         Surface(
             modifier = Modifier
+                .statusBarsPadding()
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
             color = MaterialTheme.colorScheme.background
@@ -187,4 +189,3 @@ private fun SettingsPreview() {
     Utils.context = LocalContext.current
     SettingsApp()
 }
-
