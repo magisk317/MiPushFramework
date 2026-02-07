@@ -12,7 +12,9 @@ import com.xiaomi.push.service.ClientEventDispatcher
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         if (intent != null && intent.action == "android.intent.action.BOOT_COMPLETED") {
-            ClientEventDispatcher().notifyServiceStarted(context)
+            runCatching {
+                ClientEventDispatcher().notifyServiceStarted(context)
+            }
         }
     }
 }

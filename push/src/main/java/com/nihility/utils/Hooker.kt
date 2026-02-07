@@ -24,15 +24,23 @@ object Hooker {
 
     @JvmStatic
     fun hook(context: Context) {
-        initMiPushHookLib(context)
-        hookMiPushSDK(context)
+        runCatching {
+            initMiPushHookLib(context)
+            hookMiPushSDK(context)
+        }.onFailure {
+            logger.e("Hook init skipped: ${it.message}", it)
+        }
     }
 
     @JvmStatic
     fun setLogger(context: Context) {
-        val logger = buildMiSDKLogger()
-        initMiSdkLogger(logger)
-        initPushLogger(context, logger)
+        runCatching {
+            val logger = buildMiSDKLogger()
+            initMiSdkLogger(logger)
+            initPushLogger(context, logger)
+        }.onFailure {
+            logger.e("Push logger init skipped: ${it.message}", it)
+        }
     }
 
     private fun initMiPushHookLib(context: Context) {

@@ -7,10 +7,7 @@ import android.util.Log
 import com.nihility.Global
 import com.nihility.InternalMessenger
 import com.nihility.service.XMPushServiceListener
-import com.xiaomi.channel.commonutils.android.DeviceInfo
-import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.push.service.XMPushServiceMessenger
-import com.xiaomi.smack.ConnectionConfiguration
 
 class MainPageUtils {
     private var messenger: InternalMessenger? = null
@@ -35,16 +32,26 @@ class MainPageUtils {
     }
 
     fun printHookResultForCheck() {
-        Log.i(TAG, String.format("[hook_res] MIUIUtils.getIsMIUI() -> [%s]", MIUIUtils.getIsMIUI()))
-        Log.i(TAG, String.format("[hook_res] DeviceInfo.quicklyGetIMEI() -> [%s]", DeviceInfo.quicklyGetIMEI(null)))
-        Log.i(TAG, String.format("[hook_res] DeviceInfo.getMacAddress() -> [%s]", DeviceInfo.getMacAddress(null)))
+        Log.i(TAG, String.format("[hook_res] MIUIUtils.getIsMIUI() -> [%s]", invokeStatic("com.xiaomi.channel.commonutils.android.MIUIUtils", "getIsMIUI")))
+        Log.i(TAG, String.format("[hook_res] DeviceInfo.quicklyGetIMEI() -> [%s]", invokeStatic("com.xiaomi.channel.commonutils.android.DeviceInfo", "quicklyGetIMEI", null)))
+        Log.i(TAG, String.format("[hook_res] DeviceInfo.getMacAddress() -> [%s]", invokeStatic("com.xiaomi.channel.commonutils.android.DeviceInfo", "getMacAddress", null)))
         Log.i(
             TAG,
             String.format(
                 "[hook_res] ConnectionConfiguration.getXmppServerHost() -> [%s]",
-                ConnectionConfiguration.getXmppServerHost()
+                invokeStatic("com.xiaomi.smack.ConnectionConfiguration", "getXmppServerHost")
             )
         )
+    }
+
+    private fun invokeStatic(className: String, methodName: String, vararg args: Any?): Any? {
+        return runCatching {
+            val clazz = Class.forName(className)
+            val method = clazz.methods.firstOrNull {
+                it.name == methodName && it.parameterTypes.size == args.size
+            } ?: return "<method_missing>"
+            method.invoke(null, *args)
+        }.getOrElse { "<unavailable>" }
     }
 
     companion object {

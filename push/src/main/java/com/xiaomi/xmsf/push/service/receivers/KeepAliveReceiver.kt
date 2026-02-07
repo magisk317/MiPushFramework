@@ -29,7 +29,7 @@ class KeepAliveReceiver : BroadcastReceiver() {
             localIntent.putExtra(PushServiceConstants.EXTRA_TIME_STAMP, now)
             localIntent.action = PushServiceConstants.ACTION_CHECK_ALIVE
             ContextCompat.startForegroundService(context, localIntent)
-        } catch (localException: Exception) {
+        } catch (localException: Throwable) {
             MyLog.e(localException)
         }
     }
