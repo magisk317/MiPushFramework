@@ -1,3 +1,4 @@
+@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 package top.trumeet.mipushframework.component
 
 import androidx.compose.foundation.layout.fillMaxSize

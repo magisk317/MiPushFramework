@@ -1,3 +1,4 @@
+@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 package top.trumeet.mipushframework.main.subpage
 
 import android.content.Context
@@ -100,7 +101,7 @@ fun toEventInfoForDisplay(
         )
     else summary
     return EventInfoForDisplay(
-        id = it.id,
+        id = it.id ?: 0L,
         packageName = it.pkg,
         configOptions = utils.getStatus(container),
         channel = utils.getStatusDescription(it),
@@ -138,11 +139,10 @@ private fun EventDetailsDialog(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 TextButton({
-                    json =
-                        EventListPageUtils.getContent(
-                            clickedEvent.event,
-                            RegSecUtils.getContainerWithRegSec(clickedEvent.event)
-                        )
+                    val container = RegSecUtils.getContainerWithRegSec(clickedEvent.event)
+                    if (container != null) {
+                        json = EventListPageUtils.getContent(clickedEvent.event, container)
+                    }
                 }) { Text(stringResource(R.string.action_configurate)) }
 
                 TextButton({
@@ -150,11 +150,9 @@ private fun EventDetailsDialog(
                 }) { Text(stringResource(android.R.string.copy)) }
 
                 TextButton({
-                    EventListPageUtils.mockMessage(
-                        RegSecUtils.getContainerWithRegSec(
-                            clickedEvent.event
-                        )
-                    )
+                    RegSecUtils.getContainerWithRegSec(clickedEvent.event)?.let {
+                        EventListPageUtils.mockMessage(it)
+                    }
                 }) { Text(stringResource(R.string.action_notify)) }
             }
         },
@@ -376,4 +374,3 @@ data class EventInfoForDisplay(
     val appName: String? = null,
     val event: Event = Event(),
 )
-
