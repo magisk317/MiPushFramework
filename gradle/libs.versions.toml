@@ -30,14 +30,14 @@ gson = "2.10"
 libsu = "5.0.5"
 tinypinyin = "2.0.3"
 junit = "4.13.2"
-androidx-test-ext = "1.2.1"
-espresso = "3.6.1"
+androidx-test-ext = "1.3.0"
+espresso = "3.7.0"
 mockito = "4.11.0"
 jsr305 = "3.0.1"
-annotation = "1.0.0"
+annotation = "1.9.1"
 markdown = "0.7.3"
 swipe-refresh = "0.30.1"
-startup = "1.1.1"
+startup = "1.2.0"
 
 [libraries]
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
