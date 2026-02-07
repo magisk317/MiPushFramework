@@ -1,10 +1,8 @@
 *.iml
-.gradle
 /local.properties
 .DS_Store
 /build
 /captures
-.externalNativeBuild
 .yuuta.jks
 gen/
 debug/
@@ -12,10 +10,6 @@ release/
 .classpath
 .project
 org.eclipse.buildship.core.prefs
-.idea
-.signing/
-
-# Ignore all root hidden directories except GitHub workflows/config.
 /.*/
 !/.github/
 !/.github/**
