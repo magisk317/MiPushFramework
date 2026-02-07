@@ -6,7 +6,6 @@
 /captures
 .externalNativeBuild
 .yuuta.jks
-gradle.properties
 gen/
 debug/
 release/
@@ -14,3 +13,9 @@ release/
 .project
 org.eclipse.buildship.core.prefs
 .idea
+.signing/
+
+# Ignore all root hidden directories except GitHub workflows/config.
+/.*/
+!/.github/
+!/.github/**
