@@ -206,7 +206,8 @@ fun ApplicationListPreview() {
 
     ApplicationList {
         val miPushApplications = ApplicationPageOperation.MiPushApplications()
-        miPushApplications.res = listOf(
+        miPushApplications.res = (
+            mutableListOf(
             registeredApplication(
                 RegisteredApplication.RegisteredType.NotRegistered,
                 "123"
@@ -233,7 +234,7 @@ fun ApplicationListPreview() {
                 RegisteredApplication.RegisteredType.NotRegistered,
                 it.toString()
             )
-        }
+        }).toMutableList()
 
         miPushApplications
     }
@@ -250,7 +251,7 @@ fun OneApplicationWithNonMiPushAppPreview() {
 
     ApplicationList {
         val miPushApplications = ApplicationPageOperation.MiPushApplications()
-        miPushApplications.res = listOf(
+        miPushApplications.res = mutableListOf(
             registeredApplication(
                 RegisteredApplication.RegisteredType.NotRegistered,
                 "123"

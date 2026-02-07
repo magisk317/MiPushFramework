@@ -1,3 +1,4 @@
+@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 package top.trumeet.mipushframework.main
 
 import android.app.NotificationChannel
@@ -87,7 +88,7 @@ class ApplicationInfoPage : ComponentActivity() {
 
     private fun getRegisteredApplication(): RegisteredApplication? {
         if (intent.hasExtra(EXTRA_PACKAGE_NAME)) {
-            val pkg = intent.getStringExtra(EXTRA_PACKAGE_NAME)
+            val pkg = intent.getStringExtra(EXTRA_PACKAGE_NAME) ?: return null
             var application = RegisteredApplicationDb.getRegisteredApplication(pkg)
 
             if (application == null &&
@@ -220,7 +221,7 @@ class ApplicationInfoPage : ComponentActivity() {
 
     @Composable
     private fun ShowRegistrationRequestSwitch() {
-        var checked by remember { mutableStateOf(applicationInfo.isNotificationOnRegister) }
+        var checked by remember { mutableStateOf(applicationInfo.notificationOnRegister) }
 
         SettingsItem(
             title = stringResource(R.string.permission_notification_on_register),
@@ -228,7 +229,7 @@ class ApplicationInfoPage : ComponentActivity() {
             checked = checked,
         ) {
             checked = !checked
-            applicationInfo.isNotificationOnRegister = checked
+            applicationInfo.notificationOnRegister = checked
         }
     }
 

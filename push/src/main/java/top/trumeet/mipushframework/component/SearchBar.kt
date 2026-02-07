@@ -51,7 +51,7 @@ fun SearchBar(placeholder: String, onValueChange: (String) -> Unit) {
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
-            colors = TextFieldDefaults.textFieldColors(containerColor = Color.Transparent)
+            colors = TextFieldDefaults.colors(unfocusedContainerColor = Color.Transparent, focusedContainerColor = Color.Transparent)
         )
     })
 }
