@@ -1,21 +1,20 @@
+import java.util.Properties
+
 plugins {
-    id("com.android.library")
-    id("org.jetbrains.kotlin.android")
-    id("io.github.wurensen.android-aspectjx")
+    alias(libs.plugins.android.library)
 }
 
-val mipushLib = file("libs/miuipushsdkshared_3_7_9.jar")
-extra["mipushLib"] = mipushLib
+val mipushLibPath = "${projectDir}/libs/miuipushsdkshared_3_7_9.jar"
+extra.set("mipushLib", mipushLibPath)
 
 android {
-    namespace = "com.nihility.mipush_hook"
-    compileSdk = 33
-
+    namespace = "com.nihility"
+    compileSdk = libs.versions.compileSdk.get().toInt()
+    
     defaultConfig {
-        minSdk = 21
-
+        minSdk = libs.versions.minSdk.get().toInt()
+        
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        consumerProguardFiles("consumer-rules.pro")
     }
 
     buildTypes {
@@ -28,28 +27,21 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
-    }
-
-    aspectjx {
-        // 移除kotlin相关，编译错误和提升速度
-        exclude("kotlin.jvm", "kotlin.internal")
-        exclude("kotlinx.coroutines.internal", "kotlinx.coroutines.android")
-        exclude("test.", "Test")
-        ajcArgs("-inpath", mipushLib.path)
-        debug = false
+    
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        }
     }
 }
 
 dependencies {
-    compileOnly(files(mipushLib))
-    implementation("androidx.startup:startup-runtime:1.1.1")
-
-    implementation("androidx.core:core-ktx:1.10.1")
-    implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("com.google.android.material:material:1.8.0")
-    testImplementation("junit:junit:4.13.2")
-    androidTestImplementation("androidx.test.ext:junit:1.1.5")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+    implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.startup.runtime)
+    compileOnly(files(mipushLibPath))
+    implementation(libs.aspectj.rt)
+    implementation(libs.xlog)
 }
+
+// aspectjx removed for modernization
