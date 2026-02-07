@@ -13,6 +13,7 @@ import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationChannelGroupCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.elvishew.xlog.Logger
 import com.elvishew.xlog.XLog
 import com.nihility.notification.NotificationManagerEx
 import com.nihility.utils.Hooker
@@ -32,15 +33,15 @@ import top.trumeet.common.utils.Utils
 import top.trumeet.mipush.provider.DatabaseUtils
 
 class MiPushFrameworkApp : Application() {
-    private var logger = XLog.tag(MiPushFrameworkApp::class.java.simpleName).build()
+    private lateinit var logger: Logger
 
     override fun attachBaseContext(context: Context) {
         super.attachBaseContext(context)
-        DatabaseUtils.init(this)
     }
 
     override fun onCreate() {
         super.onCreate()
+        DatabaseUtils.init(this)
         PrivilegeElevator.tryToElevate()
         Utils.setApplicationContext(this)
         initBasicLogger()

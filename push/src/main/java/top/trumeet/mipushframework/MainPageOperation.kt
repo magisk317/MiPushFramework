@@ -39,7 +39,7 @@ class MainPageOperation(private val context: Context) {
     fun gotoGitHubReleasePage() {
         context.startActivity(
             Intent(Intent.ACTION_VIEW)
-                .setData(Uri.parse("https://github.com/NihilityT/MiPushFramework/releases"))
+                .setData(Uri.parse("https://github.com/magisk317/MiPushFramework/releases"))
         )
     }
 }

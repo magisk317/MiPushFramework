@@ -81,14 +81,21 @@ object PushControllerUtils {
         if (enable) {
             logger.d("Starting...")
             if (isAppMainProc(context)) {
-                ScheduledJobManager.getInstance(wrapContext(context))
-                    .addOneShootJob(FirstRegister(wrapContext(context)))
+                runCatching {
+                    val wrappedContext = wrapContext(context)
+                    ScheduledJobManager.getInstance(wrappedContext)
+                        .addOneShootJob(FirstRegister(wrappedContext))
+                }.onFailure {
+                    logger.e("ScheduledJobManager unavailable, skip FirstRegister scheduling", it)
+                }
             }
             try {
-                val serviceIntent = Intent(context, com.xiaomi.push.service.XMPushService::class.java)
-                serviceIntent.putExtra(PushServiceConstants.EXTRA_TIME_STAMP, System.currentTimeMillis())
-                serviceIntent.action = PushServiceConstants.ACTION_TIMER
-                ContextCompat.startForegroundService(context, serviceIntent)
+                resolveClass("com.xiaomi.push.service.XMPushService")?.let { serviceClass ->
+                    val serviceIntent = Intent(context, serviceClass)
+                    serviceIntent.putExtra(PushServiceConstants.EXTRA_TIME_STAMP, System.currentTimeMillis())
+                    serviceIntent.action = PushServiceConstants.ACTION_TIMER
+                    ContextCompat.startForegroundService(context, serviceIntent)
+                } ?: logger.w("XMPushService class is unavailable, skip startForegroundService")
             } catch (e: Throwable) {
                 logger.e(e)
             }
@@ -111,7 +118,9 @@ object PushControllerUtils {
                 val scheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as? JobScheduler
                 scheduler?.cancelAll()
             }
-            context.stopService(Intent(context, com.xiaomi.push.service.XMPushService::class.java))
+            resolveClass("com.xiaomi.push.service.XMPushService")?.let { serviceClass ->
+                context.stopService(Intent(context, serviceClass))
+            }
         }
     }
 
@@ -135,4 +144,7 @@ object PushControllerUtils {
     @JvmStatic
     fun wrapContext(context: Context): Context =
         CondomContext.wrap(context, TAG_CONDOM, XMOutbound.create(context, TAG_CONDOM))
+
+    private fun resolveClass(className: String): Class<*>? =
+        runCatching { Class.forName(className) }.getOrNull()
 }

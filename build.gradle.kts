@@ -24,23 +24,10 @@ val gitVersionNameFromGitProvider = providers.exec {
 }.standardOutput.asText.map { it.trim().takeIf { it.isNotEmpty() } ?: libs.versions.versionName.get() }
     .orElse(libs.versions.versionName.get())
 
-fun isPreReleaseVersion(versionName: String): Boolean {
-    return versionName.contains("-")
-}
-
-fun increaseVersionForPreRelease(versionName: String): String {
-    if (isPreReleaseVersion(versionName)) {
-        return versionName.replace(Regex("(\\d+\\.\\d+\\.)(\\d+)")) {
-            it.groupValues[1] + (it.groupValues[2].toInt() + 1)
-        }
-    }
-    return versionName
-}
-
 val gitVersionName = run {
     val name = (project.findProperty("versionName") as? String) 
         ?: (try { gitVersionNameFromGitProvider.get() } catch (e: Exception) { libs.versions.versionName.get() })
-    increaseVersionForPreRelease(name).replace(Regex("^v"), "")
+    name.replace(Regex("^v"), "")
 }
 
 val gitVersionCode = try { gitVersionCodeProvider.get() } catch (e: Exception) { -1 }

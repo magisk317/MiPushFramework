@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.text.TextUtils
 import com.elvishew.xlog.XLog
 import com.nihility.Global
@@ -130,8 +131,30 @@ object ApplicationPageOperation {
     }
 
     @JvmStatic
-    fun hasMiPushServices(checker: MiPushManifestChecker?, info: PackageInfo): Boolean =
-        checker != null && checker.checkServices(info)
+    fun hasMiPushServices(checker: MiPushManifestChecker?, info: PackageInfo): Boolean {
+        if (checker != null && checker.checkServices(info)) return true
+        return hasKnownMiPushComponents(info)
+    }
+
+    private fun hasKnownMiPushComponents(info: PackageInfo): Boolean {
+        val serviceNames = info.services
+            ?.mapNotNull(ServiceInfo::name)
+            ?.toSet()
+            ?: emptySet()
+        if (serviceNames.contains("com.xiaomi.mipush.sdk.PushMessageHandler")) return true
+        if (serviceNames.contains("com.xiaomi.mipush.sdk.MessageHandleService")) return true
+        if (serviceNames.contains("com.xiaomi.push.service.XMJobService")) return true
+        if (serviceNames.contains("com.xiaomi.push.service.XMPushService")) return true
+
+        val receiverNames = info.receivers
+            ?.mapNotNull { it.name }
+            ?.toSet()
+            ?: emptySet()
+        if (receiverNames.contains("com.xiaomi.push.service.receivers.PingReceiver")) return true
+        if (receiverNames.contains("com.xiaomi.mipush.sdk.PushMessageReceiver")) return true
+
+        return false
+    }
 
     @JvmStatic
     fun isPackageStoredInDB(registeredPkgs: Map<String, RegisteredApplication>, info: PackageInfo): Boolean {
