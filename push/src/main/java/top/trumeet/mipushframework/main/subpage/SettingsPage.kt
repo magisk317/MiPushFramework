@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -82,19 +83,26 @@ private fun ServiceConfigurationBlock() {
 @OptIn(ExperimentalMaterial3Api::class)
 private fun SetXMPPServer(context: Context) {
     var currentXMPPServer by remember { mutableStateOf("") }
-    object : InternalMessenger(context) {
-        init {
-            register(IntentFilter(XMPushServiceMessenger.IntentSetConnectionStatus))
-            addListener { intent: Intent ->
-                val host = intent.getStringExtra("host")
-                if (host.isNullOrEmpty()) {
-                    return@addListener
+    val messenger = remember {
+        object : InternalMessenger(context) {
+            init {
+                register(IntentFilter(XMPushServiceMessenger.IntentSetConnectionStatus))
+                addListener { intent: Intent ->
+                    val host = intent.getStringExtra("host")
+                    if (host.isNullOrEmpty()) {
+                        return@addListener
+                    }
+                    currentXMPPServer = host
                 }
-                currentXMPPServer = host
+                send(Intent(XMPushServiceMessenger.IntentGetConnectionStatus))
             }
-
-            send(Intent(XMPushServiceMessenger.IntentGetConnectionStatus))
         }
+    }
+    DisposableEffect(messenger) {
+        onDispose { messenger.unregister() }
+    }
+    if (currentXMPPServer.isEmpty()) {
+        currentXMPPServer = SettingUtils.getXMPPServerHint()
     }
     var text by remember { mutableStateOf(SettingUtils.getXMPPServer(context) ?: "") }
     SettingsItem(title = stringResource(R.string.settings_XMPP_server),
@@ -165,7 +173,7 @@ private fun DebugBlock() {
         SettingsItem(
             title = stringResource(R.string.try_to_force_register_all_applications)
         ) {
-            SettingUtils.tryForceRegisterAllApplications()
+            SettingUtils.tryForceRegisterAllApplications(context)
         }
     }
 }
@@ -203,4 +211,3 @@ fun SettingsPagePreview() {
     Utils.context = LocalContext.current
     Settings()
 }
-

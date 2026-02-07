@@ -113,7 +113,7 @@
     <string name="action_about">About</string>
 
     <!-- Wizard -->
-    <string name="wizard_descr"><![CDATA[This project allows any devices to use XiaoMi system-level Push, it can control notifications from other apps to save more battery. For more details, visit the GitHub project:<a href="https://github.com/MiPushFramework/MiPushFramework">MiPushFramework</a>]]></string>
+    <string name="wizard_descr"><![CDATA[This project allows any devices to use XiaoMi system-level Push, it can control notifications from other apps to save more battery. For more details, visit the GitHub project:<a href="https://github.com/magisk317/MiPushFramework">MiPushFramework</a>]]></string>
 
     <string name="wizard_connect">Connecting</string>
 
@@ -288,6 +288,12 @@ This could be the application doing a reverse registration, or the registration 
     <string name="last_receive">last receive: </string>
     <string name="mipush_services_not_found">Services Not Found</string>
     <string name="try_to_force_register_all_applications">Try to force register all applications</string>
+    <string name="force_register_requires_root">Force register requires root access</string>
+    <string name="force_register_unavailable">Required components are missing in this build, skipped</string>
+    <string name="force_register_done">Force-register sent: %1$d succeeded</string>
+    <string name="force_register_partial">Force-register partially completed: %1$d succeeded, %2$d failed</string>
+    <string name="force_register_sent">Force-register request sent</string>
+    <string name="force_register_failed">Force-register failed, check logs</string>
 
 
 </resources>

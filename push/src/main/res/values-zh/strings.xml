@@ -114,7 +114,7 @@
 
     <!-- Wizard -->
 
-    <string name="wizard_descr"><![CDATA[这是一个让任何设备都能使用小米系统级推送的项目，它能接管其它应用的推送（通知），以达到省电的效果。更多详情访问本项目项目于 GitHub 的页面：<a href="https://github.com/MiPushFramework/MiPushFramework">MiPushFramework</a>]]></string>
+    <string name="wizard_descr"><![CDATA[这是一个让任何设备都能使用小米系统级推送的项目，它能接管其它应用的推送（通知），以达到省电的效果。更多详情访问本项目项目于 GitHub 的页面：<a href="https://github.com/magisk317/MiPushFramework">MiPushFramework</a>]]></string>
     <string name="wizard_connect">正在连接</string>
 
     <string name="wizard_title_run_in_background">允许后台活动</string>
@@ -263,6 +263,12 @@
     <string name="last_receive">最近推送：</string>
     <string name="mipush_services_not_found">找不到服务</string>
     <string name="try_to_force_register_all_applications">尝试强制注册所有应用</string>
+    <string name="force_register_requires_root">强制注册需要 Root 权限</string>
+    <string name="force_register_unavailable">当前构建缺少强制注册所需组件，已跳过</string>
+    <string name="force_register_done">强制注册已发送：成功 %1$d 个</string>
+    <string name="force_register_partial">强制注册部分完成：成功 %1$d 个，失败 %2$d 个</string>
+    <string name="force_register_sent">已发送强制注册请求</string>
+    <string name="force_register_failed">强制注册失败，请查看日志</string>
     <string name="wizard_title_ignore_battery_optimizations_permission">忽略电池优化</string>
     <string name="wizard_title_ignore_battery_optimizations_text">您需要授予“忽略电池优化”权限，否则您可能将无法在后台运行mipush服务。</string>
 

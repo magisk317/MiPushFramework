@@ -18,6 +18,10 @@ open class InternalMessenger(context: Context) : BroadcastReceiver() {
         localBroadcast.registerReceiver(this, intentFilter)
     }
 
+    fun unregister() {
+        localBroadcast.unregisterReceiver(this)
+    }
+
     fun addListener(listener: MessageListener) {
         listeners.add(listener)
     }

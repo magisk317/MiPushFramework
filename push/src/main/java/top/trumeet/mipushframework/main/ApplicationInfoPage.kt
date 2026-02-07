@@ -4,12 +4,14 @@ package top.trumeet.mipushframework.main
 import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
 import android.app.NotificationManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Build.VERSION_CODES
 import android.os.Bundle
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -49,6 +52,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import com.nihility.utils.RegistrationHelper
+import com.topjohnwu.superuser.Shell
 import com.xiaomi.xmsf.BuildConfig
 import com.xiaomi.xmsf.R
 import top.trumeet.mipushframework.component.SettingsGroup
@@ -115,12 +119,13 @@ class ApplicationInfoPage : ComponentActivity() {
         }
 
         Theme {
-            Surface(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState()),
-                color = MaterialTheme.colorScheme.background
-            ) {
+        Surface(
+            modifier = Modifier
+                .statusBarsPadding()
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
+            color = MaterialTheme.colorScheme.background
+        ) {
                 SettingsScreen()
             }
         }
@@ -149,10 +154,7 @@ class ApplicationInfoPage : ComponentActivity() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton({
-                RegistrationHelper(
-                    context,
-                    applicationInfo.packageName
-                ).deleteRegistrationInfoAndRetryForceRegister()
+                forceRegisterWithFeedback(context, applicationInfo.packageName)
             }) {
                 Image(icon, "Application Icon")
             }
@@ -179,6 +181,33 @@ class ApplicationInfoPage : ComponentActivity() {
                     stringResource(R.string.application_info_label)
                 )
             }
+        }
+    }
+
+    private fun forceRegisterWithFeedback(context: Context, packageName: String) {
+        val uid = runCatching { Shell.cmd("id -u").exec().out.firstOrNull()?.trim() }.getOrNull()
+        if (uid != "0") {
+            Toast.makeText(context, R.string.force_register_requires_root, Toast.LENGTH_LONG).show()
+            return
+        }
+        val result = runCatching {
+            RegistrationHelper(context, packageName)
+                .deleteRegistrationInfoAndRetryForceRegister()
+        }
+        if (result.isSuccess) {
+            Toast.makeText(context, R.string.force_register_sent, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val cause = result.exceptionOrNull()
+        if (cause is NoClassDefFoundError || cause is ClassNotFoundException) {
+            Toast.makeText(context, R.string.force_register_unavailable, Toast.LENGTH_LONG).show()
+            return
+        }
+        // Fallback: send broadcast only, avoid hard dependency on missing classes
+        if (RegistrationHelper.tryForceRegisterFallback(packageName)) {
+            Toast.makeText(context, R.string.force_register_sent, Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, R.string.force_register_failed, Toast.LENGTH_LONG).show()
         }
     }
 
