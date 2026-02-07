@@ -57,12 +57,14 @@ class MiPushManifestChecker private constructor(
 
     fun checkServices(pkgInfo: PackageInfo): Boolean {
         return try {
-            val configServiceProcessMap = HashMap<String, String>()
+            val configServiceProcessMap = HashMap<String, String?>()
             val requiredServicesMap = HashMap<String, ManifestChecker.ServiceCheckInfo>()
-            requiredServicesMap[PushMessageHandler::class.java.canonicalName] =
-                ManifestChecker.ServiceCheckInfo(PushMessageHandler::class.java.canonicalName, true, true, "")
-            requiredServicesMap[MessageHandleService::class.java.canonicalName] =
-                ManifestChecker.ServiceCheckInfo(MessageHandleService::class.java.canonicalName, true, false, "")
+            val pushHandlerServiceName = PushMessageHandler::class.java.name
+            val messageHandleServiceName = MessageHandleService::class.java.name
+            requiredServicesMap[pushHandlerServiceName] =
+                ManifestChecker.ServiceCheckInfo(pushHandlerServiceName, true, true, "")
+            requiredServicesMap[messageHandleServiceName] =
+                ManifestChecker.ServiceCheckInfo(messageHandleServiceName, true, false, "")
 
             if (pkgInfo.services != null) {
                 for (info: ServiceInfo in pkgInfo.services) {
@@ -93,8 +95,8 @@ class MiPushManifestChecker private constructor(
             }
 
             if (!TextUtils.equals(
-                    configServiceProcessMap[PushMessageHandler::class.java.canonicalName],
-                    configServiceProcessMap[MessageHandleService::class.java.canonicalName]
+                    configServiceProcessMap[pushHandlerServiceName],
+                    configServiceProcessMap[messageHandleServiceName]
                 )
             ) {
                 throw IllegalStateException("PushMessageHandler and MessageHandleService must be in same process")

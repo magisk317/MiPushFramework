@@ -58,12 +58,9 @@ class AppInfoUtilsAspect {
             (flags and (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0
 
         private fun checkAwakeField(metaInfo: PushMetaInfo?): Boolean {
-            val extraExists = metaInfo != null && metaInfo.extra != null
-            if (extraExists) {
-                val awakeField = metaInfo!!.extra[PushConstants.EXTRA_PARAM_AWAKE]
-                return java.lang.Boolean.parseBoolean(awakeField)
-            }
-            return false
+            val extra = metaInfo?.extra ?: return false
+            val awakeField = extra[PushConstants.EXTRA_PARAM_AWAKE]
+            return java.lang.Boolean.parseBoolean(awakeField)
         }
     }
 }

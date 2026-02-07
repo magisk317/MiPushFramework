@@ -53,7 +53,7 @@ class PackageConfig(private val configurations: Configurations) {
                     pair.str = "$"
                 } else {
                     val groupName = matcher.group(1)
-                    if (matchGroup?.containsKey(groupName) == true) {
+                    if (!groupName.isNullOrEmpty() && matchGroup?.containsKey(groupName) == true) {
                         pair.str = matchGroup?.get(groupName)
                     }
                 }
@@ -64,7 +64,7 @@ class PackageConfig(private val configurations: Configurations) {
 
             for (i in pairs.size - 1 downTo 0) {
                 val pair = pairs[i]
-                sb.replace(pair.start, pair.end, pair.str)
+                sb.replace(pair.start, pair.end, pair.str ?: "")
             }
             return sb.toString()
         }
@@ -115,7 +115,7 @@ class PackageConfig(private val configurations: Configurations) {
                         cfgSubObj = cfgMatch.getJSONObject(cfgKey)
                     } catch (e: JSONException) {
                         throw NoSuchFieldException(
-                            "The type of field \"$cfgKey\" is ${value?.javaClass?.simpleName}, not ${cfgMatch.opt(cfgKey)?.javaClass}"
+                            "The type of field \"$cfgKey\" is ${value.javaClass.simpleName}, not ${cfgMatch.opt(cfgKey)?.javaClass}"
                         )
                     }
                 }
@@ -138,7 +138,7 @@ class PackageConfig(private val configurations: Configurations) {
                         }
                     }
                 } else if (isTBase) {
-                    val group = match(root, value as TBase<*, *>, cfgSubObj, newPath) ?: return null
+                    val group = match(root, value, cfgSubObj, newPath) ?: return null
                     matchGroup.putAll(group)
                 } else {
                     if (mismatchField(cfgMatch, cfgKey, value, matchGroup)) {
@@ -269,7 +269,10 @@ class PackageConfig(private val configurations: Configurations) {
             val namedGroups = arrayListOf<String>()
             val m = Pattern.compile("(?<!\\\\)\\(\\?<([a-zA-Z][a-zA-Z0-9]*)>").matcher(regex)
             while (m.find()) {
-                namedGroups.add(m.group(1))
+                val groupName = m.group(1)
+                if (!groupName.isNullOrEmpty()) {
+                    namedGroups.add(groupName)
+                }
             }
             return namedGroups
         }

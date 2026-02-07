@@ -101,6 +101,7 @@ class RegisteredApplication : Parcelable {
     @JvmField
     var lastReceiveTime: Date = Date(0)
 
+    @Ignore
     constructor(
         id: Long?,
         packageName: String,
@@ -119,6 +120,7 @@ class RegisteredApplication : Parcelable {
 
     constructor()
 
+    @Ignore
     protected constructor(parcel: Parcel) {
         id = if (parcel.readByte().toInt() == 0) null else parcel.readLong()
         packageName = parcel.readString() ?: ""

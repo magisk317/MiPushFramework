@@ -46,7 +46,8 @@ internal object MiuiDexUtils {
         for (field in obj.javaClass.declaredFields) {
             if (field.name == fieldName) {
                 val type = field.type
-                if (type.isArray && "dalvik.system.DexPathList\$Element" == type.componentType.name) {
+                val componentType = type.componentType
+                if (type.isArray && componentType != null && "dalvik.system.DexPathList\$Element" == componentType.name) {
                     field.isAccessible = true
                     return field
                 }
@@ -71,25 +72,27 @@ internal object MiuiDexUtils {
 
     @Throws(NoSuchFieldException::class, IllegalAccessException::class, ClassNotFoundException::class)
     private fun mergeArray(targetPathList: Any, extraPathList: Any, fieldName: String) {
-        val extraElements = getElementField(extraPathList, fieldName).get(extraPathList) as kotlin.Array<*>
+        val extraElements = getElementField(extraPathList, fieldName).get(extraPathList) ?: return
         val targetField = getElementField(targetPathList, fieldName)
-        val targetElements = targetField.get(targetPathList) as kotlin.Array<*>
+        val targetElements = targetField.get(targetPathList) ?: return
+        val targetSize = Array.getLength(targetElements)
         val combined = Array.newInstance(
             Class.forName("dalvik.system.DexPathList\$Element"),
-            targetElements.size + 1
-        ) as kotlin.Array<Any?>
-        combined[0] = extraElements[0]
-        System.arraycopy(targetElements, 0, combined, 1, targetElements.size)
+            targetSize + 1
+        )
+        Array.set(combined, 0, Array.get(extraElements, 0))
+        System.arraycopy(targetElements, 0, combined, 1, targetSize)
         targetField.set(targetPathList, combined)
     }
 
     @Throws(NoSuchFieldException::class, IllegalAccessException::class)
     private fun mergeFileArray(pathList: Any, path: String) {
         val field = getNativeLibraryDirectoriesField(pathList)
-        val original = field.get(pathList) as kotlin.Array<File>
-        val combined = arrayOfNulls<File>(original.size + 1)
-        combined[0] = File(path)
-        System.arraycopy(original, 0, combined, 1, original.size)
+        val original = field.get(pathList) ?: return
+        val originalSize = Array.getLength(original)
+        val combined = Array.newInstance(File::class.java, originalSize + 1)
+        Array.set(combined, 0, File(path))
+        System.arraycopy(original, 0, combined, 1, originalSize)
         field.set(pathList, combined)
     }
 

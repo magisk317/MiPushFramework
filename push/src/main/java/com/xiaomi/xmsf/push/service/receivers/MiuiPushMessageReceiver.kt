@@ -28,7 +28,7 @@ class MiuiPushMessageReceiver : PushMessageReceiver() {
 
     override fun onReceiveMessage(context: Context, miPushMessage: MiPushMessage) {
         logger.i("onReceiveMessage -> $miPushMessage")
-        val pkg = miPushMessage.extra["miui_package_name"] as? String
+        val pkg = miPushMessage.extra["miui_package_name"]
         if (!pkg.isNullOrBlank()) {
             logger.d("not empty")
             val intent = Intent()
