@@ -9,6 +9,10 @@ plugins {
 val rootExtra = rootProject.extensions.extraProperties
 val versionNameStr = rootExtra["versionName"] as String
 val gitTagStr = rootExtra["gitTag"] as String
+val gitShortSha = providers.exec {
+    commandLine("git", "rev-parse", "--short", "HEAD")
+    isIgnoreExitValue = true
+}.standardOutput.asText.map { it.trim().ifEmpty { "unknown" } }.orElse("unknown")
 val normalVersionCode = libs.versions.pushVersionCodeNormal.get().toInt()
 val vc105VersionCode = libs.versions.pushVersionCodeVc105.get().toInt()
 
@@ -47,10 +51,13 @@ android {
     buildTypes {
         debug {
             signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
         release {
-            signingConfig = signingConfigs.getByName("debug")
-            isMinifyEnabled = false
+            signingConfig = signingConfigs.maybeCreate("release")
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -85,7 +92,34 @@ android {
             if (project.rootProject.file("local.properties").exists()) {
                 val properties = Properties()
                 properties.load(project.rootProject.file("local.properties").inputStream())
-                locale = properties.getProperty("KEY_LOCATE")?.let { file(it) } ?: locale
+                locale = properties.getProperty("KEY_LOCATE")?.let { project.rootProject.file(it) } ?: locale
+                keystorePwd = properties.getProperty("KEYSTORE_PASSWORD") ?: keystorePwd
+                alias = properties.getProperty("KEYSTORE_ALIAS") ?: alias
+                pwd = properties.getProperty("KEY_PASSWORD") ?: pwd
+            }
+
+            if (locale.exists()) {
+                storeFile = locale
+                storePassword = keystorePwd
+                keyAlias = alias
+                keyPassword = pwd
+            }
+        }
+        getByName("release") {
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
+            enableV4Signing = true
+
+            var locale = project.rootProject.file(".yuuta.jks")
+            var keystorePwd = System.getenv("KEYSTORE_PASS")
+            var alias = System.getenv("ALIAS_NAME")
+            var pwd = System.getenv("ALIAS_PASS")
+
+            if (project.rootProject.file("local.properties").exists()) {
+                val properties = Properties()
+                properties.load(project.rootProject.file("local.properties").inputStream())
+                locale = properties.getProperty("KEY_LOCATE")?.let { project.rootProject.file(it) } ?: locale
                 keystorePwd = properties.getProperty("KEYSTORE_PASSWORD") ?: keystorePwd
                 alias = properties.getProperty("KEYSTORE_ALIAS") ?: alias
                 pwd = properties.getProperty("KEY_PASSWORD") ?: pwd
@@ -130,6 +164,13 @@ tasks.register("renameApks") {
     dependsOn("assembleRelease")
     val apkRootDir = layout.buildDirectory.dir("outputs/apk")
     val safeVersionName = versionNameStr.replace(Regex("\\s+"), "_")
+    val versionNameWithSha = run {
+        if (Regex("-g[0-9a-fA-F]{7,}").containsMatchIn(safeVersionName)) {
+            safeVersionName
+        } else {
+            "$safeVersionName-g${gitShortSha.get()}"
+        }
+    }
     doLast {
         val apkRoot = apkRootDir.get().asFile
         if (!apkRoot.exists()) return@doLast
@@ -148,7 +189,7 @@ tasks.register("renameApks") {
                     else -> "universal"
                 }
                 val buildType = apk.parentFile?.name ?: "release"
-                val targetName = "xmsf-v${safeVersionName}-${flavor}-${buildType}-${abi}.apk"
+                val targetName = "xmsf-v${versionNameWithSha}-${flavor}-${buildType}-${abi}.apk"
                 val target = apk.resolveSibling(targetName)
                 if (apk.name != target.name) {
                     apk.renameTo(target)
@@ -158,7 +199,7 @@ tasks.register("renameApks") {
 }
 
 tasks.matching {
-    it.name.startsWith("assemble") && (it.name.endsWith("Release") || it.name.endsWith("Debug"))
+    it.name.startsWith("assemble") && it.name.endsWith("Release")
 }.configureEach {
     finalizedBy("renameApks")
 }
@@ -167,7 +208,7 @@ dependencies {
     implementation(project(":common"))
     implementation(project(":condom"))
     implementation(project(":mipush_hook"))
-    compileOnly(files(rootProject.project(":mipush_hook").extensions.extraProperties["mipushLib"] as String))
+    implementation(files(rootProject.project(":mipush_hook").extensions.extraProperties["mipushLib"] as String))
 
     implementation(libs.xlog)
     implementation(libs.aspectj.rt)
@@ -177,6 +218,8 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+
+    implementation(libs.androidx.compose.foundation)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext)

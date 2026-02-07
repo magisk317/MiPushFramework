@@ -13,6 +13,7 @@ import com.catchingnow.icebox.sdk_client.IceBox
 import com.nihility.Global
 import com.nihility.InternalMessenger
 import com.nihility.utils.RegistrationHelper
+import com.topjohnwu.superuser.Shell
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.push.service.PushServiceConstants
 import com.xiaomi.push.service.XMPushServiceMessenger
@@ -79,11 +80,40 @@ object SettingUtils {
     fun isIceBoxInstalled(): Boolean = Utils.isAppInstalled(IceBox.PACKAGE_NAME)
 
     @JvmStatic
-    fun tryForceRegisterAllApplications() {
-        val miPushApplications: ApplicationPageOperation.MiPushApplications = ApplicationPageOperation.getMiPushApplications()
-        for (registeredApplication: RegisteredApplication in miPushApplications.res) {
-            RegistrationHelper.tryForceRegister(registeredApplication.packageName)
+    fun tryForceRegisterAllApplications(context: Context) {
+        val uid = runCatching { Shell.cmd("id -u").exec().out.firstOrNull()?.trim() }.getOrNull()
+        if (uid != "0") {
+            Toast.makeText(context, R.string.force_register_requires_root, Toast.LENGTH_LONG).show()
+            return
         }
+
+        val miPushApplications: ApplicationPageOperation.MiPushApplications = ApplicationPageOperation.getMiPushApplications()
+        var successCount = 0
+        var failedCount = 0
+        for (registeredApplication: RegisteredApplication in miPushApplications.res) {
+            try {
+                RegistrationHelper.tryForceRegister(registeredApplication.packageName)
+                successCount++
+            } catch (_: NoClassDefFoundError) {
+                failedCount++
+            } catch (_: ClassNotFoundException) {
+                failedCount++
+            } catch (_: Throwable) {
+                failedCount++
+            }
+        }
+
+        if (successCount == 0 && failedCount > 0) {
+            Toast.makeText(context, R.string.force_register_unavailable, Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val resultMessage = if (failedCount == 0) {
+            context.getString(R.string.force_register_done, successCount)
+        } else {
+            context.getString(R.string.force_register_partial, successCount, failedCount)
+        }
+        Toast.makeText(context, resultMessage, Toast.LENGTH_LONG).show()
     }
 
     @JvmStatic

@@ -10,6 +10,7 @@ import com.xiaomi.xmpush.thrift.NotificationType
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
+import com.magisk317.XMPushUtils as NewXMPushUtils
 import top.trumeet.common.utils.Utils
 
 class RegistrationHelper(
@@ -37,6 +38,20 @@ class RegistrationHelper(
     }
 
     companion object {
+        @JvmStatic
+        fun tryForceRegisterFallback(packageName: String): Boolean {
+            val msgBytes = runCatching {
+                XMPushUtils.packToBytes(createForceRegisterMessage(packageName))
+            }.getOrNull() ?: return false
+            val intent = Intent(PushConstants.MIPUSH_ACTION_NEW_MESSAGE).apply {
+                `package` = packageName
+                putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, msgBytes)
+                putExtra(PushConstants.MESSAGE_RECEIVE_TIME, System.currentTimeMillis())
+            }
+            Utils.getApplication()?.sendBroadcast(intent, null)
+            return true
+        }
+
         @JvmStatic
         fun tryForceRegister(packageName: String) {
             val msgBytes = XMPushUtils.packToBytes(createForceRegisterMessage(packageName))
