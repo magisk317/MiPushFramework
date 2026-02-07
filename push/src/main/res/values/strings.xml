@@ -2,6 +2,8 @@
 <resources>
 
     <string name="common_err">%1$s</string>
+    <string name="start">start</string>
+    <string name="end">end</string>
 
     <!-- Auth -->
     <string name="allow">Allow</string>
@@ -51,6 +53,7 @@
 
 
     <string name="settings_options">Config</string>
+    <string name="settings_experimental">Experimental</string>
 
 
     <string name="pref_title_access_mode">Foreground app detection mode</string>
@@ -131,6 +134,8 @@ Please grant the <b>Run in the background or wake up</b> permissions.
 
     <string name="wizard_title_ignore_battery_optimizations_permission">Ignore Battery optimizations</string>
     <string name="wizard_title_ignore_battery_optimizations_text">You need to grant \"Ignore Battery optimizations\" permission or you may will not be able to run mipush service on background.</string>
+    <string name="wizard_title_doze_whitelist">Ignore battery optimization</string>
+    <string name="wizard_descr_doze_whitelist">Add MiPushFramework to battery optimization whitelist.</string>
 
     <string name="wizard_descr_finish">Everything is ready. Enjoy!</string>
 
