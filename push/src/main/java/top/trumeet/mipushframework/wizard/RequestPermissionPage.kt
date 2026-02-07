@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
@@ -42,6 +43,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import android.util.Log
+import android.widget.Toast
 import top.trumeet.mipushframework.component.MarkdownView
 import top.trumeet.mipushframework.main.MainPage
 import top.trumeet.mipushframework.wizard.permission.AlertWindowPermissionInfo
@@ -86,6 +89,7 @@ fun PermissionMainPage(
 
     Column(
         modifier = modifier
+            .statusBarsPadding()
             .navigationBarsPadding()
             .fillMaxSize(),
         verticalArrangement = Arrangement.SpaceBetween,
@@ -124,15 +128,16 @@ private fun NavigateToNextPageIfPermissionGranted(
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
-        var isNotFirstResume = false
         val observer = LifecycleEventObserver { _, event ->
             val page = pages[currentItem.value]
-            println("Lifecycle event: $event ${currentItem.value} ${page.permissionOperator.isPermissionGranted()}")
+            val granted = page.permissionOperator.isPermissionGranted()
+            Log.d("WizardPermission", "event=$event index=${currentItem.value} page=${page.javaClass.simpleName} granted=$granted")
             if (event == Lifecycle.Event.ON_RESUME) {
-                if (isNotFirstResume && page.permissionOperator.isPermissionGranted()) {
+                // Non-display pages should recover after activity recreation and continue automatically.
+                if (page !is DisplayOnlyPhonyPermissionInfo && granted) {
+                    Log.d("WizardPermission", "auto-advance on resume index=${currentItem.value}")
                     currentItem.value++
                 }
-                isNotFirstResume = true
             }
         }
 
@@ -185,8 +190,11 @@ private fun Title(title: String) {
 
 @Composable
 private fun BottomBar(
-    currentItem: MutableState<Int>, permissions: List<PermissionInfo>
+    currentItem: MutableState<Int>,
+    permissions: List<PermissionInfo>
 ) {
+    val context = LocalContext.current
+    val workaroundSp = context.getSharedPreferences("wizard_permission_workaround", Context.MODE_PRIVATE)
     BottomAppBar(modifier = Modifier.height(56.dp)) {
 
         Row(
@@ -205,9 +213,29 @@ private fun BottomBar(
             val operator = permissions[currentItem.value].permissionOperator
             IconButton(onClick = {
                 if (operator.isPermissionGranted()) {
+                    Log.d("WizardPermission", "manual-advance index=${currentItem.value}")
                     currentItem.value++
                 } else {
-                    operator.requestPermission()
+                    val index = currentItem.value
+                    if (operator is top.trumeet.mipushframework.wizard.permission.UsageStatsPermissionOperator) {
+                        val requestedBefore = workaroundSp.getBoolean("usage_stats_requested_once", false)
+                        if (requestedBefore) {
+                            Log.w("WizardPermission", "force-advance usage-stats page index=$index by persisted flag")
+                            currentItem.value++
+                        } else {
+                            workaroundSp.edit().putBoolean("usage_stats_requested_once", true).apply()
+                            Toast.makeText(
+                                context,
+                                "如已授权，返回后再次点击下一步继续",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            Log.d("WizardPermission", "request-permission index=$index first-time")
+                            operator.requestPermission()
+                        }
+                    } else {
+                        Log.d("WizardPermission", "request-permission index=$index")
+                        operator.requestPermission()
+                    }
                 }
             }) {
                 Icon(
