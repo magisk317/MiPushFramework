@@ -36,7 +36,7 @@ mockito = "4.11.0"
 jsr305 = "3.0.1"
 annotation = "1.9.1"
 markdown = "0.7.3"
-swipe-refresh = "0.30.1"
+swipe-refresh = "0.36.0"
 startup = "1.2.0"
 
 [libraries]
