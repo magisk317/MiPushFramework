@@ -38,7 +38,6 @@ import org.apache.thrift.TBase
 import org.apache.thrift.TException
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
-import java.util.Map
 import java.util.Objects
 
 object ConvertUtils {
@@ -65,7 +64,7 @@ object ConvertUtils {
                             return true
                         }
                     }
-                    return f.declaredClass == Map::class.java && f.name == "internal"
+                    return f.declaredClass == kotlin.collections.Map::class.java && f.name == "internal"
                 }
 
                 override fun shouldSkipClass(clazz: Class<*>): Boolean = false

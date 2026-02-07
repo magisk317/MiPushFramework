@@ -124,6 +124,7 @@ class Event {
             field
         }
 
+    @Ignore
     constructor(
         id: Long?,
         pkg: String,

@@ -87,6 +87,7 @@ object Singleton {
     }
 
     @JvmStatic
+    @Suppress("UNCHECKED_CAST")
     fun <T : Any> reset(vararg reified: T): AutoReset {
         val klass = reified.javaClass.componentType as Class<T>
         if (reified.isEmpty()) {

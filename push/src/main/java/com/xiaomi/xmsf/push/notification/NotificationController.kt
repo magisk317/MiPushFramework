@@ -188,9 +188,7 @@ object NotificationController {
         if (iconUri != null) {
             if (iconUri.startsWith("http")) {
                 val result = MyNotificationIconHelper.getIconFromUrl(context, iconUri, maxDownloadBytes)
-                if (result != null) {
-                    bitmap = result.bitmap
-                }
+                bitmap = result.bitmap
             } else {
                 bitmap = MyNotificationIconHelper.getIconFromUri(context, iconUri)
             }

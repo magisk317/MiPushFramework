@@ -6,15 +6,13 @@ import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.smack.ConnectionConfiguration
 import java.lang.reflect.Field
 
-class Hook : Initializer<Void> {
-    override fun create(context: Context): Void {
+class Hook : Initializer<Unit> {
+    override fun create(context: Context) {
         try {
             doHook()
         } catch (e: Exception) {
             throw RuntimeException(e)
         }
-        @Suppress("UNCHECKED_CAST")
-        return null as Void
     }
 
     override fun dependencies(): List<Class<out Initializer<*>>> = emptyList()

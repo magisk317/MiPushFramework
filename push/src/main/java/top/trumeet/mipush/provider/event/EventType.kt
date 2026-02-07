@@ -10,7 +10,7 @@ import top.trumeet.mipush.provider.entities.Event
  *
  * Created by Trumeet on 2018/2/7.
  */
-abstract class EventType(@Event.Type var type: Int, val info: String?, val pkg: String?, val payload: ByteArray?) {
+abstract class EventType(@param:Event.Type var type: Int, val info: String?, val pkg: String?, val payload: ByteArray?) {
 
     open fun getTitle(context: Context): CharSequence {
         return Global.ApplicationNameCache().getAppName(context, pkg ?: "") ?: (pkg ?: "")
