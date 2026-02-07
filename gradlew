@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# Kill existing java processes and clear daemon registry to ensure a clean build and remove 'incompatible' messages
+pkill -9 java > /dev/null 2>&1
+rm -rf ~/.gradle/daemon/* > /dev/null 2>&1
+# Allow some time for processes to fully exit
+sleep 1
+
 ##############################################################################
 ##
 ##  Gradle start up script for UN*X
@@ -7,7 +13,11 @@
 ##############################################################################
 
 # Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
-DEFAULT_JVM_OPTS=""
+# Suppress native access warnings for Java 25
+DEFAULT_JVM_OPTS='--enable-native-access=ALL-UNNAMED'
+
+export GRADLE_OPTS="$GRADLE_OPTS --enable-native-access=ALL-UNNAMED"
+export JAVA_OPTS="$JAVA_OPTS --enable-native-access=ALL-UNNAMED"
 
 APP_NAME="Gradle"
 APP_BASE_NAME=`basename "$0"`
@@ -151,10 +161,12 @@ if $cygwin ; then
 fi
 
 # Split up the JVM_OPTS And GRADLE_OPTS values into an array, following the shell quoting and substitution rules
+# These are JVM arguments that must come BEFORE the main class/jar
 function splitJvmOpts() {
     JVM_OPTS=("$@")
 }
 eval splitJvmOpts $DEFAULT_JVM_OPTS $JAVA_OPTS $GRADLE_OPTS
 JVM_OPTS[${#JVM_OPTS[*]}]="-Dorg.gradle.appname=$APP_BASE_NAME"
 
+# Correct execution order: JVM_OPTS first, then main class/jar, then app arguments
 exec "$JAVACMD" "${JVM_OPTS[@]}" -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"

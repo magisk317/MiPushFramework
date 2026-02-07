@@ -1,0 +1,26 @@
+name: Dependency Submission
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  dependency-submission:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    if: github.actor != 'dependabot[bot]'
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - name: Submit Dependency Graph
+        uses: gradle/actions/dependency-submission@v5
