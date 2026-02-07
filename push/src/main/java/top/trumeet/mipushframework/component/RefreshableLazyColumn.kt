@@ -17,6 +17,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import com.google.accompanist.swiperefresh.SwipeRefresh
 import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 @Composable
 fun RefreshableLazyColumn(
@@ -48,11 +49,10 @@ fun RefreshableLazyColumn(
     ) {
         val lazyListState = rememberLazyListState()
         LaunchedEffect(lazyListState) {
-            snapshotFlow { lazyListState.layoutInfo.visibleItemsInfo }
-                .collect { visibleItems ->
+            snapshotFlow { lazyListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }
+                .distinctUntilChanged()
+                .collect { lastIndex ->
                     if (isRefreshing) return@collect
-                    val lastIndex = if (visibleItems.isNotEmpty())
-                        visibleItems.last().index else 0
                     if (currentIsNeedMore(lastIndex)) {
                         isRefreshing = true
                         currentDoLoadMore(onRefreshed)

@@ -27,14 +27,14 @@ fun initIconCache(context: Context) {
 @Composable
 fun AppIcon(packageName: String, appName: String?, modifier: Modifier = Modifier) {
     val isPreview = LocalInspectionMode.current
-    var icon by remember {
+    var icon by remember(packageName) {
         mutableStateOf(
             if (isPreview) iconCache.defaultAppIcon
             else iconCache.get(packageName) ?: iconCache.defaultAppIcon
         )
     }
     if (icon == iconCache.defaultAppIcon) {
-        LaunchedEffect(Unit) {
+        LaunchedEffect(packageName) {
             withContext(Dispatchers.IO) {
                 icon = iconCache.cache(packageName)
             }

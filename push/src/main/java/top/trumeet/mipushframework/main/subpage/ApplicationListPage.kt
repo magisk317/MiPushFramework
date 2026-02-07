@@ -74,7 +74,8 @@ fun ApplicationList(
     val context = LocalContext.current
     val isPreview = LocalInspectionMode.current
     if (isPreview) g_items = getMiPushApplications()
-    var isNeedRefresh by rememberSaveable(query) { mutableStateOf(true) }
+    val shouldRefresh = g_items.res.isEmpty() || query.isNotEmpty()
+    var isNeedRefresh by rememberSaveable(query) { mutableStateOf(shouldRefresh) }
 
     val refreshScope = rememberCoroutineScope { Dispatchers.IO }
     val onRefresh: (onRefreshed: () -> Unit) -> Unit = { onRefreshed ->
