@@ -205,7 +205,8 @@ fun EventList(
             onRefreshed()
         }
     }
-    var isNeedRefresh by rememberSaveable(query) { mutableStateOf(true) }
+    val shouldRefresh = items.isEmpty() || query.isNotEmpty() || packageName.isNotEmpty()
+    var isNeedRefresh by rememberSaveable(query, packageName) { mutableStateOf(shouldRefresh) }
     val doRefresh: (onRefreshed: () -> Unit) -> Unit = { onRefreshed ->
         refreshScope.launch {
             val elements = getEvents(true)
