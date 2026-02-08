@@ -294,6 +294,5 @@ This could be the application doing a reverse registration, or the registration 
     <string name="force_register_partial">Force-register partially completed: %1$d succeeded, %2$d failed</string>
     <string name="force_register_sent">Force-register request sent</string>
     <string name="force_register_failed">Force-register failed, check logs</string>
-
-
+    <string name="permission_notifications_denied">Please grant notification permission to test this feature.</string>
 </resources>

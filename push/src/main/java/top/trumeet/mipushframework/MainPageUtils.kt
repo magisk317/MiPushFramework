@@ -3,13 +3,14 @@ package top.trumeet.mipushframework
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.util.Log
+import com.elvishew.xlog.XLog
 import com.nihility.Global
 import com.nihility.InternalMessenger
 import com.nihility.service.XMPushServiceListener
 import com.xiaomi.push.service.XMPushServiceMessenger
 
 class MainPageUtils {
+    private val logger = XLog.tag("MainPageUtils").build()
     private var messenger: InternalMessenger? = null
 
     fun interface ConnectionStatusChanged {
@@ -32,11 +33,10 @@ class MainPageUtils {
     }
 
     fun printHookResultForCheck() {
-        Log.i(TAG, String.format("[hook_res] MIUIUtils.getIsMIUI() -> [%s]", invokeStatic("com.xiaomi.channel.commonutils.android.MIUIUtils", "getIsMIUI")))
-        Log.i(TAG, String.format("[hook_res] DeviceInfo.quicklyGetIMEI() -> [%s]", invokeStatic("com.xiaomi.channel.commonutils.android.DeviceInfo", "quicklyGetIMEI", null)))
-        Log.i(TAG, String.format("[hook_res] DeviceInfo.getMacAddress() -> [%s]", invokeStatic("com.xiaomi.channel.commonutils.android.DeviceInfo", "getMacAddress", null)))
-        Log.i(
-            TAG,
+        logger.i(String.format("[hook_res] MIUIUtils.getIsMIUI() -> [%s]", invokeStatic("com.xiaomi.channel.commonutils.android.MIUIUtils", "getIsMIUI")))
+        logger.i(String.format("[hook_res] DeviceInfo.quicklyGetIMEI() -> [%s]", invokeStatic("com.xiaomi.channel.commonutils.android.DeviceInfo", "quicklyGetIMEI", null)))
+        logger.i(String.format("[hook_res] DeviceInfo.getMacAddress() -> [%s]", invokeStatic("com.xiaomi.channel.commonutils.android.DeviceInfo", "getMacAddress", null)))
+        logger.i(
             String.format(
                 "[hook_res] ConnectionConfiguration.getXmppServerHost() -> [%s]",
                 invokeStatic("com.xiaomi.smack.ConnectionConfiguration", "getXmppServerHost")

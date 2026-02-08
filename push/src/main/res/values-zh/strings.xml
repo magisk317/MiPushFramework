@@ -271,6 +271,6 @@
     <string name="force_register_failed">强制注册失败，请查看日志</string>
     <string name="wizard_title_ignore_battery_optimizations_permission">忽略电池优化</string>
     <string name="wizard_title_ignore_battery_optimizations_text">您需要授予“忽略电池优化”权限，否则您可能将无法在后台运行mipush服务。</string>
-
+    <string name="permission_notifications_denied">请授予通知权限以测试此功能。</string>
 
 </resources>

@@ -1,4 +1,3 @@
-@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 package top.trumeet.mipushframework.main
 
 
@@ -6,15 +5,17 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,18 +28,17 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.google.android.material.elevation.SurfaceColors
+import androidx.navigation.compose.rememberNavController
 import com.xiaomi.xmsf.R
 import top.trumeet.mipushframework.component.MarkdownView
 import top.trumeet.ui.theme.Theme
 import java.io.InputStreamReader
 
-class HelpPage : AppCompatActivity() {
+class HelpPage : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setContent {
-            val color = SurfaceColors.SURFACE_2.getColor(this)
-            window.statusBarColor = color
             Theme {
                 HelpList()
             }
@@ -61,7 +61,9 @@ fun HelpList(modifier: Modifier = Modifier) {
     NavHost(
         navController = navController,
         startDestination = "list",
-        modifier = modifier.statusBarsPadding()
+        modifier = modifier
+            .statusBarsPadding()
+            .navigationBarsPadding()
     ) {
         composable("list") { HelpList(navController) }
         composable("markdown/{markdownResId}") { backStackEntry ->
@@ -75,7 +77,7 @@ fun HelpList(modifier: Modifier = Modifier) {
 fun HelpList(navController: NavHostController) {
     Column {
         FAQ(navController)
-        Divider()
+        HorizontalDivider()
         ContactUs()
     }
 }
@@ -104,24 +106,31 @@ private fun ContactUs() {
     val context = LocalContext.current
     Group(stringResource(R.string.helplib_title_contact))
     ClickableListItem(R.string.helplib_action_qq_group) {
-        openUrl(context, "https://pd.qq.com/s/4tsiu8hlu")
+        openUrl(context, "https://qm.qq.com/q/PaFGVEb6so")
     }
     ClickableListItem(R.string.helplib_action_telegram_group) {
-        openUrl(context, "https://t.me/+aiUicn7pRudjYThl")
+        openUrl(context, "https://t.me/+Gf5x3Lqw1tdiZDNl")
     }
     ClickableListItem(R.string.helplib_action_issue) {
-        openUrl(context, "https://github.com/NihilityT/MiPushFramework/issues")
+        openUrl(context, "https://github.com/magisk317/MiPushFramework/issues")
     }
 }
 
 @Composable
 private fun Group(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.headlineSmall,
-        color = MaterialTheme.colorScheme.onSurface,
-        modifier = Modifier.padding(16.dp)
-    )
+    Column { // Added Column to hold Text and HorizontalDivider
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(16.dp)
+        )
+        HorizontalDivider(
+            modifier = Modifier.padding(vertical = 8.dp),
+            thickness = 0.5.dp,
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
+    }
 }
 
 @Composable

@@ -4,7 +4,7 @@ package top.trumeet.mipushframework.main.subpage
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import com.google.gson.GsonBuilder
+import kotlinx.serialization.json.*
 import com.nihility.Global
 import com.nihility.XMPushUtils
 import com.nihility.service.XMPushServiceAbility
@@ -140,8 +140,12 @@ class EventListPageUtils(private val context: Context) {
 
         @JvmStatic
         fun containerToJson(container: XmPushActionContainer, regSec: String?): CharSequence {
-            val gson = GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create()
-            return gson.toJson(ConvertUtils.toJson(container, regSec))
+            val json = Json {
+                ignoreUnknownKeys = true
+                prettyPrint = true
+                encodeDefaults = true
+            }
+            return json.encodeToString(JsonElement.serializer(), ConvertUtils.toJson(container, regSec))
         }
 
         @JvmStatic

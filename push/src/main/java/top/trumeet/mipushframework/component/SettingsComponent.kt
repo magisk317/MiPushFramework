@@ -31,7 +31,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.xiaomi.xmsf.R
-import com.xiaomi.xmsf.utils.ConfigCenter
+import com.xiaomi.xmsf.MiPushFrameworkApp
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsItem(
@@ -56,53 +57,54 @@ fun SettingsItem(
 }
 
 @Composable
-fun SettingsItem(
+fun SettingsListItem(
     title: String,
     summary: String,
-    key: String,
     values: Array<String>,
-    defaultValue: String
+    selected: Int,
+    onValueSelected: (Int) -> Unit
 ) {
     var shouldShowDialog by remember { mutableStateOf(false) }
-    SettingsItem(
+    SettingsDialogItem(
         title = title,
         summary = summary,
         confirmButton = {},
         content = {
-            ItemLists(key, defaultValue, values) {
+            ItemLists(selected, values) { index ->
+                onValueSelected(index)
                 shouldShowDialog = false
             }
-        }
+        },
+        onClick = { shouldShowDialog = true },
+        shouldShowDialog = shouldShowDialog,
+        onDismiss = { shouldShowDialog = false }
     )
 }
 
 @Composable
-fun SettingsItem(
+fun SettingsDialogItem(
     title: String,
     summary: String,
-    confirmButton: @Composable (dismiss: () -> Unit) -> Unit,
-    onDismiss: (() -> Unit)? = null,
-    content: @Composable (dismiss: () -> Unit) -> Unit
+    confirmButton: @Composable () -> Unit,
+    onClick: () -> Unit,
+    shouldShowDialog: Boolean,
+    onDismiss: () -> Unit,
+    content: @Composable () -> Unit
 ) {
-    var shouldShowDialog by remember { mutableStateOf(false) }
     SettingsItem(
         title = title,
         summary = summary,
+        onClick = onClick,
         content = {
-            val hideDialog = {
-                shouldShowDialog = false
-                onDismiss?.invoke()
-                Unit
-            }
-            SettingsDialog(title, shouldShowDialog, hideDialog, {
-                confirmButton(hideDialog)
-            }) {
-                content(hideDialog)
-            }
+            SettingsDialog(
+                title = title,
+                shouldShowDialog = shouldShowDialog,
+                onDismiss = onDismiss,
+                confirmButton = confirmButton,
+                content = content
+            )
         }
-    ) {
-        shouldShowDialog = true
-    }
+    )
 }
 
 @Composable
@@ -124,25 +126,16 @@ fun SettingsDialog(
 
 @Composable
 private fun ItemLists(
-    key: String,
-    defaultValue: String,
+    selected: Int,
     values: Array<String>,
-    onDismiss: () -> Unit
+    onSelect: (Int) -> Unit
 ) {
-    val context = LocalContext.current
-    val preferences = ConfigCenter.getSharedPreferences(context)
-    val selected = preferences.getString(key, defaultValue)!!.toInt()
-
     LazyColumn {
         itemsIndexed(values) { index, item ->
             Row(
                 Modifier
                     .clickable {
-                        preferences
-                            .edit()
-                            .putString(key, index.toString())
-                            .apply()
-                        onDismiss()
+                        onSelect(index)
                     }
                     .fillMaxWidth()
                     .padding(top = 10.dp, bottom = 10.dp),
@@ -169,41 +162,26 @@ fun SettingsGroup(title: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-fun SettingsItem(
+fun SettingsSwitchItem(
     title: String,
     summary: String? = null,
-    key: String,
-    defaultValue: Boolean,
-    enabled: Boolean = true,
-    onClick: ((Boolean) -> Unit)? = null
-) {
-    val context = LocalContext.current
-    val preferences = ConfigCenter.getSharedPreferences(context)
-    var checked by remember { mutableStateOf(preferences.getBoolean(key, defaultValue)) }
-    SettingsItem(title = title, summary = summary, checked = checked, enabled = enabled) {
-        preferences.edit().putBoolean(key, !checked).apply()
-        checked = !checked
-        onClick?.invoke(checked)
-    }
-}
-
-@Composable
-fun SettingsItem(
-    title: String,
-    summary: String? = null,
-    enabled: Boolean = true,
     checked: Boolean,
-    onClick: () -> Unit
+    enabled: Boolean = true,
+    onCheckedChange: (Boolean) -> Unit
 ) {
     SettingsItem(
-        title, summary, content = {
+        title = title,
+        summary = summary,
+        enabled = enabled,
+        onClick = { onCheckedChange(!checked) },
+        content = {
             Switch(
                 checked = checked,
                 onCheckedChange = null,
-                modifier = Modifier.scale(0.7f)
+                modifier = Modifier.scale(0.7f),
+                enabled = enabled
             )
-        }, enabled = enabled,
-        onClick = onClick
+        }
     )
 }
 
@@ -226,22 +204,22 @@ fun InfoDialogPreview() {
         {}, {}
     ) {
         ItemLists(
-            "AccessMode",
-            "0",
-            stringArrayResource(R.array.pref_title_access_mode_list_titles)
-        ) { }
+            selected = 0,
+            values = stringArrayResource(R.array.pref_title_access_mode_list_titles),
+            onSelect = { }
+        )
     }
 }
 
 @Preview(showBackground = true)
 @Composable
 fun SettingsItemPreview() {
-    SettingsItem(
+    SettingsSwitchItem(
         title = stringResource(R.string.settings_start_foreground_service),
         summary = stringResource(R.string.settings_start_foreground_service_summary),
-        key = "StartForegroundService",
-        defaultValue = false,
-        enabled = false
+        checked = false,
+        enabled = false,
+        onCheckedChange = { }
     )
 }
 

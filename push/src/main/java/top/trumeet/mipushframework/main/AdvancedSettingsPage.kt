@@ -4,49 +4,49 @@ package top.trumeet.mipushframework.main
 import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.enableEdgeToEdge
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.magisk317.main.viewmodel.AdvancedSettingsViewModel
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.Surface
-import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import com.catchingnow.icebox.sdk_client.IceBox
 import com.xiaomi.xmsf.R
 import com.xiaomi.xmsf.SettingUtils
-import com.xiaomi.xmsf.utils.ConfigCenter
 import top.trumeet.common.utils.Utils
+import com.catchingnow.icebox.sdk_client.IceBox
+import top.trumeet.ui.theme.Theme
 import top.trumeet.mipushframework.component.SettingsGroup
 import top.trumeet.mipushframework.component.SettingsItem
-import top.trumeet.ui.theme.Theme
-
+import top.trumeet.mipushframework.component.SettingsSwitchItem
+import top.trumeet.mipushframework.component.SettingsListItem
+import androidx.activity.compose.rememberLauncherForActivityResult
 
 class AdvancedSettingsPage : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setContent {
             Theme {
-                window.navigationBarColor = MaterialTheme.colorScheme.surfaceColorAtElevation(
-                    NavigationBarDefaults.Elevation
-                ).toArgb()
+                SettingsApp()
             }
-            SettingsApp()
         }
     }
 }
@@ -57,71 +57,84 @@ private fun SettingsApp() {
         Surface(
             modifier = Modifier
                 .statusBarsPadding()
+                .navigationBarsPadding()
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
             color = MaterialTheme.colorScheme.background
         ) {
-            SettingsScreen()
+            val viewModel: AdvancedSettingsViewModel = viewModel()
+            SettingsScreen(viewModel)
         }
     }
 }
 
 
 @Composable
-private fun SettingsScreen() {
+private fun SettingsScreen(viewModel: AdvancedSettingsViewModel) {
     Column {
         CleanUpBlock()
-        ExperimentalBlock()
-        ConfigurationsBlock()
+        ExperimentalBlock(viewModel)
+        ConfigurationsBlock(viewModel)
     }
 }
 
 @Composable
-fun ConfigurationsBlock() {
+fun ConfigurationsBlock(viewModel: AdvancedSettingsViewModel) {
+    val notificationOnRegister by viewModel.notificationOnRegister.collectAsStateWithLifecycle()
+    val showConfigurationList by viewModel.showConfigurationList.collectAsStateWithLifecycle()
+    val debugMode by viewModel.debugMode.collectAsStateWithLifecycle()
+    val showAllEvents by viewModel.showAllEvents.collectAsStateWithLifecycle()
+    val isStartForeground by viewModel.isStartForeground.collectAsStateWithLifecycle()
+    val accessMode by viewModel.accessMode.collectAsStateWithLifecycle()
+
     val context = LocalContext.current
+
     SettingsGroup(title = stringResource(R.string.settings_options)) {
-        SettingsItem(
+        SettingsSwitchItem(
             title = stringResource(R.string.settings_notify_on_register),
-            key = "NotificationOnRegister",
-            defaultValue = false,
-        )
-        SettingsItem(
+            checked = notificationOnRegister,
+        ) { viewModel.setNotificationOnRegister(it) }
+
+        SettingsSwitchItem(
             title = stringResource(R.string.settings_show_loaded_file_after_configurations_loaded),
-            key = "ShowConfigurationListOnLoaded",
-            defaultValue = false,
-        )
-        SettingsItem(
+            checked = showConfigurationList,
+        ) { viewModel.setShowConfigurationList(it) }
+
+        SettingsSwitchItem(
             title = stringResource(R.string.settings_debug_mode),
             summary = stringResource(R.string.settings_debug_mode_summary),
-            key = "DebugMode",
-            defaultValue = false,
-        )
-        SettingsItem(
+            checked = debugMode,
+        ) { viewModel.setDebugMode(it) }
+
+        SettingsSwitchItem(
             title = stringResource(R.string.settings_show_all_events),
-            key = "ShowAllEvents",
-            defaultValue = false,
-        )
-        SettingsItem(
+            checked = showAllEvents,
+        ) { viewModel.setShowAllEvents(it) }
+
+        SettingsSwitchItem(
             title = stringResource(R.string.settings_start_foreground_service),
             summary = stringResource(R.string.settings_start_foreground_service_summary),
-            key = "StartForegroundService",
-            defaultValue = false,
+            checked = isStartForeground,
         ) {
-            SettingUtils.startMiPushServiceAsForegroundService(context)
+            viewModel.setStartForeground(it)
+            if (it) SettingUtils.startMiPushServiceAsForegroundService(context)
         }
-        SettingsItem(
+
+        SettingsListItem(
             title = stringResource(R.string.pref_title_access_mode),
             summary = stringResource(R.string.pref_summary_access_mode),
-            key = "AccessMode",
             values = stringArrayResource(R.array.pref_title_access_mode_list_titles),
-            defaultValue = "0"
+            selected = accessMode.toIntOrNull() ?: 0,
+            onValueSelected = { index: Int -> viewModel.setAccessMode(index) }
         )
     }
 }
 
 @Composable
-private fun ExperimentalBlock() {
+private fun ExperimentalBlock(viewModel: AdvancedSettingsViewModel) {
     val context = LocalContext.current
+    val iceboxSupported by viewModel.iceboxSupported.collectAsStateWithLifecycle()
+    
     var iceBoxGranted by remember {
         mutableStateOf(
             SettingUtils.isIceBoxInstalled()
@@ -132,7 +145,7 @@ private fun ExperimentalBlock() {
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) {
         iceBoxGranted = it.values.all { granted -> granted }
-        setIceBoxSupported(context, iceBoxGranted)
+        viewModel.setIceboxSupported(iceBoxGranted)
     }
 
     SettingsGroup(title = stringResource(R.string.settings_experimental)) {
@@ -143,24 +156,19 @@ private fun ExperimentalBlock() {
             SettingUtils.notifyMockNotification(context)
         }
 
-        SettingsItem(
+        SettingsSwitchItem(
             title = stringResource(R.string.settings_icebox_permission),
             summary = stringResource(R.string.settings_icebox_permission_summary),
-            checked = iceBoxGranted,
+            checked = iceboxSupported || iceBoxGranted,
             enabled = SettingUtils.isIceBoxInstalled()
         ) {
             if (!iceBoxGranted) {
                 permissionsLauncher.launch(arrayOf(IceBox.SDK_PERMISSION))
+            } else {
+                viewModel.setIceboxSupported(!iceboxSupported)
             }
-            iceBoxGranted = !iceBoxGranted
-            setIceBoxSupported(context, iceBoxGranted)
         }
     }
-}
-
-private fun setIceBoxSupported(context: Context, iceBoxGranted: Boolean) {
-    val preferences = ConfigCenter.getSharedPreferences(context)
-    preferences.edit().putBoolean("IceboxSupported", iceBoxGranted).apply()
 }
 
 @Composable
