@@ -14,6 +14,7 @@ import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import com.catchingnow.icebox.sdk_client.IceBox
 import com.elvishew.xlog.XLog
+import com.magisk317.push.pipeline.MiPushRuntimeBridge
 import com.nihility.Global
 import com.nihility.XMPushUtils
 import com.topjohnwu.superuser.Shell
@@ -38,6 +39,12 @@ class MyPushMessageHandler : IntentService("my mipush message handler") {
             return
         }
         val container = XMPushUtils.packToContainer(payload) ?: return
+        MiPushRuntimeBridge.onPayloadFromServer(
+            this,
+            payload,
+            payload.size.toLong(),
+            "MyPushMessageHandler.onHandleIntent"
+        )
         try {
             if (startService(this, container, payload) != null) {
                 cancelNotification(this, safeIntent.extras ?: Bundle(), container)
@@ -152,6 +159,7 @@ class MyPushMessageHandler : IntentService("my mipush message handler") {
             val metaInfo = container.metaInfo ?: return null
             val targetPackage = container.packageName
 
+            MiPushRuntimeBridge.onTransferToApplication(container)
             val localIntent = Intent(PushConstants.MIPUSH_ACTION_NEW_MESSAGE)
             localIntent.component = ComponentName(targetPackage, "com.xiaomi.mipush.sdk.PushMessageHandler")
             localIntent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, payload)

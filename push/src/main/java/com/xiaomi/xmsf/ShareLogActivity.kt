@@ -3,10 +3,10 @@ package com.xiaomi.xmsf
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.ComponentActivity
 import com.xiaomi.xmsf.utils.LogUtils
 
-class ShareLogActivity : AppCompatActivity() {
+class ShareLogActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val intent = LogUtils.getShareIntent(this)

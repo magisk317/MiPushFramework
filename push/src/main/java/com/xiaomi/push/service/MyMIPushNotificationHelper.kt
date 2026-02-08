@@ -27,6 +27,7 @@ import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import com.elvishew.xlog.Logger
 import com.elvishew.xlog.XLog
+import com.magisk317.push.pipeline.MiPushRuntimeBridge
 import com.nihility.Global
 import com.nihility.XMPushUtils
 import com.nihility.notification.NotificationManagerEx
@@ -96,6 +97,7 @@ class MyMIPushNotificationHelper {
         @JvmStatic
         fun notifyPushMessage(context: Context, decryptedContent: ByteArray) {
             val container = XMPushUtils.packToContainer(decryptedContent) ?: return
+            MiPushRuntimeBridge.onNotificationDispatch(context, container, decryptedContent)
             val notificationOp = AppInfoUtils.getAppNotificationOp(
                 context,
                 MIPushNotificationHelper.getTargetPackage(container),

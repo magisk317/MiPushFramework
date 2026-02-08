@@ -8,6 +8,7 @@ import android.widget.Toast
 import androidx.core.content.ContextCompat
 import com.elvishew.xlog.Logger
 import com.elvishew.xlog.XLog
+import com.magisk317.push.pipeline.MiPushRuntimeBridge
 import com.nihility.Global
 import com.xiaomi.xmsf.R
 import com.xiaomi.xmsf.push.control.PushControllerUtils
@@ -37,8 +38,10 @@ class XMPushService : IntentService(TAG) {
             return
         }
 
+        MiPushRuntimeBridge.onApplicationIntentReceived(this, intent)
         try {
             forwardToPushServiceMain(intent)
+            MiPushRuntimeBridge.onIntentForwardedToServer(intent)
         } catch (e: RuntimeException) {
             logger.e("XMPushService::onHandleIntent: ", e)
             Utils.makeText(this, getString(R.string.common_err, e.message), Toast.LENGTH_LONG)

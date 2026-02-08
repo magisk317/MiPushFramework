@@ -2,6 +2,7 @@ package com.nihility.utils
 
 import android.content.Context
 import android.content.Intent
+import com.elvishew.xlog.XLog
 import com.nihility.XMPushUtils
 import com.topjohnwu.superuser.Shell
 import com.xiaomi.push.sdk.MyPushMessageHandler
@@ -10,7 +11,6 @@ import com.xiaomi.xmpush.thrift.NotificationType
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
-import com.magisk317.XMPushUtils as NewXMPushUtils
 import top.trumeet.common.utils.Utils
 
 class RegistrationHelper(
@@ -38,6 +38,8 @@ class RegistrationHelper(
     }
 
     companion object {
+        private val logger = XLog.tag("RegistrationHelper").build()
+
         @JvmStatic
         fun tryForceRegisterFallback(packageName: String): Boolean {
             val msgBytes = runCatching {
@@ -54,13 +56,25 @@ class RegistrationHelper(
 
         @JvmStatic
         fun tryForceRegister(packageName: String) {
-            val msgBytes = XMPushUtils.packToBytes(createForceRegisterMessage(packageName))
+            val app = Utils.getApplication() ?: return
+            val container = createForceRegisterMessage(packageName)
+            val msgBytes = XMPushUtils.packToBytes(container)
+            // Prefer direct handler dispatch without launching/settings guidance side effects.
+            val started = runCatching {
+                MyPushMessageHandler.forwardToTargetApplication(app, msgBytes)
+            }.getOrNull()
+            if (started != null) {
+                logger.i("force register via PushMessageHandler succeeded: $packageName")
+                return
+            }
+            // Fallback to package-targeted broadcast for apps with nonstandard handlers.
             val intent = Intent(PushConstants.MIPUSH_ACTION_NEW_MESSAGE).apply {
                 `package` = packageName
                 putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, msgBytes)
                 putExtra(PushConstants.MESSAGE_RECEIVE_TIME, System.currentTimeMillis())
             }
-            Utils.getApplication()?.sendBroadcast(intent, null)
+            app.sendBroadcast(intent, null)
+            logger.w("force register fell back to broadcast only: $packageName")
         }
 
         @JvmStatic

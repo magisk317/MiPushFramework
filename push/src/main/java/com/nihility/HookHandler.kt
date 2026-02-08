@@ -4,117 +4,129 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInfo
 import com.elvishew.xlog.XLog
+import com.magisk317.push.pipeline.MiPushRuntimeBridge
+import com.magisk317.push.pipeline.MockMessageRegistry
 import com.nihility.utils.Singleton
-import com.xiaomi.mipush.sdk.LogPushMessageProcessorAspect
-import com.xiaomi.mipush.sdk.ManifestCheckerAspectLog
 import com.xiaomi.network.Fallback
-import com.xiaomi.network.LogFallbackAspect
-import com.xiaomi.push.service.LogClientEventDispatcherAspect
-import com.xiaomi.push.service.LogDebugAspect
-import com.xiaomi.push.service.LogXMPushServiceAspect
-import com.xiaomi.push.service.MIPushEventProcessorAspect
 import com.xiaomi.push.service.MIPushNotificationHelper
-import com.xiaomi.push.service.MIPushNotificationHelperAspect
-import com.xiaomi.push.service.MiPushMessageDuplicateAspect
 import com.xiaomi.push.service.XMPushService
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import org.aspectj.lang.JoinPoint
-import org.aspectj.lang.ProceedingJoinPoint
 
+/**
+ * Modern HookHandler implementation.
+ * All AOP logic has been removed. Methods now do nothing or return default values.
+ * This class remains to satisfy the interface requirements in case binary-woven 
+ * Xiaomi SDK calls these methods.
+ */
 class HookHandler : HookedMethodHandler {
     override fun shouldSendBroadcast(
-        joinPoint: ProceedingJoinPoint,
+        joinPoint: Any?,
         pushService: XMPushService,
         packageName: String,
         container: XmPushActionContainer,
         metaInfo: PushMetaInfo
-    ): Boolean = Singleton.instance<MIPushEventProcessorAspect>()
-        .shouldSendBroadcast(joinPoint, pushService, packageName, container, metaInfo)
+    ): Boolean = true
 
     override fun postProcessMIPushMessage(
-        joinPoint: ProceedingJoinPoint,
+        joinPoint: Any?,
         pushService: XMPushService,
         pkgName: String,
         payload: ByteArray,
         newMessageIntent: Intent
-    ) = Singleton.instance<MIPushEventProcessorAspect>()
-        .postProcessMIPushMessage(joinPoint, pushService, pkgName, payload, newMessageIntent)
+    ) {
+        MiPushRuntimeBridge.onTransferToApplication(payload)
+    }
 
     override fun notifyPacketArrival(
-        joinPoint: JoinPoint,
+        joinPoint: Any?,
         pushService: XMPushService,
         chid: String,
         data: Any
-    ) = Singleton.instance<LogClientEventDispatcherAspect>()
-        .notifyPacketArrival(joinPoint, pushService, chid, data)
+    ) {
+        // Dead code removed
+    }
 
-    override fun debugLog(joinPoint: ProceedingJoinPoint): Any? =
-        Singleton.instance<LogDebugAspect>().logger(joinPoint)
+    override fun debugLog(joinPoint: Any?): Any? = null
 
-    override fun logFallback(joinPoint: JoinPoint, fallback: Fallback, usePort: Boolean) =
-        Singleton.instance<LogFallbackAspect>().logFallback(joinPoint, fallback, usePort)
+    override fun logFallback(joinPoint: Any?, fallback: Fallback, usePort: Boolean) {
+        // Dead code removed
+    }
 
-    override fun processIntent(joinPoint: JoinPoint, intent: Intent) =
-        Singleton.instance<LogPushMessageProcessorAspect>().processIntent(joinPoint, intent)
+    override fun processIntent(joinPoint: Any?, intent: Intent) {
+        val app = top.trumeet.common.utils.Utils.getApplication() ?: return
+        MiPushRuntimeBridge.onApplicationIntentReceived(app, intent)
+        MiPushRuntimeBridge.onIntentForwardedToServer(intent)
+    }
 
-    override fun onCreate(joinPoint: JoinPoint, pushService: XMPushService) =
-        Singleton.instance<LogXMPushServiceAspect>().onCreate(joinPoint, pushService)
+    override fun onCreate(joinPoint: Any?, pushService: XMPushService) {
+        // Dead code removed
+    }
 
-    override fun onStartCommand(joinPoint: JoinPoint) =
-        Singleton.instance<LogXMPushServiceAspect>().onStartCommand(joinPoint)
+    override fun onStartCommand(joinPoint: Any?) {
+        // Dead code removed
+    }
 
-    override fun onStart(joinPoint: JoinPoint, intent: Intent, startId: Int) =
-        Singleton.instance<LogXMPushServiceAspect>().onStart(joinPoint, intent, startId)
+    override fun onStart(joinPoint: Any?, intent: Intent, startId: Int) {
+        // Dead code removed
+    }
 
-    override fun onBind(joinPoint: JoinPoint, intent: Intent) =
-        Singleton.instance<LogXMPushServiceAspect>().onBind(joinPoint, intent)
+    override fun onBind(joinPoint: Any?, intent: Intent) {
+        // Dead code removed
+    }
 
-    override fun onDestroy(joinPoint: JoinPoint) =
-        Singleton.instance<LogXMPushServiceAspect>().onDestroy(joinPoint)
+    override fun onDestroy(joinPoint: Any?) {
+        // Dead code removed
+    }
 
-    override fun setConnectionStatus(joinPoint: JoinPoint, newStatus: Int, reason: Int, e: Exception) =
-        Singleton.instance<LogXMPushServiceAspect>().setConnectionStatus(joinPoint, newStatus, reason, e)
+    override fun setConnectionStatus(joinPoint: Any?, newStatus: Int, reason: Int, e: Exception) {
+        // Dead code removed
+    }
 
-    override fun sendMessage(joinPoint: JoinPoint, intent: Intent) =
-        Singleton.instance<LogXMPushServiceAspect>().sendMessage(joinPoint, intent)
+    override fun sendMessage(joinPoint: Any?, intent: Intent) {
+        // Dead code removed
+    }
 
-    override fun logCheckServices(joinPoint: JoinPoint, pkgInfo: PackageInfo) =
-        Singleton.instance<ManifestCheckerAspectLog>().logCheckServices(joinPoint, pkgInfo)
+    override fun logCheckServices(joinPoint: Any?, pkgInfo: PackageInfo) {
+        // Dead code removed
+    }
 
-    override fun buildIntent(joinPoint: ProceedingJoinPoint): Intent =
-        Singleton.instance<MIPushEventProcessorAspect>().buildIntent(joinPoint)
+    override fun buildIntent(joinPoint: Any?): Intent = Intent()
 
-    override fun buildContainerHook(joinPoint: ProceedingJoinPoint): XmPushActionContainer =
-        requireNotNull(Singleton.instance<MIPushEventProcessorAspect>().buildContainerHook(joinPoint))
+    override fun buildContainerHook(joinPoint: Any?): XmPushActionContainer = XmPushActionContainer()
 
-    override fun isIntentAvailable(joinPoint: ProceedingJoinPoint): Boolean =
-        Singleton.instance<MIPushEventProcessorAspect>().isIntentAvailable(joinPoint)
+    override fun isIntentAvailable(joinPoint: Any?): Boolean = true
 
     override fun processMIPushMessage(
-        joinPoint: JoinPoint,
+        joinPoint: Any?,
         pushService: XMPushService,
         decryptedContent: ByteArray,
         packetBytesLen: Long
-    ) = Singleton.instance<MIPushEventProcessorAspect>()
-        .processMIPushMessage(joinPoint, pushService, decryptedContent, packetBytesLen)
+    ) {
+        MiPushRuntimeBridge.onPayloadFromServer(
+            pushService,
+            decryptedContent,
+            packetBytesLen,
+            "HookHandler.processMIPushMessage"
+        )
+    }
 
     override fun isDuplicateMessage(
-        joinPoint: ProceedingJoinPoint,
+        joinPoint: Any?,
         pushService: XMPushService,
         packageName: String,
         messageId: String
-    ): Boolean = Singleton.instance<MiPushMessageDuplicateAspect>()
-        .isDuplicateMessage(joinPoint, pushService, packageName, messageId)
+    ): Boolean = MockMessageRegistry.consumeIfMatched(messageId)
 
     override fun notifyPushMessage(
-        joinPoint: ProceedingJoinPoint,
+        joinPoint: Any?,
         context: Context,
         container: XmPushActionContainer,
         decryptedContent: ByteArray
-    ): MIPushNotificationHelper.NotifyPushMessageInfo =
-        Singleton.instance<MIPushNotificationHelperAspect>()
-            .notifyPushMessage(joinPoint, context, container, decryptedContent)
+    ): MIPushNotificationHelper.NotifyPushMessageInfo {
+        MiPushRuntimeBridge.onNotificationDispatch(context, container, decryptedContent)
+        return MIPushNotificationHelper.NotifyPushMessageInfo()
+    }
 
     companion object {
         private const val TAG = "HookHandler"

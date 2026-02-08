@@ -8,13 +8,16 @@ import com.xiaomi.push.service.MIPushNotificationHelper
 import com.xiaomi.push.service.XMPushService
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import org.aspectj.lang.JoinPoint
-import org.aspectj.lang.ProceedingJoinPoint
 
+/**
+ * HookedMethodHandler interface.
+ * AspectJ types (JoinPoint, ProceedingJoinPoint) have been replaced with Any? 
+ * to remove dependency on org.aspectj:aspectjrt.
+ */
 interface HookedMethodHandler {
     @Throws(Throwable::class)
     fun shouldSendBroadcast(
-        joinPoint: ProceedingJoinPoint,
+        joinPoint: Any?,
         pushService: XMPushService,
         packageName: String,
         container: XmPushActionContainer,
@@ -23,30 +26,30 @@ interface HookedMethodHandler {
 
     @Throws(Throwable::class)
     fun postProcessMIPushMessage(
-        joinPoint: ProceedingJoinPoint,
+        joinPoint: Any?,
         pushService: XMPushService,
         pkgName: String,
         payload: ByteArray,
         newMessageIntent: Intent
     )
 
-    fun notifyPacketArrival(joinPoint: JoinPoint, pushService: XMPushService, chid: String, data: Any)
-    @Throws(Throwable::class) fun debugLog(joinPoint: ProceedingJoinPoint): Any?
-    fun logFallback(joinPoint: JoinPoint, fallback: Fallback, usePort: Boolean)
-    fun processIntent(joinPoint: JoinPoint, intent: Intent)
-    @Throws(Throwable::class) fun onCreate(joinPoint: JoinPoint, pushService: XMPushService)
-    fun onStartCommand(joinPoint: JoinPoint)
-    fun onStart(joinPoint: JoinPoint, intent: Intent, startId: Int)
-    fun onBind(joinPoint: JoinPoint, intent: Intent)
-    fun onDestroy(joinPoint: JoinPoint)
-    fun setConnectionStatus(joinPoint: JoinPoint, newStatus: Int, reason: Int, e: Exception)
-    fun sendMessage(joinPoint: JoinPoint, intent: Intent)
-    fun logCheckServices(joinPoint: JoinPoint, pkgInfo: PackageInfo)
-    @Throws(Throwable::class) fun buildIntent(joinPoint: ProceedingJoinPoint): Intent
-    @Throws(Throwable::class) fun buildContainerHook(joinPoint: ProceedingJoinPoint): XmPushActionContainer
-    @Throws(Throwable::class) fun isIntentAvailable(joinPoint: ProceedingJoinPoint): Boolean
+    fun notifyPacketArrival(joinPoint: Any?, pushService: XMPushService, chid: String, data: Any)
+    @Throws(Throwable::class) fun debugLog(joinPoint: Any?): Any?
+    fun logFallback(joinPoint: Any?, fallback: Fallback, usePort: Boolean)
+    fun processIntent(joinPoint: Any?, intent: Intent)
+    @Throws(Throwable::class) fun onCreate(joinPoint: Any?, pushService: XMPushService)
+    fun onStartCommand(joinPoint: Any?)
+    fun onStart(joinPoint: Any?, intent: Intent, startId: Int)
+    fun onBind(joinPoint: Any?, intent: Intent)
+    fun onDestroy(joinPoint: Any?)
+    fun setConnectionStatus(joinPoint: Any?, newStatus: Int, reason: Int, e: Exception)
+    fun sendMessage(joinPoint: Any?, intent: Intent)
+    fun logCheckServices(joinPoint: Any?, pkgInfo: PackageInfo)
+    @Throws(Throwable::class) fun buildIntent(joinPoint: Any?): Intent
+    @Throws(Throwable::class) fun buildContainerHook(joinPoint: Any?): XmPushActionContainer
+    @Throws(Throwable::class) fun isIntentAvailable(joinPoint: Any?): Boolean
     fun processMIPushMessage(
-        joinPoint: JoinPoint,
+        joinPoint: Any?,
         pushService: XMPushService,
         decryptedContent: ByteArray,
         packetBytesLen: Long
@@ -54,7 +57,7 @@ interface HookedMethodHandler {
 
     @Throws(Throwable::class)
     fun isDuplicateMessage(
-        joinPoint: ProceedingJoinPoint,
+        joinPoint: Any?,
         pushService: XMPushService,
         packageName: String,
         messageId: String
@@ -62,7 +65,7 @@ interface HookedMethodHandler {
 
     @Throws(Throwable::class)
     fun notifyPushMessage(
-        joinPoint: ProceedingJoinPoint,
+        joinPoint: Any?,
         context: Context,
         container: XmPushActionContainer,
         decryptedContent: ByteArray

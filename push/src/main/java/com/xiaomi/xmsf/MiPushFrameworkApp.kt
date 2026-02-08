@@ -7,7 +7,6 @@ import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
 import android.os.Build
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationChannelGroupCompat
@@ -20,6 +19,7 @@ import com.nihility.utils.Hooker
 import com.nihility.utils.PrivilegeElevator
 import com.oasisfeng.condom.CondomOptions
 import com.oasisfeng.condom.CondomProcess
+import com.xiaomi.xmsf.CrashHandler
 import com.xiaomi.xmsf.push.control.PushControllerUtils
 import com.xiaomi.xmsf.push.control.PushControllerUtils.isAppMainProc
 import com.xiaomi.xmsf.push.control.XMOutbound
@@ -31,15 +31,18 @@ import top.trumeet.common.Constants.TAG_CONDOM
 import top.trumeet.common.push.PushServiceAccessibility
 import top.trumeet.common.utils.Utils
 import top.trumeet.mipush.provider.DatabaseUtils
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import com.magisk317.data.DataStoreManager
 
 class MiPushFrameworkApp : Application() {
     private lateinit var logger: Logger
 
-    override fun attachBaseContext(context: Context) {
-        super.attachBaseContext(context)
-    }
-
     override fun onCreate() {
+        applicationScope = MainScope()
         super.onCreate()
         DatabaseUtils.init(this)
         PrivilegeElevator.tryToElevate()
@@ -127,14 +130,17 @@ class MiPushFrameworkApp : Application() {
         }
     }
 
-    private fun getLastStartupTime(): Long = defaultPreferences.getLong("xmsf_startup", 0)
+    private fun getLastStartupTime(): Long = runBlocking { DataStoreManager.lastStartupTime.first() }
 
-    private fun setStartupTime(value: Long): Boolean = defaultPreferences.edit().putLong("xmsf_startup", value).commit()
-
-    private val defaultPreferences: SharedPreferences
-        get() = getSharedPreferences(MIPUSH_EXTRA, 0)
+    private fun setStartupTime(value: Long) {
+        applicationScope.launch {
+            DataStoreManager.setLastStartupTime(value)
+        }
+    }
 
     companion object {
         private const val MIPUSH_EXTRA = "mipush_extra"
+        lateinit var applicationScope: CoroutineScope
+            private set
     }
 }

@@ -6,9 +6,8 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.text.TextUtils
-import android.util.Log
+import com.elvishew.xlog.XLog
 import com.xiaomi.mipush.sdk.ManifestChecker
-import com.xiaomi.mipush.sdk.MessageHandleService
 import com.xiaomi.mipush.sdk.PushMessageHandler
 import com.xiaomi.push.service.PushConstants
 import top.trumeet.common.Constants
@@ -20,6 +19,8 @@ class MiPushManifestChecker private constructor(
     private val manifestChecker: Class<*>,
     private val context: Context
 ) {
+    private val logger = XLog.tag("MiPushManifestChecker").build()
+
     private val checkServicesMethod: Method = manifestChecker.getDeclaredMethod("checkServices", Context::class.java, PackageInfo::class.java).apply {
         isAccessible = true
     }
@@ -32,9 +33,9 @@ class MiPushManifestChecker private constructor(
             true
         } catch (e: Throwable) {
             if (!isIllegalManifestException(e)) {
-                Log.e(TAG, "checkPermissions", e)
+                logger.e("checkPermissions", e)
             } else {
-                Log.e(TAG, "checkPermissions: " + packageInfo.packageName + "," + (e as InvocationTargetException).cause!!.message)
+                logger.e("checkPermissions: " + packageInfo.packageName + "," + (e as InvocationTargetException).cause!!.message)
             }
             false
         }
@@ -49,7 +50,7 @@ class MiPushManifestChecker private constructor(
             true
         } catch (e: Throwable) {
             if (!isIllegalManifestException(e)) {
-                Log.e(TAG, "checkReceivers", e)
+                logger.e("checkReceivers", e)
             }
             false
         }
@@ -60,11 +61,8 @@ class MiPushManifestChecker private constructor(
             val configServiceProcessMap = HashMap<String, String?>()
             val requiredServicesMap = HashMap<String, ManifestChecker.ServiceCheckInfo>()
             val pushHandlerServiceName = PushMessageHandler::class.java.name
-            val messageHandleServiceName = MessageHandleService::class.java.name
             requiredServicesMap[pushHandlerServiceName] =
                 ManifestChecker.ServiceCheckInfo(pushHandlerServiceName, true, true, "")
-            requiredServicesMap[messageHandleServiceName] =
-                ManifestChecker.ServiceCheckInfo(messageHandleServiceName, true, false, "")
 
             if (pkgInfo.services != null) {
                 for (info: ServiceInfo in pkgInfo.services) {
@@ -94,14 +92,6 @@ class MiPushManifestChecker private constructor(
                 throw IllegalStateException("service missing or disabled: " + requiredServicesMap.keys.iterator().next())
             }
 
-            if (!TextUtils.equals(
-                    configServiceProcessMap[pushHandlerServiceName],
-                    configServiceProcessMap[messageHandleServiceName]
-                )
-            ) {
-                throw IllegalStateException("PushMessageHandler and MessageHandleService must be in same process")
-            }
-
             if (configServiceProcessMap.containsKey(PushConstants.XM_SERVICE_CLASS_NAME_JAR)
                 && configServiceProcessMap.containsKey(PushConstants.PUSH_SERVICE_CLASS_NAME_JAR)
                 && !TextUtils.equals(
@@ -113,10 +103,12 @@ class MiPushManifestChecker private constructor(
             }
             true
         } catch (e: Throwable) {
-            if (!isIllegalManifestException(e)) {
-                Log.e(TAG, "checkServices", e)
+            if (e is IllegalStateException) {
+                logger.w("checkServices: " + pkgInfo.packageName + "," + e.message)
+            } else if (!isIllegalManifestException(e)) {
+                logger.e("checkServices", e)
             } else {
-                Log.w(TAG, "checkServices: " + pkgInfo.packageName + "," + e.message)
+                logger.w("checkServices: " + pkgInfo.packageName + "," + e.message)
             }
             false
         }

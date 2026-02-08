@@ -24,11 +24,15 @@ object Hooker {
 
     @JvmStatic
     fun hook(context: Context) {
+        logger.i("Hooker.hook() called")
         runCatching {
+            logger.i("Initializing MiPushHookLib...")
             initMiPushHookLib(context)
+            logger.i("Hooking MiPushSDK...")
             hookMiPushSDK(context)
+            logger.i("Hooker.hook() finished successfully")
         }.onFailure {
-            logger.e("Hook init skipped: ${it.message}", it)
+            logger.e("Hook init skipped/failed: ${it.message}", it)
         }
     }
 

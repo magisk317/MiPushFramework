@@ -2,7 +2,6 @@ package com.nihility.service
 
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 import android.widget.Toast
 import com.elvishew.xlog.Logger
 import com.elvishew.xlog.XLog
@@ -21,8 +20,10 @@ class RegisterRecorder(private val context: Context) {
     private val logger: Logger = XLog.tag(TAG).build()
 
     fun recordRegisterRequest(intent: Intent?) {
+        logger.d("recordRegisterRequest() called with intent: $intent")
         try {
             if (!isRegisterAppRequest(intent)) {
+                logger.d("Not a register app request")
                 return
             }
 
@@ -57,7 +58,7 @@ class RegisterRecorder(private val context: Context) {
         if (canShowRegisterNotification(application)) {
             showRegisterNotification(application)
         } else {
-            Log.e("XMPushService Bridge", "Notification disabled")
+            logger.e("Notification disabled")
         }
     }
 

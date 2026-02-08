@@ -11,13 +11,20 @@ import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import top.trumeet.common.push.PushServiceAccessibility
 
-class RemoveDozeActivity : AppCompatActivity() {
+class RemoveDozeActivity : ComponentActivity() {
     private fun setResultAndFinish(result: Int) {
         setResult(result)
         finish()
+    }
+
+    private val requestIgnoreBatteryOptimizations = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        setResultAndFinish(
+            if (PushServiceAccessibility.isInDozeWhiteList(this)) Activity.RESULT_OK else Activity.RESULT_CANCELED
+        )
     }
 
     @SuppressLint("BatteryLife")
@@ -32,23 +39,15 @@ class RemoveDozeActivity : AppCompatActivity() {
         intent.action = Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
         intent.data = Uri.parse("package:$packageName")
         try {
-            startActivityForResult(intent, RC_REQUEST)
+            requestIgnoreBatteryOptimizations.launch(intent)
         } catch (e: ActivityNotFoundException) {
             Log.e(TAG, e.localizedMessage, e)
             Toast.makeText(this, getString(R.string.common_err, e.message), Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        when (requestCode) {
-            RC_REQUEST -> setResultAndFinish(
-                if (PushServiceAccessibility.isInDozeWhiteList(this)) Activity.RESULT_OK else Activity.RESULT_CANCELED
-            )
+            setResultAndFinish(Activity.RESULT_CANCELED)
         }
     }
 
     companion object {
-        private const val RC_REQUEST = 0
         private const val TAG = "RemoveDozeActivity"
     }
 }

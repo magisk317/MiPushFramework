@@ -10,64 +10,84 @@ import com.nihility.Global
 import com.xiaomi.xmsf.BuildConfig
 import com.xiaomi.xmsf.push.service.XMPushService
 import com.xiaomi.xmsf.push.utils.Configurations
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import top.trumeet.common.Constants
 import top.trumeet.common.utils.Utils
+import com.magisk317.data.DataStoreManager
 
 /**
  * Push 配置
  */
 class ConfigCenter {
     fun isNotificationOnRegister(ctx: Context): Boolean {
-        return getSharedPreferences(ctx).getBoolean("NotificationOnRegister", false)
+        return runBlocking { DataStoreManager.notificationOnRegister.first() }
     }
 
     fun isShowConfigurationListOnLoaded(ctx: Context): Boolean {
-        return getSharedPreferences(ctx).getBoolean("ShowConfigurationListOnLoaded", false)
+        return runBlocking { DataStoreManager.showConfigurationList.first() }
     }
 
     fun getAccessMode(ctx: Context): Int {
-        val mode = getSharedPreferences(ctx).getString("AccessMode", "0") ?: "0"
+        val mode = runBlocking { DataStoreManager.accessMode.first() }
         return mode.toInt()
     }
 
     fun isIceboxSupported(ctx: Context): Boolean {
-        return getSharedPreferences(ctx).getBoolean("IceboxSupported", false)
+        return runBlocking { DataStoreManager.iceboxSupported.first() }
     }
 
     fun getConfigurationDirectory(ctx: Context): Uri? {
-        val uri = getSharedPreferences(ctx).getString("ConfigurationDirectory", null)
+        val uri = runBlocking { DataStoreManager.configDirectory.first() }
         return if (uri == null) null else Uri.parse(uri)
     }
 
     fun setConfigurationDirectory(ctx: Context, treeUri: Uri): Boolean {
-        return getSharedPreferences(ctx).edit().putString("ConfigurationDirectory", treeUri.toString()).commit()
+        runBlocking { DataStoreManager.setConfigDirectory(treeUri.toString()) }
+        return true
     }
 
     fun getXMPPServer(ctx: Context): String? {
-        return getSharedPreferences(ctx).getString("XMPP_server", null)
+        return runBlocking { DataStoreManager.xmppServer.first() }
     }
 
     fun setXMPPServer(ctx: Context, host: String): Boolean {
-        return getSharedPreferences(ctx).edit().putString("XMPP_server", host).commit()
+        runBlocking { DataStoreManager.setXmppServer(host) }
+        return true
     }
 
     val isDebugMode: Boolean
         get() {
-            val app = Utils.getApplication() ?: return false
-            return getSharedPreferences(app).getBoolean("DebugMode", false)
+            return runBlocking { DataStoreManager.isDebugMode.first() }
         }
 
     val isShowAllEvents: Boolean
         get() {
-            val app = Utils.getApplication() ?: return false
-            return getSharedPreferences(app).getBoolean("ShowAllEvents", false)
+            return runBlocking { DataStoreManager.isShowAllEvents.first() }
         }
 
     val isStartForegroundService: Boolean
         get() {
-            val app = Utils.getApplication() ?: return false
-            return getSharedPreferences(app).getBoolean("StartForegroundService", false)
+            return runBlocking { DataStoreManager.isStartForeground.first() }
         }
+
+    fun getHazeBlurRadius(ctx: Context): Int {
+        return runBlocking { DataStoreManager.hazeBlurRadius.first() }
+    }
+
+    fun setHazeBlurRadius(ctx: Context, radius: Int): Boolean {
+        runBlocking { DataStoreManager.setHazeBlurRadius(radius) }
+        return true
+    }
+
+    fun getHazeTintAlpha(ctx: Context): Float {
+        return runBlocking { DataStoreManager.hazeTintAlpha.first() }
+    }
+
+    fun setHazeTintAlpha(ctx: Context, alpha: Float): Boolean {
+        runBlocking { DataStoreManager.setHazeTintAlpha(alpha) }
+        return true
+    }
 
     fun loadConfigurations(context: Context) {
         Configurations.getInstance().init(context, Global.ConfigCenter().getConfigurationDirectory(context))
