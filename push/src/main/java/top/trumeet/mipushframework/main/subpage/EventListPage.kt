@@ -149,9 +149,10 @@ private fun EventGroupList(
     val context = LocalContext.current
     val groupedItems = remember(query) { mutableStateListOf<EventGroupForDisplay>() }
     val allEvents = remember(query) { mutableStateListOf<EventInfoForDisplay>() }
-    var pageIndex by rememberSaveable(query) { mutableStateOf(0) }
+    var lastId by rememberSaveable(query, refreshSignal) { mutableStateOf<Long?>(null) }
     var hasMore by rememberSaveable(query) { mutableStateOf(true) }
     var isNeedRefresh by rememberSaveable(query, refreshSignal) { mutableStateOf(true) }
+    var isLoading by remember { mutableStateOf(false) }
     fun rebuildGroups() {
         val grouped = allEvents
             .groupBy { it.packageName }
@@ -171,22 +172,28 @@ private fun EventGroupList(
     }
 
     suspend fun loadNextPage(isRefresh: Boolean) {
-        val nextPage = if (isRefresh) 1 else pageIndex + 1
-        val events = EventListPageUtils.getEvents(
-            pageIndex = nextPage,
-            pageSize = Constants.PAGE_SIZE,
-            packetName = "",
-            query = query
-        ).map {
-            toEventInfoForDisplay(it, context, EventListPageUtils(context))
+        if (isLoading) return
+        isLoading = true
+        try {
+            val nextLastId = if (isRefresh) null else lastId
+            val events = EventListPageUtils.getEventsById(
+                lastId = nextLastId,
+                size = Constants.PAGE_SIZE,
+                packetName = "",
+                query = query
+            ).map {
+                toEventInfoForDisplay(it, context, EventListPageUtils(context))
+            }
+            if (isRefresh) {
+                allEvents.clear()
+            }
+            allEvents.addAll(events)
+            events.lastOrNull()?.let { lastId = it.id }
+            hasMore = events.size >= Constants.PAGE_SIZE
+            rebuildGroups()
+        } finally {
+            isLoading = false
         }
-        if (isRefresh) {
-            allEvents.clear()
-        }
-        allEvents.addAll(events)
-        pageIndex = nextPage
-        hasMore = events.size >= Constants.PAGE_SIZE
-        rebuildGroups()
     }
 
     val refreshScope = rememberCoroutineScope { Dispatchers.IO }
