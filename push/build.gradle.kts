@@ -1,12 +1,89 @@
 import java.util.Properties
+import java.util.jar.JarEntry
+import java.util.jar.JarFile
+import java.util.jar.JarOutputStream
+import org.gradle.api.DefaultTask
 import org.gradle.api.tasks.Sync
+import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.OutputFile
+import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.bundling.Zip
+import org.gradle.api.file.RegularFileProperty
+import org.objectweb.asm.ClassReader
+import org.objectweb.asm.ClassWriter
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath("org.ow2.asm:asm:9.7.1")
+    }
+}
+
+abstract class FixJarStackMapsTask : DefaultTask() {
+    @get:InputFile
+    abstract val inputJar: RegularFileProperty
+
+    @get:OutputFile
+    abstract val outputJar: RegularFileProperty
+
+    @TaskAction
+    fun rewriteStackMaps() {
+        class SafeClassWriter(flags: Int) : ClassWriter(flags) {
+            override fun getCommonSuperClass(type1: String, type2: String): String {
+                return try {
+                    super.getCommonSuperClass(type1, type2)
+                } catch (_: Throwable) {
+                    "java/lang/Object"
+                }
+            }
+        }
+        val input = inputJar.get().asFile
+        val output = outputJar.get().asFile
+        output.parentFile.mkdirs()
+        JarFile(input).use { jarFile ->
+            JarOutputStream(output.outputStream().buffered()).use { jarOut ->
+                val entries = jarFile.entries()
+                while (entries.hasMoreElements()) {
+                    val entry = entries.nextElement()
+                    val newEntry = JarEntry(entry.name).apply {
+                        time = entry.time
+                    }
+                    jarOut.putNextEntry(newEntry)
+                    jarFile.getInputStream(entry).use { stream ->
+                        val original = stream.readBytes()
+                        val rewritten = if (!entry.isDirectory && entry.name.endsWith(".class")) {
+                            try {
+                                val reader = ClassReader(original)
+                                val writer = SafeClassWriter(ClassWriter.COMPUTE_FRAMES or ClassWriter.COMPUTE_MAXS)
+                                reader.accept(writer, ClassReader.EXPAND_FRAMES)
+                                writer.toByteArray()
+                            } catch (_: Throwable) {
+                                original
+                            }
+                        } else {
+                            original
+                        }
+                        jarOut.write(rewritten)
+                    }
+                    jarOut.closeEntry()
+                }
+            }
+        }
+    }
+}
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+    arg("room.incremental", "true")
 }
 
 val versionNameStr = rootProject.version.toString().ifBlank { libs.versions.versionName.get() }
@@ -24,7 +101,9 @@ val originalMiPushJar = rootProject.project(":mipush_hook").file("libs/miuipushs
 val patchedMiPushJarUnpackedDir = layout.buildDirectory.dir("intermediates/patched-libs/miuipushsdkshared_3_7_9")
 val patchedMiPushExcludes = listOf(
     "com/xiaomi/push/service/timers/AlarmManagerTimer.class",
-    "com/xiaomi/push/service/ClientEventDispatcher.class"
+    "com/xiaomi/push/service/ClientEventDispatcher.class",
+    "com/xiaomi/clientreport/manager/ClientReportClient.class",
+    "com/xiaomi/push/service/clientReport/PushClientReportManager.class"
 )
 val unpackPatchedMiPushJar = tasks.register<Sync>("unpackPatchedMiPushJar") {
     inputs.property("patchedMiPushExcludes", patchedMiPushExcludes)
@@ -38,6 +117,13 @@ val repackPatchedMiPushJar = tasks.register<Zip>("repackPatchedMiPushJar") {
     from(patchedMiPushJarUnpackedDir)
     destinationDirectory.set(layout.buildDirectory.dir("intermediates/patched-libs"))
     archiveFileName.set("miuipushsdkshared_3_7_9_patched.jar")
+}
+val fixedPatchedMiPushJar = layout.buildDirectory.file("intermediates/patched-libs/miuipushsdkshared_3_7_9_patched_fixed.jar")
+val repackedPatchedMiPushJar = repackPatchedMiPushJar.flatMap { it.archiveFile }
+val fixPatchedMiPushJarStackMaps = tasks.register<FixJarStackMapsTask>("fixPatchedMiPushJarStackMaps") {
+    dependsOn(repackPatchedMiPushJar)
+    inputJar.set(repackedPatchedMiPushJar)
+    outputJar.set(fixedPatchedMiPushJar)
 }
 
 android {
@@ -70,6 +156,10 @@ android {
                 isUniversalApk = true
             }
         }
+    }
+
+    sourceSets {
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
     }
 
     buildTypes {
@@ -232,8 +322,8 @@ dependencies {
     implementation(project(":common"))
     implementation(project(":condom"))
     implementation(project(":mipush_hook"))
-    implementation(files(repackPatchedMiPushJar.flatMap { it.archiveFile }) {
-        builtBy(repackPatchedMiPushJar)
+    implementation(files(fixedPatchedMiPushJar) {
+        builtBy(fixPatchedMiPushJarStackMaps)
     })
 
     implementation(libs.xlog)
@@ -249,6 +339,7 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext)
     androidTestImplementation(libs.androidx.test.espresso)
+    androidTestImplementation(libs.androidx.room.testing)
     androidTestImplementation(libs.mockito.android)
     testImplementation(libs.mockito.core)
     testImplementation(libs.mockito.inline)
