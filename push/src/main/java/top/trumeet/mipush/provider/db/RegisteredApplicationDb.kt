@@ -2,7 +2,7 @@ package top.trumeet.mipush.provider.db
 
 import android.text.TextUtils
 import com.elvishew.xlog.XLog
-import com.nihility.Global
+import com.magisk317.Global
 import kotlinx.coroutines.runBlocking
 import top.trumeet.common.BuildConfig.DEBUG
 import top.trumeet.common.utils.Utils

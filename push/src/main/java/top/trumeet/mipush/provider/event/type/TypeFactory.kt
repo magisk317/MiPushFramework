@@ -1,7 +1,7 @@
 package top.trumeet.mipush.provider.event.type
 
 import android.annotation.SuppressLint
-import com.nihility.XMPushUtils
+import com.magisk317.XMPushUtils
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmsf.utils.ConvertUtils

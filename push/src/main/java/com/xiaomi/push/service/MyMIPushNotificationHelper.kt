@@ -27,10 +27,10 @@ import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import com.elvishew.xlog.Logger
 import com.elvishew.xlog.XLog
-import com.magisk317.push.pipeline.MiPushRuntimeBridge
-import com.nihility.Global
-import com.nihility.XMPushUtils
-import com.nihility.notification.NotificationManagerEx
+import com.magisk317.push.hook.ExplicitHookBridge
+import com.magisk317.Global
+import com.magisk317.XMPushUtils
+import com.magisk317.notification.NotificationManagerEx
 import com.xiaomi.channel.commonutils.android.AppInfoUtils
 import com.xiaomi.channel.commonutils.reflect.JavaCalls
 import com.xiaomi.mipush.sdk.PushMessageProcessor
@@ -97,7 +97,7 @@ class MyMIPushNotificationHelper {
         @JvmStatic
         fun notifyPushMessage(context: Context, decryptedContent: ByteArray) {
             val container = XMPushUtils.packToContainer(decryptedContent) ?: return
-            MiPushRuntimeBridge.onNotificationDispatch(context, container, decryptedContent)
+            ExplicitHookBridge.notifyPushMessage(context, container, decryptedContent)
             val notificationOp = AppInfoUtils.getAppNotificationOp(
                 context,
                 MIPushNotificationHelper.getTargetPackage(container),
@@ -584,9 +584,11 @@ class MyMIPushNotificationHelper {
 
         @JvmStatic
         fun buildTargetIntentWithoutExtras(pkg: String, metaInfo: PushMetaInfo): Intent {
-            return Intent(PushConstants.MIPUSH_ACTION_NEW_MESSAGE)
+            val intent = Intent(PushConstants.MIPUSH_ACTION_NEW_MESSAGE)
                 .addCategory(metaInfo.notifyId.toString())
                 .setClassName(pkg, CLASS_NAME_PUSH_MESSAGE_HANDLER)
+            ExplicitHookBridge.onBuildIntent(intent, "MyMIPushNotificationHelper.buildTargetIntentWithoutExtras")
+            return intent
         }
 
         private fun openActivityPendingIntent(
@@ -736,7 +738,13 @@ class MyMIPushNotificationHelper {
 
             if (intent != null) {
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                if (context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY) != null) {
+                val available = context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY) != null
+                ExplicitHookBridge.onIntentAvailabilityChecked(
+                    intent,
+                    available,
+                    "MyMIPushNotificationHelper.getSdkIntent"
+                )
+                if (available) {
                     if (inFetchIntentBlackList(pkgName)) {
                         return null
                     }
@@ -919,6 +927,11 @@ class MyMIPushNotificationHelper {
                 try {
                     val rinfo: ResolveInfo? =
                         context.packageManager.resolveActivity(intent, Intent.FLAG_ACTIVITY_NO_ANIMATION)
+                    ExplicitHookBridge.onIntentAvailabilityChecked(
+                        intent,
+                        rinfo != null,
+                        "MyMIPushNotificationHelper.getPendingIntentFromExtra"
+                    )
                     if (rinfo != null) {
                         return intent
                     }

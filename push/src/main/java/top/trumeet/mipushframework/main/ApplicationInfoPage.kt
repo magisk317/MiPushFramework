@@ -53,7 +53,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
-import com.nihility.utils.RegistrationHelper
+import com.magisk317.utils.RegistrationHelper
 import com.topjohnwu.superuser.Shell
 import com.xiaomi.xmsf.BuildConfig
 import com.xiaomi.xmsf.R

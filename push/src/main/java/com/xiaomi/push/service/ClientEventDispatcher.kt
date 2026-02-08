@@ -6,8 +6,9 @@ import android.os.Message
 import android.os.RemoteException
 import android.text.TextUtils
 import com.magisk317.SdkNotificationCompat
+import com.magisk317.push.hook.ExplicitHookBridge
 import com.magisk317.push.pipeline.MiPushRuntimeBridge
-import com.nihility.XMPushUtils
+import com.magisk317.XMPushUtils
 import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.slim.Blob
@@ -131,6 +132,7 @@ class ClientEventDispatcher {
     }
 
     fun notifyPacketArrival(pushService: XMPushService, chid: String, blob: Blob) {
+        ExplicitHookBridge.notifyPacketArrival(pushService, chid, blob)
         val clientLoginInfo = getClientLoginInfo(blob)
         if (clientLoginInfo == null) {
             MyLog.e("error while notify channel closed! channel $chid not registered")
@@ -198,6 +200,7 @@ class ClientEventDispatcher {
     }
 
     fun notifyPacketArrival(pushService: XMPushService, chid: String, packet: Packet) {
+        ExplicitHookBridge.notifyPacketArrival(pushService, chid, packet)
         val clientLoginInfo = getClientLoginInfo(packet)
         if (clientLoginInfo == null) {
             MyLog.e("error while notify channel closed! channel $chid not registered")

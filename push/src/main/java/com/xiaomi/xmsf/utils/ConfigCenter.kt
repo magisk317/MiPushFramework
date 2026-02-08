@@ -6,7 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
-import com.nihility.Global
+import com.magisk317.Global
 import com.xiaomi.xmsf.BuildConfig
 import com.xiaomi.xmsf.push.service.XMPushService
 import com.xiaomi.xmsf.push.utils.Configurations

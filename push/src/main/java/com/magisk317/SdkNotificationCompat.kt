@@ -1,7 +1,7 @@
 package com.magisk317
 
 import android.os.Build
-import com.nihility.XMPushUtils
+import com.magisk317.XMPushUtils
 import com.xiaomi.push.service.MyMIPushNotificationHelper
 import com.xiaomi.push.service.XMPushService
 import com.xiaomi.xmpush.thrift.ActionType

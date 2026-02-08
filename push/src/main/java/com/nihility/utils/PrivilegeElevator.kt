@@ -1,21 +1,9 @@
+@file:Suppress("DEPRECATION")
 package com.nihility.utils
+// Compatibility shim: legacy namespace forwarding to com.magisk317.*
 
-import com.topjohnwu.superuser.Shell
-import com.xiaomi.xmsf.BuildConfig
-
-class PrivilegeElevator {
-    companion object {
-        init {
-            Shell.enableVerboseLogging = BuildConfig.DEBUG
-            Shell.setDefaultBuilder(
-                Shell.Builder.create()
-                    .setTimeout(10)
-            )
-        }
-
-        @JvmStatic
-        fun tryToElevate() {
-            Shell.getShell()
-        }
-    }
-}
+@Deprecated(
+    message = "Use com.magisk317.utils.PrivilegeElevator instead.",
+    replaceWith = ReplaceWith("com.magisk317.utils.PrivilegeElevator")
+)
+typealias PrivilegeElevator = com.magisk317.utils.PrivilegeElevator

@@ -193,7 +193,7 @@ private fun Main(
     val currentPage by remember { derivedStateOf { pagerState.currentPage } }
 
     val context = androidx.compose.ui.platform.LocalContext.current
-    val config = remember { com.nihility.Global.ConfigCenter() }
+    val config = remember { com.magisk317.Global.ConfigCenter() }
     val hazeBlurRadius by DataStoreManager.hazeBlurRadius.collectAsStateWithLifecycle(initialValue = 25)
     val hazeTintAlpha by DataStoreManager.hazeTintAlpha.collectAsStateWithLifecycle(initialValue = 0.2f)
     val eventGroupByApp by DataStoreManager.eventGroupByApp.collectAsStateWithLifecycle(initialValue = false)

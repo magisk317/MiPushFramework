@@ -32,8 +32,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Slider
-import com.nihility.Global
-import com.nihility.InternalMessenger
+import com.magisk317.Global
+import com.magisk317.InternalMessenger
 import com.xiaomi.push.service.XMPushServiceMessenger
 import com.xiaomi.xmsf.R
 import com.xiaomi.xmsf.SettingUtils

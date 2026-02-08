@@ -9,7 +9,7 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import android.text.TextUtils
-import com.nihility.notification.NotificationManagerEx
+import com.magisk317.notification.NotificationManagerEx
 import com.xiaomi.xmsf.R
 import com.xiaomi.xmsf.push.notification.NotificationChannelManager
 import top.trumeet.common.Constants

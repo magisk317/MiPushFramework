@@ -5,10 +5,10 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import kotlinx.serialization.json.*
-import com.nihility.Global
-import com.nihility.XMPushUtils
-import com.nihility.service.XMPushServiceAbility
-import com.nihility.utils.MockMIPushMessage
+import com.magisk317.Global
+import com.magisk317.XMPushUtils
+import com.magisk317.service.XMPushServiceAbility
+import com.magisk317.utils.MockMIPushMessage
 import com.xiaomi.xmpush.thrift.XmPushActionCommandResult
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushActionNotification

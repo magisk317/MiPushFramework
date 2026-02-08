@@ -8,8 +8,8 @@ import android.widget.Toast
 import androidx.core.content.ContextCompat
 import com.elvishew.xlog.Logger
 import com.elvishew.xlog.XLog
-import com.magisk317.push.pipeline.MiPushRuntimeBridge
-import com.nihility.Global
+import com.magisk317.push.hook.ExplicitHookBridge
+import com.magisk317.Global
 import com.xiaomi.xmsf.R
 import com.xiaomi.xmsf.push.control.PushControllerUtils
 import com.xiaomi.xmsf.push.utils.Configurations
@@ -19,6 +19,16 @@ import top.trumeet.common.utils.Utils
 
 class XMPushService : IntentService(TAG) {
     private val logger: Logger = XLog.tag(TAG).build()
+
+    override fun onCreate() {
+        super.onCreate()
+        ExplicitHookBridge.onBridgeServiceCreate()
+    }
+
+    override fun onDestroy() {
+        ExplicitHookBridge.onBridgeServiceDestroy()
+        super.onDestroy()
+    }
 
     override fun onHandleIntent(intent: Intent?) {
         if (intent == null) {
@@ -38,10 +48,9 @@ class XMPushService : IntentService(TAG) {
             return
         }
 
-        MiPushRuntimeBridge.onApplicationIntentReceived(this, intent)
+        ExplicitHookBridge.processIntent(intent)
         try {
             forwardToPushServiceMain(intent)
-            MiPushRuntimeBridge.onIntentForwardedToServer(intent)
         } catch (e: RuntimeException) {
             logger.e("XMPushService::onHandleIntent: ", e)
             Utils.makeText(this, getString(R.string.common_err, e.message), Toast.LENGTH_LONG)

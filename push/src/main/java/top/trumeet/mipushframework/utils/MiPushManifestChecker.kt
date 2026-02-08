@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.text.TextUtils
 import com.elvishew.xlog.XLog
+import com.magisk317.push.hook.ExplicitHookBridge
 import com.xiaomi.mipush.sdk.ManifestChecker
 import com.xiaomi.mipush.sdk.PushMessageHandler
 import com.xiaomi.push.service.PushConstants
@@ -57,6 +58,7 @@ class MiPushManifestChecker private constructor(
     }
 
     fun checkServices(pkgInfo: PackageInfo): Boolean {
+        ExplicitHookBridge.onManifestCheckServices(pkgInfo)
         return try {
             val configServiceProcessMap = HashMap<String, String?>()
             val requiredServicesMap = HashMap<String, ManifestChecker.ServiceCheckInfo>()

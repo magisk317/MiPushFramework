@@ -2,7 +2,7 @@
 package com.xiaomi.xmsf.push.utils
 
 import android.os.Build
-import com.nihility.Global
+import com.magisk317.Global
 import org.apache.thrift.TBase
 import org.json.JSONArray
 import org.json.JSONException

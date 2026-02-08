@@ -1,7 +1,7 @@
 package com.xiaomi.xmsf.push.utils
 
 import android.text.TextUtils
-import com.nihility.XMPushUtils
+import com.magisk317.XMPushUtils
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import top.trumeet.mipush.provider.entities.Event
 

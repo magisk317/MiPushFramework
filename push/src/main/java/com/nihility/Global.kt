@@ -1,55 +1,60 @@
+@file:Suppress("DEPRECATION")
 package com.nihility
+// Compatibility shim: legacy namespace forwarding to com.magisk317.*
 
-import com.nihility.service.RegistrationRecorder
-import com.nihility.utils.Singleton
+import com.magisk317.service.RegistrationRecorder
 import com.xiaomi.xmsf.push.utils.ConfigValueConverter
 import com.xiaomi.xmsf.push.utils.IconConfigurations
 import com.xiaomi.xmsf.utils.ConfigCenter
 import top.trumeet.common.cache.ApplicationNameCache
 import top.trumeet.common.cache.IconCache
 
+@Deprecated(
+    message = "Use com.magisk317.Global instead.",
+    replaceWith = ReplaceWith("com.magisk317.Global")
+)
 object Global {
     @JvmStatic
-    fun HookHandler(): HookHandler = Singleton.instance()
+    fun HookHandler(): HookHandler = com.magisk317.Global.HookHandler()
 
     @JvmStatic
     fun setHookHandler(hookHandler: HookHandler) {
-        Singleton.reset(hookHandler)
+        com.magisk317.Global.setHookHandler(hookHandler)
     }
 
     @JvmStatic
-    fun MiPushEventListener(): MiPushEventListener = Singleton.instance()
+    fun MiPushEventListener(): MiPushEventListener = com.magisk317.Global.MiPushEventListener()
 
     @JvmStatic
     fun setMiPushEventListener(listener: MiPushEventListener) {
-        Singleton.reset(listener)
+        com.magisk317.Global.setMiPushEventListener(listener)
     }
 
     @JvmStatic
-    fun RegistrationRecorder(): RegistrationRecorder = Singleton.instance()
+    fun RegistrationRecorder(): RegistrationRecorder = com.magisk317.Global.RegistrationRecorder()
 
     @JvmStatic
     fun setRegistrationRecorder(instance: RegistrationRecorder) {
-        Singleton.reset(instance)
+        com.magisk317.Global.setRegistrationRecorder(instance)
     }
 
     @JvmStatic
-    fun ConfigValueConverter(): ConfigValueConverter = Singleton.instance()
+    fun ConfigValueConverter(): ConfigValueConverter = com.magisk317.Global.ConfigValueConverter()
 
     @JvmStatic
-    fun IconConfigurations(): IconConfigurations = Singleton.instance()
+    fun IconConfigurations(): IconConfigurations = com.magisk317.Global.IconConfigurations()
 
     @JvmStatic
-    fun ConfigCenter(): ConfigCenter = Singleton.instance()
+    fun ConfigCenter(): ConfigCenter = com.magisk317.Global.ConfigCenter()
 
     @JvmStatic
     fun setConfigCenter(configCenter: ConfigCenter) {
-        Singleton.reset(configCenter)
+        com.magisk317.Global.setConfigCenter(configCenter)
     }
 
     @JvmStatic
-    fun ApplicationNameCache(): ApplicationNameCache = Singleton.instance()
+    fun ApplicationNameCache(): ApplicationNameCache = com.magisk317.Global.ApplicationNameCache()
 
     @JvmStatic
-    fun IconCache(): IconCache = Singleton.instance()
+    fun IconCache(): IconCache = com.magisk317.Global.IconCache()
 }

@@ -64,6 +64,54 @@ tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
 
+tasks.register("checkNoLegacyNihilityImports") {
+    group = "verification"
+    description = "Fail if com.nihility is imported outside compatibility shims."
+    val sourceRoot = layout.projectDirectory.dir("push/src/main/java").asFile
+    doLast {
+        if (!sourceRoot.exists()) return@doLast
+
+        val allowedPaths = setOf(
+            "com/nihility/",
+            "com/xiaomi/xmsf/push/notification/NotificationManagerEx.kt",
+            "com/magisk317/hook/LegacyHookApi.kt",
+            "com/magisk317/utils/Singleton.kt",
+            "com/magisk317/service/XMPushServiceListener.kt"
+        )
+
+        val violations = mutableListOf<String>()
+        sourceRoot.walkTopDown()
+            .filter { it.isFile && (it.extension == "kt" || it.extension == "java") }
+            .forEach { file ->
+                val rel = file.relativeTo(sourceRoot).invariantSeparatorsPath
+                val allowed = allowedPaths.any { marker ->
+                    if (marker.endsWith("/")) rel.startsWith(marker) else rel == marker
+                }
+                if (allowed) return@forEach
+
+                file.useLines { lines ->
+                    lines.forEachIndexed { index, line ->
+                        if (line.contains("com.nihility.")) {
+                            violations += "$rel:${index + 1}"
+                        }
+                    }
+                }
+            }
+
+        if (violations.isNotEmpty()) {
+            val message = buildString {
+                appendLine("Found forbidden com.nihility references outside compatibility shims:")
+                violations.sorted().forEach { appendLine(" - $it") }
+            }
+            throw GradleException(message)
+        }
+    }
+}
+
+tasks.matching { it.name == "check" }.configureEach {
+    dependsOn("checkNoLegacyNihilityImports")
+}
+
 tasks.register<Exec>("exportVersion") {
     commandLine("sh")
     doLast {

@@ -42,7 +42,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.elvishew.xlog.XLog
-import com.nihility.Global
+import com.magisk317.Global
 import com.xiaomi.xmsf.R
 import com.xiaomi.xmsf.push.utils.RegSecUtils
 import kotlinx.coroutines.Dispatchers
