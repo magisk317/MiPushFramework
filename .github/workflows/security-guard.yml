@@ -36,9 +36,9 @@ jobs:
           # --paginate outputs multiple JSON arrays; merge to one array for summary.
           jq -s 'add // []' /tmp/dependabot-alerts.jsonl > /tmp/dependabot-alerts.json || echo '[]' > /tmp/dependabot-alerts.json
           total="$(jq 'length' /tmp/dependabot-alerts.json)"
-          high="$(jq '[.[] | select(.security_advisory.severity==\"high\")] | length' /tmp/dependabot-alerts.json)"
-          medium="$(jq '[.[] | select(.security_advisory.severity==\"medium\")] | length' /tmp/dependabot-alerts.json)"
-          low="$(jq '[.[] | select(.security_advisory.severity==\"low\")] | length' /tmp/dependabot-alerts.json)"
+          high="$(jq '[.[] | select(.security_advisory.severity=="high")] | length' /tmp/dependabot-alerts.json)"
+          medium="$(jq '[.[] | select(.security_advisory.severity=="medium")] | length' /tmp/dependabot-alerts.json)"
+          low="$(jq '[.[] | select(.security_advisory.severity=="low")] | length' /tmp/dependabot-alerts.json)"
           {
             echo "## Security alert snapshot"
             echo ""
