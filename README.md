@@ -1,8 +1,16 @@
 # MiPushFramework
 
-[![Test CI](https://github.com/NihilityT/MiPushFramework/actions/workflows/test_ci.yml/badge.svg)](https://github.com/NihilityT/MiPushFramework/actions/workflows/test_ci.yml)
+[![CI](https://github.com/magisk317/MiPushFramework/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/magisk317/MiPushFramework/actions/workflows/ci.yml)
+[![Build APK](https://github.com/magisk317/MiPushFramework/actions/workflows/build-apk.yml/badge.svg)](https://github.com/magisk317/MiPushFramework/actions/workflows/build-apk.yml)
+[![Security Guard](https://github.com/magisk317/MiPushFramework/actions/workflows/security-guard.yml/badge.svg?branch=dev)](https://github.com/magisk317/MiPushFramework/actions/workflows/security-guard.yml)
+[![Dependency Submission](https://github.com/magisk317/MiPushFramework/actions/workflows/dependency-submission.yml/badge.svg?branch=dev)](https://github.com/magisk317/MiPushFramework/actions/workflows/dependency-submission.yml)
+[![Latest Release](https://img.shields.io/github/v/release/magisk317/MiPushFramework)](https://github.com/magisk317/MiPushFramework/releases)
 [![License GPL-3.0](https://img.shields.io/badge/license-GPLv3.0-blue.svg)](LICENSE)
-![Min Android Version](https://img.shields.io/badge/android-lollipop-%23860597.svg)
+![Android 7.0+](https://img.shields.io/badge/Android-7.0%2B-3DDC84?logo=android&logoColor=white)
+![Kotlin](https://img.shields.io/badge/Kotlin-2.x-7F52FF?logo=kotlin&logoColor=white)
+![Java](https://img.shields.io/badge/Java-17%2B-E76F00?logo=openjdk&logoColor=white)
+![Gradle](https://img.shields.io/badge/Gradle-9.x-02303A?logo=gradle&logoColor=white)
+![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material3-4285F4?logo=jetpackcompose&logoColor=white)
 
 在非 MIUI 系统上体验小米系统级推送。
 
@@ -58,7 +66,7 @@
 
 安装步骤非常简单 ：
 
-* 前往 [Releases](https://github.com/MiPushFramework/MiPushFramework/releases) 或 [Test CI](https://github.com/NihilityT/MiPushFramework/actions/workflows/test_ci.yml)，下载最新的 APK 并安装。
+* 前往 [Releases](https://github.com/magisk317/MiPushFramework/releases) 或 [CI](https://github.com/magisk317/MiPushFramework/actions/workflows/ci.yml)，下载最新的 APK 并安装。
 * 跟着向导进行设置
 * 可选：开启高级配置中的 推送服务保活 选项
 
