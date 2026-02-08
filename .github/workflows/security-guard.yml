@@ -1,0 +1,49 @@
+name: Security Guard
+
+on:
+  pull_request:
+  push:
+    branches:
+      - dev
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: read
+
+jobs:
+  overrides-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate security overrides are up-to-date
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x .github/scripts/sync_security_overrides.sh
+          .github/scripts/sync_security_overrides.sh --check
+
+      - name: Print open security alert summary
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          repo="${{ github.repository }}"
+          gh api --paginate "/repos/${repo}/dependabot/alerts?state=open&per_page=100" > /tmp/dependabot-alerts.jsonl || true
+          # --paginate outputs multiple JSON arrays; merge to one array for summary.
+          jq -s 'add // []' /tmp/dependabot-alerts.jsonl > /tmp/dependabot-alerts.json || echo '[]' > /tmp/dependabot-alerts.json
+          total="$(jq 'length' /tmp/dependabot-alerts.json)"
+          high="$(jq '[.[] | select(.security_advisory.severity==\"high\")] | length' /tmp/dependabot-alerts.json)"
+          medium="$(jq '[.[] | select(.security_advisory.severity==\"medium\")] | length' /tmp/dependabot-alerts.json)"
+          low="$(jq '[.[] | select(.security_advisory.severity==\"low\")] | length' /tmp/dependabot-alerts.json)"
+          {
+            echo "## Security alert snapshot"
+            echo ""
+            echo "- Total: ${total}"
+            echo "- High: ${high}"
+            echo "- Medium: ${medium}"
+            echo "- Low: ${low}"
+          } >> "$GITHUB_STEP_SUMMARY"
