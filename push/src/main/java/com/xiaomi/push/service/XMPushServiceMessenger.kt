@@ -4,8 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.text.TextUtils
-import com.nihility.InternalMessenger
-import com.nihility.service.ForegroundHelper
+import com.magisk317.push.hook.ExplicitHookBridge
+import com.magisk317.InternalMessenger
+import com.magisk317.service.ForegroundHelper
 import com.xiaomi.smack.Connection
 
 class XMPushServiceMessenger(
@@ -27,6 +28,7 @@ class XMPushServiceMessenger(
 
     fun notifyConnectionStatusChanged(connectionStatus: Int) {
         this.connectionStatus = connectionStatus
+        ExplicitHookBridge.onConnectionStatusChanged(connectionStatus, 0)
         send(setConnectionStatusIntent(getDesc(connectionStatus)))
     }
 

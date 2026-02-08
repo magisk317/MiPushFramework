@@ -1,11 +1,5 @@
+@file:Suppress("DEPRECATION")
 package com.nihility.service
+// Compatibility shim: legacy namespace forwarding to com.magisk317.*
 
-import com.xiaomi.push.service.XMPushServiceMessenger
-
-class MessengerAbility(
-    private val messenger: XMPushServiceMessenger
-) : XMPushServiceListener {
-    override fun connectionStatusChanged(connectionStatus: XMPushServiceListener.ConnectionStatus) {
-        messenger.notifyConnectionStatusChanged(connectionStatus.ordinal)
-    }
-}
+typealias MessengerAbility = com.magisk317.service.MessengerAbility

@@ -12,7 +12,7 @@ import android.os.Parcel
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import androidx.annotation.RequiresApi
-import com.nihility.service.ForegroundHelper.Companion.CHANNEL_STATUS
+import com.magisk317.service.ForegroundHelper.Companion.CHANNEL_STATUS
 import com.xiaomi.xmsf.R
 
 @RequiresApi(29)

@@ -11,9 +11,9 @@ import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.catchingnow.icebox.sdk_client.IceBox
-import com.nihility.Global
-import com.nihility.InternalMessenger
-import com.nihility.utils.RegistrationHelper
+import com.magisk317.Global
+import com.magisk317.InternalMessenger
+import com.magisk317.utils.RegistrationHelper
 import com.topjohnwu.superuser.Shell
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.push.service.PushServiceConstants

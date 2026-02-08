@@ -6,7 +6,7 @@ import android.util.Pair
 import android.widget.Toast
 import androidx.documentfile.provider.DocumentFile
 import com.elvishew.xlog.XLog
-import com.nihility.Global
+import com.magisk317.Global
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject

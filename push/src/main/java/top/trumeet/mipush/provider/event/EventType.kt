@@ -2,7 +2,7 @@
 package top.trumeet.mipush.provider.event
 
 import android.content.Context
-import com.nihility.Global
+import com.magisk317.Global
 import top.trumeet.mipush.provider.entities.Event
 
 /**

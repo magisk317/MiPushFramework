@@ -1,11 +1,5 @@
+@file:Suppress("DEPRECATION")
 package com.nihility.service
+// Compatibility shim: legacy namespace forwarding to com.magisk317.*
 
-import android.content.Intent
-
-class RegisterRecordAbility(
-    private val registerRecorder: RegisterRecorder
-) : XMPushServiceListener {
-    override fun start(intent: Intent) {
-        registerRecorder.recordRegisterRequest(intent)
-    }
-}
+typealias RegisterRecordAbility = com.magisk317.service.RegisterRecordAbility

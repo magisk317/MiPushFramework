@@ -4,9 +4,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import com.elvishew.xlog.XLog
-import com.nihility.Global
-import com.nihility.InternalMessenger
-import com.nihility.service.XMPushServiceListener
+import com.magisk317.Global
+import com.magisk317.service.ConnectionStatus
+import com.magisk317.InternalMessenger
+import com.magisk317.service.XMPushServiceListener
 import com.xiaomi.push.service.XMPushServiceMessenger
 
 class MainPageUtils {
@@ -14,7 +15,7 @@ class MainPageUtils {
     private var messenger: InternalMessenger? = null
 
     fun interface ConnectionStatusChanged {
-        fun onChange(status: XMPushServiceListener.ConnectionStatus)
+        fun onChange(status: ConnectionStatus)
     }
 
     fun initOnCreate(context: Context, connectionStatusChanged: ConnectionStatusChanged) {
@@ -23,7 +24,7 @@ class MainPageUtils {
             register(IntentFilter(XMPushServiceMessenger.IntentSetConnectionStatus))
             addListener { intent ->
                 val status = intent.getStringExtra("status") ?: return@addListener
-                connectionStatusChanged.onChange(XMPushServiceListener.ConnectionStatus.valueOf(status))
+                connectionStatusChanged.onChange(ConnectionStatus.valueOf(status))
             }
         }
 

@@ -12,7 +12,7 @@ import androidx.core.app.NotificationCompat
 import androidx.documentfile.provider.DocumentFile
 import kotlinx.serialization.Serializable
 import org.json.JSONException
-import com.nihility.Global
+import com.magisk317.Global
 import top.trumeet.common.utils.Utils
 
 class IconConfigurations private constructor() {

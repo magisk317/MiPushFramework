@@ -1,7 +1,7 @@
 package com.xiaomi.xmsf.push.utils
 
 import com.elvishew.xlog.XLog
-import com.nihility.utils.Singleton
+import com.magisk317.utils.Singleton
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import org.json.JSONArray
 import org.json.JSONException

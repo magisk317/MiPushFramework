@@ -1,59 +1,55 @@
 package com.magisk317
 
+import com.magisk317.service.RegistrationRecorder
+import com.magisk317.utils.Singleton
 import com.xiaomi.xmsf.push.utils.ConfigValueConverter
 import com.xiaomi.xmsf.push.utils.IconConfigurations
 import com.xiaomi.xmsf.utils.ConfigCenter
 import top.trumeet.common.cache.ApplicationNameCache
 import top.trumeet.common.cache.IconCache
 
-/**
- * Transitional facade for future package migration.
- * Existing singleton wiring still lives in com.nihility.Global.
- */
 object Global {
     @JvmStatic
-    fun HookHandler(): com.nihility.HookHandler = com.nihility.Global.HookHandler()
+    fun HookHandler(): HookHandler = Singleton.instance()
 
     @JvmStatic
-    fun setHookHandler(hookHandler: com.nihility.HookHandler) {
-        com.nihility.Global.setHookHandler(hookHandler)
+    fun setHookHandler(hookHandler: HookHandler) {
+        Singleton.reset(hookHandler)
     }
 
     @JvmStatic
-    fun MiPushEventListener(): com.nihility.MiPushEventListener = com.nihility.Global.MiPushEventListener()
+    fun MiPushEventListener(): MiPushEventListener = Singleton.instance()
 
     @JvmStatic
-    fun setMiPushEventListener(listener: com.nihility.MiPushEventListener) {
-        com.nihility.Global.setMiPushEventListener(listener)
+    fun setMiPushEventListener(listener: MiPushEventListener) {
+        Singleton.reset(listener)
     }
 
     @JvmStatic
-    fun RegistrationRecorder(): com.nihility.service.RegistrationRecorder =
-        com.nihility.Global.RegistrationRecorder()
+    fun RegistrationRecorder(): RegistrationRecorder = Singleton.instance()
 
     @JvmStatic
-    fun setRegistrationRecorder(instance: com.nihility.service.RegistrationRecorder) {
-        com.nihility.Global.setRegistrationRecorder(instance)
+    fun setRegistrationRecorder(instance: RegistrationRecorder) {
+        Singleton.reset(instance)
     }
 
     @JvmStatic
-    fun ConfigValueConverter(): ConfigValueConverter = com.nihility.Global.ConfigValueConverter()
+    fun ConfigValueConverter(): ConfigValueConverter = Singleton.instance()
 
     @JvmStatic
-    fun IconConfigurations(): IconConfigurations = com.nihility.Global.IconConfigurations()
+    fun IconConfigurations(): IconConfigurations = Singleton.instance()
 
     @JvmStatic
-    fun ConfigCenter(): ConfigCenter = com.nihility.Global.ConfigCenter()
+    fun ConfigCenter(): ConfigCenter = Singleton.instance()
 
     @JvmStatic
     fun setConfigCenter(configCenter: ConfigCenter) {
-        com.nihility.Global.setConfigCenter(configCenter)
+        Singleton.reset(configCenter)
     }
 
     @JvmStatic
-    fun ApplicationNameCache(): ApplicationNameCache = com.nihility.Global.ApplicationNameCache()
+    fun ApplicationNameCache(): ApplicationNameCache = Singleton.instance()
 
     @JvmStatic
-    fun IconCache(): IconCache = com.nihility.Global.IconCache()
+    fun IconCache(): IconCache = Singleton.instance()
 }
-

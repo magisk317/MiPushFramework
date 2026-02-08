@@ -1,7 +1,7 @@
 package com.xiaomi.push.service
 
 import android.text.TextUtils
-import com.nihility.XMPushUtils
+import com.magisk317.XMPushUtils
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
 import top.trumeet.common.utils.Utils
 

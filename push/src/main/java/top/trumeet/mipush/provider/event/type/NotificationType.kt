@@ -1,7 +1,7 @@
 package top.trumeet.mipush.provider.event.type
 
 import android.content.Context
-import com.nihility.XMPushUtils
+import com.magisk317.XMPushUtils
 import top.trumeet.common.R
 import top.trumeet.mipush.provider.entities.Event
 import top.trumeet.mipush.provider.event.EventType

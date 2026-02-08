@@ -4,7 +4,7 @@ import android.content.Context
 import android.net.Uri
 import com.elvishew.xlog.XLog
 import androidx.sqlite.db.SimpleSQLiteQuery
-import com.nihility.XMPushUtils
+import com.magisk317.XMPushUtils
 import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
 import com.xiaomi.xmsf.push.utils.RegSecUtils
 import com.xiaomi.xmsf.utils.ConvertUtils

@@ -19,9 +19,9 @@ import androidx.core.app.NotificationCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.drawable.IconCompat
 import com.elvishew.xlog.XLog
-import com.nihility.Global
-import com.nihility.XMPushUtils
-import com.nihility.notification.NotificationManagerEx
+import com.magisk317.Global
+import com.magisk317.XMPushUtils
+import com.magisk317.notification.NotificationManagerEx
 import com.xiaomi.push.service.MyMIPushNotificationHelper
 import com.xiaomi.push.service.MyNotificationIconHelper
 import com.xiaomi.xmpush.thrift.PushMetaInfo

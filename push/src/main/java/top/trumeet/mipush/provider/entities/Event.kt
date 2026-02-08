@@ -7,7 +7,7 @@ import androidx.room.Entity
 import androidx.room.Ignore
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.nihility.XMPushUtils
+import com.magisk317.XMPushUtils
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import top.trumeet.common.utils.Utils
 import kotlin.annotation.AnnotationRetention.SOURCE

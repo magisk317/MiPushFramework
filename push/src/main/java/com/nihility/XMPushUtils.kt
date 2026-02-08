@@ -1,47 +1,33 @@
+@file:Suppress("DEPRECATION")
 package com.nihility
+// Compatibility shim: legacy namespace forwarding to com.magisk317.*
 
-import com.xiaomi.channel.commonutils.reflect.JavaCalls
-import com.xiaomi.mipush.sdk.PushContainerHelper
-import com.xiaomi.push.service.MIPushEventProcessor
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
-import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
 import org.apache.thrift.TBase
 import top.trumeet.common.utils.CustomConfiguration
-import top.trumeet.common.utils.Utils
 
 object XMPushUtils {
     @JvmStatic
-    fun getConfiguration(container: XmPushActionContainer?): CustomConfiguration {
-        if (container == null) {
-            return CustomConfiguration(null)
-        }
-        return getConfiguration(container.metaInfo)
-    }
+    fun getConfiguration(container: XmPushActionContainer?): CustomConfiguration =
+        com.magisk317.XMPushUtils.getConfiguration(container)
 
     @JvmStatic
-    fun getConfiguration(metaInfo: PushMetaInfo?): CustomConfiguration {
-        if (metaInfo == null) {
-            return CustomConfiguration(null)
-        }
-        return CustomConfiguration(metaInfo.extra)
-    }
+    fun getConfiguration(metaInfo: PushMetaInfo?): CustomConfiguration =
+        com.magisk317.XMPushUtils.getConfiguration(metaInfo)
 
     @JvmStatic
-    fun packToContainer(payload: ByteArray?): XmPushActionContainer? {
-        if (payload == null) {
-            return null
-        }
-        return MIPushEventProcessor.buildContainer(payload)
-    }
+    fun packToContainer(payload: ByteArray?): XmPushActionContainer? =
+        com.magisk317.XMPushUtils.packToContainer(payload)
 
     @JvmStatic
     fun packToContainer(
         action: XmPushActionNotification,
         packageName: String
-    ): XmPushActionContainer = packToContainer(action, packageName, ActionType.Notification, action.appId)
+    ): XmPushActionContainer =
+        com.magisk317.XMPushUtils.packToContainer(action, packageName)
 
     @JvmStatic
     fun <T : TBase<T, *>> packToContainer(
@@ -49,20 +35,10 @@ object XMPushUtils {
         packageName: String,
         actionType: ActionType,
         appId: String?
-    ): XmPushActionContainer {
-        return JavaCalls.callStaticMethod(
-            PushContainerHelper::class.java.name,
-            "generateRequestContainer",
-            Utils.getApplication(),
-            action,
-            actionType,
-            false,
-            packageName,
-            appId
-        )
-    }
+    ): XmPushActionContainer =
+        com.magisk317.XMPushUtils.packToContainer(action, packageName, actionType, appId)
 
     @JvmStatic
     fun <T : TBase<T, *>> packToBytes(container: T): ByteArray =
-        XmPushThriftSerializeUtils.convertThriftObjectToBytes(container)
+        com.magisk317.XMPushUtils.packToBytes(container)
 }

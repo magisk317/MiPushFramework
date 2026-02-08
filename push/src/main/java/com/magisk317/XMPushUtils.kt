@@ -1,35 +1,50 @@
 package com.magisk317
 
+import com.magisk317.push.hook.ExplicitHookBridge
+import com.xiaomi.channel.commonutils.reflect.JavaCalls
+import com.xiaomi.mipush.sdk.PushContainerHelper
+import com.xiaomi.push.service.MIPushEventProcessor
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
+import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
 import org.apache.thrift.TBase
 import top.trumeet.common.utils.CustomConfiguration
+import top.trumeet.common.utils.Utils
 
-/**
- * Transitional facade for future package migration.
- * Existing behavior is delegated to com.nihility.XMPushUtils.
- */
 object XMPushUtils {
     @JvmStatic
-    fun getConfiguration(container: XmPushActionContainer?): CustomConfiguration =
-        com.nihility.XMPushUtils.getConfiguration(container)
+    fun getConfiguration(container: XmPushActionContainer?): CustomConfiguration {
+        if (container == null) {
+            return CustomConfiguration(null)
+        }
+        return getConfiguration(container.metaInfo)
+    }
 
     @JvmStatic
-    fun getConfiguration(metaInfo: PushMetaInfo?): CustomConfiguration =
-        com.nihility.XMPushUtils.getConfiguration(metaInfo)
+    fun getConfiguration(metaInfo: PushMetaInfo?): CustomConfiguration {
+        if (metaInfo == null) {
+            return CustomConfiguration(null)
+        }
+        return CustomConfiguration(metaInfo.extra)
+    }
 
     @JvmStatic
-    fun packToContainer(payload: ByteArray?): XmPushActionContainer? =
-        com.nihility.XMPushUtils.packToContainer(payload)
+    fun packToContainer(payload: ByteArray?): XmPushActionContainer? {
+        if (payload == null) {
+            return null
+        }
+        val container = MIPushEventProcessor.buildContainer(payload)
+        ExplicitHookBridge.onBuildContainer(payload.size, container)
+        return container
+    }
 
     @JvmStatic
     fun packToContainer(
         action: XmPushActionNotification,
         packageName: String
-    ): XmPushActionContainer =
-        com.nihility.XMPushUtils.packToContainer(action, packageName)
+    ): XmPushActionContainer = packToContainer(action, packageName, ActionType.Notification, action.appId)
 
     @JvmStatic
     fun <T : TBase<T, *>> packToContainer(
@@ -37,11 +52,22 @@ object XMPushUtils {
         packageName: String,
         actionType: ActionType,
         appId: String?
-    ): XmPushActionContainer =
-        com.nihility.XMPushUtils.packToContainer(action, packageName, actionType, appId)
+    ): XmPushActionContainer {
+        val container: XmPushActionContainer = JavaCalls.callStaticMethod(
+            PushContainerHelper::class.java.name,
+            "generateRequestContainer",
+            Utils.getApplication(),
+            action,
+            actionType,
+            false,
+            packageName,
+            appId
+        )
+        ExplicitHookBridge.onBuildContainer(0, container)
+        return container
+    }
 
     @JvmStatic
     fun <T : TBase<T, *>> packToBytes(container: T): ByteArray =
-        com.nihility.XMPushUtils.packToBytes(container)
+        XmPushThriftSerializeUtils.convertThriftObjectToBytes(container)
 }
-

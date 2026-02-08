@@ -1,6 +1,7 @@
 package com.xiaomi.push.service
 
-import com.nihility.XMPushUtils
+import com.magisk317.push.hook.ExplicitHookBridge
+import com.magisk317.XMPushUtils
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 
 class XmPushActionOperator(
@@ -8,6 +9,7 @@ class XmPushActionOperator(
 ) {
     fun sendMessage(sendMsgContainer: XmPushActionContainer, packageName: String) {
         val msgBytes = XMPushUtils.packToBytes(sendMsgContainer)
+        ExplicitHookBridge.onSendMessage(packageName, msgBytes.size)
         xmPushService.sendMessage(packageName, msgBytes, false)
     }
 }

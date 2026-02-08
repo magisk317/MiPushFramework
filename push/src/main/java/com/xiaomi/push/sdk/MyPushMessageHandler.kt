@@ -15,8 +15,8 @@ import androidx.core.content.ContextCompat
 import com.catchingnow.icebox.sdk_client.IceBox
 import com.elvishew.xlog.XLog
 import com.magisk317.push.pipeline.MiPushRuntimeBridge
-import com.nihility.Global
-import com.nihility.XMPushUtils
+import com.magisk317.Global
+import com.magisk317.XMPushUtils
 import com.topjohnwu.superuser.Shell
 import com.xiaomi.push.service.MIPushNotificationHelper
 import com.xiaomi.push.service.MyMIPushNotificationHelper

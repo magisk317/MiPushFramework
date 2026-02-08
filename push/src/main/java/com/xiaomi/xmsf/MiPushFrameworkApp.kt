@@ -14,9 +14,9 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.elvishew.xlog.Logger
 import com.elvishew.xlog.XLog
-import com.nihility.notification.NotificationManagerEx
-import com.nihility.utils.Hooker
-import com.nihility.utils.PrivilegeElevator
+import com.magisk317.notification.NotificationManagerEx
+import com.magisk317.utils.Hooker
+import com.magisk317.utils.PrivilegeElevator
 import com.oasisfeng.condom.CondomOptions
 import com.oasisfeng.condom.CondomProcess
 import com.xiaomi.xmsf.CrashHandler
