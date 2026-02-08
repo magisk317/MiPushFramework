@@ -1,0 +1,43 @@
+// AUTO-GENERATED FILE. DO NOT EDIT MANUALLY.
+// Source: gradle/security-overrides.properties
+// Purpose: apply security overrides to project + buildscript classpaths in CI.
+
+import java.util.Properties
+
+def loadSecurityOverrides = { File baseDir ->
+    File propsFile = new File(baseDir, "gradle/security-overrides.properties")
+    if (!propsFile.exists()) {
+        return [:]
+    }
+    Properties props = new Properties()
+    propsFile.withReader("UTF-8") { props.load(it) }
+    props.collectEntries { key, value -> [(key.toString()): value.toString()] }
+}
+
+def applySecurityOverrides = { strategy, Map<String, String> overrides ->
+    strategy.eachDependency { details ->
+        String key = "${details.requested.group}:${details.requested.name}"
+        String forcedVersion = overrides[key]
+        if (forcedVersion && details.requested.version != forcedVersion) {
+            details.useVersion(forcedVersion)
+            details.because("Security override from gradle/security-overrides.properties")
+        }
+    }
+}
+
+def securityOverrides = loadSecurityOverrides(gradle.startParameter.currentDir)
+
+gradle.settingsEvaluated { settings ->
+    settings.buildscript.configurations.configureEach { cfg ->
+        applySecurityOverrides(cfg.resolutionStrategy, securityOverrides)
+    }
+}
+
+gradle.beforeProject { project ->
+    project.buildscript.configurations.configureEach { cfg ->
+        applySecurityOverrides(cfg.resolutionStrategy, securityOverrides)
+    }
+    project.configurations.configureEach { cfg ->
+        applySecurityOverrides(cfg.resolutionStrategy, securityOverrides)
+    }
+}
