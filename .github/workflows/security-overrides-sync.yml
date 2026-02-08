@@ -9,7 +9,6 @@ permissions:
   contents: write
   pull-requests: write
   security-events: read
-  dependabot-alerts: read
 
 jobs:
   sync:
@@ -22,8 +21,8 @@ jobs:
 
       - name: Sync security overrides
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
           chmod +x .github/scripts/sync_security_overrides.sh
           .github/scripts/sync_security_overrides.sh
@@ -31,7 +30,7 @@ jobs:
       - name: Create PR if changed
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           commit-message: "chore(security): sync dependency security overrides"
           title: "chore(security): sync dependency security overrides"
           body: |
