@@ -1,5 +1,6 @@
 package top.trumeet.mipushframework.component
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -37,6 +38,7 @@ import kotlinx.coroutines.launch
 fun SearchBar(
     placeholder: String,
     query: String,
+    modifier: Modifier = Modifier,
     onValueChange: (String) -> Unit
 ) {
     val focusManager = LocalFocusManager.current
@@ -44,12 +46,16 @@ fun SearchBar(
     val debounceOnValueChange: (String) -> Unit = debounce(onValueChange)
     val change: (String) -> Unit = { debounceOnValueChange(it) }
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = Color.Transparent,
         shape = MaterialTheme.shapes.extraLarge,
         tonalElevation = 0.dp,
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
+            .background(
+                MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
+                MaterialTheme.shapes.extraLarge
+            )
     ) {
         TextField(
             value = query,
@@ -81,11 +87,16 @@ fun SearchBar(
 }
 
 @Composable
-fun SearchBar(placeholder: String, onValueChange: (String) -> Unit) {
+fun SearchBar(
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    onValueChange: (String) -> Unit
+) {
     var query by rememberSaveable { mutableStateOf("") }
     SearchBar(
         placeholder = placeholder,
         query = query,
+        modifier = modifier,
         onValueChange = {
             query = it
             onValueChange(it)

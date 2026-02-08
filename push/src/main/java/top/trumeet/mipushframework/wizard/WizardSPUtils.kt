@@ -11,22 +11,27 @@ import top.trumeet.mipushframework.main.MainPage
 /**
  * A util store Wizard info to SP
  */
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import com.magisk317.data.DataStoreManager
+import com.xiaomi.xmsf.MiPushFrameworkApp
+
+/**
+ * A util store Wizard info to SP
+ */
 internal object WizardSPUtils {
-    private fun getSp(context: Context): SharedPreferences {
-        return context.applicationContext.getSharedPreferences(
-            Constants.WIZARD_SP_NAME,
-            Context.MODE_PRIVATE
-        )
-    }
 
     @JvmStatic
     fun shouldShowWizard(context: Context): Boolean {
-        return getSp(context).getBoolean(Constants.KEY_SHOW_WIZARD, true)
+        return runBlocking { DataStoreManager.showWizard.first() }
     }
 
     @JvmStatic
     fun setShouldShowWizard(value: Boolean, context: Context) {
-        getSp(context).edit().putBoolean(Constants.KEY_SHOW_WIZARD, value).apply()
+        MiPushFrameworkApp.applicationScope.launch {
+            DataStoreManager.setShowWizard(value)
+        }
     }
 
     @JvmStatic

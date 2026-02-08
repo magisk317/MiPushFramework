@@ -1,8 +1,11 @@
 @file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 package top.trumeet.mipushframework.main.subpage
 
+import android.content.Intent
+import android.net.Uri
 import android.content.Context
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,6 +42,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.elvishew.xlog.XLog
+import com.nihility.Global
 import com.xiaomi.xmsf.R
 import com.xiaomi.xmsf.push.utils.RegSecUtils
 import kotlinx.coroutines.Dispatchers
@@ -51,13 +55,21 @@ import top.trumeet.mipush.provider.event.type.TypeFactory
 import top.trumeet.mipushframework.component.AppIcon
 import top.trumeet.mipushframework.component.RefreshableLazyColumn
 import top.trumeet.mipushframework.component.TextView
+import top.trumeet.mipushframework.main.RecentEventListPage
+import top.trumeet.mipushframework.utils.ParseUtils
 import java.text.SimpleDateFormat
 import java.util.Date
 
 private val receiveDateFormat: SimpleDateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
 
 @Composable
-fun EventList(query: String = "", packageName: String = "") {
+fun EventList(
+    query: String = "",
+    packageName: String = "",
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    refreshSignal: Int = 0,
+    groupByApp: Boolean = false
+) {
     Page {
         val context = LocalContext.current
         var clickedEvent by remember { mutableStateOf<EventInfoForDisplay?>(null) }
@@ -66,22 +78,30 @@ fun EventList(query: String = "", packageName: String = "") {
             EventDetailsDialog(clickedEvent!!) { clickedEvent = null }
         }
 
-        var lastId by rememberSaveable { mutableStateOf<Long?>(null) }
-        EventList(onClick = { clickedEvent = it }, { isRefresh ->
-            if (isRefresh) lastId = null
-            val events = EventListPageUtils.getEventsById(
-                lastId, Constants.PAGE_SIZE, packageName, query
+        if (groupByApp && packageName.isEmpty()) {
+            EventGroupList(
+                query = query,
+                refreshSignal = refreshSignal,
+                contentPadding = contentPadding
             )
-            events.lastOrNull()?.let { lastId = it.id }
-            events.map {
-                toEventInfoForDisplay(
-                    it, context,
-                    EventListPageUtils(
-                        context
-                    )
+        } else {
+            var lastId by rememberSaveable(refreshSignal) { mutableStateOf<Long?>(null) }
+            EventList(onClick = { clickedEvent = it }, { isRefresh ->
+                if (isRefresh) lastId = null
+                val events = EventListPageUtils.getEventsById(
+                    lastId, Constants.PAGE_SIZE, packageName, query
                 )
-            }
-        }, query, packageName)
+                events.lastOrNull()?.let { lastId = it.id }
+                events.map {
+                    toEventInfoForDisplay(
+                        it, context,
+                        EventListPageUtils(
+                            context
+                        )
+                    )
+                }
+            }, query, packageName, refreshSignal = refreshSignal, contentPadding = contentPadding)
+        }
     }
 }
 
@@ -108,9 +128,141 @@ fun toEventInfoForDisplay(
         receiveDate = Date(it.date),
         title = type.getTitle(context).toString(),
         content = content,
-        appName = "",
+        appName = Global.ApplicationNameCache().getAppName(context, it.pkg).toString(),
         event = it,
     )
+}
+
+private data class EventGroupForDisplay(
+    val packageName: String,
+    val appName: String,
+    val events: List<EventInfoForDisplay>,
+    val latestDate: Date
+)
+
+@Composable
+private fun EventGroupList(
+    query: String,
+    refreshSignal: Int,
+    contentPadding: PaddingValues
+) {
+    val context = LocalContext.current
+    val groupedItems = remember(query) { mutableStateListOf<EventGroupForDisplay>() }
+    val allEvents = remember(query) { mutableStateListOf<EventInfoForDisplay>() }
+    var pageIndex by rememberSaveable(query) { mutableStateOf(0) }
+    var hasMore by rememberSaveable(query) { mutableStateOf(true) }
+    var isNeedRefresh by rememberSaveable(query, refreshSignal) { mutableStateOf(true) }
+    fun rebuildGroups() {
+        val grouped = allEvents
+            .groupBy { it.packageName }
+            .map { (pkg, events) ->
+                val sortedEvents = events.sortedByDescending { it.receiveDate.time }
+                val first = sortedEvents.first()
+                EventGroupForDisplay(
+                    packageName = pkg,
+                    appName = first.appName?.takeIf { it.isNotBlank() } ?: pkg,
+                    events = sortedEvents,
+                    latestDate = first.receiveDate
+                )
+            }
+            .sortedByDescending { it.latestDate.time }
+        groupedItems.clear()
+        groupedItems.addAll(grouped)
+    }
+
+    suspend fun loadNextPage(isRefresh: Boolean) {
+        val nextPage = if (isRefresh) 1 else pageIndex + 1
+        val events = EventListPageUtils.getEvents(
+            pageIndex = nextPage,
+            pageSize = Constants.PAGE_SIZE,
+            packetName = "",
+            query = query
+        ).map {
+            toEventInfoForDisplay(it, context, EventListPageUtils(context))
+        }
+        if (isRefresh) {
+            allEvents.clear()
+        }
+        allEvents.addAll(events)
+        pageIndex = nextPage
+        hasMore = events.size >= Constants.PAGE_SIZE
+        rebuildGroups()
+    }
+
+    val refreshScope = rememberCoroutineScope { Dispatchers.IO }
+    val doRefresh: (onRefreshed: () -> Unit) -> Unit = { onRefreshed ->
+        refreshScope.launch {
+            loadNextPage(isRefresh = true)
+            withContext(Dispatchers.Main) {
+                isNeedRefresh = false
+                onRefreshed()
+            }
+        }
+    }
+    val doLoadMore: (onRefreshed: () -> Unit) -> Unit = { onRefreshed ->
+        if (!hasMore) {
+            onRefreshed()
+        } else {
+            refreshScope.launch {
+                loadNextPage(isRefresh = false)
+                withContext(Dispatchers.Main) {
+                    onRefreshed()
+                }
+            }
+        }
+    }
+    val isNeedMore: (Int) -> Boolean = { index ->
+        hasMore && index >= groupedItems.size - 1
+    }
+
+    RefreshableLazyColumn(
+        doRefresh = doRefresh,
+        isNeedMore = isNeedMore,
+        doLoadMore = doLoadMore,
+        isNeedRefresh = isNeedRefresh,
+        scrollToTopSignal = refreshSignal,
+        contentPadding = contentPadding
+    ) {
+        items(groupedItems, key = { it.packageName }) { group ->
+            val updatedAt = ParseUtils.getFriendlyDateString(
+                group.latestDate,
+                Utils.getUTC(),
+                context
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        context.startActivity(
+                            Intent(context, RecentEventListPage::class.java)
+                                .setData(Uri.parse(group.packageName))
+                        )
+                    }
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AppIcon(group.packageName, group.appName, modifier = Modifier.size(48.dp))
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        group.appName,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        "${group.events.size} 条记录",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Text(
+                    "更新于$updatedAt",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -188,7 +340,9 @@ fun EventList(
     onClick: (EventInfoForDisplay) -> Unit,
     getEvents: (isRefresh: Boolean) -> List<EventInfoForDisplay>,
     query: String,
-    packageName: String
+    packageName: String,
+    refreshSignal: Int = 0,
+    contentPadding: PaddingValues = PaddingValues(0.dp)
 ) {
     val isPreview = LocalInspectionMode.current
     val items = remember {
@@ -205,8 +359,8 @@ fun EventList(
             onRefreshed()
         }
     }
-    val shouldRefresh = items.isEmpty() || query.isNotEmpty() || packageName.isNotEmpty()
-    var isNeedRefresh by rememberSaveable(query, packageName) { mutableStateOf(shouldRefresh) }
+    val shouldRefresh = items.isEmpty() || query.isNotEmpty() || packageName.isNotEmpty() || refreshSignal > 0
+    var isNeedRefresh by rememberSaveable(query, packageName, refreshSignal) { mutableStateOf(shouldRefresh) }
     val doRefresh: (onRefreshed: () -> Unit) -> Unit = { onRefreshed ->
         refreshScope.launch {
             val elements = getEvents(true)
@@ -221,7 +375,14 @@ fun EventList(
 
     val isNeedMore: (Int) -> Boolean = { it >= items.size - 10 }
 
-    RefreshableLazyColumn(doRefresh, isNeedMore, doLoadMore, isNeedRefresh) {
+    RefreshableLazyColumn(
+        doRefresh,
+        isNeedMore,
+        doLoadMore,
+        isNeedRefresh,
+        scrollToTopSignal = refreshSignal,
+        contentPadding = contentPadding
+    ) {
         items(items, { it.id }) {
             EventItem(it, onClick)
         }
@@ -235,42 +396,56 @@ private fun EventItem(item: EventInfoForDisplay, onClick: (EventInfoForDisplay) 
     Row(
         Modifier
             .clickable { onClick(item) }
-            .padding(10.dp).alpha(alpha),
+            .fillMaxWidth()
+            .padding(10.dp)
+            .alpha(alpha),
         verticalAlignment = Alignment.CenterVertically
     ) {
         AppIcon(item.packageName, item.appName, modifier = Modifier.size(48.dp))
         Spacer(Modifier.width(20.dp))
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Row {
                 ConfigOptions(item)
                 ChannelInfo(item)
-                Spacer(Modifier.weight(1f))
-                EventReceiveDate(item)
             }
             EventTitle(item)
             EventContent(item)
         }
+        Spacer(Modifier.width(12.dp))
+        EventReceiveDate(item)
     }
 }
 
 @Composable
 private fun ConfigOptions(item: EventInfoForDisplay) {
     if (item.configOptions.isNotEmpty()) {
-        Text(item.configOptions.toString(), style = MaterialTheme.typography.bodySmall)
+        Text(
+            item.configOptions.toString(),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Spacer(Modifier.width(5.dp))
     }
 }
 
 @Composable
 private fun ChannelInfo(item: EventInfoForDisplay) {
-    Text(item.channel, style = MaterialTheme.typography.bodySmall)
+    Text(
+        item.channel,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
 }
 
 
 @Composable
 private fun EventReceiveDate(item: EventInfoForDisplay) {
     val format = receiveDateFormat
-    Text(format.format(item.receiveDate), style = MaterialTheme.typography.bodySmall)
+    Text(
+        format.format(item.receiveDate),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
 }
 
 @Composable
@@ -278,6 +453,7 @@ private fun EventTitle(item: EventInfoForDisplay) {
     Text(
         item.title,
         style = MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.onSurface
     )
 }
 
@@ -286,6 +462,7 @@ private fun EventContent(item: EventInfoForDisplay) {
     Text(
         item.content,
         style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
     )
 }
 
@@ -357,7 +534,7 @@ fun EventListPreview() {
     }
 
     Page {
-        EventList({ }, getEvents, "", "")
+        EventList({ }, getEvents, "", "", contentPadding = PaddingValues(0.dp))
     }
 }
 

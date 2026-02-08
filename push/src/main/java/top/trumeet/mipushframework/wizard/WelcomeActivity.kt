@@ -2,13 +2,13 @@ package top.trumeet.mipushframework.wizard
 
 import android.content.Intent
 import android.os.Bundle
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.ComponentActivity
 import top.trumeet.mipushframework.main.MainPage
 
 /**
  * Wizard welcome page
  */
-class WelcomeActivity : AppCompatActivity() {
+class WelcomeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (WizardSPUtils.shouldShowWizard(this)) {

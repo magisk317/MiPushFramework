@@ -50,6 +50,7 @@ fun Theme(
         else -> LightColorScheme
     }
 
+    UpdateSystemBars(darkTheme)
     MaterialTheme(
             colorScheme = colorScheme,
             typography = Typography,

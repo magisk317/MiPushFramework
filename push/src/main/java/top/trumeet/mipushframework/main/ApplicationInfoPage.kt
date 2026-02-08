@@ -14,13 +14,15 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.annotation.RequiresApi
-import androidx.appcompat.content.res.AppCompatResources
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -57,6 +59,10 @@ import com.xiaomi.xmsf.BuildConfig
 import com.xiaomi.xmsf.R
 import top.trumeet.mipushframework.component.SettingsGroup
 import top.trumeet.mipushframework.component.SettingsItem
+import top.trumeet.mipushframework.component.SettingsDialogItem
+import top.trumeet.mipushframework.component.SettingsSwitchItem
+import top.trumeet.mipushframework.component.SettingsListItem
+import top.trumeet.mipushframework.wizard.WizardSPUtils
 import top.trumeet.common.utils.Utils
 import top.trumeet.mipush.provider.db.RegisteredApplicationDb
 import top.trumeet.mipush.provider.entities.RegisteredApplication
@@ -79,14 +85,12 @@ class ApplicationInfoPage : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         init(getRegisteredApplication()!!)
         setContent {
             Theme {
-                window.navigationBarColor = MaterialTheme.colorScheme.surfaceColorAtElevation(
-                    NavigationBarDefaults.Elevation
-                ).toArgb()
+                SettingsApp()
             }
-            SettingsApp()
         }
     }
 
@@ -119,14 +123,19 @@ class ApplicationInfoPage : ComponentActivity() {
         }
 
         Theme {
-        Surface(
-            modifier = Modifier
-                .statusBarsPadding()
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
-            color = MaterialTheme.colorScheme.background
-        ) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.background
+            ) {
+                Column(
+                    modifier = Modifier
+                        .statusBarsPadding()
+                        .navigationBarsPadding()
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                ) {
                 SettingsScreen()
+                }
             }
         }
     }
@@ -146,7 +155,7 @@ class ApplicationInfoPage : ComponentActivity() {
         val context = LocalContext.current
         val isPreview = LocalInspectionMode.current
         val drawable = if (isPreview)
-            AppCompatResources.getDrawable(context, android.R.mipmap.sym_def_app_icon)!!
+            ContextCompat.getDrawable(context, android.R.mipmap.sym_def_app_icon)!!
         else applicationInfo.getIcon(context)
         val icon = drawable.toBitmap().asImageBitmap()
         Row(
@@ -154,7 +163,7 @@ class ApplicationInfoPage : ComponentActivity() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton({
-                forceRegisterWithFeedback(context, applicationInfo.packageName)
+                launchTargetAppAndForceRegister(context, applicationInfo.packageName)
             }) {
                 Image(icon, "Application Icon")
             }
@@ -184,6 +193,21 @@ class ApplicationInfoPage : ComponentActivity() {
         }
     }
 
+    private fun launchTargetAppAndForceRegister(context: Context, packageName: String) {
+        val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
+        if (launchIntent == null) {
+            Toast.makeText(context, R.string.force_register_failed, Toast.LENGTH_LONG).show()
+            return
+        }
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        runCatching { context.startActivity(launchIntent) }
+            .onFailure {
+                Toast.makeText(context, R.string.force_register_failed, Toast.LENGTH_LONG).show()
+                return
+            }
+        forceRegisterWithFeedback(context, packageName)
+    }
+
     private fun forceRegisterWithFeedback(context: Context, packageName: String) {
         val uid = runCatching { Shell.cmd("id -u").exec().out.firstOrNull()?.trim() }.getOrNull()
         if (uid != "0") {
@@ -191,8 +215,7 @@ class ApplicationInfoPage : ComponentActivity() {
             return
         }
         val result = runCatching {
-            RegistrationHelper(context, packageName)
-                .deleteRegistrationInfoAndRetryForceRegister()
+            RegistrationHelper.tryForceRegister(packageName)
         }
         if (result.isSuccess) {
             Toast.makeText(context, R.string.force_register_sent, Toast.LENGTH_SHORT).show()
@@ -252,12 +275,12 @@ class ApplicationInfoPage : ComponentActivity() {
     private fun ShowRegistrationRequestSwitch() {
         var checked by remember { mutableStateOf(applicationInfo.notificationOnRegister) }
 
-        SettingsItem(
+        SettingsSwitchItem(
             title = stringResource(R.string.permission_notification_on_register),
             summary = stringResource(R.string.permission_summary_notification_on_register),
             checked = checked,
         ) {
-            checked = !checked
+            checked = it
             applicationInfo.notificationOnRegister = checked
         }
     }
@@ -296,17 +319,18 @@ class ApplicationInfoPage : ComponentActivity() {
     private fun NotificationCategory(categoryName: String, channels: List<NotificationChannel>) {
         SettingsGroup(categoryName) {
             channels.forEach { channel ->
-                SettingsItem(
-                    title = AppConfigurationUtils.getNotificationTitle(
-                        channel
-                    ).toString(),
-                    summary = AppConfigurationUtils.getNotificationSummary(
-                        channel
-                    ),
-                    confirmButton = {},
-                ) {
-                    NotificationChannel(channel, appConfigurationUtils)
-                }
+                var shouldShowDialog by remember { mutableStateOf(false) }
+                SettingsDialogItem(
+                    title = AppConfigurationUtils.getNotificationTitle(channel).toString(),
+                    summary = AppConfigurationUtils.getNotificationSummary(channel),
+                    confirmButton = @Composable { },
+                    onClick = { shouldShowDialog = true },
+                    shouldShowDialog = shouldShowDialog,
+                    onDismiss = { shouldShowDialog = false },
+                    content = @Composable {
+                        NotificationChannel(channel, appConfigurationUtils)
+                    }
+                )
             }
         }
     }

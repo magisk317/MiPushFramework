@@ -2,6 +2,6 @@
 <resources>
 
     <style name="AppTheme" parent="BaseTheme">
-        <item name="android:windowLightStatusBar">?isLightTheme</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 </resources>

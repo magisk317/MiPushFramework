@@ -2,6 +2,7 @@ package top.trumeet.mipushframework.main.subpage
 
 import android.content.Context
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,6 +32,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.elvishew.xlog.XLog
 import com.xiaomi.xmsf.R
 import kotlinx.coroutines.Dispatchers
@@ -53,9 +57,17 @@ private var g_itemsInfo by mutableStateOf(emptyMap<String, AppInfoForDisplay>())
 private var g_items by mutableStateOf(ApplicationPageOperation.MiPushApplications())
 
 @Composable
-fun ApplicationList(query: String) {
+fun ApplicationList(
+    query: String,
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    refreshSignal: Int = 0
+) {
     val context = LocalContext.current
-    ApplicationList(query) {
+    ApplicationList(
+        query = query,
+        contentPadding = contentPadding,
+        refreshSignal = refreshSignal
+    ) {
         val miPushApplications =
             ApplicationPageOperation.getMiPushApplicationsThatQueryMatched(query)
         ApplicationPageOperation.updateRegisteredApplicationDb(
@@ -69,13 +81,16 @@ fun ApplicationList(query: String) {
 @Composable
 fun ApplicationList(
     query: String = "",
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    refreshSignal: Int = 0,
     getMiPushApplications: () -> ApplicationPageOperation.MiPushApplications
 ) {
     val context = LocalContext.current
     val isPreview = LocalInspectionMode.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     if (isPreview) g_items = getMiPushApplications()
-    val shouldRefresh = g_items.res.isEmpty() || query.isNotEmpty()
-    var isNeedRefresh by rememberSaveable(query) { mutableStateOf(shouldRefresh) }
+    val shouldRefresh = g_items.res.isEmpty() || query.isNotEmpty() || refreshSignal > 0
+    var isNeedRefresh by rememberSaveable(query, refreshSignal) { mutableStateOf(shouldRefresh) }
 
     val refreshScope = rememberCoroutineScope { Dispatchers.IO }
     val onRefresh: (onRefreshed: () -> Unit) -> Unit = { onRefreshed ->
@@ -93,8 +108,35 @@ fun ApplicationList(
         }
     }
 
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner, query, isPreview, isNeedRefresh) {
+        if (isPreview || query.isNotEmpty()) {
+            return@DisposableEffect onDispose { }
+        }
+        val observer = LifecycleEventObserver { _, event ->
+            if (event != Lifecycle.Event.ON_RESUME || isNeedRefresh) return@LifecycleEventObserver
+            refreshScope.launch {
+                val applications = getMiPushApplications()
+                updateInfos(applications, context)
+                withContext(Dispatchers.Main) {
+                    g_items = applications
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     Page {
-        RefreshableLazyColumn(onRefresh, { false }, onRefresh, isNeedRefresh) {
+        RefreshableLazyColumn(
+            onRefresh,
+            { false },
+            onRefresh,
+            isNeedRefresh,
+            scrollToTopSignal = refreshSignal,
+            contentPadding = contentPadding
+        ) {
             items(g_items.res, { it.packageName }) {
                 ApplicationItem(it)
             }
@@ -132,14 +174,15 @@ private fun Footer(notUseMiPushCount: Int) {
         Icon(
             painterResource(R.drawable.ic_info_outline_black_24dp),
             null,
-            tint = Color(0xFF757575),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(10.dp)
         )
         Text(
             ApplicationPageOperation.getNotSupportHint(
                 context,
                 notUseMiPushCount
-            )
+            ),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -147,6 +190,10 @@ private fun Footer(notUseMiPushCount: Int) {
 @Composable
 private fun ApplicationItem(item: RegisteredApplication) {
     val context = LocalContext.current
+    val info = g_itemsInfo[item.packageName] ?: return
+    val statusColor =
+        if (info.registrationState.second == Color.Unspecified) MaterialTheme.colorScheme.onSurface
+        else info.registrationState.second
 
     Row(
         Modifier
@@ -162,39 +209,36 @@ private fun ApplicationItem(item: RegisteredApplication) {
     ) {
         AppIcon(item.packageName, item.appName, Modifier.size(48.dp))
         Spacer(Modifier.width(20.dp))
-        Column {
-            AppInfo(item)
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                item.appName,
+                style = MaterialTheme.typography.bodyLarge,
+                color = statusColor
+            )
             LastReceive(item)
         }
+        Spacer(Modifier.width(12.dp))
+        Text(
+            info.registrationState.first,
+            style = MaterialTheme.typography.bodyMedium,
+            color = statusColor
+        )
     }
 }
 
 @Composable
 private fun LastReceive(item: RegisteredApplication) {
     val info = g_itemsInfo[item.packageName]!!
+    if (info.lastReceiveTime.isBlank()) return
     Text(
         info.lastReceiveTime,
         style = MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
     )
 }
-
-@Composable
-private fun AppInfo(item: RegisteredApplication) {
-    val info = g_itemsInfo[item.packageName]!!
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(
-            item.appName,
-            style = MaterialTheme.typography.bodyLarge,
-            color = info.registrationState.second
-        )
-        Text(
-            info.registrationState.first,
-            style = MaterialTheme.typography.bodyMedium,
-            color = info.registrationState.second
-        )
-    }
-}
-
 
 @Preview(
     showBackground = true,
@@ -205,7 +249,7 @@ private fun AppInfo(item: RegisteredApplication) {
 fun ApplicationListPreview() {
     XLog.init()
 
-    ApplicationList {
+    ApplicationList(contentPadding = PaddingValues(0.dp)) {
         val miPushApplications = ApplicationPageOperation.MiPushApplications()
         miPushApplications.res = (
             mutableListOf(

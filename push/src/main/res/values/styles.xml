@@ -1,37 +1,16 @@
 <resources>
-    <style name="BaseTheme" parent="Theme.Material3.DynamicColors.DayNight">
-        <item name="actionBarTheme">@style/AppTheme</item>
+    <style name="BaseTheme" parent="@android:style/Theme.Material.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
     <style name="AppTheme" parent="BaseTheme">
     </style>
 
-    <style name="Widget.Design.BottomNavigationView" parent="">
-        <item name="itemBackground">?attr/selectableItemBackgroundBorderless</item>
-    </style>
-
-    <style name="EntityHeader">
-        <item name="background">?colorSettings</item>
-        <item name="android:gravity">center_horizontal</item>
-        <item name="android:paddingTop">16dp</item>
-        <item name="paddingStart">16dp</item>
-        <item name="paddingEnd">16dp</item>
-        <item name="android:paddingBottom">8dp</item>
-    </style>
-
-    <style name="TextAppearance.EntityHeaderTitle"
-        parent="@style/TextAppearance.AppCompat.Subhead">
-        <item name="android:textColor">?android:attr/textColorPrimary</item>
-        <item name="android:textSize">16sp</item>
-    </style>
-
-
     <style name="Theme.Transparent" parent="AppTheme">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowContentOverlay">@null</item>
-        <item name="windowNoTitle">true</item>
+        <item name="android:windowNoTitle">true</item>
         <item name="android:windowIsFloating">true</item>
         <item name="android:backgroundDimEnabled">false</item>
     </style>

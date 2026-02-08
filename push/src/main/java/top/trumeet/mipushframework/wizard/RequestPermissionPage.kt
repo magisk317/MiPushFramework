@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
@@ -33,9 +32,10 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.tooling.preview.Preview
@@ -43,7 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import android.util.Log
+import com.elvishew.xlog.XLog
 import android.widget.Toast
 import top.trumeet.mipushframework.component.MarkdownView
 import top.trumeet.mipushframework.main.MainPage
@@ -52,6 +52,13 @@ import top.trumeet.mipushframework.wizard.permission.PermissionInfo
 import top.trumeet.mipushframework.wizard.permission.RequestIgnoreBatteryOptimizationsPermissionInfo
 import top.trumeet.mipushframework.wizard.permission.UsageStatsPermissionInfo
 import top.trumeet.ui.theme.Theme
+import com.magisk317.data.DataStoreManager
+import com.xiaomi.xmsf.MiPushFrameworkApp
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+
+private val logger = XLog.tag("WizardPermission").build()
 
 class RequestPermissionPage : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,9 +66,6 @@ class RequestPermissionPage : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
             Theme {
-                window.navigationBarColor = MaterialTheme.colorScheme.surfaceColorAtElevation(
-                    NavigationBarDefaults.Elevation
-                ).toArgb()
                 PermissionMainPage()
             }
         }
@@ -89,9 +93,16 @@ fun PermissionMainPage(
 
     Column(
         modifier = modifier
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .fillMaxSize(),
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f),
+                        MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.55f),
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.86f),
+                    )
+                )
+            ),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
         RequestPermissionContent(permissionInfos[currentItem.value])
@@ -131,11 +142,11 @@ private fun NavigateToNextPageIfPermissionGranted(
         val observer = LifecycleEventObserver { _, event ->
             val page = pages[currentItem.value]
             val granted = page.permissionOperator.isPermissionGranted()
-            Log.d("WizardPermission", "event=$event index=${currentItem.value} page=${page.javaClass.simpleName} granted=$granted")
+            logger.d("event=$event index=${currentItem.value} page=${page.javaClass.simpleName} granted=$granted")
             if (event == Lifecycle.Event.ON_RESUME) {
                 // Non-display pages should recover after activity recreation and continue automatically.
                 if (page !is DisplayOnlyPhonyPermissionInfo && granted) {
-                    Log.d("WizardPermission", "auto-advance on resume index=${currentItem.value}")
+                    logger.d("auto-advance on resume index=${currentItem.value}")
                     currentItem.value++
                 }
             }
@@ -158,7 +169,11 @@ fun RequestPermissionContent(permissionInfo: PermissionInfo) {
 
 @Composable
 private fun Description(description: String) {
-    Row {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.28f))
+    ) {
         MarkdownView(
             description,
             textSize = MaterialTheme.typography.bodyLarge.fontSize.value,
@@ -173,7 +188,15 @@ private fun Description(description: String) {
 private fun Title(title: String) {
     Row(
         Modifier
-            .background(MaterialTheme.colorScheme.primaryContainer)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.58f),
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.28f),
+                        Color.Transparent,
+                    )
+                )
+            )
             .fillMaxWidth()
             .fillMaxHeight(0.4f)
     ) {
@@ -194,8 +217,13 @@ private fun BottomBar(
     permissions: List<PermissionInfo>
 ) {
     val context = LocalContext.current
-    val workaroundSp = context.getSharedPreferences("wizard_permission_workaround", Context.MODE_PRIVATE)
-    BottomAppBar(modifier = Modifier.height(56.dp)) {
+    BottomAppBar(
+        modifier = Modifier
+            .height(56.dp)
+            .navigationBarsPadding(),
+        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.32f),
+        tonalElevation = 0.dp
+    ) {
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -213,27 +241,29 @@ private fun BottomBar(
             val operator = permissions[currentItem.value].permissionOperator
             IconButton(onClick = {
                 if (operator.isPermissionGranted()) {
-                    Log.d("WizardPermission", "manual-advance index=${currentItem.value}")
+                    logger.d("manual-advance index=${currentItem.value}")
                     currentItem.value++
                 } else {
                     val index = currentItem.value
                     if (operator is top.trumeet.mipushframework.wizard.permission.UsageStatsPermissionOperator) {
-                        val requestedBefore = workaroundSp.getBoolean("usage_stats_requested_once", false)
+                        val requestedBefore = runBlocking { DataStoreManager.usageStatsRequested.first() }
                         if (requestedBefore) {
-                            Log.w("WizardPermission", "force-advance usage-stats page index=$index by persisted flag")
+                            logger.w("force-advance usage-stats page index=$index by persisted flag")
                             currentItem.value++
                         } else {
-                            workaroundSp.edit().putBoolean("usage_stats_requested_once", true).apply()
+                            MiPushFrameworkApp.applicationScope.launch {
+                                DataStoreManager.setUsageStatsRequested(true)
+                            }
                             Toast.makeText(
                                 context,
                                 "如已授权，返回后再次点击下一步继续",
                                 Toast.LENGTH_SHORT
                             ).show()
-                            Log.d("WizardPermission", "request-permission index=$index first-time")
+                            logger.d("request-permission index=$index first-time")
                             operator.requestPermission()
                         }
                     } else {
-                        Log.d("WizardPermission", "request-permission index=$index")
+                        logger.d("request-permission index=$index")
                         operator.requestPermission()
                     }
                 }
