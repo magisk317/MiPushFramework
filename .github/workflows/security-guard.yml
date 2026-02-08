@@ -11,7 +11,6 @@ on:
 permissions:
   contents: read
   security-events: read
-  dependabot-alerts: read
 
 jobs:
   overrides-check:
@@ -21,16 +20,16 @@ jobs:
 
       - name: Validate security overrides are up-to-date
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
           chmod +x .github/scripts/sync_security_overrides.sh
           .github/scripts/sync_security_overrides.sh --check
 
       - name: Print open security alert summary
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
           repo="${{ github.repository }}"
           gh api --paginate "/repos/${repo}/dependabot/alerts?state=open&per_page=100" > /tmp/dependabot-alerts.jsonl || true
