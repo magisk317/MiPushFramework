@@ -1,11 +1,8 @@
-import java.util.Properties
-
 plugins {
     alias(libs.plugins.android.library)
 }
 
 val mipushLibPath = "${projectDir}/libs/miuipushsdkshared_3_7_9.jar"
-extra.set("mipushLib", mipushLibPath)
 
 android {
     namespace = "com.nihility"
@@ -36,12 +33,9 @@ android {
 }
 
 dependencies {
-    implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.startup.runtime)
     compileOnly(files(mipushLibPath))
     implementation(libs.aspectj.rt)
     implementation(libs.xlog)
 }
-
-// aspectjx removed for modernization
