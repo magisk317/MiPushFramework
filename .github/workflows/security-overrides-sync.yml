@@ -9,6 +9,7 @@ permissions:
   contents: write
   pull-requests: write
   security-events: read
+  dependabot-alerts: read
 
 jobs:
   sync:
