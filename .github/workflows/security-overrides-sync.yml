@@ -1,0 +1,45 @@
+name: Security Overrides Sync
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  security-events: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    if: github.ref_name == github.event.repository.default_branch
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Sync security overrides
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x .github/scripts/sync_security_overrides.sh
+          .github/scripts/sync_security_overrides.sh
+
+      - name: Create PR if changed
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(security): sync dependency security overrides"
+          title: "chore(security): sync dependency security overrides"
+          body: |
+            Automated sync of dependency security overrides from GitHub Dependabot open alerts.
+            - Add new forced versions for newly detected vulnerable packages
+            - Remove obsolete overrides when alerts are resolved upstream
+          branch: janitor/security-overrides-sync
+          base: ${{ github.event.repository.default_branch }}
+          labels: |
+            dependencies
+            security
+          delete-branch: true
