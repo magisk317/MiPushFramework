@@ -1,20 +1,44 @@
 import java.util.Properties
+import org.gradle.api.tasks.Sync
+import org.gradle.api.tasks.bundling.Zip
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
 }
 
-val rootExtra = rootProject.extensions.extraProperties
-val versionNameStr = rootExtra["versionName"] as String
-val gitTagStr = rootExtra["gitTag"] as String
+val versionNameStr = rootProject.version.toString().ifBlank { libs.versions.versionName.get() }
+val gitTagStr = versionNameStr
+val enableBuildSplits = providers.gradleProperty("buildSplits")
+    .map { value -> value.isBlank() || !value.equals("false", ignoreCase = true) }
+    .orElse(false)
 val gitShortSha = providers.exec {
     commandLine("git", "rev-parse", "--short", "HEAD")
     isIgnoreExitValue = true
 }.standardOutput.asText.map { it.trim().ifEmpty { "unknown" } }.orElse("unknown")
 val normalVersionCode = libs.versions.pushVersionCodeNormal.get().toInt()
 val vc105VersionCode = libs.versions.pushVersionCodeVc105.get().toInt()
+val originalMiPushJar = rootProject.project(":mipush_hook").file("libs/miuipushsdkshared_3_7_9.jar")
+val patchedMiPushJarUnpackedDir = layout.buildDirectory.dir("intermediates/patched-libs/miuipushsdkshared_3_7_9")
+val patchedMiPushExcludes = listOf(
+    "com/xiaomi/push/service/timers/AlarmManagerTimer.class",
+    "com/xiaomi/push/service/ClientEventDispatcher.class"
+)
+val unpackPatchedMiPushJar = tasks.register<Sync>("unpackPatchedMiPushJar") {
+    inputs.property("patchedMiPushExcludes", patchedMiPushExcludes)
+    from(zipTree(originalMiPushJar)) {
+        patchedMiPushExcludes.forEach { exclude(it) }
+    }
+    into(patchedMiPushJarUnpackedDir)
+}
+val repackPatchedMiPushJar = tasks.register<Zip>("repackPatchedMiPushJar") {
+    dependsOn(unpackPatchedMiPushJar)
+    from(patchedMiPushJarUnpackedDir)
+    destinationDirectory.set(layout.buildDirectory.dir("intermediates/patched-libs"))
+    archiveFileName.set("miuipushsdkshared_3_7_9_patched.jar")
+}
 
 android {
     namespace = "com.xiaomi.xmsf"
@@ -37,7 +61,7 @@ android {
         buildConfigField("String", "GIT_TAG", "\"$gitTagStr\"")
     }
 
-    if (project.hasProperty("buildSplits")) {
+    if (enableBuildSplits.get()) {
         splits {
             abi {
                 isEnable = true
@@ -208,12 +232,13 @@ dependencies {
     implementation(project(":common"))
     implementation(project(":condom"))
     implementation(project(":mipush_hook"))
-    implementation(files(rootProject.project(":mipush_hook").extensions.extraProperties["mipushLib"] as String))
+    implementation(files(repackPatchedMiPushJar.flatMap { it.archiveFile }) {
+        builtBy(repackPatchedMiPushJar)
+    })
 
     implementation(libs.xlog)
-    implementation(libs.aspectj.rt)
     implementation(libs.icebox)
-    implementation(libs.gson)
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.libsu.core)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
@@ -228,9 +253,6 @@ dependencies {
     testImplementation(libs.mockito.core)
     testImplementation(libs.mockito.inline)
 
-    implementation(libs.androidx.appcompat)
-    implementation(libs.google.material)
-    implementation(libs.legacy.support.v4)
     implementation(libs.palette)
 
     implementation(platform(libs.androidx.compose.bom))
@@ -243,5 +265,6 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.markdown)
-    implementation(libs.swipeRefresh)
+    implementation(libs.haze.android)
+    implementation(libs.androidx.datastore.preferences)
 }

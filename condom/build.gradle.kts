@@ -44,10 +44,7 @@ android {
 }
 
 dependencies {
-    implementation(libs.jsr305)
     implementation(libs.androidx.annotation)
-    implementation(libs.androidx.appcompat)
-
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext)
     androidTestImplementation(libs.androidx.test.espresso)

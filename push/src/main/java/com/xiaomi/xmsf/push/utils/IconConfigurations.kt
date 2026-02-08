@@ -10,16 +10,15 @@ import android.util.Pair
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.documentfile.provider.DocumentFile
-import com.elvishew.xlog.XLog
-import com.google.gson.Gson
-import com.nihility.Global
-import org.json.JSONArray
+import kotlinx.serialization.Serializable
 import org.json.JSONException
+import com.nihility.Global
 import top.trumeet.common.utils.Utils
 
 class IconConfigurations private constructor() {
     private val iconConfigs = hashMapOf<String, IconConfig>()
 
+    @Serializable
     class IconConfig {
         var appName: String? = null
         var packageName: String? = null
@@ -103,10 +102,12 @@ class IconConfigurations private constructor() {
         return false
     }
 
-    @Throws(JSONException::class)
+    @Throws(Exception::class)
     private fun parse(json: String) {
-        JSONArray(json)
-        val configs = Gson().fromJson(json, Array<IconConfig>::class.java) ?: return
+        val configs = kotlinx.serialization.json.Json {
+            ignoreUnknownKeys = true
+            coerceInputValues = true
+        }.decodeFromString<List<IconConfig>>(json)
         for (config in configs) {
             val pkg = config.packageName ?: continue
             iconConfigs[pkg] = config
