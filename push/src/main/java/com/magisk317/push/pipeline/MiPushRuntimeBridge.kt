@@ -5,11 +5,17 @@ import android.content.Intent
 import com.elvishew.xlog.XLog
 import com.magisk317.Global
 import com.magisk317.XMPushUtils
-import com.nihility.service.RegisterRecorder
+import com.magisk317.compat.RegistrationStateStore
+import com.magisk317.service.RegisterRecorder
+import com.xiaomi.xmpush.thrift.ActionType
+import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
+import com.xiaomi.xmsf.push.utils.RegSecUtils
+import com.xiaomi.xmsf.utils.ConvertUtils
 import top.trumeet.mipush.provider.db.EventDb
 import top.trumeet.mipush.provider.db.RegisteredApplicationDb
 import top.trumeet.mipush.provider.entities.Event
+import top.trumeet.mipush.provider.entities.RegisteredApplication
 import top.trumeet.mipush.provider.event.type.TypeFactory
 
 object MiPushRuntimeBridge {
@@ -104,9 +110,41 @@ object MiPushRuntimeBridge {
         }
         val eventType = TypeFactory.createForStore(container)
         val application = RegisteredApplicationDb.registerApplication(pkg)
+        applyRegistrationStateFromContainer(container, application)
         EventDb.insertEvent(Event.ResultType.OK, eventType)
         if (eventType.type == Event.Type.Registration || eventType.type == Event.Type.RegistrationResult) {
             maybeShowRegisterToast(context, pkg, application)
+        }
+    }
+
+    private fun applyRegistrationStateFromContainer(
+        container: XmPushActionContainer,
+        application: RegisteredApplication
+    ) {
+        val nextType = when (container.action) {
+            ActionType.UnRegistration -> RegisteredApplication.RegisteredType.Unregistered
+            ActionType.Registration -> resolveRegistrationState(container)
+            else -> null
+        } ?: return
+        RegistrationStateStore.updateIfChanged(
+            application = application,
+            nextType = nextType,
+            source = RegistrationStateStore.Source.SERVER_RESULT
+        )
+    }
+
+    private fun resolveRegistrationState(container: XmPushActionContainer): Int? {
+        if (container.isRequest) {
+            return null
+        }
+        val result = runCatching {
+            ConvertUtils.getResponseMessageBodyFromContainer(container, RegSecUtils.getRegSec(container))
+                as? XmPushActionRegistrationResult
+        }.getOrNull()
+        return when {
+            result == null -> null
+            result.errorCode.toInt() == 0 -> RegisteredApplication.RegisteredType.Registered
+            else -> RegisteredApplication.RegisteredType.Unregistered
         }
     }
 

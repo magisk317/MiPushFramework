@@ -9,7 +9,7 @@ import com.xiaomi.xmpush.thrift.*
 import com.xiaomi.xmsf.push.utils.RegSecUtils
 import com.xiaomi.channel.commonutils.android.DataCryptUtils
 import com.xiaomi.channel.commonutils.string.Base64Coder
-import com.nihility.XMPushUtils
+import com.magisk317.XMPushUtils
 import org.apache.thrift.TBase
 import org.apache.thrift.TException
 import java.lang.reflect.*

@@ -1,0 +1,41 @@
+package com.magisk317.compat
+
+import com.elvishew.xlog.XLog
+import top.trumeet.mipush.provider.db.RegisteredApplicationDb
+import top.trumeet.mipush.provider.entities.RegisteredApplication
+
+object RegistrationStateStore {
+    private val logger = XLog.tag("RegistrationStateStore").build()
+
+    enum class Source {
+        SERVER_RESULT,
+        LOCAL_PROBE
+    }
+
+    @JvmStatic
+    fun updateIfChanged(
+        application: RegisteredApplication,
+        @RegisteredApplication.RegisteredType nextType: Int,
+        source: Source
+    ): Boolean {
+        val oldType = application.registeredType
+        if (oldType == nextType) {
+            return false
+        }
+        application.registeredType = nextType
+        RegisteredApplicationDb.update(application)
+        logger.i(
+            "registration state changed pkg=${application.packageName}, ${labelOf(oldType)} -> ${labelOf(nextType)}, source=$source"
+        )
+        return true
+    }
+
+    private fun labelOf(@RegisteredApplication.RegisteredType type: Int): String {
+        return when (type) {
+            RegisteredApplication.RegisteredType.Registered -> "Registered"
+            RegisteredApplication.RegisteredType.Unregistered -> "Unregistered"
+            else -> "NotRegistered"
+        }
+    }
+}
+

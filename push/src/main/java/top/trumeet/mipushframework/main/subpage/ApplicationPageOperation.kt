@@ -8,7 +8,9 @@ import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.text.TextUtils
 import com.elvishew.xlog.XLog
-import com.nihility.Global
+import com.magisk317.Global
+import com.magisk317.compat.RegistrationStateCompat
+import com.magisk317.compat.RegistrationStateStore
 import com.xiaomi.xmsf.R
 import java.util.Date
 import java.util.Locale
@@ -271,20 +273,34 @@ object ApplicationPageOperation {
     fun updateRegisteredApplicationDb(context: Context, list: List<RegisteredApplication>) {
         val totalTimer = ElapsedTimer()
         val timer = ElapsedTimer()
-        val registrationInfo = EventDb.queryRegistered()
-        logger.d("[updateApp] get registeredPkgsFromEvents ms: %d", timer.restart())
+        val notRegisteredPkgs = list
+            .asSequence()
+            .filter { it.registeredType == RegisteredApplication.RegisteredType.NotRegistered }
+            .map { it.packageName }
+            .toSet()
+        val localRegisteredPkgs = RegistrationStateCompat.findPackagesWithValidLocalRegistration(notRegisteredPkgs)
+        logger.d(
+            "[updateApp] local registration probe ms: %d, queried=%d, matched=%d",
+            timer.restart(),
+            notRegisteredPkgs.size,
+            localRegisteredPkgs.size
+        )
 
         for (application in list) {
             val pkg = application.packageName
             application.appName = Global.ApplicationNameCache().getAppName(context, pkg).toString()
-            if (registrationInfo.registered.contains(pkg)) {
-                application.registeredType = RegisteredApplication.RegisteredType.Registered
-            } else if (registrationInfo.unregistered.contains(pkg)) {
-                application.registeredType = RegisteredApplication.RegisteredType.Unregistered
+            if (
+                application.registeredType == RegisteredApplication.RegisteredType.NotRegistered &&
+                localRegisteredPkgs.contains(pkg)
+            ) {
+                RegistrationStateStore.updateIfChanged(
+                    application = application,
+                    nextType = RegisteredApplication.RegisteredType.Registered,
+                    source = RegistrationStateStore.Source.LOCAL_PROBE
+                )
             } else {
-                application.registeredType = RegisteredApplication.RegisteredType.NotRegistered
+                RegisteredApplicationDb.update(application)
             }
-            RegisteredApplicationDb.update(application)
         }
         logger.d("[updateApp] update app ms: %d", timer.restart())
         logger.d("[updateApp] updated ms: %d", totalTimer.elapsed())
