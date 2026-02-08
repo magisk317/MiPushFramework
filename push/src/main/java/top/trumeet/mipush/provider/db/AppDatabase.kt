@@ -7,7 +7,7 @@ import top.trumeet.mipush.provider.db.converters.DateConverter
 import top.trumeet.mipush.provider.entities.Event
 import top.trumeet.mipush.provider.entities.RegisteredApplication
 
-@Database(entities = [Event::class, RegisteredApplication::class], version = 1, exportSchema = false)
+@Database(entities = [Event::class, RegisteredApplication::class], version = 2, exportSchema = true)
 @TypeConverters(DateConverter::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun eventDao(): EventDao

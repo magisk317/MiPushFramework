@@ -51,6 +51,7 @@ androidx-compose-material-icons-extended = { module = "androidx.compose.material
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+androidx-room-testing = { module = "androidx.room:room-testing", version.ref = "room" }
 palette = { module = "androidx.palette:palette", version = "1.0.0" }
 
 xlog = { module = "com.elvishew:xlog", version.ref = "xlog" }

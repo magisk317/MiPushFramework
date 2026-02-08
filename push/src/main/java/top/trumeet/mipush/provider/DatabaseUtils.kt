@@ -3,6 +3,7 @@ package top.trumeet.mipush.provider
 import android.content.Context
 import androidx.room.Room
 import top.trumeet.mipush.provider.db.AppDatabase
+import top.trumeet.mipush.provider.db.AppDatabaseMigrations
 import top.trumeet.mipush.provider.db.EventDao
 import top.trumeet.mipush.provider.db.RegisteredApplicationDao
 
@@ -30,7 +31,9 @@ object DatabaseUtils {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "db"
-                ).build()
+                )
+                    .addMigrations(*AppDatabaseMigrations.ALL)
+                    .build()
             }
         }
     }
