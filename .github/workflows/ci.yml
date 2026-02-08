@@ -22,8 +22,15 @@ jobs:
           distribution: temurin
           java-version: "25"
           cache: gradle
+      - name: Validate security override files
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x .github/scripts/sync_security_overrides.sh
+          .github/scripts/sync_security_overrides.sh --check
       - name: Build & Test
-        run: ./gradlew --warning-mode all :push:assembleNormalDebug :push:testNormalDebugUnitTest -PbuildSplits -Pkotlin.incremental=false
+        run: ./gradlew -I gradle/security-overrides.init.gradle --warning-mode all :push:assembleNormalDebug :push:testNormalDebugUnitTest -PbuildSplits -Pkotlin.incremental=false
       - name: Write build summary
         if: always()
         run: |

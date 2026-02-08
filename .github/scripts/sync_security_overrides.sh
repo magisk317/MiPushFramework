@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUTPUT_FILE="${ROOT_DIR}/gradle/security-overrides.properties"
+INIT_FILE="${ROOT_DIR}/gradle/security-overrides.init.gradle"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "${TMP_DIR}"' EXIT
 
@@ -29,6 +30,7 @@ ALERTS_OBJ_FILE="${TMP_DIR}/alerts-objects.ndjson"
 ALERTS_JSON_FILE="${TMP_DIR}/alerts.json"
 MAP_FILE="${TMP_DIR}/overrides.map"
 GEN_FILE="${TMP_DIR}/security-overrides.properties"
+INIT_GEN_FILE="${TMP_DIR}/security-overrides.init.gradle"
 
 gh api --paginate "/repos/${REPO}/dependabot/alerts?state=open&per_page=100" --jq '.[]' > "${ALERTS_OBJ_FILE}"
 jq -s '.' "${ALERTS_OBJ_FILE}" > "${ALERTS_JSON_FILE}"
@@ -78,14 +80,69 @@ done
   fi
 } > "${GEN_FILE}"
 
+cat > "${INIT_GEN_FILE}" <<'EOF'
+// AUTO-GENERATED FILE. DO NOT EDIT MANUALLY.
+// Source: gradle/security-overrides.properties
+// Purpose: apply security overrides to project + buildscript classpaths in CI.
+
+import java.util.Properties
+
+def loadSecurityOverrides = { File baseDir ->
+    File propsFile = new File(baseDir, "gradle/security-overrides.properties")
+    if (!propsFile.exists()) {
+        return [:]
+    }
+    Properties props = new Properties()
+    propsFile.withReader("UTF-8") { props.load(it) }
+    props.collectEntries { key, value -> [(key.toString()): value.toString()] }
+}
+
+def applySecurityOverrides = { strategy, Map<String, String> overrides ->
+    strategy.eachDependency { details ->
+        String key = "${details.requested.group}:${details.requested.name}"
+        String forcedVersion = overrides[key]
+        if (forcedVersion && details.requested.version != forcedVersion) {
+            details.useVersion(forcedVersion)
+            details.because("Security override from gradle/security-overrides.properties")
+        }
+    }
+}
+
+def securityOverrides = loadSecurityOverrides(gradle.startParameter.currentDir)
+
+gradle.settingsEvaluated { settings ->
+    settings.buildscript.configurations.configureEach { cfg ->
+        applySecurityOverrides(cfg.resolutionStrategy, securityOverrides)
+    }
+}
+
+gradle.beforeProject { project ->
+    project.buildscript.configurations.configureEach { cfg ->
+        applySecurityOverrides(cfg.resolutionStrategy, securityOverrides)
+    }
+    project.configurations.configureEach { cfg ->
+        applySecurityOverrides(cfg.resolutionStrategy, securityOverrides)
+    }
+}
+EOF
+
 if [[ "${CHECK_MODE}" == "true" ]]; then
   if [[ ! -f "${OUTPUT_FILE}" ]]; then
     echo "Missing ${OUTPUT_FILE}. Run .github/scripts/sync_security_overrides.sh" >&2
     exit 1
   fi
+  if [[ ! -f "${INIT_FILE}" ]]; then
+    echo "Missing ${INIT_FILE}. Run .github/scripts/sync_security_overrides.sh" >&2
+    exit 1
+  fi
   if ! cmp -s "${GEN_FILE}" "${OUTPUT_FILE}"; then
     echo "Security overrides are stale. Run .github/scripts/sync_security_overrides.sh" >&2
     diff -u "${OUTPUT_FILE}" "${GEN_FILE}" || true
+    exit 1
+  fi
+  if ! cmp -s "${INIT_GEN_FILE}" "${INIT_FILE}"; then
+    echo "Security init script is stale. Run .github/scripts/sync_security_overrides.sh" >&2
+    diff -u "${INIT_FILE}" "${INIT_GEN_FILE}" || true
     exit 1
   fi
   echo "Security overrides are up-to-date."
@@ -94,4 +151,6 @@ fi
 
 mkdir -p "$(dirname "${OUTPUT_FILE}")"
 cp "${GEN_FILE}" "${OUTPUT_FILE}"
+cp "${INIT_GEN_FILE}" "${INIT_FILE}"
 echo "Updated ${OUTPUT_FILE}"
+echo "Updated ${INIT_FILE}"
