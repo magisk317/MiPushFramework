@@ -13,3 +13,4 @@ org.eclipse.buildship.core.prefs
 /.*/
 !/.github/
 !/.github/**
+docs/
