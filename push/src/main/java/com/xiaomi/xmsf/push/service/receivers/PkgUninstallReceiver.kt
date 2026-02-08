@@ -4,10 +4,12 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
-import com.xiaomi.channel.commonutils.logger.MyLog
+import com.elvishew.xlog.XLog
 import com.xiaomi.push.service.PushServiceConstants
 
 class PkgUninstallReceiver : BroadcastReceiver() {
+    private val logger = XLog.tag("PkgUninstallReceiver").build()
+
     override fun onReceive(context: Context, intent: Intent?) {
         if (intent != null && intent.extras != null && "android.intent.action.PACKAGE_REMOVED" == intent.action) {
             val replacing = intent.extras?.getBoolean("android.intent.extra.REPLACING") ?: false
@@ -22,7 +24,7 @@ class PkgUninstallReceiver : BroadcastReceiver() {
                     )
                     ContextCompat.startForegroundService(context, serviceIntent)
                 } catch (e: Exception) {
-                    MyLog.e(e)
+                    logger.e(e.message, e)
                 }
             }
         }

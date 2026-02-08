@@ -47,7 +47,11 @@ class Hook : Initializer<Unit> {
     private fun hookField(klass: Class<*>, field: String, value: Any) {
         val target: Field = klass.getDeclaredField(field)
         target.isAccessible = true
-        target.set(null, value)
+        var finalValue = value
+        if (target.type == Int::class.javaPrimitiveType && value is Boolean) {
+            finalValue = if (value) 1 else 0
+        }
+        target.set(null, finalValue)
     }
 
     private fun hookFieldIfPresent(className: String, field: String, value: Any) {

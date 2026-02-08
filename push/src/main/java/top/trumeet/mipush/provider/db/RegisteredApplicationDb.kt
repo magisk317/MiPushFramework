@@ -1,7 +1,7 @@
 package top.trumeet.mipush.provider.db
 
 import android.text.TextUtils
-import android.util.Log
+import com.elvishew.xlog.XLog
 import com.nihility.Global
 import kotlinx.coroutines.runBlocking
 import top.trumeet.common.BuildConfig.DEBUG
@@ -13,9 +13,12 @@ import top.trumeet.mipush.provider.entities.RegisteredApplication
  * Created by Trumeet on 2017/12/23.
  */
 object RegisteredApplicationDb {
+    private val logger = XLog.tag("RegisteredApplicationDb").build()
+
 
     @JvmStatic
     fun registerApplication(pkg: String): RegisteredApplication {
+        logger.i("registerApplication() called for: $pkg")
         val registeredApplication = getRegisteredApplication(pkg)
         return registeredApplication ?: create(pkg)
     }
@@ -24,7 +27,7 @@ object RegisteredApplicationDb {
     fun getRegisteredApplication(pkg: String): RegisteredApplication? {
         val list = getList(pkg)
         if (DEBUG) {
-            Log.d("RegisteredApplicationDb", "register -> existing list = $list")
+            logger.d("register -> existing list = $list")
         }
         return list.firstOrNull()
     }

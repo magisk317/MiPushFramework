@@ -3,107 +3,105 @@ package com.xiaomi.xmsf.utils
 
 import android.content.Intent
 import com.elvishew.xlog.XLog
-import com.google.gson.ExclusionStrategy
-import com.google.gson.FieldAttributes
-import com.google.gson.GsonBuilder
-import com.google.gson.JsonElement
-import com.google.gson.JsonNull
-import com.google.gson.JsonObject
-import com.nihility.XMPushUtils
-import com.xiaomi.channel.commonutils.android.DataCryptUtils
-import com.xiaomi.channel.commonutils.string.Base64Coder
 import com.xiaomi.mipush.sdk.DecryptException
 import com.xiaomi.push.service.PushConstants
-import com.xiaomi.xmpush.thrift.ActionType
-import com.xiaomi.xmpush.thrift.XmPushActionAckMessage
-import com.xiaomi.xmpush.thrift.XmPushActionAckNotification
-import com.xiaomi.xmpush.thrift.XmPushActionCommand
-import com.xiaomi.xmpush.thrift.XmPushActionCommandResult
-import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import com.xiaomi.xmpush.thrift.XmPushActionNotification
-import com.xiaomi.xmpush.thrift.XmPushActionRegistration
-import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
-import com.xiaomi.xmpush.thrift.XmPushActionSendFeedback
-import com.xiaomi.xmpush.thrift.XmPushActionSendFeedbackResult
-import com.xiaomi.xmpush.thrift.XmPushActionSendMessage
-import com.xiaomi.xmpush.thrift.XmPushActionSubscription
-import com.xiaomi.xmpush.thrift.XmPushActionSubscriptionResult
-import com.xiaomi.xmpush.thrift.XmPushActionUnRegistration
-import com.xiaomi.xmpush.thrift.XmPushActionUnRegistrationResult
-import com.xiaomi.xmpush.thrift.XmPushActionUnSubscription
-import com.xiaomi.xmpush.thrift.XmPushActionUnSubscriptionResult
-import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
+import com.xiaomi.xmpush.thrift.*
 import com.xiaomi.xmsf.push.utils.RegSecUtils
+import com.xiaomi.channel.commonutils.android.DataCryptUtils
+import com.xiaomi.channel.commonutils.string.Base64Coder
+import com.nihility.XMPushUtils
 import org.apache.thrift.TBase
 import org.apache.thrift.TException
-import java.lang.reflect.InvocationTargetException
-import java.lang.reflect.Method
+import java.lang.reflect.*
 import java.util.Objects
+import kotlinx.serialization.json.*
 
 object ConvertUtils {
     private val logger = XLog.tag(ConvertUtils::class.java.simpleName).build()
 
+    private val json = Json {
+        ignoreUnknownKeys = true
+        prettyPrint = true
+        encodeDefaults = true
+    }
+
     @JvmStatic
     fun toJson(container: XmPushActionContainer?): JsonElement {
         if (container == null) {
-            return JsonNull.INSTANCE
+            return JsonNull
         }
         return toJson(container, RegSecUtils.getRegSec(container))
     }
 
     @JvmStatic
     fun toJson(container: XmPushActionContainer, regSec: String?): JsonElement {
-        val gson = GsonBuilder()
-            .disableHtmlEscaping()
-            .setPrettyPrinting()
-            .setExclusionStrategies(object : ExclusionStrategy {
-                override fun shouldSkipField(f: FieldAttributes): Boolean {
-                    val exclude = arrayOf("hb", "__isset_bit_vector")
-                    for (field in exclude) {
-                        if (f.name == field) {
-                            return true
-                        }
-                    }
-                    return f.declaredClass == kotlin.collections.Map::class.java && f.name == "internal"
-                }
-
-                override fun shouldSkipClass(clazz: Class<*>): Boolean = false
-            })
-            .create()
-        var jsonElement = gson.toJsonTree(container)
-        if (jsonElement.isJsonObject) {
-            val json = jsonElement.asJsonObject
-            val pushAction = "pushAction"
+        val root = buildJsonObject {
+            put("action", container.action?.name ?: "UNKNOWN")
+            put("isRequest", container.isRequest)
+            put("isEncryptAction", container.isEncryptAction)
+            put("packageName", container.packageName)
+            container.target?.let { 
+                put("target", thriftToJson(it))
+            }
+            
             try {
                 val message = getResponseMessageBodyFromContainer(container, regSec)
-                json.add(pushAction, gson.toJsonTree(message))
-            } catch (e: TException) {
+                if (message != null) {
+                    put("pushAction", thriftToJson(message))
+                }
+            } catch (e: Exception) {
                 logger.e(e.localizedMessage, e)
-            } catch (e: Throwable) {
-                json.add(pushAction, gson.toJsonTree(e))
+                put("pushActionError", e.message ?: "Unknown error")
             }
-            jsonElement = json
         }
-        return jsonElement
+        return root
     }
 
     @JvmStatic
     fun toJson(intent: Intent?): JsonElement {
         if (intent == null) {
-            return JsonNull.INSTANCE
+            return JsonNull
         }
-        val gson = GsonBuilder().registerTypeAdapterFactory(BundleTypeAdapterFactory()).create()
-        val json = JsonObject()
-        json.add("action", gson.toJsonTree(intent.action))
-        if (intent.extras != null) {
-            val extras = gson.toJsonTree(intent.extras) as JsonObject
-            val payload = intent.getByteArrayExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD)
-            if (payload != null) {
-                extras.add(PushConstants.MIPUSH_EXTRA_PAYLOAD, toJson(XMPushUtils.packToContainer(payload)))
+        return buildJsonObject {
+            put("action", intent.action)
+            intent.extras?.let { extras ->
+                val extrasJson = json.encodeToJsonElement(BundleSerializer, extras) as JsonObject
+                val payload = intent.getByteArrayExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD)
+                if (payload != null) {
+                    val mutableExtras = extrasJson.toMutableMap()
+                    mutableExtras[PushConstants.MIPUSH_EXTRA_PAYLOAD] = toJson(XMPushUtils.packToContainer(payload))
+                    put("extras", JsonObject(mutableExtras))
+                } else {
+                    put("extras", extrasJson)
+                }
             }
-            json.add("extras", extras)
         }
-        return json
+    }
+
+    private fun thriftToJson(base: TBase<*, *>): JsonElement {
+        return buildJsonObject {
+            put("_type", base.javaClass.simpleName)
+            // Use reflection to get some common fields like id, name, packageName
+            for (fieldName in listOf("id", "name", "packageName", "appName", "description")) {
+                try {
+                    val field = base.javaClass.getDeclaredField(fieldName)
+                    field.isAccessible = true
+                    val value = field.get(base)
+                    if (value != null) {
+                        put(fieldName, value.toString())
+                    }
+                } catch (_: Exception) {
+                    // Try getter
+                    try {
+                        val getter = base.javaClass.getMethod("get" + fieldName.replaceFirstChar { it.uppercase() })
+                        val value = getter.invoke(base)
+                        if (value != null) {
+                            put(fieldName, value.toString())
+                        }
+                    } catch (_: Exception) {}
+                }
+            }
+        }
     }
 
     @JvmStatic

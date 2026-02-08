@@ -8,66 +8,62 @@ import com.xiaomi.push.service.MIPushNotificationHelper
 import com.xiaomi.push.service.XMPushService
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import org.aspectj.lang.JoinPoint
-import org.aspectj.lang.ProceedingJoinPoint
 
+/**
+ * Default implementation of HookedMethodHandler.
+ * AspectJ dependence removed. All methods now do nothing or return defaults.
+ */
 class DefaultHookedMethodHandler : HookedMethodHandler {
     override fun shouldSendBroadcast(
-        joinPoint: ProceedingJoinPoint,
+        joinPoint: Any?,
         pushService: XMPushService,
         packageName: String,
         container: XmPushActionContainer,
         metaInfo: PushMetaInfo
-    ): Boolean = joinPoint.proceed() as Boolean
+    ): Boolean = true
 
     override fun postProcessMIPushMessage(
-        joinPoint: ProceedingJoinPoint,
+        joinPoint: Any?,
         pushService: XMPushService,
         pkgName: String,
         payload: ByteArray,
         newMessageIntent: Intent
-    ) {
-        joinPoint.proceed()
-    }
+    ) {}
 
-    override fun notifyPacketArrival(joinPoint: JoinPoint, pushService: XMPushService, chid: String, data: Any) {}
-    override fun debugLog(joinPoint: ProceedingJoinPoint): Any? = joinPoint.proceed()
-    override fun logFallback(joinPoint: JoinPoint, fallback: Fallback, usePort: Boolean) {}
-    override fun processIntent(joinPoint: JoinPoint, intent: Intent) {}
-    override fun onCreate(joinPoint: JoinPoint, pushService: XMPushService) {}
-    override fun onStartCommand(joinPoint: JoinPoint) {}
-    override fun onStart(joinPoint: JoinPoint, intent: Intent, startId: Int) {}
-    override fun onBind(joinPoint: JoinPoint, intent: Intent) {}
-    override fun onDestroy(joinPoint: JoinPoint) {}
-    override fun setConnectionStatus(joinPoint: JoinPoint, newStatus: Int, reason: Int, e: Exception) {}
-    override fun sendMessage(joinPoint: JoinPoint, intent: Intent) {}
-    override fun logCheckServices(joinPoint: JoinPoint, pkgInfo: PackageInfo) {}
-    override fun buildIntent(joinPoint: ProceedingJoinPoint): Intent = joinPoint.proceed() as Intent
-    override fun buildContainerHook(joinPoint: ProceedingJoinPoint): XmPushActionContainer =
-        joinPoint.proceed() as XmPushActionContainer
-
-    override fun isIntentAvailable(joinPoint: ProceedingJoinPoint): Boolean = joinPoint.proceed() as Boolean
+    override fun notifyPacketArrival(joinPoint: Any?, pushService: XMPushService, chid: String, data: Any) {}
+    override fun debugLog(joinPoint: Any?): Any? = null
+    override fun logFallback(joinPoint: Any?, fallback: Fallback, usePort: Boolean) {}
+    override fun processIntent(joinPoint: Any?, intent: Intent) {}
+    override fun onCreate(joinPoint: Any?, pushService: XMPushService) {}
+    override fun onStartCommand(joinPoint: Any?) {}
+    override fun onStart(joinPoint: Any?, intent: Intent, startId: Int) {}
+    override fun onBind(joinPoint: Any?, intent: Intent) {}
+    override fun onDestroy(joinPoint: Any?) {}
+    override fun setConnectionStatus(joinPoint: Any?, newStatus: Int, reason: Int, e: Exception) {}
+    override fun sendMessage(joinPoint: Any?, intent: Intent) {}
+    override fun logCheckServices(joinPoint: Any?, pkgInfo: PackageInfo) {}
+    override fun buildIntent(joinPoint: Any?): Intent = Intent()
+    override fun buildContainerHook(joinPoint: Any?): XmPushActionContainer = XmPushActionContainer()
+    override fun isIntentAvailable(joinPoint: Any?): Boolean = true
 
     override fun processMIPushMessage(
-        joinPoint: JoinPoint,
+        joinPoint: Any?,
         pushService: XMPushService,
         decryptedContent: ByteArray,
         packetBytesLen: Long
-    ) {
-    }
+    ) {}
 
     override fun isDuplicateMessage(
-        joinPoint: ProceedingJoinPoint,
+        joinPoint: Any?,
         pushService: XMPushService,
         packageName: String,
         messageId: String
-    ): Boolean = joinPoint.proceed() as Boolean
+    ): Boolean = false
 
     override fun notifyPushMessage(
-        joinPoint: ProceedingJoinPoint,
+        joinPoint: Any?,
         context: Context,
         container: XmPushActionContainer,
         decryptedContent: ByteArray
-    ): MIPushNotificationHelper.NotifyPushMessageInfo =
-        joinPoint.proceed() as MIPushNotificationHelper.NotifyPushMessageInfo
+    ): MIPushNotificationHelper.NotifyPushMessageInfo = MIPushNotificationHelper.NotifyPushMessageInfo()
 }

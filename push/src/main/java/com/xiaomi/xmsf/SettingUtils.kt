@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -23,10 +24,16 @@ import com.xiaomi.xmsf.utils.LogUtils
 import top.trumeet.common.Constants
 import top.trumeet.common.utils.Utils
 import top.trumeet.mipush.provider.db.EventDb
+import top.trumeet.mipush.provider.entities.Event
+import top.trumeet.mipush.provider.event.type.NotificationType
 import top.trumeet.mipush.provider.entities.RegisteredApplication
 import top.trumeet.mipushframework.main.subpage.ApplicationPageOperation
 import java.util.Date
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import com.magisk317.data.DataStoreManager
 
 object SettingUtils {
     const val requestIceBoxCode: Int = 0x233
@@ -53,12 +60,16 @@ object SettingUtils {
     @JvmStatic
     fun clearHistory(context: Context) {
         if (mClearingHistory.compareAndSet(false, true)) {
-            Thread {
-                Utils.makeText(context, context.getString(R.string.settings_clear_history) + " " + context.getString(R.string.start), Toast.LENGTH_SHORT)
+            MiPushFrameworkApp.applicationScope.launch(Dispatchers.IO) {
+                withContext(Dispatchers.Main) {
+                    Utils.makeText(context, context.getString(R.string.settings_clear_history) + " " + context.getString(R.string.start), Toast.LENGTH_SHORT)
+                }
                 EventDb.deleteHistory()
-                Utils.makeText(context, context.getString(R.string.settings_clear_history) + " " + context.getString(R.string.end), Toast.LENGTH_SHORT)
+                withContext(Dispatchers.Main) {
+                    Utils.makeText(context, context.getString(R.string.settings_clear_history) + " " + context.getString(R.string.end), Toast.LENGTH_SHORT)
+                }
                 mClearingHistory.set(false)
-            }.start()
+            }
         }
     }
 
@@ -69,11 +80,30 @@ object SettingUtils {
 
     @JvmStatic
     fun notifyMockNotification(context: Context) {
+        if (Build.VERSION.SDK_INT >= 33) {
+            if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                if (context is Activity) {
+                    ActivityCompat.requestPermissions(context, arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 0)
+                } else {
+                    Toast.makeText(context, context.getString(R.string.permission_notifications_denied), Toast.LENGTH_SHORT).show()
+                }
+                return
+            }
+        }
         val packageName = BuildConfig.APPLICATION_ID
         val date = Date()
         val title = context.getString(R.string.debug_test_title)
         val description = context.getString(R.string.debug_test_content) + date.toString()
         NotificationController.test(context, packageName, title, description)
+        runCatching {
+            val type = NotificationType("mock:$title", packageName, null).apply {
+                this.type = Event.Type.SendMessage
+            }
+            EventDb.insertEvent(
+                Event.ResultType.OK,
+                type
+            )
+        }
     }
 
     @JvmStatic

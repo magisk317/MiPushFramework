@@ -30,7 +30,7 @@ class KeepAliveReceiver : BroadcastReceiver() {
             localIntent.action = PushServiceConstants.ACTION_CHECK_ALIVE
             ContextCompat.startForegroundService(context, localIntent)
         } catch (localException: Throwable) {
-            MyLog.e(localException)
+            logger.e(localException.message, localException)
         }
     }
 }

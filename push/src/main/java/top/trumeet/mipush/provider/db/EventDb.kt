@@ -2,6 +2,7 @@ package top.trumeet.mipush.provider.db
 
 import android.content.Context
 import android.net.Uri
+import com.elvishew.xlog.XLog
 import androidx.sqlite.db.SimpleSQLiteQuery
 import com.nihility.XMPushUtils
 import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
@@ -40,6 +41,7 @@ object EventDb {
 
     @JvmStatic
     fun insertEvent(event: Event): Long = runBlocking {
+        XLog.tag("EventDb").d("insertEvent() called with: $event")
         if (event.type == Event.Type.SendMessage) {
             Utils.setLastReceiveTime(event.pkg, event.date)
         }
