@@ -55,10 +55,11 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.elvishew.xlog.XLog
 import android.widget.Toast
 import top.trumeet.mipushframework.component.MarkdownView
-import top.trumeet.mipushframework.main.MainPage
+import top.trumeet.mipushframework.main.MainActivity
 import top.trumeet.mipushframework.wizard.permission.AlertWindowPermissionInfo
 import top.trumeet.mipushframework.wizard.permission.PermissionInfo
 import top.trumeet.mipushframework.wizard.permission.RequestIgnoreBatteryOptimizationsPermissionInfo
+import top.trumeet.mipushframework.wizard.permission.NotificationPermissionInfo
 import top.trumeet.mipushframework.wizard.permission.UsageStatsPermissionInfo
 import top.trumeet.ui.theme.Theme
 import com.magisk317.data.DataStoreManager
@@ -66,6 +67,27 @@ import com.xiaomi.xmsf.MiPushFrameworkApp
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import com.xiaomi.xmsf.R
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Circle
+import androidx.compose.runtime.MutableIntState
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.outlined.CheckCircle
 
 private val logger = XLog.tag("WizardPermission").build()
 
@@ -75,7 +97,7 @@ class RequestPermissionPage : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setContent {
             Theme {
-                PermissionMainPage()
+                PermissionMainActivity()
             }
         }
     }
@@ -85,60 +107,10 @@ class RequestPermissionPage : ComponentActivity() {
     showBackground = true,
 )
 @Composable
-fun PermissionMainPage(
+fun PermissionMainActivity(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val permissionInfos = getPermissionInfos(context)
-
-    val currentItem = remember { mutableStateOf(0) }
-    if (allPermissionsGranted(currentItem, permissionInfos)) {
-        JumpToMainActivity()
-        WizardSPUtils.finishWizard(context as ComponentActivity)
-        return
-    }
-
-    NavigateToNextPageIfPermissionGranted(permissionInfos, currentItem)
-
-    // Logic for Next/Prev
-    val onPrev: () -> Unit = {
-        if (currentItem.value > 0) {
-            currentItem.value--
-        }
-    }
-
-    val coroutineScope = rememberCoroutineScope()
-    val onNext: () -> Unit = {
-        val operator = permissionInfos[currentItem.value].permissionOperator
-        if (operator.isPermissionGranted()) {
-            logger.d("manual-advance index=${currentItem.value}")
-            currentItem.value++
-        } else {
-            val index = currentItem.value
-            if (operator is top.trumeet.mipushframework.wizard.permission.UsageStatsPermissionOperator) {
-                val requestedBefore = runBlocking { DataStoreManager.usageStatsRequested.first() }
-                if (requestedBefore) {
-                    logger.w("force-advance usage-stats page index=$index by persisted flag")
-                    currentItem.value++
-                } else {
-                    coroutineScope.launch {
-                        DataStoreManager.setUsageStatsRequested(true)
-                    }
-                    Toast.makeText(
-                        context,
-                        "如已授权，返回后再次点击下一步继续",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    logger.d("request-permission index=$index first-time")
-                    operator.requestPermission()
-                }
-            } else {
-                logger.d("request-permission index=$index")
-                operator.requestPermission()
-            }
-        }
-    }
-
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -151,63 +123,158 @@ fun PermissionMainPage(
                     )
                 )
             )
+            .navigationBarsPadding()
     ) {
-        var dragOffset = remember { mutableFloatStateOf(0f) }
-            Scaffold(
-            containerColor = Color.Transparent,
-            bottomBar = {
-                BottomBar(currentItem, onPrev, onNext)
-            },
+        val permissionInfos = remember {
+            getPermissionInfos(context).filter { it !is DisplayOnlyPhonyPermissionInfo }
+        }
+
+        // Use a key to trigger recomposition when we return from settings
+        var checkTrigger by remember { mutableIntStateOf(0) }
+        val lifecycleOwner = LocalLifecycleOwner.current
+        DisposableEffect(lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    checkTrigger++
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+            }
+        }
+
+        val allGranted = permissionInfos.all {
+            // Reference checkTrigger to ensure it updates when activity resumes
+            checkTrigger.let { _ -> it.permissionOperator.isPermissionGranted() }
+        }
+
+        // Track which permissions we've already tried to auto-request this session
+        val autoRequestedSet = remember { mutableStateOf(setOf<Int>()) }
+
+        LaunchedEffect(checkTrigger) {
+            if (!allGranted) {
+                permissionInfos.forEachIndexed { index, it ->
+                    if (!it.permissionOperator.isPermissionGranted() && index !in autoRequestedSet.value) {
+                        logger.d("Auto-requesting permission: ${it.permissionTitle}")
+                        autoRequestedSet.value += index
+                        
+                        // Special handling for usage stats
+                        if (it is UsageStatsPermissionInfo) {
+                            val requestedBefore = DataStoreManager.usageStatsRequested.first()
+                            if (!requestedBefore) {
+                                DataStoreManager.setUsageStatsRequested(true)
+                                it.permissionOperator.requestPermission()
+                            }
+                        } else {
+                            it.permissionOperator.requestPermission()
+                        }
+                        return@LaunchedEffect // Only one at a time
+                    }
+                }
+            }
+        }
+
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectHorizontalDragGestures(
-                        onDragEnd = {
-                            if (dragOffset.floatValue < -100) {
-                                onNext()
-                            } else if (dragOffset.floatValue > 100) {
-                                onPrev()
-                            }
-                            dragOffset.floatValue = 0f
-                        }
-                    ) { change, dragAmount ->
-                        change.consume()
-                        dragOffset.floatValue += dragAmount
-                    }
-                }
-                .pointerInput(Unit) {
-                    detectTapGestures { offset ->
-                        if (offset.x < size.width / 2) {
-                            onPrev()
-                        } else {
-                            onNext()
-                        }
-                    }
-                }
-        ) { innerPadding ->
-            Column(
-                modifier = Modifier
-                    .padding(innerPadding)
-                    .fillMaxSize(),
-                verticalArrangement = Arrangement.SpaceBetween,
+                .padding(16.dp)
+        ) {
+            Text(
+                text = stringResource(id = R.string.app_name),
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp, top = 32.dp)
+            )
+            Text(
+                text = stringResource(id = R.string.wizard_subtitle),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
+
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                RequestPermissionContent(permissionInfos[currentItem.value])
+                items(permissionInfos) { info ->
+                    PermissionItem(info, checkTrigger)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = {
+                    WizardSPUtils.finishWizard(context as ComponentActivity)
+                    context.startActivity(Intent(context, MainActivity::class.java))
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = allGranted
+            ) {
+                Text(
+                    text = if (allGranted) 
+                        stringResource(id = R.string.wizard_title_finish_button) 
+                    else 
+                        stringResource(id = R.string.wizard_title_pending_button)
+                )
             }
         }
     }
 }
 
 @Composable
-private fun JumpToMainActivity() {
-    val context = LocalContext.current
-    context.startActivity(Intent(context, MainPage::class.java))
+fun PermissionItem(info: PermissionInfo, checkTrigger: Int) {
+    val isGranted = checkTrigger.let { _ -> info.permissionOperator.isPermissionGranted() }
+    
+    ListItem(
+        headlineContent = { 
+            Text(
+                text = info.permissionTitle,
+                fontWeight = FontWeight.SemiBold
+            ) 
+        },
+        supportingContent = { Text(text = info.permissionDescription) },
+        leadingContent = {
+            if (isGranted) {
+                Icon(
+                    Icons.Default.CheckCircle,
+                    contentDescription = stringResource(id = R.string.status_granted),
+                    tint = Color(0xFF4CAF50)
+                )
+            } else {
+                Icon(
+                    Icons.Outlined.Circle,
+                    contentDescription = stringResource(id = R.string.status_pending),
+                    tint = MaterialTheme.colorScheme.outline
+                )
+            }
+        },
+        modifier = Modifier
+            .clickable {
+                if (!isGranted) {
+                    info.permissionOperator.requestPermission()
+                }
+            }
+            .background(
+                color = if (isGranted) 
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                else 
+                    MaterialTheme.colorScheme.surfaceVariant,
+                shape = MaterialTheme.shapes.medium
+            ),
+        colors = ListItemDefaults.colors(
+            containerColor = Color.Transparent
+        )
+    )
 }
 
-private fun allPermissionsGranted(
-    currentItem: MutableState<Int>, permissionInfos: MutableList<PermissionInfo>
-) = currentItem.value >= permissionInfos.size
+@Composable
+private fun JumpToMainActivity() {
+    val context = LocalContext.current
+    context.startActivity(Intent(context, MainActivity::class.java))
+}
 
-private fun getPermissionInfos(context: Context): MutableList<PermissionInfo> {
+private fun getPermissionInfos(context: Context): List<PermissionInfo> {
     val pages = mutableListOf<PermissionInfo>().apply {
         add(WelcomePhonyPermissionInfo(context))
         add(UsageStatsPermissionInfo(context))
@@ -215,128 +282,10 @@ private fun getPermissionInfos(context: Context): MutableList<PermissionInfo> {
             add(RequestIgnoreBatteryOptimizationsPermissionInfo(context))
             add(AlertWindowPermissionInfo(context))
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            add(NotificationPermissionInfo(context))
+        }
         add(FinishedPhonyPermissionInfo(context))
     }
     return pages
-}
-
-@Composable
-private fun NavigateToNextPageIfPermissionGranted(
-    pages: List<PermissionInfo>, currentItem: MutableState<Int>
-) {
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            val page = pages[currentItem.value]
-            val granted = page.permissionOperator.isPermissionGranted()
-            logger.d("event=$event index=${currentItem.value} page=${page.javaClass.simpleName} granted=$granted")
-            if (event == Lifecycle.Event.ON_RESUME) {
-                // Non-display pages should recover after activity recreation and continue automatically.
-                if (page !is DisplayOnlyPhonyPermissionInfo && granted) {
-                    logger.d("auto-advance on resume index=${currentItem.value}")
-                    currentItem.value++
-                }
-            }
-        }
-
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
-}
-
-@Composable
-fun RequestPermissionContent(permissionInfo: PermissionInfo) {
-    Column {
-        Title(permissionInfo.permissionTitle)
-        Description(permissionInfo.permissionDescription)
-    }
-}
-
-@Composable
-private fun Description(description: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.28f))
-    ) {
-        MarkdownView(
-            description,
-            textSize = MaterialTheme.typography.bodyLarge.fontSize.value,
-            modifier = Modifier
-                .align(Alignment.Bottom)
-                .padding(16.dp)
-        )
-    }
-}
-
-@Composable
-private fun Title(title: String) {
-    Row(
-        Modifier
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.58f),
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.28f),
-                        Color.Transparent,
-                    )
-                )
-            )
-            .fillMaxWidth()
-            .fillMaxHeight(0.4f)
-    ) {
-        Text(
-            title,
-            style = MaterialTheme.typography.headlineLarge,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
-            modifier = Modifier
-                .align(Alignment.Bottom)
-                .padding(16.dp)
-        )
-    }
-}
-
-@Composable
-private fun BottomBar(
-    currentItem: MutableState<Int>,
-    onPrev: () -> Unit,
-    onNext: () -> Unit
-) {
-    BottomAppBar(
-        modifier = Modifier
-            .height(56.dp),
-        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.32f),
-        tonalElevation = 0.dp
-    ) {
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (currentItem.value > 0) {
-            IconButton(
-                onClick = { onPrev() }, enabled = currentItem.value > 0
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "上一项",
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
-            }
-            } else {
-                 androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(48.dp))
-            }
-
-            IconButton(onClick = { onNext() }) {
-                Icon(
-                    imageVector = Icons.Default.ArrowForward,
-                    contentDescription = "下一项",
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
-            }
-        }
-    }
 }
