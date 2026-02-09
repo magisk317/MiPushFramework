@@ -41,7 +41,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.tooling.preview.Preview
@@ -150,7 +153,7 @@ fun PermissionMainPage(
             )
     ) {
         var dragOffset = remember { mutableFloatStateOf(0f) }
-        Scaffold(
+            Scaffold(
             containerColor = Color.Transparent,
             bottomBar = {
                 BottomBar(currentItem, onPrev, onNext)
@@ -170,6 +173,15 @@ fun PermissionMainPage(
                     ) { change, dragAmount ->
                         change.consume()
                         dragOffset.floatValue += dragAmount
+                    }
+                }
+                .pointerInput(Unit) {
+                    detectTapGestures { offset ->
+                        if (offset.x < size.width / 2) {
+                            onPrev()
+                        } else {
+                            onNext()
+                        }
                     }
                 }
         ) { innerPadding ->
@@ -304,6 +316,7 @@ private fun BottomBar(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (currentItem.value > 0) {
             IconButton(
                 onClick = { onPrev() }, enabled = currentItem.value > 0
             ) {
@@ -312,6 +325,9 @@ private fun BottomBar(
                     contentDescription = "上一项",
                     tint = MaterialTheme.colorScheme.onSurface
                 )
+            }
+            } else {
+                 androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(48.dp))
             }
 
             IconButton(onClick = { onNext() }) {
