@@ -10,8 +10,20 @@ import androidx.compose.ui.res.imageResource
 import androidx.core.graphics.drawable.toBitmap
 import java.util.concurrent.ConcurrentHashMap
 
-class ApplicationIconCache(context: Context) {
-    val context: Context = context.applicationContext
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class ApplicationIconCache @Inject constructor(@param:ApplicationContext val context: Context) {
+    // No-arg fallback for legacy Singleton access.
+    constructor() : this(top.trumeet.common.utils.Utils.getApplication()!!)
+
+    init {
+        try {
+            com.magisk317.utils.Singleton.reset(this)
+        } catch (_: Throwable) {}
+    }
 
     val defaultAppIcon by lazy {
         BitmapPainter(

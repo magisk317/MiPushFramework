@@ -57,7 +57,7 @@
 
 
     <string name="pref_title_access_mode">Foreground app detection mode</string>
-    <string name="pref_summary_access_mode">It will be used when taps on Push notification.</string>
+    <string name="pref_summary_access_mode">Used when tapping a push notification. Changes apply immediately; if behavior is still abnormal, restart MiPush service.</string>
 
 
     <string-array name="pref_title_access_mode_list_titles">
@@ -90,7 +90,7 @@
     <string name="settings_debug_mode_summary">Display the debug button in the notification, print full log</string>
     <string name="settings_show_all_events">Display all events</string>
     <string name="settings_start_foreground_service">Keep MiPush alive</string>
-    <string name="settings_start_foreground_service_summary">show a foreground notification to keep alive, you can hide it by disable notification channel</string>
+    <string name="settings_start_foreground_service_summary">Controls whether to keep showing the keep-alive foreground notification; startup still performs foreground promotion for system compatibility.</string>
 
 
 
@@ -134,8 +134,15 @@ Please grant the <b>Run in the background or wake up</b> permissions.
 
     <string name="wizard_title_ignore_battery_optimizations_permission">Ignore Battery optimizations</string>
     <string name="wizard_title_ignore_battery_optimizations_text">You need to grant \"Ignore Battery optimizations\" permission or you may will not be able to run mipush service on background.</string>
+    <string name="wizard_title_notification_permission">Notification Permission</string>
+    <string name="wizard_title_notification_text">You need to grant \"Notification\" permission to receive push notifications on Android 13+.</string>
     <string name="wizard_title_doze_whitelist">Ignore battery optimization</string>
     <string name="wizard_descr_doze_whitelist">Add MiPushFramework to battery optimization whitelist.</string>
+    <string name="wizard_title_finish_button">Start the journey</string>
+    <string name="wizard_title_pending_button">Grant missing permissions</string>
+    <string name="wizard_subtitle">Please grant the following permissions to continue using push services</string>
+    <string name="status_granted">Granted</string>
+    <string name="status_pending">Pending</string>
 
     <string name="wizard_descr_finish">Everything is ready. Enjoy!</string>
 

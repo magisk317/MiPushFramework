@@ -1,6 +1,7 @@
 package com.xiaomi.push.service
 
 import com.xiaomi.channel.commonutils.reflect.JavaCalls
+import com.magisk317.service.XMPushServiceLifecycleBridge
 import com.xiaomi.network.HostManager
 import com.xiaomi.smack.ConnectionConfiguration
 
@@ -11,6 +12,7 @@ class ResetConnectJob(
     override fun getDesc(): String = "reset connection"
 
     override fun process() {
+        XMPushServiceLifecycleBridge.ensureCreated(xmPushService)
         val fallback = HostManager.getInstance()
             .getFallbacksByHost(ConnectionConfiguration.getXmppServerHost(), false)
         JavaCalls.setField(fallback, "timestamp", 0)

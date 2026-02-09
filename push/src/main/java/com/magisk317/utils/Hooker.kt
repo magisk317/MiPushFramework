@@ -4,17 +4,16 @@ import android.content.Context
 import com.elvishew.xlog.Logger
 import com.elvishew.xlog.XLog
 import com.magisk317.Global
+import com.magisk317.network.NetworkPolicyCompat
 import com.magisk317.hook.Configurations
 import com.magisk317.hook.Dependencies
 import com.magisk317.hook.HookedMethodHandler
 import com.magisk317.hook.OuterDependencies
 import com.magisk317.service.XMPushServiceAbility
 import com.magisk317.service.XMPushServiceListener
-import com.xiaomi.channel.commonutils.android.Region
 import com.xiaomi.channel.commonutils.logger.LoggerInterface
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.network.HostManager
-import com.xiaomi.push.service.AppRegionStorage
 import com.xiaomi.push.service.XMPushService
 import com.xiaomi.smack.ConnectionConfiguration
 import com.xiaomi.smack.SmackConfiguration
@@ -66,9 +65,7 @@ object Hooker {
         try {
             hookField(SmackConfiguration::class.java, "pingInterval", 3 * 60 * 1000)
             hookMiPushServerHost()
-            val regionStorage = AppRegionStorage.getInstance(context.applicationContext)
-            regionStorage.setRegion(Region.China.name)
-            regionStorage.setCountryCode("CN")
+            NetworkPolicyCompat.applyAll(context.applicationContext)
         } catch (e: Throwable) {
             logger.e(e.message, e)
         }

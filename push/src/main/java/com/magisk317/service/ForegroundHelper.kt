@@ -4,6 +4,8 @@ import android.app.Notification
 import android.app.NotificationManager
 import android.app.Service
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationChannelGroupCompat
 import androidx.core.app.NotificationCompat
@@ -20,10 +22,10 @@ class ForegroundHelper(private val service: Service) {
 
     fun startForeground() {
         createNotificationGroupForPushStatus()
-        if (Global.ConfigCenter().isStartForegroundService) {
-            showForegroundNotificationToKeepAlive()
-        } else {
-            stopForegroundNotification()
+        // Always satisfy startForegroundService contract first, then apply keep-alive policy.
+        showForegroundNotificationToKeepAlive()
+        if (!Global.ConfigCenter().isStartForegroundService) {
+            Handler(Looper.getMainLooper()).post { stopForegroundNotification() }
         }
     }
 

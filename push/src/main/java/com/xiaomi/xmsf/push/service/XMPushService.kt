@@ -5,10 +5,11 @@ import android.app.IntentService
 import android.content.ComponentName
 import android.content.Intent
 import android.widget.Toast
-import androidx.core.content.ContextCompat
 import com.elvishew.xlog.Logger
 import com.elvishew.xlog.XLog
 import com.magisk317.push.hook.ExplicitHookBridge
+import com.magisk317.service.PushServiceStarter
+import com.magisk317.service.XMPushServiceLifecycleBridge
 import com.magisk317.Global
 import com.xiaomi.xmsf.R
 import com.xiaomi.xmsf.push.control.PushControllerUtils
@@ -16,6 +17,9 @@ import com.xiaomi.xmsf.push.utils.Configurations
 import com.xiaomi.xmsf.utils.ConvertUtils
 import top.trumeet.common.Constants
 import top.trumeet.common.utils.Utils
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
+import com.xiaomi.xmsf.push.utils.IconConfigurations
 
 
 import android.app.Service
@@ -27,7 +31,11 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
+@AndroidEntryPoint
 class XMPushService : Service() {
+    @Inject lateinit var configCenter: com.xiaomi.xmsf.utils.ConfigCenter
+    @Inject lateinit var iconConfigurations: IconConfigurations
+
     private val logger: Logger = XLog.tag(TAG).build()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val intentChannel = Channel<Intent>(Channel.UNLIMITED)
@@ -58,14 +66,17 @@ class XMPushService : Service() {
     }
 
     private fun handleIntent(intent: Intent) {
+        if (intent.component?.className == "com.xiaomi.push.service.XMPushService") {
+            XMPushServiceLifecycleBridge.recordPendingStart(intent)
+        }
         if (Constants.CONFIGURATIONS_UPDATE_ACTION == intent.action) {
             if (!PushControllerUtils.isAppMainProc(this)) {
                 Configurations.getInstance().init(
                     this,
-                    Global.ConfigCenter().getConfigurationDirectory(this)
-                ) && Global.IconConfigurations().init(
+                    configCenter.getConfigurationDirectory(this)
+                ) && iconConfigurations.init(
                     this,
-                    Global.ConfigCenter().getConfigurationDirectory(this)
+                    configCenter.getConfigurationDirectory(this)
                 )
             }
             return
@@ -86,7 +97,7 @@ class XMPushService : Service() {
             action = intent.action
             putExtras(intent)
         }
-        ContextCompat.startForegroundService(this, intent2)
+        PushServiceStarter.start(this, intent2)
         logger.d("forward intent ${ConvertUtils.toJson(intent)}")
     }
 

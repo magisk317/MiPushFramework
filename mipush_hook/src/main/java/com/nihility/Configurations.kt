@@ -1,5 +1,3 @@
 package com.nihility
 
-interface Configurations {
-    fun getXMPPServer(): String?
-}
+typealias Configurations = com.magisk317.hook.Configurations

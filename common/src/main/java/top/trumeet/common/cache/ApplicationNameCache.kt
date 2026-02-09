@@ -8,7 +8,17 @@ import androidx.collection.LruCache
 /**
  * @author zts
  */
-class ApplicationNameCache private constructor() {
+import javax.inject.Inject
+import javax.inject.Singleton
+import com.magisk317.utils.Singleton as SingletonUtils
+
+@Singleton
+class ApplicationNameCache @Inject constructor() {
+    init {
+        try {
+            SingletonUtils.reset(this)
+        } catch (_: Throwable) {}
+    }
 
     private val cacheInstance = LruCache<String, CharSequence>(100)
 

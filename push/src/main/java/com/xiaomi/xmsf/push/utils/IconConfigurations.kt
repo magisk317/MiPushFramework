@@ -14,9 +14,25 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.Serializable
 import org.json.JSONException
 import com.magisk317.Global
+import com.magisk317.utils.Singleton
 import top.trumeet.common.utils.Utils
+import com.xiaomi.xmsf.utils.ConfigCenter
 
-class IconConfigurations private constructor() {
+import javax.inject.Inject
+import javax.inject.Singleton as JavaxSingleton
+
+@JavaxSingleton
+class IconConfigurations @Inject constructor(
+    private val configCenter: ConfigCenter
+) {
+    // No-arg fallback for legacy Singleton access.
+    constructor() : this(com.magisk317.utils.Singleton.instance<ConfigCenter>())
+
+    init {
+        try {
+            com.magisk317.utils.Singleton.reset(this)
+        } catch (_: Throwable) {}
+    }
     private val iconConfigs = hashMapOf<String, IconConfig>()
 
     @Serializable
@@ -56,7 +72,7 @@ class IconConfigurations private constructor() {
             val loadedFiles = mutableListOf<DocumentFile>()
             parseDirectory(context, treeUri, exceptions, loadedFiles)
 
-            if (loadedFiles.isNotEmpty() && Global.ConfigCenter().isShowConfigurationListOnLoaded(context)) {
+            if (loadedFiles.isNotEmpty() && configCenter.isShowConfigurationListOnLoaded(context)) {
                 val loadedList = StringBuilder("loaded icon configuration list:")
                 for (file in loadedFiles) {
                     loadedList.append('\n')

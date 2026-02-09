@@ -8,6 +8,7 @@ import android.text.TextUtils
 import com.magisk317.SdkNotificationCompat
 import com.magisk317.push.hook.ExplicitHookBridge
 import com.magisk317.push.pipeline.MiPushRuntimeBridge
+import com.magisk317.service.XMPushServiceLifecycleBridge
 import com.magisk317.XMPushUtils
 import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
@@ -139,6 +140,7 @@ class ClientEventDispatcher {
     }
 
     fun notifyPacketArrival(pushService: XMPushService, chid: String, blob: Blob) {
+        XMPushServiceLifecycleBridge.ensureCreated(pushService)
         ExplicitHookBridge.notifyPacketArrival(pushService, chid, blob)
         val clientLoginInfo = getClientLoginInfo(blob)
         if (clientLoginInfo == null) {
@@ -207,6 +209,7 @@ class ClientEventDispatcher {
     }
 
     fun notifyPacketArrival(pushService: XMPushService, chid: String, packet: Packet) {
+        XMPushServiceLifecycleBridge.ensureCreated(pushService)
         ExplicitHookBridge.notifyPacketArrival(pushService, chid, packet)
         val clientLoginInfo = getClientLoginInfo(packet)
         if (clientLoginInfo == null) {

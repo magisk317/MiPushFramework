@@ -12,13 +12,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,7 +26,6 @@ import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.xiaomi.xmsf.R
-import com.xiaomi.xmsf.SettingUtils
 import top.trumeet.common.utils.Utils
 import com.catchingnow.icebox.sdk_client.IceBox
 import top.trumeet.ui.theme.Theme
@@ -40,6 +35,9 @@ import top.trumeet.mipushframework.component.SettingsSwitchItem
 import top.trumeet.mipushframework.component.SettingsListItem
 import androidx.activity.compose.rememberLauncherForActivityResult
 
+import dagger.hilt.android.AndroidEntryPoint
+
+@AndroidEntryPoint
 class AdvancedSettingsPage : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,17 +53,15 @@ class AdvancedSettingsPage : ComponentActivity() {
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun SettingsApp() {
-    Theme {
-        androidx.compose.material3.Scaffold(
-            topBar = {
-                androidx.compose.material3.TopAppBar(
-                    title = { androidx.compose.material3.Text(stringResource(R.string.app_name) + " " + stringResource(R.string.title_activity_advance_setting)) }
-                )
-            }
-        ) { innerPadding ->
-            val viewModel: AdvancedSettingsViewModel = viewModel()
-            SettingsScreen(viewModel, Modifier.padding(innerPadding))
+    androidx.compose.material3.Scaffold(
+        topBar = {
+            androidx.compose.material3.TopAppBar(
+                title = { androidx.compose.material3.Text(stringResource(R.string.app_name) + " " + stringResource(R.string.title_activity_advance_setting)) }
+            )
         }
+    ) { innerPadding ->
+        val viewModel: AdvancedSettingsViewModel = viewModel()
+        SettingsScreen(viewModel, Modifier.padding(innerPadding))
     }
 }
 
@@ -77,7 +73,7 @@ private fun SettingsScreen(viewModel: AdvancedSettingsViewModel, modifier: Modif
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
     ) {
-        CleanUpBlock()
+        CleanUpBlock(viewModel)
         ExperimentalBlock(viewModel)
         ConfigurationsBlock(viewModel)
     }
@@ -122,7 +118,7 @@ fun ConfigurationsBlock(viewModel: AdvancedSettingsViewModel) {
             checked = isStartForeground,
         ) {
             viewModel.setStartForeground(it)
-            if (it) SettingUtils.startMiPushServiceAsForegroundService(context)
+            viewModel.startMiPushServiceAsForegroundService(context)
         }
 
         SettingsListItem(
@@ -142,8 +138,8 @@ private fun ExperimentalBlock(viewModel: AdvancedSettingsViewModel) {
     
     var iceBoxGranted by remember {
         mutableStateOf(
-            SettingUtils.isIceBoxInstalled()
-                    && SettingUtils.iceBoxPermissionGranted(context)
+            viewModel.isIceBoxInstalled()
+                    && viewModel.iceBoxPermissionGranted(context)
         )
     }
     val permissionsLauncher = rememberLauncherForActivityResult(
@@ -158,14 +154,14 @@ private fun ExperimentalBlock(viewModel: AdvancedSettingsViewModel) {
             title = stringResource(R.string.settings_mock_notification),
             summary = stringResource(R.string.settings_mock_notification_summary)
         ) {
-            SettingUtils.notifyMockNotification(context)
+            viewModel.notifyMockNotification(context)
         }
 
         SettingsSwitchItem(
             title = stringResource(R.string.settings_icebox_permission),
             summary = stringResource(R.string.settings_icebox_permission_summary),
             checked = iceboxSupported || iceBoxGranted,
-            enabled = SettingUtils.isIceBoxInstalled()
+            enabled = viewModel.isIceBoxInstalled()
         ) {
             if (!iceBoxGranted) {
                 permissionsLauncher.launch(arrayOf(IceBox.SDK_PERMISSION))
@@ -177,21 +173,21 @@ private fun ExperimentalBlock(viewModel: AdvancedSettingsViewModel) {
 }
 
 @Composable
-private fun CleanUpBlock() {
+private fun CleanUpBlock(viewModel: AdvancedSettingsViewModel) {
     val context = LocalContext.current
     SettingsGroup(title = stringResource(R.string.settings_clear)) {
         SettingsItem(
             title = stringResource(R.string.settings_clear_history),
             summary = stringResource(R.string.settings_clear_history_summary)
         ) {
-            SettingUtils.clearHistory(context)
+            viewModel.clearHistory(context)
         }
 
         SettingsItem(
             title = stringResource(R.string.settings_clear_log),
             summary = stringResource(R.string.settings_clear_log_summary)
         ) {
-            SettingUtils.clearLog(context)
+            viewModel.clearLog(context)
         }
     }
 }

@@ -1,15 +1,6 @@
+@file:Suppress("DEPRECATION")
 package com.nihility
 
-class Dependencies {
-    companion object {
-        private var outerDependencies: OuterDependencies? = null
+// Compatibility shim: legacy namespace forwarding to com.magisk317.*
 
-        @JvmStatic
-        fun instance(): OuterDependencies? = outerDependencies
-
-        @JvmStatic
-        fun set(outerDependencies: OuterDependencies?) {
-            Companion.outerDependencies = outerDependencies
-        }
-    }
-}
+typealias Dependencies = com.magisk317.hook.Dependencies

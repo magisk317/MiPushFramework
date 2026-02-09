@@ -36,6 +36,5 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.startup.runtime)
     compileOnly(files(mipushLibPath))
-    implementation(libs.aspectj.rt)
     implementation(libs.xlog)
 }

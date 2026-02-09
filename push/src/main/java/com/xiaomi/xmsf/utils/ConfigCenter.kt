@@ -16,10 +16,19 @@ import top.trumeet.common.Constants
 import top.trumeet.common.utils.Utils
 import com.magisk317.data.DataStoreManager
 
+import javax.inject.Inject
+import javax.inject.Singleton
+
 /**
  * Push 配置
  */
-class ConfigCenter {
+@Singleton
+class ConfigCenter @Inject constructor() {
+    init {
+        try {
+            com.magisk317.utils.Singleton.reset(this)
+        } catch (_: Throwable) {}
+    }
     fun isNotificationOnRegister(ctx: Context): Boolean {
         return runBlocking { DataStoreManager.notificationOnRegister.first() }
     }
@@ -71,6 +80,11 @@ class ConfigCenter {
             return runBlocking { DataStoreManager.isStartForeground.first() }
         }
 
+    val shouldStartPushAsForegroundService: Boolean
+        get() {
+            return runBlocking { DataStoreManager.startPushAsForegroundService.first() }
+        }
+
     fun getHazeBlurRadius(ctx: Context): Int {
         return runBlocking { DataStoreManager.hazeBlurRadius.first() }
     }
@@ -90,8 +104,8 @@ class ConfigCenter {
     }
 
     fun loadConfigurations(context: Context) {
-        Configurations.getInstance().init(context, Global.ConfigCenter().getConfigurationDirectory(context))
-        Global.IconConfigurations().init(context, Global.ConfigCenter().getConfigurationDirectory(context))
+        Configurations.getInstance().init(context, this.getConfigurationDirectory(context))
+        Global.IconConfigurations().init(context, this.getConfigurationDirectory(context))
         val intent = Intent()
         intent.component = ComponentName(context, XMPushService::class.java)
         intent.action = Constants.CONFIGURATIONS_UPDATE_ACTION

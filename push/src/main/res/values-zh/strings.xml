@@ -67,7 +67,7 @@
     <string name="settings_auto_register">自动注册应用</string>
     <string name="settings_options">配置</string>
     <string name="pref_title_access_mode">前台应用检测模式</string>
-    <string name="pref_summary_access_mode">在点击通知时，检测应用是否在前台的技术方式</string>
+    <string name="pref_summary_access_mode">在点击通知时，检测应用是否在前台的技术方式。切换后立即生效，如仍异常可重启推送服务。</string>
     <string name="settings_mock_notification">模拟通知消息</string>
 
     <string name="settings_mock_notification_summary">点击模拟通知到达消息</string>
@@ -82,7 +82,7 @@
     <string name="settings_debug_mode_summary">通知中展示调试按钮，打印完整日志</string>
     <string name="settings_show_all_events">事件列表中展示所有事件</string>
     <string name="settings_start_foreground_service">推送服务保活</string>
-    <string name="settings_start_foreground_service_summary">显示一个前台通知来保活推送服务，可以通过禁用相应通知渠道来隐藏该通知</string>
+    <string name="settings_start_foreground_service_summary">控制是否持续显示保活前台通知；服务启动阶段仍会先完成前台化以保证系统兼容性</string>
 
     <string name="settings_icebox_permission">开启冰箱(IceBox)自动解冻支持</string>
     <string name="settings_icebox_permission_summary">点击通知栏时自动解冻冻结的App。
@@ -136,6 +136,11 @@
 
     <string name="wizard_descr_finish">大功告成！本软件已准备就绪。</string>
     <string name="status_ok">成功</string>
+    <string name="wizard_title_finish_button">开启推送之旅</string>
+    <string name="wizard_title_pending_button">请先完成授权</string>
+    <string name="wizard_subtitle">请授予以下权限以继续使用推送服务</string>
+    <string name="status_granted">已授权</string>
+    <string name="status_pending">待授权</string>
 
     <!-- Date parse -->
     <string name="status_deny_disable">禁用推送，已拒绝</string>
@@ -271,6 +276,8 @@
     <string name="force_register_failed">强制注册失败，请查看日志</string>
     <string name="wizard_title_ignore_battery_optimizations_permission">忽略电池优化</string>
     <string name="wizard_title_ignore_battery_optimizations_text">您需要授予“忽略电池优化”权限，否则您可能将无法在后台运行mipush服务。</string>
+    <string name="wizard_title_notification_permission">通知权限</string>
+    <string name="wizard_title_notification_text">您需要授予“通知”权限，以便在 Android 13+ 上接收推送通知。</string>
     <string name="permission_notifications_denied">请授予通知权限以测试此功能。</string>
 
 </resources>

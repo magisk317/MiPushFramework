@@ -3,9 +3,9 @@ package com.xiaomi.xmsf.push.service.receivers
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import androidx.core.content.ContextCompat
 import com.elvishew.xlog.XLog
 import com.xiaomi.push.service.PushServiceConstants
+import com.magisk317.service.PushServiceStarter
 
 class PkgUninstallReceiver : BroadcastReceiver() {
     private val logger = XLog.tag("PkgUninstallReceiver").build()
@@ -22,7 +22,7 @@ class PkgUninstallReceiver : BroadcastReceiver() {
                         PushServiceConstants.EXTRA_UNINSTALL_PKG_NAME,
                         data.encodedSchemeSpecificPart
                     )
-                    ContextCompat.startForegroundService(context, serviceIntent)
+                    PushServiceStarter.start(context, serviceIntent)
                 } catch (e: Exception) {
                     logger.e(e.message, e)
                 }

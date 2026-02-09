@@ -1,10 +1,6 @@
+@file:Suppress("DEPRECATION")
 package com.nihility
 
-import com.nihility.service.XMPushServiceListener
-import com.xiaomi.push.service.XMPushService
+// Compatibility shim: legacy namespace forwarding to com.magisk317.*
 
-interface OuterDependencies {
-    fun configuration(): Configurations?
-    fun serviceListener(pushService: XMPushService): XMPushServiceListener?
-    fun hookedMethodHandler(): HookedMethodHandler?
-}
+typealias OuterDependencies = com.magisk317.hook.OuterDependencies
