@@ -5,6 +5,8 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.map
 import top.trumeet.common.utils.Utils
 
@@ -25,11 +27,20 @@ object DataStoreManager {
     private val DEBUG_MODE = booleanPreferencesKey("debug_mode")
     private val SHOW_ALL_EVENTS = booleanPreferencesKey("show_all_events")
     private val START_FOREGROUND = booleanPreferencesKey("start_foreground")
+    private val START_PUSH_AS_FOREGROUND_SERVICE = booleanPreferencesKey("start_push_as_foreground_service")
     private val HAZE_BLUR_RADIUS = intPreferencesKey("haze_blur_radius")
     private val HAZE_TINT_ALPHA = floatPreferencesKey("haze_tint_alpha")
     private val SHOW_WIZARD = booleanPreferencesKey("show_wizard")
     private val USAGE_STATS_REQUESTED = booleanPreferencesKey("usage_stats_requested")
     private val EVENT_GROUP_BY_APP = booleanPreferencesKey("event_group_by_app")
+    private val APP_FILTER_MODE = intPreferencesKey("app_filter_mode")
+
+    // Memory-based preview flows
+    private val _previewHazeBlurRadius = MutableSharedFlow<Int?>(replay = 1)
+    val previewHazeBlurRadius = _previewHazeBlurRadius.asSharedFlow()
+
+    private val _previewHazeTintAlpha = MutableSharedFlow<Float?>(replay = 1)
+    val previewHazeTintAlpha = _previewHazeTintAlpha.asSharedFlow()
 
     // Getters (Flows)
     val lastStartupTime: Flow<Long> = context.dataStore.data.map { it[LAST_STARTUP_TIME] ?: 0L }
@@ -41,12 +52,15 @@ object DataStoreManager {
     val configDirectory: Flow<String?> = context.dataStore.data.map { it[CONFIG_DIRECTORY] }
     val isDebugMode: Flow<Boolean> = context.dataStore.data.map { it[DEBUG_MODE] ?: false }
     val isShowAllEvents: Flow<Boolean> = context.dataStore.data.map { it[SHOW_ALL_EVENTS] ?: false }
-    val isStartForeground: Flow<Boolean> = context.dataStore.data.map { it[START_FOREGROUND] ?: false }
+    val isStartForeground: Flow<Boolean> = context.dataStore.data.map { it[START_FOREGROUND] ?: true }
+    val startPushAsForegroundService: Flow<Boolean> =
+        context.dataStore.data.map { it[START_PUSH_AS_FOREGROUND_SERVICE] ?: true }
     val hazeBlurRadius: Flow<Int> = context.dataStore.data.map { it[HAZE_BLUR_RADIUS] ?: 25 }
     val hazeTintAlpha: Flow<Float> = context.dataStore.data.map { it[HAZE_TINT_ALPHA] ?: 0.2f }
     val showWizard: Flow<Boolean> = context.dataStore.data.map { it[SHOW_WIZARD] ?: true }
     val usageStatsRequested: Flow<Boolean> = context.dataStore.data.map { it[USAGE_STATS_REQUESTED] ?: false }
     val eventGroupByApp: Flow<Boolean> = context.dataStore.data.map { it[EVENT_GROUP_BY_APP] ?: false }
+    val appFilterMode: Flow<Int> = context.dataStore.data.map { it[APP_FILTER_MODE] ?: 0 }
 
     val debugMode: Flow<Boolean> = isDebugMode
     val showAllEvents: Flow<Boolean> = isShowAllEvents
@@ -84,6 +98,10 @@ object DataStoreManager {
         context.dataStore.edit { it[START_FOREGROUND] = start }
     }
 
+    suspend fun setStartPushAsForegroundService(start: Boolean) {
+        context.dataStore.edit { it[START_PUSH_AS_FOREGROUND_SERVICE] = start }
+    }
+
     suspend fun setXmppServer(host: String) {
         context.dataStore.edit { it[XMPP_SERVER] = host }
     }
@@ -110,5 +128,17 @@ object DataStoreManager {
 
     suspend fun setEventGroupByApp(groupByApp: Boolean) {
         context.dataStore.edit { it[EVENT_GROUP_BY_APP] = groupByApp }
+    }
+
+    suspend fun setAppFilterMode(mode: Int) {
+        context.dataStore.edit { it[APP_FILTER_MODE] = mode }
+    }
+
+    suspend fun previewHazeBlurRadius(radius: Int?) {
+        _previewHazeBlurRadius.emit(radius)
+    }
+
+    suspend fun previewHazeTintAlpha(alpha: Float?) {
+        _previewHazeTintAlpha.emit(alpha)
     }
 }
