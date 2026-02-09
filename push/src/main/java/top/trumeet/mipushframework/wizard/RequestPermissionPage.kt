@@ -25,17 +25,23 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.tooling.preview.Preview
@@ -91,7 +97,46 @@ fun PermissionMainPage(
 
     NavigateToNextPageIfPermissionGranted(permissionInfos, currentItem)
 
-    Column(
+    // Logic for Next/Prev
+    val onPrev: () -> Unit = {
+        if (currentItem.value > 0) {
+            currentItem.value--
+        }
+    }
+
+    val coroutineScope = rememberCoroutineScope()
+    val onNext: () -> Unit = {
+        val operator = permissionInfos[currentItem.value].permissionOperator
+        if (operator.isPermissionGranted()) {
+            logger.d("manual-advance index=${currentItem.value}")
+            currentItem.value++
+        } else {
+            val index = currentItem.value
+            if (operator is top.trumeet.mipushframework.wizard.permission.UsageStatsPermissionOperator) {
+                val requestedBefore = runBlocking { DataStoreManager.usageStatsRequested.first() }
+                if (requestedBefore) {
+                    logger.w("force-advance usage-stats page index=$index by persisted flag")
+                    currentItem.value++
+                } else {
+                    coroutineScope.launch {
+                        DataStoreManager.setUsageStatsRequested(true)
+                    }
+                    Toast.makeText(
+                        context,
+                        "如已授权，返回后再次点击下一步继续",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    logger.d("request-permission index=$index first-time")
+                    operator.requestPermission()
+                }
+            } else {
+                logger.d("request-permission index=$index")
+                operator.requestPermission()
+            }
+        }
+    }
+
+    Box(
         modifier = modifier
             .fillMaxSize()
             .background(
@@ -102,11 +147,41 @@ fun PermissionMainPage(
                         MaterialTheme.colorScheme.surface.copy(alpha = 0.86f),
                     )
                 )
-            ),
-        verticalArrangement = Arrangement.SpaceBetween,
+            )
     ) {
-        RequestPermissionContent(permissionInfos[currentItem.value])
-        BottomBar(currentItem, permissionInfos)
+        var dragOffset = remember { mutableFloatStateOf(0f) }
+        Scaffold(
+            containerColor = Color.Transparent,
+            bottomBar = {
+                BottomBar(currentItem, onPrev, onNext)
+            },
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            if (dragOffset.floatValue < -100) {
+                                onNext()
+                            } else if (dragOffset.floatValue > 100) {
+                                onPrev()
+                            }
+                            dragOffset.floatValue = 0f
+                        }
+                    ) { change, dragAmount ->
+                        change.consume()
+                        dragOffset.floatValue += dragAmount
+                    }
+                }
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .fillMaxSize(),
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                RequestPermissionContent(permissionInfos[currentItem.value])
+            }
+        }
     }
 }
 
@@ -214,13 +289,12 @@ private fun Title(title: String) {
 @Composable
 private fun BottomBar(
     currentItem: MutableState<Int>,
-    permissions: List<PermissionInfo>
+    onPrev: () -> Unit,
+    onNext: () -> Unit
 ) {
-    val context = LocalContext.current
     BottomAppBar(
         modifier = Modifier
-            .height(56.dp)
-            .navigationBarsPadding(),
+            .height(56.dp),
         containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.32f),
         tonalElevation = 0.dp
     ) {
@@ -231,45 +305,20 @@ private fun BottomBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(
-                onClick = { currentItem.value-- }, enabled = currentItem.value > 0
+                onClick = { onPrev() }, enabled = currentItem.value > 0
             ) {
                 Icon(
-                    imageVector = Icons.Default.ArrowBack, contentDescription = "上一项"
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "上一项",
+                    tint = MaterialTheme.colorScheme.onSurface
                 )
             }
 
-            val operator = permissions[currentItem.value].permissionOperator
-            IconButton(onClick = {
-                if (operator.isPermissionGranted()) {
-                    logger.d("manual-advance index=${currentItem.value}")
-                    currentItem.value++
-                } else {
-                    val index = currentItem.value
-                    if (operator is top.trumeet.mipushframework.wizard.permission.UsageStatsPermissionOperator) {
-                        val requestedBefore = runBlocking { DataStoreManager.usageStatsRequested.first() }
-                        if (requestedBefore) {
-                            logger.w("force-advance usage-stats page index=$index by persisted flag")
-                            currentItem.value++
-                        } else {
-                            MiPushFrameworkApp.applicationScope.launch {
-                                DataStoreManager.setUsageStatsRequested(true)
-                            }
-                            Toast.makeText(
-                                context,
-                                "如已授权，返回后再次点击下一步继续",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                            logger.d("request-permission index=$index first-time")
-                            operator.requestPermission()
-                        }
-                    } else {
-                        logger.d("request-permission index=$index")
-                        operator.requestPermission()
-                    }
-                }
-            }) {
+            IconButton(onClick = { onNext() }) {
                 Icon(
-                    imageVector = Icons.Default.ArrowForward, contentDescription = "下一项"
+                    imageVector = Icons.Default.ArrowForward,
+                    contentDescription = "下一项",
+                    tint = MaterialTheme.colorScheme.onSurface
                 )
             }
         }
