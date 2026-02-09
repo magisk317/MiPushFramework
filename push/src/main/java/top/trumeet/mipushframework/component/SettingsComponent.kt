@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
@@ -38,22 +40,19 @@ import kotlinx.coroutines.launch
 fun SettingsItem(
     title: String,
     summary: String? = null,
-    content: (@Composable RowScope.() -> Unit)? = null,
+    content: (@Composable () -> Unit)? = null,
     enabled: Boolean = true,
     onClick: () -> Unit
 ) {
-    Row(
-        Modifier
+    ListItem(
+        headlineContent = { Text(title) },
+        supportingContent = summary?.let { { Text(it) } },
+        trailingContent = content,
+        modifier = Modifier
             .clickable(onClick = onClick, enabled = enabled)
-            .fillMaxWidth()
-            .padding(5.dp)
-            .heightIn(min = 40.dp)
             .alpha(if (enabled) 1f else 0.5f),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        ItemInfo(title, summary, modifier = Modifier.weight(9f))
-        content?.let { it() }
-    }
+        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
+    )
 }
 
 @Composable
@@ -154,9 +153,15 @@ fun SettingsGroup(title: String, content: @Composable () -> Unit) {
     Column(
         Modifier
             .fillMaxWidth()
-            .padding(10.dp)
+             // Reduce horizontal padding as ListItem has its own padding, but keep top/bottom for separation
+            .padding(vertical = 8.dp)
     ) {
-        Text(title, style = MaterialTheme.typography.labelLarge)
+        Text(
+            title,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
         content()
     }
 }
@@ -177,23 +182,15 @@ fun SettingsSwitchItem(
         content = {
             Switch(
                 checked = checked,
-                onCheckedChange = null,
-                modifier = Modifier.scale(0.7f),
+                onCheckedChange = onCheckedChange, // Use direct callback for accessibility
+                modifier = Modifier.scale(0.8f),
                 enabled = enabled
             )
         }
     )
 }
 
-@Composable
-fun ItemInfo(title: String, summary: String?, modifier: Modifier = Modifier) {
-    Column(modifier.padding(start = 10.dp, end = 10.dp)) {
-        Text(title, style = MaterialTheme.typography.bodyLarge)
-        summary?.let {
-            Text(it, style = MaterialTheme.typography.bodyMedium)
-        }
-    }
-}
+// ItemInfo is no longer needed with ListItem
 
 @Preview(showBackground = true)
 @Composable

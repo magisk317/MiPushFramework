@@ -77,8 +77,6 @@ fun UpdateSystemBars(darkTheme: Boolean) {
     }
     val window = (view.context as Activity).window
     SideEffect {
-        window.statusBarColor = android.graphics.Color.TRANSPARENT
-        window.navigationBarColor = android.graphics.Color.TRANSPARENT
         val controller = WindowInsetsControllerCompat(window, view)
         controller.isAppearanceLightStatusBars = !darkTheme
         controller.isAppearanceLightNavigationBars = !darkTheme

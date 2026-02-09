@@ -17,24 +17,47 @@ import com.xiaomi.xmsf.utils.ConvertUtils
 import top.trumeet.common.Constants
 import top.trumeet.common.utils.Utils
 
-class XMPushService : IntentService(TAG) {
+
+import android.app.Service
+import android.os.IBinder
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+
+class XMPushService : Service() {
     private val logger: Logger = XLog.tag(TAG).build()
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val intentChannel = Channel<Intent>(Channel.UNLIMITED)
 
     override fun onCreate() {
         super.onCreate()
         ExplicitHookBridge.onBridgeServiceCreate()
+        serviceScope.launch {
+            for (intent in intentChannel) {
+                handleIntent(intent)
+            }
+        }
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        intent?.let { intentChannel.trySend(it) }
+        return START_STICKY
+    }
+
+    override fun onBind(intent: Intent?): IBinder? {
+        return null
     }
 
     override fun onDestroy() {
         ExplicitHookBridge.onBridgeServiceDestroy()
+        serviceScope.cancel()
         super.onDestroy()
     }
 
-    override fun onHandleIntent(intent: Intent?) {
-        if (intent == null) {
-            return
-        }
-
+    private fun handleIntent(intent: Intent) {
         if (Constants.CONFIGURATIONS_UPDATE_ACTION == intent.action) {
             if (!PushControllerUtils.isAppMainProc(this)) {
                 Configurations.getInstance().init(

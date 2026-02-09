@@ -49,9 +49,23 @@ object Utils {
     @JvmStatic
     fun isAppInstalled(packageName: String): Boolean {
         return try {
-            getPackageManager()?.getPackageInfo(packageName, 0) != null
+            getPackageInfoCompat(context!!, packageName, 0) != null
         } catch (e: PackageManager.NameNotFoundException) {
             false
+        }
+    }
+
+    @JvmStatic
+    fun getPackageInfoCompat(context: Context, packageName: String, flags: Int): android.content.pm.PackageInfo? {
+        return try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.PackageInfoFlags.of(flags.toLong()))
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getPackageInfo(packageName, flags)
+            }
+        } catch (e: PackageManager.NameNotFoundException) {
+            null
         }
     }
 
@@ -104,14 +118,24 @@ object Utils {
     @JvmStatic
     fun isUserApplication(pkg: String): Boolean {
         return try {
-            isUserApplication(
-                getApplication()!!.packageManager.getApplicationInfo(
-                    pkg,
-                    PackageManager.GET_UNINSTALLED_PACKAGES
-                )
-            )
+            val appInfo = getApplicationInfoCompat(context!!, pkg, PackageManager.GET_UNINSTALLED_PACKAGES)
+            appInfo?.let { isUserApplication(it) } ?: false
         } catch (ignored: PackageManager.NameNotFoundException) {
             false
+        }
+    }
+
+    @JvmStatic
+    fun getApplicationInfoCompat(context: Context, packageName: String, flags: Int): ApplicationInfo? {
+        return try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getApplicationInfo(packageName, android.content.pm.PackageManager.ApplicationInfoFlags.of(flags.toLong()))
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getApplicationInfo(packageName, flags)
+            }
+        } catch (e: PackageManager.NameNotFoundException) {
+            null
         }
     }
 
