@@ -11,7 +11,7 @@ import com.xiaomi.smack.Connection
 
 class XMPushServiceMessenger(
     private val xmPushService: XMPushService
-) : InternalMessenger(xmPushService) {
+) : InternalMessenger(xmPushService), com.magisk317.MessageListener {
 
     private var connectionStatus: Int = 0
 
@@ -19,9 +19,10 @@ class XMPushServiceMessenger(
         register(IntentFilter(IntentGetConnectionStatus))
         register(IntentFilter(PushConstants.ACTION_RESET_CONNECTION))
         register(IntentFilter(IntentStartForeground))
+        addListener(this)
     }
 
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(intent: Intent) {
         handle(intent)
         notifyConnectionStatusChanged(connectionStatus)
     }

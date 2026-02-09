@@ -13,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -51,27 +52,31 @@ class AdvancedSettingsPage : ComponentActivity() {
     }
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun SettingsApp() {
     Theme {
-        Surface(
-            modifier = Modifier
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
-            color = MaterialTheme.colorScheme.background
-        ) {
+        androidx.compose.material3.Scaffold(
+            topBar = {
+                androidx.compose.material3.TopAppBar(
+                    title = { androidx.compose.material3.Text(stringResource(R.string.app_name) + " " + stringResource(R.string.title_activity_advance_setting)) }
+                )
+            }
+        ) { innerPadding ->
             val viewModel: AdvancedSettingsViewModel = viewModel()
-            SettingsScreen(viewModel)
+            SettingsScreen(viewModel, Modifier.padding(innerPadding))
         }
     }
 }
 
 
 @Composable
-private fun SettingsScreen(viewModel: AdvancedSettingsViewModel) {
-    Column {
+private fun SettingsScreen(viewModel: AdvancedSettingsViewModel, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+    ) {
         CleanUpBlock()
         ExperimentalBlock(viewModel)
         ConfigurationsBlock(viewModel)

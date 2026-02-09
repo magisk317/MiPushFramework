@@ -10,6 +10,7 @@ import android.util.Pair
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.documentfile.provider.DocumentFile
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.Serializable
 import org.json.JSONException
 import com.magisk317.Global
@@ -102,12 +103,14 @@ class IconConfigurations private constructor() {
         return false
     }
 
+    private val jsonFormat = Json {
+        ignoreUnknownKeys = true
+        coerceInputValues = true
+    }
+
     @Throws(Exception::class)
     private fun parse(json: String) {
-        val configs = kotlinx.serialization.json.Json {
-            ignoreUnknownKeys = true
-            coerceInputValues = true
-        }.decodeFromString<List<IconConfig>>(json)
+        val configs = jsonFormat.decodeFromString<List<IconConfig>>(json)
         for (config in configs) {
             val pkg = config.packageName ?: continue
             iconConfigs[pkg] = config
