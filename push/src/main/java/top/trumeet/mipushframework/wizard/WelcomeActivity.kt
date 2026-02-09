@@ -3,7 +3,7 @@ package top.trumeet.mipushframework.wizard
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import top.trumeet.mipushframework.main.MainPage
+import top.trumeet.mipushframework.main.MainActivity
 
 /**
  * Wizard welcome page
@@ -24,6 +24,6 @@ class WelcomeActivity : ComponentActivity() {
     }
 
     private fun jumpToMainActivity() {
-        startActivity(Intent(this, MainPage::class.java))
+        startActivity(Intent(this, MainActivity::class.java))
     }
 }

@@ -6,7 +6,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import androidx.core.app.ActivityCompat
 import top.trumeet.common.Constants
-import top.trumeet.mipushframework.main.MainPage
+import top.trumeet.mipushframework.main.MainActivity
 
 /**
  * A util store Wizard info to SP
@@ -38,6 +38,6 @@ internal object WizardSPUtils {
     fun finishWizard(context: Activity) {
         setShouldShowWizard(false, context)
         ActivityCompat.finishAffinity(context)
-        context.startActivity(Intent(context, MainPage::class.java))
+        context.startActivity(Intent(context, MainActivity::class.java))
     }
 }
