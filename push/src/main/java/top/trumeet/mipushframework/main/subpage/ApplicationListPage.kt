@@ -95,15 +95,24 @@ fun ApplicationList(
     val refreshScope = rememberCoroutineScope { Dispatchers.IO }
     val onRefresh: (onRefreshed: () -> Unit) -> Unit = { onRefreshed ->
         refreshScope.launch {
-            val applications = getMiPushApplications()
-            updateInfos(applications, context)
-            withContext(Dispatchers.Main) {
-                g_items = applications
-                isNeedRefresh = false
-                onRefreshed()
-            }
-            applications.res.forEach {
-                iconCache.cache(it.packageName)
+            try {
+                val applications = getMiPushApplications()
+                updateInfos(applications, context)
+                withContext(Dispatchers.Main) {
+                    g_items = applications
+                    isNeedRefresh = false
+                    onRefreshed()
+                }
+                applications.res.forEach {
+                    iconCache.cache(it.packageName)
+                }
+            } catch (e: Throwable) {
+                XLog.e("Failed to load application list", e)
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(context, "Load failed: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+                    isNeedRefresh = false
+                    onRefreshed()
+                }
             }
         }
     }
