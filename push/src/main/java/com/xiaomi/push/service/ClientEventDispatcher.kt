@@ -19,6 +19,7 @@ import com.xiaomi.smack.packet.Presence
 import com.xiaomi.smack.packet.Message as SmackMessage
 import com.xiaomi.smack.util.TrafficUtils
 import com.xiaomi.xmpush.thrift.ActionType
+import top.trumeet.common.utils.Utils
 
 class ClientEventDispatcher {
     private val pushEventProcessor = MIPushEventProcessor()
@@ -52,10 +53,12 @@ class ClientEventDispatcher {
     }
 
     fun notifyChannelClosed(
-        context: Context,
-        clientLoginInfo: PushClientsManager.ClientLoginInfo,
+        context: Context?,
+        clientLoginInfo: PushClientsManager.ClientLoginInfo?,
         reason: Int
     ) {
+        if (clientLoginInfo == null) return
+        val usedContext = context ?: Utils.getApplication() ?: return
         if ("5".equals(clientLoginInfo.chid, ignoreCase = true)) return
         val intent = Intent().apply {
             action = "com.xiaomi.push.channel_closed"
@@ -75,20 +78,22 @@ class ClientEventDispatcher {
                 MyLog.w("peer may died: " + clientLoginInfo.userId.substring(clientLoginInfo.userId.lastIndexOf('@')))
             }
         } else {
-            sendBroadcast(context, intent, clientLoginInfo)
+            sendBroadcast(usedContext, intent, clientLoginInfo)
         }
     }
 
     fun notifyChannelOpenResult(
-        context: Context,
-        clientLoginInfo: PushClientsManager.ClientLoginInfo,
+        context: Context?,
+        clientLoginInfo: PushClientsManager.ClientLoginInfo?,
         succeeded: Boolean,
         reason: Int,
         reasonMessage: String?
     ) {
+        if (clientLoginInfo == null) return
+        val usedContext = context ?: Utils.getApplication() ?: return
         if ("5".equals(clientLoginInfo.chid, ignoreCase = true)) {
             pushEventProcessor.processChannelOpenResult(
-                context,
+                usedContext,
                 clientLoginInfo,
                 succeeded,
                 reason,
@@ -106,15 +111,17 @@ class ClientEventDispatcher {
             putExtra(PushConstants.EXTRA_USER_ID, clientLoginInfo.userId)
             putExtra(PushConstants.EXTRA_SESSION, clientLoginInfo.session)
         }
-        sendBroadcast(context, intent, clientLoginInfo)
+        sendBroadcast(usedContext, intent, clientLoginInfo)
     }
 
     fun notifyKickedByServer(
-        context: Context,
-        clientLoginInfo: PushClientsManager.ClientLoginInfo,
+        context: Context?,
+        clientLoginInfo: PushClientsManager.ClientLoginInfo?,
         kickType: String?,
         kickReason: String?
     ) {
+        if (clientLoginInfo == null) return
+        val usedContext = context ?: Utils.getApplication() ?: return
         if ("5".equals(clientLoginInfo.chid, ignoreCase = true)) {
             MyLog.e("mipush kicked by server")
             return
@@ -128,7 +135,7 @@ class ClientEventDispatcher {
             putExtra(PushConstants.EXTRA_USER_ID, clientLoginInfo.userId)
             putExtra(PushConstants.EXTRA_SESSION, clientLoginInfo.session)
         }
-        sendBroadcast(context, intent, clientLoginInfo)
+        sendBroadcast(usedContext, intent, clientLoginInfo)
     }
 
     fun notifyPacketArrival(pushService: XMPushService, chid: String, blob: Blob) {
