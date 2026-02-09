@@ -29,16 +29,15 @@ public static java.lang.String TABLENAME;
 -dontwarn android.app.Notification
 
 # Singleton.instance() creates these via reflection with no-arg constructors.
--keepclassmembers class com.nihility.HookHandler { <init>(); }
--keepclassmembers class com.nihility.MiPushEventListener { <init>(); }
--keepclassmembers class com.nihility.service.RegistrationRecorder { <init>(); }
+-keepclassmembers class com.magisk317.push.hook.ModernHookHandler { <init>(); }
+-keepclassmembers class com.magisk317.MiPushEventListener { <init>(); }
+-keepclassmembers class com.magisk317.service.RegistrationRecorder { <init>(); }
 -keepclassmembers class com.xiaomi.xmsf.push.utils.ConfigValueConverter { <init>(); }
 -keepclassmembers class com.xiaomi.xmsf.push.utils.IconConfigurations { <init>(); }
 -keepclassmembers class com.xiaomi.xmsf.utils.ConfigCenter { <init>(); }
 -keepclassmembers class com.xiaomi.xmsf.push.utils.Configurations { <init>(); }
 -keepclassmembers class top.trumeet.common.cache.ApplicationNameCache { <init>(); }
 -keepclassmembers class top.trumeet.common.cache.IconCache { <init>(); }
--keepclassmembers class com.nihility.** { <init>(); }
 
 # Avoid R8 horizontal class merging/obfuscation side effects in wizard permission operators.
 -keep class top.trumeet.mipushframework.wizard.permission.** { *; }

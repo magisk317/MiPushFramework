@@ -25,7 +25,6 @@ import com.xiaomi.xmsf.push.control.PushControllerUtils.isAppMainProc
 import com.xiaomi.xmsf.push.control.XMOutbound
 import com.xiaomi.xmsf.push.notification.NotificationController.CHANNEL_WARN
 import com.xiaomi.xmsf.push.service.MiuiPushActivateService
-import com.xiaomi.xmsf.utils.LogUtils
 import top.trumeet.common.Constants
 import top.trumeet.common.Constants.TAG_CONDOM
 import top.trumeet.common.push.PushServiceAccessibility
@@ -38,6 +37,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import com.magisk317.data.DataStoreManager
 
+import dagger.hilt.android.HiltAndroidApp
+
+@HiltAndroidApp
 class MiPushFrameworkApp : Application() {
     private lateinit var logger: Logger
 
@@ -87,7 +89,6 @@ class MiPushFrameworkApp : Application() {
     }
 
     private fun initBasicLogger() {
-        LogUtils.init(this)
         logger = XLog.tag(MiPushFrameworkApp::class.java.simpleName).build()
         logger.i("App starts: ${BuildConfig.VERSION_NAME}")
     }

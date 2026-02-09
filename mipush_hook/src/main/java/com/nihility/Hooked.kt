@@ -1,13 +1,6 @@
+@file:Suppress("DEPRECATION")
 package com.nihility
 
-object Hooked {
-    private val hookedRecord = hashSetOf<String>()
+// Compatibility shim: legacy namespace forwarding to com.magisk317.*
 
-    @JvmStatic
-    fun contains(id: String): Boolean = hookedRecord.contains(id)
-
-    @JvmStatic
-    fun mark(id: String) {
-        hookedRecord.add(id)
-    }
-}
+typealias Hooked = com.magisk317.hook.Hooked

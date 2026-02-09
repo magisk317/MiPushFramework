@@ -73,7 +73,7 @@
         </activity>
         <activity android:name="top.trumeet.mipushframework.wizard.RequestPermissionPage" />
 
-        <activity android:name="top.trumeet.mipushframework.main.MainPage" />
+        <activity android:name="top.trumeet.mipushframework.main.MainActivity" />
 
         <activity
                 android:name="top.trumeet.mipushframework.main.ApplicationInfoPage"
@@ -95,6 +95,15 @@
             <meta-data
                     android:name="android.support.FILE_PROVIDER_PATHS"
                     android:resource="@xml/filepaths" />
+        </provider>
+        <provider
+                android:name="androidx.startup.InitializationProvider"
+                android:authorities="${applicationId}.androidx-startup"
+                android:exported="false"
+                tools:node="merge">
+            <meta-data
+                    android:name="com.xiaomi.xmsf.startup.LogInitializer"
+                    android:value="androidx.startup" />
         </provider>
 
         <receiver

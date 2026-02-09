@@ -10,7 +10,17 @@ import top.trumeet.common.utils.ImgUtils
  * Author: TimothyZhang023
  * Icon Cache
  */
-class IconCache private constructor() {
+import javax.inject.Inject
+import javax.inject.Singleton
+import com.magisk317.utils.Singleton as SingletonUtils
+
+@Singleton
+class IconCache @Inject constructor() {
+    init {
+        try {
+            SingletonUtils.reset(this)
+        } catch (_: Throwable) {}
+    }
 
     private val bitmapLruCache = LruCache<String, Bitmap>(100)
     private val mIconMemoryCaches = LruCache<String, IconCompat>(100)

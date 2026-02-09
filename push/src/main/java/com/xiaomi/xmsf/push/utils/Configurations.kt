@@ -8,15 +8,28 @@ import org.json.JSONException
 import org.json.JSONObject
 import java.lang.reflect.InvocationTargetException
 
-class Configurations private constructor() {
-    internal var loader = ConfigurationsLoader()
+import javax.inject.Inject
+import javax.inject.Singleton as JavaxSingleton
+import com.xiaomi.xmsf.utils.ConfigCenter
+
+@JavaxSingleton
+class Configurations @Inject constructor(
+    internal var loader: ConfigurationsLoader
+) {
+    // No-arg fallback for legacy Singleton access.
+    constructor() : this(ConfigurationsLoader(com.magisk317.utils.Singleton.instance<ConfigCenter>()))
+
+    init {
+        // Capture Hilt instance for static access
+        hiltInstance = this
+    }
 
     fun init(context: android.content.Context?, treeUri: android.net.Uri?): Boolean =
-        loader.init(context, treeUri)
+        loader.init(context, treeUri, this)
 
     @Throws(JSONException::class)
     fun load(json: String) {
-        loader.load(json)
+        loader.load(json, this)
     }
 
     @Throws(
@@ -82,7 +95,7 @@ class Configurations private constructor() {
                     if (configItem is JSONArray) {
                         val value = evaluate(configItem, data)
                         if (value is JSONObject) {
-                            refConfigs = mutableListOf(loader.parseConfig(value))
+                            refConfigs = mutableListOf(loader.parseConfig(value, this))
                         } else if (value != null) {
                             refConfigs = loader.getConfigs()[value.toString()]
                         }
@@ -182,7 +195,7 @@ class Configurations private constructor() {
                     val clause = expr.optJSONArray(i) ?: return null
                     val test = clause.opt(0)
                     if (test is JSONObject) {
-                        val config = loader.parseConfig(test)
+                        val config = loader.parseConfig(test, this@Configurations)
                         if (config.getWalker(data).match()) {
                             return clause.opt(1)
                         }
@@ -203,11 +216,18 @@ class Configurations private constructor() {
 
     companion object {
         private val logger = XLog.tag(Configurations::class.java.simpleName).build()
+        @Volatile private var hiltInstance: Configurations? = null
 
         @JvmStatic
         fun getInstance(): Configurations {
+            val hilt = hiltInstance
+            if (hilt != null) {
+                hilt.loader.reInitIfDirectoryUpdated(hilt)
+                return hilt
+            }
+            // Fallback to manual singleton
             val instance = Singleton.instance<Configurations>()
-            instance.loader.reInitIfDirectoryUpdated()
+            instance.loader.reInitIfDirectoryUpdated(instance)
             return instance
         }
     }

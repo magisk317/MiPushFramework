@@ -13,9 +13,14 @@ import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.regex.Pattern
+import javax.inject.Inject
+import javax.inject.Singleton
 import top.trumeet.common.utils.Utils
 
-class ConfigurationsLoader {
+@Singleton
+class ConfigurationsLoader @Inject constructor(
+    private val configCenter: com.xiaomi.xmsf.utils.ConfigCenter
+) {
     private var version: String? = null
     private var packageConfigs: MutableMap<String, MutableList<Any>> = hashMapOf()
 
@@ -26,7 +31,7 @@ class ConfigurationsLoader {
 
     fun getConfigs(): MutableMap<String, MutableList<Any>> = packageConfigs
 
-    fun init(context: Context?, treeUri: Uri?): Boolean {
+    fun init(context: Context?, treeUri: Uri?, configurations: Configurations): Boolean {
         mLastLoadTime = System.currentTimeMillis()
         packageConfigs.clear()
         do {
@@ -35,9 +40,9 @@ class ConfigurationsLoader {
             }
             val exceptions = mutableListOf<Pair<DocumentFile, JSONException>>()
             val loadedFiles = mutableListOf<DocumentFile>()
-            parseDirectory(context, treeUri, exceptions, loadedFiles)
+            parseDirectory(context, treeUri, exceptions, loadedFiles, configurations)
 
-            if (loadedFiles.isNotEmpty() && Global.ConfigCenter().isShowConfigurationListOnLoaded(context)) {
+            if (loadedFiles.isNotEmpty() && configCenter.isShowConfigurationListOnLoaded(context)) {
                 val loadedList = StringBuilder("loaded configuration list:")
                 for (file in loadedFiles) {
                     loadedList.append('\n')
@@ -62,7 +67,8 @@ class ConfigurationsLoader {
         context: Context,
         treeUri: Uri,
         exceptions: MutableList<Pair<DocumentFile, JSONException>>,
-        loadedFiles: MutableList<DocumentFile>
+        loadedFiles: MutableList<DocumentFile>,
+        configurations: Configurations
     ): Boolean {
         val documentFile = DocumentFile.fromTreeUri(context, treeUri) ?: return true
         mContext = context
@@ -78,7 +84,7 @@ class ConfigurationsLoader {
             }
             val json = readTextFromUri(context, file.uri)
             try {
-                parse(json)
+                parse(json, configurations)
                 loadedFiles.add(file)
             } catch (e: JSONException) {
                 exceptions.add(Pair(file, e))
@@ -88,12 +94,12 @@ class ConfigurationsLoader {
     }
 
     @Throws(JSONException::class)
-    fun load(json: String) {
-        parse(json)
+    fun load(json: String, configurations: Configurations) {
+        parse(json, configurations)
     }
 
     @Throws(JSONException::class)
-    private fun parse(json: String) {
+    private fun parse(json: String, configurations: Configurations) {
         val jsonObject = JSONObject(json)
         version = jsonObject.getString("version")
         val packageConfigsObj = jsonObject.getJSONObject("configs")
@@ -101,27 +107,27 @@ class ConfigurationsLoader {
         while (packageNames.hasNext()) {
             val packageName = packageNames.next()
             val configsObj = packageConfigsObj.getJSONArray(packageName)
-            packageConfigs[packageName] = parseConfigs(configsObj)
+            packageConfigs[packageName] = parseConfigs(configsObj, configurations)
         }
     }
 
     @Throws(JSONException::class)
-    private fun parseConfigs(configsObj: JSONArray): MutableList<Any> {
+    private fun parseConfigs(configsObj: JSONArray, configurations: Configurations): MutableList<Any> {
         val configs = mutableListOf<Any>()
         for (i in 0 until configsObj.length()) {
             val config = configsObj.get(i)
             when (config) {
                 is JSONArray -> configs.add(config)
                 is String -> configs.add(config)
-                else -> configs.add(parseConfig(configsObj.getJSONObject(i)))
+                else -> configs.add(parseConfig(configsObj.getJSONObject(i), configurations))
             }
         }
         return configs
     }
 
     @Throws(JSONException::class)
-    fun parseConfig(configObj: JSONObject): PackageConfig {
-        val config = PackageConfig(Configurations.getInstance())
+    fun parseConfig(configObj: JSONObject, configurations: Configurations): PackageConfig {
+        val config = PackageConfig(configurations)
         if (!configObj.isNull(PackageConfig.KEY_META_INFO)) {
             val obj = JSONObject()
             obj.put(PackageConfig.KEY_META_INFO, configObj.getJSONObject(PackageConfig.KEY_META_INFO))
@@ -148,12 +154,12 @@ class ConfigurationsLoader {
         return config
     }
 
-    fun reInitIfDirectoryUpdated() {
+    fun reInitIfDirectoryUpdated(configurations: Configurations) {
         val context = mContext ?: return
         val treeUri = mTreeUri ?: return
         val documentFile = mDocumentFile ?: return
         if (documentFile.lastModified() > mLastLoadTime) {
-            init(context, treeUri)
+            init(context, treeUri, configurations)
         }
     }
 

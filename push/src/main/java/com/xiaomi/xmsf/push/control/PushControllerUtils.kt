@@ -17,7 +17,6 @@ import android.os.Looper
 import android.os.Process
 import android.preference.PreferenceManager
 import android.text.TextUtils
-import androidx.core.content.ContextCompat
 import com.elvishew.xlog.XLog
 import com.oasisfeng.condom.CondomContext
 import com.xiaomi.channel.commonutils.logger.MyLog
@@ -26,6 +25,7 @@ import com.xiaomi.mipush.sdk.MiPushClient
 import com.xiaomi.push.service.PushServiceConstants
 import com.xiaomi.xmsf.FirstRegister
 import com.xiaomi.xmsf.RetryRegister
+import com.magisk317.service.PushServiceStarter
 import com.xiaomi.xmsf.push.service.receivers.BootReceiver
 import com.xiaomi.xmsf.push.service.receivers.KeepAliveReceiver
 import java.util.Objects
@@ -94,7 +94,7 @@ object PushControllerUtils {
                     val serviceIntent = Intent(context, serviceClass)
                     serviceIntent.putExtra(PushServiceConstants.EXTRA_TIME_STAMP, System.currentTimeMillis())
                     serviceIntent.action = PushServiceConstants.ACTION_TIMER
-                    ContextCompat.startForegroundService(context, serviceIntent)
+                    PushServiceStarter.start(context, serviceIntent)
                 } ?: logger.w("XMPushService class is unavailable, skip startForegroundService")
             } catch (e: Throwable) {
                 logger.e(e)
