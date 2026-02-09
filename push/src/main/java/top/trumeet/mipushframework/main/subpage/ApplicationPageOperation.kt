@@ -30,6 +30,7 @@ object ApplicationPageOperation {
         val miPushApplications = MiPushApplications()
         logger.d("[loadApp] start load app list")
         val timer = ElapsedTimer()
+        
         val registeredPkgs = getRegisteredApplicationMap(miPushApplications)
         logger.d("[loadApp] get registeredPkgs ms: %d", timer.restart())
 
@@ -217,33 +218,44 @@ object ApplicationPageOperation {
     }
 
     @JvmStatic
+    fun filterApplicationsByMode(miPushApplications: MiPushApplications, filterMode: Int) {
+        if (filterMode == 0) return // All
+        val iterator = miPushApplications.res.iterator()
+        while (iterator.hasNext()) {
+            val info = iterator.next()
+            val matched = when (filterMode) {
+                1 -> info.registeredType == RegisteredApplication.RegisteredType.Registered || info.lastReceiveTime.time > 0L
+                2 -> info.registeredType == RegisteredApplication.RegisteredType.NotRegistered && info.lastReceiveTime.time == 0L
+                3 -> info.registeredType == RegisteredApplication.RegisteredType.Unregistered && info.lastReceiveTime.time == 0L
+                else -> true
+            }
+            if (!matched) {
+                iterator.remove()
+            }
+        }
+    }
+
+    @JvmStatic
     fun sortApplicationsForDisplay(miPushApplications: MiPushApplications) {
         miPushApplications.res.sortWith { o1, o2 ->
-            if ((o1.id == null && o2.id == null) ||
-                (o1.registeredType == RegisteredApplication.RegisteredType.NotRegistered &&
-                    o2.registeredType == RegisteredApplication.RegisteredType.NotRegistered)
-            ) {
-                return@sortWith o1.appNamePinYin.compareTo(o2.appNamePinYin)
+            val p1 = when {
+                o1.registeredType == RegisteredApplication.RegisteredType.Registered || o1.lastReceiveTime.time > 0L -> 0
+                o1.registeredType == RegisteredApplication.RegisteredType.Unregistered -> 1
+                else -> 2
             }
-            if (o1.id == null) {
-                return@sortWith 1
+            val p2 = when {
+                o2.registeredType == RegisteredApplication.RegisteredType.Registered || o2.lastReceiveTime.time > 0L -> 0
+                o2.registeredType == RegisteredApplication.RegisteredType.Unregistered -> 1
+                else -> 2
             }
-            if (o2.id == null) {
-                return@sortWith -1
-            }
-            if (o1.registeredType == RegisteredApplication.RegisteredType.NotRegistered) {
-                return@sortWith 1
-            }
-            if (o2.registeredType == RegisteredApplication.RegisteredType.NotRegistered) {
-                return@sortWith -1
-            }
-            if (o1.registeredType != o2.registeredType) {
-                return@sortWith o1.registeredType - o2.registeredType
-            }
+
+            if (p1 != p2) return@sortWith p1 - p2
+
+            // Same priority, sort by push time desc
             val cmp = o2.lastReceiveTime.compareTo(o1.lastReceiveTime)
-            if (cmp != 0) {
-                return@sortWith cmp
-            }
+            if (cmp != 0) return@sortWith cmp
+
+            // Same push time (usually 0), sort by name asc
             o1.appNamePinYin.compareTo(o2.appNamePinYin)
         }
     }
@@ -255,13 +267,16 @@ object ApplicationPageOperation {
     }
 
     @JvmStatic
-    fun getMiPushApplicationsThatQueryMatched(query: String): MiPushApplications {
+    fun getMiPushApplicationsThatQueryMatched(query: String, filterMode: Int = 0): MiPushApplications {
         val totalTimer = ElapsedTimer()
         val miPushApplications = getMiPushApplications()
 
         val timer = ElapsedTimer()
         removeApplicationsThatQueryNotMatched(miPushApplications, query)
         logger.d("[loadApp] filter app search ms: %d", timer.restart())
+
+        filterApplicationsByMode(miPushApplications, filterMode)
+        logger.d("[loadApp] filter app mode ms: %d", timer.restart())
 
         sortApplicationsForDisplay(miPushApplications)
         logger.d("[loadApp] sort application list will show ms: %d", timer.restart())
@@ -278,6 +293,7 @@ object ApplicationPageOperation {
             .filter { it.registeredType == RegisteredApplication.RegisteredType.NotRegistered }
             .map { it.packageName }
             .toSet()
+        
         val localRegisteredPkgs = RegistrationStateCompat.findPackagesWithValidLocalRegistration(notRegisteredPkgs)
         logger.d(
             "[updateApp] local registration probe ms: %d, queried=%d, matched=%d",
