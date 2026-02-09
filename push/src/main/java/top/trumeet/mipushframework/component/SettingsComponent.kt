@@ -9,6 +9,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.AlertDialog
@@ -85,9 +90,11 @@ fun SettingsDialogItem(
     title: String,
     summary: String,
     confirmButton: @Composable () -> Unit,
+    dismissButton: (@Composable () -> Unit)? = null,
     onClick: () -> Unit,
     shouldShowDialog: Boolean,
     onDismiss: () -> Unit,
+    isDragging: Boolean = false,
     content: @Composable () -> Unit
 ) {
     SettingsItem(
@@ -100,6 +107,8 @@ fun SettingsDialogItem(
                 shouldShowDialog = shouldShowDialog,
                 onDismiss = onDismiss,
                 confirmButton = confirmButton,
+                dismissButton = dismissButton,
+                isDragging = isDragging,
                 content = content
             )
         }
@@ -112,15 +121,72 @@ fun SettingsDialog(
     shouldShowDialog: Boolean,
     onDismiss: () -> Unit,
     confirmButton: @Composable () -> Unit,
+    dismissButton: (@Composable () -> Unit)? = null,
+    isDragging: Boolean = false,
     content: @Composable () -> Unit
 ) {
     if (!shouldShowDialog) return
-    AlertDialog(
+
+    androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
-        confirmButton = confirmButton,
-        title = { Text(title) },
-        text = content
-    )
+        properties = androidx.compose.ui.window.DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        val dialogWindowProvider = androidx.compose.ui.platform.LocalView.current.parent as? androidx.compose.ui.window.DialogWindowProvider
+        androidx.compose.runtime.SideEffect {
+            dialogWindowProvider?.window?.let { window ->
+                window.setDimAmount(if (isDragging) 0f else 0.5f)
+                window.setBackgroundDrawableResource(android.R.color.transparent)
+            }
+        }
+
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            androidx.compose.material3.Surface(
+                shape = MaterialTheme.shapes.extraLarge,
+                tonalElevation = if (isDragging) 0.dp else 6.dp,
+                color = if (isDragging) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.surface,
+                modifier = Modifier
+                    .width(androidx.compose.ui.unit.Dp.Unspecified)
+                    .widthIn(min = 280.dp, max = 560.dp)
+                    .heightIn(max = 560.dp)
+                    .padding(24.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp)
+                ) {
+                    if (!isDragging) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.headlineSmall,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+                    }
+                    
+                    Box(modifier = Modifier.weight(1f, fill = false)) {
+                        content()
+                    }
+
+                    if (!isDragging) {
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End
+                        ) {
+                            dismissButton?.invoke()
+                            Spacer(modifier = Modifier.width(8.dp))
+                            confirmButton()
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
