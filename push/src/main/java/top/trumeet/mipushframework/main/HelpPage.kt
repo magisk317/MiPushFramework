@@ -164,15 +164,19 @@ class Article(val titleRes: Int, val markdownRes: Int)
 
 private fun getArticles(context: Context): List<Article> {
     val articlesArray = context.resources.getStringArray(R.array.help_articles)
+    val packageName = context.packageName
 
     val articles = mutableListOf<Article>()
     for (str in articlesArray) {
         val info = str.split("|")
         if (info.size != 2) continue
 
-        val titleRes = R.string::class.java.getField(info[0]).getInt(null)
-        val markdownRes = R.raw::class.java.getField(info[1]).getInt(null)
-        articles.add(Article(titleRes, markdownRes))
+        val titleRes = context.resources.getIdentifier(info[0], "string", packageName)
+        val markdownRes = context.resources.getIdentifier(info[1], "raw", packageName)
+
+        if (titleRes != 0 && markdownRes != 0) {
+            articles.add(Article(titleRes, markdownRes))
+        }
     }
     return articles
 }
