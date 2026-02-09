@@ -59,6 +59,9 @@ class MiPushManifestChecker private constructor(
 
     fun checkServices(pkgInfo: PackageInfo): Boolean {
         ExplicitHookBridge.onManifestCheckServices(pkgInfo)
+        if (TextUtils.equals(pkgInfo.packageName, PushConstants.PUSH_SERVICE_PACKAGE_NAME)) {
+            return true
+        }
         return try {
             val configServiceProcessMap = HashMap<String, String?>()
             val requiredServicesMap = HashMap<String, ManifestChecker.ServiceCheckInfo>()

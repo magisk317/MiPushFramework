@@ -21,19 +21,21 @@ object RegistrationStateStyle {
                 Pair(prefix + context.getString(R.string.app_registered), color)
             }
 
-            RegisteredApplication.RegisteredType.Unregistered -> {
-                Pair(prefix + context.getString(R.string.app_registered_error), color)
-            }
-
-//      RegisteredApplication.RegisteredType.NotRegistered
             else -> {
-                Pair(prefix + context.getString(R.string.status_app_not_registered), color)
+                if (app.lastReceiveTime.time > 0L) {
+                    Pair(prefix + context.getString(R.string.app_registered), color)
+                } else if (app.registeredType == RegisteredApplication.RegisteredType.Unregistered) {
+                    Pair(prefix + context.getString(R.string.app_registered_error), color)
+                } else {
+                    Pair(prefix + context.getString(R.string.status_app_not_registered), color)
+                }
             }
         }
     }
 
     fun colorOf(app: RegisteredApplication): Color {
         return if (!app.existServices) ErrorColor
+        else if (app.lastReceiveTime.time > 0L) GreenColor
         else when (app.registeredType) {
             RegisteredApplication.RegisteredType.Registered -> {
                 GreenColor
@@ -43,7 +45,6 @@ object RegistrationStateStyle {
                 YellowColor
             }
 
-//      RegisteredApplication.RegisteredType.NotRegistered
             else -> {
                 Color.Unspecified
             }

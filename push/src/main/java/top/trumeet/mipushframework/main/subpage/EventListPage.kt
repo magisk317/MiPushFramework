@@ -60,6 +60,9 @@ import top.trumeet.mipushframework.utils.ParseUtils
 import java.text.SimpleDateFormat
 import java.util.Date
 
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.magisk317.main.viewmodel.EventListViewModel
+
 private val receiveDateFormat: SimpleDateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
 
 @Composable
@@ -68,70 +71,50 @@ fun EventList(
     packageName: String = "",
     contentPadding: PaddingValues = PaddingValues(0.dp),
     refreshSignal: Int = 0,
-    groupByApp: Boolean = false
+    groupByApp: Boolean = false,
+    viewModel: EventListViewModel = hiltViewModel()
 ) {
     Page {
         val context = LocalContext.current
         var clickedEvent by remember { mutableStateOf<EventInfoForDisplay?>(null) }
 
         clickedEvent?.let {
-            EventDetailsDialog(clickedEvent!!) { clickedEvent = null }
+            EventDetailsDialog(it, viewModel = viewModel) { clickedEvent = null }
         }
 
         if (groupByApp && packageName.isEmpty()) {
             EventGroupList(
                 query = query,
                 refreshSignal = refreshSignal,
-                contentPadding = contentPadding
+                contentPadding = contentPadding,
+                viewModel = viewModel
             )
         } else {
             var lastId by rememberSaveable(refreshSignal) { mutableStateOf<Long?>(null) }
-            EventList(onClick = { clickedEvent = it }, { isRefresh ->
+            // Using the overload EventList. We need to adapt it to use ViewModel.
+            // But the overload EventList takes `getEvents` lambda.
+            // We can adapt ViewModel to provide data.
+            // Actually, let's just make the overload EventList use ViewModel too.
+            val events = remember { mutableStateListOf<EventInfoForDisplay>() }
+            
+            EventList(onClick = { clickedEvent = it }, getEvents = { isRefresh ->
+                // This lambda is called to fetch data.
                 if (isRefresh) lastId = null
-                val events = EventListPageUtils.getEventsById(
-                    lastId, Constants.PAGE_SIZE, packageName, query
-                )
-                events.lastOrNull()?.let { lastId = it.id }
-                events.map {
-                    toEventInfoForDisplay(
-                        it, context,
-                        EventListPageUtils(
-                            context
-                        )
-                    )
+                // We need to call suspending function here? 
+                // The overload EventList calls this inside coroutine scope.
+                // So we can block (suspend).
+                // But ViewModel functions are async launch usually.
+                // We need `suspend fun getEvents(...)` in ViewModel?
+                // Or expose repository methods via ViewModel?
+                // Let's expose a suspend helper in ViewModel.
+                viewModel.fetchEventsSuspend(isRefresh, lastId, packageName, query).also { list ->
+                     list.lastOrNull()?.let { lastId = it.id }
                 }
             }, query, packageName, refreshSignal = refreshSignal, contentPadding = contentPadding)
         }
     }
 }
 
-fun toEventInfoForDisplay(
-    it: Event,
-    context: Context,
-    utils: EventListPageUtils
-): EventInfoForDisplay {
-    val type = TypeFactory.createForDisplay(it)
-
-    val container = RegSecUtils.getContainerWithRegSec(it)
-    val summary = type.getSummary(context).toString()
-    val content = if (container != null)
-        EventListPageUtils.getDecoratedSummary(
-            summary,
-            container
-        )
-    else summary
-    return EventInfoForDisplay(
-        id = it.id ?: 0L,
-        packageName = it.pkg,
-        configOptions = utils.getStatus(container),
-        channel = utils.getStatusDescription(it),
-        receiveDate = Date(it.date),
-        title = type.getTitle(context).toString(),
-        content = content,
-        appName = Global.ApplicationNameCache().getAppName(context, it.pkg).toString(),
-        event = it,
-    )
-}
 
 private data class EventGroupForDisplay(
     val packageName: String,
@@ -144,7 +127,8 @@ private data class EventGroupForDisplay(
 private fun EventGroupList(
     query: String,
     refreshSignal: Int,
-    contentPadding: PaddingValues
+    contentPadding: PaddingValues,
+    viewModel: EventListViewModel
 ) {
     val context = LocalContext.current
     val groupedItems = remember(query) { mutableStateListOf<EventGroupForDisplay>() }
@@ -175,15 +159,8 @@ private fun EventGroupList(
         if (isLoading) return
         isLoading = true
         try {
-            val nextLastId = if (isRefresh) null else lastId
-            val events = EventListPageUtils.getEventsById(
-                lastId = nextLastId,
-                size = Constants.PAGE_SIZE,
-                packetName = "",
-                query = query
-            ).map {
-                toEventInfoForDisplay(it, context, EventListPageUtils(context))
-            }
+            val events = viewModel.fetchEventsSuspend(isRefresh, lastId, "", query)
+            
             if (isRefresh) {
                 allEvents.clear()
             }
@@ -276,13 +253,12 @@ private fun EventGroupList(
 private fun EventDetailsDialog(
     clickedEvent: EventInfoForDisplay,
     content: String? = null,
+    viewModel: EventListViewModel,
     onDismiss: () -> Unit
 ) {
     var json by remember {
         mutableStateOf(
-            content ?: EventListPageUtils.getJson(
-                clickedEvent.event
-            ).toString()
+            content ?: viewModel.getJson(clickedEvent.event)
         )
     }
     val context = LocalContext.current
@@ -300,17 +276,17 @@ private fun EventDetailsDialog(
                 TextButton({
                     val container = RegSecUtils.getContainerWithRegSec(clickedEvent.event)
                     if (container != null) {
-                        json = EventListPageUtils.getContent(clickedEvent.event, container)
+                        json = viewModel.getContent(clickedEvent.event, container)
                     }
                 }) { Text(stringResource(R.string.action_configurate)) }
 
                 TextButton({
-                    EventListPageUtils.copyToClipboard(context, json)
+                    viewModel.copyToClipboard(json)
                 }) { Text(stringResource(android.R.string.copy)) }
 
                 TextButton({
                     RegSecUtils.getContainerWithRegSec(clickedEvent.event)?.let {
-                        EventListPageUtils.mockMessage(it)
+                        viewModel.mockMessage(it)
                     }
                 }) { Text(stringResource(R.string.action_notify)) }
             }
@@ -326,10 +302,7 @@ private fun EventDetailsDialog(
                 Text("Developer Info", style = MaterialTheme.typography.titleLarge)
 
                 TextButton({
-                    EventListPageUtils.startManagePermissions(
-                        context,
-                        clickedEvent.packageName
-                    )
+                    viewModel.startManagePermissions(clickedEvent.packageName)
                 }) { Text(stringResource(R.string.action_app_info)) }
             }
         },
@@ -342,10 +315,25 @@ private fun EventDetailsDialog(
 
 private val g_items = mutableStateListOf<EventInfoForDisplay>()
 
+private fun EventInfoForDisplay.composeKey(): String {
+    if (id > 0L) return "id:$id"
+    return "legacy:${packageName}:${receiveDate.time}:${title.hashCode()}:${content.hashCode()}"
+}
+
+private fun MutableList<EventInfoForDisplay>.appendDistinct(itemsToAppend: List<EventInfoForDisplay>) {
+    if (itemsToAppend.isEmpty()) return
+    val existing = asSequence().map { it.composeKey() }.toHashSet()
+    for (item in itemsToAppend) {
+        if (existing.add(item.composeKey())) {
+            add(item)
+        }
+    }
+}
+
 @Composable
 fun EventList(
     onClick: (EventInfoForDisplay) -> Unit,
-    getEvents: (isRefresh: Boolean) -> List<EventInfoForDisplay>,
+    getEvents: suspend (isRefresh: Boolean) -> List<EventInfoForDisplay>,
     query: String,
     packageName: String,
     refreshSignal: Int = 0,
@@ -353,34 +341,52 @@ fun EventList(
 ) {
     val isPreview = LocalInspectionMode.current
     val items = remember {
-        if (isPreview) getEvents(true).toMutableList()
-        else if (packageName.isEmpty()) g_items
+        if (packageName.isEmpty() && !isPreview) g_items
         else mutableStateListOf()
     }
 
 
     val refreshScope = rememberCoroutineScope { Dispatchers.IO }
-    val doLoadMore: (onRefreshed: () -> Unit) -> Unit = { onRefreshed ->
-        refreshScope.launch {
-            items.addAll(getEvents(items.isEmpty()))
+    var isLoading by remember { mutableStateOf(false) }
+    var hasMore by rememberSaveable(query, packageName) { mutableStateOf(true) }
+    val doLoadMore: (onRefreshed: () -> Unit) -> Unit = doLoadMore@{ onRefreshed ->
+        if (isLoading || !hasMore) {
             onRefreshed()
+            return@doLoadMore
+        }
+        isLoading = true
+        refreshScope.launch {
+            val loaded = getEvents(items.isEmpty())
+            withContext(Dispatchers.Main) {
+                items.appendDistinct(loaded)
+                hasMore = loaded.size >= Constants.PAGE_SIZE
+                isLoading = false
+                onRefreshed()
+            }
         }
     }
     val shouldRefresh = items.isEmpty() || query.isNotEmpty() || packageName.isNotEmpty() || refreshSignal > 0
     var isNeedRefresh by rememberSaveable(query, packageName, refreshSignal) { mutableStateOf(shouldRefresh) }
-    val doRefresh: (onRefreshed: () -> Unit) -> Unit = { onRefreshed ->
+    val doRefresh: (onRefreshed: () -> Unit) -> Unit = doRefresh@{ onRefreshed ->
+        if (isLoading) {
+            onRefreshed()
+            return@doRefresh
+        }
+        isLoading = true
         refreshScope.launch {
             val elements = getEvents(true)
             withContext(Dispatchers.Main) {
                 items.clear()
-                items.addAll(elements)
+                items.appendDistinct(elements)
+                hasMore = elements.size >= Constants.PAGE_SIZE
+                isLoading = false
                 isNeedRefresh = false
                 onRefreshed()
             }
         }
     }
 
-    val isNeedMore: (Int) -> Boolean = { it >= items.size - 10 }
+    val isNeedMore: (Int) -> Boolean = { hasMore && !isLoading && it >= items.size - 10 }
 
     RefreshableLazyColumn(
         doRefresh,
@@ -390,7 +396,7 @@ fun EventList(
         scrollToTopSignal = refreshSignal,
         contentPadding = contentPadding
     ) {
-        items(items, { it.id }) {
+        items(items, key = { it.composeKey() }) {
             EventItem(it, onClick)
         }
     }
@@ -479,10 +485,7 @@ private fun EventContent(item: EventInfoForDisplay) {
 )
 @Composable
 fun EventDetailsDialogPreview() {
-    EventDetailsDialog(
-        EventInfoForDisplay(0, "", setOf(), "", Date(), "", ""),
-        "sdfasdfsdfasdf"
-    ) { }
+    // Cannot easily preview with ViewModel dependency
 }
 
 @Preview(

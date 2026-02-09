@@ -44,7 +44,6 @@ import top.trumeet.common.utils.Utils
 import top.trumeet.mipush.provider.entities.RegisteredApplication
 import top.trumeet.mipushframework.component.AppIcon
 import top.trumeet.mipushframework.component.RefreshableLazyColumn
-import top.trumeet.mipushframework.component.iconCache
 import top.trumeet.mipushframework.main.RegistrationStateStyle
 import top.trumeet.mipushframework.utils.ParseUtils
 
@@ -55,21 +54,25 @@ data class AppInfoForDisplay(
 
 private var g_itemsInfo by mutableStateOf(emptyMap<String, AppInfoForDisplay>())
 private var g_items by mutableStateOf(ApplicationPageOperation.MiPushApplications())
+private val logger = XLog.tag("ApplicationListPage").build()
 
 @Composable
 fun ApplicationList(
     query: String,
     contentPadding: PaddingValues = PaddingValues(0.dp),
-    refreshSignal: Int = 0
+    refreshSignal: Int = 0,
+    filterMode: Int = 0,
+    onAppClick: (String) -> Unit
 ) {
     val context = LocalContext.current
     ApplicationList(
         query = query,
         contentPadding = contentPadding,
-        refreshSignal = refreshSignal
-    ) {
+        filterMode = filterMode,
+        onAppClick = onAppClick
+    ) { mode ->
         val miPushApplications =
-            ApplicationPageOperation.getMiPushApplicationsThatQueryMatched(query)
+            ApplicationPageOperation.getMiPushApplicationsThatQueryMatched(query, mode)
         ApplicationPageOperation.updateRegisteredApplicationDb(
             context,
             miPushApplications.res
@@ -83,33 +86,40 @@ fun ApplicationList(
     query: String = "",
     contentPadding: PaddingValues = PaddingValues(0.dp),
     refreshSignal: Int = 0,
-    getMiPushApplications: () -> ApplicationPageOperation.MiPushApplications
+    filterMode: Int = 0,
+    onAppClick: (String) -> Unit,
+    getMiPushApplications: (filterMode: Int) -> ApplicationPageOperation.MiPushApplications
 ) {
     val context = LocalContext.current
     val isPreview = LocalInspectionMode.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    if (isPreview) g_items = getMiPushApplications()
+    if (isPreview) g_items = getMiPushApplications(filterMode)
     val shouldRefresh = g_items.res.isEmpty() || query.isNotEmpty() || refreshSignal > 0
-    var isNeedRefresh by rememberSaveable(query, refreshSignal) { mutableStateOf(shouldRefresh) }
+    var isNeedRefresh by rememberSaveable(query, refreshSignal, filterMode) { mutableStateOf(shouldRefresh) }
 
-    val refreshScope = rememberCoroutineScope { Dispatchers.IO }
+    androidx.compose.runtime.LaunchedEffect(query, refreshSignal, filterMode) {
+        if (!shouldRefresh) {
+            isNeedRefresh = true
+        }
+    }
+
+    val refreshScope = rememberCoroutineScope()
+
     val onRefresh: (onRefreshed: () -> Unit) -> Unit = { onRefreshed ->
-        refreshScope.launch {
+        refreshScope.launch(Dispatchers.IO) {
             try {
-                val applications = getMiPushApplications()
+                val applications = getMiPushApplications(filterMode)
                 updateInfos(applications, context)
+
                 withContext(Dispatchers.Main) {
                     g_items = applications
                     isNeedRefresh = false
                     onRefreshed()
                 }
-                applications.res.forEach {
-                    iconCache.cache(it.packageName)
-                }
+                // iconCache removed, AppIcon handles caching
             } catch (e: Throwable) {
-                XLog.e("Failed to load application list", e)
+                logger.e("failed to load app list", e)
                 withContext(Dispatchers.Main) {
-                    android.widget.Toast.makeText(context, "Load failed: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
                     isNeedRefresh = false
                     onRefreshed()
                 }
@@ -123,8 +133,8 @@ fun ApplicationList(
         }
         val observer = LifecycleEventObserver { _, event ->
             if (event != Lifecycle.Event.ON_RESUME || isNeedRefresh) return@LifecycleEventObserver
-            refreshScope.launch {
-                val applications = getMiPushApplications()
+            refreshScope.launch(Dispatchers.IO) {
+                val applications = getMiPushApplications(filterMode)
                 updateInfos(applications, context)
                 withContext(Dispatchers.Main) {
                     g_items = applications
@@ -147,7 +157,7 @@ fun ApplicationList(
             contentPadding = contentPadding
         ) {
             items(g_items.res, { it.packageName }) {
-                ApplicationItem(it)
+                ApplicationItem(it, onAppClick)
             }
             item {
                 val notUseMiPushCount by remember { derivedStateOf { g_items.totalPkg - g_items.res.size } }
@@ -197,7 +207,7 @@ private fun Footer(notUseMiPushCount: Int) {
 }
 
 @Composable
-private fun ApplicationItem(item: RegisteredApplication) {
+private fun ApplicationItem(item: RegisteredApplication, onAppClick: (String) -> Unit) {
     val context = LocalContext.current
     val info = g_itemsInfo[item.packageName] ?: return
     val statusColor =
@@ -207,11 +217,7 @@ private fun ApplicationItem(item: RegisteredApplication) {
     Row(
         Modifier
             .clickable {
-                EventListPageUtils.startManagePermissions(
-                    context,
-                    item.packageName,
-                    true
-                )
+                onAppClick(item.packageName)
             }
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -256,9 +262,10 @@ private fun LastReceive(item: RegisteredApplication) {
 )
 @Composable
 fun ApplicationListPreview() {
-    XLog.init()
+    // XLog.init()
 
-    ApplicationList(contentPadding = PaddingValues(0.dp)) {
+
+    ApplicationList(contentPadding = PaddingValues(0.dp), onAppClick = {}) { _ ->
         val miPushApplications = ApplicationPageOperation.MiPushApplications()
         miPushApplications.res = (
             mutableListOf(
@@ -301,9 +308,9 @@ fun ApplicationListPreview() {
 )
 @Composable
 fun OneApplicationWithNonMiPushAppPreview() {
-    XLog.init()
+    // XLog.init()
 
-    ApplicationList {
+    ApplicationList(onAppClick = {}) { _ ->
         val miPushApplications = ApplicationPageOperation.MiPushApplications()
         miPushApplications.res = mutableListOf(
             registeredApplication(

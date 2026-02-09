@@ -8,16 +8,11 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -28,9 +23,10 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.compose.rememberNavController
 import com.xiaomi.xmsf.R
 import top.trumeet.mipushframework.component.MarkdownView
+import top.trumeet.mipushframework.component.SettingsGroup
+import top.trumeet.mipushframework.component.SettingsItem
 import top.trumeet.ui.theme.Theme
 import java.io.InputStreamReader
 
@@ -40,7 +36,7 @@ class HelpPage : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             Theme {
-                HelpList()
+                HelpScreen()
             }
         }
     }
@@ -52,7 +48,26 @@ class HelpPage : ComponentActivity() {
 )
 @Composable
 fun HelpPage(modifier: Modifier = Modifier) {
-    HelpList()
+    HelpScreen()
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+fun HelpScreen(modifier: Modifier = Modifier) {
+    androidx.compose.material3.Scaffold(
+        modifier = modifier,
+        topBar = {
+            androidx.compose.material3.TopAppBar(
+                title = {
+                    androidx.compose.material3.Text(
+                        stringResource(R.string.app_name) + " " + stringResource(R.string.helplib_title)
+                    )
+                }
+            )
+        }
+    ) { innerPadding ->
+        HelpList(Modifier.padding(innerPadding))
+    }
 }
 
 @Composable
@@ -76,9 +91,8 @@ fun HelpList(modifier: Modifier = Modifier) {
 @Composable
 fun HelpList(navController: NavHostController) {
     Column {
-        FAQ(navController)
-        HorizontalDivider()
-        ContactUs()
+        FAQGroup(navController)
+        ContactUsGroup()
     }
 }
 
@@ -90,68 +104,33 @@ private fun Markdown(markdownResId: Int?) {
 }
 
 @Composable
-private fun FAQ(
+private fun FAQGroup(
     navController: NavHostController
 ) {
-    Group(stringResource(R.string.helplib_title_faq))
-    for (article in getArticles(LocalContext.current)) {
-        ClickableListItem(article.titleRes) {
-            navController.navigate("markdown/${article.markdownRes}") // 跳转并传递数据
+    SettingsGroup(title = stringResource(R.string.helplib_title_faq)) {
+        for (article in getArticles(LocalContext.current)) {
+            SettingsItem(
+                title = stringResource(article.titleRes)
+            ) {
+                navController.navigate("markdown/${article.markdownRes}")
+            }
         }
     }
 }
 
 @Composable
-private fun ContactUs() {
+private fun ContactUsGroup() {
     val context = LocalContext.current
-    Group(stringResource(R.string.helplib_title_contact))
-    ClickableListItem(R.string.helplib_action_qq_group) {
-        openUrl(context, "https://qm.qq.com/q/PaFGVEb6so")
-    }
-    ClickableListItem(R.string.helplib_action_telegram_group) {
-        openUrl(context, "https://t.me/+Gf5x3Lqw1tdiZDNl")
-    }
-    ClickableListItem(R.string.helplib_action_issue) {
-        openUrl(context, "https://github.com/magisk317/MiPushFramework/issues")
-    }
-}
-
-@Composable
-private fun Group(title: String) {
-    Column { // Added Column to hold Text and HorizontalDivider
-        Text(
-            text = title,
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(16.dp)
-        )
-        HorizontalDivider(
-            modifier = Modifier.padding(vertical = 8.dp),
-            thickness = 0.5.dp,
-            color = MaterialTheme.colorScheme.outlineVariant
-        )
-    }
-}
-
-@Composable
-private fun ClickableListItem(textResourceId: Int, onClick: () -> Unit) {
-    ClickableListItem(stringResource(textResourceId), onClick)
-}
-
-@Composable
-private fun ClickableListItem(item: String, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .clickable(onClick = onClick)
-            .padding(16.dp)
-            .padding(start = 24.dp)
-            .fillMaxWidth()
-    ) {
-        Text(
-            text = item,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface
-        )
+    SettingsGroup(title = stringResource(R.string.helplib_title_contact)) {
+        SettingsItem(title = stringResource(R.string.helplib_action_qq_group)) {
+            openUrl(context, "https://qm.qq.com/q/PaFGVEb6so")
+        }
+        SettingsItem(title = stringResource(R.string.helplib_action_telegram_group)) {
+            openUrl(context, "https://t.me/+Gf5x3Lqw1tdiZDNl")
+        }
+        SettingsItem(title = stringResource(R.string.helplib_action_issue)) {
+            openUrl(context, "https://github.com/magisk317/MiPushFramework/issues")
+        }
     }
 }
 
