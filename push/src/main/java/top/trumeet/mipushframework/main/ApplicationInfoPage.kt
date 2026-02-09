@@ -86,7 +86,12 @@ class ApplicationInfoPage : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        init(getRegisteredApplication()!!)
+        val app = getRegisteredApplication()
+        if (app == null) {
+            finish()
+            return
+        }
+        init(app)
         setContent {
             Theme {
                 SettingsApp()
@@ -106,6 +111,8 @@ class ApplicationInfoPage : ComponentActivity() {
                     RegisteredApplication()
                 application.packageName = pkg
                 application.registeredType = RegisteredType.NotRegistered
+                application.appName = com.magisk317.Global.ApplicationNameCache()
+                   .getAppName(this, pkg).toString()
             }
             return application
         }

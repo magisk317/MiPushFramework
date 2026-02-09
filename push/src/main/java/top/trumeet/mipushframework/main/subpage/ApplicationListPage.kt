@@ -240,7 +240,7 @@ private fun ApplicationItem(item: RegisteredApplication) {
 
 @Composable
 private fun LastReceive(item: RegisteredApplication) {
-    val info = g_itemsInfo[item.packageName]!!
+    val info = g_itemsInfo[item.packageName] ?: return
     if (info.lastReceiveTime.isBlank()) return
     Text(
         info.lastReceiveTime,
