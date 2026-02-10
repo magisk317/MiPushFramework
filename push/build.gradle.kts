@@ -96,7 +96,7 @@ abstract class RenameApkArtifactsTask : DefaultTask() {
     abstract val apkFolder: DirectoryProperty
 
     @get:OutputDirectory
-    abstract val outputDir: DirectoryProperty
+    abstract val signatureOutputDir: DirectoryProperty
 
     @get:Input
     abstract val versionNameWithSha: Property<String>
@@ -114,8 +114,10 @@ abstract class RenameApkArtifactsTask : DefaultTask() {
             logger.lifecycle("Skip rename: no APK artifacts under ${apkFolder.get().asFile}")
             return
         }
-        val targetDir = outputDir.get().asFile.toPath()
+        val targetDir = apkFolder.get().asFile.toPath()
+        val signatureDir = signatureOutputDir.get().asFile.toPath()
         Files.createDirectories(targetDir)
+        Files.createDirectories(signatureDir)
         for (element in builtArtifacts.elements) {
             val abi = element.filters
                 .firstOrNull { it.filterType == FilterConfiguration.FilterType.ABI }
@@ -123,7 +125,14 @@ abstract class RenameApkArtifactsTask : DefaultTask() {
             val targetName = "xmsf-v${versionNameWithSha.get()}-${flavorName.get()}-${buildTypeName.get()}-${abi}.apk"
             val source = element.path
             val target = targetDir.resolve(targetName)
-            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+
+            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING)
+
+            val sourceSignature = source.resolveSibling("${source.fileName}.idsig")
+            if (Files.exists(sourceSignature)) {
+                val targetSignature = signatureDir.resolve("${targetName}.idsig")
+                Files.move(sourceSignature, targetSignature, StandardCopyOption.REPLACE_EXISTING)
+            }
         }
     }
 }
@@ -236,7 +245,7 @@ androidComponents {
         ) {
             builtArtifactsLoader.set(variant.artifacts.getBuiltArtifactsLoader())
             apkFolder.set(variant.artifacts.get(SingleArtifact.APK))
-            outputDir.set(layout.buildDirectory.dir("outputs/renamed_apk/${variant.name}"))
+            signatureOutputDir.set(layout.buildDirectory.dir("outputs/apk-signatures/${variant.name}"))
             versionNameWithSha.set(versionNameWithShaValue)
             flavorName.set(flavor)
             buildTypeName.set(variant.buildType)
