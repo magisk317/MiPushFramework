@@ -258,7 +258,6 @@ dependencies {
     })
 
     implementation(libs.xlog)
-    implementation(libs.icebox)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.libsu.core)
     implementation(libs.androidx.room.runtime)

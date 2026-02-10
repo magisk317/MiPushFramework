@@ -20,7 +20,6 @@ object DataStoreManager {
     private val LAST_STARTUP_TIME = longPreferencesKey("last_startup_time")
     private val NOTIFICATION_ON_REGISTER = booleanPreferencesKey("notification_on_register")
     private val ACCESS_MODE = stringPreferencesKey("access_mode")
-    private val ICEBOX_SUPPORTED = booleanPreferencesKey("icebox_supported")
     private val SHOW_CONFIGURATION_LIST = booleanPreferencesKey("show_configuration_list")
     private val XMPP_SERVER = stringPreferencesKey("xmpp_server")
     private val CONFIG_DIRECTORY = stringPreferencesKey("config_directory")
@@ -46,7 +45,6 @@ object DataStoreManager {
     val lastStartupTime: Flow<Long> = context.dataStore.data.map { it[LAST_STARTUP_TIME] ?: 0L }
     val notificationOnRegister: Flow<Boolean> = context.dataStore.data.map { it[NOTIFICATION_ON_REGISTER] ?: false }
     val accessMode: Flow<String> = context.dataStore.data.map { it[ACCESS_MODE] ?: "0" }
-    val iceboxSupported: Flow<Boolean> = context.dataStore.data.map { it[ICEBOX_SUPPORTED] ?: false }
     val showConfigurationList: Flow<Boolean> = context.dataStore.data.map { it[SHOW_CONFIGURATION_LIST] ?: false }
     val xmppServer: Flow<String?> = context.dataStore.data.map { it[XMPP_SERVER] }
     val configDirectory: Flow<String?> = context.dataStore.data.map { it[CONFIG_DIRECTORY] }
@@ -76,10 +74,6 @@ object DataStoreManager {
 
     suspend fun setAccessMode(mode: String) {
         context.dataStore.edit { it[ACCESS_MODE] = mode }
-    }
-
-    suspend fun setIceboxSupported(supported: Boolean) {
-        context.dataStore.edit { it[ICEBOX_SUPPORTED] = supported }
     }
 
     suspend fun setShowConfigurationList(show: Boolean) {

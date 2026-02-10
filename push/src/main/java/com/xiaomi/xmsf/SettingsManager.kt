@@ -10,7 +10,6 @@ import android.os.Build
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.catchingnow.icebox.sdk_client.IceBox
 import com.magisk317.InternalMessenger
 import com.magisk317.network.NetworkPolicyCompat
 import com.magisk317.utils.RegistrationHelper
@@ -56,16 +55,7 @@ class SettingsManager @Inject constructor(
         } catch (_: Throwable) {}
     }
 
-    val requestIceBoxCode: Int = 0x233
     val mClearingHistory: AtomicBoolean = AtomicBoolean(false)
-
-    fun requestIceBoxPermission(activity: Activity) {
-        ActivityCompat.requestPermissions(activity, arrayOf(IceBox.SDK_PERMISSION), requestIceBoxCode)
-    }
-
-    fun iceBoxPermissionGranted(context: Context): Boolean {
-        return ContextCompat.checkSelfPermission(context, IceBox.SDK_PERMISSION) == PackageManager.PERMISSION_GRANTED
-    }
 
     fun clearLog(context: Context) {
         Toast.makeText(context, context.getString(R.string.settings_clear_log) + " " + context.getString(R.string.start), Toast.LENGTH_SHORT).show()
@@ -118,8 +108,6 @@ class SettingsManager @Inject constructor(
             )
         }
     }
-
-    fun isIceBoxInstalled(): Boolean = Utils.isAppInstalled(IceBox.PACKAGE_NAME)
 
     fun tryForceRegisterAllApplications(context: Context) {
         val uid = runCatching { Shell.cmd("id -u").exec().out.firstOrNull()?.trim() }.getOrNull()

@@ -422,20 +422,6 @@ private fun DataMaintenanceBlock(viewModel: SettingsViewModel) {
 @Composable
 private fun ExperimentalBlock(viewModel: SettingsViewModel) {
     val context = LocalContext.current
-    val iceboxSupported by viewModel.iceboxSupported.collectAsStateWithLifecycle()
-
-    var iceBoxGranted by remember {
-        mutableStateOf(
-            viewModel.isIceBoxInstalled()
-                    && viewModel.iceBoxPermissionGranted(context)
-        )
-    }
-    val permissionsLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) {
-        iceBoxGranted = it.values.all { granted -> granted }
-        viewModel.setIceboxSupported(iceBoxGranted)
-    }
 
     SettingsGroup(title = stringResource(R.string.settings_experimental)) {
         SettingsItem(
@@ -443,19 +429,6 @@ private fun ExperimentalBlock(viewModel: SettingsViewModel) {
             summary = stringResource(R.string.settings_mock_notification_summary)
         ) {
             viewModel.notifyMockNotification(context)
-        }
-
-        SettingsSwitchItem(
-            title = stringResource(R.string.settings_icebox_permission),
-            summary = stringResource(R.string.settings_icebox_permission_summary),
-            checked = iceboxSupported || iceBoxGranted,
-            enabled = viewModel.isIceBoxInstalled()
-        ) {
-            if (!iceBoxGranted) {
-                permissionsLauncher.launch(arrayOf(com.catchingnow.icebox.sdk_client.IceBox.SDK_PERMISSION))
-            } else {
-                viewModel.setIceboxSupported(!iceboxSupported)
-            }
         }
     }
 }

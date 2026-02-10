@@ -175,11 +175,6 @@
         </receiver>
 
         <receiver android:name="com.xiaomi.push.revival.NotificationsRevivalForSelfUpdated" />
-        <receiver
-                android:name="com.catchingnow.icebox.sdk_client.StateReceiver"
-                android:exported="true"
-                tools:node="merge" />
-
         <service
                 android:name=".push.service.HttpService"
                 android:exported="true" />

@@ -84,16 +84,6 @@
     <string name="settings_start_foreground_service">推送服务保活</string>
     <string name="settings_start_foreground_service_summary">控制是否持续显示保活前台通知；服务启动阶段仍会先完成前台化以保证系统兼容性</string>
 
-    <string name="settings_icebox_permission">开启冰箱(IceBox)自动解冻支持</string>
-    <string name="settings_icebox_permission_summary">点击通知栏时自动解冻冻结的App。
-         需要安装的冰箱版本号 >= 3.6.0
-    </string>
-
-
-    <string name="icebox_permission_granted">已赋权冰箱自动解冻</string>
-    <string name="icebox_permission_not_granted">未赋权冰箱自动解冻</string>
-
-    <string name="settings_icebox_not_installed">冰箱尚未安装，暂不支持</string>
     <string name="app_name">推送服务</string>
     <string name="enable">启用</string>
     <string name="fail">失败</string>
@@ -284,7 +274,7 @@
     <string name="settings_home_data_title">数据与维护</string>
     <string name="settings_home_data_summary">历史清理、日志导出及强制注册相关操作。</string>
     <string name="settings_home_developer_title">开发者与实验</string>
-    <string name="settings_home_developer_summary">模拟消息、IceBox 联动和调试开关。</string>
+    <string name="settings_home_developer_summary">模拟消息和调试开关。</string>
     <string name="settings_home_about_summary">帮助、更新与项目信息。</string>
     <string name="settings_group_display_and_list">显示与列表</string>
     <string name="settings_group_data_and_debug">数据与调试</string>
