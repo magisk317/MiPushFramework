@@ -71,14 +71,6 @@
     </string-array>
 
 
-    <string name="settings_icebox_not_installed">IceBox not installed</string>
-    <string name="settings_icebox_permission">Auto enable app by IceBox</string>
-    <string name="settings_icebox_permission_summary">Auto enable app by IceBox SDK.
-        require IceBox( version > 3.6.0) installed </string>
-    <string name="icebox_permission_granted">IceBox permission granted</string>
-    <string name="icebox_permission_not_granted">IceBox permission not granted</string>
-
-
     <string name="settings_mock_notification">Simulate received a message</string>
     <string name="settings_mock_notification_summary">Tap to send a simulated test message.</string>
     <string name="debug_test_title">This is Title</string>
@@ -311,7 +303,7 @@ This could be the application doing a reverse registration, or the registration 
     <string name="settings_home_data_title">Data &amp; maintenance</string>
     <string name="settings_home_data_summary">History cleanup, logs, and force register operations.</string>
     <string name="settings_home_developer_title">Developer &amp; experimental</string>
-    <string name="settings_home_developer_summary">Mock messages, IceBox integration, and debug controls.</string>
+    <string name="settings_home_developer_summary">Mock messages and debug controls.</string>
     <string name="settings_home_about_summary">Help, update check, and project information.</string>
     <string name="settings_group_display_and_list">Display &amp; list</string>
     <string name="settings_group_data_and_debug">Data &amp; debug</string>

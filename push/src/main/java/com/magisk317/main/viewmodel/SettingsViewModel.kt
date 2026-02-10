@@ -2,18 +2,16 @@ package com.magisk317.main.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.magisk317.network.NetworkPolicyCompat
+import com.magisk317.data.DataStoreManager
+import com.magisk317.data.PreferenceRepository
+import com.xiaomi.xmsf.SettingsManager
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import com.magisk317.data.DataStoreManager
 import top.trumeet.common.utils.Utils
-import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import com.magisk317.data.PreferenceRepository
-
-import com.xiaomi.xmsf.SettingsManager
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -49,9 +47,6 @@ class SettingsViewModel @Inject constructor(
 
     val accessMode: StateFlow<String> = preferenceRepository.accessMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "0")
-
-    val iceboxSupported: StateFlow<Boolean> = preferenceRepository.iceboxSupported
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     fun updateHazeBlurRadius(radius: Int) {
         viewModelScope.launch {
@@ -117,10 +112,6 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { preferenceRepository.setAccessMode(mode.toString()) }
     }
 
-    fun setIceboxSupported(supported: Boolean) {
-        viewModelScope.launch { preferenceRepository.setIceboxSupported(supported) }
-    }
-
     fun startMiPushServiceAsForegroundService(context: android.content.Context) {
         settingsManager.startMiPushServiceAsForegroundService(context)
     }
@@ -133,11 +124,6 @@ class SettingsViewModel @Inject constructor(
         settingsManager.clearHistory(context, viewModelScope)
     }
 
-    fun isIceBoxInstalled(): Boolean = settingsManager.isIceBoxInstalled()
-
-    fun iceBoxPermissionGranted(context: android.content.Context): Boolean =
-        settingsManager.iceBoxPermissionGranted(context)
-    
     fun clearLog(context: android.content.Context) {
         settingsManager.clearLog(context)
     }

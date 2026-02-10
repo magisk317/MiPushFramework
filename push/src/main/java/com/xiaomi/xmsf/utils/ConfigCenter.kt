@@ -42,10 +42,6 @@ class ConfigCenter @Inject constructor() {
         return mode.toInt()
     }
 
-    fun isIceboxSupported(ctx: Context): Boolean {
-        return runBlocking { DataStoreManager.iceboxSupported.first() }
-    }
-
     fun getConfigurationDirectory(ctx: Context): Uri? {
         val uri = runBlocking { DataStoreManager.configDirectory.first() }
         return if (uri == null) null else Uri.parse(uri)

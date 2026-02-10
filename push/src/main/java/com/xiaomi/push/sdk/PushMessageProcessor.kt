@@ -3,10 +3,7 @@ package com.xiaomi.push.sdk
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Bundle
-import androidx.core.content.ContextCompat
-import com.catchingnow.icebox.sdk_client.IceBox
 import com.elvishew.xlog.XLog
 import com.magisk317.Global
 import com.magisk317.push.pipeline.MiPushRuntimeBridge
@@ -141,22 +138,6 @@ class PushMessageProcessor @Inject constructor(
     }
 
     private fun activeApp(context: Context, targetPackage: String) {
-        if (configCenter.isIceboxSupported(context) && Utils.isAppInstalled(IceBox.PACKAGE_NAME)) {
-            try {
-                if (ContextCompat.checkSelfPermission(context, IceBox.SDK_PERMISSION) == PackageManager.PERMISSION_GRANTED) {
-                    val enabledSetting = IceBox.getAppEnabledSetting(context, targetPackage)
-                    if (enabledSetting != 0) {
-                        logger.w(packageInfo(targetPackage, "active app by IceBox SDK"))
-                        IceBox.setAppEnabledSettings(context, true, targetPackage)
-                        return
-                    }
-                } else {
-                    logger.w(packageInfo(targetPackage, "skip active app by IceBox SDK due to lack of permissions"))
-                }
-            } catch (e: Throwable) {
-                logger.e(packageInfo(targetPackage, "activeApp failed ${e.localizedMessage}"), e)
-            }
-        }
         Shell.cmd("pm enable $targetPackage").exec()
     }
 
