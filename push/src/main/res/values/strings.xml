@@ -313,9 +313,6 @@ This could be the application doing a reverse registration, or the registration 
     <string name="settings_home_developer_title">Developer &amp; experimental</string>
     <string name="settings_home_developer_summary">Mock messages, IceBox integration, and debug controls.</string>
     <string name="settings_home_about_summary">Help, update check, and project information.</string>
-    <string name="settings_section_navigation">Navigation</string>
-    <string name="settings_back_to_home">Back to settings home</string>
-    <string name="settings_back_to_home_summary">Return to section list.</string>
     <string name="settings_group_display_and_list">Display &amp; list</string>
     <string name="settings_group_data_and_debug">Data &amp; debug</string>
     <string name="settings_blur_radius">Background blur intensity</string>

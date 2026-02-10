@@ -406,50 +406,75 @@ fun EventList(
 private fun EventItem(item: EventInfoForDisplay, onClick: (EventInfoForDisplay) -> Unit) {
     val disabled = item.configOptions.contains("disable")
     val alpha = if (disabled) 0.5f else 1f
-    Row(
+    val iconSize = 48.dp
+    val iconGap = 20.dp
+
+    Column(
         Modifier
             .clickable { onClick(item) }
             .fillMaxWidth()
             .padding(10.dp)
-            .alpha(alpha),
-        verticalAlignment = Alignment.CenterVertically
+            .alpha(alpha)
     ) {
-        AppIcon(item.packageName, item.appName, modifier = Modifier.size(48.dp))
-        Spacer(Modifier.width(20.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Row {
-                ConfigOptions(item)
-                ChannelInfo(item)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Top
+        ) {
+            AppIcon(item.packageName, item.appName, modifier = Modifier.size(iconSize))
+            Spacer(Modifier.width(iconGap))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    EventHeaderMetaLine1(item, modifier = Modifier.weight(1f))
+                    Spacer(Modifier.width(10.dp))
+                    EventReceiveDate(item)
+                }
+                EventHeaderTitle(item)
             }
-            EventTitle(item)
-            EventContent(item)
         }
-        Spacer(Modifier.width(12.dp))
-        EventReceiveDate(item)
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = iconSize + iconGap)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                EventContent(item)
+            }
+        }
     }
 }
 
 @Composable
-private fun ConfigOptions(item: EventInfoForDisplay) {
-    if (item.configOptions.isNotEmpty()) {
-        Text(
-            item.configOptions.toString(),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.width(5.dp))
+private fun EventHeaderMetaLine1(item: EventInfoForDisplay, modifier: Modifier = Modifier) {
+    val appName = item.appName?.takeIf { it.isNotBlank() } ?: item.packageName
+    val merged = buildString {
+        append(appName)
+        if (item.channel.isNotBlank()) {
+            append(" · ")
+            append(item.channel)
+        }
     }
-}
-
-@Composable
-private fun ChannelInfo(item: EventInfoForDisplay) {
     Text(
-        item.channel,
+        text = merged,
+        modifier = modifier,
         style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1
     )
 }
 
+@Composable
+private fun EventHeaderTitle(item: EventInfoForDisplay) {
+    Text(
+        text = item.title,
+        style = MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.onSurface,
+        maxLines = 1
+    )
+}
 
 @Composable
 private fun EventReceiveDate(item: EventInfoForDisplay) {
@@ -458,15 +483,6 @@ private fun EventReceiveDate(item: EventInfoForDisplay) {
         format.format(item.receiveDate),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
-}
-
-@Composable
-private fun EventTitle(item: EventInfoForDisplay) {
-    Text(
-        item.title,
-        style = MaterialTheme.typography.bodyLarge,
-        color = MaterialTheme.colorScheme.onSurface
     )
 }
 
