@@ -38,7 +38,7 @@
             android:allowBackup="false"
             android:icon="@mipmap/ic_app"
             android:label="@string/app_name"
-            android:manageSpaceActivity="top.trumeet.mipushframework.main.AdvancedSettingsPage"
+            android:manageSpaceActivity="top.trumeet.mipushframework.main.MainActivity"
             android:supportsRtl="true"
             android:theme="@style/AppTheme"
             android:resizeableActivity="true"
@@ -52,10 +52,6 @@
                 android:exported="true" />
         <activity
                 android:name=".RemoveDozeActivity"
-                android:exported="true" />
-
-        <activity
-                android:name="top.trumeet.mipushframework.main.AdvancedSettingsPage"
                 android:exported="true" />
 
         <!-- Compat entry for legacy callers that resolve com.xiaomi.push.service.XMPushService -->
