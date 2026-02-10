@@ -64,8 +64,6 @@ version_gte() {
   [[ "${top}" == "${current}" ]]
 }
 
-apply="${APPLY_ALERT_DISMISSALS:-false}"
-dismissed=0
 covered=0
 uncovered=0
 
@@ -85,19 +83,6 @@ while IFS= read -r line; do
   if version_gte "${override}" "${patched}"; then
     covered=$((covered + 1))
     echo "COVERED #${id} ${pkg}: override=${override}, patched=${patched}, severity=${severity}"
-
-    if [[ "${apply}" == "true" ]]; then
-      gh api \
-        --method PATCH \
-        -H "Accept: application/vnd.github+json" \
-        "/repos/${REPO}/dependabot/alerts/${id}" \
-        -f state='dismissed' \
-        -f dismissed_reason='tolerable_risk' \
-        -f dismissed_comment="Mitigated by enforced Gradle security override (${pkg}=${override}) and CI validation." \
-        >/dev/null
-      dismissed=$((dismissed + 1))
-      echo "DISMISSED #${id}"
-    fi
   else
     echo "STALE_OVERRIDE #${id} ${pkg}: override=${override}, patched=${patched}, severity=${severity}"
     uncovered=$((uncovered + 1))
@@ -110,11 +95,7 @@ done < "${ALERTS_FILE}"
   echo "- Open alerts scanned: $(wc -l < "${ALERTS_FILE}")"
   echo "- Covered by overrides: ${covered}"
   echo "- Not covered: ${uncovered}"
-  if [[ "${apply}" == "true" ]]; then
-    echo "- Dismissed now: ${dismissed}"
-  else
-    echo "- Dismissed now: 0 (dry-run)"
-  fi
+  echo "- Auto-dismiss: disabled"
 } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
 
-echo "Reconciliation done (apply=${apply}, covered=${covered}, uncovered=${uncovered}, dismissed=${dismissed})"
+echo "Reconciliation done (covered=${covered}, uncovered=${uncovered}, auto-dismiss=disabled)"
