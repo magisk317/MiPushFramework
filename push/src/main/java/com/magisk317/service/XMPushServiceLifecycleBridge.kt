@@ -47,7 +47,7 @@ object XMPushServiceLifecycleBridge {
             listener
         }
         if (createdNow) {
-            NetworkPolicyCompat.installCountryCodeUrlRewrite()
+            NetworkPolicyCompat.installCountryCodeUrlRewrite(pushService)
             runCatching { activeListener?.created() }
                 .onFailure { logger.e("listener.created failed", it) }
             flushPendingStarts(activeListener)

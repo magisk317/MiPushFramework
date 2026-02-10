@@ -22,7 +22,8 @@ object NetworkPolicyCompat {
     @JvmStatic
     fun applyAll(context: Context) {
         enforceCnRegion(context)
-        installCountryCodeUrlRewrite()
+        // installCountryCodeUrlRewrite is now called in XMPushServiceLifecycleBridge
+        // installCountryCodeUrlRewrite()
         applyXmppHostOverride(context)
     }
 
@@ -83,7 +84,7 @@ object NetworkPolicyCompat {
     }
 
     @JvmStatic
-    fun installCountryCodeUrlRewrite() {
+    fun installCountryCodeUrlRewrite(pushService: com.xiaomi.push.service.XMPushService) {
         runCatching {
             val factoryField: Field = HostManager::class.java.getDeclaredField("factory").apply {
                 isAccessible = true
@@ -106,6 +107,13 @@ object NetworkPolicyCompat {
             }
             HostManager.setHostManagerFactory(wrapped)
             wrappedFactoryIdentity = identity
+
+            // HostManager.setHostManagerFactory clears the instance, so we must re-initialize it.
+            // Using reflection to call PushHostManagerFactory.init(XMPushService)
+            val pushFactoryClass = Class.forName("com.xiaomi.push.service.PushHostManagerFactory")
+            val initMethod = pushFactoryClass.getDeclaredMethod("init",
+                Class.forName("com.xiaomi.push.service.XMPushService"))
+            initMethod.invoke(null, pushService)
         }.onFailure {
             logger.w("install countrycode URL rewrite failed: ${it.message}")
         }
