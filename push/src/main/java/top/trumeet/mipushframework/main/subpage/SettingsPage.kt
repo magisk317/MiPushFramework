@@ -1,11 +1,10 @@
 package top.trumeet.mipushframework.main.subpage
 
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -20,13 +19,13 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.stringArrayResource
@@ -35,9 +34,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.PaddingValues
-import com.magisk317.Global
-import com.magisk317.InternalMessenger
-import com.xiaomi.push.service.XMPushServiceMessenger
 import com.xiaomi.xmsf.R
 import top.trumeet.common.utils.Utils
 import top.trumeet.mipushframework.MainActivityOperation
@@ -46,7 +42,6 @@ import top.trumeet.mipushframework.component.SettingsItem
 import top.trumeet.mipushframework.component.SettingsDialogItem
 import top.trumeet.mipushframework.component.SettingsSwitchItem
 import top.trumeet.mipushframework.component.SettingsListItem
-import top.trumeet.mipushframework.main.AdvancedSettingsPage
 import top.trumeet.mipushframework.main.HelpPage
 import top.trumeet.ui.theme.Theme
 
@@ -54,11 +49,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.magisk317.main.viewmodel.SettingsViewModel
 
+private enum class SettingsSection {
+    Service,
+    Display,
+    DataMaintenance,
+    Developer,
+    About
+}
+
 @Composable
 fun Settings(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     viewModel: SettingsViewModel = viewModel(),
-    onShowAboutDialog: (String) -> Unit = {}
+    onShowAboutDialog: (String) -> Unit = {},
+    onSectionChanged: (String?) -> Unit = {},
+    sectionBackSignal: Int = 0
 ) {
     val hazeBlurRadius by viewModel.hazeBlurRadius.collectAsStateWithLifecycle()
     val hazeTintAlpha by viewModel.hazeTintAlpha.collectAsStateWithLifecycle()
@@ -74,7 +79,9 @@ fun Settings(
                 onHazeBlurRadiusChange = { viewModel.updateHazeBlurRadius(it.toInt()) },
                 onHazeTintAlphaChange = { viewModel.updateHazeTintAlpha(it) },
                 onShowAboutDialog = onShowAboutDialog,
-                viewModel = viewModel
+                viewModel = viewModel,
+                onSectionChanged = onSectionChanged,
+                sectionBackSignal = sectionBackSignal
             )
         }
     }
@@ -89,28 +96,98 @@ private fun SettingsScreen(
     onHazeBlurRadiusChange: (Float) -> Unit,
     onHazeTintAlphaChange: (Float) -> Unit,
     onShowAboutDialog: (String) -> Unit,
-    viewModel: SettingsViewModel
+    viewModel: SettingsViewModel,
+    onSectionChanged: (String?) -> Unit,
+    sectionBackSignal: Int
 ) {
+    var currentSection by rememberSaveable { mutableStateOf<SettingsSection?>(null) }
+    val currentTitle = when (currentSection) {
+        SettingsSection.Service -> stringResource(R.string.settings_home_service_title)
+        SettingsSection.Display -> stringResource(R.string.settings_home_display_title)
+        SettingsSection.DataMaintenance -> stringResource(R.string.settings_home_data_title)
+        SettingsSection.Developer -> stringResource(R.string.settings_home_developer_title)
+        SettingsSection.About -> stringResource(R.string.action_about)
+        null -> null
+    }
+
+    LaunchedEffect(currentTitle) {
+        onSectionChanged(currentTitle)
+    }
+    LaunchedEffect(sectionBackSignal) {
+        if (currentSection != null) {
+            currentSection = null
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
     ) {
+        BackHandler(enabled = currentSection != null) {
+            currentSection = null
+        }
+
         Spacer(Modifier.height(contentPadding.calculateTopPadding()))
 
-        ServiceConfigurationBlock(viewModel)
-        DisplayBlock(
-            hazeBlurRadius,
-            hazeTintAlpha,
-            onHazeBlurRadiusChange,
-            onHazeTintAlphaChange,
-            viewModel
-        )
-        DataMaintenanceBlock(viewModel)
-        ExperimentalBlock(viewModel)
-        AboutBlock(onShowAboutDialog)
+        if (currentSection == null) {
+            SettingsHome(
+                onOpenService = { currentSection = SettingsSection.Service },
+                onOpenDisplay = { currentSection = SettingsSection.Display },
+                onOpenData = { currentSection = SettingsSection.DataMaintenance },
+                onOpenDeveloper = { currentSection = SettingsSection.Developer },
+                onOpenAbout = { currentSection = SettingsSection.About }
+            )
+        } else {
+            when (currentSection) {
+                SettingsSection.Service -> ServiceConfigurationBlock(viewModel)
+                SettingsSection.Display -> DisplayBlock(
+                    hazeBlurRadius,
+                    hazeTintAlpha,
+                    onHazeBlurRadiusChange,
+                    onHazeTintAlphaChange,
+                    viewModel
+                )
+                SettingsSection.DataMaintenance -> DataMaintenanceBlock(viewModel)
+                SettingsSection.Developer -> ExperimentalBlock(viewModel)
+                SettingsSection.About -> AboutBlock(onShowAboutDialog)
+                null -> Unit
+            }
+        }
 
         Spacer(Modifier.height(contentPadding.calculateBottomPadding() + 16.dp))
+    }
+}
+
+@Composable
+private fun SettingsHome(
+    onOpenService: () -> Unit,
+    onOpenDisplay: () -> Unit,
+    onOpenData: () -> Unit,
+    onOpenDeveloper: () -> Unit,
+    onOpenAbout: () -> Unit
+) {
+    SettingsGroup(title = stringResource(R.string.settings_options)) {
+        SettingsItem(
+            title = stringResource(R.string.settings_home_service_title),
+            summary = stringResource(R.string.settings_home_service_summary)
+        ) { onOpenService() }
+        SettingsItem(
+            title = stringResource(R.string.settings_home_display_title),
+            summary = stringResource(R.string.settings_home_display_summary)
+        ) { onOpenDisplay() }
+        SettingsItem(
+            title = stringResource(R.string.settings_home_data_title),
+            summary = stringResource(R.string.settings_home_data_summary)
+        ) { onOpenData() }
+        SettingsItem(
+            title = stringResource(R.string.settings_home_developer_title),
+            summary = stringResource(R.string.settings_home_developer_summary)
+        ) { onOpenDeveloper() }
+        SettingsItem(
+            title = stringResource(R.string.action_about),
+            summary = stringResource(R.string.settings_home_about_summary)
+        ) { onOpenAbout() }
     }
 }
 
@@ -122,7 +199,7 @@ private fun ServiceConfigurationBlock(viewModel: SettingsViewModel) {
     val notificationOnRegister by viewModel.notificationOnRegister.collectAsStateWithLifecycle()
 
     SettingsGroup(title = stringResource(R.string.settings_service_setting)) {
-        SetXMPPServer(context, viewModel)
+        SetXMPPServer(viewModel)
         SetConfigurationsDirectory(viewModel)
 
         SettingsSwitchItem(
@@ -160,7 +237,7 @@ private fun DisplayBlock(
     val showAllEvents by viewModel.showAllEvents.collectAsStateWithLifecycle()
     val showConfigurationList by viewModel.showConfigurationList.collectAsStateWithLifecycle()
 
-    SettingsGroup(title = "记录与显示") {
+    SettingsGroup(title = stringResource(R.string.settings_group_display_and_list)) {
         SettingsSwitchItem(
             title = stringResource(R.string.settings_show_all_events),
             checked = showAllEvents,
@@ -175,12 +252,10 @@ private fun DisplayBlock(
         var showAlphaDialog by remember { mutableStateOf(false) }
         var blurValue by remember { mutableStateOf(blurRadius) }
         var alphaValue by remember { mutableStateOf(tintAlpha) }
-        var initialBlurValue by remember { mutableStateOf(blurRadius) }
-        var initialAlphaValue by remember { mutableStateOf(tintAlpha) }
         var isDragging by remember { mutableStateOf(false) }
 
         SettingsDialogItem(
-            title = "背景模糊强度",
+            title = stringResource(R.string.settings_blur_radius),
             summary = "${blurRadius.toInt()}dp",
             shouldShowDialog = showBlurDialog,
             onDismiss = {
@@ -191,7 +266,6 @@ private fun DisplayBlock(
                 }
             },
             onClick = {
-                initialBlurValue = blurRadius
                 blurValue = blurRadius
                 showBlurDialog = true
             },
@@ -242,7 +316,7 @@ private fun DisplayBlock(
         )
 
         SettingsDialogItem(
-            title = "模糊遮罩透明度",
+            title = stringResource(R.string.settings_blur_mask_alpha),
             summary = String.format("%.2f", tintAlpha),
             shouldShowDialog = showAlphaDialog,
             onDismiss = {
@@ -253,7 +327,6 @@ private fun DisplayBlock(
                 }
             },
             onClick = {
-                initialAlphaValue = tintAlpha
                 alphaValue = tintAlpha
                 showAlphaDialog = true
             },
@@ -310,7 +383,7 @@ private fun DataMaintenanceBlock(viewModel: SettingsViewModel) {
     val context = LocalContext.current
     val debugMode by viewModel.debugMode.collectAsStateWithLifecycle()
 
-    SettingsGroup(title = "数据与调试") {
+    SettingsGroup(title = stringResource(R.string.settings_group_data_and_debug)) {
         SettingsItem(
             title = stringResource(R.string.settings_clear_history),
             summary = stringResource(R.string.settings_clear_history_summary)
@@ -389,7 +462,7 @@ private fun ExperimentalBlock(viewModel: SettingsViewModel) {
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-private fun SetXMPPServer(context: Context, viewModel: SettingsViewModel) {
+private fun SetXMPPServer(viewModel: SettingsViewModel) {
     val savedXmppServer by viewModel.xmppServer.collectAsStateWithLifecycle()
     var text by remember { mutableStateOf(savedXmppServer ?: "") }
     var shouldShowDialog by remember { mutableStateOf(false) }

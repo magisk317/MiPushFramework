@@ -50,6 +50,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Devices
@@ -85,6 +87,10 @@ private var placeholder by mutableStateOf("Search...")
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    companion object {
+        const val EXTRA_START_TAB = "extra_start_tab"
+        const val START_TAB_SETTINGS = "settings"
+    }
 
     @Inject lateinit var configCenter: ConfigCenter
     @Inject lateinit var eventRepository: EventRepository
@@ -93,10 +99,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         mainActivityUtils.initOnCreate(applicationContext, configCenter) { placeholder = it.toString() }
+        val startDestination = if (intent?.getStringExtra(EXTRA_START_TAB) == START_TAB_SETTINGS) {
+            Screen.Settings.route.toString()
+        } else {
+            Screen.Apps.route.toString()
+        }
         setContent {
             Theme {
                 Main(
-                    Screen.Apps.route.toString(),
+                    startDestination,
                     configCenter = configCenter,
                     eventsPage = { query, padding, refreshSignal, groupByApp ->
                         EventList(
@@ -111,8 +122,13 @@ class MainActivity : ComponentActivity() {
                             filterMode = filterMode,
                             onAppClick = { pkg -> eventRepository.startManagePermissions(pkg, true) })
                     },
-                    settingsPage = { padding, onAbout -> 
-                        Settings(padding, onShowAboutDialog = onAbout) 
+                    settingsPage = { padding, onAbout, onSectionChanged, backSignal ->
+                        Settings(
+                            padding,
+                            onShowAboutDialog = onAbout,
+                            onSectionChanged = onSectionChanged,
+                            sectionBackSignal = backSignal
+                        )
                     }
                 )
             }
@@ -187,7 +203,7 @@ private fun Main(
     configCenter: ConfigCenter,
     eventsPage: @Composable (String, PaddingValues, Int, Boolean) -> Unit,
     appsPage: @Composable (String, PaddingValues, Int, Int) -> Unit,
-    settingsPage: @Composable (PaddingValues, (String) -> Unit) -> Unit
+    settingsPage: @Composable (PaddingValues, (String) -> Unit, (String?) -> Unit, Int) -> Unit
 ) {
     val initialIndex = when (startDestination) {
         Screen.Events.route.toString() -> 0
@@ -218,6 +234,8 @@ private fun Main(
     val eventGroupByApp by DataStoreManager.eventGroupByApp.collectAsStateWithLifecycle(initialValue = false)
     val appFilterMode by DataStoreManager.appFilterMode.collectAsStateWithLifecycle(initialValue = 0)
     var aboutDialogContent by remember { mutableStateOf<String?>(null) }
+    var settingsSectionTitle by rememberSaveable { mutableStateOf<String?>(null) }
+    var settingsBackSignal by rememberSaveable { mutableStateOf(0) }
     val onShowAboutDialog: (String) -> Unit = { content -> aboutDialogContent = content }
 
     val hazeState = remember { HazeState() }
@@ -372,7 +390,21 @@ private fun Main(
                     }
 
                     else -> CenterAlignedTopAppBar(
-                        title = { androidx.compose.material3.Text(stringResource(Screen.Settings.route)) },
+                        title = {
+                            androidx.compose.material3.Text(
+                                settingsSectionTitle ?: stringResource(Screen.Settings.route)
+                            )
+                        },
+                        navigationIcon = {
+                            if (settingsSectionTitle != null) {
+                                IconButton(onClick = { settingsBackSignal++ }) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = stringResource(android.R.string.cancel)
+                                    )
+                                }
+                            }
+                        },
                         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                             containerColor = androidx.compose.ui.graphics.Color.Transparent,
                             scrolledContainerColor = androidx.compose.ui.graphics.Color.Transparent
@@ -414,7 +446,9 @@ private fun Main(
                     1 -> appsPage(appsQuery, innerPadding, appsRefreshSignal, appFilterMode)
                     else -> settingsPage(
                         innerPadding,
-                        onShowAboutDialog
+                        onShowAboutDialog,
+                        { title -> settingsSectionTitle = title },
+                        settingsBackSignal
                     )
                 }
             }
@@ -461,7 +495,7 @@ private fun MainEventsPreview() {
             }
         },
         appsPage = { _, _, _, _ -> },
-        settingsPage = { _, _ -> }
+        settingsPage = { _, _, _, _ -> }
     )
 }
 
@@ -480,7 +514,7 @@ private fun MainAppsPreview() {
                 ApplicationListPreview()
             }
         },
-        settingsPage = { _, _ -> }
+        settingsPage = { _, _, _, _ -> }
     )
 }
 
@@ -495,8 +529,13 @@ private fun MainSettingsPreview() {
         configCenter = ConfigCenter(),
         eventsPage = { _, _, _, _ -> },
         appsPage = { _, _, _, _ -> },
-        settingsPage = { padding, onAbout -> 
-            Settings(padding, onShowAboutDialog = onAbout) 
+        settingsPage = { padding, onAbout, onSectionChanged, backSignal ->
+            Settings(
+                padding,
+                onShowAboutDialog = onAbout,
+                onSectionChanged = onSectionChanged,
+                sectionBackSignal = backSignal
+            )
         }
     )
 }
@@ -512,6 +551,6 @@ private fun MainDialogPreview() {
         configCenter = ConfigCenter(),
         eventsPage = { _, _, _, _ -> EventDetailsDialogPreview() },
         appsPage = { _, _, _, _ -> },
-        settingsPage = { _, _ -> }
+        settingsPage = { _, _, _, _ -> }
     )
 }

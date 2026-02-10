@@ -32,7 +32,7 @@ import com.xiaomi.xmsf.push.utils.IconConfigurations
 import com.xiaomi.xmsf.utils.ColorUtil
 import top.trumeet.common.utils.CustomConfiguration
 import top.trumeet.common.utils.ImgUtils
-import top.trumeet.mipushframework.main.AdvancedSettingsPage
+import top.trumeet.mipushframework.main.MainActivity
 
 object NotificationController {
     private val logger = XLog.tag("NotificationController").build()
@@ -345,7 +345,9 @@ object NotificationController {
         localBuilder.setWhen(System.currentTimeMillis())
         localBuilder.setShowWhen(true)
 
-        val notifyIntent = Intent(context, AdvancedSettingsPage::class.java)
+        val notifyIntent = Intent(context, MainActivity::class.java).apply {
+            putExtra(MainActivity.EXTRA_START_TAB, MainActivity.START_TAB_SETTINGS)
+        }
         notifyIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         val notifyPendingIntent = PendingIntent.getActivity(
             context,
