@@ -28,7 +28,7 @@ jobs:
           .github/scripts/sync_security_overrides.sh
 
       - name: Create PR if changed
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           commit-message: "chore(security): sync dependency security overrides"
