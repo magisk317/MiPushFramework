@@ -48,6 +48,7 @@ import top.trumeet.ui.theme.Theme
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.magisk317.main.viewmodel.SettingsViewModel
+import top.trumeet.mipushframework.wizard.RequestPermissionPage
 
 private enum class SettingsSection {
     Service,
@@ -223,6 +224,16 @@ private fun ServiceConfigurationBlock(viewModel: SettingsViewModel) {
             title = stringResource(R.string.settings_notify_on_register),
             checked = notificationOnRegister,
         ) { viewModel.setNotificationOnRegister(it) }
+
+        SettingsItem(
+            title = stringResource(R.string.settings_permission_check),
+            summary = stringResource(R.string.settings_permission_check_summary)
+        ) {
+            context.startActivity(
+                Intent(context, RequestPermissionPage::class.java)
+                    .putExtra(RequestPermissionPage.EXTRA_RECHECK_ONLY, true)
+            )
+        }
     }
 }
 

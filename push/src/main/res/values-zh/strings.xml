@@ -128,6 +128,7 @@
     <string name="status_ok">成功</string>
     <string name="wizard_title_finish_button">开启推送之旅</string>
     <string name="wizard_title_pending_button">请先完成授权</string>
+    <string name="wizard_title_continue_button">先进入应用</string>
     <string name="wizard_subtitle">请授予以下权限以继续使用推送服务</string>
     <string name="status_granted">已授权</string>
     <string name="status_pending">待授权</string>
@@ -170,6 +171,8 @@
     <string name="settings_configuration_directory">设置配置目录</string>
     <string name="settings_XMPP_server">设置 XMPP 服务器</string>
     <string name="settings_XMPP_server_summary">设置 发送/接收 消息的服务器</string>
+    <string name="settings_permission_check">权限检查</string>
+    <string name="settings_permission_check_summary">重新打开权限引导页，补齐未授权权限。</string>
 
     <string name="settings_get_log">获取日志</string>
     <string name="settings_get_log_summary">点按分享日志，必要时请随 Issue 一起提交。</string>

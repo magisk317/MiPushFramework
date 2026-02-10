@@ -92,12 +92,17 @@ import androidx.compose.material.icons.outlined.CheckCircle
 private val logger = XLog.tag("WizardPermission").build()
 
 class RequestPermissionPage : ComponentActivity() {
+    companion object {
+        const val EXTRA_RECHECK_ONLY = "extra_recheck_only"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        val recheckOnly = intent?.getBooleanExtra(EXTRA_RECHECK_ONLY, false) ?: false
         setContent {
             Theme {
-                PermissionMainActivity()
+                PermissionMainActivity(recheckOnly = recheckOnly)
             }
         }
     }
@@ -108,7 +113,8 @@ class RequestPermissionPage : ComponentActivity() {
 )
 @Composable
 fun PermissionMainActivity(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    recheckOnly: Boolean = false
 ) {
     val context = LocalContext.current
     Box(
@@ -205,17 +211,22 @@ fun PermissionMainActivity(
 
             Button(
                 onClick = {
-                    WizardSPUtils.finishWizard(context as ComponentActivity)
-                    context.startActivity(Intent(context, MainActivity::class.java))
+                    if (recheckOnly) {
+                        (context as? ComponentActivity)?.finish()
+                    } else {
+                        WizardSPUtils.finishWizard(context as ComponentActivity)
+                        context.startActivity(Intent(context, MainActivity::class.java))
+                    }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = allGranted
+                enabled = true
             ) {
                 Text(
-                    text = if (allGranted) 
-                        stringResource(id = R.string.wizard_title_finish_button) 
-                    else 
-                        stringResource(id = R.string.wizard_title_pending_button)
+                    text = if (allGranted) {
+                        stringResource(id = R.string.wizard_title_finish_button)
+                    } else {
+                        stringResource(id = R.string.wizard_title_continue_button)
+                    }
                 )
             }
         }
