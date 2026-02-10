@@ -27,6 +27,19 @@ object NotificationManagerEx {
         tag: String?, id: Int, notification: Notification
     ) {
         XLog.d(TAG, "notify() called with: packageName = $packageName, tag = $tag, id = $id, notification = $notification")
+        try {
+            val method = NotificationManager::class.java.getMethod(
+                "notifyAsPackage",
+                String::class.java,
+                String::class.java,
+                Int::class.javaPrimitiveType,
+                Notification::class.java
+            )
+            method.invoke(notificationManager, packageName, tag, id, notification)
+            return
+        } catch (e: Exception) {
+            XLog.e(TAG, "Failed to invoke notifyAsPackage", e)
+        }
         notificationManager.notify(tag, id, notification)
     }
 
