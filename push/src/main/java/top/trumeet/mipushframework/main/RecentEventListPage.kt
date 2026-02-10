@@ -20,6 +20,9 @@ import top.trumeet.mipushframework.component.SearchBar
 import top.trumeet.mipushframework.main.subpage.EventList
 import top.trumeet.ui.theme.Theme
 
+import dagger.hilt.android.AndroidEntryPoint
+
+@AndroidEntryPoint
 class RecentEventListPage : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
