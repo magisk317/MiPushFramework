@@ -36,11 +36,10 @@ jobs:
           chmod +x .github/scripts/janitor_security_fixes.sh
           .github/scripts/janitor_security_fixes.sh
 
-      - name: Reconcile open dependabot alerts with enforced overrides
+      - name: Report alert coverage (no auto-dismiss)
         env:
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
-          APPLY_ALERT_DISMISSALS: "true"
         run: |
           chmod +x .github/scripts/reconcile_dependabot_alerts.sh
           .github/scripts/reconcile_dependabot_alerts.sh
