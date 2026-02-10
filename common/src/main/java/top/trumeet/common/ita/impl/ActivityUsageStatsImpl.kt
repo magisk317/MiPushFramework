@@ -22,11 +22,12 @@ class ActivityUsageStatsImpl : ITopActivity {
             val packageManager = context.packageManager
             val appOpsManager = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
             val applicationInfo = packageManager.getApplicationInfo(context.packageName, 0)
-            appOpsManager.checkOpNoThrow(
+            val mode = appOpsManager.checkOpNoThrow(
                 AppOpsManager.OPSTR_GET_USAGE_STATS,
                 applicationInfo.uid,
                 applicationInfo.packageName
-            ) == AppOpsManager.MODE_ALLOWED
+            )
+            mode == AppOpsManager.MODE_ALLOWED || mode == AppOpsManager.MODE_DEFAULT
         } catch (e: Exception) {
             Log.e(TAG, e.message ?: "", e)
             false
