@@ -1,78 +1,22 @@
 import java.util.Properties
-import java.util.jar.JarEntry
-import java.util.jar.JarFile
-import java.util.jar.JarOutputStream
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import org.gradle.api.Project
 import org.gradle.api.DefaultTask
-import org.gradle.api.tasks.Sync
-import org.gradle.api.tasks.InputFile
-import org.gradle.api.tasks.OutputFile
+import org.gradle.api.file.RegularFile
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.provider.Provider
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.TaskProvider
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputDirectory
+import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
-import org.gradle.api.tasks.bundling.Zip
-import org.gradle.api.file.RegularFileProperty
-import org.objectweb.asm.ClassReader
-import org.objectweb.asm.ClassWriter
-
-buildscript {
-    repositories {
-        mavenCentral()
-    }
-    dependencies {
-        classpath("org.ow2.asm:asm:9.9.1")
-    }
-}
-
-abstract class FixJarStackMapsTask : DefaultTask() {
-    @get:InputFile
-    abstract val inputJar: RegularFileProperty
-
-    @get:OutputFile
-    abstract val outputJar: RegularFileProperty
-
-    @TaskAction
-    fun rewriteStackMaps() {
-        class SafeClassWriter(flags: Int) : ClassWriter(flags) {
-            override fun getCommonSuperClass(type1: String, type2: String): String {
-                return try {
-                    super.getCommonSuperClass(type1, type2)
-                } catch (_: Throwable) {
-                    "java/lang/Object"
-                }
-            }
-        }
-        val input = inputJar.get().asFile
-        val output = outputJar.get().asFile
-        output.parentFile.mkdirs()
-        JarFile(input).use { jarFile ->
-            JarOutputStream(output.outputStream().buffered()).use { jarOut ->
-                val entries = jarFile.entries()
-                while (entries.hasMoreElements()) {
-                    val entry = entries.nextElement()
-                    val newEntry = JarEntry(entry.name).apply {
-                        time = entry.time
-                    }
-                    jarOut.putNextEntry(newEntry)
-                    jarFile.getInputStream(entry).use { stream ->
-                        val original = stream.readBytes()
-                        val rewritten = if (!entry.isDirectory && entry.name.endsWith(".class")) {
-                            try {
-                                val reader = ClassReader(original)
-                                val writer = SafeClassWriter(ClassWriter.COMPUTE_FRAMES or ClassWriter.COMPUTE_MAXS)
-                                reader.accept(writer, ClassReader.EXPAND_FRAMES)
-                                writer.toByteArray()
-                            } catch (_: Throwable) {
-                                original
-                            }
-                        } else {
-                            original
-                        }
-                        jarOut.write(rewritten)
-                    }
-                    jarOut.closeEntry()
-                }
-            }
-        }
-    }
-}
+import com.android.build.api.dsl.ApkSigningConfig
+import com.android.build.api.artifact.SingleArtifact
+import com.android.build.api.variant.BuiltArtifactsLoader
+import com.android.build.api.variant.FilterConfiguration
 
 plugins {
     alias(libs.plugins.android.application)
@@ -81,6 +25,8 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt.android)
 }
+
+apply(from = rootProject.file("gradle/patched-mipush-jar.gradle.kts"))
 
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
@@ -98,33 +44,88 @@ val gitShortSha = providers.exec {
 }.standardOutput.asText.map { it.trim().ifEmpty { "unknown" } }.orElse("unknown")
 val normalVersionCode = libs.versions.pushVersionCodeNormal.get().toInt()
 val vc105VersionCode = libs.versions.pushVersionCodeVc105.get().toInt()
-val originalMiPushJar = rootProject.project(":mipush_hook").file("libs/miuipushsdkshared_3_7_9.jar")
-val patchedMiPushJarUnpackedDir = layout.buildDirectory.dir("intermediates/patched-libs/miuipushsdkshared_3_7_9")
-val patchedMiPushExcludes = listOf(
-    "com/xiaomi/push/service/timers/AlarmManagerTimer.class",
-    "com/xiaomi/push/service/ClientEventDispatcher.class",
-    "com/xiaomi/clientreport/manager/ClientReportClient.class",
-    "com/xiaomi/push/service/clientReport/PushClientReportManager.class"
+
+@Suppress("UNCHECKED_CAST")
+fun <T> Project.requiredExtra(name: String): T = extra[name] as T
+
+val fixedPatchedMiPushJar: Provider<RegularFile> = project.requiredExtra("fixedPatchedMiPushJar")
+val fixPatchedMiPushJarStackMaps: TaskProvider<*> = project.requiredExtra("fixPatchedMiPushJarStackMaps")
+
+private data class SigningMaterial(
+    val keyStoreFile: java.io.File,
+    val keyStorePassword: String?,
+    val keyAlias: String?,
+    val keyPassword: String?
 )
-val unpackPatchedMiPushJar = tasks.register<Sync>("unpackPatchedMiPushJar") {
-    inputs.property("patchedMiPushExcludes", patchedMiPushExcludes)
-    from(zipTree(originalMiPushJar)) {
-        patchedMiPushExcludes.forEach { exclude(it) }
+
+private fun Project.resolveSigningMaterial(): SigningMaterial {
+    var keyStoreFile = rootProject.file(".yuuta.jks")
+    var keyStorePassword = System.getenv("KEYSTORE_PASS")
+    var keyAlias = System.getenv("ALIAS_NAME")
+    var keyPassword = System.getenv("ALIAS_PASS")
+    val localProperties = rootProject.file("local.properties")
+    if (localProperties.exists()) {
+        val properties = Properties()
+        properties.load(localProperties.inputStream())
+        keyStoreFile = properties.getProperty("KEY_LOCATE")?.let { rootProject.file(it) } ?: keyStoreFile
+        keyStorePassword = properties.getProperty("KEYSTORE_PASSWORD") ?: keyStorePassword
+        keyAlias = properties.getProperty("KEYSTORE_ALIAS") ?: keyAlias
+        keyPassword = properties.getProperty("KEY_PASSWORD") ?: keyPassword
     }
-    into(patchedMiPushJarUnpackedDir)
+    return SigningMaterial(keyStoreFile, keyStorePassword, keyAlias, keyPassword)
 }
-val repackPatchedMiPushJar = tasks.register<Zip>("repackPatchedMiPushJar") {
-    dependsOn(unpackPatchedMiPushJar)
-    from(patchedMiPushJarUnpackedDir)
-    destinationDirectory.set(layout.buildDirectory.dir("intermediates/patched-libs"))
-    archiveFileName.set("miuipushsdkshared_3_7_9_patched.jar")
+
+private fun ApkSigningConfig.applySigningMaterial(signing: SigningMaterial) {
+    enableV1Signing = true
+    enableV2Signing = true
+    enableV3Signing = true
+    enableV4Signing = true
+    if (signing.keyStoreFile.exists()) {
+        storeFile = signing.keyStoreFile
+        storePassword = signing.keyStorePassword
+        keyAlias = signing.keyAlias
+        keyPassword = signing.keyPassword
+    }
 }
-val fixedPatchedMiPushJar = layout.buildDirectory.file("intermediates/patched-libs/miuipushsdkshared_3_7_9_patched_fixed.jar")
-val repackedPatchedMiPushJar = repackPatchedMiPushJar.flatMap { it.archiveFile }
-val fixPatchedMiPushJarStackMaps = tasks.register<FixJarStackMapsTask>("fixPatchedMiPushJarStackMaps") {
-    dependsOn(repackPatchedMiPushJar)
-    inputJar.set(repackedPatchedMiPushJar)
-    outputJar.set(fixedPatchedMiPushJar)
+
+abstract class RenameApkArtifactsTask : DefaultTask() {
+    @get:Internal
+    abstract val builtArtifactsLoader: Property<BuiltArtifactsLoader>
+
+    @get:InputDirectory
+    abstract val apkFolder: DirectoryProperty
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @get:Input
+    abstract val versionNameWithSha: Property<String>
+
+    @get:Input
+    abstract val flavorName: Property<String>
+
+    @get:Input
+    abstract val buildTypeName: Property<String>
+
+    @TaskAction
+    fun executeTask() {
+        val builtArtifacts = builtArtifactsLoader.get().load(apkFolder.get())
+        if (builtArtifacts == null) {
+            logger.lifecycle("Skip rename: no APK artifacts under ${apkFolder.get().asFile}")
+            return
+        }
+        val targetDir = outputDir.get().asFile.toPath()
+        Files.createDirectories(targetDir)
+        for (element in builtArtifacts.elements) {
+            val abi = element.filters
+                .firstOrNull { it.filterType == FilterConfiguration.FilterType.ABI }
+                ?.identifier ?: "universal"
+            val targetName = "xmsf-v${versionNameWithSha.get()}-${flavorName.get()}-${buildTypeName.get()}-${abi}.apk"
+            val source = element.path
+            val target = targetDir.resolve(targetName)
+            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+        }
+    }
 }
 
 android {
@@ -188,65 +189,10 @@ android {
         }
     }
 
-    // aspectjx removed for modernization
-
-    // greendao removed for modernization (Gradle 9.5 incompatibility)
-
     signingConfigs {
-        getByName("debug") {
-            enableV1Signing = true
-            enableV2Signing = true
-            enableV3Signing = true
-            enableV4Signing = true
-
-            var locale = project.rootProject.file(".yuuta.jks")
-            var keystorePwd = System.getenv("KEYSTORE_PASS")
-            var alias = System.getenv("ALIAS_NAME")
-            var pwd = System.getenv("ALIAS_PASS")
-            
-            if (project.rootProject.file("local.properties").exists()) {
-                val properties = Properties()
-                properties.load(project.rootProject.file("local.properties").inputStream())
-                locale = properties.getProperty("KEY_LOCATE")?.let { project.rootProject.file(it) } ?: locale
-                keystorePwd = properties.getProperty("KEYSTORE_PASSWORD") ?: keystorePwd
-                alias = properties.getProperty("KEYSTORE_ALIAS") ?: alias
-                pwd = properties.getProperty("KEY_PASSWORD") ?: pwd
-            }
-
-            if (locale.exists()) {
-                storeFile = locale
-                storePassword = keystorePwd
-                keyAlias = alias
-                keyPassword = pwd
-            }
-        }
-        getByName("release") {
-            enableV1Signing = true
-            enableV2Signing = true
-            enableV3Signing = true
-            enableV4Signing = true
-
-            var locale = project.rootProject.file(".yuuta.jks")
-            var keystorePwd = System.getenv("KEYSTORE_PASS")
-            var alias = System.getenv("ALIAS_NAME")
-            var pwd = System.getenv("ALIAS_PASS")
-
-            if (project.rootProject.file("local.properties").exists()) {
-                val properties = Properties()
-                properties.load(project.rootProject.file("local.properties").inputStream())
-                locale = properties.getProperty("KEY_LOCATE")?.let { project.rootProject.file(it) } ?: locale
-                keystorePwd = properties.getProperty("KEYSTORE_PASSWORD") ?: keystorePwd
-                alias = properties.getProperty("KEYSTORE_ALIAS") ?: alias
-                pwd = properties.getProperty("KEY_PASSWORD") ?: pwd
-            }
-
-            if (locale.exists()) {
-                storeFile = locale
-                storePassword = keystorePwd
-                keyAlias = alias
-                keyPassword = pwd
-            }
-        }
+        val signing = project.resolveSigningMaterial()
+        getByName("debug") { applySigningMaterial(signing) }
+        getByName("release") { applySigningMaterial(signing) }
     }
 
     compileOptions {
@@ -276,48 +222,31 @@ android {
     // composeOptions removed as it is now handled by the compose-compiler plugin
 }
 
-tasks.register("renameApks") {
-    dependsOn("assembleRelease")
-    val apkRootDir = layout.buildDirectory.dir("outputs/apk")
+androidComponents {
     val safeVersionName = versionNameStr.replace(Regex("\\s+"), "_")
-    val versionNameWithSha = run {
-        if (Regex("-g[0-9a-fA-F]{7,}").containsMatchIn(safeVersionName)) {
-            safeVersionName
-        } else {
-            "$safeVersionName-g${gitShortSha.get()}"
+    val versionNameWithShaValue = if (Regex("-g[0-9a-fA-F]{7,}").containsMatchIn(safeVersionName)) {
+        safeVersionName
+    } else {
+        "$safeVersionName-g${gitShortSha.get()}"
+    }
+    onVariants(selector().withBuildType("release")) { variant ->
+        val flavor = variant.flavorName?.ifBlank { "default" } ?: "default"
+        val renameTask = tasks.register<RenameApkArtifactsTask>(
+            "rename${variant.name.replaceFirstChar { it.uppercase() }}Apks"
+        ) {
+            builtArtifactsLoader.set(variant.artifacts.getBuiltArtifactsLoader())
+            apkFolder.set(variant.artifacts.get(SingleArtifact.APK))
+            outputDir.set(layout.buildDirectory.dir("outputs/renamed_apk/${variant.name}"))
+            versionNameWithSha.set(versionNameWithShaValue)
+            flavorName.set(flavor)
+            buildTypeName.set(variant.buildType)
+        }
+        tasks.matching {
+            it.name.startsWith("assemble") && it.name.endsWith("Release")
+        }.configureEach {
+            finalizedBy(renameTask)
         }
     }
-    doLast {
-        val apkRoot = apkRootDir.get().asFile
-        if (!apkRoot.exists()) return@doLast
-
-        apkRoot.walkTopDown()
-            .filter { it.isFile && it.extension == "apk" }
-            .forEach { apk ->
-                val name = apk.name
-                val flavor = apk.parentFile?.parentFile?.name ?: "default"
-                val abi = when {
-                    name.contains("arm64-v8a") -> "arm64-v8a"
-                    name.contains("armeabi-v7a") -> "armeabi-v7a"
-                    name.contains("x86_64") -> "x86_64"
-                    name.contains("-x86-") -> "x86"
-                    name.contains("universal") -> "universal"
-                    else -> "universal"
-                }
-                val buildType = apk.parentFile?.name ?: "release"
-                val targetName = "xmsf-v${versionNameWithSha}-${flavor}-${buildType}-${abi}.apk"
-                val target = apk.resolveSibling(targetName)
-                if (apk.name != target.name) {
-                    apk.renameTo(target)
-                }
-            }
-    }
-}
-
-tasks.matching {
-    it.name.startsWith("assemble") && it.name.endsWith("Release")
-}.configureEach {
-    finalizedBy("renameApks")
 }
 
 dependencies {
