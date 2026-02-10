@@ -16,6 +16,7 @@ import top.trumeet.common.Constants.TAG_CONDOM
 class XMPushServiceAbility(pushService: XMPushService) : XMPushServiceListenerNotifier() {
 
     init {
+        com.elvishew.xlog.XLog.d("XMPushServiceAbility", "Initializing with service: $pushService")
         xmPushService = pushService
         Global.RegistrationRecorder().initContext(pushService)
         condomContext(pushService)

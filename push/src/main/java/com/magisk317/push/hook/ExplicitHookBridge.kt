@@ -112,6 +112,7 @@ object ExplicitHookBridge {
 
     @JvmStatic
     fun onServiceCreate(pushService: XMPushService) {
+        com.elvishew.xlog.XLog.d("ExplicitHookBridge", "onServiceCreate called for $pushService")
         HookTrace.mark("XMPushService.onCreate")
         AspectLogCompat.logServiceMethod("XMPushService.onCreate", details = "Service started")
         XMPushServiceLifecycleBridge.ensureCreated(pushService)
@@ -125,6 +126,7 @@ object ExplicitHookBridge {
 
     @JvmStatic
     fun onStartCommand(intent: Intent?) {
+        com.elvishew.xlog.XLog.d("ExplicitHookBridge", "onStartCommand called with intent: $intent")
         HookTrace.mark("XMPushService.onStartCommand")
         AspectLogCompat.logServiceMethod("XMPushService.onStartCommand", intent)
     }
