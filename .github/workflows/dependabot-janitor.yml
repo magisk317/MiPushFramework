@@ -1,0 +1,54 @@
+name: Dependabot Janitor
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  security-events: read
+  checks: read
+
+jobs:
+  janitor:
+    name: Automated Security Dependency Fixes
+    runs-on: ubuntu-latest
+    if: github.ref_name == github.event.repository.default_branch
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: gradle
+
+      - name: Run janitor sync and validation
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x .github/scripts/janitor_security_fixes.sh
+          .github/scripts/janitor_security_fixes.sh
+
+      - name: Create janitor PR if changed
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          commit-message: "chore(security): apply automated dependency security fixes"
+          title: "chore(security): apply automated dependency security fixes"
+          body: |
+            Automated dependency security fix run.
+            - Sync latest security overrides from open Dependabot alerts
+            - Validate with debug build + unit tests before opening this PR
+          branch: janitor/security-fixes
+          base: ${{ github.event.repository.default_branch }}
+          labels: |
+            dependencies
+            security
+          delete-branch: true
