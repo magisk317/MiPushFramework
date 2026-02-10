@@ -12,15 +12,26 @@ object PushServiceStarter {
     @JvmStatic
     fun start(context: Context, intent: Intent) {
         try {
-            if (isXMPushServiceTarget(intent)) {
+            val isXmPushServiceTarget = isXMPushServiceTarget(intent)
+            if (isXmPushServiceTarget) {
                 XMPushServiceLifecycleBridge.recordPendingStart(intent)
             }
+            // The MiPush service is expected to foreground itself via lifecycle callbacks.
+            // Starting it with startForegroundService has caused repeated 5s contract ANRs on some ROMs.
+            if (isXmPushServiceTarget) {
+                context.startService(intent)
+                logger.d("startService target=XMPushService component=${intent.component}")
+                return
+            }
+
             val shouldUseForegroundStart = Global.ConfigCenter().shouldStartPushAsForegroundService &&
-                (!isXMPushServiceTarget(intent) || XMPushServiceLifecycleBridge.canStartForegroundImmediately())
+                XMPushServiceLifecycleBridge.canStartForegroundImmediately()
             if (shouldUseForegroundStart) {
                 ContextCompat.startForegroundService(context, intent)
+                logger.d("startForegroundService component=${intent.component}")
             } else {
                 context.startService(intent)
+                logger.d("startService component=${intent.component}")
             }
         } catch (t: Throwable) {
             logger.e("failed to start service: ${intent.component}", t)
