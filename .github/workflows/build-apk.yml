@@ -11,8 +11,12 @@ permissions:
 
 jobs:
   build-apk:
-    name: Build APKs
+    name: Build APKs (${{ matrix.flavor }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        flavor: [normal, vc105]
     env:
       HAS_RELEASE_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE != '' }}
     steps:
@@ -33,7 +37,13 @@ jobs:
         run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > .yuuta.jks
 
       - name: Build APKs
-        run: ./gradlew :push:assembleRelease -PbuildSplits -Pkotlin.incremental=false
+        run: |
+          case "${{ matrix.flavor }}" in
+            normal) task=":push:assembleNormalRelease" ;;
+            vc105) task=":push:assembleVc105Release" ;;
+            *) echo "Unsupported flavor: ${{ matrix.flavor }}"; exit 1 ;;
+          esac
+          ./gradlew "$task" -PbuildSplits -Pkotlin.incremental=false
         env:
           KEYSTORE_PASS: ${{ secrets.STORE_PASSWORD }}
           ALIAS_NAME: ${{ secrets.KEY_ALIAS }}
@@ -42,14 +52,14 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v6
         with:
-          name: apks
-          path: push/build/outputs/apk/**/*.apk
+          name: apks-${{ matrix.flavor }}
+          path: push/build/outputs/apk/${{ matrix.flavor }}/release/**/*.apk
 
-      - name: Upload Native Symbols Artifact
+      - name: Upload Signature Artifact
         uses: actions/upload-artifact@v6
         with:
-          name: native-symbols
-          path: push/build/outputs/native-debug-symbols/**/*.zip
+          name: signatures-${{ matrix.flavor }}
+          path: push/build/outputs/apk-signatures/${{ matrix.flavor }}Release/**/*.idsig
           if-no-files-found: warn
 
   release:
@@ -63,8 +73,15 @@ jobs:
     steps:
       - uses: actions/download-artifact@v7
         with:
-          name: apks
+          pattern: apks-*
           path: artifacts/apks
+          merge-multiple: true
+
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: signatures-*
+          path: artifacts/signatures
+          merge-multiple: true
 
       - name: Create Draft Release
         uses: softprops/action-gh-release@v2
@@ -73,6 +90,7 @@ jobs:
           draft: true
           files: |
             artifacts/apks/**/*.apk
+            artifacts/signatures/**/*.idsig
           body: |
             ## MiPushFramework Release
             Automated build for version ${{ github.ref_name }}
