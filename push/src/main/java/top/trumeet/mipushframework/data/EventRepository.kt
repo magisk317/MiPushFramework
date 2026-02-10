@@ -14,6 +14,8 @@ import com.xiaomi.xmsf.push.notification.NotificationChannelManager
 import com.xiaomi.xmsf.push.notification.NotificationController
 import com.xiaomi.xmsf.push.utils.Configurations
 import com.xiaomi.xmsf.push.utils.RegSecUtils
+import com.xiaomi.push.service.XMPushService as SdkXMPushService
+import com.xiaomi.xmsf.push.service.XMPushService as AppXMPushService
 import com.xiaomi.xmsf.utils.ConfigCenter
 import com.xiaomi.xmsf.utils.ConvertUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -121,7 +123,12 @@ class EventRepository @Inject constructor(
     }
 
     fun mockMessage(containerWithRegSec: XmPushActionContainer) {
-        val pushService = XMPushServiceAbility.xmPushService ?: return
+        val pushService: SdkXMPushService? = XMPushServiceAbility.xmPushService
+        if (pushService == null) {
+            context.startService(Intent(context, AppXMPushService::class.java))
+            Utils.makeText(context, "Service starting, please try again", 0)
+            return
+        }
         MockMIPushMessage.mockProcessMIPushMessage(
             pushService,
             containerWithRegSec.deepCopy()
