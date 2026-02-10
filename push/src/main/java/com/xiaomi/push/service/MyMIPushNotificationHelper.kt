@@ -132,7 +132,13 @@ class MyMIPushNotificationHelper {
                     }
                 }
                 if (operations.contains(PackageConfig.OPERATION_OPEN)) {
-                    MyPushMessageHandler.startService(context, container, decryptedContent)
+                    executorService.execute {
+                        try {
+                            MyPushMessageHandler.startService(context, container, decryptedContent)
+                        } catch (e: Exception) {
+                            logger.e(e.localizedMessage, e)
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 logger.e(e.localizedMessage, e)
