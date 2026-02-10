@@ -6,7 +6,13 @@ import android.content.Intent
 import com.magisk317.XMPushUtils
 import com.magisk317.service.XMPushServiceAbility
 import com.magisk317.utils.MockMIPushMessage
+import com.xiaomi.channel.commonutils.android.DataCryptUtils
+import com.xiaomi.channel.commonutils.string.Base64Coder
+import com.xiaomi.push.service.PushConstants
+import com.xiaomi.push.service.MIPushEventProcessor
+import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.XmPushActionCommandResult
+import com.xiaomi.xmpush.thrift.XmPushActionSendMessage
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
 import com.xiaomi.xmsf.R
@@ -29,6 +35,7 @@ import top.trumeet.mipush.provider.entities.Event
 import top.trumeet.mipushframework.main.ApplicationInfoPage
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.random.Random
 
 @Singleton
 class EventRepository @Inject constructor(
@@ -124,15 +131,64 @@ class EventRepository @Inject constructor(
 
     fun mockMessage(containerWithRegSec: XmPushActionContainer) {
         val pushService: SdkXMPushService? = XMPushServiceAbility.xmPushService
+        com.elvishew.xlog.XLog.d("EventRepository", "mockMessage called. pushService exists: ${pushService != null}")
+        val regSec = RegSecUtils.getRegSec(containerWithRegSec)
+        if (containerWithRegSec.isEncryptAction && regSec.isNullOrBlank()) {
+            Utils.makeText(
+                context,
+                context.getString(R.string.mock_notification_missing_regsec),
+                0
+            )
+            return
+        }
+
+        // Preflight diagnostics: if framework cannot even resolve receiver, replay will be dropped silently.
+        runCatching {
+            val payload = XMPushUtils.packToBytes(containerWithRegSec)
+            val candidateIntent = MIPushEventProcessor.buildIntent(payload, System.currentTimeMillis())
+                if (candidateIntent == null) {
+                    com.elvishew.xlog.XLog.w("EventRepository", "mock preflight: buildIntent returned null")
+                } else {
+                    // Use 0 to match framework dispatch behavior in MIPushEventProcessor.isIntentAvailable.
+                    val receivers = context.packageManager.queryBroadcastReceivers(candidateIntent, 0)
+                    val receiverNames = receivers.mapNotNull { it.activityInfo?.name }.take(3)
+                    com.elvishew.xlog.XLog.d(
+                        "EventRepository",
+                        "mock preflight: action=${candidateIntent.action} pkg=${candidateIntent.`package`} " +
+                            "receivers=${receivers.size} names=$receiverNames"
+                    )
+                    if (receivers.isEmpty()) {
+                        Utils.makeText(
+                            context,
+                            context.getString(R.string.mock_notification_no_receiver),
+                        0
+                    )
+                }
+            }
+        }.onFailure {
+            com.elvishew.xlog.XLog.e("EventRepository", "mock preflight check failed", it)
+        }
+
         if (pushService == null) {
+            com.elvishew.xlog.XLog.d("EventRepository", "pushService is null, starting AppXMPushService (Bridge)")
             context.startService(Intent(context, AppXMPushService::class.java))
             Utils.makeText(context, "Service starting, please try again", 0)
             return
         }
-        MockMIPushMessage.mockProcessMIPushMessage(
+        val replayContainer = containerWithRegSec.deepCopy().also {
+            rewriteReplayMessageIdentityIfNeeded(it, regSec)
+        }
+        val handled = MockMIPushMessage.mockProcessMIPushMessage(
             pushService,
-            containerWithRegSec.deepCopy()
+            replayContainer
         )
+        if (!handled) {
+            Utils.makeText(
+                context,
+                context.getString(R.string.mock_notification_failed),
+                0
+            )
+        }
     }
 
     fun getContent(event: Event, containerWithRegSec: XmPushActionContainer): String {
@@ -195,6 +251,40 @@ class EventRepository @Inject constructor(
             ConvertUtils.getResponseMessageBodyFromContainer(container, RegSecUtils.getRegSec(container))
         } catch (_: Exception) {
             null
+        }
+    }
+
+    private fun rewriteReplayMessageIdentityIfNeeded(container: XmPushActionContainer, regSec: String?) {
+        if (container.action != ActionType.SendMessage) return
+
+        runCatching {
+            val body = ConvertUtils.getResponseMessageBodyFromContainer(container, regSec)
+            val sendMessage = body as? XmPushActionSendMessage ?: return
+
+            val newId = "smm${System.currentTimeMillis()}${Random.nextInt(1000, 9999)}"
+            val oldId = sendMessage.id
+            sendMessage.id = newId
+
+            container.metaInfo?.let { meta ->
+                meta.id = newId
+                meta.extra?.put(PushConstants.EXTRA_JOB_KEY, newId)
+            }
+
+            val updatedPayload = XMPushUtils.packToBytes(sendMessage)
+            val finalPayload = if (container.isEncryptAction && !regSec.isNullOrBlank()) {
+                val keyBytes = Base64Coder.decode(regSec)
+                DataCryptUtils.mipushEncrypt(keyBytes, updatedPayload) as ByteArray
+            } else {
+                updatedPayload
+            }
+            container.setPushAction(finalPayload)
+
+            com.elvishew.xlog.XLog.i(
+                "EventRepository",
+                "mock replay id rewritten old=$oldId new=$newId encrypt=${container.isEncryptAction}"
+            )
+        }.onFailure {
+            com.elvishew.xlog.XLog.w("EventRepository", "mock replay id rewrite skipped", it)
         }
     }
 }

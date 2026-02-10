@@ -274,6 +274,9 @@
     <string name="force_register_partial">强制注册部分完成：成功 %1$d 个，失败 %2$d 个</string>
     <string name="force_register_sent">已发送强制注册请求</string>
     <string name="force_register_failed">强制注册失败，请查看日志</string>
+    <string name="mock_notification_missing_regsec">无法重放这条加密推送：缺少注册密钥（regSec）。请先让应用重新注册后再试。</string>
+    <string name="mock_notification_failed">重放推送失败，请查看日志。</string>
+    <string name="mock_notification_no_receiver">重放预检：目标应用没有匹配此推送的接收器。</string>
     <string name="wizard_title_ignore_battery_optimizations_permission">忽略电池优化</string>
     <string name="wizard_title_ignore_battery_optimizations_text">您需要授予“忽略电池优化”权限，否则您可能将无法在后台运行mipush服务。</string>
     <string name="wizard_title_notification_permission">通知权限</string>
