@@ -48,6 +48,18 @@ object NotificationManagerEx {
         tag: String?, id: Int
     ) {
         XLog.d(TAG, "cancel() called with: packageName = $packageName, tag = $tag, id = $id")
+        try {
+            val method = NotificationManager::class.java.getMethod(
+                "cancelAsPackage",
+                String::class.java,
+                String::class.java,
+                Int::class.javaPrimitiveType
+            )
+            method.invoke(notificationManager, packageName, tag, id)
+            return
+        } catch (e: Exception) {
+            XLog.e(TAG, "Failed to invoke cancelAsPackage", e)
+        }
         notificationManager.cancel(tag, id)
     }
 
@@ -57,6 +69,17 @@ object NotificationManagerEx {
     ) {
         XLog.d(TAG, "createNotificationChannels() called with: packageName = $packageName, channels = $channels")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                val method = NotificationManager::class.java.getMethod(
+                    "createNotificationChannelsForPackage",
+                    String::class.java,
+                    List::class.java
+                )
+                method.invoke(notificationManager, packageName, channels)
+                return
+            } catch (e: Exception) {
+                 XLog.e(TAG, "Failed to invoke createNotificationChannelsForPackage", e)
+            }
             notificationManager.createNotificationChannels(channels)
         }
     }
@@ -65,11 +88,21 @@ object NotificationManagerEx {
         packageName: String,
         channelId: String?
     ): NotificationChannel? {
-        XLog.d(TAG, "createNotificationChannels() called with: packageName = $packageName, channelId = $channelId")
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            notificationManager.getNotificationChannel(channelId)
+        XLog.d(TAG, "getNotificationChannel() called with: packageName = $packageName, channelId = $channelId")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                val method = NotificationManager::class.java.getMethod(
+                    "getNotificationChannelForPackage",
+                    String::class.java,
+                    String::class.java
+                )
+                return method.invoke(notificationManager, packageName, channelId) as? NotificationChannel
+            } catch (e: Exception) {
+                XLog.e(TAG, "Failed to invoke getNotificationChannelForPackage", e)
+            }
+            return notificationManager.getNotificationChannel(channelId)
         } else {
-            null
+            return null
         }
     }
 
@@ -110,11 +143,20 @@ object NotificationManagerEx {
         groupId: String?
     ): NotificationChannelGroup? {
         XLog.d(TAG, "getNotificationChannelGroup() called with: packageName = $packageName, groupId = $groupId")
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            TODO("compile error")
-            //notificationManager.getNotificationChannelGroup(groupId)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            try {
+                val method = NotificationManager::class.java.getMethod(
+                    "getNotificationChannelGroupForPackage",
+                    String::class.java,
+                    String::class.java
+                )
+                return method.invoke(notificationManager, packageName, groupId) as? NotificationChannelGroup
+            } catch (e: Exception) {
+                 XLog.e(TAG, "Failed to invoke getNotificationChannelGroupForPackage", e)
+            }
+            return notificationManager.getNotificationChannelGroup(groupId)
         } else {
-            null
+            return null
         }
     }
 
