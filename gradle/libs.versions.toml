@@ -6,7 +6,7 @@ targetSdk = "36"
 
 # App version
 versionCode = "7"
-versionName = "0.3.13"
+versionName = "0.3.14"
 pushVersionCodeNormal = "1003003000"
 pushVersionCodeVc105 = "105"
 
