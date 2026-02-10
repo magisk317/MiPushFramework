@@ -62,13 +62,13 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: MiPushFramework-debug-x86
-          path: push/build/outputs/apk/**/*_x86.apk
+          path: push/build/outputs/apk/**/*-x86.apk
       - name: Upload Debug APK (x86_64)
         if: always()
         uses: actions/upload-artifact@v6
         with:
           name: MiPushFramework-debug-x86_64
-          path: push/build/outputs/apk/**/*_x86_64.apk
+          path: push/build/outputs/apk/**/*-x86_64.apk
       - name: Upload Debug APK (universal)
         if: always()
         uses: actions/upload-artifact@v6
