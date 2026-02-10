@@ -201,6 +201,7 @@ class ApplicationInfoPage : ComponentActivity() {
     }
 
     private fun launchTargetAppAndForceRegister(context: Context, packageName: String) {
+        stopTargetAppBestEffort(packageName)
         val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
         if (launchIntent == null) {
             Toast.makeText(context, R.string.force_register_failed, Toast.LENGTH_LONG).show()
@@ -213,6 +214,12 @@ class ApplicationInfoPage : ComponentActivity() {
                 return
             }
         forceRegisterWithFeedback(context, packageName)
+    }
+
+    private fun stopTargetAppBestEffort(packageName: String) {
+        runCatching {
+            Shell.cmd("am force-stop $packageName").exec()
+        }
     }
 
     private fun forceRegisterWithFeedback(context: Context, packageName: String) {
