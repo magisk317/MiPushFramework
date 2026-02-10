@@ -31,7 +31,7 @@ mockito = "4.11.0"
 annotation = "1.9.1"
 markdown = "0.7.3"
 startup = "1.2.0"
-kotlinx-serialization = "1.8.0"
+kotlinx-serialization = "1.10.0"
 datastore = "1.2.0"
 hilt = "2.59.1"
 
