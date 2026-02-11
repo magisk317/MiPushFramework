@@ -64,8 +64,8 @@ object MiPushRuntimeBridge {
         source: String
     ) {
         val container = XMPushUtils.packToContainer(payload) ?: return
-        MockMessageRegistry.consumeIfMatched(container)
-        if (!shouldRecord(container)) {
+        val isMockReplay = MockMessageRegistry.isMarked(container)
+        if (!isMockReplay && !shouldRecord(container)) {
             logger.d("skip duplicate payload event source=$source")
             return
         }
@@ -81,7 +81,11 @@ object MiPushRuntimeBridge {
             logger.e("receiveFromServer callback failed source=$source", it)
         }
         runCatching {
-            recordEvent(context, container)
+            if (isMockReplay) {
+                logger.i("skip event record for mock replay source=$source pkg=${container.packageName}")
+            } else {
+                recordEvent(context, container)
+            }
         }.onFailure {
             logger.e("recordEvent failed source=$source packetBytesLen=$packetBytesLen", it)
         }
