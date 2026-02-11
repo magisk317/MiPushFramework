@@ -213,9 +213,14 @@ object ExplicitHookBridge {
         messageId: String
     ): Boolean {
         HookTrace.mark("MiPushMessageDuplicate.isDuplicateMessage")
-        val duplicated = MockMessageRegistry.consumeIfMatched(messageId)
-        AspectLogCompat.logDuplicateCheck(packageName, messageId, duplicated)
-        return duplicated
+        val isMockReplay = MockMessageRegistry.isMarked(messageId)
+        if (isMockReplay) {
+            // Mock replay should not be treated as duplicate; let message flow continue.
+            AspectLogCompat.logDuplicateCheck(packageName, messageId, false)
+            return false
+        }
+        AspectLogCompat.logDuplicateCheck(packageName, messageId, false)
+        return false
     }
 
     @JvmStatic
