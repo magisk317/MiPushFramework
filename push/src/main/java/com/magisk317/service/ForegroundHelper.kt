@@ -3,6 +3,7 @@ package com.magisk317.service
 import android.app.Notification
 import android.app.NotificationManager
 import android.app.Service
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -41,7 +42,15 @@ class ForegroundHelper(private val service: Service) {
             .setOngoing(true)
             .setShowWhen(true)
             .build()
-        service.startForeground(NOTIFICATION_ALIVE_ID, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            service.startForeground(
+                NOTIFICATION_ALIVE_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            )
+        } else {
+            service.startForeground(NOTIFICATION_ALIVE_ID, notification)
+        }
     }
 
     internal fun createNotificationGroupForPushStatus() {
