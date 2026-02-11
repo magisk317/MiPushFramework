@@ -135,8 +135,13 @@ object ApplicationPageOperation {
 
     @JvmStatic
     fun hasMiPushServices(checker: MiPushManifestChecker?, info: PackageInfo): Boolean {
-        if (checker != null && checker.checkServices(info)) return true
-        return hasKnownMiPushComponents(info)
+        val hasKnownComponents = hasKnownMiPushComponents(info)
+        if (!hasKnownComponents) {
+            return false
+        }
+        // Only run ManifestChecker for likely MiPush apps to avoid noisy warnings on unrelated packages.
+        checker?.checkServices(info)
+        return true
     }
 
     private fun hasKnownMiPushComponents(info: PackageInfo): Boolean {
