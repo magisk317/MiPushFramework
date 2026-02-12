@@ -1,0 +1,48 @@
+name: Update Gradle Wrapper
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Run daily at midnight UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-wrapper:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Update Gradle Wrapper to Nightly
+        run: ./gradlew wrapper --gradle-version nightly
+
+      - name: Verify Build
+        # Run basic checks to ensure the new wrapper doesn't break the build
+        run: ./gradlew clean assembleDebug checkNoLegacyNihilityImports
+
+      - name: Commit and Push changes
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          # Check if there are changes to the wrapper files
+          if [[ `git status --porcelain gradlew gradle/wrapper/gradle-wrapper.properties gradle/wrapper/gradle-wrapper.jar` ]]; then
+            git add gradlew gradle/wrapper/gradle-wrapper.properties gradle/wrapper/gradle-wrapper.jar
+            git commit -m "build(wrapper): update gradle wrapper to nightly"
+            git push origin dev
+          else
+            echo "No changes to commit"
+          fi
