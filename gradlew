@@ -57,7 +57,7 @@
 #       Darwin, MinGW, and NonStop.
 #
 #   (3) This script is generated from the Groovy template
-#       https://github.com/gradle/gradle/blob/6ab513f29b2f4cf6144fd62353a65aa18e8d9af5/platforms/jvm/plugins-application/src/main/resources/org/gradle/api/internal/plugins/unixStartScript.txt
+#       https://github.com/gradle/gradle/blob/d16abf6b158940ef7d8211291b6045c872a667f6/platforms/jvm/plugins-application/src/main/resources/org/gradle/api/internal/plugins/unixStartScript.txt
 #       within the Gradle project.
 #
 #       You can find Gradle at https://github.com/gradle/gradle/.
@@ -248,6 +248,7 @@ eval "set -- $(
 "$JAVACMD" "$@"
 EXIT_CODE=$?
 
+
 # Cleanup old Gradle caches
 if [ -d "$APP_HOME/.gradle" ]; then
     (
@@ -258,7 +259,7 @@ if [ -d "$APP_HOME/.gradle" ]; then
             # Sort versions and keep the last one (latest)
             # Standard sort works fine for timestamped versions
             latest=$(echo "$versions" | sort | tail -n 1)
-            
+
             # Iterate and remove non-latest versions
             for d in $versions; do
                 if [ "$d" != "$latest" ]; then
@@ -269,5 +270,6 @@ if [ -d "$APP_HOME/.gradle" ]; then
         fi
     )
 fi
+
 
 exit $EXIT_CODE
