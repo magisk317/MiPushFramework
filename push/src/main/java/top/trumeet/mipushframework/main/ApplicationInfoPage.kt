@@ -53,6 +53,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
+import com.magisk317.compat.RegistrationStateCompat
+import com.magisk317.compat.RegistrationStateStore
 import com.magisk317.utils.RegistrationHelper
 import com.topjohnwu.superuser.Shell
 import com.xiaomi.xmsf.BuildConfig
@@ -112,7 +114,18 @@ class ApplicationInfoPage : ComponentActivity() {
                 application.packageName = pkg
                 application.registeredType = RegisteredType.NotRegistered
                 application.appName = com.magisk317.Global.ApplicationNameCache()
-                   .getAppName(this, pkg).toString()
+                    .getAppName(this, pkg).toString()
+            }
+            if (
+                application != null &&
+                application.registeredType == RegisteredType.NotRegistered &&
+                RegistrationStateCompat.hasValidLocalRegistration(pkg)
+            ) {
+                RegistrationStateStore.updateIfChanged(
+                    application = application,
+                    nextType = RegisteredType.Registered,
+                    source = RegistrationStateStore.Source.LOCAL_PROBE
+                )
             }
             return application
         }

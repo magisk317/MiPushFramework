@@ -9,6 +9,9 @@ object RegistrationStateCompat {
     private const val VALID_PATTERN = "name=\"valid\" value=\"true\""
     private const val REG_ID_TAG_PATTERN = "name=\"regId\">"
     private const val REG_ID_VALUE_PATTERN = "name=\"regId\" value=\""
+    private const val KEVA_VALID_PATTERN = "valid"
+    private const val KEVA_REG_ID_PATTERN = "regId"
+    private const val KEVA_APP_TOKEN_PATTERN = "appToken"
     private const val ROOT_CAPABILITY_TTL_MS = 60_000L
     private const val PROBE_TIME_BUDGET_MS = 500L
 
@@ -77,7 +80,9 @@ object RegistrationStateCompat {
     fun hasValidLocalRegistration(packageName: String): Boolean {
         val paths = listOf(
             "/data/user/0/$packageName/shared_prefs/mipush.xml",
-            "/data_mirror/data_ce/null/0/$packageName/shared_prefs/mipush.xml"
+            "/data_mirror/data_ce/null/0/$packageName/shared_prefs/mipush.xml",
+            "/data/user/0/$packageName/files/keva/repo/mipush/mipush.blk",
+            "/data_mirror/data_ce/null/0/$packageName/files/keva/repo/mipush/mipush.blk"
         )
         val uid = runCatching { Shell.cmd("id -u").exec().out.firstOrNull()?.trim() }.getOrNull()
         logger.d("check local registration, pkg=$packageName, shell uid=$uid")
@@ -105,8 +110,11 @@ object RegistrationStateCompat {
     private fun probe(path: String, useSu: Boolean): Boolean {
         val cmd =
             "[ -f $path ] && " +
-                "grep -q '$VALID_PATTERN' $path && " +
-                "(grep -q '$REG_ID_TAG_PATTERN' $path || grep -q '$REG_ID_VALUE_PATTERN' $path) && " +
+                "(" +
+                "(grep -aq '$VALID_PATTERN' $path && (grep -aq '$REG_ID_TAG_PATTERN' $path || grep -aq '$REG_ID_VALUE_PATTERN' $path))" +
+                " || " +
+                "(grep -aq '$KEVA_VALID_PATTERN' $path && grep -aq '$KEVA_REG_ID_PATTERN' $path && grep -aq '$KEVA_APP_TOKEN_PATTERN' $path)" +
+                ") && " +
                 "echo true || echo false"
         val result = if (useSu) {
             val capability = getRootCapability()
@@ -133,8 +141,13 @@ object RegistrationStateCompat {
     private fun containsRegistrationMarkers(content: String): Boolean {
         if (content.isBlank()) return false
         val hasValid = content.contains("name=\"valid\" value=\"true\"")
-        if (!hasValid) return false
-        return content.contains("name=\"regId\">") || content.contains("name=\"regId\" value=\"")
+        val hasXmlRegId = content.contains("name=\"regId\">") || content.contains("name=\"regId\" value=\"")
+        if (hasValid && hasXmlRegId) return true
+
+        val hasKevaValid = content.contains(KEVA_VALID_PATTERN)
+        val hasKevaRegId = content.contains(KEVA_REG_ID_PATTERN)
+        val hasKevaAppToken = content.contains(KEVA_APP_TOKEN_PATTERN)
+        return hasKevaValid && hasKevaRegId && hasKevaAppToken
     }
 
     @JvmStatic
@@ -169,10 +182,16 @@ object RegistrationStateCompat {
                 append(safePackages.joinToString(" "))
                 append("; do ")
                 append("for base in /data/user/0 /data_mirror/data_ce/null/0; do ")
-                append("f=\\\"${'$'}base/${'$'}pkg/shared_prefs/mipush.xml\\\"; ")
-                append("if [ -f \\\"${'$'}f\\\" ] && ")
-                append("grep -q 'name=\"valid\" value=\"true\"' \\\"${'$'}f\\\" && ")
-                append("(grep -q 'name=\"regId\">' \\\"${'$'}f\\\" || grep -q 'name=\"regId\" value=\"' \\\"${'$'}f\\\"); then ")
+                append("f_xml=\\\"${'$'}base/${'$'}pkg/shared_prefs/mipush.xml\\\"; ")
+                append("f_keva=\\\"${'$'}base/${'$'}pkg/files/keva/repo/mipush/mipush.blk\\\"; ")
+                append("if [ -f \\\"${'$'}f_xml\\\" ] && ")
+                append("grep -aq 'name=\"valid\" value=\"true\"' \\\"${'$'}f_xml\\\" && ")
+                append("(grep -aq 'name=\"regId\">' \\\"${'$'}f_xml\\\" || grep -aq 'name=\"regId\" value=\"' \\\"${'$'}f_xml\\\"); then ")
+                append("echo ${'$'}pkg; break; fi; ")
+                append("if [ -f \\\"${'$'}f_keva\\\" ] && ")
+                append("grep -aq 'valid' \\\"${'$'}f_keva\\\" && ")
+                append("grep -aq 'regId' \\\"${'$'}f_keva\\\" && ")
+                append("grep -aq 'appToken' \\\"${'$'}f_keva\\\"; then ")
                 append("echo ${'$'}pkg; break; fi; ")
                 append("done; ")
                 append("done")
