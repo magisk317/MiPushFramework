@@ -118,16 +118,16 @@ abstract class FixJarStackMapsTask : DefaultTask() {
                                 val reader = ClassReader(original)
                                 val writer =
                                     SafeClassWriter(ClassWriter.COMPUTE_FRAMES or ClassWriter.COMPUTE_MAXS)
-                                if (entry.name.contains("XMPushService")) {
-                                    logger.lifecycle("ASM: Found entry: ${entry.name}")
-                                }
-                                if (entry.name == "com/xiaomi/push/service/XMPushService.class") {
-                                    logger.lifecycle("ASM: Patching target class: ${entry.name}")
-                                    val hooker = HookClassVisitor(writer)
-                                    reader.accept(hooker, ClassReader.EXPAND_FRAMES)
-                                } else {
-                                    reader.accept(writer, ClassReader.EXPAND_FRAMES)
-                                }
+                                    if (entry.name.contains("XMPushService")) {
+                                        logger.debug("ASM: Found entry: ${entry.name}")
+                                    }
+                                    if (entry.name == "com/xiaomi/push/service/XMPushService.class") {
+                                        logger.lifecycle("ASM: Patching target class: ${entry.name}")
+                                        val hooker = HookClassVisitor(writer)
+                                        reader.accept(hooker, ClassReader.EXPAND_FRAMES)
+                                    } else {
+                                        reader.accept(writer, ClassReader.EXPAND_FRAMES)
+                                    }
                                 writer.toByteArray()
                             } catch (_: Throwable) {
                                 original
