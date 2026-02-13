@@ -10,7 +10,7 @@ versionName = "0.3.14"
 pushVersionCodeNormal = "1003003000"
 pushVersionCodeVc105 = "105"
 
-agp = "9.1.0-alpha08"
+agp = "9.1.0-alpha09"
 compose-bom = "2026.02.00"
 kotlin = "2.3.20-Beta2"
 ksp = "2.3.5"
