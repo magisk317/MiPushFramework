@@ -22,17 +22,18 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           # Dependabot/App PR token cannot query Dependabot alerts API in this context.
           # Keep PR check green while still enforcing file presence.
-          pr_author="${{ github.event.pull_request.user.login || '' }}"
-          if [[ "${{ github.event_name }}" == "pull_request" ]] && [[ "${pr_author}" =~ ^(dependabot\[bot\]|app/dependabot)$ ]]; then
+          if [[ "$EVENT_NAME" == "pull_request" ]] && [[ "$PR_AUTHOR" == "dependabot[bot]" || "$PR_AUTHOR" == "app/dependabot" ]]; then
             test -f gradle/security-overrides.properties
             test -f gradle/security-overrides.init.gradle
             {
               echo "## Security guard note"
               echo ""
-              echo "- Dependabot PR detected (${pr_author})"
+              echo "- Dependabot PR detected (${PR_AUTHOR})"
               echo "- Skipped remote Dependabot alerts sync check to avoid token-scope 403 in pull_request context"
               echo "- Verified security override files exist"
             } >> "$GITHUB_STEP_SUMMARY"
