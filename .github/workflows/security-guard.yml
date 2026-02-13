@@ -47,15 +47,36 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
+          # Skip for Dependabot PRs to avoid token-scope 403
+          if [[ "$EVENT_NAME" == "pull_request" ]] && [[ "$PR_AUTHOR" == "dependabot[bot]" || "$PR_AUTHOR" == "app/dependabot" ]]; then
+            {
+              echo "## Security alert snapshot"
+              echo ""
+              echo "- Status: Skipped for Dependabot PR (403 restriction)"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
           repo="${{ github.repository }}"
-          gh api --paginate "/repos/${repo}/dependabot/alerts?state=open&per_page=100" > /tmp/dependabot-alerts.jsonl || true
-          # --paginate outputs multiple JSON arrays; merge to one array for summary.
-          jq -s 'add // []' /tmp/dependabot-alerts.jsonl > /tmp/dependabot-alerts.json || echo '[]' > /tmp/dependabot-alerts.json
+          if ! gh api --paginate "/repos/${repo}/dependabot/alerts?state=open&per_page=100" > /tmp/dependabot-alerts.jsonl 2>/dev/null; then
+            echo "[]" > /tmp/dependabot-alerts.json
+          else
+            jq -s 'add // []' /tmp/dependabot-alerts.jsonl > /tmp/dependabot-alerts.json 2>/dev/null || echo '[]' > /tmp/dependabot-alerts.json
+          fi
+
+          # Double check we have an array of objects
+          if [[ "$(jq 'type' /tmp/dependabot-alerts.json)" != "\"array\"" ]]; then
+            echo "[]" > /tmp/dependabot-alerts.json
+          fi
+
           total="$(jq 'length' /tmp/dependabot-alerts.json)"
-          high="$(jq '[.[] | select(.security_advisory.severity=="high")] | length' /tmp/dependabot-alerts.json)"
-          medium="$(jq '[.[] | select(.security_advisory.severity=="medium")] | length' /tmp/dependabot-alerts.json)"
-          low="$(jq '[.[] | select(.security_advisory.severity=="low")] | length' /tmp/dependabot-alerts.json)"
+          # Filter only valid alert objects
+          high="$(jq '[.[] | select(objects and .security_advisory.severity=="high")] | length' /tmp/dependabot-alerts.json)"
+          medium="$(jq '[.[] | select(objects and .security_advisory.severity=="medium")] | length' /tmp/dependabot-alerts.json)"
+          low="$(jq '[.[] | select(objects and .security_advisory.severity=="low")] | length' /tmp/dependabot-alerts.json)"
           {
             echo "## Security alert snapshot"
             echo ""
