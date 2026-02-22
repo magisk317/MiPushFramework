@@ -13,7 +13,12 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -25,10 +30,15 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.xiaomi.xmsf.R
 import top.trumeet.mipushframework.component.MarkdownView
+import top.trumeet.mipushframework.component.AppLinearLoadingIndicator
+import top.trumeet.mipushframework.component.SessionLoadingRegistry
 import top.trumeet.mipushframework.component.SettingsGroup
 import top.trumeet.mipushframework.component.SettingsItem
+import top.trumeet.mipushframework.component.rememberMinDurationLoading
 import top.trumeet.ui.theme.Theme
 import java.io.InputStreamReader
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class HelpPage : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -107,8 +117,27 @@ private fun Markdown(markdownResId: Int?) {
 private fun FAQGroup(
     navController: NavHostController
 ) {
+    val context = LocalContext.current
+    val sessionKey = "help_articles_initial"
+    var actualLoading by remember { mutableStateOf(SessionLoadingRegistry.shouldShowInitial(sessionKey)) }
+    var articles by remember { mutableStateOf<List<Article>>(emptyList()) }
+    val showLoading = rememberMinDurationLoading(actualLoading = actualLoading)
+
+    LaunchedEffect(context) {
+        actualLoading = SessionLoadingRegistry.shouldShowInitial(sessionKey)
+        val loaded = withContext(Dispatchers.IO) {
+            getArticles(context)
+        }
+        articles = loaded
+        actualLoading = false
+        SessionLoadingRegistry.markShown(sessionKey)
+    }
+
     SettingsGroup(title = stringResource(R.string.helplib_title_faq)) {
-        for (article in getArticles(LocalContext.current)) {
+        if (showLoading && articles.isEmpty()) {
+            AppLinearLoadingIndicator(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+        }
+        for (article in articles) {
             SettingsItem(
                 title = stringResource(article.titleRes)
             ) {

@@ -33,6 +33,7 @@ object DataStoreManager {
     private val USAGE_STATS_REQUESTED = booleanPreferencesKey("usage_stats_requested")
     private val EVENT_GROUP_BY_APP = booleanPreferencesKey("event_group_by_app")
     private val APP_FILTER_MODE = intPreferencesKey("app_filter_mode")
+    private val THEME_MODE = intPreferencesKey("theme_mode")
 
     // Memory-based preview flows
     private val _previewHazeBlurRadius = MutableSharedFlow<Int?>(replay = 1)
@@ -59,6 +60,7 @@ object DataStoreManager {
     val usageStatsRequested: Flow<Boolean> = context.dataStore.data.map { it[USAGE_STATS_REQUESTED] ?: false }
     val eventGroupByApp: Flow<Boolean> = context.dataStore.data.map { it[EVENT_GROUP_BY_APP] ?: false }
     val appFilterMode: Flow<Int> = context.dataStore.data.map { it[APP_FILTER_MODE] ?: 0 }
+    val themeMode: Flow<Int> = context.dataStore.data.map { it[THEME_MODE] ?: 0 }
 
     val debugMode: Flow<Boolean> = isDebugMode
     val showAllEvents: Flow<Boolean> = isShowAllEvents
@@ -126,6 +128,10 @@ object DataStoreManager {
 
     suspend fun setAppFilterMode(mode: Int) {
         context.dataStore.edit { it[APP_FILTER_MODE] = mode }
+    }
+
+    suspend fun setThemeMode(mode: Int) {
+        context.dataStore.edit { it[THEME_MODE] = mode }
     }
 
     suspend fun previewHazeBlurRadius(radius: Int?) {

@@ -2,11 +2,14 @@
 package top.trumeet.mipushframework.main
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.os.Bundle
 import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,10 +49,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.ui.res.painterResource
@@ -65,6 +76,8 @@ import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import top.trumeet.mipushframework.MainActivityUtils
 import top.trumeet.mipushframework.component.SearchBar
+import top.trumeet.mipushframework.component.DialogAction
+import top.trumeet.mipushframework.component.DialogActionRow
 import top.trumeet.mipushframework.main.subpage.ApplicationList
 import top.trumeet.mipushframework.main.subpage.ApplicationListPreview
 import top.trumeet.mipushframework.main.subpage.EventDetailsDialogPreview
@@ -81,6 +94,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import com.magisk317.data.DataStoreManager
 import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.hilt.navigation.compose.hiltViewModel
+import kotlin.math.hypot
 
 private val mainActivityUtils = MainActivityUtils()
 private var placeholder by mutableStateOf("Search...")
@@ -105,32 +120,102 @@ class MainActivity : ComponentActivity() {
             Screen.Apps.route.toString()
         }
         setContent {
-            Theme {
-                Main(
-                    startDestination,
-                    configCenter = configCenter,
-                    eventsPage = { query, padding, refreshSignal, groupByApp ->
-                        EventList(
-                            query,
-                            contentPadding = padding,
-                            refreshSignal = refreshSignal,
-                            groupByApp = groupByApp
-                        )
-                    },
-                    appsPage = { query, padding, refreshSignal, filterMode ->
-                        ApplicationList(query, contentPadding = padding, refreshSignal = refreshSignal,
-                            filterMode = filterMode,
-                            onAppClick = { pkg -> eventRepository.startManagePermissions(pkg, true) })
-                    },
-                    settingsPage = { padding, onAbout, onSectionChanged, backSignal ->
-                        Settings(
-                            padding,
-                            onShowAboutDialog = onAbout,
-                            onSectionChanged = onSectionChanged,
-                            sectionBackSignal = backSignal
+            val settingsViewModel: SettingsViewModel = hiltViewModel()
+            val themeState by settingsViewModel.themeState.collectAsStateWithLifecycle()
+            val view = LocalView.current
+
+            var currentThemeMode by remember { mutableIntStateOf(themeState.mode) }
+            var screenshotBitmap by remember { mutableStateOf<Bitmap?>(null) }
+            val revealAnim = remember { Animatable(0f) }
+            var isAnimating by remember { mutableStateOf(false) }
+            var animationCenter by remember { mutableStateOf(Offset.Zero) }
+
+            androidx.compose.runtime.LaunchedEffect(themeState) {
+                if (themeState.mode != currentThemeMode) {
+                    try {
+                        if (view.width > 0 && view.height > 0) {
+                            val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+                            val canvas = android.graphics.Canvas(bitmap)
+                            view.draw(canvas)
+                            screenshotBitmap = bitmap
+
+                            val centerX = if (themeState.centerX >= 0f) themeState.centerX else view.width / 2f
+                            val centerY = if (themeState.centerY >= 0f) themeState.centerY else view.height / 2f
+                            animationCenter = Offset(centerX, centerY)
+
+                            isAnimating = true
+                            currentThemeMode = themeState.mode
+
+                            revealAnim.snapTo(0f)
+                            revealAnim.animateTo(
+                                targetValue = 1f,
+                                animationSpec = tween(durationMillis = 600),
+                            )
+
+                            isAnimating = false
+                            screenshotBitmap = null
+                        } else {
+                            currentThemeMode = themeState.mode
+                        }
+                    } catch (_: Exception) {
+                        currentThemeMode = themeState.mode
+                    }
+                } else {
+                    currentThemeMode = themeState.mode
+                }
+            }
+
+            Theme(themeMode = ThemeMode.fromValue(currentThemeMode)) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Main(
+                        startDestination,
+                        configCenter = configCenter,
+                        eventsPage = { query, padding, refreshSignal, groupByApp ->
+                            EventList(
+                                query,
+                                contentPadding = padding,
+                                refreshSignal = refreshSignal,
+                                groupByApp = groupByApp
+                            )
+                        },
+                        appsPage = { query, padding, refreshSignal, filterMode ->
+                            ApplicationList(query, contentPadding = padding, refreshSignal = refreshSignal,
+                                filterMode = filterMode,
+                                onAppClick = { pkg -> eventRepository.startManagePermissions(pkg, true) })
+                        },
+                        settingsPage = { padding, onAbout, onSectionChanged, backSignal ->
+                            Settings(
+                                padding,
+                                onShowAboutDialog = onAbout,
+                                onSectionChanged = onSectionChanged,
+                                sectionBackSignal = backSignal
+                            )
+                        }
+                    )
+
+                    if (isAnimating && screenshotBitmap != null) {
+                        val oldImage = screenshotBitmap!!.asImageBitmap()
+                        val maxRadius = hypot(view.width.toFloat(), view.height.toFloat())
+                        val radius = maxRadius * revealAnim.value
+
+                        androidx.compose.foundation.Image(
+                            bitmap = oldImage,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                                .drawWithContent {
+                                    drawContent()
+                                    drawCircle(
+                                        color = Color.Transparent,
+                                        radius = radius,
+                                        center = animationCenter,
+                                        blendMode = BlendMode.Clear,
+                                    )
+                                },
                         )
                     }
-                )
+                }
             }
         }
     }
@@ -458,18 +543,22 @@ private fun Main(
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { aboutDialogContent = null },
                 confirmButton = {
-                    androidx.compose.material3.TextButton(onClick = { aboutDialogContent = null }) {
-                        androidx.compose.material3.Text(stringResource(android.R.string.ok))
-                    }
-                },
-                dismissButton = {
-                    androidx.compose.material3.TextButton(onClick = {
-                        val clipboardManager = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                        clipboardManager.text = content
-                        aboutDialogContent = null
-                    }) {
-                        androidx.compose.material3.Text("Copy")
-                    }
+                    DialogActionRow(
+                        actions = listOf(
+                            DialogAction(
+                                label = stringResource(android.R.string.copy),
+                                onClick = {
+                                    val clipboardManager = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                    clipboardManager.text = content
+                                    aboutDialogContent = null
+                                }
+                            ),
+                            DialogAction(
+                                label = stringResource(android.R.string.ok),
+                                onClick = { aboutDialogContent = null }
+                            )
+                        )
+                    )
                 },
                 title = { androidx.compose.material3.Text(stringResource(R.string.action_about)) },
                 text = {

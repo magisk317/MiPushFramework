@@ -33,6 +33,7 @@ class PreferenceRepository @Inject constructor(
     private val SHOW_WIZARD = booleanPreferencesKey("show_wizard")
     private val USAGE_STATS_REQUESTED = booleanPreferencesKey("usage_stats_requested")
     private val EVENT_GROUP_BY_APP = booleanPreferencesKey("event_group_by_app")
+    private val THEME_MODE = intPreferencesKey("theme_mode")
 
     // Getters
     val lastStartupTime: Flow<Long> = dataStore.data.map { it[LAST_STARTUP_TIME] ?: 0L }
@@ -50,6 +51,7 @@ class PreferenceRepository @Inject constructor(
     val showWizard: Flow<Boolean> = dataStore.data.map { it[SHOW_WIZARD] ?: true }
     val usageStatsRequested: Flow<Boolean> = dataStore.data.map { it[USAGE_STATS_REQUESTED] ?: false }
     val eventGroupByApp: Flow<Boolean> = dataStore.data.map { it[EVENT_GROUP_BY_APP] ?: false }
+    val themeMode: Flow<Int> = dataStore.data.map { it[THEME_MODE] ?: 0 }
 
     val debugMode: Flow<Boolean> = isDebugMode
     val showAllEvents: Flow<Boolean> = isShowAllEvents
@@ -113,5 +115,9 @@ class PreferenceRepository @Inject constructor(
 
     suspend fun setEventGroupByApp(groupByApp: Boolean) {
         dataStore.edit { it[EVENT_GROUP_BY_APP] = groupByApp }
+    }
+
+    suspend fun setThemeMode(mode: Int) {
+        dataStore.edit { it[THEME_MODE] = mode }
     }
 }
