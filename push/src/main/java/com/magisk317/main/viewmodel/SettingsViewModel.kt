@@ -8,6 +8,9 @@ import com.xiaomi.xmsf.SettingsManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import top.trumeet.common.utils.Utils
@@ -18,6 +21,11 @@ class SettingsViewModel @Inject constructor(
     private val preferenceRepository: PreferenceRepository,
     private val settingsManager: SettingsManager
 ) : ViewModel() {
+    data class ThemeState(val mode: Int, val centerX: Float = -1f, val centerY: Float = -1f)
+
+    private val _themeState = MutableStateFlow(ThemeState(0))
+    val themeState: StateFlow<ThemeState> = _themeState.asStateFlow()
+
     val hazeBlurRadius: StateFlow<Int> = preferenceRepository.hazeBlurRadius
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 25)
 
@@ -47,6 +55,17 @@ class SettingsViewModel @Inject constructor(
 
     val accessMode: StateFlow<String> = preferenceRepository.accessMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "0")
+
+    init {
+        viewModelScope.launch {
+            preferenceRepository.themeMode.collect { mode ->
+                val previous = _themeState.value
+                if (previous.mode != mode) {
+                    _themeState.value = ThemeState(mode = mode)
+                }
+            }
+        }
+    }
 
     fun updateHazeBlurRadius(radius: Int) {
         viewModelScope.launch {
@@ -110,6 +129,13 @@ class SettingsViewModel @Inject constructor(
 
     fun setAccessMode(mode: Int) {
         viewModelScope.launch { preferenceRepository.setAccessMode(mode.toString()) }
+    }
+
+    fun setThemeMode(mode: Int, x: Float = -1f, y: Float = -1f) {
+        viewModelScope.launch {
+            preferenceRepository.setThemeMode(mode)
+            _themeState.value = ThemeState(mode = mode, centerX = x, centerY = y)
+        }
     }
 
     fun startMiPushServiceAsForegroundService(context: android.content.Context) {

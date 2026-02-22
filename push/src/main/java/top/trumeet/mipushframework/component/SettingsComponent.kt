@@ -3,7 +3,6 @@ package top.trumeet.mipushframework.component
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -16,7 +15,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -32,14 +30,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInteropFilter
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.xiaomi.xmsf.R
-import com.xiaomi.xmsf.MiPushFrameworkApp
-import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsItem(
@@ -66,7 +64,8 @@ fun SettingsListItem(
     summary: String,
     values: Array<String>,
     selected: Int,
-    onValueSelected: (Int) -> Unit
+    onValueSelected: (Int) -> Unit,
+    onValueSelectedWithPosition: ((index: Int, x: Float, y: Float) -> Unit)? = null,
 ) {
     var shouldShowDialog by remember { mutableStateOf(false) }
     SettingsDialogItem(
@@ -74,11 +73,21 @@ fun SettingsListItem(
         summary = summary,
         confirmButton = {},
         content = {
-            ItemLists(selected, values) { index ->
-                onValueSelected(index)
+            ItemLists(selected, values) { index, clickX, clickY ->
+                if (onValueSelectedWithPosition != null) {
+                    onValueSelectedWithPosition(index, clickX, clickY)
+                } else {
+                    onValueSelected(index)
+                }
                 shouldShowDialog = false
             }
         },
+        actions = listOf(
+            DialogAction(
+                label = stringResource(android.R.string.cancel),
+                onClick = { shouldShowDialog = false }
+            )
+        ),
         onClick = { shouldShowDialog = true },
         shouldShowDialog = shouldShowDialog,
         onDismiss = { shouldShowDialog = false }
@@ -91,6 +100,7 @@ fun SettingsDialogItem(
     summary: String,
     confirmButton: @Composable () -> Unit,
     dismissButton: (@Composable () -> Unit)? = null,
+    actions: List<DialogAction> = emptyList(),
     onClick: () -> Unit,
     shouldShowDialog: Boolean,
     onDismiss: () -> Unit,
@@ -108,6 +118,7 @@ fun SettingsDialogItem(
                 onDismiss = onDismiss,
                 confirmButton = confirmButton,
                 dismissButton = dismissButton,
+                actions = actions,
                 isDragging = isDragging,
                 content = content
             )
@@ -122,6 +133,7 @@ fun SettingsDialog(
     onDismiss: () -> Unit,
     confirmButton: @Composable () -> Unit,
     dismissButton: (@Composable () -> Unit)? = null,
+    actions: List<DialogAction> = emptyList(),
     isDragging: Boolean = false,
     content: @Composable () -> Unit
 ) {
@@ -174,13 +186,17 @@ fun SettingsDialog(
                     if (!isDragging) {
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End
-                        ) {
-                            dismissButton?.invoke()
-                            Spacer(modifier = Modifier.width(8.dp))
-                            confirmButton()
+                        if (actions.isNotEmpty()) {
+                            DialogActionRow(actions = actions)
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End
+                            ) {
+                                dismissButton?.invoke()
+                                Spacer(modifier = Modifier.width(8.dp))
+                                confirmButton()
+                            }
                         }
                     }
                 }
@@ -193,14 +209,23 @@ fun SettingsDialog(
 private fun ItemLists(
     selected: Int,
     values: Array<String>,
-    onSelect: (Int) -> Unit
+    onSelect: (Int, Float, Float) -> Unit
 ) {
     LazyColumn {
         itemsIndexed(values) { index, item ->
+            var rowOffset by remember { mutableStateOf(Offset.Zero) }
             Row(
                 Modifier
-                    .clickable {
-                        onSelect(index)
+                    .onGloballyPositioned { coordinates ->
+                        rowOffset = coordinates.localToRoot(Offset.Zero)
+                    }
+                    .pointerInteropFilter { event ->
+                        if (event.action == android.view.MotionEvent.ACTION_UP) {
+                            onSelect(index, rowOffset.x + event.x, rowOffset.y + event.y)
+                            true
+                        } else {
+                            false
+                        }
                     }
                     .fillMaxWidth()
                     .padding(top = 10.dp, bottom = 10.dp),
@@ -269,7 +294,7 @@ fun InfoDialogPreview() {
         ItemLists(
             selected = 0,
             values = stringArrayResource(R.array.pref_title_access_mode_list_titles),
-            onSelect = { }
+            onSelect = { _, _, _ -> }
         )
     }
 }

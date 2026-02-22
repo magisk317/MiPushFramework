@@ -13,7 +13,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.LocalContentColor
@@ -42,6 +41,7 @@ import top.trumeet.mipushframework.component.SettingsItem
 import top.trumeet.mipushframework.component.SettingsDialogItem
 import top.trumeet.mipushframework.component.SettingsSwitchItem
 import top.trumeet.mipushframework.component.SettingsListItem
+import top.trumeet.mipushframework.component.DialogAction
 import top.trumeet.mipushframework.main.HelpPage
 import top.trumeet.ui.theme.Theme
 
@@ -247,8 +247,22 @@ private fun DisplayBlock(
 ) {
     val showAllEvents by viewModel.showAllEvents.collectAsStateWithLifecycle()
     val showConfigurationList by viewModel.showConfigurationList.collectAsStateWithLifecycle()
+    val themeState by viewModel.themeState.collectAsStateWithLifecycle()
+    val themeEntries = stringArrayResource(R.array.theme_mode_entries)
+    val selectedThemeIndex = themeState.mode.coerceIn(0, themeEntries.lastIndex)
 
     SettingsGroup(title = stringResource(R.string.settings_group_display_and_list)) {
+        SettingsListItem(
+            title = stringResource(R.string.pref_choose_theme_title),
+            summary = stringResource(R.string.pref_choose_theme_summary) + " · " + themeEntries[selectedThemeIndex],
+            values = themeEntries,
+            selected = selectedThemeIndex,
+            onValueSelected = { index -> viewModel.setThemeMode(index) },
+            onValueSelectedWithPosition = { index, x, y ->
+                viewModel.setThemeMode(index, x, y)
+            }
+        )
+
         SettingsSwitchItem(
             title = stringResource(R.string.settings_show_all_events),
             checked = showAllEvents,
@@ -280,21 +294,26 @@ private fun DisplayBlock(
                 blurValue = blurRadius
                 showBlurDialog = true
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    onBlurChange(blurValue)
-                    viewModel.previewHazeBlurRadius(null)
-                    showBlurDialog = false
-                    isDragging = false
-                }) { Text(stringResource(android.R.string.ok)) }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    viewModel.previewHazeBlurRadius(null)
-                    showBlurDialog = false
-                    isDragging = false
-                }) { Text(stringResource(android.R.string.cancel)) }
-            },
+            confirmButton = {},
+            actions = listOf(
+                DialogAction(
+                    label = stringResource(android.R.string.cancel),
+                    onClick = {
+                        viewModel.previewHazeBlurRadius(null)
+                        showBlurDialog = false
+                        isDragging = false
+                    }
+                ),
+                DialogAction(
+                    label = stringResource(android.R.string.ok),
+                    onClick = {
+                        onBlurChange(blurValue)
+                        viewModel.previewHazeBlurRadius(null)
+                        showBlurDialog = false
+                        isDragging = false
+                    }
+                )
+            ),
             isDragging = isDragging,
             content = {
                 CompositionLocalProvider(LocalContentColor provides androidx.compose.ui.graphics.Color.White) {
@@ -341,21 +360,26 @@ private fun DisplayBlock(
                 alphaValue = tintAlpha
                 showAlphaDialog = true
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    onAlphaChange(alphaValue)
-                    viewModel.previewHazeTintAlpha(null)
-                    showAlphaDialog = false
-                    isDragging = false
-                }) { Text(stringResource(android.R.string.ok)) }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    viewModel.previewHazeTintAlpha(null)
-                    showAlphaDialog = false
-                    isDragging = false
-                }) { Text(stringResource(android.R.string.cancel)) }
-            },
+            confirmButton = {},
+            actions = listOf(
+                DialogAction(
+                    label = stringResource(android.R.string.cancel),
+                    onClick = {
+                        viewModel.previewHazeTintAlpha(null)
+                        showAlphaDialog = false
+                        isDragging = false
+                    }
+                ),
+                DialogAction(
+                    label = stringResource(android.R.string.ok),
+                    onClick = {
+                        onAlphaChange(alphaValue)
+                        viewModel.previewHazeTintAlpha(null)
+                        showAlphaDialog = false
+                        isDragging = false
+                    }
+                )
+            ),
             isDragging = isDragging,
             content = {
                 CompositionLocalProvider(LocalContentColor provides androidx.compose.ui.graphics.Color.White) {
@@ -467,15 +491,23 @@ private fun SetXMPPServer(viewModel: SettingsViewModel) {
             text = ""
         },
         onClick = { shouldShowDialog = true },
-        confirmButton = @Composable {
-            TextButton(onClick = {
-                viewModel.updateXmppServer(text)
-                // Reconnect request is handled in ViewModel
-                shouldShowDialog = false
-            }) {
-                Text(stringResource(android.R.string.ok))
-            }
-        },
+        confirmButton = {},
+        actions = listOf(
+            DialogAction(
+                label = stringResource(android.R.string.cancel),
+                onClick = {
+                    shouldShowDialog = false
+                    text = ""
+                }
+            ),
+            DialogAction(
+                label = stringResource(android.R.string.ok),
+                onClick = {
+                    viewModel.updateXmppServer(text)
+                    shouldShowDialog = false
+                }
+            )
+        ),
         content = @Composable {
             TextField(
                 value = text,

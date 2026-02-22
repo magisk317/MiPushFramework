@@ -303,6 +303,12 @@ This could be the application doing a reverse registration, or the registration 
     <string name="settings_home_service_summary">XMPP server, push keep-alive, access mode, and registration notifications.</string>
     <string name="settings_home_display_title">Display &amp; list</string>
     <string name="settings_home_display_summary">Event list visibility and page visual effects.</string>
+    <string name="pref_choose_theme_title">Theme</string>
+    <string name="pref_choose_theme_summary">Follow System, Light, Dark or Pure Black</string>
+    <string name="theme_follow_system">Automatic (Follow System)</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_black">Pure Black</string>
     <string name="settings_home_data_title">Data &amp; maintenance</string>
     <string name="settings_home_data_summary">History cleanup, logs, and force register operations.</string>
     <string name="settings_home_developer_title">Developer &amp; experimental</string>
@@ -313,4 +319,10 @@ This could be the application doing a reverse registration, or the registration 
     <string name="settings_blur_radius">Background blur intensity</string>
     <string name="settings_blur_mask_alpha">Blur overlay opacity</string>
     <string name="permission_notifications_denied">Please grant notification permission to test this feature.</string>
+    <string-array name="theme_mode_entries">
+        <item>@string/theme_follow_system</item>
+        <item>@string/theme_light</item>
+        <item>@string/theme_dark</item>
+        <item>@string/theme_black</item>
+    </string-array>
 </resources>

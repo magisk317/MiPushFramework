@@ -34,7 +34,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -64,6 +63,8 @@ import top.trumeet.mipushframework.component.SettingsItem
 import top.trumeet.mipushframework.component.SettingsDialogItem
 import top.trumeet.mipushframework.component.SettingsSwitchItem
 import top.trumeet.mipushframework.component.SettingsListItem
+import top.trumeet.mipushframework.component.DialogAction
+import top.trumeet.mipushframework.component.DialogActionRow
 import top.trumeet.mipushframework.wizard.WizardSPUtils
 import top.trumeet.common.utils.Utils
 import top.trumeet.mipush.provider.db.RegisteredApplicationDb
@@ -351,6 +352,12 @@ class ApplicationInfoPage : ComponentActivity() {
                     title = AppConfigurationUtils.getNotificationTitle(channel).toString(),
                     summary = AppConfigurationUtils.getNotificationSummary(channel),
                     confirmButton = @Composable { },
+                    actions = listOf(
+                        DialogAction(
+                            label = stringResource(android.R.string.ok),
+                            onClick = { shouldShowDialog = false }
+                        )
+                    ),
                     onClick = { shouldShowDialog = true },
                     shouldShowDialog = shouldShowDialog,
                     onDismiss = { shouldShowDialog = false },
@@ -398,26 +405,27 @@ fun Tips(title: String, description: String) {
 private fun NotificationChannel(
     channel: NotificationChannel, appConfigurationUtils: AppConfigurationUtils
 ) {
-    Row {
-        TextButton({
-            appConfigurationUtils.deleteNotificationChannel(channel)
-        }) {
-            Text(stringResource(R.string.notification_channels_delete))
-        }
-        TextButton({
-            appConfigurationUtils.copyToClipboard(channel)
-        }) {
-            Text(stringResource(R.string.notification_channels_copy_id))
-        }
-        TextButton({
-            appConfigurationUtils.gotoNotificationChannelSettingPage(
-                channel,
-                appConfigurationUtils.configApp
+    DialogActionRow(
+        actions = listOf(
+            DialogAction(
+                label = stringResource(R.string.notification_channels_delete),
+                onClick = { appConfigurationUtils.deleteNotificationChannel(channel) }
+            ),
+            DialogAction(
+                label = stringResource(R.string.notification_channels_copy_id),
+                onClick = { appConfigurationUtils.copyToClipboard(channel) }
+            ),
+            DialogAction(
+                label = stringResource(R.string.notification_channels_setting),
+                onClick = {
+                    appConfigurationUtils.gotoNotificationChannelSettingPage(
+                        channel,
+                        appConfigurationUtils.configApp
+                    )
+                }
             )
-        }) {
-            Text(stringResource(R.string.notification_channels_setting))
-        }
-    }
+        )
+    )
 }
 
 @Preview(showBackground = true)

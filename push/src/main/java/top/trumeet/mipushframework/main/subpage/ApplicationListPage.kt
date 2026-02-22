@@ -43,7 +43,10 @@ import kotlinx.coroutines.withContext
 import top.trumeet.common.utils.Utils
 import top.trumeet.mipush.provider.entities.RegisteredApplication
 import top.trumeet.mipushframework.component.AppIcon
+import top.trumeet.mipushframework.component.AppLinearLoadingIndicator
 import top.trumeet.mipushframework.component.RefreshableLazyColumn
+import top.trumeet.mipushframework.component.SessionLoadingRegistry
+import top.trumeet.mipushframework.component.rememberMinDurationLoading
 import top.trumeet.mipushframework.main.RegistrationStateStyle
 import top.trumeet.mipushframework.utils.ParseUtils
 
@@ -96,6 +99,11 @@ fun ApplicationList(
     if (isPreview) g_items = getMiPushApplications(filterMode)
     val shouldRefresh = g_items.res.isEmpty() || query.isNotEmpty() || refreshSignal > 0
     var isNeedRefresh by rememberSaveable(query, refreshSignal, filterMode) { mutableStateOf(shouldRefresh) }
+    var actualInitialLoading by remember { mutableStateOf(false) }
+    val initialLoadingVisible = rememberMinDurationLoading(
+        actualLoading = actualInitialLoading && g_items.res.isEmpty()
+    )
+    val initialSessionKey = "app_list_initial"
 
     androidx.compose.runtime.LaunchedEffect(query, refreshSignal, filterMode) {
         if (!shouldRefresh) {
@@ -106,6 +114,7 @@ fun ApplicationList(
     val refreshScope = rememberCoroutineScope()
 
     val onRefresh: (onRefreshed: () -> Unit) -> Unit = { onRefreshed ->
+        actualInitialLoading = SessionLoadingRegistry.shouldShowInitial(initialSessionKey)
         refreshScope.launch(Dispatchers.IO) {
             try {
                 val applications = getMiPushApplications(filterMode)
@@ -113,6 +122,10 @@ fun ApplicationList(
 
                 withContext(Dispatchers.Main) {
                     g_items = applications
+                    if (actualInitialLoading) {
+                        SessionLoadingRegistry.markShown(initialSessionKey)
+                    }
+                    actualInitialLoading = false
                     isNeedRefresh = false
                     onRefreshed()
                 }
@@ -120,6 +133,7 @@ fun ApplicationList(
             } catch (e: Throwable) {
                 logger.e("failed to load app list", e)
                 withContext(Dispatchers.Main) {
+                    actualInitialLoading = false
                     isNeedRefresh = false
                     onRefreshed()
                 }
@@ -156,6 +170,13 @@ fun ApplicationList(
             scrollToTopSignal = refreshSignal,
             contentPadding = contentPadding
         ) {
+            if (initialLoadingVisible) {
+                item {
+                    AppLinearLoadingIndicator(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+            }
             items(g_items.res, { it.packageName }) {
                 ApplicationItem(it, onAppClick)
             }

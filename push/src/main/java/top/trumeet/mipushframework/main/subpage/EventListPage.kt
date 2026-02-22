@@ -18,9 +18,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -35,6 +36,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
@@ -53,6 +55,8 @@ import top.trumeet.common.utils.Utils
 import top.trumeet.mipush.provider.entities.Event
 import top.trumeet.mipush.provider.event.type.TypeFactory
 import top.trumeet.mipushframework.component.AppIcon
+import top.trumeet.mipushframework.component.DialogAction
+import top.trumeet.mipushframework.component.DialogActionRow
 import top.trumeet.mipushframework.component.RefreshableLazyColumn
 import top.trumeet.mipushframework.component.TextView
 import top.trumeet.mipushframework.main.RecentEventListPage
@@ -269,27 +273,22 @@ private fun EventDetailsDialog(
     AlertDialog(
         onDismiss,
         {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                TextButton({
-                    val container = RegSecUtils.getContainerWithRegSec(clickedEvent.event)
-                    if (container != null) {
-                        json = viewModel.getContent(clickedEvent.event, container)
-                    }
-                }) { Text(stringResource(R.string.action_configurate)) }
-
-                TextButton({
-                    viewModel.copyToClipboard(json)
-                }) { Text(stringResource(android.R.string.copy)) }
-
-                TextButton({
-                    RegSecUtils.getContainerWithRegSec(clickedEvent.event)?.let {
-                        viewModel.mockMessage(it)
-                    }
-                }) { Text(stringResource(R.string.action_notify)) }
-            }
+            DialogActionRow(
+                actions = listOf(
+                    DialogAction(
+                        label = stringResource(android.R.string.copy),
+                        onClick = { viewModel.copyToClipboard(json) }
+                    ),
+                    DialogAction(
+                        label = stringResource(R.string.action_notify),
+                        onClick = {
+                            RegSecUtils.getContainerWithRegSec(clickedEvent.event)?.let {
+                                viewModel.mockMessage(it)
+                            }
+                        }
+                    ),
+                )
+            )
         },
         title = {
             Row(
@@ -300,10 +299,13 @@ private fun EventDetailsDialog(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Developer Info", style = MaterialTheme.typography.titleLarge)
-
-                TextButton({
-                    viewModel.startManagePermissions(clickedEvent.packageName)
-                }) { Text(stringResource(R.string.action_app_info)) }
+                IconButton(onClick = { viewModel.startManagePermissions(clickedEvent.packageName) }) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_info_outline_black_24dp),
+                        contentDescription = stringResource(R.string.action_app_info),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         },
         text = {
