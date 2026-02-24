@@ -43,7 +43,8 @@ import kotlinx.coroutines.withContext
 import top.trumeet.common.utils.Utils
 import top.trumeet.mipush.provider.entities.RegisteredApplication
 import top.trumeet.mipushframework.component.AppIcon
-import top.trumeet.mipushframework.component.AppLinearLoadingIndicator
+import top.trumeet.mipushframework.component.LoadingIndicatorTokens
+import top.trumeet.mipushframework.component.PolygonMorphLoadingIndicator
 import top.trumeet.mipushframework.component.RefreshableLazyColumn
 import top.trumeet.mipushframework.component.SessionLoadingRegistry
 import top.trumeet.mipushframework.component.rememberMinDurationLoading
@@ -172,9 +173,16 @@ fun ApplicationList(
         ) {
             if (initialLoadingVisible) {
                 item {
-                    AppLinearLoadingIndicator(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        PolygonMorphLoadingIndicator(
+                            modifier = Modifier.size(LoadingIndicatorTokens.ContainedSize)
+                        )
+                    }
                 }
             }
             items(g_items.res, { it.packageName }) {

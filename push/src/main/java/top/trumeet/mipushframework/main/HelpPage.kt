@@ -9,8 +9,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.LaunchedEffect
@@ -30,7 +34,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.xiaomi.xmsf.R
 import top.trumeet.mipushframework.component.MarkdownView
-import top.trumeet.mipushframework.component.AppLinearLoadingIndicator
+import top.trumeet.mipushframework.component.LoadingIndicatorTokens
+import top.trumeet.mipushframework.component.PolygonMorphLoadingIndicator
 import top.trumeet.mipushframework.component.SessionLoadingRegistry
 import top.trumeet.mipushframework.component.SettingsGroup
 import top.trumeet.mipushframework.component.SettingsItem
@@ -135,7 +140,14 @@ private fun FAQGroup(
 
     SettingsGroup(title = stringResource(R.string.helplib_title_faq)) {
         if (showLoading && articles.isEmpty()) {
-            AppLinearLoadingIndicator(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                PolygonMorphLoadingIndicator(modifier = Modifier.size(LoadingIndicatorTokens.ContainedSize))
+            }
         }
         for (article in articles) {
             SettingsItem(
