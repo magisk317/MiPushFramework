@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 package top.trumeet.mipushframework.component
 
 import android.os.SystemClock
@@ -12,7 +12,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults.Indicator
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -85,7 +85,7 @@ fun RefreshableLazyColumn(
         state = state,
         modifier = Modifier.fillMaxSize(),
         indicator = {
-            Indicator(
+            PullToRefreshDefaults.LoadingIndicator(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = contentPadding.calculateTopPadding() + LoadingIndicatorTokens.OverlayTopSpacing),

@@ -113,6 +113,13 @@
 
 框架会自动记录日志，保存到私有目录。您可以前往 设置-高级配置 中清理。
 
+## UI 与主题约定
+
+- UI 统一采用 Compose Material 3 Expressive 方案（含动态色与纯黑模式）。
+- 对话框动作区统一使用 `DialogActionRow`，避免在 `AlertDialog` 按钮槽内手写按钮行。
+- 列表页统一使用 `RefreshableLazyColumn`，加载体验统一使用最短可见时长策略。
+- 详细规范见 `docs/UI_CONVENTIONS.md`。
+
 
 
 ## 参与项目

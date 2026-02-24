@@ -158,8 +158,47 @@ tasks.register("checkNoLegacyNihilityImports") {
     }
 }
 
+tasks.register("checkNoLegacyDialogActionButtons") {
+    group = "verification"
+    description = "Fail if AlertDialog confirm/dismiss slots use direct TextButton rows instead of DialogActionRow."
+    val sourceRoot = layout.projectDirectory.dir("push/src/main/java").asFile
+    doLast {
+        if (!sourceRoot.exists()) return@doLast
+
+        val violations = mutableListOf<String>()
+        val buttonSlotPattern = Regex("""\b(confirmButton|dismissButton)\s*=\s*\{""")
+
+        sourceRoot.walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .forEach { file ->
+                val lines = file.readLines()
+                for (index in lines.indices) {
+                    if (!buttonSlotPattern.containsMatchIn(lines[index])) continue
+
+                    val end = minOf(lines.lastIndex, index + 40)
+                    val block = lines.subList(index, end + 1).joinToString("\n")
+                    val hasLegacyTextButton = block.contains("TextButton(")
+                    val hasDialogActionRow = block.contains("DialogActionRow(")
+                    if (hasLegacyTextButton && !hasDialogActionRow) {
+                        val rel = file.relativeTo(sourceRoot).invariantSeparatorsPath
+                        violations += "$rel:${index + 1}"
+                    }
+                }
+            }
+
+        if (violations.isNotEmpty()) {
+            val message = buildString {
+                appendLine("Found legacy AlertDialog action buttons. Use DialogActionRow instead:")
+                violations.sorted().forEach { appendLine(" - $it") }
+            }
+            throw GradleException(message)
+        }
+    }
+}
+
 tasks.matching { it.name == "check" }.configureEach {
     dependsOn("checkNoLegacyNihilityImports")
+    dependsOn("checkNoLegacyDialogActionButtons")
 }
 
 tasks.register<Exec>("exportVersion") {
