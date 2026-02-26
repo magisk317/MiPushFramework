@@ -50,13 +50,13 @@ jobs:
           ALIAS_PASS: ${{ secrets.KEY_PASSWORD }}
 
       - name: Upload APK Artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: apks-${{ matrix.flavor }}
           path: push/build/outputs/apk/${{ matrix.flavor }}/release/**/*.apk
 
       - name: Upload Signature Artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: signatures-${{ matrix.flavor }}
           path: push/build/outputs/apk-signatures/${{ matrix.flavor }}Release/**/*.idsig
@@ -71,13 +71,13 @@ jobs:
     env:
       HAS_RELEASE_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE != '' }}
     steps:
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: apks-*
           path: artifacts/apks
           merge-multiple: true
 
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: signatures-*
           path: artifacts/signatures
