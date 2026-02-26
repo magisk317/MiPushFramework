@@ -47,31 +47,31 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload Debug APK (arm64-v8a)
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: MiPushFramework-debug-arm64-v8a
           path: push/build/outputs/apk/**/*arm64-v8a*.apk
       - name: Upload Debug APK (armeabi-v7a)
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: MiPushFramework-debug-armeabi-v7a
           path: push/build/outputs/apk/**/*armeabi-v7a*.apk
       - name: Upload Debug APK (x86)
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: MiPushFramework-debug-x86
           path: push/build/outputs/apk/**/*-x86.apk
       - name: Upload Debug APK (x86_64)
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: MiPushFramework-debug-x86_64
           path: push/build/outputs/apk/**/*-x86_64.apk
       - name: Upload Debug APK (universal)
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: MiPushFramework-debug-universal
           path: push/build/outputs/apk/**/*universal*.apk
