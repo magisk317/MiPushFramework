@@ -70,7 +70,6 @@ androidx-test-ext = { module = "androidx.test.ext:junit", version.ref = "android
 androidx-test-espresso = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }
 mockito-android = { module = "org.mockito:mockito-android", version.ref = "mockito" }
 mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
-mockito-inline = { module = "org.mockito:mockito-inline", version.ref = "mockito" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

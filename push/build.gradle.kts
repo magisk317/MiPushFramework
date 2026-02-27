@@ -283,7 +283,6 @@ dependencies {
     androidTestImplementation(libs.androidx.room.testing)
     androidTestImplementation(libs.mockito.android)
     testImplementation(libs.mockito.core)
-    testImplementation(libs.mockito.inline)
 
     implementation(libs.palette)
     implementation(libs.androidx.startup.runtime)
