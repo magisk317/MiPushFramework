@@ -23,6 +23,7 @@ object MiPushRuntimeBridge {
     private const val RECENT_RECORD_WINDOW_MS = 10_000L
     private const val RECENT_REGISTER_TOAST_WINDOW_MS = 5_000L
     private val recentRecords = LinkedHashMap<String, Long>()
+    private val recentAppActions = LinkedHashMap<String, Long>()
     private val recentRegisterToasts = LinkedHashMap<String, Long>()
     private val recordLock = Any()
     private val registerToastLock = Any()
@@ -66,7 +67,7 @@ object MiPushRuntimeBridge {
         val container = XMPushUtils.packToContainer(payload) ?: return
         val isMockReplay = MockMessageRegistry.isMarked(container)
         if (!isMockReplay && !shouldRecord(container)) {
-            logger.d("skip duplicate payload event source=$source")
+            logger.d("skip duplicate payload event source=$source pkg=${container.packageName} action=${container.action}")
             return
         }
         runCatching {
@@ -153,22 +154,52 @@ object MiPushRuntimeBridge {
     }
 
     private fun shouldRecord(container: XmPushActionContainer): Boolean {
-        val messageId = MessageIdentity.fromContainer(container) ?: return true
+        val messageId = MessageIdentity.fromContainer(container)
+        val pkg = container.packageName
+        val action = container.action?.name ?: "unknown"
         val now = System.currentTimeMillis()
+        
         synchronized(recordLock) {
             pruneExpiredRecordsLocked(now)
-            val previous = recentRecords[messageId]
-            recentRecords[messageId] = now
-            return previous == null || (now - previous) > RECENT_RECORD_WINDOW_MS
+            
+            // 1. Precise ID deduplication (Long window)
+            if (messageId != null) {
+                val lastIdTime = recentRecords[messageId]
+                if (lastIdTime != null && (now - lastIdTime) <= RECENT_RECORD_WINDOW_MS) {
+                    return false
+                }
+                recentRecords[messageId] = now
+            }
+            
+            // 2. Burst deduplication for same App + Action (Short window)
+            // Even if messageId is different (or null), we don't expect 10+ messages for same app in 2s
+            if (pkg != null) {
+                val appActionKey = "$pkg:$action"
+                val lastAppActionTime = recentAppActions[appActionKey]
+                if (lastAppActionTime != null && (now - lastAppActionTime) <= 2000L) {
+                    return false
+                }
+                recentAppActions[appActionKey] = now
+            }
+            
+            return true
         }
     }
 
     private fun pruneExpiredRecordsLocked(now: Long) {
-        val iterator = recentRecords.entries.iterator()
-        while (iterator.hasNext()) {
-            val entry = iterator.next()
+        val recordIterator = recentRecords.entries.iterator()
+        while (recordIterator.hasNext()) {
+            val entry = recordIterator.next()
             if ((now - entry.value) > RECENT_RECORD_WINDOW_MS) {
-                iterator.remove()
+                recordIterator.remove()
+            }
+        }
+        
+        val appActionIterator = recentAppActions.entries.iterator()
+        while (appActionIterator.hasNext()) {
+            val entry = appActionIterator.next()
+            if ((now - entry.value) > 2000L) {
+                appActionIterator.remove()
             }
         }
     }
