@@ -30,7 +30,7 @@ jobs:
           chmod +x .github/scripts/sync_security_overrides.sh
           .github/scripts/sync_security_overrides.sh --check
       - name: Build & Test
-        run: ./gradlew -I gradle/security-overrides.init.gradle --warning-mode all :push:assembleNormalDebug :push:testNormalDebugUnitTest -PbuildSplits -Pkotlin.incremental=false
+        run: ./gradlew -I gradle/security-overrides.init.gradle --warning-mode all :checkNoLegacyNihilityImports :checkNoLegacyDialogActionButtons :common:check :condom:check :mipush_hook:check :push:assembleNormalDebug :push:assembleVc105Debug :push:testNormalDebugUnitTest -PbuildSplits -Pkotlin.incremental=false
       - name: Write build summary
         if: always()
         run: |

@@ -1,16 +1,38 @@
+
+# IDE
 *.iml
+.idea/
+.vscode/
+
+# Local config
 /local.properties
 .DS_Store
-/build
-/captures
+
+# Build outputs
+**/build/
+.gradle/
+
+# Keystores and sensitive files
+*.jks
+*.keystore
 .yuuta.jks
+
+# Android / Gradle / Eclipse
+/captures
 gen/
 debug/
 release/
 .classpath
 .project
 org.eclipse.buildship.core.prefs
+
+# Keep only .github in repository root
 /.*/
 !/.github/
 !/.github/**
+
+# Docs
 docs/
+
+# Logs
+*.log

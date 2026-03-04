@@ -1,33 +1,20 @@
 plugins {
-    alias(libs.plugins.android.library)
+    id("mipush.android.library")
+    id("mipush.android.aop")  // 启用现代化 AOP 支持
 }
 
 val mipushLibPath = "${projectDir}/libs/miuipushsdkshared_3_7_9.jar"
 
 android {
     namespace = "com.nihility"
-    compileSdk = libs.versions.compileSdk.get().toInt()
-    
+
     defaultConfig {
-        minSdk = libs.versions.minSdk.get().toInt()
-        
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-        }
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-    
-    kotlin {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
         }
     }
 }
@@ -36,5 +23,5 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.startup.runtime)
     compileOnly(files(mipushLibPath))
-    implementation(libs.xlog)
+    implementation(libs.napier)
 }

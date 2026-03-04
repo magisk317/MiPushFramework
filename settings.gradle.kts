@@ -50,5 +50,7 @@ dependencyResolutionManagement {
     }
 }
 
+includeBuild("build-logic")
+
 rootProject.name = "MiPushFramework"
 include(":condom", ":push", ":common", ":mipush_hook")

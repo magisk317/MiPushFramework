@@ -11,7 +11,6 @@ import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.Internal
-import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
 import com.android.build.api.dsl.ApkSigningConfig
 import com.android.build.api.artifact.SingleArtifact
@@ -19,18 +18,20 @@ import com.android.build.api.variant.BuiltArtifactsLoader
 import com.android.build.api.variant.FilterConfiguration
 
 plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.compose)
+    id("mipush.android.application")
+    id("mipush.android.room")
+    id("mipush.android.hilt")
+    id("mipush.android.compose")
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.ksp)
-    alias(libs.plugins.hilt.android)
 }
 
 apply(from = rootProject.file("gradle/patched-mipush-jar.gradle.kts"))
 
-ksp {
-    arg("room.schemaLocation", "$projectDir/schemas")
-    arg("room.incremental", "true")
+android {
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
 }
 
 val versionNameStr = rootProject.version.toString().ifBlank { libs.versions.versionName.get() }
@@ -57,36 +58,6 @@ private data class SigningMaterial(
     val keyAlias: String?,
     val keyPassword: String?
 )
-
-private fun Project.resolveSigningMaterial(): SigningMaterial {
-    var keyStoreFile = rootProject.file(".yuuta.jks")
-    var keyStorePassword = System.getenv("KEYSTORE_PASS")
-    var keyAlias = System.getenv("ALIAS_NAME")
-    var keyPassword = System.getenv("ALIAS_PASS")
-    val localProperties = rootProject.file("local.properties")
-    if (localProperties.exists()) {
-        val properties = Properties()
-        properties.load(localProperties.inputStream())
-        keyStoreFile = properties.getProperty("KEY_LOCATE")?.let { rootProject.file(it) } ?: keyStoreFile
-        keyStorePassword = properties.getProperty("KEYSTORE_PASSWORD") ?: keyStorePassword
-        keyAlias = properties.getProperty("KEYSTORE_ALIAS") ?: keyAlias
-        keyPassword = properties.getProperty("KEY_PASSWORD") ?: keyPassword
-    }
-    return SigningMaterial(keyStoreFile, keyStorePassword, keyAlias, keyPassword)
-}
-
-private fun ApkSigningConfig.applySigningMaterial(signing: SigningMaterial) {
-    enableV1Signing = true
-    enableV2Signing = true
-    enableV3Signing = true
-    enableV4Signing = true
-    if (signing.keyStoreFile.exists()) {
-        storeFile = signing.keyStoreFile
-        storePassword = signing.keyStorePassword
-        keyAlias = signing.keyAlias
-        keyPassword = signing.keyPassword
-    }
-}
 
 abstract class RenameApkArtifactsTask : DefaultTask() {
     @get:Internal
@@ -139,16 +110,13 @@ abstract class RenameApkArtifactsTask : DefaultTask() {
 
 android {
     namespace = "com.xiaomi.xmsf"
-    compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
         applicationId = "com.xiaomi.xmsf"
-        minSdk = libs.versions.minSdk.get().toInt()
-        targetSdk = libs.versions.targetSdk.get().toInt()
-        
+
         versionCode = normalVersionCode
         versionName = versionNameStr
-        
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
@@ -176,13 +144,9 @@ android {
     buildTypes {
         debug {
             signingConfig = signingConfigs.getByName("debug")
-            isMinifyEnabled = false
-            isShrinkResources = false
         }
         release {
-            signingConfig = signingConfigs.maybeCreate("release")
-            isMinifyEnabled = true
-            isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -197,38 +161,6 @@ android {
             versionCode = vc105VersionCode
         }
     }
-
-    signingConfigs {
-        val signing = project.resolveSigningMaterial()
-        getByName("debug") { applySigningMaterial(signing) }
-        getByName("release") { applySigningMaterial(signing) }
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-
-
-    kotlin {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
-        }
-    }
-
-    buildFeatures {
-        compose = true
-        buildConfig = true
-    }
-
-    packaging {
-        jniLibs {
-            // Some environments cannot execute bundled llvm-strip; keep symbols to avoid strip task failures.
-            keepDebugSymbols += "**/*.so"
-        }
-    }
-
-    // composeOptions removed as it is now handled by the compose-compiler plugin
 }
 
 androidComponents {
@@ -266,14 +198,9 @@ dependencies {
         builtBy(fixPatchedMiPushJarStackMaps)
     })
 
-    implementation(libs.xlog)
+    implementation(libs.napier)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.libsu.core)
-    implementation(libs.androidx.room.runtime)
-    implementation(libs.androidx.room.ktx)
-    ksp(libs.androidx.room.compiler)
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.compiler)
 
     implementation(libs.androidx.compose.foundation)
 
@@ -287,16 +214,6 @@ dependencies {
     implementation(libs.palette)
     implementation(libs.androidx.startup.runtime)
 
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.compose.ui)
-    implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.compose.material.icons.extended)
-    implementation(libs.androidx.compose.ui.tooling.preview)
-    debugImplementation(libs.androidx.compose.ui.tooling)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.navigation.compose)
-    implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.markdown)
     implementation(libs.haze.android)
     implementation(libs.androidx.datastore.preferences)
