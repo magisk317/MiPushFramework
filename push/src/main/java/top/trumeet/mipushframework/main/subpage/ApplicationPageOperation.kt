@@ -7,7 +7,8 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.text.TextUtils
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.magisk317.Global
 import com.magisk317.compat.RegistrationStateCompat
 import com.magisk317.compat.RegistrationStateStore
@@ -23,7 +24,16 @@ import top.trumeet.mipush.provider.entities.RegisteredApplication
 import top.trumeet.mipushframework.utils.MiPushManifestChecker
 
 object ApplicationPageOperation {
-    private val logger = XLog.tag(ApplicationPageOperation::class.java.simpleName).build()
+    private val TAG = ApplicationPageOperation::class.java.simpleName
+    private val logger = object {
+        fun d(msg: String, vararg args: Any?) {
+            if (args.isEmpty()) Napier.d(msg, tag = TAG)
+            else Napier.d(String.format(msg, *args), tag = TAG)
+        }
+        fun e(msg: String, t: Throwable? = null) {
+            Napier.e(msg, t, tag = TAG)
+        }
+    }
 
     @JvmStatic
     fun getMiPushApplications(): MiPushApplications {

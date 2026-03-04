@@ -1,17 +1,27 @@
 package top.trumeet.mipushframework.main.subpage
 
 import android.content.Context
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -35,21 +45,26 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
+import io.github.aakira.napier.DebugAntilog
 import com.xiaomi.xmsf.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.trumeet.common.utils.Utils
 import top.trumeet.mipush.provider.entities.RegisteredApplication
-import top.trumeet.mipushframework.component.AppIcon
-import top.trumeet.mipushframework.component.LoadingIndicatorTokens
-import top.trumeet.mipushframework.component.PolygonMorphLoadingIndicator
-import top.trumeet.mipushframework.component.RefreshableLazyColumn
-import top.trumeet.mipushframework.component.SessionLoadingRegistry
-import top.trumeet.mipushframework.component.rememberMinDurationLoading
+import androidx.compose.ui.res.stringResource
 import top.trumeet.mipushframework.main.RegistrationStateStyle
 import top.trumeet.mipushframework.utils.ParseUtils
+import androidx.compose.material3.ExperimentalMaterial3Api
+import top.trumeet.mipushframework.component.SearchBar
+import top.trumeet.mipushframework.component.AppIcon
+import top.trumeet.ui.theme.spacing
+import top.trumeet.mipushframework.component.RefreshableLazyColumn
 
 data class AppInfoForDisplay(
     val registrationState: Pair<String, Color>,
@@ -58,33 +73,47 @@ data class AppInfoForDisplay(
 
 private var g_itemsInfo by mutableStateOf(emptyMap<String, AppInfoForDisplay>())
 private var g_items by mutableStateOf(ApplicationPageOperation.MiPushApplications())
-private val logger = XLog.tag("ApplicationListPage").build()
-
+private val TAG = "ApplicationListPage"
+private val logger = object {
+    fun d(msg: String, vararg args: Any?) {
+        if (args.isEmpty()) Napier.d(msg, tag = TAG)
+        else Napier.d(String.format(msg, *args), tag = TAG)
+    }
+    fun e(msg: String, t: Throwable? = null) {
+        Napier.e(msg, t, tag = TAG)
+    }
+}
 @Composable
 fun ApplicationList(
     query: String,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     refreshSignal: Int = 0,
     filterMode: Int = 0,
-    onAppClick: (String) -> Unit
+    onAppClick: (String) -> Unit,
+    hazeState: HazeState? = null,
+    hazeStyle: HazeStyle? = null
 ) {
     val context = LocalContext.current
     ApplicationList(
         query = query,
         contentPadding = contentPadding,
         filterMode = filterMode,
-        onAppClick = onAppClick
-    ) { mode ->
-        val miPushApplications =
-            ApplicationPageOperation.getMiPushApplicationsThatQueryMatched(query, mode)
-        ApplicationPageOperation.updateRegisteredApplicationDb(
-            context,
-            miPushApplications.res
-        )
-        miPushApplications
-    }
+        onAppClick = onAppClick,
+        getMiPushApplications = { q, mode ->
+            val miPushApplications =
+                ApplicationPageOperation.getMiPushApplicationsThatQueryMatched(q, mode)
+            ApplicationPageOperation.updateRegisteredApplicationDb(
+                context,
+                miPushApplications.res
+            )
+            miPushApplications
+        },
+        hazeState = hazeState,
+        hazeStyle = hazeStyle
+    )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ApplicationList(
     query: String = "",
@@ -92,21 +121,21 @@ fun ApplicationList(
     refreshSignal: Int = 0,
     filterMode: Int = 0,
     onAppClick: (String) -> Unit,
-    getMiPushApplications: (filterMode: Int) -> ApplicationPageOperation.MiPushApplications
+    getMiPushApplications: (query: String, filterMode: Int) -> ApplicationPageOperation.MiPushApplications,
+    hazeState: HazeState? = null,
+    hazeStyle: HazeStyle? = null
 ) {
     val context = LocalContext.current
     val isPreview = LocalInspectionMode.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    if (isPreview) g_items = getMiPushApplications(filterMode)
-    val shouldRefresh = g_items.res.isEmpty() || query.isNotEmpty() || refreshSignal > 0
-    var isNeedRefresh by rememberSaveable(query, refreshSignal, filterMode) { mutableStateOf(shouldRefresh) }
-    var actualInitialLoading by remember { mutableStateOf(false) }
-    val initialLoadingVisible = rememberMinDurationLoading(
-        actualLoading = actualInitialLoading && g_items.res.isEmpty()
-    )
-    val initialSessionKey = "app_list_initial"
+    
+    var currentQuery by rememberSaveable(query) { mutableStateOf(query) }
 
-    androidx.compose.runtime.LaunchedEffect(query, refreshSignal, filterMode) {
+    if (isPreview) g_items = getMiPushApplications(currentQuery, filterMode)
+    val shouldRefresh = g_items.res.isEmpty() || currentQuery.isNotEmpty() || refreshSignal > 0
+    var isNeedRefresh by rememberSaveable(currentQuery, refreshSignal, filterMode) { mutableStateOf(shouldRefresh) }
+
+    androidx.compose.runtime.LaunchedEffect(currentQuery, refreshSignal, filterMode) {
         if (!shouldRefresh) {
             isNeedRefresh = true
         }
@@ -115,18 +144,13 @@ fun ApplicationList(
     val refreshScope = rememberCoroutineScope()
 
     val onRefresh: (onRefreshed: () -> Unit) -> Unit = { onRefreshed ->
-        actualInitialLoading = SessionLoadingRegistry.shouldShowInitial(initialSessionKey)
         refreshScope.launch(Dispatchers.IO) {
             try {
-                val applications = getMiPushApplications(filterMode)
+                val applications = getMiPushApplications(currentQuery, filterMode)
                 updateInfos(applications, context)
 
                 withContext(Dispatchers.Main) {
                     g_items = applications
-                    if (actualInitialLoading) {
-                        SessionLoadingRegistry.markShown(initialSessionKey)
-                    }
-                    actualInitialLoading = false
                     isNeedRefresh = false
                     onRefreshed()
                 }
@@ -134,7 +158,6 @@ fun ApplicationList(
             } catch (e: Throwable) {
                 logger.e("failed to load app list", e)
                 withContext(Dispatchers.Main) {
-                    actualInitialLoading = false
                     isNeedRefresh = false
                     onRefreshed()
                 }
@@ -142,14 +165,14 @@ fun ApplicationList(
         }
     }
 
-    androidx.compose.runtime.DisposableEffect(lifecycleOwner, query, isPreview, isNeedRefresh) {
-        if (isPreview || query.isNotEmpty()) {
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner, currentQuery, isPreview, isNeedRefresh) {
+        if (isPreview || currentQuery.isNotEmpty()) {
             return@DisposableEffect onDispose { }
         }
         val observer = LifecycleEventObserver { _, event ->
             if (event != Lifecycle.Event.ON_RESUME || isNeedRefresh) return@LifecycleEventObserver
             refreshScope.launch(Dispatchers.IO) {
-                val applications = getMiPushApplications(filterMode)
+                val applications = getMiPushApplications(currentQuery, filterMode)
                 updateInfos(applications, context)
                 withContext(Dispatchers.Main) {
                     g_items = applications
@@ -163,34 +186,59 @@ fun ApplicationList(
     }
 
     Page {
-        RefreshableLazyColumn(
-            onRefresh,
-            { false },
-            onRefresh,
-            isNeedRefresh,
-            scrollToTopSignal = refreshSignal,
-            contentPadding = contentPadding
-        ) {
-            if (initialLoadingVisible) {
+        val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        val topOverlayHeight = topInset + 72.dp
+        Box(modifier = Modifier.fillMaxSize()) {
+            RefreshableLazyColumn(
+                onRefresh,
+                { false },
+                onRefresh,
+                isNeedRefresh,
+                scrollToTopSignal = refreshSignal,
+                contentPadding = PaddingValues(
+                    top = topOverlayHeight + 8.dp,
+                    bottom = contentPadding.calculateBottomPadding() + 28.dp
+                ),
+                modifier = if (hazeState != null) {
+                    Modifier
+                        .fillMaxSize()
+                        .hazeSource(hazeState)
+                } else {
+                    Modifier.fillMaxSize()
+                }
+            ) {
+                items(g_items.res, { it.packageName }) {
+                    ApplicationItem(it, onAppClick)
+                }
                 item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 12.dp),
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        PolygonMorphLoadingIndicator(
-                            modifier = Modifier.size(LoadingIndicatorTokens.ContainedSize)
-                        )
-                    }
+                    val notUseMiPushCount by remember { derivedStateOf { g_items.totalPkg - g_items.res.size } }
+                    Footer(notUseMiPushCount)
                 }
             }
-            items(g_items.res, { it.packageName }) {
-                ApplicationItem(it, onAppClick)
-            }
-            item {
-                val notUseMiPushCount by remember { derivedStateOf { g_items.totalPkg - g_items.res.size } }
-                Footer(notUseMiPushCount)
+
+            Column(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.62f))
+                    .then(
+                        if (hazeState != null && hazeStyle != null) {
+                            Modifier.hazeEffect(hazeState, hazeStyle) {
+                                forceInvalidateOnPreDraw = true
+                            }
+                        } else {
+                            Modifier
+                        }
+                    )
+            ) {
+                SearchBar(
+                    placeholder = stringResource(android.R.string.search_go),
+                    query = currentQuery,
+                    onValueChange = { currentQuery = it },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
             }
         }
     }
@@ -243,33 +291,43 @@ private fun ApplicationItem(item: RegisteredApplication, onAppClick: (String) ->
         if (info.registrationState.second == Color.Unspecified) MaterialTheme.colorScheme.onSurface
         else info.registrationState.second
 
-    Row(
-        Modifier
-            .clickable {
-                onAppClick(item.packageName)
-            }
-            .padding(10.dp),
-        verticalAlignment = Alignment.CenterVertically
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                horizontal = MaterialTheme.spacing.medium,
+                vertical = MaterialTheme.spacing.small
+            )
+            .clickable { onAppClick(item.packageName) },
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        )
     ) {
-        AppIcon(item.packageName, item.appName, Modifier.size(48.dp))
-        Spacer(Modifier.width(20.dp))
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.Center
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            AppIcon(item.packageName, item.appName, Modifier.size(48.dp))
+            Spacer(Modifier.width(MaterialTheme.spacing.medium))
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = item.appName,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = statusColor
+                )
+                LastReceive(item)
+            }
+            Spacer(Modifier.width(MaterialTheme.spacing.small))
             Text(
-                item.appName,
-                style = MaterialTheme.typography.bodyLarge,
+                text = info.registrationState.first,
+                style = MaterialTheme.typography.labelMedium,
                 color = statusColor
             )
-            LastReceive(item)
         }
-        Spacer(Modifier.width(12.dp))
-        Text(
-            info.registrationState.first,
-            style = MaterialTheme.typography.bodyMedium,
-            color = statusColor
-        )
     }
 }
 
@@ -291,43 +349,48 @@ private fun LastReceive(item: RegisteredApplication) {
 )
 @Composable
 fun ApplicationListPreview() {
-    // XLog.init()
+    // Napier.init()
 
 
-    ApplicationList(contentPadding = PaddingValues(0.dp), onAppClick = {}) { _ ->
-        val miPushApplications = ApplicationPageOperation.MiPushApplications()
-        miPushApplications.res = (
-            mutableListOf(
-            registeredApplication(
-                RegisteredApplication.RegisteredType.NotRegistered,
-                "123"
-            ),
-            registeredApplication(
-                RegisteredApplication.RegisteredType.Registered,
-                "qwe"
-            ),
-            registeredApplication(
-                RegisteredApplication.RegisteredType.Registered,
-                "asd"
-            ),
-            registeredApplication(
-                RegisteredApplication.RegisteredType.Unregistered,
-                "zxc"
-            ),
-            registeredApplication(
-                RegisteredApplication.RegisteredType.Unregistered,
-                "456",
-                false
-            ),
-        ) + ('a'..'z').map {
-            registeredApplication(
-                RegisteredApplication.RegisteredType.NotRegistered,
-                it.toString()
-            )
-        }).toMutableList()
+    ApplicationList(
+        contentPadding = PaddingValues(0.dp),
+        onAppClick = {},
+        getMiPushApplications = { _, _ ->
+            val miPushApplications = ApplicationPageOperation.MiPushApplications()
+            miPushApplications.res = (
+                mutableListOf(
+                    registeredApplication(
+                        RegisteredApplication.RegisteredType.NotRegistered,
+                        "123"
+                    ),
+                    registeredApplication(
+                        RegisteredApplication.RegisteredType.Registered,
+                        "qwe"
+                    ),
+                    registeredApplication(
+                        RegisteredApplication.RegisteredType.Registered,
+                        "asd"
+                    ),
+                    registeredApplication(
+                        RegisteredApplication.RegisteredType.Unregistered,
+                        "zxc"
+                    ),
+                    registeredApplication(
+                        RegisteredApplication.RegisteredType.Unregistered,
+                        "456",
+                        false
+                    ),
+                ) + ('a'..'z').map {
+                    registeredApplication(
+                        RegisteredApplication.RegisteredType.NotRegistered,
+                        it.toString()
+                    )
+                }
+            ).toMutableList()
 
-        miPushApplications
-    }
+            miPushApplications
+        }
+    )
 }
 
 @Preview(
@@ -337,19 +400,22 @@ fun ApplicationListPreview() {
 )
 @Composable
 fun OneApplicationWithNonMiPushAppPreview() {
-    // XLog.init()
+    // Napier.init()
 
-    ApplicationList(onAppClick = {}) { _ ->
-        val miPushApplications = ApplicationPageOperation.MiPushApplications()
-        miPushApplications.res = mutableListOf(
-            registeredApplication(
-                RegisteredApplication.RegisteredType.NotRegistered,
-                "123"
+    ApplicationList(
+        onAppClick = {},
+        getMiPushApplications = { _, _ ->
+            val miPushApplications = ApplicationPageOperation.MiPushApplications()
+            miPushApplications.res = mutableListOf(
+                registeredApplication(
+                    RegisteredApplication.RegisteredType.NotRegistered,
+                    "123"
+                )
             )
-        )
-        miPushApplications.totalPkg = 100
-        miPushApplications
-    }
+            miPushApplications.totalPkg = 100
+            miPushApplications
+        }
+    )
 }
 
 private fun registeredApplication(

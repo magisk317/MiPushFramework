@@ -3,14 +3,18 @@ package top.trumeet.mipushframework
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.magisk317.Global
 import com.magisk317.service.ConnectionStatus
 import com.magisk317.InternalMessenger
 import com.xiaomi.push.service.XMPushServiceMessenger
 
 class MainActivityUtils {
-    private val logger = XLog.tag("MainActivityUtils").build()
+    private val TAG = "MainActivityUtils"
+    private val logger = object {
+        fun i(msg: String) = Napier.i(msg, tag = TAG)
+    }
     private var messenger: InternalMessenger? = null
 
     fun interface ConnectionStatusChanged {

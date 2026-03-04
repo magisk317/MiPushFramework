@@ -1,13 +1,19 @@
 @file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 package top.trumeet.mipushframework.main.subpage
 
 import android.content.Intent
 import android.net.Uri
 import android.content.Context
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,13 +21,20 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -33,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -40,10 +54,16 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
-import com.elvishew.xlog.XLog
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.magisk317.Global
 import com.xiaomi.xmsf.R
 import com.xiaomi.xmsf.push.utils.RegSecUtils
@@ -58,6 +78,7 @@ import top.trumeet.mipushframework.component.AppIcon
 import top.trumeet.mipushframework.component.DialogAction
 import top.trumeet.mipushframework.component.DialogActionRow
 import top.trumeet.mipushframework.component.RefreshableLazyColumn
+import top.trumeet.mipushframework.component.SearchBar
 import top.trumeet.mipushframework.component.TextView
 import top.trumeet.mipushframework.main.RecentEventListPage
 import top.trumeet.mipushframework.utils.ParseUtils
@@ -76,45 +97,97 @@ fun EventList(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     refreshSignal: Int = 0,
     groupByApp: Boolean = false,
-    viewModel: EventListViewModel = hiltViewModel()
+    viewModel: EventListViewModel = hiltViewModel(),
+    hazeState: HazeState? = null,
+    hazeStyle: HazeStyle? = null
 ) {
     Page {
         val context = LocalContext.current
         var clickedEvent by remember { mutableStateOf<EventInfoForDisplay?>(null) }
+        var currentQuery by rememberSaveable(query) { mutableStateOf(query) }
+        var isGroupByApp by rememberSaveable { mutableStateOf(groupByApp) }
+        val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        val listPadding = PaddingValues(
+            top = topInset + 72.dp + 8.dp,
+            bottom = contentPadding.calculateBottomPadding() + 28.dp
+        )
 
         clickedEvent?.let {
             EventDetailsDialog(it, viewModel = viewModel) { clickedEvent = null }
         }
 
-        if (groupByApp && packageName.isEmpty()) {
-            EventGroupList(
-                query = query,
-                refreshSignal = refreshSignal,
-                contentPadding = contentPadding,
-                viewModel = viewModel
-            )
-        } else {
-            var lastId by rememberSaveable(refreshSignal) { mutableStateOf<Long?>(null) }
-            // Using the overload EventList. We need to adapt it to use ViewModel.
-            // But the overload EventList takes `getEvents` lambda.
-            // We can adapt ViewModel to provide data.
-            // Actually, let's just make the overload EventList use ViewModel too.
-            val events = remember { mutableStateListOf<EventInfoForDisplay>() }
-            
-            EventList(onClick = { clickedEvent = it }, getEvents = { isRefresh ->
-                // This lambda is called to fetch data.
-                if (isRefresh) lastId = null
-                // We need to call suspending function here? 
-                // The overload EventList calls this inside coroutine scope.
-                // So we can block (suspend).
-                // But ViewModel functions are async launch usually.
-                // We need `suspend fun getEvents(...)` in ViewModel?
-                // Or expose repository methods via ViewModel?
-                // Let's expose a suspend helper in ViewModel.
-                viewModel.fetchEventsSuspend(isRefresh, lastId, packageName, query).also { list ->
-                     list.lastOrNull()?.let { lastId = it.id }
+        Box(modifier = Modifier.fillMaxSize()) {
+            // 列表内容
+            if (isGroupByApp && packageName.isEmpty()) {
+                EventGroupList(
+                    query = currentQuery,
+                    refreshSignal = refreshSignal,
+                    contentPadding = listPadding,
+                    viewModel = viewModel,
+                    hazeState = hazeState
+                )
+            } else {
+                var lastId by rememberSaveable(refreshSignal) { mutableStateOf<Long?>(null) }
+                EventList(
+                    onClick = { clickedEvent = it },
+                    getEvents = { isRefresh ->
+                        if (isRefresh) lastId = null
+                        viewModel.fetchEventsSuspend(isRefresh, lastId, packageName, currentQuery).also { list ->
+                             list.lastOrNull()?.let { lastId = it.id }
+                        }
+                    },
+                    query = currentQuery,
+                    packageName = packageName,
+                    refreshSignal = refreshSignal,
+                    contentPadding = listPadding,
+                    hazeState = hazeState,
+                    hazeStyle = hazeStyle
+                )
+            }
+
+            val topBarModifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.62f))
+
+            TopAppBar(
+                title = {
+                    SearchBar(
+                        placeholder = stringResource(android.R.string.search_go),
+                        query = currentQuery,
+                        onValueChange = { currentQuery = it },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
+                actions = {
+                    IconButton(onClick = { isGroupByApp = !isGroupByApp }) {
+                        Icon(
+                            painter = painterResource(
+                                id = if (isGroupByApp) {
+                                    R.drawable.ic_event_note_black_24dp
+                                } else {
+                                    R.drawable.ic_apps_black_24dp
+                                }
+                            ),
+                            contentDescription = if (isGroupByApp) "Show Events" else "Group by App"
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent,
+                    titleContentColor = Color.White,
+                    actionIconContentColor = Color.White
+                ),
+                modifier = if (hazeState != null && hazeStyle != null) {
+                    topBarModifier.hazeEffect(hazeState, hazeStyle) {
+                        forceInvalidateOnPreDraw = true
+                    }
+                } else {
+                    topBarModifier
                 }
-            }, query, packageName, refreshSignal = refreshSignal, contentPadding = contentPadding)
+            )
         }
     }
 }
@@ -132,7 +205,8 @@ private fun EventGroupList(
     query: String,
     refreshSignal: Int,
     contentPadding: PaddingValues,
-    viewModel: EventListViewModel
+    viewModel: EventListViewModel,
+    hazeState: HazeState? = null
 ) {
     val context = LocalContext.current
     val groupedItems = remember(query) { mutableStateListOf<EventGroupForDisplay>() }
@@ -209,7 +283,8 @@ private fun EventGroupList(
         doLoadMore = doLoadMore,
         isNeedRefresh = isNeedRefresh,
         scrollToTopSignal = refreshSignal,
-        contentPadding = contentPadding
+        contentPadding = contentPadding,
+        modifier = if (hazeState != null) Modifier.hazeSource(hazeState) else Modifier
     ) {
         items(groupedItems, key = { it.packageName }) { group ->
             val updatedAt = ParseUtils.getFriendlyDateString(
@@ -217,37 +292,47 @@ private fun EventGroupList(
                 Utils.getUTC(),
                 context
             )
-            Row(
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
                     .clickable {
                         context.startActivity(
                             Intent(context, RecentEventListPage::class.java)
                                 .setData(Uri.parse(group.packageName))
                         )
-                    }
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    },
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                ),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                AppIcon(group.packageName, group.appName, modifier = Modifier.size(48.dp))
-                Spacer(Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AppIcon(group.packageName, group.appName, modifier = Modifier.size(48.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            group.appName,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            "${group.events.size} 条记录",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     Text(
-                        group.appName,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        "${group.events.size} 条记录",
+                        "更新于$updatedAt",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Text(
-                    "更新于$updatedAt",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
     }
@@ -339,7 +424,9 @@ fun EventList(
     query: String,
     packageName: String,
     refreshSignal: Int = 0,
-    contentPadding: PaddingValues = PaddingValues(0.dp)
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    hazeState: HazeState? = null,
+    hazeStyle: HazeStyle? = null
 ) {
     val isPreview = LocalInspectionMode.current
     val items = remember {
@@ -396,10 +483,25 @@ fun EventList(
         doLoadMore,
         isNeedRefresh,
         scrollToTopSignal = refreshSignal,
-        contentPadding = contentPadding
+        contentPadding = contentPadding,
+        modifier = if (hazeState != null) {
+            Modifier.hazeSource(hazeState)
+        } else {
+            Modifier
+        }
     ) {
-        items(items, key = { it.composeKey() }) {
-            EventItem(it, onClick)
+        if (items.isEmpty() && !isLoading) {
+            item {
+                EmptyEventState(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 300.dp)
+                )
+            }
+        } else {
+            items(items, key = { it.composeKey() }) {
+                EventItem(it, onClick)
+            }
         }
     }
 }
@@ -411,39 +513,49 @@ private fun EventItem(item: EventInfoForDisplay, onClick: (EventInfoForDisplay) 
     val iconSize = 48.dp
     val iconGap = 20.dp
 
-    Column(
-        Modifier
-            .clickable { onClick(item) }
+    Card(
+        modifier = Modifier
             .fillMaxWidth()
-            .padding(10.dp)
-            .alpha(alpha)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .clickable { onClick(item) }
+            .alpha(alpha),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+        ),
+        shape = RoundedCornerShape(12.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Top
-        ) {
-            AppIcon(item.packageName, item.appName, modifier = Modifier.size(iconSize))
-            Spacer(Modifier.width(iconGap))
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    EventHeaderMetaLine1(item, modifier = Modifier.weight(1f))
-                    Spacer(Modifier.width(10.dp))
-                    EventReceiveDate(item)
-                }
-                EventHeaderTitle(item)
-            }
-        }
-
-        Row(
-            modifier = Modifier
+        Column(
+            Modifier
                 .fillMaxWidth()
-                .padding(start = iconSize + iconGap)
+                .padding(12.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                EventContent(item)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top
+            ) {
+                AppIcon(item.packageName, item.appName, modifier = Modifier.size(iconSize))
+                Spacer(Modifier.width(iconGap))
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        EventHeaderMetaLine1(item, modifier = Modifier.weight(1f))
+                        Spacer(Modifier.width(10.dp))
+                        EventReceiveDate(item)
+                    }
+                    EventHeaderTitle(item)
+                }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = iconSize + iconGap, top = 8.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    EventContent(item)
+                }
             }
         }
     }
@@ -497,6 +609,47 @@ private fun EventContent(item: EventInfoForDisplay) {
     )
 }
 
+/**
+ * 空状态UI - 当没有日志时显示
+ */
+@Composable
+fun EmptyEventState(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 48.dp, horizontal = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // 空态图标
+        Icon(
+            painter = painterResource(id = R.drawable.ic_event_note_black_24dp),
+            contentDescription = null,
+            modifier = Modifier
+                .size(80.dp)
+                .alpha(0.3f),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // 标题
+        Text(
+            "暂无日志",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        
+        // 描述文本
+        Text(
+            "等待应用推送消息或手动触发测试",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
+    }
+}
+
 @Preview(
     showBackground = true,
     device = Devices.PIXEL_3,
@@ -513,7 +666,7 @@ fun EventDetailsDialogPreview() {
 )
 @Composable
 fun EventListPreview() {
-    XLog.init()
+    Napier.base(io.github.aakira.napier.DebugAntilog())
     Utils.context = LocalContext.current
 
     val eventListSequence = sequence {

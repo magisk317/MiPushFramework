@@ -5,9 +5,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import top.trumeet.mipushframework.main.MainActivity
 
+import dagger.hilt.android.AndroidEntryPoint
+
 /**
  * Wizard welcome page
  */
+@AndroidEntryPoint
 class WelcomeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

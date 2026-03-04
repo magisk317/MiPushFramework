@@ -35,24 +35,26 @@ fun applyEdgeToEdge(window: Window) {
 @Composable
 fun SystemBarsScrim(hazeState: HazeState, hazeStyle: HazeStyle) {
     Box(modifier = Modifier.fillMaxSize()) {
+        // 顶栏状态栏区域 - 半透明背景 + 模糊效果
         Spacer(
             modifier = Modifier
                 .fillMaxWidth()
                 .windowInsetsTopHeight(WindowInsets.statusBars)
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f))
                 .hazeEffect(hazeState, hazeStyle) {
                     forceInvalidateOnPreDraw = true
-                }
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.2f)),
+                },
         )
+        // 底栏导航栏区域 - 半透明背景 + 模糊效果
         Spacer(
             modifier = Modifier
                 .fillMaxWidth()
                 .windowInsetsBottomHeight(WindowInsets.navigationBars)
                 .align(Alignment.BottomStart)
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f))
                 .hazeEffect(hazeState, hazeStyle) {
                     forceInvalidateOnPreDraw = true
-                }
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.2f)),
+                },
         )
     }
 }

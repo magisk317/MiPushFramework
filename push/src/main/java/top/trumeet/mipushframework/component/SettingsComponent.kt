@@ -31,13 +31,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.res.stringArrayResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.xiaomi.xmsf.R
+import top.trumeet.ui.theme.spacing
 
 @Composable
 fun SettingsItem(
@@ -166,10 +168,10 @@ fun SettingsDialog(
                     .width(androidx.compose.ui.unit.Dp.Unspecified)
                     .widthIn(min = 280.dp, max = 560.dp)
                     .heightIn(max = 560.dp)
-                    .padding(24.dp)
+                    .padding(MaterialTheme.spacing.superLarge)
             ) {
                 Column(
-                    modifier = Modifier.padding(24.dp)
+                    modifier = Modifier.padding(MaterialTheme.spacing.superLarge)
                 ) {
                     if (!isDragging) {
                         Text(
@@ -184,7 +186,7 @@ fun SettingsDialog(
                     }
 
                     if (!isDragging) {
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(MaterialTheme.spacing.superLarge))
 
                         if (actions.isNotEmpty()) {
                             DialogActionRow(actions = actions)
@@ -194,7 +196,7 @@ fun SettingsDialog(
                                 horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End
                             ) {
                                 dismissButton?.invoke()
-                                Spacer(modifier = Modifier.width(8.dp))
+                                Spacer(modifier = Modifier.width(MaterialTheme.spacing.small))
                                 confirmButton()
                             }
                         }
@@ -219,20 +221,16 @@ private fun ItemLists(
                     .onGloballyPositioned { coordinates ->
                         rowOffset = coordinates.localToRoot(Offset.Zero)
                     }
-                    .pointerInteropFilter { event ->
-                        if (event.action == android.view.MotionEvent.ACTION_UP) {
-                            onSelect(index, rowOffset.x + event.x, rowOffset.y + event.y)
-                            true
-                        } else {
-                            false
-                        }
+                    .clickable(role = Role.RadioButton) {
+                        // Use row center as reveal origin for theme transition.
+                        onSelect(index, rowOffset.x + 24f, rowOffset.y + 24f)
                     }
                     .fillMaxWidth()
-                    .padding(top = 10.dp, bottom = 10.dp),
+                    .padding(top = MaterialTheme.spacing.small, bottom = MaterialTheme.spacing.small),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 RadioButton(index == selected, onClick = null)
-                Spacer(modifier = Modifier.width(5.dp))
+                Spacer(modifier = Modifier.width(MaterialTheme.spacing.extraSmall))
                 Text(text = item)
             }
         }
@@ -245,13 +243,16 @@ fun SettingsGroup(title: String, content: @Composable () -> Unit) {
         Modifier
             .fillMaxWidth()
              // Reduce horizontal padding as ListItem has its own padding, but keep top/bottom for separation
-            .padding(vertical = 8.dp)
+            .padding(vertical = MaterialTheme.spacing.small)
     ) {
         Text(
             title,
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            modifier = Modifier.padding(
+                horizontal = MaterialTheme.spacing.large,
+                vertical = MaterialTheme.spacing.small
+            )
         )
         content()
     }
