@@ -36,15 +36,8 @@ class ManifestSecurityTest {
     fun bindHttpPermission_isSignatureProtected() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val pm = context.packageManager
-        val permissionInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            pm.getPermissionInfo(
-                "com.xiaomi.xmsf.permission.BIND_HTTP_SERVICE",
-                PackageManager.PermissionInfoFlags.of(0)
-            )
-        } else {
-            @Suppress("DEPRECATION")
-            pm.getPermissionInfo("com.xiaomi.xmsf.permission.BIND_HTTP_SERVICE", 0)
-        }
+        @Suppress("DEPRECATION")
+        val permissionInfo = pm.getPermissionInfo("com.xiaomi.xmsf.permission.BIND_HTTP_SERVICE", 0)
         val baseProtection = permissionInfo.protectionLevel and PermissionInfo.PROTECTION_MASK_BASE
         assertEquals(PermissionInfo.PROTECTION_SIGNATURE, baseProtection)
     }
