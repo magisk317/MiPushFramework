@@ -7,10 +7,15 @@ import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
 import android.service.notification.StatusBarNotification
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 
 object NotificationManagerEx {
     private const val TAG = "NotificationManagerEx"
+    private val logger = object {
+        fun d(msg: String) = Napier.d(msg, tag = TAG)
+        fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
+    }
 
     private lateinit var notificationManager: NotificationManager
 
@@ -36,7 +41,7 @@ object NotificationManagerEx {
         packageName: String,
         tag: String?, id: Int, notification: Notification
     ) {
-        XLog.d(TAG, "notify() called with: packageName = $packageName, tag = $tag, id = $id, notification = $notification")
+        logger.d("notify() called with: packageName = $packageName, tag = $tag, id = $id, notification = $notification")
         if (canUsePackageScopedApis()) {
             try {
                 val method = NotificationManager::class.java.getMethod(
@@ -49,7 +54,7 @@ object NotificationManagerEx {
                 method.invoke(notificationManager, packageName, tag, id, notification)
                 return
             } catch (e: Exception) {
-                XLog.e(TAG, "Failed to invoke notifyAsPackage", e)
+                logger.e("Failed to invoke notifyAsPackage", e)
             }
         }
         notificationManager.notify(tag, id, notification)
@@ -59,7 +64,7 @@ object NotificationManagerEx {
         packageName: String,
         tag: String?, id: Int
     ) {
-        XLog.d(TAG, "cancel() called with: packageName = $packageName, tag = $tag, id = $id")
+        logger.d("cancel() called with: packageName = $packageName, tag = $tag, id = $id")
         if (canUsePackageScopedApis()) {
             try {
                 val method = NotificationManager::class.java.getMethod(
@@ -71,7 +76,7 @@ object NotificationManagerEx {
                 method.invoke(notificationManager, packageName, tag, id)
                 return
             } catch (e: Exception) {
-                XLog.e(TAG, "Failed to invoke cancelAsPackage", e)
+                logger.e("Failed to invoke cancelAsPackage", e)
             }
         }
         notificationManager.cancel(tag, id)
@@ -81,7 +86,7 @@ object NotificationManagerEx {
         packageName: String,
         channels: List<NotificationChannel?>
     ) {
-        XLog.d(TAG, "createNotificationChannels() called with: packageName = $packageName, channels = $channels")
+        logger.d("createNotificationChannels() called with: packageName = $packageName, channels = $channels")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (canUsePackageScopedApis()) {
                 try {
@@ -93,7 +98,7 @@ object NotificationManagerEx {
                     method.invoke(notificationManager, packageName, channels)
                     return
                 } catch (e: Exception) {
-                    XLog.e(TAG, "Failed to invoke createNotificationChannelsForPackage", e)
+                    logger.e("Failed to invoke createNotificationChannelsForPackage", e)
                 }
             }
             notificationManager.createNotificationChannels(channels)
@@ -104,7 +109,7 @@ object NotificationManagerEx {
         packageName: String,
         channelId: String?
     ): NotificationChannel? {
-        XLog.d(TAG, "getNotificationChannel() called with: packageName = $packageName, channelId = $channelId")
+        logger.d("getNotificationChannel() called with: packageName = $packageName, channelId = $channelId")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (canUsePackageScopedApis()) {
                 try {
@@ -115,7 +120,7 @@ object NotificationManagerEx {
                     )
                     return method.invoke(notificationManager, packageName, channelId) as? NotificationChannel
                 } catch (e: Exception) {
-                    XLog.e(TAG, "Failed to invoke getNotificationChannelForPackage", e)
+                    logger.e("Failed to invoke getNotificationChannelForPackage", e)
                 }
             }
             return notificationManager.getNotificationChannel(channelId)
@@ -127,7 +132,7 @@ object NotificationManagerEx {
     fun getNotificationChannels(
         packageName: String
     ): List<NotificationChannel?>? {
-        XLog.d(TAG, "getNotificationChannels() called with: packageName = $packageName")
+        logger.d("getNotificationChannels() called with: packageName = $packageName")
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             notificationManager.getNotificationChannels()
         } else {
@@ -139,7 +144,7 @@ object NotificationManagerEx {
         packageName: String,
         channelId: String?
     ) {
-        XLog.d(TAG, "deleteNotificationChannel() called with: packageName = $packageName, channelId = $channelId")
+        logger.d("deleteNotificationChannel() called with: packageName = $packageName, channelId = $channelId")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             notificationManager.deleteNotificationChannel(channelId)
         }
@@ -150,7 +155,7 @@ object NotificationManagerEx {
         packageName: String,
         groups: List<NotificationChannelGroup?>
     ) {
-        XLog.d(TAG, "createNotificationChannelGroups() called with: packageName = $packageName, groups = $groups")
+        logger.d("createNotificationChannelGroups() called with: packageName = $packageName, groups = $groups")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             notificationManager.createNotificationChannelGroups(groups)
         }
@@ -160,7 +165,7 @@ object NotificationManagerEx {
         packageName: String,
         groupId: String?
     ): NotificationChannelGroup? {
-        XLog.d(TAG, "getNotificationChannelGroup() called with: packageName = $packageName, groupId = $groupId")
+        logger.d("getNotificationChannelGroup() called with: packageName = $packageName, groupId = $groupId")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             if (canUsePackageScopedApis()) {
                 try {
@@ -171,7 +176,7 @@ object NotificationManagerEx {
                     )
                     return method.invoke(notificationManager, packageName, groupId) as? NotificationChannelGroup
                 } catch (e: Exception) {
-                    XLog.e(TAG, "Failed to invoke getNotificationChannelGroupForPackage", e)
+                    logger.e("Failed to invoke getNotificationChannelGroupForPackage", e)
                 }
             }
             return notificationManager.getNotificationChannelGroup(groupId)
@@ -183,7 +188,7 @@ object NotificationManagerEx {
     fun getNotificationChannelGroups(
         packageName: String
     ): List<NotificationChannelGroup?>? {
-        XLog.d(TAG, "getNotificationChannelGroups() called with: packageName = $packageName")
+        logger.d("getNotificationChannelGroups() called with: packageName = $packageName")
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             notificationManager.getNotificationChannelGroups()
         } else {
@@ -195,7 +200,7 @@ object NotificationManagerEx {
         packageName: String,
         groupId: String?
     ) {
-        XLog.d(TAG, "deleteNotificationChannelGroup() called with: packageName = $packageName, groupId = $groupId")
+        logger.d("deleteNotificationChannelGroup() called with: packageName = $packageName, groupId = $groupId")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             notificationManager.deleteNotificationChannelGroup(groupId)
         }
@@ -204,7 +209,7 @@ object NotificationManagerEx {
     fun areNotificationsEnabled(
         packageName: String
     ): Boolean {
-        XLog.d(TAG, "areNotificationsEnabled() called with: packageName = $packageName")
+        logger.d("areNotificationsEnabled() called with: packageName = $packageName")
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             notificationManager.areNotificationsEnabled()
         } else {
@@ -215,7 +220,7 @@ object NotificationManagerEx {
     fun getActiveNotifications(
         packageName: String
     ): Array<StatusBarNotification?>? {
-        XLog.d(TAG, "getActiveNotifications() called with: packageName = $packageName")
+        logger.d("getActiveNotifications() called with: packageName = $packageName")
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             notificationManager.getActiveNotifications()
         } else {

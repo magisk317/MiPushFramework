@@ -17,6 +17,7 @@ import com.magisk317.Global
 import com.magisk317.utils.Singleton
 import top.trumeet.common.utils.Utils
 import com.xiaomi.xmsf.utils.ConfigCenter
+import kotlinx.coroutines.runBlocking
 
 import javax.inject.Inject
 import javax.inject.Singleton as JavaxSingleton
@@ -72,7 +73,7 @@ class IconConfigurations @Inject constructor(
             val loadedFiles = mutableListOf<DocumentFile>()
             parseDirectory(context, treeUri, exceptions, loadedFiles)
 
-            if (loadedFiles.isNotEmpty() && configCenter.isShowConfigurationListOnLoaded(context)) {
+            if (loadedFiles.isNotEmpty() && runBlocking { configCenter.isShowConfigurationListOnLoadedAsync() }) {
                 val loadedList = StringBuilder("loaded icon configuration list:")
                 for (file in loadedFiles) {
                     loadedList.append('\n')

@@ -3,12 +3,16 @@ package com.xiaomi.xmsf.push.service.receivers
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.xiaomi.push.service.PushServiceConstants
 import com.magisk317.service.PushServiceStarter
 
 class PkgUninstallReceiver : BroadcastReceiver() {
-    private val logger = XLog.tag("PkgUninstallReceiver").build()
+    private val TAG = "PkgUninstallReceiver"
+    private val logger = object {
+        fun e(msg: String?, t: Throwable? = null) = Napier.e(msg ?: "", t, tag = TAG)
+    }
 
     override fun onReceive(context: Context, intent: Intent?) {
         if (intent != null && intent.extras != null && "android.intent.action.PACKAGE_REMOVED" == intent.action) {

@@ -1,8 +1,8 @@
 package com.magisk317
 
 import android.content.Intent
-import com.elvishew.xlog.Logger
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmsf.utils.ConvertUtils
 
@@ -25,6 +25,8 @@ class MiPushEventListener {
 
     companion object {
         private val TAG: String = MiPushEventListener::class.java.simpleName
-        private val logger: Logger = XLog.tag(TAG).build()
+        private val logger = object {
+            fun i(msg: String) = Napier.i(msg, tag = TAG)
+        }
     }
 }

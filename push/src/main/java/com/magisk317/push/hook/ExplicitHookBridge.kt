@@ -12,6 +12,7 @@ import com.xiaomi.push.service.PushConstants
 import com.xiaomi.push.service.clientReport.ReportConstants
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
+import io.github.aakira.napier.Napier
 import top.trumeet.common.utils.Utils
 
 /**
@@ -112,7 +113,7 @@ object ExplicitHookBridge {
 
     @JvmStatic
     fun onServiceCreate(pushService: XMPushService) {
-        com.elvishew.xlog.XLog.d("ExplicitHookBridge", "onServiceCreate called for $pushService")
+        Napier.d("onServiceCreate called for $pushService", tag = "ExplicitHookBridge")
         HookTrace.mark("XMPushService.onCreate")
         AspectLogCompat.logServiceMethod("XMPushService.onCreate", details = "Service started")
         XMPushServiceLifecycleBridge.ensureCreated(pushService)
@@ -126,7 +127,7 @@ object ExplicitHookBridge {
 
     @JvmStatic
     fun onStartCommand(intent: Intent?) {
-        com.elvishew.xlog.XLog.d("ExplicitHookBridge", "onStartCommand called with intent: $intent")
+        Napier.d("onStartCommand called with intent: $intent", tag = "ExplicitHookBridge")
         HookTrace.mark("XMPushService.onStartCommand")
         AspectLogCompat.logServiceMethod("XMPushService.onStartCommand", intent)
     }
@@ -219,8 +220,9 @@ object ExplicitHookBridge {
             AspectLogCompat.logDuplicateCheck(packageName, messageId, false)
             return false
         }
-        AspectLogCompat.logDuplicateCheck(packageName, messageId, false)
-        return false
+        val duplicated = DuplicateMessagePolicy.checkAndMark(messageId)
+        AspectLogCompat.logDuplicateCheck(packageName, messageId, duplicated)
+        return duplicated
     }
 
     @JvmStatic

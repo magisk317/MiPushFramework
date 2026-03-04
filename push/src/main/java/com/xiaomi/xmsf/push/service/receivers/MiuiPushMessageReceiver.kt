@@ -3,15 +3,20 @@ package com.xiaomi.xmsf.push.service.receivers
 
 import android.content.Context
 import android.content.Intent
-import com.elvishew.xlog.Logger
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.xiaomi.mipush.sdk.MiPushCommandMessage
 import com.xiaomi.mipush.sdk.MiPushMessage
 import com.xiaomi.mipush.sdk.PushMessageReceiver
 import com.xiaomi.xmsf.push.service.XMAccountManager
 
 class MiuiPushMessageReceiver : PushMessageReceiver() {
-    private val logger: Logger = XLog.tag(MiuiPushMessageReceiver::class.java.simpleName).build()
+    private val TAG = MiuiPushMessageReceiver::class.java.simpleName
+    private val logger = object {
+        fun d(msg: String) = Napier.d(msg, tag = TAG)
+        fun i(msg: String) = Napier.i(msg, tag = TAG)
+        fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
+    }
 
     override fun onCommandResult(context: Context, miPushCommandMessage: MiPushCommandMessage) {
         logger.d("onCommandResult")

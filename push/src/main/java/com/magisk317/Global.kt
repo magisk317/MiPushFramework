@@ -48,8 +48,8 @@ object Global {
     }
 
     @JvmStatic
-    fun ApplicationNameCache(): ApplicationNameCache = Singleton.instance()
+    fun ApplicationNameCache(): ApplicationNameCache = ApplicationNameCache
 
     @JvmStatic
-    fun IconCache(): IconCache = Singleton.instance()
+    fun IconCache(): IconCache = IconCache
 }

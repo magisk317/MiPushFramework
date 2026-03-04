@@ -25,8 +25,8 @@ import androidx.core.app.Person
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
-import com.elvishew.xlog.Logger
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.magisk317.push.hook.ExplicitHookBridge
 import com.magisk317.Global
 import com.magisk317.XMPushUtils
@@ -65,7 +65,11 @@ class MyMIPushNotificationHelper {
     companion object {
         const val CLASS_NAME_PUSH_MESSAGE_HANDLER = "com.xiaomi.mipush.sdk.PushMessageHandler"
 
-        private val logger: Logger = XLog.tag("MyNotificationHelper").build()
+        private val logger = object {
+            fun i(msg: String) = Napier.i(msg, tag = "MyNotificationHelper")
+            fun w(msg: String) = Napier.w(msg, tag = "MyNotificationHelper")
+            fun e(msg: String?, t: Throwable? = null) = Napier.e(msg ?: "Error", t, tag = "MyNotificationHelper")
+        }
         private const val NOTIFICATION_BIG_STYLE_MIN_LEN = 25
 
         private const val GROUP_TYPE_MIPUSH_GROUP = "#group#"
@@ -283,7 +287,7 @@ class MyMIPushNotificationHelper {
                 try {
                     pkgCtx = context.createPackageContext(packageName, 0)
                 } catch (e: PackageManager.NameNotFoundException) {
-                    logger.e(e.message, e)
+                    logger.e(e.message ?: "Unknown package manager error", e)
                 }
             }
             return pkgCtx
@@ -804,7 +808,7 @@ class MyMIPushNotificationHelper {
                     pushMetaInfo
                 )
             } catch (e: Exception) {
-                logger.e(e.message, e)
+                logger.e(e.message ?: "Error in determineTitleAndDespByDIP", e)
                 arrayOf(pushMetaInfo.title, pushMetaInfo.description)
             }
         }

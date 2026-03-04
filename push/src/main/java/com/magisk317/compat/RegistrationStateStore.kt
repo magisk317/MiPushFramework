@@ -1,11 +1,14 @@
 package com.magisk317.compat
 
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import top.trumeet.mipush.provider.db.RegisteredApplicationDb
 import top.trumeet.mipush.provider.entities.RegisteredApplication
 
 object RegistrationStateStore {
-    private val logger = XLog.tag("RegistrationStateStore").build()
+    private val logger = object {
+        fun i(msg: String) = Napier.i(msg, tag = "RegistrationStateStore")
+    }
 
     enum class Source {
         SERVER_RESULT,

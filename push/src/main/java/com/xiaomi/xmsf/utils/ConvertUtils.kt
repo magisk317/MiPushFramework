@@ -2,7 +2,8 @@
 package com.xiaomi.xmsf.utils
 
 import android.content.Intent
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.xiaomi.mipush.sdk.DecryptException
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.*
@@ -17,7 +18,10 @@ import java.util.Objects
 import kotlinx.serialization.json.*
 
 object ConvertUtils {
-    private val logger = XLog.tag(ConvertUtils::class.java.simpleName).build()
+    private val TAG = ConvertUtils::class.java.simpleName
+    private val logger = object {
+        fun e(msg: String?, t: Throwable? = null) = Napier.e(msg ?: "", t, tag = TAG)
+    }
 
     private val json = Json {
         ignoreUnknownKeys = true

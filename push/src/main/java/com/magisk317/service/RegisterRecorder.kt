@@ -3,8 +3,8 @@ package com.magisk317.service
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
-import com.elvishew.xlog.Logger
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.magisk317.Global
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmsf.R
@@ -15,9 +15,14 @@ import top.trumeet.mipush.provider.db.RegisteredApplicationDb
 import top.trumeet.mipush.provider.entities.Event
 import top.trumeet.mipush.provider.entities.RegisteredApplication
 import top.trumeet.mipush.provider.event.type.RegistrationType
+import kotlinx.coroutines.runBlocking
 
 class RegisterRecorder(private val context: Context) {
-    private val logger: Logger = XLog.tag(TAG).build()
+    private val logger = object {
+        fun d(msg: String) = Napier.d(msg, tag = TAG)
+        fun e(msg: String) = Napier.e(msg, tag = TAG)
+        fun e(msg: String, t: Throwable) = Napier.e(msg, t, tag = TAG)
+    }
 
     fun recordRegisterRequest(intent: Intent?) {
         logger.d("recordRegisterRequest() called with intent: $intent")
@@ -47,7 +52,7 @@ class RegisterRecorder(private val context: Context) {
     }
 
     fun saveRegisterAppRecord(pkg: String) {
-        EventDb.insertEvent(Event.ResultType.OK, RegistrationType(null, pkg, null))
+        runBlocking { EventDb.insertEventAsync(Event.ResultType.OK, RegistrationType(null, pkg, null)) }
     }
 
     fun isRegisterAppRequest(intent: Intent?): Boolean {
@@ -69,7 +74,7 @@ class RegisterRecorder(private val context: Context) {
     }
 
     fun canShowRegisterNotification(application: RegisteredApplication): Boolean {
-        var notificationOnRegister = Global.ConfigCenter().isNotificationOnRegister(context)
+        var notificationOnRegister = runBlocking { Global.ConfigCenter().isNotificationOnRegisterAsync() }
         notificationOnRegister = notificationOnRegister && application.notificationOnRegister
         return notificationOnRegister
     }

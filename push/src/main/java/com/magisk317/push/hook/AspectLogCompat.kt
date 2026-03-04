@@ -2,7 +2,8 @@ package com.magisk317.push.hook
 
 import android.content.Intent
 import android.os.SystemClock
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.xiaomi.network.Fallback
 import com.xiaomi.push.service.XMPushService
 import com.xiaomi.smack.packet.Packet
@@ -12,9 +13,12 @@ import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmsf.BuildConfig
 import com.xiaomi.xmsf.utils.ConvertUtils
 import com.magisk317.Global
+import kotlinx.coroutines.runBlocking
 
 internal object AspectLogCompat {
-    private val logger = XLog.tag("AspectLogCompat").build()
+    private val logger = object {
+        fun d(msg: String) = Napier.d(msg, tag = "AspectLogCompat")
+    }
     private val indentLevel = ThreadLocal.withInitial { 0 }
     @Volatile
     private var cachedEnabled = BuildConfig.DEBUG
@@ -25,7 +29,8 @@ internal object AspectLogCompat {
         if (BuildConfig.DEBUG) return true
         val now = SystemClock.elapsedRealtime()
         if (now - lastRefreshAt < 3000) return cachedEnabled
-        cachedEnabled = runCatching { Global.ConfigCenter().isDebugMode }.getOrDefault(false)
+        cachedEnabled = runCatching { runBlocking { Global.ConfigCenter().isDebugModeAsync() } }
+            .getOrDefault(false)
         lastRefreshAt = now
         return cachedEnabled
     }

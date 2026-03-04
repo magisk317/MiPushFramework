@@ -10,12 +10,10 @@ import top.trumeet.common.utils.ImgUtils
  * Author: TimothyZhang023
  * Icon Cache
  */
-import javax.inject.Inject
-import javax.inject.Singleton
 import com.magisk317.utils.Singleton as SingletonUtils
 
-@Singleton
-class IconCache @Inject constructor() {
+// 转为 Kotlin 对象单例，移除依赖注入注解
+object IconCache {
     init {
         try {
             SingletonUtils.reset(this)
@@ -94,21 +92,9 @@ class IconCache @Inject constructor() {
         fun convert(ctx: Context, b: T): R
     }
 
-    companion object {
-        @Volatile
-        private var instance: IconCache? = null
-
-        @JvmStatic
-        fun getInstance(): IconCache {
-            return instance ?: synchronized(this) {
-                instance ?: IconCache().also { instance = it }
-            }
-        }
-
-        @JvmStatic
-        fun dip2px(context: Context, dipValue: Float): Int {
-            val scale = context.resources.displayMetrics.density
-            return (dipValue * scale + 0.5f).toInt()
-        }
+    @JvmStatic
+    fun dip2px(context: Context, dipValue: Float): Int {
+        val scale = context.resources.displayMetrics.density
+        return (dipValue * scale + 0.5f).toInt()
     }
 }

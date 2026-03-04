@@ -3,11 +3,16 @@ package com.magisk317.service
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.magisk317.Global
+import kotlinx.coroutines.runBlocking
 
 object PushServiceStarter {
-    private val logger = XLog.tag("PushServiceStarter").build()
+    private val logger = object {
+        fun d(msg: String) = Napier.d(msg, tag = "PushServiceStarter")
+        fun e(msg: String, t: Throwable) = Napier.e(msg, t, tag = "PushServiceStarter")
+    }
 
     @JvmStatic
     fun start(context: Context, intent: Intent) {
@@ -24,7 +29,7 @@ object PushServiceStarter {
                 return
             }
 
-            val shouldUseForegroundStart = Global.ConfigCenter().shouldStartPushAsForegroundService &&
+            val shouldUseForegroundStart = runBlocking { Global.ConfigCenter().shouldStartPushAsForegroundServiceAsync() } &&
                 XMPushServiceLifecycleBridge.canStartForegroundImmediately()
             if (shouldUseForegroundStart) {
                 ContextCompat.startForegroundService(context, intent)

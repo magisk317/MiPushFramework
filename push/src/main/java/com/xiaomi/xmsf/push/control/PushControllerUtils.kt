@@ -17,7 +17,8 @@ import android.os.Looper
 import android.os.Process
 import android.preference.PreferenceManager
 import android.text.TextUtils
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.oasisfeng.condom.CondomContext
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.misc.ScheduledJobManager
@@ -34,7 +35,14 @@ import top.trumeet.common.Constants.TAG_CONDOM
 
 @SuppressLint("WrongConstant")
 object PushControllerUtils {
-    private val logger = XLog.tag(PushControllerUtils::class.java.simpleName).build()
+    private val TAG = "PushControllerUtils"
+    private val logger = object {
+        fun d(msg: String) = Napier.d(msg, tag = TAG)
+        fun w(msg: String) = Napier.w(msg, tag = TAG)
+        fun e(msg: String) = Napier.e(msg, tag = TAG)
+        fun e(msg: String, t: Throwable) = Napier.e(msg, t, tag = TAG)
+        fun e(t: Throwable) = Napier.e(t.message ?: "Unknown error", t, tag = TAG)
+    }
     private val liveReceiver: BroadcastReceiver = KeepAliveReceiver()
     private val retryInterval = intArrayOf(3600000, 7200000, 14400000, 28800000, 86400000)
 

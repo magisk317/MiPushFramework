@@ -2,6 +2,7 @@ package com.magisk317.service
 
 import android.content.Context
 import android.os.Build
+import io.github.aakira.napier.Napier
 import com.magisk317.Global
 import com.oasisfeng.condom.CondomContext
 import com.xiaomi.channel.commonutils.reflect.JavaCalls
@@ -16,7 +17,7 @@ import top.trumeet.common.Constants.TAG_CONDOM
 class XMPushServiceAbility(pushService: XMPushService) : XMPushServiceListenerNotifier() {
 
     init {
-        com.elvishew.xlog.XLog.d("XMPushServiceAbility", "Initializing with service: $pushService")
+        Napier.d("Initializing with service: $pushService", tag = "XMPushServiceAbility")
         xmPushService = pushService
         Global.RegistrationRecorder().initContext(pushService)
         condomContext(pushService)

@@ -1,13 +1,11 @@
 package com.xiaomi.xmsf
 
 import android.widget.Toast
-import com.elvishew.xlog.Logger
-import com.elvishew.xlog.XLog
-import com.elvishew.xlog.flattener.ClassicFlattener
-import com.elvishew.xlog.printer.file.FilePrinter
-import com.elvishew.xlog.printer.file.backup.NeverBackupStrategy
-import com.elvishew.xlog.printer.file.clean.FileLastModifiedCleanStrategy
-import com.elvishew.xlog.printer.file.naming.DateFileNameGenerator
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import io.github.aakira.napier.Napier
 import com.xiaomi.xmsf.utils.LogUtils
 import top.trumeet.common.utils.Utils
 
@@ -20,9 +18,8 @@ object CrashHandler {
 
     @JvmStatic
     fun installCrashLogger() {
-        val tag = CrashHandler::class.java.simpleName
-        val logger: Logger = XLog.tag(tag).build()
-        val crashLogger: Logger = XLog.tag(tag).printers(createCrashPrinter()).build()
+        val tag = "CrashHandler"
+        val logDir = File(LogUtils.getLogFolder(Utils.getApplication()!!))
 
         install { _, e ->
             val crashInfo = StringBuilder()
@@ -34,24 +31,25 @@ object CrashHandler {
                 crashInfo.append(stackTrace[i])
             }
             Utils.makeText(crashInfo, Toast.LENGTH_LONG)
-            logger.e("Mi Push Crash", e)
-            crashLogger.e("Mi Push Crash", e)
+            Napier.e("Mi Push Crash", e, tag = tag)
+            writeCrashToFile(logDir, e)
         }
     }
 
-    private fun createCrashPrinter(): FilePrinter {
-        val days7InMillis = 7 * 24 * 60 * 60 * 1000
-        return FilePrinter.Builder(LogUtils.getLogFolder(Utils.getApplication()!!))
-            .fileNameGenerator(object : DateFileNameGenerator() {
-                override fun generateFileName(logLevel: Int, timestamp: Long): String {
-                    return "Crash_" + super.generateFileName(logLevel, timestamp)
-                }
-            })
-            .backupStrategy(NeverBackupStrategy())
-            .cleanStrategy(FileLastModifiedCleanStrategy(days7InMillis.toLong()))
-            .flattener(ClassicFlattener())
-            .build()
+    private fun writeCrashToFile(logDir: File, throwable: Throwable) {
+        try {
+            if (!logDir.exists()) logDir.mkdirs()
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+            val timeFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+            val fileName = "Crash_${dateFormat.format(Date())}.txt"
+            val file = File(logDir, fileName)
+            val time = timeFormat.format(Date())
+            val line = "$time [ERROR] CrashHandler: Mi Push Crash ${throwable.stackTraceToString()}\n"
+            file.appendText(line)
+        } catch (_: Exception) {}
     }
+
+
 
     @JvmStatic
     fun install(handler: Thread.UncaughtExceptionHandler) {

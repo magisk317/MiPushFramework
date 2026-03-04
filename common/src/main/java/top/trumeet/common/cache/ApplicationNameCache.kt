@@ -8,12 +8,10 @@ import androidx.collection.LruCache
 /**
  * @author zts
  */
-import javax.inject.Inject
-import javax.inject.Singleton
 import com.magisk317.utils.Singleton as SingletonUtils
 
-@Singleton
-class ApplicationNameCache @Inject constructor() {
+// 单例对象，原先通过 Hilt/`javax.inject` 注入，只保留手动单例逻辑
+object ApplicationNameCache {
     init {
         try {
             SingletonUtils.reset(this)
@@ -41,17 +39,5 @@ class ApplicationNameCache @Inject constructor() {
                 }
             }
         }.get(pkg)
-    }
-
-    companion object {
-        @Volatile
-        private var instance: ApplicationNameCache? = null
-
-        @JvmStatic
-        fun getInstance(): ApplicationNameCache {
-            return instance ?: synchronized(this) {
-                instance ?: ApplicationNameCache().also { instance = it }
-            }
-        }
     }
 }

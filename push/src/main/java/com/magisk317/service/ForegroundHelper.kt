@@ -14,6 +14,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
 import com.magisk317.Global
 import com.xiaomi.xmsf.R
+import kotlinx.coroutines.runBlocking
 
 class ForegroundHelper(private val service: Service) {
     companion object {
@@ -25,7 +26,7 @@ class ForegroundHelper(private val service: Service) {
         createNotificationGroupForPushStatus()
         // Always satisfy startForegroundService contract first, then apply keep-alive policy.
         showForegroundNotificationToKeepAlive()
-        if (!Global.ConfigCenter().isStartForegroundService) {
+        if (!runBlocking { Global.ConfigCenter().isStartForegroundServiceAsync() }) {
             Handler(Looper.getMainLooper()).post { stopForegroundNotification() }
         }
     }

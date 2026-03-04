@@ -1,7 +1,8 @@
 package com.xiaomi.xmsf
 
 import android.content.Context
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.xiaomi.mipush.sdk.MiPushClient
 import com.xiaomi.xmsf.push.control.PushControllerUtils
 import com.xiaomi.xmsf.push.control.PushControllerUtils.pushRegistered
@@ -10,7 +11,11 @@ import top.trumeet.common.Constants.APP_KEY
 import java.util.Objects
 
 class FirstRegister(private val context: Context) : Runnable {
-    private val logger = XLog.tag("FirstRegister").build()
+    private val TAG = "FirstRegister"
+    private val logger = object {
+        fun i(msg: String) = Napier.i(msg, tag = TAG)
+        fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
+    }
 
     override fun run() {
         Objects.requireNonNull(context)

@@ -12,8 +12,8 @@ import android.content.pm.Signature
 import android.os.Handler
 import android.os.Looper
 import android.text.TextUtils
-import com.elvishew.xlog.Logger
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 
 class MiuiPushActivateService : IntentService {
     private val handler: Handler
@@ -107,7 +107,10 @@ class MiuiPushActivateService : IntentService {
     }
 
     companion object {
-        private val logger: Logger = XLog.tag(MiuiPushActivateService::class.java.simpleName).build()
+        private val TAG = MiuiPushActivateService::class.java.simpleName
+        private val logger = object {
+            fun e(msg: String) = Napier.e(msg, tag = TAG)
+        }
 
         @JvmField
         val MIUI_PLATFORM_SIGNATURES = arrayOf(

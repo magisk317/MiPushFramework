@@ -1,7 +1,7 @@
 package com.magisk317.utils
 
-import com.elvishew.xlog.Logger
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.magisk317.SdkNotificationCompat
 import com.magisk317.XMPushUtils
 import com.magisk317.push.pipeline.MockMessageRegistry
@@ -12,7 +12,12 @@ import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import java.lang.reflect.InvocationTargetException
 
 object MockMIPushMessage {
-    private val logger: Logger = XLog.tag(MockMIPushMessage::class.java.simpleName).build()
+    private val TAG = MockMIPushMessage::class.java.simpleName
+    private val logger = object {
+        fun d(msg: String) = Napier.d(msg, tag = TAG)
+        fun w(msg: String) = Napier.w(msg, tag = TAG)
+        fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
+    }
 
     @JvmStatic
     fun mockProcessMIPushMessage(pushService: XMPushService, container: XmPushActionContainer): Boolean {
