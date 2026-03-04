@@ -5,6 +5,12 @@
     <permission
             android:name="com.xiaomi.xmsf.permission.MIPUSH_RECEIVE"
             android:protectionLevel="signature" />
+    <permission
+            android:name="com.xiaomi.xmsf.permission.NOTIFICATION_ACTIVE"
+            android:protectionLevel="signature" />
+    <permission
+            android:name="com.xiaomi.xmsf.permission.BIND_HTTP_SERVICE"
+            android:protectionLevel="signature" />
 
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="com.xiaomi.xmsf.permission.MIPUSH_RECEIVE" />
@@ -179,6 +185,7 @@
         <receiver android:name="com.xiaomi.push.revival.NotificationsRevivalForSelfUpdated" />
         <service
                 android:name=".push.service.HttpService"
+                android:permission="com.xiaomi.xmsf.permission.BIND_HTTP_SERVICE"
                 android:exported="true" />
 
         <service

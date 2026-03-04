@@ -2,7 +2,8 @@ package top.trumeet.mipush.provider.db
 
 import android.content.Context
 import android.net.Uri
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import androidx.sqlite.db.SimpleSQLiteQuery
 import com.magisk317.XMPushUtils
 import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
@@ -39,18 +40,26 @@ object EventDb {
         var unregistered: MutableSet<String> = HashSet()
     }
 
-    @JvmStatic
-    fun insertEvent(event: Event): Long = runBlocking {
-        XLog.tag("EventDb").d("insertEvent() called with: $event")
+    suspend fun insertEventAsync(event: Event): Long {
+        Napier.d("insertEvent() called with: $event", tag = "EventDb")
         if (event.type == Event.Type.SendMessage) {
             Utils.setLastReceiveTime(event.pkg, event.date)
         }
-        eventDao.insert(event)
+        return eventDao.insert(event)
     }
 
     @JvmStatic
+    @Deprecated("Use insertEventAsync(event)")
+    fun insertEvent(event: Event): Long = runBlocking { insertEventAsync(event) }
+
+    suspend fun insertEventAsync(@Event.ResultType result: Int, type: EventType): Long {
+        return insertEventAsync(createEvent(result, type))
+    }
+
+    @JvmStatic
+    @Deprecated("Use insertEventAsync(result, type)")
     fun insertEvent(@Event.ResultType result: Int, type: EventType): Long {
-        return insertEvent(createEvent(result, type))
+        return runBlocking { insertEventAsync(result, type) }
     }
 
     @JvmStatic
@@ -67,14 +76,13 @@ object EventDb {
         )
     }
 
-    @JvmStatic
-    fun queryById(
+    suspend fun queryByIdAsync(
         lastId: Long?,
         size: Int,
         types: Set<Int>?,
         pkg: String?,
         text: String?
-    ): List<Event> = runBlocking {
+    ): List<Event> {
         val queryBuilder = StringBuilder("SELECT * FROM EVENT WHERE 1=1")
         val args = mutableListOf<Any>()
         if (lastId != null) {
@@ -98,8 +106,18 @@ object EventDb {
         queryBuilder.append(" ORDER BY id DESC LIMIT ?")
         args.add(size)
 
-        eventDao.queryRaw(SimpleSQLiteQuery(queryBuilder.toString(), args.toTypedArray()))
+        return eventDao.queryRaw(SimpleSQLiteQuery(queryBuilder.toString(), args.toTypedArray()))
     }
+
+    @JvmStatic
+    @Deprecated("Use queryByIdAsync(lastId, size, types, pkg, text)")
+    fun queryById(
+        lastId: Long?,
+        size: Int,
+        types: Set<Int>?,
+        pkg: String?,
+        text: String?
+    ): List<Event> = runBlocking { queryByIdAsync(lastId, size, types, pkg, text) }
 
     @JvmStatic
     fun queryByPage(
@@ -109,17 +127,16 @@ object EventDb {
         pkg: String?,
         text: String?
     ): List<Event> {
-        return query((pageIndex - 1) * pageSize, pageSize, types, pkg, text)
+        return runBlocking { queryAsync((pageIndex - 1) * pageSize, pageSize, types, pkg, text) }
     }
 
-    @JvmStatic
-    fun query(
+    suspend fun queryAsync(
         skip: Int,
         limit: Int,
         types: Set<Int>?,
         pkg: String?,
         text: String?
-    ): List<Event> = runBlocking {
+    ): List<Event> {
         val queryBuilder = StringBuilder("SELECT * FROM EVENT WHERE 1=1")
         val args = mutableListOf<Any>()
         if (!pkg.isNullOrBlank()) {
@@ -140,17 +157,29 @@ object EventDb {
         args.add(limit)
         args.add(skip)
 
-        eventDao.queryRaw(SimpleSQLiteQuery(queryBuilder.toString(), args.toTypedArray()))
+        return eventDao.queryRaw(SimpleSQLiteQuery(queryBuilder.toString(), args.toTypedArray()))
     }
 
     @JvmStatic
-    fun deleteHistory() = runBlocking {
+    @Deprecated("Use queryAsync(skip, limit, types, pkg, text)")
+    fun query(
+        skip: Int,
+        limit: Int,
+        types: Set<Int>?,
+        pkg: String?,
+        text: String?
+    ): List<Event> = runBlocking { queryAsync(skip, limit, types, pkg, text) }
+
+    suspend fun deleteHistoryAsync() {
         val data = Utils.getUTC().time - 1000L * 3600L * 24 * 7
         eventDao.deleteHistory(data)
     }
 
     @JvmStatic
-    fun queryRegistered(): RegistrationInfo = runBlocking {
+    @Deprecated("Use deleteHistoryAsync()")
+    fun deleteHistory() = runBlocking { deleteHistoryAsync() }
+
+    suspend fun queryRegisteredAsync(): RegistrationInfo {
         val events = eventDao.queryRegisteredStatus()
         val info = RegistrationInfo()
         for (event in events) {
@@ -169,19 +198,26 @@ object EventDb {
                 info.unregistered.add(event.pkg)
             }
         }
-        info
+        return info
     }
 
     @JvmStatic
-    fun getLastReceiveTime(packageName: String): Long = runBlocking {
+    @Deprecated("Use queryRegisteredAsync()")
+    fun queryRegistered(): RegistrationInfo = runBlocking { queryRegisteredAsync() }
+
+    suspend fun getLastReceiveTimeAsync(packageName: String): Long {
         val time = Utils.getLastReceiveTime(packageName)
         if (time != null) {
-            return@runBlocking time
+            return time
         }
 
         val event = eventDao.getLastEventByType(packageName, Event.Type.SendMessage)
         val lastReceiveTime = event?.date ?: 0L
         Utils.setLastReceiveTime(packageName, lastReceiveTime)
-        lastReceiveTime
+        return lastReceiveTime
     }
+
+    @JvmStatic
+    @Deprecated("Use getLastReceiveTimeAsync(packageName)")
+    fun getLastReceiveTime(packageName: String): Long = runBlocking { getLastReceiveTimeAsync(packageName) }
 }

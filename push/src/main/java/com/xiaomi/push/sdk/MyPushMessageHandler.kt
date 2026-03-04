@@ -16,7 +16,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.magisk317.push.pipeline.MiPushRuntimeBridge
 import com.magisk317.Global
 import com.magisk317.XMPushUtils
@@ -117,7 +118,11 @@ class MyPushMessageHandler : Service() {
     }
 
     companion object {
-        private val logger = XLog.tag("MyPushMessageHandler").build()
+        private val logger = object {
+            fun i(msg: String) = Napier.i(msg, tag = "MyPushMessageHandler")
+            fun e(msg: String) = Napier.e(msg, tag = "MyPushMessageHandler")
+            fun e(msg: String?, t: Throwable) = Napier.e(msg ?: "Error", t, tag = "MyPushMessageHandler")
+        }
 
         private fun getProcessor(context: Context): PushMessageProcessor {
             return dagger.hilt.android.EntryPointAccessors.fromApplication(

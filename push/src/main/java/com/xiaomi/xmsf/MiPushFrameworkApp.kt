@@ -12,8 +12,9 @@ import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationChannelGroupCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import com.elvishew.xlog.Logger
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
+import com.xiaomi.xmsf.utils.LogUtils
 import com.magisk317.notification.NotificationManagerEx
 import com.magisk317.utils.Hooker
 import com.magisk317.utils.PrivilegeElevator
@@ -41,7 +42,10 @@ import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp
 class MiPushFrameworkApp : Application() {
-    private lateinit var logger: Logger
+    private val logger = object {
+        fun i(msg: String) = Napier.i(msg, tag = "MiPushFrameworkApp")
+        fun e(msg: String?, t: Throwable? = null) = Napier.e(msg ?: "", t, tag = "MiPushFrameworkApp")
+    }
 
     override fun onCreate() {
         applicationScope = MainScope()
@@ -89,7 +93,7 @@ class MiPushFrameworkApp : Application() {
     }
 
     private fun initBasicLogger() {
-        logger = XLog.tag(MiPushFrameworkApp::class.java.simpleName).build()
+        LogUtils.init(this)
         logger.i("App starts: ${BuildConfig.VERSION_NAME}")
     }
 

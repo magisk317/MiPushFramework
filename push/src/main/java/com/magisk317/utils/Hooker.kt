@@ -1,8 +1,8 @@
 package com.magisk317.utils
 
 import android.content.Context
-import com.elvishew.xlog.Logger
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.magisk317.Global
 import com.magisk317.network.NetworkPolicyCompat
 import com.magisk317.hook.Configurations
@@ -17,9 +17,13 @@ import com.xiaomi.network.HostManager
 import com.xiaomi.push.service.XMPushService
 import com.xiaomi.smack.ConnectionConfiguration
 import com.xiaomi.smack.SmackConfiguration
+import kotlinx.coroutines.runBlocking
 
 object Hooker {
-    private val logger = XLog.tag("Hooker").build()
+    private val logger = object {
+        fun i(msg: String) = Napier.i(msg, tag = "Hooker")
+        fun e(msg: String?, t: Throwable? = null) = Napier.e(msg ?: "Error", t, tag = "Hooker")
+    }
 
     @JvmStatic
     fun hook(context: Context) {
@@ -49,7 +53,7 @@ object Hooker {
     private fun initMiPushHookLib(context: Context) {
         val configurations = object : Configurations {
             override fun getXMPPServer(): String =
-                Global.ConfigCenter().getXMPPServer(context.applicationContext).orEmpty()
+                runBlocking { Global.ConfigCenter().getXMPPServerAsync() }.orEmpty()
         }
         Dependencies.set(object : OuterDependencies {
             override fun configuration(): Configurations = configurations
@@ -121,18 +125,18 @@ object Hooker {
 
     private fun buildMiSDKLogger(): LoggerInterface {
         return object : LoggerInterface {
-            private var logger: Logger = XLog.tag(TAG).build()
-
             override fun setTag(tag: String) {
-                logger = XLog.tag("$TAG-$tag").build()
+                innerTag = "$TAG-$tag"
             }
 
+            private var innerTag = TAG
+
             override fun log(content: String, t: Throwable) {
-                logger.i(content, t)
+                Napier.i(content, t, tag = innerTag)
             }
 
             override fun log(content: String) {
-                logger.i(content)
+                Napier.i(content, tag = innerTag)
             }
         }
     }

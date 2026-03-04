@@ -21,10 +21,12 @@ import java.util.Date
 import javax.inject.Inject
 import top.trumeet.mipush.provider.event.type.TypeFactory
 import com.xiaomi.xmsf.push.utils.RegSecUtils
+import com.xiaomi.xmsf.SettingsManager
 
 @HiltViewModel
 class EventListViewModel @Inject constructor(
     private val eventRepository: EventRepository,
+    private val settingsManager: SettingsManager,
     @param:ApplicationContext private val context: Context
 ) : ViewModel() {
     private val _events = MutableStateFlow<List<EventInfoForDisplay>>(emptyList())
@@ -98,5 +100,9 @@ class EventListViewModel @Inject constructor(
                     toEventInfoForDisplay(it)
                 }
         }
+    }
+
+    fun clearHistory() {
+        settingsManager.clearHistory(context, viewModelScope)
     }
 }

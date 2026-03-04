@@ -1,7 +1,8 @@
 package com.magisk317.service
 
 import android.content.Intent
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.magisk317.network.NetworkPolicyCompat
 import com.xiaomi.push.service.XMPushService
 import java.util.ArrayDeque
@@ -10,7 +11,9 @@ import java.util.ArrayDeque
  * Runtime replacement for old AOP lifecycle callbacks around XMPushService.
  */
 object XMPushServiceLifecycleBridge {
-    private val logger = XLog.tag("XMPushServiceLifecycle").build()
+    private val logger = object {
+        fun e(msg: String, t: Throwable) = Napier.e(msg, t, tag = "XMPushServiceLifecycle")
+    }
     private val lock = Any()
     private var currentService: XMPushService? = null
     private var listener: XMPushServiceListener? = null

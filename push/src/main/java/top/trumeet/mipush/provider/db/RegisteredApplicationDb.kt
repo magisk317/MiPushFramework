@@ -1,7 +1,8 @@
 package top.trumeet.mipush.provider.db
 
 import android.text.TextUtils
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.magisk317.Global
 import kotlinx.coroutines.runBlocking
 import top.trumeet.common.BuildConfig.DEBUG
@@ -13,7 +14,11 @@ import top.trumeet.mipush.provider.entities.RegisteredApplication
  * Created by Trumeet on 2017/12/23.
  */
 object RegisteredApplicationDb {
-    private val logger = XLog.tag("RegisteredApplicationDb").build()
+    private val TAG = "RegisteredApplicationDb"
+    private val logger = object {
+        fun i(msg: String) = Napier.i(msg, tag = TAG)
+        fun d(msg: String) = Napier.d(msg, tag = TAG)
+    }
 
 
     @JvmStatic

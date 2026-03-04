@@ -1,11 +1,16 @@
 package com.magisk317.compat
 
 import android.os.SystemClock
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.topjohnwu.superuser.Shell
 
 object RegistrationStateCompat {
-    private val logger = XLog.tag("RegistrationStateCompat").build()
+    private val logger = object {
+        fun d(msg: String) = Napier.d(msg, tag = "RegistrationStateCompat")
+        fun i(msg: String) = Napier.i(msg, tag = "RegistrationStateCompat")
+        fun w(msg: String) = Napier.w(msg, tag = "RegistrationStateCompat")
+    }
     private const val VALID_PATTERN = "name=\"valid\" value=\"true\""
     private const val REG_ID_TAG_PATTERN = "name=\"regId\">"
     private const val REG_ID_VALUE_PATTERN = "name=\"regId\" value=\""

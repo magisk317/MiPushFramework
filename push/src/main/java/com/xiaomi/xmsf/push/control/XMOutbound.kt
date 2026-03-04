@@ -3,8 +3,8 @@ package com.xiaomi.xmsf.push.control
 import android.content.Context
 import android.content.Intent
 import androidx.annotation.Nullable
-import com.elvishew.xlog.Logger
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.oasisfeng.condom.CondomOptions
 import com.oasisfeng.condom.OutboundJudge
 import com.oasisfeng.condom.OutboundType
@@ -14,7 +14,10 @@ class XMOutbound private constructor(
     private val context: Context,
     tag: String
 ) : OutboundJudge {
-    private val logger: Logger = XLog.tag(tag).build()
+    private val TAG = tag
+    private val logger = object {
+        fun d(msg: String) = Napier.d(msg, tag = TAG)
+    }
 
     override fun shouldAllow(type: OutboundType, @Nullable intent: Intent?, target_package: String): Boolean {
         logger.d("shouldAllow ->" + type.toString())

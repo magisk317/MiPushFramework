@@ -2,7 +2,8 @@ package com.magisk317.push.pipeline
 
 import android.content.Context
 import android.content.Intent
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.magisk317.Global
 import com.magisk317.XMPushUtils
 import com.magisk317.compat.RegistrationStateStore
@@ -17,9 +18,14 @@ import top.trumeet.mipush.provider.db.RegisteredApplicationDb
 import top.trumeet.mipush.provider.entities.Event
 import top.trumeet.mipush.provider.entities.RegisteredApplication
 import top.trumeet.mipush.provider.event.type.TypeFactory
+import kotlinx.coroutines.runBlocking
 
 object MiPushRuntimeBridge {
-    private val logger = XLog.tag("MiPushRuntimeBridge").build()
+    private val logger = object {
+        fun d(msg: String) = Napier.d(msg, tag = "MiPushRuntimeBridge")
+        fun i(msg: String) = Napier.i(msg, tag = "MiPushRuntimeBridge")
+        fun e(msg: String, t: Throwable) = Napier.e(msg, t, tag = "MiPushRuntimeBridge")
+    }
     private const val RECENT_RECORD_WINDOW_MS = 10_000L
     private const val RECENT_REGISTER_TOAST_WINDOW_MS = 5_000L
     private val recentRecords = LinkedHashMap<String, Long>()
@@ -116,7 +122,7 @@ object MiPushRuntimeBridge {
         val eventType = TypeFactory.createForStore(container)
         val application = RegisteredApplicationDb.registerApplication(pkg)
         applyRegistrationStateFromContainer(container, application)
-        EventDb.insertEvent(Event.ResultType.OK, eventType)
+        runBlocking { EventDb.insertEventAsync(Event.ResultType.OK, eventType) }
         if (eventType.type == Event.Type.Registration || eventType.type == Event.Type.RegistrationResult) {
             maybeShowRegisterToast(context, pkg, application)
         }

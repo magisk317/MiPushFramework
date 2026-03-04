@@ -2,7 +2,8 @@ package com.magisk317.utils
 
 import android.content.Context
 import android.content.Intent
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.magisk317.XMPushUtils
 import com.topjohnwu.superuser.Shell
 import com.xiaomi.push.sdk.MyPushMessageHandler
@@ -38,7 +39,10 @@ class RegistrationHelper(
     }
 
     companion object {
-        private val logger = XLog.tag("RegistrationHelper").build()
+        private val logger = object {
+            fun i(msg: String) = Napier.i(msg, tag = "RegistrationHelper")
+            fun w(msg: String) = Napier.w(msg, tag = "RegistrationHelper")
+        }
 
         @JvmStatic
         fun tryForceRegisterFallback(packageName: String): Boolean {

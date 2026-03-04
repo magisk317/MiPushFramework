@@ -2,7 +2,8 @@ package com.magisk317.network
 
 import android.content.Context
 import android.net.Uri
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.magisk317.Global
 import com.xiaomi.channel.commonutils.android.Region
 import com.xiaomi.network.HostFilter
@@ -10,12 +11,15 @@ import com.xiaomi.network.HostManager
 import com.xiaomi.push.service.AppRegionStorage
 import com.xiaomi.smack.ConnectionConfiguration
 import java.lang.reflect.Field
+import kotlinx.coroutines.runBlocking
 
 /**
  * Runtime compatibility for behaviors that were previously provided via AspectJ.
  */
 object NetworkPolicyCompat {
-    private val logger = XLog.tag("NetworkPolicyCompat").build()
+    private val logger = object {
+        fun w(msg: String) = Napier.w(msg, tag = "NetworkPolicyCompat")
+    }
     @Volatile
     private var wrappedFactoryIdentity: Int? = null
 
@@ -44,7 +48,7 @@ object NetworkPolicyCompat {
 
     @JvmStatic
     fun applyXmppHostOverride(context: Context) {
-        val configured = Global.ConfigCenter().getXMPPServer(context.applicationContext).orEmpty().trim()
+        val configured = runBlocking { Global.ConfigCenter().getXMPPServerAsync() }.orEmpty().trim()
         val defaultHost = ConnectionConfiguration.XMPP_SERVER_CHINA_HOST_P
         if (configured.isEmpty()) {
             ConnectionConfiguration.setXmppServerHost(defaultHost)

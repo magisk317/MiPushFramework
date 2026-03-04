@@ -1,6 +1,7 @@
 package com.xiaomi.xmsf.push.utils
 
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.magisk317.utils.Singleton
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import org.json.JSONArray
@@ -215,7 +216,10 @@ class Configurations @Inject constructor(
     }
 
     companion object {
-        private val logger = XLog.tag(Configurations::class.java.simpleName).build()
+        private val TAG = Configurations::class.java.simpleName
+        private val logger = object {
+            fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
+        }
         @Volatile private var hiltInstance: Configurations? = null
 
         @JvmStatic

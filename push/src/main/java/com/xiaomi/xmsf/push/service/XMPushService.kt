@@ -5,8 +5,8 @@ import android.app.IntentService
 import android.content.ComponentName
 import android.content.Intent
 import android.widget.Toast
-import com.elvishew.xlog.Logger
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.magisk317.push.hook.ExplicitHookBridge
 import com.magisk317.service.PushServiceStarter
 import com.magisk317.service.XMPushServiceLifecycleBridge
@@ -36,7 +36,10 @@ class XMPushService : Service() {
     @Inject lateinit var configCenter: com.xiaomi.xmsf.utils.ConfigCenter
     @Inject lateinit var iconConfigurations: IconConfigurations
 
-    private val logger: Logger = XLog.tag(TAG).build()
+    private val logger = object {
+        fun d(msg: String) = Napier.d(msg, tag = TAG)
+        fun e(msg: String, t: Throwable) = Napier.e(msg, t, tag = TAG)
+    }
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val intentChannel = Channel<Intent>(Channel.UNLIMITED)
 

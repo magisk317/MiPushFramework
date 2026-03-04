@@ -1,7 +1,7 @@
 package com.xiaomi.xmsf.push.utils
 
-import com.elvishew.xlog.Logger
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmsf.utils.ConvertUtils
 
@@ -20,6 +20,9 @@ class ConfigValueConverter {
     }
 
     companion object {
-        private val logger: Logger = XLog.tag(ConfigValueConverter::class.java.simpleName).build()
+        private val TAG = ConfigValueConverter::class.java.simpleName
+        private val logger = object {
+            fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
+        }
     }
 }

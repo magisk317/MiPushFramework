@@ -36,6 +36,7 @@ import top.trumeet.mipushframework.main.ApplicationInfoPage
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.random.Random
+import kotlinx.coroutines.runBlocking
 
 @Singleton
 class EventRepository @Inject constructor(
@@ -100,7 +101,7 @@ class EventRepository @Inject constructor(
 
     fun getEventsById(lastId: Long?, size: Int, packetName: String, query: String): List<Event> {
         var types: Set<Int>? = null
-        if (!configCenter.isShowAllEvents) {
+        if (!runBlocking { configCenter.isShowAllEventsAsync() }) {
             types = setOf(
                 Event.Type.SendMessage,
                 Event.Type.Registration,
@@ -108,12 +109,12 @@ class EventRepository @Inject constructor(
                 Event.Type.UnRegistration
             )
         }
-        return EventDb.queryById(lastId, size, types, packetName, query)
+        return runBlocking { EventDb.queryByIdAsync(lastId, size, types, packetName, query) }
     }
 
     fun getEvents(pageIndex: Int, pageSize: Int, packetName: String, query: String): List<Event> {
         var types: Set<Int>? = null
-        if (!configCenter.isShowAllEvents) {
+        if (!runBlocking { configCenter.isShowAllEventsAsync() }) {
             types = setOf(
                 Event.Type.SendMessage,
                 Event.Type.Registration,
@@ -131,7 +132,7 @@ class EventRepository @Inject constructor(
 
     fun mockMessage(containerWithRegSec: XmPushActionContainer) {
         val pushService: SdkXMPushService? = XMPushServiceAbility.xmPushService
-        com.elvishew.xlog.XLog.d("EventRepository", "mockMessage called. pushService exists: ${pushService != null}")
+        logger.d("EventRepository", "mockMessage called. pushService exists: ${pushService != null}")
         val regSec = RegSecUtils.getRegSec(containerWithRegSec)
         if (containerWithRegSec.isEncryptAction && regSec.isNullOrBlank()) {
             Utils.makeText(
@@ -147,12 +148,12 @@ class EventRepository @Inject constructor(
             val payload = XMPushUtils.packToBytes(containerWithRegSec)
             val candidateIntent = MIPushEventProcessor.buildIntent(payload, System.currentTimeMillis())
                 if (candidateIntent == null) {
-                    com.elvishew.xlog.XLog.w("EventRepository", "mock preflight: buildIntent returned null")
+                    logger.w("EventRepository", "mock preflight: buildIntent returned null")
                 } else {
                     // Use 0 to match framework dispatch behavior in MIPushEventProcessor.isIntentAvailable.
                     val receivers = context.packageManager.queryBroadcastReceivers(candidateIntent, 0)
                     val receiverNames = receivers.mapNotNull { it.activityInfo?.name }.take(3)
-                    com.elvishew.xlog.XLog.d(
+                    logger.d(
                         "EventRepository",
                         "mock preflight: action=${candidateIntent.action} pkg=${candidateIntent.`package`} " +
                             "receivers=${receivers.size} names=$receiverNames"
@@ -166,11 +167,11 @@ class EventRepository @Inject constructor(
                 }
             }
         }.onFailure {
-            com.elvishew.xlog.XLog.e("EventRepository", "mock preflight check failed", it)
+            logger.e("EventRepository", "mock preflight check failed", it)
         }
 
         if (pushService == null) {
-            com.elvishew.xlog.XLog.d("EventRepository", "pushService is null, starting AppXMPushService (Bridge)")
+            logger.d("EventRepository", "pushService is null, starting AppXMPushService (Bridge)")
             context.startService(Intent(context, AppXMPushService::class.java))
             Utils.makeText(context, "Service starting, please try again", 0)
             return
@@ -279,12 +280,20 @@ class EventRepository @Inject constructor(
             }
             container.setPushAction(finalPayload)
 
-            com.elvishew.xlog.XLog.i(
+            logger.i(
                 "EventRepository",
                 "mock replay id rewritten old=$oldId new=$newId encrypt=${container.isEncryptAction}"
             )
         }.onFailure {
-            com.elvishew.xlog.XLog.w("EventRepository", "mock replay id rewrite skipped", it)
+            logger.w("EventRepository", "mock replay id rewrite skipped", it)
+        }
+    }
+    companion object {
+        private val logger = object {
+            fun d(tag: String, msg: String) = io.github.aakira.napier.Napier.d(msg, tag = tag)
+            fun i(tag: String, msg: String) = io.github.aakira.napier.Napier.i(msg, tag = tag)
+            fun w(tag: String, msg: String, t: Throwable? = null) = io.github.aakira.napier.Napier.w(msg, t, tag = tag)
+            fun e(tag: String, msg: String, t: Throwable? = null) = io.github.aakira.napier.Napier.e(msg, t, tag = tag)
         }
     }
 }

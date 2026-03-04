@@ -4,7 +4,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.magisk317.Global
 import com.magisk317.push.pipeline.MiPushRuntimeBridge
 import com.magisk317.XMPushUtils
@@ -23,6 +24,7 @@ import top.trumeet.common.ita.TopActivityFactory
 import top.trumeet.common.utils.Utils
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.runBlocking
 
 @Singleton
 class PushMessageProcessor @Inject constructor(
@@ -41,7 +43,14 @@ class PushMessageProcessor @Inject constructor(
         } catch (_: Throwable) {}
     }
 
-    private val logger = XLog.tag("PushMessageProcessor").build()
+    private val TAG = "PushMessageProcessor"
+    private val logger = object {
+        fun d(msg: String) = Napier.d(msg, tag = TAG)
+        fun i(msg: String) = Napier.i(msg, tag = TAG)
+        fun w(msg: String) = Napier.w(msg, tag = TAG)
+        fun e(msg: String) = Napier.e(msg, tag = TAG)
+        fun e(msg: String, t: Throwable) = Napier.e(msg, t, tag = TAG)
+    }
     
 
     private val APP_CHECK_FRONT_MAX_RETRY = 8
@@ -58,7 +67,7 @@ class PushMessageProcessor @Inject constructor(
     }
 
     private fun resolveTopActivity(context: Context): ITopActivity {
-        val configuredMode = configCenter.getAccessMode(context)
+        val configuredMode = runBlocking { configCenter.getAccessModeAsync() }
         if (iTopActivity == null || topActivityMode != configuredMode) {
             iTopActivity = TopActivityFactory.newInstance(configuredMode)
             topActivityMode = configuredMode
@@ -134,7 +143,18 @@ class PushMessageProcessor @Inject constructor(
         localIntent.putExtra(MIPushNotificationHelper.FROM_NOTIFICATION, true)
         localIntent.addCategory(metaInfo.notifyId.toString())
         logger.d(packageInfo(targetPackage, "send to service"))
-        return context.startService(localIntent)
+        val started = runCatching { context.startService(localIntent) }
+            .onFailure { logger.e(packageInfo(targetPackage, "forward to service failed"), it) }
+            .getOrNull()
+        if (started != null) {
+            return started
+        }
+
+        val fallbackSent = sendBroadcastFallback(context, container, payload)
+        if (fallbackSent) {
+            logger.w(packageInfo(targetPackage, "service unavailable, fallback to broadcast"))
+        }
+        return null
     }
 
     private fun activeApp(context: Context, targetPackage: String) {
@@ -203,6 +223,28 @@ class PushMessageProcessor @Inject constructor(
     }
 
     private fun packageInfo(packageName: String, message: String): String = "[$packageName] $message"
+
+    private fun sendBroadcastFallback(
+        context: Context,
+        container: XmPushActionContainer,
+        payload: ByteArray
+    ): Boolean {
+        val targetPackage = container.packageName
+        if (targetPackage.isBlank()) return false
+        val fallbackIntent = Intent(PushConstants.MIPUSH_ACTION_NEW_MESSAGE).apply {
+            `package` = targetPackage
+            putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, payload)
+            putExtra(MIPushNotificationHelper.FROM_NOTIFICATION, true)
+            putExtra(PushConstants.MESSAGE_RECEIVE_TIME, System.currentTimeMillis())
+            container.metaInfo?.notifyId?.let { addCategory(it.toString()) }
+        }
+        return runCatching {
+            context.sendBroadcast(fallbackIntent)
+            true
+        }.onFailure {
+            logger.e(packageInfo(targetPackage, "fallback broadcast failed"), it)
+        }.getOrDefault(false)
+    }
 }
 
 @dagger.hilt.EntryPoint

@@ -1,7 +1,8 @@
 package com.xiaomi.xmsf.push.utils
 
 import android.os.Build
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
@@ -11,7 +12,10 @@ import java.util.Base64
 import java.util.concurrent.Callable
 
 object Lisp {
-    private val logger = XLog.tag(Lisp::class.java.simpleName).build()
+    private val TAG = Lisp::class.java.simpleName
+    private val logger = object {
+        fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
+    }
 
     fun interface Evaluable {
         fun evaluate(expr: Any?): Any?

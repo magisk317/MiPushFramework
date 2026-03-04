@@ -1,10 +1,13 @@
 package com.magisk317.push.pipeline
 
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 
 object MockMessageRegistry {
-    private val logger = XLog.tag("MockMessageRegistry").build()
+    private val logger = object {
+        fun d(msg: String) = Napier.d(msg, tag = "MockMessageRegistry")
+    }
     private const val MARK_TTL_MS = 30_000L
     private val lock = Any()
     private val markedMessageIds = LinkedHashMap<String, Long>()
@@ -12,12 +15,18 @@ object MockMessageRegistry {
     @JvmStatic
     fun mark(container: XmPushActionContainer?) {
         val id = MessageIdentity.fromContainer(container) ?: return
+        markMessageId(id)
+    }
+
+    @JvmStatic
+    fun markMessageId(messageId: String?) {
+        if (messageId.isNullOrBlank()) return
         val now = System.currentTimeMillis()
         synchronized(lock) {
             pruneExpiredLocked(now)
-            markedMessageIds[id] = now
+            markedMessageIds[messageId] = now
         }
-        logger.d("marked mock message id=$id ttlMs=$MARK_TTL_MS")
+        logger.d("marked mock message id=$messageId ttlMs=$MARK_TTL_MS")
     }
 
     @JvmStatic
@@ -46,6 +55,13 @@ object MockMessageRegistry {
         if (messageId.isNullOrBlank()) return
         synchronized(lock) {
             markedMessageIds.remove(messageId)
+        }
+    }
+
+    @JvmStatic
+    fun clearAllForTests() {
+        synchronized(lock) {
+            markedMessageIds.clear()
         }
     }
 

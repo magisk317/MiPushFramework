@@ -6,7 +6,8 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.text.TextUtils
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.magisk317.push.hook.ExplicitHookBridge
 import com.xiaomi.mipush.sdk.ManifestChecker
 import com.xiaomi.mipush.sdk.PushMessageHandler
@@ -20,7 +21,11 @@ class MiPushManifestChecker private constructor(
     private val manifestChecker: Class<*>,
     private val context: Context
 ) {
-    private val logger = XLog.tag("MiPushManifestChecker").build()
+    private val TAG2 = "MiPushManifestChecker"
+    private val logger = object {
+        fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG2)
+        fun w(msg: String) = Napier.w(msg, tag = TAG2)
+    }
 
     private val checkServicesMethod: Method = manifestChecker.getDeclaredMethod("checkServices", Context::class.java, PackageInfo::class.java).apply {
         isAccessible = true

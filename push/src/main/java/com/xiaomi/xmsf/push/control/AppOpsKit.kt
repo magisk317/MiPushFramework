@@ -3,14 +3,17 @@ package com.xiaomi.xmsf.push.control
 import android.app.AppOpsManager
 import android.app.AppOpsManagerExtender
 import android.content.Context
-import com.elvishew.xlog.Logger
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.oasisfeng.condom.CondomKit
 import top.trumeet.common.override.AppOpsManagerOverride
 import top.trumeet.common.override.ManifestOverride
 
 class AppOpsKit : CondomKit, CondomKit.SystemServiceSupplier {
-    private val logger: Logger = XLog.tag("AppOpsKit").build()
+    private val TAG = "AppOpsKit"
+    private val logger = object {
+        fun d(msg: String) = Napier.d(msg, tag = TAG)
+    }
 
     override fun onRegister(registry: CondomKit.CondomKitRegistry) {
         registry.addPermissionSpoof(ManifestOverride.permission.GET_APP_OPS_STATS)

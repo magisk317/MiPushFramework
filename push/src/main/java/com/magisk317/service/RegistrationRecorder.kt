@@ -1,8 +1,7 @@
 package com.magisk317.service
 
 import android.content.Context
-import com.elvishew.xlog.Logger
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
 import com.xiaomi.mipush.sdk.PushContainerHelper
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
@@ -10,7 +9,9 @@ import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
 import top.trumeet.common.utils.Utils
 
 class RegistrationRecorder {
-    private val logger: Logger = XLog.tag(TAG).build()
+    private val logger = object {
+        fun e(msg: String, t: Throwable) = Napier.e(msg, t, tag = TAG)
+    }
     private lateinit var context: Context
 
     fun initContext(context: Context) {
@@ -39,7 +40,7 @@ class RegistrationRecorder {
                 ) as XmPushActionRegistrationResult
                 result.regSecret
             } catch (e: Throwable) {
-                XLog.tag(TAG).build().e("cannot save RegSec", e)
+                Napier.e("cannot save RegSec", e, tag = TAG)
                 null
             }
         }

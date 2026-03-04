@@ -36,6 +36,7 @@ import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
 @Singleton
@@ -69,7 +70,7 @@ class SettingsManager @Inject constructor(
                 withContext(Dispatchers.Main) {
                     Utils.makeText(context, context.getString(R.string.settings_clear_history) + " " + context.getString(R.string.start), Toast.LENGTH_SHORT)
                 }
-                EventDb.deleteHistory()
+                EventDb.deleteHistoryAsync()
                 withContext(Dispatchers.Main) {
                     Utils.makeText(context, context.getString(R.string.settings_clear_history) + " " + context.getString(R.string.end), Toast.LENGTH_SHORT)
                 }
@@ -102,10 +103,7 @@ class SettingsManager @Inject constructor(
             val type = NotificationType("mock:$title", packageName, null).apply {
                 this.type = Event.Type.SendMessage
             }
-            EventDb.insertEvent(
-                Event.ResultType.OK,
-                type
-            )
+            runBlocking { EventDb.insertEventAsync(Event.ResultType.OK, type) }
         }
     }
 
@@ -150,7 +148,7 @@ class SettingsManager @Inject constructor(
     }
 
     fun setXMPPServer(context: Context, newHost: String) {
-        configCenter.setXMPPServer(context, newHost)
+        runBlocking { configCenter.setXMPPServerAsync(newHost) }
         NetworkPolicyCompat.applyXmppHostOverride(context.applicationContext)
         sendXMPPReconnectRequest(context)
     }
@@ -159,9 +157,9 @@ class SettingsManager @Inject constructor(
         return ConnectionConfiguration.getXmppServerHost() + ":" + PushServiceConstants.XMPP_SERVER_PORT
     }
 
-    fun getXMPPServer(context: Context): String? = configCenter.getXMPPServer(context)
+    fun getXMPPServer(context: Context): String? = runBlocking { configCenter.getXMPPServerAsync() }
 
-    fun getConfigurationDirectory(context: Context): Uri? = configCenter.getConfigurationDirectory(context)
+    fun getConfigurationDirectory(context: Context): Uri? = runBlocking { configCenter.getConfigurationDirectoryAsync() }
 
     fun shareLogs(context: Context) {
         context.startActivity(
@@ -182,7 +180,7 @@ class SettingsManager @Inject constructor(
             uri,
             Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         )
-        configCenter.setConfigurationDirectory(context, uri)
+        runBlocking { configCenter.setConfigurationDirectoryAsync(uri) }
         configCenter.loadConfigurations(context)
     }
 }

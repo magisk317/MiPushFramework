@@ -1,10 +1,13 @@
 package com.magisk317.push.hook
 
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.magisk317.hook.Hooked
 
 internal object HookTrace {
-    private val logger = XLog.tag("HookTrace").build()
+    private val logger = object {
+        fun d(msg: String) = Napier.d(msg, tag = "HookTrace")
+    }
 
     @JvmStatic
     fun mark(point: String) {

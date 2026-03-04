@@ -5,7 +5,8 @@ import android.net.Uri
 import android.util.Pair
 import android.widget.Toast
 import androidx.documentfile.provider.DocumentFile
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import com.magisk317.Global
 import org.json.JSONArray
 import org.json.JSONException
@@ -15,6 +16,7 @@ import java.io.InputStreamReader
 import java.util.regex.Pattern
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.runBlocking
 import top.trumeet.common.utils.Utils
 
 @Singleton
@@ -42,7 +44,7 @@ class ConfigurationsLoader @Inject constructor(
             val loadedFiles = mutableListOf<DocumentFile>()
             parseDirectory(context, treeUri, exceptions, loadedFiles, configurations)
 
-            if (loadedFiles.isNotEmpty() && configCenter.isShowConfigurationListOnLoaded(context)) {
+            if (loadedFiles.isNotEmpty() && runBlocking { configCenter.isShowConfigurationListOnLoadedAsync() }) {
                 val loadedList = StringBuilder("loaded configuration list:")
                 for (file in loadedFiles) {
                     loadedList.append('\n')
@@ -164,7 +166,14 @@ class ConfigurationsLoader @Inject constructor(
     }
 
     companion object {
-        private val logger = XLog.tag(ConfigurationsLoader::class.java.simpleName).build()
+        private val TAG = ConfigurationsLoader::class.java.simpleName
+        private val logger = object {
+            fun i(msg: String, vararg args: Any?) {
+                if (args.isEmpty()) Napier.i(msg, tag = TAG)
+                else Napier.i(String.format(msg, *args), tag = TAG)
+            }
+            fun e(msg: CharSequence) = Napier.e(msg.toString(), tag = TAG)
+        }
 
         @JvmStatic
         fun getJsonExceptionMessage(

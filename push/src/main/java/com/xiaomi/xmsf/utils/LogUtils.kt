@@ -6,19 +6,10 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.core.content.FileProvider
-import com.elvishew.xlog.LogConfiguration
-import com.elvishew.xlog.LogLevel
-import com.elvishew.xlog.XLog
-import com.elvishew.xlog.flattener.ClassicFlattener
-import com.elvishew.xlog.formatter.message.json.DefaultJsonFormatter
-import com.elvishew.xlog.formatter.message.xml.DefaultXmlFormatter
-import com.elvishew.xlog.formatter.stacktrace.DefaultStackTraceFormatter
-import com.elvishew.xlog.printer.AndroidPrinter
-import com.elvishew.xlog.printer.Printer
-import com.elvishew.xlog.printer.file.FilePrinter
-import com.elvishew.xlog.printer.file.backup.NeverBackupStrategy
-import com.elvishew.xlog.printer.file.clean.FileLastModifiedCleanStrategy
-import com.elvishew.xlog.printer.file.naming.DateFileNameGenerator
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
+import io.github.aakira.napier.Antilog
+import io.github.aakira.napier.LogLevel
 import com.xiaomi.xmsf.R
 import java.io.File
 import java.io.IOException
@@ -30,26 +21,28 @@ import top.trumeet.common.Constants
 object LogUtils {
     @JvmStatic
     fun init(context: Context) {
-        val configuration = LogConfiguration.Builder()
-            .tag("Xmsf")
-            .logLevel(LogLevel.ALL)
-            .jsonFormatter(DefaultJsonFormatter())
-            .xmlFormatter(DefaultXmlFormatter())
-            .stackTraceFormatter(DefaultStackTraceFormatter())
-            .enableThreadInfo()
-            .threadFormatter { data -> "TID: [${data.id}] TName: [${data.name}]" }
-            .build()
+        Napier.base(DebugAntilog())
+        try {
+            val logDir = File(getLogFolder(context))
+            Napier.base(FileAntilog(logDir))
+        } catch (_: Exception) {}
+    }
 
-        val androidPrinter: Printer = AndroidPrinter()
-        val days7InMillis = 7 * 24 * 60 * 60 * 1000
-        val filePrinter: Printer = FilePrinter.Builder(getLogFolder(context))
-            .fileNameGenerator(DateFileNameGenerator())
-            .backupStrategy(NeverBackupStrategy())
-            .cleanStrategy(FileLastModifiedCleanStrategy(days7InMillis.toLong()))
-            .flattener(ClassicFlattener())
-            .build()
+    private class FileAntilog(private val logDir: File) : Antilog() {
+        private val fileDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        private val logDateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
 
-        XLog.init(configuration, androidPrinter, filePrinter)
+        override fun performLog(priority: LogLevel, tag: String?, throwable: Throwable?, message: String?) {
+            try {
+                if (!logDir.exists()) logDir.mkdirs()
+                val fileName = "logs_${fileDateFormat.format(Date())}.txt"
+                val file = File(logDir, fileName)
+                val time = logDateFormat.format(Date())
+                val errorMsg = throwable?.stackTraceToString() ?: ""
+                val line = "$time [${priority.name}] ${tag ?: ""}: ${message ?: ""} $errorMsg\n"
+                file.appendText(line)
+            } catch (_: Exception) {}
+        }
     }
 
     @JvmStatic
@@ -79,7 +72,7 @@ object LogUtils {
             context.externalCacheDir!!.absolutePath + "/logs/" + logArchiveName(Date()) + ".zip"
         )
         return try {
-            com.elvishew.xlog.LogUtils.compress(getLogFolder(context), zipFile.absolutePath)
+            compressFolder(getLogFolder(context), zipFile.absolutePath)
             val fileUri: Uri = FileProvider.getUriForFile(
                 context,
                 Constants.AUTHORITY_FILE_PROVIDER,
@@ -113,5 +106,22 @@ object LogUtils {
     @JvmStatic
     fun dateInfo(date: Date): String {
         return SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(date)
+    }
+
+    private fun compressFolder(sourceFolder: String, destinationZip: String) {
+        val srcDir = File(sourceFolder)
+        if (!srcDir.exists() || srcDir.listFiles()?.isEmpty() == true) return
+        java.util.zip.ZipOutputStream(java.io.FileOutputStream(destinationZip)).use { zout ->
+            srcDir.listFiles()?.forEach { file ->
+                if (file.isFile) {
+                    java.io.FileInputStream(file).use { fin ->
+                        val entry = java.util.zip.ZipEntry(file.name)
+                        zout.putNextEntry(entry)
+                        fin.copyTo(zout)
+                        zout.closeEntry()
+                    }
+                }
+            }
+        }
     }
 }

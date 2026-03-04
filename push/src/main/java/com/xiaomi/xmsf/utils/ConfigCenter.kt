@@ -29,79 +29,107 @@ class ConfigCenter @Inject constructor() {
             com.magisk317.utils.Singleton.reset(this)
         } catch (_: Throwable) {}
     }
-    fun isNotificationOnRegister(ctx: Context): Boolean {
-        return runBlocking { DataStoreManager.notificationOnRegister.first() }
+    suspend fun isNotificationOnRegisterAsync(): Boolean =
+        DataStoreManager.notificationOnRegister.first()
+
+    @Deprecated("Use isNotificationOnRegisterAsync()", ReplaceWith("isNotificationOnRegisterAsync()"))
+    fun isNotificationOnRegister(ctx: Context): Boolean = runBlocking { isNotificationOnRegisterAsync() }
+
+    suspend fun isShowConfigurationListOnLoadedAsync(): Boolean =
+        DataStoreManager.showConfigurationList.first()
+
+    @Deprecated("Use isShowConfigurationListOnLoadedAsync()", ReplaceWith("isShowConfigurationListOnLoadedAsync()"))
+    fun isShowConfigurationListOnLoaded(ctx: Context): Boolean = runBlocking { isShowConfigurationListOnLoadedAsync() }
+
+    suspend fun getAccessModeAsync(): Int = DataStoreManager.accessMode.first().toInt()
+
+    @Deprecated("Use getAccessModeAsync()", ReplaceWith("getAccessModeAsync()"))
+    fun getAccessMode(ctx: Context): Int = runBlocking { getAccessModeAsync() }
+
+    suspend fun getConfigurationDirectoryAsync(): Uri? {
+        val uri = DataStoreManager.configDirectory.first()
+        return if (uri.isNullOrBlank()) null else Uri.parse(uri)
     }
 
-    fun isShowConfigurationListOnLoaded(ctx: Context): Boolean {
-        return runBlocking { DataStoreManager.showConfigurationList.first() }
-    }
+    @Deprecated("Use getConfigurationDirectoryAsync()", ReplaceWith("getConfigurationDirectoryAsync()"))
+    fun getConfigurationDirectory(ctx: Context): Uri? = runBlocking { getConfigurationDirectoryAsync() }
 
-    fun getAccessMode(ctx: Context): Int {
-        val mode = runBlocking { DataStoreManager.accessMode.first() }
-        return mode.toInt()
-    }
-
-    fun getConfigurationDirectory(ctx: Context): Uri? {
-        val uri = runBlocking { DataStoreManager.configDirectory.first() }
-        return if (uri == null) null else Uri.parse(uri)
-    }
-
-    fun setConfigurationDirectory(ctx: Context, treeUri: Uri): Boolean {
-        runBlocking { DataStoreManager.setConfigDirectory(treeUri.toString()) }
+    suspend fun setConfigurationDirectoryAsync(treeUri: Uri): Boolean {
+        DataStoreManager.setConfigDirectory(treeUri.toString())
         return true
     }
 
-    fun getXMPPServer(ctx: Context): String? {
-        return runBlocking { DataStoreManager.xmppServer.first() }
-    }
+    @Deprecated("Use setConfigurationDirectoryAsync()", ReplaceWith("setConfigurationDirectoryAsync(treeUri)"))
+    fun setConfigurationDirectory(ctx: Context, treeUri: Uri): Boolean = runBlocking { setConfigurationDirectoryAsync(treeUri) }
 
-    fun setXMPPServer(ctx: Context, host: String): Boolean {
-        runBlocking { DataStoreManager.setXmppServer(host) }
+    suspend fun getXMPPServerAsync(): String? = DataStoreManager.xmppServer.first()
+
+    @Deprecated("Use getXMPPServerAsync()", ReplaceWith("getXMPPServerAsync()"))
+    fun getXMPPServer(ctx: Context): String? = runBlocking { getXMPPServerAsync() }
+
+    suspend fun setXMPPServerAsync(host: String): Boolean {
+        DataStoreManager.setXmppServer(host)
         return true
     }
 
+    @Deprecated("Use setXMPPServerAsync()", ReplaceWith("setXMPPServerAsync(host)"))
+    fun setXMPPServer(ctx: Context, host: String): Boolean = runBlocking { setXMPPServerAsync(host) }
+
+    suspend fun isDebugModeAsync(): Boolean = DataStoreManager.isDebugMode.first()
+
+    @Deprecated("Use isDebugModeAsync()", ReplaceWith("isDebugModeAsync()"))
     val isDebugMode: Boolean
-        get() {
-            return runBlocking { DataStoreManager.isDebugMode.first() }
-        }
+        get() = runBlocking { isDebugModeAsync() }
 
+    suspend fun isShowAllEventsAsync(): Boolean = DataStoreManager.isShowAllEvents.first()
+
+    @Deprecated("Use isShowAllEventsAsync()", ReplaceWith("isShowAllEventsAsync()"))
     val isShowAllEvents: Boolean
-        get() {
-            return runBlocking { DataStoreManager.isShowAllEvents.first() }
-        }
+        get() = runBlocking { isShowAllEventsAsync() }
 
+    suspend fun isStartForegroundServiceAsync(): Boolean = DataStoreManager.isStartForeground.first()
+
+    @Deprecated("Use isStartForegroundServiceAsync()", ReplaceWith("isStartForegroundServiceAsync()"))
     val isStartForegroundService: Boolean
-        get() {
-            return runBlocking { DataStoreManager.isStartForeground.first() }
-        }
+        get() = runBlocking { isStartForegroundServiceAsync() }
 
+    suspend fun shouldStartPushAsForegroundServiceAsync(): Boolean =
+        DataStoreManager.startPushAsForegroundService.first()
+
+    @Deprecated("Use shouldStartPushAsForegroundServiceAsync()", ReplaceWith("shouldStartPushAsForegroundServiceAsync()"))
     val shouldStartPushAsForegroundService: Boolean
-        get() {
-            return runBlocking { DataStoreManager.startPushAsForegroundService.first() }
-        }
+        get() = runBlocking { shouldStartPushAsForegroundServiceAsync() }
 
-    fun getHazeBlurRadius(ctx: Context): Int {
-        return runBlocking { DataStoreManager.hazeBlurRadius.first() }
-    }
+    suspend fun getHazeBlurRadiusAsync(): Int = DataStoreManager.hazeBlurRadius.first()
 
-    fun setHazeBlurRadius(ctx: Context, radius: Int): Boolean {
-        runBlocking { DataStoreManager.setHazeBlurRadius(radius) }
+    @Deprecated("Use getHazeBlurRadiusAsync()", ReplaceWith("getHazeBlurRadiusAsync()"))
+    fun getHazeBlurRadius(ctx: Context): Int = runBlocking { getHazeBlurRadiusAsync() }
+
+    suspend fun setHazeBlurRadiusAsync(radius: Int): Boolean {
+        DataStoreManager.setHazeBlurRadius(radius)
         return true
     }
 
-    fun getHazeTintAlpha(ctx: Context): Float {
-        return runBlocking { DataStoreManager.hazeTintAlpha.first() }
-    }
+    @Deprecated("Use setHazeBlurRadiusAsync()", ReplaceWith("setHazeBlurRadiusAsync(radius)"))
+    fun setHazeBlurRadius(ctx: Context, radius: Int): Boolean = runBlocking { setHazeBlurRadiusAsync(radius) }
 
-    fun setHazeTintAlpha(ctx: Context, alpha: Float): Boolean {
-        runBlocking { DataStoreManager.setHazeTintAlpha(alpha) }
+    suspend fun getHazeTintAlphaAsync(): Float = DataStoreManager.hazeTintAlpha.first()
+
+    @Deprecated("Use getHazeTintAlphaAsync()", ReplaceWith("getHazeTintAlphaAsync()"))
+    fun getHazeTintAlpha(ctx: Context): Float = runBlocking { getHazeTintAlphaAsync() }
+
+    suspend fun setHazeTintAlphaAsync(alpha: Float): Boolean {
+        DataStoreManager.setHazeTintAlpha(alpha)
         return true
     }
+
+    @Deprecated("Use setHazeTintAlphaAsync()", ReplaceWith("setHazeTintAlphaAsync(alpha)"))
+    fun setHazeTintAlpha(ctx: Context, alpha: Float): Boolean = runBlocking { setHazeTintAlphaAsync(alpha) }
 
     fun loadConfigurations(context: Context) {
-        Configurations.getInstance().init(context, this.getConfigurationDirectory(context))
-        Global.IconConfigurations().init(context, this.getConfigurationDirectory(context))
+        val directory = runBlocking { getConfigurationDirectoryAsync() }
+        Configurations.getInstance().init(context, directory)
+        Global.IconConfigurations().init(context, directory)
         val intent = Intent()
         intent.component = ComponentName(context, XMPushService::class.java)
         intent.action = Constants.CONFIGURATIONS_UPDATE_ACTION
