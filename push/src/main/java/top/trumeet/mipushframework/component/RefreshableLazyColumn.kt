@@ -39,6 +39,7 @@ fun RefreshableLazyColumn(
     isNeedRefresh: Boolean = false,
     scrollToTopSignal: Int = 0,
     contentPadding: PaddingValues = PaddingValues(0.dp),
+    modifier: Modifier = Modifier,
     content: LazyListScope.() -> Unit
 ) {
     val currentIsNeedMore by rememberUpdatedState(isNeedMore)
@@ -83,7 +84,7 @@ fun RefreshableLazyColumn(
             doRefresh(onRefreshedWithMinDuration)
         },
         state = state,
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         indicator = {
             PullToRefreshDefaults.LoadingIndicator(
                 modifier = Modifier

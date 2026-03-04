@@ -38,15 +38,19 @@ import top.trumeet.common.utils.Utils
 import top.trumeet.mipushframework.MainActivityOperation
 import top.trumeet.mipushframework.component.SettingsGroup
 import top.trumeet.mipushframework.component.SettingsItem
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.hazeEffect
 import top.trumeet.mipushframework.component.SettingsDialogItem
 import top.trumeet.mipushframework.component.SettingsSwitchItem
 import top.trumeet.mipushframework.component.SettingsListItem
 import top.trumeet.mipushframework.component.DialogAction
 import top.trumeet.mipushframework.main.HelpPage
 import top.trumeet.ui.theme.Theme
+import top.trumeet.ui.theme.spacing
 
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.magisk317.main.viewmodel.SettingsViewModel
 import top.trumeet.mipushframework.wizard.RequestPermissionPage
 
@@ -61,10 +65,12 @@ private enum class SettingsSection {
 @Composable
 fun Settings(
     contentPadding: PaddingValues = PaddingValues(0.dp),
-    viewModel: SettingsViewModel = viewModel(),
+    viewModel: SettingsViewModel = hiltViewModel(),
     onShowAboutDialog: (String) -> Unit = {},
     onSectionChanged: (String?) -> Unit = {},
-    sectionBackSignal: Int = 0
+    sectionBackSignal: Int = 0,
+    hazeState: HazeState? = null,
+    hazeStyle: HazeStyle? = null
 ) {
     val hazeBlurRadius by viewModel.hazeBlurRadius.collectAsStateWithLifecycle()
     val hazeTintAlpha by viewModel.hazeTintAlpha.collectAsStateWithLifecycle()
@@ -82,7 +88,9 @@ fun Settings(
                 onShowAboutDialog = onShowAboutDialog,
                 viewModel = viewModel,
                 onSectionChanged = onSectionChanged,
-                sectionBackSignal = sectionBackSignal
+                sectionBackSignal = sectionBackSignal,
+                hazeState = hazeState,
+                hazeStyle = hazeStyle
             )
         }
     }
@@ -99,7 +107,9 @@ private fun SettingsScreen(
     onShowAboutDialog: (String) -> Unit,
     viewModel: SettingsViewModel,
     onSectionChanged: (String?) -> Unit,
-    sectionBackSignal: Int
+    sectionBackSignal: Int,
+    hazeState: HazeState? = null,
+    hazeStyle: HazeStyle? = null
 ) {
     var currentSection by rememberSaveable { mutableStateOf<SettingsSection?>(null) }
     val currentTitle = when (currentSection) {
@@ -156,7 +166,7 @@ private fun SettingsScreen(
             }
         }
 
-        Spacer(Modifier.height(contentPadding.calculateBottomPadding() + 16.dp))
+        Spacer(Modifier.height(contentPadding.calculateBottomPadding() + MaterialTheme.spacing.large))
     }
 }
 

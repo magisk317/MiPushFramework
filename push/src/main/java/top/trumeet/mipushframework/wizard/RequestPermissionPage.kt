@@ -52,7 +52,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.elvishew.xlog.XLog
+import io.github.aakira.napier.Napier
+import io.github.aakira.napier.DebugAntilog
 import android.widget.Toast
 import top.trumeet.mipushframework.component.MarkdownView
 import top.trumeet.mipushframework.main.MainActivity
@@ -89,7 +90,10 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.outlined.CheckCircle
 
-private val logger = XLog.tag("WizardPermission").build()
+private val TAG = "WizardPermission"
+private val logger = object {
+    fun d(msg: String) = Napier.d(msg, tag = TAG)
+}
 
 class RequestPermissionPage : ComponentActivity() {
     companion object {

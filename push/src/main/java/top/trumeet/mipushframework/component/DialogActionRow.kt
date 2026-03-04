@@ -8,6 +8,8 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.MaterialTheme
+import top.trumeet.ui.theme.spacing
 
 enum class DialogActionStyle {
     Primary,
@@ -35,7 +37,7 @@ fun DialogActionRow(
             ButtonGroupDefaults.OverflowIndicator(menuState = menuState)
         },
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
     ) {
         actions.forEach { action ->
             clickableItem(

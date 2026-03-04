@@ -51,7 +51,7 @@ fun SearchBar(
         tonalElevation = 0.dp,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 4.dp, vertical = 4.dp)
             .background(
                 MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
                 MaterialTheme.shapes.extraLarge

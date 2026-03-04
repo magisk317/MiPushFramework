@@ -8,6 +8,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Arrangement
@@ -24,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -33,6 +35,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.xiaomi.xmsf.R
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.hazeEffect
 import top.trumeet.mipushframework.component.MarkdownView
 import top.trumeet.mipushframework.component.LoadingIndicatorTokens
 import top.trumeet.mipushframework.component.PolygonMorphLoadingIndicator
@@ -68,7 +73,11 @@ fun HelpPage(modifier: Modifier = Modifier) {
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-fun HelpScreen(modifier: Modifier = Modifier) {
+fun HelpScreen(
+    modifier: Modifier = Modifier,
+    hazeState: HazeState? = null,
+    hazeStyle: HazeStyle? = null
+) {
     androidx.compose.material3.Scaffold(
         modifier = modifier,
         topBar = {
@@ -77,6 +86,25 @@ fun HelpScreen(modifier: Modifier = Modifier) {
                     androidx.compose.material3.Text(
                         stringResource(R.string.app_name) + " " + stringResource(R.string.helplib_title)
                     )
+                },
+                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White,
+                    actionIconContentColor = Color.White
+                ),
+                modifier = (Modifier
+                    .statusBarsPadding()
+                    .background(androidx.compose.material3.MaterialTheme.colorScheme.surface.copy(alpha = 0.62f))
+                ).let { base ->
+                    if (hazeState != null && hazeStyle != null) {
+                        base.hazeEffect(hazeState, hazeStyle) {
+                            forceInvalidateOnPreDraw = true
+                        }
+                    } else {
+                        base
+                    }
                 }
             )
         }

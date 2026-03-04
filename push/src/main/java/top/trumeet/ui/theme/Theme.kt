@@ -11,6 +11,7 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalContext
 import com.magisk317.data.DataStoreManager
 import androidx.compose.ui.graphics.Color
@@ -94,8 +95,14 @@ fun Theme(
     }
 
     UpdateSystemBars(darkTheme)
-    MaterialExpressiveTheme(
-        colorScheme = colorScheme,
-        content = content
-    )
+    
+    CompositionLocalProvider(
+        LocalSpacing provides Spacing()
+    ) {
+        MaterialExpressiveTheme(
+            colorScheme = colorScheme,
+            shapes = Shapes,
+            content = content
+        )
+    }
 }
