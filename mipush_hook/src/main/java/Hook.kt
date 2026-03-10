@@ -1,4 +1,3 @@
-@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 import android.content.Context
 import androidx.startup.Initializer
 import java.lang.reflect.Field

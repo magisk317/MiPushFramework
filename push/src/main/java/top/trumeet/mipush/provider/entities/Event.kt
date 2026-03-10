@@ -1,4 +1,3 @@
-@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 package top.trumeet.mipush.provider.entities
 
 import android.text.TextUtils
@@ -48,19 +47,10 @@ class Event {
     )
     annotation class Type {
         companion object {
-            @Deprecated("Use SendMessage")
-            const val RECEIVE_PUSH = 0
-
-            @Deprecated("Use Command")
-            const val RECEIVE_COMMAND = 1
-
-            @Deprecated("Use Registration")
-            const val REGISTER = 2
-
             // Same to com.xiaomi.xmpush.thrift.ActionType
             const val Subscription = 3
             const val UnSubscription = 4
-            const val SendMessage = RECEIVE_PUSH
+            const val SendMessage = 0
             const val AckMessage = 6
             const val SetConfig = 7
             const val ReportFeedback = 8
@@ -69,7 +59,7 @@ class Event {
             const val MultiConnectionBroadcast = 11
             const val MultiConnectionResult = 12
 
-            const val Registration = REGISTER
+            const val Registration = 2
             const val UnRegistration = 20
 
             // Custom

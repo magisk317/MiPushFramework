@@ -1,4 +1,3 @@
-@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 package com.xiaomi.xmsf.utils
 
 import android.content.Intent

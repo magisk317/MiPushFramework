@@ -1,11 +1,7 @@
-@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 package com.xiaomi.push.revival
 
 import android.app.AlarmManager
 import android.app.Notification
-import android.app.Notification.FLAG_GROUP_SUMMARY
-import android.app.Notification.GROUP_ALERT_CHILDREN
-import android.app.Notification.GROUP_ALERT_SUMMARY
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.PendingIntent.FLAG_IMMUTABLE
@@ -17,14 +13,14 @@ import android.content.ContextWrapper
 import android.content.Intent
 import android.content.Intent.FLAG_RECEIVER_FOREGROUND
 import android.content.pm.PackageInstaller
-import android.net.Uri
 import android.os.Build.VERSION.SDK_INT
 import android.os.Build.VERSION_CODES.M
-import android.os.Build.VERSION_CODES.O
 import android.os.SystemClock
 import android.service.notification.StatusBarNotification
 import androidx.annotation.RequiresApi
+import androidx.core.content.IntentCompat
 import android.util.Log
+import com.magisk317.compat.NotificationCompatBridge
 import com.xiaomi.xmsf.BuildConfig
 
 /** Increase the version if breaking changes have been made to notification data, to avoid restoring from incompatible version. */
@@ -87,7 +83,7 @@ private const val FLAG_IMMUTABLE_NO_CREATE = FLAG_NO_CREATE or FLAG_IMMUTABLE
         am: AlarmManager,
         expireAtElapsed: Long
     ) {
-        payload.putExtra(null, sbn)
+        payload.putExtra(EXTRA_SBN, sbn)
         val pi =
             PendingIntent.getBroadcast(context, identity, payload, FLAG_IMMUTABLE_UPDATE_CURRENT)
         am.set(AlarmManager.ELAPSED_REALTIME, expireAtElapsed, pi)
@@ -101,7 +97,7 @@ private const val FLAG_IMMUTABLE_NO_CREATE = FLAG_NO_CREATE or FLAG_IMMUTABLE
     override fun onReceive(context: Context, intent: Intent) {
         val index = intent.getIntExtra(EXTRA_INDEX, -1)
         if (index < 0) {    // Triggered by AlarmManager, not restoreNotificationsAsync() which will add EXTRA_INDEX
-            val sbn = intent.getParcelableExtra<StatusBarNotification>(null)
+            val sbn = IntentCompat.getParcelableExtra(intent, EXTRA_SBN, StatusBarNotification::class.java)
             Log.w(TAG, "Save is expired: ${sbn?.key}")
         } else Log.i(TAG, "Loading save $index...")
     }
@@ -131,7 +127,7 @@ private const val FLAG_IMMUTABLE_NO_CREATE = FLAG_NO_CREATE or FLAG_IMMUTABLE
         }
 
         private fun onRestore(context: Context) = PendingIntent.OnFinished { pi, payload, index, _, _ ->
-                val sbn = payload.getParcelableExtra<StatusBarNotification>(null)
+                val sbn = IntentCompat.getParcelableExtra(payload, EXTRA_SBN, StatusBarNotification::class.java)
                 if (sbn != null) try {
                     Log.i(TAG, "Restoring notification $index: ${sbn.key}")
                     restoreNotification(context, sbn)
@@ -158,13 +154,7 @@ private const val FLAG_IMMUTABLE_NO_CREATE = FLAG_NO_CREATE or FLAG_IMMUTABLE
         ): PendingIntent? = PendingIntent.getBroadcast(context, identity, retriever, FLAG_IMMUTABLE_NO_CREATE)
 
         private fun restoreNotification(context: Context, sbn: StatusBarNotification) {
-            var n = sbn.notification
-            if (SDK_INT >= O) {     // Silence the notification being restored
-                val behavior = if (n.flags and FLAG_GROUP_SUMMARY != 0) GROUP_ALERT_CHILDREN else GROUP_ALERT_SUMMARY
-                n = Notification.Builder.recoverBuilder(context, n).setGroupAlertBehavior(behavior).build()
-            } else @Suppress("DEPRECATION") {
-                n.defaults = n.defaults and Notification.DEFAULT_LIGHTS; n.sound = Uri.EMPTY; n.vibrate
-            }
+            val n = NotificationCompatBridge.buildSilencedRestoredNotification(context, sbn.notification)
             context.getSystemService(NotificationManager::class.java)!!.notify(sbn.tag, sbn.id, n)
         }
 
@@ -193,4 +183,5 @@ private const val FLAG_IMMUTABLE_NO_CREATE = FLAG_NO_CREATE or FLAG_IMMUTABLE
 }
 
 private const val EXTRA_INDEX = "i"
+private const val EXTRA_SBN = "sbn"
 private const val TAG = "MPF.NR"

@@ -1,4 +1,3 @@
-@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 package top.trumeet.common.utils.rom.miui
 
 import android.content.Context
@@ -18,10 +17,9 @@ internal object MiuiDexUtils {
             for (field in fields) {
                 if ("dalvik.system.DexPathList" == field.type.name) {
                     field.isAccessible = true
-                    return try {
-                        field.get(classLoader)!!
-                    } catch (e: Exception) {
-                        continue
+                    val pathList = runCatching { field.get(classLoader) }.getOrNull()
+                    if (pathList != null) {
+                        return pathList
                     }
                 }
             }
@@ -117,10 +115,12 @@ internal object MiuiDexUtils {
             val finalDexPath: String = if (dexPath != null) {
                 dexPath
             } else if (Build.VERSION.SDK_INT < 23) {
-                mergeFileArray(targetPathList, librarySearchPath!!)
+                val nativePath = librarySearchPath ?: return false
+                mergeFileArray(targetPathList, nativePath)
                 return true
             } else {
-                context!!.applicationInfo.sourceDir
+                val safeContext = context ?: return false
+                safeContext.applicationInfo.sourceDir
             }
 
             val extraLoader = if (optimizedDirectory == null) {

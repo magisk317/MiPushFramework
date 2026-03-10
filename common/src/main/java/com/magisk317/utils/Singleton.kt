@@ -1,4 +1,3 @@
-@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 package com.magisk317.utils
 
 import java.util.concurrent.ConcurrentHashMap

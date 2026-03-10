@@ -1,4 +1,3 @@
-@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 package com.xiaomi.xmsf.push.service
 
 import android.os.Binder
@@ -6,6 +5,7 @@ import android.os.IBinder
 import android.os.IInterface
 import android.os.Parcel
 import android.os.RemoteException
+import com.magisk317.compat.ParcelCompatBridge
 
 interface IHttpService : IInterface {
 
@@ -24,7 +24,10 @@ interface IHttpService : IInterface {
             return when (code) {
                 TRANSACTION_DO_HTTP_POST -> {
                     data.enforceInterface(DESCRIPTOR)
-                    val response = doHttpPost(data.readString(), data.readHashMap(javaClass.classLoader))
+                    val response = doHttpPost(
+                        data.readString(),
+                        ParcelCompatBridge.readHashMap(data, javaClass.classLoader)
+                    )
                     reply?.writeNoException()
                     reply?.writeString(response)
                     true

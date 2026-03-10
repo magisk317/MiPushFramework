@@ -1,4 +1,3 @@
-@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 package com.xiaomi.xmsf.push.notification
 
 import android.annotation.TargetApi
@@ -97,7 +96,7 @@ object NotificationController {
         notificationBuilder.setChannelId(channelId)
         notificationBuilder.setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
         notificationBuilder.setDefaults(Notification.DEFAULT_ALL)
-        notificationBuilder.priority = Notification.PRIORITY_HIGH
+        notificationBuilder.priority = NotificationCompat.PRIORITY_HIGH
 
         val notification = notify(context, notificationId, packageName, notificationBuilder, metaInfo)
         updateSummaryNotification(context, metaInfo, packageName, notification.group)
@@ -338,9 +337,13 @@ object NotificationController {
 
     @JvmStatic
     fun test(context: Context, packageName: String, title: String, description: String) {
-        NotificationChannelManager.registerChannelIfNeeded(context, PushMetaInfo(), packageName)
+        val metaInfo = PushMetaInfo()
+        NotificationChannelManager.registerChannelIfNeeded(context, metaInfo, packageName)
         val id = (System.currentTimeMillis() / 1000L).toInt()
-        val localBuilder = NotificationCompat.Builder(context)
+        val localBuilder = NotificationCompat.Builder(
+            context,
+            NotificationChannelManager.getChannelId(metaInfo, packageName)
+        )
         val style = NotificationCompat.BigTextStyle()
         style.bigText(description)
         style.setBigContentTitle(title)
@@ -360,6 +363,6 @@ object NotificationController {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         localBuilder.setContentIntent(notifyPendingIntent)
-        publish(context, PushMetaInfo(), id, packageName, localBuilder)
+        publish(context, metaInfo, id, packageName, localBuilder)
     }
 }

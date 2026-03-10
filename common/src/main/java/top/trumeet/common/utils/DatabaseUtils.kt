@@ -1,4 +1,3 @@
-@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 package top.trumeet.common.utils
 
 import android.content.ContentResolver

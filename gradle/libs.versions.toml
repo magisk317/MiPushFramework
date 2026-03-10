@@ -1,7 +1,7 @@
 [versions]
 # Build SDK versions
 compileSdk = "36"
-minSdk = "24"
+minSdk = "28"
 targetSdk = "36"
 java = "25"
 

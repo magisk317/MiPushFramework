@@ -1,12 +1,10 @@
-@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 package com.xiaomi.xmsf.push.service
 
 import android.annotation.SuppressLint
 import android.app.Service
 import android.content.Intent
 import android.net.ConnectivityManager
-import android.net.NetworkInfo
-import android.os.Build
+import android.net.NetworkCapabilities
 import android.os.IBinder
 import android.text.TextUtils
 import com.xiaomi.channel.commonutils.network.Network
@@ -47,16 +45,12 @@ class HttpService : Service() {
         @SuppressLint("NewApi")
         private fun isUnmeteredNetworkConnected(): Boolean {
             val connectivityManager = applicationContext.getSystemService("connectivity") as ConnectivityManager
-            val activeNetworkInfo: NetworkInfo? = connectivityManager.activeNetworkInfo
-            if (activeNetworkInfo != null) {
-                if (activeNetworkInfo.type == 1) {
-                    return true
-                }
-                if (Build.VERSION.SDK_INT >= 16) {
-                    return !connectivityManager.isActiveNetworkMetered
-                }
+            val activeNetwork = connectivityManager.activeNetwork ?: return false
+            val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork) ?: return false
+            if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                return true
             }
-            return false
+            return !connectivityManager.isActiveNetworkMetered
         }
     }
 

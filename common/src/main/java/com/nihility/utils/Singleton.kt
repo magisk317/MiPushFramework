@@ -1,4 +1,3 @@
-@file:Suppress("DEPRECATION")
 package com.nihility.utils
 
 // Compatibility shim: legacy namespace forwarding to com.magisk317.*

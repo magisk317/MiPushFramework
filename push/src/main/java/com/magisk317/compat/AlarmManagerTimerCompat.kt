@@ -1,4 +1,3 @@
-@file:Suppress("DEPRECATION")
 
 package com.magisk317.compat
 

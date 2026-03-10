@@ -1,8 +1,8 @@
-@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 package top.trumeet.mipushframework.main
 
 import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
+import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
@@ -65,7 +65,7 @@ class AppConfigurationUtils(
 
     fun copyToClipboard(channel: NotificationChannel) {
         val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboardManager.text = channel.id
+        clipboardManager.setPrimaryClip(ClipData.newPlainText("channel_id", channel.id))
     }
 
     fun deleteNotificationChannel(channel: NotificationChannel) {

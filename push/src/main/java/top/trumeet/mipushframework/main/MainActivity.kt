@@ -1,4 +1,3 @@
-@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 package top.trumeet.mipushframework.main
 

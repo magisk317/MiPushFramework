@@ -1,4 +1,3 @@
-@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 package top.trumeet.common.utils
 
 import android.app.AppOpsManager
@@ -14,6 +13,7 @@ import android.widget.Toast
 import androidx.annotation.ColorInt
 import androidx.annotation.NonNull
 import androidx.annotation.StringRes
+import com.magisk317.compat.PackageManagerCompatBridge
 import top.trumeet.common.override.AppOpsManagerOverride
 import java.util.*
 
@@ -58,12 +58,7 @@ object Utils {
     @JvmStatic
     fun getPackageInfoCompat(context: Context, packageName: String, flags: Int): android.content.pm.PackageInfo? {
         return try {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                context.packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.PackageInfoFlags.of(flags.toLong()))
-            } else {
-                @Suppress("DEPRECATION")
-                context.packageManager.getPackageInfo(packageName, flags)
-            }
+            PackageManagerCompatBridge.getPackageInfo(context.packageManager, packageName, flags)
         } catch (e: PackageManager.NameNotFoundException) {
             null
         }
@@ -99,7 +94,7 @@ object Utils {
 
     @JvmStatic
     fun toHtml(str: String): CharSequence {
-        return Html.fromHtml(str)
+        return Html.fromHtml(str, Html.FROM_HTML_MODE_LEGACY)
     }
 
     @JvmStatic
@@ -118,7 +113,7 @@ object Utils {
     @JvmStatic
     fun isUserApplication(pkg: String): Boolean {
         return try {
-            val appInfo = getApplicationInfoCompat(context!!, pkg, PackageManager.GET_UNINSTALLED_PACKAGES)
+            val appInfo = getApplicationInfoCompat(context!!, pkg, PackageManager.MATCH_UNINSTALLED_PACKAGES)
             appInfo?.let { isUserApplication(it) } ?: false
         } catch (ignored: PackageManager.NameNotFoundException) {
             false
@@ -128,12 +123,7 @@ object Utils {
     @JvmStatic
     fun getApplicationInfoCompat(context: Context, packageName: String, flags: Int): ApplicationInfo? {
         return try {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                context.packageManager.getApplicationInfo(packageName, android.content.pm.PackageManager.ApplicationInfoFlags.of(flags.toLong()))
-            } else {
-                @Suppress("DEPRECATION")
-                context.packageManager.getApplicationInfo(packageName, flags)
-            }
+            PackageManagerCompatBridge.getApplicationInfo(context.packageManager, packageName, flags)
         } catch (e: PackageManager.NameNotFoundException) {
             null
         }
