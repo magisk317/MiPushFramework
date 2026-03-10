@@ -48,18 +48,8 @@ object EventDb {
         return eventDao.insert(event)
     }
 
-    @JvmStatic
-    @Deprecated("Use insertEventAsync(event)")
-    fun insertEvent(event: Event): Long = runBlocking { insertEventAsync(event) }
-
     suspend fun insertEventAsync(@Event.ResultType result: Int, type: EventType): Long {
         return insertEventAsync(createEvent(result, type))
-    }
-
-    @JvmStatic
-    @Deprecated("Use insertEventAsync(result, type)")
-    fun insertEvent(@Event.ResultType result: Int, type: EventType): Long {
-        return runBlocking { insertEventAsync(result, type) }
     }
 
     @JvmStatic
@@ -110,16 +100,6 @@ object EventDb {
     }
 
     @JvmStatic
-    @Deprecated("Use queryByIdAsync(lastId, size, types, pkg, text)")
-    fun queryById(
-        lastId: Long?,
-        size: Int,
-        types: Set<Int>?,
-        pkg: String?,
-        text: String?
-    ): List<Event> = runBlocking { queryByIdAsync(lastId, size, types, pkg, text) }
-
-    @JvmStatic
     fun queryByPage(
         pageIndex: Int,
         pageSize: Int,
@@ -160,24 +140,10 @@ object EventDb {
         return eventDao.queryRaw(SimpleSQLiteQuery(queryBuilder.toString(), args.toTypedArray()))
     }
 
-    @JvmStatic
-    @Deprecated("Use queryAsync(skip, limit, types, pkg, text)")
-    fun query(
-        skip: Int,
-        limit: Int,
-        types: Set<Int>?,
-        pkg: String?,
-        text: String?
-    ): List<Event> = runBlocking { queryAsync(skip, limit, types, pkg, text) }
-
     suspend fun deleteHistoryAsync() {
         val data = Utils.getUTC().time - 1000L * 3600L * 24 * 7
         eventDao.deleteHistory(data)
     }
-
-    @JvmStatic
-    @Deprecated("Use deleteHistoryAsync()")
-    fun deleteHistory() = runBlocking { deleteHistoryAsync() }
 
     suspend fun queryRegisteredAsync(): RegistrationInfo {
         val events = eventDao.queryRegisteredStatus()
@@ -201,10 +167,6 @@ object EventDb {
         return info
     }
 
-    @JvmStatic
-    @Deprecated("Use queryRegisteredAsync()")
-    fun queryRegistered(): RegistrationInfo = runBlocking { queryRegisteredAsync() }
-
     suspend fun getLastReceiveTimeAsync(packageName: String): Long {
         val time = Utils.getLastReceiveTime(packageName)
         if (time != null) {
@@ -216,8 +178,4 @@ object EventDb {
         Utils.setLastReceiveTime(packageName, lastReceiveTime)
         return lastReceiveTime
     }
-
-    @JvmStatic
-    @Deprecated("Use getLastReceiveTimeAsync(packageName)")
-    fun getLastReceiveTime(packageName: String): Long = runBlocking { getLastReceiveTimeAsync(packageName) }
 }

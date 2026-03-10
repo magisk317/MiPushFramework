@@ -1,4 +1,3 @@
-@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 package top.trumeet.mipushframework.main.subpage
 
 import android.content.Context
@@ -9,12 +8,14 @@ import android.content.pm.ServiceInfo
 import android.text.TextUtils
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
+import com.magisk317.compat.PackageManagerCompatBridge
 import com.magisk317.Global
 import com.magisk317.compat.RegistrationStateCompat
 import com.magisk317.compat.RegistrationStateStore
 import com.xiaomi.xmsf.R
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.runBlocking
 import top.trumeet.common.utils.ElapsedTimer
 import top.trumeet.common.utils.Utils
 import top.trumeet.mipush.provider.db.EventDb
@@ -69,7 +70,9 @@ object ApplicationPageOperation {
     @JvmStatic
     fun addLastReceiveTimeInfo(res: List<RegisteredApplication>) {
         for (application in res) {
-            application.lastReceiveTime = Date(EventDb.getLastReceiveTime(application.packageName))
+            application.lastReceiveTime = Date(
+                runBlocking { EventDb.getLastReceiveTimeAsync(application.packageName) }
+            )
         }
     }
 
@@ -189,11 +192,10 @@ object ApplicationPageOperation {
     @JvmStatic
     fun getPackagesOnDevice(): MutableList<PackageInfo> {
         val app = Utils.getApplication() ?: return mutableListOf()
-        return app.packageManager.getInstalledPackages(
-            PackageManager.GET_DISABLED_COMPONENTS or
-                PackageManager.GET_SERVICES or
-                PackageManager.GET_RECEIVERS
-        )
+        val flags = PackageManager.MATCH_DISABLED_COMPONENTS or
+            PackageManager.GET_SERVICES or
+            PackageManager.GET_RECEIVERS
+        return PackageManagerCompatBridge.getInstalledPackages(app.packageManager, flags).toMutableList()
     }
 
     @JvmStatic
