@@ -1,4 +1,3 @@
-@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 package top.trumeet.mipush.provider.entities
 
 import android.content.Context
@@ -10,6 +9,7 @@ import android.os.Parcelable
 import androidx.annotation.IntDef
 import androidx.annotation.NonNull
 import androidx.core.content.ContextCompat
+import com.magisk317.compat.PackageManagerCompatBridge
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Ignore
@@ -144,7 +144,11 @@ class RegisteredApplication : Parcelable {
     fun getIcon(context: Context): Drawable {
         val pm = context.packageManager
         return try {
-            pm.getApplicationInfo(packageName, PackageManager.GET_UNINSTALLED_PACKAGES).loadIcon(pm)
+            PackageManagerCompatBridge.getApplicationInfo(
+                pm,
+                packageName,
+                PackageManager.MATCH_UNINSTALLED_PACKAGES
+            ).loadIcon(pm)
         } catch (_: PackageManager.NameNotFoundException) {
             ContextCompat.getDrawable(context, android.R.mipmap.sym_def_app_icon)!!
         } catch (_: Resources.NotFoundException) {
@@ -154,9 +158,10 @@ class RegisteredApplication : Parcelable {
 
     fun getUid(context: Context): Int {
         return try {
-            context.packageManager.getApplicationInfo(
+            PackageManagerCompatBridge.getApplicationInfo(
+                context.packageManager,
                 packageName,
-                PackageManager.GET_UNINSTALLED_PACKAGES
+                PackageManager.MATCH_UNINSTALLED_PACKAGES
             ).uid
         } catch (_: PackageManager.NameNotFoundException) {
             -1

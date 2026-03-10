@@ -1,4 +1,3 @@
-@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 package top.trumeet.mipushframework.main.subpage
 
@@ -83,9 +82,10 @@ import top.trumeet.mipushframework.component.TextView
 import top.trumeet.mipushframework.main.RecentEventListPage
 import top.trumeet.mipushframework.utils.ParseUtils
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.magisk317.main.viewmodel.EventListViewModel
 
 private val receiveDateFormat: SimpleDateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
@@ -719,7 +719,12 @@ fun EventListPreview() {
     }
 }
 
-private fun date(year: Int, month: Int, date: Int) = Date(year - 1900, month - 1, date)
+private fun date(year: Int, month: Int, day: Int): Date {
+    return Calendar.getInstance().apply {
+        set(year, month - 1, day, 0, 0, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.time
+}
 
 
 data class EventInfoForDisplay(

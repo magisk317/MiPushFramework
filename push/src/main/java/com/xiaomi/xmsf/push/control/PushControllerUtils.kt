@@ -1,4 +1,3 @@
-@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 package com.xiaomi.xmsf.push.control
 
 import android.annotation.SuppressLint
@@ -15,7 +14,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
-import android.preference.PreferenceManager
 import android.text.TextUtils
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
@@ -58,8 +56,11 @@ object PushControllerUtils {
     @JvmStatic
     fun pushRegistered(context: Context): Boolean = !TextUtils.isEmpty(MiPushClient.getRegId(context))
 
-    private fun getPrefs(context: Context): SharedPreferences =
-        PreferenceManager.getDefaultSharedPreferences(context.applicationContext)
+    private fun getPrefs(context: Context): SharedPreferences {
+        val appContext = context.applicationContext
+        val prefName = appContext.packageName + "_preferences"
+        return appContext.getSharedPreferences(prefName, Context.MODE_PRIVATE)
+    }
 
     @JvmStatic
     fun isPrefsEnable(context: Context): Boolean = getPrefs(context).getBoolean(Constants.KEY_ENABLE_PUSH, true)

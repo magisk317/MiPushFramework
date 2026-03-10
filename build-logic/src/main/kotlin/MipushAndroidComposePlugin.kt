@@ -17,6 +17,7 @@ class MipushAndroidComposePlugin : Plugin<Project> {
             add("implementation", "androidx.activity:activity-compose:${project.version("activity-compose")}")
             add("implementation", "androidx.navigation:navigation-compose:${project.version("navigation")}")
             add("implementation", "androidx.lifecycle:lifecycle-viewmodel-compose:${project.version("lifecycle")}")
+            add("implementation", "androidx.lifecycle:lifecycle-runtime-compose:${project.version("lifecycle")}")
         }
     }
 }

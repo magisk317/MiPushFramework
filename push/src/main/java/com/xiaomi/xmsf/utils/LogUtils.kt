@@ -1,4 +1,3 @@
-@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 package com.xiaomi.xmsf.utils
 
 import android.content.Context
@@ -68,8 +67,9 @@ object LogUtils {
 
     @JvmStatic
     fun getShareIntent(context: Context): Intent? {
+        val externalCacheDir = context.externalCacheDir ?: return null
         val zipFile = File(
-            context.externalCacheDir!!.absolutePath + "/logs/" + logArchiveName(Date()) + ".zip"
+            externalCacheDir.absolutePath + "/logs/" + logArchiveName(Date()) + ".zip"
         )
         return try {
             compressFolder(getLogFolder(context), zipFile.absolutePath)

@@ -1,4 +1,3 @@
-@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 package com.xiaomi.push.service
 
 import android.annotation.TargetApi
@@ -52,6 +51,7 @@ import java.net.URISyntaxException
 import java.net.URL
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import kotlinx.coroutines.runBlocking
 import top.trumeet.common.Constants
 import top.trumeet.common.utils.Utils
 import top.trumeet.mipush.provider.db.RegisteredApplicationDb
@@ -154,7 +154,7 @@ class MyMIPushNotificationHelper {
                 tryLoadConfigurations = true
                 try {
                     val configCenter: ConfigCenter = Global.ConfigCenter()
-                    val configurationDirectory = configCenter.getConfigurationDirectory(context)
+                    val configurationDirectory = runBlocking { configCenter.getConfigurationDirectoryAsync() }
                     loadConfigurations(context, configurationDirectory)
                 } catch (e: Exception) {
                     Utils.makeText(context, e.toString(), Toast.LENGTH_LONG)
@@ -173,10 +173,14 @@ class MyMIPushNotificationHelper {
         private fun wakeScreen(context: Context, sourcePackage: String) {
             val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
             val fullWakeLock = powerManager.newWakeLock(
-                PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.FULL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                PowerManager.PARTIAL_WAKE_LOCK,
                 "xmsf: configurations of $sourcePackage"
             )
             fullWakeLock.acquire(10000)
+        }
+
+        private fun newNotificationBuilder(context: Context): NotificationCompat.Builder {
+            return NotificationCompat.Builder(context, "xmsf.default")
         }
 
         private fun findActiveNotification(packageName: String, notificationId: Int): Notification? {
@@ -302,7 +306,7 @@ class MyMIPushNotificationHelper {
             val description = metaInfo.description
             val bigPic = getBigPic(context, metaInfo)
 
-            val notificationBuilder = NotificationCompat.Builder(context)
+            val notificationBuilder = newNotificationBuilder(context)
             if (bigPic != null) {
                 val style = NotificationCompat.BigPictureStyle()
                 style.bigPicture(bigPic)
@@ -364,7 +368,7 @@ class MyMIPushNotificationHelper {
         ): NotificationCompat.Builder {
             val metaInfo = container.metaInfo
             val group = getGroupFor(context, metaInfo).build()
-            val notificationBuilder = NotificationCompat.Builder(context)
+            val notificationBuilder = newNotificationBuilder(context)
             attachMessagingStyle(message, group, metaInfo, notificationBuilder)
             addShortcutToEnableMessagingStyle(context, container, pkgCtx, packageName, group, notificationBuilder)
             return notificationBuilder
@@ -565,7 +569,7 @@ class MyMIPushNotificationHelper {
             packageName: String,
             localBuilder: NotificationCompat.Builder
         ) {
-            if (Global.ConfigCenter().isDebugMode) {
+            if (runBlocking { Global.ConfigCenter().isDebugModeAsync() }) {
                 val icon = R.drawable.ic_notifications_black_24dp
                 val pendingIntentOpenActivity =
                     openActivityPendingIntent(xmPushService, buildContainer, metaInfo, payload)

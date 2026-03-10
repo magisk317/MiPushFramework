@@ -56,12 +56,4 @@ object RomUtils {
         return ROM_UNKNOWN
     }
 
-    /**
-     * @deprecated [getOs]
-     */
-    @JvmStatic
-    @Deprecated("Use getOs() instead", ReplaceWith("getOs() == ROM_MIUI"))
-    fun isMiui(): Boolean {
-        return MiuiChecker().check()
-    }
 }
