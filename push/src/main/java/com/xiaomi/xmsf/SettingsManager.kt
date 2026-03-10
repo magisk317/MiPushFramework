@@ -10,6 +10,7 @@ import android.os.Build
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.magisk317.diagnostics.PushHealthSnapshotLogger
 import com.magisk317.InternalMessenger
 import com.magisk317.network.NetworkPolicyCompat
 import com.magisk317.utils.RegistrationHelper
@@ -108,15 +109,24 @@ class SettingsManager @Inject constructor(
     }
 
     fun tryForceRegisterAllApplications(context: Context) {
+        var successCount = 0
+        var failedCount = 0
+        fun logSnapshot(stage: String) {
+            PushHealthSnapshotLogger.log(
+                context,
+                "SettingsManager.tryForceRegisterAllApplications",
+                "stage=$stage success=$successCount failed=$failedCount"
+            )
+        }
+
         val uid = runCatching { Shell.cmd("id -u").exec().out.firstOrNull()?.trim() }.getOrNull()
         if (uid != "0") {
             Toast.makeText(context, R.string.force_register_requires_root, Toast.LENGTH_LONG).show()
+            logSnapshot("root_missing")
             return
         }
 
         val miPushApplications: ApplicationPageOperation.MiPushApplications = ApplicationPageOperation.getMiPushApplications()
-        var successCount = 0
-        var failedCount = 0
         for (registeredApplication: RegisteredApplication in miPushApplications.res) {
             try {
                 RegistrationHelper.tryForceRegister(registeredApplication.packageName)
@@ -132,6 +142,7 @@ class SettingsManager @Inject constructor(
 
         if (successCount == 0 && failedCount > 0) {
             Toast.makeText(context, R.string.force_register_unavailable, Toast.LENGTH_LONG).show()
+            logSnapshot("all_failed")
             return
         }
 
@@ -141,6 +152,7 @@ class SettingsManager @Inject constructor(
             context.getString(R.string.force_register_partial, successCount, failedCount)
         }
         Toast.makeText(context, resultMessage, Toast.LENGTH_LONG).show()
+        logSnapshot("completed")
     }
 
     fun sendXMPPReconnectRequest(context: Context) {

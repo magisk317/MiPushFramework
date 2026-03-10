@@ -1,7 +1,6 @@
-@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 package com.xiaomi.xmsf.push.service
 
-import android.app.IntentService
+import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
@@ -10,18 +9,22 @@ import android.content.pm.PackageManager
 import android.content.pm.PackageManager.NameNotFoundException
 import android.content.pm.Signature
 import android.os.Handler
+import android.os.IBinder
 import android.os.Looper
 import android.text.TextUtils
+import com.magisk317.diagnostics.RateLimitedWarnLogger
+import com.magisk317.compat.PackageManagerCompatBridge
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 
-class MiuiPushActivateService : IntentService {
-    private val handler: Handler
+class MiuiPushActivateService : Service() {
+    private val handler = Handler(Looper.getMainLooper())
 
-    constructor() : this("miui_push_activate_service")
+    override fun onBind(intent: Intent?): IBinder? = null
 
-    constructor(name: String?) : super(name) {
-        handler = Handler(Looper.getMainLooper())
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        handleIntentInternal(intent)
+        return START_NOT_STICKY
     }
 
     private fun getPackages(): List<String> {
@@ -47,14 +50,21 @@ class MiuiPushActivateService : IntentService {
 
     private fun verifySignatures(pkg: String): Boolean {
         try {
-            val packageInfo: PackageInfo = packageManager.getPackageInfo(pkg, PackageManager.GET_SIGNATURES)
-            val signatures = packageInfo.signatures
-            if (signatures != null) {
-                for (signature in signatures) {
-                    for (platformSignature in MIUI_PLATFORM_SIGNATURES) {
-                        if (platformSignature == signature) {
-                            return true
-                        }
+            val packageInfo: PackageInfo = PackageManagerCompatBridge.getPackageInfo(
+                packageManager,
+                pkg,
+                PackageManager.GET_SIGNING_CERTIFICATES
+            )
+            val signingInfo = packageInfo.signingInfo ?: return false
+            val signatures = if (signingInfo.hasMultipleSigners()) {
+                signingInfo.apkContentsSigners
+            } else {
+                signingInfo.signingCertificateHistory
+            }
+            for (signature in signatures) {
+                for (platformSignature in MIUI_PLATFORM_SIGNATURES) {
+                    if (platformSignature == signature) {
+                        return true
                     }
                 }
             }
@@ -67,7 +77,7 @@ class MiuiPushActivateService : IntentService {
         getSharedPreferences("pref_registered_pkg_names", 0).edit().putString(pkg, appId).commit()
     }
 
-    override fun onHandleIntent(intent: Intent?) {
+    private fun handleIntentInternal(intent: Intent?) {
         val action = intent?.action ?: return
         if ("com.xiaomi.xmsf.push.SCAN" == action) {
             var delay = 0L
@@ -80,6 +90,12 @@ class MiuiPushActivateService : IntentService {
                             scanIntent.setPackage(pkg)
                             startService(scanIntent)
                         } catch (th: Throwable) {
+                            RateLimitedWarnLogger.warn(
+                                logTag = TAG,
+                                key = "scan:$pkg",
+                                message = "unable to start scan service",
+                                throwable = th
+                            )
                             logger.e("unable to start service" + th.message)
                         }
                     }, delay)
@@ -93,6 +109,12 @@ class MiuiPushActivateService : IntentService {
                         accountChangeIntent.setPackage(pkg)
                         startService(accountChangeIntent)
                     } catch (th: Throwable) {
+                        RateLimitedWarnLogger.warn(
+                            logTag = TAG,
+                            key = "account_change:$pkg",
+                            message = "unable to start account-change service",
+                            throwable = th
+                        )
                         logger.e("unable to start service" + th.message)
                     }
                 }
@@ -127,6 +149,12 @@ class MiuiPushActivateService : IntentService {
                 intent.action = action
                 context.startService(intent)
             } catch (th: Throwable) {
+                RateLimitedWarnLogger.warn(
+                    logTag = TAG,
+                    key = "awake:$action",
+                    message = "unable to awake MiuiPushActivateService",
+                    throwable = th
+                )
                 logger.e("unable to start service" + th.message)
             }
         }

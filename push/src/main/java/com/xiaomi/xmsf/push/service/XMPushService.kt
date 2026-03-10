@@ -1,12 +1,12 @@
-@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 package com.xiaomi.xmsf.push.service
 
-import android.app.IntentService
 import android.content.ComponentName
 import android.content.Intent
 import android.widget.Toast
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
+import com.magisk317.diagnostics.PushHealthSnapshotLogger
+import com.magisk317.diagnostics.RateLimitedWarnLogger
 import com.magisk317.push.hook.ExplicitHookBridge
 import com.magisk317.service.PushServiceStarter
 import com.magisk317.service.XMPushServiceLifecycleBridge
@@ -30,6 +30,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 @AndroidEntryPoint
 class XMPushService : Service() {
@@ -46,6 +47,7 @@ class XMPushService : Service() {
     override fun onCreate() {
         super.onCreate()
         ExplicitHookBridge.onBridgeServiceCreate()
+        PushHealthSnapshotLogger.log(this, "XMPushService.onCreate")
         serviceScope.launch {
             for (intent in intentChannel) {
                 handleIntent(intent)
@@ -54,6 +56,11 @@ class XMPushService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        PushHealthSnapshotLogger.log(
+            this,
+            "XMPushService.onStartCommand",
+            "action=${intent?.action ?: "null"}"
+        )
         intent?.let { intentChannel.trySend(it) }
         return START_STICKY
     }
@@ -74,23 +81,40 @@ class XMPushService : Service() {
         }
         if (Constants.CONFIGURATIONS_UPDATE_ACTION == intent.action) {
             if (!PushControllerUtils.isAppMainProc(this)) {
+                val directory = runBlocking { configCenter.getConfigurationDirectoryAsync() }
                 Configurations.getInstance().init(
                     this,
-                    configCenter.getConfigurationDirectory(this)
+                    directory
                 ) && iconConfigurations.init(
                     this,
-                    configCenter.getConfigurationDirectory(this)
+                    directory
                 )
             }
             return
         }
 
-        ExplicitHookBridge.processIntent(intent)
+        runCatching { ExplicitHookBridge.processIntent(intent) }
+            .onFailure {
+                RateLimitedWarnLogger.warn(
+                    logTag = TAG,
+                    key = "processIntent",
+                    message = "process intent failed: action=${intent.action}",
+                    throwable = it
+                )
+            }
         try {
             forwardToPushServiceMain(intent)
-        } catch (e: RuntimeException) {
+        } catch (e: Throwable) {
+            RateLimitedWarnLogger.warn(
+                logTag = TAG,
+                key = "forwardToPushServiceMain",
+                message = "forward failed: action=${intent.action}",
+                throwable = e
+            )
             logger.e("XMPushService::onHandleIntent: ", e)
-            Utils.makeText(this, getString(R.string.common_err, e.message), Toast.LENGTH_LONG)
+            if (e is RuntimeException) {
+                Utils.makeText(this, getString(R.string.common_err, e.message), Toast.LENGTH_LONG)
+            }
         }
     }
 

@@ -19,6 +19,11 @@ object XMPushServiceLifecycleBridge {
     private var listener: XMPushServiceListener? = null
     private val pendingStarts = ArrayDeque<Intent>()
 
+    data class LifecycleSnapshot(
+        val serviceReady: Boolean,
+        val pendingStartCount: Int
+    )
+
     @JvmStatic
     fun recordPendingStart(intent: Intent) {
         val immediateListener = synchronized(lock) {
@@ -82,6 +87,14 @@ object XMPushServiceLifecycleBridge {
 
     @JvmStatic
     fun canStartForegroundImmediately(): Boolean = synchronized(lock) { currentService != null }
+
+    @JvmStatic
+    fun snapshot(): LifecycleSnapshot = synchronized(lock) {
+        LifecycleSnapshot(
+            serviceReady = currentService != null,
+            pendingStartCount = pendingStarts.size
+        )
+    }
 
     private fun flushPendingStarts(activeListener: XMPushServiceListener?) {
         if (activeListener == null) return
