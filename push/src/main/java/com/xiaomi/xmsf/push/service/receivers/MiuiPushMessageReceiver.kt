@@ -1,8 +1,8 @@
-@file:Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 package com.xiaomi.xmsf.push.service.receivers
 
 import android.content.Context
 import android.content.Intent
+import com.magisk317.diagnostics.RateLimitedWarnLogger
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import com.xiaomi.mipush.sdk.MiPushCommandMessage
@@ -31,7 +31,15 @@ class MiuiPushMessageReceiver : PushMessageReceiver() {
         logger.e(miPushCommandMessage.toString())
     }
 
-    override fun onReceiveMessage(context: Context, miPushMessage: MiPushMessage) {
+    override fun onReceivePassThroughMessage(context: Context, miPushMessage: MiPushMessage) {
+        routeIncomingMessage(context, miPushMessage, isNotified = false)
+    }
+
+    override fun onNotificationMessageClicked(context: Context, miPushMessage: MiPushMessage) {
+        routeIncomingMessage(context, miPushMessage, isNotified = true)
+    }
+
+    private fun routeIncomingMessage(context: Context, miPushMessage: MiPushMessage, isNotified: Boolean) {
         logger.i("onReceiveMessage -> $miPushMessage")
         val pkg = miPushMessage.extra["miui_package_name"]
         if (!pkg.isNullOrBlank()) {
@@ -39,15 +47,31 @@ class MiuiPushMessageReceiver : PushMessageReceiver() {
             val intent = Intent()
             intent.setPackage(pkg)
             intent.putExtras(miPushMessage.toBundle())
-            if (miPushMessage.isNotified) {
-                logger.d("isNotified -> true")
-                intent.action = "com.xiaomi.mipush.miui.CLICK_MESSAGE"
-                context.startService(intent)
-            } else {
-                logger.d("send broadcast")
-                intent.action = "com.xiaomi.mipush.miui.RECEIVE_MESSAGE"
-                context.sendBroadcast(intent)
+                if (isNotified) {
+                    logger.d("isNotified -> true")
+                    intent.action = "com.xiaomi.mipush.miui.CLICK_MESSAGE"
+                    runCatching { context.startService(intent) }
+                        .onFailure {
+                            RateLimitedWarnLogger.warn(
+                                logTag = TAG,
+                                key = "startService:$pkg",
+                                message = "failed to forward clicked notification",
+                                throwable = it
+                            )
+                        }
+                } else {
+                    logger.d("send broadcast")
+                    intent.action = "com.xiaomi.mipush.miui.RECEIVE_MESSAGE"
+                    runCatching { context.sendBroadcast(intent) }
+                        .onFailure {
+                            RateLimitedWarnLogger.warn(
+                                logTag = TAG,
+                                key = "sendBroadcast:$pkg",
+                                message = "failed to forward passthrough message",
+                                throwable = it
+                            )
+                        }
+                }
             }
-        }
     }
 }

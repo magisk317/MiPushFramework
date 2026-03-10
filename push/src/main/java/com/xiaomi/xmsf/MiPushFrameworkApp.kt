@@ -14,6 +14,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
+import com.magisk317.diagnostics.PushHealthSnapshotLogger
 import com.xiaomi.xmsf.utils.LogUtils
 import com.magisk317.notification.NotificationManagerEx
 import com.magisk317.utils.Hooker
@@ -63,6 +64,7 @@ class MiPushFrameworkApp : Application() {
         PushControllerUtils.setAllEnable(true, this)
         awakePushActivateServiceOnMainProc(PushControllerUtils.wrapContext(this))
         requestDozeWhiteList()
+        PushHealthSnapshotLogger.log(this, "MiPushFrameworkApp.onCreate")
     }
 
     private fun requestDozeWhiteList() {
