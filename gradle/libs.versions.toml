@@ -11,7 +11,7 @@ pushVersionCodeNormal = "1003003000"
 pushVersionCodeVc105 = "105"
 
 agp = "9.2.0-alpha03"
-compose-bom = "2026.02.01"
+compose-bom = "2026.03.00"
 kotlin = "2.3.20-RC3"
 ksp = "2.3.6"
 lifecycle = "2.10.0"
