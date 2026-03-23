@@ -31,6 +31,6 @@ jobs:
           .github/scripts/sync_security_overrides.sh --check
 
       - name: Submit Dependency Graph
-        uses: gradle/actions/dependency-submission@v5
+        uses: gradle/actions/dependency-submission@v6
         with:
           additional-arguments: -I gradle/security-overrides.init.gradle
