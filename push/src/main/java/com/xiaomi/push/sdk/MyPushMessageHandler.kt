@@ -18,6 +18,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
+import com.magisk317.push.pipeline.MessageIdentity
 import com.magisk317.push.pipeline.MiPushRuntimeBridge
 import com.magisk317.Global
 import com.magisk317.XMPushUtils
@@ -27,6 +28,7 @@ import com.xiaomi.push.service.MyMIPushNotificationHelper
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmsf.push.notification.NotificationController
+import com.xiaomi.xmsf.runtime.PushRuntime
 import com.xiaomi.xmsf.push.utils.Configurations
 import java.util.function.Consumer
 import top.trumeet.common.Constants
@@ -71,8 +73,27 @@ class MyPushMessageHandler : Service() {
             "MyPushMessageHandler.onHandleIntent"
         )
         try {
-            if (pushMessageProcessor.startService(this, container, payload) != null) {
-                pushMessageProcessor.cancelNotification(this, intent.extras ?: Bundle(), container)
+            val dispatch = PushRuntime.dispatchDownstreamPayload(
+                packageName = container.packageName,
+                action = container.action?.name ?: "Unknown",
+                messageId = MessageIdentity.fromContainer(container),
+                payload = payload,
+                source = "MyPushMessageHandler.onHandleIntent",
+                launchApp = true
+            )
+            if (dispatch.dispatched) {
+                val extras = intent.extras ?: Bundle()
+                val notificationId = extras.getInt(Constants.INTENT_NOTIFICATION_ID, 0)
+                val notificationGroup = extras.getString(Constants.INTENT_NOTIFICATION_GROUP)
+                if (notificationId != 0 || !notificationGroup.isNullOrBlank()) {
+                    PushRuntime.cancelNotificationForPayload(
+                        packageName = container.packageName,
+                        payload = payload,
+                        notificationId = notificationId,
+                        notificationGroup = notificationGroup,
+                        source = "MyPushMessageHandler.onHandleIntent"
+                    )
+                }
             }
         } catch (e: Exception) {
             logger.e(e.localizedMessage, e)

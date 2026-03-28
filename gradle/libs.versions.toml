@@ -1,6 +1,7 @@
 [versions]
 # Build SDK versions
 compileSdk = "36"
+compileSdkExtension = "19"
 minSdk = "28"
 targetSdk = "36"
 java = "25"
@@ -8,8 +9,7 @@ java = "25"
 # App version
 versionCode = "7"
 versionName = "0.3.15"
-pushVersionCodeNormal = "1003003000"
-pushVersionCodeVc105 = "105"
+pushVersionCode = "1003003000"
 
 agp = "9.2.0-alpha04"
 compose-bom = "2026.03.00"
@@ -48,7 +48,6 @@ androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 haze-android = { module = "dev.chrisbanes.haze:haze-android", version.ref = "haze" }
 androidx-compose-foundation = { module = "androidx.compose.foundation:foundation" }
-androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }

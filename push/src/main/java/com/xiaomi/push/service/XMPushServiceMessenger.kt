@@ -4,10 +4,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.text.TextUtils
-import com.magisk317.push.hook.ExplicitHookBridge
+import com.magisk317.push.hook.HookTraceCompat
 import com.magisk317.InternalMessenger
 import com.magisk317.service.ForegroundHelper
 import com.xiaomi.smack.Connection
+import com.xiaomi.xmsf.runtime.PushRuntimeChannelTracker
 
 class XMPushServiceMessenger(
     private val xmPushService: XMPushService
@@ -29,7 +30,12 @@ class XMPushServiceMessenger(
 
     fun notifyConnectionStatusChanged(connectionStatus: Int) {
         this.connectionStatus = connectionStatus
-        ExplicitHookBridge.onConnectionStatusChanged(connectionStatus, 0)
+        HookTraceCompat.onConnectionStatusChanged(connectionStatus, 0)
+        PushRuntimeChannelTracker.observeConnectionState(
+            newStatus = connectionStatus,
+            reason = 0,
+            source = "XMPushServiceMessenger.notifyConnectionStatusChanged"
+        )
         send(setConnectionStatusIntent(getDesc(connectionStatus)))
     }
 

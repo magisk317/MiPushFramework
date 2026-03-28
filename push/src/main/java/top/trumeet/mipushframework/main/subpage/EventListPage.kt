@@ -5,11 +5,11 @@ import android.content.Intent
 import android.net.Uri
 import android.content.Context
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,18 +22,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -44,7 +40,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -76,9 +71,13 @@ import top.trumeet.mipush.provider.event.type.TypeFactory
 import top.trumeet.mipushframework.component.AppIcon
 import top.trumeet.mipushframework.component.DialogAction
 import top.trumeet.mipushframework.component.DialogActionRow
+import top.trumeet.mipushframework.component.InfoPill
 import top.trumeet.mipushframework.component.RefreshableLazyColumn
 import top.trumeet.mipushframework.component.SearchBar
+import top.trumeet.mipushframework.component.SearchWorkspaceScaffold
 import top.trumeet.mipushframework.component.TextView
+import top.trumeet.mipushframework.component.WorkspaceEmptyState
+import top.trumeet.mipushframework.component.WorkspaceListItem
 import top.trumeet.mipushframework.main.RecentEventListPage
 import top.trumeet.mipushframework.utils.ParseUtils
 import java.text.SimpleDateFormat
@@ -102,93 +101,103 @@ fun EventList(
     hazeStyle: HazeStyle? = null
 ) {
     Page {
-        val context = LocalContext.current
         var clickedEvent by remember { mutableStateOf<EventInfoForDisplay?>(null) }
         var currentQuery by rememberSaveable(query) { mutableStateOf(query) }
-        var isGroupByApp by rememberSaveable { mutableStateOf(groupByApp) }
+        var filtersExpanded by rememberSaveable { mutableStateOf(true) }
+        var selectedTypeFilters by remember { mutableStateOf(emptySet<EventTypeFilter>()) }
+        var selectedStatusFilters by remember { mutableStateOf(emptySet<EventStatusFilter>()) }
+        val showGroupedByApp = packageName.isEmpty()
         val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-        val listPadding = PaddingValues(
-            top = topInset + 72.dp + 8.dp,
-            bottom = contentPadding.calculateBottomPadding() + 28.dp
-        )
+        val topOverlayHeight = topInset + 160.dp
 
         clickedEvent?.let {
             EventDetailsDialog(it, viewModel = viewModel) { clickedEvent = null }
         }
 
-        Box(modifier = Modifier.fillMaxSize()) {
-            // 列表内容
-            if (isGroupByApp && packageName.isEmpty()) {
-                EventGroupList(
-                    query = currentQuery,
-                    refreshSignal = refreshSignal,
-                    contentPadding = listPadding,
-                    viewModel = viewModel,
-                    hazeState = hazeState
-                )
-            } else {
-                var lastId by rememberSaveable(refreshSignal) { mutableStateOf<Long?>(null) }
-                EventList(
-                    onClick = { clickedEvent = it },
-                    getEvents = { isRefresh ->
-                        if (isRefresh) lastId = null
-                        viewModel.fetchEventsSuspend(isRefresh, lastId, packageName, currentQuery).also { list ->
-                             list.lastOrNull()?.let { lastId = it.id }
-                        }
-                    },
-                    query = currentQuery,
-                    packageName = packageName,
-                    refreshSignal = refreshSignal,
-                    contentPadding = listPadding,
-                    hazeState = hazeState,
-                    hazeStyle = hazeStyle
-                )
-            }
-
-            val topBarModifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
+        SearchWorkspaceScaffold(
+            fallbackTopPadding = topOverlayHeight,
+            bottomPadding = contentPadding.calculateBottomPadding() + 28.dp,
+            overlayModifier = Modifier
                 .statusBarsPadding()
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.62f))
-
-            TopAppBar(
-                title = {
-                    SearchBar(
-                        placeholder = stringResource(android.R.string.search_go),
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.78f))
+                .then(
+                    if (hazeState != null && hazeStyle != null) {
+                        Modifier.hazeEffect(hazeState, hazeStyle) {
+                            forceInvalidateOnPreDraw = true
+                        }
+                    } else {
+                        Modifier
+                    }
+                ),
+            content = { listPadding ->
+                if (showGroupedByApp) {
+                    EventGroupList(
                         query = currentQuery,
-                        onValueChange = { currentQuery = it },
-                        modifier = Modifier.fillMaxWidth()
+                        refreshSignal = refreshSignal,
+                        contentPadding = PaddingValues(
+                            top = listPadding.calculateTopPadding() + 8.dp,
+                            bottom = listPadding.calculateBottomPadding(),
+                        ),
+                        viewModel = viewModel,
+                        selectedTypeFilters = selectedTypeFilters,
+                        selectedStatusFilters = selectedStatusFilters,
+                        hazeState = hazeState
                     )
-                },
-                actions = {
-                    IconButton(onClick = { isGroupByApp = !isGroupByApp }) {
-                        Icon(
-                            painter = painterResource(
-                                id = if (isGroupByApp) {
-                                    R.drawable.ic_event_note_black_24dp
-                                } else {
-                                    R.drawable.ic_apps_black_24dp
-                                }
-                            ),
-                            contentDescription = if (isGroupByApp) "Show Events" else "Group by App"
+                } else {
+                    var lastId by rememberSaveable(refreshSignal) { mutableStateOf<Long?>(null) }
+                    EventList(
+                        onClick = { clickedEvent = it },
+                        getEvents = { isRefresh ->
+                            if (isRefresh) lastId = null
+                            viewModel.fetchEventsSuspend(isRefresh, lastId, packageName, currentQuery).also { list ->
+                                list.lastOrNull()?.let { lastId = it.id }
+                            }
+                        },
+                        query = currentQuery,
+                        packageName = packageName,
+                        refreshSignal = refreshSignal,
+                        contentPadding = PaddingValues(
+                            top = listPadding.calculateTopPadding() + 8.dp,
+                            bottom = listPadding.calculateBottomPadding(),
+                        ),
+                        selectedTypeFilters = selectedTypeFilters,
+                        selectedStatusFilters = selectedStatusFilters,
+                        hazeState = hazeState,
+                        hazeStyle = hazeStyle
+                    )
+                }
+            },
+            title = if (packageName.isNotEmpty()) packageName else stringResource(R.string.recent_activity_title),
+            searchField = {
+                SearchBar(
+                    placeholder = stringResource(android.R.string.search_go),
+                    query = currentQuery,
+                    onValueChange = { currentQuery = it },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            supportingContent = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    if (packageName.isNotEmpty()) {
+                        InfoPill(
+                            text = packageName,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = Color.Transparent,
-                    titleContentColor = Color.White,
-                    actionIconContentColor = Color.White
-                ),
-                modifier = if (hazeState != null && hazeStyle != null) {
-                    topBarModifier.hazeEffect(hazeState, hazeStyle) {
-                        forceInvalidateOnPreDraw = true
-                    }
-                } else {
-                    topBarModifier
+                    EventFilters(
+                        expanded = filtersExpanded,
+                        selectedTypeFilters = selectedTypeFilters,
+                        selectedStatusFilters = selectedStatusFilters,
+                        onExpandedChange = { filtersExpanded = !filtersExpanded },
+                        onTypeFiltersChange = { selectedTypeFilters = it },
+                        onStatusFiltersChange = { selectedStatusFilters = it },
+                    )
                 }
-            )
-        }
+            }
+        )
     }
 }
 
@@ -201,11 +210,155 @@ private data class EventGroupForDisplay(
 )
 
 @Composable
+private fun EventFilters(
+    expanded: Boolean,
+    selectedTypeFilters: Set<EventTypeFilter>,
+    selectedStatusFilters: Set<EventStatusFilter>,
+    onExpandedChange: () -> Unit,
+    onTypeFiltersChange: (Set<EventTypeFilter>) -> Unit,
+    onStatusFiltersChange: (Set<EventStatusFilter>) -> Unit,
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(R.string.recent_activity_filter_prefix),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TextButton(onClick = onExpandedChange) {
+                Text(
+                    text = stringResource(
+                        if (expanded) {
+                            R.string.action_collapse
+                        } else {
+                            R.string.action_expand
+                        }
+                    ),
+                )
+            }
+        }
+        if (!expanded) {
+            return@Column
+        }
+        Text(
+            text = stringResource(R.string.recent_activity_filter_type_title),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(
+                selected = selectedTypeFilters.isEmpty(),
+                onClick = { onTypeFiltersChange(emptySet()) },
+                label = { Text(stringResource(R.string.recent_activity_filter_type_all)) },
+            )
+            EventTypeFilter.entries.forEach { filter ->
+                FilterChip(
+                    selected = filter in selectedTypeFilters,
+                    onClick = {
+                        onTypeFiltersChange(selectedTypeFilters.toggle(filter))
+                    },
+                    label = { Text(stringResource(filter.labelRes)) },
+                )
+            }
+        }
+        Text(
+            text = stringResource(R.string.recent_activity_filter_status_title),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(
+                selected = selectedStatusFilters.isEmpty(),
+                onClick = { onStatusFiltersChange(emptySet()) },
+                label = { Text(stringResource(R.string.recent_activity_filter_status_all)) },
+            )
+            EventStatusFilter.entries.forEach { filter ->
+                FilterChip(
+                    selected = filter in selectedStatusFilters,
+                    onClick = {
+                        onStatusFiltersChange(selectedStatusFilters.toggle(filter))
+                    },
+                    label = { Text(stringResource(filter.labelRes)) },
+                )
+            }
+        }
+    }
+}
+
+private enum class EventTypeFilter(val labelRes: Int) {
+    Notification(R.string.recent_activity_filter_type_notification),
+    PassThrough(R.string.recent_activity_filter_type_pass_through),
+    Registration(R.string.recent_activity_filter_type_registration),
+    Other(R.string.recent_activity_filter_type_other),
+}
+
+private enum class EventStatusFilter(val labelRes: Int) {
+    Normal(R.string.recent_activity_filter_status_normal),
+    Disabled(R.string.recent_activity_filter_status_disabled),
+    Denied(R.string.recent_activity_filter_status_denied),
+}
+
+private fun EventInfoForDisplay.matchesFilters(
+    selectedTypeFilters: Set<EventTypeFilter>,
+    selectedStatusFilters: Set<EventStatusFilter>,
+): Boolean {
+    val matchesType = selectedTypeFilters.isEmpty() || selectedTypeFilters.any { filter ->
+        when (filter) {
+            EventTypeFilter.Notification -> event.type == Event.Type.SendMessage && !isPassThroughMessage()
+            EventTypeFilter.PassThrough -> event.type == Event.Type.SendMessage && isPassThroughMessage()
+            EventTypeFilter.Registration -> event.type in setOf(
+                Event.Type.Registration,
+                Event.Type.RegistrationResult,
+                Event.Type.UnRegistration,
+            )
+            EventTypeFilter.Other -> event.type !in setOf(
+                Event.Type.SendMessage,
+                Event.Type.Registration,
+                Event.Type.RegistrationResult,
+                Event.Type.UnRegistration,
+            )
+        }
+    }
+    val matchesStatus = selectedStatusFilters.isEmpty() || selectedStatusFilters.any { filter ->
+        when (filter) {
+            EventStatusFilter.Normal -> !isDisabled() && event.result == Event.ResultType.OK
+            EventStatusFilter.Disabled -> isDisabled()
+            EventStatusFilter.Denied -> event.result != Event.ResultType.OK
+        }
+    }
+    return matchesType && matchesStatus
+}
+
+private fun <T> Set<T>.toggle(value: T): Set<T> {
+    return if (contains(value)) this - value else this + value
+}
+
+private fun EventInfoForDisplay.isPassThroughMessage(): Boolean {
+    return channel == Utils.getApplication()?.getString(R.string.message_type_pass_through)
+}
+
+private fun EventInfoForDisplay.isDisabled(): Boolean = configOptions.contains("disable")
+
+@Composable
 private fun EventGroupList(
     query: String,
     refreshSignal: Int,
     contentPadding: PaddingValues,
     viewModel: EventListViewModel,
+    selectedTypeFilters: Set<EventTypeFilter>,
+    selectedStatusFilters: Set<EventStatusFilter>,
     hazeState: HazeState? = null
 ) {
     val context = LocalContext.current
@@ -217,6 +370,7 @@ private fun EventGroupList(
     var isLoading by remember { mutableStateOf(false) }
     fun rebuildGroups() {
         val grouped = allEvents
+            .filter { it.matchesFilters(selectedTypeFilters, selectedStatusFilters) }
             .groupBy { it.packageName }
             .map { (pkg, events) ->
                 val sortedEvents = events.sortedByDescending { it.receiveDate.time }
@@ -231,6 +385,10 @@ private fun EventGroupList(
             .sortedByDescending { it.latestDate.time }
         groupedItems.clear()
         groupedItems.addAll(grouped)
+    }
+
+    androidx.compose.runtime.LaunchedEffect(selectedTypeFilters, selectedStatusFilters) {
+        rebuildGroups()
     }
 
     suspend fun loadNextPage(isRefresh: Boolean) {
@@ -286,49 +444,60 @@ private fun EventGroupList(
         contentPadding = contentPadding,
         modifier = if (hazeState != null) Modifier.hazeSource(hazeState) else Modifier
     ) {
-        items(groupedItems, key = { it.packageName }) { group ->
-            val updatedAt = ParseUtils.getFriendlyDateString(
-                group.latestDate,
-                Utils.getUTC(),
-                context
-            )
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-                    .clickable {
+        if (groupedItems.isEmpty() && !isLoading) {
+            item {
+                EmptyEventState(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 300.dp)
+                )
+            }
+        } else {
+            items(groupedItems, key = { it.packageName }) { group ->
+                val updatedAt = ParseUtils.getFriendlyDateString(
+                    group.latestDate,
+                    Utils.getUTC(),
+                    context
+                )
+                WorkspaceListItem(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp),
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                    onClick = {
                         context.startActivity(
                             Intent(context, RecentEventListPage::class.java)
                                 .setData(Uri.parse(group.packageName))
                         )
                     },
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    leadingContent = {
+                        AppIcon(group.packageName, group.appName, modifier = Modifier.size(48.dp))
+                    },
+                    trailingContent = {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_keyboard_arrow_right_black_24dp),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
                 ) {
-                    AppIcon(group.packageName, group.appName, modifier = Modifier.size(48.dp))
-                    Spacer(Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            group.appName,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            "${group.events.size} 条记录",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
                     Text(
-                        "更新于$updatedAt",
+                        group.appName,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        group.packageName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        stringResource(R.string.recent_activity_group_count, group.events.size),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        stringResource(R.string.recent_activity_updated_at, updatedAt),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -383,7 +552,10 @@ private fun EventDetailsDialog(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Developer Info", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    stringResource(R.string.event_detail_developer_info),
+                    style = MaterialTheme.typography.titleLarge
+                )
                 IconButton(onClick = { viewModel.startManagePermissions(clickedEvent.packageName) }) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_info_outline_black_24dp),
@@ -418,13 +590,15 @@ private fun MutableList<EventInfoForDisplay>.appendDistinct(itemsToAppend: List<
 }
 
 @Composable
-fun EventList(
+private fun EventList(
     onClick: (EventInfoForDisplay) -> Unit,
     getEvents: suspend (isRefresh: Boolean) -> List<EventInfoForDisplay>,
     query: String,
     packageName: String,
     refreshSignal: Int = 0,
     contentPadding: PaddingValues = PaddingValues(0.dp),
+    selectedTypeFilters: Set<EventTypeFilter> = emptySet(),
+    selectedStatusFilters: Set<EventStatusFilter> = emptySet(),
     hazeState: HazeState? = null,
     hazeStyle: HazeStyle? = null
 ) {
@@ -476,6 +650,7 @@ fun EventList(
     }
 
     val isNeedMore: (Int) -> Boolean = { hasMore && !isLoading && it >= items.size - 10 }
+    val filteredItems = items.filter { it.matchesFilters(selectedTypeFilters, selectedStatusFilters) }
 
     RefreshableLazyColumn(
         doRefresh,
@@ -490,7 +665,7 @@ fun EventList(
             Modifier
         }
     ) {
-        if (items.isEmpty() && !isLoading) {
+        if (filteredItems.isEmpty() && !isLoading) {
             item {
                 EmptyEventState(
                     modifier = Modifier
@@ -499,7 +674,7 @@ fun EventList(
                 )
             }
         } else {
-            items(items, key = { it.composeKey() }) {
+            items(filteredItems, key = { it.composeKey() }) {
                 EventItem(it, onClick)
             }
         }
@@ -508,105 +683,66 @@ fun EventList(
 
 @Composable
 private fun EventItem(item: EventInfoForDisplay, onClick: (EventInfoForDisplay) -> Unit) {
-    val disabled = item.configOptions.contains("disable")
-    val alpha = if (disabled) 0.5f else 1f
-    val iconSize = 48.dp
-    val iconGap = 20.dp
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-            .clickable { onClick(item) }
-            .alpha(alpha),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-        ),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top
-            ) {
-                AppIcon(item.packageName, item.appName, modifier = Modifier.size(iconSize))
-                Spacer(Modifier.width(iconGap))
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        EventHeaderMetaLine1(item, modifier = Modifier.weight(1f))
-                        Spacer(Modifier.width(10.dp))
-                        EventReceiveDate(item)
-                    }
-                    EventHeaderTitle(item)
-                }
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = iconSize + iconGap, top = 8.dp)
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    EventContent(item)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun EventHeaderMetaLine1(item: EventInfoForDisplay, modifier: Modifier = Modifier) {
+    val disabled = item.isDisabled()
     val appName = item.appName?.takeIf { it.isNotBlank() } ?: item.packageName
-    val merged = buildString {
+    val metaLine = buildString {
         append(appName)
         if (item.channel.isNotBlank()) {
             append(" · ")
             append(item.channel)
         }
     }
-    Text(
-        text = merged,
-        modifier = modifier,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        maxLines = 1
-    )
-}
+    val containerColor = if (disabled) {
+        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.22f)
+    } else {
+        Color.Transparent
+    }
 
-@Composable
-private fun EventHeaderTitle(item: EventInfoForDisplay) {
-    Text(
-        text = item.title,
-        style = MaterialTheme.typography.bodyLarge,
-        color = MaterialTheme.colorScheme.onSurface,
-        maxLines = 1
-    )
-}
-
-@Composable
-private fun EventReceiveDate(item: EventInfoForDisplay) {
-    val format = receiveDateFormat
-    Text(
-        format.format(item.receiveDate),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
-}
-
-@Composable
-private fun EventContent(item: EventInfoForDisplay) {
-    Text(
-        item.content,
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
+    WorkspaceListItem(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp),
+        containerColor = containerColor,
+        onClick = { onClick(item) },
+        leadingContent = {
+            AppIcon(item.packageName, item.appName, modifier = Modifier.size(48.dp))
+        },
+        trailingContent = {
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = receiveDateFormat.format(item.receiveDate),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (disabled) {
+                    InfoPill(
+                        text = stringResource(R.string.recent_activity_disabled_label),
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                }
+            }
+        },
+    ) {
+        Text(
+            text = item.title,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1
+        )
+        Text(
+            text = metaLine,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1
+        )
+        Text(
+            text = item.content,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2
+        )
+    }
 }
 
 /**
@@ -614,40 +750,19 @@ private fun EventContent(item: EventInfoForDisplay) {
  */
 @Composable
 fun EmptyEventState(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 48.dp, horizontal = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        // 空态图标
-        Icon(
-            painter = painterResource(id = R.drawable.ic_event_note_black_24dp),
-            contentDescription = null,
-            modifier = Modifier
-                .size(80.dp)
-                .alpha(0.3f),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // 标题
-        Text(
-            "暂无日志",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        
-        // 描述文本
-        Text(
-            "等待应用推送消息或手动触发测试",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-        )
-    }
+    WorkspaceEmptyState(
+        title = stringResource(R.string.event_empty_title),
+        summary = stringResource(R.string.event_empty_summary),
+        modifier = modifier,
+        icon = {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_event_note_black_24dp),
+                contentDescription = null,
+                modifier = Modifier.size(80.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+            )
+        },
+    )
 }
 
 @Preview(

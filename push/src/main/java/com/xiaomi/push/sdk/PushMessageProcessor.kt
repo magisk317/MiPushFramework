@@ -61,6 +61,17 @@ class PushMessageProcessor @Inject constructor(
     var iTopActivity: ITopActivity? = null
     private var topActivityMode: Int? = null
 
+    data class ApplicationDeliveryResult(
+        val serviceComponent: ComponentName? = null,
+        val deliveredByBroadcastFallback: Boolean = false
+    ) {
+        val deliveredToService: Boolean
+            get() = serviceComponent != null
+
+        val dispatched: Boolean
+            get() = deliveredToService || deliveredByBroadcastFallback
+    }
+
     fun resetTopActivityCache() {
         iTopActivity = null
         topActivityMode = null
@@ -127,16 +138,52 @@ class PushMessageProcessor @Inject constructor(
         container: XmPushActionContainer,
         payload: ByteArray
     ): ComponentName? {
-        launchApp(context, container)
-        return forwardToTargetApplication(context, payload)
+        return deliverToApplication(
+            context = context,
+            container = container,
+            payload = payload,
+            launchApp = true,
+            notifyRuntime = true
+        ).serviceComponent
     }
 
     fun forwardToTargetApplication(context: Context, payload: ByteArray): ComponentName? {
-        val container = XMPushUtils.packToContainer(payload) ?: return null
-        val metaInfo = container.metaInfo ?: return null
+        return forwardToTargetApplicationResult(
+            context = context,
+            payload = payload,
+            notifyRuntime = true
+        ).serviceComponent
+    }
+
+    fun deliverToApplication(
+        context: Context,
+        container: XmPushActionContainer,
+        payload: ByteArray,
+        launchApp: Boolean,
+        notifyRuntime: Boolean
+    ): ApplicationDeliveryResult {
+        if (launchApp) {
+            launchApp(context, container)
+        }
+        return forwardToTargetApplicationResult(
+            context = context,
+            payload = payload,
+            notifyRuntime = notifyRuntime
+        )
+    }
+
+    fun forwardToTargetApplicationResult(
+        context: Context,
+        payload: ByteArray,
+        notifyRuntime: Boolean
+    ): ApplicationDeliveryResult {
+        val container = XMPushUtils.packToContainer(payload) ?: return ApplicationDeliveryResult()
+        val metaInfo = container.metaInfo ?: return ApplicationDeliveryResult()
         val targetPackage = container.packageName
 
-        MiPushRuntimeBridge.onTransferToApplication(container)
+        if (notifyRuntime) {
+            MiPushRuntimeBridge.onTransferToApplication(container)
+        }
         val localIntent = Intent(PushConstants.MIPUSH_ACTION_NEW_MESSAGE)
         localIntent.component = ComponentName(targetPackage, "com.xiaomi.mipush.sdk.PushMessageHandler")
         localIntent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, payload)
@@ -147,14 +194,14 @@ class PushMessageProcessor @Inject constructor(
             .onFailure { logger.e(packageInfo(targetPackage, "forward to service failed"), it) }
             .getOrNull()
         if (started != null) {
-            return started
+            return ApplicationDeliveryResult(serviceComponent = started)
         }
 
         val fallbackSent = sendBroadcastFallback(context, container, payload)
         if (fallbackSent) {
             logger.w(packageInfo(targetPackage, "service unavailable, fallback to broadcast"))
         }
-        return null
+        return ApplicationDeliveryResult(deliveredByBroadcastFallback = fallbackSent)
     }
 
     private fun activeApp(context: Context, targetPackage: String) {

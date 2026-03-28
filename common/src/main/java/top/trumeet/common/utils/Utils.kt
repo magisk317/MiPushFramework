@@ -8,7 +8,6 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Process
 import android.text.Html
-import android.text.TextUtils
 import android.widget.Toast
 import androidx.annotation.ColorInt
 import androidx.annotation.NonNull
@@ -18,6 +17,15 @@ import top.trumeet.common.override.AppOpsManagerOverride
 import java.util.*
 
 object Utils {
+    private const val PREF_REGISTERED_PKG_NAMES_SEC = "pref_registered_pkg_names_sec"
+    private const val PREF_MIPUSH_APPS_SECRET = "mipush_apps_scrt"
+    private const val PREF_MIPUSH = "mipush"
+    private val REG_SEC_PREFS = listOf(
+        PREF_REGISTERED_PKG_NAMES_SEC,
+        PREF_MIPUSH_APPS_SECRET,
+        PREF_MIPUSH
+    )
+
     @JvmStatic
     var context: Context? = null
 
@@ -148,24 +156,33 @@ object Utils {
 
     @JvmStatic
     fun getRegSec(packageName: String): String? {
-        var secSp = getApplication()?.getSharedPreferences("pref_registered_pkg_names_sec", 0)
-        var sec = secSp?.getString(packageName, null)
-        if (sec != null) {
-            return sec
+        return getRegSecs(packageName).firstOrNull()
+    }
+
+    @JvmStatic
+    fun getRegSecs(packageName: String): List<String> {
+        val app = getApplication() ?: return emptyList()
+        val secrets = linkedSetOf<String>()
+        for (prefName in REG_SEC_PREFS) {
+            val sec = app.getSharedPreferences(prefName, 0)?.getString(packageName, null)
+            if (!sec.isNullOrEmpty()) {
+                secrets += sec
+            }
         }
-        secSp = getApplication()?.getSharedPreferences("mipush", 0)
-        return secSp?.getString(packageName, null)
+        return secrets.toList()
     }
 
     @JvmStatic
     fun setRegSec(pkgName: String, regSec: String?) {
-        if (TextUtils.isEmpty(regSec)) {
+        if (regSec.isNullOrEmpty()) {
             return
         }
-        val secSp = getApplication()?.getSharedPreferences("pref_registered_pkg_names_sec", 0)
-        val secEditor = secSp?.edit()
-        secEditor?.putString(pkgName, regSec)
-        secEditor?.commit()
+        val app = getApplication() ?: return
+        for (prefName in listOf(PREF_REGISTERED_PKG_NAMES_SEC, PREF_MIPUSH_APPS_SECRET)) {
+            val secEditor = app.getSharedPreferences(prefName, 0)?.edit()
+            secEditor?.putString(pkgName, regSec)
+            secEditor?.commit()
+        }
     }
 
     @JvmStatic

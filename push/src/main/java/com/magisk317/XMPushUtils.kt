@@ -1,6 +1,6 @@
 package com.magisk317
 
-import com.magisk317.push.hook.ExplicitHookBridge
+import com.magisk317.push.hook.HookTraceCompat
 import com.xiaomi.channel.commonutils.reflect.JavaCalls
 import com.xiaomi.mipush.sdk.PushContainerHelper
 import com.xiaomi.push.service.MIPushEventProcessor
@@ -36,7 +36,7 @@ object XMPushUtils {
             return null
         }
         val container = MIPushEventProcessor.buildContainer(payload)
-        ExplicitHookBridge.onBuildContainer(payload.size, container)
+        HookTraceCompat.onBuildContainer(payload.size, container)
         return container
     }
 
@@ -63,7 +63,7 @@ object XMPushUtils {
             packageName,
             appId
         )
-        ExplicitHookBridge.onBuildContainer(0, container)
+        HookTraceCompat.onBuildContainer(0, container)
         return container
     }
 

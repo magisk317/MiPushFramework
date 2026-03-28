@@ -7,7 +7,7 @@ import android.content.pm.ServiceInfo
 import android.text.TextUtils
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
-import com.magisk317.push.hook.ExplicitHookBridge
+import com.magisk317.push.hook.HookTraceCompat
 import com.xiaomi.mipush.sdk.ManifestChecker
 import com.xiaomi.mipush.sdk.PushMessageHandler
 import com.xiaomi.push.service.PushConstants
@@ -62,7 +62,7 @@ class MiPushManifestChecker private constructor(
     }
 
     fun checkServices(pkgInfo: PackageInfo): Boolean {
-        ExplicitHookBridge.onManifestCheckServices(pkgInfo)
+        HookTraceCompat.onManifestCheckServices(pkgInfo)
         if (TextUtils.equals(pkgInfo.packageName, PushConstants.PUSH_SERVICE_PACKAGE_NAME)) {
             return true
         }

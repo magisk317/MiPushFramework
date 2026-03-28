@@ -9,34 +9,23 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBarDefaults
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -69,25 +58,19 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import com.xiaomi.xmsf.R
 import androidx.compose.foundation.clickable
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.outlined.CheckCircle
 
 private val TAG = "WizardPermission"
 private val logger = object {
@@ -251,13 +234,13 @@ fun PermissionItem(info: PermissionInfo, checkTrigger: Int) {
         leadingContent = {
             if (isGranted) {
                 Icon(
-                    Icons.Default.CheckCircle,
+                    painter = painterResource(R.drawable.ic_check_circle_black_24dp),
                     contentDescription = stringResource(id = R.string.status_granted),
                     tint = Color(0xFF4CAF50)
                 )
             } else {
                 Icon(
-                    Icons.Outlined.Circle,
+                    painter = painterResource(R.drawable.ic_radio_button_unchecked_black_24dp),
                     contentDescription = stringResource(id = R.string.status_pending),
                     tint = MaterialTheme.colorScheme.outline
                 )

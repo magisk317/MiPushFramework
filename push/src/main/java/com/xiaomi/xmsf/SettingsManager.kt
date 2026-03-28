@@ -111,11 +111,18 @@ class SettingsManager @Inject constructor(
     fun tryForceRegisterAllApplications(context: Context) {
         var successCount = 0
         var failedCount = 0
+        var unsupportedCount = 0
+        val unsupportedReasons = linkedMapOf<String, Int>()
+        val unsupportedSamples = linkedMapOf<String, MutableList<String>>()
+        val failureTypes = linkedMapOf<String, Int>()
         fun logSnapshot(stage: String) {
+            val unsupportedSummary = unsupportedReasons.entries.joinToString(",") { "${it.key}:${it.value}" }
+            val sampleSummary = unsupportedSamples.entries.joinToString(";") { "${it.key}=${it.value.joinToString(",")}" }
+            val failureSummary = failureTypes.entries.joinToString(",") { "${it.key}:${it.value}" }
             PushHealthSnapshotLogger.log(
                 context,
                 "SettingsManager.tryForceRegisterAllApplications",
-                "stage=$stage success=$successCount failed=$failedCount"
+                "stage=$stage success=$successCount failed=$failedCount unsupported=$unsupportedCount unsupportedReasons=$unsupportedSummary unsupportedSamples=$sampleSummary failureTypes=$failureSummary"
             )
         }
 
@@ -128,28 +135,48 @@ class SettingsManager @Inject constructor(
 
         val miPushApplications: ApplicationPageOperation.MiPushApplications = ApplicationPageOperation.getMiPushApplications()
         for (registeredApplication: RegisteredApplication in miPushApplications.res) {
+            val packageName = registeredApplication.packageName
+            val plan = RegistrationHelper.inspectForceRegisterPlan(packageName)
+            if (!plan.supportsServiceDispatch) {
+                unsupportedCount++
+                unsupportedReasons[plan.reason] = (unsupportedReasons[plan.reason] ?: 0) + 1
+                unsupportedSamples.getOrPut(plan.reason) { mutableListOf() }.apply {
+                    if (size < 5) add(packageName)
+                }
+                continue
+            }
             try {
-                RegistrationHelper.tryForceRegister(registeredApplication.packageName)
+                RegistrationHelper.tryForceRegister(packageName)
                 successCount++
+            } catch (e: UnsupportedOperationException) {
+                unsupportedCount++
+                unsupportedReasons[plan.reason] = (unsupportedReasons[plan.reason] ?: 0) + 1
+                unsupportedSamples.getOrPut(plan.reason) { mutableListOf() }.apply {
+                    if (size < 5) add(packageName)
+                }
             } catch (_: NoClassDefFoundError) {
                 failedCount++
+                failureTypes["NoClassDefFoundError"] = (failureTypes["NoClassDefFoundError"] ?: 0) + 1
             } catch (_: ClassNotFoundException) {
                 failedCount++
-            } catch (_: Throwable) {
+                failureTypes["ClassNotFoundException"] = (failureTypes["ClassNotFoundException"] ?: 0) + 1
+            } catch (t: Throwable) {
                 failedCount++
+                val key = t::class.java.simpleName.ifBlank { "Throwable" }
+                failureTypes[key] = (failureTypes[key] ?: 0) + 1
             }
         }
 
-        if (successCount == 0 && failedCount > 0) {
+        if (successCount == 0 && (failedCount > 0 || unsupportedCount > 0)) {
             Toast.makeText(context, R.string.force_register_unavailable, Toast.LENGTH_LONG).show()
             logSnapshot("all_failed")
             return
         }
 
-        val resultMessage = if (failedCount == 0) {
+        val resultMessage = if (failedCount == 0 && unsupportedCount == 0) {
             context.getString(R.string.force_register_done, successCount)
         } else {
-            context.getString(R.string.force_register_partial, successCount, failedCount)
+            context.getString(R.string.force_register_partial, successCount, failedCount + unsupportedCount)
         }
         Toast.makeText(context, resultMessage, Toast.LENGTH_LONG).show()
         logSnapshot("completed")

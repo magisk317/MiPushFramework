@@ -13,8 +13,8 @@ import com.magisk317.XMPushUtils
 import org.apache.thrift.TBase
 import org.apache.thrift.TException
 import java.lang.reflect.*
-import java.util.Objects
 import kotlinx.serialization.json.*
+import top.trumeet.common.utils.Utils
 
 object ConvertUtils {
     private val TAG = ConvertUtils::class.java.simpleName
@@ -27,6 +27,11 @@ object ConvertUtils {
         prettyPrint = true
         encodeDefaults = true
     }
+
+    private data class PushActionResolution(
+        val payload: ByteArray?,
+        val regSec: String?
+    )
 
     @JvmStatic
     fun toJson(container: XmPushActionContainer?): JsonElement {
@@ -46,12 +51,20 @@ object ConvertUtils {
             container.target?.let { 
                 put("target", thriftToJson(it))
             }
+            if (container.isEncryptAction && RegSecUtils.getCandidateRegSecs(container, regSec).isEmpty()) {
+                put("pushActionUnavailable", "missing_reg_sec")
+            }
             
             try {
                 val message = getResponseMessageBodyFromContainer(container, regSec)
                 if (message != null) {
                     put("pushAction", thriftToJson(message))
+                } else if (!container.isEncryptAction) {
+                    put("pushActionUnavailable", "unsupported_action")
                 }
+            } catch (e: DecryptException) {
+                put("pushActionUnavailable", "decrypt_failed")
+                put("pushActionError", e.message ?: "the aes decrypt failed.")
             } catch (e: Exception) {
                 logger.e(e.localizedMessage, e)
                 put("pushActionError", e.message ?: "Unknown error")
@@ -119,17 +132,8 @@ object ConvertUtils {
         if (container == null) {
             return null
         }
-        val oriMsgBytes: ByteArray = if (container.isEncryptAction) {
-            Objects.requireNonNull(regSec, "register secret is null")
-            val keyBytes = Base64Coder.decode(regSec)
-            try {
-                DataCryptUtils.mipushDecrypt(keyBytes, container.getPushAction()) as ByteArray
-            } catch (e: Exception) {
-                throw DecryptException("the aes decrypt failed.", e)
-            }
-        } else {
-            container.getPushAction()
-        }
+        val resolution = resolvePushActionBytes(container, regSec) ?: return null
+        val oriMsgBytes = resolution.payload ?: return null
         return try {
             val createRespMessageFromAction: Method = com.xiaomi.mipush.sdk.PushContainerHelper::class.java
                 .getDeclaredMethod("createRespMessageFromAction", ActionType::class.java, Boolean::class.javaPrimitiveType)
@@ -142,6 +146,35 @@ object ConvertUtils {
         } catch (e: Exception) {
             throw e
         }
+    }
+
+    private fun resolvePushActionBytes(container: XmPushActionContainer, regSec: String?): PushActionResolution? {
+        if (!container.isEncryptAction) {
+            return PushActionResolution(container.getPushAction(), null)
+        }
+        val candidateRegSecs = RegSecUtils.getCandidateRegSecs(container, regSec)
+        if (candidateRegSecs.isEmpty()) {
+            return null
+        }
+        var lastError: Exception? = null
+        for (candidateRegSec in candidateRegSecs) {
+            try {
+                val keyBytes = Base64Coder.decode(candidateRegSec)
+                val payload = DataCryptUtils.mipushDecrypt(keyBytes, container.getPushAction()) as ByteArray
+                persistResolvedRegSec(container.packageName, candidateRegSec)
+                return PushActionResolution(payload, candidateRegSec)
+            } catch (e: Exception) {
+                lastError = e
+            }
+        }
+        throw DecryptException("the aes decrypt failed.", lastError)
+    }
+
+    private fun persistResolvedRegSec(packageName: String?, regSec: String?) {
+        if (packageName.isNullOrEmpty() || regSec.isNullOrEmpty()) {
+            return
+        }
+        Utils.setRegSec(packageName, regSec)
     }
 
     private fun fillPacket(packet: TBase<*, *>, bytes: ByteArray) {

@@ -9,6 +9,7 @@ import android.text.TextUtils
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import com.magisk317.compat.PackageManagerCompatBridge
+import com.magisk317.utils.RegistrationHelper
 import com.magisk317.Global
 import com.magisk317.compat.RegistrationStateCompat
 import com.magisk317.compat.RegistrationStateStore
@@ -25,6 +26,15 @@ import top.trumeet.mipush.provider.entities.RegisteredApplication
 import top.trumeet.mipushframework.utils.MiPushManifestChecker
 
 object ApplicationPageOperation {
+    private val registrationTypeDebugPackages = setOf(
+        "com.chinamworld.bocmbci",
+        "cn.com.cmbc.newmbank",
+        "cn.cyberIdentity.certification",
+        "com.unionpay",
+        "com.coolapk.market",
+        "com.tencent.mobileqq",
+        "com.miui.cloudservice"
+    )
     private val TAG = ApplicationPageOperation::class.java.simpleName
     private val logger = object {
         fun d(msg: String, vararg args: Any?) {
@@ -118,6 +128,28 @@ object ApplicationPageOperation {
         val currentAppPkgName = info.packageName
         val application = registeredPkgs[currentAppPkgName] ?: registerApplication(currentAppPkgName)
         application.existServices = hasMiPushServices(checker, info)
+        val serviceNames = info.services?.mapNotNull(ServiceInfo::name)?.toSet() ?: emptySet()
+        val receiverNames = info.receivers?.mapNotNull { it.name }?.toSet() ?: emptySet()
+        val plan = RegistrationHelper.classifyForceRegisterPlan(
+            packageName = currentAppPkgName,
+            serviceNames = serviceNames,
+            receiverNames = receiverNames
+        )
+        val displayReason = RegistrationHelper.classifyDisplayTypeReason(
+            serviceNames = serviceNames,
+            receiverNames = receiverNames
+        )
+        application.registrationTypeReason = displayReason
+        if (currentAppPkgName in registrationTypeDebugPackages) {
+            logger.d(
+                "[type] %s display=%s force=%s services=%s receivers=%s",
+                currentAppPkgName,
+                displayReason,
+                plan.reason,
+                serviceNames.joinToString(","),
+                receiverNames.joinToString(",")
+            )
+        }
         return application
     }
 

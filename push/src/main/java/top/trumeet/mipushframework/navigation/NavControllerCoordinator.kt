@@ -26,6 +26,11 @@ import androidx.navigation.navOptions
 class NavControllerNavigationCoordinator(
     private val navController: NavController
 ) : NavigationCoordinator {
+    override fun navigateToOverview() {
+        navController.navigate(AppDestinations.Overview.ROUTE) {
+            popUpTo(AppDestinations.Overview.ROUTE) { inclusive = true }
+        }
+    }
 
     override fun navigateToEventsList() {
         navController.navigate(AppDestinations.EventsList.ROUTE) {

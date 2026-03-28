@@ -53,4 +53,5 @@ dependencyResolutionManagement {
 includeBuild("build-logic")
 
 rootProject.name = "MiPushFramework"
-include(":condom", ":push", ":common", ":mipush_hook")
+include(":condom", ":push", ":common", ":runtime-core", ":magisk-ui-kit")
+project(":magisk-ui-kit").projectDir = file("../magisk-ui-kit")

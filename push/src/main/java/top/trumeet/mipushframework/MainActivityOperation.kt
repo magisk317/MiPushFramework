@@ -8,6 +8,13 @@ import com.xiaomi.xmsf.R
 import top.trumeet.mipushframework.main.HelpPage
 
 class MainActivityOperation(private val context: Context) {
+    private fun openUrl(url: String) {
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW)
+                .setData(Uri.parse(url))
+        )
+    }
+
     fun gotoHelpActivity() {
         val intent = Intent()
         intent.setClass(context, HelpPage::class.java)
@@ -16,19 +23,28 @@ class MainActivityOperation(private val context: Context) {
 
     fun showAboutDialog(onShow: (String) -> Unit) {
         val versionInfo = String.format(
-            "name: %s\ncode: %d\nflavor: %s\ntype: %s",
+            "name: %s\ncode: %d\nchannel: %s\ntype: %s",
             BuildConfig.VERSION_NAME,
             BuildConfig.VERSION_CODE,
-            BuildConfig.FLAVOR,
+            "single",
             BuildConfig.BUILD_TYPE
         )
         onShow(versionInfo)
     }
 
     fun gotoGitHubReleasePage() {
-        context.startActivity(
-            Intent(Intent.ACTION_VIEW)
-                .setData(Uri.parse("https://github.com/magisk317/MiPushFramework/releases"))
-        )
+        openUrl("https://github.com/magisk317/MiPushFramework/releases")
+    }
+
+    fun gotoTelegramGroup() {
+        openUrl("https://t.me/+Gf5x3Lqw1tdiZDNl")
+    }
+
+    fun gotoQQGroup() {
+        openUrl("https://qm.qq.com/q/PaFGVEb6so")
+    }
+
+    fun gotoGitHubProjectPage() {
+        openUrl("https://github.com/magisk317/MiPushFramework")
     }
 }

@@ -4,6 +4,7 @@ import android.accounts.AccountManager
 import android.content.Context
 import android.text.TextUtils
 import com.xiaomi.mipush.sdk.MiPushClient
+import com.xiaomi.xmsf.runtime.PushRuntime
 
 class XMAccountManager private constructor(context: Context) {
     private var appCtx: Context = context.applicationContext ?: context
@@ -16,8 +17,16 @@ class XMAccountManager private constructor(context: Context) {
         ) {
             if (TextUtils.isEmpty(uid)) {
                 MiPushClient.setAlias(appCtx, xiaomiUserId, null)
+                PushRuntime.observeAccountEvent(
+                    action = "alias_set",
+                    source = "XMAccountManager.setAccountAsAlias"
+                )
             } else {
                 MiPushClient.unsetAlias(appCtx, uid, null)
+                PushRuntime.observeAccountEvent(
+                    action = "alias_unset",
+                    source = "XMAccountManager.setAccountAsAlias"
+                )
             }
             uid = xiaomiUserId ?: ""
         }

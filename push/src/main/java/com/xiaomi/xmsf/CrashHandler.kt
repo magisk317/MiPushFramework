@@ -19,7 +19,7 @@ object CrashHandler {
     @JvmStatic
     fun installCrashLogger() {
         val tag = "CrashHandler"
-        val logDir = File(LogUtils.getLogFolder(Utils.getApplication()!!))
+        val logDir = File(LogUtils.getCrashFolder(Utils.getApplication()!!))
 
         install { _, e ->
             val crashInfo = StringBuilder()
