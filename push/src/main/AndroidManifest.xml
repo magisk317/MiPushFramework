@@ -207,8 +207,6 @@
                 android:exported="false"
                 android:permission="android.permission.BIND_JOB_SERVICE" />
 
-        <service android:name="com.xiaomi.miui.pushads.sdk.MiPushRelayTraceService" />
-
         <service
                 android:name=".push.service.MiuiPushActivateService"
                 android:exported="true" />

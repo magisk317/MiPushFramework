@@ -2,11 +2,11 @@ package com.xiaomi.push.service.clientReport
 
 import android.content.Context
 import android.content.Intent
-import com.magisk317.push.hook.ExplicitHookBridge
+import com.magisk317.push.hook.HookTraceCompat
 
 class PushClientReportManager private constructor(private val context: Context) {
     private fun collectData() {
-        ExplicitHookBridge.onPushClientReportCollectData()
+        HookTraceCompat.onPushClientReportCollectData()
     }
 
     private fun reportPerf(packageName: String, code: Int, count: Long, latency: Long, details: String?) {

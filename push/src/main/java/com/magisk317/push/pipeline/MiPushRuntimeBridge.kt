@@ -3,14 +3,16 @@ package com.magisk317.push.pipeline
 import android.content.Context
 import android.content.Intent
 import io.github.aakira.napier.Napier
-import io.github.aakira.napier.DebugAntilog
 import com.magisk317.Global
 import com.magisk317.XMPushUtils
 import com.magisk317.compat.RegistrationStateStore
 import com.magisk317.service.RegisterRecorder
+import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
+import com.xiaomi.xmsf.runtime.PushRegistrationState
+import com.xiaomi.xmsf.runtime.PushRuntime
 import com.xiaomi.xmsf.push.utils.RegSecUtils
 import com.xiaomi.xmsf.utils.ConvertUtils
 import top.trumeet.mipush.provider.db.EventDb
@@ -26,12 +28,8 @@ object MiPushRuntimeBridge {
         fun i(msg: String) = Napier.i(msg, tag = "MiPushRuntimeBridge")
         fun e(msg: String, t: Throwable) = Napier.e(msg, t, tag = "MiPushRuntimeBridge")
     }
-    private const val RECENT_RECORD_WINDOW_MS = 10_000L
     private const val RECENT_REGISTER_TOAST_WINDOW_MS = 5_000L
-    private val recentRecords = LinkedHashMap<String, Long>()
-    private val recentAppActions = LinkedHashMap<String, Long>()
     private val recentRegisterToasts = LinkedHashMap<String, Long>()
-    private val recordLock = Any()
     private val registerToastLock = Any()
 
     @JvmStatic
@@ -40,6 +38,20 @@ object MiPushRuntimeBridge {
         runCatching {
             Global.MiPushEventListener().receiveFromApplication(intent)
             RegisterRecorder(context).recordRegisterRequest(intent)
+            intent.getStringExtra(top.trumeet.common.Constants.EXTRA_MI_PUSH_PACKAGE)
+                ?.takeIf { it.isNotBlank() }
+                ?.let { packageName ->
+                    when (intent.action) {
+                        PushConstants.MIPUSH_ACTION_REGISTER_APP -> PushRuntime.observeRegistrationRequest(
+                            packageName = packageName,
+                            source = "application_intent:${intent.action ?: "unknown"}"
+                        )
+                        PushConstants.MIPUSH_ACTION_UNREGISTER_APP -> PushRuntime.observeUnregistration(
+                            packageName = packageName,
+                            source = "application_intent:${intent.action ?: "unknown"}"
+                        )
+                    }
+                }
         }.onFailure {
             logger.e("onApplicationIntentReceived failed", it)
         }
@@ -60,6 +72,11 @@ object MiPushRuntimeBridge {
         if (payload != null) {
             onPayloadFromServer(context, payload, payload.size.toLong(), "notification")
         }
+        PushRuntime.observeNotificationEvent(
+            packageName = container?.packageName,
+            action = "notify_push_message",
+            source = "MiPushRuntimeBridge.onNotificationDispatch"
+        )
         onTransferToApplication(container)
     }
 
@@ -72,7 +89,16 @@ object MiPushRuntimeBridge {
     ) {
         val container = XMPushUtils.packToContainer(payload) ?: return
         val isMockReplay = MockMessageRegistry.isMarked(container)
-        if (!isMockReplay && !shouldRecord(container)) {
+        val actionName = container.action?.name ?: "Unknown"
+        val messageId = MessageIdentity.fromContainer(container)
+        val shouldProcess = isMockReplay || PushRuntime.observeInboundMessage(
+            packageName = container.packageName,
+            action = actionName,
+            messageId = messageId,
+            source = source,
+            isAck = container.action == ActionType.AckMessage
+        )
+        if (!shouldProcess) {
             logger.d("skip duplicate payload event source=$source pkg=${container.packageName} action=${container.action}")
             return
         }
@@ -107,6 +133,12 @@ object MiPushRuntimeBridge {
     @JvmStatic
     fun onTransferToApplication(container: XmPushActionContainer?) {
         if (container == null) return
+        PushRuntime.observeTransferToApplication(
+            packageName = container.packageName,
+            action = container.action?.name ?: "Unknown",
+            messageId = MessageIdentity.fromContainer(container),
+            source = "MiPushRuntimeBridge.onTransferToApplication"
+        )
         runCatching {
             Global.MiPushEventListener().transferToApplication(container)
         }.onFailure {
@@ -142,6 +174,37 @@ object MiPushRuntimeBridge {
             nextType = nextType,
             source = RegistrationStateStore.Source.SERVER_RESULT
         )
+        when (nextType) {
+            RegisteredApplication.RegisteredType.Registered -> {
+                PushRuntime.observeRegistrationResult(
+                    packageName = application.packageName,
+                    success = true,
+                    source = "server_result:${container.action}"
+                )
+            }
+            RegisteredApplication.RegisteredType.Unregistered -> {
+                if (container.action == ActionType.UnRegistration) {
+                    PushRuntime.observeUnregistration(
+                        packageName = application.packageName,
+                        source = "server_result:${container.action}"
+                    )
+                } else {
+                    PushRuntime.observeRegistrationResult(
+                        packageName = application.packageName,
+                        success = false,
+                        source = "server_result:${container.action}",
+                        reason = "registration_error"
+                    )
+                }
+            }
+            else -> {
+                PushRuntime.observeRegistrationState(
+                    packageName = application.packageName,
+                    state = PushRegistrationState.NotRegistered,
+                    source = "server_result:${container.action}"
+                )
+            }
+        }
     }
 
     private fun resolveRegistrationState(container: XmPushActionContainer): Int? {
@@ -156,57 +219,6 @@ object MiPushRuntimeBridge {
             result == null -> null
             result.errorCode.toInt() == 0 -> RegisteredApplication.RegisteredType.Registered
             else -> RegisteredApplication.RegisteredType.Unregistered
-        }
-    }
-
-    private fun shouldRecord(container: XmPushActionContainer): Boolean {
-        val messageId = MessageIdentity.fromContainer(container)
-        val pkg = container.packageName
-        val action = container.action?.name ?: "unknown"
-        val now = System.currentTimeMillis()
-        
-        synchronized(recordLock) {
-            pruneExpiredRecordsLocked(now)
-            
-            // 1. Precise ID deduplication (Long window)
-            if (messageId != null) {
-                val lastIdTime = recentRecords[messageId]
-                if (lastIdTime != null && (now - lastIdTime) <= RECENT_RECORD_WINDOW_MS) {
-                    return false
-                }
-                recentRecords[messageId] = now
-            }
-            
-            // 2. Burst deduplication for same App + Action (Short window)
-            // Even if messageId is different (or null), we don't expect 10+ messages for same app in 2s
-            if (pkg != null) {
-                val appActionKey = "$pkg:$action"
-                val lastAppActionTime = recentAppActions[appActionKey]
-                if (lastAppActionTime != null && (now - lastAppActionTime) <= 2000L) {
-                    return false
-                }
-                recentAppActions[appActionKey] = now
-            }
-            
-            return true
-        }
-    }
-
-    private fun pruneExpiredRecordsLocked(now: Long) {
-        val recordIterator = recentRecords.entries.iterator()
-        while (recordIterator.hasNext()) {
-            val entry = recordIterator.next()
-            if ((now - entry.value) > RECENT_RECORD_WINDOW_MS) {
-                recordIterator.remove()
-            }
-        }
-        
-        val appActionIterator = recentAppActions.entries.iterator()
-        while (appActionIterator.hasNext()) {
-            val entry = appActionIterator.next()
-            if ((now - entry.value) > 2000L) {
-                appActionIterator.remove()
-            }
         }
     }
 

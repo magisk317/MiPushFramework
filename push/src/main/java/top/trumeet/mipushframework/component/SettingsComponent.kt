@@ -49,14 +49,12 @@ fun SettingsItem(
     enabled: Boolean = true,
     onClick: () -> Unit
 ) {
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = summary?.let { { Text(it) } },
+    io.github.magisk317.uikit.preference.Item(
+        title = title,
+        summary = summary.orEmpty(),
+        enabled = enabled,
         trailingContent = content,
-        modifier = Modifier
-            .clickable(onClick = onClick, enabled = enabled)
-            .alpha(if (enabled) 1f else 0.5f),
-        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
+        onClick = onClick,
     )
 }
 
@@ -266,19 +264,12 @@ fun SettingsSwitchItem(
     enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit
 ) {
-    SettingsItem(
+    io.github.magisk317.uikit.preference.StateSwitchItem(
         title = title,
-        summary = summary,
+        summary = summary.orEmpty(),
+        checked = checked,
         enabled = enabled,
-        onClick = { onCheckedChange(!checked) },
-        content = {
-            Switch(
-                checked = checked,
-                onCheckedChange = onCheckedChange, // Use direct callback for accessibility
-                modifier = Modifier.scale(0.8f),
-                enabled = enabled
-            )
-        }
+        onCheckedChange = onCheckedChange,
     )
 }
 

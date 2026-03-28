@@ -27,6 +27,8 @@ import com.xiaomi.xmsf.push.control.PushControllerUtils.isAppMainProc
 import com.xiaomi.xmsf.push.control.XMOutbound
 import com.xiaomi.xmsf.push.notification.NotificationController.CHANNEL_WARN
 import com.xiaomi.xmsf.push.service.MiuiPushActivateService
+import com.xiaomi.xmsf.runtime.PushRuntimeChannelTracker
+import com.xiaomi.xmsf.runtime.PushRuntimeExecutionBridge
 import top.trumeet.common.Constants
 import top.trumeet.common.Constants.TAG_CONDOM
 import top.trumeet.common.push.PushServiceAccessibility
@@ -60,6 +62,8 @@ class MiPushFrameworkApp : Application() {
         Hooker.setLogger(PushControllerUtils.wrapContext(this))
         Hooker.hook(this)
         NotificationManagerEx.init(applicationContext)
+        PushRuntimeExecutionBridge.attach(this)
+        PushRuntimeChannelTracker.attach(this)
         installCondom()
         PushControllerUtils.setAllEnable(true, this)
         awakePushActivateServiceOnMainProc(PushControllerUtils.wrapContext(this))

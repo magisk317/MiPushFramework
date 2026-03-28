@@ -36,10 +36,11 @@ import dev.chrisbanes.haze.HazeStyle
 @Composable
 fun AppNavHostContent(
     navController: NavHostController,
-    startDestination: String = AppDestinations.EventsList.ROUTE,
+    startDestination: String = AppDestinations.Overview.ROUTE,
     contentPadding: PaddingValues,
     hazeState: HazeState? = null,
     hazeStyle: HazeStyle? = null,
+    overviewPage: @Composable (PaddingValues, HazeState?, HazeStyle?) -> Unit,
     eventsPage: @Composable (String, PaddingValues, Int, Boolean, HazeState?, HazeStyle?) -> Unit,
     appsPage: @Composable (String, PaddingValues, Int, Int, HazeState?, HazeStyle?) -> Unit,
     settingsPage: @Composable (PaddingValues, (String?) -> Unit, (String?) -> Unit, Int, HazeState?, HazeStyle?) -> Unit,
@@ -72,6 +73,16 @@ fun AppNavHostContent(
         navController = navController,
         startDestination = startDestination,
     ) {
+        composable(
+            route = AppDestinations.Overview.ROUTE,
+            enterTransition = { enterAnimation },
+            exitTransition = { exitAnimation },
+            popEnterTransition = { popEnterAnimation },
+            popExitTransition = { popExitAnimation },
+        ) {
+            overviewPage(contentPadding, hazeState, hazeStyle)
+        }
+
         // ==================== Events 分支 ====================
         composable(
             route = AppDestinations.EventsList.ROUTE,

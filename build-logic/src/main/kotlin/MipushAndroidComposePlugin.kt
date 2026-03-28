@@ -10,7 +10,6 @@ class MipushAndroidComposePlugin : Plugin<Project> {
             add("implementation", project.dependencies.platform("androidx.compose:compose-bom:${project.version("compose-bom")}"))
             add("implementation", "androidx.compose.ui:ui")
             add("implementation", "androidx.compose.material3:material3:${project.version("material3")}")
-            add("implementation", "androidx.compose.material:material-icons-extended")
             add("implementation", "androidx.compose.ui:ui-tooling-preview")
             add("debugImplementation", "androidx.compose.ui:ui-tooling")
             add("implementation", "androidx.lifecycle:lifecycle-runtime-ktx:${project.version("lifecycle")}")

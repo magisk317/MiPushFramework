@@ -5,7 +5,6 @@ import android.os.IBinder
 import android.os.IInterface
 import android.os.Parcel
 import android.os.RemoteException
-import com.magisk317.compat.ParcelCompatBridge
 
 interface IHttpService : IInterface {
 
@@ -26,7 +25,7 @@ interface IHttpService : IInterface {
                     data.enforceInterface(DESCRIPTOR)
                     val response = doHttpPost(
                         data.readString(),
-                        ParcelCompatBridge.readHashMap(data, javaClass.classLoader)
+                        data.readHashMap(javaClass.classLoader)
                     )
                     reply?.writeNoException()
                     reply?.writeString(response)

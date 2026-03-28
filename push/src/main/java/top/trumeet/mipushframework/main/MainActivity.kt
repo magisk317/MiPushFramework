@@ -39,8 +39,6 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.NavController
@@ -71,7 +69,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
@@ -131,7 +128,7 @@ class MainActivity : ComponentActivity() {
         val startDestination = if (intent?.getStringExtra(EXTRA_START_TAB) == START_TAB_SETTINGS) {
             AppDestinations.Settings.ROUTE
         } else {
-            AppDestinations.AppsList.ROUTE
+            AppDestinations.Overview.ROUTE
         }
         setContent {
             val themeState by settingsViewModel.themeState.collectAsStateWithLifecycle()
@@ -181,104 +178,15 @@ class MainActivity : ComponentActivity() {
 
             Theme(themeMode = ThemeMode.fromValue(currentThemeMode)) {
                 val hazeState = remember { HazeState() }
-                val hazeStyle = rememberHazeStyle(blurRadius = 25.dp, tintAlpha = 0.2f)
+                val hazeStyle = rememberHazeStyle(blurRadius = 32.dp, tintAlpha = 0.26f)
                 
                 Box(modifier = Modifier.fillMaxSize()) {
-                    // Navigation host
-                    val navController = rememberNavController()
-                    val navigator = NavControllerNavigationCoordinator(navController)
-                    var aboutDialogContent by remember { mutableStateOf<String?>(null) }
-                    var settingsSectionTitle by rememberSaveable { mutableStateOf<String?>(null) }
-                    var settingsBackSignal by rememberSaveable { mutableStateOf(0) }
-
-                    NavigationSuiteScaffold(
-                        bottomBar = {
-                            BottomNavigationBarV2(
-                                navController = navController,
-                                hazeState = hazeState,
-                                hazeStyle = hazeStyle,
-                                onTabDoubleTap = { index ->
-                                    when (index) {
-                                        0 -> eventRepository.startManagePermissions("", true)
-                                        else -> {}
-                                    }
-                                }
-                            )
-                        },
-                        navigationRail = {
-                            // for medium/large screens we also show the same tabs vertically
-                            BottomNavigationBarV2(
-                                navController = navController,
-                                hazeState = hazeState,
-                                hazeStyle = hazeStyle,
-                                onTabDoubleTap = { /* same */ }
-                            )
-                        },
-                        drawerContent = {
-                            // future: additional items like 'About' or 'Settings'
-                            Text(stringResource(R.string.action_help))
-                        },
-                        content = { innerPadding ->
-                            AppNavHostContent(
-                                navController = navController,
-                                startDestination = startDestination,
-                                contentPadding = innerPadding,
-                                hazeState = hazeState,
-                                hazeStyle = hazeStyle,
-                                eventsPage = { q, padding, refreshSignal, groupByApp, hState, hStyle ->
-                                    EventList(query = q, contentPadding = padding, refreshSignal = refreshSignal, groupByApp = groupByApp, hazeState = hState, hazeStyle = hStyle)
-                                },
-                                appsPage = { q, padding, refreshSignal, filterMode, hState, hStyle ->
-                                    ApplicationList(
-                                        q,
-                                        contentPadding = padding,
-                                        refreshSignal = refreshSignal,
-                                        filterMode = filterMode,
-                                        onAppClick = { pkg -> eventRepository.startManagePermissions(pkg, true) },
-                                        hazeState = hState,
-                                        hazeStyle = hStyle
-                                    )
-                                },
-                                settingsPage = { padding, onAbout, onSectionChanged, backSignal, hState, hStyle ->
-                                    Settings(
-                                        padding,
-                                        onShowAboutDialog = onAbout,
-                                        onSectionChanged = onSectionChanged,
-                                        sectionBackSignal = backSignal,
-                                        hazeState = hState,
-                                        hazeStyle = hStyle
-                                    )
-                                },
-                                helpPage = { padding, hState, hStyle ->
-                                    // simple wrapper to apply padding
-                                    HelpScreen(Modifier.padding(padding), hazeState = hState, hazeStyle = hStyle)
-                                },
-                                onAbout = { content -> aboutDialogContent = content },
-                                onSectionChanged = { title -> settingsSectionTitle = title }
-                            )
-                        }
+                    MainScreen(
+                        startDestination = startDestination,
+                        hazeState = hazeState,
+                        hazeStyle = hazeStyle,
+                        eventRepository = eventRepository,
                     )
-
-                    // Keep system bar areas visually attached to page chrome.
-                    SystemBarsScrim(hazeState = hazeState, hazeStyle = hazeStyle)
-
-                    // about dialog
-                    if (aboutDialogContent != null) {
-                        androidx.compose.material3.AlertDialog(
-                            onDismissRequest = { aboutDialogContent = null },
-                            confirmButton = {
-                                DialogActionRow(
-                                    actions = listOf(
-                                        DialogAction(
-                                            label = stringResource(android.R.string.ok),
-                                            onClick = { aboutDialogContent = null }
-                                        )
-                                    )
-                                )
-                            },
-                            text = { Text(aboutDialogContent!!) }
-                        )
-                    }
 
                     if (isAnimating && screenshotBitmap != null) {
                         val view = LocalView.current

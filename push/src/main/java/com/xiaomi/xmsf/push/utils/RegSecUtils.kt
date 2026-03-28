@@ -10,17 +10,30 @@ object RegSecUtils {
 
     @JvmStatic
     fun getRegSec(container: XmPushActionContainer?): String? {
+        return getCandidateRegSecs(container).firstOrNull()
+    }
+
+    @JvmStatic
+    fun getCandidateRegSecs(container: XmPushActionContainer?, preferredRegSec: String? = null): List<String> {
         if (container == null) {
-            return null
+            return emptyList()
+        }
+        val candidates = linkedSetOf<String>()
+        if (!preferredRegSec.isNullOrEmpty()) {
+            candidates.add(preferredRegSec)
         }
         val metaInfo = container.metaInfo
         if (metaInfo != null && metaInfo.extra != null) {
             val regSec = metaInfo.extra[RegSecField]
             if (!TextUtils.isEmpty(regSec)) {
-                return regSec
+                candidates.add(regSec!!)
             }
         }
-        return top.trumeet.common.utils.Utils.getRegSec(container.packageName)
+        val packageName = container.packageName
+        if (!packageName.isNullOrEmpty()) {
+            candidates += top.trumeet.common.utils.Utils.getRegSecs(packageName)
+        }
+        return candidates.toList()
     }
 
     @JvmStatic

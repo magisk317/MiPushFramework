@@ -4,8 +4,8 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
 import io.github.aakira.napier.Napier
-import io.github.aakira.napier.DebugAntilog
 import com.magisk317.Global
+import com.xiaomi.xmsf.runtime.PushRuntimeComponents
 import kotlinx.coroutines.runBlocking
 
 object PushServiceStarter {
@@ -44,6 +44,6 @@ object PushServiceStarter {
     }
 
     private fun isXMPushServiceTarget(intent: Intent): Boolean {
-        return intent.component?.className == "com.xiaomi.push.service.XMPushService"
+        return intent.component?.className == PushRuntimeComponents.LEGACY_MAIN_SERVICE_CLASS
     }
 }

@@ -1,6 +1,5 @@
 package top.trumeet.mipushframework.main
 
-
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -9,17 +8,24 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -38,17 +45,20 @@ import com.xiaomi.xmsf.R
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.hazeEffect
-import top.trumeet.mipushframework.component.MarkdownView
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import top.trumeet.mipushframework.component.ExpressiveSectionCard
+import top.trumeet.mipushframework.component.FeatureEntryCard
 import top.trumeet.mipushframework.component.LoadingIndicatorTokens
+import top.trumeet.mipushframework.component.MarkdownView
+import top.trumeet.mipushframework.component.OverlayHeaderPanel
+import top.trumeet.mipushframework.component.OverlayHeaderScaffold
 import top.trumeet.mipushframework.component.PolygonMorphLoadingIndicator
+import top.trumeet.mipushframework.component.SectionColumn
 import top.trumeet.mipushframework.component.SessionLoadingRegistry
-import top.trumeet.mipushframework.component.SettingsGroup
-import top.trumeet.mipushframework.component.SettingsItem
 import top.trumeet.mipushframework.component.rememberMinDurationLoading
 import top.trumeet.ui.theme.Theme
 import java.io.InputStreamReader
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 class HelpPage : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -62,93 +72,214 @@ class HelpPage : ComponentActivity() {
     }
 }
 
-@Preview(
-    showSystemUi = true,
-    showBackground = true,
-)
+@Preview(showSystemUi = true, showBackground = true)
 @Composable
 fun HelpPage(modifier: Modifier = Modifier) {
-    HelpScreen()
+    HelpScreen(modifier = modifier)
 }
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
 fun HelpScreen(
     modifier: Modifier = Modifier,
     hazeState: HazeState? = null,
-    hazeStyle: HazeStyle? = null
+    hazeStyle: HazeStyle? = null,
 ) {
-    androidx.compose.material3.Scaffold(
-        modifier = modifier,
-        topBar = {
-            androidx.compose.material3.TopAppBar(
-                title = {
-                    androidx.compose.material3.Text(
-                        stringResource(R.string.app_name) + " " + stringResource(R.string.helplib_title)
-                    )
-                },
-                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = Color.Transparent,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White,
-                    actionIconContentColor = Color.White
-                ),
-                modifier = (Modifier
-                    .statusBarsPadding()
-                    .background(androidx.compose.material3.MaterialTheme.colorScheme.surface.copy(alpha = 0.62f))
-                ).let { base ->
-                    if (hazeState != null && hazeStyle != null) {
-                        base.hazeEffect(hazeState, hazeStyle) {
-                            forceInvalidateOnPreDraw = true
-                        }
-                    } else {
-                        base
-                    }
-                }
-            )
-        }
-    ) { innerPadding ->
-        HelpList(Modifier.padding(innerPadding))
-    }
-}
-
-@Composable
-fun HelpList(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
+
     NavHost(
         navController = navController,
-        startDestination = "list",
-        modifier = modifier
-            .statusBarsPadding()
-            .navigationBarsPadding()
+        startDestination = HelpRoute.List.route,
+        modifier = modifier.fillMaxSize(),
     ) {
-        composable("list") { HelpList(navController) }
-        composable("markdown/{markdownResId}") { backStackEntry ->
-            val markdownResId = backStackEntry.arguments?.getString("markdownResId")?.toInt()
-            Markdown(markdownResId)
+        composable(HelpRoute.List.route) {
+            HelpHubRoute(
+                navController = navController,
+                hazeState = hazeState,
+                hazeStyle = hazeStyle,
+            )
+        }
+        composable(HelpRoute.Article.route) { backStackEntry ->
+            val titleRes = backStackEntry.arguments?.getString(HelpRoute.Article.ARG_TITLE)?.toIntOrNull()
+            val markdownResId = backStackEntry.arguments?.getString(HelpRoute.Article.ARG_MARKDOWN)?.toIntOrNull()
+            HelpArticleRoute(
+                titleRes = titleRes,
+                markdownResId = markdownResId,
+                onBack = { navController.popBackStack() },
+                hazeState = hazeState,
+                hazeStyle = hazeStyle,
+            )
         }
     }
 }
 
+private sealed class HelpRoute(val route: String) {
+    data object List : HelpRoute("list")
+    data object Article : HelpRoute("article/{titleRes}/{markdownResId}") {
+        const val ARG_TITLE = "titleRes"
+        const val ARG_MARKDOWN = "markdownResId"
+
+        fun create(titleRes: Int, markdownResId: Int): String {
+            return "article/$titleRes/$markdownResId"
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HelpList(navController: NavHostController) {
-    Column {
-        FAQGroup(navController)
+private fun HelpHubRoute(
+    navController: NavHostController,
+    hazeState: HazeState?,
+    hazeStyle: HazeStyle?,
+) {
+    val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
+    OverlayHeaderScaffold(
+        fallbackTopPadding = topInset + 116.dp,
+        bottomPadding = bottomInset + 24.dp,
+        overlayModifier = Modifier
+            .statusBarsPadding()
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.62f))
+            .then(
+                if (hazeState != null && hazeStyle != null) {
+                    Modifier.hazeEffect(hazeState, hazeStyle) {
+                        forceInvalidateOnPreDraw = true
+                    }
+                } else {
+                    Modifier
+                }
+            ),
+        content = { padding ->
+            HelpHubContent(
+                navController = navController,
+                contentPadding = padding,
+            )
+        },
+        overlay = {
+            OverlayHeaderPanel(
+                title = stringResource(R.string.helplib_title),
+                subtitle = stringResource(R.string.help_page_overview_summary),
+            ) {
+                Text(
+                    text = stringResource(R.string.help_page_workspace_hint),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+    )
+}
+
+@Composable
+private fun HelpHubContent(
+    navController: NavHostController,
+    contentPadding: PaddingValues,
+) {
+    SectionColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+        contentPadding = PaddingValues(
+            start = 12.dp,
+            top = contentPadding.calculateTopPadding() + 8.dp,
+            end = 12.dp,
+            bottom = contentPadding.calculateBottomPadding(),
+        ),
+    ) {
+        FAQGroup(navController = navController)
         ContactUsGroup()
     }
 }
 
 @Composable
-private fun Markdown(markdownResId: Int?) {
-    MarkdownView(
-        readRawFile(LocalContext.current, markdownResId!!), modifier = Modifier.padding(16.dp)
+private fun HelpArticleRoute(
+    titleRes: Int?,
+    markdownResId: Int?,
+    onBack: () -> Unit,
+    hazeState: HazeState?,
+    hazeStyle: HazeStyle?,
+) {
+    val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
+    OverlayHeaderScaffold(
+        fallbackTopPadding = topInset + 108.dp,
+        bottomPadding = bottomInset + 24.dp,
+        overlayModifier = Modifier
+            .statusBarsPadding()
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.62f))
+            .then(
+                if (hazeState != null && hazeStyle != null) {
+                    Modifier.hazeEffect(hazeState, hazeStyle) {
+                        forceInvalidateOnPreDraw = true
+                    }
+                } else {
+                    Modifier
+                }
+            ),
+        content = { padding ->
+            SectionColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState()),
+                contentPadding = PaddingValues(
+                    start = 12.dp,
+                    top = padding.calculateTopPadding() + 8.dp,
+                    end = 12.dp,
+                    bottom = padding.calculateBottomPadding(),
+                ),
+            ) {
+                Markdown(
+                    markdownResId = markdownResId,
+                    title = titleRes?.let { stringResource(it) } ?: stringResource(R.string.help_page_article_title),
+                )
+            }
+        },
+        overlay = {
+            OverlayHeaderPanel(
+                title = titleRes?.let { stringResource(it) } ?: stringResource(R.string.help_page_article_title),
+                subtitle = stringResource(R.string.help_page_article_summary),
+                actions = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_arrow_back_black_24dp),
+                            contentDescription = stringResource(R.string.action_back),
+                        )
+                    }
+                },
+            ) {
+                Text(
+                    text = stringResource(R.string.help_page_article_workspace_hint),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
     )
 }
 
 @Composable
+private fun Markdown(
+    markdownResId: Int?,
+    title: String,
+) {
+    val context = LocalContext.current
+    if (markdownResId == null) return
+
+    ExpressiveSectionCard(
+        title = title,
+        summary = stringResource(R.string.help_page_article_card_summary),
+    ) {
+        MarkdownView(
+            readRawFile(context, markdownResId),
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
 private fun FAQGroup(
-    navController: NavHostController
+    navController: NavHostController,
 ) {
     val context = LocalContext.current
     val sessionKey = "help_articles_initial"
@@ -158,30 +289,35 @@ private fun FAQGroup(
 
     LaunchedEffect(context) {
         actualLoading = SessionLoadingRegistry.shouldShowInitial(sessionKey)
-        val loaded = withContext(Dispatchers.IO) {
-            getArticles(context)
-        }
+        val loaded = withContext(Dispatchers.IO) { getArticles(context) }
         articles = loaded
         actualLoading = false
         SessionLoadingRegistry.markShown(sessionKey)
     }
 
-    SettingsGroup(title = stringResource(R.string.helplib_title_faq)) {
+    ExpressiveSectionCard(
+        title = stringResource(R.string.helplib_title_faq),
+        summary = stringResource(R.string.help_page_faq_summary),
+    ) {
         if (showLoading && articles.isEmpty()) {
-            Row(
+            PolygonMorphLoadingIndicator(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                PolygonMorphLoadingIndicator(modifier = Modifier.size(LoadingIndicatorTokens.ContainedSize))
-            }
+                    .statusBarsPadding(),
+            )
         }
-        for (article in articles) {
-            SettingsItem(
-                title = stringResource(article.titleRes)
+
+        articles.forEach { article ->
+            HelpEntryCard(
+                title = stringResource(article.titleRes),
+                summary = stringResource(R.string.help_page_article_card_summary),
             ) {
-                navController.navigate("markdown/${article.markdownRes}")
+                navController.navigate(
+                    HelpRoute.Article.create(
+                        titleRes = article.titleRes,
+                        markdownResId = article.markdownRes,
+                    ),
+                )
             }
         }
     }
@@ -190,17 +326,44 @@ private fun FAQGroup(
 @Composable
 private fun ContactUsGroup() {
     val context = LocalContext.current
-    SettingsGroup(title = stringResource(R.string.helplib_title_contact)) {
-        SettingsItem(title = stringResource(R.string.helplib_action_qq_group)) {
+
+    ExpressiveSectionCard(
+        title = stringResource(R.string.helplib_title_contact),
+        summary = stringResource(R.string.help_page_contact_summary),
+    ) {
+        HelpEntryCard(
+            title = stringResource(R.string.helplib_action_qq_group),
+            summary = stringResource(R.string.help_page_contact_qq_summary),
+        ) {
             openUrl(context, "https://qm.qq.com/q/PaFGVEb6so")
         }
-        SettingsItem(title = stringResource(R.string.helplib_action_telegram_group)) {
+        HelpEntryCard(
+            title = stringResource(R.string.helplib_action_telegram_group),
+            summary = stringResource(R.string.help_page_contact_telegram_summary),
+        ) {
             openUrl(context, "https://t.me/+Gf5x3Lqw1tdiZDNl")
         }
-        SettingsItem(title = stringResource(R.string.helplib_action_issue)) {
+        HelpEntryCard(
+            title = stringResource(R.string.helplib_action_issue),
+            summary = stringResource(R.string.help_page_contact_issue_summary),
+        ) {
             openUrl(context, "https://github.com/magisk317/MiPushFramework/issues")
         }
     }
+}
+
+@Composable
+private fun HelpEntryCard(
+    title: String,
+    summary: String,
+    onClick: () -> Unit,
+) {
+    FeatureEntryCard(
+        title = title,
+        summary = summary,
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick,
+    )
 }
 
 private fun openUrl(context: Context, url: String) {

@@ -3,7 +3,6 @@ package com.xiaomi.xmsf.utils
 import android.os.Bundle
 import android.os.Parcelable
 import android.util.Base64
-import com.magisk317.compat.BundleCompatBridge
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.buildClassSerialDescriptor
@@ -26,7 +25,7 @@ object BundleSerializer : KSerializer<Bundle> {
         val jsonEncoder = encoder as? JsonEncoder ?: error("Can only be used with JSON")
         val jsonObject = buildJsonObject {
             for (key in value.keySet()) {
-                val item = BundleCompatBridge.get(value, key)
+                val item = value.get(key)
                 put(key, encodeValue(item))
             }
         }
@@ -84,7 +83,7 @@ object BundleSerializer : KSerializer<Bundle> {
     private fun encodeBundle(bundle: Bundle): JsonObject {
         return buildJsonObject {
             for (key in bundle.keySet()) {
-                put(key, encodeValue(BundleCompatBridge.get(bundle, key)))
+                put(key, encodeValue(bundle.get(key)))
             }
         }
     }

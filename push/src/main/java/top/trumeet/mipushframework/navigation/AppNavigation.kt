@@ -14,6 +14,11 @@ import java.nio.charset.StandardCharsets
  */
 
 object AppDestinations {
+    @Serializable
+    data object Overview {
+        const val ROUTE = "overview"
+    }
+
     /**
      * 事件列表页面
      * 主要内容：Display list of push events with search and filtering
@@ -145,6 +150,8 @@ object NavigationArguments {
  * UI 层使用此接口，而不是直接操作 NavController，便于测试和重构。
  */
 interface NavigationCoordinator {
+    fun navigateToOverview()
+
     /**
      * 导航至事件列表页面
      */

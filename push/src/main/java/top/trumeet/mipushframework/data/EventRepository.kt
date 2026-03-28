@@ -4,7 +4,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import com.magisk317.XMPushUtils
-import com.magisk317.service.XMPushServiceAbility
+import com.magisk317.service.XMPushServiceLifecycleBridge
 import com.magisk317.utils.MockMIPushMessage
 import com.xiaomi.channel.commonutils.android.DataCryptUtils
 import com.xiaomi.channel.commonutils.string.Base64Coder
@@ -131,7 +131,7 @@ class EventRepository @Inject constructor(
     }
 
     fun mockMessage(containerWithRegSec: XmPushActionContainer) {
-        val pushService: SdkXMPushService? = XMPushServiceAbility.xmPushService
+        val pushService: SdkXMPushService? = XMPushServiceLifecycleBridge.peekService()
         logger.d("EventRepository", "mockMessage called. pushService exists: ${pushService != null}")
         val regSec = RegSecUtils.getRegSec(containerWithRegSec)
         if (containerWithRegSec.isEncryptAction && regSec.isNullOrBlank()) {

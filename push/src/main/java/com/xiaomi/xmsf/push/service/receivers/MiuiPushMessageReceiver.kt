@@ -8,6 +8,7 @@ import io.github.aakira.napier.DebugAntilog
 import com.xiaomi.mipush.sdk.MiPushCommandMessage
 import com.xiaomi.mipush.sdk.MiPushMessage
 import com.xiaomi.mipush.sdk.PushMessageReceiver
+import com.xiaomi.xmsf.runtime.PushRuntime
 import com.xiaomi.xmsf.push.service.XMAccountManager
 
 class MiuiPushMessageReceiver : PushMessageReceiver() {
@@ -24,6 +25,10 @@ class MiuiPushMessageReceiver : PushMessageReceiver() {
         if (miPushCommandMessage.resultCode.toInt() == 0) {
             val command = miPushCommandMessage.command
             if (miPushCommandMessage.commandArguments?.isNotEmpty() == true && "register" == command) {
+                PushRuntime.observeAccountEvent(
+                    action = "register_command_result",
+                    source = "MiuiPushMessageReceiver.onCommandResult"
+                )
                 XMAccountManager.getInstance(context).setAccountAsAlias()
             }
             return
@@ -43,6 +48,11 @@ class MiuiPushMessageReceiver : PushMessageReceiver() {
         logger.i("onReceiveMessage -> $miPushMessage")
         val pkg = miPushMessage.extra["miui_package_name"]
         if (!pkg.isNullOrBlank()) {
+            PushRuntime.observeNotificationEvent(
+                packageName = pkg,
+                action = if (isNotified) "miui_click_message" else "miui_receive_message",
+                source = "MiuiPushMessageReceiver.routeIncomingMessage"
+            )
             logger.d("not empty")
             val intent = Intent()
             intent.setPackage(pkg)

@@ -4,11 +4,17 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInfo
 import com.magisk317.hook.HookedMethodHandler
+import com.magisk317.push.pipeline.MiPushRuntimeBridge
+import com.magisk317.service.ConnectionStatus
+import com.magisk317.service.XMPushServiceLifecycleBridge
 import com.xiaomi.network.Fallback
 import com.xiaomi.push.service.MIPushNotificationHelper
+import com.xiaomi.push.service.PushConstants
 import com.xiaomi.push.service.XMPushService
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
+import com.xiaomi.xmsf.runtime.PushRuntimeChannelTracker
+import top.trumeet.common.utils.Utils
 
 class ModernHookHandler : HookedMethodHandler {
     override fun shouldSendBroadcast(
@@ -26,53 +32,68 @@ class ModernHookHandler : HookedMethodHandler {
         payload: ByteArray,
         newMessageIntent: Intent
     ) {
-        ExplicitHookBridge.postProcessMIPushMessage(pushService, pkgName, payload, newMessageIntent)
+        HookTraceCompat.postProcessMIPushMessage(pkgName, payload, newMessageIntent)
+        XMPushServiceLifecycleBridge.ensureCreated(pushService)
+        newMessageIntent.getByteArrayExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD)
+            ?.let { MiPushRuntimeBridge.onTransferToApplication(it) }
+        MiPushRuntimeBridge.onTransferToApplication(payload)
     }
 
     override fun notifyPacketArrival(joinPoint: Any?, pushService: XMPushService, chid: String, data: Any) {
-        ExplicitHookBridge.notifyPacketArrival(pushService, chid, data)
+        HookTraceCompat.notifyPacketArrival(chid, data)
     }
 
     override fun debugLog(joinPoint: Any?): Any? = null
 
     override fun logFallback(joinPoint: Any?, fallback: Fallback, usePort: Boolean) {
-        ExplicitHookBridge.logFallback(fallback, usePort)
+        HookTraceCompat.logFallback(fallback, usePort)
     }
 
     override fun processIntent(joinPoint: Any?, intent: Intent) {
-        ExplicitHookBridge.processIntent(intent)
+        HookTraceCompat.processIntent(intent)
+        val app = Utils.getApplication() ?: return
+        MiPushRuntimeBridge.onApplicationIntentReceived(app, intent)
+        MiPushRuntimeBridge.onIntentForwardedToServer(intent)
     }
 
     override fun onCreate(joinPoint: Any?, pushService: XMPushService) {
-        ExplicitHookBridge.onServiceCreate(pushService)
+        HookTraceCompat.onServiceCreate(pushService)
+        XMPushServiceLifecycleBridge.ensureCreated(pushService)
     }
 
     override fun onStartCommand(joinPoint: Any?) {
-        ExplicitHookBridge.onStartCommand()
+        HookTraceCompat.onStartCommand()
     }
 
     override fun onStart(joinPoint: Any?, intent: Intent, startId: Int) {
-        ExplicitHookBridge.onStart(intent, startId)
+        HookTraceCompat.onStart(intent, startId)
     }
 
     override fun onBind(joinPoint: Any?, intent: Intent) {
-        ExplicitHookBridge.onBind(intent)
+        HookTraceCompat.onBind(intent)
     }
 
     override fun onDestroy(joinPoint: Any?) {
-        ExplicitHookBridge.onDestroy()
+        HookTraceCompat.onDestroy()
+        XMPushServiceLifecycleBridge.onDestroy(null)
     }
 
     override fun setConnectionStatus(joinPoint: Any?, newStatus: Int, reason: Int, e: Exception) {
-        ExplicitHookBridge.onConnectionStatusChanged(newStatus, reason, e)
+        HookTraceCompat.onConnectionStatusChanged(newStatus, reason, e)
+        XMPushServiceLifecycleBridge.onConnectionStatusChanged(ConnectionStatus.of(newStatus.coerceIn(0, 2)))
+        PushRuntimeChannelTracker.observeConnectionState(
+            newStatus = newStatus,
+            reason = reason,
+            source = "ModernHookHandler.setConnectionStatus"
+        )
     }
 
     override fun sendMessage(joinPoint: Any?, intent: Intent) {
-        ExplicitHookBridge.onSendMessage(intent)
+        HookTraceCompat.onSendMessage(intent)
     }
 
     override fun logCheckServices(joinPoint: Any?, pkgInfo: PackageInfo) {
-        ExplicitHookBridge.onManifestCheckServices(pkgInfo)
+        HookTraceCompat.onManifestCheckServices(pkgInfo)
     }
 
     override fun buildIntent(joinPoint: Any?): Intent = Intent()
@@ -87,7 +108,13 @@ class ModernHookHandler : HookedMethodHandler {
         decryptedContent: ByteArray,
         packetBytesLen: Long
     ) {
-        ExplicitHookBridge.processMIPushMessage(pushService, decryptedContent, packetBytesLen)
+        HookTraceCompat.processMIPushMessage(packetBytesLen, "ModernHookHandler.processMIPushMessage")
+        MiPushRuntimeBridge.onPayloadFromServer(
+            pushService,
+            decryptedContent,
+            packetBytesLen,
+            "ModernHookHandler.processMIPushMessage"
+        )
     }
 
     override fun isDuplicateMessage(
@@ -103,7 +130,8 @@ class ModernHookHandler : HookedMethodHandler {
         container: XmPushActionContainer,
         decryptedContent: ByteArray
     ): MIPushNotificationHelper.NotifyPushMessageInfo {
-        ExplicitHookBridge.notifyPushMessage(context, container, decryptedContent)
+        HookTraceCompat.notifyPushMessage(container, decryptedContent)
+        MiPushRuntimeBridge.onNotificationDispatch(context, container, decryptedContent)
         return MIPushNotificationHelper.NotifyPushMessageInfo()
     }
 }

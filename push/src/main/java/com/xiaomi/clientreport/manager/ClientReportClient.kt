@@ -1,7 +1,7 @@
 package com.xiaomi.clientreport.manager
 
 import android.content.Context
-import com.magisk317.push.hook.ExplicitHookBridge
+import com.magisk317.push.hook.HookTraceCompat
 import com.xiaomi.clientreport.data.Config
 import com.xiaomi.clientreport.data.EventClientReport
 import com.xiaomi.clientreport.data.PerfClientReport
@@ -12,12 +12,12 @@ class ClientReportClient private constructor() {
     companion object {
         @JvmStatic
         fun init(context: Context) {
-            ExplicitHookBridge.onClientReportClientInit()
+            HookTraceCompat.onClientReportClientInit()
         }
 
         @JvmStatic
         fun init(context: Context, config: Config) {
-            ExplicitHookBridge.onClientReportClientInit()
+            HookTraceCompat.onClientReportClientInit()
         }
 
         @JvmStatic
@@ -27,7 +27,7 @@ class ClientReportClient private constructor() {
             eventProcessor: IEventProcessor,
             perfProcessor: IPerfProcessor
         ) {
-            ExplicitHookBridge.onClientReportClientInit()
+            HookTraceCompat.onClientReportClientInit()
         }
 
         @JvmStatic

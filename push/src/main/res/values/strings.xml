@@ -96,6 +96,7 @@
 
     <!-- Preference -->
     <string name="preference_title">Push Config</string>
+    <string name="main_overview">Overview</string>
     <string name="main_event">Logs</string>
     <string name="main_apps">Apps</string>
     <string name="main_settings">Configs</string>
@@ -219,6 +220,27 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <!-- Recent Activity -->
     <string name="recent_activity_view">View recent events</string>
     <string name="recent_activity_title">Recent events</string>
+    <string name="recent_activity_grouped_summary">Browse event history grouped by application.</string>
+    <string name="recent_activity_stream_summary">Browse the full event stream in chronological order.</string>
+    <string name="recent_activity_mode_grouped">Grouped</string>
+    <string name="recent_activity_mode_stream">Stream</string>
+    <string name="recent_activity_action_show_events">Show events</string>
+    <string name="recent_activity_action_group_by_app">Group by app</string>
+    <string name="recent_activity_group_count">%1$d records</string>
+    <string name="recent_activity_updated_at">Updated %1$s</string>
+    <string name="recent_activity_disabled_label">Disabled</string>
+    <string name="recent_activity_filter_prefix">Filter</string>
+    <string name="recent_activity_filter_type_title">Message type</string>
+    <string name="recent_activity_filter_type_all">All messages</string>
+    <string name="recent_activity_filter_type_notification">Notification</string>
+    <string name="recent_activity_filter_type_pass_through">Pass-through</string>
+    <string name="recent_activity_filter_type_registration">Registration</string>
+    <string name="recent_activity_filter_type_other">Other types</string>
+    <string name="recent_activity_filter_status_title">Status</string>
+    <string name="recent_activity_filter_status_all">All status</string>
+    <string name="recent_activity_filter_status_normal">Normal</string>
+    <string name="recent_activity_filter_status_disabled">Disabled</string>
+    <string name="recent_activity_filter_status_denied">Denied</string>
 
     <!-- Update -->
     <string name="action_help">Help</string>
@@ -253,6 +275,7 @@ Registration is determined and initiated by the application and generally begins
     <string name="group_notifications_for_same_session_detail">the same session notifications will be group, and the non-session notifications will not be group</string>
 
     <string name="helplib_action_about">About</string>
+    <string name="action_back">Back</string>
     <string name="helplib_action_issue">Feedback</string>
     <string name="helplib_action_telegram_group">Join Telegram group</string>
     <string name="helplib_action_qq_group">Join QQ channel</string>
@@ -276,17 +299,61 @@ This could be the application doing a reverse registration, or the registration 
         <item>help_article_can_not_receive_push|can_not_receive_push</item>
         <item>help_article_register_error|register_error</item>
         <item>help_article_no_register|no_register</item>
+        <item>help_article_registration_types|registration_types</item>
     </string-array>
 
     <string name="help_article_can_not_receive_push">Can not receive push message</string>
     <string name="help_article_register_error">register error</string>
     <string name="help_article_no_register">no register app</string>
+    <string name="help_article_registration_types">app registration types</string>
+
+    <string name="app_registration_type_format">Type: %1$s</string>
+    <string name="registration_type_direct_sdk">direct_sdk</string>
+    <string name="registration_type_receiver_only">receiver_only</string>
+    <string name="registration_type_bridge_wrapper">bridge_wrapper</string>
+    <string name="registration_type_unsupported_components">unsupported_components</string>
+    <string name="registration_type_package_not_found">package_not_found</string>
+    <string name="registration_type_application_unavailable">application_unavailable</string>
+    <string name="registration_type_unknown">unknown</string>
+    <string name="registration_diagnostics_group">Registration diagnostics</string>
+    <string name="registration_diagnostics_loading">Loading diagnostics…</string>
+    <string name="registration_diagnostics_display_type">Display type</string>
+    <string name="registration_diagnostics_force_type">Force-register path</string>
+    <string name="registration_diagnostics_components">Components</string>
+    <string name="registration_diagnostics_components_value">runtime=%1$s handler=%2$s receiver=%3$s bridge=%4$s launcher=%5$s</string>
+    <string name="registration_diagnostics_local_state">Local registration state</string>
+    <string name="registration_diagnostics_local_state_value">localReg=%1$s regSec=%2$d lastPush=%3$s</string>
+    <string name="registration_diagnostics_recent_event">Latest registration event</string>
+    <string name="registration_diagnostics_inference">Diagnosis</string>
+    <string name="registration_diagnostics_refresh_summary">Reload local registration markers, events, and component state.</string>
+    <string name="registration_actions_group">Registration actions</string>
+    <string name="registration_action_launch_observe">Launch and observe registration</string>
+    <string name="registration_action_launch_observe_summary">Only launch the app and observe whether it registers by itself. No fake message injection.</string>
+    <string name="registration_action_launch_observe_started">App launched, observing registration behavior…</string>
+    <string name="registration_action_launch_observe_timeout">Observation finished: no obvious registration change was seen.</string>
+    <string name="registration_action_launch_observe_no_launcher">The target app has no launchable entry.</string>
+    <string name="registration_action_launch_observe_result">Observation result: %1$s</string>
+    <string name="registration_event_none">No registration event</string>
+    <string name="registration_event_registration">Registration requested</string>
+    <string name="registration_event_registration_result_ok">Registration result OK</string>
+    <string name="registration_event_registration_result_failed">Registration result failed</string>
+    <string name="registration_event_unregistration">Unregistered</string>
+    <string name="registration_inference_registered">Registered successfully.</string>
+    <string name="registration_inference_never_attempted">No registration attempt has been observed yet.</string>
+    <string name="registration_inference_unregistered_after_attempt">The app appears to have unregistered after attempting registration.</string>
+    <string name="registration_inference_registration_result_failed">A registration attempt was observed, but the latest result failed.</string>
+    <string name="registration_inference_registering_or_waiting_result">The app has requested registration and may still be waiting for a result.</string>
+    <string name="registration_inference_local_state_stale">Local registration markers exist, but current state is not aligned to registered.</string>
+    <string name="registration_inference_has_secret_but_no_local_reg">A regSec exists, but no complete local registration record was found.</string>
+    <string name="registration_inference_unknown">The current evidence is not enough to explain the registration state.</string>
 
     <string name="settings_manage_app_notifications">Manage notifications</string>
     <string name="settings_manage_app_notifications_summary">Control the sound, importance level, etc. of the app notifications.</string>
     <string name="group_notifications_for_same_session_clear_title">clear all notifications of session when the notification of session was clicked</string>
     <string name="show_pass_through">show \"pass through\" message as notification</string>
     <string name="action_search">Search</string>
+    <string name="action_expand">Expand</string>
+    <string name="action_collapse">Collapse</string>
     <string name="last_receive">last receive: </string>
     <string name="mipush_services_not_found">Services Not Found</string>
     <string name="try_to_force_register_all_applications">Try to force register all applications</string>
@@ -303,6 +370,7 @@ This could be the application doing a reverse registration, or the registration 
     <string name="settings_home_service_summary">XMPP server, push keep-alive, access mode, and registration notifications.</string>
     <string name="settings_home_display_title">Display &amp; list</string>
     <string name="settings_home_display_summary">Event list visibility and page visual effects.</string>
+    <string name="settings_home_overview_summary">Service health, application stats, and maintenance actions are now collected into a single collapsible page.</string>
     <string name="pref_choose_theme_title">Theme</string>
     <string name="pref_choose_theme_summary">Follow System, Light, Dark or Pure Black</string>
     <string name="theme_follow_system">Automatic (Follow System)</string>
@@ -313,11 +381,63 @@ This could be the application doing a reverse registration, or the registration 
     <string name="settings_home_data_summary">History cleanup, logs, and force register operations.</string>
     <string name="settings_home_developer_title">Developer &amp; experimental</string>
     <string name="settings_home_developer_summary">Mock messages and debug controls.</string>
-    <string name="settings_home_about_summary">Help, update check, and project information.</string>
+    <string name="settings_home_about_summary">Update entry and project information.</string>
+    <string name="settings_overview_title">Overview</string>
+    <string name="settings_overview_summary">Start with the overall integration snapshot, then expand the sections below for configuration and troubleshooting.</string>
+    <string name="settings_overview_registered_hint">%1$d of %2$d detected MiPush apps currently show registration activity. Open the apps page to inspect the remaining ones.</string>
     <string name="settings_group_display_and_list">Display &amp; list</string>
     <string name="settings_group_data_and_debug">Data &amp; debug</string>
     <string name="settings_blur_radius">Background blur intensity</string>
     <string name="settings_blur_mask_alpha">Blur overlay opacity</string>
+    <string name="app_list_stats_title">Application stats</string>
+    <string name="app_list_stats_total">Total apps</string>
+    <string name="app_list_stats_using_mipush">Using MiPush</string>
+    <string name="app_list_stats_not_using_mipush">Not using MiPush</string>
+    <string name="app_list_stats_registered">Registered</string>
+    <string name="app_list_stats_not_registered">Not registered</string>
+    <string name="app_list_hero_title">MiPush integration overview</string>
+    <string name="app_list_hero_summary">%1$d of %2$d scanned apps currently expose a MiPush-compatible surface.</string>
+    <string name="app_list_item_last_push">Last push</string>
+    <string name="app_list_item_delivery_hint">Activity</string>
+    <string name="app_list_item_delivery_active">Recently active</string>
+    <string name="app_list_item_delivery_idle">Waiting to trigger</string>
+    <string name="app_list_item_waiting_summary">Waiting for the first delivery or registration retry.</string>
+    <string name="app_detail_force_register">Launch and force register</string>
+    <string name="app_detail_open_system_settings">System app info</string>
+    <string name="app_detail_last_push">Last push</string>
+    <string name="app_detail_uid">UID</string>
+    <string name="app_detail_registered_state">Current activity state</string>
+    <string name="app_detail_activity_and_behavior">Recent activity &amp; behavior</string>
+    <string name="app_detail_recent_activity_summary">View recent registration, delivery, and notification events for this app.</string>
+    <string name="app_detail_notifications">Notifications &amp; channels</string>
+    <string name="app_detail_identity_summary">Inspect the current registration surface, package identity, and quick recovery actions in one place.</string>
+    <string name="overview_app_stats_title">Application stats</string>
+    <string name="overview_runtime_title">Runtime status</string>
+    <string name="overview_project_title">Project actions</string>
+    <string name="overview_chart_outer_title">Overall integration ratio</string>
+    <string name="overview_chart_inner_title">Registered within MiPush apps</string>
+    <string name="overview_chart_ratio_format">%1$d apps · %2$d%%</string>
+    <string name="overview_version_format">Version %1$s</string>
+    <string name="overview_detected_apps_format">%1$d / %2$d detected</string>
+    <string name="overview_project_github_title">GitHub project</string>
+    <string name="overview_project_github_summary">Browse source code, releases, and ongoing progress.</string>
+    <string name="overview_project_update_summary">Open the releases page for the latest builds.</string>
+    <string name="overview_project_about_summary">Show the current version, build type, and package info.</string>
+    <string name="event_detail_developer_info">Developer info</string>
+    <string name="event_empty_title">No activity yet</string>
+    <string name="event_empty_summary">Wait for a push event to arrive or trigger a test message manually.</string>
+    <string name="help_page_overview_summary">Common questions, troubleshooting articles, and community entries are grouped into a clearer help hub.</string>
+    <string name="help_page_article_title">Help article</string>
+    <string name="help_page_article_summary">If you need more detail, open the full article from the FAQ cards.</string>
+    <string name="help_page_faq_summary">Covers the most common registration, delivery, and compatibility issues first.</string>
+    <string name="help_page_article_card_summary">Tap to open the full explanation and suggested fixes.</string>
+    <string name="help_page_contact_summary">If the docs do not cover it, continue in the community groups or issue tracker.</string>
+    <string name="help_page_workspace_hint">Start with the FAQ cards below, then jump into the community channels if you still need live troubleshooting.</string>
+    <string name="help_page_article_workspace_hint">Read the walkthrough first, then return to the hub to continue checking related FAQs.</string>
+    <string name="help_page_contact_qq_summary">Suitable for fast follow-up in the Chinese-speaking group.</string>
+    <string name="help_page_contact_telegram_summary">Best for real-time discussion and cross-device troubleshooting.</string>
+    <string name="help_page_contact_issue_summary">Use this when you need to attach logs, screenshots, and reproducible steps.</string>
+    <string name="notification_channels_group_summary">Inspect this notification group and drill into each channel if behavior differs.</string>
     <string name="permission_notifications_denied">Please grant notification permission to test this feature.</string>
     <string-array name="theme_mode_entries">
         <item>@string/theme_follow_system</item>

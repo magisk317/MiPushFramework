@@ -40,7 +40,7 @@ fun SystemBarsScrim(hazeState: HazeState, hazeStyle: HazeStyle) {
             modifier = Modifier
                 .fillMaxWidth()
                 .windowInsetsTopHeight(WindowInsets.statusBars)
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f))
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.82f))
                 .hazeEffect(hazeState, hazeStyle) {
                     forceInvalidateOnPreDraw = true
                 },
@@ -51,7 +51,7 @@ fun SystemBarsScrim(hazeState: HazeState, hazeStyle: HazeStyle) {
                 .fillMaxWidth()
                 .windowInsetsBottomHeight(WindowInsets.navigationBars)
                 .align(Alignment.BottomStart)
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f))
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.82f))
                 .hazeEffect(hazeState, hazeStyle) {
                     forceInvalidateOnPreDraw = true
                 },
@@ -61,8 +61,8 @@ fun SystemBarsScrim(hazeState: HazeState, hazeStyle: HazeStyle) {
 
 @Composable
 fun rememberHazeStyle(
-    blurRadius: androidx.compose.ui.unit.Dp = 25.dp,
-    tintAlpha: Float = 0.2f
+    blurRadius: androidx.compose.ui.unit.Dp = 32.dp,
+    tintAlpha: Float = 0.26f
 ): HazeStyle {
     return HazeStyle(
         tint = HazeTint(MaterialTheme.colorScheme.surface.copy(alpha = tintAlpha)),

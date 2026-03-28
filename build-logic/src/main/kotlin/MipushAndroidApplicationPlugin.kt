@@ -3,8 +3,6 @@ import com.android.build.api.dsl.SigningConfig
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.kotlin.dsl.configure
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
 import java.io.File
 import java.util.Properties
 
@@ -13,22 +11,11 @@ class MipushAndroidApplicationPlugin : Plugin<Project> {
         project.pluginManager.apply("com.android.application")
 
         project.extensions.configure<ApplicationExtension> {
-            compileSdk = project.versionInt("compileSdk")
+            project.configureMipushAndroidCommon(this)
 
             defaultConfig {
                 minSdk = project.versionInt("minSdk")
                 targetSdk = project.versionInt("targetSdk")
-            }
-
-            compileOptions {
-                sourceCompatibility = org.gradle.api.JavaVersion.VERSION_25
-                targetCompatibility = org.gradle.api.JavaVersion.VERSION_25
-            }
-
-            project.extensions.configure<KotlinAndroidProjectExtension> {
-                compilerOptions {
-                    jvmTarget.set(JvmTarget.JVM_25)
-                }
             }
 
             signingConfigs {

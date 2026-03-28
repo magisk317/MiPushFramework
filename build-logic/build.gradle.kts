@@ -39,5 +39,9 @@ gradlePlugin {
             id = "mipush.android.aop"
             implementationClass = "MipushAndroidAopPlugin"
         }
+        create("appPackaging") {
+            id = "mipush.app.packaging"
+            implementationClass = "MipushAppPackagingPlugin"
+        }
     }
 }

@@ -1,22 +1,5 @@
 package top.trumeet.mipushframework.component
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,65 +8,27 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.text.input.ImeAction
+import io.github.magisk317.uikit.surface.WorkspaceSearchField
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
 fun SearchBar(
     placeholder: String,
     query: String,
     modifier: Modifier = Modifier,
     onValueChange: (String) -> Unit
 ) {
-    val focusManager = LocalFocusManager.current
     val ph by rememberUpdatedState(placeholder)
     val debounceOnValueChange: (String) -> Unit = debounce(onValueChange)
     val change: (String) -> Unit = { debounceOnValueChange(it) }
-    Surface(
-        color = Color.Transparent,
-        shape = MaterialTheme.shapes.extraLarge,
-        tonalElevation = 0.dp,
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 4.dp)
-            .background(
-                MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
-                MaterialTheme.shapes.extraLarge
-            )
-    ) {
-        TextField(
-            value = query,
-            onValueChange = change,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 48.dp),
-            placeholder = { Text(ph) },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-            trailingIcon = {
-                if (query.isNotEmpty()) {
-                    IconButton({ change("") }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Clear")
-                    }
-                }
-            },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
-            colors = TextFieldDefaults.colors(
-                unfocusedContainerColor = Color.Transparent,
-                focusedContainerColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                focusedIndicatorColor = Color.Transparent,
-                disabledIndicatorColor = Color.Transparent
-            )
-        )
-    }
+    WorkspaceSearchField(
+        query = query,
+        placeholder = ph,
+        modifier = modifier,
+        onValueChange = change,
+    )
 }
 
 @Composable
