@@ -7,12 +7,16 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import dev.chrisbanes.haze.HazeState
 import top.trumeet.mipushframework.main.subpage.EventList
 import top.trumeet.ui.theme.Theme
+import top.trumeet.ui.theme.SystemBarsScrim
+import top.trumeet.ui.theme.rememberHazeStyle
 
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -26,14 +30,31 @@ class RecentEventListPage : ComponentActivity() {
         val packageName = intent.dataString!!
         setContent {
             Theme {
-                Box(
-                    Modifier
-                        .navigationBarsPadding()
-                        .fillMaxSize()
-                ) {
-                    EventList(query = "", packageName = packageName, contentPadding = PaddingValues(0.dp))
-                }
+                RecentEventPage(packageName = packageName)
             }
         }
+    }
+}
+
+@Composable
+private fun RecentEventPage(packageName: String) {
+    val hazeState = remember { HazeState() }
+    val hazeStyle = rememberHazeStyle()
+
+    Box(Modifier.fillMaxSize()) {
+        EventList(
+            query = "",
+            packageName = packageName,
+            contentPadding = PaddingValues(0.dp),
+            hazeState = hazeState,
+            hazeStyle = hazeStyle,
+        )
+        SystemBarsScrim(
+            hazeState = hazeState,
+            hazeStyle = hazeStyle,
+            showTop = false,
+            showBottom = true,
+            bottomBackgroundAlpha = 0f,
+        )
     }
 }

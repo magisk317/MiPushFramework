@@ -18,10 +18,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -69,8 +72,9 @@ import top.trumeet.mipushframework.component.MetricCard
 import top.trumeet.mipushframework.component.MetricGrid
 import top.trumeet.mipushframework.component.MetricSpec
 import top.trumeet.ui.theme.spacing
+import top.trumeet.mipushframework.component.OverlayHeaderScaffold
 import top.trumeet.mipushframework.component.RefreshableLazyColumn
-import top.trumeet.mipushframework.component.SearchWorkspaceScaffold
+import top.trumeet.mipushframework.component.WorkspaceTopBarSearchOverlay
 import top.trumeet.mipushframework.component.WorkspaceListItem
 
 data class AppInfoForDisplay(
@@ -138,6 +142,7 @@ fun ApplicationList(
     val lifecycleOwner = LocalLifecycleOwner.current
     
     var currentQuery by rememberSaveable(query) { mutableStateOf(query) }
+    var searchExpanded by rememberSaveable(query) { mutableStateOf(query.isNotBlank()) }
 
     if (isPreview) g_items = getMiPushApplications(currentQuery, filterMode)
     val shouldRefresh = g_items.res.isEmpty() || currentQuery.isNotEmpty() || refreshSignal > 0
@@ -200,13 +205,12 @@ fun ApplicationList(
 
     Page {
         val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-        val topOverlayHeight = topInset + 166.dp
-        SearchWorkspaceScaffold(
+        val topOverlayHeight = topInset + 152.dp
+        OverlayHeaderScaffold(
             fallbackTopPadding = topOverlayHeight,
             bottomPadding = contentPadding.calculateBottomPadding() + 28.dp,
             overlayModifier = Modifier
-                .statusBarsPadding()
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.78f))
+                .fillMaxWidth()
                 .then(
                     if (hazeState != null && hazeStyle != null) {
                         Modifier.hazeEffect(hazeState, hazeStyle) {
@@ -238,26 +242,119 @@ fun ApplicationList(
                     items(g_items.res, { it.packageName }) {
                         ApplicationItem(it, onAppClick)
                     }
-                    item {
-                        Footer(stats)
+                }
+            },
+            overlay = {
+                Column {
+                    TopAppBar(
+                        title = { Text(stringResource(R.string.app_list_hero_title)) },
+                        windowInsets = WindowInsets.statusBars,
+                        actions = {
+                            IconButton(onClick = { searchExpanded = !searchExpanded }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_search_24dp),
+                                    contentDescription = stringResource(R.string.action_search),
+                                    tint = if (searchExpanded || currentQuery.isNotBlank()) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                )
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent,
+                            scrolledContainerColor = Color.Transparent,
+                        ),
+                    )
+                    Text(
+                        text = stringResource(
+                            R.string.app_list_hero_summary,
+                            stats.usingMiPush,
+                            stats.total,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(
+                            start = MaterialTheme.spacing.medium,
+                            end = MaterialTheme.spacing.medium,
+                            bottom = MaterialTheme.spacing.small,
+                        ),
+                    )
+                    if (searchExpanded || currentQuery.isNotBlank()) {
+                        SearchBar(
+                            placeholder = stringResource(android.R.string.search_go),
+                            query = currentQuery,
+                            onValueChange = { currentQuery = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = MaterialTheme.spacing.medium),
+                        )
+                    }
+                    Column(
+                        modifier = Modifier.padding(
+                            start = MaterialTheme.spacing.medium,
+                            top = MaterialTheme.spacing.small,
+                            end = MaterialTheme.spacing.medium,
+                            bottom = MaterialTheme.spacing.small,
+                        ),
+                    ) {
+                        ApplicationHeaderPills(
+                            stats = stats,
+                            query = currentQuery,
+                            filterMode = filterMode,
+                        )
                     }
                 }
             },
-            title = stringResource(R.string.app_list_hero_title),
-            subtitle = stringResource(
-                R.string.app_list_hero_summary,
-                stats.usingMiPush,
-                stats.total,
-            ),
-            searchField = {
-                SearchBar(
-                    placeholder = stringResource(android.R.string.search_go),
-                    query = currentQuery,
-                    onValueChange = { currentQuery = it },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
         )
+    }
+}
+
+@Composable
+private fun ApplicationHeaderPills(
+    stats: ApplicationStats,
+    query: String,
+    filterMode: Int,
+) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        InfoPill(
+            text = "${stringResource(R.string.app_list_stats_total)} · ${stats.total}",
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        InfoPill(
+            text = "${stringResource(R.string.app_list_stats_registered)} · ${stats.registered}",
+            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+            contentColor = MaterialTheme.colorScheme.primary,
+        )
+        if (query.isNotBlank()) {
+            InfoPill(
+                text = "${stringResource(R.string.action_search)} · $query",
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+        }
+        applicationFilterLabel(filterMode)?.let { label ->
+            InfoPill(
+                text = label,
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+            )
+        }
+    }
+}
+
+@Composable
+private fun applicationFilterLabel(filterMode: Int): String? {
+    return when (filterMode) {
+        1 -> stringResource(R.string.app_list_stats_registered)
+        2 -> stringResource(R.string.app_list_stats_not_registered)
+        3 -> stringResource(R.string.status_app_registered_error_title)
+        else -> null
     }
 }
 
@@ -275,13 +372,14 @@ private fun updateInfos(
                 Utils.getUTC(),
                 context
             ),
-            registrationType = context.getString(
-                R.string.app_registration_type_format,
-                context.getString(registrationTypeLabelRes(it.registrationTypeReason))
-            ),
+            registrationType = registrationTypeShortLabel(it.registrationTypeReason),
         )
     }
     g_itemsInfo = infoMap
+}
+
+private fun registrationTypeShortLabel(reason: String): String {
+    return reason.replace('_', '-')
 }
 
 @StringRes
@@ -298,86 +396,30 @@ private fun registrationTypeLabelRes(reason: String): Int {
 }
 
 @Composable
-private fun Footer(stats: ApplicationStats) {
-    val context = LocalContext.current
-    DetailSectionCard(
-        title = stringResource(R.string.app_list_stats_title),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(
-                horizontal = MaterialTheme.spacing.medium,
-                vertical = MaterialTheme.spacing.medium
-            )
-    ) {
-        Column(
-            modifier = Modifier.padding(
-                start = MaterialTheme.spacing.large,
-                end = MaterialTheme.spacing.large,
-                bottom = MaterialTheme.spacing.large,
-            ),
-            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium)
-        ) {
-            MetricGrid(
-                metrics = listOf(
-                    MetricSpec(
-                        label = stringResource(R.string.app_list_stats_total),
-                        value = stats.total.toString(),
-                    ),
-                    MetricSpec(
-                        label = stringResource(R.string.app_list_stats_using_mipush),
-                        value = stats.usingMiPush.toString(),
-                    ),
-                    MetricSpec(
-                        label = stringResource(R.string.app_list_stats_not_using_mipush),
-                        value = stats.notUsingMiPush.toString(),
-                    ),
-                    MetricSpec(
-                        label = stringResource(R.string.app_list_stats_registered),
-                        value = stats.registered.toString(),
-                        accent = RegistrationStateStyle.GreenColor,
-                    ),
-                    MetricSpec(
-                        label = stringResource(R.string.app_list_stats_not_registered),
-                        value = stats.notRegistered.toString(),
-                        accent = RegistrationStateStyle.YellowColor,
-                    ),
-                ),
-            )
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    painterResource(R.drawable.ic_info_outline_black_24dp),
-                    null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(end = MaterialTheme.spacing.small)
-                )
-                Text(
-                    ApplicationPageOperation.getNotSupportHint(
-                        context,
-                        stats.notUsingMiPush
-                    ),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun ApplicationItem(item: RegisteredApplication, onAppClick: (String) -> Unit) {
     val info = g_itemsInfo[item.packageName] ?: return
     val statusColor =
         if (info.registrationState.second == Color.Unspecified) MaterialTheme.colorScheme.onSurface
         else info.registrationState.second
+    val isRecentlyActive = item.lastReceiveTime.time > 0L
     val containerColor = when {
-        item.lastReceiveTime.time > 0L -> statusColor.copy(alpha = 0.08f)
+        isRecentlyActive -> statusColor.copy(alpha = 0.10f)
         item.registeredType == RegisteredApplication.RegisteredType.Registered -> {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
+        }
+        item.registeredType == RegisteredApplication.RegisteredType.Unregistered -> {
+            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.18f)
         }
 
         else -> Color.Transparent
     }
+    val activityLabel = stringResource(
+        if (isRecentlyActive) {
+            R.string.app_list_item_delivery_active
+        } else {
+            R.string.app_list_item_delivery_idle
+        }
+    )
 
     WorkspaceListItem(
         modifier = Modifier
@@ -386,7 +428,7 @@ private fun ApplicationItem(item: RegisteredApplication, onAppClick: (String) ->
         containerColor = containerColor,
         onClick = { onAppClick(item.packageName) },
         leadingContent = {
-            AppIcon(item.packageName, item.appName, Modifier.size(52.dp))
+            AppIcon(item.packageName, item.appName, Modifier.size(44.dp))
         },
         trailingContent = {
             Icon(
@@ -398,7 +440,7 @@ private fun ApplicationItem(item: RegisteredApplication, onAppClick: (String) ->
     ) {
         Text(
             text = item.appName,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
@@ -411,29 +453,55 @@ private fun ApplicationItem(item: RegisteredApplication, onAppClick: (String) ->
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            InfoPill(
+            AppListBadge(
                 text = info.registrationState.first,
                 containerColor = statusColor.copy(alpha = 0.14f),
                 contentColor = statusColor,
             )
-            InfoPill(
+            AppListBadge(
                 text = info.registrationType,
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            AppListBadge(
+                text = activityLabel,
+                containerColor = if (isRecentlyActive) {
+                    MaterialTheme.colorScheme.secondaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceContainerHighest
+                },
+                contentColor = if (isRecentlyActive) {
+                    MaterialTheme.colorScheme.onSecondaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
         }
+    }
+}
+
+@Composable
+private fun AppListBadge(
+    text: String,
+    containerColor: Color,
+    contentColor: Color,
+) {
+    androidx.compose.material3.Surface(
+        color = containerColor,
+        contentColor = contentColor,
+        shape = RoundedCornerShape(999.dp),
+    ) {
         Text(
-            text = info.lastReceiveTime.ifBlank {
-                stringResource(R.string.app_list_item_waiting_summary)
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
         )
     }
 }

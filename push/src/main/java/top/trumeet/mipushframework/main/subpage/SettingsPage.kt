@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package top.trumeet.mipushframework.main.subpage
 
 import android.content.Intent
@@ -5,28 +7,38 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -34,14 +46,16 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.magisk317.main.viewmodel.SettingsViewModel
+import com.xiaomi.xmsf.BuildConfig
 import com.xiaomi.xmsf.R
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
 import io.github.magisk317.uikit.preference.SectionCard
 import top.trumeet.common.utils.Utils
 import top.trumeet.mipushframework.MainActivityOperation
 import top.trumeet.mipushframework.component.DialogAction
-import top.trumeet.mipushframework.component.ExpressiveHeroCard
 import top.trumeet.mipushframework.component.SectionColumn
 import top.trumeet.mipushframework.component.SettingsDialogItem
 import top.trumeet.mipushframework.component.SettingsItem
@@ -68,6 +82,8 @@ fun Settings(
             viewModel = viewModel,
             onSectionChanged = onSectionChanged,
             sectionBackSignal = sectionBackSignal,
+            hazeState = hazeState,
+            hazeStyle = hazeStyle,
         )
     }
 }
@@ -79,78 +95,117 @@ private fun SettingsScreen(
     viewModel: SettingsViewModel,
     onSectionChanged: (String?) -> Unit,
     sectionBackSignal: Int,
+    hazeState: HazeState?,
+    hazeStyle: HazeStyle?,
 ) {
     val title = stringResource(R.string.main_settings)
-    var expandService by rememberSaveable { mutableStateOf(true) }
-    var expandDisplay by rememberSaveable { mutableStateOf(false) }
-    var expandData by rememberSaveable { mutableStateOf(false) }
-    var expandDeveloper by rememberSaveable { mutableStateOf(false) }
-    var expandAbout by rememberSaveable { mutableStateOf(false) }
+    val density = LocalDensity.current
+    var fixedTopHeightPx by remember { mutableIntStateOf(0) }
+    var serviceExpanded by rememberSaveable { mutableStateOf(false) }
+    var displayExpanded by rememberSaveable { mutableStateOf(false) }
+    var dataExpanded by rememberSaveable { mutableStateOf(false) }
+    var developerExpanded by rememberSaveable { mutableStateOf(false) }
+    var aboutExpanded by rememberSaveable { mutableStateOf(false) }
+    val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val fixedTopHeight = if (fixedTopHeightPx > 0) {
+        with(density) { fixedTopHeightPx.toDp() }
+    } else {
+        topInset + 64.dp
+    }
 
     LaunchedEffect(title) {
         onSectionChanged(title)
     }
 
-    SectionColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
-        contentPadding = PaddingValues(
-            start = MaterialTheme.spacing.medium,
-            top = contentPadding.calculateTopPadding() + 8.dp,
-            end = MaterialTheme.spacing.medium,
-            bottom = contentPadding.calculateBottomPadding() + MaterialTheme.spacing.large,
-        ),
-        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
-    ) {
-        ExpressiveHeroCard(
-            title = stringResource(R.string.settings_options),
-        )
-
-        SettingsAccordionSection(
-            title = stringResource(R.string.settings_home_service_title),
-            expanded = expandService,
-            onExpandedChange = { expandService = !expandService },
+    Box(modifier = Modifier.fillMaxSize()) {
+        SectionColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .then(
+                    if (hazeState != null) {
+                        Modifier.hazeSource(state = hazeState)
+                    } else {
+                        Modifier
+                    }
+                )
+                .verticalScroll(rememberScrollState()),
+            contentPadding = PaddingValues(
+                start = MaterialTheme.spacing.medium,
+                top = fixedTopHeight + MaterialTheme.spacing.small,
+                end = MaterialTheme.spacing.medium,
+                bottom = contentPadding.calculateBottomPadding() + MaterialTheme.spacing.large,
+            ),
+            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
         ) {
-            ServiceConfigurationBlock(viewModel)
+            SettingsSectionCard(
+                title = stringResource(R.string.settings_home_service_title),
+                expanded = serviceExpanded,
+                onExpandedChange = { serviceExpanded = !serviceExpanded },
+            ) {
+                ServiceConfigurationBlock(viewModel)
+            }
+
+            SettingsSectionCard(
+                title = stringResource(R.string.settings_home_display_title),
+                expanded = displayExpanded,
+                onExpandedChange = { displayExpanded = !displayExpanded },
+            ) {
+                DisplayBlock(viewModel)
+            }
+
+            SettingsSectionCard(
+                title = stringResource(R.string.settings_home_data_title),
+                expanded = dataExpanded,
+                onExpandedChange = { dataExpanded = !dataExpanded },
+            ) {
+                DataMaintenanceBlock(viewModel)
+            }
+
+            SettingsSectionCard(
+                title = stringResource(R.string.settings_home_developer_title),
+                expanded = developerExpanded,
+                onExpandedChange = { developerExpanded = !developerExpanded },
+            ) {
+                ExperimentalBlock(viewModel)
+            }
+
+            SettingsSectionCard(
+                title = stringResource(R.string.action_about),
+                expanded = aboutExpanded,
+                onExpandedChange = { aboutExpanded = !aboutExpanded },
+            ) {
+                AboutBlock(onShowAboutDialog)
+            }
         }
 
-        SettingsAccordionSection(
-            title = stringResource(R.string.settings_home_display_title),
-            expanded = expandDisplay,
-            onExpandedChange = { expandDisplay = !expandDisplay },
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .onSizeChanged { fixedTopHeightPx = it.height }
+                .then(
+                    if (hazeState != null && hazeStyle != null) {
+                        Modifier.hazeEffect(hazeState, hazeStyle) {
+                            forceInvalidateOnPreDraw = true
+                        }
+                    } else {
+                        Modifier
+                    }
+                ),
         ) {
-            DisplayBlock(viewModel)
-        }
-
-        SettingsAccordionSection(
-            title = stringResource(R.string.settings_home_data_title),
-            expanded = expandData,
-            onExpandedChange = { expandData = !expandData },
-        ) {
-            DataMaintenanceBlock(viewModel)
-        }
-
-        SettingsAccordionSection(
-            title = stringResource(R.string.settings_home_developer_title),
-            expanded = expandDeveloper,
-            onExpandedChange = { expandDeveloper = !expandDeveloper },
-        ) {
-            ExperimentalBlock(viewModel)
-        }
-
-        SettingsAccordionSection(
-            title = stringResource(R.string.action_about),
-            expanded = expandAbout,
-            onExpandedChange = { expandAbout = !expandAbout },
-        ) {
-            AboutBlock(onShowAboutDialog)
+            TopAppBar(
+                title = { Text(title) },
+                windowInsets = WindowInsets.statusBars,
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent,
+                ),
+            )
         }
     }
 }
 
 @Composable
-private fun SettingsAccordionSection(
+private fun SettingsSectionCard(
     title: String,
     expanded: Boolean,
     onExpandedChange: () -> Unit,
@@ -166,6 +221,7 @@ private fun SettingsAccordionSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = MaterialTheme.spacing.small),
+            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
         ) {
             content()
         }

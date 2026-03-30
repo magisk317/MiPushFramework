@@ -5,6 +5,7 @@ import android.app.NotificationChannelGroup
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Build.VERSION_CODES
@@ -23,17 +24,28 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +53,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -50,13 +63,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.magisk317.compat.PackageManagerCompatBridge
 import com.magisk317.compat.RegistrationStateCompat
 import com.magisk317.compat.RegistrationStateStore
 import com.magisk317.utils.RegistrationHelper
@@ -77,19 +95,20 @@ import top.trumeet.mipushframework.component.DetailDivider
 import top.trumeet.mipushframework.component.DetailSectionCard
 import top.trumeet.mipushframework.component.DialogAction
 import top.trumeet.mipushframework.component.DialogActionRow
-import top.trumeet.mipushframework.component.ExpressiveHeroCard
-import top.trumeet.mipushframework.component.InfoPill
 import top.trumeet.mipushframework.component.LabelValueBlock
 import top.trumeet.mipushframework.component.MarkdownView
-import top.trumeet.mipushframework.component.MetricCard
 import top.trumeet.mipushframework.component.MetricGrid
 import top.trumeet.mipushframework.component.MetricSpec
 import top.trumeet.mipushframework.component.SectionColumn
 import top.trumeet.mipushframework.component.SettingsDialogItem
+import top.trumeet.mipushframework.component.SettingsItem
+import top.trumeet.mipushframework.main.subpage.ApplicationPageOperation
 import top.trumeet.mipushframework.wizard.WizardSPUtils
 import top.trumeet.ui.theme.Theme
 import top.trumeet.ui.theme.spacing
+import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Locale
 
 class ApplicationInfoPage : ComponentActivity() {
     companion object {
@@ -145,9 +164,43 @@ class ApplicationInfoPage : ComponentActivity() {
                     source = RegistrationStateStore.Source.LOCAL_PROBE,
                 )
             }
+            if (application != null) {
+                refreshTransientAppState(application)
+            }
             return application
         }
         return null
+    }
+
+    private fun refreshTransientAppState(application: RegisteredApplication) {
+        application.lastReceiveTime = Date(Utils.getLastReceiveTime(application.packageName) ?: 0L)
+
+        val packageInfo = runCatching {
+            PackageManagerCompatBridge.getPackageInfo(
+                packageManager,
+                application.packageName,
+                PackageManager.GET_SERVICES or PackageManager.GET_RECEIVERS,
+            )
+        }.getOrNull()
+
+        if (packageInfo == null) {
+            application.existServices = false
+            application.registrationTypeReason = "package_not_found"
+            return
+        }
+
+        val checker = ApplicationPageOperation.getMiPushManifestChecker()
+        application.existServices = ApplicationPageOperation.hasMiPushServices(
+            checker = checker,
+            info = packageInfo,
+        )
+
+        val serviceNames = packageInfo.services?.mapNotNull { it.name }?.toSet() ?: emptySet()
+        val receiverNames = packageInfo.receivers?.mapNotNull { it.name }?.toSet() ?: emptySet()
+        application.registrationTypeReason = RegistrationHelper.classifyDisplayTypeReason(
+            serviceNames = serviceNames,
+            receiverNames = receiverNames,
+        )
     }
 
     @Composable
@@ -164,16 +217,17 @@ class ApplicationInfoPage : ComponentActivity() {
                 modifier = Modifier.fillMaxSize(),
                 color = MaterialTheme.colorScheme.background,
             ) {
+                val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+                val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
                 SectionColumn(
                     modifier = Modifier
-                        .statusBarsPadding()
-                        .navigationBarsPadding()
                         .fillMaxSize()
+                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = MaterialTheme.spacing.medium),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                        top = MaterialTheme.spacing.medium,
-                        bottom = MaterialTheme.spacing.medium,
+                        top = topInset + MaterialTheme.spacing.medium,
+                        bottom = bottomInset + MaterialTheme.spacing.medium,
                     ),
                     verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
                 ) {
@@ -196,111 +250,177 @@ class ApplicationInfoPage : ComponentActivity() {
     @Composable
     private fun ApplicationInfoHeader() {
         val context = LocalContext.current
-        val registrationState = remember(
-            applicationInfo.packageName,
-            applicationInfo.registeredType,
-            applicationInfo.lastReceiveTime.time,
+        val diagnostics by androidx.compose.runtime.produceState<AppRegistrationDiagnostics?>(
+            initialValue = null,
+            key1 = applicationInfo.packageName,
         ) {
-            RegistrationStateStyle.contentOf(applicationInfo, context)
+            value = withContext(Dispatchers.IO) {
+                AppRegistrationDiagnosticsHelper.load(
+                    context = context,
+                    packageName = applicationInfo.packageName,
+                    registeredType = applicationInfo.registeredType,
+                )
+            }
         }
-        val typeLabel = stringResource(registrationTypeLabelRes(applicationInfo.registrationTypeReason))
-        val lastPush = formatTime(applicationInfo.lastReceiveTime.time)
-        val uidText = applicationInfo.getUid(context).takeIf { it >= 0 }?.toString() ?: "-"
-        val activityState = if (applicationInfo.lastReceiveTime.time > 0L) {
-            stringResource(R.string.app_list_item_delivery_active)
+        val resolvedTypeReason = remember(applicationInfo.registrationTypeReason, diagnostics?.displayTypeReason) {
+            when {
+                applicationInfo.registrationTypeReason.isNotBlank() &&
+                    applicationInfo.registrationTypeReason != "unknown" -> applicationInfo.registrationTypeReason
+                !diagnostics?.displayTypeReason.isNullOrBlank() &&
+                    diagnostics?.displayTypeReason != "unknown" -> diagnostics?.displayTypeReason.orEmpty()
+                else -> applicationInfo.registrationTypeReason.ifBlank { "unknown" }
+            }
+        }
+        val typeLabel = registrationTypeShortLabel(resolvedTypeReason)
+        val serviceState = if (applicationInfo.existServices) {
+            stringResource(R.string.app_detail_service_ready)
         } else {
-            stringResource(R.string.app_list_item_delivery_idle)
+            stringResource(R.string.mipush_services_not_found)
         }
+        val registrationValue = RegistrationStateStyle.registrationLabelOf(applicationInfo, context)
+        val lastPush = formatTime(applicationInfo.lastReceiveTime.time)
 
-        ExpressiveHeroCard(
-            title = applicationInfo.appName,
-            subtitle = applicationInfo.packageName,
+        ElevatedCard(
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            ),
         ) {
-            Column(
-                modifier = Modifier.padding(
-                    start = MaterialTheme.spacing.large,
-                    end = MaterialTheme.spacing.large,
-                    bottom = MaterialTheme.spacing.large,
-                ),
-                verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
+            Column {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Brush.linearGradient(
+                                listOf(
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                                    MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
+                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.10f),
+                                ),
+                            ),
+                        ),
                 ) {
-                    AppIcon(
-                        packageName = applicationInfo.packageName,
-                        appName = applicationInfo.appName,
-                        modifier = Modifier.size(72.dp),
-                    )
-                    Spacer(Modifier.width(MaterialTheme.spacing.medium))
-                    Text(
-                        text = stringResource(R.string.app_detail_identity_summary),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f),
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(MaterialTheme.spacing.extraLarge),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
+                    ) {
+                        AppIcon(
+                            packageName = applicationInfo.packageName,
+                            appName = applicationInfo.appName,
+                            modifier = Modifier.size(52.dp),
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = applicationInfo.appName,
+                                style = MaterialTheme.typography.headlineSmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                            )
+                            Text(
+                                text = applicationInfo.packageName,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                            )
+                        }
+                    }
                 }
 
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
-                    verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
+                Column(
+                    modifier = Modifier.padding(
+                        start = MaterialTheme.spacing.large,
+                        top = MaterialTheme.spacing.large,
+                        end = MaterialTheme.spacing.large,
+                        bottom = MaterialTheme.spacing.large,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
                 ) {
-                    InfoPill(
-                        text = registrationState.first,
-                        containerColor = registrationState.second
-                            .takeIf { it != Color.Unspecified }
-                            ?.copy(alpha = 0.16f)
-                            ?: MaterialTheme.colorScheme.surfaceContainer,
-                        contentColor = registrationState.second
-                            .takeIf { it != Color.Unspecified }
-                            ?: MaterialTheme.colorScheme.onSurface,
-                    )
-                    InfoPill(
-                        text = context.getString(R.string.app_registration_type_format, typeLabel),
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    )
-                }
-
-                MetricGrid(
-                    metrics = listOf(
-                        MetricSpec(
-                            label = stringResource(R.string.app_detail_uid),
-                            value = uidText,
-                            accent = MaterialTheme.colorScheme.primary,
-                        ),
-                        MetricSpec(
-                            label = stringResource(R.string.app_detail_last_push),
-                            value = lastPush,
-                            accent = MaterialTheme.colorScheme.secondary,
-                        ),
-                        MetricSpec(
-                            label = stringResource(R.string.app_detail_registered_state),
-                            value = activityState,
-                            accent = if (applicationInfo.lastReceiveTime.time > 0L) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(IntrinsicSize.Min),
+                        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
+                    ) {
+                        HeaderMetricCard(
+                            label = stringResource(R.string.app_detail_service_status),
+                            value = serviceState,
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight(),
+                            accent = if (applicationInfo.existServices) {
                                 RegistrationStateStyle.GreenColor
                             } else {
-                                MaterialTheme.colorScheme.tertiary
+                                RegistrationStateStyle.ErrorColor
                             },
-                        ),
-                    ),
-                )
-
-                ActionStrip {
-                    FilledTonalButton(
-                        onClick = {
-                            launchTargetAppAndForceRegister(context, applicationInfo.packageName)
-                        },
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text(stringResource(R.string.app_detail_force_register))
+                        )
+                        HeaderMetricCard(
+                            label = stringResource(R.string.app_detail_integration_type),
+                            value = typeLabel,
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight(),
+                            accent = MaterialTheme.colorScheme.secondary,
+                        )
                     }
-                    OutlinedButton(
-                        onClick = { openSystemAppInfo(context) },
-                        modifier = Modifier.weight(1f),
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(IntrinsicSize.Min),
+                        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
                     ) {
-                        Text(stringResource(R.string.app_detail_open_system_settings))
+                        HeaderMetricCard(
+                            label = stringResource(R.string.app_detail_last_push),
+                            value = lastPush,
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight(),
+                            accent = MaterialTheme.colorScheme.secondary,
+                        )
+                        HeaderMetricCard(
+                            label = stringResource(R.string.app_detail_registration_status),
+                            value = registrationValue,
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight(),
+                            accent = RegistrationStateStyle.registrationColorOf(applicationInfo)
+                                .takeIf { it != Color.Unspecified }
+                                ?: MaterialTheme.colorScheme.tertiary,
+                        )
+                    }
+
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(
+                            MaterialTheme.spacing.small,
+                            Alignment.CenterHorizontally,
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
+                    ) {
+                        FilledTonalButton(
+                            onClick = {
+                                launchTargetAppAndForceRegister(context, applicationInfo.packageName)
+                            },
+                        ) {
+                            Text(
+                                text = stringResource(R.string.app_detail_force_register),
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { openSystemAppInfo(context) },
+                        ) {
+                            Text(
+                                text = stringResource(R.string.app_detail_open_system_settings),
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                     }
                 }
             }
@@ -408,21 +528,8 @@ class ApplicationInfoPage : ComponentActivity() {
 
             AppDetailValueRow(
                 label = stringResource(R.string.registration_diagnostics_display_type),
-                value = stringResource(registrationTypeLabelRes(info.displayTypeReason)),
-            )
-            AppDetailValueRow(
-                label = stringResource(R.string.registration_diagnostics_force_type),
-                value = stringResource(registrationTypeLabelRes(info.forceTypeReason)),
-            )
-            AppDetailValueRow(
-                label = stringResource(R.string.registration_diagnostics_components),
-                value = context.getString(
-                    R.string.registration_diagnostics_components_value,
-                    info.hasRuntimeService.toFlagValue(),
-                    info.hasHandlerService.toFlagValue(),
-                    info.hasOfficialReceiver.toFlagValue(),
-                    info.hasBridgeComponent.toFlagValue(),
-                    info.hasLauncherEntry.toFlagValue(),
+                value = registrationTypeShortLabel(
+                    applicationInfo.registrationTypeReason.ifBlank { info.displayTypeReason },
                 ),
             )
             AppDetailValueRow(
@@ -646,23 +753,49 @@ class ApplicationInfoPage : ComponentActivity() {
         ) {
             channels.forEach { channel ->
                 var shouldShowDialog by remember { mutableStateOf(false) }
-                SettingsDialogItem(
+                SettingsItem(
                     title = AppConfigurationUtils.getNotificationTitle(channel).toString(),
                     summary = AppConfigurationUtils.getNotificationSummary(channel),
-                    confirmButton = {},
-                    actions = listOf(
-                        DialogAction(
-                            label = stringResource(android.R.string.ok),
-                            onClick = { shouldShowDialog = false },
-                        ),
-                    ),
                     onClick = { shouldShowDialog = true },
-                    shouldShowDialog = shouldShowDialog,
-                    onDismiss = { shouldShowDialog = false },
-                    content = {
-                        NotificationChannelDialog(channel, appConfigurationUtils)
-                    },
                 )
+                if (shouldShowDialog) {
+                    AlertDialog(
+                        onDismissRequest = { shouldShowDialog = false },
+                        title = {
+                            Text(AppConfigurationUtils.getNotificationTitle(channel).toString())
+                        },
+                        text = {
+                            Text(AppConfigurationUtils.getNotificationSummary(channel))
+                        },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                appConfigurationUtils.gotoNotificationChannelSettingPage(
+                                    channel,
+                                    appConfigurationUtils.configApp,
+                                )
+                                shouldShowDialog = false
+                            }) {
+                                Text(stringResource(R.string.notification_channels_setting))
+                            }
+                        },
+                        dismissButton = {
+                            Row {
+                                TextButton(onClick = {
+                                    appConfigurationUtils.copyToClipboard(channel)
+                                    shouldShowDialog = false
+                                }) {
+                                    Text(stringResource(R.string.notification_channels_copy_id))
+                                }
+                                TextButton(onClick = {
+                                    appConfigurationUtils.deleteNotificationChannel(channel)
+                                    shouldShowDialog = false
+                                }) {
+                                    Text(stringResource(R.string.notification_channels_delete))
+                                }
+                            }
+                        },
+                    )
+                }
             }
         }
     }
@@ -686,11 +819,11 @@ private fun ActionSummaryRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.bodyLarge,
             )
             Text(
                 text = summary,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -724,11 +857,11 @@ private fun SettingSwitchRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.bodyLarge,
             )
             Text(
                 text = summary,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -760,9 +893,54 @@ private fun AppDetailValueRow(
 
 private fun Boolean.toFlagValue(): String = if (this) "Y" else "N"
 
+@Composable
+private fun HeaderMetricCard(
+    label: String,
+    value: String,
+    accent: Color,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(MaterialTheme.spacing.medium),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(accent.copy(alpha = 0.14f))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = accent,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Start,
+            )
+        }
+    }
+}
+
 private fun formatTime(time: Long?): String {
     if (time == null || time <= 0L) return "-"
-    return Date(time).toString()
+    return SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(time))
 }
 
 private fun formatRecentRegistrationEvent(context: Context, diagnostics: AppRegistrationDiagnostics): String {
@@ -790,6 +968,10 @@ private fun registrationTypeLabelRes(reason: String): Int {
         "application_unavailable" -> R.string.registration_type_application_unavailable
         else -> R.string.registration_type_unknown
     }
+}
+
+private fun registrationTypeShortLabel(reason: String): String {
+    return reason.replace('_', '-')
 }
 
 private fun registrationInferenceLabelRes(reason: String): Int {
@@ -825,34 +1007,6 @@ private fun Tips(description: String) {
             textSize = MaterialTheme.typography.bodyMedium.fontSize.value,
         )
     }
-}
-
-@Composable
-private fun NotificationChannelDialog(
-    channel: NotificationChannel,
-    appConfigurationUtils: AppConfigurationUtils,
-) {
-    DialogActionRow(
-        actions = listOf(
-            DialogAction(
-                label = stringResource(R.string.notification_channels_delete),
-                onClick = { appConfigurationUtils.deleteNotificationChannel(channel) },
-            ),
-            DialogAction(
-                label = stringResource(R.string.notification_channels_copy_id),
-                onClick = { appConfigurationUtils.copyToClipboard(channel) },
-            ),
-            DialogAction(
-                label = stringResource(R.string.notification_channels_setting),
-                onClick = {
-                    appConfigurationUtils.gotoNotificationChannelSettingPage(
-                        channel,
-                        appConfigurationUtils.configApp,
-                    )
-                },
-            ),
-        ),
-    )
 }
 
 @Preview(showBackground = true)

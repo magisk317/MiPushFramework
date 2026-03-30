@@ -178,7 +178,7 @@ class MainActivity : ComponentActivity() {
 
             Theme(themeMode = ThemeMode.fromValue(currentThemeMode)) {
                 val hazeState = remember { HazeState() }
-                val hazeStyle = rememberHazeStyle(blurRadius = 32.dp, tintAlpha = 0.26f)
+                val hazeStyle = rememberHazeStyle()
                 
                 Box(modifier = Modifier.fillMaxSize()) {
                     MainScreen(
