@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package top.trumeet.mipushframework.component
 
 import androidx.compose.foundation.layout.ColumnScope
@@ -6,9 +8,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.runtime.Composable
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import top.trumeet.ui.theme.spacing
@@ -22,7 +27,7 @@ fun ExpressiveHeroCard(
 ) {
     io.github.magisk317.uikit.surface.ExpressiveHeroCard(
         title = title,
-        subtitle = null,
+        subtitle = subtitle,
         modifier = modifier,
         content = content,
     )
@@ -207,7 +212,7 @@ fun OverlayHeaderPanel(
     io.github.magisk317.uikit.surface.OverlayHeaderPanel(
         modifier = modifier,
         title = title,
-        subtitle = null,
+        subtitle = subtitle,
         actions = actions,
         content = content,
     )
@@ -232,11 +237,38 @@ fun SearchWorkspaceScaffold(
         bottomPadding = bottomPadding,
         overlayModifier = overlayModifier,
         title = title,
-        subtitle = null,
+        subtitle = subtitle,
         actions = actions,
         searchField = searchField,
         supportingContent = supportingContent,
         content = content,
+    )
+}
+
+@Composable
+fun WorkspaceTopBarSearchOverlay(
+    title: String,
+    searchQuery: String,
+    searchPlaceholder: String,
+    modifier: Modifier = Modifier,
+    navigationIcon: (@Composable () -> Unit)? = null,
+    actions: @Composable RowScope.() -> Unit = {},
+    scrollBehavior: TopAppBarScrollBehavior? = null,
+    windowInsets: WindowInsets = WindowInsets.statusBars,
+    supportingContent: @Composable ColumnScope.() -> Unit = {},
+    onSearchChange: (String) -> Unit,
+) {
+    io.github.magisk317.uikit.surface.WorkspaceTopBarSearchOverlay(
+        title = title,
+        searchQuery = searchQuery,
+        searchPlaceholder = searchPlaceholder,
+        modifier = modifier,
+        navigationIcon = navigationIcon,
+        actions = actions,
+        scrollBehavior = scrollBehavior,
+        windowInsets = windowInsets,
+        supportingContent = supportingContent,
+        onSearchChange = onSearchChange,
     )
 }
 

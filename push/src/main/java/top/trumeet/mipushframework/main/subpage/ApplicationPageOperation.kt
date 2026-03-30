@@ -180,33 +180,27 @@ object ApplicationPageOperation {
 
     @JvmStatic
     fun hasMiPushServices(checker: MiPushManifestChecker?, info: PackageInfo): Boolean {
-        val hasKnownComponents = hasKnownMiPushComponents(info)
-        if (!hasKnownComponents) {
-            return false
-        }
-        // Only run ManifestChecker for likely MiPush apps to avoid noisy warnings on unrelated packages.
-        checker?.checkServices(info)
-        return true
-    }
-
-    private fun hasKnownMiPushComponents(info: PackageInfo): Boolean {
         val serviceNames = info.services
             ?.mapNotNull(ServiceInfo::name)
             ?.toSet()
             ?: emptySet()
-        if (serviceNames.contains("com.xiaomi.mipush.sdk.PushMessageHandler")) return true
-        if (serviceNames.contains("com.xiaomi.mipush.sdk.MessageHandleService")) return true
-        if (serviceNames.contains("com.xiaomi.push.service.XMJobService")) return true
-        if (serviceNames.contains("com.xiaomi.push.service.XMPushService")) return true
-
         val receiverNames = info.receivers
             ?.mapNotNull { it.name }
             ?.toSet()
             ?: emptySet()
-        if (receiverNames.contains("com.xiaomi.push.service.receivers.PingReceiver")) return true
-        if (receiverNames.contains("com.xiaomi.mipush.sdk.PushMessageReceiver")) return true
-
-        return false
+        val displayReason = RegistrationHelper.classifyDisplayTypeReason(
+            serviceNames = serviceNames,
+            receiverNames = receiverNames
+        )
+        if (displayReason == "unsupported_components") {
+            return false
+        }
+        // Keep the visibility check aligned with the same classifier used by the type badge.
+        // Only direct-sdk apps should be validated by ManifestChecker's strict service rules.
+        if (displayReason == "direct_sdk") {
+            checker?.checkServices(info)
+        }
+        return true
     }
 
     @JvmStatic

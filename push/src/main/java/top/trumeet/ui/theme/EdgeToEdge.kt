@@ -19,7 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import com.magisk317.Global
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -33,38 +32,48 @@ fun applyEdgeToEdge(window: Window) {
 }
 
 @Composable
-fun SystemBarsScrim(hazeState: HazeState, hazeStyle: HazeStyle) {
+fun SystemBarsScrim(
+    hazeState: HazeState,
+    hazeStyle: HazeStyle,
+    showTop: Boolean = true,
+    showBottom: Boolean = true,
+    topBackgroundAlpha: Float = 0.35f,
+    bottomBackgroundAlpha: Float = 0.35f,
+) {
     Box(modifier = Modifier.fillMaxSize()) {
-        // 顶栏状态栏区域 - 半透明背景 + 模糊效果
-        Spacer(
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsTopHeight(WindowInsets.statusBars)
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.82f))
-                .hazeEffect(hazeState, hazeStyle) {
-                    forceInvalidateOnPreDraw = true
-                },
-        )
-        // 底栏导航栏区域 - 半透明背景 + 模糊效果
-        Spacer(
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                .align(Alignment.BottomStart)
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.82f))
-                .hazeEffect(hazeState, hazeStyle) {
-                    forceInvalidateOnPreDraw = true
-                },
-        )
+        if (showTop) {
+            Spacer(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .windowInsetsTopHeight(WindowInsets.statusBars)
+                    .hazeEffect(hazeState, hazeStyle) {
+                        forceInvalidateOnPreDraw = true
+                    }
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = topBackgroundAlpha)),
+            )
+        }
+        if (showBottom) {
+            Spacer(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .windowInsetsBottomHeight(WindowInsets.navigationBars)
+                    .align(Alignment.BottomStart)
+                    .hazeEffect(hazeState, hazeStyle) {
+                        forceInvalidateOnPreDraw = true
+                    }
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = bottomBackgroundAlpha)),
+            )
+        }
     }
 }
 
 @Composable
 fun rememberHazeStyle(
-    blurRadius: androidx.compose.ui.unit.Dp = 32.dp,
-    tintAlpha: Float = 0.26f
+    blurRadius: androidx.compose.ui.unit.Dp = 25.dp,
+    tintAlpha: Float = 0.2f
 ): HazeStyle {
     return HazeStyle(
+        backgroundColor = MaterialTheme.colorScheme.surface,
         tint = HazeTint(MaterialTheme.colorScheme.surface.copy(alpha = tintAlpha)),
         blurRadius = blurRadius,
         noiseFactor = 0.1f,

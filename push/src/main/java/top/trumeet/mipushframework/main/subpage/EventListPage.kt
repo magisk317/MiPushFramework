@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
@@ -30,6 +29,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -72,14 +73,15 @@ import top.trumeet.mipushframework.component.AppIcon
 import top.trumeet.mipushframework.component.DialogAction
 import top.trumeet.mipushframework.component.DialogActionRow
 import top.trumeet.mipushframework.component.InfoPill
+import top.trumeet.mipushframework.component.OverlayHeaderScaffold
 import top.trumeet.mipushframework.component.RefreshableLazyColumn
 import top.trumeet.mipushframework.component.SearchBar
-import top.trumeet.mipushframework.component.SearchWorkspaceScaffold
 import top.trumeet.mipushframework.component.TextView
 import top.trumeet.mipushframework.component.WorkspaceEmptyState
 import top.trumeet.mipushframework.component.WorkspaceListItem
 import top.trumeet.mipushframework.main.RecentEventListPage
 import top.trumeet.mipushframework.utils.ParseUtils
+import top.trumeet.ui.theme.spacing
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -101,25 +103,37 @@ fun EventList(
     hazeStyle: HazeStyle? = null
 ) {
     Page {
+        val context = LocalContext.current
         var clickedEvent by remember { mutableStateOf<EventInfoForDisplay?>(null) }
         var currentQuery by rememberSaveable(query) { mutableStateOf(query) }
-        var filtersExpanded by rememberSaveable { mutableStateOf(true) }
+        var searchExpanded by rememberSaveable(query) { mutableStateOf(query.isNotBlank()) }
+        var filtersExpanded by rememberSaveable { mutableStateOf(false) }
         var selectedTypeFilters by remember { mutableStateOf(emptySet<EventTypeFilter>()) }
         var selectedStatusFilters by remember { mutableStateOf(emptySet<EventStatusFilter>()) }
-        val showGroupedByApp = packageName.isEmpty()
+        var groupMode by rememberSaveable(groupByApp, packageName) { mutableStateOf(groupByApp) }
+        val showGroupedByApp = packageName.isEmpty() && groupMode
+        val resolvedTitle = remember(packageName) {
+            if (packageName.isBlank()) {
+                null
+            } else {
+                Global.ApplicationNameCache().getAppName(context, packageName).toString()
+                    .takeIf { it.isNotBlank() }
+                    ?.takeUnless { it == packageName }
+                    ?: packageName
+            }
+        }
         val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-        val topOverlayHeight = topInset + 160.dp
+        val topOverlayHeight = topInset + 132.dp
 
         clickedEvent?.let {
             EventDetailsDialog(it, viewModel = viewModel) { clickedEvent = null }
         }
 
-        SearchWorkspaceScaffold(
+        OverlayHeaderScaffold(
             fallbackTopPadding = topOverlayHeight,
             bottomPadding = contentPadding.calculateBottomPadding() + 28.dp,
             overlayModifier = Modifier
-                .statusBarsPadding()
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.78f))
+                .fillMaxWidth()
                 .then(
                     if (hazeState != null && hazeStyle != null) {
                         Modifier.hazeEffect(hazeState, hazeStyle) {
@@ -167,37 +181,162 @@ fun EventList(
                     )
                 }
             },
-            title = if (packageName.isNotEmpty()) packageName else stringResource(R.string.recent_activity_title),
-            searchField = {
-                SearchBar(
-                    placeholder = stringResource(android.R.string.search_go),
-                    query = currentQuery,
-                    onValueChange = { currentQuery = it },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            supportingContent = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    if (packageName.isNotEmpty()) {
-                        InfoPill(
-                            text = packageName,
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            overlay = {
+                Column {
+                    TopAppBar(
+                        title = {
+                            Text(
+                                if (packageName.isNotEmpty()) resolvedTitle ?: packageName else stringResource(R.string.recent_activity_title),
+                            )
+                        },
+                        windowInsets = WindowInsets.statusBars,
+                        actions = {
+                            if (packageName.isEmpty()) {
+                                IconButton(onClick = { groupMode = !groupMode }) {
+                                    Icon(
+                                        painter = painterResource(
+                                            if (showGroupedByApp) {
+                                                R.drawable.ic_event_note_black_24dp
+                                            } else {
+                                                R.drawable.ic_apps_black_24dp
+                                            },
+                                        ),
+                                        contentDescription = if (showGroupedByApp) {
+                                            stringResource(R.string.recent_activity_action_show_events)
+                                        } else {
+                                            stringResource(R.string.recent_activity_action_group_by_app)
+                                        },
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                            IconButton(onClick = { filtersExpanded = !filtersExpanded }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_tune_24dp),
+                                    contentDescription = stringResource(R.string.recent_activity_filter_prefix),
+                                    tint = if (filtersExpanded || selectedTypeFilters.isNotEmpty() || selectedStatusFilters.isNotEmpty()) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                )
+                            }
+                            IconButton(onClick = { searchExpanded = !searchExpanded }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_search_24dp),
+                                    contentDescription = stringResource(R.string.action_search),
+                                    tint = if (searchExpanded || currentQuery.isNotBlank()) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                )
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent,
+                            scrolledContainerColor = Color.Transparent,
+                        ),
+                    )
+                    Text(
+                        text = when {
+                            packageName.isNotEmpty() -> stringResource(R.string.app_detail_recent_activity_summary)
+                            showGroupedByApp -> stringResource(R.string.recent_activity_grouped_summary)
+                            else -> stringResource(R.string.recent_activity_stream_summary)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(
+                            start = MaterialTheme.spacing.medium,
+                            end = MaterialTheme.spacing.medium,
+                            bottom = MaterialTheme.spacing.small,
+                        ),
+                    )
+                    if (searchExpanded || currentQuery.isNotBlank()) {
+                        SearchBar(
+                            placeholder = stringResource(android.R.string.search_go),
+                            query = currentQuery,
+                            onValueChange = { currentQuery = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = MaterialTheme.spacing.medium),
                         )
                     }
-                    EventFilters(
-                        expanded = filtersExpanded,
-                        selectedTypeFilters = selectedTypeFilters,
-                        selectedStatusFilters = selectedStatusFilters,
-                        onExpandedChange = { filtersExpanded = !filtersExpanded },
-                        onTypeFiltersChange = { selectedTypeFilters = it },
-                        onStatusFiltersChange = { selectedStatusFilters = it },
-                    )
+                    if (packageName.isNotBlank()) {
+                        Spacer(modifier = Modifier.size(MaterialTheme.spacing.extraSmall))
+                    }
+                    if (filtersExpanded) {
+                        Column(
+                            modifier = Modifier.padding(
+                                start = MaterialTheme.spacing.medium,
+                                top = MaterialTheme.spacing.small,
+                                end = MaterialTheme.spacing.medium,
+                                bottom = MaterialTheme.spacing.small,
+                            ),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            EventFilters(
+                                expanded = true,
+                                selectedTypeFilters = selectedTypeFilters,
+                                selectedStatusFilters = selectedStatusFilters,
+                                onExpandedChange = { filtersExpanded = false },
+                                onTypeFiltersChange = { selectedTypeFilters = it },
+                                onStatusFiltersChange = { selectedStatusFilters = it },
+                                showToggleAction = false,
+                            )
+                        }
+                    }
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun EventHeaderPills(
+    showGroupedByApp: Boolean,
+    query: String,
+    packageName: String,
+    selectedTypeFilters: Set<EventTypeFilter>,
+    selectedStatusFilters: Set<EventStatusFilter>,
+) {
+    val activeFilterCount = selectedTypeFilters.size + selectedStatusFilters.size
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        InfoPill(
+            text = stringResource(
+                if (showGroupedByApp) {
+                    R.string.recent_activity_mode_grouped
+                } else {
+                    R.string.recent_activity_mode_stream
+                }
+            ),
+            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+            contentColor = MaterialTheme.colorScheme.primary,
+        )
+        if (query.isNotBlank()) {
+            InfoPill(
+                text = "${stringResource(R.string.action_search)} · $query",
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+        }
+        if (activeFilterCount > 0) {
+            InfoPill(
+                text = "${stringResource(R.string.recent_activity_filter_prefix)} · $activeFilterCount",
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+            )
+        }
+        if (packageName.isNotBlank()) {
+            InfoPill(
+                text = packageName,
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
@@ -217,6 +356,7 @@ private fun EventFilters(
     onExpandedChange: () -> Unit,
     onTypeFiltersChange: (Set<EventTypeFilter>) -> Unit,
     onStatusFiltersChange: (Set<EventStatusFilter>) -> Unit,
+    showToggleAction: Boolean = true,
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -231,16 +371,18 @@ private fun EventFilters(
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            TextButton(onClick = onExpandedChange) {
-                Text(
-                    text = stringResource(
-                        if (expanded) {
-                            R.string.action_collapse
-                        } else {
-                            R.string.action_expand
-                        }
-                    ),
-                )
+            if (showToggleAction) {
+                TextButton(onClick = onExpandedChange) {
+                    Text(
+                        text = stringResource(
+                            if (expanded) {
+                                R.string.action_collapse
+                            } else {
+                                R.string.action_expand
+                            }
+                        ),
+                    )
+                }
             }
         }
         if (!expanded) {
@@ -463,7 +605,7 @@ private fun EventGroupList(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp),
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.06f),
                     onClick = {
                         context.startActivity(
                             Intent(context, RecentEventListPage::class.java)
@@ -491,16 +633,21 @@ private fun EventGroupList(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Text(
-                        stringResource(R.string.recent_activity_group_count, group.events.size),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        stringResource(R.string.recent_activity_updated_at, updatedAt),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        InfoPill(
+                            text = stringResource(R.string.recent_activity_group_count, group.events.size),
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        InfoPill(
+                            text = stringResource(R.string.recent_activity_updated_at, updatedAt),
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                    }
                 }
             }
         }
@@ -684,18 +831,18 @@ private fun EventList(
 @Composable
 private fun EventItem(item: EventInfoForDisplay, onClick: (EventInfoForDisplay) -> Unit) {
     val disabled = item.isDisabled()
+    val denied = item.event.result != Event.ResultType.OK
     val appName = item.appName?.takeIf { it.isNotBlank() } ?: item.packageName
-    val metaLine = buildString {
-        append(appName)
-        if (item.channel.isNotBlank()) {
-            append(" · ")
-            append(item.channel)
-        }
-    }
-    val containerColor = if (disabled) {
-        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.22f)
+    val titleText = if (disabled) "[disable] ${item.title}" else item.title
+    val metaLine = if (item.channel.isNotBlank()) {
+        "$appName · ${item.channel}"
     } else {
-        Color.Transparent
+        appName
+    }
+    val containerColor = when {
+        disabled -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.22f)
+        denied -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.18f)
+        else -> Color.Transparent
     }
 
     WorkspaceListItem(
@@ -705,42 +852,55 @@ private fun EventItem(item: EventInfoForDisplay, onClick: (EventInfoForDisplay) 
         containerColor = containerColor,
         onClick = { onClick(item) },
         leadingContent = {
-            AppIcon(item.packageName, item.appName, modifier = Modifier.size(48.dp))
+            AppIcon(item.packageName, item.appName, modifier = Modifier.size(40.dp))
         },
-        trailingContent = {
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = receiveDateFormat.format(item.receiveDate),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                if (disabled) {
-                    InfoPill(
-                        text = stringResource(R.string.recent_activity_disabled_label),
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                    )
-                }
-            }
-        },
+        trailingContent = null,
     ) {
-        Text(
-            text = item.title,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1
-        )
-        Text(
-            text = metaLine,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = titleText,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(modifier = Modifier.size(MaterialTheme.spacing.small))
+            Text(
+                text = receiveDateFormat.format(item.receiveDate),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = metaLine,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                modifier = Modifier.weight(1f),
+            )
+            if (denied) {
+                InfoPill(
+                    text = stringResource(R.string.recent_activity_filter_status_denied),
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+            }
+        }
         Text(
             text = item.content,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 2
+            maxLines = 3,
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }

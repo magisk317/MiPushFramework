@@ -1,12 +1,26 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package top.trumeet.mipushframework.main.subpage
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.graphics.BitmapFactory
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
+import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,12 +34,27 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -33,12 +62,17 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import dev.chrisbanes.haze.hazeSource
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.xiaomi.xmsf.BuildConfig
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.layout.onSizeChanged
 import com.xiaomi.xmsf.R
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
@@ -46,14 +80,16 @@ import dev.chrisbanes.haze.hazeEffect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import top.trumeet.mipushframework.MainActivityOperation
-import top.trumeet.mipushframework.component.DetailSectionCard
-import top.trumeet.mipushframework.component.FeatureEntryCard
-import top.trumeet.mipushframework.component.InfoPill
-import top.trumeet.mipushframework.component.OverlayHeaderPanel
-import top.trumeet.mipushframework.component.OverlayHeaderScaffold
 import top.trumeet.mipushframework.component.SectionColumn
 import top.trumeet.ui.theme.spacing
+import kotlin.math.atan2
+import kotlin.math.hypot
 import kotlin.math.max
+
+private val OverviewCardShape = RoundedCornerShape(28.dp)
+private const val ALIPAY_PACKAGE_NAME = "com.eg.android.AlipayGphone"
+private const val WECHAT_PACKAGE_NAME = "com.tencent.mm"
+private const val ALIPAY_POCKET_TOKEN = "J:/wkSIPXL689C 或📸復 zhi📸此消息打开🔍吱.f`u宝🔎，得幸福宏饱，天天等着你  s:/r HU6311 $801"
 
 @Composable
 fun Overview(
@@ -81,6 +117,9 @@ private fun OverviewScreen(
 ) {
     val context = LocalContext.current
     val mainActivityOperation = MainActivityOperation(context)
+    var showDonateDialog by remember { mutableStateOf(false) }
+    var showAlipayChoiceDialog by remember { mutableStateOf(false) }
+    var showQRCodeDialog by remember { mutableStateOf<Pair<Int, String>?>(null) }
     val appStats by produceState(
         initialValue = ApplicationStats(),
     ) {
@@ -90,194 +129,177 @@ private fun OverviewScreen(
     }
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val topOverlayHeight = topInset + 110.dp
 
-    OverlayHeaderScaffold(
-        fallbackTopPadding = topOverlayHeight,
-        bottomPadding = contentPadding.calculateBottomPadding() + bottomInset + 24.dp,
-        overlayModifier = Modifier
-            .statusBarsPadding()
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.78f))
-            .then(
-                if (hazeState != null && hazeStyle != null) {
-                    Modifier.hazeEffect(hazeState, hazeStyle) {
-                        forceInvalidateOnPreDraw = true
+    Box(modifier = Modifier.fillMaxSize()) {
+        SectionColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .then(
+                    if (hazeState != null) {
+                        Modifier.hazeSource(state = hazeState)
+                    } else {
+                        Modifier
                     }
-                } else {
-                    Modifier
-                }
+                )
+                .verticalScroll(rememberScrollState()),
+            contentPadding = PaddingValues(
+                start = MaterialTheme.spacing.medium,
+                top = topInset + 80.dp,
+                end = MaterialTheme.spacing.medium,
+                bottom = contentPadding.calculateBottomPadding() + bottomInset + 24.dp,
             ),
-        content = { padding ->
-            SectionColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState()),
-                contentPadding = PaddingValues(
-                    start = MaterialTheme.spacing.medium,
-                    top = padding.calculateTopPadding() + 8.dp,
-                    end = MaterialTheme.spacing.medium,
-                    bottom = padding.calculateBottomPadding(),
+            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = OverviewCardShape,
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
                 ),
-                verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
             ) {
-                DetailSectionCard(
-                    title = stringResource(R.string.overview_app_stats_title),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    AppStatsDonutSection(appStats = appStats)
-                }
+                AppStatsDonutSection(appStats = appStats)
+            }
 
-                DetailSectionCard(
-                    title = stringResource(R.string.overview_project_title),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Column(
-                        modifier = Modifier.padding(
-                            start = MaterialTheme.spacing.large,
-                            end = MaterialTheme.spacing.large,
-                            bottom = MaterialTheme.spacing.large,
-                        ),
-                        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
-                    ) {
-                        FeatureEntryCard(
-                            title = stringResource(R.string.overview_project_github_title),
-                            summary = stringResource(R.string.overview_project_github_summary),
-                            onClick = { mainActivityOperation.gotoGitHubProjectPage() },
-                        )
-                        FeatureEntryCard(
-                            title = stringResource(R.string.helplib_action_telegram_group),
-                            summary = stringResource(R.string.help_page_contact_telegram_summary),
-                            onClick = { mainActivityOperation.gotoTelegramGroup() },
-                        )
-                        FeatureEntryCard(
-                            title = stringResource(R.string.helplib_action_qq_group),
-                            summary = stringResource(R.string.help_page_contact_qq_summary),
-                            onClick = { mainActivityOperation.gotoQQGroup() },
-                        )
-                        FeatureEntryCard(
-                            title = stringResource(R.string.action_update),
-                            summary = stringResource(R.string.overview_project_update_summary),
-                            onClick = { mainActivityOperation.gotoGitHubReleasePage() },
-                        )
-                        FeatureEntryCard(
-                            title = stringResource(R.string.action_about),
-                            summary = stringResource(R.string.overview_project_about_summary),
-                            onClick = { mainActivityOperation.showAboutDialog(onShowAboutDialog) },
-                        )
+            OverviewProjectCard(
+                mainActivityOperation = mainActivityOperation,
+                onShowDonate = { showDonateDialog = true },
+                onShowAboutDialog = onShowAboutDialog,
+            )
+        }
+
+        TopAppBar(
+            title = { Text(text = stringResource(R.string.app_name)) },
+            windowInsets = WindowInsets.statusBars,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .then(
+                    if (hazeState != null && hazeStyle != null) {
+                        Modifier.hazeEffect(hazeState, hazeStyle) {
+                            forceInvalidateOnPreDraw = true
+                        }
+                    } else {
+                        Modifier
                     }
+                ),
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.Transparent,
+                scrolledContainerColor = Color.Transparent,
+            ),
+        )
+    }
+
+    if (showDonateDialog) {
+        DonateDialog(
+            onDismiss = { showDonateDialog = false },
+            onAlipay = {
+                showDonateDialog = false
+                showAlipayChoiceDialog = true
+            },
+            onWechat = {
+                showDonateDialog = false
+                showQRCodeDialog = R.drawable.wx to "wechat"
+            },
+        )
+    }
+
+    if (showAlipayChoiceDialog) {
+        AlipayChoiceDialog(
+            onDismiss = { showAlipayChoiceDialog = false },
+            onQRCode = {
+                showAlipayChoiceDialog = false
+                showQRCodeDialog = R.drawable.alipay to "alipay"
+            },
+            onToken = {
+                showAlipayChoiceDialog = false
+                Toast.makeText(context, copyAlipayPocketToken(context), Toast.LENGTH_LONG).show()
+                startAlipayActivity(context)?.let {
+                    Toast.makeText(context, it, Toast.LENGTH_LONG).show()
                 }
-            }
-        },
-        overlay = {
-            OverlayHeaderPanel(
-                title = stringResource(R.string.app_name),
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    InfoPill(
-                        text = stringResource(
-                            R.string.overview_version_format,
-                            BuildConfig.VERSION_NAME,
-                        ),
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    InfoPill(
-                        text = stringResource(
-                            R.string.overview_detected_apps_format,
-                            appStats.usingMiPush,
-                            max(appStats.total, 0),
-                        ),
-                        containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                        contentColor = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
-        },
-    )
+            },
+        )
+    }
+
+    showQRCodeDialog?.let { (resId, type) ->
+        QRCodeDialog(
+            resId = resId,
+            type = type,
+            onDismiss = { showQRCodeDialog = null },
+            onSave = {
+                saveImageToGallery(context, resId, "${type}_qrcode")
+                    .forEach { message ->
+                        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                    }
+            },
+        )
+    }
 }
 
 @Composable
 private fun AppStatsDonutSection(
     appStats: ApplicationStats,
 ) {
+    val activeSliceColor = MaterialTheme.colorScheme.primary
+    val inactiveSliceColor = MaterialTheme.colorScheme.primaryContainer
     val outerSlices = listOf(
         DonutSlice(
-            label = stringResource(R.string.app_list_stats_using_mipush),
+            label = stringResource(R.string.overview_chart_integrated_label),
             value = appStats.usingMiPush,
             total = max(appStats.total, 0),
-            color = MaterialTheme.colorScheme.primary,
+            color = activeSliceColor,
         ),
         DonutSlice(
-            label = stringResource(R.string.app_list_stats_not_using_mipush),
+            label = stringResource(R.string.overview_chart_not_integrated_label),
             value = appStats.notUsingMiPush,
             total = max(appStats.total, 0),
-            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+            color = inactiveSliceColor,
         ),
     )
     val innerSlices = listOf(
         DonutSlice(
-            label = stringResource(R.string.app_list_stats_registered),
+            label = stringResource(R.string.overview_chart_registered_label),
             value = appStats.registered,
             total = max(appStats.usingMiPush, 0),
-            color = MaterialTheme.colorScheme.tertiary,
+            color = activeSliceColor,
         ),
         DonutSlice(
-            label = stringResource(R.string.app_list_stats_not_registered),
+            label = stringResource(R.string.overview_chart_unregistered_label),
             value = appStats.notRegistered,
             total = max(appStats.usingMiPush, 0),
-            color = MaterialTheme.colorScheme.secondary,
+            color = inactiveSliceColor,
         ),
     )
 
     Column(
         modifier = Modifier.padding(
             start = MaterialTheme.spacing.large,
+            top = MaterialTheme.spacing.large,
             end = MaterialTheme.spacing.large,
             bottom = MaterialTheme.spacing.large,
         ),
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.large),
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(280.dp),
-            contentAlignment = Alignment.Center,
+        BoxWithConstraints(
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            DonutChart(
-                modifier = Modifier.size(232.dp),
-                outerSlices = outerSlices,
-                innerSlices = innerSlices,
-                outerStroke = 28.dp,
-                innerStroke = 20.dp,
-            )
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+            val chartSpacing = MaterialTheme.spacing.medium
+            val panelWidth = (maxWidth - chartSpacing) / 2
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(chartSpacing),
+                verticalAlignment = Alignment.Top,
             ) {
-                Text(
-                    text = appStats.total.toString(),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                OverviewChartPanel(
+                    modifier = Modifier.width(panelWidth),
+                    title = stringResource(R.string.overview_chart_outer_title),
+                    slices = outerSlices,
                 )
-                Text(
-                    text = stringResource(R.string.app_list_stats_total),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                OverviewChartPanel(
+                    modifier = Modifier.width(panelWidth),
+                    title = stringResource(R.string.overview_chart_inner_title),
+                    slices = innerSlices,
                 )
             }
         }
-
-        OverviewLegendBlock(
-            title = stringResource(R.string.overview_chart_outer_title),
-            slices = outerSlices,
-        )
-        OverviewLegendBlock(
-            title = stringResource(R.string.overview_chart_inner_title),
-            slices = innerSlices,
-        )
     }
 }
 
@@ -289,65 +311,148 @@ private data class DonutSlice(
 )
 
 @Composable
+private fun OverviewChartPanel(
+    modifier: Modifier = Modifier,
+    title: String,
+    slices: List<DonutSlice>,
+) {
+    var selectedIndex by remember(title) { mutableIntStateOf(0) }
+    val selectedSlice = slices.getOrNull(selectedIndex) ?: slices.first()
+    val selectedPercent = selectedSlice.percent()
+
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f),
+            contentAlignment = Alignment.Center,
+        ) {
+            DonutChart(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(10.dp),
+                slices = slices,
+                stroke = 18.dp,
+                onSliceTap = { tappedIndex -> selectedIndex = tappedIndex },
+            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = selectedSlice.label,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = "${selectedSlice.value}  $selectedPercent%",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+        OverviewLegendBlock(
+            slices = slices,
+            selectedIndex = selectedIndex,
+            onSelect = { selectedIndex = it },
+        )
+    }
+}
+
+@Composable
 private fun DonutChart(
     modifier: Modifier = Modifier,
-    outerSlices: List<DonutSlice>,
-    innerSlices: List<DonutSlice>,
-    outerStroke: androidx.compose.ui.unit.Dp,
-    innerStroke: androidx.compose.ui.unit.Dp,
+    slices: List<DonutSlice>,
+    stroke: androidx.compose.ui.unit.Dp,
+    onSliceTap: (Int) -> Unit,
 ) {
     val baseTrackColor = MaterialTheme.colorScheme.surfaceContainerHigh
+    val density = LocalDensity.current
+    val strokePx = with(density) { stroke.toPx() }
+    var chartSize by remember { mutableStateOf(IntSize.Zero) }
 
-    Canvas(modifier = modifier) {
-        val outerStrokePx = outerStroke.toPx()
-        val innerStrokePx = innerStroke.toPx()
-        val outerDiameter = size.minDimension
-        val outerTopLeft = Offset(
-            (size.width - outerDiameter) / 2f,
-            (size.height - outerDiameter) / 2f,
+    Canvas(
+        modifier = modifier
+            .onSizeChanged { chartSize = it }
+            .pointerInput(slices, chartSize, strokePx) {
+                detectTapGestures { tapOffset ->
+                    resolveSliceIndexForTap(
+                        tapOffset = tapOffset,
+                        chartSize = chartSize,
+                        strokePx = strokePx,
+                        slices = slices,
+                    )?.let(onSliceTap)
+                }
+            },
+    ) {
+        val diameter = size.minDimension
+        val topLeft = Offset(
+            (size.width - diameter) / 2f,
+            (size.height - diameter) / 2f,
         )
-        val outerSize = Size(outerDiameter, outerDiameter)
-        val innerDiameter = outerDiameter - outerStrokePx * 1.95f
-        val innerTopLeft = Offset(
-            (size.width - innerDiameter) / 2f,
-            (size.height - innerDiameter) / 2f,
-        )
-        val innerSize = Size(innerDiameter, innerDiameter)
+        val arcSize = Size(diameter, diameter)
 
         drawArc(
             color = baseTrackColor,
             startAngle = -90f,
             sweepAngle = 360f,
             useCenter = false,
-            topLeft = outerTopLeft,
-            size = outerSize,
-            style = Stroke(width = outerStrokePx, cap = StrokeCap.Round),
-        )
-        drawArc(
-            color = baseTrackColor.copy(alpha = 0.75f),
-            startAngle = -90f,
-            sweepAngle = 360f,
-            useCenter = false,
-            topLeft = innerTopLeft,
-            size = innerSize,
-            style = Stroke(width = innerStrokePx, cap = StrokeCap.Round),
+            topLeft = topLeft,
+            size = arcSize,
+            style = Stroke(width = strokePx, cap = StrokeCap.Round),
         )
 
         drawSlices(
-            slices = outerSlices,
-            diameter = outerDiameter,
-            topLeft = outerTopLeft,
-            arcSize = outerSize,
-            stroke = outerStrokePx,
-        )
-        drawSlices(
-            slices = innerSlices,
-            diameter = innerDiameter,
-            topLeft = innerTopLeft,
-            arcSize = innerSize,
-            stroke = innerStrokePx,
+            slices = slices,
+            diameter = diameter,
+            topLeft = topLeft,
+            arcSize = arcSize,
+            stroke = strokePx,
         )
     }
+}
+
+private fun resolveSliceIndexForTap(
+    tapOffset: Offset,
+    chartSize: IntSize,
+    strokePx: Float,
+    slices: List<DonutSlice>,
+): Int? {
+    if (chartSize == IntSize.Zero || slices.isEmpty()) return null
+    val width = chartSize.width.toFloat()
+    val height = chartSize.height.toFloat()
+    val centerX = width / 2f
+    val centerY = height / 2f
+    val radius = minOf(width, height) / 2f
+    val distance = hypot(tapOffset.x - centerX, tapOffset.y - centerY)
+    val innerRadius = radius - strokePx
+    if (distance < innerRadius || distance > radius) return null
+
+    val angle = ((Math.toDegrees(atan2((tapOffset.y - centerY).toDouble(), (tapOffset.x - centerX).toDouble())) + 90.0) + 360.0) % 360.0
+    var currentSweepStart = 0.0
+    slices.forEachIndexed { index, slice ->
+        if (slice.total <= 0 || slice.value <= 0) return@forEachIndexed
+        val sweep = 360.0 * slice.value.toDouble() / slice.total.toDouble()
+        if (angle >= currentSweepStart && angle < currentSweepStart + sweep) {
+            return index
+        }
+        currentSweepStart += sweep
+    }
+    return null
 }
 
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawSlices(
@@ -377,20 +482,20 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawSlices(
 
 @Composable
 private fun OverviewLegendBlock(
-    title: String,
     slices: List<DonutSlice>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
 ) {
     Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.SemiBold,
-        )
-        slices.forEach { slice ->
-            OverviewLegendItem(slice = slice)
+        slices.forEachIndexed { index, slice ->
+            OverviewLegendItem(
+                slice = slice,
+                selected = selectedIndex == index,
+                onClick = { onSelect(index) },
+            )
         }
     }
 }
@@ -398,47 +503,351 @@ private fun OverviewLegendBlock(
 @Composable
 private fun OverviewLegendItem(
     slice: DonutSlice,
+    selected: Boolean,
+    onClick: () -> Unit,
 ) {
-    val total = max(slice.total, 0)
-    val percent = if (total == 0) 0 else (slice.value * 100 / total)
-
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
     ) {
         Box(
             modifier = Modifier
                 .size(12.dp)
                 .background(slice.color, CircleShape),
         )
-        Column(
-            modifier = Modifier
-                .padding(start = 12.dp)
-                .weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
+        Text(
+            text = slice.label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (selected) {
+                MaterialTheme.colorScheme.onSurface
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            modifier = Modifier.padding(start = 12.dp),
+        )
+    }
+}
+
+private fun DonutSlice.percent(): Int {
+    val safeTotal = max(total, 0)
+    if (safeTotal == 0) return 0
+    return value * 100 / safeTotal
+}
+
+@Composable
+private fun OverviewProjectCard(
+    mainActivityOperation: MainActivityOperation,
+    onShowDonate: () -> Unit,
+    onShowAboutDialog: (String) -> Unit,
+) {
+    OverviewListCard(title = stringResource(R.string.overview_project_title)) {
+        OverviewListItem(
+            iconRes = R.drawable.ic_home_black_24dp,
+            label = stringResource(R.string.overview_project_github_title),
+            value = stringResource(R.string.overview_project_github_summary),
+            onClick = { mainActivityOperation.gotoGitHubProjectPage() },
+        )
+        OverviewListItem(
+            iconRes = R.drawable.ic_notifications_black_24dp,
+            label = stringResource(R.string.action_update),
+            value = stringResource(R.string.overview_project_update_summary),
+            onClick = { mainActivityOperation.gotoGitHubReleasePage() },
+        )
+        OverviewListItem(
+            iconRes = R.drawable.ic_info_outline_black_24dp,
+            label = stringResource(R.string.pref_donate_by_alipay_title),
+            value = stringResource(R.string.dialog_donate_summary),
+            onClick = onShowDonate,
+        )
+        OverviewListItem(
+            iconRes = R.drawable.ic_help_outline_24,
+            label = stringResource(R.string.helplib_action_telegram_group),
+            value = stringResource(R.string.help_page_contact_telegram_summary),
+            onClick = { mainActivityOperation.gotoTelegramGroup() },
+        )
+        OverviewListItem(
+            iconRes = R.drawable.ic_help_outline_24,
+            label = stringResource(R.string.helplib_action_qq_group),
+            value = stringResource(R.string.help_page_contact_qq_summary),
+            onClick = { mainActivityOperation.gotoQQGroup() },
+        )
+        OverviewListItem(
+            iconRes = R.drawable.ic_info_outline_black_24dp,
+            label = stringResource(R.string.action_about),
+            value = stringResource(R.string.overview_project_about_summary),
+            onClick = { mainActivityOperation.showAboutDialog(onShowAboutDialog) },
+        )
+    }
+}
+
+@Composable
+private fun OverviewListCard(
+    title: String,
+    content: @Composable () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = OverviewCardShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             Text(
-                text = slice.label,
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(
+                    start = MaterialTheme.spacing.large,
+                    top = MaterialTheme.spacing.large,
+                    end = MaterialTheme.spacing.large,
+                    bottom = MaterialTheme.spacing.medium,
+                ),
+            )
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+            )
+            Column(
+                modifier = Modifier.padding(vertical = MaterialTheme.spacing.small),
+            ) {
+                content()
+            }
+        }
+    }
+}
+
+@Composable
+private fun OverviewListItem(
+    iconRes: Int,
+    label: String,
+    value: String,
+    onClick: (() -> Unit)? = null,
+) {
+    ListItem(
+        leadingContent = {
+            Icon(
+                painter = painterResource(iconRes),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        },
+        headlineContent = {
+            Text(
+                text = label,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
+        },
+        supportingContent = {
             Text(
-                text = stringResource(
-                    R.string.overview_chart_ratio_format,
-                    slice.value,
-                    percent,
-                ),
+                text = value,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        },
+        modifier = if (onClick != null) {
+            Modifier.clickable(onClick = onClick)
+        } else {
+            Modifier
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+    )
+}
+
+@Composable
+private fun DonateDialog(
+    onDismiss: () -> Unit,
+    onAlipay: () -> Unit,
+    onWechat: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = stringResource(R.string.dialog_donate_title)) },
+        text = { Text(text = stringResource(R.string.dialog_donate_summary)) },
+        confirmButton = {
+            TextButton(onClick = onAlipay) {
+                Text(text = stringResource(R.string.dialog_donate_alipay))
+            }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onWechat) {
+                    Text(text = stringResource(R.string.dialog_donate_wechat))
+                }
+                TextButton(onClick = onDismiss) {
+                    Text(text = stringResource(R.string.dialog_donate_cancel))
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun AlipayChoiceDialog(
+    onDismiss: () -> Unit,
+    onQRCode: () -> Unit,
+    onToken: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = stringResource(R.string.dialog_donate_alipay_choice_title)) },
+        text = { Text(text = stringResource(R.string.dialog_donate_alipay_choice_content)) },
+        confirmButton = {
+            TextButton(onClick = onQRCode) {
+                Text(text = stringResource(R.string.dialog_donate_alipay_qrcode))
+            }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onToken) {
+                    Text(text = stringResource(R.string.dialog_donate_alipay_token))
+                }
+                TextButton(onClick = onDismiss) {
+                    Text(text = stringResource(R.string.dialog_donate_cancel))
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun QRCodeDialog(
+    resId: Int,
+    type: String,
+    onDismiss: () -> Unit,
+    onSave: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = if (type == "alipay") {
+                    stringResource(R.string.dialog_donate_alipay)
+                } else {
+                    stringResource(R.string.dialog_donate_wechat)
+                },
+            )
+        },
+        text = {
+            androidx.compose.foundation.Image(
+                painter = painterResource(id = resId),
+                contentDescription = type,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onSave) {
+                Text(text = stringResource(R.string.save_to_gallery))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.dialog_donate_cancel))
+            }
+        },
+    )
+}
+
+private fun copyToClipboard(context: Context, text: String) {
+    val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    clipboardManager.setPrimaryClip(ClipData.newPlainText("mipush", text))
+}
+
+private fun copyAlipayPocketToken(context: Context): String {
+    copyToClipboard(context, ALIPAY_POCKET_TOKEN)
+    return context.getString(R.string.alipay_red_packet_code_copied, ALIPAY_POCKET_TOKEN)
+}
+
+private fun startAlipayActivity(context: Context): String? {
+    val message = checkPackageStateMessage(
+        context = context,
+        packageName = ALIPAY_PACKAGE_NAME,
+        installPromptRes = R.string.alipay_install_prompt,
+        enablePromptRes = R.string.alipay_enable_prompt,
+    )
+    if (message != null) return message
+    val intent = context.packageManager.getLaunchIntentForPackage(ALIPAY_PACKAGE_NAME)
+    context.startActivity(intent)
+    return null
+}
+
+private fun startWechatActivity(context: Context): String? {
+    val message = checkPackageStateMessage(
+        context = context,
+        packageName = WECHAT_PACKAGE_NAME,
+        installPromptRes = R.string.wechat_install_prompt,
+        enablePromptRes = R.string.wechat_enable_prompt,
+    )
+    if (message != null) return message
+    val intent = context.packageManager.getLaunchIntentForPackage(WECHAT_PACKAGE_NAME)
+    context.startActivity(intent)
+    return null
+}
+
+private fun checkPackageStateMessage(
+    context: Context,
+    packageName: String,
+    installPromptRes: Int,
+    enablePromptRes: Int,
+): String? {
+    val pm = context.packageManager
+    return try {
+        val appInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            pm.getApplicationInfo(packageName, android.content.pm.PackageManager.ApplicationInfoFlags.of(0))
+        } else {
+            @Suppress("DEPRECATION")
+            pm.getApplicationInfo(packageName, 0)
         }
-        Text(
-            text = slice.value.toString(),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.End,
-            modifier = Modifier.width(52.dp),
-        )
+        if (appInfo.enabled) null else context.getString(enablePromptRes)
+    } catch (_: Exception) {
+        context.getString(installPromptRes)
     }
+}
+
+private fun saveImageToGallery(context: Context, resId: Int, fileName: String): List<String> {
+    val bitmap = BitmapFactory.decodeResource(context.resources, resId)
+    val resolver = context.contentResolver
+    val messages = mutableListOf<String>()
+    val contentValues = android.content.ContentValues().apply {
+        put(MediaStore.MediaColumns.DISPLAY_NAME, "$fileName.png")
+        put(MediaStore.MediaColumns.MIME_TYPE, "image/png")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES)
+            put(MediaStore.MediaColumns.IS_PENDING, 1)
+        }
+    }
+
+    val imageUri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+    if (imageUri == null) {
+        messages += context.getString(R.string.save_to_gallery_failed)
+        return messages
+    }
+
+    try {
+        resolver.openOutputStream(imageUri)?.use {
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            contentValues.clear()
+            contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
+            resolver.update(imageUri, contentValues, null, null)
+        }
+        val appName = if (fileName.contains("alipay")) {
+            context.getString(R.string.dialog_donate_alipay).substringBefore(" (")
+        } else {
+            context.getString(R.string.dialog_donate_wechat).substringBefore(" (")
+        }
+        messages += context.getString(R.string.save_to_gallery_success, appName)
+        if (fileName.contains("alipay")) {
+            startAlipayActivity(context)?.let(messages::add)
+        } else if (fileName.contains("wechat")) {
+            startWechatActivity(context)?.let(messages::add)
+        }
+    } catch (_: Exception) {
+        messages += context.getString(R.string.save_to_gallery_failed)
+    }
+    return messages
 }

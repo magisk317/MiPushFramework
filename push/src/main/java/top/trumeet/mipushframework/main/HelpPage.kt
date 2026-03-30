@@ -139,7 +139,6 @@ private fun HelpHubRoute(
         bottomPadding = bottomInset + 24.dp,
         overlayModifier = Modifier
             .statusBarsPadding()
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.62f))
             .then(
                 if (hazeState != null && hazeStyle != null) {
                     Modifier.hazeEffect(hazeState, hazeStyle) {
@@ -207,7 +206,6 @@ private fun HelpArticleRoute(
         bottomPadding = bottomInset + 24.dp,
         overlayModifier = Modifier
             .statusBarsPadding()
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.62f))
             .then(
                 if (hazeState != null && hazeStyle != null) {
                     Modifier.hazeEffect(hazeState, hazeStyle) {
