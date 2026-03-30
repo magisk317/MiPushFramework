@@ -110,7 +110,7 @@ final class MIPushNotificationActionSupport {
         if (map == null || (pendingIntentFromExtra = getPendingIntentFromExtra(context, str, map, str2, str3, str4, str5)) == null) {
             return null;
         }
-        return PendingIntent.getActivity(context, 0, pendingIntentFromExtra, 0);
+        return PendingIntent.getActivity(context, 0, pendingIntentFromExtra, PendingIntent.FLAG_IMMUTABLE);
     }
 
     private static Intent getPendingIntentFromExtra(Context context, String str, Map<String, String> map, String str2, String str3, String str4, String str5) {

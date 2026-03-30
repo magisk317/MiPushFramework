@@ -50,6 +50,8 @@ import com.xiaomi.xmsf.R
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.hazeEffect
+import top.trumeet.mipushframework.component.DialogAction
+import top.trumeet.mipushframework.component.DialogActionRow
 import top.trumeet.mipushframework.data.EventRepository
 import top.trumeet.mipushframework.main.subpage.ApplicationList
 import top.trumeet.mipushframework.main.subpage.EventList
@@ -361,9 +363,14 @@ fun MainScreen(
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { aboutDialogContent = null },
                 confirmButton = {
-                    androidx.compose.material3.TextButton(onClick = { aboutDialogContent = null }) {
-                        Text(text = stringResource(android.R.string.ok))
-                    }
+                    DialogActionRow(
+                        actions = listOf(
+                            DialogAction(
+                                label = stringResource(android.R.string.ok),
+                                onClick = { aboutDialogContent = null },
+                            ),
+                        ),
+                    )
                 },
                 text = { Text(aboutDialogContent!!) },
             )

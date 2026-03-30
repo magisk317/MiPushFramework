@@ -89,6 +89,7 @@ final class XMPushServiceEnvironment {
         }
     }
 
+    @SuppressWarnings("deprecation")
     static Notification getPushServiceNotification(Context context) {
         Intent intent = new Intent(context, (Class<?>) XMPushService.class);
         if (Build.VERSION.SDK_INT >= 11) {
@@ -96,12 +97,12 @@ final class XMPushServiceEnvironment {
             builder.setSmallIcon(context.getApplicationInfo().icon);
             builder.setContentTitle("Push Service");
             builder.setContentText("Push Service");
-            builder.setContentIntent(PendingIntent.getActivity(context, 0, intent, 0));
+            builder.setContentIntent(PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE));
             return builder.getNotification();
         }
         Notification notification = new Notification();
         try {
-            notification.getClass().getMethod("setLatestEventInfo", Context.class, CharSequence.class, CharSequence.class, PendingIntent.class).invoke(notification, context, "Push Service", "Push Service", PendingIntent.getService(context, 0, intent, 0));
+            notification.getClass().getMethod("setLatestEventInfo", Context.class, CharSequence.class, CharSequence.class, PendingIntent.class).invoke(notification, context, "Push Service", "Push Service", PendingIntent.getService(context, 0, intent, PendingIntent.FLAG_IMMUTABLE));
         } catch (Exception e) {
             MyLog.e(e);
         }

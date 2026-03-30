@@ -93,6 +93,7 @@ object PushPacketRuntime {
         }
         val resolvedPacket = prepared.packet ?: return null
         val client = prepared.client ?: return null
+        @Suppress("DEPRECATION")
         return Blob.from(resolvedPacket, client.security)
     }
 

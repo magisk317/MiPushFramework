@@ -43,6 +43,23 @@ android {
     }
 }
 
+tasks.withType<org.gradle.api.tasks.compile.JavaCompile>().configureEach {
+    options.isWarnings = false
+    options.isDeprecation = false
+    options.compilerArgs.addAll(
+        listOf(
+            "-nowarn",
+            "-Xlint:none",
+            "-Xlint:-deprecation",
+            "-Xlint:-unchecked",
+        ),
+    )
+}
+
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    jvmArgs("-Xshare:off")
+}
+
 dependencies {
     implementation(project(":common"))
     implementation(project(":condom"))
