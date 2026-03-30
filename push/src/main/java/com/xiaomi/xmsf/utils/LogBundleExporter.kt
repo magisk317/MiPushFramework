@@ -18,6 +18,8 @@ import top.trumeet.common.Constants
 
 internal object LogBundleExporter {
     private const val ZIP_MIME_TYPE = "application/zip"
+    private const val EXPORT_FILE_PREFIX = "mipush_logs_"
+    private const val STAGING_DIR_PREFIX = ".tmp_mipush_logs_"
     private const val PRIVATE_LOG_DIR_NAME = "log"
     private const val PRIVATE_CRASH_DIR_NAME = "crash"
     private const val PRIVATE_EXPORT_DIR_NAME = "xmsf_logs"
@@ -52,7 +54,7 @@ internal object LogBundleExporter {
                 logger.e(details)
                 return ExportResult(null, details)
             }
-            val stagingDir = File(exportDir, ".tmp_logs_$timestamp").apply {
+            val stagingDir = File(exportDir, "${STAGING_DIR_PREFIX}$timestamp").apply {
                 if (exists()) {
                     deleteRecursivelyWithSuFallback(this)
                 }
@@ -89,7 +91,7 @@ internal object LogBundleExporter {
                     },
                 )
 
-                val zipFile = File(exportDir, "logs_$timestamp.zip")
+                val zipFile = File(exportDir, "${EXPORT_FILE_PREFIX}$timestamp.zip")
                 zipDirectory(stagingDir, zipFile)
                 setFileWorldReadable(zipFile, 2)
                 val detailSummary = details.joinToString("; ")
