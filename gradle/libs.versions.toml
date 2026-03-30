@@ -1,9 +1,8 @@
 [versions]
 # Build SDK versions
-compileSdk = "36"
-compileSdkExtension = "19"
+compileSdk = "37"
 minSdk = "28"
-targetSdk = "36"
+targetSdk = "37"
 java = "25"
 
 # App version
