@@ -72,6 +72,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.layout.onSizeChanged
+import com.magisk317.compat.PackageManagerCompatBridge
 import com.xiaomi.xmsf.R
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
@@ -806,12 +807,7 @@ private fun checkPackageStateMessage(
 ): String? {
     val pm = context.packageManager
     return try {
-        val appInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            pm.getApplicationInfo(packageName, android.content.pm.PackageManager.ApplicationInfoFlags.of(0))
-        } else {
-            @Suppress("DEPRECATION")
-            pm.getApplicationInfo(packageName, 0)
-        }
+        val appInfo = PackageManagerCompatBridge.getApplicationInfo(pm, packageName, 0)
         if (appInfo.enabled) null else context.getString(enablePromptRes)
     } catch (_: Exception) {
         context.getString(installPromptRes)
