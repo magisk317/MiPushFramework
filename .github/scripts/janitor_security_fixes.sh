@@ -28,8 +28,8 @@ chmod +x ./gradlew
 ./gradlew --no-daemon \
   -I gradle/security-overrides.init.gradle \
   --warning-mode all \
-  :push:assembleNormalDebug \
-  :push:testNormalDebugUnitTest \
+  :push:assembleDebug \
+  :push:testDebugUnitTest \
   -PbuildSplits \
   -Pkotlin.incremental=false
 

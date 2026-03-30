@@ -27,12 +27,11 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Update Gradle Wrapper to Nightly
-        run: ./gradlew wrapper --gradle-version nightly
+      - name: Sync Gradle Wrapper Baseline
+        run: ./gradlew wrapper --gradle-version 9.5.0-milestone-7 --distribution-type bin
 
       - name: Verify Build
-        # Run basic checks to ensure the new wrapper doesn't break the build
-        run: ./gradlew clean assembleDebug checkNoLegacyNihilityImports
+        run: ./gradlew -I gradle/security-overrides.init.gradle --warning-mode all clean :checkNoLegacyNihilityImports :checkNoLegacyDialogActionButtons :common:check :condom:check :push:assembleDebug :push:testDebugUnitTest -PbuildSplits -Pkotlin.incremental=false
 
       - name: Commit and Push changes
         run: |
@@ -41,12 +40,10 @@ jobs:
           
           # Check if there are changes to the wrapper files
           if [[ `git status --porcelain gradlew gradle/wrapper/gradle-wrapper.properties gradle/wrapper/gradle-wrapper.jar` ]]; then
-            # Extract version from gradle-wrapper.properties
-            # Format: distributionUrl=.../gradle-9.5.0-20260212011320+0000-bin.zip
-            VERSION=$(grep "distributionUrl" gradle/wrapper/gradle-wrapper.properties | sed -E 's/.*gradle-[0-9.]+-([0-9]+).*/\1/')
+            VERSION=$(grep "distributionUrl" gradle/wrapper/gradle-wrapper.properties | sed -E 's#.*gradle-(.+)-bin\.zip#\1#')
             
             git add gradlew gradle/wrapper/gradle-wrapper.properties gradle/wrapper/gradle-wrapper.jar
-            git commit -m "build(wrapper): update gradle wrapper to nightly $VERSION"
+            git commit -m "build(wrapper): sync gradle wrapper to $VERSION"
             git push origin dev
           else
             echo "No changes to commit"

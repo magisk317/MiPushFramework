@@ -11,12 +11,8 @@ permissions:
 
 jobs:
   build-apk:
-    name: Build APKs (${{ matrix.flavor }})
+    name: Build APKs
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        flavor: [normal, vc105]
     env:
       HAS_RELEASE_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE != '' }}
     steps:
@@ -37,13 +33,7 @@ jobs:
         run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > .yuuta.jks
 
       - name: Build APKs
-        run: |
-          case "${{ matrix.flavor }}" in
-            normal) task=":push:assembleNormalRelease" ;;
-            vc105) task=":push:assembleVc105Release" ;;
-            *) echo "Unsupported flavor: ${{ matrix.flavor }}"; exit 1 ;;
-          esac
-          ./gradlew "$task" -PbuildSplits -Pkotlin.incremental=false
+        run: ./gradlew :push:assembleRelease -PbuildSplits -Pkotlin.incremental=false
         env:
           KEYSTORE_PASS: ${{ secrets.STORE_PASSWORD }}
           ALIAS_NAME: ${{ secrets.KEY_ALIAS }}
@@ -52,14 +42,14 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v7
         with:
-          name: apks-${{ matrix.flavor }}
-          path: push/build/outputs/apk/${{ matrix.flavor }}/release/**/*.apk
+          name: apks-release
+          path: push/build/outputs/apk/release/**/*.apk
 
       - name: Upload Signature Artifact
         uses: actions/upload-artifact@v7
         with:
-          name: signatures-${{ matrix.flavor }}
-          path: push/build/outputs/apk-signatures/${{ matrix.flavor }}Release/**/*.idsig
+          name: signatures-release
+          path: push/build/outputs/apk-signatures/release/**/*.idsig
           if-no-files-found: warn
 
   release:
