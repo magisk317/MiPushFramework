@@ -25,7 +25,7 @@ object BundleSerializer : KSerializer<Bundle> {
         val jsonEncoder = encoder as? JsonEncoder ?: error("Can only be used with JSON")
         val jsonObject = buildJsonObject {
             for (key in value.keySet()) {
-                val item = value.get(key)
+                val item = value.readAny(key)
                 put(key, encodeValue(item))
             }
         }
@@ -83,7 +83,7 @@ object BundleSerializer : KSerializer<Bundle> {
     private fun encodeBundle(bundle: Bundle): JsonObject {
         return buildJsonObject {
             for (key in bundle.keySet()) {
-                put(key, encodeValue(bundle.get(key)))
+                put(key, encodeValue(bundle.readAny(key)))
             }
         }
     }
@@ -239,6 +239,9 @@ object BundleSerializer : KSerializer<Bundle> {
             }
         }
     }
+
+    @Suppress("DEPRECATION")
+    private fun Bundle.readAny(key: String): Any? = get(key)
 
     private fun tagged(type: String, value: JsonElement, className: String? = null): JsonObject {
         return buildJsonObject {

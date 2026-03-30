@@ -3,6 +3,7 @@ package com.xiaomi.push.service
 import android.content.Context
 import android.content.Intent
 import android.os.Messenger
+import androidx.core.content.IntentCompat
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.string.MD5
 import com.xiaomi.xmsf.runtime.PushChannelState
@@ -53,7 +54,7 @@ object PushChannelOpenRuntime {
             security = intent.getStringExtra(PushConstants.EXTRA_SECURITY),
             session = intent.getStringExtra(PushConstants.EXTRA_SESSION),
             authMethod = intent.getStringExtra(PushConstants.EXTRA_AUTH_METHOD),
-            messenger = intent.getParcelableExtra(PushConstants.EXTRA_MESSENGER)
+            messenger = IntentCompat.getParcelableExtra(intent, PushConstants.EXTRA_MESSENGER, Messenger::class.java),
         )
     }
 

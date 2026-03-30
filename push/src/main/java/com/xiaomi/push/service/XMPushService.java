@@ -77,6 +77,7 @@ import java.util.Map;
 import org.apache.thrift.TException;
 
 /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/push/service/XMPushService.class */
+@SuppressWarnings({"rawtypes", "unchecked"})
 public class XMPushService extends Service implements ConnectionListener {
     public static final String ACTION_CONNECTIVITY_INFO = "com.xiaomi.channel.CONNECTIVITY_INFO";
     public static final String ACTION_MILIAO_PUSH_STARTED = "com.xiaomi.channel.PUSH_STARTED";

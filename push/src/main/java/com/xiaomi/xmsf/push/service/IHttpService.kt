@@ -23,6 +23,7 @@ interface IHttpService : IInterface {
             return when (code) {
                 TRANSACTION_DO_HTTP_POST -> {
                     data.enforceInterface(DESCRIPTOR)
+                    @Suppress("DEPRECATION")
                     val response = doHttpPost(
                         data.readString(),
                         data.readHashMap(javaClass.classLoader)

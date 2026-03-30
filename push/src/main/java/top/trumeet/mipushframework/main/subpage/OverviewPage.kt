@@ -45,7 +45,6 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -80,6 +79,8 @@ import dev.chrisbanes.haze.hazeEffect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import top.trumeet.mipushframework.MainActivityOperation
+import top.trumeet.mipushframework.component.DialogAction
+import top.trumeet.mipushframework.component.DialogActionRow
 import top.trumeet.mipushframework.component.SectionColumn
 import top.trumeet.ui.theme.spacing
 import kotlin.math.atan2
@@ -668,19 +669,22 @@ private fun DonateDialog(
         title = { Text(text = stringResource(R.string.dialog_donate_title)) },
         text = { Text(text = stringResource(R.string.dialog_donate_summary)) },
         confirmButton = {
-            TextButton(onClick = onAlipay) {
-                Text(text = stringResource(R.string.dialog_donate_alipay))
-            }
-        },
-        dismissButton = {
-            Row {
-                TextButton(onClick = onWechat) {
-                    Text(text = stringResource(R.string.dialog_donate_wechat))
-                }
-                TextButton(onClick = onDismiss) {
-                    Text(text = stringResource(R.string.dialog_donate_cancel))
-                }
-            }
+            DialogActionRow(
+                actions = listOf(
+                    DialogAction(
+                        label = stringResource(R.string.dialog_donate_alipay),
+                        onClick = onAlipay,
+                    ),
+                    DialogAction(
+                        label = stringResource(R.string.dialog_donate_wechat),
+                        onClick = onWechat,
+                    ),
+                    DialogAction(
+                        label = stringResource(R.string.dialog_donate_cancel),
+                        onClick = onDismiss,
+                    ),
+                ),
+            )
         },
     )
 }
@@ -696,19 +700,22 @@ private fun AlipayChoiceDialog(
         title = { Text(text = stringResource(R.string.dialog_donate_alipay_choice_title)) },
         text = { Text(text = stringResource(R.string.dialog_donate_alipay_choice_content)) },
         confirmButton = {
-            TextButton(onClick = onQRCode) {
-                Text(text = stringResource(R.string.dialog_donate_alipay_qrcode))
-            }
-        },
-        dismissButton = {
-            Row {
-                TextButton(onClick = onToken) {
-                    Text(text = stringResource(R.string.dialog_donate_alipay_token))
-                }
-                TextButton(onClick = onDismiss) {
-                    Text(text = stringResource(R.string.dialog_donate_cancel))
-                }
-            }
+            DialogActionRow(
+                actions = listOf(
+                    DialogAction(
+                        label = stringResource(R.string.dialog_donate_alipay_qrcode),
+                        onClick = onQRCode,
+                    ),
+                    DialogAction(
+                        label = stringResource(R.string.dialog_donate_alipay_token),
+                        onClick = onToken,
+                    ),
+                    DialogAction(
+                        label = stringResource(R.string.dialog_donate_cancel),
+                        onClick = onDismiss,
+                    ),
+                ),
+            )
         },
     )
 }
@@ -739,14 +746,18 @@ private fun QRCodeDialog(
             )
         },
         confirmButton = {
-            TextButton(onClick = onSave) {
-                Text(text = stringResource(R.string.save_to_gallery))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(text = stringResource(R.string.dialog_donate_cancel))
-            }
+            DialogActionRow(
+                actions = listOf(
+                    DialogAction(
+                        label = stringResource(R.string.save_to_gallery),
+                        onClick = onSave,
+                    ),
+                    DialogAction(
+                        label = stringResource(R.string.dialog_donate_cancel),
+                        onClick = onDismiss,
+                    ),
+                ),
+            )
         },
     )
 }

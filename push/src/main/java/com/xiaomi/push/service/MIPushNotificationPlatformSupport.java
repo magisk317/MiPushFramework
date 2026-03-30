@@ -26,6 +26,7 @@ final class MIPushNotificationPlatformSupport {
     private MIPushNotificationPlatformSupport() {
     }
 
+    @SuppressWarnings("deprecation")
     static Notification buildLegacyNotification(Context context, XmPushActionContainer xmPushActionContainer, PushMetaInfo pushMetaInfo, RemoteViews remoteViews, PendingIntent pendingIntent) {
         Notification notification = new Notification(MIPushNotificationViewSupport.getIdForSmallIcon(context, MIPushNotificationHelper.getTargetPackage(xmPushActionContainer)), null, System.currentTimeMillis());
         String[] strArrDetermineTitleAndDespByDIP = MIPushNotificationViewSupport.determineTitleAndDespByDIP(context, pushMetaInfo);

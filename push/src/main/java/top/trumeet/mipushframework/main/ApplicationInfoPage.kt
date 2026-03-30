@@ -53,7 +53,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -768,31 +767,35 @@ class ApplicationInfoPage : ComponentActivity() {
                             Text(AppConfigurationUtils.getNotificationSummary(channel))
                         },
                         confirmButton = {
-                            TextButton(onClick = {
-                                appConfigurationUtils.gotoNotificationChannelSettingPage(
-                                    channel,
-                                    appConfigurationUtils.configApp,
-                                )
-                                shouldShowDialog = false
-                            }) {
-                                Text(stringResource(R.string.notification_channels_setting))
-                            }
-                        },
-                        dismissButton = {
-                            Row {
-                                TextButton(onClick = {
-                                    appConfigurationUtils.copyToClipboard(channel)
-                                    shouldShowDialog = false
-                                }) {
-                                    Text(stringResource(R.string.notification_channels_copy_id))
-                                }
-                                TextButton(onClick = {
-                                    appConfigurationUtils.deleteNotificationChannel(channel)
-                                    shouldShowDialog = false
-                                }) {
-                                    Text(stringResource(R.string.notification_channels_delete))
-                                }
-                            }
+                            DialogActionRow(
+                                actions = listOf(
+                                    DialogAction(
+                                        label = stringResource(R.string.notification_channels_setting),
+                                        onClick = {
+                                            appConfigurationUtils.gotoNotificationChannelSettingPage(
+                                                channel,
+                                                appConfigurationUtils.configApp,
+                                            )
+                                            shouldShowDialog = false
+                                        },
+                                    ),
+                                    DialogAction(
+                                        label = stringResource(R.string.notification_channels_copy_id),
+                                        onClick = {
+                                            appConfigurationUtils.copyToClipboard(channel)
+                                            shouldShowDialog = false
+                                        },
+                                    ),
+                                    DialogAction(
+                                        label = stringResource(R.string.notification_channels_delete),
+                                        onClick = {
+                                            appConfigurationUtils.deleteNotificationChannel(channel)
+                                            shouldShowDialog = false
+                                        },
+                                        style = top.trumeet.mipushframework.component.DialogActionStyle.Danger,
+                                    ),
+                                ),
+                            )
                         },
                     )
                 }
