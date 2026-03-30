@@ -1,0 +1,6 @@
+[submodule "magisk-ui-kit"]
+	path = magisk-ui-kit
+	url = ../magisk-ui-kit
+[submodule "build-logic"]
+	path = build-logic
+	url = ../magisk-build-logic
