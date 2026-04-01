@@ -109,6 +109,11 @@
                     android:name="com.xiaomi.xmsf.startup.LogInitializer"
                     android:value="androidx.startup" />
         </provider>
+        <provider
+                android:name="com.xiaomi.xmsf.utils.ModuleLogProvider"
+                android:authorities="com.xiaomi.xmsf.module.log"
+                android:exported="true"
+                android:grantUriPermissions="false" />
 
         <receiver
                 android:name=".push.service.receivers.BootReceiver"

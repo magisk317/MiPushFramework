@@ -194,6 +194,10 @@ internal object LogBundleExporter {
                 copiedAny = true
             }
         }
+        val moduleLogDir = File(getLogDir(context), "modules")
+        if (moduleLogDir.exists() && moduleLogDir.isDirectory && moduleLogDir.listFiles()?.isNotEmpty() == true) {
+            details += "module log: ${moduleLogDir.absolutePath}"
+        }
         if (!copiedAny) {
             details += "app log missing"
         }
