@@ -22,6 +22,17 @@ object MockMIPushMessage {
     @JvmStatic
     fun mockProcessMIPushMessage(pushService: XMPushService, container: XmPushActionContainer): Boolean {
         val payload = XMPushUtils.packToBytes(container)
+        if (SdkNotificationCompat.shouldUseModernHelper(payload)) {
+            logger.d(
+                "mockProcessMIPushMessage use modern helper pkg=${container.packageName} action=${container.action}"
+            )
+            return runCatching {
+                SdkNotificationCompat.notifyWithModernHelper(pushService, payload)
+                true
+            }.onFailure {
+                logger.e("mock modern helper notify failure: ", it)
+            }.getOrDefault(false)
+        }
         try {
             invokeProcessMiPushMessage(pushService, container, payload)
             return true
