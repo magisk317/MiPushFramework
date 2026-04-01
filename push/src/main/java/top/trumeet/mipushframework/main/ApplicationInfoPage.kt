@@ -437,7 +437,7 @@ class ApplicationInfoPage : ComponentActivity() {
 
     private fun launchTargetAppAndForceRegister(context: Context, packageName: String) {
         val plan = RegistrationHelper.inspectForceRegisterPlan(packageName)
-        if (!plan.supportsServiceDispatch) {
+        if (!plan.supportsServiceDispatch && !plan.supportsReceiverFallback) {
             Toast.makeText(context, R.string.force_register_unavailable, Toast.LENGTH_LONG).show()
             return
         }

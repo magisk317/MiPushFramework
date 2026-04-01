@@ -20,6 +20,12 @@ class RegistrationHelper(
     private val context: Context,
     private val packageName: String
 ) {
+    internal data class ComponentDispatchInfo(
+        val name: String,
+        val enabled: Boolean,
+        val exported: Boolean
+    )
+
     fun removeMiPushXml(): Boolean {
         val result = Shell.cmd(
             String.format(
@@ -47,7 +53,9 @@ class RegistrationHelper(
             val reason: String,
             val serviceCandidates: Set<String>,
             val receiverCandidates: Set<String>,
-            val bridgeCandidates: Set<String>
+            val bridgeCandidates: Set<String>,
+            val blockedServiceCandidates: Set<String> = emptySet(),
+            val blockedReceiverCandidates: Set<String> = emptySet()
         ) {
             val supportsServiceDispatch: Boolean
                 get() = serviceCandidates.isNotEmpty()
@@ -66,6 +74,12 @@ class RegistrationHelper(
                 if (bridgeCandidates.isNotEmpty()) {
                     parts += "bridges=${bridgeCandidates.joinToString(",")}"
                 }
+                if (blockedServiceCandidates.isNotEmpty()) {
+                    parts += "blockedServices=${blockedServiceCandidates.joinToString(",")}"
+                }
+                if (blockedReceiverCandidates.isNotEmpty()) {
+                    parts += "blockedReceivers=${blockedReceiverCandidates.joinToString(",")}"
+                }
                 return parts.joinToString(" ")
             }
         }
@@ -80,6 +94,10 @@ class RegistrationHelper(
             "com.xiaomi.mipush.sdk.MessageHandleService",
             "com.xiaomi.push.service.XMPushService",
             "com.xiaomi.push.service.XMJobService"
+        )
+
+        private val externallyDispatchableServiceCandidates = linkedSetOf(
+            "com.xiaomi.mipush.sdk.PushMessageHandler"
         )
 
         private val directRuntimeServiceCandidates = linkedSetOf(
@@ -154,6 +172,90 @@ class RegistrationHelper(
             }
         }
 
+        private fun canDispatchAcrossPackages(
+            sourcePackageName: String,
+            targetPackageName: String,
+            component: ComponentDispatchInfo
+        ): Boolean {
+            return component.enabled && (component.exported || sourcePackageName == targetPackageName)
+        }
+
+        internal fun resolveForceRegisterPlan(
+            packageName: String,
+            serviceInfos: Set<ComponentDispatchInfo>,
+            receiverInfos: Set<ComponentDispatchInfo>,
+            sourcePackageName: String
+        ): ForceRegisterPlan {
+            val matchedServices = externallyDispatchableServiceCandidates.filterTo(linkedSetOf()) { candidate ->
+                serviceInfos.any { it.name == candidate && canDispatchAcrossPackages(sourcePackageName, packageName, it) }
+            }
+            val blockedServices = externallyDispatchableServiceCandidates.filterTo(linkedSetOf()) { candidate ->
+                serviceInfos.any { it.name == candidate } && candidate !in matchedServices
+            }
+            val matchedReceivers = directReceiverCandidates.filterTo(linkedSetOf()) { candidate ->
+                receiverInfos.any { it.name == candidate && canDispatchAcrossPackages(sourcePackageName, packageName, it) }
+            }
+            val blockedReceivers = directReceiverCandidates.filterTo(linkedSetOf()) { candidate ->
+                receiverInfos.any { it.name == candidate } && candidate !in matchedReceivers
+            }
+            val matchedBridges = bridgeReceiverHints.filterTo(linkedSetOf()) { hint ->
+                serviceInfos.any { it.name.contains(hint, ignoreCase = true) } ||
+                    receiverInfos.any { it.name.contains(hint, ignoreCase = true) }
+            }
+            return when {
+                matchedServices.isNotEmpty() -> ForceRegisterPlan(
+                    packageName = packageName,
+                    available = true,
+                    reason = "direct_sdk",
+                    serviceCandidates = matchedServices,
+                    receiverCandidates = matchedReceivers,
+                    bridgeCandidates = matchedBridges,
+                    blockedServiceCandidates = blockedServices,
+                    blockedReceiverCandidates = blockedReceivers
+                )
+
+                matchedReceivers.isNotEmpty() -> ForceRegisterPlan(
+                    packageName = packageName,
+                    available = false,
+                    reason = "receiver_only",
+                    serviceCandidates = emptySet(),
+                    receiverCandidates = matchedReceivers,
+                    bridgeCandidates = matchedBridges,
+                    blockedServiceCandidates = blockedServices,
+                    blockedReceiverCandidates = blockedReceivers
+                )
+
+                blockedServices.isNotEmpty() || blockedReceivers.isNotEmpty() -> ForceRegisterPlan(
+                    packageName = packageName,
+                    available = false,
+                    reason = "internal_only_components",
+                    serviceCandidates = emptySet(),
+                    receiverCandidates = emptySet(),
+                    bridgeCandidates = matchedBridges,
+                    blockedServiceCandidates = blockedServices,
+                    blockedReceiverCandidates = blockedReceivers
+                )
+
+                matchedBridges.isNotEmpty() -> ForceRegisterPlan(
+                    packageName = packageName,
+                    available = false,
+                    reason = "bridge_wrapper",
+                    serviceCandidates = emptySet(),
+                    receiverCandidates = emptySet(),
+                    bridgeCandidates = matchedBridges
+                )
+
+                else -> ForceRegisterPlan(
+                    packageName = packageName,
+                    available = false,
+                    reason = "unsupported_components",
+                    serviceCandidates = emptySet(),
+                    receiverCandidates = emptySet(),
+                    bridgeCandidates = emptySet()
+                )
+            }
+        }
+
         @JvmStatic
         fun inspectForceRegisterPlan(packageName: String): ForceRegisterPlan {
             val app = Utils.getApplication()
@@ -167,15 +269,36 @@ class RegistrationHelper(
             } catch (_: PackageManager.NameNotFoundException) {
                 null
             } ?: return ForceRegisterPlan(packageName, false, "package_not_found", emptySet(), emptySet(), emptySet())
-            val serviceNames = packageInfo.services
-                ?.mapNotNull { it.name }
+            val serviceInfos = packageInfo.services
+                ?.mapNotNull { info ->
+                    info.name?.let {
+                        ComponentDispatchInfo(
+                            name = it,
+                            enabled = info.enabled,
+                            exported = info.exported
+                        )
+                    }
+                }
                 ?.toSet()
                 ?: emptySet()
-            val receiverNames = packageInfo.receivers
-                ?.mapNotNull { it.name }
+            val receiverInfos = packageInfo.receivers
+                ?.mapNotNull { info ->
+                    info.name?.let {
+                        ComponentDispatchInfo(
+                            name = it,
+                            enabled = info.enabled,
+                            exported = info.exported
+                        )
+                    }
+                }
                 ?.toSet()
                 ?: emptySet()
-            return classifyForceRegisterPlan(packageName, serviceNames, receiverNames)
+            return resolveForceRegisterPlan(
+                packageName = packageName,
+                serviceInfos = serviceInfos,
+                receiverInfos = receiverInfos,
+                sourcePackageName = app.packageName
+            )
         }
 
         @JvmStatic

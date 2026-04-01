@@ -6,6 +6,16 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RegistrationHelperPlanTest {
+    private fun component(
+        name: String,
+        enabled: Boolean = true,
+        exported: Boolean = true
+    ) = RegistrationHelper.ComponentDispatchInfo(
+        name = name,
+        enabled = enabled,
+        exported = exported
+    )
+
     @Test
     fun classifyPlanMarksDirectSdkWhenOfficialServiceExists() {
         val plan = RegistrationHelper.classifyForceRegisterPlan(
@@ -61,5 +71,49 @@ class RegistrationHelperPlanTest {
         assertFalse(plan.available)
         assertEquals("unsupported_components", plan.reason)
         assertTrue(plan.bridgeCandidates.isEmpty())
+    }
+
+    @Test
+    fun resolvePlanRequiresExportedPushMessageHandlerForCrossPackageDispatch() {
+        val plan = RegistrationHelper.resolveForceRegisterPlan(
+            packageName = "com.example.direct",
+            serviceInfos = setOf(
+                component(
+                    name = "com.xiaomi.mipush.sdk.PushMessageHandler",
+                    exported = false
+                )
+            ),
+            receiverInfos = emptySet(),
+            sourcePackageName = "com.xiaomi.xmsf"
+        )
+
+        assertFalse(plan.available)
+        assertFalse(plan.supportsServiceDispatch)
+        assertEquals("internal_only_components", plan.reason)
+        assertEquals(setOf("com.xiaomi.mipush.sdk.PushMessageHandler"), plan.blockedServiceCandidates)
+    }
+
+    @Test
+    fun resolvePlanAllowsReceiverFallbackWhenOfficialReceiverIsExported() {
+        val plan = RegistrationHelper.resolveForceRegisterPlan(
+            packageName = "com.example.receiver",
+            serviceInfos = setOf(
+                component(
+                    name = "com.xiaomi.mipush.sdk.PushMessageHandler",
+                    exported = false
+                )
+            ),
+            receiverInfos = setOf(
+                component(name = "com.xiaomi.mipush.sdk.PushServiceReceiver")
+            ),
+            sourcePackageName = "com.xiaomi.xmsf"
+        )
+
+        assertFalse(plan.available)
+        assertFalse(plan.supportsServiceDispatch)
+        assertTrue(plan.supportsReceiverFallback)
+        assertEquals("receiver_only", plan.reason)
+        assertEquals(setOf("com.xiaomi.mipush.sdk.PushServiceReceiver"), plan.receiverCandidates)
+        assertEquals(setOf("com.xiaomi.mipush.sdk.PushMessageHandler"), plan.blockedServiceCandidates)
     }
 }

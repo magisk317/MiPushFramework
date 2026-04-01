@@ -3,6 +3,7 @@ package com.xiaomi.push.sdk
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
@@ -285,6 +286,47 @@ class PushMessageProcessor @Inject constructor(
             putExtra(PushConstants.MESSAGE_RECEIVE_TIME, System.currentTimeMillis())
             container.metaInfo?.notifyId?.let { addCategory(it.toString()) }
         }
+        val explicitReceivers = runCatching {
+            context.packageManager.queryBroadcastReceivers(
+                fallbackIntent,
+                PackageManager.MATCH_DISABLED_COMPONENTS
+            )
+        }.getOrDefault(emptyList())
+            .mapNotNull { resolveInfo ->
+                val activityInfo = resolveInfo.activityInfo ?: return@mapNotNull null
+                val canDispatch = activityInfo.enabled &&
+                    (activityInfo.exported || activityInfo.packageName == context.packageName)
+                if (!canDispatch || activityInfo.packageName != targetPackage) {
+                    return@mapNotNull null
+                }
+                ComponentName(activityInfo.packageName, activityInfo.name)
+            }
+            .distinct()
+
+        if (explicitReceivers.isNotEmpty()) {
+            logger.d(
+                packageInfo(
+                    targetPackage,
+                    "fallback to explicit receivers ${explicitReceivers.joinToString(",") { it.className }}"
+                )
+            )
+            var dispatched = false
+            explicitReceivers.forEach { component ->
+                val explicitIntent = Intent(fallbackIntent).apply {
+                    this.component = component
+                    `package` = null
+                }
+                val delivered = runCatching {
+                    context.sendBroadcast(explicitIntent)
+                    true
+                }.onFailure {
+                    logger.e(packageInfo(targetPackage, "explicit receiver fallback failed ${component.className}"), it)
+                }.getOrDefault(false)
+                dispatched = dispatched || delivered
+            }
+            return dispatched
+        }
+
         return runCatching {
             context.sendBroadcast(fallbackIntent)
             true

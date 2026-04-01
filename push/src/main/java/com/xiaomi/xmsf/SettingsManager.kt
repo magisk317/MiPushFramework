@@ -137,7 +137,7 @@ class SettingsManager @Inject constructor(
         for (registeredApplication: RegisteredApplication in miPushApplications.res) {
             val packageName = registeredApplication.packageName
             val plan = RegistrationHelper.inspectForceRegisterPlan(packageName)
-            if (!plan.supportsServiceDispatch) {
+            if (!plan.supportsServiceDispatch && !plan.supportsReceiverFallback) {
                 unsupportedCount++
                 unsupportedReasons[plan.reason] = (unsupportedReasons[plan.reason] ?: 0) + 1
                 unsupportedSamples.getOrPut(plan.reason) { mutableListOf() }.apply {
@@ -146,8 +146,18 @@ class SettingsManager @Inject constructor(
                 continue
             }
             try {
-                RegistrationHelper.tryForceRegister(packageName)
-                successCount++
+                val success = if (plan.supportsServiceDispatch) {
+                    RegistrationHelper.tryForceRegister(packageName)
+                    true
+                } else {
+                    RegistrationHelper.tryForceRegisterFallback(packageName)
+                }
+                if (success) {
+                    successCount++
+                } else {
+                    failedCount++
+                    failureTypes["FallbackDispatchFailed"] = (failureTypes["FallbackDispatchFailed"] ?: 0) + 1
+                }
             } catch (e: UnsupportedOperationException) {
                 unsupportedCount++
                 unsupportedReasons[plan.reason] = (unsupportedReasons[plan.reason] ?: 0) + 1
