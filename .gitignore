@@ -37,3 +37,7 @@ docs/
 
 # Logs
 *.log
+
+# Local remote-device helpers
+/scripts/xmsf_remote_adb_exec.sh
+/scripts/xmsf_remote_device_regression.sh
