@@ -98,7 +98,7 @@ object NotificationController {
         notificationBuilder.setDefaults(Notification.DEFAULT_ALL)
         notificationBuilder.priority = NotificationCompat.PRIORITY_HIGH
 
-        val notification = notify(context, notificationId, packageName, notificationBuilder, metaInfo)
+        val notification = notify(context, notificationId, packageName, notificationBuilder, metaInfo) ?: return
         updateSummaryNotification(context, metaInfo, packageName, notification.group)
     }
 
@@ -121,7 +121,7 @@ object NotificationController {
         packageName: String,
         notificationBuilder: NotificationCompat.Builder,
         metaInfo: PushMetaInfo
-    ): Notification {
+    ): Notification? {
         val extras = Bundle()
         extras.putString("target_package", packageName)
         notificationBuilder.addExtras(extras)
@@ -157,6 +157,11 @@ object NotificationController {
 
         notificationBuilder.setAutoCancel(true)
         val notification = notificationBuilder.build()
+        val channel = getNotificationManagerEx().getNotificationChannel(packageName, notification.channelId)
+        if (!NotificationContentSupport.hasMeaningfulVisibleText(context, packageName, notification, channel)) {
+            logger.d("drop contentless notification pkg=$packageName id=$notificationId channel=${notification.channelId}")
+            return null
+        }
         getNotificationManagerEx().notify(
             packageName,
             MyMIPushNotificationHelper.getNotificationTag(packageName),
