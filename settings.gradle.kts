@@ -17,6 +17,17 @@ pluginManagement {
     }
 }
 
+fun requireExistingProjectDir(path: String) {
+    val dir = file(path)
+    check(dir.isDirectory) {
+        buildString {
+            appendLine("Missing required project directory: $path")
+            appendLine("This repository uses git submodules. Run:")
+            appendLine("  git submodule update --init --recursive")
+        }
+    }
+}
+
 buildscript {
     val securityOverrides: Map<String, String> = run {
         val propsFile = file("gradle/security-overrides.properties")
@@ -50,8 +61,10 @@ dependencyResolutionManagement {
     }
 }
 
+requireExistingProjectDir("build-logic")
 includeBuild("build-logic")
 
 rootProject.name = "MiPushFramework"
+requireExistingProjectDir("magisk-ui-kit")
 include(":condom", ":push", ":common", ":runtime-core", ":magisk-ui-kit")
 project(":magisk-ui-kit").projectDir = file("magisk-ui-kit")
