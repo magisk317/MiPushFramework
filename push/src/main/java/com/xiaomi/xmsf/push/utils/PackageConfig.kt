@@ -33,43 +33,11 @@ class PackageConfig(private val configurations: Configurations) {
             }
         }
 
-        fun replace(value: String): String {
-            val pattern = Pattern.compile("\\${2}|\\$\\{([^}]+)\\}")
-            val matcher = pattern.matcher(value)
-            val sb = StringBuilder(value)
-            class RPair {
-                var start: Int = 0
-                var end: Int = 0
-                var str: String? = null
-            }
-
-            val pairs = mutableListOf<RPair>()
-            while (matcher.find()) {
-                val pair = RPair()
-                pair.start = matcher.start()
-                pair.end = matcher.end()
-                if (matcher.groupCount() == 0) {
-                    pair.str = "$"
-                } else {
-                    val groupName = matcher.group(1)
-                    if (!groupName.isNullOrEmpty() && matchGroup?.containsKey(groupName) == true) {
-                        pair.str = matchGroup?.get(groupName)
-                    }
-                }
-                if (pair.str != null) {
-                    pairs.add(pair)
-                }
-            }
-
-            for (i in pairs.size - 1 downTo 0) {
-                val pair = pairs[i]
-                sb.replace(pair.start, pair.end, pair.str ?: "")
-            }
-            return sb.toString()
-        }
+        fun replace(value: String): String = replacePlaceholders(value, matchGroup)
     }
 
     companion object {
+        private val PLACEHOLDER_PATTERN = Pattern.compile("\\$\\$|\\$\\{([^}]+)\\}")
         const val KEY_MATCH = "match"
         const val KEY_REPLACE = "replace"
         const val KEY_META_INFO = "metaInfo"
@@ -81,6 +49,37 @@ class PackageConfig(private val configurations: Configurations) {
         const val OPERATION_IGNORE = "ignore"
         const val OPERATION_NOTIFY = "notify"
         const val OPERATION_WAKE = "wake"
+
+        internal fun replacePlaceholders(value: String, matchGroup: Map<String, String>?): String {
+            val matcher = PLACEHOLDER_PATTERN.matcher(value)
+            val sb = StringBuilder(value)
+
+            data class Replacement(val start: Int, val end: Int, val value: String)
+
+            val replacements = mutableListOf<Replacement>()
+            while (matcher.find()) {
+                val replacement = when (matcher.group()) {
+                    "$$" -> "$"
+                    else -> {
+                        val groupName = matcher.group(1)
+                        if (!groupName.isNullOrEmpty()) {
+                            matchGroup?.get(groupName)
+                        } else {
+                            null
+                        }
+                    }
+                }
+                if (replacement != null) {
+                    replacements.add(Replacement(matcher.start(), matcher.end(), replacement))
+                }
+            }
+
+            for (index in replacements.indices.reversed()) {
+                val replacement = replacements[index]
+                sb.replace(replacement.start, replacement.end, replacement.value)
+            }
+            return sb.toString()
+        }
 
         @Throws(NoSuchFieldException::class, IllegalAccessException::class)
         private fun match(data: TBase<*, *>?, cfgMatch: JSONObject?): MutableMap<String, String>? {
