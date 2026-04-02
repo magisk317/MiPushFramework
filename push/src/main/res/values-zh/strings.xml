@@ -98,7 +98,34 @@
 
     <!-- Message when change enable status -->
     <string name="main_apps">应用</string>
+    <string name="main_configs">配置</string>
     <string name="main_settings">设置</string>
+    <string name="config_remote_source_label">远端源：%1$s</string>
+    <string name="config_directory_not_selected">还没有选择本地配置目录。</string>
+    <string name="config_directory_label">本地目录：%1$s</string>
+    <string name="config_last_sync_label">最近远端同步：%1$s</string>
+    <string name="config_search_placeholder">搜索配置文件名或包名</string>
+    <string name="config_choose_directory">选择目录</string>
+    <string name="config_import_local">本地导入</string>
+    <string name="config_pull_remote">拉取线上</string>
+    <string name="config_reload">重新加载</string>
+    <string name="config_remote_error">远端错误：%1$s</string>
+    <string name="config_empty_title">暂无可显示的配置</string>
+    <string name="config_empty_summary">你可以先浏览远端配置，也可以选择本地目录后导入、编辑并立即生效。</string>
+    <string name="config_status_in_sync">已同步</string>
+    <string name="config_status_remote_only">仅远端</string>
+    <string name="config_status_local_only">仅本地</string>
+    <string name="config_status_outdated">本地过旧</string>
+    <string name="config_status_modified">本地已修改</string>
+    <string name="config_status_invalid">JSON 无效</string>
+    <string name="config_source_local">本地</string>
+    <string name="config_source_remote">远端</string>
+    <string name="config_editor_meta">本地更新时间：%1$s · 远端更新时间：%2$s</string>
+    <string name="config_editor_empty_title">没有可预览的内容</string>
+    <string name="config_editor_empty_summary">当前配置在本地和远端都没有可用内容。</string>
+    <string name="config_edit">编辑本地副本</string>
+    <string name="config_reset_remote">重置为远端</string>
+    <string name="config_time_unknown">未知</string>
 
     <!-- About -->
     <string name="action_about">关于</string>

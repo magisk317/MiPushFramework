@@ -27,6 +27,7 @@ import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -54,6 +55,8 @@ import top.trumeet.mipushframework.component.DialogAction
 import top.trumeet.mipushframework.component.DialogActionRow
 import top.trumeet.mipushframework.data.EventRepository
 import top.trumeet.mipushframework.main.subpage.ApplicationList
+import top.trumeet.mipushframework.main.subpage.ConfigurationEditor
+import top.trumeet.mipushframework.main.subpage.Configurations
 import top.trumeet.mipushframework.main.subpage.EventList
 import top.trumeet.mipushframework.main.subpage.Overview
 import top.trumeet.mipushframework.main.subpage.Settings
@@ -74,6 +77,7 @@ private data class MainTabItem(
 @Composable
 fun MainScreen(
     startDestination: String,
+    initialRouteOverride: String? = null,
     hazeState: HazeState,
     hazeStyle: HazeStyle,
     eventRepository: EventRepository,
@@ -87,6 +91,7 @@ fun MainScreen(
     var settingsBackSignal by rememberSaveable { mutableIntStateOf(0) }
     var eventRefreshTrigger by rememberSaveable { mutableIntStateOf(0) }
     var appRefreshTrigger by rememberSaveable { mutableIntStateOf(0) }
+    var configRefreshTrigger by rememberSaveable { mutableIntStateOf(0) }
     val tabLastTapAt = remember { mutableStateMapOf<String, Long>() }
 
     val tabs = listOf(
@@ -106,6 +111,11 @@ fun MainScreen(
             route = AppDestinations.EventsList.ROUTE,
         ),
         MainTabItem(
+            labelRes = R.string.main_configs,
+            iconRes = R.drawable.ic_tune_24dp,
+            route = AppDestinations.Configs.ROUTE,
+        ),
+        MainTabItem(
             labelRes = R.string.main_settings,
             iconRes = R.drawable.ic_settings_black_24dp,
             route = AppDestinations.Settings.ROUTE,
@@ -120,9 +130,12 @@ fun MainScreen(
                 route.startsWith(AppDestinations.AppDetails.ROUTE) -> 1
             route.startsWith(AppDestinations.EventsList.ROUTE) ||
                 route.startsWith(AppDestinations.EventDetails.ROUTE) -> 2
+            route.startsWith(AppDestinations.Configs.ROUTE) ||
+                route.startsWith(AppDestinations.ConfigsSearch.ROUTE) ||
+                route.startsWith(AppDestinations.ConfigEditor.ROUTE) -> 3
 
             route.startsWith(AppDestinations.Settings.ROUTE) ||
-                route.startsWith(AppDestinations.SettingsSection.ROUTE) -> 3
+                route.startsWith(AppDestinations.SettingsSection.ROUTE) -> 4
 
             else -> 0
         }
@@ -133,6 +146,8 @@ fun MainScreen(
         return route.startsWith(AppDestinations.Overview.ROUTE) ||
             route.startsWith(AppDestinations.AppsList.ROUTE) ||
             route.startsWith(AppDestinations.EventsList.ROUTE) ||
+            route.startsWith(AppDestinations.Configs.ROUTE) ||
+            route.startsWith(AppDestinations.ConfigsSearch.ROUTE) ||
             route.startsWith(AppDestinations.Settings.ROUTE)
     }
 
@@ -141,7 +156,17 @@ fun MainScreen(
             AppDestinations.Overview.ROUTE -> Unit
             AppDestinations.EventsList.ROUTE -> eventRefreshTrigger++
             AppDestinations.AppsList.ROUTE -> appRefreshTrigger++
+            AppDestinations.Configs.ROUTE -> configRefreshTrigger++
             AppDestinations.Settings.ROUTE -> settingsBackSignal++
+        }
+    }
+
+    LaunchedEffect(initialRouteOverride) {
+        val route = initialRouteOverride?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        if (route == startDestination) return@LaunchedEffect
+        if (navController.currentDestination?.route == route) return@LaunchedEffect
+        navController.navigate(route) {
+            launchSingleTop = true
         }
     }
 
@@ -201,6 +226,23 @@ fun MainScreen(
                     onAppClick = { pkg -> eventRepository.startManagePermissions(pkg, true) },
                     hazeState = hState,
                     hazeStyle = hStyle,
+                )
+            },
+            configsPage = { initialQuery, padding, refreshSignal, onOpenEditor, hState, hStyle ->
+                Configurations(
+                    initialQuery = initialQuery,
+                    contentPadding = padding,
+                    refreshSignal = configRefreshTrigger + refreshSignal,
+                    onOpenEditor = onOpenEditor,
+                    hazeState = hState,
+                    hazeStyle = hStyle,
+                )
+            },
+            configEditorPage = { path, padding, onBack, _, _ ->
+                ConfigurationEditor(
+                    path = path,
+                    onBack = onBack,
+                    contentPadding = padding,
                 )
             },
             settingsPage = { padding, onAbout, _, _, hState, hStyle ->

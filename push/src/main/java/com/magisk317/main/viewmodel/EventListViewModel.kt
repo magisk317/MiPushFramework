@@ -76,6 +76,12 @@ class EventListViewModel @Inject constructor(
     fun startManagePermissions(packageName: String) {
         eventRepository.startManagePermissions(packageName)
     }
+
+    fun startConfigPreview(packageName: String) {
+        viewModelScope.launch {
+            eventRepository.startConfigPreview(packageName)
+        }
+    }
     
     fun copyToClipboard(content: String) {
         eventRepository.copyToClipboard(content)

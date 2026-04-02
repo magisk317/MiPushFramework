@@ -13,6 +13,8 @@ import androidx.navigation.compose.composable
 import androidx.compose.foundation.layout.PaddingValues
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 
 /**
  * 应用导航图定义
@@ -43,6 +45,8 @@ fun AppNavHostContent(
     overviewPage: @Composable (PaddingValues, HazeState?, HazeStyle?) -> Unit,
     eventsPage: @Composable (String, PaddingValues, Int, Boolean, HazeState?, HazeStyle?) -> Unit,
     appsPage: @Composable (String, PaddingValues, Int, Int, HazeState?, HazeStyle?) -> Unit,
+    configsPage: @Composable (String, PaddingValues, Int, (String) -> Unit, HazeState?, HazeStyle?) -> Unit,
+    configEditorPage: @Composable (String, PaddingValues, () -> Unit, HazeState?, HazeStyle?) -> Unit,
     settingsPage: @Composable (PaddingValues, (String?) -> Unit, (String?) -> Unit, Int, HazeState?, HazeStyle?) -> Unit,
     helpPage: @Composable (PaddingValues, HazeState?, HazeStyle?) -> Unit,
     onAbout: (String?) -> Unit = {},
@@ -58,12 +62,21 @@ fun AppNavHostContent(
             route.startsWith(AppDestinations.EventsList.ROUTE) ||
                 route.startsWith(AppDestinations.EventDetails.ROUTE) -> 2
 
-            route.startsWith(AppDestinations.Settings.ROUTE) ||
-                route.startsWith(AppDestinations.SettingsSection.ROUTE) -> 3
+            route.startsWith(AppDestinations.Configs.ROUTE) ||
+                route.startsWith(AppDestinations.ConfigsSearch.ROUTE) ||
+                route.startsWith(AppDestinations.ConfigEditor.ROUTE) -> 3
 
-            route.startsWith(AppDestinations.Help.ROUTE) -> 4
+            route.startsWith(AppDestinations.Settings.ROUTE) ||
+                route.startsWith(AppDestinations.SettingsSection.ROUTE) -> 4
+
+            route.startsWith(AppDestinations.Help.ROUTE) -> 5
             else -> 0
         }
+    }
+
+    fun decodeRouteArg(value: String?): String {
+        if (value.isNullOrBlank()) return ""
+        return URLDecoder.decode(value, StandardCharsets.UTF_8.toString())
     }
 
     fun forwardDirection(initialRoute: String?, targetRoute: String?): Int {
@@ -243,6 +256,135 @@ fun AppNavHostContent(
                 ) + fadeOut(animationSpec = tween(300))
             },
         ) { /* detail route reserved */ }
+
+        // ==================== Configs 分支 ====================
+        composable(
+            route = AppDestinations.Configs.ROUTE,
+            enterTransition = {
+                val direction = forwardDirection(initialState.destination.route, targetState.destination.route)
+                slideInHorizontally(
+                    initialOffsetX = { direction * it },
+                    animationSpec = tween(300, easing = EaseInOut),
+                ) + fadeIn(animationSpec = tween(300))
+            },
+            exitTransition = {
+                val direction = forwardDirection(initialState.destination.route, targetState.destination.route)
+                slideOutHorizontally(
+                    targetOffsetX = { -direction * it },
+                    animationSpec = tween(300, easing = EaseInOut),
+                ) + fadeOut(animationSpec = tween(300))
+            },
+            popEnterTransition = {
+                val direction = forwardDirection(initialState.destination.route, targetState.destination.route)
+                slideInHorizontally(
+                    initialOffsetX = { -direction * it },
+                    animationSpec = tween(300, easing = EaseInOut),
+                ) + fadeIn(animationSpec = tween(300))
+            },
+            popExitTransition = {
+                val direction = forwardDirection(initialState.destination.route, targetState.destination.route)
+                slideOutHorizontally(
+                    targetOffsetX = { direction * it },
+                    animationSpec = tween(300, easing = EaseInOut),
+                ) + fadeOut(animationSpec = tween(300))
+            },
+        ) {
+            configsPage(
+                "",
+                contentPadding,
+                0,
+                { path -> navController.navigate(AppDestinations.ConfigEditor.route(path)) },
+                hazeState,
+                hazeStyle,
+            )
+        }
+
+        composable(
+            route = AppDestinations.ConfigsSearch.ROUTE_PATTERN,
+            arguments = listOf(NavigationArguments.configInitialQueryArgument),
+            enterTransition = {
+                val direction = forwardDirection(initialState.destination.route, targetState.destination.route)
+                slideInHorizontally(
+                    initialOffsetX = { direction * it },
+                    animationSpec = tween(300, easing = EaseInOut),
+                ) + fadeIn(animationSpec = tween(300))
+            },
+            exitTransition = {
+                val direction = forwardDirection(initialState.destination.route, targetState.destination.route)
+                slideOutHorizontally(
+                    targetOffsetX = { -direction * it },
+                    animationSpec = tween(300, easing = EaseInOut),
+                ) + fadeOut(animationSpec = tween(300))
+            },
+            popEnterTransition = {
+                val direction = forwardDirection(initialState.destination.route, targetState.destination.route)
+                slideInHorizontally(
+                    initialOffsetX = { -direction * it },
+                    animationSpec = tween(300, easing = EaseInOut),
+                ) + fadeIn(animationSpec = tween(300))
+            },
+            popExitTransition = {
+                val direction = forwardDirection(initialState.destination.route, targetState.destination.route)
+                slideOutHorizontally(
+                    targetOffsetX = { direction * it },
+                    animationSpec = tween(300, easing = EaseInOut),
+                ) + fadeOut(animationSpec = tween(300))
+            },
+        ) { backStackEntry ->
+            configsPage(
+                decodeRouteArg(
+                    backStackEntry.arguments?.getString(AppDestinations.ConfigsSearch.ARGUMENT_INITIAL_QUERY),
+                ),
+                contentPadding,
+                0,
+                { path -> navController.navigate(AppDestinations.ConfigEditor.route(path)) },
+                hazeState,
+                hazeStyle,
+            )
+        }
+
+        composable(
+            route = AppDestinations.ConfigEditor.ROUTE_PATTERN,
+            arguments = listOf(NavigationArguments.configPathArgument),
+            enterTransition = {
+                val direction = forwardDirection(initialState.destination.route, targetState.destination.route)
+                slideInHorizontally(
+                    initialOffsetX = { direction * it },
+                    animationSpec = tween(300, easing = EaseInOut),
+                ) + fadeIn(animationSpec = tween(300))
+            },
+            exitTransition = {
+                val direction = forwardDirection(initialState.destination.route, targetState.destination.route)
+                slideOutHorizontally(
+                    targetOffsetX = { -direction * it },
+                    animationSpec = tween(300, easing = EaseInOut),
+                ) + fadeOut(animationSpec = tween(300))
+            },
+            popEnterTransition = {
+                val direction = forwardDirection(initialState.destination.route, targetState.destination.route)
+                slideInHorizontally(
+                    initialOffsetX = { -direction * it },
+                    animationSpec = tween(300, easing = EaseInOut),
+                ) + fadeIn(animationSpec = tween(300))
+            },
+            popExitTransition = {
+                val direction = forwardDirection(initialState.destination.route, targetState.destination.route)
+                slideOutHorizontally(
+                    targetOffsetX = { direction * it },
+                    animationSpec = tween(300, easing = EaseInOut),
+                ) + fadeOut(animationSpec = tween(300))
+            },
+        ) { backStackEntry ->
+            configEditorPage(
+                decodeRouteArg(
+                    backStackEntry.arguments?.getString(AppDestinations.ConfigEditor.ARGUMENT_PATH),
+                ),
+                contentPadding,
+                { navController.popBackStack() },
+                hazeState,
+                hazeStyle,
+            )
+        }
 
         // ==================== Settings 分支 ====================
         composable(

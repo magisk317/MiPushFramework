@@ -99,7 +99,34 @@
     <string name="main_overview">Overview</string>
     <string name="main_event">Logs</string>
     <string name="main_apps">Apps</string>
-    <string name="main_settings">Configs</string>
+    <string name="main_configs">Configs</string>
+    <string name="main_settings">Settings</string>
+    <string name="config_remote_source_label">Remote source: %1$s</string>
+    <string name="config_directory_not_selected">No local configuration directory selected yet.</string>
+    <string name="config_directory_label">Local directory: %1$s</string>
+    <string name="config_last_sync_label">Last remote sync: %1$s</string>
+    <string name="config_search_placeholder">Search config file or package</string>
+    <string name="config_choose_directory">Choose directory</string>
+    <string name="config_import_local">Import local</string>
+    <string name="config_pull_remote">Pull remote</string>
+    <string name="config_reload">Reload</string>
+    <string name="config_remote_error">Remote error: %1$s</string>
+    <string name="config_empty_title">No configs found</string>
+    <string name="config_empty_summary">You can preview remote configs right away, or select a local directory to import and edit them.</string>
+    <string name="config_status_in_sync">In sync</string>
+    <string name="config_status_remote_only">Remote only</string>
+    <string name="config_status_local_only">Local only</string>
+    <string name="config_status_outdated">Outdated</string>
+    <string name="config_status_modified">Modified</string>
+    <string name="config_status_invalid">Invalid JSON</string>
+    <string name="config_source_local">Local</string>
+    <string name="config_source_remote">Remote</string>
+    <string name="config_editor_meta">Local updated: %1$s · Remote updated: %2$s</string>
+    <string name="config_editor_empty_title">No preview available</string>
+    <string name="config_editor_empty_summary">The selected config is not available locally or remotely.</string>
+    <string name="config_edit">Edit local copy</string>
+    <string name="config_reset_remote">Reset to remote</string>
+    <string name="config_time_unknown">Unknown</string>
 
 
     <!-- About -->

@@ -32,6 +32,7 @@ import top.trumeet.common.utils.CustomConfiguration
 import top.trumeet.common.utils.Utils
 import top.trumeet.mipush.provider.db.EventDb
 import top.trumeet.mipush.provider.entities.Event
+import top.trumeet.mipushframework.config.ConfigNavigationHelper
 import top.trumeet.mipushframework.main.ApplicationInfoPage
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -42,13 +43,16 @@ import kotlinx.coroutines.runBlocking
 class EventRepository @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val configCenter: ConfigCenter,
-    private val configurations: Configurations
+    private val configurations: Configurations,
+    private val configNavigationHelper: ConfigNavigationHelper,
 ) {
     // No-arg fallback for legacy Singleton access.
     constructor() : this(
         top.trumeet.common.utils.Utils.getApplication()!!,
         com.magisk317.utils.Singleton.instance<ConfigCenter>(),
         Configurations.getInstance()
+        ,
+        ConfigNavigationHelper(),
     )
 
     init {
@@ -233,6 +237,10 @@ class EventRepository @Inject constructor(
             intent.putExtra(ApplicationInfoPage.EXTRA_IGNORE_NOT_REGISTERED, true)
         }
         context.startActivity(intent)
+    }
+
+    suspend fun startConfigPreview(packageName: String) {
+        configNavigationHelper.openForPackage(packageName)
     }
 
     fun getDecoratedSummary(summary: String, container: XmPushActionContainer): String {

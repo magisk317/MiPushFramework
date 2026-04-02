@@ -87,6 +87,8 @@ import top.trumeet.mipushframework.component.SearchBar
 import top.trumeet.mipushframework.component.DialogAction
 import top.trumeet.mipushframework.component.DialogActionRow
 import top.trumeet.mipushframework.main.subpage.ApplicationList
+import top.trumeet.mipushframework.main.subpage.ConfigurationEditor
+import top.trumeet.mipushframework.main.subpage.Configurations
 import top.trumeet.mipushframework.main.subpage.ApplicationListPreview
 import top.trumeet.mipushframework.main.subpage.EventDetailsDialogPreview
 import top.trumeet.mipushframework.main.subpage.EventList
@@ -114,6 +116,7 @@ class MainActivity : ComponentActivity() {
     companion object {
         const val EXTRA_START_TAB = "extra_start_tab"
         const val START_TAB_SETTINGS = "settings"
+        const val EXTRA_START_ROUTE = "extra_start_route"
     }
 
     @Inject lateinit var configCenter: ConfigCenter
@@ -125,10 +128,17 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         mainActivityUtils.initOnCreate(applicationContext, configCenter) { placeholder = it.toString() }
-        val startDestination = if (intent?.getStringExtra(EXTRA_START_TAB) == START_TAB_SETTINGS) {
-            AppDestinations.Settings.ROUTE
-        } else {
-            AppDestinations.Overview.ROUTE
+        val explicitRoute = intent?.getStringExtra(EXTRA_START_ROUTE)
+        val startDestination = when {
+            explicitRoute?.startsWith(AppDestinations.Configs.ROUTE) == true ||
+                explicitRoute?.startsWith(AppDestinations.ConfigsSearch.ROUTE) == true ||
+                explicitRoute?.startsWith(AppDestinations.ConfigEditor.ROUTE) == true -> AppDestinations.Configs.ROUTE
+
+            explicitRoute?.startsWith(AppDestinations.Settings.ROUTE) == true ||
+                explicitRoute?.startsWith(AppDestinations.SettingsSection.ROUTE) == true ||
+                intent?.getStringExtra(EXTRA_START_TAB) == START_TAB_SETTINGS -> AppDestinations.Settings.ROUTE
+
+            else -> AppDestinations.Overview.ROUTE
         }
         setContent {
             val themeState by settingsViewModel.themeState.collectAsStateWithLifecycle()
@@ -183,6 +193,7 @@ class MainActivity : ComponentActivity() {
                 Box(modifier = Modifier.fillMaxSize()) {
                     MainScreen(
                         startDestination = startDestination,
+                        initialRouteOverride = explicitRoute,
                         hazeState = hazeState,
                         hazeStyle = hazeStyle,
                         eventRepository = eventRepository,

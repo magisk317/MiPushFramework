@@ -681,6 +681,10 @@ private fun EventDetailsDialog(
                         onClick = { viewModel.copyToClipboard(json) }
                     ),
                     DialogAction(
+                        label = stringResource(R.string.main_configs),
+                        onClick = { viewModel.startConfigPreview(clickedEvent.packageName) },
+                    ),
+                    DialogAction(
                         label = stringResource(R.string.action_notify),
                         onClick = {
                             RegSecUtils.getContainerWithRegSec(clickedEvent.event)?.let {

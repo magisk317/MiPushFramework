@@ -77,6 +77,7 @@ import com.magisk317.compat.PackageManagerCompatBridge
 import com.magisk317.compat.RegistrationStateCompat
 import com.magisk317.compat.RegistrationStateStore
 import com.magisk317.utils.RegistrationHelper
+import top.trumeet.mipushframework.config.ConfigNavigationHelper
 import com.topjohnwu.superuser.Shell
 import com.xiaomi.xmsf.BuildConfig
 import com.xiaomi.xmsf.R
@@ -249,6 +250,8 @@ class ApplicationInfoPage : ComponentActivity() {
     @Composable
     private fun ApplicationInfoHeader() {
         val context = LocalContext.current
+        val scope = rememberCoroutineScope()
+        val configNavigationHelper = remember { ConfigNavigationHelper() }
         val diagnostics by androidx.compose.runtime.produceState<AppRegistrationDiagnostics?>(
             initialValue = null,
             key1 = applicationInfo.packageName,
@@ -415,6 +418,20 @@ class ApplicationInfoPage : ComponentActivity() {
                         ) {
                             Text(
                                 text = stringResource(R.string.app_detail_open_system_settings),
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    configNavigationHelper.openForPackage(applicationInfo.packageName)
+                                }
+                            },
+                        ) {
+                            Text(
+                                text = stringResource(R.string.main_configs),
                                 maxLines = 1,
                                 softWrap = false,
                                 overflow = TextOverflow.Ellipsis,

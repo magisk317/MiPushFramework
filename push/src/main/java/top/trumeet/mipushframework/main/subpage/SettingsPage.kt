@@ -236,7 +236,6 @@ private fun ServiceConfigurationBlock(viewModel: SettingsViewModel) {
     val notificationOnRegister by viewModel.notificationOnRegister.collectAsStateWithLifecycle()
 
     SetXMPPServer(viewModel)
-    SetConfigurationsDirectory(viewModel)
 
     SettingsSwitchItem(
         title = stringResource(R.string.settings_start_foreground_service),
@@ -423,30 +422,6 @@ private fun SetXMPPServer(viewModel: SettingsViewModel) {
             )
         },
     )
-}
-
-@Composable
-private fun SetConfigurationsDirectory(viewModel: SettingsViewModel) {
-    val context = LocalContext.current
-    val savedConfigDir by viewModel.configDirectory.collectAsStateWithLifecycle()
-
-    val openDocumentTreeLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree(),
-    ) { uri ->
-        if (uri != null) {
-            context.contentResolver.takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-            )
-            viewModel.updateConfigDirectory(uri.toString())
-        }
-    }
-    SettingsItem(
-        title = stringResource(R.string.settings_configuration_directory),
-        summary = savedConfigDir,
-    ) {
-        openDocumentTreeLauncher.launch(null)
-    }
 }
 
 @Preview(showBackground = true)
