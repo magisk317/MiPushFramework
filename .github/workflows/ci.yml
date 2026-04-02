@@ -18,11 +18,16 @@ jobs:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
+          fetch-depth: 0
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "25"
-          cache: gradle
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          validate-wrappers: false
+          allow-snapshot-wrappers: true
       - name: Normalize Android SDK platform aliases
         run: bash scripts/ensure_android_sdk_platform_alias.sh
       - name: Validate security override files
@@ -31,8 +36,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
-          chmod +x .github/scripts/sync_security_overrides.sh
-          .github/scripts/sync_security_overrides.sh --check
+          chmod +x scripts/sync_security_overrides.sh
+          scripts/sync_security_overrides.sh --check
       - name: Check zero deprecation baseline
         run: |
           chmod +x scripts/check_deprecation_zero.sh
@@ -48,38 +53,17 @@ jobs:
             echo "| File | Size |"
             echo "| --- | --- |"
             while IFS= read -r apk; do
+              if [ ! -f "$apk" ]; then
+                continue
+              fi
               size=$(du -h "$apk" | awk '{print $1}')
               name=$(basename "$apk")
               echo "| $name | $size |"
-            done < <(find push/build/outputs/apk -type f -name "*.apk" | sort)
+            done < <(find push/build/outputs/apk -path '*/debug/*.apk' | sort)
           } >> "$GITHUB_STEP_SUMMARY"
-      - name: Upload Debug APK (arm64-v8a)
+      - name: Upload Debug APKs
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: MiPushFramework-debug-arm64-v8a
-          path: push/build/outputs/apk/**/*arm64-v8a*.apk
-      - name: Upload Debug APK (armeabi-v7a)
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: MiPushFramework-debug-armeabi-v7a
-          path: push/build/outputs/apk/**/*armeabi-v7a*.apk
-      - name: Upload Debug APK (x86)
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: MiPushFramework-debug-x86
-          path: push/build/outputs/apk/**/*-x86.apk
-      - name: Upload Debug APK (x86_64)
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: MiPushFramework-debug-x86_64
-          path: push/build/outputs/apk/**/*-x86_64.apk
-      - name: Upload Debug APK (universal)
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: MiPushFramework-debug-universal
-          path: push/build/outputs/apk/**/*universal*.apk
+          name: MiPushFramework-debug-apks
+          path: push/build/outputs/apk/**/debug/*.apk

@@ -13,12 +13,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          submodules: recursive
           fetch-depth: 0
 
       - name: Send Notification
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
-          RELEASE_URL: ${{ github.event.release.html_url }}
           ASSETS_JSON: ${{ toJson(github.event.release.assets) }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
           TG_THREAD_ID: ${{ secrets.TG_THREAD_ID }}
@@ -30,8 +30,25 @@ jobs:
             exit 0
           fi
 
-          RELEASE_LINK="https://github.com/${{ github.repository }}/releases/tag/${RELEASE_TAG}"
-          CAPTION=$(printf '<b>📦 MiPushFramework Release: %s</b>\n\nRelease notes: %s' "$RELEASE_TAG" "$RELEASE_LINK")
+          if [ -z "$RELEASE_TAG" ]; then
+            RELEASE_TAG="${GITHUB_REF_NAME:-manual}"
+          fi
+
+          if [ -f "docs/CHANGELOG.md" ]; then
+            RELEASE_CONTENT="$(awk -v tag="$RELEASE_TAG" '
+              $0 == "## [" tag "]" {capture=1; next}
+              capture && /^## \[/ {exit}
+              capture {print}
+            ' docs/CHANGELOG.md)"
+          else
+            RELEASE_CONTENT=""
+          fi
+
+          if [ -z "$RELEASE_CONTENT" ]; then
+            RELEASE_CONTENT="Release notes unavailable. See: https://github.com/${{ github.repository }}/releases/tag/${RELEASE_TAG}"
+          fi
+
+          CAPTION=$(printf '<b>📦 MiPushFramework Release: %s</b>\n\n%s' "$RELEASE_TAG" "$RELEASE_CONTENT")
 
           if [ -n "$TG_THREAD_ID" ]; then
             curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \

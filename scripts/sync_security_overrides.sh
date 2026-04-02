@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUTPUT_FILE="${ROOT_DIR}/gradle/security-overrides.properties"
 INIT_FILE="${ROOT_DIR}/gradle/security-overrides.init.gradle"
 TMP_DIR="$(mktemp -d)"
@@ -35,7 +35,6 @@ INIT_GEN_FILE="${TMP_DIR}/security-overrides.init.gradle"
 gh api --paginate "/repos/${REPO}/dependabot/alerts?state=open&per_page=100" --jq '.[]' > "${ALERTS_OBJ_FILE}"
 jq -s '.' "${ALERTS_OBJ_FILE}" > "${ALERTS_JSON_FILE}"
 
-# Build strongest patched version for each vulnerable package.
 jq -r '
   .[]
   | select(.dependency.package.ecosystem == "maven")
@@ -71,7 +70,7 @@ done
 {
   echo "# AUTO-GENERATED FILE. DO NOT EDIT MANUALLY."
   echo "# Source: GitHub Dependabot open alerts (maven ecosystem)."
-  echo "# Regenerate: .github/scripts/sync_security_overrides.sh"
+  echo "# Regenerate: scripts/sync_security_overrides.sh"
   echo
   if [[ -f "${MAP_FILE}" ]]; then
     sort -u "${MAP_FILE}" | while IFS=$'\t' read -r pkg ver; do
@@ -128,20 +127,20 @@ EOF
 
 if [[ "${CHECK_MODE}" == "true" ]]; then
   if [[ ! -f "${OUTPUT_FILE}" ]]; then
-    echo "Missing ${OUTPUT_FILE}. Run .github/scripts/sync_security_overrides.sh" >&2
+    echo "Missing ${OUTPUT_FILE}. Run scripts/sync_security_overrides.sh" >&2
     exit 1
   fi
   if [[ ! -f "${INIT_FILE}" ]]; then
-    echo "Missing ${INIT_FILE}. Run .github/scripts/sync_security_overrides.sh" >&2
+    echo "Missing ${INIT_FILE}. Run scripts/sync_security_overrides.sh" >&2
     exit 1
   fi
   if ! cmp -s "${GEN_FILE}" "${OUTPUT_FILE}"; then
-    echo "Security overrides are stale. Run .github/scripts/sync_security_overrides.sh" >&2
+    echo "Security overrides are stale. Run scripts/sync_security_overrides.sh" >&2
     diff -u "${OUTPUT_FILE}" "${GEN_FILE}" || true
     exit 1
   fi
   if ! cmp -s "${INIT_GEN_FILE}" "${INIT_FILE}"; then
-    echo "Security init script is stale. Run .github/scripts/sync_security_overrides.sh" >&2
+    echo "Security init script is stale. Run scripts/sync_security_overrides.sh" >&2
     diff -u "${INIT_FILE}" "${INIT_GEN_FILE}" || true
     exit 1
   fi

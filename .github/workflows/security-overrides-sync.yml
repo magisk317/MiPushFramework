@@ -24,8 +24,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
-          chmod +x .github/scripts/sync_security_overrides.sh
-          .github/scripts/sync_security_overrides.sh
+          chmod +x scripts/sync_security_overrides.sh
+          scripts/sync_security_overrides.sh
 
       - name: Create PR if changed
         uses: peter-evans/create-pull-request@v8

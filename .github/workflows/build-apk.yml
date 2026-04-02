@@ -3,15 +3,34 @@ name: Build APK
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*.*.*'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  build-apk:
-    name: Build APKs
+  validate-release:
+    name: Validate Release Metadata
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Validate release notes and tag/version consistency
+        run: |
+          chmod +x scripts/check_release_guard.sh
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            scripts/check_release_guard.sh "${GITHUB_REF_NAME}"
+          else
+            scripts/check_release_guard.sh
+          fi
+
+  build-github-apk:
+    name: Build GitHub APK
+    needs: [validate-release]
     runs-on: ubuntu-latest
     env:
       HAS_RELEASE_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE != '' }}
@@ -25,7 +44,12 @@ jobs:
         with:
           java-version: '25'
           distribution: 'temurin'
-          cache: gradle
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          validate-wrappers: false
+          allow-snapshot-wrappers: true
 
       - name: Normalize Android SDK platform aliases
         run: bash scripts/ensure_android_sdk_platform_alias.sh
@@ -37,7 +61,7 @@ jobs:
         if: env.HAS_RELEASE_KEYSTORE == 'true'
         run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > .yuuta.jks
 
-      - name: Build APKs
+      - name: Build GitHub APK
         run: ./gradlew :push:assembleRelease -PbuildSplits -Pkotlin.incremental=false
         env:
           KEYSTORE_PASS: ${{ secrets.STORE_PASSWORD }}
@@ -47,47 +71,98 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v7
         with:
-          name: apks-release
+          name: apks-github
           path: push/build/outputs/apk/release/**/*.apk
 
+      - name: Detect GitHub Signatures
+        id: github_signatures
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(push/build/outputs/apk-signatures/release/**/*.idsig)
+          if (( ${#files[@]} == 0 )); then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "exists=true" >> "$GITHUB_OUTPUT"
+          {
+            echo "paths<<EOF"
+            printf '%s\n' "${files[@]}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Upload Signature Artifact
+        if: steps.github_signatures.outputs.exists == 'true'
         uses: actions/upload-artifact@v7
         with:
-          name: signatures-release
-          path: push/build/outputs/apk-signatures/release/**/*.idsig
-          if-no-files-found: warn
+          name: signatures-github
+          path: ${{ steps.github_signatures.outputs.paths }}
 
   release:
     name: Create Release
-    needs: [build-apk]
+    needs: [build-github-apk]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     env:
       HAS_RELEASE_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE != '' }}
     steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
       - uses: actions/download-artifact@v8
         with:
-          pattern: apks-*
+          pattern: apks-github*
           path: artifacts/apks
           merge-multiple: true
 
       - uses: actions/download-artifact@v8
         with:
-          pattern: signatures-*
+          pattern: signatures-github*
           path: artifacts/signatures
           merge-multiple: true
 
       - name: Create Draft Release
-        uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') && env.HAS_RELEASE_KEYSTORE == 'true'
-        with:
-          draft: true
-          files: |
-            artifacts/apks/**/*.apk
-            artifacts/signatures/**/*.idsig
-          body: |
-            ## MiPushFramework Release
-            Automated build for version ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          tag_name="${GITHUB_REF_NAME}"
+          release_name="$tag_name"
+          release_notes="MiPushFramework Release ${tag_name}"
+          if [[ -f "docs/CHANGELOG.md" ]]; then
+            extracted_notes="$(awk -v tag="$tag_name" '
+              $0 == "## [" tag "]" {capture=1; next}
+              capture && /^## \[/ {exit}
+              capture {print}
+            ' docs/CHANGELOG.md)"
+            if [[ -n "$extracted_notes" ]]; then
+              release_notes="$extracted_notes"
+            fi
+          fi
+
+          mapfile -d '' release_assets < <(
+            find artifacts/apks artifacts/signatures -type f \( -name '*.apk' -o -name '*.idsig' \) -print0 | sort -z
+          )
+          if [[ ${#release_assets[@]} == 0 ]]; then
+            echo "ERROR: no release assets found under artifacts/apks or artifacts/signatures" >&2
+            find artifacts/apks artifacts/signatures -maxdepth 6 -type f | sort >&2 || true
+            exit 1
+          fi
+
+          if gh release view "$tag_name" >/dev/null 2>&1; then
+            gh release upload "$tag_name" "${release_assets[@]}" --clobber
+            gh release edit "$tag_name" --title "$release_name" --notes "$release_notes"
+          else
+            gh release create "$tag_name" "${release_assets[@]}" \
+              --draft \
+              --title "$release_name" \
+              --verify-tag \
+              --generate-notes \
+              --notes "$release_notes"
+          fi
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          GH_TOKEN: ${{ secrets.GH_PAT != '' && secrets.GH_PAT || github.token }}

@@ -40,8 +40,8 @@ jobs:
             exit 0
           fi
 
-          chmod +x .github/scripts/sync_security_overrides.sh
-          .github/scripts/sync_security_overrides.sh --check
+          chmod +x scripts/sync_security_overrides.sh
+          scripts/sync_security_overrides.sh --check
 
       - name: Print open security alert summary
         env:

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
 if ! command -v gh >/dev/null 2>&1; then
@@ -14,10 +14,9 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 echo "Syncing security overrides from open Dependabot alerts..."
-chmod +x .github/scripts/sync_security_overrides.sh
-.github/scripts/sync_security_overrides.sh
+chmod +x scripts/sync_security_overrides.sh
+scripts/sync_security_overrides.sh
 
-# Only validate builds when janitor produced file changes.
 if git diff --quiet -- gradle/security-overrides.properties gradle/security-overrides.init.gradle; then
   echo "No override changes generated. Skipping build validation."
   exit 0

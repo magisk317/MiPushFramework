@@ -37,16 +37,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
-          chmod +x .github/scripts/janitor_security_fixes.sh
-          .github/scripts/janitor_security_fixes.sh
+          chmod +x scripts/janitor_security_fixes.sh
+          scripts/janitor_security_fixes.sh
 
       - name: Report alert coverage (no auto-dismiss)
         env:
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         run: |
-          chmod +x .github/scripts/reconcile_dependabot_alerts.sh
-          .github/scripts/reconcile_dependabot_alerts.sh
+          chmod +x scripts/reconcile_dependabot_alerts.sh
+          scripts/reconcile_dependabot_alerts.sh
 
       - name: Create janitor PR if changed
         uses: peter-evans/create-pull-request@v8
