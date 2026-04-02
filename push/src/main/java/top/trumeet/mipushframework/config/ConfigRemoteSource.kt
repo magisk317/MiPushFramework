@@ -1,0 +1,9 @@
+package top.trumeet.mipushframework.config
+
+data class ConfigRemoteSource(
+    val repository: String = ConfigCatalogService.REMOTE_REPOSITORY,
+    val branch: String = ConfigCatalogService.REMOTE_BRANCH,
+) {
+    val displayName: String get() = "$repository@$branch"
+    val baseRawUrl: String get() = "https://raw.githubusercontent.com/$repository/$branch"
+}

@@ -101,6 +101,11 @@
     <string name="main_configs">配置</string>
     <string name="main_settings">设置</string>
     <string name="config_remote_source_label">远端源：%1$s</string>
+    <string name="config_remote_source_title">远端源</string>
+    <string name="config_remote_repository_label">仓库</string>
+    <string name="config_remote_branch_label">分支</string>
+    <string name="config_remote_source_default_hint">内置默认：%1$s</string>
+    <string name="config_directory_title">本地目录</string>
     <string name="config_directory_not_selected">还没有选择本地配置目录。</string>
     <string name="config_directory_label">本地目录：%1$s</string>
     <string name="config_last_sync_label">最近远端同步：%1$s</string>
@@ -109,7 +114,9 @@
     <string name="config_import_local">本地导入</string>
     <string name="config_pull_remote">拉取线上</string>
     <string name="config_reload">重新加载</string>
+    <string name="config_sync_progress">同步中 %1$d/%2$d · %3$s</string>
     <string name="config_remote_error">远端错误：%1$s</string>
+    <string name="action_reset_default">恢复默认</string>
     <string name="config_empty_title">暂无可显示的配置</string>
     <string name="config_empty_summary">你可以先浏览远端配置，也可以选择本地目录后导入、编辑并立即生效。</string>
     <string name="config_status_in_sync">已同步</string>
@@ -118,7 +125,7 @@
     <string name="config_status_outdated">本地过旧</string>
     <string name="config_status_modified">本地已修改</string>
     <string name="config_status_invalid">JSON 无效</string>
-    <string name="config_source_local">本地</string>
+    <string name="config_source_local">导入本地</string>
     <string name="config_source_remote">远端</string>
     <string name="config_editor_meta">本地更新时间：%1$s · 远端更新时间：%2$s</string>
     <string name="config_editor_empty_title">没有可预览的内容</string>

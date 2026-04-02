@@ -12,24 +12,32 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -41,6 +49,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -48,6 +59,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -59,13 +71,16 @@ import io.github.magisk317.uikit.surface.WorkspaceEmptyState
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
 import top.trumeet.mipushframework.component.SearchBar
-import top.trumeet.mipushframework.component.TextView
 import top.trumeet.mipushframework.component.WorkspaceListItem
+import top.trumeet.mipushframework.config.ConfigCatalogService
 import top.trumeet.mipushframework.config.ConfigContentSource
 import top.trumeet.mipushframework.config.ConfigEditorViewModel
 import top.trumeet.mipushframework.config.ConfigListItem
 import top.trumeet.mipushframework.config.ConfigManagerViewModel
+import top.trumeet.mipushframework.config.ConfigRemoteSource
 import top.trumeet.mipushframework.config.ConfigSyncStatus
 import top.trumeet.ui.theme.spacing
 
@@ -82,8 +97,9 @@ fun Configurations(
     Page {
         val context = androidx.compose.ui.platform.LocalContext.current
         val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-        val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-
+        var showRemoteSourceDialog by rememberSaveable { mutableStateOf(false) }
+        var remoteRepositoryDraft by rememberSaveable { mutableStateOf("") }
+        var remoteBranchDraft by rememberSaveable { mutableStateOf("") }
         val openDirectoryLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.OpenDocumentTree(),
         ) { uri ->
@@ -116,6 +132,12 @@ fun Configurations(
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             viewModel.clearMessage()
         }
+        LaunchedEffect(showRemoteSourceDialog, uiState.remoteSource) {
+            if (showRemoteSourceDialog) {
+                remoteRepositoryDraft = uiState.remoteSource.repository
+                remoteBranchDraft = uiState.remoteSource.branch
+            }
+        }
 
         val filteredItems = remember(uiState.items, uiState.query) {
             val query = uiState.query.trim()
@@ -129,122 +151,74 @@ fun Configurations(
             }
         }
 
-        Box(modifier = Modifier.fillMaxSize()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .windowInsetsPadding(WindowInsets.safeDrawing)
-                    .then(if (hazeState != null) Modifier.hazeSource(hazeState) else Modifier),
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .then(if (hazeState != null) Modifier.hazeSource(hazeState) else Modifier),
+        ) {
+            if (showRemoteSourceDialog) {
+                RemoteSourceDialog(
+                    repository = remoteRepositoryDraft,
+                    branch = remoteBranchDraft,
+                    onRepositoryChange = { remoteRepositoryDraft = it },
+                    onBranchChange = { remoteBranchDraft = it },
+                    onDismiss = { showRemoteSourceDialog = false },
+                    onResetDefault = {
+                        remoteRepositoryDraft = ConfigCatalogService.REMOTE_REPOSITORY
+                        remoteBranchDraft = ConfigCatalogService.REMOTE_BRANCH
+                    },
+                    onConfirm = {
+                        viewModel.updateRemoteSource(remoteRepositoryDraft, remoteBranchDraft)
+                        showRemoteSourceDialog = false
+                    },
+                )
+            }
+            TopAppBar(
+                title = { Text(stringResource(R.string.main_configs)) },
+                windowInsets = WindowInsets.statusBars,
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent,
+                ),
+            )
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = MaterialTheme.spacing.medium,
+                    end = MaterialTheme.spacing.medium,
+                    top = 0.dp,
+                    bottom = contentPadding.calculateBottomPadding() + MaterialTheme.spacing.large,
+                ),
+                verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
             ) {
-                TopAppBar(
-                    title = { Text(stringResource(R.string.main_configs)) },
-                    windowInsets = WindowInsets.statusBars,
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        scrolledContainerColor = Color.Transparent,
-                    ),
+                configListHeader(
+                    uiState = uiState,
+                    onClickRemoteSource = { showRemoteSourceDialog = true },
+                    onChooseDirectory = { openDirectoryLauncher.launch(null) },
+                    onImportLocal = { importLauncher.launch(arrayOf("application/json", "*/*")) },
+                    onPullRemote = viewModel::pullRemote,
+                    onReload = viewModel::reloadConfigurations,
+                    onQueryChange = viewModel::setQuery,
                 )
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = MaterialTheme.spacing.medium),
-                    verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
-                ) {
-                    Text(
-                        text = stringResource(R.string.config_remote_source_label, "magisk317/MiPushConfigurations@dev"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = if (uiState.directoryUri.isNullOrBlank()) {
-                            stringResource(R.string.config_directory_not_selected)
-                        } else {
-                            stringResource(R.string.config_directory_label, uiState.directoryUri!!)
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        text = stringResource(
-                            R.string.config_last_sync_label,
-                            uiState.lastSyncTime.asReadableTime(),
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-
-                    SearchBar(
-                        placeholder = stringResource(R.string.config_search_placeholder),
-                        query = uiState.query,
-                        onValueChange = viewModel::setQuery,
-                    )
-
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
-                        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
-                    ) {
-                        FilledTonalButton(onClick = { openDirectoryLauncher.launch(null) }) {
-                            Text(stringResource(R.string.config_choose_directory))
-                        }
-                        OutlinedButton(
-                            onClick = { importLauncher.launch(arrayOf("application/json", "*/*")) },
-                            enabled = !uiState.directoryUri.isNullOrBlank(),
-                        ) {
-                            Text(stringResource(R.string.config_import_local))
-                        }
-                        OutlinedButton(
-                            onClick = viewModel::pullRemote,
-                            enabled = !uiState.directoryUri.isNullOrBlank() && !uiState.isSyncing,
-                        ) {
-                            Text(stringResource(R.string.config_pull_remote))
-                        }
-                        OutlinedButton(onClick = viewModel::reloadConfigurations) {
-                            Text(stringResource(R.string.config_reload))
-                        }
-                    }
-
-                    uiState.remoteError?.takeIf { it.isNotBlank() }?.let { error ->
-                        Text(
-                            text = stringResource(R.string.config_remote_error, error),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
+                if (filteredItems.isEmpty() && !uiState.isLoading) {
+                    item {
+                        WorkspaceEmptyState(
+                            title = stringResource(R.string.config_empty_title),
+                            summary = stringResource(R.string.config_empty_summary),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 280.dp),
                         )
                     }
-                }
-
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = MaterialTheme.spacing.small),
-                    contentPadding = PaddingValues(
-                        start = MaterialTheme.spacing.medium,
-                        end = MaterialTheme.spacing.medium,
-                        top = 0.dp,
-                        bottom = contentPadding.calculateBottomPadding() + MaterialTheme.spacing.large,
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
-                ) {
-                    if (filteredItems.isEmpty() && !uiState.isLoading) {
-                        item {
-                            WorkspaceEmptyState(
-                                title = stringResource(R.string.config_empty_title),
-                                summary = stringResource(R.string.config_empty_summary),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 280.dp),
-                            )
-                        }
-                    } else {
-                        items(filteredItems, key = { it.path }) { item ->
-                            ConfigListEntry(
-                                item = item,
-                                onClick = { onOpenEditor(item.path) },
-                            )
-                        }
+                } else {
+                    items(filteredItems, key = { it.path }) { item ->
+                        ConfigListEntry(
+                            item = item,
+                            onClick = { onOpenEditor(item.path) },
+                        )
                     }
                 }
             }
@@ -262,6 +236,7 @@ fun ConfigurationEditor(
     Page {
         val context = androidx.compose.ui.platform.LocalContext.current
         val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+        val headerScrollState = rememberScrollState()
 
         LaunchedEffect(path) {
             viewModel.load(path)
@@ -307,99 +282,111 @@ fun ConfigurationEditor(
                     .padding(horizontal = MaterialTheme.spacing.medium),
                 verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
             ) {
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
                 ) {
-                    FilterChip(
-                        selected = uiState.selectedSource == ConfigContentSource.LOCAL,
-                        onClick = { viewModel.selectSource(ConfigContentSource.LOCAL) },
-                        enabled = uiState.hasLocal,
-                        label = { Text(stringResource(R.string.config_source_local)) },
-                    )
-                    FilterChip(
-                        selected = uiState.selectedSource == ConfigContentSource.REMOTE,
-                        onClick = { viewModel.selectSource(ConfigContentSource.REMOTE) },
-                        enabled = uiState.hasRemote,
-                        label = { Text(stringResource(R.string.config_source_remote)) },
-                    )
-                    StatusBadge(
-                        status = when {
-                            uiState.localMeta?.isValid == false -> ConfigSyncStatus.INVALID_LOCAL
-                            uiState.remoteMeta != null && uiState.localMeta != null && uiState.localMeta?.sha == uiState.remoteMeta?.sha ->
-                                ConfigSyncStatus.IN_SYNC
-                            uiState.remoteMeta != null && uiState.localMeta == null -> ConfigSyncStatus.REMOTE_ONLY
-                            uiState.remoteMeta == null && uiState.localMeta != null -> ConfigSyncStatus.LOCAL_ONLY
-                            else -> ConfigSyncStatus.MODIFIED_LOCAL
-                        },
-                    )
-                }
-
-                Text(
-                    text = stringResource(
-                        R.string.config_editor_meta,
-                        uiState.localMeta?.lastModified.asReadableTime(),
-                        uiState.remoteMeta?.updatedAt ?: stringResource(R.string.config_time_unknown),
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                uiState.remoteError?.takeIf { it.isNotBlank() }?.let { error ->
-                    Text(
-                        text = stringResource(R.string.config_remote_error, error),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-                uiState.validationError?.takeIf { it.isNotBlank() }?.let { error ->
-                    Text(
-                        text = error,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-
-                if (uiState.isEditing) {
-                    TextField(
-                        value = uiState.draft,
-                        onValueChange = viewModel::updateDraft,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
-                        textStyle = MaterialTheme.typography.bodySmall,
-                    )
-                } else {
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        tonalElevation = 1.dp,
-                        shape = MaterialTheme.shapes.large,
-                    ) {
-                        if (selectedContent == null) {
-                            WorkspaceEmptyState(
-                                title = stringResource(R.string.config_editor_empty_title),
-                                summary = stringResource(R.string.config_editor_empty_summary),
-                                modifier = Modifier.fillMaxSize(),
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(headerScrollState),
+                            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
+                        ) {
+                            FilterChip(
+                                selected = uiState.selectedSource == ConfigContentSource.LOCAL,
+                                onClick = { viewModel.selectSource(ConfigContentSource.LOCAL) },
+                                enabled = uiState.hasLocal,
+                                label = { Text(stringResource(R.string.config_source_local)) },
+                            )
+                            FilterChip(
+                                selected = uiState.selectedSource == ConfigContentSource.REMOTE,
+                                onClick = { viewModel.selectSource(ConfigContentSource.REMOTE) },
+                                enabled = uiState.hasRemote,
+                                label = { Text(stringResource(R.string.config_source_remote)) },
+                            )
+                            FilterChip(
+                                selected = false,
+                                onClick = {},
+                                enabled = false,
+                                label = { Text(statusLabel(currentEditorStatus(uiState))) },
+                            )
+                        }
+                    }
+                    item {
+                        Text(
+                            text = stringResource(
+                                R.string.config_editor_meta,
+                                uiState.localMeta?.lastModified.asReadableTime(),
+                                uiState.remoteMeta?.updatedAt.asReadableRemoteTime()
+                                    ?: stringResource(R.string.config_time_unknown),
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    uiState.remoteError?.takeIf { it.isNotBlank() }?.let { error ->
+                        item {
+                            Text(
+                                text = stringResource(R.string.config_remote_error, error),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    }
+                    uiState.validationError?.takeIf { it.isNotBlank() }?.let { error ->
+                        item {
+                            Text(
+                                text = error,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    }
+                    item {
+                        if (uiState.isEditing) {
+                            TextField(
+                                value = uiState.draft,
+                                onValueChange = viewModel::updateDraft,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 420.dp),
+                                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
+                                textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                             )
                         } else {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .verticalScroll(rememberScrollState())
-                                    .padding(MaterialTheme.spacing.medium),
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                tonalElevation = 1.dp,
+                                shape = MaterialTheme.shapes.large,
                             ) {
-                                TextView(selectedContent.displayText)
+                                if (selectedContent == null) {
+                                    WorkspaceEmptyState(
+                                        title = stringResource(R.string.config_editor_empty_title),
+                                        summary = stringResource(R.string.config_editor_empty_summary),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .heightIn(min = 360.dp),
+                                    )
+                                } else {
+                                    CodePreview(
+                                        text = selectedContent.displayText,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(MaterialTheme.spacing.medium),
+                                    )
+                                }
                             }
                         }
                     }
+                    item {
+                        Spacer(modifier = Modifier.heightIn(min = 4.dp))
+                    }
                 }
-
                 FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding(),
                     horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
                     verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
                 ) {
@@ -428,6 +415,117 @@ fun ConfigurationEditor(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+private fun LazyListScope.configListHeader(
+    uiState: ConfigManagerViewModel.UiState,
+    onClickRemoteSource: () -> Unit,
+    onChooseDirectory: () -> Unit,
+    onImportLocal: () -> Unit,
+    onPullRemote: () -> Unit,
+    onReload: () -> Unit,
+    onQueryChange: (String) -> Unit,
+) {
+    item {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
+        ) {
+            SettingLinkCard(
+                title = stringResource(R.string.config_remote_source_title),
+                value = stringResource(R.string.config_remote_source_label, uiState.remoteSource.displayName),
+                onClick = onClickRemoteSource,
+            )
+            SettingLinkCard(
+                title = stringResource(R.string.config_directory_title),
+                value = if (uiState.directoryUri.isNullOrBlank()) {
+                    stringResource(R.string.config_directory_not_selected)
+                } else {
+                    stringResource(R.string.config_directory_label, uiState.directoryUri)
+                },
+                onClick = onChooseDirectory,
+            )
+            Text(
+                text = stringResource(
+                    R.string.config_last_sync_label,
+                    uiState.lastSyncTime.asReadableTime(),
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            SearchBar(
+                placeholder = stringResource(R.string.config_search_placeholder),
+                query = uiState.query,
+                onValueChange = onQueryChange,
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
+            ) {
+                FilledTonalButton(
+                    onClick = onChooseDirectory,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(stringResource(R.string.config_choose_directory), maxLines = 1)
+                }
+                OutlinedButton(
+                    onClick = onImportLocal,
+                    enabled = !uiState.directoryUri.isNullOrBlank(),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(stringResource(R.string.config_import_local), maxLines = 1)
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
+            ) {
+                OutlinedButton(
+                    onClick = onPullRemote,
+                    enabled = !uiState.directoryUri.isNullOrBlank() && !uiState.isSyncing,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(stringResource(R.string.config_pull_remote), maxLines = 1)
+                }
+                OutlinedButton(
+                    onClick = onReload,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(stringResource(R.string.config_reload), maxLines = 1)
+                }
+            }
+
+            if (uiState.isSyncing && uiState.syncTotal > 0) {
+                LinearProgressIndicator(
+                    progress = { uiState.syncCurrent.toFloat() / uiState.syncTotal.toFloat() },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = stringResource(
+                        R.string.config_sync_progress,
+                        uiState.syncCurrent,
+                        uiState.syncTotal,
+                        uiState.syncPath ?: "",
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            uiState.remoteError?.takeIf { it.isNotBlank() }?.let { error ->
+                Text(
+                    text = stringResource(R.string.config_remote_error, error),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
             }
         }
     }
@@ -466,17 +564,107 @@ private fun ConfigListEntry(
         )
         Text(
             text = buildString {
-                append("本地: ")
+                append("本地：")
                 append(item.local?.lastModified.asReadableTime())
-                append("  ·  远端: ")
-                append(item.remote?.updatedAt ?: "未发现")
+                append('\n')
+                append("远端：")
+                append(item.remote?.updatedAt.asReadableRemoteTime() ?: "未发现")
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 2,
+            maxLines = 3,
             overflow = TextOverflow.Ellipsis,
         )
     }
+}
+
+@Composable
+private fun SettingLinkCard(
+    title: String,
+    value: String,
+    onClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick,
+        tonalElevation = 1.dp,
+        shape = MaterialTheme.shapes.large,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(MaterialTheme.spacing.medium),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun RemoteSourceDialog(
+    repository: String,
+    branch: String,
+    onRepositoryChange: (String) -> Unit,
+    onBranchChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onResetDefault: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.config_remote_source_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small)) {
+                TextField(
+                    value = repository,
+                    onValueChange = onRepositoryChange,
+                    label = { Text(stringResource(R.string.config_remote_repository_label)) },
+                    singleLine = true,
+                )
+                TextField(
+                    value = branch,
+                    onValueChange = onBranchChange,
+                    label = { Text(stringResource(R.string.config_remote_branch_label)) },
+                    singleLine = true,
+                )
+                Text(
+                    text = stringResource(
+                        R.string.config_remote_source_default_hint,
+                        "${ConfigCatalogService.REMOTE_REPOSITORY}@${ConfigCatalogService.REMOTE_BRANCH}",
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            FilledTonalButton(onClick = onConfirm) {
+                Text(stringResource(android.R.string.ok))
+            }
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small)) {
+                OutlinedButton(onClick = onResetDefault) {
+                    Text(stringResource(R.string.action_reset_default))
+                }
+                OutlinedButton(onClick = onDismiss) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            }
+        },
+    )
 }
 
 @Composable
@@ -491,6 +679,33 @@ private fun StatusBadge(status: ConfigSyncStatus) {
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
             style = MaterialTheme.typography.labelMedium,
         )
+    }
+}
+
+@Composable
+private fun CodePreview(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    SelectionContainer {
+        Text(
+            text = text,
+            modifier = modifier,
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+@Composable
+private fun currentEditorStatus(uiState: ConfigEditorViewModel.UiState): ConfigSyncStatus {
+    return when {
+        uiState.localMeta?.isValid == false -> ConfigSyncStatus.INVALID_LOCAL
+        uiState.remoteMeta != null && uiState.localMeta != null && uiState.localMeta.sha == uiState.remoteMeta.sha ->
+            ConfigSyncStatus.IN_SYNC
+        uiState.remoteMeta != null && uiState.localMeta == null -> ConfigSyncStatus.REMOTE_ONLY
+        uiState.remoteMeta == null && uiState.localMeta != null -> ConfigSyncStatus.LOCAL_ONLY
+        else -> ConfigSyncStatus.MODIFIED_LOCAL
     }
 }
 
@@ -529,4 +744,13 @@ private fun statusIcon(status: ConfigSyncStatus): Int {
 private fun Long?.asReadableTime(): String {
     if (this == null || this <= 0L) return "未记录"
     return SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(this))
+}
+
+private fun String?.asReadableRemoteTime(): String? {
+    if (this.isNullOrBlank()) return null
+    return runCatching {
+        val localDateTime = OffsetDateTime.parse(this, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+            .toLocalDateTime()
+        localDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+    }.getOrDefault(this)
 }

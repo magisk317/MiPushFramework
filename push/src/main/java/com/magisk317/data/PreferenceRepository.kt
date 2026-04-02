@@ -35,6 +35,8 @@ class PreferenceRepository @Inject constructor(
     private val EVENT_GROUP_BY_APP = booleanPreferencesKey("event_group_by_app")
     private val THEME_MODE = intPreferencesKey("theme_mode")
     private val LAST_CONFIG_SYNC_TIME = longPreferencesKey("last_config_sync_time")
+    private val CONFIG_REMOTE_REPOSITORY = stringPreferencesKey("config_remote_repository")
+    private val CONFIG_REMOTE_BRANCH = stringPreferencesKey("config_remote_branch")
 
     // Getters
     val lastStartupTime: Flow<Long> = dataStore.data.map { it[LAST_STARTUP_TIME] ?: 0L }
@@ -54,6 +56,12 @@ class PreferenceRepository @Inject constructor(
     val eventGroupByApp: Flow<Boolean> = dataStore.data.map { it[EVENT_GROUP_BY_APP] ?: false }
     val themeMode: Flow<Int> = dataStore.data.map { it[THEME_MODE] ?: 0 }
     val lastConfigSyncTime: Flow<Long> = dataStore.data.map { it[LAST_CONFIG_SYNC_TIME] ?: 0L }
+    val configRemoteRepository: Flow<String> = dataStore.data.map {
+        it[CONFIG_REMOTE_REPOSITORY] ?: "magisk317/MiPushConfigurations"
+    }
+    val configRemoteBranch: Flow<String> = dataStore.data.map {
+        it[CONFIG_REMOTE_BRANCH] ?: "dev"
+    }
 
     val debugMode: Flow<Boolean> = isDebugMode
     val showAllEvents: Flow<Boolean> = isShowAllEvents
@@ -125,5 +133,13 @@ class PreferenceRepository @Inject constructor(
 
     suspend fun setLastConfigSyncTime(time: Long) {
         dataStore.edit { it[LAST_CONFIG_SYNC_TIME] = time }
+    }
+
+    suspend fun setConfigRemoteRepository(repository: String) {
+        dataStore.edit { it[CONFIG_REMOTE_REPOSITORY] = repository }
+    }
+
+    suspend fun setConfigRemoteBranch(branch: String) {
+        dataStore.edit { it[CONFIG_REMOTE_BRANCH] = branch }
     }
 }

@@ -66,13 +66,18 @@ class ConfigSyncRepository @Inject constructor(
         )
     }
 
-    suspend fun pullAll(treeUri: Uri): Int {
+    suspend fun pullAll(
+        treeUri: Uri,
+        onProgress: ((current: Int, total: Int, path: String) -> Unit)? = null,
+    ): Int {
         val catalog = catalogService.fetchCatalog()
         val written = mutableListOf<ConfigSyncRecord>()
         val now = System.currentTimeMillis()
-        for (remote in catalog.files) {
+        val total = catalog.files.size
+        for ((index, remote) in catalog.files.withIndex()) {
             val content = ConfigJsonSupport.formatOrOriginal(catalogService.fetchRemoteFile(remote.path))
             val local = localConfigRepository.writeLocalFile(treeUri, remote.path, content)
+            onProgress?.invoke(index + 1, total, remote.path)
             written += ConfigSyncRecord(
                 path = remote.path,
                 remoteSha = remote.sha,

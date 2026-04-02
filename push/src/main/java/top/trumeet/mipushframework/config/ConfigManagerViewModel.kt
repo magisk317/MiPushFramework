@@ -25,11 +25,15 @@ class ConfigManagerViewModel @Inject constructor(
 ) : ViewModel() {
     data class UiState(
         val directoryUri: String? = null,
+        val remoteSource: ConfigRemoteSource = ConfigRemoteSource(),
         val lastSyncTime: Long = 0L,
         val items: List<ConfigListItem> = emptyList(),
         val query: String = "",
         val isLoading: Boolean = true,
         val isSyncing: Boolean = false,
+        val syncCurrent: Int = 0,
+        val syncTotal: Int = 0,
+        val syncPath: String? = null,
         val remoteError: String? = null,
         val message: String? = null,
     )
@@ -41,6 +45,22 @@ class ConfigManagerViewModel @Inject constructor(
         viewModelScope.launch {
             preferenceRepository.configDirectory.collectLatest { directory ->
                 _uiState.update { it.copy(directoryUri = directory) }
+                refresh()
+            }
+        }
+        viewModelScope.launch {
+            preferenceRepository.configRemoteRepository.collectLatest { repository ->
+                _uiState.update { state ->
+                    state.copy(remoteSource = state.remoteSource.copy(repository = repository))
+                }
+                refresh()
+            }
+        }
+        viewModelScope.launch {
+            preferenceRepository.configRemoteBranch.collectLatest { branch ->
+                _uiState.update { state ->
+                    state.copy(remoteSource = state.remoteSource.copy(branch = branch))
+                }
                 refresh()
             }
         }
@@ -75,6 +95,19 @@ class ConfigManagerViewModel @Inject constructor(
             preferenceRepository.setConfigDirectory(uri.toString())
             configCenter.loadConfigurations(context)
             _uiState.update { it.copy(message = "配置目录已更新") }
+            refresh()
+        }
+    }
+
+    fun updateRemoteSource(repository: String, branch: String) {
+        viewModelScope.launch {
+            preferenceRepository.setConfigRemoteRepository(
+                repository.ifBlank { ConfigCatalogService.REMOTE_REPOSITORY },
+            )
+            preferenceRepository.setConfigRemoteBranch(
+                branch.ifBlank { ConfigCatalogService.REMOTE_BRANCH },
+            )
+            _uiState.update { it.copy(message = "远端源已更新") }
             refresh()
         }
     }
@@ -117,14 +150,26 @@ class ConfigManagerViewModel @Inject constructor(
                 _uiState.update { it.copy(message = "请先选择配置目录") }
                 return@launch
             }
-            _uiState.update { it.copy(isSyncing = true) }
+            _uiState.update { it.copy(isSyncing = true, syncCurrent = 0, syncTotal = 0, syncPath = null) }
             runCatching {
-                syncRepository.pullAll(treeUri)
+                syncRepository.pullAll(treeUri) { current, total, path ->
+                    _uiState.update {
+                        it.copy(
+                            isSyncing = true,
+                            syncCurrent = current,
+                            syncTotal = total,
+                            syncPath = path,
+                        )
+                    }
+                }
             }.onSuccess { count ->
                 configCenter.loadConfigurations(context)
                 _uiState.update {
                     it.copy(
                         isSyncing = false,
+                        syncCurrent = 0,
+                        syncTotal = 0,
+                        syncPath = null,
                         message = "已同步 $count 个远端配置",
                     )
                 }
@@ -133,6 +178,9 @@ class ConfigManagerViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isSyncing = false,
+                        syncCurrent = 0,
+                        syncTotal = 0,
+                        syncPath = null,
                         message = error.message ?: error.toString(),
                     )
                 }

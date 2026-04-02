@@ -102,6 +102,11 @@
     <string name="main_configs">Configs</string>
     <string name="main_settings">Settings</string>
     <string name="config_remote_source_label">Remote source: %1$s</string>
+    <string name="config_remote_source_title">Remote source</string>
+    <string name="config_remote_repository_label">Repository</string>
+    <string name="config_remote_branch_label">Branch</string>
+    <string name="config_remote_source_default_hint">Built-in default: %1$s</string>
+    <string name="config_directory_title">Local directory</string>
     <string name="config_directory_not_selected">No local configuration directory selected yet.</string>
     <string name="config_directory_label">Local directory: %1$s</string>
     <string name="config_last_sync_label">Last remote sync: %1$s</string>
@@ -110,7 +115,9 @@
     <string name="config_import_local">Import local</string>
     <string name="config_pull_remote">Pull remote</string>
     <string name="config_reload">Reload</string>
+    <string name="config_sync_progress">Syncing %1$d/%2$d · %3$s</string>
     <string name="config_remote_error">Remote error: %1$s</string>
+    <string name="action_reset_default">Reset default</string>
     <string name="config_empty_title">No configs found</string>
     <string name="config_empty_summary">You can preview remote configs right away, or select a local directory to import and edit them.</string>
     <string name="config_status_in_sync">In sync</string>
@@ -119,7 +126,7 @@
     <string name="config_status_outdated">Outdated</string>
     <string name="config_status_modified">Modified</string>
     <string name="config_status_invalid">Invalid JSON</string>
-    <string name="config_source_local">Local</string>
+    <string name="config_source_local">Imported local</string>
     <string name="config_source_remote">Remote</string>
     <string name="config_editor_meta">Local updated: %1$s · Remote updated: %2$s</string>
     <string name="config_editor_empty_title">No preview available</string>
