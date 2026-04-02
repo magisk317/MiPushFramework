@@ -23,6 +23,7 @@ import top.trumeet.mipush.provider.event.type.TypeFactory
 import kotlinx.coroutines.runBlocking
 
 object MiPushRuntimeBridge {
+    private val diagnosticPackages = setOf("com.ss.android.ugc.aweme")
     private val logger = object {
         fun d(msg: String) = Napier.d(msg, tag = "MiPushRuntimeBridge")
         fun i(msg: String) = Napier.i(msg, tag = "MiPushRuntimeBridge")
@@ -72,6 +73,12 @@ object MiPushRuntimeBridge {
         if (payload != null) {
             onPayloadFromServer(context, payload, payload.size.toLong(), "notification")
         }
+        if (container?.packageName in diagnosticPackages) {
+            logger.i(
+                "diagnostic notification dispatch pkg=${container?.packageName} action=${container?.action?.name} " +
+                    "messageId=${MessageIdentity.fromContainer(container)} source=MiPushRuntimeBridge.onNotificationDispatch"
+            )
+        }
         PushRuntime.observeNotificationEvent(
             packageName = container?.packageName,
             action = "notify_push_message",
@@ -91,6 +98,12 @@ object MiPushRuntimeBridge {
         val isMockReplay = MockMessageRegistry.isMarked(container)
         val actionName = container.action?.name ?: "Unknown"
         val messageId = MessageIdentity.fromContainer(container)
+        if (container.packageName in diagnosticPackages) {
+            logger.i(
+                "diagnostic inbound pkg=${container.packageName} action=$actionName messageId=$messageId " +
+                    "source=$source mockReplay=$isMockReplay payloadSize=${payload.size}"
+            )
+        }
         val shouldProcess = isMockReplay || PushRuntime.observeInboundMessage(
             packageName = container.packageName,
             action = actionName,
@@ -99,6 +112,11 @@ object MiPushRuntimeBridge {
             isAck = container.action == ActionType.AckMessage
         )
         if (!shouldProcess) {
+            if (container.packageName in diagnosticPackages) {
+                logger.i(
+                    "diagnostic duplicate skip pkg=${container.packageName} action=$actionName messageId=$messageId source=$source"
+                )
+            }
             logger.d("skip duplicate payload event source=$source pkg=${container.packageName} action=${container.action}")
             return
         }
@@ -133,6 +151,12 @@ object MiPushRuntimeBridge {
     @JvmStatic
     fun onTransferToApplication(container: XmPushActionContainer?) {
         if (container == null) return
+        if (container.packageName in diagnosticPackages) {
+            logger.i(
+                "diagnostic transfer pkg=${container.packageName} action=${container.action?.name} " +
+                    "messageId=${MessageIdentity.fromContainer(container)} source=MiPushRuntimeBridge.onTransferToApplication"
+            )
+        }
         PushRuntime.observeTransferToApplication(
             packageName = container.packageName,
             action = container.action?.name ?: "Unknown",

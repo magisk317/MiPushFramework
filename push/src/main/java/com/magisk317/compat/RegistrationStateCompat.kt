@@ -6,6 +6,7 @@ import io.github.aakira.napier.DebugAntilog
 import com.topjohnwu.superuser.Shell
 
 object RegistrationStateCompat {
+    private val diagnosticPackages = setOf("com.ss.android.ugc.aweme")
     private val logger = object {
         fun d(msg: String) = Napier.d(msg, tag = "RegistrationStateCompat")
         fun i(msg: String) = Napier.i(msg, tag = "RegistrationStateCompat")
@@ -27,6 +28,16 @@ object RegistrationStateCompat {
         val available: Boolean,
         val mountMasterAvailable: Boolean,
         val checkedAtElapsedMs: Long
+    )
+
+    private data class RegistrationMarkers(
+        val hasXmlValid: Boolean,
+        val hasXmlRegId: Boolean,
+        val hasKevaValid: Boolean,
+        val hasKevaRegId: Boolean,
+        val hasKevaAppToken: Boolean,
+        val regId: String?,
+        val appToken: String?
     )
 
     private fun runCommand(command: String): Shell.Result = Shell.cmd(command).exec()
@@ -94,18 +105,22 @@ object RegistrationStateCompat {
         for (path in paths) {
             if (probe(path, useSu = true)) {
                 logger.i("local registration found via su: $path")
+                logRegistrationMarkers(packageName, path, useSu = true)
                 return true
             }
             if (probe(path, useSu = false)) {
                 logger.i("local registration found via shell: $path")
+                logRegistrationMarkers(packageName, path, useSu = false)
                 return true
             }
             if (probeByRead(path, useSu = true)) {
                 logger.i("local registration found via su read: $path")
+                logRegistrationMarkers(packageName, path, useSu = true)
                 return true
             }
             if (probeByRead(path, useSu = false)) {
                 logger.i("local registration found via shell read: $path")
+                logRegistrationMarkers(packageName, path, useSu = false)
                 return true
             }
         }
@@ -145,14 +160,9 @@ object RegistrationStateCompat {
 
     private fun containsRegistrationMarkers(content: String): Boolean {
         if (content.isBlank()) return false
-        val hasValid = content.contains("name=\"valid\" value=\"true\"")
-        val hasXmlRegId = content.contains("name=\"regId\">") || content.contains("name=\"regId\" value=\"")
-        if (hasValid && hasXmlRegId) return true
-
-        val hasKevaValid = content.contains(KEVA_VALID_PATTERN)
-        val hasKevaRegId = content.contains(KEVA_REG_ID_PATTERN)
-        val hasKevaAppToken = content.contains(KEVA_APP_TOKEN_PATTERN)
-        return hasKevaValid && hasKevaRegId && hasKevaAppToken
+        val markers = parseRegistrationMarkers(content)
+        if (markers.hasXmlValid && markers.hasXmlRegId) return true
+        return markers.hasKevaValid && markers.hasKevaRegId && markers.hasKevaAppToken
     }
 
     @JvmStatic
@@ -227,5 +237,77 @@ object RegistrationStateCompat {
         }
         logger.d("find local registration done: queried=${packages.size}, matched=${result.size}")
         return result
+    }
+
+    private fun logRegistrationMarkers(packageName: String, path: String, useSu: Boolean) {
+        if (packageName !in diagnosticPackages) return
+        val cmd = "[ -f $path ] && cat $path || true"
+        val out = runCatching {
+            if (useSu) {
+                val capability = getRootCapability()
+                runAsRoot(cmd, preferMountMaster = capability.mountMasterAvailable)?.out
+            } else {
+                runCommand(cmd).out
+            }
+        }.getOrNull() ?: return
+        val content = out.joinToString("\n")
+        if (content.isBlank()) return
+        val markers = parseRegistrationMarkers(content)
+        logger.i(
+            "local registration details pkg=$packageName mode=${if (useSu) "su" else "shell"} path=$path " +
+                "xmlValid=${markers.hasXmlValid} xmlRegId=${markers.hasXmlRegId} " +
+                "kevaValid=${markers.hasKevaValid} kevaRegId=${markers.hasKevaRegId} kevaAppToken=${markers.hasKevaAppToken} " +
+                "regId=${markers.regId ?: "missing"} appToken=${markers.appToken ?: "missing"}"
+        )
+    }
+
+    private fun parseRegistrationMarkers(content: String): RegistrationMarkers {
+        val sanitized = content.toPrintableDiagnosticText()
+        val hasXmlValid = content.contains(VALID_PATTERN)
+        val hasXmlRegId = content.contains(REG_ID_TAG_PATTERN) || content.contains(REG_ID_VALUE_PATTERN)
+        val hasKevaValid = content.contains(KEVA_VALID_PATTERN)
+        val hasKevaRegId = content.contains(KEVA_REG_ID_PATTERN)
+        val hasKevaAppToken = content.contains(KEVA_APP_TOKEN_PATTERN)
+        return RegistrationMarkers(
+            hasXmlValid = hasXmlValid,
+            hasXmlRegId = hasXmlRegId,
+            hasKevaValid = hasKevaValid,
+            hasKevaRegId = hasKevaRegId,
+            hasKevaAppToken = hasKevaAppToken,
+            regId = extractRegistrationValue(content, sanitized, "regId"),
+            appToken = extractRegistrationValue(content, sanitized, "appToken")
+        )
+    }
+
+    private fun extractRegistrationValue(content: String, sanitized: String, key: String): String? {
+        val xmlPatterns = listOf(
+            Regex("""name="$key"\s+value="([^"]+)""""),
+            Regex("""name="$key">([^<\n\r]+)""")
+        )
+        xmlPatterns.forEach { regex ->
+            regex.find(content)?.groupValues?.getOrNull(1)?.trim()?.takeIf { it.isNotEmpty() }?.let {
+                return it.truncateForDiagnostic()
+            }
+        }
+        Regex("""\b$key\b[^A-Za-z0-9]{0,24}([A-Za-z0-9._:-]{6,128})""")
+            .find(sanitized)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { return it.truncateForDiagnostic() }
+        return null
+    }
+
+    private fun String.toPrintableDiagnosticText(): String {
+        return buildString(length) {
+            this@toPrintableDiagnosticText.forEach { ch ->
+                append(if (ch.code in 32..126) ch else ' ')
+            }
+        }
+    }
+
+    private fun String.truncateForDiagnostic(limit: Int = 32): String {
+        return if (length <= limit) this else take(limit)
     }
 }
