@@ -7,6 +7,8 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+extra["mipushArtifactBaseName"] = "MiPushFramework"
+
 val versionNameStr = rootProject.version.toString().ifBlank { libs.versions.versionName.get() }
 val pushVersionCode = libs.versions.pushVersionCode.get().toInt()
 
