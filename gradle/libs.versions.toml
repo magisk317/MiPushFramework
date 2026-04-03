@@ -7,7 +7,7 @@ java = "25"
 
 # App version
 versionCode = "7"
-versionName = "0.3.16"
+versionName = "0.3.17"
 pushVersionCode = "1003003000"
 
 agp = "9.2.0-alpha06"

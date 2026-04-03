@@ -26,6 +26,7 @@ internal object NotificationContentSupport {
         }
     }
 
+    @Suppress("DEPRECATION")
     private fun Notification.hasCustomVisualContent(): Boolean {
         return contentView != null || bigContentView != null || headsUpContentView != null
     }
