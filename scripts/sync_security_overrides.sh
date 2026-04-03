@@ -38,16 +38,16 @@ jq -s '.' "${ALERTS_OBJ_FILE}" > "${ALERTS_JSON_FILE}"
 jq -r '
   .[]
   | select(.dependency.package.ecosystem == "maven")
-  | [
-      .dependency.package.name,
-      (
-        .security_advisory.vulnerabilities
-        | map(.first_patched_version.identifier // "")
-        | map(select(length > 0))
-        | first // ""
-      )
-    ]
-  | select(.[1] != "")
+  | .dependency.package.name as $pkg
+  | (
+      [
+        (.security_vulnerability.first_patched_version.identifier // empty),
+        (.security_advisory.vulnerabilities[]?.first_patched_version.identifier // empty)
+      ]
+      | map(select(length > 0))
+      | unique[]
+    ) as $ver
+  | [$pkg, $ver]
   | @tsv
 ' "${ALERTS_JSON_FILE}" | while IFS=$'\t' read -r pkg ver; do
   if [[ -z "${pkg}" || -z "${ver}" ]]; then
