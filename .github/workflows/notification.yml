@@ -47,7 +47,7 @@ jobs:
 
           if [ -f "docs/CHANGELOG.md" ]; then
             RELEASE_CONTENT="$(awk -v tag="$RELEASE_TAG" '
-              $0 == "## [" tag "]" {capture=1; next}
+              index($0, "## [" tag "]") == 1 {capture=1; next}
               capture && /^## \[/ {exit}
               capture {print}
             ' docs/CHANGELOG.md)"
