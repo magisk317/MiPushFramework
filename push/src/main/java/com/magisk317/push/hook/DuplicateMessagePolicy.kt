@@ -10,7 +10,7 @@ import java.util.LinkedHashMap
  * - true  -> duplicated within window
  */
 object DuplicateMessagePolicy {
-    private const val DEDUP_WINDOW_MS = 10_000L
+    private const val DEDUP_WINDOW_MS = 60_000L
     private val lock = Any()
     private val seen = LinkedHashMap<String, Long>()
 

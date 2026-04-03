@@ -47,7 +47,7 @@ interface PushRuntimeBridgeHost {
 
 object PushRuntime {
     private const val MAX_PENDING_BRIDGE_INTENTS = 32
-    private const val MESSAGE_DEDUP_WINDOW_MS = 10_000L
+    private const val MESSAGE_DEDUP_WINDOW_MS = 60_000L
     private const val APP_ACTION_BURST_WINDOW_MS = 2_000L
     private const val REGISTRATION_REPLAY_WINDOW_MS = 30_000L
     private val logger = object {

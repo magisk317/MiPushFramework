@@ -243,6 +243,39 @@ class PushRuntimeTest {
     }
 
     @Test
+    fun `message id dedupe window remains active for sixty seconds`() {
+        PushRuntime.clearStateForTests()
+
+        assertTrue(
+            PushRuntime.observeInboundMessage(
+                packageName = "com.example.app",
+                action = "SendMessage",
+                messageId = "id-window",
+                source = "test",
+                nowMs = 1_000L
+            )
+        )
+        assertFalse(
+            PushRuntime.observeInboundMessage(
+                packageName = "com.example.app",
+                action = "SendMessage",
+                messageId = "id-window",
+                source = "test",
+                nowMs = 31_000L
+            )
+        )
+        assertTrue(
+            PushRuntime.observeInboundMessage(
+                packageName = "com.example.app",
+                action = "SendMessage",
+                messageId = "id-window",
+                source = "test",
+                nowMs = 92_000L
+            )
+        )
+    }
+
+    @Test
     fun `capabilities expose runtime spine contract`() {
         PushRuntime.clearStateForTests()
         val capabilities = PushRuntime.capabilities()

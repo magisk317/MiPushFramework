@@ -69,9 +69,15 @@ object MiPushRuntimeBridge {
     }
 
     @JvmStatic
-    fun onNotificationDispatch(context: Context, container: XmPushActionContainer?, payload: ByteArray?) {
+    fun onNotificationDispatch(context: Context, container: XmPushActionContainer?, payload: ByteArray?): Boolean {
         if (payload != null) {
-            onPayloadFromServer(context, payload, payload.size.toLong(), "notification")
+            val shouldProcess = onPayloadFromServer(context, payload, payload.size.toLong(), "notification")
+            if (!shouldProcess) {
+                logger.d(
+                    "skip duplicate notification dispatch pkg=${container?.packageName} action=${container?.action}"
+                )
+                return false
+            }
         }
         if (container?.packageName in diagnosticPackages) {
             logger.i(
@@ -85,6 +91,7 @@ object MiPushRuntimeBridge {
             source = "MiPushRuntimeBridge.onNotificationDispatch"
         )
         onTransferToApplication(container)
+        return true
     }
 
     @JvmStatic
@@ -93,32 +100,22 @@ object MiPushRuntimeBridge {
         payload: ByteArray,
         packetBytesLen: Long,
         source: String
-    ) {
-        val container = XMPushUtils.packToContainer(payload) ?: return
+    ): Boolean {
+        val container = XMPushUtils.packToContainer(payload) ?: return false
         val isMockReplay = MockMessageRegistry.isMarked(container)
         val actionName = container.action?.name ?: "Unknown"
         val messageId = MessageIdentity.fromContainer(container)
-        if (container.packageName in diagnosticPackages) {
-            logger.i(
-                "diagnostic inbound pkg=${container.packageName} action=$actionName messageId=$messageId " +
-                    "source=$source mockReplay=$isMockReplay payloadSize=${payload.size}"
-            )
-        }
-        val shouldProcess = isMockReplay || PushRuntime.observeInboundMessage(
+        val shouldProcess = shouldProcessPayloadIdentity(
             packageName = container.packageName,
-            action = actionName,
+            actionName = actionName,
             messageId = messageId,
             source = source,
-            isAck = container.action == ActionType.AckMessage
+            isAck = container.action == ActionType.AckMessage,
+            isMockReplay = isMockReplay,
+            payloadSize = payload.size
         )
         if (!shouldProcess) {
-            if (container.packageName in diagnosticPackages) {
-                logger.i(
-                    "diagnostic duplicate skip pkg=${container.packageName} action=$actionName messageId=$messageId source=$source"
-                )
-            }
-            logger.d("skip duplicate payload event source=$source pkg=${container.packageName} action=${container.action}")
-            return
+            return false
         }
         runCatching {
             Global.RegistrationRecorder().initContext(context.applicationContext)
@@ -140,6 +137,7 @@ object MiPushRuntimeBridge {
         }.onFailure {
             logger.e("recordEvent failed source=$source packetBytesLen=$packetBytesLen", it)
         }
+        return true
     }
 
     @JvmStatic
@@ -182,6 +180,39 @@ object MiPushRuntimeBridge {
         if (eventType.type == Event.Type.Registration || eventType.type == Event.Type.RegistrationResult) {
             maybeShowRegisterToast(context, pkg, application)
         }
+    }
+
+    internal fun shouldProcessPayloadIdentity(
+        packageName: String?,
+        actionName: String,
+        messageId: String?,
+        source: String,
+        isAck: Boolean,
+        isMockReplay: Boolean,
+        payloadSize: Int? = null,
+    ): Boolean {
+        if (packageName in diagnosticPackages) {
+            logger.i(
+                "diagnostic inbound pkg=$packageName action=$actionName messageId=$messageId " +
+                    "source=$source mockReplay=$isMockReplay payloadSize=${payloadSize ?: -1}"
+            )
+        }
+        val shouldProcess = isMockReplay || PushRuntime.observeInboundMessage(
+            packageName = packageName,
+            action = actionName,
+            messageId = messageId,
+            source = source,
+            isAck = isAck,
+        )
+        if (!shouldProcess) {
+            if (packageName in diagnosticPackages) {
+                logger.i(
+                    "diagnostic duplicate skip pkg=$packageName action=$actionName messageId=$messageId source=$source"
+                )
+            }
+            logger.d("skip duplicate payload event source=$source pkg=$packageName action=$actionName")
+        }
+        return shouldProcess
     }
 
     private fun applyRegistrationStateFromContainer(

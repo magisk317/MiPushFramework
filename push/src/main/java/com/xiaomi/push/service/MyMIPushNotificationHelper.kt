@@ -15,6 +15,7 @@ import com.magisk317.Global
 import com.magisk317.XMPushUtils
 import com.xiaomi.channel.commonutils.android.AppInfoUtils
 import com.xiaomi.mipush.sdk.PushMessageProcessor
+import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmsf.R
@@ -51,8 +52,15 @@ class MyMIPushNotificationHelper {
         @JvmStatic
         fun notifyPushMessage(context: Context, decryptedContent: ByteArray) {
             val container = XMPushUtils.packToContainer(decryptedContent) ?: return
+            if (!shouldPublishNotification(container)) {
+                logger.i("skip non-display notification action=${container.action} pkg=${container.packageName}")
+                return
+            }
             HookTraceCompat.notifyPushMessage(container, decryptedContent)
-            MiPushRuntimeBridge.onNotificationDispatch(context, container, decryptedContent)
+            if (!MiPushRuntimeBridge.onNotificationDispatch(context, container, decryptedContent)) {
+                logger.i("skip duplicate notification publish action=${container.action} pkg=${container.packageName}")
+                return
+            }
             val notificationOp = AppInfoUtils.getAppNotificationOp(
                 context,
                 MIPushNotificationHelper.getTargetPackage(container),
@@ -139,6 +147,10 @@ class MyMIPushNotificationHelper {
                     Utils.makeText(context, e.toString(), Toast.LENGTH_LONG)
                 }
             }
+        }
+
+        internal fun shouldPublishNotification(container: XmPushActionContainer): Boolean {
+            return container.action == ActionType.SendMessage
         }
 
         private fun loadConfigurations(context: Context, configurationDirectory: Uri?) {
