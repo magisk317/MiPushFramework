@@ -43,7 +43,7 @@ jobs:
           chmod +x scripts/check_deprecation_zero.sh
           scripts/check_deprecation_zero.sh
       - name: Build & Test
-        run: ./gradlew -I gradle/security-overrides.init.gradle --warning-mode all :checkNoLegacyNihilityImports :checkNoLegacyDialogActionButtons :common:check :condom:check :push:assembleDebug :push:testDebugUnitTest -PbuildSplits -Pkotlin.incremental=false
+        run: bash scripts/with_workspace_gradle_lock.sh -I gradle/security-overrides.init.gradle --warning-mode all :checkNoLegacyNihilityImports :checkNoLegacyDialogActionButtons :common:check :condom:check :push:assembleDebug :push:testDebugUnitTest -PbuildSplits -Pkotlin.incremental=false
       - name: Write build summary
         if: always()
         run: |

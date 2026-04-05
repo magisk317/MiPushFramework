@@ -44,7 +44,7 @@ fi
 
 LOG_FILE=/tmp/mipush_deprecation_build.log
 echo "[check] compiling androidTest kotlin with --warning-mode all"
-./gradlew \
+bash scripts/with_workspace_gradle_lock.sh \
   -I gradle/security-overrides.init.gradle \
   :push:clean \
   :push:compileDebugAndroidTestKotlin \

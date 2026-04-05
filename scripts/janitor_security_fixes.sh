@@ -23,8 +23,7 @@ if git diff --quiet -- gradle/security-overrides.properties gradle/security-over
 fi
 
 echo "Override files changed. Running build/test validation before opening PR..."
-chmod +x ./gradlew
-./gradlew --no-daemon \
+bash scripts/with_workspace_gradle_lock.sh --no-daemon \
   -I gradle/security-overrides.init.gradle \
   --warning-mode all \
   :push:assembleDebug \

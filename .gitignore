@@ -32,9 +32,6 @@ org.eclipse.buildship.core.prefs
 !/.github/
 !/.github/**
 
-# Docs
-docs/
-
 # Logs
 *.log
 

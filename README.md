@@ -118,7 +118,7 @@
 
 ## 参与项目
 
-请参考 [Contribution Guideline](CONTRIBUTION.md)
+请参考 [Contribution Guide](docs/CONTRIBUTION.md)
 
 ## 已知问题
 

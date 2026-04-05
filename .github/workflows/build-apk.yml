@@ -54,15 +54,12 @@ jobs:
       - name: Normalize Android SDK platform aliases
         run: bash scripts/ensure_android_sdk_platform_alias.sh
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
       - name: Decode Keystore
         if: env.HAS_RELEASE_KEYSTORE == 'true'
         run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > .yuuta.jks
 
       - name: Build GitHub APK
-        run: ./gradlew :push:assembleRelease -PbuildSplits -Pkotlin.incremental=false
+        run: bash scripts/build_release.sh -Pkotlin.incremental=false
         env:
           KEYSTORE_PASS: ${{ secrets.STORE_PASSWORD }}
           ALIAS_NAME: ${{ secrets.KEY_ALIAS }}
