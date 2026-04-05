@@ -93,4 +93,5 @@ data class ConfigSyncRecord(
 @Serializable
 data class ConfigSyncState(
     val directories: Map<String, Map<String, ConfigSyncRecord>> = emptyMap(),
+    val cachedCatalogs: Map<String, RemoteConfigCatalog> = emptyMap(),
 )

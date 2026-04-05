@@ -45,10 +45,12 @@ class ConfigEditorViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState = _uiState.asStateFlow()
+    private var loadGeneration = 0L
 
-    fun load(path: String) {
-        if (_uiState.value.path == path && !_uiState.value.isLoading) return
+    fun load(path: String, force: Boolean = false) {
+        if (!force && _uiState.value.path == path && !_uiState.value.isLoading) return
         viewModelScope.launch {
+            val generation = ++loadGeneration
             val directoryUri = preferenceRepository.configDirectory.first()
             _uiState.update {
                 it.copy(
@@ -60,27 +62,59 @@ class ConfigEditorViewModel @Inject constructor(
                     isEditing = false,
                 )
             }
-            val snapshot = syncRepository.readEditorSnapshot(
-                treeUri = directoryUri?.takeIf { it.isNotBlank() }?.let(Uri::parse),
+            val treeUri = directoryUri?.takeIf { it.isNotBlank() }?.let(Uri::parse)
+            val localSnapshot = syncRepository.readLocalEditorSnapshot(
+                treeUri = treeUri,
                 path = path,
             )
             val preferredSource = when {
-                snapshot.local != null -> ConfigContentSource.LOCAL
-                snapshot.remote != null -> ConfigContentSource.REMOTE
+                localSnapshot.local != null -> ConfigContentSource.LOCAL
+                localSnapshot.remote != null -> ConfigContentSource.REMOTE
                 else -> ConfigContentSource.LOCAL
             }
+            if (generation != loadGeneration) return@launch
             _uiState.update {
                 it.copy(
-                    localContent = snapshot.local,
-                    remoteContent = snapshot.remote,
-                    localMeta = snapshot.localMeta,
-                    remoteMeta = snapshot.remoteMeta,
+                    localContent = localSnapshot.local,
+                    remoteContent = localSnapshot.remote,
+                    localMeta = localSnapshot.localMeta,
+                    remoteMeta = localSnapshot.remoteMeta,
                     selectedSource = preferredSource,
-                    remoteError = snapshot.remoteError,
+                    remoteError = localSnapshot.remoteError,
                     isLoading = false,
-                    validationError = snapshot.local?.validation?.errorMessage,
+                    validationError = localSnapshot.local?.validation?.errorMessage,
                     draft = "",
                 )
+            }
+
+            runCatching {
+                syncRepository.readRemoteEditorSnapshot(
+                    treeUri = treeUri,
+                    path = path,
+                )
+            }.onSuccess { remoteSnapshot ->
+                val resolvedPreferredSource = when {
+                    remoteSnapshot.local != null -> ConfigContentSource.LOCAL
+                    remoteSnapshot.remote != null -> ConfigContentSource.REMOTE
+                    else -> ConfigContentSource.LOCAL
+                }
+                if (generation != loadGeneration || _uiState.value.path != path) return@onSuccess
+                _uiState.update {
+                    it.copy(
+                        localContent = remoteSnapshot.local,
+                        remoteContent = remoteSnapshot.remote,
+                        localMeta = remoteSnapshot.localMeta,
+                        remoteMeta = remoteSnapshot.remoteMeta,
+                        selectedSource = resolvedPreferredSource,
+                        remoteError = remoteSnapshot.remoteError,
+                        isLoading = false,
+                        validationError = remoteSnapshot.local?.validation?.errorMessage,
+                        draft = "",
+                    )
+                }
+            }.onFailure { error ->
+                if (generation != loadGeneration || _uiState.value.path != path) return@onFailure
+                _uiState.update { it.copy(remoteError = error.message ?: error.toString()) }
             }
         }
     }
@@ -132,7 +166,7 @@ class ConfigEditorViewModel @Inject constructor(
             }.onSuccess {
                 configCenter.loadConfigurations(context)
                 _uiState.update { it.copy(isSaving = false, isEditing = false, draft = "", message = "配置已保存") }
-                load(state.path)
+                load(state.path, force = true)
             }.onFailure { error ->
                 _uiState.update {
                     it.copy(
@@ -169,7 +203,7 @@ class ConfigEditorViewModel @Inject constructor(
                         message = "已恢复远端配置",
                     )
                 }
-                load(state.path)
+                load(state.path, force = true)
             }.onFailure { error ->
                 _uiState.update {
                     it.copy(

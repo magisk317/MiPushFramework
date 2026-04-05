@@ -27,26 +27,58 @@ class ConfigSyncRepository @Inject constructor(
         } catch (_: Throwable) {}
     }
 
-    suspend fun loadSnapshot(treeUri: Uri?): ConfigListSnapshot {
+    suspend fun loadLocalSnapshot(treeUri: Uri?): ConfigListSnapshot {
         val localFiles = localConfigRepository.listLocalFiles(treeUri)
-        val remoteResult = runCatching { catalogService.fetchCatalog() }
+        val remoteSource = catalogService.getRemoteSource()
+        val cachedCatalog = syncStateStore.getCachedCatalog(remoteSource)
         val records = syncStateStore.getDirectoryRecords(treeUri?.toString())
         return ConfigListSnapshot(
-            catalog = remoteResult.getOrNull(),
+            catalog = cachedCatalog,
             items = mergeConfigEntries(
-                remoteFiles = remoteResult.getOrNull()?.files.orEmpty(),
+                remoteFiles = cachedCatalog?.files.orEmpty(),
                 localFiles = localFiles,
                 syncRecords = records,
             ),
-            remoteError = remoteResult.exceptionOrNull()?.message,
         )
     }
 
-    suspend fun readEditorSnapshot(treeUri: Uri?, path: String): ConfigEditorSnapshot {
+    suspend fun loadRemoteSnapshot(treeUri: Uri?): ConfigListSnapshot {
+        val localFiles = localConfigRepository.listLocalFiles(treeUri)
+        val remoteSource = catalogService.getRemoteSource()
+        val catalog = catalogService.fetchCatalog()
+        syncStateStore.cacheCatalog(remoteSource, catalog)
+        val records = syncStateStore.getDirectoryRecords(treeUri?.toString())
+        return ConfigListSnapshot(
+            catalog = catalog,
+            items = mergeConfigEntries(
+                remoteFiles = catalog.files,
+                localFiles = localFiles,
+                syncRecords = records,
+            ),
+        )
+    }
+
+    suspend fun readLocalEditorSnapshot(treeUri: Uri?, path: String): ConfigEditorSnapshot {
         val localMeta = localConfigRepository.listLocalFiles(treeUri).firstOrNull { it.path == path }
         val localContent = localConfigRepository.readLocalFile(treeUri, path)
-        val remoteCatalog = runCatching { catalogService.fetchCatalog() }.getOrNull()
+        val remoteCatalog = syncStateStore.getCachedCatalog(catalogService.getRemoteSource())
         val remoteMeta = remoteCatalog?.files?.firstOrNull { it.path == path }
+        return ConfigEditorSnapshot(
+            path = path,
+            local = localContent,
+            remote = null,
+            remoteMeta = remoteMeta,
+            localMeta = localMeta,
+        )
+    }
+
+    suspend fun readRemoteEditorSnapshot(treeUri: Uri?, path: String): ConfigEditorSnapshot {
+        val localMeta = localConfigRepository.listLocalFiles(treeUri).firstOrNull { it.path == path }
+        val localContent = localConfigRepository.readLocalFile(treeUri, path)
+        val remoteSource = catalogService.getRemoteSource()
+        val remoteCatalog = catalogService.fetchCatalog()
+        syncStateStore.cacheCatalog(remoteSource, remoteCatalog)
+        val remoteMeta = remoteCatalog.files.firstOrNull { it.path == path }
         val remoteTextResult = if (remoteMeta != null) runCatching { catalogService.fetchRemoteFile(path) } else null
         val remoteRaw = remoteTextResult?.getOrNull()
         val remoteValidation = remoteRaw?.let { ConfigJsonSupport.validateAndFormat(it) }
@@ -70,7 +102,9 @@ class ConfigSyncRepository @Inject constructor(
         treeUri: Uri,
         onProgress: ((current: Int, total: Int, path: String) -> Unit)? = null,
     ): Int {
+        val remoteSource = catalogService.getRemoteSource()
         val catalog = catalogService.fetchCatalog()
+        syncStateStore.cacheCatalog(remoteSource, catalog)
         val written = mutableListOf<ConfigSyncRecord>()
         val now = System.currentTimeMillis()
         val total = catalog.files.size
@@ -124,7 +158,9 @@ class ConfigSyncRepository @Inject constructor(
     }
 
     suspend fun resetToRemote(treeUri: Uri, path: String): LocalConfigFile {
+        val remoteSource = catalogService.getRemoteSource()
         val catalog = catalogService.fetchCatalog()
+        syncStateStore.cacheCatalog(remoteSource, catalog)
         val remote = requireNotNull(catalog.files.firstOrNull { it.path == path }) {
             "Remote configuration not found: $path"
         }
@@ -146,7 +182,13 @@ class ConfigSyncRepository @Inject constructor(
 
     suspend fun resolvePackageConfigPath(packageName: String, treeUri: Uri?): String? {
         val localPaths = localConfigRepository.listLocalFiles(treeUri).map { it.path }
-        val remotePaths = runCatching { catalogService.fetchCatalog().files.map { it.path } }.getOrDefault(emptyList())
+        val remoteSource = catalogService.getRemoteSource()
+        val cachedPaths = syncStateStore.getCachedCatalog(remoteSource)?.files?.map { it.path }.orEmpty()
+        val remotePaths = runCatching {
+            val catalog = catalogService.fetchCatalog()
+            syncStateStore.cacheCatalog(remoteSource, catalog)
+            catalog.files.map { it.path }
+        }.getOrDefault(cachedPaths)
         return guessPackageConfigPath(packageName, localPaths + remotePaths)
     }
 }

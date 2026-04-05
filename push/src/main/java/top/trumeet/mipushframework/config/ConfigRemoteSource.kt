@@ -5,5 +5,6 @@ data class ConfigRemoteSource(
     val branch: String = ConfigCatalogService.REMOTE_BRANCH,
 ) {
     val displayName: String get() = "$repository@$branch"
+    val cacheKey: String get() = displayName
     val baseRawUrl: String get() = "https://raw.githubusercontent.com/$repository/$branch"
 }

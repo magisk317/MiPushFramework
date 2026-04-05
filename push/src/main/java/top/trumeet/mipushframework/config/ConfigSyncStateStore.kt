@@ -25,6 +25,10 @@ class ConfigSyncStateStore @Inject constructor(
         loadState().directories[directoryUri].orEmpty()
     }
 
+    suspend fun getCachedCatalog(remoteSource: ConfigRemoteSource): RemoteConfigCatalog? = withContext(Dispatchers.IO) {
+        loadState().cachedCatalogs[remoteSource.cacheKey]
+    }
+
     suspend fun upsert(directoryUri: String, record: ConfigSyncRecord) = withContext(Dispatchers.IO) {
         val state = loadState()
         val current = state.directories[directoryUri].orEmpty().toMutableMap()
@@ -37,6 +41,15 @@ class ConfigSyncStateStore @Inject constructor(
         val current = state.directories[directoryUri].orEmpty().toMutableMap()
         records.forEach { record -> current[record.path] = record }
         saveState(state.copy(directories = state.directories + (directoryUri to current)))
+    }
+
+    suspend fun cacheCatalog(remoteSource: ConfigRemoteSource, catalog: RemoteConfigCatalog) = withContext(Dispatchers.IO) {
+        val state = loadState()
+        saveState(
+            state.copy(
+                cachedCatalogs = state.cachedCatalogs + (remoteSource.cacheKey to catalog),
+            ),
+        )
     }
 
     private fun loadState(): ConfigSyncState {

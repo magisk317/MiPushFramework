@@ -11,6 +11,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
@@ -40,28 +41,27 @@ class ConfigManagerViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState = _uiState.asStateFlow()
+    private var refreshGeneration = 0L
 
     init {
         viewModelScope.launch {
-            preferenceRepository.configDirectory.collectLatest { directory ->
-                _uiState.update { it.copy(directoryUri = directory) }
-                refresh()
-            }
-        }
-        viewModelScope.launch {
-            preferenceRepository.configRemoteRepository.collectLatest { repository ->
-                _uiState.update { state ->
-                    state.copy(remoteSource = state.remoteSource.copy(repository = repository))
+            combine(
+                preferenceRepository.configDirectory,
+                preferenceRepository.configRemoteRepository,
+                preferenceRepository.configRemoteBranch,
+            ) { directory, repository, branch ->
+                Triple(directory, repository, branch)
+            }.collectLatest { (directory, repository, branch) ->
+                _uiState.update {
+                    it.copy(
+                        directoryUri = directory,
+                        remoteSource = ConfigRemoteSource(
+                            repository = repository,
+                            branch = branch,
+                        ),
+                    )
                 }
-                refresh()
-            }
-        }
-        viewModelScope.launch {
-            preferenceRepository.configRemoteBranch.collectLatest { branch ->
-                _uiState.update { state ->
-                    state.copy(remoteSource = state.remoteSource.copy(branch = branch))
-                }
-                refresh()
+                refreshInternal()
             }
         }
         viewModelScope.launch {
@@ -76,18 +76,7 @@ class ConfigManagerViewModel @Inject constructor(
     }
 
     fun refresh() {
-        viewModelScope.launch {
-            val treeUri = currentTreeUri()
-            _uiState.update { it.copy(isLoading = true, remoteError = null) }
-            val snapshot = syncRepository.loadSnapshot(treeUri)
-            _uiState.update {
-                it.copy(
-                    items = snapshot.items,
-                    remoteError = snapshot.remoteError,
-                    isLoading = false,
-                )
-            }
-        }
+        viewModelScope.launch { refreshInternal() }
     }
 
     fun updateConfigurationDirectory(uri: Uri) {
@@ -95,7 +84,6 @@ class ConfigManagerViewModel @Inject constructor(
             preferenceRepository.setConfigDirectory(uri.toString())
             configCenter.loadConfigurations(context)
             _uiState.update { it.copy(message = "配置目录已更新") }
-            refresh()
         }
     }
 
@@ -108,7 +96,6 @@ class ConfigManagerViewModel @Inject constructor(
                 branch.ifBlank { ConfigCatalogService.REMOTE_BRANCH },
             )
             _uiState.update { it.copy(message = "远端源已更新") }
-            refresh()
         }
     }
 
@@ -202,5 +189,36 @@ class ConfigManagerViewModel @Inject constructor(
 
     private suspend fun currentTreeUri(): Uri? {
         return preferenceRepository.configDirectory.first()?.takeIf { it.isNotBlank() }?.let(Uri::parse)
+    }
+
+    private suspend fun refreshInternal() {
+        val generation = ++refreshGeneration
+        val treeUri = currentTreeUri()
+        _uiState.update { it.copy(isLoading = true, remoteError = null) }
+
+        val localSnapshot = syncRepository.loadLocalSnapshot(treeUri)
+        if (generation != refreshGeneration) return
+        _uiState.update {
+            it.copy(
+                items = localSnapshot.items,
+                remoteError = null,
+                isLoading = false,
+            )
+        }
+
+        runCatching { syncRepository.loadRemoteSnapshot(treeUri) }
+            .onSuccess { snapshot ->
+                if (generation != refreshGeneration) return
+                _uiState.update {
+                    it.copy(
+                        items = snapshot.items,
+                        remoteError = null,
+                    )
+                }
+            }
+            .onFailure { error ->
+                if (generation != refreshGeneration) return
+                _uiState.update { it.copy(remoteError = error.message ?: error.toString()) }
+            }
     }
 }
