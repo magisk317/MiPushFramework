@@ -23,22 +23,10 @@ val securityOverrides: Map<String, String> = run {
     }
 }
 
-val gitVersionNameFromGitProvider = providers.exec {
-    commandLine("git", "describe", "--tags", "--dirty", "--exclude", "v*-*")
-    isIgnoreExitValue = true
-}.standardOutput.asText.map { it.trim().takeIf { it.isNotEmpty() } ?: libs.versions.versionName.get() }
-    .orElse(libs.versions.versionName.get())
-
 val versionNameOverride = providers.gradleProperty("versionName")
-val snapshotEnabled = providers.gradleProperty("snapshot")
-    .map { value -> value.isBlank() || value.equals("true", ignoreCase = true) }
-    .orElse(false)
-val versionBaseProvider = versionNameOverride
-    .orElse(gitVersionNameFromGitProvider)
+val versionNameProvider = versionNameOverride
+    .orElse(libs.versions.versionName)
     .map { it.replace(Regex("^v"), "") }
-val versionNameProvider = versionBaseProvider.zip(snapshotEnabled) { base, snapshot ->
-    if (snapshot) "$base-SNAPSHOT" else base
-}
 val versionNameStr = try { versionNameProvider.get() } catch (e: Exception) { libs.versions.versionName.get() }
 version = versionNameStr
 
