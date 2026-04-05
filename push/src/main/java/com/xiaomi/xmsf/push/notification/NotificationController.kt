@@ -105,14 +105,22 @@ object NotificationController {
     @JvmStatic
     fun getExistsChannelId(context: Context, metaInfo: PushMetaInfo, packageName: String): String {
         val custom = XMPushUtils.getConfiguration(metaInfo)
-        var channelId = custom.borrowChannelId(null)
-        if (TextUtils.isEmpty(channelId) ||
-            getNotificationManagerEx().getNotificationChannel(packageName, channelId) == null
-        ) {
-            NotificationChannelManager.registerChannelIfNeeded(context, metaInfo, packageName)
-            channelId = NotificationChannelManager.getChannelId(metaInfo, packageName)
+        val preferredBorrowed = custom.borrowChannelId(null)
+        val borrowedChannel = getNotificationManagerEx().findPreferredTargetChannel(packageName, preferredBorrowed)
+        if (borrowedChannel != null) {
+            if (borrowedChannel.id != preferredBorrowed) {
+                logger.d("getExistsChannelId() auto-borrow channel pkg=$packageName channel=${borrowedChannel.id}")
+            }
+            return borrowedChannel.id
         }
-        return channelId ?: ""
+        val fallbackChannelId = NotificationChannelManager.getChannelId(metaInfo, packageName)
+        if (getNotificationManagerEx().supportsTargetChannelProvisioning(packageName)) {
+            NotificationChannelManager.registerChannelIfNeeded(context, metaInfo, packageName)
+            return fallbackChannelId
+        }
+        NotificationChannelManager.registerChannelIfNeeded(context, metaInfo, packageName)
+        logger.d("getExistsChannelId() fallback to local channel pkg=$packageName channel=$fallbackChannelId")
+        return fallbackChannelId
     }
 
     private fun notify(
