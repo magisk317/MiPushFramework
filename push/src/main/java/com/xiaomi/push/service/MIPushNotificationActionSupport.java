@@ -17,6 +17,8 @@ import java.net.URL;
 import java.util.Map;
 
 final class MIPushNotificationActionSupport {
+    static final int DEFAULT_PENDING_INTENT_FLAGS =
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE;
     private static final String STYLE_TYPE = "notification_style_type";
     private static final String STYLE_COLORFUL = "3";
     private static final String STYLE_BANNER = "4";
@@ -54,7 +56,7 @@ final class MIPushNotificationActionSupport {
             intent2.addFlags(268435456);
             intent2.putExtra("messageId", id);
             intent2.putExtra(ReportConstants.EVENT_MESSAGE_TYPE, i2);
-            return PendingIntent.getActivity(context, 0, intent2, 134217728);
+            return PendingIntent.getActivity(context, 0, intent2, DEFAULT_PENDING_INTENT_FLAGS);
         }
         if (MIPushNotificationHelper.isBusinessMessage(xmPushActionContainer)) {
             intent = new Intent();
@@ -75,7 +77,7 @@ final class MIPushNotificationActionSupport {
         intent.putExtra(ReportConstants.EVENT_MESSAGE_TYPE, i2);
         ComponentName componentName = new ComponentName(xmPushActionContainer.packageName, "com.xiaomi.mipush.sdk.BridgeActivity");
         if (!ComponentHelper.checkActivity(context, componentName)) {
-            return PendingIntent.getService(context, 0, intent, 134217728);
+            return PendingIntent.getService(context, 0, intent, DEFAULT_PENDING_INTENT_FLAGS);
         }
         Intent intent3 = new Intent();
         intent3.setComponent(componentName);
@@ -83,7 +85,7 @@ final class MIPushNotificationActionSupport {
         intent3.putExtra(PushConstants.MIPUSH_EXTRA_INTENT_PAYLOAD, intent);
         intent3.addCategory(String.valueOf(i));
         intent3.addCategory(String.valueOf(id));
-        return PendingIntent.getActivity(context, 0, intent3, 134217728);
+        return PendingIntent.getActivity(context, 0, intent3, DEFAULT_PENDING_INTENT_FLAGS);
     }
 
     static BuilderCompat setNotificationStyleAction(BuilderCompat builderCompat, Context context, String str, Map<String, String> map) {
