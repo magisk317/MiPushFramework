@@ -21,6 +21,7 @@ import top.trumeet.mipush.provider.entities.Event
 import top.trumeet.mipush.provider.entities.RegisteredApplication
 import top.trumeet.mipush.provider.event.type.TypeFactory
 import kotlinx.coroutines.runBlocking
+import java.util.LinkedHashMap
 
 object MiPushRuntimeBridge {
     private val diagnosticPackages = setOf("com.ss.android.ugc.aweme")
@@ -30,8 +31,16 @@ object MiPushRuntimeBridge {
         fun e(msg: String, t: Throwable) = Napier.e(msg, t, tag = "MiPushRuntimeBridge")
     }
     private const val RECENT_REGISTER_TOAST_WINDOW_MS = 5_000L
+    private const val NOTIFICATION_DISPATCH_ALLOWANCE_TTL_MS = 30_000L
     private val recentRegisterToasts = LinkedHashMap<String, Long>()
+    private const val NOTIFICATION_DISPATCH_ALLOWANCE_COUNT = 3
+    private data class NotificationDispatchAllowance(
+        var remaining: Int,
+        var updatedAtMs: Long
+    )
+    private val notificationDispatchAllowances = LinkedHashMap<String, NotificationDispatchAllowance>()
     private val registerToastLock = Any()
+    private val notificationDispatchLock = Any()
 
     @JvmStatic
     fun onApplicationIntentReceived(context: Context, intent: Intent?) {
@@ -70,27 +79,36 @@ object MiPushRuntimeBridge {
 
     @JvmStatic
     fun onNotificationDispatch(context: Context, container: XmPushActionContainer?, payload: ByteArray?): Boolean {
-        if (payload != null) {
-            val shouldProcess = onPayloadFromServer(context, payload, payload.size.toLong(), "notification")
-            if (!shouldProcess) {
+        val resolvedContainer = container ?: payload?.let(XMPushUtils::packToContainer)
+        val actionName = resolvedContainer?.action?.name ?: "Unknown"
+        val messageId = MessageIdentity.fromContainer(resolvedContainer)
+        val isMockReplay = MockMessageRegistry.isMarked(resolvedContainer)
+        if (payload != null && resolvedContainer != null && !isMockReplay) {
+            val allowed = consumeNotificationDispatchAllowance(
+                packageName = resolvedContainer.packageName,
+                actionName = actionName,
+                messageId = messageId
+            )
+            if (!allowed) {
                 logger.d(
-                    "skip duplicate notification dispatch pkg=${container?.packageName} action=${container?.action}"
+                    "skip notification dispatch without allowance pkg=${resolvedContainer.packageName} " +
+                        "action=$actionName messageId=$messageId source=MiPushRuntimeBridge.onNotificationDispatch"
                 )
                 return false
             }
         }
-        if (container?.packageName in diagnosticPackages) {
+        if (resolvedContainer?.packageName in diagnosticPackages) {
             logger.i(
-                "diagnostic notification dispatch pkg=${container?.packageName} action=${container?.action?.name} " +
-                    "messageId=${MessageIdentity.fromContainer(container)} source=MiPushRuntimeBridge.onNotificationDispatch"
+                "diagnostic notification dispatch pkg=${resolvedContainer?.packageName} action=$actionName " +
+                    "messageId=$messageId mockReplay=$isMockReplay source=MiPushRuntimeBridge.onNotificationDispatch"
             )
         }
         PushRuntime.observeNotificationEvent(
-            packageName = container?.packageName,
+            packageName = resolvedContainer?.packageName,
             action = "notify_push_message",
             source = "MiPushRuntimeBridge.onNotificationDispatch"
         )
-        onTransferToApplication(container)
+        onTransferToApplication(resolvedContainer)
         return true
     }
 
@@ -116,6 +134,13 @@ object MiPushRuntimeBridge {
         )
         if (!shouldProcess) {
             return false
+        }
+        if (!isMockReplay) {
+            markNotificationDispatchAllowance(
+                packageName = container.packageName,
+                actionName = actionName,
+                messageId = messageId
+            )
         }
         runCatching {
             Global.RegistrationRecorder().initContext(context.applicationContext)
@@ -213,6 +238,82 @@ object MiPushRuntimeBridge {
             logger.d("skip duplicate payload event source=$source pkg=$packageName action=$actionName")
         }
         return shouldProcess
+    }
+
+    private fun buildNotificationDispatchKey(
+        packageName: String?,
+        actionName: String,
+        messageId: String?
+    ): String? {
+        if (packageName.isNullOrBlank() || messageId.isNullOrBlank()) {
+            return null
+        }
+        return "$packageName|$actionName|$messageId"
+    }
+
+    private fun pruneNotificationDispatchAllowancesLocked(nowMs: Long) {
+        val iterator = notificationDispatchAllowances.entries.iterator()
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+            if ((nowMs - entry.value.updatedAtMs) > NOTIFICATION_DISPATCH_ALLOWANCE_TTL_MS || entry.value.remaining <= 0) {
+                iterator.remove()
+            }
+        }
+    }
+
+    private fun markNotificationDispatchAllowance(
+        packageName: String?,
+        actionName: String,
+        messageId: String?,
+        nowMs: Long = System.currentTimeMillis()
+    ) {
+        val key = buildNotificationDispatchKey(packageName, actionName, messageId) ?: return
+        synchronized(notificationDispatchLock) {
+            pruneNotificationDispatchAllowancesLocked(nowMs)
+            val allowance = notificationDispatchAllowances[key]
+            if (allowance == null) {
+                notificationDispatchAllowances[key] = NotificationDispatchAllowance(
+                    remaining = NOTIFICATION_DISPATCH_ALLOWANCE_COUNT,
+                    updatedAtMs = nowMs
+                )
+            } else {
+                allowance.remaining = maxOf(allowance.remaining, NOTIFICATION_DISPATCH_ALLOWANCE_COUNT)
+                allowance.updatedAtMs = nowMs
+            }
+        }
+        logger.d(
+            "mark notification dispatch allowance pkg=$packageName action=$actionName " +
+                "messageId=$messageId remaining=$NOTIFICATION_DISPATCH_ALLOWANCE_COUNT " +
+                "ttlMs=$NOTIFICATION_DISPATCH_ALLOWANCE_TTL_MS"
+        )
+    }
+
+    private fun consumeNotificationDispatchAllowance(
+        packageName: String?,
+        actionName: String,
+        messageId: String?,
+        nowMs: Long = System.currentTimeMillis()
+    ): Boolean {
+        val key = buildNotificationDispatchKey(packageName, actionName, messageId) ?: return true
+        synchronized(notificationDispatchLock) {
+            pruneNotificationDispatchAllowancesLocked(nowMs)
+            val allowance = notificationDispatchAllowances[key] ?: return false
+            if ((nowMs - allowance.updatedAtMs) > NOTIFICATION_DISPATCH_ALLOWANCE_TTL_MS) {
+                notificationDispatchAllowances.remove(key)
+                return false
+            }
+            allowance.remaining -= 1
+            allowance.updatedAtMs = nowMs
+            val accepted = allowance.remaining >= 0
+            logger.d(
+                "consume notification dispatch allowance pkg=$packageName action=$actionName " +
+                    "messageId=$messageId remaining=${allowance.remaining}"
+            )
+            if (allowance.remaining <= 0) {
+                notificationDispatchAllowances.remove(key)
+            }
+            return accepted
+        }
     }
 
     private fun applyRegistrationStateFromContainer(

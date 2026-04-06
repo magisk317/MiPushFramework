@@ -19,6 +19,13 @@ import com.xiaomi.xmpush.thrift.XmPushActionContainer;
 import java.util.LinkedList;
 import java.util.Map;
 
+/**
+ * Legacy MIUI notification publish chain retained for rollback/reference only.
+ *
+ * Display notifications no longer flow through this implementation by default; the active entry
+ * now routes to {@link MyMIPushNotificationHelper} from
+ * {@link MIPushNotificationHelper#notifyPushMessage(Context, XmPushActionContainer, byte[])}.
+ */
 final class MIPushNotificationPublishSupport {
     private static final String NOTIFICATION_TIMEOUT = "timeout";
 

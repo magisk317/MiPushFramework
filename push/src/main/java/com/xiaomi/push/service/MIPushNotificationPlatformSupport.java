@@ -18,6 +18,12 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Map;
 
+/**
+ * Legacy MIUI notification platform helpers retained for rollback/reference only.
+ *
+ * The active display-notification path is now the host-side {@link MyMIPushNotificationHelper}
+ * chain, so callers should not rely on these reflection-heavy helpers in normal operation.
+ */
 final class MIPushNotificationPlatformSupport {
     private static final String EXTRA_MESSAGE_ID = "message_id";
     private static final String EXTRA_SHOW_AT_TAIL = "miui.showAtTail";

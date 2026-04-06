@@ -6,13 +6,9 @@ import android.content.Intent
 import com.magisk317.XMPushUtils
 import com.magisk317.service.XMPushServiceLifecycleBridge
 import com.magisk317.utils.MockMIPushMessage
-import com.xiaomi.channel.commonutils.android.DataCryptUtils
-import com.xiaomi.channel.commonutils.string.Base64Coder
-import com.xiaomi.push.service.PushConstants
 import com.xiaomi.push.service.MIPushEventProcessor
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.XmPushActionCommandResult
-import com.xiaomi.xmpush.thrift.XmPushActionSendMessage
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
 import com.xiaomi.xmsf.R
@@ -36,7 +32,6 @@ import top.trumeet.mipushframework.config.ConfigNavigationHelper
 import top.trumeet.mipushframework.main.ApplicationInfoPage
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.random.Random
 import kotlinx.coroutines.runBlocking
 
 @Singleton
@@ -137,6 +132,12 @@ class EventRepository @Inject constructor(
     fun mockMessage(containerWithRegSec: XmPushActionContainer) {
         val pushService: SdkXMPushService? = XMPushServiceLifecycleBridge.peekService()
         logger.d("EventRepository", "mockMessage called. pushService exists: ${pushService != null}")
+        logger.d(
+            "EventRepository",
+            "mockMessage request pkg=${containerWithRegSec.packageName} action=${containerWithRegSec.action} " +
+                "messageId=${com.magisk317.push.pipeline.MessageIdentity.fromContainer(containerWithRegSec)} " +
+                "isEncrypt=${containerWithRegSec.isEncryptAction} isRequest=${containerWithRegSec.isRequest}"
+        )
         val regSec = RegSecUtils.getRegSec(containerWithRegSec)
         if (containerWithRegSec.isEncryptAction && regSec.isNullOrBlank()) {
             Utils.makeText(
@@ -180,12 +181,15 @@ class EventRepository @Inject constructor(
             Utils.makeText(context, "Service starting, please try again", 0)
             return
         }
-        val replayContainer = containerWithRegSec.deepCopy().also {
-            rewriteReplayMessageIdentityIfNeeded(it, regSec)
-        }
+        val replayContainer = containerWithRegSec.deepCopy()
         val handled = MockMIPushMessage.mockProcessMIPushMessage(
             pushService,
             replayContainer
+        )
+        logger.d(
+            "EventRepository",
+            "mockMessage finished pkg=${replayContainer.packageName} action=${replayContainer.action} " +
+                "messageId=${com.magisk317.push.pipeline.MessageIdentity.fromContainer(replayContainer)} handled=$handled"
         )
         if (!handled) {
             Utils.makeText(
@@ -263,39 +267,6 @@ class EventRepository @Inject constructor(
         }
     }
 
-    private fun rewriteReplayMessageIdentityIfNeeded(container: XmPushActionContainer, regSec: String?) {
-        if (container.action != ActionType.SendMessage) return
-
-        runCatching {
-            val body = ConvertUtils.getResponseMessageBodyFromContainer(container, regSec)
-            val sendMessage = body as? XmPushActionSendMessage ?: return
-
-            val newId = "smm${System.currentTimeMillis()}${Random.nextInt(1000, 9999)}"
-            val oldId = sendMessage.id
-            sendMessage.id = newId
-
-            container.metaInfo?.let { meta ->
-                meta.id = newId
-                meta.extra?.put(PushConstants.EXTRA_JOB_KEY, newId)
-            }
-
-            val updatedPayload = XMPushUtils.packToBytes(sendMessage)
-            val finalPayload = if (container.isEncryptAction && !regSec.isNullOrBlank()) {
-                val keyBytes = Base64Coder.decode(regSec)
-                DataCryptUtils.mipushEncrypt(keyBytes, updatedPayload) as ByteArray
-            } else {
-                updatedPayload
-            }
-            container.setPushAction(finalPayload)
-
-            logger.i(
-                "EventRepository",
-                "mock replay id rewritten old=$oldId new=$newId encrypt=${container.isEncryptAction}"
-            )
-        }.onFailure {
-            logger.w("EventRepository", "mock replay id rewrite skipped", it)
-        }
-    }
     companion object {
         private val logger = object {
             fun d(tag: String, msg: String) = io.github.aakira.napier.Napier.d(msg, tag = tag)

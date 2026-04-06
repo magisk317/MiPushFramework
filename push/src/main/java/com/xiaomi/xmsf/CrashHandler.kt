@@ -10,6 +10,7 @@ import com.xiaomi.xmsf.utils.LogUtils
 import top.trumeet.common.utils.Utils
 
 object CrashHandler {
+    private val crashFilePattern = Regex("^Crash_\\d{4}-\\d{2}-\\d{2}\\.txt$")
     private var defaultHandler: Thread.UncaughtExceptionHandler? = null
 
     init {
@@ -39,11 +40,13 @@ object CrashHandler {
     private fun writeCrashToFile(logDir: File, throwable: Throwable) {
         try {
             if (!logDir.exists()) logDir.mkdirs()
-            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
             val timeFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
-            val fileName = "Crash_${dateFormat.format(Date())}.txt"
+            val now = Date()
+            val currentDate = LogUtils.currentDateString(now)
+            LogUtils.pruneDailyFiles(logDir, currentDate, crashFilePattern)
+            val fileName = "Crash_${currentDate}.txt"
             val file = File(logDir, fileName)
-            val time = timeFormat.format(Date())
+            val time = timeFormat.format(now)
             val line = "$time [ERROR] CrashHandler: Mi Push Crash ${throwable.stackTraceToString()}\n"
             file.appendText(line)
         } catch (_: Exception) {}

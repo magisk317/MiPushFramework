@@ -111,10 +111,11 @@ public class NotificationUtils {
         return z;
     }
 
-    static void setTargetPackage(Notification notification, String str) {
+    public static void setTargetPackage(Notification notification, String str) {
         try {
             if (Build.VERSION.SDK_INT >= 19 && notification.extras != null) {
                 notification.extras.putString(MIPushNotificationHelper.NOTIFICATION_EXTRA_TARGET_PACKAGE_STRING, str);
+                notification.extras.putString("miui.targetPkg", str);
             }
             Object field = JavaCalls.getField(notification, FIELD_extraNotification);
             if (field != null) {

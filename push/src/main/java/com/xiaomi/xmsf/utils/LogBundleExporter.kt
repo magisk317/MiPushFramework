@@ -25,6 +25,7 @@ internal object LogBundleExporter {
     private const val PRIVATE_EXPORT_DIR_NAME = "xmsf_logs"
     private const val LEGACY_CACHE_LOG_DIR_NAME = "logs"
     private const val MI_PUSH_LOG_DIR_NAME = "MiPushLog"
+    private val crashFilePattern = Regex("^Crash_\\d{4}-\\d{2}-\\d{2}\\.txt$")
     private val LSPOSED_LOG_DIRS = listOf(
         "/data/adb/lspd/log",
     )
@@ -47,7 +48,9 @@ internal object LogBundleExporter {
 
     fun buildLogBundle(context: Context): ExportResult {
         synchronized(opLock) {
-            val timestamp = LogUtils.dateInfo(Date())
+            val now = Date()
+            val timestamp = LogUtils.dateInfo(now)
+            pruneCurrentDayLocalLogs(context, now)
             val exportDir = getPrivateExportDir(context)
             if (!ensureDirectory(exportDir, recreateWhenFile = true)) {
                 val details = "export root unavailable: ${exportDir.absolutePath}"
@@ -431,5 +434,16 @@ internal object LogBundleExporter {
 
     private fun shQuote(value: String): String {
         return "'" + value.replace("'", "'\"'\"'") + "'"
+    }
+
+    private fun pruneCurrentDayLocalLogs(context: Context, now: Date) {
+        runCatching {
+            LogUtils.pruneAppLogsForToday(getLogDir(context), now)
+            LogUtils.pruneAppLogsForToday(getLegacyCacheLogDir(context), now)
+            LogUtils.pruneModuleLogsForToday(File(getLogDir(context), "modules"), now)
+            LogUtils.pruneDailyFiles(getCrashDir(context), LogUtils.currentDateString(now), crashFilePattern)
+        }.onFailure {
+            logger.w("Failed to prune local logs before export: ${it.message ?: it.javaClass.simpleName}")
+        }
     }
 }

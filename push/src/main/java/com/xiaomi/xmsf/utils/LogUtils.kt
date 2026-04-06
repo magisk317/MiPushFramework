@@ -14,6 +14,10 @@ import java.util.Date
 import java.util.Locale
 
 object LogUtils {
+    private val dailyDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    private val dailyLogPattern = Regex("^logs_\\d{4}-\\d{2}-\\d{2}\\.txt$")
+    private val dailyModuleLogPattern = Regex("^.+_\\d{4}-\\d{2}-\\d{2}\\.txt$")
+
     data class ShareIntentResult(
         val intent: Intent?,
         val error: String? = null,
@@ -31,13 +35,14 @@ object LogUtils {
     }
 
     private class FileAntilog(private val logDir: File) : Antilog() {
-        private val fileDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         private val logDateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
 
         override fun performLog(priority: LogLevel, tag: String?, throwable: Throwable?, message: String?) {
             try {
                 if (!logDir.exists()) logDir.mkdirs()
-                val fileName = "logs_${fileDateFormat.format(Date())}.txt"
+                val currentDate = currentDateString()
+                pruneDailyFiles(logDir, currentDate, dailyLogPattern)
+                val fileName = "logs_${currentDate}.txt"
                 val file = File(logDir, fileName)
                 val time = logDateFormat.format(Date())
                 val errorMsg = throwable?.stackTraceToString() ?: ""
@@ -93,5 +98,25 @@ object LogUtils {
     @JvmStatic
     fun dateInfo(date: Date): String {
         return SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(date)
+    }
+
+    internal fun currentDateString(now: Date = Date()): String = dailyDateFormat.format(now)
+
+    internal fun pruneAppLogsForToday(logDir: File, now: Date = Date()) {
+        pruneDailyFiles(logDir, currentDateString(now), dailyLogPattern)
+    }
+
+    internal fun pruneModuleLogsForToday(moduleLogDir: File, now: Date = Date()) {
+        pruneDailyFiles(moduleLogDir, currentDateString(now), dailyModuleLogPattern)
+    }
+
+    internal fun pruneDailyFiles(logDir: File, currentDate: String, pattern: Regex) {
+        runCatching {
+            logDir.listFiles()?.forEach { child ->
+                if (child.isFile && pattern.matches(child.name) && !child.name.contains(currentDate)) {
+                    child.delete()
+                }
+            }
+        }
     }
 }

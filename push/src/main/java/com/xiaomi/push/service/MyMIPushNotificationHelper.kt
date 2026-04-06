@@ -11,6 +11,7 @@ import com.magisk317.push.hook.ExplicitHookBridge
 import com.magisk317.push.hook.HookTraceCompat
 import com.magisk317.push.pipeline.MessageIdentity
 import com.magisk317.push.pipeline.MiPushRuntimeBridge
+import com.magisk317.push.pipeline.MockMessageRegistry
 import com.magisk317.Global
 import com.magisk317.XMPushUtils
 import com.xiaomi.channel.commonutils.android.AppInfoUtils
@@ -52,13 +53,23 @@ class MyMIPushNotificationHelper {
         @JvmStatic
         fun notifyPushMessage(context: Context, decryptedContent: ByteArray) {
             val container = XMPushUtils.packToContainer(decryptedContent) ?: return
+            val messageId = MessageIdentity.fromContainer(container)
+            val isMockReplay = MockMessageRegistry.isMarked(container)
+            logger.i(
+                "notifyPushMessage start pkg=${container.packageName} action=${container.action} " +
+                    "messageId=$messageId payloadSize=${decryptedContent.size} mockReplay=$isMockReplay " +
+                    "moduleEnhanced=${com.magisk317.notification.NotificationManagerEx.isHooked}"
+            )
             if (!shouldPublishNotification(container)) {
                 logger.i("skip non-display notification action=${container.action} pkg=${container.packageName}")
                 return
             }
             HookTraceCompat.notifyPushMessage(container, decryptedContent)
             if (!MiPushRuntimeBridge.onNotificationDispatch(context, container, decryptedContent)) {
-                logger.i("skip duplicate notification publish action=${container.action} pkg=${container.packageName}")
+                logger.i(
+                    "skip duplicate notification publish action=${container.action} pkg=${container.packageName} " +
+                        "messageId=$messageId mockReplay=$isMockReplay"
+                )
                 return
             }
             val notificationOp = AppInfoUtils.getAppNotificationOp(
@@ -67,7 +78,11 @@ class MyMIPushNotificationHelper {
                 true
             )
             if (notificationOp == AppInfoUtils.AppNotificationOp.NOT_ALLOWED) {
-                logger.w("Do not notify because user block " + MIPushNotificationHelper.getTargetPackage(container) + "'s notification")
+                logger.w(
+                    "Do not notify because user block " +
+                        MIPushNotificationHelper.getTargetPackage(container) +
+                        "'s notification messageId=$messageId mockReplay=$isMockReplay"
+                )
             } else {
                 loadConfigurationsOnce(context)
                 handleNotificationByConfigurations(context, decryptedContent, container.packageName, container)
@@ -81,7 +96,12 @@ class MyMIPushNotificationHelper {
             container: XmPushActionContainer
         ) {
             try {
+                val messageId = MessageIdentity.fromContainer(container)
                 val operations = Configurations.getInstance().handle(packageName, container)
+                logger.i(
+                    "handleNotificationByConfigurations pkg=$packageName action=${container.action} " +
+                        "messageId=$messageId operations=$operations"
+                )
                 if (operations.contains(PackageConfig.OPERATION_WAKE)) {
                     PushRuntime.observeNotificationEvent(
                         packageName = packageName,
@@ -98,9 +118,21 @@ class MyMIPushNotificationHelper {
                     )
                     executorService.execute {
                         try {
+                            logger.i(
+                                "policy_notify dispatch start pkg=$packageName action=${container.action} " +
+                                    "messageId=$messageId"
+                            )
                             doNotifyPushMessage(context, container, decryptedContent)
+                            logger.i(
+                                "policy_notify dispatch finished pkg=$packageName action=${container.action} " +
+                                    "messageId=$messageId"
+                            )
                         } catch (e: Exception) {
-                            logger.e(e.localizedMessage, e)
+                            logger.e(
+                                "policy_notify dispatch failed pkg=$packageName action=${container.action} " +
+                                    "messageId=$messageId",
+                                e
+                            )
                         }
                     }
                 } else {
@@ -172,14 +204,23 @@ class MyMIPushNotificationHelper {
 
         private fun doNotifyPushMessage(context: Context, container: XmPushActionContainer, decryptedContent: ByteArray) {
             val metaInfo = container.metaInfo
+            val messageId = MessageIdentity.fromContainer(container)
             logPushMessage(metaInfo)
             val result = getNotificationFor(context, container, decryptedContent)
+            logger.i(
+                "doNotifyPushMessage publish start pkg=${container.packageName} action=${container.action} " +
+                    "messageId=$messageId notificationId=${result.notificationId}"
+            )
             NotificationController.publish(
                 context,
                 metaInfo,
                 result.notificationId,
                 container.packageName,
                 result.notificationBuilder
+            )
+            logger.i(
+                "doNotifyPushMessage publish end pkg=${container.packageName} action=${container.action} " +
+                    "messageId=$messageId notificationId=${result.notificationId}"
             )
         }
 
@@ -292,16 +333,6 @@ class MyMIPushNotificationHelper {
         ) {
             if (runBlocking { Global.ConfigCenter().isDebugModeAsync() }) {
                 val icon = R.drawable.ic_notifications_black_24dp
-                val pendingIntentOpenActivity =
-                    MyMIPushNotificationIntentSupport.openActivityPendingIntent(
-                        xmPushService,
-                        buildContainer,
-                        metaInfo
-                    )
-                if (pendingIntentOpenActivity != null) {
-                    localBuilder.addAction(NotificationCompat.Action(icon, "Open App", pendingIntentOpenActivity))
-                }
-
                 val pendingIntentJump =
                     MyMIPushNotificationIntentSupport.startServicePendingIntent(
                         xmPushService,

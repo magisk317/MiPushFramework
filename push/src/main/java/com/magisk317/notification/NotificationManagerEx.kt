@@ -6,19 +6,25 @@ import android.app.NotificationChannelGroup
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.service.notification.StatusBarNotification
+import com.xiaomi.channel.commonutils.android.MIUIUtils
+import com.xiaomi.push.service.NotificationUtils
 import com.xiaomi.push.service.NotificationIdentityBridge
 import io.github.aakira.napier.Napier
 import java.util.Collections
 
 object NotificationManagerEx {
     private const val TAG = "NotificationManagerEx"
-    private const val MODERN_IDENTITY_FIRST_SDK = 37
+    private const val MODERN_IDENTITY_FIRST_SDK = Build.VERSION_CODES.Q
     private val logger = object {
         fun d(msg: String) = Napier.d(msg, tag = TAG)
         fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
     }
     private val diagnosticsLogged = Collections.synchronizedSet(mutableSetOf<String>())
+    private val snapshotHandler by lazy { Handler(Looper.getMainLooper()) }
+    private val snapshotDelaysMs = longArrayOf(0L, 300L, 1500L, 3000L)
 
     private lateinit var appContext: Context
     private lateinit var notificationManager: NotificationManager
@@ -44,6 +50,14 @@ object NotificationManagerEx {
 
     private fun shouldUseModernIdentityStrategy(packageName: String): Boolean {
         return packageName != appContext.packageName && Build.VERSION.SDK_INT >= MODERN_IDENTITY_FIRST_SDK
+    }
+
+    private fun isModuleEnhancedModeActive(packageName: String): Boolean {
+        return ::appContext.isInitialized &&
+            isHooked &&
+            packageName != appContext.packageName &&
+            MIUIUtils.isMIUI() &&
+            MIUIUtils.isXMSF(appContext)
     }
 
     private fun maybeLogDiagnosticsOnce(
@@ -77,6 +91,45 @@ object NotificationManagerEx {
     private fun createLocalNotificationChannelGroups(groups: List<NotificationChannelGroup>) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && groups.isNotEmpty()) {
             notificationManager.createNotificationChannelGroups(groups)
+        }
+    }
+
+    private fun filterLocalActiveNotifications(
+        packageName: String,
+        activeNotifications: Array<StatusBarNotification>
+    ): Array<StatusBarNotification?> {
+        if (!MIUIUtils.isMIUI()) {
+            return activeNotifications.map { it as StatusBarNotification? }.toTypedArray()
+        }
+        return activeNotifications
+            .filter { packageName == NotificationUtils.getTargetPackage(it.notification) }
+            .map { it as StatusBarNotification? }
+            .toTypedArray()
+    }
+
+    private fun markLocalTargetPackage(packageName: String, notification: Notification) {
+        if (!::appContext.isInitialized || packageName == appContext.packageName) {
+            return
+        }
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT && notification.extras != null) {
+                notification.extras.putString("xmsf_target_package", packageName)
+                notification.extras.putString("miui.targetPkg", packageName)
+            }
+            if (!MIUIUtils.isXMS() && MIUIUtils.isXMSF(appContext)) {
+                NotificationUtils.setTargetPackage(notification, packageName)
+            }
+            val extrasTarget = notification.extras?.getString("target_package")
+            val extrasXmsfTarget = notification.extras?.getString("xmsf_target_package")
+            val extrasMiuiTarget = notification.extras?.getString("miui.targetPkg")
+            val observedTarget = NotificationUtils.getTargetPackage(notification)
+            logger.d(
+                "markLocalTargetPackage pkg=$packageName extrasTarget=$extrasTarget " +
+                    "extrasXmsfTarget=$extrasXmsfTarget extrasMiuiTarget=$extrasMiuiTarget " +
+                    "observedTarget=$observedTarget moduleEnhanced=${isModuleEnhancedModeActive(packageName)}"
+            )
+        }.onFailure {
+            logger.e("Failed to mark local target package for $packageName", it)
         }
     }
 
@@ -220,15 +273,17 @@ object NotificationManagerEx {
         val channelId = notification.channelId
         if (shouldUseModernIdentityStrategy(packageName)) {
             val strategy = NotificationIdentityBridge.resolveStrategy(appContext, packageName)
+            val compatAttempt = strategy == NotificationIdentityBridge.Strategy.UNSUPPORTED &&
+                NotificationIdentityBridge.shouldAttemptCompatTargetPost(appContext, packageName)
             val visible = when (strategy) {
                 NotificationIdentityBridge.Strategy.FRAMEWORK -> true
                 NotificationIdentityBridge.Strategy.DELEGATED ->
                     NotificationIdentityBridge.getTargetNotificationChannel(appContext, packageName, channelId) != null
-                NotificationIdentityBridge.Strategy.UNSUPPORTED -> false
+                NotificationIdentityBridge.Strategy.UNSUPPORTED -> compatAttempt
             }
             logger.d(
                 "shouldNotifyAsPackage() packageName=$packageName channelId=$channelId " +
-                    "strategy=$strategy visible=$visible sdk=${Build.VERSION.SDK_INT}"
+                    "strategy=$strategy compatAttempt=$compatAttempt visible=$visible sdk=${Build.VERSION.SDK_INT}"
             )
             if (!visible) {
                 maybeLogDiagnosticsOnce("identity-precheck-failed", packageName, channelId, notification.group)
@@ -243,19 +298,52 @@ object NotificationManagerEx {
         return packageChannelVisible
     }
 
+    private fun logPostedSnapshot(
+        mode: String,
+        packageName: String,
+        tag: String?,
+        id: Int
+    ) {
+        if (!::appContext.isInitialized || !shouldUseModernIdentityStrategy(packageName)) {
+            return
+        }
+        snapshotDelaysMs.forEach { delayMs ->
+            snapshotHandler.postDelayed({
+                runCatching {
+                    val snapshot = NotificationIdentityBridge.dumpPostedNotificationSnapshot(appContext, packageName, tag, id)
+                    logger.d(
+                        "posted-notification-snapshot mode=$mode delayMs=$delayMs " +
+                            "pkg=$packageName tag=$tag id=$id $snapshot"
+                    )
+                }.onFailure {
+                    logger.e(
+                        "Failed to dump posted notification snapshot for $packageName/$id delayMs=$delayMs",
+                        it
+                    )
+                }
+            }, delayMs)
+        }
+    }
+
     fun notify(
         packageName: String,
         tag: String?, id: Int, notification: Notification
     ) {
         logger.d("notify() called with: packageName = $packageName, tag = $tag, id = $id, notification = $notification")
+        if (isModuleEnhancedModeActive(packageName)) {
+            logger.d("notify() module-enhanced mode active pkg=$packageName tag=$tag id=$id")
+        }
+        markLocalTargetPackage(packageName, notification)
         if (shouldUseModernIdentityStrategy(packageName)) {
             if (shouldNotifyAsPackage(packageName, notification)) {
                 if (NotificationIdentityBridge.notifyAsTargetPackage(appContext, packageName, tag, id, notification)) {
+                    logPostedSnapshot("target", packageName, tag, id)
                     return
                 }
                 maybeLogDiagnosticsOnce("identity-notify-fallback", packageName, notification.channelId, notification.group)
             }
             notificationManager.notify(tag, id, notification)
+            logPostedSnapshot("local", packageName, tag, id)
             return
         }
         if (shouldNotifyAsPackage(packageName, notification)) {
@@ -559,7 +647,7 @@ object NotificationManagerEx {
         logger.d("getActiveNotifications() called with: packageName = $packageName")
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (shouldUseModernIdentityStrategy(packageName)) {
-                notificationManager.getActiveNotifications()
+                filterLocalActiveNotifications(packageName, notificationManager.getActiveNotifications())
             } else if (!canUseLegacyPackageScopedApis()) {
                 val packageNotificationManager = getNotificationManagerForPackage(packageName)
                 if (packageNotificationManager != null && packageNotificationManager !== notificationManager) {

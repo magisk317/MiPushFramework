@@ -77,16 +77,6 @@ internal object MyMIPushNotificationIntentSupport {
         builder.extras.putParcelable("mipush.target", pendingIntent)
     }
 
-    fun openActivityPendingIntent(
-        context: Context,
-        container: XmPushActionContainer,
-        metaInfo: PushMetaInfo
-    ): PendingIntent? {
-        val launchIntent = context.packageManager.getLaunchIntentForPackage(container.packageName) ?: return null
-        launchIntent.addCategory(metaInfo.notifyId.toString())
-        return PendingIntent.getActivity(context, 0, launchIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
-    }
-
     fun buildClickedPendingIntent(
         context: Context,
         container: XmPushActionContainer,

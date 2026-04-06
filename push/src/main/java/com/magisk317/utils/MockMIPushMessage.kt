@@ -4,6 +4,7 @@ import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import com.magisk317.SdkNotificationCompat
 import com.magisk317.XMPushUtils
+import com.magisk317.push.pipeline.MessageIdentity
 import com.magisk317.push.pipeline.MockMessageRegistry
 import com.xiaomi.channel.commonutils.reflect.JavaCalls
 import com.xiaomi.push.service.MIPushEventProcessor
@@ -22,30 +23,65 @@ object MockMIPushMessage {
     @JvmStatic
     fun mockProcessMIPushMessage(pushService: XMPushService, container: XmPushActionContainer): Boolean {
         val payload = XMPushUtils.packToBytes(container)
+        val messageId = MessageIdentity.fromContainer(container)
+        logger.d(
+            "mockProcessMIPushMessage start pkg=${container.packageName} action=${container.action} " +
+                "messageId=$messageId payloadSize=${payload.size} isRequest=${container.isRequest} " +
+                "isEncrypt=${container.isEncryptAction}"
+        )
         if (SdkNotificationCompat.shouldUseModernHelper(payload)) {
+            MockMessageRegistry.markMessageId(messageId)
             logger.d(
-                "mockProcessMIPushMessage use modern helper pkg=${container.packageName} action=${container.action}"
+                "mockProcessMIPushMessage use modern helper pkg=${container.packageName} action=${container.action} " +
+                    "messageId=$messageId"
             )
             return runCatching {
                 SdkNotificationCompat.notifyWithModernHelper(pushService, payload)
+                logger.d(
+                    "mockProcessMIPushMessage modern helper completed pkg=${container.packageName} " +
+                        "action=${container.action} messageId=$messageId"
+                )
                 true
             }.onFailure {
-                logger.e("mock modern helper notify failure: ", it)
+                logger.e(
+                    "mock modern helper notify failure pkg=${container.packageName} " +
+                        "action=${container.action} messageId=$messageId payloadSize=${payload.size}",
+                    it
+                )
             }.getOrDefault(false)
         }
         try {
             invokeProcessMiPushMessage(pushService, container, payload)
+            logger.d(
+                "mockProcessMIPushMessage legacy invoke completed pkg=${container.packageName} " +
+                    "action=${container.action} messageId=$messageId"
+            )
             return true
         } catch (e: Exception) {
             if (shouldFallbackWithModernHelper(e)) {
                 logger.w("mock fallback to modern helper due to PendingIntent flag crash")
+                MockMessageRegistry.markMessageId(messageId)
                 runCatching { SdkNotificationCompat.notifyWithModernHelper(pushService, payload) }
-                    .onSuccess { return true }
+                    .onSuccess {
+                        logger.d(
+                            "mockProcessMIPushMessage fallback modern helper completed pkg=${container.packageName} " +
+                                "action=${container.action} messageId=$messageId"
+                        )
+                        return true
+                    }
                     .onFailure { fallbackError ->
-                        logger.e("mock fallback notify failure: ", fallbackError)
+                        logger.e(
+                            "mock fallback notify failure pkg=${container.packageName} " +
+                                "action=${container.action} messageId=$messageId payloadSize=${payload.size}",
+                            fallbackError
+                        )
                     }
             }
-            logger.e("mock notification failure: ", e)
+            logger.e(
+                "mock notification failure pkg=${container.packageName} action=${container.action} " +
+                    "messageId=$messageId payloadSize=${payload.size}",
+                e
+            )
             return false
         }
     }

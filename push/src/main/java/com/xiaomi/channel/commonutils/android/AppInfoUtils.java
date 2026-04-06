@@ -18,6 +18,7 @@ import com.google.protobuf.micro.CodedOutputStreamMicro;
 import com.xiaomi.channel.commonutils.logger.MyLog;
 import com.xiaomi.channel.commonutils.reflect.JavaCalls;
 import com.xiaomi.push.service.MIPushAccount;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -62,6 +63,30 @@ public class AppInfoUtils {
     }
 
     private AppInfoUtils() {
+    }
+
+    private static Integer coerceInteger(Object value) {
+        if (value instanceof Integer) {
+            return (Integer) value;
+        }
+        if (value instanceof Number) {
+            return Integer.valueOf(((Number) value).intValue());
+        }
+        return null;
+    }
+
+    private static Object invokeCheckOpNoThrow(Object appOpsService, int op, int uid, String packageName) {
+        if (appOpsService == null) {
+            return null;
+        }
+        try {
+            Method method = appOpsService.getClass().getMethod("checkOpNoThrow", Integer.TYPE, Integer.TYPE, String.class);
+            method.setAccessible(true);
+            return method.invoke(appOpsService, Integer.valueOf(op), Integer.valueOf(uid), packageName);
+        } catch (Throwable th) {
+            MyLog.w("checkOpNoThrow invoke error service=" + appOpsService.getClass().getName() + " " + th);
+            return null;
+        }
     }
 
     private static AppNotificationOp areNotificationsEnabled(Context context, ApplicationInfo applicationInfo) {
@@ -222,13 +247,20 @@ public class AppInfoUtils {
         if (applicationInfo == null) {
             return AppNotificationOp.UNKNOWN;
         }
-        Integer num = (Integer) JavaCalls.getStaticField((Class<? extends Object>) AppOpsManager.class, "OP_POST_NOTIFICATION");
+        Integer num = coerceInteger(JavaCalls.getStaticField((Class<? extends Object>) AppOpsManager.class, "OP_POST_NOTIFICATION"));
         if (num == null) {
             return AppNotificationOp.UNKNOWN;
         }
-        Integer num2 = (Integer) JavaCalls.callMethod((AppOpsManager) context.getSystemService("appops"), "checkOpNoThrow", num, Integer.valueOf(applicationInfo.uid), str);
-        Integer num3 = (Integer) JavaCalls.getStaticField((Class<? extends Object>) AppOpsManager.class, "MODE_ALLOWED");
-        Integer num4 = (Integer) JavaCalls.getStaticField((Class<? extends Object>) AppOpsManager.class, "MODE_IGNORED");
+        Integer num2 = coerceInteger(
+            invokeCheckOpNoThrow(
+                context.getSystemService("appops"),
+                num.intValue(),
+                applicationInfo.uid,
+                str
+            )
+        );
+        Integer num3 = coerceInteger(JavaCalls.getStaticField((Class<? extends Object>) AppOpsManager.class, "MODE_ALLOWED"));
+        Integer num4 = coerceInteger(JavaCalls.getStaticField((Class<? extends Object>) AppOpsManager.class, "MODE_IGNORED"));
         MyLog.i(String.format("get app mode %s|%s|%s", num2, num3, num4));
         Integer num5 = num3;
         if (num3 == null) {

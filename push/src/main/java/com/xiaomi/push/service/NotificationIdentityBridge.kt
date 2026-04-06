@@ -7,10 +7,18 @@ import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
 import android.os.Process
+import android.service.notification.StatusBarNotification
 import com.xiaomi.channel.commonutils.android.DeviceInfo
 import com.xiaomi.channel.commonutils.android.MIUIUtils
+import io.github.aakira.napier.Napier
 
 object NotificationIdentityBridge {
+    private const val TAG = "NotificationIdentityBridge"
+    private val logger = object {
+        fun d(message: String) = Napier.d(message, tag = TAG)
+        fun e(message: String, throwable: Throwable? = null) = Napier.e(message, throwable, tag = TAG)
+    }
+
     enum class Strategy {
         FRAMEWORK,
         DELEGATED,
@@ -21,6 +29,17 @@ object NotificationIdentityBridge {
 
     private fun notificationManager(context: Context): NotificationManager =
         appContext(context).getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+    private fun isMiuiXmsfCompatEligible(context: Context, packageName: String): Boolean {
+        val appContext = appContext(context)
+        if (packageName == appContext.packageName) {
+            return false
+        }
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            MIUIUtils.isMIUI() &&
+            MIUIUtils.isXMSF(appContext) &&
+            !MIUIUtils.isXMS()
+    }
 
     private fun callingUserId(context: Context): Int = runCatching {
         Context::class.java.getMethod("getUserId").invoke(appContext(context)) as? Int
@@ -51,6 +70,11 @@ object NotificationIdentityBridge {
             return Strategy.DELEGATED
         }
         return Strategy.UNSUPPORTED
+    }
+
+    fun shouldAttemptCompatTargetPost(context: Context, packageName: String): Boolean {
+        return resolveStrategy(context, packageName) != Strategy.UNSUPPORTED ||
+            isMiuiXmsfCompatEligible(context, packageName)
     }
 
     fun isFrameworkIdentitySupported(context: Context): Boolean = runCatching {
@@ -166,10 +190,20 @@ object NotificationIdentityBridge {
         id: Int,
         notification: Notification
     ): Boolean {
-        return when (resolveStrategy(context, packageName)) {
+        val strategy = resolveStrategy(context, packageName)
+        val channelId = notification.channelId
+        val compatEligible = isMiuiXmsfCompatEligible(context, packageName)
+        logger.d(
+            "notifyAsTargetPackage attempt strategy=$strategy compatEligible=$compatEligible " +
+                "pkg=$packageName tag=$tag id=$id channelId=$channelId"
+        )
+        return when (strategy) {
             Strategy.FRAMEWORK -> runCatching {
                 NotificationManagerPlatformSupport.notify(packageName, id, notification)
+                logger.d("notifyAsTargetPackage success strategy=$strategy pkg=$packageName id=$id channelId=$channelId")
                 true
+            }.onFailure {
+                logger.e("notifyAsTargetPackage failed strategy=$strategy pkg=$packageName id=$id channelId=$channelId", it)
             }.getOrDefault(false)
 
             Strategy.DELEGATED -> runCatching {
@@ -180,11 +214,83 @@ object NotificationIdentityBridge {
                     Int::class.javaPrimitiveType,
                     Notification::class.java
                 ).invoke(notificationManager(context), packageName, tag, id, notification)
+                logger.d("notifyAsTargetPackage success strategy=$strategy pkg=$packageName id=$id channelId=$channelId")
                 true
+            }.onFailure {
+                logger.e("notifyAsTargetPackage failed strategy=$strategy pkg=$packageName id=$id channelId=$channelId", it)
             }.getOrDefault(false)
 
-            Strategy.UNSUPPORTED -> false
+            Strategy.UNSUPPORTED -> {
+                if (!compatEligible) {
+                    logger.d(
+                        "notifyAsTargetPackage skipped strategy=$strategy compatEligible=$compatEligible " +
+                            "pkg=$packageName id=$id channelId=$channelId"
+                    )
+                    false
+                } else {
+                    runCatching {
+                        notificationManager(context).javaClass.getMethod(
+                            "notifyAsPackage",
+                            String::class.java,
+                            String::class.java,
+                            Int::class.javaPrimitiveType,
+                            Notification::class.java
+                        ).invoke(notificationManager(context), packageName, tag, id, notification)
+                        logger.d("notifyAsTargetPackage success strategy=COMPAT pkg=$packageName id=$id channelId=$channelId")
+                        true
+                    }.onFailure {
+                        logger.e("notifyAsTargetPackage failed strategy=COMPAT pkg=$packageName id=$id channelId=$channelId", it)
+                    }.getOrDefault(false)
+                }
+            }
         }
+    }
+
+    fun dumpPostedNotificationSnapshot(
+        context: Context,
+        packageName: String,
+        tag: String?,
+        id: Int
+    ): String {
+        fun StatusBarNotification.describe(): String {
+            val channelId = runCatching { notification.channelId }.getOrNull()
+            val group = runCatching { notification.group }.getOrNull()
+            val targetPkg = runCatching { NotificationUtils.getTargetPackage(notification) }.getOrNull()
+            val xmsfTarget = runCatching { notification.extras?.getString("xmsf_target_package") }.getOrNull()
+            val miuiTarget = runCatching { notification.extras?.getString("miui.targetPkg") }.getOrNull()
+            return "pkg=${this.packageName} opPkg=${this.opPkg} id=${this.id} tag=${this.tag} channel=$channelId group=$group target=$targetPkg xmsfTarget=$xmsfTarget miuiTarget=$miuiTarget"
+        }
+
+        fun StatusBarNotification.matchesExactly(): Boolean {
+            if (this.id != id) return false
+            if (tag != this.tag) return false
+            return true
+        }
+
+        fun StatusBarNotification.matchesRelatedTarget(): Boolean {
+            return this.packageName == packageName ||
+                this.opPkg == packageName ||
+                NotificationUtils.getTargetPackage(this.notification) == packageName ||
+                this.notification.extras?.getString("xmsf_target_package") == packageName
+        }
+
+        fun List<StatusBarNotification>.toSnapshotString(): String {
+            return if (isEmpty()) "[]" else joinToString(prefix = "[", postfix = "]") { it.describe() }
+        }
+
+        val globalActive = runCatching {
+            notificationManager(context).activeNotifications?.filterNotNull().orEmpty()
+        }.getOrElse { emptyList() }
+
+        val globalMatches = runCatching {
+            globalActive.filter { it.matchesExactly() }.toSnapshotString()
+        }.getOrElse { "${it.javaClass.simpleName}:${it.message}" }
+
+        val relatedGlobal = runCatching {
+            globalActive.filter { it.matchesRelatedTarget() }.take(8).toSnapshotString()
+        }.getOrElse { "${it.javaClass.simpleName}:${it.message}" }
+
+        return "global=$globalMatches relatedGlobal=$relatedGlobal app=disabled"
     }
 
     fun cancelAsTargetPackage(
@@ -193,10 +299,19 @@ object NotificationIdentityBridge {
         tag: String?,
         id: Int
     ): Boolean {
-        return when (resolveStrategy(context, packageName)) {
+        val strategy = resolveStrategy(context, packageName)
+        val compatEligible = isMiuiXmsfCompatEligible(context, packageName)
+        logger.d(
+            "cancelAsTargetPackage attempt strategy=$strategy compatEligible=$compatEligible " +
+                "pkg=$packageName tag=$tag id=$id"
+        )
+        return when (strategy) {
             Strategy.FRAMEWORK -> runCatching {
                 NotificationManagerPlatformSupport.cancel(packageName, id)
+                logger.d("cancelAsTargetPackage success strategy=$strategy pkg=$packageName id=$id")
                 true
+            }.onFailure {
+                logger.e("cancelAsTargetPackage failed strategy=$strategy pkg=$packageName id=$id", it)
             }.getOrDefault(false)
 
             Strategy.DELEGATED -> runCatching {
@@ -206,10 +321,34 @@ object NotificationIdentityBridge {
                     String::class.java,
                     Int::class.javaPrimitiveType
                 ).invoke(notificationManager(context), packageName, tag, id)
+                logger.d("cancelAsTargetPackage success strategy=$strategy pkg=$packageName id=$id")
                 true
+            }.onFailure {
+                logger.e("cancelAsTargetPackage failed strategy=$strategy pkg=$packageName id=$id", it)
             }.getOrDefault(false)
 
-            Strategy.UNSUPPORTED -> false
+            Strategy.UNSUPPORTED -> {
+                if (!compatEligible) {
+                    logger.d(
+                        "cancelAsTargetPackage skipped strategy=$strategy compatEligible=$compatEligible " +
+                            "pkg=$packageName id=$id"
+                    )
+                    false
+                } else {
+                    runCatching {
+                        notificationManager(context).javaClass.getMethod(
+                            "cancelAsPackage",
+                            String::class.java,
+                            String::class.java,
+                            Int::class.javaPrimitiveType
+                        ).invoke(notificationManager(context), packageName, tag, id)
+                        logger.d("cancelAsTargetPackage success strategy=COMPAT pkg=$packageName id=$id")
+                        true
+                    }.onFailure {
+                        logger.e("cancelAsTargetPackage failed strategy=COMPAT pkg=$packageName id=$id", it)
+                    }.getOrDefault(false)
+                }
+            }
         }
     }
 
@@ -271,6 +410,7 @@ object NotificationIdentityBridge {
             append(" userId=").append(callingUserId(appContext))
             append(" spaceId=").append(describe { DeviceInfo.getSpaceId() })
             append(" canNotifyAsPackage=").append(canNotify)
+            append(" compatEligible=").append(describe { isMiuiXmsfCompatEligible(appContext, packageName) })
             append(" frameworkSupport=").append(frameworkSupport)
             append(" supportFwk=").append(supportFwk)
             append(" isMiui=").append(describe { MIUIUtils.isMIUI() })

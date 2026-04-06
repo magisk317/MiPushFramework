@@ -10,6 +10,7 @@ import android.service.notification.StatusBarNotification;
 import android.text.TextUtils;
 import android.util.Pair;
 import com.xiaomi.channel.commonutils.reflect.JavaCalls;
+import com.xiaomi.channel.commonutils.logger.MyLog;
 import com.xiaomi.push.service.clientReport.ReportConstants;
 import com.xiaomi.xmpush.thrift.ActionType;
 import com.xiaomi.xmpush.thrift.PushMetaInfo;
@@ -220,8 +221,28 @@ public class MIPushNotificationHelper {
         return xmPushActionContainer.getAction() == ActionType.Registration;
     }
 
+    /**
+     * Display notifications now route through {@link MyMIPushNotificationHelper} by default.
+     * The legacy publish chain is intentionally retained in source for quick rollback, but it is
+     * no longer active unless this guard is flipped during troubleshooting.
+     */
+    private static boolean shouldUseLegacyPublishChain(Context context, XmPushActionContainer xmPushActionContainer) {
+        return false;
+    }
+
     public static NotifyPushMessageInfo notifyPushMessage(Context context, XmPushActionContainer xmPushActionContainer, byte[] bArr) {
-        return MIPushNotificationPublishSupport.notifyPushMessage(context, xmPushActionContainer, bArr, notifyContainerCache);
+        if (shouldUseLegacyPublishChain(context, xmPushActionContainer)) {
+            return MIPushNotificationPublishSupport.notifyPushMessage(context, xmPushActionContainer, bArr, notifyContainerCache);
+        }
+        NotifyPushMessageInfo notifyPushMessageInfo = new NotifyPushMessageInfo();
+        notifyPushMessageInfo.targetPkgName = getTargetPackage(xmPushActionContainer);
+        try {
+            MyLog.w("NotificationHelper: route display notification to MyMIPushNotificationHelper; legacy publish chain retained but inactive");
+            MyMIPushNotificationHelper.notifyPushMessage(context, bArr);
+        } catch (Throwable th) {
+            MyLog.e(th);
+        }
+        return notifyPushMessageInfo;
     }
 
     public static void onNotificationRemoved(Context context, StatusBarNotification statusBarNotification) {

@@ -132,6 +132,7 @@ object NotificationController {
     ): Notification? {
         val extras = Bundle()
         extras.putString("target_package", packageName)
+        extras.putString("miui.targetPkg", packageName)
         notificationBuilder.addExtras(extras)
         processIcon(context, packageName, notificationBuilder)
 

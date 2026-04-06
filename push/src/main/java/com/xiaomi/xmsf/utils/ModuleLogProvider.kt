@@ -52,6 +52,7 @@ class ModuleLogProvider : ContentProvider() {
                 if (!logDir.exists()) {
                     logDir.mkdirs()
                 }
+                LogUtils.pruneModuleLogsForToday(logDir, now)
                 val file = File(logDir, "${source}_${fileDateFormat.format(now)}.txt")
                 val line = buildString {
                     append(logDateFormat.format(now))

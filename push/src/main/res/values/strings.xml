@@ -79,7 +79,7 @@
     <string name="settings_notify_on_register">Notify On App Register</string>
     <string name="settings_show_loaded_file_after_configurations_loaded">Show Loaded File After Configurations Loaded</string>
     <string name="settings_debug_mode">Enable debug mode</string>
-    <string name="settings_debug_mode_summary">Display the debug button in the notification, print full log</string>
+    <string name="settings_debug_mode_summary">Display debug actions in notifications, print full log</string>
     <string name="settings_show_all_events">Display all events</string>
     <string name="settings_start_foreground_service">Keep MiPush alive</string>
     <string name="settings_start_foreground_service_summary">Controls whether to keep showing the keep-alive foreground notification; startup still performs foreground promotion for system compatibility.</string>
