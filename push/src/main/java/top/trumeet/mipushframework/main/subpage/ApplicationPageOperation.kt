@@ -23,6 +23,7 @@ import top.trumeet.mipush.provider.db.EventDb
 import top.trumeet.mipush.provider.db.RegisteredApplicationDb
 import top.trumeet.mipush.provider.db.RegisteredApplicationDb.registerApplication
 import top.trumeet.mipush.provider.entities.RegisteredApplication
+import top.trumeet.mipushframework.main.RegistrationStateStyle
 import top.trumeet.mipushframework.utils.MiPushManifestChecker
 
 object ApplicationPageOperation {
@@ -267,7 +268,7 @@ object ApplicationPageOperation {
         while (iterator.hasNext()) {
             val info = iterator.next()
             val matched = when (filterMode) {
-                1 -> info.registeredType == RegisteredApplication.RegisteredType.Registered || info.lastReceiveTime.time > 0L
+                1 -> RegistrationStateStyle.isConfirmedRegistered(info)
                 2 -> info.registeredType == RegisteredApplication.RegisteredType.NotRegistered && info.lastReceiveTime.time == 0L
                 3 -> info.registeredType == RegisteredApplication.RegisteredType.Unregistered && info.lastReceiveTime.time == 0L
                 else -> true
@@ -282,14 +283,16 @@ object ApplicationPageOperation {
     fun sortApplicationsForDisplay(miPushApplications: MiPushApplications) {
         miPushApplications.res.sortWith { o1, o2 ->
             val p1 = when {
-                o1.registeredType == RegisteredApplication.RegisteredType.Registered || o1.lastReceiveTime.time > 0L -> 0
-                o1.registeredType == RegisteredApplication.RegisteredType.Unregistered -> 1
-                else -> 2
+                RegistrationStateStyle.isConfirmedRegistered(o1) -> 0
+                RegistrationStateStyle.hasObservedActivity(o1) -> 1
+                o1.registeredType == RegisteredApplication.RegisteredType.Unregistered -> 2
+                else -> 3
             }
             val p2 = when {
-                o2.registeredType == RegisteredApplication.RegisteredType.Registered || o2.lastReceiveTime.time > 0L -> 0
-                o2.registeredType == RegisteredApplication.RegisteredType.Unregistered -> 1
-                else -> 2
+                RegistrationStateStyle.isConfirmedRegistered(o2) -> 0
+                RegistrationStateStyle.hasObservedActivity(o2) -> 1
+                o2.registeredType == RegisteredApplication.RegisteredType.Unregistered -> 2
+                else -> 3
             }
 
             if (p1 != p2) return@sortWith p1 - p2

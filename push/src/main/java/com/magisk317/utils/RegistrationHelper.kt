@@ -334,7 +334,7 @@ class RegistrationHelper(
                 MyPushMessageHandler.forwardToTargetApplication(app, msgBytes)
             }.getOrNull()
             if (started != null) {
-                logger.i("force register via PushMessageHandler succeeded: $packageName")
+                logger.i("force register via PushMessageHandler dispatched: $packageName")
                 return
             }
             // Fallback to package-targeted broadcast for apps with nonstandard handlers.
@@ -344,7 +344,7 @@ class RegistrationHelper(
                 putExtra(PushConstants.MESSAGE_RECEIVE_TIME, System.currentTimeMillis())
             }
             app.sendBroadcast(intent, null)
-            logger.w("force register fell back to broadcast only: $packageName")
+            logger.w("force register dispatched via broadcast fallback: $packageName")
         }
 
         @JvmStatic

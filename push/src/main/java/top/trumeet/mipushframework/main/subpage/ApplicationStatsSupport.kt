@@ -3,7 +3,7 @@ package top.trumeet.mipushframework.main.subpage
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import top.trumeet.mipush.provider.entities.RegisteredApplication
+import top.trumeet.mipushframework.main.RegistrationStateStyle
 
 data class ApplicationStats(
     val total: Int = 0,
@@ -15,10 +15,7 @@ data class ApplicationStats(
 
 fun ApplicationPageOperation.MiPushApplications.toApplicationStats(): ApplicationStats {
     val usingMiPush = res.size
-    val registered = res.count {
-        it.registeredType == RegisteredApplication.RegisteredType.Registered ||
-            it.lastReceiveTime.time > 0L
-    }
+    val registered = res.count { RegistrationStateStyle.isConfirmedRegistered(it) }
     return ApplicationStats(
         total = totalPkg,
         usingMiPush = usingMiPush,

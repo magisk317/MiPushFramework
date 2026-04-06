@@ -11,6 +11,14 @@ object RegistrationStateStyle {
     val GreenColor = Color(0xff4caf50)
     val YellowColor = Color(0xffff9800)
 
+    fun isConfirmedRegistered(app: RegisteredApplication): Boolean {
+        return app.registeredType == RegisteredApplication.RegisteredType.Registered
+    }
+
+    fun hasObservedActivity(app: RegisteredApplication): Boolean {
+        return app.lastReceiveTime.time > 0L
+    }
+
     fun contentOf(app: RegisteredApplication, context: Context): Pair<String, Color> {
         val prefix =
             if (!app.existServices) context.getString(R.string.mipush_services_not_found) + " - "
@@ -22,8 +30,8 @@ object RegistrationStateStyle {
         return when (app.registeredType) {
             RegisteredApplication.RegisteredType.Registered -> context.getString(R.string.app_registered)
             else -> {
-                if (app.lastReceiveTime.time > 0L) {
-                    context.getString(R.string.app_registered)
+                if (hasObservedActivity(app)) {
+                    context.getString(R.string.app_registration_observed)
                 } else if (app.registeredType == RegisteredApplication.RegisteredType.Unregistered) {
                     context.getString(R.string.app_registered_error)
                 } else {
@@ -34,7 +42,7 @@ object RegistrationStateStyle {
     }
 
     fun registrationColorOf(app: RegisteredApplication): Color {
-        return if (app.lastReceiveTime.time > 0L) GreenColor
+        return if (hasObservedActivity(app) && !isConfirmedRegistered(app)) YellowColor
         else when (app.registeredType) {
             RegisteredApplication.RegisteredType.Registered -> GreenColor
             RegisteredApplication.RegisteredType.Unregistered -> YellowColor
