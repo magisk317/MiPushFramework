@@ -29,9 +29,6 @@ jobs:
           java-version: "25"
           cache: gradle
 
-      - name: Normalize Android SDK platform aliases
-        run: bash scripts/ensure_android_sdk_platform_alias.sh
-
       - name: Run janitor sync and validation
         env:
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}

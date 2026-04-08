@@ -24,9 +24,6 @@ jobs:
           distribution: temurin
           java-version: 25
 
-      - name: Normalize Android SDK platform aliases
-        run: bash scripts/ensure_android_sdk_platform_alias.sh
-
       - name: Validate security override files
         env:
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
