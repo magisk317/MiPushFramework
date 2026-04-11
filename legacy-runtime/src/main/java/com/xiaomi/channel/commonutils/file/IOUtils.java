@@ -1,7 +1,6 @@
 package com.xiaomi.channel.commonutils.file;
 
 import android.text.TextUtils;
-import com.google.protobuf.micro.CodedOutputStreamMicro;
 import com.xiaomi.channel.commonutils.logger.MyLog;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -29,6 +28,7 @@ import java.util.zip.ZipOutputStream;
 /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/channel/commonutils/file/IOUtils.class */
 public class IOUtils {
     private static final int BUFFER_SIZE = 1024;
+    private static final int STREAM_BUFFER_SIZE = 4096;
     public static final String[] SUPPORTED_IMAGE_FORMATS = {"jpg", "png", "bmp", "gif", "webp"};
 
     public static void closeQuietly(Closeable closeable) {
@@ -164,7 +164,7 @@ public class IOUtils {
     public static byte[] getFileMD5Digest(String str) throws NoSuchAlgorithmException, IOException {
         MessageDigest messageDigest = MessageDigest.getInstance("MD5");
         FileInputStream fileInputStream = new FileInputStream(new File(str));
-        byte[] bArr = new byte[CodedOutputStreamMicro.DEFAULT_BUFFER_SIZE];
+        byte[] bArr = new byte[STREAM_BUFFER_SIZE];
         while (true) {
             int i = fileInputStream.read(bArr);
             if (i != -1) {
@@ -180,7 +180,7 @@ public class IOUtils {
     public static byte[] getFileSha1Digest(String str) throws NoSuchAlgorithmException, IOException {
         MessageDigest messageDigest = MessageDigest.getInstance("SHA1");
         FileInputStream fileInputStream = new FileInputStream(new File(str));
-        byte[] bArr = new byte[CodedOutputStreamMicro.DEFAULT_BUFFER_SIZE];
+        byte[] bArr = new byte[STREAM_BUFFER_SIZE];
         while (true) {
             int i = fileInputStream.read(bArr);
             if (i != -1) {
@@ -298,7 +298,7 @@ public class IOUtils {
         }
         try {
             ZipInputStream zipInputStream = new ZipInputStream(new BufferedInputStream(new FileInputStream(str)));
-            byte[] bArr = new byte[CodedOutputStreamMicro.DEFAULT_BUFFER_SIZE];
+            byte[] bArr = new byte[STREAM_BUFFER_SIZE];
             while (true) {
                 ZipEntry nextEntry = zipInputStream.getNextEntry();
                 if (nextEntry == null) {
@@ -313,9 +313,9 @@ public class IOUtils {
                         file2.mkdirs();
                         hideFromMediaScanner(file2);
                     }
-                    BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(new FileOutputStream(file), CodedOutputStreamMicro.DEFAULT_BUFFER_SIZE);
+                    BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(new FileOutputStream(file), STREAM_BUFFER_SIZE);
                     while (true) {
-                        int i = zipInputStream.read(bArr, 0, CodedOutputStreamMicro.DEFAULT_BUFFER_SIZE);
+                        int i = zipInputStream.read(bArr, 0, STREAM_BUFFER_SIZE);
                         if (i == -1) {
                             break;
                         }

@@ -5,7 +5,6 @@ import android.content.Context;
 import android.os.Debug;
 import android.os.Process;
 import android.util.Log;
-import com.xiaomi.channel.commonutils.android.MIUIUtils;
 import com.xiaomi.channel.commonutils.string.XMStringUtils;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -14,6 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/channel/commonutils/logger/MyLog.class */
 public abstract class MyLog {
+    private static final String XMSF_PACKAGE_NAME = "com.xiaomi.xmsf";
     public static final int DEBUG = 1;
     public static final int ERROR = 4;
     public static final int FATAL = 5;
@@ -79,7 +79,7 @@ public abstract class MyLog {
 
     public static void init(Context context) {
         sContext = context;
-        if (MIUIUtils.isXMSF(context)) {
+        if (context != null && XMSF_PACKAGE_NAME.equals(context.getPackageName())) {
             isXMSF = true;
         }
     }
