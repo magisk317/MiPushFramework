@@ -75,7 +75,7 @@ object MIPushNotificationPublishSupport {
             )
             notifyInfo.traffic = result.trafficSize
             notifyInfo.targetPkgName = targetPackage
-            notification = result.notification
+            notification = result.notification ?: return notifyInfo
         } else {
             notification = MIPushNotificationPlatformSupport.buildLegacyNotification(
                 context,
