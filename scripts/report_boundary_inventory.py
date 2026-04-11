@@ -24,11 +24,13 @@ LAYER_RULES = [
     ("legacy-runtime", "push/src/main/java/com/xiaomi/tinyData/"),
     ("legacy-runtime", "push/src/main/java/com/xiaomi/common/logger/"),
     ("legacy-runtime", "push/src/main/java/com/xiaomi/push/mpcd/"),
+    ("legacy-runtime", "push-legacy-runtime/src/main/java/"),
     ("frozen-protocol", "push/src/main/java/org/apache/thrift/"),
     ("frozen-protocol", "push/src/main/java/com/google/protobuf/micro/"),
     ("frozen-protocol", "push/src/main/java/com/xiaomi/xmpush/thrift/"),
     ("frozen-protocol", "push/src/main/java/com/xiaomi/push/protobuf/"),
     ("frozen-protocol", "push/src/main/java/com/xiaomi/push/thrift/"),
+    ("frozen-protocol", "push-protocol-frozen/src/main/java/"),
 ]
 
 DELETE_PREFIXES = (
@@ -61,7 +63,15 @@ def classify(path: str) -> str:
 
 
 def package_bucket(path: str) -> str:
-    rel = path.removeprefix("push/src/main/java/")
+    rel = path
+    for prefix in (
+        "push/src/main/java/",
+        "push-legacy-runtime/src/main/java/",
+        "push-protocol-frozen/src/main/java/",
+    ):
+        if rel.startswith(prefix):
+            rel = rel.removeprefix(prefix)
+            break
     parts = rel.split("/")
     return "/".join(parts[:4]) if len(parts) >= 4 else rel
 
@@ -80,7 +90,11 @@ def main() -> int:
     counts = Counter()
     buckets = defaultdict(list)
     for path in files:
-        if not path.startswith("push/src/main/java/"):
+        if not (
+            path.startswith("push/src/main/java/")
+            or path.startswith("push-legacy-runtime/src/main/java/")
+            or path.startswith("push-protocol-frozen/src/main/java/")
+        ):
             continue
         layer = classify(path)
         counts[layer] += 1
@@ -89,7 +103,7 @@ def main() -> int:
     lines: list[str] = []
     lines.append("# Boundary Inventory")
     lines.append("")
-    lines.append("Generated from git-tracked `*.java`/`*.kt` under `push/src/main/java`.")
+    lines.append("Generated from git-tracked `*.java`/`*.kt` under `push`, `push-legacy-runtime`, and `push-protocol-frozen` source roots.")
     lines.append("")
     lines.append("## Layer Counts")
     lines.append("")
