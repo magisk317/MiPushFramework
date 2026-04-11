@@ -34,6 +34,10 @@ class LongConnUploader(
 
                 override fun process() {
                     val appId = getAppId(packageName)
+                    if (appId == null) {
+                        MyLog.e("TinyData LongConnUploader.upload missing appId for $packageName")
+                        return
+                    }
                     val notifications = TinyDataHelper.pack(items, packageName, appId, Blob.MAX_BLOB_SIZE)
                     if (notifications == null) {
                         MyLog.e("TinyData LongConnUploader.upload Get a null XmPushActionNotification list when TinyDataHelper.pack() in XMPushService.")
