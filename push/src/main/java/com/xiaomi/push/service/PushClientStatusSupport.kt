@@ -13,10 +13,11 @@ internal object PushClientStatusSupport {
         reason: Int,
         errorType: String?,
     ): Boolean {
+        val pushService = clientLoginInfo.getPushService()
         return when (type) {
             1 -> {
                 if (clientLoginInfo.status == PushClientsManager.ClientStatus.binded ||
-                    !clientLoginInfo.getPushService().isConnected ||
+                    pushService?.isConnected != true ||
                     reason == 21
                 ) {
                     false
@@ -25,7 +26,7 @@ internal object PushClientStatusSupport {
                 }
             }
 
-            2 -> clientLoginInfo.getPushService().isConnected
+            2 -> pushService?.isConnected == true
             3 -> errorType != "wait"
             else -> false
         }
@@ -41,14 +42,16 @@ internal object PushClientStatusSupport {
     ) {
         val currentStatus = clientLoginInfo.status
         clientLoginInfo.notifiedStatus = currentStatus
+        val dispatcher = clientLoginInfo.mClientEventDispatcher ?: return
+        val pushService = clientLoginInfo.getPushService()
         when (type) {
-            2 -> clientLoginInfo.mClientEventDispatcher.notifyChannelClosed(
+            2 -> dispatcher.notifyChannelClosed(
                 clientLoginInfo.context,
                 clientLoginInfo,
                 reason,
             )
 
-            3 -> clientLoginInfo.mClientEventDispatcher.notifyKickedByServer(
+            3 -> dispatcher.notifyKickedByServer(
                 clientLoginInfo.context,
                 clientLoginInfo,
                 errorType,
@@ -61,21 +64,22 @@ internal object PushClientStatusSupport {
                     clientLoginInfo.currentRetrys++
                 } else if (isBound) {
                     clientLoginInfo.currentRetrys = 0
-                    if (clientLoginInfo.peer != null) {
+                    val peer = clientLoginInfo.peer
+                    if (peer != null && pushService != null) {
                         try {
-                            clientLoginInfo.peer.send(
+                            peer.send(
                                 Message.obtain(
                                     null,
                                     16,
-                                    clientLoginInfo.getPushService().serviceMessenger,
+                                    pushService.serviceMessenger,
                                 ),
                             )
                         } catch (_: RemoteException) {
                         }
                     }
                 }
-                clientLoginInfo.mClientEventDispatcher.notifyChannelOpenResult(
-                    clientLoginInfo.getPushService(),
+                dispatcher.notifyChannelOpenResult(
+                    pushService,
                     clientLoginInfo,
                     isBound,
                     reason,
@@ -101,7 +105,8 @@ internal object PushClientStatusSupport {
             logInfo(" status recovered, don't notify client:${clientLoginInfo.chid}")
             return false
         }
-        if (clientLoginInfo.peer == null || !clientLoginInfo.hasPeerSupport) {
+        val peer = clientLoginInfo.peer
+        if (peer == null || !clientLoginInfo.hasPeerSupport) {
             logInfo("peer died, ignore notify ${clientLoginInfo.chid}")
             return false
         }
@@ -137,7 +142,8 @@ internal object PushClientStatusSupport {
         if (clientLoginInfo.notifiedStatus == null || !clientLoginInfo.hasPeerSupport) {
             return 0
         }
-        return if (clientLoginInfo.peer != null && clientLoginInfo.hasPeerSupport) 1000 else 10100
+        val peer = clientLoginInfo.peer
+        return if (peer != null && clientLoginInfo.hasPeerSupport) 1000 else 10100
     }
 
     private fun logInfo(message: String) {

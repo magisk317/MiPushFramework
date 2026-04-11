@@ -155,16 +155,16 @@ object PushChannelOpenRuntime {
         clientEventDispatcher: ClientEventDispatcher,
         context: Context
     ) {
-        client.chid = request.channelId
-        client.userId = request.userId
-        client.token = request.token
-        client.pkgName = request.packageName
-        client.clientExtra = request.clientExtra
-        client.cloudExtra = request.cloudExtra
+        client.chid = request.channelId.orEmpty()
+        client.userId = request.userId.orEmpty()
+        client.token = request.token.orEmpty()
+        client.pkgName = request.packageName.orEmpty()
+        client.clientExtra = request.clientExtra.orEmpty()
+        client.cloudExtra = request.cloudExtra.orEmpty()
         client.kick = request.kick
-        client.security = request.security
-        client.session = request.session
-        client.authMethod = request.authMethod
+        client.security = request.security.orEmpty()
+        client.session = request.session.orEmpty()
+        client.authMethod = request.authMethod.orEmpty()
         client.mClientEventDispatcher = clientEventDispatcher
         client.watch(request.messenger)
         client.context = context

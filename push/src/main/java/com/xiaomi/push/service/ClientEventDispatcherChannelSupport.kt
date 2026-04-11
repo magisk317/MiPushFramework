@@ -166,14 +166,16 @@ internal object ClientEventDispatcherChannelSupport {
         clientLoginInfo: PushClientsManager.ClientLoginInfo,
         allowPeer: Boolean
     ) {
-        if (allowPeer && clientLoginInfo.peer != null && "9" == clientLoginInfo.chid) {
+        val peer = clientLoginInfo.peer
+        if (allowPeer && peer != null && "9" == clientLoginInfo.chid) {
             val msg = Message.obtain(null, 17, intent)
             try {
-                clientLoginInfo.peer.send(msg)
+                peer.send(msg)
                 return
             } catch (_: RemoteException) {
                 clientLoginInfo.peer = null
-                MyLog.w("peer may died: " + clientLoginInfo.userId.substring(clientLoginInfo.userId.lastIndexOf('@')))
+                val userId = clientLoginInfo.userId
+                MyLog.w("peer may died: " + userId.substring(userId.lastIndexOf('@')))
             }
         }
         sendBroadcast(context, intent, clientLoginInfo)

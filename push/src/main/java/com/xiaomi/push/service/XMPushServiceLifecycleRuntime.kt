@@ -26,7 +26,7 @@ class XMPushServiceLifecycleRuntime(
             object : PushClientsManager.ClientChangeListener {
                 override fun onChange() {
                     service.updateAlarmTimer()
-                    if (PushClientsManager.getInstance().activeClientCount <= 0) {
+                    if (PushClientsManager.getInstance().getActiveClientCount() <= 0) {
                         service.executeJob(DisconnectJob(service, 12, null))
                     }
                 }
@@ -148,7 +148,7 @@ class XMPushServiceLifecycleRuntime(
             Alarm.registerPing(true)
         }
         if (plan.shouldBindAllClients) {
-            PushClientsManager.getInstance().allClients.forEach { client ->
+            PushClientsManager.getInstance().getAllClients().forEach { client ->
                 service.executeJob(BindJob(service, client))
             }
         }

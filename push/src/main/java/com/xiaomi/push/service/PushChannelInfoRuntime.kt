@@ -62,11 +62,11 @@ object PushChannelInfoRuntime {
         var updatedClientExtra = false
         var updatedCloudExtra = false
         if (hasClientAttr && client.clientExtra != clientAttr) {
-            client.clientExtra = clientAttr
+            client.clientExtra = clientAttr.orEmpty()
             updatedClientExtra = true
         }
         if (hasCloudAttr && client.cloudExtra != cloudAttr) {
-            client.cloudExtra = cloudAttr
+            client.cloudExtra = cloudAttr.orEmpty()
             updatedCloudExtra = true
         }
         return PushChannelInfoUpdateResult(

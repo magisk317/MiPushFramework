@@ -93,7 +93,7 @@ class XMPushServiceConnectionDelegate(
         if (clientLoginInfo == null) {
             return
         }
-        val nextRetryInterval = clientLoginInfo.nextRetryInterval
+        val nextRetryInterval = clientLoginInfo.getNextRetryInterval()
         MyLog.w("schedule rebind job in ${nextRetryInterval / 1000}")
         service.executeJobDelayed(BindJob(service, clientLoginInfo), nextRetryInterval)
     }

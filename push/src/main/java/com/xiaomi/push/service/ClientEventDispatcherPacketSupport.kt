@@ -24,7 +24,7 @@ internal object ClientEventDispatcherPacketSupport {
         val clients = PushClientsManager.getInstance()
             .getAllClientLoginInfoByChid(Integer.toString(blob.channelId))
         if (clients.isEmpty()) return null
-        if (clients.size == 1) return clients.first()
+        if (clients.count() == 1) return clients.first()
         val fullUserName = blob.fullUserName
         for (item in clients) {
             if (TextUtils.equals(fullUserName, item.userId)) {
@@ -37,7 +37,7 @@ internal object ClientEventDispatcherPacketSupport {
     fun getClientLoginInfo(packet: Packet): PushClientsManager.ClientLoginInfo? {
         val clients = PushClientsManager.getInstance().getAllClientLoginInfoByChid(packet.channelId)
         if (clients.isEmpty()) return null
-        if (clients.size == 1) return clients.first()
+        if (clients.count() == 1) return clients.first()
         val from = packet.from
         val to = packet.to
         for (item in clients) {
@@ -71,14 +71,16 @@ internal object ClientEventDispatcherPacketSupport {
             putExtra(PushConstants.EXTRA_SESSION, clientLoginInfo.session)
             putExtra(PushConstants.EXTRA_SECURITY, clientLoginInfo.security)
         }
-        if (clientLoginInfo.peer != null) {
+        val peer = clientLoginInfo.peer
+        if (peer != null) {
             val msg = Message.obtain(null, 17, intent)
             try {
-                clientLoginInfo.peer.send(msg)
+                peer.send(msg)
                 return
             } catch (_: RemoteException) {
                 clientLoginInfo.peer = null
-                MyLog.w("peer may died: " + clientLoginInfo.userId.substring(clientLoginInfo.userId.lastIndexOf('@')))
+                val userId = clientLoginInfo.userId
+                MyLog.w("peer may died: " + userId.substring(userId.lastIndexOf('@')))
             }
         }
         if ("com.xiaomi.xmsf" != pkgName) {

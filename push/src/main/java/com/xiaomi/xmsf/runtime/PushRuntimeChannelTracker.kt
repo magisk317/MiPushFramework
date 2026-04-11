@@ -45,7 +45,7 @@ object PushRuntimeChannelTracker {
             }
             val host = service?.currentConnection?.host
             val nowMs = System.currentTimeMillis()
-            val records = PushClientsManager.getInstance().allClients.map { client ->
+            val records = PushClientsManager.getInstance().getAllClients().map { client ->
                 PushChannelRecord(
                     packageName = client.pkgName,
                     channelId = client.chid,
