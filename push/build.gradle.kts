@@ -25,8 +25,6 @@ android {
         versionCode = pushVersionCode
         versionName = versionNameStr
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
         ndk {
             abiFilters.addAll(listOf("armeabi-v7a", "x86", "arm64-v8a", "x86_64"))
         }
@@ -34,28 +32,11 @@ android {
         buildConfigField("String", "GIT_TAG", "\"$versionNameStr\"")
     }
 
-    sourceSets {
-        getByName("androidTest").assets.directories.add("$projectDir/schemas")
-    }
-
     buildTypes {
         release {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
-}
-
-tasks.withType<org.gradle.api.tasks.compile.JavaCompile>().configureEach {
-    options.isWarnings = false
-    options.isDeprecation = false
-    options.compilerArgs.addAll(
-        listOf(
-            "-nowarn",
-            "-Xlint:none",
-            "-Xlint:-deprecation",
-            "-Xlint:-unchecked",
-        ),
-    )
 }
 
 tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
@@ -73,13 +54,12 @@ dependencies {
     implementation(libs.libsu.core)
 
     implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.compose.material.icons.core)
+    implementation(libs.androidx.compose.material.icons.extended)
 
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.test.ext)
-    androidTestImplementation(libs.androidx.test.espresso)
-    androidTestImplementation(libs.androidx.room.testing)
-    androidTestImplementation(libs.mockito.android)
-    testImplementation(libs.mockito.core)
+    testImplementation(libs.junit.jupiter)
+    testImplementation(libs.mockkery.runtime.jvm)
+    testRuntimeOnly(libs.junit.platform.launcher)
 
     implementation(libs.palette)
     implementation(libs.androidx.startup.runtime)

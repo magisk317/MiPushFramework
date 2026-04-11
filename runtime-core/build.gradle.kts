@@ -25,5 +25,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.napier)
 
-    testImplementation(libs.junit)
+    testImplementation(libs.junit.jupiter)
+    testImplementation(libs.mockkery.runtime.jvm)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }

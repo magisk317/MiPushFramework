@@ -24,7 +24,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.annotation)
     // javax.inject no longer needed; annotations removed from common caches
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.test.ext)
-    androidTestImplementation(libs.androidx.test.espresso)
+    testImplementation(libs.junit.jupiter)
+    testImplementation(libs.mockkery.runtime.jvm)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }

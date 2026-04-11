@@ -6,13 +6,15 @@
 [![Dependency Submission](https://github.com/magisk317/MiPushFramework/actions/workflows/dependency-submission.yml/badge.svg?branch=dev)](https://github.com/magisk317/MiPushFramework/actions/workflows/dependency-submission.yml)
 [![Latest Release](https://img.shields.io/github/v/release/magisk317/MiPushFramework)](https://github.com/magisk317/MiPushFramework/releases)
 [![License GPL-3.0](https://img.shields.io/badge/license-GPLv3.0-blue.svg)](LICENSE)
-![Android 7.0+](https://img.shields.io/badge/Android-7.0%2B-3DDC84?logo=android&logoColor=white)
+![Android 9.0+](https://img.shields.io/badge/Android-9.0%2B-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.x-7F52FF?logo=kotlin&logoColor=white)
-![Java](https://img.shields.io/badge/Java-17%2B-E76F00?logo=openjdk&logoColor=white)
+![Java](https://img.shields.io/badge/Java-25%2B-E76F00?logo=openjdk&logoColor=white)
 ![Gradle](https://img.shields.io/badge/Gradle-9.x-02303A?logo=gradle&logoColor=white)
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material3-4285F4?logo=jetpackcompose&logoColor=white)
 
 在非 MIUI 系统上体验小米系统级推送。
+
+当前开发分支的最低支持版本已经提升到 Android 9.0（API 28），构建环境也已经对齐到 Java 25+（JDK 25）/ Gradle 9.x。如果你是从旧文档或历史 release 了解这个项目，请以 `gradle/libs.versions.toml` 中的构建参数为准。
 
 ## 什么是小米系统级推送，为什么会有这个项目
 

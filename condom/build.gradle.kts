@@ -7,7 +7,6 @@ android {
 
     defaultConfig {
         buildConfigField("boolean", "DEBUG_CONDOM", "true")
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     lint {
@@ -29,9 +28,8 @@ android {
 
 dependencies {
     implementation(libs.androidx.annotation)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.test.ext)
-    androidTestImplementation(libs.androidx.test.espresso)
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 tasks.register<Jar>("sourcesJar") {
