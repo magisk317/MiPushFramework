@@ -53,7 +53,7 @@ object MIPushOnlineResourceSupport {
                 return null
             }
             if (picUrl.startsWith("http")) {
-                return NotificationIconHelper.getIconFromUrl(context, picUrl, isSizeLimited)?.bitmap.also { bitmap ->
+                return NotificationIconHelper.getIconFromUrl(context, picUrl, isSizeLimited).bitmap.also { bitmap ->
                     if (bitmap == null) {
                         MyLog.w("Failed get online picture/icon resource")
                     }
