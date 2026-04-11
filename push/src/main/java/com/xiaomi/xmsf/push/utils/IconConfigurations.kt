@@ -14,7 +14,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.Serializable
 import org.json.JSONException
 import com.magisk317.Global
-import com.magisk317.utils.Singleton
+import io.github.magisk317.mipush.common.utils.Singleton
 import io.github.magisk317.mipush.common.utils.Utils
 import com.xiaomi.xmsf.utils.ConfigCenter
 import kotlinx.coroutines.runBlocking
@@ -27,11 +27,11 @@ class IconConfigurations @Inject constructor(
     private val configCenter: ConfigCenter
 ) {
     // No-arg fallback for legacy Singleton access.
-    constructor() : this(com.magisk317.utils.Singleton.instance<ConfigCenter>())
+    constructor() : this(io.github.magisk317.mipush.common.utils.Singleton.instance<ConfigCenter>())
 
     init {
         try {
-            com.magisk317.utils.Singleton.reset(this)
+            io.github.magisk317.mipush.common.utils.Singleton.reset(this)
         } catch (_: Throwable) {}
     }
     private val iconConfigs = hashMapOf<String, IconConfig>()

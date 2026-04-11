@@ -1,7 +1,7 @@
 package com.magisk317
 
 import com.magisk317.service.RegistrationRecorder
-import com.magisk317.utils.Singleton
+import io.github.magisk317.mipush.common.utils.Singleton
 import com.xiaomi.xmsf.push.utils.ConfigValueConverter
 import com.xiaomi.xmsf.push.utils.IconConfigurations
 import com.xiaomi.xmsf.utils.ConfigCenter

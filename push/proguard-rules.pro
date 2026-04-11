@@ -36,8 +36,8 @@ public static java.lang.String TABLENAME;
 -keepclassmembers class com.xiaomi.xmsf.push.utils.IconConfigurations { <init>(); }
 -keepclassmembers class com.xiaomi.xmsf.utils.ConfigCenter { <init>(); }
 -keepclassmembers class com.xiaomi.xmsf.push.utils.Configurations { <init>(); }
--keepclassmembers class top.trumeet.common.cache.ApplicationNameCache { <init>(); }
--keepclassmembers class top.trumeet.common.cache.IconCache { <init>(); }
+-keepclassmembers class io.github.magisk317.mipush.common.cache.ApplicationNameCache { <init>(); }
+-keepclassmembers class io.github.magisk317.mipush.common.cache.IconCache { <init>(); }
 
 # Avoid R8 horizontal class merging/obfuscation side effects in wizard permission operators.
 -keep class top.trumeet.mipushframework.wizard.permission.** { *; }

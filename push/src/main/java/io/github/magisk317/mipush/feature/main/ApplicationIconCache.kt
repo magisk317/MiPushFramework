@@ -21,7 +21,7 @@ class ApplicationIconCache @Inject constructor(@param:ApplicationContext val con
 
     init {
         try {
-            com.magisk317.utils.Singleton.reset(this)
+            io.github.magisk317.mipush.common.utils.Singleton.reset(this)
         } catch (_: Throwable) {}
     }
 

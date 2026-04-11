@@ -1,7 +1,5 @@
 package io.github.magisk317.mipush.common
 
-import top.trumeet.common.BuildConfig
-
 /**
  * Created by Trumeet on 2017/8/24.
  * Constants
@@ -12,8 +10,6 @@ object Constants {
      * Default app log tag
      */
     const val TAG = "Xiaomi"
-
-    const val TAG_CONDOM = "$TAG-Condom"
 
     const val WIZARD_SP_NAME = "wizard"
     const val KEY_SHOW_WIZARD = "show_wizard"

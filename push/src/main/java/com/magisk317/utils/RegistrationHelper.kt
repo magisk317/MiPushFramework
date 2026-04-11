@@ -5,7 +5,7 @@ import android.content.Intent
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import com.magisk317.XMPushUtils
-import com.magisk317.compat.PackageManagerCompatBridge
+import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import com.topjohnwu.superuser.Shell
 import com.xiaomi.push.sdk.MyPushMessageHandler
 import com.xiaomi.push.service.PushConstants

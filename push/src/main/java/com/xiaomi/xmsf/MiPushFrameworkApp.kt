@@ -20,18 +20,14 @@ import com.xiaomi.xmsf.utils.LogUtils
 import com.magisk317.notification.NotificationManagerEx
 import com.magisk317.utils.Hooker
 import com.magisk317.utils.PrivilegeElevator
-import com.oasisfeng.condom.CondomOptions
-import com.oasisfeng.condom.CondomProcess
 import com.xiaomi.xmsf.CrashHandler
 import com.xiaomi.xmsf.push.control.PushControllerUtils
 import com.xiaomi.xmsf.push.control.PushControllerUtils.isAppMainProc
-import com.xiaomi.xmsf.push.control.XMOutbound
 import com.xiaomi.xmsf.push.notification.NotificationController.CHANNEL_WARN
 import com.xiaomi.xmsf.push.service.MiuiPushActivateService
 import com.xiaomi.xmsf.runtime.PushRuntimeChannelTracker
 import com.xiaomi.xmsf.runtime.PushRuntimeExecutionBridge
 import io.github.magisk317.mipush.common.Constants
-import io.github.magisk317.mipush.common.Constants.TAG_CONDOM
 import io.github.magisk317.mipush.platform.service.PushServiceAccessibility
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.DatabaseUtils
@@ -67,7 +63,6 @@ class MiPushFrameworkApp : Application() {
         NotificationManagerEx.init(applicationContext)
         PushRuntimeExecutionBridge.attach(this)
         PushRuntimeChannelTracker.attach(this)
-        installCondom()
         PushControllerUtils.setAllEnable(true, this)
         awakePushActivateServiceOnMainProc(PushControllerUtils.wrapContext(this))
         requestDozeWhiteList()
@@ -94,11 +89,6 @@ class MiPushFrameworkApp : Application() {
                 MiuiPushActivateService.awakePushActivateService(context, "com.xiaomi.xmsf.push.SCAN")
             }
         }
-    }
-
-    private fun installCondom() {
-        val options: CondomOptions = XMOutbound.create(this, "${TAG_CONDOM}_PROCESS", false)
-        CondomProcess.installExceptDefaultProcess(this, options)
     }
 
     private fun initBasicLogger() {

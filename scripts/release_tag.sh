@@ -25,7 +25,6 @@ run_pre_push_checks() {
       :checkNoLegacyNihilityImports \
       :checkNoLegacyDialogActionButtons \
       :common:check \
-      :condom:check \
       :push:assembleDebug \
       :push:testDebugUnitTest \
       -PbuildSplits \

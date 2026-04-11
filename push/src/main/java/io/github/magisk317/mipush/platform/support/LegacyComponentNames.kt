@@ -9,7 +9,7 @@ object LegacyComponentNames {
     const val RECENT_EVENT_LIST_PAGE = "top.trumeet.mipushframework.main.RecentEventListPage"
     const val REQUEST_PERMISSION_PAGE = "top.trumeet.mipushframework.wizard.RequestPermissionPage"
     const val WELCOME_ACTIVITY = "top.trumeet.mipushframework.wizard.WelcomeActivity"
-    const val DETECTION_SERVICE = "top.trumeet.common.ita.DetectionService"
+    const val DETECTION_SERVICE = "io.github.magisk317.mipush.platform.activity.DetectionService"
 
     val manifestActivities = setOf(
         MAIN_ACTIVITY,

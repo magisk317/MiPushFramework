@@ -2,19 +2,14 @@ package com.magisk317.service
 
 import android.os.Build
 import com.magisk317.Global
-import com.oasisfeng.condom.CondomContext
-import com.xiaomi.channel.commonutils.reflect.JavaCalls
 import com.xiaomi.push.revival.NotificationsRevivalForSelfUpdated
 import com.xiaomi.push.service.XMPushService
 import com.xiaomi.push.service.XMPushServiceMessenger
-import com.xiaomi.xmsf.push.control.XMOutbound
-import io.github.magisk317.mipush.common.Constants.TAG_CONDOM
 
 object XMPushServiceAbilityAssembler {
     @JvmStatic
     fun prepare(pushService: XMPushService) {
         Global.RegistrationRecorder().initContext(pushService)
-        wrapCondomContext(pushService)
     }
 
     @JvmStatic
@@ -33,18 +28,5 @@ object XMPushServiceAbilityAssembler {
         }
         listeners += PullAllApplicationDataAbility(pushService)
         return listeners
-    }
-
-    private fun wrapCondomContext(pushService: XMPushService) {
-        val base = pushService.baseContext
-        JavaCalls.setField(
-            pushService,
-            "mBase",
-            CondomContext.wrap(
-                base,
-                TAG_CONDOM,
-                XMOutbound.create(base, XMPushServiceAbilityAssembler::class.java.simpleName)
-            )
-        )
     }
 }

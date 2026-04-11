@@ -45,7 +45,6 @@ tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
 
 dependencies {
     implementation(project(":common"))
-    implementation(project(":condom"))
     implementation(project(":runtime-core"))
     implementation(project(":magisk-ui-kit"))
     implementation(project(":legacy-runtime"))

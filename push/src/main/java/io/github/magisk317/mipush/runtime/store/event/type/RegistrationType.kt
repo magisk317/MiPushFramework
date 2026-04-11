@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.runtime.store.event.type
 
 import android.content.Context
-import top.trumeet.common.R
+import io.github.magisk317.mipush.common.R
 import io.github.magisk317.mipush.runtime.store.entities.Event
 import io.github.magisk317.mipush.runtime.store.event.EventType
 

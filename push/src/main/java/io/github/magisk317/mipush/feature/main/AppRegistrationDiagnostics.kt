@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.feature.main
 
 import android.content.Context
 import android.content.pm.PackageManager
-import com.magisk317.compat.PackageManagerCompatBridge
+import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import com.magisk317.compat.RegistrationStateCompat
 import com.magisk317.utils.RegistrationHelper
 import kotlinx.coroutines.delay

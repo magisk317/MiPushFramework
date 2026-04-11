@@ -44,7 +44,7 @@ class EventRepository @Inject constructor(
     // No-arg fallback for legacy Singleton access.
     constructor() : this(
         io.github.magisk317.mipush.common.utils.Utils.getApplication()!!,
-        com.magisk317.utils.Singleton.instance<ConfigCenter>(),
+        io.github.magisk317.mipush.common.utils.Singleton.instance<ConfigCenter>(),
         Configurations.getInstance()
         ,
         ConfigNavigationHelper(),
@@ -52,7 +52,7 @@ class EventRepository @Inject constructor(
 
     init {
         try {
-            com.magisk317.utils.Singleton.reset(this)
+            io.github.magisk317.mipush.common.utils.Singleton.reset(this)
         } catch (_: Throwable) {}
     }
 

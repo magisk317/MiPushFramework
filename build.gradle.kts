@@ -264,8 +264,6 @@ tasks.register("checkNoLegacyCommonPackages") {
                 .filter { it.isFile && (it.extension == "kt" || it.extension == "java") }
                 .forEach { file ->
                     val rel = file.relativeTo(commonSourceRoot).invariantSeparatorsPath
-                    if (rel == "top/trumeet/common/ita/DetectionService.kt") return@forEach
-
                     file.useLines { lines ->
                         lines.forEachIndexed { index, line ->
                             if (line.contains("package top.trumeet.common")) {
@@ -286,8 +284,7 @@ tasks.register("checkNoLegacyCommonPackages") {
                     file.useLines { lines ->
                         lines.forEachIndexed { index, line ->
                             val hasLegacyImport = line.contains("top.trumeet.common")
-                            val allowedImport = line.contains("top.trumeet.common.R") || line.contains("top.trumeet.common.BuildConfig")
-                            if (hasLegacyImport && !allowedImport) {
+                            if (hasLegacyImport) {
                                 violations += "$rel:${index + 1}"
                             }
                         }
@@ -313,7 +310,6 @@ tasks.register("checkLegacyCompatEntryPointsOnly") {
         projectRoot.resolve("push/src/main/java/top/trumeet/mipushframework"),
         projectRoot.resolve("push/src/main/java/top/trumeet/mipush"),
         projectRoot.resolve("push/src/test/java/top/trumeet/mipush"),
-        projectRoot.resolve("common/src/main/java/top/trumeet/common"),
     )
     val allowedFiles = setOf(
         "push/src/main/java/top/trumeet/mipushframework/main/MainActivity.kt",
@@ -322,7 +318,6 @@ tasks.register("checkLegacyCompatEntryPointsOnly") {
         "push/src/main/java/top/trumeet/mipushframework/main/RecentEventListPage.kt",
         "push/src/main/java/top/trumeet/mipushframework/wizard/RequestPermissionPage.kt",
         "push/src/main/java/top/trumeet/mipushframework/wizard/WelcomeActivity.kt",
-        "common/src/main/java/top/trumeet/common/ita/DetectionService.kt",
     )
 
     doLast {

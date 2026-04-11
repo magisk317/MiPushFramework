@@ -62,10 +62,6 @@ class LegacyCompatContractTest {
             "src/main/java/io/github/magisk317/mipush/platform/support/LegacyUiEntryPoints.kt",
             "LegacyComponentNames.MAIN_ACTIVITY",
         )
-        assertSourceContains(
-            "../common/src/main/java/top/trumeet/common/ita/DetectionService.kt",
-            "class DetectionService : io.github.magisk317.mipush.platform.activity.DetectionService()",
-        )
     }
 
     private fun parseManifest() = DocumentBuilderFactory.newInstance()

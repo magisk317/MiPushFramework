@@ -11,9 +11,10 @@ import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresPermission
+import io.github.magisk317.mipush.common.R
 import io.github.magisk317.mipush.platform.activity.ITopActivity
 import io.github.magisk317.mipush.platform.override.ActivityManagerOverride
-import top.trumeet.common.R
+import io.github.magisk317.mipush.platform.override.AppOpsManagerOverride
 
 /**
  * Created by zts1993 on 2018/2/18.
@@ -26,7 +27,7 @@ class ActivityUsageStatsImpl : ITopActivity {
             val appOpsManager = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
             val applicationInfo = packageManager.getApplicationInfo(context.packageName, 0)
             val mode = appOpsManager.checkOpNoThrow(
-                AppOpsManager.OPSTR_GET_USAGE_STATS,
+                AppOpsManagerOverride.OPSTR_GET_USAGE_STATS,
                 applicationInfo.uid,
                 applicationInfo.packageName
             )
@@ -42,7 +43,7 @@ class ActivityUsageStatsImpl : ITopActivity {
                     )
                     method.invoke(
                         appOpsManager,
-                        AppOpsManager.OPSTR_GET_USAGE_STATS,
+                        AppOpsManagerOverride.OPSTR_GET_USAGE_STATS,
                         applicationInfo.uid,
                         applicationInfo.packageName
                     ) as Int
@@ -114,9 +115,9 @@ class ActivityUsageStatsImpl : ITopActivity {
         private var lastForegroundEventTime = 0L
 
         private fun isAllowedMode(mode: Int?): Boolean {
-            return mode == AppOpsManager.MODE_ALLOWED ||
-                mode == AppOpsManager.MODE_FOREGROUND ||
-                mode == AppOpsManager.MODE_DEFAULT
+            return mode == AppOpsManagerOverride.MODE_ALLOWED ||
+                mode == AppOpsManagerOverride.MODE_FOREGROUND ||
+                mode == AppOpsManagerOverride.MODE_DEFAULT
         }
 
         @Synchronized

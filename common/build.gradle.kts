@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "top.trumeet.common"
+    namespace = "io.github.magisk317.mipush.common"
 
     defaultConfig {
         buildConfigField("String", "PUSH_VERSION_CODE", "\"${libs.versions.versionCode.get()}\"")

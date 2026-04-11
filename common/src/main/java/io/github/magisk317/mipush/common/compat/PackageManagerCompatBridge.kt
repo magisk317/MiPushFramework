@@ -1,4 +1,4 @@
-package com.magisk317.compat
+package io.github.magisk317.mipush.common.compat
 
 import android.content.ComponentName
 import android.content.pm.ApplicationInfo

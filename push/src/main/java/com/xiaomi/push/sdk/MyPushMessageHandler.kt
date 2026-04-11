@@ -38,7 +38,7 @@ import io.github.magisk317.mipush.platform.activity.TopActivityFactory
 import io.github.magisk317.mipush.common.utils.Utils
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
-import com.magisk317.utils.Singleton
+import io.github.magisk317.mipush.common.utils.Singleton
 
 @AndroidEntryPoint
 class MyPushMessageHandler : Service() {

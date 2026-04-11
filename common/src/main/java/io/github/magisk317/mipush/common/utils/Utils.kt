@@ -12,7 +12,7 @@ import android.widget.Toast
 import androidx.annotation.ColorInt
 import androidx.annotation.NonNull
 import androidx.annotation.StringRes
-import com.magisk317.compat.PackageManagerCompatBridge
+import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import io.github.magisk317.mipush.platform.override.AppOpsManagerOverride
 import java.util.*
 

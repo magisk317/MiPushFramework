@@ -72,7 +72,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.layout.onSizeChanged
-import com.magisk317.compat.PackageManagerCompatBridge
+import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import com.xiaomi.xmsf.R
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle

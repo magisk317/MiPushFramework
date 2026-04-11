@@ -68,5 +68,5 @@ rootProject.name = "MiPushFramework"
 requireExistingProjectDir("magisk-ui-kit")
 requireExistingProjectDir("legacy-runtime")
 requireExistingProjectDir("protocol-frozen")
-include(":condom", ":push", ":common", ":runtime-core", ":magisk-ui-kit", ":legacy-runtime", ":protocol-frozen")
+include(":push", ":common", ":runtime-core", ":magisk-ui-kit", ":legacy-runtime", ":protocol-frozen")
 project(":magisk-ui-kit").projectDir = file("magisk-ui-kit")

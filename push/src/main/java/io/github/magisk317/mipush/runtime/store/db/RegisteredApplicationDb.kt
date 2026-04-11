@@ -5,7 +5,7 @@ import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import com.magisk317.Global
 import kotlinx.coroutines.runBlocking
-import top.trumeet.common.BuildConfig.DEBUG
+import io.github.magisk317.mipush.common.BuildConfig.DEBUG
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.DatabaseUtils.registeredApplicationDao
 import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication

@@ -8,7 +8,7 @@ import androidx.collection.LruCache
 /**
  * @author zts
  */
-import com.magisk317.utils.Singleton as SingletonUtils
+import io.github.magisk317.mipush.common.utils.Singleton as SingletonUtils
 
 // 单例对象，原先通过 Hilt/`javax.inject` 注入，只保留手动单例逻辑
 object ApplicationNameCache {

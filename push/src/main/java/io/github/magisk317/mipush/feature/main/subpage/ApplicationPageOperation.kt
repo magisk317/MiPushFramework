@@ -8,7 +8,7 @@ import android.content.pm.ServiceInfo
 import android.text.TextUtils
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
-import com.magisk317.compat.PackageManagerCompatBridge
+import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import com.magisk317.utils.RegistrationHelper
 import com.magisk317.Global
 import com.magisk317.compat.RegistrationStateCompat

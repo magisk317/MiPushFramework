@@ -2,7 +2,7 @@ package com.xiaomi.xmsf.push.utils
 
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
-import com.magisk317.utils.Singleton
+import io.github.magisk317.mipush.common.utils.Singleton
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import org.json.JSONArray
 import org.json.JSONException
@@ -18,7 +18,7 @@ class Configurations @Inject constructor(
     internal var loader: ConfigurationsLoader
 ) {
     // No-arg fallback for legacy Singleton access.
-    constructor() : this(ConfigurationsLoader(com.magisk317.utils.Singleton.instance<ConfigCenter>()))
+    constructor() : this(ConfigurationsLoader(io.github.magisk317.mipush.common.utils.Singleton.instance<ConfigCenter>()))
 
     init {
         // Capture Hilt instance for static access

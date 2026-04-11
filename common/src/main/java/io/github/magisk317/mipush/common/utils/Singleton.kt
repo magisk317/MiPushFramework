@@ -1,4 +1,4 @@
-package com.magisk317.utils
+package io.github.magisk317.mipush.common.utils
 
 import java.util.concurrent.ConcurrentHashMap
 

@@ -1,6 +1,5 @@
 package io.github.magisk317.mipush.platform.support
 
-import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -13,6 +12,7 @@ import com.topjohnwu.superuser.Shell
 import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.platform.override.AppOpsManagerOverride
 
 object PermissionUtils {
     @JvmStatic
@@ -62,7 +62,7 @@ object PermissionUtils {
     @JvmStatic
     fun allowPermission(permission: String): Boolean {
         return ShellUtils.exec(
-            "appops set --user " + Utils.myUid() + " " + Constants.SERVICE_APP_NAME + " " + permission + " " + AppOpsManager.MODE_ALLOWED
+            "appops set --user " + Utils.myUid() + " " + Constants.SERVICE_APP_NAME + " " + permission + " " + AppOpsManagerOverride.MODE_ALLOWED
         )
     }
 

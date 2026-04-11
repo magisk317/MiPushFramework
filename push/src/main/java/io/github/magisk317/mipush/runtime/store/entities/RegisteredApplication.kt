@@ -9,7 +9,7 @@ import android.os.Parcelable
 import androidx.annotation.IntDef
 import androidx.annotation.NonNull
 import androidx.core.content.ContextCompat
-import com.magisk317.compat.PackageManagerCompatBridge
+import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Ignore

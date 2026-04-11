@@ -220,7 +220,7 @@
 
         <!-- Push API -->
         <service
-                android:name="top.trumeet.common.ita.DetectionService"
+                android:name="io.github.magisk317.mipush.platform.activity.DetectionService"
                 android:exported="true"
                 android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>

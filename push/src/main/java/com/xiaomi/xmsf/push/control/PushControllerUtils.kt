@@ -17,7 +17,6 @@ import android.os.Process
 import android.text.TextUtils
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
-import com.oasisfeng.condom.CondomContext
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.misc.ScheduledJobManager
 import com.xiaomi.mipush.sdk.MiPushClient
@@ -29,7 +28,6 @@ import com.xiaomi.xmsf.push.service.receivers.BootReceiver
 import com.xiaomi.xmsf.push.service.receivers.KeepAliveReceiver
 import java.util.Objects
 import io.github.magisk317.mipush.common.Constants
-import io.github.magisk317.mipush.common.Constants.TAG_CONDOM
 
 @SuppressLint("WrongConstant")
 object PushControllerUtils {
@@ -151,8 +149,7 @@ object PushControllerUtils {
     }
 
     @JvmStatic
-    fun wrapContext(context: Context): Context =
-        CondomContext.wrap(context, TAG_CONDOM, XMOutbound.create(context, TAG_CONDOM))
+    fun wrapContext(context: Context): Context = context
 
     private fun resolveClass(className: String): Class<*>? =
         runCatching { Class.forName(className) }.getOrNull()

@@ -20,7 +20,7 @@ import android.service.notification.StatusBarNotification
 import androidx.annotation.RequiresApi
 import androidx.core.content.IntentCompat
 import android.util.Log
-import com.magisk317.compat.NotificationCompatBridge
+import io.github.magisk317.mipush.common.compat.NotificationCompatBridge
 import com.xiaomi.xmsf.BuildConfig
 
 /** Increase the version if breaking changes have been made to notification data, to avoid restoring from incompatible version. */
