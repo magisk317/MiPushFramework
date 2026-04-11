@@ -1,6 +1,5 @@
 package com.xiaomi.push.thrift;
 
-import com.xiaomi.channel.commonutils.network.Network;
 import org.apache.thrift.TEnum;
 
 /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/push/thrift/ChannelStatsType.class */
@@ -13,7 +12,7 @@ public enum ChannelStatsType implements TEnum {
     ICMP_PING_FAIL(6),
     ICMP_PING_OK(7),
     CHANNEL_ONLINE_RATE(8),
-    GSLB_REQUEST_SUCCESS(Network.CONNECTION_TIMEOUT),
+    GSLB_REQUEST_SUCCESS(10000),
     GSLB_TCP_NOACCESS(10101),
     GSLB_TCP_NETUNREACH(10102),
     GSLB_TCP_CONNREFUSED(10103),
@@ -87,7 +86,7 @@ public enum ChannelStatsType implements TEnum {
                 return CHANNEL_ONLINE_RATE;
             case 8000:
                 return CHANNEL_STATS_COUNTER;
-            case Network.CONNECTION_TIMEOUT /* 10000 */:
+            case 10000:
                 return GSLB_REQUEST_SUCCESS;
             case 10101:
                 return GSLB_TCP_NOACCESS;

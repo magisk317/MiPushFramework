@@ -1,6 +1,5 @@
 package org.apache.thrift;
 
-import com.xiaomi.slim.Blob;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -16,6 +15,8 @@ import org.apache.thrift.protocol.TStruct;
 
 /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:org/apache/thrift/TUnion.class */
 public abstract class TUnion<T extends TUnion, F> implements TBase<T, F> {
+    private static final String CLIENT_PING_ID = "0";
+
     protected F setField_;
     protected Object value_;
 
@@ -45,7 +46,7 @@ public abstract class TUnion<T extends TUnion, F> implements TBase<T, F> {
             }
             String hexString = Integer.toHexString(bArr[i] & 255);
             if (hexString.length() <= 1) {
-                hexString = Blob.CLIENT_PING_ID + hexString;
+                hexString = CLIENT_PING_ID + hexString;
             }
             sb.append(hexString);
         }

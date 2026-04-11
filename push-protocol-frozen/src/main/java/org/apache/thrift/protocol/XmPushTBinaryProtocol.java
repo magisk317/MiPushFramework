@@ -1,6 +1,5 @@
 package org.apache.thrift.protocol;
 
-import com.xiaomi.channel.commonutils.network.Network;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import org.apache.thrift.TException;
@@ -9,9 +8,10 @@ import org.apache.thrift.transport.TTransport;
 
 /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:org/apache/thrift/protocol/XmPushTBinaryProtocol.class */
 public class XmPushTBinaryProtocol extends TBinaryProtocol {
-    private static int MAX_THRIFT_MAP_SIZE = Network.CONNECTION_TIMEOUT;
-    private static int MAX_THRIFT_LIST_SIZE = Network.CONNECTION_TIMEOUT;
-    private static int MAX_THRIFT_SET_SIZE = Network.CONNECTION_TIMEOUT;
+    private static final int DEFAULT_THRIFT_COLLECTION_LIMIT = 10000;
+    private static int MAX_THRIFT_MAP_SIZE = DEFAULT_THRIFT_COLLECTION_LIMIT;
+    private static int MAX_THRIFT_LIST_SIZE = DEFAULT_THRIFT_COLLECTION_LIMIT;
+    private static int MAX_THRIFT_SET_SIZE = DEFAULT_THRIFT_COLLECTION_LIMIT;
     private static int MAX_THRIFT_STRING_SIZE = 10485760;
     private static int MAX_THRIFT_BINARY_SIZE = 104857600;
 

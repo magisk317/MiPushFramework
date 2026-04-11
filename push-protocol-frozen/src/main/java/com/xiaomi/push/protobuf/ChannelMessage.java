@@ -5,11 +5,11 @@ import com.google.protobuf.micro.CodedInputStreamMicro;
 import com.google.protobuf.micro.CodedOutputStreamMicro;
 import com.google.protobuf.micro.InvalidProtocolBufferMicroException;
 import com.google.protobuf.micro.MessageMicro;
-import com.xiaomi.channel.commonutils.network.Network;
 import java.io.IOException;
 
 /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/push/protobuf/ChannelMessage.class */
 public final class ChannelMessage {
+    private static final int HTTP_DEFAULT_PORT = 80;
 
     /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/push/protobuf/ChannelMessage$ClientHeader.class */
     public static final class ClientHeader extends MessageMicro {
@@ -328,7 +328,7 @@ public final class ChannelMessage {
                     case 72:
                         setCipher(codedInputStreamMicro.readInt32());
                         break;
-                    case Network.CMWAP_PORT /* 80 */:
+                    case HTTP_DEFAULT_PORT:
                         setErrCode(codedInputStreamMicro.readInt32());
                         break;
                     case 90:
@@ -1382,7 +1382,7 @@ public final class ChannelMessage {
                         codedInputStreamMicro.readMessage(pushServiceConfigMsg);
                         setPsc(pushServiceConfigMsg);
                         break;
-                    case Network.CMWAP_PORT /* 80 */:
+                    case HTTP_DEFAULT_PORT:
                         setAndver(codedInputStreamMicro.readInt32());
                         break;
                     default:

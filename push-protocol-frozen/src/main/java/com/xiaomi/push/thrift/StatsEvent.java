@@ -1,6 +1,5 @@
 package com.xiaomi.push.thrift;
 
-import com.xiaomi.push.mpcd.Constants;
 import java.io.Serializable;
 import java.util.BitSet;
 import org.apache.thrift.TBase;
@@ -14,6 +13,8 @@ import org.apache.thrift.protocol.TStruct;
 
 /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/push/thrift/StatsEvent.class */
 public class StatsEvent implements TBase<StatsEvent, Object>, Serializable, Cloneable {
+    private static final String RIGHT_PARENTHESIS = ")";
+
     private static final int __CHID_ISSET_ID = 0;
     private static final int __CLIENTIP_ISSET_ID = 5;
     private static final int __SUBVALUE_ISSET_ID = 3;
@@ -631,7 +632,7 @@ public class StatsEvent implements TBase<StatsEvent, Object>, Serializable, Clon
             sb.append("clientIp:");
             sb.append(this.clientIp);
         }
-        sb.append(Constants.SEPARATOR_RIGHT_PARENTESIS);
+        sb.append(RIGHT_PARENTHESIS);
         return sb.toString();
     }
 

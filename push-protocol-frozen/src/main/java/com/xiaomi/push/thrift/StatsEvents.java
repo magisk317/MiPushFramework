@@ -1,6 +1,5 @@
 package com.xiaomi.push.thrift;
 
-import com.xiaomi.push.mpcd.Constants;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -17,6 +16,8 @@ import org.apache.thrift.protocol.TStruct;
 
 /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/push/thrift/StatsEvents.class */
 public class StatsEvents implements TBase<StatsEvents, Object>, Serializable, Cloneable {
+    private static final String RIGHT_PARENTHESIS = ")";
+
     public List<StatsEvent> events;
     public String operator;
     public String uuid;
@@ -283,7 +284,7 @@ public class StatsEvents implements TBase<StatsEvents, Object>, Serializable, Cl
         } else {
             sb.append(list);
         }
-        sb.append(Constants.SEPARATOR_RIGHT_PARENTESIS);
+        sb.append(RIGHT_PARENTHESIS);
         return sb.toString();
     }
 
