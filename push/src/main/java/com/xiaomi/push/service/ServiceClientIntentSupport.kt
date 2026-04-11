@@ -47,7 +47,7 @@ internal object ServiceClientIntentSupport {
         kick: Boolean,
         clientAttributes: Map<String, String>?,
         cloudAttributes: Map<String, String>?,
-        session: String,
+        session: String?,
         messenger: Messenger,
     ) {
         intent.putExtra(PushConstants.EXTRA_USER_ID, userId)
