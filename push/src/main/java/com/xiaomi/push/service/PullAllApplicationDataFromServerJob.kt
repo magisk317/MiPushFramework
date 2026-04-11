@@ -3,10 +3,10 @@ package com.xiaomi.push.service
 import android.text.TextUtils
 import com.magisk317.XMPushUtils
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
-import top.trumeet.common.utils.Utils
+import io.github.magisk317.mipush.common.utils.Utils
 
 class PullAllApplicationDataFromServerJob(xmPushService: XMPushService) :
-    XMPushService.Job(XMPushService.Job.TYPE_SEND_MSG) {
+    XMPushService.Job(XMPushServiceJob.TYPE_SEND_MSG) {
 
     private val xmPushActionOperator = XmPushActionOperator(xmPushService)
 

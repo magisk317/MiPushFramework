@@ -131,7 +131,7 @@ final class MIPushHelper {
             PushAccountRuntime.attachAccountClient(xMPushService, mIPushAccount, "MIPushHelper.prepareMIPushAccount");
             Sync.getInstance(xMPushService).schedSync(new Sync.SyncJob("GAID", 172800L) { // from class: com.xiaomi.push.service.MIPushHelper.1
                 @Override // com.xiaomi.push.service.Sync.SyncJob
-                void sync(Sync sync) {
+                public void sync(Sync sync) {
                     String string = sync.getString("GAID", "gaid");
                     String gaid = DeviceInfo.getGaid(xMPushService);
                     MyLog.v("gaid :" + gaid);
@@ -143,7 +143,7 @@ final class MIPushHelper {
                     xmPushActionNotification.setAppId(mIPushAccount.appId);
                     xmPushActionNotification.setType(NotificationType.ClientInfoUpdate.value);
                     xmPushActionNotification.setId(PacketHelper.generatePacketID());
-                    xmPushActionNotification.setExtra(new HashMap());
+                    xmPushActionNotification.setExtra(new HashMap<>());
                     xmPushActionNotification.getExtra().put("gaid", gaid);
                     byte[] bArrConvertThriftObjectToBytes = XmPushThriftSerializeUtils.convertThriftObjectToBytes(MIPushHelper.generateRequestContainer(xMPushService.getPackageName(), mIPushAccount.appId, xmPushActionNotification, ActionType.Notification));
                     XMPushService xMPushService2 = xMPushService;
@@ -189,7 +189,7 @@ final class MIPushHelper {
     private static void syncMsaid(final XMPushService xMPushService, final MIPushAccount mIPushAccount, int i) {
         Sync.getInstance(xMPushService).schedSync(new Sync.SyncJob(SYNC_GROUP_MSAID, i) { // from class: com.xiaomi.push.service.MIPushHelper.2
             @Override // com.xiaomi.push.service.Sync.SyncJob
-            void sync(Sync sync) {
+            public void sync(Sync sync) {
                 MsaIdManager msaIdManager = MsaIdManager.getInstance(xMPushService);
                 String string = sync.getString(MIPushHelper.SYNC_GROUP_MSAID, MIPushHelper.SYNC_KEY_MSAID);
                 String str = msaIdManager.getUDID() + msaIdManager.getOAID() + msaIdManager.getVAID() + msaIdManager.getAAID();
@@ -201,7 +201,7 @@ final class MIPushHelper {
                 xmPushActionNotification.setAppId(mIPushAccount.appId);
                 xmPushActionNotification.setType(NotificationType.ClientInfoUpdate.value);
                 xmPushActionNotification.setId(PacketHelper.generatePacketID());
-                xmPushActionNotification.setExtra(new HashMap());
+                xmPushActionNotification.setExtra(new HashMap<>());
                 msaIdManager.fillData(xmPushActionNotification.getExtra());
                 byte[] bArrConvertThriftObjectToBytes = XmPushThriftSerializeUtils.convertThriftObjectToBytes(MIPushHelper.generateRequestContainer(xMPushService.getPackageName(), mIPushAccount.appId, xmPushActionNotification, ActionType.Notification));
                 XMPushService xMPushService2 = xMPushService;

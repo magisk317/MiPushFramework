@@ -80,7 +80,7 @@ public class ManifestChecker {
 
     /* JADX INFO: Access modifiers changed from: private */
     public static void checkPermissions(Context context, PackageInfo packageInfo) {
-        HashSet hashSet = new HashSet();
+        HashSet<String> hashSet = new HashSet<>();
         String str = context.getPackageName() + ".permission.MIPUSH_RECEIVE";
         hashSet.addAll(Arrays.asList("android.permission.INTERNET", "android.permission.ACCESS_NETWORK_STATE", str, "android.permission.ACCESS_WIFI_STATE", "android.permission.VIBRATE"));
         boolean z = false;
@@ -157,8 +157,8 @@ public class ManifestChecker {
 
     /* JADX INFO: Access modifiers changed from: private */
     public static void checkServices(Context context, PackageInfo packageInfo) {
-        HashMap map = new HashMap();
-        HashMap map2 = new HashMap();
+        HashMap<String, String> map = new HashMap<>();
+        HashMap<String, ServiceCheckInfo> map2 = new HashMap<>();
         map2.put(PushMessageHandler.class.getCanonicalName(), new ServiceCheckInfo(PushMessageHandler.class.getCanonicalName(), true, true, ""));
         map2.put(MessageHandleService.class.getCanonicalName(), new ServiceCheckInfo(MessageHandleService.class.getCanonicalName(), true, false, ""));
         if (!MiPushClient.shouldUseMIUIPush(context) || containAnyService(packageInfo, new String[]{PushConstants.XM_SERVICE_CLASS_NAME_JAR, PushConstants.PUSH_SERVICE_CLASS_NAME_JAR})) {
@@ -175,7 +175,7 @@ public class ManifestChecker {
         if (packageInfo.services != null) {
             for (ServiceInfo serviceInfo : packageInfo.services) {
                 if (!TextUtils.isEmpty(serviceInfo.name) && map2.containsKey(serviceInfo.name)) {
-                    ServiceCheckInfo serviceCheckInfo = (ServiceCheckInfo) map2.remove(serviceInfo.name);
+                    ServiceCheckInfo serviceCheckInfo = map2.remove(serviceInfo.name);
                     boolean z = serviceCheckInfo.enabled;
                     boolean z2 = serviceCheckInfo.exported;
                     String str = serviceCheckInfo.permission;

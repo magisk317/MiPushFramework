@@ -21,6 +21,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlPullParserFactory;
@@ -85,7 +87,7 @@ public class PacketParserUtils {
         String str2 = null;
         String str3 = null;
         String attributeValue3 = null;
-        ArrayList arrayList = new ArrayList();
+        List<CommonPacketExtension> arrayList = new ArrayList<>();
         for (int i = 0; i < xmlPullParser.getAttributeCount(); i++) {
             if (xmlPullParser.getAttributeName(i).equals("code")) {
                 attributeValue = xmlPullParser.getAttributeValue("", "code");
@@ -159,7 +161,7 @@ public class PacketParserUtils {
         String attributeValue3 = xmlPullParser.getAttributeValue("", "from");
         String attributeValue4 = xmlPullParser.getAttributeValue("", "chid");
         IQ.Type typeFromString = IQ.Type.fromString(xmlPullParser.getAttributeValue("", "type"));
-        HashMap map = new HashMap();
+        Map<String, String> map = new HashMap<>();
         for (int i = 0; i < xmlPullParser.getAttributeCount(); i++) {
             String attributeName = xmlPullParser.getAttributeName(i);
             map.put(attributeName, xmlPullParser.getAttributeValue("", attributeName));
@@ -513,9 +515,9 @@ public class PacketParserUtils {
         }
     }
 
-    public static Object parseWithIntrospection(String str, Class cls, XmlPullParser xmlPullParser) throws Exception {
+    public static Object parseWithIntrospection(String str, Class<?> cls, XmlPullParser xmlPullParser) throws Exception {
         boolean z = false;
-        Object objNewInstance = cls.newInstance();
+        Object objNewInstance = cls.getDeclaredConstructor().newInstance();
         while (!z) {
             int next = xmlPullParser.next();
             if (next == 2) {

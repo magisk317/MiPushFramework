@@ -33,7 +33,7 @@ public class PerfKVFileHelper {
     }
 
     public static List<String> extractToDatas(Context context, String str) {
-        ArrayList arrayList = new ArrayList();
+        List<String> arrayList = new ArrayList<>();
         if (TextUtils.isEmpty(str) || !new File(str).exists()) {
             return arrayList;
         }

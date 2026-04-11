@@ -124,7 +124,7 @@ public class XmPushActionAckMessage implements TBase<XmPushActionAckMessage, Obj
         }
         this.passThrough = xmPushActionAckMessage.passThrough;
         if (xmPushActionAckMessage.isSetExtra()) {
-            HashMap map = new HashMap();
+            Map<String, String> map = new HashMap<>();
             for (Map.Entry<String, String> entry : xmPushActionAckMessage.extra.entrySet()) {
                 map.put(entry.getKey(), entry.getValue());
             }
@@ -624,7 +624,7 @@ public class XmPushActionAckMessage implements TBase<XmPushActionAckMessage, Obj
 
     public void putToExtra(String str, String str2) {
         if (this.extra == null) {
-            this.extra = new HashMap();
+            this.extra = new HashMap<>();
         }
         this.extra.put(str, str2);
     }
@@ -794,7 +794,7 @@ public class XmPushActionAckMessage implements TBase<XmPushActionAckMessage, Obj
                 case PushConstants.ERROR_IN_EXTREME_POWER_MODE /* 23 */:
                     if (fieldBegin.type == 13) {
                         TMap mapBegin = tProtocol.readMapBegin();
-                        this.extra = new HashMap(mapBegin.size * 2);
+                        this.extra = new HashMap<>(mapBegin.size * 2);
                         for (int i = 0; i < mapBegin.size; i++) {
                             this.extra.put(tProtocol.readString(), tProtocol.readString());
                         }

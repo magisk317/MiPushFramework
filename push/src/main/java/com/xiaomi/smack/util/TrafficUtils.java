@@ -4,12 +4,11 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteException;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
 import android.text.TextUtils;
 import com.xiaomi.channel.commonutils.android.MIUIUtils;
 import com.xiaomi.channel.commonutils.logger.MyLog;
 import com.xiaomi.channel.commonutils.misc.SerializedAsyncTaskProcessor;
+import com.xiaomi.channel.commonutils.network.Network;
 import com.xiaomi.push.providers.TrafficDatabaseHelper;
 import com.xiaomi.push.providers.TrafficProvider;
 import java.io.UnsupportedEncodingException;
@@ -26,7 +25,7 @@ public class TrafficUtils {
     private static volatile int networkType = -1;
     private static long lastRxTs = System.currentTimeMillis();
     private static final Object lock = new Object();
-    private static List<TrafficInfo> trafficList = Collections.synchronizedList(new ArrayList());
+    private static List<TrafficInfo> trafficList = Collections.synchronizedList(new ArrayList<>());
     private static String imsi = "";
     private static TrafficDatabaseHelper dbHelper = null;
 
@@ -65,19 +64,7 @@ public class TrafficUtils {
 
     private static int getActiveNetworkType(Context context) {
         try {
-            ConnectivityManager connectivityManager = (ConnectivityManager) context.getSystemService("connectivity");
-            if (connectivityManager == null) {
-                return -1;
-            }
-            try {
-                NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
-                if (activeNetworkInfo == null) {
-                    return -1;
-                }
-                return activeNetworkInfo.getType();
-            } catch (Exception e) {
-                return -1;
-            }
+            return Network.getActiveNetworkType(context);
         } catch (Exception e2) {
             return -1;
         }
@@ -192,7 +179,7 @@ public class TrafficUtils {
             mAsyncProcessor.addNewTaskWithDelayed(new SerializedAsyncTaskProcessor.SerializedAsyncTask() { // from class: com.xiaomi.smack.util.TrafficUtils.1
                 @Override // com.xiaomi.channel.commonutils.misc.SerializedAsyncTaskProcessor.SerializedAsyncTask
                 public void process() {
-                    ArrayList arrayList = new ArrayList();
+                    List<TrafficInfo> arrayList = new ArrayList<>();
                     synchronized (TrafficUtils.lock) {
                         if (!TrafficUtils.trafficList.isEmpty()) {
                             arrayList.addAll(TrafficUtils.trafficList);

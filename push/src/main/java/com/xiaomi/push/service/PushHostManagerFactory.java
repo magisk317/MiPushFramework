@@ -126,7 +126,7 @@ public class PushHostManagerFactory extends ServiceConfig.Listener implements Ho
             }
             Connection currentConnection = this.pushService.getCurrentConnection();
             if (currentConnection == null) {
-                PushBucketReconnectPlan bucketReconnectPlan = PushHostRuntime.decideBucketReconnect(false, null, new ArrayList());
+                PushBucketReconnectPlan bucketReconnectPlan = PushHostRuntime.decideBucketReconnect(false, null, new ArrayList<>());
                 PushRuntime.observeChannelEvent(null, bucketReconnectPlan.getEventAction(), "PushHostManagerFactory.onConfigMsgReceive");
                 return;
             }

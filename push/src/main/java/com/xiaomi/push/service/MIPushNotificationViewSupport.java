@@ -10,6 +10,7 @@ import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.text.TextUtils;
 import android.widget.RemoteViews;
+import androidx.core.content.ContextCompat;
 import com.xiaomi.push.service.notification.BuilderCompat;
 import com.xiaomi.xmpush.thrift.PushMetaInfo;
 import com.xiaomi.xmpush.thrift.XmPushActionContainer;
@@ -120,7 +121,8 @@ final class MIPushNotificationViewSupport {
     }
 
     static Bitmap getBitmapFromId(Context context, int i) {
-        return drawableToBitmap(context.getResources().getDrawable(i));
+        Drawable drawable = ContextCompat.getDrawable(context, i);
+        return drawable == null ? null : drawableToBitmap(drawable);
     }
 
     private static int getIconId(Context context, String str, String str2) {

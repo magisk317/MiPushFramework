@@ -29,9 +29,9 @@ import com.xiaomi.xmsf.utils.ConfigCenter
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlinx.coroutines.runBlocking
-import top.trumeet.common.Constants
-import top.trumeet.common.utils.Utils
-import top.trumeet.mipush.provider.db.RegisteredApplicationDb
+import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 
 class MyMIPushNotificationHelper {
     private class NotificationInfo(

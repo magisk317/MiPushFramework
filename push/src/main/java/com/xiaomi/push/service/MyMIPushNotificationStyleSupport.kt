@@ -102,7 +102,7 @@ internal object MyMIPushNotificationStyleSupport {
         return Global.IconCache().getBitmap(
             context,
             bigPicUri,
-            object : top.trumeet.common.cache.IconCache.Converter<String, Bitmap> {
+            object : io.github.magisk317.mipush.common.cache.IconCache.Converter<String, Bitmap> {
                 override fun convert(ctx: Context, b: String): Bitmap {
                     return getBitmapFromUri(ctx, b, 1 * MyNotificationIconHelper.MiB)!!
                 }

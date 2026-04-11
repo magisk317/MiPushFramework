@@ -61,7 +61,7 @@ public class NotificationBarInfo implements TBase<NotificationBarInfo, Notificat
         VERSION((short) 1, "version"),
         DATA((short) 2, "data");
 
-        private static final Map<String, _Fields> byName = new HashMap();
+        private static final Map<String, _Fields> byName = new HashMap<>();
         private final String _fieldName;
         private final short _thriftId;
 
@@ -111,7 +111,7 @@ public class NotificationBarInfo implements TBase<NotificationBarInfo, Notificat
     }
 
     static {
-        EnumMap enumMap = new EnumMap(_Fields.class);
+        EnumMap<_Fields, FieldMetaData> enumMap = new EnumMap<>(_Fields.class);
         enumMap.put(_Fields.VERSION, new FieldMetaData("version", (byte) 1, new FieldValueMetaData((byte) 8)));
         enumMap.put(_Fields.DATA, new FieldMetaData("data", (byte) 2, new ListMetaData((byte) 15, new StructMetaData((byte) 12, NotificationBarInfoItem.class))));
         Map<_Fields, FieldMetaData> mapUnmodifiableMap = Collections.unmodifiableMap(enumMap);
@@ -136,7 +136,7 @@ public class NotificationBarInfo implements TBase<NotificationBarInfo, Notificat
         this.__isset_bit_vector.or(notificationBarInfo.__isset_bit_vector);
         this.version = notificationBarInfo.version;
         if (notificationBarInfo.isSetData()) {
-            ArrayList arrayList = new ArrayList();
+            List<NotificationBarInfoItem> arrayList = new ArrayList<>();
             Iterator<NotificationBarInfoItem> it = notificationBarInfo.data.iterator();
             while (it.hasNext()) {
                 arrayList.add(new NotificationBarInfoItem(it.next()));
@@ -147,7 +147,7 @@ public class NotificationBarInfo implements TBase<NotificationBarInfo, Notificat
 
     public void addToData(NotificationBarInfoItem notificationBarInfoItem) {
         if (this.data == null) {
-            this.data = new ArrayList();
+            this.data = new ArrayList<>();
         }
         this.data.add(notificationBarInfoItem);
     }
@@ -231,7 +231,7 @@ public class NotificationBarInfo implements TBase<NotificationBarInfo, Notificat
     public Object getFieldValue(_Fields _fields) {
         switch (AnonymousClass1.$SwitchMap$com$xiaomi$xmpush$thrift$NotificationBarInfo$_Fields[_fields.ordinal()]) {
             case 1:
-                return new Integer(getVersion());
+                return Integer.valueOf(getVersion());
             case 2:
                 return getData();
             default:
@@ -294,7 +294,7 @@ public class NotificationBarInfo implements TBase<NotificationBarInfo, Notificat
                 case 2:
                     if (fieldBegin.type == 15) {
                         TList listBegin = tProtocol.readListBegin();
-                        this.data = new ArrayList(listBegin.size);
+                        this.data = new ArrayList<>(listBegin.size);
                         for (int i = 0; i < listBegin.size; i++) {
                             NotificationBarInfoItem notificationBarInfoItem = new NotificationBarInfoItem();
                             notificationBarInfoItem.read(tProtocol);
@@ -336,7 +336,12 @@ public class NotificationBarInfo implements TBase<NotificationBarInfo, Notificat
                 break;
             case 2:
                 if (obj != null) {
-                    setData((List) obj);
+                    List<?> list = (List<?>) obj;
+                    List<NotificationBarInfoItem> typedList = new ArrayList<>(list.size());
+                    for (Object item : list) {
+                        typedList.add((NotificationBarInfoItem) item);
+                    }
+                    setData(typedList);
                 } else {
                     unsetData();
                 }

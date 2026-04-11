@@ -30,7 +30,7 @@ public class ServiceConfig {
     private static String sDeviceUUID;
     private static ServiceConfig sInstance = new ServiceConfig();
     private ChannelConfig.PushServiceConfig mConfig;
-    private List<Listener> mListener = new ArrayList();
+    private List<Listener> mListener = new ArrayList<>();
     private SerializedAsyncTaskProcessor.SerializedAsyncTask mPendingFetchTask;
 
     /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/push/service/ServiceConfig$Listener.class */

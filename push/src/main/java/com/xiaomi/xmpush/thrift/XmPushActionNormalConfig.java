@@ -26,7 +26,7 @@ public class XmPushActionNormalConfig implements TBase<XmPushActionNormalConfig,
 
     public XmPushActionNormalConfig(XmPushActionNormalConfig xmPushActionNormalConfig) {
         if (xmPushActionNormalConfig.isSetNormalConfigs()) {
-            ArrayList arrayList = new ArrayList();
+            List<NormalConfig> arrayList = new ArrayList<>();
             Iterator<NormalConfig> it = xmPushActionNormalConfig.normalConfigs.iterator();
             while (it.hasNext()) {
                 arrayList.add(new NormalConfig(it.next()));
@@ -42,7 +42,7 @@ public class XmPushActionNormalConfig implements TBase<XmPushActionNormalConfig,
 
     public void addToNormalConfigs(NormalConfig normalConfig) {
         if (this.normalConfigs == null) {
-            this.normalConfigs = new ArrayList();
+            this.normalConfigs = new ArrayList<>();
         }
         this.normalConfigs.add(normalConfig);
     }
@@ -128,7 +128,7 @@ public class XmPushActionNormalConfig implements TBase<XmPushActionNormalConfig,
                 case 1:
                     if (fieldBegin.type == 15) {
                         TList listBegin = tProtocol.readListBegin();
-                        this.normalConfigs = new ArrayList(listBegin.size);
+                        this.normalConfigs = new ArrayList<>(listBegin.size);
                         for (int i = 0; i < listBegin.size; i++) {
                             NormalConfig normalConfig = new NormalConfig();
                             normalConfig.read(tProtocol);

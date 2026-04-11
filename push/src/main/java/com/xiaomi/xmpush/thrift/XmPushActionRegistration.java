@@ -165,7 +165,7 @@ public class XmPushActionRegistration implements TBase<XmPushActionRegistration,
         }
         this.isHybridFrame = xmPushActionRegistration.isHybridFrame;
         if (xmPushActionRegistration.isSetConnectionAttrs()) {
-            HashMap map = new HashMap();
+            HashMap<String, String> map = new HashMap<>();
             for (Map.Entry<String, String> entry : xmPushActionRegistration.connectionAttrs.entrySet()) {
                 map.put(entry.getKey(), entry.getValue());
             }
@@ -870,7 +870,7 @@ public class XmPushActionRegistration implements TBase<XmPushActionRegistration,
 
     public void putToConnectionAttrs(String str, String str2) {
         if (this.connectionAttrs == null) {
-            this.connectionAttrs = new HashMap();
+            this.connectionAttrs = new HashMap<>();
         }
         this.connectionAttrs.put(str, str2);
     }
@@ -1080,7 +1080,7 @@ public class XmPushActionRegistration implements TBase<XmPushActionRegistration,
                 case 100:
                     if (fieldBegin.type == 13) {
                         TMap mapBegin = tProtocol.readMapBegin();
-                        this.connectionAttrs = new HashMap(mapBegin.size * 2);
+                        this.connectionAttrs = new HashMap<>(mapBegin.size * 2);
                         for (int i = 0; i < mapBegin.size; i++) {
                             this.connectionAttrs.put(tProtocol.readString(), tProtocol.readString());
                         }

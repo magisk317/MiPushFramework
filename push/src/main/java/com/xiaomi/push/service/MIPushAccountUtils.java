@@ -2,9 +2,9 @@ package com.xiaomi.push.service;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.content.pm.PackageInfo;
 import android.os.Build;
 import android.text.TextUtils;
+import com.xiaomi.channel.commonutils.android.AppInfoUtils;
 import com.xiaomi.channel.commonutils.android.DeviceInfo;
 import com.xiaomi.channel.commonutils.android.MIUIUtils;
 import com.xiaomi.channel.commonutils.android.Region;
@@ -178,15 +178,7 @@ public class MIPushAccountUtils {
             String str5 = isMIUIPush(context) ? PushConstants.PUSH_SERVICE_PACKAGE_NAME : str;
             treeMap.put("appid", str2);
             treeMap.put("apptoken", str3);
-            String str6 = "0";
-            try {
-                PackageInfo packageInfo = context.getPackageManager().getPackageInfo(str5, 16384);
-                if (packageInfo != null) {
-                    str6 = String.valueOf(packageInfo.versionCode);
-                }
-            } catch (Exception e) {
-                MyLog.e(e);
-            }
+            String str6 = String.valueOf(AppInfoUtils.getVersionCode(context, str5));
             treeMap.put("appversion", str6);
             treeMap.put("sdkversion", Integer.toString(30709));
             treeMap.put("packagename", str5);

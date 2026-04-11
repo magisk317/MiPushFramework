@@ -13,6 +13,7 @@ import com.xiaomi.push.thrift.StatsEvent;
 import com.xiaomi.push.thrift.StatsEvents;
 import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Locale;
 import java.util.NoSuchElementException;
 import org.apache.thrift.TException;
@@ -77,7 +78,7 @@ public class StatsHandler {
     }
 
     private StatsEvents retriveStatsEvents(int i) {
-        ArrayList arrayList = new ArrayList();
+        List<StatsEvent> arrayList = new ArrayList<>();
         StatsEvents statsEvents = new StatsEvents(this.uuid, arrayList);
         if (!Network.isWIFIConnected(this.context.pushService)) {
             statsEvents.setOperator(DeviceInfo.getSimOperatorName(this.context.pushService));

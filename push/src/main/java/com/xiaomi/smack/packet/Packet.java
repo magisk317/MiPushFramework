@@ -56,8 +56,8 @@ public abstract class Packet {
         this.from = null;
         this.chId = null;
         this.packageName = null;
-        this.packetExtensions = new CopyOnWriteArrayList();
-        this.properties = new HashMap();
+        this.packetExtensions = new CopyOnWriteArrayList<>();
+        this.properties = new HashMap<>();
         this.error = null;
     }
 
@@ -68,16 +68,16 @@ public abstract class Packet {
         this.from = null;
         this.chId = null;
         this.packageName = null;
-        this.packetExtensions = new CopyOnWriteArrayList();
-        this.properties = new HashMap();
+        this.packetExtensions = new CopyOnWriteArrayList<>();
+        this.properties = new HashMap<>();
         this.error = null;
         this.to = bundle.getString(PushConstants.EXTRA_TO);
         this.from = bundle.getString(PushConstants.EXTRA_FROM);
         this.chId = bundle.getString(PushConstants.EXTRA_CHID);
         this.packetID = bundle.getString(PushConstants.EXTRA_PACKET_ID);
-        Parcelable[] parcelableArray = bundle.getParcelableArray(PushConstants.EXTRA_EXTENSIONS);
+        Parcelable[] parcelableArray = bundle.getParcelableArray(PushConstants.EXTRA_EXTENSIONS, Parcelable.class);
         if (parcelableArray != null) {
-            this.packetExtensions = new ArrayList(parcelableArray.length);
+            this.packetExtensions = new ArrayList<>(parcelableArray.length);
             for (Parcelable parcelable : parcelableArray) {
                 CommonPacketExtension fromBundle = CommonPacketExtension.parseFromBundle((Bundle) parcelable);
                 if (fromBundle != null) {
@@ -225,7 +225,7 @@ public abstract class Packet {
             if (this.packetExtensions == null) {
                 return Collections.emptyList();
             }
-            return Collections.unmodifiableList(new ArrayList(this.packetExtensions));
+            return Collections.unmodifiableList(new ArrayList<>(this.packetExtensions));
         }
     }
 
@@ -360,7 +360,7 @@ public abstract class Packet {
             if (this.properties == null) {
                 return Collections.emptySet();
             }
-            return Collections.unmodifiableSet(new HashSet(this.properties.keySet()));
+            return Collections.unmodifiableSet(new HashSet<>(this.properties.keySet()));
         }
     }
 

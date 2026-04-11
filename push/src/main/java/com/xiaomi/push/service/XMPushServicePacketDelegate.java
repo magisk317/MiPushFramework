@@ -3,6 +3,7 @@ package com.xiaomi.push.service;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Parcelable;
+import androidx.core.os.BundleCompat;
 import com.xiaomi.channel.commonutils.logger.MyLog;
 import com.xiaomi.push.service.clientReport.PushClientReportManager;
 import com.xiaomi.push.service.clientReport.ReportConstants;
@@ -65,7 +66,10 @@ final class XMPushServicePacketDelegate {
     }
 
     void handleBatchSendMessageIntent(Intent intent) {
-        Parcelable[] parcelableArrayExtra = intent.getParcelableArrayExtra(PushConstants.EXTRA_PACKETS);
+        Bundle extras = intent.getExtras();
+        Parcelable[] parcelableArrayExtra = extras == null
+            ? null
+            : BundleCompat.getParcelableArray(extras, PushConstants.EXTRA_PACKETS, Parcelable.class);
         if (parcelableArrayExtra == null || parcelableArrayExtra.length == 0) {
             return;
         }

@@ -11,10 +11,10 @@ import java.util.TreeSet;
 
 /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:org/apache/thrift/TBaseHelper.class */
 public final class TBaseHelper {
-    private static final Comparator comparator = new NestedStructureComparator();
+    private static final Comparator<Object> comparator = new NestedStructureComparator();
 
     /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:org/apache/thrift/TBaseHelper$NestedStructureComparator.class */
-    private static class NestedStructureComparator implements Comparator {
+    private static class NestedStructureComparator implements Comparator<Object> {
         private NestedStructureComparator() {
         }
 
@@ -29,7 +29,7 @@ public final class TBaseHelper {
             if (obj2 == null) {
                 return 1;
             }
-            return obj instanceof List ? TBaseHelper.compareTo((List) obj, (List) obj2) : obj instanceof Set ? TBaseHelper.compareTo((Set) obj, (Set) obj2) : obj instanceof Map ? TBaseHelper.compareTo((Map) obj, (Map) obj2) : obj instanceof byte[] ? TBaseHelper.compareTo((byte[]) obj, (byte[]) obj2) : TBaseHelper.compareTo((Comparable) obj, (Comparable) obj2);
+            return obj instanceof List ? TBaseHelper.compareTo((List<?>) obj, (List<?>) obj2) : obj instanceof Set ? TBaseHelper.compareTo((Set<?>) obj, (Set<?>) obj2) : obj instanceof Map ? TBaseHelper.compareTo((Map<?, ?>) obj, (Map<?, ?>) obj2) : obj instanceof byte[] ? TBaseHelper.compareTo((byte[]) obj, (byte[]) obj2) : TBaseHelper.compareComparableObjects((Comparable<?>) obj, (Comparable<?>) obj2);
         }
     }
 
@@ -79,22 +79,22 @@ public final class TBaseHelper {
         return j2 < j ? 1 : 0;
     }
 
-    public static int compareTo(Comparable comparable, Comparable comparable2) {
-        return comparable.compareTo(comparable2);
+    public static int compareTo(Comparable<?> comparable, Comparable<?> comparable2) {
+        return compareComparableObjects(comparable, comparable2);
     }
 
     public static int compareTo(Object obj, Object obj2) {
         if (obj instanceof Comparable) {
-            return compareTo((Comparable) obj, (Comparable) obj2);
+            return compareComparableObjects((Comparable<?>) obj, (Comparable<?>) obj2);
         }
         if (obj instanceof List) {
-            return compareTo((List) obj, (List) obj2);
+            return compareTo((List<?>) obj, (List<?>) obj2);
         }
         if (obj instanceof Set) {
-            return compareTo((Set) obj, (Set) obj2);
+            return compareTo((Set<?>) obj, (Set<?>) obj2);
         }
         if (obj instanceof Map) {
-            return compareTo((Map) obj, (Map) obj2);
+            return compareTo((Map<?, ?>) obj, (Map<?, ?>) obj2);
         }
         if (obj instanceof byte[]) {
             return compareTo((byte[]) obj, (byte[]) obj2);
@@ -106,7 +106,7 @@ public final class TBaseHelper {
         return str.compareTo(str2);
     }
 
-    public static int compareTo(List list, List list2) {
+    public static int compareTo(List<?> list, List<?> list2) {
         int iCompareTo = compareTo(list.size(), list2.size());
         if (iCompareTo != 0) {
             return iCompareTo;
@@ -120,22 +120,22 @@ public final class TBaseHelper {
         return 0;
     }
 
-    public static int compareTo(Map map, Map map2) {
+    public static int compareTo(Map<?, ?> map, Map<?, ?> map2) {
         int iCompareTo = compareTo(map.size(), map2.size());
         if (iCompareTo != 0) {
             return iCompareTo;
         }
-        Comparator comparator2 = comparator;
-        TreeMap treeMap = new TreeMap(comparator2);
+        Comparator<Object> comparator2 = comparator;
+        TreeMap<Object, Object> treeMap = new TreeMap<>(comparator2);
         treeMap.putAll(map);
-        Iterator it = treeMap.entrySet().iterator();
-        TreeMap treeMap2 = new TreeMap(comparator2);
+        Iterator<Map.Entry<Object, Object>> it = treeMap.entrySet().iterator();
+        TreeMap<Object, Object> treeMap2 = new TreeMap<>(comparator2);
         treeMap2.putAll(map2);
-        Iterator it2 = treeMap2.entrySet().iterator();
+        Iterator<Map.Entry<Object, Object>> it2 = treeMap2.entrySet().iterator();
         while (it.hasNext() && it2.hasNext()) {
-            Map.Entry entry = (Map.Entry) it.next();
-            Map.Entry entry2 = (Map.Entry) it2.next();
-            Comparator comparator3 = comparator;
+            Map.Entry<Object, Object> entry = it.next();
+            Map.Entry<Object, Object> entry2 = it2.next();
+            Comparator<Object> comparator3 = comparator;
             int iCompare = comparator3.compare(entry.getKey(), entry2.getKey());
             if (iCompare != 0) {
                 return iCompare;
@@ -148,18 +148,18 @@ public final class TBaseHelper {
         return 0;
     }
 
-    public static int compareTo(Set set, Set set2) {
+    public static int compareTo(Set<?> set, Set<?> set2) {
         int iCompareTo = compareTo(set.size(), set2.size());
         if (iCompareTo != 0) {
             return iCompareTo;
         }
-        Comparator comparator2 = comparator;
-        TreeSet treeSet = new TreeSet(comparator2);
+        Comparator<Object> comparator2 = comparator;
+        TreeSet<Object> treeSet = new TreeSet<>(comparator2);
         treeSet.addAll(set);
-        TreeSet treeSet2 = new TreeSet(comparator2);
+        TreeSet<Object> treeSet2 = new TreeSet<>(comparator2);
         treeSet2.addAll(set2);
-        Iterator it = treeSet.iterator();
-        Iterator it2 = treeSet2.iterator();
+        Iterator<Object> it = treeSet.iterator();
+        Iterator<Object> it2 = treeSet2.iterator();
         while (it.hasNext() && it2.hasNext()) {
             int iCompare = comparator.compare(it.next(), it2.next());
             if (iCompare != 0) {
@@ -167,6 +167,24 @@ public final class TBaseHelper {
             }
         }
         return 0;
+    }
+
+    private static int compareComparableObjects(Comparable<?> comparable, Comparable<?> comparable2) {
+        try {
+            return invokeCompareTo(comparable, comparable2, Object.class);
+        } catch (NoSuchMethodException unused) {
+            try {
+                return invokeCompareTo(comparable, comparable2, comparable.getClass());
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalArgumentException("Cannot compare objects of type " + comparable.getClass(), e);
+            }
+        } catch (ReflectiveOperationException e2) {
+            throw new IllegalArgumentException("Cannot compare objects of type " + comparable.getClass(), e2);
+        }
+    }
+
+    private static int invokeCompareTo(Comparable<?> comparable, Comparable<?> comparable2, Class<?> cls) throws ReflectiveOperationException {
+        return ((Integer) comparable.getClass().getMethod("compareTo", cls).invoke(comparable, comparable2)).intValue();
     }
 
     public static int compareTo(short s, short s2) {

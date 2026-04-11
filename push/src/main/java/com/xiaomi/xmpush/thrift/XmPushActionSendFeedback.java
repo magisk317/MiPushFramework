@@ -47,7 +47,7 @@ public class XmPushActionSendFeedback implements TBase<XmPushActionSendFeedback,
             this.appId = xmPushActionSendFeedback.appId;
         }
         if (xmPushActionSendFeedback.isSetFeedbacks()) {
-            HashMap map = new HashMap();
+            Map<String, String> map = new HashMap<>();
             for (Map.Entry<String, String> entry : xmPushActionSendFeedback.feedbacks.entrySet()) {
                 map.put(entry.getKey(), entry.getValue());
             }
@@ -238,7 +238,7 @@ public class XmPushActionSendFeedback implements TBase<XmPushActionSendFeedback,
 
     public void putToFeedbacks(String str, String str2) {
         if (this.feedbacks == null) {
-            this.feedbacks = new HashMap();
+            this.feedbacks = new HashMap<>();
         }
         this.feedbacks.put(str, str2);
     }
@@ -287,7 +287,7 @@ public class XmPushActionSendFeedback implements TBase<XmPushActionSendFeedback,
                 case 5:
                     if (fieldBegin.type == 13) {
                         TMap mapBegin = tProtocol.readMapBegin();
-                        this.feedbacks = new HashMap(mapBegin.size * 2);
+                        this.feedbacks = new HashMap<>(mapBegin.size * 2);
                         for (int i = 0; i < mapBegin.size; i++) {
                             this.feedbacks.put(tProtocol.readString(), tProtocol.readString());
                         }

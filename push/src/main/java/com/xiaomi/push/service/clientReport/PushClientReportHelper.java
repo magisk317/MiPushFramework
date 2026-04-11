@@ -62,7 +62,7 @@ public class PushClientReportHelper {
             synchronized (NotificationType.class) {
                 try {
                     if (notificationTypeMap == null) {
-                        notificationTypeMap = new HashMap();
+                        notificationTypeMap = new HashMap<>();
                         for (NotificationType notificationType : NotificationType.values()) {
                             notificationTypeMap.put(notificationType.value.toLowerCase(), notificationType);
                         }

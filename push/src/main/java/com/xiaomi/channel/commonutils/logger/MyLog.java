@@ -85,7 +85,7 @@ public abstract class MyLog {
     }
 
     private static String jointThreadId() {
-        return "[Tid:" + Thread.currentThread().getId() + "] ";
+        return "[Tid:" + Process.myTid() + "] ";
     }
 
     public static void log(int i, String str) {
@@ -130,7 +130,7 @@ public abstract class MyLog {
         StringWriter stringWriter = new StringWriter();
         PrintWriter printWriter = new PrintWriter(stringWriter);
         printWriter.println(str);
-        printWriter.println(String.format("Current thread id (%s); thread name (%s)", Long.valueOf(Thread.currentThread().getId()), Thread.currentThread().getName()));
+        printWriter.println(String.format("Current thread id (%s); thread name (%s)", Integer.valueOf(Process.myTid()), Thread.currentThread().getName()));
         new Throwable("Call stack").printStackTrace(printWriter);
         v(stringWriter.toString());
     }

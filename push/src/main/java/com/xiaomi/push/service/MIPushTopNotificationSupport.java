@@ -173,7 +173,7 @@ final class MIPushTopNotificationSupport {
         }
         Notification.Builder builderRecoverBuilder = Notification.Builder.recoverBuilder(context, notification);
         builderRecoverBuilder.setChannelId(mipushChannelId);
-        builderRecoverBuilder.setPriority(0);
+        JavaCalls.callMethod(builderRecoverBuilder, "setPriority", Integer.valueOf(0));
         MyLog.w("update top notification to common: " + str2);
         notificationManagerHelperFrom.notify(i, builderRecoverBuilder.build());
     }

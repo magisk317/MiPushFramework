@@ -14,11 +14,11 @@ public class CertificateUtils {
         if (signatureArr2 == null) {
             return -2;
         }
-        HashSet hashSet = new HashSet();
+        HashSet<Signature> hashSet = new HashSet<>();
         for (Signature signature : signatureArr) {
             hashSet.add(signature);
         }
-        HashSet hashSet2 = new HashSet();
+        HashSet<Signature> hashSet2 = new HashSet<>();
         for (Signature signature2 : signatureArr2) {
             hashSet2.add(signature2);
         }

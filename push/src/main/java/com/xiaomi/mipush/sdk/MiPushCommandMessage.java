@@ -76,7 +76,7 @@ public class MiPushCommandMessage implements PushMessageHandler.PushMessageInter
         bundle.putString(KEY_REASON, this.reason);
         List<String> list = this.commandArguments;
         if (list != null) {
-            bundle.putStringArrayList(KEY_COMMAND_ARGUMENTS, (ArrayList) list);
+            bundle.putStringArrayList(KEY_COMMAND_ARGUMENTS, new ArrayList<>(list));
         }
         bundle.putString(KEY_CATEGORY, this.category);
         return bundle;

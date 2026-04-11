@@ -15,7 +15,7 @@ public class TinyDataManager {
     public static final String UPLOADER_PUSH_CHANNEL = "UPLOADER_PUSH_CHANNEL";
     private static volatile TinyDataManager sInstance;
     private final Context mContext;
-    private Map<String, TinyDataUploader> mUploaders = new HashMap();
+    private Map<String, TinyDataUploader> mUploaders = new HashMap<>();
 
     private TinyDataManager(Context context) {
         this.mContext = context;

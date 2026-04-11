@@ -15,7 +15,7 @@ public class ApkTools {
     }
 
     public static List<String> getAbiList(Context context) {
-        ArrayList arrayList = new ArrayList();
+        ArrayList<String> arrayList = new ArrayList<>();
         String appPrimaryAbi = getAppPrimaryAbi(context);
         if (!TextUtils.isEmpty(appPrimaryAbi)) {
             arrayList.add(appPrimaryAbi);

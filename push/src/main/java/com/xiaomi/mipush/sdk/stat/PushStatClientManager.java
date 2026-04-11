@@ -72,7 +72,7 @@ public class PushStatClientManager {
         @Override // java.lang.Runnable
         public void run() {
             MyLog.v("exec== DbSizeControlJob");
-            DbManager.getInstance(PushStatClientManager.this.mContext).execR(new DbSizeControlJob(PushStatClientManager.this.getDbPath(), new WeakReference(PushStatClientManager.this.mContext)));
+            DbManager.getInstance(PushStatClientManager.this.mContext).execR(new DbSizeControlJob(PushStatClientManager.this.getDbPath(), new WeakReference<>(PushStatClientManager.this.mContext)));
             PushStatClientManager.this.updateTime("check_time");
         }
     };

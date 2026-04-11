@@ -34,7 +34,7 @@ public class MIPushLog2File implements LoggerInterface {
     private Context sAppContext;
     private static final SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss aaa");
     public static String MIPUSH_LOG_PATH = "/MiPushLog";
-    private static List<Pair<String, Throwable>> logs = Collections.synchronizedList(new ArrayList());
+    private static List<Pair<String, Throwable>> logs = Collections.synchronizedList(new ArrayList<>());
 
     public MIPushLog2File(Context context) {
         this.sAppContext = context;
@@ -126,7 +126,7 @@ public class MIPushLog2File implements LoggerInterface {
         this.mHandler.post(new Runnable() { // from class: com.xiaomi.push.log.MIPushLog2File.1
             @Override // java.lang.Runnable
             public void run() {
-                MIPushLog2File.logs.add(new Pair(String.format("%1$s %2$s %3$s ", MIPushLog2File.dateFormatter.format(new Date()), MIPushLog2File.this.mTag, str), th));
+                MIPushLog2File.logs.add(new Pair<>(String.format("%1$s %2$s %3$s ", MIPushLog2File.dateFormatter.format(new Date()), MIPushLog2File.this.mTag, str), th));
                 if (MIPushLog2File.logs.size() > MIPushLog2File.LOGS_MAX_LINE) {
                     int size = (MIPushLog2File.logs.size() - MIPushLog2File.LOGS_MAX_LINE) + 50;
                     for (int i = 0; i < size; i++) {
@@ -137,7 +137,7 @@ public class MIPushLog2File implements LoggerInterface {
                         } catch (IndexOutOfBoundsException e) {
                         }
                     }
-                    MIPushLog2File.logs.add(new Pair(String.format("%1$s %2$s %3$s ", MIPushLog2File.dateFormatter.format(new Date()), MIPushLog2File.this.mTag, "flush " + size + " lines logs."), null));
+                    MIPushLog2File.logs.add(new Pair<>(String.format("%1$s %2$s %3$s ", MIPushLog2File.dateFormatter.format(new Date()), MIPushLog2File.this.mTag, "flush " + size + " lines logs."), null));
                 }
                 try {
                     if (SDCardUtils.isSDCardUseful()) {

@@ -3,7 +3,7 @@ package com.xiaomi.push.service
 import android.content.Context
 import com.xiaomi.slim.Blob
 import com.xiaomi.smack.packet.Packet
-import top.trumeet.common.utils.Utils
+import io.github.magisk317.mipush.common.utils.Utils
 
 class ClientEventDispatcher {
     private val pushEventProcessor = MIPushEventProcessor()

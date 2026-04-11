@@ -14,7 +14,7 @@ public class DefaultDbPathGetter implements IDbPathGetter {
 
     @Override // com.xiaomi.mipush.sdk.stat.upload.IDbPathGetter
     public List<String> getPathList(Context context) {
-        ArrayList arrayList = new ArrayList();
+        ArrayList<String> arrayList = new ArrayList<>();
         arrayList.add(context.getDatabasePath(DataBaseConfig.DATABASE_NAME).getParentFile().getAbsolutePath());
         return arrayList;
     }

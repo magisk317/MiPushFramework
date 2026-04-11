@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.view.Window;
 import android.view.WindowManager;
+import androidx.core.os.BundleCompat;
 import com.xiaomi.channel.commonutils.logger.MyLog;
 import com.xiaomi.push.service.PushConstants;
 
@@ -28,7 +29,8 @@ public class BridgeActivity extends Activity {
         try {
             try {
                 Intent intent2 = getIntent();
-                if (intent2 != null && (intent = (Intent) intent2.getParcelableExtra(PushConstants.MIPUSH_EXTRA_INTENT_PAYLOAD)) != null) {
+                Bundle extras = intent2 != null ? intent2.getExtras() : null;
+                if (extras != null && (intent = BundleCompat.getParcelable(extras, PushConstants.MIPUSH_EXTRA_INTENT_PAYLOAD, Intent.class)) != null) {
                     PushMessageHandler.addJob(getApplicationContext(), intent);
                 }
             } catch (Exception e) {

@@ -14,6 +14,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -138,7 +139,7 @@ public class LogUploader {
         public void process() {
             try {
                 if (checkLimit()) {
-                    HashMap map = new HashMap();
+                    Map<String, String> map = new HashMap<>();
                     map.put("uid", ServiceConfig.getDeviceUUID());
                     map.put("token", this.token);
                     map.put("net", Network.getActiveConnPoint(LogUploader.this.mContext));

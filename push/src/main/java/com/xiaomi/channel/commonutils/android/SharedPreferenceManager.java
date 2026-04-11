@@ -13,7 +13,7 @@ public class SharedPreferenceManager {
     private static volatile SharedPreferenceManager sInstance;
     private Context mContext;
     private Handler mHandler = new Handler(Looper.getMainLooper());
-    private Map<String, Map<String, String>> mCaches = new HashMap();
+    private Map<String, Map<String, String>> mCaches = new HashMap<>();
 
     private SharedPreferenceManager(Context context) {
         this.mContext = context;
@@ -56,7 +56,7 @@ public class SharedPreferenceManager {
     private void putData2Cache(String str, String str2, String str3) {
         synchronized (this) {
             if (this.mCaches == null) {
-                this.mCaches = new HashMap();
+                this.mCaches = new HashMap<>();
             }
             Map<String, String> map = this.mCaches.get(str);
             Map<String, String> map2 = map;

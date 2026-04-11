@@ -81,7 +81,7 @@ public class PushContainerHelper {
         return generateContainer(context, t, actionType, z, str, str2, false);
     }
 
-    private static TBase createRespMessageFromAction(ActionType actionType, boolean z) {
+    private static TBase<?, ?> createRespMessageFromAction(ActionType actionType, boolean z) {
         switch (AnonymousClass1.$SwitchMap$com$xiaomi$xmpush$thrift$ActionType[actionType.ordinal()]) {
             case 1:
                 return new XmPushActionRegistrationResult();
@@ -159,19 +159,19 @@ public class PushContainerHelper {
         return generateContainer(context, t, actionType, z, str, str2, true);
     }
 
-    public static TBase getIgnoreRegMessageBodyFromContainer(Context context, XmPushActionContainer xmPushActionContainer) throws TException {
+    public static TBase<?, ?> getIgnoreRegMessageBodyFromContainer(Context context, XmPushActionContainer xmPushActionContainer) throws TException {
         if (xmPushActionContainer.isEncryptAction()) {
             return null;
         }
         byte[] pushAction = xmPushActionContainer.getPushAction();
-        TBase tBaseCreateRespMessageFromAction = createRespMessageFromAction(xmPushActionContainer.getAction(), xmPushActionContainer.isRequest);
+        TBase<?, ?> tBaseCreateRespMessageFromAction = createRespMessageFromAction(xmPushActionContainer.getAction(), xmPushActionContainer.isRequest);
         if (tBaseCreateRespMessageFromAction != null) {
             XmPushThriftSerializeUtils.convertByteArrayToThriftObject(tBaseCreateRespMessageFromAction, pushAction);
         }
         return tBaseCreateRespMessageFromAction;
     }
 
-    public static TBase getResponseMessageBodyFromContainer(Context context, XmPushActionContainer xmPushActionContainer) throws DecryptException, TException {
+    public static TBase<?, ?> getResponseMessageBodyFromContainer(Context context, XmPushActionContainer xmPushActionContainer) throws DecryptException, TException {
         byte[] pushAction;
         if (xmPushActionContainer.isEncryptAction()) {
             try {
@@ -182,7 +182,7 @@ public class PushContainerHelper {
         } else {
             pushAction = xmPushActionContainer.getPushAction();
         }
-        TBase tBaseCreateRespMessageFromAction = createRespMessageFromAction(xmPushActionContainer.getAction(), xmPushActionContainer.isRequest);
+        TBase<?, ?> tBaseCreateRespMessageFromAction = createRespMessageFromAction(xmPushActionContainer.getAction(), xmPushActionContainer.isRequest);
         if (tBaseCreateRespMessageFromAction != null) {
             XmPushThriftSerializeUtils.convertByteArrayToThriftObject(tBaseCreateRespMessageFromAction, pushAction);
         }

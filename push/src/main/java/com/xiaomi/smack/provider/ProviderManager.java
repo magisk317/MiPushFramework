@@ -16,8 +16,8 @@ import org.xmlpull.v1.XmlPullParserFactory;
 /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/smack/provider/ProviderManager.class */
 public class ProviderManager {
     private static ProviderManager instance;
-    private Map<String, Object> extensionProviders = new ConcurrentHashMap();
-    private Map<String, Object> iqProviders = new ConcurrentHashMap();
+    private Map<String, Object> extensionProviders = new ConcurrentHashMap<>();
+    private Map<String, Object> iqProviders = new ConcurrentHashMap<>();
 
     private ProviderManager() throws Throwable {
         initialize();
@@ -25,7 +25,7 @@ public class ProviderManager {
 
     private ClassLoader[] getClassLoaders() {
         ClassLoader[] classLoaderArr = {ProviderManager.class.getClassLoader(), Thread.currentThread().getContextClassLoader()};
-        ArrayList arrayList = new ArrayList();
+        ArrayList<ClassLoader> arrayList = new ArrayList<>();
         for (ClassLoader classLoader : classLoaderArr) {
             if (classLoader != null) {
                 arrayList.add(classLoader);
@@ -136,7 +136,7 @@ public class ProviderManager {
                                             if (IQProvider.class.isAssignableFrom(cls)) {
                                                 try {
                                                     try {
-                                                        this.iqProviders.put(providerKey, cls.newInstance());
+                                                        this.iqProviders.put(providerKey, cls.getDeclaredConstructor().newInstance());
                                                     } catch (Throwable th) {
                                                         th = th;
                                                         inputStream = inputStreamOpenStream;
@@ -171,7 +171,7 @@ public class ProviderManager {
                                         try {
                                             Class<?> cls2 = Class.forName(strNextText6);
                                             if (PacketExtensionProvider.class.isAssignableFrom(cls2)) {
-                                                this.extensionProviders.put(providerKey2, cls2.newInstance());
+                                                this.extensionProviders.put(providerKey2, cls2.getDeclaredConstructor().newInstance());
                                             } else if (PacketExtension.class.isAssignableFrom(cls2)) {
                                                 this.extensionProviders.put(providerKey2, cls2);
                                             }

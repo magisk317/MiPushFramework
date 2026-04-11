@@ -22,7 +22,7 @@ public class MessageQueryJob extends DbManager.BaseQueryJob<MessageInfoContract.
     }
 
     public static MessageQueryJob newInstance(String str, int i, int i2) {
-        ArrayList arrayList = new ArrayList();
+        ArrayList<String> arrayList = new ArrayList<>();
         arrayList.add(MessageInfoContract.MessageEntry.COLUMN_NAME_ID);
         arrayList.add("messageId");
         arrayList.add(MessageInfoContract.MessageEntry.COLUMN_NAME_MESSAGE_ITEM_ID);

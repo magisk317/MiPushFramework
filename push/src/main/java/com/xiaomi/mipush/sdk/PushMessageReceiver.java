@@ -34,7 +34,6 @@ public abstract class PushMessageReceiver extends BroadcastReceiver {
         }
     }
 
-    @Deprecated
     public void onReceiveMessage(Context context, MiPushMessage miPushMessage) {
     }
 

@@ -26,7 +26,7 @@ public class JavaCalls {
     }
 
     static {
-        HashMap map = new HashMap();
+        HashMap<Class<?>, Class<?>> map = new HashMap<>();
         PRIMITIVE_MAP = map;
         map.put(Boolean.class, Boolean.TYPE);
         map.put(Byte.class, Byte.TYPE);
@@ -46,34 +46,34 @@ public class JavaCalls {
         map.put(Double.TYPE, Double.TYPE);
     }
 
-    public static <T> T callMethod(Object obj, String str, Object... objArr) {
+    public static Object callMethod(Object obj, String str, Object... objArr) {
         try {
-            return (T) callMethodOrThrow(obj, str, objArr);
+            return callMethodOrThrow(obj, str, objArr);
         } catch (Exception e) {
             Log.w(LOG_TAG, "Meet exception when call Method '" + str + "' in " + obj + ", " + e);
             return null;
         }
     }
 
-    public static <T> T callMethodOrThrow(Object obj, String str, Object... objArr) throws IllegalAccessException, NoSuchMethodException, SecurityException, IllegalArgumentException, InvocationTargetException {
-        return (T) getDeclaredMethod(obj.getClass(), str, getParameterTypes(objArr)).invoke(obj, getParameters(objArr));
+    public static Object callMethodOrThrow(Object obj, String str, Object... objArr) throws IllegalAccessException, NoSuchMethodException, SecurityException, IllegalArgumentException, InvocationTargetException {
+        return getDeclaredMethod(obj.getClass(), str, getParameterTypes(objArr)).invoke(obj, getParameters(objArr));
     }
 
-    public static <T> T callStaticMethod(String str, String str2, Object... objArr) {
+    public static Object callStaticMethod(String str, String str2, Object... objArr) {
         try {
-            return (T) callStaticMethodOrThrow(SystemUtils.loadClass(null, str), str2, objArr);
+            return callStaticMethodOrThrow(SystemUtils.loadClass(null, str), str2, objArr);
         } catch (Exception e) {
             Log.w(LOG_TAG, "Meet exception when call Method '" + str2 + "' in " + str + ", " + e);
             return null;
         }
     }
 
-    public static <T> T callStaticMethodOrThrow(Class<?> cls, String str, Object... objArr) throws IllegalAccessException, NoSuchMethodException, SecurityException, IllegalArgumentException, InvocationTargetException {
-        return (T) getDeclaredMethod(cls, str, getParameterTypes(objArr)).invoke(null, getParameters(objArr));
+    public static Object callStaticMethodOrThrow(Class<?> cls, String str, Object... objArr) throws IllegalAccessException, NoSuchMethodException, SecurityException, IllegalArgumentException, InvocationTargetException {
+        return getDeclaredMethod(cls, str, getParameterTypes(objArr)).invoke(null, getParameters(objArr));
     }
 
-    public static <T> T callStaticMethodOrThrow(String str, String str2, Object... objArr) throws IllegalAccessException, NoSuchMethodException, SecurityException, ClassNotFoundException, IllegalArgumentException, InvocationTargetException {
-        return (T) getDeclaredMethod(SystemUtils.loadClass(null, str), str2, getParameterTypes(objArr)).invoke(null, getParameters(objArr));
+    public static Object callStaticMethodOrThrow(String str, String str2, Object... objArr) throws IllegalAccessException, NoSuchMethodException, SecurityException, ClassNotFoundException, IllegalArgumentException, InvocationTargetException {
+        return getDeclaredMethod(SystemUtils.loadClass(null, str), str2, getParameterTypes(objArr)).invoke(null, getParameters(objArr));
     }
 
     private static boolean compareClassLists(Class<?>[] clsArr, Class<?>[] clsArr2) {
@@ -131,16 +131,16 @@ public class JavaCalls {
         return (Character.TYPE.equals(cls) || Character.class.equals(cls)) ? (char) 0 : null;
     }
 
-    public static <T> T getField(Object obj, String str) {
+    public static Object getField(Object obj, String str) {
         try {
-            return (T) getFieldOrThrow(obj.getClass(), obj, str);
+            return getFieldOrThrow(obj.getClass(), obj, str);
         } catch (Exception e) {
             Log.w(LOG_TAG, "Meet exception when call getField '" + str + "' in " + obj + ", " + e);
             return null;
         }
     }
 
-    public static <T> T getFieldOrThrow(Class<? extends Object> cls, Object obj, String str) throws IllegalAccessException, NoSuchFieldException {
+    public static Object getFieldOrThrow(Class<? extends Object> cls, Object obj, String str) throws IllegalAccessException, NoSuchFieldException {
         Class<? extends Object> superclass = cls;
         Field field = null;
         while (field == null) {
@@ -156,7 +156,7 @@ public class JavaCalls {
             }
         }
         field.setAccessible(true);
-        return (T) field.get(obj);
+        return field.get(obj);
     }
 
     private static Class<?>[] getParameterTypes(Object... objArr) {
@@ -209,9 +209,9 @@ public class JavaCalls {
         return objArr2;
     }
 
-    public static <T> T getStaticField(Class<? extends Object> cls, String str) {
+    public static Object getStaticField(Class<? extends Object> cls, String str) {
         try {
-            return (T) getFieldOrThrow(cls, null, str);
+            return getFieldOrThrow(cls, null, str);
         } catch (Exception e) {
             StringBuilder sb = new StringBuilder();
             sb.append("Meet exception when call getStaticField '");
@@ -225,25 +225,25 @@ public class JavaCalls {
         }
     }
 
-    public static <T> T getStaticField(String str, String str2) {
+    public static Object getStaticField(String str, String str2) {
         try {
-            return (T) getFieldOrThrow(SystemUtils.loadClass(null, str), null, str2);
+            return getFieldOrThrow(SystemUtils.loadClass(null, str), null, str2);
         } catch (Exception e) {
             Log.w(LOG_TAG, "Meet exception when call getStaticField '" + str2 + "' in " + str + ", " + e);
             return null;
         }
     }
 
-    public static <T> T newEmptyInstance(Class<?> cls) {
+    public static Object newEmptyInstance(Class<?> cls) {
         try {
-            return (T) newEmptyInstanceOrThrow(cls);
+            return newEmptyInstanceOrThrow(cls);
         } catch (Exception e) {
             Log.w(LOG_TAG, "Meet exception when make instance as a " + cls.getSimpleName() + ", " + e);
             return null;
         }
     }
 
-    public static <T> T newEmptyInstanceOrThrow(Class<?> cls) throws IllegalAccessException, InstantiationException, ClassNotFoundException, InvocationTargetException {
+    public static Object newEmptyInstanceOrThrow(Class<?> cls) throws IllegalAccessException, InstantiationException, ClassNotFoundException, InvocationTargetException {
         Constructor<?>[] declaredConstructors = cls.getDeclaredConstructors();
         if (declaredConstructors == null || declaredConstructors.length == 0) {
             throw new IllegalArgumentException("Can't get even one available constructor for " + cls);
@@ -252,18 +252,18 @@ public class JavaCalls {
         constructor.setAccessible(true);
         Class<?>[] parameterTypes = constructor.getParameterTypes();
         if (parameterTypes == null || parameterTypes.length == 0) {
-            return (T) constructor.newInstance(new Object[0]);
+            return constructor.newInstance(new Object[0]);
         }
         Object[] objArr = new Object[parameterTypes.length];
         for (int i = 0; i < parameterTypes.length; i++) {
             objArr[i] = getDefaultValue(parameterTypes[i]);
         }
-        return (T) constructor.newInstance(objArr);
+        return constructor.newInstance(objArr);
     }
 
-    public static <T> T newInstance(Class<?> cls, Object... objArr) {
+    public static Object newInstance(Class<?> cls, Object... objArr) {
         try {
-            return (T) newInstanceOrThrow(cls, objArr);
+            return newInstanceOrThrow(cls, objArr);
         } catch (Exception e) {
             Log.w(LOG_TAG, "Meet exception when make instance as a " + cls.getSimpleName() + ", " + e);
             return null;
@@ -279,8 +279,8 @@ public class JavaCalls {
         }
     }
 
-    public static <T> T newInstanceOrThrow(Class<?> cls, Object... objArr) throws IllegalAccessException, NoSuchMethodException, InstantiationException, SecurityException, IllegalArgumentException, InvocationTargetException {
-        return (T) cls.getConstructor(getParameterTypes(objArr)).newInstance(getParameters(objArr));
+    public static Object newInstanceOrThrow(Class<?> cls, Object... objArr) throws IllegalAccessException, NoSuchMethodException, InstantiationException, SecurityException, IllegalArgumentException, InvocationTargetException {
+        return cls.getConstructor(getParameterTypes(objArr)).newInstance(getParameters(objArr));
     }
 
     public static Object newInstanceOrThrow(String str, Object... objArr) throws IllegalAccessException, NoSuchMethodException, InstantiationException, SecurityException, ClassNotFoundException, IllegalArgumentException, InvocationTargetException {

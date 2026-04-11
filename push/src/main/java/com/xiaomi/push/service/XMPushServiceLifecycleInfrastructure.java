@@ -42,7 +42,7 @@ final class XMPushServiceLifecycleInfrastructure {
     }
 
     void installMessenger() {
-        this.service.setServiceMessenger(new Messenger(new Handler() { // from class: com.xiaomi.push.service.XMPushServiceLifecycleInfrastructure.2
+        this.service.setServiceMessenger(new Messenger(new Handler(Looper.getMainLooper()) { // from class: com.xiaomi.push.service.XMPushServiceLifecycleInfrastructure.2
             @Override
             public void handleMessage(android.os.Message message) {
                 super.handleMessage(message);
@@ -51,7 +51,7 @@ final class XMPushServiceLifecycleInfrastructure {
                         switch (message.what) {
                             case 17:
                                 if (message.obj != null) {
-                                    XMPushServiceLifecycleInfrastructure.this.service.onStart((Intent) message.obj, 1);
+                                    XMPushServiceLifecycleInfrastructure.this.service.onStartCommand((Intent) message.obj, 0, 1);
                                 }
                                 break;
                             case 18:

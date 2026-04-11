@@ -44,7 +44,7 @@ public class SyncInfoHelper {
                 xmPushActionNotification.setType(NotificationType.SyncInfo.value);
                 xmPushActionNotification.setAppId(appInfoHolder.getAppID());
                 xmPushActionNotification.setPackageName(context.getPackageName());
-                xmPushActionNotification.extra = new HashMap();
+                xmPushActionNotification.extra = new HashMap<>();
                 Map<String, String> map = xmPushActionNotification.extra;
                 Context context2 = context;
                 PreferenceUtils.putNotNullExtra(map, Constants.EXTRA_KEY_APP_VERSION, AppInfoUtils.getVersionName(context2, context2.getPackageName()));
@@ -89,7 +89,7 @@ public class SyncInfoHelper {
         if (CollectionUtils.isEmpty(list)) {
             return "";
         }
-        ArrayList<String> arrayList = new ArrayList(list);
+        ArrayList<String> arrayList = new ArrayList<>(list);
         Collections.sort(arrayList, Collator.getInstance(Locale.CHINA));
         String str = "";
         for (String str2 : arrayList) {

@@ -29,7 +29,7 @@ public class DbManager {
     private BaseDbHelperFactory mBaseDbHelperFactory;
     private Context mContext;
     private final HashMap<String, BaseDbHelper> mDbHelperMap = new HashMap<>();
-    private ThreadPoolExecutor mPool = new ThreadPoolExecutor(1, 1, 15, TimeUnit.SECONDS, new LinkedBlockingQueue());
+    private ThreadPoolExecutor mPool = new ThreadPoolExecutor(1, 1, 15, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
     private final ArrayList<BaseJob> mPendingList = new ArrayList<>();
 
     /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/mipush/sdk/stat/db/base/DbManager$BaseJob.class */
@@ -174,7 +174,7 @@ public class DbManager {
 
         public BaseQueryJob(String str, List<String> list, String str2, String[] strArr, String str3, String str4, String str5, int i) {
             super(str);
-            this.mResults = new ArrayList();
+            this.mResults = new ArrayList<>();
             this.mBackRows = list;
             this.mWhereClause = str2;
             this.mWhereValues = strArr;
@@ -433,7 +433,7 @@ public class DbManager {
         if (this.mBaseDbHelperFactory == null) {
             throw new IllegalStateException("should exec setDbHelperFactory method first!");
         }
-        HashMap map = new HashMap();
+        HashMap<String, ArrayList<BaseJob>> map = new HashMap<>();
         if (this.mPool.isShutdown()) {
             return;
         }
@@ -441,20 +441,19 @@ public class DbManager {
             if (baseJob.needAttachInfo()) {
                 baseJob.attachInfo(getDbHelper(baseJob.getDataPath()), this.mContext);
             }
-            ArrayList arrayList2 = (ArrayList) map.get(baseJob.getDataPath());
-            ArrayList arrayList3 = arrayList2;
+            ArrayList<BaseJob> arrayList2 = map.get(baseJob.getDataPath());
+            ArrayList<BaseJob> arrayList3 = arrayList2;
             if (arrayList2 == null) {
-                arrayList3 = new ArrayList();
+                arrayList3 = new ArrayList<>();
                 map.put(baseJob.getDataPath(), arrayList3);
             }
             arrayList3.add(baseJob);
         }
-        for (Object key : map.keySet()) {
-            String str = (String) key;
-            ArrayList arrayList4 = (ArrayList) map.get(str);
+        for (String str : map.keySet()) {
+            ArrayList<BaseJob> arrayList4 = map.get(str);
             if (arrayList4 != null && arrayList4.size() > 0) {
                 BatchJob batchJob = new BatchJob(str, arrayList4);
-                batchJob.attachInfo(((BaseJob) arrayList4.get(0)).mDbHelper, this.mContext);
+                batchJob.attachInfo(arrayList4.get(0).mDbHelper, this.mContext);
                 this.mPool.execute(batchJob);
             }
         }

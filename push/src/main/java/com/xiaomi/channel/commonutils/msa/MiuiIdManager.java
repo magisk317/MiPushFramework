@@ -53,7 +53,7 @@ class MiuiIdManager implements IdManager {
         try {
             Class<?> clsLoadClass = SystemUtils.loadClass(context, CLASS_NAME);
             this.mClass = clsLoadClass;
-            this.mIdProivderImpl = clsLoadClass.newInstance();
+            this.mIdProivderImpl = clsLoadClass.getDeclaredConstructor().newInstance();
             this.mGetUDID = this.mClass.getMethod(METHOD_UDID, Context.class);
             this.mGetOAID = this.mClass.getMethod(METHOD_OAID, Context.class);
             this.mGetVAID = this.mClass.getMethod(METHOD_VAID, Context.class);

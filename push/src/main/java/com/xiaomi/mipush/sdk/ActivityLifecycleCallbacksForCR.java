@@ -14,7 +14,7 @@ import java.util.Set;
 
 /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/mipush/sdk/ActivityLifecycleCallbacksForCR.class */
 public class ActivityLifecycleCallbacksForCR implements Application.ActivityLifecycleCallbacks {
-    private Set<String> mMsgIdSet = new HashSet();
+    private Set<String> mMsgIdSet = new HashSet<>();
 
     private static void attachApplication(Application application) {
         application.registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacksForCR());

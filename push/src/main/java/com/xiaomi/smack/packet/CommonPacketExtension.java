@@ -3,6 +3,7 @@ package com.xiaomi.smack.packet;
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.text.TextUtils;
+import androidx.core.os.BundleCompat;
 import com.xiaomi.push.service.PushConstants;
 import com.xiaomi.smack.util.StringUtils;
 import java.util.ArrayList;
@@ -86,7 +87,7 @@ public class CommonPacketExtension implements PacketExtension {
     }
 
     public static CommonPacketExtension parseFromBundle(Bundle bundle) {
-        ArrayList arrayList;
+        ArrayList<CommonPacketExtension> arrayList;
         String string = bundle.getString(PushConstants.EXTRA_EXTENSION_ELEMENT_NAME);
         String string2 = bundle.getString(PushConstants.EXTRA_EXTENSION_NAMESPACE);
         String string3 = bundle.getString(PushConstants.EXTRA_EXTENSION_TEXT);
@@ -101,8 +102,8 @@ public class CommonPacketExtension implements PacketExtension {
             i++;
         }
         if (bundle.containsKey(CHILDREN_NAME)) {
-            Parcelable[] parcelableArray = bundle.getParcelableArray(CHILDREN_NAME);
-            arrayList = new ArrayList(parcelableArray.length);
+            Parcelable[] parcelableArray = BundleCompat.getParcelableArray(bundle, CHILDREN_NAME, Parcelable.class);
+            arrayList = new ArrayList<>(parcelableArray.length);
             for (Parcelable parcelable : parcelableArray) {
                 arrayList.add(parseFromBundle((Bundle) parcelable));
             }
@@ -129,7 +130,7 @@ public class CommonPacketExtension implements PacketExtension {
 
     public void appendChild(CommonPacketExtension commonPacketExtension) {
         if (this.mChildrenEles == null) {
-            this.mChildrenEles = new ArrayList();
+            this.mChildrenEles = new ArrayList<>();
         }
         if (this.mChildrenEles.contains(commonPacketExtension)) {
             return;
@@ -174,7 +175,7 @@ public class CommonPacketExtension implements PacketExtension {
         if (TextUtils.isEmpty(str) || this.mChildrenEles == null) {
             return null;
         }
-        ArrayList arrayList = new ArrayList();
+        ArrayList<CommonPacketExtension> arrayList = new ArrayList<>();
         for (CommonPacketExtension commonPacketExtension : this.mChildrenEles) {
             if (commonPacketExtension.mExtensionElementName.equals(str)) {
                 arrayList.add(commonPacketExtension);

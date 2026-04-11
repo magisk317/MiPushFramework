@@ -75,7 +75,7 @@ public class DefaultEventProcessor implements IEventProcessor {
     }
 
     private List<String> readFile(String str) {
-        ArrayList arrayList = new ArrayList();
+        List<String> arrayList = new ArrayList<>();
         BufferedInputStream bufferedInputStream = null;
         try {
             bufferedInputStream = new BufferedInputStream(new FileInputStream(new File(str)));
@@ -142,7 +142,7 @@ public class DefaultEventProcessor implements IEventProcessor {
 
     private void reportDropFile(String str, String str2) {
         EventClientReport eventClientReportNewEvent = ClientReportLogicManager.getInstance(this.mContext).newEvent(5001, "24:" + str + "," + str2);
-        ArrayList arrayList = new ArrayList();
+        List<String> arrayList = new ArrayList<>(1);
         arrayList.add(eventClientReportNewEvent.toJsonString());
         send(arrayList);
     }

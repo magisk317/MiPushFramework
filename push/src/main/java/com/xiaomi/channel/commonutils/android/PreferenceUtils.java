@@ -2,12 +2,15 @@ package com.xiaomi.channel.commonutils.android;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.preference.PreferenceManager;
 import com.xiaomi.channel.commonutils.logger.MyLog;
 import java.util.Map;
 
 /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/channel/commonutils/android/PreferenceUtils.class */
 public abstract class PreferenceUtils {
+    private static SharedPreferences getDefaultSharedPreferences(Context context) {
+        return context.getSharedPreferences(context.getPackageName() + "_preferences", 0);
+    }
+
     public static void checkProcess(Context context) {
     }
 
@@ -19,7 +22,7 @@ public abstract class PreferenceUtils {
 
     public static void dumpDefaultPreference(Context context) {
         checkProcess(context);
-        dumpPreference(PreferenceManager.getDefaultSharedPreferences(context), "default preference:");
+        dumpPreference(getDefaultSharedPreferences(context), "default preference:");
     }
 
     public static void dumpDefaultPreference(Context context, String str) {
@@ -42,37 +45,37 @@ public abstract class PreferenceUtils {
 
     public static boolean getSettingBoolean(Context context, String str, boolean z) {
         checkProcess(context);
-        return PreferenceManager.getDefaultSharedPreferences(context).getBoolean(str, z);
+        return getDefaultSharedPreferences(context).getBoolean(str, z);
     }
 
     public static float getSettingFloat(Context context, String str, float f) {
         checkProcess(context);
-        return PreferenceManager.getDefaultSharedPreferences(context).getFloat(str, f);
+        return getDefaultSharedPreferences(context).getFloat(str, f);
     }
 
     public static int getSettingInt(Context context, String str, int i) {
         checkProcess(context);
-        return PreferenceManager.getDefaultSharedPreferences(context).getInt(str, i);
+        return getDefaultSharedPreferences(context).getInt(str, i);
     }
 
     public static long getSettingLong(Context context, String str, long j) {
         checkProcess(context);
-        return PreferenceManager.getDefaultSharedPreferences(context).getLong(str, j);
+        return getDefaultSharedPreferences(context).getLong(str, j);
     }
 
     public static String getSettingString(Context context, String str, String str2) {
         checkProcess(context);
-        return PreferenceManager.getDefaultSharedPreferences(context).getString(str, str2);
+        return getDefaultSharedPreferences(context).getString(str, str2);
     }
 
     public static boolean hasKey(Context context, String str) {
         checkProcess(context);
-        return PreferenceManager.getDefaultSharedPreferences(context).contains(str);
+        return getDefaultSharedPreferences(context).contains(str);
     }
 
     public static void increaseSettingInt(Context context, String str) {
         checkProcess(context);
-        increaseSettingInt(PreferenceManager.getDefaultSharedPreferences(context), str);
+        increaseSettingInt(getDefaultSharedPreferences(context), str);
     }
 
     public static void increaseSettingInt(SharedPreferences sharedPreferences, String str) {
@@ -96,22 +99,22 @@ public abstract class PreferenceUtils {
 
     public static void removePreference(Context context, String str) {
         checkProcess(context);
-        PreferenceManager.getDefaultSharedPreferences(context).edit().remove(str).commit();
+        getDefaultSharedPreferences(context).edit().remove(str).commit();
     }
 
     public static void setSettingBoolean(Context context, String str, boolean z) {
         checkProcess(context);
-        PreferenceManager.getDefaultSharedPreferences(context).edit().putBoolean(str, z).commit();
+        getDefaultSharedPreferences(context).edit().putBoolean(str, z).commit();
     }
 
     public static void setSettingFloat(Context context, String str, float f) {
         checkProcess(context);
-        PreferenceManager.getDefaultSharedPreferences(context).edit().putFloat(str, f).commit();
+        getDefaultSharedPreferences(context).edit().putFloat(str, f).commit();
     }
 
     public static void setSettingInt(Context context, String str, int i) {
         checkProcess(context);
-        PreferenceManager.getDefaultSharedPreferences(context).edit().putInt(str, i).commit();
+        getDefaultSharedPreferences(context).edit().putInt(str, i).commit();
     }
 
     public static void setSettingInt(SharedPreferences sharedPreferences, String str, int i) {
@@ -121,7 +124,7 @@ public abstract class PreferenceUtils {
     public static void setSettingLong(Context context, String str, long j) {
         try {
             checkProcess(context);
-            PreferenceManager.getDefaultSharedPreferences(context).edit().putLong(str, j).commit();
+            getDefaultSharedPreferences(context).edit().putLong(str, j).commit();
         } catch (Exception e) {
             MyLog.e(e);
         }
@@ -129,6 +132,6 @@ public abstract class PreferenceUtils {
 
     public static void setSettingString(Context context, String str, String str2) {
         checkProcess(context);
-        PreferenceManager.getDefaultSharedPreferences(context).edit().putString(str, str2).commit();
+        getDefaultSharedPreferences(context).edit().putString(str, str2).commit();
     }
 }

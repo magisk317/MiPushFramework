@@ -29,7 +29,7 @@ public class NetworkStatusReceiver extends BroadcastReceiver {
     private static int sCorePoolSize = 1;
     private static int sMaximumPoolSize = 1;
     private static int sKeepAliveTime = 2;
-    private static BlockingQueue<Runnable> queue = new LinkedBlockingQueue();
+    private static BlockingQueue<Runnable> queue = new LinkedBlockingQueue<>();
     private static ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(sCorePoolSize, sMaximumPoolSize, sKeepAliveTime, TimeUnit.SECONDS, queue);
     private static boolean isRegister = false;
 

@@ -16,7 +16,7 @@ public class ScheduledJobManager {
     private static final String SP_NAME = "mipush_extra";
     private static volatile ScheduledJobManager instance;
     private ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
-    private Map<String, ScheduledFuture> jobFutureMap = new HashMap();
+    private Map<String, ScheduledFuture<?>> jobFutureMap = new HashMap<>();
     private Object mapLock = new Object();
     private SharedPreferences preferences;
 
@@ -51,8 +51,8 @@ public class ScheduledJobManager {
         this.preferences = context.getSharedPreferences("mipush_extra", 0);
     }
 
-    private ScheduledFuture getFutureByJobId(Job job) {
-        ScheduledFuture scheduledFuture;
+    private ScheduledFuture<?> getFutureByJobId(Job job) {
+        ScheduledFuture<?> scheduledFuture;
         synchronized (this.mapLock) {
             scheduledFuture = this.jobFutureMap.get(job.getJobId());
         }
@@ -155,7 +155,7 @@ public class ScheduledJobManager {
 
     public boolean cancelJob(String str) {
         synchronized (this.mapLock) {
-            ScheduledFuture scheduledFuture = this.jobFutureMap.get(str);
+            ScheduledFuture<?> scheduledFuture = this.jobFutureMap.get(str);
             if (scheduledFuture == null) {
                 return false;
             }

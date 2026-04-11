@@ -10,6 +10,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.text.TextUtils;
 import android.widget.RemoteViews;
+import androidx.core.app.NotificationCompat;
 import com.xiaomi.channel.commonutils.android.AppInfoUtils;
 import com.xiaomi.channel.commonutils.android.MIUIUtils;
 import com.xiaomi.channel.commonutils.logger.MyLog;
@@ -152,7 +153,7 @@ final class MIPushNotificationBuilderSupport {
                 MyLog.w("can not get big picture.");
                 return builderCompat;
             }
-            Notification.BigPictureStyle bigPictureStyle = new Notification.BigPictureStyle(builderCompat);
+            Notification.BigPictureStyle bigPictureStyle = builderCompat.createBigPictureStyle();
             bigPictureStyle.bigPicture(onlinePictureResource);
             bigPictureStyle.setSummaryText(str);
             bigPictureStyle.bigLargeIcon((Bitmap) null);

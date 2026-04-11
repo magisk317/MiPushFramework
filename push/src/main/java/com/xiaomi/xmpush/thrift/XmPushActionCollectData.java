@@ -26,7 +26,7 @@ public class XmPushActionCollectData implements TBase<XmPushActionCollectData, O
 
     public XmPushActionCollectData(XmPushActionCollectData xmPushActionCollectData) {
         if (xmPushActionCollectData.isSetDataCollectionItems()) {
-            ArrayList arrayList = new ArrayList();
+            List<DataCollectionItem> arrayList = new ArrayList<>();
             Iterator<DataCollectionItem> it = xmPushActionCollectData.dataCollectionItems.iterator();
             while (it.hasNext()) {
                 arrayList.add(new DataCollectionItem(it.next()));
@@ -42,7 +42,7 @@ public class XmPushActionCollectData implements TBase<XmPushActionCollectData, O
 
     public void addToDataCollectionItems(DataCollectionItem dataCollectionItem) {
         if (this.dataCollectionItems == null) {
-            this.dataCollectionItems = new ArrayList();
+            this.dataCollectionItems = new ArrayList<>();
         }
         this.dataCollectionItems.add(dataCollectionItem);
     }
@@ -128,7 +128,7 @@ public class XmPushActionCollectData implements TBase<XmPushActionCollectData, O
                 case 1:
                     if (fieldBegin.type == 15) {
                         TList listBegin = tProtocol.readListBegin();
-                        this.dataCollectionItems = new ArrayList(listBegin.size);
+                        this.dataCollectionItems = new ArrayList<>(listBegin.size);
                         for (int i = 0; i < listBegin.size; i++) {
                             DataCollectionItem dataCollectionItem = new DataCollectionItem();
                             dataCollectionItem.read(tProtocol);

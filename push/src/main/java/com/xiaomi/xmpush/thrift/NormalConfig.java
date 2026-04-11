@@ -46,7 +46,7 @@ public class NormalConfig implements TBase<NormalConfig, Object>, Serializable, 
         this.__isset_bit_vector.or(normalConfig.__isset_bit_vector);
         this.version = normalConfig.version;
         if (normalConfig.isSetConfigItems()) {
-            ArrayList arrayList = new ArrayList();
+            List<OnlineConfigItem> arrayList = new ArrayList<>();
             Iterator<OnlineConfigItem> it = normalConfig.configItems.iterator();
             while (it.hasNext()) {
                 arrayList.add(new OnlineConfigItem(it.next()));
@@ -60,7 +60,7 @@ public class NormalConfig implements TBase<NormalConfig, Object>, Serializable, 
 
     public void addToConfigItems(OnlineConfigItem onlineConfigItem) {
         if (this.configItems == null) {
-            this.configItems = new ArrayList();
+            this.configItems = new ArrayList<>();
         }
         this.configItems.add(onlineConfigItem);
     }
@@ -200,7 +200,7 @@ public class NormalConfig implements TBase<NormalConfig, Object>, Serializable, 
                 case 2:
                     if (fieldBegin.type == 15) {
                         TList listBegin = tProtocol.readListBegin();
-                        this.configItems = new ArrayList(listBegin.size);
+                        this.configItems = new ArrayList<>(listBegin.size);
                         for (int i = 0; i < listBegin.size; i++) {
                             OnlineConfigItem onlineConfigItem = new OnlineConfigItem();
                             onlineConfigItem.read(tProtocol);

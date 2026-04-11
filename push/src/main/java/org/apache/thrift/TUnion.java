@@ -55,18 +55,18 @@ public abstract class TUnion<T extends TUnion, F> implements TBase<T, F> {
         return sb.toString();
     }
 
-    private static List deepCopyList(List list) {
-        ArrayList arrayList = new ArrayList(list.size());
-        Iterator it = list.iterator();
+    private static List<Object> deepCopyList(List<?> list) {
+        ArrayList<Object> arrayList = new ArrayList<>(list.size());
+        Iterator<?> it = list.iterator();
         while (it.hasNext()) {
             arrayList.add(deepCopyObject(it.next()));
         }
         return arrayList;
     }
 
-    private static Map deepCopyMap(Map<Object, Object> map) {
-        HashMap map2 = new HashMap();
-        for (Map.Entry<Object, Object> entry : map.entrySet()) {
+    private static Map<Object, Object> deepCopyMap(Map<?, ?> map) {
+        HashMap<Object, Object> map2 = new HashMap<>();
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
             map2.put(deepCopyObject(entry.getKey()), deepCopyObject(entry.getValue()));
         }
         return map2;
@@ -77,7 +77,7 @@ public abstract class TUnion<T extends TUnion, F> implements TBase<T, F> {
             return ((TBase) obj).deepCopy();
         }
         if (!(obj instanceof byte[])) {
-            return obj instanceof List ? deepCopyList((List) obj) : obj instanceof Set ? deepCopySet((Set) obj) : obj instanceof Map ? deepCopyMap((Map) obj) : obj;
+            return obj instanceof List ? deepCopyList((List<?>) obj) : obj instanceof Set ? deepCopySet((Set<?>) obj) : obj instanceof Map ? deepCopyMap((Map<?, ?>) obj) : obj;
         }
         byte[] bArr = (byte[]) obj;
         byte[] bArr2 = new byte[bArr.length];
@@ -85,9 +85,9 @@ public abstract class TUnion<T extends TUnion, F> implements TBase<T, F> {
         return bArr2;
     }
 
-    private static Set deepCopySet(Set set) {
-        HashSet hashSet = new HashSet();
-        Iterator it = set.iterator();
+    private static Set<Object> deepCopySet(Set<?> set) {
+        HashSet<Object> hashSet = new HashSet<>();
+        Iterator<?> it = set.iterator();
         while (it.hasNext()) {
             hashSet.add(deepCopyObject(it.next()));
         }

@@ -5,7 +5,7 @@ import java.util.Map;
 
 /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/channel/commonutils/network/HttpResponse.class */
 public class HttpResponse {
-    public Map<String, String> headers = new HashMap();
+    public Map<String, String> headers = new HashMap<>();
     public int responseCode;
     public String responseString;
 

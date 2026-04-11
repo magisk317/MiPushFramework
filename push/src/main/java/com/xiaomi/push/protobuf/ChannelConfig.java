@@ -44,7 +44,7 @@ public final class ChannelConfig {
                 throw new NullPointerException();
             }
             if (this.testHosts_.isEmpty()) {
-                this.testHosts_ = new ArrayList();
+                this.testHosts_ = new ArrayList<>();
             }
             this.testHosts_.add(str);
             return this;

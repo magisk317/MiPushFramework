@@ -532,11 +532,6 @@ public class XMPushService extends Service implements ConnectionListener {
     }
 
     @Override // android.app.Service
-    public void onStart(Intent intent, int i) {
-        this.mLifecycleDelegate.onStart(intent, i);
-    }
-
-    @Override // android.app.Service
     public int onStartCommand(Intent intent, int i, int i2) {
         return this.mLifecycleDelegate.onStartCommand(intent, i, i2);
     }

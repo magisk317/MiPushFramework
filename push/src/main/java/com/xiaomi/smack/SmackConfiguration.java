@@ -96,7 +96,7 @@ public final class SmackConfiguration {
 
     private static ClassLoader[] getClassLoaders() {
         ClassLoader[] classLoaderArr = {SmackConfiguration.class.getClassLoader(), Thread.currentThread().getContextClassLoader()};
-        ArrayList arrayList = new ArrayList();
+        ArrayList<ClassLoader> arrayList = new ArrayList<>();
         for (ClassLoader classLoader : classLoaderArr) {
             if (classLoader != null) {
                 arrayList.add(classLoader);

@@ -167,7 +167,7 @@ class HuaweiIdManager implements IdManager {
         try {
             PackageInfo packageInfo = context.getPackageManager().getPackageInfo("com.huawei.hwid", 128);
             boolean z = (packageInfo.applicationInfo.flags & 1) != 0;
-            sIsSupport = packageInfo.versionCode >= OAID_SUPPORT_VERSION;
+            sIsSupport = packageInfo.getLongVersionCode() >= OAID_SUPPORT_VERSION;
             return z;
         } catch (Exception e) {
             return false;

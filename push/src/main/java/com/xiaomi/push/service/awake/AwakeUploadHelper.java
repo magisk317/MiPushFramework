@@ -41,7 +41,7 @@ public class AwakeUploadHelper {
             return;
         }
         try {
-            HashMap map = new HashMap();
+            HashMap<String, String> map = new HashMap<>();
             map.put(KEY_AWAKE_INFO, str);
             map.put(KEY_EVENT_TYPE, String.valueOf(i));
             map.put(KEY_DESCRIPTION, str2);

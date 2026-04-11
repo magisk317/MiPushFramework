@@ -81,7 +81,7 @@ public class XmPushActionSendMessage implements TBase<XmPushActionSendMessage, O
         }
         this.needAck = xmPushActionSendMessage.needAck;
         if (xmPushActionSendMessage.isSetParams()) {
-            HashMap map = new HashMap();
+            Map<String, String> map = new HashMap<>();
             for (Map.Entry<String, String> entry : xmPushActionSendMessage.params.entrySet()) {
                 map.put(entry.getKey(), entry.getValue());
             }
@@ -407,7 +407,7 @@ public class XmPushActionSendMessage implements TBase<XmPushActionSendMessage, O
 
     public void putToParams(String str, String str2) {
         if (this.params == null) {
-            this.params = new HashMap();
+            this.params = new HashMap<>();
         }
         this.params.put(str, str2);
     }
@@ -494,7 +494,7 @@ public class XmPushActionSendMessage implements TBase<XmPushActionSendMessage, O
                 case 10:
                     if (fieldBegin.type == 13) {
                         TMap mapBegin = tProtocol.readMapBegin();
-                        this.params = new HashMap(mapBegin.size * 2);
+                        this.params = new HashMap<>(mapBegin.size * 2);
                         for (int i = 0; i < mapBegin.size; i++) {
                             this.params.put(tProtocol.readString(), tProtocol.readString());
                         }

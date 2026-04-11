@@ -26,9 +26,9 @@ import java.util.concurrent.TimeUnit;
 
 /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/mipush/sdk/PushMessageHandler.class */
 public class PushMessageHandler extends BaseService {
-    private static List<MiPushClient.ICallbackResult> sICallbackResult = new ArrayList();
-    private static List<MiPushClient.MiPushClientCallback> sCallbacks = new ArrayList();
-    private static ThreadPoolExecutor sPool = new ThreadPoolExecutor(1, 1, 15, TimeUnit.SECONDS, new LinkedBlockingQueue());
+    private static List<MiPushClient.ICallbackResult<?>> sICallbackResult = new ArrayList<>();
+    private static List<MiPushClient.MiPushClientCallback> sCallbacks = new ArrayList<>();
+    private static ThreadPoolExecutor sPool = new ThreadPoolExecutor(1, 1, 15, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
 
     /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/mipush/sdk/PushMessageHandler$PushMessageInterface.class */
     interface PushMessageInterface extends Serializable {
@@ -50,7 +50,7 @@ public class PushMessageHandler extends BaseService {
         }
     }
 
-    protected static void addUPSCallback(MiPushClient.ICallbackResult iCallbackResult) {
+    protected static void addUPSCallback(MiPushClient.ICallbackResult<?> iCallbackResult) {
         synchronized (sICallbackResult) {
             if (!sICallbackResult.contains(iCallbackResult)) {
                 sICallbackResult.add(iCallbackResult);
@@ -60,7 +60,7 @@ public class PushMessageHandler extends BaseService {
 
     private static void handleNewMessage(Context context, Intent intent, ResolveInfo resolveInfo) {
         try {
-            MessageHandleService.addJob(context.getApplicationContext(), new MessageHandleService.MessageHandleJob(intent, (PushMessageReceiver) SystemUtils.loadClass(context, resolveInfo.activityInfo.name).newInstance()));
+            MessageHandleService.addJob(context.getApplicationContext(), new MessageHandleService.MessageHandleJob(intent, (PushMessageReceiver) SystemUtils.loadClass(context, resolveInfo.activityInfo.name).getDeclaredConstructor().newInstance()));
             MessageHandleService.onHandleIntent(context, new Intent(context.getApplicationContext(), (Class<?>) MessageHandleService.class));
         } catch (Throwable th) {
             MyLog.e(th);
@@ -172,14 +172,15 @@ public class PushMessageHandler extends BaseService {
 
     protected static void onUPSRegisterResult(Context context, MiPushCommandMessage miPushCommandMessage) {
         synchronized (sICallbackResult) {
-            for (MiPushClient.ICallbackResult iCallbackResult : sICallbackResult) {
+            for (MiPushClient.ICallbackResult<?> iCallbackResult : sICallbackResult) {
                 if (iCallbackResult instanceof MiPushClient.UPSRegisterCallBack) {
+                    MiPushClient.UPSRegisterCallBack registerCallBack = (MiPushClient.UPSRegisterCallBack) iCallbackResult;
                     MiPushClient.TokenResult tokenResult = new MiPushClient.TokenResult();
                     if (miPushCommandMessage != null && miPushCommandMessage.getCommandArguments() != null && miPushCommandMessage.getCommandArguments().size() > 0) {
                         tokenResult.setResultCode(miPushCommandMessage.getResultCode());
                         tokenResult.setToken(miPushCommandMessage.getCommandArguments().get(0));
                     }
-                    iCallbackResult.onResult(tokenResult);
+                    registerCallBack.onResult(tokenResult);
                 }
             }
         }
@@ -247,7 +248,7 @@ public class PushMessageHandler extends BaseService {
         }
     }
 
-    protected static void removeUPSCallback(MiPushClient.ICallbackResult iCallbackResult) {
+    protected static void removeUPSCallback(MiPushClient.ICallbackResult<?> iCallbackResult) {
         synchronized (sICallbackResult) {
             sICallbackResult.remove(iCallbackResult);
         }
@@ -287,8 +288,9 @@ public class PushMessageHandler extends BaseService {
     }
 
     @Override // com.xiaomi.mipush.sdk.BaseService, android.app.Service
-    public void onStart(Intent intent, int i) {
-        super.onStart(intent, i);
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        int result = super.onStartCommand(intent, flags, startId);
         scheduleJob(getApplicationContext(), intent);
+        return result;
     }
 }

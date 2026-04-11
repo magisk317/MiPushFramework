@@ -14,7 +14,7 @@ public class OperatePushHelper {
     public static final int TIME_OUT = 5000;
     private static volatile OperatePushHelper sInstance = null;
     private Context appContext;
-    private List<MessageBean> operateMessages = new ArrayList();
+    private List<MessageBean> operateMessages = new ArrayList<>();
 
     private OperatePushHelper(Context context) {
         Context applicationContext = context.getApplicationContext();

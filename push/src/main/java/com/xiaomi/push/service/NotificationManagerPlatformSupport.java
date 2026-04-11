@@ -63,18 +63,19 @@ final class NotificationManagerPlatformSupport {
         }
     }
 
-    static <T> T getListFromParceledListSlice(Object obj) {
+    static List<?> getListFromParceledListSlice(Object obj) {
         if (obj == null) {
             return null;
         }
         try {
-            return (T) obj.getClass().getMethod("getList", new Class[0]).invoke(obj, new Object[0]);
+            Object invoke = obj.getClass().getMethod("getList", new Class[0]).invoke(obj, new Object[0]);
+            return invoke instanceof List ? (List<?>) invoke : null;
         } catch (Exception e) {
             return null;
         }
     }
 
-    static Object newParceledListSlice(List list) throws Exception {
+    static Object newParceledListSlice(List<?> list) throws Exception {
         return Class.forName("android.content.pm.ParceledListSlice").getConstructor(List.class).newInstance(list);
     }
 
@@ -101,7 +102,15 @@ final class NotificationManagerPlatformSupport {
         if (spaceId == -1) {
             return null;
         }
-        return (List) getListFromParceledListSlice(JavaCalls.callMethod(nms, "getAppActiveNotifications", str, Integer.valueOf(spaceId)));
+        List<?> listFromParceledListSlice = getListFromParceledListSlice(JavaCalls.callMethod(nms, "getAppActiveNotifications", str, Integer.valueOf(spaceId)));
+        if (listFromParceledListSlice == null) {
+            return null;
+        }
+        List<StatusBarNotification> result = new ArrayList<>(listFromParceledListSlice.size());
+        for (Object item : listFromParceledListSlice) {
+            result.add((StatusBarNotification) item);
+        }
+        return result;
     }
 
     static NotificationChannelGroup getNotificationChannelGroup(String str, String str2) throws Exception {
@@ -117,12 +126,20 @@ final class NotificationManagerPlatformSupport {
         if (pkgUid == -1) {
             return null;
         }
-        return (List) getListFromParceledListSlice(JavaCalls.callMethod(nms, "getNotificationChannelsForPackage", str, Integer.valueOf(pkgUid), Boolean.FALSE));
+        List<?> listFromParceledListSlice = getListFromParceledListSlice(JavaCalls.callMethod(nms, "getNotificationChannelsForPackage", str, Integer.valueOf(pkgUid), Boolean.FALSE));
+        if (listFromParceledListSlice == null) {
+            return null;
+        }
+        List<NotificationChannel> result = new ArrayList<>(listFromParceledListSlice.size());
+        for (Object item : listFromParceledListSlice) {
+            result.add((NotificationChannel) item);
+        }
+        return result;
     }
 
     static List<StatusBarNotification> filterLocalActiveNotifications(String str, StatusBarNotification[] statusBarNotificationArr) {
         boolean isMIUI = MIUIUtils.isMIUI();
-        ArrayList arrayList = new ArrayList();
+        List<StatusBarNotification> arrayList = new ArrayList<>();
         if (statusBarNotificationArr == null || statusBarNotificationArr.length <= 0) {
             return arrayList;
         }
@@ -138,7 +155,7 @@ final class NotificationManagerPlatformSupport {
         if (!MIUIUtils.isMIUI() || list == null) {
             return list;
         }
-        ArrayList arrayList = new ArrayList();
+        List<NotificationChannel> arrayList = new ArrayList<>();
         String format = String.format(str2, str, "");
         Iterator<NotificationChannel> it = list.iterator();
         while (it.hasNext()) {

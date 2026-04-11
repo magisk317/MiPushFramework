@@ -2,6 +2,7 @@ package com.xiaomi.smack.packet;
 
 import android.os.Bundle;
 import android.os.Parcelable;
+import androidx.core.os.BundleCompat;
 import com.xiaomi.push.mpcd.Constants;
 import com.xiaomi.push.service.PushConstants;
 import java.util.ArrayList;
@@ -86,9 +87,9 @@ public class XMPPError {
         this.condition = bundle.getString(PushConstants.EXTRA_ERROR_CONDITION);
         this.reason = bundle.getString(PushConstants.EXTRA_ERROR_REASON);
         this.message = bundle.getString(PushConstants.EXTRA_ERROR_MESSAGE);
-        Parcelable[] parcelableArray = bundle.getParcelableArray(PushConstants.EXTRA_EXTENSIONS);
+        Parcelable[] parcelableArray = BundleCompat.getParcelableArray(bundle, PushConstants.EXTRA_EXTENSIONS, Parcelable.class);
         if (parcelableArray != null) {
-            this.applicationExtensions = new ArrayList(parcelableArray.length);
+            this.applicationExtensions = new ArrayList<>(parcelableArray.length);
             for (Parcelable parcelable : parcelableArray) {
                 CommonPacketExtension fromBundle = CommonPacketExtension.parseFromBundle((Bundle) parcelable);
                 if (fromBundle != null) {
@@ -117,7 +118,7 @@ public class XMPPError {
     public void addExtension(CommonPacketExtension commonPacketExtension) {
         synchronized (this) {
             if (this.applicationExtensions == null) {
-                this.applicationExtensions = new ArrayList();
+                this.applicationExtensions = new ArrayList<>();
             }
             this.applicationExtensions.add(commonPacketExtension);
         }

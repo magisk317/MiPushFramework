@@ -2,6 +2,7 @@ package com.xiaomi.clientreport.util;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.text.TextUtils;
@@ -73,7 +74,8 @@ public class ClientReportUtil {
     public static boolean isSupportXMSFUpload(Context context) {
         boolean z = false;
         try {
-            if (context.getApplicationContext().getPackageManager().getPackageInfo(PushConstants.PUSH_SERVICE_PACKAGE_NAME, 0).versionCode >= 108) {
+            PackageInfo packageInfo = context.getApplicationContext().getPackageManager().getPackageInfo(PushConstants.PUSH_SERVICE_PACKAGE_NAME, 0);
+            if (getVersionCode(packageInfo) >= 108) {
                 z = true;
             }
             return z;
@@ -145,6 +147,19 @@ public class ClientReportUtil {
         bArrCopyOf[0] = (byte) 68;
         bArrCopyOf[15] = (byte) 84;
         return bArrCopyOf;
+    }
+
+    private static long getVersionCode(PackageInfo packageInfo) {
+        try {
+            return ((Number) PackageInfo.class.getMethod("getLongVersionCode").invoke(packageInfo)).longValue();
+        } catch (ReflectiveOperationException unused) {
+            try {
+                return ((Number) PackageInfo.class.getField("versionCode").get(packageInfo)).longValue();
+            } catch (ReflectiveOperationException e) {
+                MyLog.e(e);
+                return 0L;
+            }
+        }
     }
 
     public static void sendData(Context context, String str) {

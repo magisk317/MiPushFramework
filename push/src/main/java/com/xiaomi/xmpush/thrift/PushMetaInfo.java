@@ -81,14 +81,14 @@ public class PushMetaInfo implements TBase<PushMetaInfo, Object>, Serializable, 
         this.passThrough = pushMetaInfo.passThrough;
         this.notifyId = pushMetaInfo.notifyId;
         if (pushMetaInfo.isSetExtra()) {
-            HashMap map = new HashMap();
+            HashMap<String, String> map = new HashMap<>();
             for (Map.Entry<String, String> entry : pushMetaInfo.extra.entrySet()) {
                 map.put(entry.getKey(), entry.getValue());
             }
             this.extra = map;
         }
         if (pushMetaInfo.isSetInternal()) {
-            HashMap map2 = new HashMap();
+            HashMap<String, String> map2 = new HashMap<>();
             for (Map.Entry<String, String> entry2 : pushMetaInfo.internal.entrySet()) {
                 map2.put(entry2.getKey(), entry2.getValue());
             }
@@ -96,7 +96,7 @@ public class PushMetaInfo implements TBase<PushMetaInfo, Object>, Serializable, 
         }
         this.ignoreRegInfo = pushMetaInfo.ignoreRegInfo;
         if (pushMetaInfo.isSetApsProperFields()) {
-            HashMap map3 = new HashMap();
+            HashMap<String, String> map3 = new HashMap<>();
             for (Map.Entry<String, String> entry3 : pushMetaInfo.apsProperFields.entrySet()) {
                 map3.put(entry3.getKey(), entry3.getValue());
             }
@@ -451,21 +451,21 @@ public class PushMetaInfo implements TBase<PushMetaInfo, Object>, Serializable, 
 
     public void putToApsProperFields(String str, String str2) {
         if (this.apsProperFields == null) {
-            this.apsProperFields = new HashMap();
+            this.apsProperFields = new HashMap<>();
         }
         this.apsProperFields.put(str, str2);
     }
 
     public void putToExtra(String str, String str2) {
         if (this.extra == null) {
-            this.extra = new HashMap();
+            this.extra = new HashMap<>();
         }
         this.extra.put(str, str2);
     }
 
     public void putToInternal(String str, String str2) {
         if (this.internal == null) {
-            this.internal = new HashMap();
+            this.internal = new HashMap<>();
         }
         this.internal.put(str, str2);
     }
@@ -554,7 +554,7 @@ public class PushMetaInfo implements TBase<PushMetaInfo, Object>, Serializable, 
                 case 10:
                     if (fieldBegin.type == 13) {
                         TMap mapBegin = tProtocol.readMapBegin();
-                        this.extra = new HashMap(mapBegin.size * 2);
+                        this.extra = new HashMap<>(mapBegin.size * 2);
                         for (int i = 0; i < mapBegin.size; i++) {
                             this.extra.put(tProtocol.readString(), tProtocol.readString());
                         }
@@ -566,7 +566,7 @@ public class PushMetaInfo implements TBase<PushMetaInfo, Object>, Serializable, 
                 case 11:
                     if (fieldBegin.type == 13) {
                         TMap mapBegin2 = tProtocol.readMapBegin();
-                        this.internal = new HashMap(mapBegin2.size * 2);
+                        this.internal = new HashMap<>(mapBegin2.size * 2);
                         for (int i2 = 0; i2 < mapBegin2.size; i2++) {
                             this.internal.put(tProtocol.readString(), tProtocol.readString());
                         }
@@ -586,7 +586,7 @@ public class PushMetaInfo implements TBase<PushMetaInfo, Object>, Serializable, 
                 case 13:
                     if (fieldBegin.type == 13) {
                         TMap mapBegin3 = tProtocol.readMapBegin();
-                        this.apsProperFields = new HashMap(mapBegin3.size * 2);
+                        this.apsProperFields = new HashMap<>(mapBegin3.size * 2);
                         for (int i3 = 0; i3 < mapBegin3.size; i3++) {
                             this.apsProperFields.put(tProtocol.readString(), tProtocol.readString());
                         }

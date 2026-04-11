@@ -62,7 +62,7 @@ public class AwakeHelper {
     public static void doAwAppLogic(Context context, String str, int i, String str2) {
         XmPushActionNotification xmPushActionNotification = new XmPushActionNotification();
         xmPushActionNotification.setAppId(str);
-        xmPushActionNotification.setExtra(new HashMap());
+        xmPushActionNotification.setExtra(new HashMap<>());
         xmPushActionNotification.getExtra().put(PushConstants.EXTRA_AWAKE_APP_ONLINE_CMD, String.valueOf(i));
         xmPushActionNotification.getExtra().put(PushConstants.EXTRA_AWAKE_APP_AWAKE_INFO, str2);
         xmPushActionNotification.setId(PacketHelper.generatePacketID());
@@ -129,7 +129,7 @@ public class AwakeHelper {
 
     public static void sendPingByWakeUpApp(Context context, String str) {
         MyLog.w("aw_ping : send aw_ping cmd and content to push service from 3rd app");
-        HashMap map = new HashMap();
+        HashMap<String, String> map = new HashMap<>();
         map.put(AwakeUploadHelper.KEY_AWAKE_INFO, str);
         map.put(AwakeUploadHelper.KEY_EVENT_TYPE, String.valueOf(9999));
         map.put(AwakeUploadHelper.KEY_DESCRIPTION, "ping message");

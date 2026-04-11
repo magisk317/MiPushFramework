@@ -32,8 +32,8 @@ public class MiPushClient4Hybrid {
     private static final String LAST_PULL_NOTIFICATION_PREFIX = "last_pull_notification_";
     private static final String TAG = "MiPushClient4Hybrid ";
     private static MiPushCallback sCallback;
-    private static Map<String, AppInfoHolder.ClientInfoData> dataMap = new HashMap();
-    private static Map<String, Long> sRegisterTimeMap = new HashMap();
+    private static Map<String, AppInfoHolder.ClientInfoData> dataMap = new HashMap<>();
+    private static Map<String, Long> sRegisterTimeMap = new HashMap<>();
 
     /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/mipush/sdk/MiPushClient4Hybrid$MiPushCallback.class */
     public static class MiPushCallback {
@@ -75,9 +75,9 @@ public class MiPushClient4Hybrid {
             clientInfoData.setHybridRegIdAndSecret(xmPushActionRegistrationResult.regId, xmPushActionRegistrationResult.regSecret);
             AppInfoHolder.getInstance(context).saveHybridAppInfo(packageName, clientInfoData);
         }
-        ArrayList arrayList = null;
+        ArrayList<String> arrayList = null;
         if (!TextUtils.isEmpty(xmPushActionRegistrationResult.regId)) {
-            arrayList = new ArrayList();
+            arrayList = new ArrayList<>();
             arrayList.add(xmPushActionRegistrationResult.regId);
         }
         MiPushCommandMessage miPushCommandMessageGenerateCommandMessage = PushMessageHelper.generateCommandMessage(Command.COMMAND_REGISTER.value, arrayList, xmPushActionRegistrationResult.errorCode, xmPushActionRegistrationResult.reason, null);
@@ -98,7 +98,7 @@ public class MiPushClient4Hybrid {
 
     public static void registerPush(Context context, String str, String str2, String str3) {
         if (AppInfoHolder.getInstance(context).isHybridAppRegistered(str2, str3, str)) {
-            ArrayList arrayList = new ArrayList();
+            ArrayList<String> arrayList = new ArrayList<>();
             AppInfoHolder.ClientInfoData hybridAppInfo = AppInfoHolder.getInstance(context).getHybridAppInfo(str);
             if (hybridAppInfo != null) {
                 arrayList.add(hybridAppInfo.regID);

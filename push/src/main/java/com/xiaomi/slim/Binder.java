@@ -39,7 +39,7 @@ class Binder {
         blob.setCmd(Blob.CMD_BIND, null);
         blob.setPacketID(blob.getPacketID());
         MyLog.w("[Slim]: bind id=" + blob.getPacketID());
-        HashMap map = new HashMap();
+        HashMap<String, String> map = new HashMap<>();
         map.put("challenge", str);
         map.put("token", clientLoginInfo.token);
         map.put("chid", clientLoginInfo.chid);

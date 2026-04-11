@@ -31,11 +31,11 @@ import com.xiaomi.xmsf.push.notification.NotificationController
 import com.xiaomi.xmsf.runtime.PushRuntime
 import com.xiaomi.xmsf.push.utils.Configurations
 import java.util.function.Consumer
-import top.trumeet.common.Constants
-import top.trumeet.common.ita.AccessMode
-import top.trumeet.common.ita.ITopActivity
-import top.trumeet.common.ita.TopActivityFactory
-import top.trumeet.common.utils.Utils
+import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.platform.activity.AccessMode
+import io.github.magisk317.mipush.platform.activity.ITopActivity
+import io.github.magisk317.mipush.platform.activity.TopActivityFactory
+import io.github.magisk317.mipush.common.utils.Utils
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import com.magisk317.utils.Singleton

@@ -305,7 +305,11 @@ public class AppInfoUtils {
 
     public static int getArchiveVersionCode(Context context, String str) {
         try {
-            return context.getPackageManager().getPackageArchiveInfo(str, 1).versionCode;
+            PackageInfo packageArchiveInfo = context.getPackageManager().getPackageArchiveInfo(str, 1);
+            if (packageArchiveInfo == null) {
+                return 0;
+            }
+            return (int) packageArchiveInfo.getLongVersionCode();
         } catch (Exception e) {
             return 0;
         }
@@ -331,7 +335,7 @@ public class AppInfoUtils {
 
     public static String getRunningAppPkgNames(Context context) {
         List<ActivityManager.RunningAppProcessInfo> runningAppProcesses = ((ActivityManager) context.getSystemService("activity")).getRunningAppProcesses();
-        ArrayList arrayList = new ArrayList();
+        ArrayList<String> arrayList = new ArrayList<>();
         StringBuilder sb = new StringBuilder();
         if (runningAppProcesses != null && runningAppProcesses.size() > 0) {
             Iterator<ActivityManager.RunningAppProcessInfo> it = runningAppProcesses.iterator();
@@ -355,7 +359,13 @@ public class AppInfoUtils {
 
     public static Signature[] getSignature(Context context, String str) {
         try {
-            return context.getPackageManager().getPackageArchiveInfo(str, 64).signatures;
+            PackageInfo packageArchiveInfo = context.getPackageManager().getPackageArchiveInfo(str, PackageManager.GET_SIGNING_CERTIFICATES);
+            if (packageArchiveInfo == null || packageArchiveInfo.signingInfo == null) {
+                return null;
+            }
+            return packageArchiveInfo.signingInfo.hasMultipleSigners()
+                ? packageArchiveInfo.signingInfo.getApkContentsSigners()
+                : packageArchiveInfo.signingInfo.getSigningCertificateHistory();
         } catch (Exception e) {
             return null;
         }
@@ -369,7 +379,10 @@ public class AppInfoUtils {
             MyLog.e(e);
             packageInfo = null;
         }
-        return packageInfo != null ? packageInfo.versionCode : 0;
+        if (packageInfo == null) {
+            return 0;
+        }
+        return (int) packageInfo.getLongVersionCode();
     }
 
     public static String getVersionName(Context context, String str) {

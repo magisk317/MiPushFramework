@@ -88,7 +88,6 @@ public class Blob {
         this.mPayload = bArr;
     }
 
-    @Deprecated
     public static Blob from(Packet packet, String str) {
         int i;
         Blob blob = new Blob();

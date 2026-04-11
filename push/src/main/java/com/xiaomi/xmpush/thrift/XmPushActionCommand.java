@@ -68,7 +68,7 @@ public class XmPushActionCommand implements TBase<XmPushActionCommand, Object>, 
             this.cmdName = xmPushActionCommand.cmdName;
         }
         if (xmPushActionCommand.isSetCmdArgs()) {
-            ArrayList arrayList = new ArrayList();
+            List<String> arrayList = new ArrayList<>();
             Iterator<String> it = xmPushActionCommand.cmdArgs.iterator();
             while (it.hasNext()) {
                 arrayList.add(it.next());
@@ -95,7 +95,7 @@ public class XmPushActionCommand implements TBase<XmPushActionCommand, Object>, 
 
     public void addToCmdArgs(String str) {
         if (this.cmdArgs == null) {
-            this.cmdArgs = new ArrayList();
+            this.cmdArgs = new ArrayList<>();
         }
         this.cmdArgs.add(str);
     }
@@ -410,7 +410,7 @@ public class XmPushActionCommand implements TBase<XmPushActionCommand, Object>, 
                 case 6:
                     if (fieldBegin.type == 15) {
                         TList listBegin = tProtocol.readListBegin();
-                        this.cmdArgs = new ArrayList(listBegin.size);
+                        this.cmdArgs = new ArrayList<>(listBegin.size);
                         for (int i = 0; i < listBegin.size; i++) {
                             this.cmdArgs.add(tProtocol.readString());
                         }

@@ -18,8 +18,8 @@ class MdidIdManager implements IdManager, InvocationHandler {
     private static final int MAX_RETRY_COUNT = 3;
     private static final int TIME_WAIT_LOCK = 3000;
     private Context mContext;
-    private Class mClassMdid = null;
-    private Class mClassIIdentifierListener = null;
+    private Class<?> mClassMdid = null;
+    private Class<?> mClassIIdentifierListener = null;
     private Method mMethodInitSdk = null;
     private Method mMethodGetUDID = null;
     private Method mMethodGetOAID = null;
@@ -78,7 +78,12 @@ class MdidIdManager implements IdManager, InvocationHandler {
                 if (classLoader == null) {
                     classLoader2 = context.getClassLoader();
                 }
-                invokeMethod(this.mMethodInitSdk, this.mClassMdid.newInstance(), context, Proxy.newProxyInstance(classLoader2, new Class[]{this.mClassIIdentifierListener}, this));
+                invokeMethod(
+                    this.mMethodInitSdk,
+                    this.mClassMdid.getDeclaredConstructor().newInstance(),
+                    context,
+                    Proxy.newProxyInstance(classLoader2, new Class[]{this.mClassIIdentifierListener}, this)
+                );
                 j2 = jElapsedRealtime;
             } catch (Throwable th) {
                 outLog("call init sdk error:" + th);
@@ -138,16 +143,12 @@ class MdidIdManager implements IdManager, InvocationHandler {
         this.mMethodShutDown = getMethod(clsLoadClass3, "shutDown", new Class[0]);
     }
 
-    private static <T> T invokeMethod(Method method, Object obj, Object... objArr) {
+    private static Object invokeMethod(Method method, Object obj, Object... objArr) {
         if (method == null) {
             return null;
         }
         try {
-            T t = (T) method.invoke(obj, objArr);
-            if (t != null) {
-                return t;
-            }
-            return null;
+            return method.invoke(obj, objArr);
         } catch (Throwable th) {
             return null;
         }

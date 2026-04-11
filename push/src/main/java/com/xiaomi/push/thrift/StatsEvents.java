@@ -36,7 +36,7 @@ public class StatsEvents implements TBase<StatsEvents, Object>, Serializable, Cl
             this.operator = statsEvents.operator;
         }
         if (statsEvents.isSetEvents()) {
-            ArrayList arrayList = new ArrayList();
+            List<StatsEvent> arrayList = new ArrayList<>();
             Iterator<StatsEvent> it = statsEvents.events.iterator();
             while (it.hasNext()) {
                 arrayList.add(new StatsEvent(it.next()));
@@ -53,7 +53,7 @@ public class StatsEvents implements TBase<StatsEvents, Object>, Serializable, Cl
 
     public void addToEvents(StatsEvent statsEvent) {
         if (this.events == null) {
-            this.events = new ArrayList();
+            this.events = new ArrayList<>();
         }
         this.events.add(statsEvent);
     }
@@ -197,7 +197,7 @@ public class StatsEvents implements TBase<StatsEvents, Object>, Serializable, Cl
                 case 3:
                     if (fieldBegin.type == 15) {
                         TList listBegin = tProtocol.readListBegin();
-                        this.events = new ArrayList(listBegin.size);
+                        this.events = new ArrayList<>(listBegin.size);
                         for (int i = 0; i < listBegin.size; i++) {
                             StatsEvent statsEvent = new StatsEvent();
                             statsEvent.read(tProtocol);

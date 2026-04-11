@@ -9,7 +9,7 @@ import com.xiaomi.xmsf.runtime.PushRuntime
 
 class ResetConnectJob(
     private val xmPushService: XMPushService
-) : XMPushService.Job(XMPushService.Job.TYPE_RESET_CONNECT) {
+) : XMPushService.Job(XMPushServiceJob.TYPE_RESET_CONNECT) {
 
     override fun getDesc(): String = "reset connection"
 

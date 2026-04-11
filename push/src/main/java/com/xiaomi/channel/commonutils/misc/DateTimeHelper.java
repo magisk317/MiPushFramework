@@ -69,18 +69,20 @@ public class DateTimeHelper {
     }
 
     public static String getWeekday(Date date) {
-        switch (date.getDay()) {
-            case 0:
+        Calendar calendar = Calendar.getInstance(sBeijingTimeZone, Locale.CHINA);
+        calendar.setTime(date);
+        switch (calendar.get(Calendar.DAY_OF_WEEK)) {
+            case Calendar.SUNDAY:
                 return "周日";
-            case 1:
+            case Calendar.MONDAY:
                 return "周一";
-            case 2:
+            case Calendar.TUESDAY:
                 return "周二";
-            case 3:
+            case Calendar.WEDNESDAY:
                 return "周三";
-            case 4:
+            case Calendar.THURSDAY:
                 return "周四";
-            case 5:
+            case Calendar.FRIDAY:
                 return "周五";
             default:
                 return "周六";

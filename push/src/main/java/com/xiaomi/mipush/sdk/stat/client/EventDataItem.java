@@ -16,7 +16,7 @@ public class EventDataItem {
     private static final String PROPERTY = "property";
     private String mCategory;
     private String mKey;
-    private Map<String, String> mParams = new HashMap();
+    private Map<String, String> mParams = new HashMap<>();
     private long mTimeStamp;
     private String mType;
     private String mValue;

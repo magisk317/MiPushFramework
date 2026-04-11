@@ -9,7 +9,7 @@ import java.util.List;
 public class CollectionUtils {
     public static <T> List<T> appendFromPosition(List<T> list, List<T> list2, int i) {
         if (list == null || list.isEmpty()) {
-            ArrayList arrayList = new ArrayList();
+            ArrayList<T> arrayList = new ArrayList<>();
             if (list2 != null) {
                 arrayList.addAll(list2);
             }
@@ -22,7 +22,7 @@ public class CollectionUtils {
         if (i > list.size()) {
             size = list.size();
         }
-        ArrayList arrayList2 = new ArrayList(list);
+        ArrayList<T> arrayList2 = new ArrayList<>(list);
         arrayList2.addAll(size, list2);
         return arrayList2;
     }
@@ -53,7 +53,7 @@ public class CollectionUtils {
         if (i > list.size()) {
             size = list.size();
         }
-        ArrayList arrayList = new ArrayList(list);
+        ArrayList<T> arrayList = new ArrayList<>(list);
         int size2 = list2.size();
         arrayList.addAll(size, list2);
         while (arrayList.size() > size2 + size) {

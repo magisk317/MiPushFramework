@@ -19,13 +19,13 @@ public class MessageCountQueryJob extends DbManager.BaseQueryJob<Long> {
     }
 
     public static MessageCountQueryJob getMessageCountJob(String str) {
-        ArrayList arrayList = new ArrayList();
+        ArrayList<String> arrayList = new ArrayList<>();
         arrayList.add("count(*)");
         return new MessageCountQueryJob(str, arrayList, null, null, null, null, null, 0, "job to get count of all message");
     }
 
     public static MessageCountQueryJob getNoUploadMessageCountJob(String str) {
-        ArrayList arrayList = new ArrayList();
+        ArrayList<String> arrayList = new ArrayList<>();
         arrayList.add("count(*)");
         return new MessageCountQueryJob(str, arrayList, "status = ? or (status = ? and uploadTimestamp <= ?" + Constants.SEPARATOR_RIGHT_PARENTESIS, new String[]{String.valueOf(0), String.valueOf(1), String.valueOf(System.currentTimeMillis() - MessageInfoContract.TIMEOUT)}, null, null, null, 0, "job to get count of noUpload message");
     }

@@ -2,8 +2,7 @@ package com.xiaomi.channel.commonutils.network;
 
 import android.content.Context;
 import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
-import android.os.AsyncTask;
+import android.net.NetworkCapabilities;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
@@ -33,7 +32,10 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -58,6 +60,7 @@ public class Network {
     public static final Pattern ContentTypePattern_MimeType = Pattern.compile("([^\\s;]+)(.*)");
     public static final Pattern ContentTypePattern_Charset = Pattern.compile("(.*?charset\\s*=[^a-zA-Z0-9]*)([-a-zA-Z0-9]+)(.*)", 2);
     public static final Pattern ContentTypePattern_XmlEncoding = Pattern.compile("(\\<\\?xml\\s+.*?encoding\\s*=[^a-zA-Z0-9]*)([-a-zA-Z0-9]+)(.*)", 2);
+    private static final ExecutorService DOWNLOAD_EXECUTOR = Executors.newCachedThreadPool();
 
     /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/channel/commonutils/network/Network$DoneHandlerInputStream.class */
     public static final class DoneHandlerInputStream extends FilterInputStream {
@@ -75,39 +78,6 @@ public class Network {
             }
             this.done = true;
             return -1;
-        }
-    }
-
-    /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/channel/commonutils/network/Network$DownloadTask.class */
-    private static class DownloadTask extends AsyncTask<Void, Void, Boolean> {
-        private boolean bOnlyWifi;
-        private PostDownloadHandler handler;
-        private Context mContext;
-        private OutputStream output;
-        private String url;
-
-        public DownloadTask(String str, OutputStream outputStream, PostDownloadHandler postDownloadHandler) {
-            this(str, outputStream, postDownloadHandler, false, null);
-        }
-
-        public DownloadTask(String str, OutputStream outputStream, PostDownloadHandler postDownloadHandler, boolean z, Context context) {
-            this.url = str;
-            this.output = outputStream;
-            this.handler = postDownloadHandler;
-            this.bOnlyWifi = z;
-            this.mContext = context;
-        }
-
-        /* JADX INFO: Access modifiers changed from: protected */
-        @Override // android.os.AsyncTask
-        public Boolean doInBackground(Void... voidArr) {
-            return Boolean.valueOf(Network.downloadFile(this.url, this.output, this.bOnlyWifi, this.mContext));
-        }
-
-        /* JADX INFO: Access modifiers changed from: protected */
-        @Override // android.os.AsyncTask
-        public void onPostExecute(Boolean bool) {
-            this.handler.OnPostDownload(bool.booleanValue());
         }
     }
 
@@ -130,11 +100,11 @@ public class Network {
     }
 
     public static void beginDownloadFile(String str, OutputStream outputStream, Context context, boolean z, PostDownloadHandler postDownloadHandler) {
-        new DownloadTask(str, outputStream, postDownloadHandler, z, context).execute(new Void[0]);
+        DOWNLOAD_EXECUTOR.execute(() -> postDownloadHandler.OnPostDownload(downloadFile(str, outputStream, z, context)));
     }
 
     public static void beginDownloadFile(String str, OutputStream outputStream, PostDownloadHandler postDownloadHandler) {
-        new DownloadTask(str, outputStream, postDownloadHandler).execute(new Void[0]);
+        DOWNLOAD_EXECUTOR.execute(() -> postDownloadHandler.OnPostDownload(downloadFile(str, outputStream)));
     }
 
     public static HttpResponse doHttpPost(Context context, String str, Map<String, String> map) throws IOException {
@@ -320,7 +290,7 @@ public class Network {
             if (httpHeaderInfo != null && (url.getProtocol().equals("http") || url.getProtocol().equals("https"))) {
                 httpHeaderInfo.ResponseCode = httpUrlConnection.getResponseCode();
                 if (httpHeaderInfo.AllHeaders == null) {
-                    httpHeaderInfo.AllHeaders = new HashMap();
+                    httpHeaderInfo.AllHeaders = new HashMap<>();
                 }
                 int i = 0;
                 while (true) {
@@ -404,19 +374,14 @@ public class Network {
             return NETWORK_TYPE_WIFI;
         }
         try {
-            ConnectivityManager connectivityManager = (ConnectivityManager) context.getSystemService("connectivity");
-            if (connectivityManager == null) {
+            NetworkCapabilities activeNetworkCapabilities = getActiveNetworkCapabilities(context);
+            if (activeNetworkCapabilities == null) {
                 return "";
             }
-            try {
-                NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
-                if (activeNetworkInfo == null) {
-                    return "";
-                }
-                return (activeNetworkInfo.getTypeName() + Constants.ACCEPT_TIME_SEPARATOR_SERVER + activeNetworkInfo.getSubtypeName() + Constants.ACCEPT_TIME_SEPARATOR_SERVER + activeNetworkInfo.getExtraInfo()).toLowerCase();
-            } catch (Exception e) {
-                return "";
+            if (activeNetworkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
+                return joinNetworkPoint("mobile", getActiveCellularSubtypeName(context), getLocalNetworkType(context));
             }
+            return getActiveNetworkName(context).toLowerCase(Locale.ROOT);
         } catch (Exception e2) {
             return "";
         }
@@ -424,16 +389,21 @@ public class Network {
 
     public static String getActiveNetworkName(Context context) {
         try {
-            ConnectivityManager connectivityManager = (ConnectivityManager) context.getSystemService("connectivity");
-            if (connectivityManager == null) {
+            NetworkCapabilities activeNetworkCapabilities = getActiveNetworkCapabilities(context);
+            if (activeNetworkCapabilities == null) {
                 return "null";
             }
-            try {
-                NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
-                return activeNetworkInfo == null ? "null" : TextUtils.isEmpty(activeNetworkInfo.getSubtypeName()) ? activeNetworkInfo.getTypeName() : String.format("%s-%s", activeNetworkInfo.getTypeName(), activeNetworkInfo.getSubtypeName());
-            } catch (Exception e) {
-                return "null";
+            if (activeNetworkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                return NETWORK_TYPE_WIFI;
             }
+            if (activeNetworkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
+                String activeCellularSubtypeName = getActiveCellularSubtypeName(context);
+                return TextUtils.isEmpty(activeCellularSubtypeName) ? "mobile" : String.format(Locale.ROOT, "mobile-%s", activeCellularSubtypeName);
+            }
+            if (activeNetworkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) {
+                return "ethernet";
+            }
+            return "unknown";
         } catch (Exception e2) {
             return "null";
         }
@@ -441,19 +411,20 @@ public class Network {
 
     public static int getActiveNetworkType(Context context) {
         try {
-            ConnectivityManager connectivityManager = (ConnectivityManager) context.getSystemService("connectivity");
-            if (connectivityManager == null) {
+            NetworkCapabilities activeNetworkCapabilities = getActiveNetworkCapabilities(context);
+            if (activeNetworkCapabilities == null) {
                 return -1;
             }
-            try {
-                NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
-                if (activeNetworkInfo == null) {
-                    return -1;
-                }
-                return activeNetworkInfo.getType();
-            } catch (Exception e) {
-                return -1;
+            if (activeNetworkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                return 1;
             }
+            if (activeNetworkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
+                return 0;
+            }
+            if (activeNetworkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) {
+                return 9;
+            }
+            return -1;
         } catch (Exception e2) {
             return -1;
         }
@@ -603,28 +574,15 @@ public class Network {
         if (isWIFIConnected(context)) {
             return NETWORK_TYPE_WIFI;
         }
-        NetworkInfo networkInfo = ((ConnectivityManager) context.getSystemService("connectivity")).getNetworkInfo(0);
-        String extraInfo = networkInfo != null ? networkInfo.getExtraInfo() : "unknown";
         if (TelephonyUtils.isChinaTelecom(context)) {
-            extraInfo = NETWORK_TYPE_CHINATELECOM;
+            return NETWORK_TYPE_CHINATELECOM;
         }
-        return extraInfo;
-    }
-
-    public static NetworkInfo getNetworkInfo(Context context) {
-        try {
-            ConnectivityManager connectivityManager = (ConnectivityManager) context.getSystemService("connectivity");
-            if (connectivityManager == null) {
-                return null;
-            }
-            return connectivityManager.getActiveNetworkInfo();
-        } catch (Exception e) {
-            return null;
-        }
+        String activeCellularSubtypeName = getActiveCellularSubtypeName(context);
+        return TextUtils.isEmpty(activeCellularSubtypeName) ? "unknown" : activeCellularSubtypeName.toLowerCase(Locale.ROOT);
     }
 
     public static boolean hasNetwork(Context context) {
-        return getActiveNetworkType(context) >= 0;
+        return getActiveNetworkCapabilities(context) != null;
     }
 
     public static HttpResponse httpRequest(Context context, String str, String str2, Map<String, String> map, String str3) throws IOException {
@@ -685,11 +643,11 @@ public class Network {
     }
 
     public static boolean is2GConnected(Context context) {
-        NetworkInfo networkInfo = getNetworkInfo(context);
-        if (networkInfo == null || networkInfo.getType() != 0) {
+        int activeCellularSubtype = getActiveCellularSubtype(context);
+        if (activeCellularSubtype < 0) {
             return false;
         }
-        switch (networkInfo.getSubtype()) {
+        switch (activeCellularSubtype) {
             case 1:
             case 2:
             case 4:
@@ -701,15 +659,15 @@ public class Network {
     }
 
     public static boolean is3GConnected(Context context) {
-        NetworkInfo networkInfo = getNetworkInfo(context);
-        if (networkInfo == null || networkInfo.getType() != 0) {
+        int activeCellularSubtype = getActiveCellularSubtype(context);
+        if (activeCellularSubtype < 0) {
             return false;
         }
-        String subtypeName = networkInfo.getSubtypeName();
+        String subtypeName = getActiveCellularSubtypeName(context);
         if (CHINA_3G_TD_SCDMA.equalsIgnoreCase(subtypeName) || CHINA_3G_CDMA2000.equalsIgnoreCase(subtypeName) || CHINA_3G_WCDMA.equalsIgnoreCase(subtypeName)) {
             return true;
         }
-        switch (networkInfo.getSubtype()) {
+        switch (activeCellularSubtype) {
             case 3:
             case 5:
             case 6:
@@ -725,61 +683,27 @@ public class Network {
     }
 
     public static boolean is4GConnected(Context context) {
-        NetworkInfo networkInfo = getNetworkInfo(context);
-        boolean z = false;
-        if (networkInfo == null || networkInfo.getType() != 0) {
-            return false;
-        }
-        if (13 == networkInfo.getSubtype()) {
-            z = true;
-        }
-        return z;
+        return getActiveCellularSubtype(context) == TelephonyManager.NETWORK_TYPE_LTE;
     }
 
     public static boolean is5GConnected(Context context) {
-        NetworkInfo networkInfo = getNetworkInfo(context);
-        boolean z = false;
-        if (networkInfo == null || networkInfo.getType() != 0) {
-            return false;
-        }
-        if (20 == networkInfo.getSubtype()) {
-            z = true;
-        }
-        return z;
+        return getActiveCellularSubtype(context) == TelephonyManager.NETWORK_TYPE_NR;
     }
 
     public static boolean isConnected(Context context) {
-        NetworkInfo activeNetworkInfo;
         try {
-            activeNetworkInfo = ((ConnectivityManager) context.getSystemService("connectivity")).getActiveNetworkInfo();
+            NetworkCapabilities activeNetworkCapabilities = getActiveNetworkCapabilities(context);
+            return activeNetworkCapabilities != null && activeNetworkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
         } catch (Exception e) {
-            activeNetworkInfo = null;
+            return false;
         }
-        return activeNetworkInfo != null && activeNetworkInfo.isConnected();
     }
 
     public static boolean isCtwap(Context context) {
         if (!"CN".equalsIgnoreCase(((TelephonyManager) context.getSystemService("phone")).getSimCountryIso())) {
             return false;
         }
-        try {
-            ConnectivityManager connectivityManager = (ConnectivityManager) context.getSystemService("connectivity");
-            if (connectivityManager == null) {
-                return false;
-            }
-            try {
-                NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
-                if (activeNetworkInfo == null) {
-                    return false;
-                }
-                String extraInfo = activeNetworkInfo.getExtraInfo();
-                return !TextUtils.isEmpty(extraInfo) && extraInfo.length() >= 3 && extraInfo.contains("ctwap");
-            } catch (Exception e) {
-                return false;
-            }
-        } catch (Exception e2) {
-            return false;
-        }
+        return false;
     }
 
     public static boolean isUsingMobileDataConnection(Context context) {
@@ -787,27 +711,108 @@ public class Network {
     }
 
     public static boolean isWIFIConnected(Context context) {
-        boolean z = false;
         try {
-            ConnectivityManager connectivityManager = (ConnectivityManager) context.getSystemService("connectivity");
-            if (connectivityManager == null) {
-                return false;
-            }
-            try {
-                NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
-                if (activeNetworkInfo == null) {
-                    return false;
-                }
-                if (1 == activeNetworkInfo.getType()) {
-                    z = true;
-                }
-                return z;
-            } catch (Exception e) {
-                return false;
-            }
+            NetworkCapabilities activeNetworkCapabilities = getActiveNetworkCapabilities(context);
+            return activeNetworkCapabilities != null && activeNetworkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI);
         } catch (Exception e2) {
             return false;
         }
+    }
+
+    private static ConnectivityManager getConnectivityManager(Context context) {
+        return (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+    }
+
+    private static NetworkCapabilities getActiveNetworkCapabilities(Context context) {
+        ConnectivityManager connectivityManager = getConnectivityManager(context);
+        if (connectivityManager == null) {
+            return null;
+        }
+        android.net.Network activeNetwork = connectivityManager.getActiveNetwork();
+        if (activeNetwork == null) {
+            return null;
+        }
+        return connectivityManager.getNetworkCapabilities(activeNetwork);
+    }
+
+    private static int getActiveCellularSubtype(Context context) {
+        NetworkCapabilities activeNetworkCapabilities = getActiveNetworkCapabilities(context);
+        if (activeNetworkCapabilities == null || !activeNetworkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
+            return -1;
+        }
+        TelephonyManager telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
+        if (telephonyManager == null) {
+            return TelephonyManager.NETWORK_TYPE_UNKNOWN;
+        }
+        return telephonyManager.getDataNetworkType();
+    }
+
+    private static String getActiveCellularSubtypeName(Context context) {
+        int activeCellularSubtype = getActiveCellularSubtype(context);
+        if (activeCellularSubtype < 0) {
+            return "";
+        }
+        String networkTypeName = getNetworkTypeName(activeCellularSubtype);
+        return networkTypeName == null ? "" : networkTypeName;
+    }
+
+    private static String getNetworkTypeName(int networkType) {
+        switch (networkType) {
+            case TelephonyManager.NETWORK_TYPE_GPRS:
+                return "GPRS";
+            case TelephonyManager.NETWORK_TYPE_EDGE:
+                return "EDGE";
+            case TelephonyManager.NETWORK_TYPE_UMTS:
+                return "UMTS";
+            case 4:
+                return "CDMA";
+            case 5:
+                return "EVDO_0";
+            case 6:
+                return "EVDO_A";
+            case 7:
+                return "1xRTT";
+            case TelephonyManager.NETWORK_TYPE_HSDPA:
+                return "HSDPA";
+            case TelephonyManager.NETWORK_TYPE_HSUPA:
+                return "HSUPA";
+            case TelephonyManager.NETWORK_TYPE_HSPA:
+                return "HSPA";
+            case 11:
+                return "IDEN";
+            case 12:
+                return "EVDO_B";
+            case TelephonyManager.NETWORK_TYPE_LTE:
+                return "LTE";
+            case 14:
+                return "EHRPD";
+            case TelephonyManager.NETWORK_TYPE_HSPAP:
+                return "HSPAP";
+            case TelephonyManager.NETWORK_TYPE_GSM:
+                return "GSM";
+            case TelephonyManager.NETWORK_TYPE_TD_SCDMA:
+                return CHINA_3G_TD_SCDMA;
+            case TelephonyManager.NETWORK_TYPE_IWLAN:
+                return "IWLAN";
+            case TelephonyManager.NETWORK_TYPE_NR:
+                return "NR";
+            default:
+                return "UNKNOWN";
+        }
+    }
+
+    private static String joinNetworkPoint(String... parts) {
+        StringBuilder stringBuilder = new StringBuilder();
+        for (String part : parts) {
+            if (TextUtils.isEmpty(part)) {
+                continue;
+            }
+            if (stringBuilder.length() > 0) {
+                stringBuilder.append(Constants.ACCEPT_TIME_SEPARATOR_SERVER);
+            }
+            stringBuilder.append(part);
+        }
+        return stringBuilder.toString().toLowerCase(Locale.ROOT);
     }
 
     /* JADX WARN: Code restructure failed: missing block: B:54:0x01d5, code lost:

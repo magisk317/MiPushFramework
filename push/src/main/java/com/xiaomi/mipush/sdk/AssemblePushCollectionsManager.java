@@ -13,7 +13,7 @@ public class AssemblePushCollectionsManager implements AbstractPushManager {
     private PushConfiguration mConfiguration;
     private Context mContext;
     private boolean oldOCValue = false;
-    private Map<AssemblePush, AbstractPushManager> mManagers = new HashMap();
+    private Map<AssemblePush, AbstractPushManager> mManagers = new HashMap<>();
 
     /* JADX INFO: renamed from: com.xiaomi.mipush.sdk.AssemblePushCollectionsManager$2, reason: invalid class name */
     /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/mipush/sdk/AssemblePushCollectionsManager$2.class */

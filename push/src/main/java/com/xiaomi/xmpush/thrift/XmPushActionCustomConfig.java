@@ -26,7 +26,7 @@ public class XmPushActionCustomConfig implements TBase<XmPushActionCustomConfig,
 
     public XmPushActionCustomConfig(XmPushActionCustomConfig xmPushActionCustomConfig) {
         if (xmPushActionCustomConfig.isSetCustomConfigs()) {
-            ArrayList arrayList = new ArrayList();
+            List<OnlineConfigItem> arrayList = new ArrayList<>();
             Iterator<OnlineConfigItem> it = xmPushActionCustomConfig.customConfigs.iterator();
             while (it.hasNext()) {
                 arrayList.add(new OnlineConfigItem(it.next()));
@@ -42,7 +42,7 @@ public class XmPushActionCustomConfig implements TBase<XmPushActionCustomConfig,
 
     public void addToCustomConfigs(OnlineConfigItem onlineConfigItem) {
         if (this.customConfigs == null) {
-            this.customConfigs = new ArrayList();
+            this.customConfigs = new ArrayList<>();
         }
         this.customConfigs.add(onlineConfigItem);
     }
@@ -128,7 +128,7 @@ public class XmPushActionCustomConfig implements TBase<XmPushActionCustomConfig,
                 case 1:
                     if (fieldBegin.type == 15) {
                         TList listBegin = tProtocol.readListBegin();
-                        this.customConfigs = new ArrayList(listBegin.size);
+                        this.customConfigs = new ArrayList<>(listBegin.size);
                         for (int i = 0; i < listBegin.size; i++) {
                             OnlineConfigItem onlineConfigItem = new OnlineConfigItem();
                             onlineConfigItem.read(tProtocol);

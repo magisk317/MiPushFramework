@@ -239,7 +239,7 @@ public class PushMessageProcessor {
             SharedPreferences sharedPreferences = AppInfoHolder.getSharedPreferences(context);
             if (mCachedMsgIds == null) {
                 String[] strArrSplit = sharedPreferences.getString(PREF_KEY_CACHED_MSGIDS, "").split(",");
-                mCachedMsgIds = new LinkedList();
+                mCachedMsgIds = new LinkedList<>();
                 for (String str2 : strArrSplit) {
                     mCachedMsgIds.add(str2);
                 }
@@ -272,7 +272,7 @@ public class PushMessageProcessor {
         String str2;
         MiPushMessage miPushMessage;
         try {
-            TBase responseMessageBodyFromContainer = PushContainerHelper.getResponseMessageBodyFromContainer(this.sAppContext, xmPushActionContainer);
+            TBase<?, ?> responseMessageBodyFromContainer = PushContainerHelper.getResponseMessageBodyFromContainer(this.sAppContext, xmPushActionContainer);
             if (responseMessageBodyFromContainer == null) {
                 MyLog.e("receiving an un-recognized message. " + xmPushActionContainer.action);
                 PushClientReportManager.getInstance(this.sAppContext).reportEvent4ERROR(this.sAppContext.getPackageName(), PushClientReportHelper.getInterfaceIdByType(i), str, "18");
@@ -395,9 +395,9 @@ public class PushMessageProcessor {
                     } else {
                         PushClientReportManager.getInstance(this.sAppContext).reportEvent(this.sAppContext.getPackageName(), PushClientReportHelper.getInterfaceIdByType(i), str, ReportConstants.REGISTER_TYPE_APP_SUCCESS, "2");
                     }
-                    ArrayList arrayList = null;
+                    List<String> arrayList = null;
                     if (!TextUtils.isEmpty(xmPushActionRegistrationResult.regId)) {
-                        arrayList = new ArrayList();
+                        arrayList = new ArrayList<>();
                         arrayList.add(xmPushActionRegistrationResult.regId);
                     }
                     MiPushCommandMessage miPushCommandMessageGenerateCommandMessage = PushMessageHelper.generateCommandMessage(Command.COMMAND_REGISTER.value, arrayList, xmPushActionRegistrationResult.errorCode, xmPushActionRegistrationResult.reason, null);
@@ -415,9 +415,9 @@ public class PushMessageProcessor {
                     if (xmPushActionSubscriptionResult.errorCode == 0) {
                         MiPushClient.addTopic(this.sAppContext, xmPushActionSubscriptionResult.getTopic());
                     }
-                    ArrayList arrayList2 = null;
+                    List<String> arrayList2 = null;
                     if (!TextUtils.isEmpty(xmPushActionSubscriptionResult.getTopic())) {
-                        arrayList2 = new ArrayList();
+                        arrayList2 = new ArrayList<>();
                         arrayList2.add(xmPushActionSubscriptionResult.getTopic());
                     }
                     MyLog.persist("resp-cmd:" + Command.COMMAND_SUBSCRIBE_TOPIC + ", " + xmPushActionSubscriptionResult.getId());
@@ -427,9 +427,9 @@ public class PushMessageProcessor {
                     if (xmPushActionUnSubscriptionResult.errorCode == 0) {
                         MiPushClient.removeTopic(this.sAppContext, xmPushActionUnSubscriptionResult.getTopic());
                     }
-                    ArrayList arrayList3 = null;
+                    List<String> arrayList3 = null;
                     if (!TextUtils.isEmpty(xmPushActionUnSubscriptionResult.getTopic())) {
-                        arrayList3 = new ArrayList();
+                        arrayList3 = new ArrayList<>();
                         arrayList3.add(xmPushActionUnSubscriptionResult.getTopic());
                     }
                     MyLog.persist("resp-cmd:" + Command.COMMAND_UNSUBSCRIBE_TOPIC + ", " + xmPushActionUnSubscriptionResult.getId());
@@ -699,7 +699,7 @@ public class PushMessageProcessor {
 
     private PushMessageHandler.PushMessageInterface processMessage(XmPushActionContainer xmPushActionContainer, byte[] bArr) {
         try {
-            TBase responseMessageBodyFromContainer = PushContainerHelper.getResponseMessageBodyFromContainer(this.sAppContext, xmPushActionContainer);
+            TBase<?, ?> responseMessageBodyFromContainer = PushContainerHelper.getResponseMessageBodyFromContainer(this.sAppContext, xmPushActionContainer);
             if (responseMessageBodyFromContainer == null) {
                 MyLog.e("message arrived: receiving an un-recognized message. " + xmPushActionContainer.action);
                 return null;
@@ -847,7 +847,7 @@ public class PushMessageProcessor {
         xmPushActionNotification.setType(NotificationType.DecryptMessageFail.value);
         xmPushActionNotification.setAppId(xmPushActionContainer.getAppid());
         xmPushActionNotification.setPackageName(xmPushActionContainer.packageName);
-        xmPushActionNotification.extra = new HashMap();
+        xmPushActionNotification.extra = new HashMap<>();
         xmPushActionNotification.extra.put("regid", MiPushClient.getRegId(this.sAppContext));
         PushServiceClient.getInstance(this.sAppContext).sendMessage(xmPushActionNotification, ActionType.Notification, false, null);
     }
@@ -882,7 +882,7 @@ public class PushMessageProcessor {
         long j = Long.parseLong(list.get(0).split(":")[0]);
         long j2 = ((((j * 60) + Long.parseLong(list.get(0).split(":")[1])) - rawOffset) + 1440) % 1440;
         long j3 = ((((Long.parseLong(list.get(1).split(":")[0]) * 60) + Long.parseLong(list.get(1).split(":")[1])) - rawOffset) + 1440) % 1440;
-        ArrayList arrayList = new ArrayList();
+        List<String> arrayList = new ArrayList<>(2);
         arrayList.add(String.format("%1$02d:%2$02d", Long.valueOf(j2 / 60), Long.valueOf(j2 % 60)));
         arrayList.add(String.format("%1$02d:%2$02d", Long.valueOf(j3 / 60), Long.valueOf(j3 % 60)));
         return arrayList;

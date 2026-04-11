@@ -31,7 +31,7 @@ public class NetworkCheckup {
     private static final String PING_TEMPLATE = "ping -W 500 -i 0.2 -c 3 %s";
     private static final Pattern IP_PATTERN = Pattern.compile("([0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3})");
     private static long lastCheckTime = 0;
-    private static ThreadPoolExecutor sExecutor = new ThreadPoolExecutor(1, 1, 20, TimeUnit.SECONDS, new LinkedBlockingQueue());
+    private static ThreadPoolExecutor sExecutor = new ThreadPoolExecutor(1, 1, 20, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
 
     public static void connectivityTest() {
         ChannelConfig.PushServiceConfig config;
@@ -49,14 +49,14 @@ public class NetworkCheckup {
                 int i;
                 boolean z2;
                 boolean zDoConnectTest = NetworkCheckup.doConnectTest("www.baidu.com:80");
-                Iterator it = list.iterator();
+                Iterator<String> it = list.iterator();
                 while (true) {
                     i = 1;
                     z2 = zDoConnectTest;
                     if (!it.hasNext()) {
                         break;
                     }
-                    zDoConnectTest = zDoConnectTest || NetworkCheckup.doConnectTest((String) it.next());
+                    zDoConnectTest = zDoConnectTest || NetworkCheckup.doConnectTest(it.next());
                     if (zDoConnectTest && !z) {
                         z2 = zDoConnectTest;
                         break;

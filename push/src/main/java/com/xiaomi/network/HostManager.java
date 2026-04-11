@@ -4,9 +4,11 @@ import android.app.ActivityManager;
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
+import android.net.NetworkCapabilities;
+import android.net.TransportInfo;
 import android.net.Uri;
-import android.net.wifi.WifiManager;
+import android.net.wifi.WifiInfo;
+import android.os.Build;
 import android.os.Process;
 import android.text.TextUtils;
 import com.xiaomi.BuildConfig;
@@ -36,6 +38,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -62,7 +65,7 @@ public class HostManager {
     private HostFilter sHostFilter;
     protected HttpGet sHttpGetter;
     private String sUserId;
-    protected static Map<String, Fallback> sReservedHosts = new HashMap();
+    protected static Map<String, Fallback> sReservedHosts = new HashMap<>();
     protected static boolean hostLoaded = false;
 
     /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/network/HostManager$HostManagerFactory.class */
@@ -80,7 +83,7 @@ public class HostManager {
     }
 
     protected HostManager(Context context, HostFilter hostFilter, HttpGet httpGet, String str, String str2, String str3) {
-        this.mHostsMapping = new HashMap();
+        this.mHostsMapping = new HashMap<>();
         this.sUserId = Blob.CLIENT_PING_ID;
         this.remoteRequestFailureCount = 0L;
         this.MAX_REQUEST_FAILURE_CNT = 15L;
@@ -117,24 +120,33 @@ public class HostManager {
     }
 
     static String getActiveNetworkLabel() {
-        NetworkInfo activeNetworkInfo;
         Context context = sAppContext;
         if (context == null) {
             return "unknown";
         }
         try {
-            ConnectivityManager connectivityManager = (ConnectivityManager) context.getSystemService("connectivity");
-            if (connectivityManager == null || (activeNetworkInfo = connectivityManager.getActiveNetworkInfo()) == null) {
+            ConnectivityManager connectivityManager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (connectivityManager == null) {
                 return "unknown";
             }
-            if (activeNetworkInfo.getType() != 1) {
-                return activeNetworkInfo.getTypeName() + Constants.ACCEPT_TIME_SEPARATOR_SERVER + activeNetworkInfo.getSubtypeName();
-            }
-            WifiManager wifiManager = (WifiManager) sAppContext.getSystemService(Network.NETWORK_TYPE_WIFI);
-            if (wifiManager == null || wifiManager.getConnectionInfo() == null) {
+            android.net.Network activeNetwork = connectivityManager.getActiveNetwork();
+            if (activeNetwork == null) {
                 return "unknown";
             }
-            return "WIFI-" + wifiManager.getConnectionInfo().getSSID();
+            NetworkCapabilities networkCapabilities = connectivityManager.getNetworkCapabilities(activeNetwork);
+            if (networkCapabilities == null) {
+                return "unknown";
+            }
+            if (networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                if (Build.VERSION.SDK_INT >= 29) {
+                    TransportInfo transportInfo = networkCapabilities.getTransportInfo();
+                    if (transportInfo instanceof WifiInfo) {
+                        return "WIFI-" + ((WifiInfo) transportInfo).getSSID();
+                    }
+                }
+                return "WIFI";
+            }
+            return Network.getActiveNetworkName(context);
         } catch (Throwable th) {
             return "unknown";
         }
@@ -411,7 +423,7 @@ public class HostManager {
         Iterator<WeightedHost> it;
         Fallback fallback;
         synchronized (this.mHostsMapping) {
-            HashMap map = new HashMap();
+            Map<String, HttpApi> map = new HashMap<>();
             Iterator<String> it2 = this.mHostsMapping.keySet().iterator();
             while (true) {
                 Iterator<String> it3 = it2;
@@ -445,7 +457,7 @@ public class HostManager {
                         }
                         HostInfo hostInfo = new HostInfo();
                         hostInfo.setHost(next.host);
-                        ArrayList arrayList2 = new ArrayList();
+                        List<LandNodeInfo> arrayList2 = new ArrayList<>();
                         Iterator<WeightedHost> it5 = next.getWeightedHost().iterator();
                         while (it5.hasNext()) {
                             WeightedHost next2 = it5.next();
@@ -458,7 +470,7 @@ public class HostManager {
                                 LandNodeInfo landNodeInfo = new LandNodeInfo();
                                 landNodeInfo.setIp(next2.host);
                                 int i = 0;
-                                HashMap map2 = new HashMap();
+                                Map<String, Integer> map2 = new HashMap<>();
                                 int i2 = 0;
                                 long j = 0;
                                 int size = 0;
@@ -587,7 +599,7 @@ public class HostManager {
 
     protected String getRemoteFallbackJSON(ArrayList<String> arrayList, String str, String str2, boolean z) throws IOException {
         ArrayList<String> urls;
-        ArrayList<NameValuePair> arrayList3 = new ArrayList();
+        ArrayList<NameValuePair> arrayList3 = new ArrayList<>();
         arrayList3.add(new BasicNameValuePair("type", str));
         if (str.equals("wap")) {
             arrayList3.add(new BasicNameValuePair("conpt", obfuscate(Network.getActiveConnPoint(sAppContext))));
@@ -716,7 +728,7 @@ public class HostManager {
                 }
             }
         }
-        HostRefreshTargetsPlan planRefreshTargets = HostManagerRuntime.planRefreshTargets(arrayList, new java.util.HashSet(arrayList2));
+        HostRefreshTargetsPlan planRefreshTargets = HostManagerRuntime.planRefreshTargets(arrayList, new HashSet<>(arrayList2));
         ArrayList<String> arrayList3 = new ArrayList<>(planRefreshTargets.getTargetHosts());
         ArrayList<Fallback> arrayListRequestRemoteFallbacks = requestRemoteFallbacks(arrayList3);
         for (int i = 0; i < arrayList3.size(); i++) {

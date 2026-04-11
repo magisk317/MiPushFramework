@@ -75,7 +75,7 @@ public class ClientUploadDataItem implements TBase<ClientUploadDataItem, Object>
             this.id = clientUploadDataItem.id;
         }
         if (clientUploadDataItem.isSetExtra()) {
-            HashMap map = new HashMap();
+            HashMap<String, String> map = new HashMap<>();
             for (Map.Entry<String, String> entry : clientUploadDataItem.extra.entrySet()) {
                 map.put(entry.getKey(), entry.getValue());
             }
@@ -373,7 +373,7 @@ public class ClientUploadDataItem implements TBase<ClientUploadDataItem, Object>
 
     public void putToExtra(String str, String str2) {
         if (this.extra == null) {
-            this.extra = new HashMap();
+            this.extra = new HashMap<>();
         }
         this.extra.put(str, str2);
     }
@@ -458,7 +458,7 @@ public class ClientUploadDataItem implements TBase<ClientUploadDataItem, Object>
                 case 10:
                     if (fieldBegin.type == 13) {
                         TMap mapBegin = tProtocol.readMapBegin();
-                        this.extra = new HashMap(mapBegin.size * 2);
+                        this.extra = new HashMap<>(mapBegin.size * 2);
                         for (int i = 0; i < mapBegin.size; i++) {
                             this.extra.put(tProtocol.readString(), tProtocol.readString());
                         }

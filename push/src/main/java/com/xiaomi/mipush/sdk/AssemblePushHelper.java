@@ -181,7 +181,7 @@ public class AssemblePushHelper {
                 }
             }
             if (next != null) {
-                return (PushMessageReceiver) SystemUtils.loadClass(context, next.activityInfo.name).newInstance();
+                return (PushMessageReceiver) SystemUtils.loadClass(context, next.activityInfo.name).getDeclaredConstructor().newInstance();
             }
             return null;
         } catch (Exception e) {
@@ -299,7 +299,7 @@ public class AssemblePushHelper {
                 if (jSONObject.has(KEY_EXTRA)) {
                     JSONObject jSONObject2 = jSONObject.getJSONObject(KEY_EXTRA);
                     Iterator<String> itKeys = jSONObject2.keys();
-                    HashMap map = new HashMap();
+                    HashMap<String, String> map = new HashMap<>();
                     while (itKeys != null && itKeys.hasNext()) {
                         String next = itKeys.next();
                         map.put(next, jSONObject2.getString(next));

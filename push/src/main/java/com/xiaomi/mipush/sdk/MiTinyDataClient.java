@@ -103,7 +103,7 @@ public class MiTinyDataClient {
                 if (packageInfo == null) {
                     return false;
                 }
-                return packageInfo.versionCode >= 108;
+                return packageInfo.getLongVersionCode() >= 108;
             } catch (Exception e) {
                 return false;
             }
@@ -157,14 +157,14 @@ public class MiTinyDataClient {
 
         public void processPendingList(String str) {
             MyLog.v("MiTinyDataClient.processPendingList(" + str + com.xiaomi.push.mpcd.Constants.SEPARATOR_RIGHT_PARENTESIS);
-            ArrayList arrayList = new ArrayList();
+            ArrayList<ClientUploadDataItem> arrayList = new ArrayList<>();
             synchronized (this.mPendingList) {
                 arrayList.addAll(this.mPendingList);
                 this.mPendingList.clear();
             }
-            Iterator it = arrayList.iterator();
+            Iterator<ClientUploadDataItem> it = arrayList.iterator();
             while (it.hasNext()) {
-                processUploadRequest((ClientUploadDataItem) it.next());
+                processUploadRequest(it.next());
             }
         }
 

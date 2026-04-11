@@ -55,9 +55,9 @@ public abstract class Connection {
     protected volatile long lastPingSent = 0;
     protected volatile long lastPingReceived = 0;
     private LinkedList<Pair<Integer, Long>> mCachedStatus = new LinkedList<>();
-    private final Collection<ConnectionListener> connectionListeners = new CopyOnWriteArrayList();
-    protected final Map<PacketListener, ListenerWrapper> recvListeners = new ConcurrentHashMap();
-    protected final Map<PacketListener, ListenerWrapper> sendListeners = new ConcurrentHashMap();
+    private final Collection<ConnectionListener> connectionListeners = new CopyOnWriteArrayList<>();
+    protected final Map<PacketListener, ListenerWrapper> recvListeners = new ConcurrentHashMap<>();
+    protected final Map<PacketListener, ListenerWrapper> sendListeners = new ConcurrentHashMap<>();
     protected SmackDebugger debugger = null;
     protected String challenge = "";
     protected String connectionPoint = "";
@@ -251,7 +251,7 @@ public abstract class Connection {
     public boolean isAlwaysFailed() {
         boolean z;
         synchronized (this.mCachedStatus) {
-            ArrayList arrayList = new ArrayList();
+            ArrayList<Pair<Integer, Long>> arrayList = new ArrayList<>();
             for (Pair<Integer, Long> pair : this.mCachedStatus) {
                 if (System.currentTimeMillis() - ((Long) pair.second).longValue() < EFFECTIVE_STATUS) {
                     arrayList.add(pair);

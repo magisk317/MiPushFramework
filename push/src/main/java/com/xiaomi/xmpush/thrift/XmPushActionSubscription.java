@@ -61,7 +61,7 @@ public class XmPushActionSubscription implements TBase<XmPushActionSubscription,
             this.category = xmPushActionSubscription.category;
         }
         if (xmPushActionSubscription.isSetAliases()) {
-            ArrayList arrayList = new ArrayList();
+            List<String> arrayList = new ArrayList<>();
             Iterator<String> it = xmPushActionSubscription.aliases.iterator();
             while (it.hasNext()) {
                 arrayList.add(it.next());
@@ -79,7 +79,7 @@ public class XmPushActionSubscription implements TBase<XmPushActionSubscription,
 
     public void addToAliases(String str) {
         if (this.aliases == null) {
-            this.aliases = new ArrayList();
+            this.aliases = new ArrayList<>();
         }
         this.aliases.add(str);
     }
@@ -370,7 +370,7 @@ public class XmPushActionSubscription implements TBase<XmPushActionSubscription,
                 case 8:
                     if (fieldBegin.type == 15) {
                         TList listBegin = tProtocol.readListBegin();
-                        this.aliases = new ArrayList(listBegin.size);
+                        this.aliases = new ArrayList<>(listBegin.size);
                         for (int i = 0; i < listBegin.size; i++) {
                             this.aliases.add(tProtocol.readString());
                         }

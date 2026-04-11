@@ -1,8 +1,8 @@
 package com.xiaomi.push.service
 
 import android.app.PendingIntent
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
 
 class MIPushNotificationActionSupportTest {
 

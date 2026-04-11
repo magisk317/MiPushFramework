@@ -13,7 +13,7 @@ import java.util.Set;
 /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/channel/commonutils/file/FileLocker.class */
 public final class FileLocker {
     private static final String LOCK = ".LOCK";
-    private static final Set<String> LOCK_HELD = Collections.synchronizedSet(new HashSet());
+    private static final Set<String> LOCK_HELD = Collections.synchronizedSet(new HashSet<>());
     private Context mContext;
     private FileLock mLock;
     private RandomAccessFile mLockFile;

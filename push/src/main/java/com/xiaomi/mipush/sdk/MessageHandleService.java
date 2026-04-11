@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit;
 /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/mipush/sdk/MessageHandleService.class */
 public class MessageHandleService extends BaseService {
     private static ConcurrentLinkedQueue<MessageHandleJob> jobQueue = new ConcurrentLinkedQueue<>();
-    private static ExecutorService sPool = new ThreadPoolExecutor(1, 1, 15, TimeUnit.SECONDS, new LinkedBlockingQueue());
+    private static ExecutorService sPool = new ThreadPoolExecutor(1, 1, 15, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
 
     /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/mipush/sdk/MessageHandleService$MessageHandleJob.class */
     public static class MessageHandleJob {
@@ -106,7 +106,7 @@ public class MessageHandleService extends BaseService {
                     }
                     break;
                 case 3:
-                    MiPushCommandMessage miPushCommandMessage2 = (MiPushCommandMessage) intent.getSerializableExtra(PushMessageHelper.KEY_COMMAND);
+                    MiPushCommandMessage miPushCommandMessage2 = androidx.core.os.BundleCompat.getSerializable(intent.getExtras(), PushMessageHelper.KEY_COMMAND, MiPushCommandMessage.class);
                     MyLog.persist("(Local) begin execute onCommandResult, command=" + miPushCommandMessage2.getCommand() + ", resultCode=" + miPushCommandMessage2.getResultCode() + ", reason=" + miPushCommandMessage2.getReason());
                     receiver.onCommandResult(context, miPushCommandMessage2);
                     if (TextUtils.equals(miPushCommandMessage2.getCommand(), Command.COMMAND_REGISTER.value)) {
@@ -172,8 +172,4 @@ public class MessageHandleService extends BaseService {
         return null;
     }
 
-    @Override // com.xiaomi.mipush.sdk.BaseService, android.app.Service
-    public void onStart(Intent intent, int i) {
-        super.onStart(intent, i);
-    }
 }

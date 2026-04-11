@@ -14,7 +14,7 @@ public class ScheduleQueryAndUploadJob extends MessageCountQueryJob {
     }
 
     public static ScheduleQueryAndUploadJob getScheduleJob(String str) {
-        ArrayList arrayList = new ArrayList();
+        ArrayList<String> arrayList = new ArrayList<>();
         arrayList.add("count(*)");
         return new ScheduleQueryAndUploadJob(str, arrayList, "status = ? or (status = ? and uploadTimestamp <= ?" + Constants.SEPARATOR_RIGHT_PARENTESIS, new String[]{String.valueOf(0), String.valueOf(1), String.valueOf(System.currentTimeMillis() - MessageInfoContract.TIMEOUT)}, null, null, null, 0);
     }

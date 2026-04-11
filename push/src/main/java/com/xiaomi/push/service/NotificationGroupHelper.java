@@ -11,6 +11,7 @@ import android.text.TextUtils;
 import com.xiaomi.channel.commonutils.android.MIUIUtils;
 import com.xiaomi.channel.commonutils.logger.MyLog;
 import com.xiaomi.channel.commonutils.reflect.JavaCalls;
+import com.xiaomi.push.service.notification.BuilderCompat;
 import com.xiaomi.xmpush.thrift.ConfigKey;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -33,8 +34,8 @@ class NotificationGroupHelper {
         List<NotificationInfo> summaryList;
 
         private AutoGroupItem() {
-            this.childList = new ArrayList();
-            this.summaryList = new ArrayList();
+            this.childList = new ArrayList<>();
+            this.summaryList = new ArrayList<>();
         }
     }
 
@@ -110,14 +111,13 @@ class NotificationGroupHelper {
             return;
         }
         String trueGroup = getTrueGroup(notification);
-        HashMap map = new HashMap();
+        Map<String, AutoGroupItem> map = new HashMap<>();
         for (StatusBarNotification statusBarNotification : activeNotifications) {
             if (statusBarNotification.getNotification() != null && statusBarNotification.getId() != i) {
                 putAutoGroupItem(map, statusBarNotification);
             }
         }
-        for (Object entryObject : map.entrySet()) {
-            Map.Entry<String, AutoGroupItem> entry = (Map.Entry<String, AutoGroupItem>) entryObject;
+        for (Map.Entry<String, AutoGroupItem> entry : map.entrySet()) {
             String key = entry.getKey();
             if (!TextUtils.isEmpty(key)) {
                 AutoGroupItem value = entry.getValue();
@@ -216,7 +216,7 @@ class NotificationGroupHelper {
     }
 
     private void showGroupSummary(Context context, String str, String str2, Notification notification) {
-        Notification.Builder defaults;
+        BuilderCompat defaults = new BuilderCompat(context);
         try {
             if (TextUtils.isEmpty(str2)) {
                 MyLog.w("group show summary group is null");
@@ -234,9 +234,9 @@ class NotificationGroupHelper {
                 if (GROUP_SUMMARY_CHANNEL_ID.equals(groupSummaryChannelId) && notificationChannel == null) {
                     notificationManagerHelperFrom.createNotificationChannel(new NotificationChannel(groupSummaryChannelId, "group_summary", 3));
                 }
-                defaults = new Notification.Builder(context, groupSummaryChannelId);
+                defaults.setChannelId(groupSummaryChannelId);
             } else {
-                defaults = new Notification.Builder(context).setPriority(0).setDefaults(-1);
+                defaults.setPriority(0).setDefaults(-1);
             }
             suppressNotificationEffects(defaults, true);
             Notification notificationBuild = defaults.setContentTitle(GROUP_SUMMARY_TITLE).setContentText(GROUP_SUMMARY_TITLE).setSmallIcon(Icon.createWithResource(str, idForSmallIconFromTargetPkg)).setAutoCancel(true).setGroup(str2).setGroupSummary(true).build();
@@ -254,7 +254,7 @@ class NotificationGroupHelper {
         }
     }
 
-    private boolean suppressNotificationEffects(Notification.Builder builder, boolean z) {
+    private boolean suppressNotificationEffects(BuilderCompat builder, boolean z) {
         if (Build.VERSION.SDK_INT >= 26) {
             builder.setGroupAlertBehavior(z ? 2 : 1);
             return true;
@@ -263,7 +263,16 @@ class NotificationGroupHelper {
         return false;
     }
 
-    public String maskGroup(Context context, Notification.Builder builder, String str) {
+    private boolean suppressNotificationEffects(Notification.Builder builder, boolean z) {
+        if (Build.VERSION.SDK_INT >= 26) {
+            JavaCalls.callMethod(builder, "setGroupAlertBehavior", Integer.valueOf(z ? 2 : 1));
+            return true;
+        }
+        MyLog.i("not support setGroupAlertBehavior");
+        return false;
+    }
+
+    public String maskGroup(Context context, BuilderCompat builder, String str) {
         if (!isSupportPlatform() || !isEnableLatestNotificationNotIntoGroup(context)) {
             return str;
         }

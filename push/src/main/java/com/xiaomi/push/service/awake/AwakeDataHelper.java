@@ -6,6 +6,7 @@ import android.util.Base64;
 import com.xiaomi.channel.commonutils.logger.MyLog;
 import com.xiaomi.channel.commonutils.string.XMStringUtils;
 import java.util.HashMap;
+import java.util.Map;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -31,7 +32,7 @@ public class AwakeDataHelper {
         return Uri.parse("content://" + str).buildUpon().appendPath(str2).build();
     }
 
-    public static String getString(HashMap<String, String> map) {
+    public static String getString(Map<String, String> map) {
         if (map == null) {
             return "";
         }
@@ -46,8 +47,8 @@ public class AwakeDataHelper {
         return jSONObject.toString();
     }
 
-    public static String obfuscateLogContent(HashMap<String, String> map) {
-        HashMap map2 = new HashMap();
+    public static String obfuscateLogContent(Map<String, String> map) {
+        Map<String, String> map2 = new HashMap<>();
         if (map != null) {
             map2.put(AwakeUploadHelper.KEY_EVENT_TYPE, map.get(AwakeUploadHelper.KEY_EVENT_TYPE) + "");
             map2.put(AwakeUploadHelper.KEY_DESCRIPTION, map.get(AwakeUploadHelper.KEY_DESCRIPTION) + "");

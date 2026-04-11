@@ -52,7 +52,7 @@ public class BaseDataSender implements IDataSender, IDbPathGetter {
         if (list == null || list.size() <= 0) {
             return;
         }
-        ArrayList arrayList = new ArrayList();
+        ArrayList<ClientUploadDataItem> arrayList = new ArrayList<>();
         for (MessageInfoContract.MessageModel messageModel : list) {
             if (messageModel != null) {
                 ClientUploadDataItem clientUploadDataItem = new ClientUploadDataItem();

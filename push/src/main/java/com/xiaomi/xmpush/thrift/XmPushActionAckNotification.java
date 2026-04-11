@@ -71,7 +71,7 @@ public class XmPushActionAckNotification implements TBase<XmPushActionAckNotific
             this.reason = xmPushActionAckNotification.reason;
         }
         if (xmPushActionAckNotification.isSetExtra()) {
-            HashMap map = new HashMap();
+            Map<String, String> map = new HashMap<>();
             for (Map.Entry<String, String> entry : xmPushActionAckNotification.extra.entrySet()) {
                 map.put(entry.getKey(), entry.getValue());
             }
@@ -352,7 +352,7 @@ public class XmPushActionAckNotification implements TBase<XmPushActionAckNotific
 
     public void putToExtra(String str, String str2) {
         if (this.extra == null) {
-            this.extra = new HashMap();
+            this.extra = new HashMap<>();
         }
         this.extra.put(str, str2);
     }
@@ -427,7 +427,7 @@ public class XmPushActionAckNotification implements TBase<XmPushActionAckNotific
                 case 9:
                     if (fieldBegin.type == 13) {
                         TMap mapBegin = tProtocol.readMapBegin();
-                        this.extra = new HashMap(mapBegin.size * 2);
+                        this.extra = new HashMap<>(mapBegin.size * 2);
                         for (int i = 0; i < mapBegin.size; i++) {
                             this.extra.put(tProtocol.readString(), tProtocol.readString());
                         }

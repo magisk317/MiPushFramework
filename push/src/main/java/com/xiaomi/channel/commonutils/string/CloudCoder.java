@@ -25,7 +25,7 @@ public class CloudCoder {
         if (TextUtils.isEmpty(str3)) {
             throw new InvalidParameterException("security is not nullable");
         }
-        ArrayList<String> arrayList = new ArrayList();
+        ArrayList<String> arrayList = new ArrayList<>();
         if (str != null) {
             arrayList.add(str.toUpperCase());
         }

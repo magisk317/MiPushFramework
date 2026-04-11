@@ -4,7 +4,6 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.content.pm.PackageInfo;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -14,6 +13,7 @@ import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
 import android.text.TextUtils;
+import com.xiaomi.channel.commonutils.android.AppInfoUtils;
 import com.xiaomi.channel.commonutils.android.MIUIUtils;
 import com.xiaomi.channel.commonutils.logger.MyLog;
 import com.xiaomi.channel.commonutils.misc.BuildSettings;
@@ -36,7 +36,7 @@ public class ServiceClient {
     private Messenger mClientMessenger;
     private Context mContext;
     private boolean mIsMiuiPushServiceEnabled;
-    private List<Message> pendingMessages = new ArrayList();
+    private List<Message> pendingMessages = new ArrayList<>();
     private boolean isConnectingService = false;
     private Messenger mMessenger = new Messenger(new Handler(Looper.getMainLooper()) { // from class: com.xiaomi.push.service.ServiceClient.1
         @Override // android.os.Handler
@@ -71,10 +71,10 @@ public class ServiceClient {
                         synchronized (ServiceClient.this) {
                             ServiceClient.this.mClientMessenger = new Messenger(iBinder);
                             ServiceClient.this.isConnectingService = false;
-                            Iterator it = ServiceClient.this.pendingMessages.iterator();
+                            Iterator<Message> it = ServiceClient.this.pendingMessages.iterator();
                             while (it.hasNext()) {
                                 try {
-                                    ServiceClient.this.mClientMessenger.send((Message) it.next());
+                                    ServiceClient.this.mClientMessenger.send(it.next());
                                 } catch (RemoteException e) {
                                     MyLog.e(e);
                                 }
@@ -148,11 +148,7 @@ public class ServiceClient {
             return false;
         }
         try {
-            PackageInfo packageInfo = this.mContext.getPackageManager().getPackageInfo(PushConstants.PUSH_SERVICE_PACKAGE_NAME, 4);
-            if (packageInfo == null) {
-                return false;
-            }
-            return packageInfo.versionCode >= 104;
+            return AppInfoUtils.getVersionCode(this.mContext, PushConstants.PUSH_SERVICE_PACKAGE_NAME) >= 104;
         } catch (Exception e) {
             return false;
         }

@@ -61,7 +61,7 @@ public class PushServiceClient {
     private boolean mIsMiuiPushServiceEnabled;
     private static boolean isBind = false;
     private static final ArrayList<BufferedRequest> sPendingRequest = new ArrayList<>();
-    private List<Message> pendingMessages = new ArrayList();
+    private List<Message> pendingMessages = new ArrayList<>();
     private boolean isConnectingService = false;
     private Intent registerTask = null;
     private Integer mDeviceProvisioned = null;
@@ -103,10 +103,12 @@ public class PushServiceClient {
     }
 
     /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/mipush/sdk/PushServiceClient$BufferedRequest.class */
-    static class BufferedRequest<T extends TBase<T, ?>> {
-        ActionType actionType;
-        boolean encrypt;
-        T message;
+    interface PendingRequestDispatcher {
+        void dispatch(PushServiceClient client);
+    }
+
+    static class BufferedRequest {
+        PendingRequestDispatcher dispatcher;
 
         BufferedRequest() {
         }
@@ -304,7 +306,7 @@ public class PushServiceClient {
 
     private String getPushServiceName() {
         try {
-            return this.mContext.getPackageManager().getPackageInfo(PushConstants.PUSH_SERVICE_PACKAGE_NAME, 4).versionCode >= 106 ? PushConstants.PUSH_SERVICE_CLASS_NAME_JAR : PushConstants.PUSH_SERVICE_CLASS_NAME;
+            return this.mContext.getPackageManager().getPackageInfo(PushConstants.PUSH_SERVICE_PACKAGE_NAME, 4).getLongVersionCode() >= 106 ? PushConstants.PUSH_SERVICE_CLASS_NAME_JAR : PushConstants.PUSH_SERVICE_CLASS_NAME;
         } catch (Exception e) {
             return PushConstants.PUSH_SERVICE_CLASS_NAME;
         }
@@ -428,7 +430,7 @@ public class PushServiceClient {
             if (packageInfo == null) {
                 return false;
             }
-            return packageInfo.versionCode >= 105;
+            return packageInfo.getLongVersionCode() >= 105;
         } catch (Throwable th) {
             return false;
         }
@@ -451,7 +453,7 @@ public class PushServiceClient {
             return true;
         }
         try {
-            return this.mContext.getPackageManager().getPackageInfo(PushConstants.PUSH_SERVICE_PACKAGE_NAME, 4).versionCode >= 108;
+            return this.mContext.getPackageManager().getPackageInfo(PushConstants.PUSH_SERVICE_PACKAGE_NAME, 4).getLongVersionCode() >= 108;
         } catch (Exception e) {
             return true;
         }
@@ -459,9 +461,7 @@ public class PushServiceClient {
 
     public <T extends TBase<T, ?>> void addPendRequest(T t, ActionType actionType, boolean z) {
         BufferedRequest bufferedRequest = new BufferedRequest();
-        bufferedRequest.message = t;
-        bufferedRequest.actionType = actionType;
-        bufferedRequest.encrypt = z;
+        bufferedRequest.dispatcher = client -> client.sendMessage(t, actionType, z, false, null, true);
         ArrayList<BufferedRequest> arrayList = sPendingRequest;
         synchronized (arrayList) {
             arrayList.add(bufferedRequest);
@@ -541,7 +541,7 @@ public class PushServiceClient {
         synchronized (arrayList) {
             boolean z = Thread.currentThread() == Looper.getMainLooper().getThread();
             for (BufferedRequest bufferedRequest : arrayList) {
-                sendMessage(bufferedRequest.message, bufferedRequest.actionType, bufferedRequest.encrypt, false, null, true);
+                bufferedRequest.dispatcher.dispatch(this);
                 if (!z) {
                     try {
                         Thread.sleep(100L);
@@ -700,7 +700,7 @@ public class PushServiceClient {
         xmPushActionNotification.setAppId(AppInfoHolder.getInstance(this.mContext).getAppID());
         xmPushActionNotification.setPackageName(this.mContext.getPackageName());
         xmPushActionNotification.setType(NotificationType.ClientABTest.value);
-        xmPushActionNotification.extra = new HashMap();
+        xmPushActionNotification.extra = new HashMap<>();
         xmPushActionNotification.extra.put("boot_mode", i + "");
         getInstance(this.mContext).sendMessage(xmPushActionNotification, ActionType.Notification, false, null);
         return true;

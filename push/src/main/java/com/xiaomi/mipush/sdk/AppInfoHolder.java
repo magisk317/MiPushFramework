@@ -200,7 +200,7 @@ public class AppInfoHolder {
 
     private void init() {
         this.mInfoData = new ClientInfoData(this.mContext);
-        this.mHybridAppInfoCache = new HashMap();
+        this.mHybridAppInfoCache = new HashMap<>();
         SharedPreferences sharedPreferences = getSharedPreferences(this.mContext);
         this.mInfoData.appID = sharedPreferences.getString("appId", null);
         this.mInfoData.appToken = sharedPreferences.getString(PREF_KEY_APP_TOKEN, null);

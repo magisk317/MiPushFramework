@@ -95,7 +95,6 @@ public abstract class MiPushClient {
     }
 
     /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/mipush/sdk/MiPushClient$MiPushClientCallback.class */
-    @Deprecated
     public static abstract class MiPushClientCallback {
         private String category;
 
@@ -313,7 +312,7 @@ public abstract class MiPushClient {
     }
 
     public static List<String> getAllAlias(Context context) {
-        ArrayList arrayList = new ArrayList();
+        ArrayList<String> arrayList = new ArrayList<>();
         for (String str : context.getSharedPreferences("mipush_extra", 0).getAll().keySet()) {
             if (str.startsWith(PREFIX_ALIAS)) {
                 arrayList.add(str.substring(PREFIX_ALIAS.length()));
@@ -323,7 +322,7 @@ public abstract class MiPushClient {
     }
 
     public static List<String> getAllTopic(Context context) {
-        ArrayList arrayList = new ArrayList();
+        ArrayList<String> arrayList = new ArrayList<>();
         for (String str : context.getSharedPreferences("mipush_extra", 0).getAll().keySet()) {
             if (str.startsWith(PREFIX_TOPIC) && !str.contains(TOPIC_ALL)) {
                 arrayList.add(str.substring(PREFIX_TOPIC.length()));
@@ -333,7 +332,7 @@ public abstract class MiPushClient {
     }
 
     public static List<String> getAllUserAccount(Context context) {
-        ArrayList arrayList = new ArrayList();
+        ArrayList<String> arrayList = new ArrayList<>();
         for (String str : context.getSharedPreferences("mipush_extra", 0).getAll().keySet()) {
             if (str.startsWith(PREFIX_ACCOUNT)) {
                 arrayList.add(str.substring(PREFIX_ACCOUNT.length()));
@@ -471,7 +470,7 @@ public abstract class MiPushClient {
                     checkNotNull((Object) miPushClientCallback, "callback");
                     miPushClientCallback.onInitializeResult(0L, null, AppInfoHolder.getInstance(sContext).getRegID());
                 } else {
-                    ArrayList arrayList = new ArrayList();
+                    ArrayList<String> arrayList = new ArrayList<>();
                     arrayList.add(AppInfoHolder.getInstance(sContext).getRegID());
                     PushMessageHelper.sendCommandMessageBroadcast(sContext, PushMessageHelper.generateCommandMessage(Command.COMMAND_REGISTER.value, arrayList, 0L, null, null));
                 }
@@ -481,7 +480,7 @@ public abstract class MiPushClient {
                     xmPushActionNotification.setAppId(AppInfoHolder.getInstance(sContext).getAppID());
                     xmPushActionNotification.setType(NotificationType.ClientInfoUpdate.value);
                     xmPushActionNotification.setId(PacketHelper.generatePacketID());
-                    xmPushActionNotification.extra = new HashMap();
+                    xmPushActionNotification.extra = new HashMap<>();
                     Map<String, String> map = xmPushActionNotification.extra;
                     Context context4 = sContext;
                     map.put(Constants.EXTRA_KEY_APP_VERSION, AppInfoUtils.getVersionName(context4, context4.getPackageName()));
@@ -507,7 +506,7 @@ public abstract class MiPushClient {
                     xmPushActionCommand.setId(PacketHelper.generatePacketID());
                     xmPushActionCommand.setAppId(str);
                     xmPushActionCommand.setCmdName(Command.COMMAND_CHK_VDEVID.value);
-                    ArrayList arrayList2 = new ArrayList();
+                    ArrayList<String> arrayList2 = new ArrayList<>();
                     String virtDevId = DeviceInfo.getVirtDevId(sContext);
                     if (!TextUtils.isEmpty(virtDevId)) {
                         arrayList2.add(virtDevId);
@@ -815,14 +814,14 @@ public abstract class MiPushClient {
         long rawOffset = ((TimeZone.getTimeZone("GMT+08").getRawOffset() - TimeZone.getDefault().getRawOffset()) / 1000) / 60;
         long j = ((((long) ((i * 60) + i2)) + rawOffset) + 1440) % 1440;
         long j2 = ((((long) ((i3 * 60) + i4)) + rawOffset) + 1440) % 1440;
-        ArrayList arrayList = new ArrayList();
+        ArrayList<String> arrayList = new ArrayList<>();
         arrayList.add(String.format("%1$02d:%2$02d", Long.valueOf(j / 60), Long.valueOf(j % 60)));
         arrayList.add(String.format("%1$02d:%2$02d", Long.valueOf(j2 / 60), Long.valueOf(j2 % 60)));
-        ArrayList arrayList2 = new ArrayList();
+        ArrayList<String> arrayList2 = new ArrayList<>();
         arrayList2.add(String.format("%1$02d:%2$02d", Integer.valueOf(i), Integer.valueOf(i2)));
         arrayList2.add(String.format("%1$02d:%2$02d", Integer.valueOf(i3), Integer.valueOf(i4)));
         if (!acceptTimeSet(context, (String) arrayList.get(0), (String) arrayList.get(1))) {
-            setCommand(context, Command.COMMAND_SET_ACCEPT_TIME.value, (ArrayList<String>) arrayList, str);
+            setCommand(context, Command.COMMAND_SET_ACCEPT_TIME.value, arrayList, str);
         } else if (1 == PushMessageHelper.getPushMode(context)) {
             PushMessageHandler.onCommandResult(context, str, Command.COMMAND_SET_ACCEPT_TIME.value, 0L, null, arrayList2);
         } else {
@@ -842,7 +841,7 @@ public abstract class MiPushClient {
     }
 
     protected static void setCommand(Context context, String str, String str2, String str3) {
-        ArrayList arrayList = new ArrayList();
+        ArrayList<String> arrayList = new ArrayList<>();
         if (!TextUtils.isEmpty(str2)) {
             arrayList.add(str2);
         }
@@ -869,7 +868,7 @@ public abstract class MiPushClient {
             }
         }
         if (!Command.COMMAND_UNSET_ACCOUNT.value.equalsIgnoreCase(str) || accountSetTime(context, str2) >= 0) {
-            setCommand(context, str, (ArrayList<String>) arrayList, str3);
+            setCommand(context, str, arrayList, str3);
             return;
         }
         MyLog.w("Don't cancel account for " + XMStringUtils.obfuscateString(arrayList.toString(), 3) + " is unseted");
@@ -934,7 +933,7 @@ public abstract class MiPushClient {
                 PushMessageHandler.onSubscribeResult(context, str2, 0L, null, str);
                 return;
             }
-            ArrayList arrayList = new ArrayList();
+            ArrayList<String> arrayList = new ArrayList<>();
             arrayList.add(str);
             PushMessageHelper.sendCommandMessageBroadcast(context, PushMessageHelper.generateCommandMessage(Command.COMMAND_SUBSCRIBE_TOPIC.value, arrayList, 0L, null, null));
             return;
@@ -1060,7 +1059,7 @@ public abstract class MiPushClient {
                     xmPushActionNotification.setAppId(AppInfoHolder.getInstance(MiPushClient.sContext).getAppID());
                     xmPushActionNotification.setType(NotificationType.ClientInfoUpdate.value);
                     xmPushActionNotification.setId(PacketHelper.generatePacketID());
-                    xmPushActionNotification.setExtra(new HashMap());
+                    xmPushActionNotification.setExtra(new HashMap<>());
                     String str = "";
                     String strBlockingGetIMEI = DeviceInfo.blockingGetIMEI(MiPushClient.sContext);
                     if (!TextUtils.isEmpty(strBlockingGetIMEI)) {

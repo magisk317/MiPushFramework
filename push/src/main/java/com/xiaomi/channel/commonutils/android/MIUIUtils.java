@@ -142,7 +142,7 @@ public class MIUIUtils {
         if (locale2RegionMap != null) {
             return;
         }
-        HashMap map = new HashMap();
+        HashMap<String, Region> map = new HashMap<>();
         locale2RegionMap = map;
         map.put("CN", Region.China);
         locale2RegionMap.put("FI", Region.Europe);

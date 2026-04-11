@@ -31,7 +31,8 @@ public class MobileStatusUtils {
 
     public static boolean isScreenLocked(Context context) {
         try {
-            return ((KeyguardManager) context.getSystemService("keyguard")).inKeyguardRestrictedInputMode();
+            KeyguardManager keyguardManager = (KeyguardManager) context.getSystemService("keyguard");
+            return keyguardManager != null && keyguardManager.isKeyguardLocked();
         } catch (Exception e) {
             MyLog.e(e);
             return false;

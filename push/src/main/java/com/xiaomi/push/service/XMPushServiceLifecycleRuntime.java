@@ -3,7 +3,6 @@ package com.xiaomi.push.service;
 import com.magisk317.service.XMPushServiceLifecycleBridge;
 import com.magisk317.service.XMPushServiceListener;
 import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
 import android.text.TextUtils;
 import com.xiaomi.channel.commonutils.android.Region;
 import com.xiaomi.channel.commonutils.android.SystemUtils;
@@ -41,21 +40,9 @@ final class XMPushServiceLifecycleRuntime {
     }
 
     void networkChanged() {
-        NetworkInfo activeNetworkInfo = null;
-        try {
-            activeNetworkInfo = ((ConnectivityManager) this.service.getSystemService("connectivity")).getActiveNetworkInfo();
-        } catch (Exception e) {
-            MyLog.e(e);
-        }
-        if (activeNetworkInfo != null) {
-            StringBuilder sb = new StringBuilder();
-            sb.append("network changed,");
-            sb.append("[type: " + activeNetworkInfo.getTypeName() + "[" + activeNetworkInfo.getSubtypeName() + "], state: " + activeNetworkInfo.getState() + "/" + activeNetworkInfo.getDetailedState());
-            MyLog.w(sb.toString());
-            NetworkInfo.State state = activeNetworkInfo.getState();
-            if (state == NetworkInfo.State.SUSPENDED || state == NetworkInfo.State.UNKNOWN) {
-                return;
-            }
+        String activeNetworkName = Network.getActiveNetworkName(this.service);
+        if (!TextUtils.isEmpty(activeNetworkName) && !"null".equals(activeNetworkName)) {
+            MyLog.w("network changed,[type: " + activeNetworkName + "]");
         } else {
             MyLog.w("network changed, no active network");
         }

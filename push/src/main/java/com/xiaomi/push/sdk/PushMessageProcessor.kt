@@ -17,24 +17,20 @@ import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmsf.push.notification.NotificationController
 import com.xiaomi.xmsf.push.utils.Configurations
-import com.xiaomi.xmsf.utils.ConfigCenter
-import top.trumeet.common.Constants
-import top.trumeet.common.ita.AccessMode
-import top.trumeet.common.ita.ITopActivity
-import top.trumeet.common.ita.TopActivityFactory
-import top.trumeet.common.utils.Utils
+import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.platform.activity.AccessMode
+import io.github.magisk317.mipush.platform.activity.ITopActivity
+import io.github.magisk317.mipush.platform.activity.TopActivityFactory
+import io.github.magisk317.mipush.common.utils.Utils
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.runBlocking
 
 @Singleton
 class PushMessageProcessor @Inject constructor(
-    private val configCenter: ConfigCenter,
     private val configurations: Configurations
 ) {
     // No-arg fallback for legacy Singleton access.
     constructor() : this(
-        com.magisk317.utils.Singleton.instance<ConfigCenter>(),
         Configurations.getInstance()
     )
 
@@ -79,20 +75,26 @@ class PushMessageProcessor @Inject constructor(
     }
 
     private fun resolveTopActivity(context: Context): ITopActivity {
-        val configuredMode = runBlocking { configCenter.getAccessModeAsync() }
-        if (iTopActivity == null || topActivityMode != configuredMode) {
-            iTopActivity = TopActivityFactory.newInstance(configuredMode)
-            topActivityMode = configuredMode
+        val usageStats = TopActivityFactory.newInstance(AccessMode.USAGE_STATS)
+        if (usageStats.isEnabled(context)) {
+            iTopActivity = usageStats
+            topActivityMode = AccessMode.USAGE_STATS
+            return usageStats
         }
-        val selected = iTopActivity ?: TopActivityFactory.newInstance(configuredMode)
-        if (configuredMode == AccessMode.USAGE_STATS && !selected.isEnabled(context)) {
-            val accessibility = TopActivityFactory.newInstance(AccessMode.ACCESSIBILITY)
-            if (accessibility.isEnabled(context)) {
+
+        val accessibility = TopActivityFactory.newInstance(AccessMode.ACCESSIBILITY)
+        if (accessibility.isEnabled(context)) {
+            if (topActivityMode != AccessMode.ACCESSIBILITY) {
                 logger.w("UsageStats unavailable, fallback to Accessibility mode.")
-                return accessibility
             }
+            iTopActivity = accessibility
+            topActivityMode = AccessMode.ACCESSIBILITY
+            return accessibility
         }
-        return selected
+
+        iTopActivity = usageStats
+        topActivityMode = AccessMode.USAGE_STATS
+        return usageStats
     }
 
     fun cancelNotification(context: Context, bundle: Bundle) {

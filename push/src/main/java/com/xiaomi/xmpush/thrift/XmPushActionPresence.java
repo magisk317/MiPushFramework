@@ -74,7 +74,7 @@ public class XmPushActionPresence implements TBase<XmPushActionPresence, Object>
             this.sdkVersion = xmPushActionPresence.sdkVersion;
         }
         if (xmPushActionPresence.isSetParams()) {
-            HashMap map = new HashMap();
+            Map<String, String> map = new HashMap<>();
             for (Map.Entry<String, String> entry : xmPushActionPresence.params.entrySet()) {
                 map.put(entry.getKey(), entry.getValue());
             }
@@ -386,7 +386,7 @@ public class XmPushActionPresence implements TBase<XmPushActionPresence, Object>
 
     public void putToParams(String str, String str2) {
         if (this.params == null) {
-            this.params = new HashMap();
+            this.params = new HashMap<>();
         }
         this.params.put(str, str2);
     }
@@ -449,7 +449,7 @@ public class XmPushActionPresence implements TBase<XmPushActionPresence, Object>
                 case 7:
                     if (fieldBegin.type == 13) {
                         TMap mapBegin = tProtocol.readMapBegin();
-                        this.params = new HashMap(mapBegin.size * 2);
+                        this.params = new HashMap<>(mapBegin.size * 2);
                         for (int i = 0; i < mapBegin.size; i++) {
                             this.params.put(tProtocol.readString(), tProtocol.readString());
                         }

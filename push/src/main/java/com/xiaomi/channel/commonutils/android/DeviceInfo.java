@@ -324,7 +324,8 @@ public class DeviceInfo {
     }
 
     static String getPhoneInfoHash() {
-        return "35" + (Build.BOARD.length() % 10) + (Build.BRAND.length() % 10) + (Build.CPU_ABI.length() % 10) + (Build.DEVICE.length() % 10) + (Build.DISPLAY.length() % 10) + (Build.HOST.length() % 10) + (Build.MANUFACTURER.length() % 10) + (Build.MODEL.length() % 10) + (Build.PRODUCT.length() % 10);
+        String primaryAbi = Build.SUPPORTED_ABIS.length > 0 ? Build.SUPPORTED_ABIS[0] : "";
+        return "35" + (Build.BOARD.length() % 10) + (Build.BRAND.length() % 10) + (primaryAbi.length() % 10) + (Build.DEVICE.length() % 10) + (Build.DISPLAY.length() % 10) + (Build.HOST.length() % 10) + (Build.MANUFACTURER.length() % 10) + (Build.MODEL.length() % 10) + (Build.PRODUCT.length() % 10);
     }
 
     public static int getRamFromProcMeminfo() {
@@ -393,18 +394,10 @@ public class DeviceInfo {
     }
 
     public static String getSerialNum(Context context) {
-        String str = null;
-        if (canReadPhoneState(context)) {
-            if (Build.VERSION.SDK_INT <= 8 || Build.VERSION.SDK_INT >= 26) {
-                str = null;
-                if (Build.VERSION.SDK_INT >= 26) {
-                    str = (String) JavaCalls.callStaticMethod("android.os.Build", "getSerial", (Object[]) null);
-                }
-            } else {
-                str = Build.SERIAL;
-            }
+        if (!canReadPhoneState(context)) {
+            return null;
         }
-        return str;
+        return (String) JavaCalls.callStaticMethod("android.os.Build", "getSerial", (Object[]) null);
     }
 
     public static String getSimOperatorName(Context context) {
@@ -427,17 +420,8 @@ public class DeviceInfo {
     }
 
     private static long getSize(File file) {
-        long blockCount;
-        long blockSize;
         StatFs statFs = new StatFs(file.getPath());
-        if (Build.VERSION.SDK_INT >= 18) {
-            blockCount = statFs.getBlockCountLong();
-            blockSize = statFs.getBlockSizeLong();
-        } else {
-            blockCount = statFs.getBlockCount();
-            blockSize = statFs.getBlockSize();
-        }
-        return blockSize * blockCount;
+        return statFs.getBlockSizeLong() * statFs.getBlockCountLong();
     }
 
     public static int getSpaceId() {
@@ -518,18 +502,14 @@ public class DeviceInfo {
 
     public static boolean isScreenOn(Context context) {
         PowerManager powerManager = (PowerManager) context.getSystemService("power");
-        return powerManager == null || powerManager.isScreenOn();
+        return powerManager == null || powerManager.isInteractive();
     }
 
     private static boolean isSupportVDevid(Context context) {
-        boolean z = false;
         if ((Build.VERSION.SDK_INT >= 29 && context.getApplicationInfo().targetSdkVersion >= 29) || !PermissionUtils.checkSelfPermission(context, PermissionUtils.writeExternalStorage) || MIUIUtils.isMIUI()) {
             return false;
         }
-        if (Build.VERSION.SDK_INT >= 26) {
-            z = true;
-        }
-        return !z ? SystemUtils.isDebuggable(context) : z;
+        return true;
     }
 
     public static String quicklyGetIMEI(Context context) {
@@ -561,8 +541,8 @@ public class DeviceInfo {
                 deviceId = str2;
                 if (str2 == null) {
                     TelephonyManager telephonyManager = (TelephonyManager) context.getSystemService("phone");
-                    if (Build.VERSION.SDK_INT < 26) {
-                        deviceId = telephonyManager.getDeviceId();
+                    if (telephonyManager == null) {
+                        deviceId = null;
                     } else if (1 == telephonyManager.getPhoneType()) {
                         deviceId = (String) JavaCalls.callMethod(telephonyManager, "getImei", (Object[]) null);
                     } else {

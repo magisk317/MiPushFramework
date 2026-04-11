@@ -16,7 +16,7 @@ public class SDCardUtils {
         }
         try {
             StatFs statFs = new StatFs(externalStorageDirectory.getPath());
-            return (((long) statFs.getAvailableBlocks()) - 4) * ((long) statFs.getBlockSize());
+            return (statFs.getAvailableBlocksLong() - 4L) * statFs.getBlockSizeLong();
         } catch (Throwable th) {
             return 0L;
         }

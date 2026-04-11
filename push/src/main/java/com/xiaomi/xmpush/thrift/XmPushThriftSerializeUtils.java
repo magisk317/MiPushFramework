@@ -20,14 +20,14 @@ public class XmPushThriftSerializeUtils {
     public static final int MASK_SCREEN_LOCKED = 8;
     public static final int MASK_TYPE_SHIELD = 16;
 
-    public static <T extends TBase<T, ?>> void convertByteArrayToThriftObject(T t, byte[] bArr) throws TException {
+    public static void convertByteArrayToThriftObject(TBase<?, ?> t, byte[] bArr) throws TException {
         if (bArr == null) {
             throw new TException("the message byte is empty.");
         }
         new TDeserializer(new XmPushTBinaryProtocol.Factory(true, true, bArr.length)).deserialize(t, bArr);
     }
 
-    public static <T extends TBase<T, ?>> byte[] convertThriftObjectToBytes(T t) {
+    public static byte[] convertThriftObjectToBytes(TBase<?, ?> t) {
         if (t == null) {
             return null;
         }

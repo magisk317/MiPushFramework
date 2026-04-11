@@ -59,13 +59,13 @@ public class IQ extends Packet {
 
     public IQ() {
         this.type = Type.GET;
-        this.attributes = new HashMap();
+        this.attributes = new HashMap<>();
     }
 
     public IQ(Bundle bundle) {
         super(bundle);
         this.type = Type.GET;
-        this.attributes = new HashMap();
+        this.attributes = new HashMap<>();
         if (bundle.containsKey(PushConstants.EXTRA_IQ_TYPE)) {
             this.type = Type.fromString(bundle.getString(PushConstants.EXTRA_IQ_TYPE));
         }

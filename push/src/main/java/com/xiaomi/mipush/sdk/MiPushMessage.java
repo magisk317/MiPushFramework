@@ -2,6 +2,7 @@ package com.xiaomi.mipush.sdk;
 
 import android.os.Bundle;
 import android.text.TextUtils;
+import androidx.core.os.BundleCompat;
 import com.xiaomi.mipush.sdk.PushMessageHandler;
 import java.util.HashMap;
 import java.util.Map;
@@ -58,7 +59,17 @@ public class MiPushMessage implements PushMessageHandler.PushMessageInterface {
         miPushMessage.notifyId = bundle.getInt(KEY_NOTIFY_ID);
         miPushMessage.notifyType = bundle.getInt(KEY_NOTIFY_TYPE);
         miPushMessage.category = bundle.getString(KEY_CATEGORY);
-        miPushMessage.extra = (HashMap) bundle.getSerializable(KEY_EXTRA);
+        HashMap<?, ?> extra = BundleCompat.getSerializable(bundle, KEY_EXTRA, HashMap.class);
+        miPushMessage.extra = new HashMap<>();
+        if (extra != null) {
+            for (Map.Entry<?, ?> entry : extra.entrySet()) {
+                Object key = entry.getKey();
+                Object value = entry.getValue();
+                if (key instanceof String && value instanceof String) {
+                    miPushMessage.extra.put((String) key, (String) value);
+                }
+            }
+        }
         return miPushMessage;
     }
 

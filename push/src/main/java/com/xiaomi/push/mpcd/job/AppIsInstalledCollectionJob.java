@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.text.TextUtils;
+import com.xiaomi.channel.commonutils.android.AppInfoUtils;
 import com.xiaomi.channel.commonutils.string.Base64Coder;
 import com.xiaomi.push.mpcd.Constants;
 import com.xiaomi.xmpush.thrift.ClientCollectionType;
@@ -28,6 +29,24 @@ public class AppIsInstalledCollectionJob extends CollectionJob {
         return strDecodeString.contains(",") ? strDecodeString.split(",") : new String[]{strDecodeString};
     }
 
+    private static String getInstallerPackageNameCompat(PackageManager packageManager, String str) {
+        try {
+            Object installSourceInfo = PackageManager.class.getMethod("getInstallSourceInfo", String.class).invoke(packageManager, str);
+            if (installSourceInfo == null) {
+                return null;
+            }
+            Object invoke = installSourceInfo.getClass().getMethod("getInstallingPackageName").invoke(installSourceInfo);
+            return invoke instanceof String ? (String) invoke : null;
+        } catch (ReflectiveOperationException unused) {
+            try {
+                Object invoke = PackageManager.class.getMethod("getInstallerPackageName", String.class).invoke(packageManager, str);
+                return invoke instanceof String ? (String) invoke : null;
+            } catch (ReflectiveOperationException e) {
+                return null;
+            }
+        }
+    }
+
     @Override // com.xiaomi.push.mpcd.job.CollectionJob
     public String collectInfo() {
         String[] strArrRevertAppList = revertAppList();
@@ -43,11 +62,7 @@ public class AppIsInstalledCollectionJob extends CollectionJob {
                     if (sb.length() > 0) {
                         sb.append(Constants.ITEM_SEPARATOR);
                     }
-                    String installerPackageName = null;
-                    try {
-                        installerPackageName = packageManager.getInstallerPackageName(str);
-                    } catch (IllegalArgumentException e) {
-                    }
+                    String installerPackageName = getInstallerPackageNameCompat(packageManager, str);
                     if (TextUtils.isEmpty(installerPackageName)) {
                         installerPackageName = "null";
                     }
@@ -57,7 +72,7 @@ public class AppIsInstalledCollectionJob extends CollectionJob {
                     sb.append(",");
                     sb.append(packageInfo.versionName);
                     sb.append(",");
-                    sb.append(packageInfo.versionCode);
+                    sb.append(AppInfoUtils.getVersionCode(this.context, packageInfo.packageName));
                     sb.append(",");
                     sb.append(packageInfo.firstInstallTime);
                     sb.append(",");

@@ -153,7 +153,7 @@ public class OnlineConfig {
 
     void runCallback() {
         MyLog.v("OC_Callback : receive new oc data");
-        HashSet<OCUpdateCallback> hashSet = new HashSet();
+        HashSet<OCUpdateCallback> hashSet = new HashSet<>();
         synchronized (this) {
             hashSet.addAll(this.mCallbacks);
         }

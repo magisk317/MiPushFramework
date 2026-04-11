@@ -26,7 +26,7 @@ public class ClientUploadData implements TBase<ClientUploadData, Object>, Serial
 
     public ClientUploadData(ClientUploadData clientUploadData) {
         if (clientUploadData.isSetUploadDataItems()) {
-            ArrayList arrayList = new ArrayList();
+            List<ClientUploadDataItem> arrayList = new ArrayList<>();
             Iterator<ClientUploadDataItem> it = clientUploadData.uploadDataItems.iterator();
             while (it.hasNext()) {
                 arrayList.add(new ClientUploadDataItem(it.next()));
@@ -42,7 +42,7 @@ public class ClientUploadData implements TBase<ClientUploadData, Object>, Serial
 
     public void addToUploadDataItems(ClientUploadDataItem clientUploadDataItem) {
         if (this.uploadDataItems == null) {
-            this.uploadDataItems = new ArrayList();
+            this.uploadDataItems = new ArrayList<>();
         }
         this.uploadDataItems.add(clientUploadDataItem);
     }
@@ -128,7 +128,7 @@ public class ClientUploadData implements TBase<ClientUploadData, Object>, Serial
                 case 1:
                     if (fieldBegin.type == 15) {
                         TList listBegin = tProtocol.readListBegin();
-                        this.uploadDataItems = new ArrayList(listBegin.size);
+                        this.uploadDataItems = new ArrayList<>(listBegin.size);
                         for (int i = 0; i < listBegin.size; i++) {
                             ClientUploadDataItem clientUploadDataItem = new ClientUploadDataItem();
                             clientUploadDataItem.read(tProtocol);

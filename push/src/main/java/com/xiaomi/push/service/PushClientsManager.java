@@ -42,7 +42,7 @@ public class PushClientsManager {
         public String userId;
         ClientStatus status = ClientStatus.unbind;
         int currentRetrys = 0;
-        final List<ClientStatusListener> statusChangeListeners = new ArrayList();
+        final List<ClientStatusListener> statusChangeListeners = new ArrayList<>();
         ClientStatus notifiedStatus = null;
         boolean hasPeerSupport = false;
         final BindTimeoutJob timeOutJob = new BindTimeoutJob(this);
@@ -290,9 +290,9 @@ public class PushClientsManager {
     }
 
     public List<String> queryChannelIdByPackage(String str) {
-        ArrayList arrayList;
+        ArrayList<String> arrayList;
         synchronized (this) {
-            arrayList = new ArrayList(PushClientsStateSupport.queryChannelIdByPackage(this.clients.getActiveClientMaps(), str));
+            arrayList = new ArrayList<>(PushClientsStateSupport.queryChannelIdByPackage(this.clients.getActiveClientMaps(), str));
         }
         return arrayList;
     }
