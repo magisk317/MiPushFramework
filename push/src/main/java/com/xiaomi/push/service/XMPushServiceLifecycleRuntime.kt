@@ -76,7 +76,7 @@ class XMPushServiceLifecycleRuntime(
         if (Region.China.name == service.regionName) {
             ConnectionConfiguration.setXmppServerHost(XMPushServiceEnvironment.resolveXmppRegionHost(service.regionName))
         }
-        if (service.isPushEnabled) {
+        if (service.isPushEnabled()) {
             val prepareAccountJob = object : XMPushService.Job(XMPushServiceJob.TYPE_PREPARE_MIPUSH_ACCOUNT) {
                 override fun getDesc(): String = "prepare the mi push account."
 

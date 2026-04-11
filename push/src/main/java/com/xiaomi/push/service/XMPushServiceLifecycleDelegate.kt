@@ -48,7 +48,7 @@ class XMPushServiceLifecycleDelegate(
         service.addPingCallBack(TinyDataCacheProcessor(service))
         service.executeJob(InitJob(service))
         service.addNetworkListener(Sync.getInstance(service))
-        if (service.isPushEnabled) {
+        if (service.isPushEnabled()) {
             service.ensureConnectionChangeReceiver()
         }
         if (PushConstants.PUSH_SERVICE_PACKAGE_NAME == service.packageName) {

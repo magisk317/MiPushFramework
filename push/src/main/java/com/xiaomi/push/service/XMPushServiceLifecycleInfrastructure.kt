@@ -114,7 +114,8 @@ class XMPushServiceLifecycleInfrastructure(
     }
 
     fun installFalldownReceiver() {
-        val range = service.falldownTimeRange ?: return
+        val range = service.getFalldownTimeRange()
+        if (range.size < 2) return
         val receiver = ScreenStateReceiver(service)
         service.screenStateReceiver = receiver
         service.registerReceiver(
