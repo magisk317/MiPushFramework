@@ -38,8 +38,8 @@ class ServiceClientIntentSupportTest {
 
     private fun pair(name: String, value: String): NameValuePair {
         return object : NameValuePair {
-            override fun getName(): String = name
-            override fun getValue(): String = value
+            override val name: String = name
+            override val value: String = value
         }
     }
 }
