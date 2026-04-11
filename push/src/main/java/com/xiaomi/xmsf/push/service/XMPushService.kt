@@ -25,8 +25,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import io.github.aakira.napier.Napier
 import javax.inject.Inject
 import kotlinx.coroutines.runBlocking
-import top.trumeet.common.Constants
-import top.trumeet.common.utils.Utils
+import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.common.utils.Utils
 
 @AndroidEntryPoint
 class XMPushService : Service() {

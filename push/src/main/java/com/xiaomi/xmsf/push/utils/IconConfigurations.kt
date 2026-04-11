@@ -15,7 +15,7 @@ import kotlinx.serialization.Serializable
 import org.json.JSONException
 import com.magisk317.Global
 import com.magisk317.utils.Singleton
-import top.trumeet.common.utils.Utils
+import io.github.magisk317.mipush.common.utils.Utils
 import com.xiaomi.xmsf.utils.ConfigCenter
 import kotlinx.coroutines.runBlocking
 

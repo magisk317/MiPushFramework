@@ -2,10 +2,10 @@ package com.magisk317.main.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.magisk317.data.DataStoreManager
 import com.magisk317.data.PreferenceRepository
 import com.xiaomi.xmsf.SettingsManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.magisk317.uikit.theme.UiKitStyle
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import top.trumeet.common.utils.Utils
+import io.github.magisk317.mipush.common.utils.Utils
 import javax.inject.Inject
 
 @HiltViewModel
@@ -21,7 +21,12 @@ class SettingsViewModel @Inject constructor(
     private val preferenceRepository: PreferenceRepository,
     private val settingsManager: SettingsManager
 ) : ViewModel() {
-    data class ThemeState(val mode: Int, val centerX: Float = -1f, val centerY: Float = -1f)
+    data class ThemeState(
+        val mode: Int,
+        val uiKitStyle: Int = UiKitStyle.Expressive.value,
+        val centerX: Float = -1f,
+        val centerY: Float = -1f,
+    )
 
     private val _themeState = MutableStateFlow(ThemeState(0))
     val themeState: StateFlow<ThemeState> = _themeState.asStateFlow()
@@ -53,15 +58,20 @@ class SettingsViewModel @Inject constructor(
     val isStartForeground: StateFlow<Boolean> = preferenceRepository.isStartForeground
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    val accessMode: StateFlow<String> = preferenceRepository.accessMode
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "0")
-
     init {
         viewModelScope.launch {
             preferenceRepository.themeMode.collect { mode ->
                 val previous = _themeState.value
                 if (previous.mode != mode) {
-                    _themeState.value = ThemeState(mode = mode)
+                    _themeState.value = previous.copy(mode = mode)
+                }
+            }
+        }
+        viewModelScope.launch {
+            preferenceRepository.uiKitStyle.collect { style ->
+                val previous = _themeState.value
+                if (previous.uiKitStyle != style) {
+                    _themeState.value = previous.copy(uiKitStyle = style)
                 }
             }
         }
@@ -76,18 +86,6 @@ class SettingsViewModel @Inject constructor(
     fun updateHazeTintAlpha(alpha: Float) {
         viewModelScope.launch {
             preferenceRepository.setHazeTintAlpha(alpha)
-        }
-    }
-
-    fun previewHazeBlurRadius(radius: Int?) {
-        viewModelScope.launch {
-            DataStoreManager.previewHazeBlurRadius(radius)
-        }
-    }
-
-    fun previewHazeTintAlpha(alpha: Float?) {
-        viewModelScope.launch {
-            DataStoreManager.previewHazeTintAlpha(alpha)
         }
     }
 
@@ -127,14 +125,17 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { preferenceRepository.setIsStartForeground(enabled) }
     }
 
-    fun setAccessMode(mode: Int) {
-        viewModelScope.launch { preferenceRepository.setAccessMode(mode.toString()) }
-    }
-
     fun setThemeMode(mode: Int, x: Float = -1f, y: Float = -1f) {
         viewModelScope.launch {
             preferenceRepository.setThemeMode(mode)
-            _themeState.value = ThemeState(mode = mode, centerX = x, centerY = y)
+            _themeState.value = _themeState.value.copy(mode = mode, centerX = x, centerY = y)
+        }
+    }
+
+    fun setUiKitStyle(style: Int) {
+        viewModelScope.launch {
+            preferenceRepository.setUiKitStyle(style)
+            _themeState.value = _themeState.value.copy(uiKitStyle = style)
         }
     }
 

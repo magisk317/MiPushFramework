@@ -6,7 +6,7 @@ import com.xiaomi.mipush.sdk.PushContainerHelper
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
-import top.trumeet.common.utils.Utils
+import io.github.magisk317.mipush.common.utils.Utils
 
 class RegistrationRecorder {
     private val logger = object {

@@ -3,7 +3,7 @@ package com.xiaomi.xmsf.push.utils
 import android.text.TextUtils
 import com.magisk317.XMPushUtils
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import top.trumeet.mipush.provider.entities.Event
+import io.github.magisk317.mipush.runtime.store.entities.Event
 
 object RegSecUtils {
     const val RegSecField = "__reg_sec__"
@@ -31,7 +31,7 @@ object RegSecUtils {
         }
         val packageName = container.packageName
         if (!packageName.isNullOrEmpty()) {
-            candidates += top.trumeet.common.utils.Utils.getRegSecs(packageName)
+            candidates += io.github.magisk317.mipush.common.utils.Utils.getRegSecs(packageName)
         }
         return candidates.toList()
     }

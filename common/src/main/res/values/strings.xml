@@ -19,7 +19,7 @@
     <string name="request_permission">We need permissions to work</string>
 
 
-    <string name="error_usage_stats">Getting UsageStatis error. If your system does not support this feature, switch the \"Foreground app detection mode\" to Accessibility mode in the manager\'s settings.</string>
+    <string name="error_usage_stats">Getting UsageStats error. If your system does not support this feature, MiPush will try Accessibility as a fallback.</string>
 
 
 

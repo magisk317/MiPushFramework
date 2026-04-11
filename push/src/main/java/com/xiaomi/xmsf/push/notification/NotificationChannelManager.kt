@@ -14,8 +14,8 @@ import com.magisk317.Global
 import com.magisk317.XMPushUtils
 import com.magisk317.notification.NotificationManagerEx
 import com.xiaomi.xmpush.thrift.PushMetaInfo
-import top.trumeet.common.utils.NotificationUtils.getChannelIdByPkg
-import top.trumeet.common.utils.NotificationUtils.getGroupIdByPkg
+import io.github.magisk317.mipush.common.utils.NotificationUtils.getChannelIdByPkg
+import io.github.magisk317.mipush.common.utils.NotificationUtils.getGroupIdByPkg
 
 object NotificationChannelManager {
     @JvmStatic

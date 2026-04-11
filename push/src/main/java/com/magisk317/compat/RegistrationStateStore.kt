@@ -2,8 +2,8 @@ package com.magisk317.compat
 
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
-import top.trumeet.mipush.provider.db.RegisteredApplicationDb
-import top.trumeet.mipush.provider.entities.RegisteredApplication
+import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
+import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
 
 object RegistrationStateStore {
     private val logger = object {

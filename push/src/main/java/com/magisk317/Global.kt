@@ -5,8 +5,8 @@ import com.magisk317.utils.Singleton
 import com.xiaomi.xmsf.push.utils.ConfigValueConverter
 import com.xiaomi.xmsf.push.utils.IconConfigurations
 import com.xiaomi.xmsf.utils.ConfigCenter
-import top.trumeet.common.cache.ApplicationNameCache
-import top.trumeet.common.cache.IconCache
+import io.github.magisk317.mipush.common.cache.ApplicationNameCache
+import io.github.magisk317.mipush.common.cache.IconCache
 
 object Global {
     @JvmStatic

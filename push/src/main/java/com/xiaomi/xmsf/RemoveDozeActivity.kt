@@ -12,7 +12,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
-import top.trumeet.common.push.PushServiceAccessibility
+import io.github.magisk317.mipush.platform.service.PushServiceAccessibility
 
 class RemoveDozeActivity : ComponentActivity() {
     private fun setResultAndFinish(result: Int) {

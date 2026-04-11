@@ -17,7 +17,7 @@ import java.util.regex.Pattern
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.runBlocking
-import top.trumeet.common.utils.Utils
+import io.github.magisk317.mipush.common.utils.Utils
 
 @Singleton
 class ConfigurationsLoader @Inject constructor(

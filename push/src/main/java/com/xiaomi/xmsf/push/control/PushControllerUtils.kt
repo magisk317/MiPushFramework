@@ -28,8 +28,8 @@ import com.magisk317.service.PushServiceStarter
 import com.xiaomi.xmsf.push.service.receivers.BootReceiver
 import com.xiaomi.xmsf.push.service.receivers.KeepAliveReceiver
 import java.util.Objects
-import top.trumeet.common.Constants
-import top.trumeet.common.Constants.TAG_CONDOM
+import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.common.Constants.TAG_CONDOM
 
 @SuppressLint("WrongConstant")
 object PushControllerUtils {

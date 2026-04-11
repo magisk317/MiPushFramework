@@ -13,13 +13,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import top.trumeet.common.Constants
-import top.trumeet.mipush.provider.entities.Event
-import top.trumeet.mipushframework.data.EventRepository
-import top.trumeet.mipushframework.main.subpage.EventInfoForDisplay
+import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.runtime.store.entities.Event
+import io.github.magisk317.mipush.runtime.data.EventRepository
+import io.github.magisk317.mipush.feature.main.subpage.EventInfoForDisplay
 import java.util.Date
 import javax.inject.Inject
-import top.trumeet.mipush.provider.event.type.TypeFactory
+import io.github.magisk317.mipush.runtime.store.event.type.TypeFactory
 import com.xiaomi.xmsf.push.utils.RegSecUtils
 import com.xiaomi.xmsf.SettingsManager
 

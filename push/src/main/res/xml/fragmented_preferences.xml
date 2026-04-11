@@ -57,18 +57,6 @@
                 android:title="@string/settings_start_foreground_service"
                 android:summary="@string/settings_start_foreground_service_summary" />
 
-        <!-- TODO: entryValues's height is insufficient for 'en' locale. -->
-        <ListPreference
-            android:defaultValue="0"
-            android:entries="@array/pref_title_access_mode_list_titles"
-            android:entryValues="@array/pref_title_access_mode_list_values"
-            android:key="AccessMode"
-            android:negativeButtonText="@null"
-            android:positiveButtonText="@null"
-            android:title="@string/pref_title_access_mode"
-            android:summary="@string/pref_summary_access_mode"
-            />
-
     </PreferenceCategory>
 
 

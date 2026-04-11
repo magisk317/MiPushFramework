@@ -33,7 +33,7 @@ object MessageIdentity {
     private fun messageIdFromPushAction(container: XmPushActionContainer): String? {
         return runCatching {
             val pushAction = ConvertUtils.getResponseMessageBodyFromContainer(container, RegSecUtils.getRegSec(container))
-            JavaCalls.getField<String>(pushAction, "id")
+            JavaCalls.getField(pushAction, "id") as? String
         }.getOrNull()
     }
 }

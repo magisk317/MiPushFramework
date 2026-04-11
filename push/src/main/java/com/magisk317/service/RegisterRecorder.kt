@@ -8,13 +8,13 @@ import io.github.aakira.napier.DebugAntilog
 import com.magisk317.Global
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmsf.R
-import top.trumeet.common.Constants
-import top.trumeet.common.utils.Utils
-import top.trumeet.mipush.provider.db.EventDb
-import top.trumeet.mipush.provider.db.RegisteredApplicationDb
-import top.trumeet.mipush.provider.entities.Event
-import top.trumeet.mipush.provider.entities.RegisteredApplication
-import top.trumeet.mipush.provider.event.type.RegistrationType
+import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.runtime.store.db.EventDb
+import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
+import io.github.magisk317.mipush.runtime.store.entities.Event
+import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
+import io.github.magisk317.mipush.runtime.store.event.type.RegistrationType
 import kotlinx.coroutines.runBlocking
 
 class RegisterRecorder(private val context: Context) {

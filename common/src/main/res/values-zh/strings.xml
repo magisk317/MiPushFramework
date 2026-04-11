@@ -20,7 +20,7 @@
     <string name="request_permission">我们需要一个权限</string>
 
 
-    <string name="error_usage_stats">获取“使用统计”异常，如果您的系统不支持，尝试在管理器的设置中将“前台应用检测模式”切换为兼容模式 </string>
+    <string name="error_usage_stats">获取“使用统计”异常。如果系统不支持，MiPush 会自动尝试使用辅助模式作为兜底。</string>
 
     <string name="settings_experimental">实验室</string>
 

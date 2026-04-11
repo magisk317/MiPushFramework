@@ -10,8 +10,8 @@ import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
 import org.apache.thrift.TBase
-import top.trumeet.common.utils.CustomConfiguration
-import top.trumeet.common.utils.Utils
+import io.github.magisk317.mipush.common.utils.CustomConfiguration
+import io.github.magisk317.mipush.common.utils.Utils
 
 object XMPushUtils {
     @JvmStatic
@@ -53,7 +53,7 @@ object XMPushUtils {
         actionType: ActionType,
         appId: String?
     ): XmPushActionContainer {
-        val container: XmPushActionContainer = JavaCalls.callStaticMethod(
+        val container = JavaCalls.callStaticMethod(
             PushContainerHelper::class.java.name,
             "generateRequestContainer",
             Utils.getApplication(),
@@ -62,7 +62,7 @@ object XMPushUtils {
             false,
             packageName,
             appId
-        )
+        ) as XmPushActionContainer
         HookTraceCompat.onBuildContainer(0, container)
         return container
     }

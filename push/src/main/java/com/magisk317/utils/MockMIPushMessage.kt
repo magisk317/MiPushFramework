@@ -114,7 +114,7 @@ object MockMIPushMessage {
         ClassNotFoundException::class
     )
     fun invokeProcessMiPushMessage(pushService: XMPushService, mockDecryptedContent: ByteArray) {
-        val result = JavaCalls.callStaticMethodOrThrow<Any?>(
+        val result = JavaCalls.callStaticMethodOrThrow(
             MIPushEventProcessor::class.java.name,
             "processMIPushMessage",
             pushService,

@@ -2,13 +2,10 @@ package com.magisk317.data
 
 import android.content.Context
 import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.*
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
+import io.github.magisk317.mipush.common.utils.Utils
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.map
-import top.trumeet.common.utils.Utils
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "mipush_framework_settings")
 
@@ -16,129 +13,127 @@ object DataStoreManager {
     private val context: Context
         get() = Utils.getApplication() ?: error("Application context not initialized")
 
-    // Keys
-    private val LAST_STARTUP_TIME = longPreferencesKey("last_startup_time")
-    private val NOTIFICATION_ON_REGISTER = booleanPreferencesKey("notification_on_register")
-    private val ACCESS_MODE = stringPreferencesKey("access_mode")
-    private val SHOW_CONFIGURATION_LIST = booleanPreferencesKey("show_configuration_list")
-    private val XMPP_SERVER = stringPreferencesKey("xmpp_server")
-    private val CONFIG_DIRECTORY = stringPreferencesKey("config_directory")
-    private val DEBUG_MODE = booleanPreferencesKey("debug_mode")
-    private val SHOW_ALL_EVENTS = booleanPreferencesKey("show_all_events")
-    private val START_FOREGROUND = booleanPreferencesKey("start_foreground")
-    private val START_PUSH_AS_FOREGROUND_SERVICE = booleanPreferencesKey("start_push_as_foreground_service")
-    private val HAZE_BLUR_RADIUS = intPreferencesKey("haze_blur_radius")
-    private val HAZE_TINT_ALPHA = floatPreferencesKey("haze_tint_alpha")
-    private val SHOW_WIZARD = booleanPreferencesKey("show_wizard")
-    private val USAGE_STATS_REQUESTED = booleanPreferencesKey("usage_stats_requested")
-    private val EVENT_GROUP_BY_APP = booleanPreferencesKey("event_group_by_app")
-    private val APP_FILTER_MODE = intPreferencesKey("app_filter_mode")
-    private val THEME_MODE = intPreferencesKey("theme_mode")
-
-    // Memory-based preview flows
-    private val _previewHazeBlurRadius = MutableSharedFlow<Int?>(replay = 1)
-    val previewHazeBlurRadius = _previewHazeBlurRadius.asSharedFlow()
-
-    private val _previewHazeTintAlpha = MutableSharedFlow<Float?>(replay = 1)
-    val previewHazeTintAlpha = _previewHazeTintAlpha.asSharedFlow()
+    /**
+     * Compatibility facade for legacy call sites.
+     * New code should prefer injecting [PreferenceRepository] directly.
+     */
+    private val repository by lazy(LazyThreadSafetyMode.NONE) {
+        PreferenceRepository(context.dataStore)
+    }
 
     // Getters (Flows)
-    val lastStartupTime: Flow<Long> = context.dataStore.data.map { it[LAST_STARTUP_TIME] ?: 0L }
-    val notificationOnRegister: Flow<Boolean> = context.dataStore.data.map { it[NOTIFICATION_ON_REGISTER] ?: false }
-    val accessMode: Flow<String> = context.dataStore.data.map { it[ACCESS_MODE] ?: "0" }
-    val showConfigurationList: Flow<Boolean> = context.dataStore.data.map { it[SHOW_CONFIGURATION_LIST] ?: false }
-    val xmppServer: Flow<String?> = context.dataStore.data.map { it[XMPP_SERVER] }
-    val configDirectory: Flow<String?> = context.dataStore.data.map { it[CONFIG_DIRECTORY] }
-    val isDebugMode: Flow<Boolean> = context.dataStore.data.map { it[DEBUG_MODE] ?: false }
-    val isShowAllEvents: Flow<Boolean> = context.dataStore.data.map { it[SHOW_ALL_EVENTS] ?: false }
-    val isStartForeground: Flow<Boolean> = context.dataStore.data.map { it[START_FOREGROUND] ?: true }
-    val startPushAsForegroundService: Flow<Boolean> =
-        context.dataStore.data.map { it[START_PUSH_AS_FOREGROUND_SERVICE] ?: true }
-    val hazeBlurRadius: Flow<Int> = context.dataStore.data.map { it[HAZE_BLUR_RADIUS] ?: 25 }
-    val hazeTintAlpha: Flow<Float> = context.dataStore.data.map { it[HAZE_TINT_ALPHA] ?: 0.2f }
-    val showWizard: Flow<Boolean> = context.dataStore.data.map { it[SHOW_WIZARD] ?: true }
-    val usageStatsRequested: Flow<Boolean> = context.dataStore.data.map { it[USAGE_STATS_REQUESTED] ?: false }
-    val eventGroupByApp: Flow<Boolean> = context.dataStore.data.map { it[EVENT_GROUP_BY_APP] ?: false }
-    val appFilterMode: Flow<Int> = context.dataStore.data.map { it[APP_FILTER_MODE] ?: 0 }
-    val themeMode: Flow<Int> = context.dataStore.data.map { it[THEME_MODE] ?: 0 }
+    val lastStartupTime: Flow<Long>
+        get() = repository.lastStartupTime
+    val notificationOnRegister: Flow<Boolean>
+        get() = repository.notificationOnRegister
+    val accessMode: Flow<String>
+        get() = repository.accessMode
+    val showConfigurationList: Flow<Boolean>
+        get() = repository.showConfigurationList
+    val xmppServer: Flow<String?>
+        get() = repository.xmppServer
+    val configDirectory: Flow<String?>
+        get() = repository.configDirectory
+    val isDebugMode: Flow<Boolean>
+        get() = repository.isDebugMode
+    val isShowAllEvents: Flow<Boolean>
+        get() = repository.isShowAllEvents
+    val isStartForeground: Flow<Boolean>
+        get() = repository.isStartForeground
+    val startPushAsForegroundService: Flow<Boolean>
+        get() = repository.startPushAsForegroundService
+    val hazeBlurRadius: Flow<Int>
+        get() = repository.hazeBlurRadius
+    val hazeTintAlpha: Flow<Float>
+        get() = repository.hazeTintAlpha
+    val showWizard: Flow<Boolean>
+        get() = repository.showWizard
+    val usageStatsRequested: Flow<Boolean>
+        get() = repository.usageStatsRequested
+    val eventGroupByApp: Flow<Boolean>
+        get() = repository.eventGroupByApp
+    val appFilterMode: Flow<Int>
+        get() = repository.appFilterMode
+    val themeMode: Flow<Int>
+        get() = repository.themeMode
+    val uiKitStyle: Flow<Int>
+        get() = repository.uiKitStyle
 
-    val debugMode: Flow<Boolean> = isDebugMode
-    val showAllEvents: Flow<Boolean> = isShowAllEvents
+    val debugMode: Flow<Boolean>
+        get() = repository.debugMode
+    val showAllEvents: Flow<Boolean>
+        get() = repository.showAllEvents
 
     // Setters (Suspend functions)
     suspend fun setLastStartupTime(time: Long) {
-        context.dataStore.edit { it[LAST_STARTUP_TIME] = time }
+        repository.setLastStartupTime(time)
     }
 
     suspend fun setNotificationOnRegister(enable: Boolean) {
-        context.dataStore.edit { it[NOTIFICATION_ON_REGISTER] = enable }
+        repository.setNotificationOnRegister(enable)
     }
 
     suspend fun setAccessMode(mode: String) {
-        context.dataStore.edit { it[ACCESS_MODE] = mode }
+        repository.setAccessMode(mode)
     }
 
     suspend fun setShowConfigurationList(show: Boolean) {
-        context.dataStore.edit { it[SHOW_CONFIGURATION_LIST] = show }
+        repository.setShowConfigurationList(show)
     }
 
     suspend fun setDebugMode(debug: Boolean) {
-        context.dataStore.edit { it[DEBUG_MODE] = debug }
+        repository.setDebugMode(debug)
     }
 
     suspend fun setShowAllEvents(show: Boolean) {
-        context.dataStore.edit { it[SHOW_ALL_EVENTS] = show }
+        repository.setShowAllEvents(show)
     }
 
     suspend fun setIsStartForeground(start: Boolean) {
-        context.dataStore.edit { it[START_FOREGROUND] = start }
+        repository.setIsStartForeground(start)
     }
 
     suspend fun setStartPushAsForegroundService(start: Boolean) {
-        context.dataStore.edit { it[START_PUSH_AS_FOREGROUND_SERVICE] = start }
+        repository.setStartPushAsForegroundService(start)
     }
 
     suspend fun setXmppServer(host: String) {
-        context.dataStore.edit { it[XMPP_SERVER] = host }
+        repository.setXmppServer(host)
     }
 
     suspend fun setConfigDirectory(uri: String) {
-        context.dataStore.edit { it[CONFIG_DIRECTORY] = uri }
+        repository.setConfigDirectory(uri)
     }
 
     suspend fun setHazeBlurRadius(radius: Int) {
-        context.dataStore.edit { it[HAZE_BLUR_RADIUS] = radius }
+        repository.setHazeBlurRadius(radius)
     }
 
     suspend fun setHazeTintAlpha(alpha: Float) {
-        context.dataStore.edit { it[HAZE_TINT_ALPHA] = alpha }
+        repository.setHazeTintAlpha(alpha)
     }
 
     suspend fun setShowWizard(show: Boolean) {
-        context.dataStore.edit { it[SHOW_WIZARD] = show }
+        repository.setShowWizard(show)
     }
 
     suspend fun setUsageStatsRequested(requested: Boolean) {
-        context.dataStore.edit { it[USAGE_STATS_REQUESTED] = requested }
+        repository.setUsageStatsRequested(requested)
     }
 
     suspend fun setEventGroupByApp(groupByApp: Boolean) {
-        context.dataStore.edit { it[EVENT_GROUP_BY_APP] = groupByApp }
+        repository.setEventGroupByApp(groupByApp)
     }
 
     suspend fun setAppFilterMode(mode: Int) {
-        context.dataStore.edit { it[APP_FILTER_MODE] = mode }
+        repository.setAppFilterMode(mode)
     }
 
     suspend fun setThemeMode(mode: Int) {
-        context.dataStore.edit { it[THEME_MODE] = mode }
+        repository.setThemeMode(mode)
     }
 
-    suspend fun previewHazeBlurRadius(radius: Int?) {
-        _previewHazeBlurRadius.emit(radius)
-    }
-
-    suspend fun previewHazeTintAlpha(alpha: Float?) {
-        _previewHazeTintAlpha.emit(alpha)
+    suspend fun setUiKitStyle(style: Int) {
+        repository.setUiKitStyle(style)
     }
 }

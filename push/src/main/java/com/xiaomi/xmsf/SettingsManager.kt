@@ -23,13 +23,13 @@ import com.xiaomi.xmsf.push.notification.NotificationController
 import com.xiaomi.xmsf.utils.ConfigCenter
 import com.xiaomi.xmsf.utils.LogUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
-import top.trumeet.common.Constants
-import top.trumeet.common.utils.Utils
-import top.trumeet.mipush.provider.db.EventDb
-import top.trumeet.mipush.provider.entities.Event
-import top.trumeet.mipush.provider.entities.RegisteredApplication
-import top.trumeet.mipush.provider.event.type.NotificationType
-import top.trumeet.mipushframework.main.subpage.ApplicationPageOperation
+import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.runtime.store.db.EventDb
+import io.github.magisk317.mipush.runtime.store.entities.Event
+import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
+import io.github.magisk317.mipush.runtime.store.event.type.NotificationType
+import io.github.magisk317.mipush.feature.main.subpage.ApplicationPageOperation
 import java.util.Date
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
@@ -47,7 +47,7 @@ class SettingsManager @Inject constructor(
 ) {
     // No-arg fallback for legacy Singleton access.
     constructor() : this(
-        top.trumeet.common.utils.Utils.getApplication()!!,
+        io.github.magisk317.mipush.common.utils.Utils.getApplication()!!,
         com.magisk317.utils.Singleton.instance<ConfigCenter>()
     )
 

@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import io.github.magisk317.mipush.common.utils.Utils
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -17,6 +18,10 @@ import javax.inject.Singleton
 class PreferenceRepository @Inject constructor(
     private val dataStore: DataStore<Preferences>
 ) {
+    constructor() : this(
+        Utils.getApplication()?.dataStore ?: error("Application context not initialized")
+    )
+
     // Keys
     private val LAST_STARTUP_TIME = longPreferencesKey("last_startup_time")
     private val NOTIFICATION_ON_REGISTER = booleanPreferencesKey("notification_on_register")
@@ -33,7 +38,9 @@ class PreferenceRepository @Inject constructor(
     private val SHOW_WIZARD = booleanPreferencesKey("show_wizard")
     private val USAGE_STATS_REQUESTED = booleanPreferencesKey("usage_stats_requested")
     private val EVENT_GROUP_BY_APP = booleanPreferencesKey("event_group_by_app")
+    private val APP_FILTER_MODE = intPreferencesKey("app_filter_mode")
     private val THEME_MODE = intPreferencesKey("theme_mode")
+    private val UI_KIT_STYLE = intPreferencesKey("ui_kit_style")
     private val LAST_CONFIG_SYNC_TIME = longPreferencesKey("last_config_sync_time")
     private val CONFIG_REMOTE_REPOSITORY = stringPreferencesKey("config_remote_repository")
     private val CONFIG_REMOTE_BRANCH = stringPreferencesKey("config_remote_branch")
@@ -54,7 +61,9 @@ class PreferenceRepository @Inject constructor(
     val showWizard: Flow<Boolean> = dataStore.data.map { it[SHOW_WIZARD] ?: true }
     val usageStatsRequested: Flow<Boolean> = dataStore.data.map { it[USAGE_STATS_REQUESTED] ?: false }
     val eventGroupByApp: Flow<Boolean> = dataStore.data.map { it[EVENT_GROUP_BY_APP] ?: false }
+    val appFilterMode: Flow<Int> = dataStore.data.map { it[APP_FILTER_MODE] ?: 0 }
     val themeMode: Flow<Int> = dataStore.data.map { it[THEME_MODE] ?: 0 }
+    val uiKitStyle: Flow<Int> = dataStore.data.map { it[UI_KIT_STYLE] ?: 0 }
     val lastConfigSyncTime: Flow<Long> = dataStore.data.map { it[LAST_CONFIG_SYNC_TIME] ?: 0L }
     val configRemoteRepository: Flow<String> = dataStore.data.map {
         it[CONFIG_REMOTE_REPOSITORY] ?: "magisk317/MiPushConfigurations"
@@ -127,8 +136,16 @@ class PreferenceRepository @Inject constructor(
         dataStore.edit { it[EVENT_GROUP_BY_APP] = groupByApp }
     }
 
+    suspend fun setAppFilterMode(mode: Int) {
+        dataStore.edit { it[APP_FILTER_MODE] = mode }
+    }
+
     suspend fun setThemeMode(mode: Int) {
         dataStore.edit { it[THEME_MODE] = mode }
+    }
+
+    suspend fun setUiKitStyle(style: Int) {
+        dataStore.edit { it[UI_KIT_STYLE] = style }
     }
 
     suspend fun setLastConfigSyncTime(time: Long) {

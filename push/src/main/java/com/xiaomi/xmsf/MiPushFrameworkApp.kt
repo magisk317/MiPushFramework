@@ -12,6 +12,7 @@ import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationChannelGroupCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.magisk317.data.PreferenceRepository
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import com.magisk317.diagnostics.PushHealthSnapshotLogger
@@ -29,22 +30,24 @@ import com.xiaomi.xmsf.push.notification.NotificationController.CHANNEL_WARN
 import com.xiaomi.xmsf.push.service.MiuiPushActivateService
 import com.xiaomi.xmsf.runtime.PushRuntimeChannelTracker
 import com.xiaomi.xmsf.runtime.PushRuntimeExecutionBridge
-import top.trumeet.common.Constants
-import top.trumeet.common.Constants.TAG_CONDOM
-import top.trumeet.common.push.PushServiceAccessibility
-import top.trumeet.common.utils.Utils
-import top.trumeet.mipush.provider.DatabaseUtils
+import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.common.Constants.TAG_CONDOM
+import io.github.magisk317.mipush.platform.service.PushServiceAccessibility
+import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.runtime.store.DatabaseUtils
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import com.magisk317.data.DataStoreManager
 
 import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
 
 @HiltAndroidApp
 class MiPushFrameworkApp : Application() {
+    @Inject lateinit var preferenceRepository: PreferenceRepository
+
     private val logger = object {
         fun i(msg: String) = Napier.i(msg, tag = "MiPushFrameworkApp")
         fun e(msg: String?, t: Throwable? = null) = Napier.e(msg ?: "", t, tag = "MiPushFrameworkApp")
@@ -141,11 +144,11 @@ class MiPushFrameworkApp : Application() {
         }
     }
 
-    private fun getLastStartupTime(): Long = runBlocking { DataStoreManager.lastStartupTime.first() }
+    private fun getLastStartupTime(): Long = runBlocking { preferenceRepository.lastStartupTime.first() }
 
     private fun setStartupTime(value: Long) {
         applicationScope.launch {
-            DataStoreManager.setLastStartupTime(value)
+            preferenceRepository.setLastStartupTime(value)
         }
     }
 

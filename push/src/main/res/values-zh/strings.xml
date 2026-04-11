@@ -63,11 +63,9 @@
     <string name="settings_clear_log">清空日志</string>
 
     <string name="settings_clear_log_summary">清空日志文件</string>
-    <string name="accessibility_desc">前台应用检测模式-辅助模式，相比默认模式有更高的兼容性，但性能较差。如果使用未遇到问题，无需开启。</string>
+    <string name="accessibility_desc">当使用情况统计不可用时，用于前台应用检测的辅助兜底能力。</string>
     <string name="settings_auto_register">自动注册应用</string>
     <string name="settings_options">配置</string>
-    <string name="pref_title_access_mode">前台应用检测模式</string>
-    <string name="pref_summary_access_mode">在点击通知时，检测应用是否在前台的技术方式。切换后立即生效，如仍异常可重启推送服务。</string>
     <string name="settings_mock_notification">模拟通知消息</string>
 
     <string name="settings_mock_notification_summary">点击模拟通知到达消息</string>
@@ -154,7 +152,13 @@
     ]]></string>
 
     <string name="wizard_title_stats_permission">使用情况统计</string>
-    <string name="wizard_title_stats_permission_text">您需要授予“使用情况”权限，否则您无法接收通知。</string>
+    <string name="wizard_title_stats_permission_text">启用“使用情况”前台检测。与“辅助模式”二选一即可，用于判断应用是否在前台。</string>
+
+    <string name="wizard_title_accessibility_permission">辅助模式前台检测</string>
+    <string name="wizard_title_accessibility_text">启用辅助模式前台检测。与“使用情况统计”二选一即可，兼容性更好但性能稍差。</string>
+
+    <string name="wizard_title_root_permission">Root 权限</string>
+    <string name="wizard_title_root_permission_text">可选但推荐。授予 Root 后，系统可自动补齐使用情况统计、悬浮窗、忽略电池优化和通知等可静默授予的权限。</string>
 
     <string name="wizard_title_alert_window_permission">显示在其他应用上层</string>
     <string name="wizard_title_alert_window_text">您需要授予“显示在其他应用上层”权限，否则您无法通过配置自动调起应用。</string>
@@ -328,16 +332,6 @@
 
     <string name="settings_manage_app_notifications">管理通知</string>
     <string name="settings_manage_app_notifications_summary">控制本应用所发通知的声音、重要度等细节。</string>
-    <string-array name="pref_title_access_mode_list_titles">
-        <item>使用情况访问 API（性能好，推荐）</item>
-        <item>辅助模式（兼容性更好）</item>
-    </string-array>
-
-
-    <string-array name="pref_title_access_mode_list_values">
-        <item>0</item>
-        <item>1</item>
-    </string-array>
     <string-array name="register_types">
         <item>@string/register_type_ask</item>
         <item>@string/register_type_allow</item>
@@ -378,6 +372,9 @@
     <string name="settings_home_overview_summary">把服务状态、应用统计和常用维护入口收拢到一个折叠式页面里，方便持续维护。</string>
     <string name="pref_choose_theme_title">主题</string>
     <string name="pref_choose_theme_summary">跟随系统、浅色、深色或纯黑</string>
+    <string name="pref_ui_kit_style_title">界面风格</string>
+    <string name="ui_kit_style_expressive">Expressive</string>
+    <string name="ui_kit_style_miuix">Miuix</string>
     <string name="theme_follow_system">自动（跟随系统）</string>
     <string name="theme_light">浅色</string>
     <string name="theme_dark">深色</string>

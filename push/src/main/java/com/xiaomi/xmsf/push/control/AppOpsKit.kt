@@ -6,8 +6,8 @@ import android.content.Context
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import com.oasisfeng.condom.CondomKit
-import top.trumeet.common.override.AppOpsManagerOverride
-import top.trumeet.common.override.ManifestOverride
+import io.github.magisk317.mipush.platform.override.AppOpsManagerOverride
+import io.github.magisk317.mipush.platform.override.ManifestOverride
 
 class AppOpsKit : CondomKit, CondomKit.SystemServiceSupplier {
     private val TAG = "AppOpsKit"

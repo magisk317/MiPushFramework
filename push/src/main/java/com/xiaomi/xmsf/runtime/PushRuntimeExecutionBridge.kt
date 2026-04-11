@@ -14,7 +14,7 @@ import com.xiaomi.push.service.ResetConnectJob
 import com.xiaomi.xmsf.push.service.XMAccountManager
 import io.github.aakira.napier.Napier
 import dagger.hilt.android.EntryPointAccessors
-import top.trumeet.common.Constants
+import io.github.magisk317.mipush.common.Constants
 
 object PushRuntimeExecutionBridge : PushRuntimeExecutionHost {
     private val logger = object {

@@ -15,11 +15,11 @@ import com.xiaomi.xmsf.runtime.PushRegistrationState
 import com.xiaomi.xmsf.runtime.PushRuntime
 import com.xiaomi.xmsf.push.utils.RegSecUtils
 import com.xiaomi.xmsf.utils.ConvertUtils
-import top.trumeet.mipush.provider.db.EventDb
-import top.trumeet.mipush.provider.db.RegisteredApplicationDb
-import top.trumeet.mipush.provider.entities.Event
-import top.trumeet.mipush.provider.entities.RegisteredApplication
-import top.trumeet.mipush.provider.event.type.TypeFactory
+import io.github.magisk317.mipush.runtime.store.db.EventDb
+import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
+import io.github.magisk317.mipush.runtime.store.entities.Event
+import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
+import io.github.magisk317.mipush.runtime.store.event.type.TypeFactory
 import kotlinx.coroutines.runBlocking
 import java.util.LinkedHashMap
 
@@ -48,7 +48,7 @@ object MiPushRuntimeBridge {
         runCatching {
             Global.MiPushEventListener().receiveFromApplication(intent)
             RegisterRecorder(context).recordRegisterRequest(intent)
-            intent.getStringExtra(top.trumeet.common.Constants.EXTRA_MI_PUSH_PACKAGE)
+            intent.getStringExtra(io.github.magisk317.mipush.common.Constants.EXTRA_MI_PUSH_PACKAGE)
                 ?.takeIf { it.isNotBlank() }
                 ?.let { packageName ->
                     when (intent.action) {
@@ -381,7 +381,7 @@ object MiPushRuntimeBridge {
     private fun maybeShowRegisterToast(
         context: Context,
         pkg: String,
-        application: top.trumeet.mipush.provider.entities.RegisteredApplication
+        application: io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
     ) {
         val now = System.currentTimeMillis()
         synchronized(registerToastLock) {

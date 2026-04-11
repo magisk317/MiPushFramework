@@ -7,7 +7,7 @@ import java.util.Date
 import java.util.Locale
 import io.github.aakira.napier.Napier
 import com.xiaomi.xmsf.utils.LogUtils
-import top.trumeet.common.utils.Utils
+import io.github.magisk317.mipush.common.utils.Utils
 
 object CrashHandler {
     private val crashFilePattern = Regex("^Crash_\\d{4}-\\d{2}-\\d{2}\\.txt$")

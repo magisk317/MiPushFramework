@@ -8,7 +8,7 @@ import com.xiaomi.push.revival.NotificationsRevivalForSelfUpdated
 import com.xiaomi.push.service.XMPushService
 import com.xiaomi.push.service.XMPushServiceMessenger
 import com.xiaomi.xmsf.push.control.XMOutbound
-import top.trumeet.common.Constants.TAG_CONDOM
+import io.github.magisk317.mipush.common.Constants.TAG_CONDOM
 
 object XMPushServiceAbilityAssembler {
     @JvmStatic

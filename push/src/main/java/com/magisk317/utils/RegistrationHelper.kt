@@ -14,7 +14,7 @@ import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import android.content.pm.PackageManager
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
-import top.trumeet.common.utils.Utils
+import io.github.magisk317.mipush.common.utils.Utils
 
 class RegistrationHelper(
     private val context: Context,

@@ -56,26 +56,11 @@
     <string name="settings_experimental">Experimental</string>
 
 
-    <string name="pref_title_access_mode">Foreground app detection mode</string>
-    <string name="pref_summary_access_mode">Used when tapping a push notification. Changes apply immediately; if behavior is still abnormal, restart MiPush service.</string>
-
-
-    <string-array name="pref_title_access_mode_list_titles">
-        <item>UsageStats API (good performance, recommended)</item>
-        <item>Accessibility mode (more compatibility)</item>
-    </string-array>
-
-    <string-array name="pref_title_access_mode_list_values">
-        <item>0</item>
-        <item>1</item>
-    </string-array>
-
-
     <string name="settings_mock_notification">Simulate received a message</string>
     <string name="settings_mock_notification_summary">Tap to send a simulated test message.</string>
     <string name="debug_test_title">This is Title</string>
     <string name="debug_test_content">This is Content</string>
-    <string name="accessibility_desc">Used for the alternate foreground application detection mode, higher compatibility, but poor performance.</string>
+    <string name="accessibility_desc">Used for foreground app detection when UsageStats is unavailable.</string>
     <string name="settings_notify_on_register">Notify On App Register</string>
     <string name="settings_show_loaded_file_after_configurations_loaded">Show Loaded File After Configurations Loaded</string>
     <string name="settings_debug_mode">Enable debug mode</string>
@@ -154,7 +139,13 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     ]]></string>
 
     <string name="wizard_title_stats_permission">Usage stats</string>
-    <string name="wizard_title_stats_permission_text">You need to grant \"Usage stats\" permission or you will not be able to receive notifications.</string>
+    <string name="wizard_title_stats_permission_text">Enable Usage Stats foreground detection. Either this or Accessibility mode is enough to detect whether an app is in the foreground.</string>
+
+    <string name="wizard_title_accessibility_permission">Accessibility foreground detection</string>
+    <string name="wizard_title_accessibility_text">Enable Accessibility foreground detection. Either this or Usage Stats is enough; it is more compatible but may be less efficient.</string>
+
+    <string name="wizard_title_root_permission">Root access</string>
+    <string name="wizard_title_root_permission_text">Optional but recommended. With root, MiPush can auto-complete silently grantable permissions such as Usage Stats, overlay, battery optimization whitelist, and notifications.</string>
 
     <string name="wizard_title_alert_window_permission">Display over other apps</string>
     <string name="wizard_title_alert_window_text">You need to grant \"Display over other apps\" permission or you will not be able to auto open app by configuration.</string>
@@ -408,6 +399,9 @@ This could be the application doing a reverse registration, or the registration 
     <string name="settings_home_overview_summary">Service health, application stats, and maintenance actions are now collected into a single collapsible page.</string>
     <string name="pref_choose_theme_title">Theme</string>
     <string name="pref_choose_theme_summary">Follow System, Light, Dark or Pure Black</string>
+    <string name="pref_ui_kit_style_title">UI style</string>
+    <string name="ui_kit_style_expressive">Expressive</string>
+    <string name="ui_kit_style_miuix">Miuix</string>
     <string name="theme_follow_system">Automatic (Follow System)</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>

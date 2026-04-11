@@ -30,9 +30,10 @@ import com.xiaomi.xmsf.R
 import com.xiaomi.xmsf.push.utils.Configurations
 import com.xiaomi.xmsf.push.utils.IconConfigurations
 import com.xiaomi.xmsf.utils.ColorUtil
-import top.trumeet.common.utils.CustomConfiguration
-import top.trumeet.common.utils.ImgUtils
-import top.trumeet.mipushframework.main.MainActivity
+import io.github.magisk317.mipush.common.utils.CustomConfiguration
+import io.github.magisk317.mipush.common.utils.ImgUtils
+import io.github.magisk317.mipush.feature.main.MainActivity
+import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 
 object NotificationController {
     private const val TAG = "NotificationController"
@@ -251,7 +252,7 @@ object NotificationController {
         return Global.IconCache().getAppColor(
             ctx,
             pkg,
-            object : top.trumeet.common.cache.IconCache.Converter<Bitmap, Int> {
+            object : io.github.magisk317.mipush.common.cache.IconCache.Converter<Bitmap, Int> {
                 override fun convert(ctx: Context, b: Bitmap): Int {
                     val color = ColorUtil.getIconColor(b)
                     if (color != Notification.COLOR_DEFAULT) {
@@ -312,7 +313,7 @@ object NotificationController {
             val iconCache = Global.IconCache().getIconCache(
                 context,
                 packageName,
-                object : top.trumeet.common.cache.IconCache.Converter<Bitmap, IconCompat> {
+                object : io.github.magisk317.mipush.common.cache.IconCache.Converter<Bitmap, IconCompat> {
                     override fun convert(ctx: Context, b: Bitmap): IconCompat = IconCompat.createWithBitmap(b)
                 }
             )
@@ -366,10 +367,12 @@ object NotificationController {
         localBuilder.setWhen(System.currentTimeMillis())
         localBuilder.setShowWhen(true)
 
-        val notifyIntent = Intent(context, MainActivity::class.java).apply {
-            putExtra(MainActivity.EXTRA_START_TAB, MainActivity.START_TAB_SETTINGS)
+        val notifyIntent = LegacyUiEntryPoints.mainActivityIntent(
+            context = context,
+            startTab = MainActivity.START_TAB_SETTINGS,
+        ).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
-        notifyIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         val notifyPendingIntent = PendingIntent.getActivity(
             context,
             0,

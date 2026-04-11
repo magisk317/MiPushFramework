@@ -14,7 +14,7 @@ import org.apache.thrift.TBase
 import org.apache.thrift.TException
 import java.lang.reflect.*
 import kotlinx.serialization.json.*
-import top.trumeet.common.utils.Utils
+import io.github.magisk317.mipush.common.utils.Utils
 
 object ConvertUtils {
     private val TAG = ConvertUtils::class.java.simpleName

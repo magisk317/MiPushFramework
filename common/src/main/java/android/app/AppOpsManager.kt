@@ -11,6 +11,7 @@ open class AppOpsManager {
         const val MODE_IGNORED = 1
         const val MODE_ERRORED = 2
         const val MODE_DEFAULT = 3
+        const val MODE_FOREGROUND = 4
 
         @TargetApi(Build.VERSION_CODES.N)
         const val OP_RUN_IN_BACKGROUND = 63

@@ -14,7 +14,7 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
-import top.trumeet.common.Constants
+import io.github.magisk317.mipush.common.Constants
 
 internal object LogBundleExporter {
     private const val ZIP_MIME_TYPE = "application/zip"

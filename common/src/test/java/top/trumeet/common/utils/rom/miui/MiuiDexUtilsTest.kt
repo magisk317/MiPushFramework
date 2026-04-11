@@ -1,7 +1,7 @@
-package top.trumeet.common.utils.rom.miui
+package io.github.magisk317.mipush.common.utils.rom.miui
 
-import org.junit.Assert.assertFalse
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Test
 
 class MiuiDexUtilsTest {
 

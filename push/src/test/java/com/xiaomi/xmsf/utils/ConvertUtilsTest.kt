@@ -2,27 +2,25 @@ package com.xiaomi.xmsf.utils
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.content.ContextWrapper
 import com.xiaomi.channel.commonutils.android.DataCryptUtils
 import com.xiaomi.channel.commonutils.string.Base64Coder
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushActionSendMessage
-import org.junit.After
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Test
-import org.mockito.ArgumentMatchers.anyInt
-import org.mockito.ArgumentMatchers.anyString
-import org.mockito.ArgumentMatchers.nullable
-import org.mockito.Mockito.mock
-import org.mockito.Mockito.`when`
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Test
 import org.apache.thrift.TSerializer
 import org.apache.thrift.protocol.TBinaryProtocol
-import top.trumeet.common.utils.Utils
+import io.github.magisk317.mipush.common.utils.Utils
+import java.lang.reflect.InvocationHandler
+import java.lang.reflect.Proxy
 
 class ConvertUtilsTest {
 
-    @After
+    @AfterEach
     fun tearDown() {
         Utils.context = null
     }
@@ -130,37 +128,75 @@ class ConvertUtilsTest {
     private fun encodeRegSec(value: String): String = String(Base64Coder.encode(value.toByteArray(Charsets.UTF_8)))
 
     private fun mockContext(vararg prefData: Pair<String, Map<String, String>>): Context {
-        val context = mock(Context::class.java)
         val stores = prefData.associate { (name, values) -> name to values.toMutableMap() }.toMutableMap()
         val prefsByName = mutableMapOf<String, SharedPreferences>()
-        `when`(context.applicationContext).thenReturn(context)
-        `when`(context.getSharedPreferences(anyString(), anyInt())).thenAnswer { invocation ->
-            val prefName = invocation.getArgument<String>(0)
-            prefsByName.getOrPut(prefName) {
-                mockMutableSharedPreferences(stores.getOrPut(prefName) { mutableMapOf() })
+        return object : ContextWrapper(null) {
+            override fun getApplicationContext(): Context = this
+
+            override fun getSharedPreferences(name: String?, mode: Int): SharedPreferences {
+                val prefName = name ?: return mockMutableSharedPreferences(mutableMapOf())
+                return prefsByName.getOrPut(prefName) {
+                    mockMutableSharedPreferences(stores.getOrPut(prefName) { mutableMapOf() })
+                }
             }
         }
-        return context
     }
 
     private fun mockMutableSharedPreferences(values: MutableMap<String, String>): SharedPreferences {
-        val prefs = mock(SharedPreferences::class.java)
-        val editor = mock(SharedPreferences.Editor::class.java)
-        `when`(prefs.getString(anyString(), nullable(String::class.java))).thenAnswer { invocation ->
-            values[invocation.getArgument(0)]
-        }
-        `when`(prefs.edit()).thenReturn(editor)
-        `when`(editor.putString(anyString(), nullable(String::class.java))).thenAnswer { invocation ->
-            val key = invocation.getArgument<String>(0)
-            val value = invocation.getArgument<String?>(1)
-            if (value == null) {
-                values.remove(key)
-            } else {
-                values[key] = value
+        return Proxy.newProxyInstance(
+            SharedPreferences::class.java.classLoader,
+            arrayOf(SharedPreferences::class.java),
+            SharedPreferencesHandler(values),
+        ) as SharedPreferences
+    }
+
+    private class SharedPreferencesHandler(private val values: MutableMap<String, String>) : InvocationHandler {
+        override fun invoke(proxy: Any?, method: java.lang.reflect.Method, args: Array<out Any?>?): Any? {
+            return when (method.name) {
+                "getString" -> values[args?.get(0) as String] ?: args[1]
+                "contains" -> values.containsKey(args?.get(0) as String)
+                "getAll" -> values.toMap()
+                "edit" -> Proxy.newProxyInstance(
+                    SharedPreferences.Editor::class.java.classLoader,
+                    arrayOf(SharedPreferences.Editor::class.java),
+                    EditorHandler(values),
+                )
+                else -> defaultValue(method.returnType)
             }
-            editor
         }
-        `when`(editor.commit()).thenReturn(true)
-        return prefs
+    }
+
+    private class EditorHandler(private val values: MutableMap<String, String>) : InvocationHandler {
+        override fun invoke(proxy: Any?, method: java.lang.reflect.Method, args: Array<out Any?>?): Any? {
+            return when (method.name) {
+                "putString" -> {
+                    val key = args?.get(0) as String
+                    val value = args[1] as String?
+                    if (value == null) values.remove(key) else values[key] = value
+                    proxy
+                }
+                "remove" -> {
+                    values.remove(args?.get(0) as String)
+                    proxy
+                }
+                "clear" -> {
+                    values.clear()
+                    proxy
+                }
+                "commit" -> true
+                "apply" -> null
+                else -> proxy
+            }
+        }
+    }
+
+    private companion object {
+        fun defaultValue(returnType: Class<*>): Any? = when (returnType) {
+            java.lang.Boolean.TYPE -> false
+            java.lang.Integer.TYPE -> 0
+            java.lang.Long.TYPE -> 0L
+            java.lang.Float.TYPE -> 0f
+            else -> null
+        }
     }
 }
