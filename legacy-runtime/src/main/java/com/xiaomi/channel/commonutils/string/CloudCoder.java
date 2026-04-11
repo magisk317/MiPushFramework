@@ -2,7 +2,7 @@ package com.xiaomi.channel.commonutils.string;
 
 import android.net.Uri;
 import android.text.TextUtils;
-import com.xiaomi.channel.commonutils.logger.MyLog;
+import android.util.Log;
 import java.io.UnsupportedEncodingException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
@@ -20,6 +20,7 @@ import javax.crypto.spec.SecretKeySpec;
 /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/channel/commonutils/string/CloudCoder.class */
 public class CloudCoder {
     private static final String RC4_ALGORITHM_NAME = "RC4";
+    private static final String TAG = "CloudCoder";
 
     public static String generateSignature(String str, String str2, Map<String, String> map, String str3) {
         if (TextUtils.isEmpty(str3)) {
@@ -54,13 +55,13 @@ public class CloudCoder {
         try {
             return String.valueOf(Base64Coder.encode(MessageDigest.getInstance("SHA1").digest(str.getBytes("UTF-8"))));
         } catch (UnsupportedEncodingException e) {
-            MyLog.e("CloudCoder.hash4SHA1 ", e);
+            Log.e(TAG, "CloudCoder.hash4SHA1", e);
             throw new IllegalStateException("failed to SHA1");
         } catch (NoSuchAlgorithmException e2) {
-            MyLog.e("CloudCoder.hash4SHA1 ", e2);
+            Log.e(TAG, "CloudCoder.hash4SHA1", e2);
             throw new IllegalStateException("failed to SHA1");
         } catch (Exception e3) {
-            MyLog.e("CloudCoder.hash4SHA1 ", e3);
+            Log.e(TAG, "CloudCoder.hash4SHA1", e3);
             throw new IllegalStateException("failed to SHA1");
         }
     }
