@@ -440,6 +440,40 @@ tasks.register("checkReadmeBuildRequirements") {
     }
 }
 
+tasks.register<Exec>("reportBoundaryInventory") {
+    group = "verification"
+    description = "Generate a package-to-layer inventory report for push/src/main/java."
+    val output = layout.buildDirectory.file("reports/boundaries/inventory.md")
+    doFirst {
+        output.get().asFile.parentFile.mkdirs()
+    }
+    commandLine(
+        "python3",
+        "${projectDir}/scripts/report_boundary_inventory.py",
+        "--repo",
+        projectDir.absolutePath,
+        "--output",
+        output.get().asFile.absolutePath,
+    )
+}
+
+tasks.register<Exec>("reportBoundaryDirectImports") {
+    group = "verification"
+    description = "Generate a report of direct imports from product-owned code into legacy/protocol layers."
+    val output = layout.buildDirectory.file("reports/boundaries/direct-imports.md")
+    doFirst {
+        output.get().asFile.parentFile.mkdirs()
+    }
+    commandLine(
+        "python3",
+        "${projectDir}/scripts/report_boundary_direct_imports.py",
+        "--repo",
+        projectDir.absolutePath,
+        "--output",
+        output.get().asFile.absolutePath,
+    )
+}
+
 tasks.matching { it.name == "check" }.configureEach {
     dependsOn("checkNoLegacyNihilityImports")
     dependsOn("checkNoLegacyDialogActionButtons")
