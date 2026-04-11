@@ -11,7 +11,6 @@ import android.net.wifi.WifiInfo;
 import android.os.Build;
 import android.os.Process;
 import android.text.TextUtils;
-import com.xiaomi.BuildConfig;
 import com.xiaomi.channel.commonutils.file.IOUtils;
 import com.xiaomi.channel.commonutils.logger.MyLog;
 import com.xiaomi.channel.commonutils.network.BasicNameValuePair;
@@ -587,14 +586,14 @@ public class HostManager {
     protected String getProcessName() {
         List<ActivityManager.RunningAppProcessInfo> runningAppProcesses = ((ActivityManager) sAppContext.getSystemService("activity")).getRunningAppProcesses();
         if (runningAppProcesses == null) {
-            return BuildConfig.APPLICATION_ID;
+            return sAppContext.getPackageName();
         }
         for (ActivityManager.RunningAppProcessInfo runningAppProcessInfo : runningAppProcesses) {
             if (runningAppProcessInfo.pid == Process.myPid()) {
                 return runningAppProcessInfo.processName;
             }
         }
-        return BuildConfig.APPLICATION_ID;
+        return sAppContext.getPackageName();
     }
 
     protected String getRemoteFallbackJSON(ArrayList<String> arrayList, String str, String str2, boolean z) throws IOException {
