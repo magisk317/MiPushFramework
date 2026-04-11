@@ -67,7 +67,7 @@ object XMPushServiceEnvironment {
     @JvmStatic
     fun getFalldownTimeRange(service: XMPushService): IntArray? {
         val range = OnlineConfig.getInstance(service.applicationContext)
-            .getStringValue(ConfigKey.FallDownTimeRange.value, "")
+            .getStringValue(ConfigKey.FallDownTimeRange.value, "") ?: ""
         val parts = range.split(",")
         if (range.isEmpty() || parts.size < 2) {
             return null
