@@ -1,4 +1,4 @@
-# push-protocol-frozen
+# protocol-frozen
 
 Planned home for protocol/runtime source that must behave like generated or frozen code.
 

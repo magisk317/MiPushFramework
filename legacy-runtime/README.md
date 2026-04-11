@@ -1,4 +1,4 @@
-# push-legacy-runtime
+# legacy-runtime
 
 Planned home for vendored Xiaomi push runtime sources that remain necessary for the
 system-package-compatible `com.xiaomi.xmsf` build, but should no longer be edited as product

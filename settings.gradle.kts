@@ -66,7 +66,7 @@ includeBuild("build-logic")
 
 rootProject.name = "MiPushFramework"
 requireExistingProjectDir("magisk-ui-kit")
-requireExistingProjectDir("push-legacy-runtime")
-requireExistingProjectDir("push-protocol-frozen")
-include(":condom", ":push", ":common", ":runtime-core", ":magisk-ui-kit", ":push-legacy-runtime", ":push-protocol-frozen")
+requireExistingProjectDir("legacy-runtime")
+requireExistingProjectDir("protocol-frozen")
+include(":condom", ":push", ":common", ":runtime-core", ":magisk-ui-kit", ":legacy-runtime", ":protocol-frozen")
 project(":magisk-ui-kit").projectDir = file("magisk-ui-kit")

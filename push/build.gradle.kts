@@ -48,8 +48,8 @@ dependencies {
     implementation(project(":condom"))
     implementation(project(":runtime-core"))
     implementation(project(":magisk-ui-kit"))
-    implementation(project(":push-legacy-runtime"))
-    implementation(project(":push-protocol-frozen"))
+    implementation(project(":legacy-runtime"))
+    implementation(project(":protocol-frozen"))
 
     implementation(libs.napier)
     implementation(libs.kotlinx.serialization.json)

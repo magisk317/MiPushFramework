@@ -79,6 +79,6 @@ Delete before translating where possible:
 ## Structural End State
 
 - `push` becomes the product/app/system-entry module only.
-- `push-legacy-runtime` contains vendored runtime still needed after pruning.
-- `push-protocol-frozen` contains protocol/serialization source that must remain wire-stable.
+- `legacy-runtime` contains vendored runtime still needed after pruning.
+- `protocol-frozen` contains protocol/serialization source that must remain wire-stable.
 - Device system jars remain external reference inputs, not source modules.
