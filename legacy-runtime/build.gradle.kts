@@ -14,6 +14,7 @@ android {
 
 dependencies {
     implementation(project(":common"))
+    implementation(project(":protocol-frozen"))
 
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)

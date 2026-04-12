@@ -44,7 +44,7 @@ class OnlineConfig private constructor(context: Context) {
     }
 
     @JvmField
-    val preferences: SharedPreferences = context.getSharedPreferences(PushConstants.SP_NAME_MIPUSH_OC, 0)
+    val preferences: SharedPreferences = context.getSharedPreferences("mipush_oc", 0)
 
     private val callbacks = HashSet<OCUpdateCallback>()
 
