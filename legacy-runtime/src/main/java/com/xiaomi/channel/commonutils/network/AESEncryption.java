@@ -1,7 +1,6 @@
 package com.xiaomi.channel.commonutils.network;
 
 import com.xiaomi.channel.commonutils.string.UrlBase64Coder;
-import com.xiaomi.slim.Blob;
 import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -11,6 +10,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/channel/commonutils/network/AESEncryption.class */
 public class AESEncryption {
+    private static final String HEX_PREFIX = "0";
 
     /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/channel/commonutils/network/AESEncryption$AESDecodeException.class */
     public static class AESDecodeException extends Exception {
@@ -42,7 +42,7 @@ public class AESEncryption {
         String str = "";
         for (byte b : bArr) {
             String hexString = Integer.toHexString(b & 255);
-            str = hexString.length() == 1 ? str + Blob.CLIENT_PING_ID + hexString : str + hexString;
+            str = hexString.length() == 1 ? str + HEX_PREFIX + hexString : str + hexString;
         }
         return str.toUpperCase();
     }
