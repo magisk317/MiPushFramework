@@ -3,11 +3,8 @@ package com.xiaomi.push.log;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.net.Uri;
-import com.google.protobuf.micro.CodedOutputStreamMicro;
 import com.xiaomi.channel.commonutils.file.IOUtils;
 import com.xiaomi.channel.commonutils.logger.MyLog;
-import com.xiaomi.mipush.sdk.Constants;
-import com.xiaomi.push.service.PushConstants;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -43,7 +40,7 @@ class LogFilter {
         int i2;
         int i3;
         int length;
-        char[] cArr = new char[CodedOutputStreamMicro.DEFAULT_BUFFER_SIZE];
+        char[] cArr = new char[4096];
         int i4 = bufferedReader.read(cArr);
         for (boolean z2 = false; i4 != -1 && !z2; z2 = z) {
             String str = new String(cArr, 0, i4);
@@ -188,7 +185,7 @@ class LogFilter {
 
     File filter(Context context, Date date, Date date2, File file) {
         File file2;
-        if (PushConstants.PUSH_SERVICE_PACKAGE_NAME.equalsIgnoreCase(context.getPackageName())) {
+        if ("com.xiaomi.xmsf".equalsIgnoreCase(context.getPackageName())) {
             File file3 = new File(context.getExternalFilesDir(null), "dump");
             file2 = file3;
             if (!file3.exists()) {
@@ -204,7 +201,7 @@ class LogFilter {
         if (!file2.isDirectory()) {
             return null;
         }
-        File file4 = new File(file, date.getTime() + Constants.ACCEPT_TIME_SEPARATOR_SERVER + date2.getTime() + PushConstants.UPLOAD_FILE_ZIP_POSTFIX);
+        File file4 = new File(file, date.getTime() + "-" + date2.getTime() + ".zip");
         if (file4.exists()) {
             return null;
         }
