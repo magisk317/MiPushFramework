@@ -4,7 +4,6 @@ import android.content.Context;
 import android.text.TextUtils;
 import com.xiaomi.channel.commonutils.logger.MyLog;
 import com.xiaomi.channel.commonutils.reflect.JavaCalls;
-import com.xiaomi.push.service.PushConstants;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -12,6 +11,7 @@ import java.util.Map;
 /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/channel/commonutils/android/MIUIUtils.class */
 public class MIUIUtils {
     private static final String ANDROID_SYSTEM_PROPERTIES = "android.os.SystemProperties";
+    private static final String XMSF_PACKAGE_NAME = "com.xiaomi.xmsf";
     public static final int IS_MIUI = 1;
     private static final String KEY_MIUI_VERSION_CODE = "ro.miui.ui.version.code";
     private static final String KEY_MIUI_VERSION_NAME = "ro.miui.ui.version.name";
@@ -239,6 +239,6 @@ public class MIUIUtils {
     }
 
     public static boolean isXMSF(String str) {
-        return PushConstants.PUSH_SERVICE_PACKAGE_NAME.equals(str);
+        return XMSF_PACKAGE_NAME.equals(str);
     }
 }

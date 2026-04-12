@@ -5,10 +5,10 @@ import android.os.Build;
 import android.text.TextUtils;
 import com.xiaomi.channel.commonutils.logger.MyLog;
 import com.xiaomi.channel.commonutils.reflect.JavaCalls;
-import com.xiaomi.slim.Blob;
 
 /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/channel/commonutils/android/SystemUtils.class */
 public class SystemUtils {
+    private static final String DEFAULT_MIID = "0";
     private static String cachedMOSVersion = null;
     private static Context sContext;
 
@@ -43,7 +43,7 @@ public class SystemUtils {
             return "";
         }
         String str = (String) JavaCalls.callStaticMethod("com.xiaomi.xmsf.helper.MIIDAccountHelper", "getMIID", context);
-        return TextUtils.isEmpty(str) ? Blob.CLIENT_PING_ID : str;
+        return TextUtils.isEmpty(str) ? DEFAULT_MIID : str;
     }
 
     public static int getMIUIType() {
