@@ -12,8 +12,6 @@ import com.xiaomi.channel.commonutils.string.Base64Coder;
 import com.xiaomi.channel.commonutils.string.XMStringUtils;
 import com.xiaomi.clientreport.data.ClientReportConstants;
 import com.xiaomi.clientreport.manager.ClientReportLogicManager;
-import com.xiaomi.mipush.sdk.Constants;
-import com.xiaomi.push.service.PushConstants;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
@@ -35,7 +33,7 @@ public class ClientReportUtil {
     }
 
     public static String getOs() {
-        return Build.VERSION.RELEASE + Constants.ACCEPT_TIME_SEPARATOR_SERVER + Build.VERSION.INCREMENTAL;
+        return Build.VERSION.RELEASE + "-" + Build.VERSION.INCREMENTAL;
     }
 
     public static File[] getReadFileName(Context context, String str) {
@@ -74,7 +72,7 @@ public class ClientReportUtil {
     public static boolean isSupportXMSFUpload(Context context) {
         boolean z = false;
         try {
-            PackageInfo packageInfo = context.getApplicationContext().getPackageManager().getPackageInfo(PushConstants.PUSH_SERVICE_PACKAGE_NAME, 0);
+            PackageInfo packageInfo = context.getApplicationContext().getPackageManager().getPackageInfo("com.xiaomi.xmsf", 0);
             if (getVersionCode(packageInfo) >= 108) {
                 z = true;
             }

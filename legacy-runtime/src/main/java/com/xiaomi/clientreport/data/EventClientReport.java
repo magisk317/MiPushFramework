@@ -1,7 +1,6 @@
 package com.xiaomi.clientreport.data;
 
 import com.xiaomi.channel.commonutils.logger.MyLog;
-import com.xiaomi.push.service.clientReport.ReportConstants;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -24,7 +23,7 @@ public class EventClientReport extends BaseClientReport {
                 return null;
             }
             json.put("eventId", this.eventId);
-            json.put(ReportConstants.MESSAGE_EVENT_TYPE, this.eventType);
+            json.put("eventType", this.eventType);
             json.put("eventTime", this.eventTime);
             String str = this.eventContent;
             String str2 = str;

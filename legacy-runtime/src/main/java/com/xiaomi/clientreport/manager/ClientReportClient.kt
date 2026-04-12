@@ -1,7 +1,6 @@
 package com.xiaomi.clientreport.manager
 
 import android.content.Context
-import com.magisk317.push.hook.HookTraceCompat
 import com.xiaomi.clientreport.data.Config
 import com.xiaomi.clientreport.data.EventClientReport
 import com.xiaomi.clientreport.data.PerfClientReport
@@ -12,12 +11,12 @@ class ClientReportClient private constructor() {
     companion object {
         @JvmStatic
         fun init(context: Context) {
-            HookTraceCompat.onClientReportClientInit()
+            // no-op: tracing hook removed during legacy-runtime extraction
         }
 
         @JvmStatic
         fun init(context: Context, config: Config) {
-            HookTraceCompat.onClientReportClientInit()
+            // no-op: tracing hook removed during legacy-runtime extraction
         }
 
         @JvmStatic
@@ -27,7 +26,7 @@ class ClientReportClient private constructor() {
             eventProcessor: IEventProcessor,
             perfProcessor: IPerfProcessor
         ) {
-            HookTraceCompat.onClientReportClientInit()
+            // no-op: tracing hook removed during legacy-runtime extraction
         }
 
         @JvmStatic
