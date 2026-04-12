@@ -6,13 +6,9 @@ import android.net.NetworkCapabilities;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
-import com.google.protobuf.micro.CodedOutputStreamMicro;
 import com.xiaomi.channel.commonutils.android.TelephonyUtils;
 import com.xiaomi.channel.commonutils.file.IOUtils;
 import com.xiaomi.channel.commonutils.string.MD5;
-import com.xiaomi.mipush.sdk.Constants;
-import com.xiaomi.mipush.sdk.OperatePushHelper;
-import com.xiaomi.push.service.PushServiceConstants;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -214,7 +210,7 @@ public class Network {
             InputStream inputStreamDownloadXmlAsStream = downloadXmlAsStream(context, url, true, str, str2, map, httpHeaderInfo);
             StringBuilder sb = new StringBuilder(1024);
             BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStreamDownloadXmlAsStream, "UTF-8"));
-            char[] cArr = new char[CodedOutputStreamMicro.DEFAULT_BUFFER_SIZE];
+            char[] cArr = new char[4096];
             while (true) {
                 inputStream = inputStreamDownloadXmlAsStream;
                 int i = bufferedReader.read(cArr);
@@ -236,7 +232,7 @@ public class Network {
             InputStream inputStreamDownloadXmlAsStream = downloadXmlAsStream(context, url, z, str, str3);
             StringBuilder sb = new StringBuilder(1024);
             BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStreamDownloadXmlAsStream, str2));
-            char[] cArr = new char[CodedOutputStreamMicro.DEFAULT_BUFFER_SIZE];
+            char[] cArr = new char[4096];
             while (true) {
                 inputStream = inputStreamDownloadXmlAsStream;
                 int i = bufferedReader.read(cArr);
@@ -456,8 +452,8 @@ public class Network {
             HttpURLConnection.setFollowRedirects(false);
             HttpURLConnection httpURLConnection = (HttpURLConnection) url.openConnection();
             if (str.indexOf("wap") == -1) {
-                httpURLConnection.setConnectTimeout(OperatePushHelper.TIME_OUT);
-                httpURLConnection.setReadTimeout(OperatePushHelper.TIME_OUT);
+                httpURLConnection.setConnectTimeout(5000);
+                httpURLConnection.setReadTimeout(5000);
             } else {
                 httpURLConnection.setConnectTimeout(15000);
                 httpURLConnection.setReadTimeout(15000);
@@ -481,7 +477,7 @@ public class Network {
                 if (headerFieldKey != null && headerFieldKey.equals("content-type")) {
                     httpHeaderInfo.ContentType = headerField;
                 }
-                if (headerFieldKey != null && headerFieldKey.equals(PushServiceConstants.EXTENSION_ELEMENT_LOCATION)) {
+                if (headerFieldKey != null && headerFieldKey.equals("location")) {
                     URI uri = new URI(headerField);
                     URI uriResolve = uri;
                     if (!uri.isAbsolute()) {
@@ -517,7 +513,7 @@ public class Network {
             try {
                 HttpURLConnection.setFollowRedirects(true);
                 HttpURLConnection httpURLConnection = (HttpURLConnection) url.openConnection();
-                httpURLConnection.setConnectTimeout(OperatePushHelper.TIME_OUT);
+                httpURLConnection.setConnectTimeout(5000);
                 httpURLConnection.setReadTimeout(15000);
                 httpURLConnection.setRequestMethod("POST");
                 httpURLConnection.setDoOutput(true);
@@ -808,7 +804,7 @@ public class Network {
                 continue;
             }
             if (stringBuilder.length() > 0) {
-                stringBuilder.append(Constants.ACCEPT_TIME_SEPARATOR_SERVER);
+                stringBuilder.append("-");
             }
             stringBuilder.append(part);
         }
