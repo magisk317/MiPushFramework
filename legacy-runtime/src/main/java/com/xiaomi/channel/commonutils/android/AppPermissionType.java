@@ -1,11 +1,5 @@
 package com.xiaomi.channel.commonutils.android;
 
-import com.xiaomi.channel.commonutils.network.Network;
-import com.xiaomi.clientreport.data.ClientReportConstants;
-import com.xiaomi.push.service.ChannelConstants;
-import com.xiaomi.push.service.PushConstants;
-import com.xiaomi.smack.Connection;
-
 /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/channel/commonutils/android/AppPermissionType.class */
 public enum AppPermissionType {
     INTERNET(0),
@@ -112,13 +106,13 @@ public enum AppPermissionType {
     MOUNT_UNMOUNT_FILESYSTEMS(101),
     NFC(102),
     PACKAGE_USAGE_STATS(103),
-    PERSISTENT_ACTIVITY(Connection.ERR_TCP_NOROUTETOHOST),
-    READ_CALENDAR(Connection.ERR_TCP_TIMEOUT),
-    READ_CALL_LOG(Connection.ERR_TCP_INVALARG),
-    READ_EXTERNAL_STORAGE(Connection.ERR_TCP_UKNOWNHOST),
-    READ_FRAME_BUFFER(Connection.ERR_TCP_READ_TIMEOUT),
-    READ_INPUT_STATE(Connection.ERR_TCP_CONNRESET),
-    READ_LOGS(Connection.ERR_TCP_BROKEN_PIPE),
+    PERSISTENT_ACTIVITY(104),
+    READ_CALENDAR(105),
+    READ_CALL_LOG(106),
+    READ_EXTERNAL_STORAGE(107),
+    READ_FRAME_BUFFER(108),
+    READ_INPUT_STATE(109),
+    READ_LOGS(110),
     READ_SYNC_SETTINGS(111),
     READ_SYNC_STATS(112),
     READ_VOICEMAIL(113),
@@ -202,17 +196,17 @@ public enum AppPermissionType {
                 return FLASHLIGHT;
             case 19:
                 return VIBRATE;
-            case PushConstants.ERROR_REDIRECT /* 20 */:
+            case 20:
                 return READ_CONTACTS;
-            case PushConstants.ERROR_BIND_TIMEOUT /* 21 */:
+            case 21:
                 return WRITE_CONTACTS;
-            case PushConstants.ERROR_PING_TIMEOUT /* 22 */:
+            case 22:
                 return RECORD_AUDIO;
-            case PushConstants.ERROR_IN_EXTREME_POWER_MODE /* 23 */:
+            case 23:
                 return SET_ORIENTATION;
             case 24:
                 return SET_TIME;
-            case ClientReportConstants.SLEEP_NUM /* 25 */:
+            case 25:
                 return SET_TIME_ZONE;
             case 26:
                 return READ_OWNER_DATA;
@@ -222,7 +216,7 @@ public enum AppPermissionType {
                 return DELETE_PACKAGES;
             case 29:
                 return MODIFY_AUDIO_SETTINGS;
-            case PushConstants.MIN_AW_PING_FREQUENCY /* 30 */:
+            case 30:
                 return PROCESS_OUTGOING_CALLS;
             case 31:
                 return READ_HISTORY_BOOKMARKS;
@@ -244,7 +238,7 @@ public enum AppPermissionType {
                 return ACCESS_FINE_LOCATION;
             case 40:
                 return ACCESS_LOCATION_EXTRA_COMMANDS;
-            case ChannelConstants.VERSION_CODE /* 41 */:
+            case 41:
                 return ACCESS_NOTIFICATION_POLICY;
             case 42:
                 return ACCOUNT_MANAGER;
@@ -322,7 +316,7 @@ public enum AppPermissionType {
                 return CHANGE_CONFIGURATION;
             case 79:
                 return CHANGE_WIFI_MULTICAST_STATE;
-            case Network.CMWAP_PORT /* 80 */:
+            case 80:
                 return CLEAR_APP_CACHE;
             case 81:
                 return CONTROL_LOCATION_UPDATES;
@@ -370,19 +364,19 @@ public enum AppPermissionType {
                 return NFC;
             case 103:
                 return PACKAGE_USAGE_STATS;
-            case Connection.ERR_TCP_NOROUTETOHOST /* 104 */:
+            case 104:
                 return PERSISTENT_ACTIVITY;
-            case Connection.ERR_TCP_TIMEOUT /* 105 */:
+            case 105:
                 return READ_CALENDAR;
-            case Connection.ERR_TCP_INVALARG /* 106 */:
+            case 106:
                 return READ_CALL_LOG;
-            case Connection.ERR_TCP_UKNOWNHOST /* 107 */:
+            case 107:
                 return READ_EXTERNAL_STORAGE;
-            case Connection.ERR_TCP_READ_TIMEOUT /* 108 */:
+            case 108:
                 return READ_FRAME_BUFFER;
-            case Connection.ERR_TCP_CONNRESET /* 109 */:
+            case 109:
                 return READ_INPUT_STATE;
-            case Connection.ERR_TCP_BROKEN_PIPE /* 110 */:
+            case 110:
                 return READ_LOGS;
             case 111:
                 return READ_SYNC_SETTINGS;

@@ -14,10 +14,8 @@ import android.os.Build;
 import android.os.Process;
 import android.text.TextUtils;
 import android.util.Base64;
-import com.google.protobuf.micro.CodedOutputStreamMicro;
 import com.xiaomi.channel.commonutils.logger.MyLog;
 import com.xiaomi.channel.commonutils.reflect.JavaCalls;
-import com.xiaomi.push.service.MIPushAccount;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,6 +25,8 @@ import java.util.List;
 /* JADX INFO: loaded from: miuipushsdkshared_3_7_9.jar:com/xiaomi/channel/commonutils/android/AppInfoUtils.class */
 public class AppInfoUtils {
     private static final String ANDROID_PERMISSION_PREF = "android.permission.";
+    private static final String LEGACY_SECURITY_SERVICE = "security";
+    private static final int REQUESTED_PERMISSION_FLAGS = 4096;
     public static final int PATTERN = 100000;
     public static final String SEPARATE_ITEM = "#";
     private static final String TAG = "AppInfoUtils.";
@@ -99,7 +99,7 @@ public class AppInfoUtils {
             if (applicationInfo.packageName.equals(context.getPackageName())) {
                 boolValueOf = Boolean.valueOf(((NotificationManager) context.getSystemService("notification")).areNotificationsEnabled());
             } else {
-                Object objCallMethod = i >= 29 ? JavaCalls.callMethod(context.getSystemService("notification"), "getService", new Object[0]) : context.getSystemService(MIPushAccount.PREF_KEY_SECURITY);
+                Object objCallMethod = i >= 29 ? JavaCalls.callMethod(context.getSystemService("notification"), "getService", new Object[0]) : context.getSystemService(LEGACY_SECURITY_SERVICE);
                 boolValueOf = null;
                 if (objCallMethod != null) {
                     boolValueOf = (Boolean) JavaCalls.callMethodOrThrow(objCallMethod, "areNotificationsEnabledForPackage", applicationInfo.packageName, Integer.valueOf(applicationInfo.uid));
@@ -281,7 +281,7 @@ public class AppInfoUtils {
 
     public static String getAppPermissionBase64Str(Context context, String str) {
         try {
-            return convertPermissionString(context.getPackageManager().getPackageInfo(str, CodedOutputStreamMicro.DEFAULT_BUFFER_SIZE).requestedPermissions);
+            return convertPermissionString(context.getPackageManager().getPackageInfo(str, REQUESTED_PERMISSION_FLAGS).requestedPermissions);
         } catch (PackageManager.NameNotFoundException e) {
             MyLog.e(e.toString());
             return "";
