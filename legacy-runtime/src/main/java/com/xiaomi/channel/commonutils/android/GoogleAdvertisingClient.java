@@ -9,7 +9,6 @@ import android.os.IInterface;
 import android.os.Looper;
 import android.os.Parcel;
 import android.os.RemoteException;
-import com.xiaomi.mipush.sdk.stat.db.MessageInfoContract;
 import java.io.IOException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -53,7 +52,7 @@ final class GoogleAdvertisingClient {
                 throw new IllegalStateException();
             }
             this.retrieved = true;
-            return this.queue.poll(MessageInfoContract.TIMEOUT, TimeUnit.MILLISECONDS);
+            return this.queue.poll(TIMEOUT, TimeUnit.MILLISECONDS);
         }
 
         @Override // android.content.ServiceConnection
