@@ -1,4 +1,4 @@
-package com.magisk317.utils
+package io.github.magisk317.mipush.utils
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
