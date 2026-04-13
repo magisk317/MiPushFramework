@@ -114,6 +114,7 @@
 - 对话框动作区统一使用 `DialogActionRow`，避免在 `AlertDialog` 按钮槽内手写按钮行。
 - 列表页统一使用 `RefreshableLazyColumn`，加载体验统一使用最短可见时长策略。
 - 动态路由统一使用 `AppDestinations.*.route(...)` 构造，避免手写字符串拼接。
+- 运行时主链梳理见 `docs/architecture/current-runtime-call-flow.md`。
 - 详细规范见 `docs/UI_CONVENTIONS.md`。
 
 

@@ -96,12 +96,12 @@ class MIPushAccount(
         )
     }
 
-    fun toClientLoginInfo(xmPushService: XMPushService): PushClientsManager.ClientLoginInfo {
-        val clientLoginInfo = PushClientsManager.ClientLoginInfo(xmPushService)
+    fun toClientLoginInfo(pushAction: IPushServiceAction, context: Context): PushClientsManager.ClientLoginInfo {
+        val clientLoginInfo = PushClientsManager.ClientLoginInfo(pushAction)
         return toClientLoginInfo(
             clientLoginInfo = clientLoginInfo,
-            context = xmPushService,
-            clientEventDispatcher = xmPushService.clientEventDispatcher,
+            context = context,
+            clientEventDispatcher = ClientEventDispatcher(), // Default dispatcher if none provided
             abTag = "c",
         )
     }

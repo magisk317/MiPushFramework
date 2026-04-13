@@ -14,6 +14,7 @@ import com.xiaomi.channel.commonutils.android.MIUIUtils;
 import com.xiaomi.channel.commonutils.android.PreferenceUtils;
 import com.xiaomi.channel.commonutils.android.SharedPrefsCompat;
 import com.xiaomi.channel.commonutils.android.SystemUtils;
+import com.xiaomi.channel.commonutils.logger.LoggerInterface;
 import com.xiaomi.channel.commonutils.logger.MyLog;
 import com.xiaomi.channel.commonutils.misc.ScheduledJobManager;
 import com.xiaomi.channel.commonutils.msa.MsaIdManager;
@@ -27,6 +28,7 @@ import com.xiaomi.push.mpcd.CDEntrance;
 import com.xiaomi.push.service.OnlineConfig;
 import com.xiaomi.push.service.PacketHelper;
 import com.xiaomi.push.service.PushConstants;
+import com.xiaomi.push.service.PushVersionInfo;
 import com.xiaomi.push.service.clientReport.MIPushEventDataProcessor;
 import com.xiaomi.push.service.clientReport.MIPushPerfDataProcessor;
 import com.xiaomi.push.service.clientReport.PushClientReportHelper;
@@ -407,7 +409,7 @@ public abstract class MiPushClient {
     public static void initialize(Context context, String str, String str2, MiPushClientCallback miPushClientCallback, String str3, ICallbackResult iCallbackResult) {
         try {
             MyLog.init(context.getApplicationContext());
-            MyLog.persist("sdk_version = 3_7_9");
+            MyLog.persist("sdk_version = " + PushConstants.PUSH_VERSION_NAME);
             if (miPushClientCallback != null) {
                 PushMessageHandler.addPushCallbackClass(miPushClientCallback);
             }
@@ -438,9 +440,10 @@ public abstract class MiPushClient {
                 xmPushActionRegistration.setPackageName(sContext.getPackageName());
                 xmPushActionRegistration.setDeviceId(strGenerateRandomString);
                 Context context2 = sContext;
-                xmPushActionRegistration.setAppVersion(AppInfoUtils.getVersionName(context2, context2.getPackageName()));
+                String packageName = context2.getPackageName();
+                xmPushActionRegistration.setAppVersion(PushVersionInfo.reportedAppVersionName(packageName, AppInfoUtils.getVersionName(context2, packageName)));
                 Context context3 = sContext;
-                xmPushActionRegistration.setAppVersionCode(AppInfoUtils.getVersionCode(context3, context3.getPackageName()));
+                xmPushActionRegistration.setAppVersionCode(PushVersionInfo.reportedAppVersionCode(packageName, AppInfoUtils.getVersionCode(context3, packageName)));
                 xmPushActionRegistration.setPushSdkVersionName(PushConstants.PUSH_VERSION_NAME);
                 xmPushActionRegistration.setPushSdkVersionCode(PushConstants.PUSH_VERSION_CODE);
                 xmPushActionRegistration.setReason(RegistrationReason.Init);
@@ -483,10 +486,11 @@ public abstract class MiPushClient {
                     xmPushActionNotification.extra = new HashMap<>();
                     Map<String, String> map = xmPushActionNotification.extra;
                     Context context4 = sContext;
-                    map.put(Constants.EXTRA_KEY_APP_VERSION, AppInfoUtils.getVersionName(context4, context4.getPackageName()));
+                    String packageName2 = context4.getPackageName();
+                    map.put(Constants.EXTRA_KEY_APP_VERSION, PushVersionInfo.reportedAppVersionName(packageName2, AppInfoUtils.getVersionName(context4, packageName2)));
                     Map<String, String> map2 = xmPushActionNotification.extra;
                     Context context5 = sContext;
-                    map2.put(Constants.EXTRA_KEY_APP_VERSION_CODE, Integer.toString(AppInfoUtils.getVersionCode(context5, context5.getPackageName())));
+                    map2.put(Constants.EXTRA_KEY_APP_VERSION_CODE, Integer.toString(PushVersionInfo.reportedAppVersionCode(packageName2, AppInfoUtils.getVersionCode(context5, packageName2))));
                     xmPushActionNotification.extra.put(PushConstants.KEY_PUSH_SDK_VERSION_NAME, PushConstants.PUSH_VERSION_NAME);
                     xmPushActionNotification.extra.put(PushConstants.KEY_PUSH_SDK_VERSION_CODE, Integer.toString(PushConstants.PUSH_VERSION_CODE));
                     DeviceInfo.fillLocalVirtDevId(sContext, xmPushActionNotification.extra);
@@ -584,7 +588,8 @@ public abstract class MiPushClient {
             xmPushActionRegistration.setToken(appToken);
             xmPushActionRegistration.setDeviceId(strGenerateRandomString);
             xmPushActionRegistration.setPackageName(context.getPackageName());
-            xmPushActionRegistration.setAppVersion(AppInfoUtils.getVersionName(context, context.getPackageName()));
+            String packageName = context.getPackageName();
+            xmPushActionRegistration.setAppVersion(PushVersionInfo.reportedAppVersionName(packageName, AppInfoUtils.getVersionName(context, packageName)));
             xmPushActionRegistration.setReason(registrationReason);
             PushServiceClient.getInstance(context).register(xmPushActionRegistration, false);
         }

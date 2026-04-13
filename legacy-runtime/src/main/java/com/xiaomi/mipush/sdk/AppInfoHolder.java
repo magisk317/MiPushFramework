@@ -3,10 +3,12 @@ package com.xiaomi.mipush.sdk;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.text.TextUtils;
+import com.xiaomi.channel.commonutils.logger.MyLog;
 import com.xiaomi.channel.commonutils.android.AppInfoUtils;
 import com.xiaomi.channel.commonutils.android.DeviceInfo;
-import com.xiaomi.channel.commonutils.logger.MyLog;
+import com.xiaomi.channel.commonutils.logger.LoggerInterface;
 import com.xiaomi.push.service.PushConstants;
+import com.xiaomi.push.service.PushVersionInfo;
 import java.util.HashMap;
 import java.util.Map;
 import org.json.JSONObject;
@@ -52,7 +54,7 @@ public class AppInfoHolder {
 
         private String getVersionName() {
             Context context = this.mContext;
-            return AppInfoUtils.getVersionName(context, context.getPackageName());
+            return PushVersionInfo.reportedAppVersionName(context.getPackageName(), AppInfoUtils.getVersionName(context, context.getPackageName()));
         }
 
         public static ClientInfoData parseClientInfoData(Context context, String str) {
@@ -237,7 +239,7 @@ public class AppInfoHolder {
 
     public boolean checkVersionNameChanged() {
         Context context = this.mContext;
-        return !TextUtils.equals(AppInfoUtils.getVersionName(context, context.getPackageName()), this.mInfoData.versionName);
+        return !TextUtils.equals(PushVersionInfo.reportedAppVersionName(context.getPackageName(), AppInfoUtils.getVersionName(context, context.getPackageName())), this.mInfoData.versionName);
     }
 
     public void clear() {

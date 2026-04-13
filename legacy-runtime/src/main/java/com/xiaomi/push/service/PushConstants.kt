@@ -1,9 +1,8 @@
 package com.xiaomi.push.service
 
-import com.xiaomi.push.service.awake.AwakeUploadHelper
-
 class PushConstants private constructor() {
     companion object {
+        @JvmField var PUSH_DESCRIPTION = "description"
         const val ACTION_AWAKE_APP_LOGIC = "action_aw_app_logic"
         const val ACTION_AWAKE_APP_PING = "action_help_ping"
         const val ACTION_CHANNEL_CLOSED = "com.xiaomi.push.channel_closed"
@@ -182,8 +181,10 @@ class PushConstants private constructor() {
         const val PUSH_SERVICE_CLASS_NAME = "com.xiaomi.xmsf.push.service.XMPushService"
         const val PUSH_SERVICE_CLASS_NAME_JAR = "com.xiaomi.push.service.XMPushService"
         const val PUSH_SERVICE_PACKAGE_NAME = "com.xiaomi.xmsf"
-        const val PUSH_VERSION_CODE = 30709
-        const val PUSH_VERSION_NAME = "3_7_9"
+        @JvmField val PUSH_VERSION_CODE = PushVersionInfo.PUSH_SDK_VERSION_CODE
+        @JvmField val PUSH_VERSION_NAME = PushVersionInfo.PUSH_SDK_VERSION_NAME
+        @JvmField val FRAMEWORK_APP_VERSION_CODE = PushVersionInfo.STOCK_XMSF_APP_VERSION_CODE
+        @JvmField val FRAMEWORK_APP_VERSION_NAME = PushVersionInfo.STOCK_XMSF_APP_VERSION_NAME
         const val REGION_IO = "region_io"
         const val REGION_WRTIE_LATE = "region_write_late"
         const val RUNNING_APP_PACKAGE_NAMES = "aapn"
@@ -241,7 +242,6 @@ class PushConstants private constructor() {
         @JvmField var EXTRA_NOTIFY_DESCRIPTION = "ext_notify_description"
         @JvmField var EXTRA_MESSENGER = "ext_messenger"
         @JvmField var PUSH_TITLE = "title"
-        @JvmField var PUSH_DESCRIPTION = AwakeUploadHelper.KEY_DESCRIPTION
         @JvmField var PUSH_NOTIFY_ID = "notifyId"
 
         @JvmStatic

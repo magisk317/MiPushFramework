@@ -1,9 +1,7 @@
 package com.xiaomi.push.service
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.os.Build
-import android.text.TextUtils
 import com.xiaomi.channel.commonutils.android.AppInfoUtils
 import com.xiaomi.channel.commonutils.android.DeviceInfo
 import com.xiaomi.channel.commonutils.android.MIUIUtils
@@ -48,8 +46,8 @@ object MIPushAccountUtils {
     }
 
     @JvmStatic
-    fun getAccountURL(context: Context): String {
-        return MIPushAccountUtilsRuntime.resolveAccountUrl(
+    fun getAccountURL(context: Context, observer: IPushRuntimeObserver): String {
+        return observer.resolveAccountUrl(
             region = AppRegionStorage.getInstance(context).getRegion(),
             oneBoxBuild = BuildSettings.IsOneBoxBuild(),
             oneBoxHost = ConnectionConfiguration.XMPP_SERVER_HOST_ONEBOX,
@@ -131,7 +129,13 @@ object MIPushAccountUtils {
 
     @JvmStatic
     @Throws(JSONException::class, IOException::class)
-    fun register(context: Context, packageName: String?, appId: String?, appToken: String?): MIPushAccount? {
+    fun register(
+        context: Context,
+        packageName: String?,
+        appId: String?,
+        appToken: String?,
+        observer: IPushRuntimeObserver
+    ): MIPushAccount? {
         synchronized(MIPushAccountUtils::class.java) {
             val params = TreeMap<String, String>()
             val deviceId = DeviceInfo.getDeviceId(context, false)
@@ -162,8 +166,11 @@ object MIPushAccountUtils {
 
             params["appid"] = resolvedAppId
             params["apptoken"] = resolvedAppToken
-            params["appversion"] = AppInfoUtils.getVersionCode(context, resolvedPackageName).toString()
-            params["sdkversion"] = "30709"
+            params["appversion"] = PushVersionInfo.reportedAppVersionCode(
+                packageName = resolvedPackageName,
+                actualVersionCode = AppInfoUtils.getVersionCode(context, resolvedPackageName),
+            ).toString()
+            params["sdkversion"] = PushConstants.PUSH_VERSION_CODE.toString()
             params["packagename"] = resolvedPackageName
             params["model"] = Build.MODEL
             params["board"] = Build.BOARD
@@ -191,7 +198,7 @@ object MIPushAccountUtils {
             params["ram"] = DeviceInfo.getRamSize()
             params["rom"] = DeviceInfo.getRomSize()
 
-            val responseString = Network.doHttpPost(context, getAccountURL(context), params)?.responseString.orEmpty()
+            val responseString = Network.doHttpPost(context, getAccountURL(context, observer), params)?.responseString.orEmpty()
             if (responseString.isEmpty()) {
                 return null
             }
