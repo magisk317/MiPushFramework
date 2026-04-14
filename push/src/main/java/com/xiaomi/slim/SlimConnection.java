@@ -137,7 +137,7 @@ public class SlimConnection extends SocketConnection {
             PushRuntime.observeChannelEvent(null, inboundPlan.getEventAction(), "SlimConnection.notifyDataArrived");
         }
         if (inboundPlan.getConnectionState() != null) {
-            PushRuntime.observeConnectionState(inboundPlan.getConnectionState(), "SlimConnection.notifyDataArrived", getHost(), inboundPlan.getConnectionReason());
+            com.xiaomi.xmsf.runtime.PushRuntime.observeConnectionState(inboundPlan.getConnectionState(), "SlimConnection.notifyDataArrived", getHost(), inboundPlan.getConnectionReason(), System.currentTimeMillis());
         }
         if (inboundPlan.getDisconnectReasonCode() != null) {
             notifyConnectionError(inboundPlan.getDisconnectReasonCode().intValue(), null);

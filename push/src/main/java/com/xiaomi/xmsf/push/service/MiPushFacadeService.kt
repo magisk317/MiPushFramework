@@ -30,7 +30,7 @@ import io.github.magisk317.mipush.common.utils.Utils
 
 @AndroidEntryPoint
 open class MiPushFacadeService : Service() {
-    @Inject lateinit var configCenter: com.xiaomi.xmsf.utils.ConfigCenter
+    @Inject lateinit var configCenter: io.github.magisk317.mipush.app.ConfigCenter
     @Inject lateinit var iconConfigurations: IconConfigurations
 
     private val logger = object {

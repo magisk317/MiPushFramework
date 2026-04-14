@@ -54,7 +54,7 @@ class EventListViewModel @Inject constructor(
 
     private fun toEventInfoForDisplay(it: Event): EventInfoForDisplay {
         val type = TypeFactory.createForDisplay(it)
-        val container = com.xiaomi.xmsf.push.utils.RegSecUtils.getContainerWithRegSec(it)
+        val container = io.github.magisk317.mipush.utils.RegSecUtils.getContainerWithRegSec(it)
 
         val summary = type.getSummary(context).toString()
         val content = if (container != null)

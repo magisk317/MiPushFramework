@@ -138,7 +138,7 @@ internal object MyMIPushNotificationStyleSupport {
     }
 
     private fun findActiveNotification(packageName: String, notificationId: Int) =
-        com.xiaomi.xmsf.push.notification.NotificationController.getNotificationManagerEx()
+        io.github.magisk317.mipush.notification.NotificationController.getNotificationManagerEx()
             .getActiveNotifications(packageName)
             ?.firstOrNull { it != null && it.id == notificationId }
             ?.notification

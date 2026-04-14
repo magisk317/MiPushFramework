@@ -123,7 +123,7 @@ class ConfigSyncMergerTest {
     private fun localFile(path: String, sha: String, isValid: Boolean = true) = LocalConfigFile(
         path = path,
         name = path.removeSuffix(".json"),
-        uri = Uri.EMPTY,
+        uri = Uri.parse("content://test/$path"),
         sha = sha,
         size = 100L,
         lastModified = 0L,

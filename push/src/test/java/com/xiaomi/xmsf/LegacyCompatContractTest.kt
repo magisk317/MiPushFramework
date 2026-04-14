@@ -34,30 +34,8 @@ class LegacyCompatContractTest {
 
     @Test
     fun `legacy compat source files remain thin facades`() {
-        assertSourceContains(
-            "src/main/java/top/trumeet/mipushframework/main/MainActivity.kt",
-            "class MainActivity : io.github.magisk317.mipush.feature.main.MainActivity()",
-        )
-        assertSourceContains(
-            "src/main/java/top/trumeet/mipushframework/main/ApplicationInfoPage.kt",
-            "class ApplicationInfoPage : io.github.magisk317.mipush.feature.main.ApplicationInfoPage()",
-        )
-        assertSourceContains(
-            "src/main/java/top/trumeet/mipushframework/main/HelpPage.kt",
-            "class HelpPage : io.github.magisk317.mipush.feature.main.HelpPage()",
-        )
-        assertSourceContains(
-            "src/main/java/top/trumeet/mipushframework/main/RecentEventListPage.kt",
-            "class RecentEventListPage : io.github.magisk317.mipush.feature.main.RecentEventListPage()",
-        )
-        assertSourceContains(
-            "src/main/java/top/trumeet/mipushframework/wizard/RequestPermissionPage.kt",
-            "class RequestPermissionPage : io.github.magisk317.mipush.feature.wizard.RequestPermissionPage()",
-        )
-        assertSourceContains(
-            "src/main/java/top/trumeet/mipushframework/wizard/WelcomeActivity.kt",
-            "class WelcomeActivity : io.github.magisk317.mipush.feature.wizard.WelcomeActivity()",
-        )
+        // top.trumeet compat shims have been deleted — all manifest entries now point directly
+        // to io.github.magisk317.mipush.feature canonical classes.
         assertSourceContains(
             "src/main/java/io/github/magisk317/mipush/platform/support/LegacyUiEntryPoints.kt",
             "LegacyComponentNames.MAIN_ACTIVITY",

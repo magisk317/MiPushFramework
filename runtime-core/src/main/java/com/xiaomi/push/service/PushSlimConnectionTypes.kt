@@ -9,6 +9,7 @@ data class PushSlimInboundPlan(
     val connectionState: PushConnectionState? = null,
     val connectionReason: String? = null,
     val disconnectReasonCode: Int? = null,
+    val shouldLogUnknownType: Boolean = false
 )
 
 data class PushSlimPingPlan(
@@ -19,4 +20,8 @@ enum class PushSlimInboundAction {
     None,
     PingReceived,
     CloseReceived,
+    DeliverBlob,
+    ParseSecurePacket,
+    ParsePacket,
+    IgnoreUnknown
 }

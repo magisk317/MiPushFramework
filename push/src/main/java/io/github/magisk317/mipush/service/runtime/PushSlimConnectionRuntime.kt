@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.service.runtime
 import com.xiaomi.push.service.*
+import com.xiaomi.xmsf.runtime.PushConnectionState
 import com.xiaomi.slim.*
 
 object PushSlimConnectionRuntime {

@@ -31,7 +31,7 @@ class SingletonTest {
     fun `reset overrides created instance`() {
         val original = Singleton.get(Counter::class.java)
         val override = Counter()
-        Singleton.reset(Counter::class.java, override)
+        Singleton.reset<Counter>(Counter::class.java, override)
 
         assertSame(override, Singleton.get(Counter::class.java))
         assertNotSame(original, Singleton.get(Counter::class.java))
@@ -41,10 +41,11 @@ class SingletonTest {
     fun `autoReset restores original after close`() {
         val original = Singleton.get(Counter::class.java)
         val override = Counter()
-        val autoReset = Singleton.reset(Counter::class.java, override)
+        val autoReset = Singleton.reset<Counter>(Counter::class.java, override)
         assertSame(override, Singleton.get(Counter::class.java))
 
-        autoReset.close()
+        // Call close via AutoCloseable interface
+        (autoReset as AutoCloseable).close()
         assertSame(original, Singleton.get(Counter::class.java))
     }
 

@@ -4,6 +4,8 @@ import android.content.ContentProvider
 import android.content.ContentValues
 import android.database.Cursor
 import android.net.Uri
+import io.github.magisk317.mipush.utils.LogBundleExporter
+import io.github.magisk317.mipush.utils.LogUtils
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date

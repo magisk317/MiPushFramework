@@ -343,7 +343,7 @@ tasks.register("checkNoDirectDataStoreManagerUsage") {
         projectRoot.resolve("common/src/main/java"),
     )
     val allowedPaths = setOf(
-        "push/src/main/java/com/magisk317/data/DataStoreManager.kt",
+        "push/src/main/java/io/github/magisk317/mipush/data/DataStoreManager.kt",
     )
 
     doLast {

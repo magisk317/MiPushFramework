@@ -8,6 +8,7 @@ import com.xiaomi.channel.commonutils.string.Base64Coder
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushActionSendMessage
+import io.github.magisk317.mipush.utils.ConvertUtils
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull

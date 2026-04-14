@@ -40,7 +40,7 @@ object GlobalSingletons {
     }
 
     @JvmStatic
-    fun configValueConverter(): com.xiaomi.xmsf.push.utils.ConfigValueConverter =
+    fun configValueConverter(): io.github.magisk317.mipush.utils.ConfigValueConverter =
         Singleton.instance()
 
     @JvmStatic

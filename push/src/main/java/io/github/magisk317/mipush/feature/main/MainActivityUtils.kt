@@ -21,7 +21,7 @@ class MainActivityUtils {
         fun onChange(status: ConnectionStatus)
     }
 
-    fun initOnCreate(context: Context, configCenter: com.xiaomi.xmsf.utils.ConfigCenter, connectionStatusChanged: ConnectionStatusChanged) {
+    fun initOnCreate(context: Context, configCenter: io.github.magisk317.mipush.app.ConfigCenter, connectionStatusChanged: ConnectionStatusChanged) {
         val appContext = context.applicationContext
         messenger = InternalMessenger(appContext).apply {
             register(IntentFilter(XMPushServiceMessenger.IntentSetConnectionStatus))

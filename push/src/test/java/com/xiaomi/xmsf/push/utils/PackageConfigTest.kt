@@ -1,5 +1,6 @@
 package com.xiaomi.xmsf.push.utils
 
+import io.github.magisk317.mipush.utils.PackageConfig
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
