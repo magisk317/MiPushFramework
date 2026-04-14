@@ -25,13 +25,21 @@ class Configurations @Inject constructor() {
     }
 
     fun init(context: Context, directory: Uri?) {
-        // Bridging to modern initialization if needed
+        // Delegate to the legacy Configurations which owns the actual loader.
+        com.xiaomi.xmsf.push.utils.Configurations.getInstance().init(context, directory)
     }
 
     fun handle(packageName: String, container: XmPushActionContainer): Set<String> {
-        // Bridging to modern decision logic. 
-        // For now, returning empty set to stabilize build.
-        // TODO: Map to actual configuration repository.
-        return emptySet()
+        // Delegate to the legacy Configurations which owns the actual config matching logic.
+        return try {
+            com.xiaomi.xmsf.push.utils.Configurations.getInstance().handle(packageName, container)
+        } catch (t: Throwable) {
+            io.github.aakira.napier.Napier.e(
+                "Configurations.handle failed for $packageName",
+                t,
+                tag = "Configurations"
+            )
+            emptySet()
+        }
     }
 }

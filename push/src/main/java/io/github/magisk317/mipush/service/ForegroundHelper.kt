@@ -5,16 +5,17 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.pm.ServiceInfo
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationChannelGroupCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
+import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.Global
 import com.xiaomi.xmsf.R
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class ForegroundHelper(private val service: Service) {
     companion object {
@@ -26,8 +27,15 @@ class ForegroundHelper(private val service: Service) {
         createNotificationGroupForPushStatus()
         // Always satisfy startForegroundService contract first, then apply keep-alive policy.
         showForegroundNotificationToKeepAlive()
-        if (!runBlocking { Global.ConfigCenter().isStartForegroundServiceAsync() }) {
-            Handler(Looper.getMainLooper()).post { stopForegroundNotification() }
+        // Check keep-alive preference asynchronously to avoid blocking the main thread.
+        CoroutineScope(Dispatchers.Main.immediate).launch {
+            try {
+                if (!Global.ConfigCenter().isStartForegroundServiceAsync()) {
+                    stopForegroundNotification()
+                }
+            } catch (t: Throwable) {
+                Napier.e("Failed to check foreground service preference", t, tag = "ForegroundHelper")
+            }
         }
     }
 

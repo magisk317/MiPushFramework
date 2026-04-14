@@ -9,7 +9,7 @@ import io.github.magisk317.mipush.platform.support.GlobalSingletons
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.utils.Configurations
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import io.github.magisk317.mipush.common.Constants
 
 import javax.inject.Inject
@@ -27,7 +27,9 @@ class ConfigCenter @Inject constructor(
     init {
         try {
             io.github.magisk317.mipush.common.utils.Singleton.reset(this)
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            io.github.aakira.napier.Napier.w("Singleton.reset failed for ConfigCenter", t, tag = "ConfigCenter")
+        }
     }
     suspend fun isNotificationOnRegisterAsync(): Boolean =
         preferenceRepository.notificationOnRegister.first()
@@ -76,12 +78,16 @@ class ConfigCenter @Inject constructor(
     }
 
     fun loadConfigurations(context: Context) {
-        val directory = runBlocking { getConfigurationDirectoryAsync() }
-        Configurations.getInstance().init(context, directory)
-        GlobalSingletons.iconConfigurations().init(context, directory)
-        val intent = Intent()
-        intent.component = ComponentName(context, XMPushService::class.java)
-        intent.action = Constants.CONFIGURATIONS_UPDATE_ACTION
-        context.startService(intent)
+        // Use a cached directory value to avoid blocking the calling thread.
+        // The configuration directory rarely changes and is set explicitly by the user.
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            val directory = getConfigurationDirectoryAsync()
+            Configurations.getInstance().init(context, directory)
+            GlobalSingletons.iconConfigurations().init(context, directory)
+            val intent = Intent()
+            intent.component = ComponentName(context, XMPushService::class.java)
+            intent.action = Constants.CONFIGURATIONS_UPDATE_ACTION
+            context.startService(intent)
+        }
     }
 }

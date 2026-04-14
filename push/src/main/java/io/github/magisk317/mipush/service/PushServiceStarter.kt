@@ -6,12 +6,30 @@ import androidx.core.content.ContextCompat
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.Global
 import io.github.magisk317.mipush.runtime.PushRuntimeComponents
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 
 object PushServiceStarter {
     private val logger = object {
         fun d(msg: String) = Napier.d(msg, tag = "PushServiceStarter")
         fun e(msg: String, t: Throwable) = Napier.e(msg, t, tag = "PushServiceStarter")
+    }
+
+    /**
+     * Cached foreground-start preference to avoid blocking the caller thread.
+     * Updated asynchronously; defaults to false (safe fallback — uses startService).
+     */
+    @Volatile
+    private var cachedShouldForegroundStart: Boolean = false
+
+    @JvmStatic
+    fun refreshForegroundStartPreference() {
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            cachedShouldForegroundStart = try {
+                Global.ConfigCenter().shouldStartPushAsForegroundServiceAsync()
+            } catch (_: Throwable) {
+                false
+            }
+        }
     }
 
     @JvmStatic
@@ -29,7 +47,7 @@ object PushServiceStarter {
                 return
             }
 
-            val shouldUseForegroundStart = runBlocking { Global.ConfigCenter().shouldStartPushAsForegroundServiceAsync() } &&
+            val shouldUseForegroundStart = cachedShouldForegroundStart &&
                 XMPushServiceLifecycleBridge.canStartForegroundImmediately()
             if (shouldUseForegroundStart) {
                 ContextCompat.startForegroundService(context, intent)

@@ -6,7 +6,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationChannelGroupCompat
@@ -36,9 +35,7 @@ import io.github.magisk317.mipush.runtime.store.DatabaseUtils
 import com.xiaomi.xmsf.stock.StockSurfaceBootstrap
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
@@ -138,9 +135,23 @@ class MiPushFrameworkApp : Application() {
         }
     }
 
-    private fun getLastStartupTime(): Long = runBlocking { preferenceRepository.lastStartupTime.first() }
+    private fun getLastStartupTime(): Long {
+        // Use cached value from SharedPreferences to avoid blocking main thread.
+        // DataStore-backed preferences are eventually consistent; SharedPreferences
+        // provides a synchronous fallback that is safe on Application.onCreate.
+        return try {
+            val prefs = getSharedPreferences("mipush_startup", Context.MODE_PRIVATE)
+            prefs.getLong("last_startup_time", 0L)
+        } catch (_: Throwable) {
+            0L
+        }
+    }
 
     private fun setStartupTime(value: Long) {
+        try {
+            getSharedPreferences("mipush_startup", Context.MODE_PRIVATE)
+                .edit().putLong("last_startup_time", value).apply()
+        } catch (_: Throwable) {}
         applicationScope.launch {
             preferenceRepository.setLastStartupTime(value)
         }
