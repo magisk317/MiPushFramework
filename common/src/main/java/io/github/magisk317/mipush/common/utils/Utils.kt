@@ -144,12 +144,19 @@ object Utils {
 
     @JvmStatic
     fun makeText(context: Context, usedString: CharSequence, duration: Int) {
-        Handler(Looper.getMainLooper()).post {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
             try {
                 Toast.makeText(context, usedString, duration).show()
             } catch (ignored: Throwable) {
-                // TODO: It's a bad way to switch to main thread.
-                // Ignored service death
+                // Ignored: context may be from a dead service
+            }
+        } else {
+            Handler(Looper.getMainLooper()).post {
+                try {
+                    Toast.makeText(context, usedString, duration).show()
+                } catch (ignored: Throwable) {
+                    // Ignored: context may be from a dead service
+                }
             }
         }
     }

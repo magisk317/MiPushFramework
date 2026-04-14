@@ -18,6 +18,7 @@ object Singleton {
             return userObj
         }
 
+        // Double-check: read from instances before falling through to synchronized create.
         val obj = instances[klass] as? T
         if (obj != null) {
             return obj
@@ -55,22 +56,30 @@ object Singleton {
     }
 
     @JvmStatic
-    @Synchronized
     @Suppress("UNCHECKED_CAST")
     @PublishedApi
     internal fun <T : Any> create(klass: Class<T>): T {
+        // Fast path outside lock — ConcurrentHashMap read is safe.
         var obj = instances[klass] as? T
         if (obj != null) {
             return obj
         }
-        return try {
-            val constructor = klass.getDeclaredConstructor()
-            constructor.isAccessible = true
-            obj = constructor.newInstance()
-            instances[klass] = obj as Any
-            obj
-        } catch (e: Throwable) {
-            throw RuntimeException(e)
+        // Slow path: synchronize on the class to avoid duplicate instantiation per type
+        // while not blocking unrelated types.
+        synchronized(klass) {
+            obj = instances[klass] as? T
+            if (obj != null) {
+                return obj!!
+            }
+            return try {
+                val constructor = klass.getDeclaredConstructor()
+                constructor.isAccessible = true
+                val newObj = constructor.newInstance()
+                instances[klass] = newObj as Any
+                newObj
+            } catch (e: Throwable) {
+                throw RuntimeException("Singleton.create failed for ${klass.name}", e)
+            }
         }
     }
 

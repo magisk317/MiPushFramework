@@ -23,6 +23,7 @@ android {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.annotation)
+    implementation(libs.napier)
     // javax.inject no longer needed; annotations removed from common caches
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.mockkery.runtime.jvm)
