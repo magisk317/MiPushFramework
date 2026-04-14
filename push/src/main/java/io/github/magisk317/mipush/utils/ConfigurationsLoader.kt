@@ -1,4 +1,4 @@
-package com.xiaomi.xmsf.push.utils
+package io.github.magisk317.mipush.utils
 
 import android.content.Context
 import android.net.Uri
@@ -6,8 +6,8 @@ import android.util.Pair
 import android.widget.Toast
 import androidx.documentfile.provider.DocumentFile
 import io.github.aakira.napier.Napier
-import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.Global
+import io.github.magisk317.mipush.app.ConfigCenter
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -21,7 +21,7 @@ import io.github.magisk317.mipush.common.utils.Utils
 
 @Singleton
 class ConfigurationsLoader @Inject constructor(
-    private val configCenter: com.xiaomi.xmsf.utils.ConfigCenter
+    private val configCenter: ConfigCenter
 ) {
     private var version: String? = null
     private var packageConfigs: MutableMap<String, MutableList<Any>> = hashMapOf()
@@ -182,7 +182,7 @@ class ConfigurationsLoader @Inject constructor(
         ): StringBuilder {
             val file = pair.first
             val e = pair.second
-            e.printStackTrace()
+            Napier.e("JSON parse error in ${file.name}", e, tag = TAG)
 
             var errmsg = StringBuilder(e.toString())
             val pattern = Pattern.compile(" character (\\d+) of ")
@@ -232,7 +232,7 @@ class ConfigurationsLoader @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                Napier.e("readTextFromUri failed", e, tag = TAG)
                 Utils.makeText(context, e.toString(), Toast.LENGTH_LONG)
             }
             return stringBuilder.toString()

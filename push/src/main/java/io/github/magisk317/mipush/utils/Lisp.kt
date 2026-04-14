@@ -1,8 +1,7 @@
-package com.xiaomi.xmsf.push.utils
+package io.github.magisk317.mipush.utils
 
 import android.os.Build
 import io.github.aakira.napier.Napier
-import io.github.aakira.napier.DebugAntilog
 import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener

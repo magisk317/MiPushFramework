@@ -29,7 +29,7 @@ import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.notification.NotificationController
 import io.github.magisk317.mipush.runtime.PushRuntime
-import com.xiaomi.xmsf.push.utils.Configurations
+import io.github.magisk317.mipush.utils.Configurations
 import java.util.function.Consumer
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.platform.activity.AccessMode
