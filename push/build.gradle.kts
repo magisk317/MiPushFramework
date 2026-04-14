@@ -1,7 +1,7 @@
 plugins {
     id("mipush.android.application")
     id("mipush.android.room")
-    id("mipush.android.hilt")
+    alias(libs.plugins.hilt.android)
     id("mipush.android.compose")
     id("mipush.app.packaging")
     alias(libs.plugins.kotlin.serialization)
@@ -45,7 +45,6 @@ tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
 
 dependencies {
     implementation(project(":common"))
-    implementation(project(":runtime-core"))
     implementation(project(":magisk-ui-kit"))
     implementation(project(":legacy-runtime"))
     implementation(project(":protocol-frozen"))
@@ -68,4 +67,8 @@ dependencies {
     implementation(libs.markdown)
     implementation(libs.haze.android)
     implementation(libs.androidx.datastore.preferences)
+
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+    implementation(libs.androidx.hilt.navigation.compose)
 }
