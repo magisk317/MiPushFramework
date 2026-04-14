@@ -14,7 +14,11 @@ android {
 
 dependencies {
     implementation(project(":common"))
+    api(project(":runtime-core"))
     implementation(project(":protocol-frozen"))
+
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.napier)
 
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
