@@ -7,7 +7,7 @@ import android.widget.Toast
 import androidx.documentfile.provider.DocumentFile
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
-import com.magisk317.Global
+import io.github.magisk317.mipush.Global
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject

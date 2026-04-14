@@ -1,10 +1,10 @@
-package com.xiaomi.xmsf
+package io.github.magisk317.mipush.app
 
 import android.content.Context
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.runtime.PushRuntime
-import com.xiaomi.xmsf.push.control.PushControllerUtils
-import com.xiaomi.xmsf.push.control.PushControllerUtils.pushRegistered
+import io.github.magisk317.mipush.control.PushControllerUtils
+import io.github.magisk317.mipush.control.PushControllerUtils.pushRegistered
 import java.util.Objects
 
 class FirstRegister(private val context: Context) : Runnable {

@@ -1,7 +1,7 @@
 package com.xiaomi.xmsf.push.utils
 
 import android.os.Build
-import com.magisk317.Global
+import io.github.magisk317.mipush.Global
 import org.apache.thrift.TBase
 import org.json.JSONArray
 import org.json.JSONException

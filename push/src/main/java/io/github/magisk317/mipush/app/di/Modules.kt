@@ -13,7 +13,7 @@ import io.github.magisk317.mipush.runtime.store.db.AppDatabase
 import io.github.magisk317.mipush.runtime.store.db.AppDatabaseMigrations
 import io.github.magisk317.mipush.runtime.store.db.EventDao
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDao
-import com.magisk317.data.dataStore
+import io.github.magisk317.mipush.data.dataStore
 import javax.inject.Singleton
 
 @Module

@@ -5,9 +5,9 @@ import android.content.Context
 import android.content.Intent
 import com.xiaomi.channel.commonutils.network.Network
 import com.xiaomi.smack.util.TrafficUtils
-import com.magisk317.service.PushServiceStarter
-import com.xiaomi.xmsf.runtime.PushRuntime
-import com.xiaomi.xmsf.runtime.PushRuntimeComponents
+import io.github.magisk317.mipush.service.PushServiceStarter
+import io.github.magisk317.mipush.runtime.PushRuntime
+import io.github.magisk317.mipush.runtime.PushRuntimeComponents
 
 class NetworkStatusReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {

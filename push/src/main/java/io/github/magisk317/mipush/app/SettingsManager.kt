@@ -1,4 +1,4 @@
-package com.xiaomi.xmsf
+package io.github.magisk317.mipush.app
 
 import android.app.Activity
 import android.content.ComponentName
@@ -10,18 +10,19 @@ import android.os.Build
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import io.github.magisk317.mipush.diagnostics.PushHealthSnapshotLogger
-import io.github.magisk317.mipush.InternalMessenger
 import io.github.magisk317.mipush.network.NetworkPolicyCompat
+import com.xiaomi.xmsf.BuildConfig
+import com.xiaomi.xmsf.R
+import io.github.magisk317.mipush.diagnostics.PushHealthSnapshotLogger
+import io.github.magisk317.mipush.platform.support.InternalMessenger
 import io.github.magisk317.mipush.utils.RegistrationHelper
 import com.topjohnwu.superuser.Shell
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.push.service.PushServiceConstants
 import com.xiaomi.push.service.XMPushServiceMessenger
 import com.xiaomi.smack.ConnectionConfiguration
-import com.xiaomi.xmsf.push.notification.NotificationController
-import com.xiaomi.xmsf.utils.ConfigCenter
-import com.xiaomi.xmsf.utils.LogUtils
+import io.github.magisk317.mipush.notification.NotificationController
+import io.github.magisk317.mipush.utils.LogUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.utils.Utils

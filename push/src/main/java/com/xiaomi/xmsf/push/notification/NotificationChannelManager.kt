@@ -10,9 +10,9 @@ import android.net.Uri
 import android.os.Build
 import android.text.TextUtils
 import androidx.annotation.RequiresApi
-import com.magisk317.Global
-import com.magisk317.XMPushUtils
-import com.magisk317.notification.NotificationManagerEx
+import io.github.magisk317.mipush.Global
+import io.github.magisk317.mipush.XMPushUtils
+import io.github.magisk317.mipush.notification.NotificationManagerEx
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import io.github.magisk317.mipush.common.utils.NotificationUtils.getChannelIdByPkg
 import io.github.magisk317.mipush.common.utils.NotificationUtils.getGroupIdByPkg

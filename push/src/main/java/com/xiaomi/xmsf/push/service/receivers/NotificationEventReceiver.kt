@@ -3,8 +3,8 @@ package com.xiaomi.xmsf.push.service.receivers
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.magisk317.diagnostics.PushHealthSnapshotLogger
-import com.xiaomi.xmsf.runtime.PushRuntime
+import io.github.magisk317.mipush.diagnostics.PushHealthSnapshotLogger
+import io.github.magisk317.mipush.runtime.PushRuntime
 
 class NotificationEventReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {

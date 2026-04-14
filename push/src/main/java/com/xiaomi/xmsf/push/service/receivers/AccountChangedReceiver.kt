@@ -3,7 +3,7 @@ package com.xiaomi.xmsf.push.service.receivers
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.xiaomi.xmsf.runtime.PushRuntime
+import io.github.magisk317.mipush.runtime.PushRuntime
 import com.xiaomi.xmsf.push.service.MiuiPushActivateService
 
 class AccountChangedReceiver : BroadcastReceiver() {

@@ -6,8 +6,8 @@ import android.content.Intent
 import io.github.aakira.napier.Napier
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.push.service.PushServiceConstants
-import com.magisk317.service.PushServiceStarter
-import com.xiaomi.xmsf.runtime.PushRuntimeComponents
+import io.github.magisk317.mipush.service.PushServiceStarter
+import io.github.magisk317.mipush.runtime.PushRuntimeComponents
 
 /**
  * @author zts

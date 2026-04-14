@@ -4,7 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.xiaomi.push.service.ClientEventDispatcher
-import com.xiaomi.xmsf.runtime.PushRuntime
+import io.github.magisk317.mipush.runtime.PushRuntime
 
 /**
  * Created by Trumeet on 2017/8/25.
@@ -19,7 +19,7 @@ class BootReceiver : BroadcastReceiver() {
                 source = "BootReceiver.onReceive"
             )
             runCatching {
-                ClientEventDispatcher().notifyServiceStarted(context)
+                ClientEventDispatcher().notifyServiceStarted(context, io.github.magisk317.mipush.framework.MiPushRuntimeObserverBridge(context))
                 PushRuntime.handleBootCompleted("BootReceiver.onReceive")
             }
         }

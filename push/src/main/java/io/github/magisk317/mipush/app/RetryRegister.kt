@@ -1,10 +1,10 @@
-package com.xiaomi.xmsf
+package io.github.magisk317.mipush.app
 
 import android.content.Context
 import com.xiaomi.channel.commonutils.logger.MyLog
 import io.github.magisk317.mipush.runtime.PushRuntime
-import com.xiaomi.xmsf.push.control.PushControllerUtils
-import com.xiaomi.xmsf.push.control.PushControllerUtils.pushRegistered
+import io.github.magisk317.mipush.control.PushControllerUtils
+import io.github.magisk317.mipush.control.PushControllerUtils.pushRegistered
 
 class RetryRegister(private val context: Context, private val tryRegisterCount: Int) : Runnable {
     override fun run() {

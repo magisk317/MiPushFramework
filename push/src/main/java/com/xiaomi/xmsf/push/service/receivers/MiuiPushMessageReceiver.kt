@@ -2,13 +2,13 @@ package com.xiaomi.xmsf.push.service.receivers
 
 import android.content.Context
 import android.content.Intent
-import com.magisk317.diagnostics.RateLimitedWarnLogger
+import io.github.magisk317.mipush.diagnostics.RateLimitedWarnLogger
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import com.xiaomi.mipush.sdk.MiPushCommandMessage
 import com.xiaomi.mipush.sdk.MiPushMessage
 import com.xiaomi.mipush.sdk.PushMessageReceiver
-import com.xiaomi.xmsf.runtime.PushRuntime
+import io.github.magisk317.mipush.runtime.PushRuntime
 import com.xiaomi.xmsf.push.service.XMAccountManager
 
 class MiuiPushMessageReceiver : PushMessageReceiver() {

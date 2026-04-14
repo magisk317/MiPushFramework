@@ -12,7 +12,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.text.TextUtils
-import com.magisk317.diagnostics.RateLimitedWarnLogger
+import io.github.magisk317.mipush.diagnostics.RateLimitedWarnLogger
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog

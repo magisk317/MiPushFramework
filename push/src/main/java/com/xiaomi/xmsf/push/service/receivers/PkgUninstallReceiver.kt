@@ -6,7 +6,7 @@ import android.content.Intent
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import com.xiaomi.push.service.PushServiceConstants
-import com.magisk317.service.PushServiceStarter
+import io.github.magisk317.mipush.service.PushServiceStarter
 
 class PkgUninstallReceiver : BroadcastReceiver() {
     private val TAG = "PkgUninstallReceiver"

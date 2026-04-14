@@ -1,13 +1,13 @@
-package com.xiaomi.xmsf.utils
+package io.github.magisk317.mipush.app
 
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import io.github.magisk317.mipush.Global
+import com.xiaomi.push.service.XMPushService
+import io.github.magisk317.mipush.platform.support.GlobalSingletons
 import io.github.magisk317.mipush.data.PreferenceRepository
-import com.xiaomi.xmsf.push.service.MiPushFacadeService
-import com.xiaomi.xmsf.push.utils.Configurations
+import io.github.magisk317.mipush.utils.Configurations
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.common.Constants
@@ -78,9 +78,9 @@ class ConfigCenter @Inject constructor(
     fun loadConfigurations(context: Context) {
         val directory = runBlocking { getConfigurationDirectoryAsync() }
         Configurations.getInstance().init(context, directory)
-        Global.IconConfigurations().init(context, directory)
+        GlobalSingletons.iconConfigurations().init(context, directory)
         val intent = Intent()
-        intent.component = ComponentName(context, MiPushFacadeService::class.java)
+        intent.component = ComponentName(context, XMPushService::class.java)
         intent.action = Constants.CONFIGURATIONS_UPDATE_ACTION
         context.startService(intent)
     }

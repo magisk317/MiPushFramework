@@ -19,10 +19,10 @@ import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.drawable.IconCompat
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
-import com.magisk317.Global
-import com.magisk317.XMPushUtils
-import com.magisk317.notification.NotificationManagerEx
-import com.xiaomi.push.service.MyMIPushNotificationHelper
+import io.github.magisk317.mipush.Global
+import io.github.magisk317.mipush.XMPushUtils
+import io.github.magisk317.mipush.notification.NotificationManagerEx
+import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
 import com.xiaomi.push.service.MyNotificationIconHelper
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer

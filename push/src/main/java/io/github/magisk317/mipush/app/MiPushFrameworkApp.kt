@@ -1,4 +1,4 @@
-package com.xiaomi.xmsf
+package io.github.magisk317.mipush.app
 
 import android.app.Application
 import android.app.Notification
@@ -12,25 +12,28 @@ import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationChannelGroupCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import com.magisk317.data.PreferenceRepository
+import io.github.magisk317.mipush.diagnostics.PushHealthSnapshotLogger
+import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
-import com.magisk317.diagnostics.PushHealthSnapshotLogger
-import com.xiaomi.xmsf.utils.LogUtils
-import com.magisk317.notification.NotificationManagerEx
-import com.magisk317.utils.Hooker
-import com.magisk317.utils.PrivilegeElevator
-import com.xiaomi.xmsf.CrashHandler
-import com.xiaomi.xmsf.push.control.PushControllerUtils
-import com.xiaomi.xmsf.push.control.PushControllerUtils.isAppMainProc
-import com.xiaomi.xmsf.push.notification.NotificationController.CHANNEL_WARN
+import io.github.magisk317.mipush.utils.LogUtils
+import io.github.magisk317.mipush.notification.NotificationManagerEx
+import io.github.magisk317.mipush.utils.Hooker
+import io.github.magisk317.mipush.utils.PrivilegeElevator
+import io.github.magisk317.mipush.control.PushControllerUtils
+import io.github.magisk317.mipush.control.PushControllerUtils.isAppMainProc
+import io.github.magisk317.mipush.notification.NotificationController.CHANNEL_WARN
+import io.github.magisk317.mipush.platform.support.CrashHandler
 import com.xiaomi.xmsf.push.service.MiuiPushActivateService
-import com.xiaomi.xmsf.runtime.PushRuntimeChannelTracker
-import com.xiaomi.xmsf.runtime.PushRuntimeExecutionBridge
+import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
+import io.github.magisk317.mipush.runtime.PushRuntimeExecutionBridge
+import com.xiaomi.xmsf.BuildConfig
+import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.platform.service.PushServiceAccessibility
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.DatabaseUtils
+import com.xiaomi.xmsf.stock.StockSurfaceBootstrap
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
@@ -65,6 +68,7 @@ class MiPushFrameworkApp : Application() {
         PushRuntimeChannelTracker.attach(this)
         PushControllerUtils.setAllEnable(true, this)
         awakePushActivateServiceOnMainProc(PushControllerUtils.wrapContext(this))
+        StockSurfaceBootstrap.bootstrap(this)
         requestDozeWhiteList()
         PushHealthSnapshotLogger.log(this, "MiPushFrameworkApp.onCreate")
     }

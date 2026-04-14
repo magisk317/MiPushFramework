@@ -8,7 +8,7 @@ import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.push.service.PushServiceConstants
 import com.xiaomi.push.service.timers.Alarm
-import com.magisk317.service.PushServiceStarter
+import io.github.magisk317.mipush.service.PushServiceStarter
 
 class MiPushPingReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
