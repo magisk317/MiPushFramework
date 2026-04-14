@@ -31,7 +31,7 @@ import com.xiaomi.xmsf.push.notification.NotificationController
 import com.xiaomi.xmsf.push.utils.Configurations
 import com.xiaomi.xmsf.push.utils.IconConfigurations
 import com.xiaomi.xmsf.push.utils.PackageConfig
-import com.xiaomi.xmsf.utils.ConfigCenter
+import io.github.magisk317.mipush.app.ConfigCenter
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlinx.coroutines.runBlocking

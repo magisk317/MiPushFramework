@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.main.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.data.PreferenceRepository
-import com.xiaomi.xmsf.SettingsManager
+import io.github.magisk317.mipush.app.SettingsManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.magisk317.uikit.theme.UiKitStyle
 import kotlinx.coroutines.flow.SharingStarted

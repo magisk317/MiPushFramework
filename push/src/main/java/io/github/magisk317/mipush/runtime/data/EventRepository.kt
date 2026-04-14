@@ -18,8 +18,8 @@ import com.xiaomi.xmsf.push.utils.Configurations
 import com.xiaomi.xmsf.push.utils.RegSecUtils
 import com.xiaomi.push.service.XMPushService as SdkXMPushService
 import com.xiaomi.xmsf.push.service.MiPushFacadeService as AppXMPushService
-import com.xiaomi.xmsf.utils.ConfigCenter
-import com.xiaomi.xmsf.utils.ConvertUtils
+import io.github.magisk317.mipush.app.ConfigCenter
+import io.github.magisk317.mipush.utils.ConvertUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.aakira.napier.Napier
 import kotlinx.serialization.json.Json

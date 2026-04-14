@@ -21,7 +21,7 @@ import java.util.Date
 import javax.inject.Inject
 import io.github.magisk317.mipush.runtime.store.event.type.TypeFactory
 import com.xiaomi.xmsf.push.utils.RegSecUtils
-import com.xiaomi.xmsf.SettingsManager
+import io.github.magisk317.mipush.app.SettingsManager
 
 @HiltViewModel
 class EventListViewModel @Inject constructor(

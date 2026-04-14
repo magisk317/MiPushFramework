@@ -4,7 +4,7 @@ import com.xiaomi.channel.commonutils.reflect.JavaCalls
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmsf.push.utils.RegSecUtils
-import com.xiaomi.xmsf.utils.ConvertUtils
+import io.github.magisk317.mipush.utils.ConvertUtils
 
 object MessageIdentity {
     @JvmStatic

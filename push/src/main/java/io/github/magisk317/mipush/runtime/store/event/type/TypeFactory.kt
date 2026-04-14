@@ -4,7 +4,7 @@ import android.annotation.SuppressLint
 import io.github.magisk317.mipush.XMPushUtils
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import com.xiaomi.xmsf.utils.ConvertUtils
+import io.github.magisk317.mipush.utils.ConvertUtils
 import io.github.magisk317.mipush.runtime.store.entities.Event
 import io.github.magisk317.mipush.runtime.store.event.EventType
 

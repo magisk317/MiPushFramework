@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.config
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import com.xiaomi.xmsf.utils.ConfigCenter
+import io.github.magisk317.mipush.app.ConfigCenter
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton

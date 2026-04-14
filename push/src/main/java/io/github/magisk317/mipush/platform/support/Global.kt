@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.platform.support
 
 import com.xiaomi.xmsf.push.utils.ConfigValueConverter
 import com.xiaomi.xmsf.push.utils.IconConfigurations
-import com.xiaomi.xmsf.utils.ConfigCenter
+import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.common.cache.ApplicationNameCache
 import io.github.magisk317.mipush.common.cache.IconCache
 import io.github.magisk317.mipush.framework.hook.ModernHookHandler

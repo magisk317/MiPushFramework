@@ -99,7 +99,7 @@ import io.github.magisk317.mipush.feature.main.subpage.SettingsPagePreview
 import io.github.magisk317.mipush.feature.ui.theme.*
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import javax.inject.Inject
-import com.xiaomi.xmsf.utils.ConfigCenter
+import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.runtime.data.EventRepository
 import kotlinx.coroutines.launch
 import androidx.activity.viewModels

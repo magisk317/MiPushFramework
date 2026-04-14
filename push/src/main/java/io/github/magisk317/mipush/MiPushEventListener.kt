@@ -4,7 +4,7 @@ import android.content.Intent
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import com.xiaomi.xmsf.utils.ConvertUtils
+import io.github.magisk317.mipush.utils.ConvertUtils
 
 class MiPushEventListener {
     fun receiveFromServer(container: XmPushActionContainer) {

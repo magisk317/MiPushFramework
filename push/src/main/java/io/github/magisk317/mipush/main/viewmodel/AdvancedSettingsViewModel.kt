@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import com.xiaomi.xmsf.SettingsManager
+import io.github.magisk317.mipush.app.SettingsManager
 import javax.inject.Inject
 
 @HiltViewModel
