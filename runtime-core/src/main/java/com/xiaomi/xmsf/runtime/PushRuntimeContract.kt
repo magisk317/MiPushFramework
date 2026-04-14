@@ -40,6 +40,8 @@ object PushRuntimeCapability {
     const val NOTIFICATION_POLICY_RUNTIME = "notification_policy_runtime"
     const val CHANNEL_LIFECYCLE_TRACKING = "channel_lifecycle_tracking"
     const val CONNECTION_SESSION_RUNTIME = "connection_session_runtime"
+    const val STOCK_SURFACE_COMPATIBILITY = "stock_surface_compatibility"
+    const val ACCOUNT_CLOUD_BRIDGE = "account_cloud_bridge"
 }
 
 data class PushRuntimeRegistrationDispatchResult(

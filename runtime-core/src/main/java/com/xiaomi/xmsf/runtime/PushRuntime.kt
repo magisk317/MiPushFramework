@@ -613,7 +613,9 @@ object PushRuntime {
                 PushRuntimeCapability.DOWNSTREAM_MESSAGE_PIPELINE,
                 PushRuntimeCapability.NOTIFICATION_POLICY_RUNTIME,
                 PushRuntimeCapability.CHANNEL_LIFECYCLE_TRACKING,
-                PushRuntimeCapability.CONNECTION_SESSION_RUNTIME
+                PushRuntimeCapability.CONNECTION_SESSION_RUNTIME,
+                PushRuntimeCapability.STOCK_SURFACE_COMPATIBILITY,
+                PushRuntimeCapability.ACCOUNT_CLOUD_BRIDGE,
             )
         )
     }

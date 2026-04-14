@@ -289,6 +289,8 @@ class PushRuntimeTest {
         assertTrue(capabilities.capabilities.contains(PushRuntimeCapability.NOTIFICATION_POLICY_RUNTIME))
         assertTrue(capabilities.capabilities.contains(PushRuntimeCapability.CHANNEL_LIFECYCLE_TRACKING))
         assertTrue(capabilities.capabilities.contains(PushRuntimeCapability.CONNECTION_SESSION_RUNTIME))
+        assertTrue(capabilities.capabilities.contains(PushRuntimeCapability.STOCK_SURFACE_COMPATIBILITY))
+        assertTrue(capabilities.capabilities.contains(PushRuntimeCapability.ACCOUNT_CLOUD_BRIDGE))
     }
 
     private fun testHost(processedIntents: MutableList<Intent>): PushRuntimeBridgeHost {
