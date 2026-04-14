@@ -51,8 +51,7 @@ object SyncInfoHelper {
                 Constants.EXTRA_KEY_APP_VERSION_CODE,
                 PushVersionInfo.reportedAppVersionCode(context.packageName, actualVersionCode).toString(),
             )
-            PreferenceUtils.putNotNullExtra(xmPushActionNotification.extra, PushConstants.KEY_PUSH_SDK_VERSION_NAME, PushConstants.PUSH_VERSION_NAME)
-            PreferenceUtils.putNotNullExtra(xmPushActionNotification.extra, PushConstants.KEY_PUSH_SDK_VERSION_CODE, PushConstants.PUSH_VERSION_CODE.toString())
+            PushVersionInfo.appendPushSdkExtras(xmPushActionNotification.extra)
             PreferenceUtils.putNotNullExtra(xmPushActionNotification.extra, "token", appInfoHolder.appToken)
             DeviceInfo.fillLocalVirtDevId(context, xmPushActionNotification.extra)
             if (!MIUIUtils.isGlobalRegion()) {
