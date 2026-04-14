@@ -56,20 +56,12 @@ class MIPushAccount(
         clientLoginInfo.chid = "5"
         clientLoginInfo.authMethod = "XMPUSH-PASS"
         clientLoginInfo.kick = false
-        clientLoginInfo.clientExtra = String.format(
-            "%1\$s:%2\$s,%3\$s:%4\$s,%5\$s:%6\$s:%7\$s:%8\$s,%9\$s:%10\$s,%11\$s:%12\$s",
-            "sdk_ver",
-            41,
-            PushConstants.KEY_CHANNEL_PUSH_VERSION_NAME,
-            PushConstants.PUSH_VERSION_NAME,
-            PushConstants.KEY_CHANNEL_PUSH_VERSION_CODE,
-            PushConstants.PUSH_VERSION_CODE,
-            PushConstants.RUNNING_APP_PACKAGE_NAMES,
-            if (isMIUIPush(context)) AppInfoUtils.getRunningAppPkgNames(context) else "",
-            PushConstants.KEY_COUNTRY_CODE,
-            AppRegionStorage.getInstance(context).getCountryCode(),
-            PushConstants.KEY_REGION,
-            AppRegionStorage.getInstance(context).getRegion(),
+        clientLoginInfo.clientExtra = ServiceClientIntentSupport.joinAttributes(
+            PushVersionInfo.buildClientExtraAttributes(
+                runningPackages = if (isMIUIPush(context)) AppInfoUtils.getRunningAppPkgNames(context) else "",
+                countryCode = AppRegionStorage.getInstance(context).getCountryCode().orEmpty(),
+                region = AppRegionStorage.getInstance(context).getRegion().orEmpty(),
+            ),
         )
         clientLoginInfo.cloudExtra = String.format(
             "%1\$s:%2\$s,%3\$s:%4\$s,%5\$s:%6\$s,sync:1",

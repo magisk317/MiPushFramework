@@ -166,11 +166,11 @@ object MIPushAccountUtils {
 
             params["appid"] = resolvedAppId
             params["apptoken"] = resolvedAppToken
-            params["appversion"] = PushVersionInfo.reportedAppVersionCode(
+            PushVersionInfo.appendAccountRegistrationParams(
+                target = params,
                 packageName = resolvedPackageName,
                 actualVersionCode = AppInfoUtils.getVersionCode(context, resolvedPackageName),
-            ).toString()
-            params["sdkversion"] = PushConstants.PUSH_VERSION_CODE.toString()
+            )
             params["packagename"] = resolvedPackageName
             params["model"] = Build.MODEL
             params["board"] = Build.BOARD

@@ -1,0 +1,21 @@
+package com.xiaomi.push.service
+
+import android.content.Context
+import com.xiaomi.channel.commonutils.logger.MyLog
+import com.xiaomi.xmpush.thrift.XmPushActionContainer
+import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
+
+class XmPushActionOperator(
+    private val xmPushService: XMPushService
+) {
+    val context: Context? get() = xmPushService.applicationContext
+
+    fun sendMessage(sendMsgContainer: XmPushActionContainer, packageName: String) {
+        val msgBytes = XmPushThriftSerializeUtils.convertThriftObjectToBytes(sendMsgContainer)
+        if (msgBytes.isEmpty()) {
+            MyLog.w("failed to serialize container")
+            return
+        }
+        xmPushService.sendMessage(packageName, msgBytes, false)
+    }
+}
