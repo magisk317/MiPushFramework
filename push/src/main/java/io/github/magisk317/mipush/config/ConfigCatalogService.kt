@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.config
 
-import com.magisk317.data.PreferenceRepository
-import com.magisk317.data.dataStore
+import io.github.magisk317.mipush.data.PreferenceRepository
+import io.github.magisk317.mipush.data.dataStore
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL

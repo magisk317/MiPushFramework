@@ -3,12 +3,12 @@ package io.github.magisk317.mipush.feature.wizard.support
 import android.app.Activity
 import android.content.Context
 import androidx.core.app.ActivityCompat
-import com.magisk317.data.PreferenceRepository
+import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import com.xiaomi.xmsf.MiPushFrameworkApp
+import io.github.magisk317.mipush.app.MiPushFrameworkApp
 
 /**
  * Compatibility helper around wizard completion state.

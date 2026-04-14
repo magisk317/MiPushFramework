@@ -8,7 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import android.text.TextUtils
-import com.magisk317.notification.NotificationManagerEx
+import io.github.magisk317.mipush.notification.NotificationManagerEx
 import com.xiaomi.xmsf.R
 import com.xiaomi.xmsf.push.notification.NotificationChannelManager
 import io.github.magisk317.mipush.common.Constants

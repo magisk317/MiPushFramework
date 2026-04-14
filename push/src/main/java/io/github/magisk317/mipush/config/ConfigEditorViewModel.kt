@@ -4,7 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.magisk317.data.PreferenceRepository
+import io.github.magisk317.mipush.data.PreferenceRepository
 import com.xiaomi.xmsf.utils.ConfigCenter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext

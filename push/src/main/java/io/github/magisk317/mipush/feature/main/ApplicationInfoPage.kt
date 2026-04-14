@@ -74,9 +74,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
-import com.magisk317.compat.RegistrationStateCompat
-import com.magisk317.compat.RegistrationStateStore
-import com.magisk317.utils.RegistrationHelper
+import io.github.magisk317.mipush.compat.RegistrationStateCompat
+import io.github.magisk317.mipush.compat.RegistrationStateStore
+import io.github.magisk317.mipush.utils.RegistrationHelper
 import io.github.magisk317.mipush.config.ConfigNavigationHelper
 import com.topjohnwu.superuser.Shell
 import com.xiaomi.xmsf.BuildConfig
@@ -154,7 +154,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                 application = RegisteredApplication()
                 application.packageName = pkg
                 application.registeredType = RegisteredType.NotRegistered
-                application.appName = com.magisk317.Global.ApplicationNameCache()
+                application.appName = io.github.magisk317.mipush.Global.ApplicationNameCache()
                     .getAppName(this, pkg).toString()
             }
             if (

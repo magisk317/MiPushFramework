@@ -56,8 +56,8 @@ import io.github.magisk317.mipush.feature.wizard.permission.NotificationPermissi
 import io.github.magisk317.mipush.feature.wizard.permission.RootPermissionInfo
 import io.github.magisk317.mipush.feature.wizard.permission.UsageStatsPermissionInfo
 import io.github.magisk317.mipush.feature.ui.theme.Theme
-import com.magisk317.data.PreferenceRepository
-import com.xiaomi.xmsf.MiPushFrameworkApp
+import io.github.magisk317.mipush.data.PreferenceRepository
+import io.github.magisk317.mipush.app.MiPushFrameworkApp
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking

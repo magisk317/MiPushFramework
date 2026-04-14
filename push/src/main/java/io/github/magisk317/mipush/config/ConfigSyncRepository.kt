@@ -1,8 +1,8 @@
 package io.github.magisk317.mipush.config
 
 import android.net.Uri
-import com.magisk317.data.PreferenceRepository
-import com.magisk317.data.dataStore
+import io.github.magisk317.mipush.data.PreferenceRepository
+import io.github.magisk317.mipush.data.dataStore
 import javax.inject.Inject
 import javax.inject.Singleton
 import io.github.magisk317.mipush.common.utils.Utils

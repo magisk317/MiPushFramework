@@ -11,9 +11,32 @@
     <permission
             android:name="com.xiaomi.xmsf.permission.BIND_HTTP_SERVICE"
             android:protectionLevel="signature" />
+    <permission
+            android:name="com.xiaomi.xmsf.permission.LOG_PROVIDER"
+            android:protectionLevel="signature" />
+    <permission
+            android:name="com.xiaomi.xmsf.permission.USE_XMSF_UPLOAD"
+            android:protectionLevel="signature" />
+    <permission
+            android:name="com.xiaomi.xmsf.permission.USE_XMSF_TRAFFIC"
+            android:protectionLevel="signature" />
+    <permission
+            android:name="com.xiaomi.xmsf.permission.READ_XMSF_LOG"
+            android:protectionLevel="signature" />
+    <permission
+            android:name="com.xiaomi.xmsf.permission.CHANNEL"
+            android:protectionLevel="signature" />
+    <permission
+            android:name="com.xiaomi.push.permission.PUSH_SUPPORT"
+            android:protectionLevel="signature" />
+    <permission
+            android:name="com.xiaomi.xmsf.permission.UPDATE_KA_CONFIG"
+            android:protectionLevel="signature" />
 
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="com.xiaomi.xmsf.permission.MIPUSH_RECEIVE" />
+    <uses-permission android:name="com.xiaomi.xmsf.permission.NOTIFICATION_ACTIVE" />
+    <uses-permission android:name="com.xiaomi.xmsf.permission.USE_XMSF_UPLOAD" />
     <uses-permission android:name="com.xiaomi.permission.SEND_PUSH" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
@@ -45,13 +68,22 @@
             android:allowBackup="false"
             android:icon="@mipmap/ic_app"
             android:label="@string/app_name"
-            android:manageSpaceActivity="top.trumeet.mipushframework.main.MainActivity"
+            android:manageSpaceActivity="io.github.magisk317.mipush.feature.main.MainActivity"
             android:supportsRtl="true"
             android:theme="@style/AppTheme"
             android:resizeableActivity="true"
             android:usesCleartextTraffic="true"
             tools:ignore="GoogleAppIndexingWarning"
             android:forceQueryable="true">
+        <meta-data
+                android:name="pushSupportFlag"
+                android:value="4" />
+        <meta-data
+                android:name="support_ka"
+                android:value="true" />
+        <meta-data
+                android:name="com.xiaomi.xms.support_kit"
+                android:value="true" />
 
 
         <activity
@@ -67,7 +99,7 @@
                 android:foregroundServiceType="dataSync"
                 android:exported="true" />
         <activity
-                android:name="top.trumeet.mipushframework.wizard.WelcomeActivity"
+                android:name="io.github.magisk317.mipush.feature.wizard.WelcomeActivity"
                 android:icon="@mipmap/ic_launcher"
                 android:exported="true">
             <intent-filter>
@@ -75,25 +107,25 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name="top.trumeet.mipushframework.wizard.RequestPermissionPage" />
+        <activity android:name="io.github.magisk317.mipush.feature.wizard.RequestPermissionPage" />
 
-        <activity android:name="top.trumeet.mipushframework.main.MainActivity" />
+        <activity android:name="io.github.magisk317.mipush.feature.main.MainActivity" />
 
         <activity
-                android:name="top.trumeet.mipushframework.main.ApplicationInfoPage"
+                android:name="io.github.magisk317.mipush.feature.main.ApplicationInfoPage"
                 android:configChanges="screenLayout|screenSize|orientation" />
 
         <activity
-                android:name="top.trumeet.mipushframework.main.RecentEventListPage"
+                android:name="io.github.magisk317.mipush.feature.main.RecentEventListPage"
                 android:label="@string/recent_activity_title" />
         <activity
-                android:name="top.trumeet.mipushframework.main.HelpPage"
+                android:name="io.github.magisk317.mipush.feature.main.HelpPage"
                 android:label="@string/helplib_title"
                 android:theme="@style/AppTheme" />
 
         <provider
                 android:name="androidx.core.content.FileProvider"
-                android:authorities="top.trumeet.mipushframework.fileprovider"
+                android:authorities="com.xiaomi.xmsf.fileprovider"
                 android:exported="false"
                 android:grantUriPermissions="true">
             <meta-data
@@ -114,6 +146,38 @@
                 android:authorities="com.xiaomi.xmsf.module.log"
                 android:exported="true"
                 android:grantUriPermissions="false" />
+        <provider
+                android:name="com.xiaomi.push.providers.TrafficProvider"
+                android:authorities="com.xiaomi.push.providers.TrafficProvider"
+                android:permission="com.xiaomi.xmsf.permission.USE_XMSF_TRAFFIC"
+                android:exported="true" />
+        <provider
+                android:name="com.xiaomi.xmsf.provider.MiCloudSettingsProvider"
+                android:authorities="com.xiaomi.xmsf.provider.MiCloudSettingsProvider"
+                android:writePermission="com.xiaomi.permission.CLOUD_MANAGER"
+                android:exported="true" />
+        <provider
+                android:name="com.xiaomi.xmsf.pushcontrol.PushControlProvider"
+                android:authorities="com.xiaomi.xmsf.pushcontrol.PushControlProvider"
+                android:exported="true" />
+        <provider
+                android:name="com.xiaomi.xmsf.provider.ChannelProvider"
+                android:authorities="com.xiaomi.xmsf.provider.CHANNEL"
+                android:permission="com.xiaomi.xmsf.permission.CHANNEL"
+                android:exported="true" />
+        <provider
+                android:name="com.xiaomi.push.provider.PushSupportProvider"
+                android:authorities="com.xiaomi.push.provider.PUSH_SUPPORT"
+                android:permission="com.xiaomi.push.permission.PUSH_SUPPORT"
+                android:exported="true" />
+        <provider
+                android:name="com.xiaomi.push.provider.PushCommonProvider"
+                android:authorities="com.xiaomi.push.provider.PUSH_COMMON"
+                android:exported="true" />
+        <provider
+                android:name="com.xiaomi.xmsf.provider.PushProfileIdProvider"
+                android:authorities="com.xiaomi.push.provider.profile"
+                android:exported="true" />
 
         <receiver
                 android:name=".push.service.receivers.BootReceiver"
@@ -180,6 +244,21 @@
             </intent-filter>
         </receiver>
         <receiver
+                android:name="com.xiaomi.xmsf.push.service.receivers.XMSFUploadReceiver"
+                android:exported="true"
+                android:permission="com.xiaomi.xmsf.permission.USE_XMSF_UPLOAD">
+            <intent-filter>
+                <action android:name="com.xiaomi.xmsf.push.XMSF_UPLOAD_ACTIVE" />
+            </intent-filter>
+        </receiver>
+        <receiver
+                android:name="com.xiaomi.xmsf.pushprocess.PushInnerReceiver"
+                android:exported="false">
+            <intent-filter>
+                <action android:name="com.xiaomi.xmsf.inner.PUSH_MESSAGE" />
+            </intent-filter>
+        </receiver>
+        <receiver
                 android:name="com.xiaomi.push.service.SelfUpdateReceiver"
                 android:exported="true">
             <intent-filter>
@@ -192,6 +271,43 @@
                 android:name=".push.service.HttpService"
                 android:permission="com.xiaomi.xmsf.permission.BIND_HTTP_SERVICE"
                 android:exported="true" />
+        <service
+                android:name="com.xiaomi.xmsf.push.service.StatService"
+                android:exported="true" />
+        <service
+                android:name="com.xiaomi.xmsf.push.service.notificationcollection.NotificationListener"
+                android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+                android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+        <service
+                android:name="com.xiaomi.xmsf.services.MainProcBridgeService"
+                android:enabled="true"
+                android:exported="false" />
+        <service
+                android:name="com.xiaomi.xmsf.services.ServiceBoxService"
+                android:exported="true"
+                android:process=":services" />
+        <service
+                android:name="com.xiaomi.xmsf.services.keepalive.strategy.KeepAliveConfigService"
+                android:permission="com.xiaomi.xmsf.permission.UPDATE_KA_CONFIG"
+                android:exported="true"
+                android:process=":services">
+            <intent-filter>
+                <action android:name="com.xiaomi.xmsf.service.UPDATE_KA_CONFIG" />
+            </intent-filter>
+        </service>
+        <service
+                android:name="com.xiaomi.xmsf.sync.BindMiCloudPushService"
+                android:permission="com.xiaomi.permission.CLOUD_MANAGER"
+                android:enabled="true"
+                android:exported="true">
+            <intent-filter>
+                <action android:name="com.xiaomi.xmsf.sync.BIND_PUSH_SERVICE" />
+            </intent-filter>
+        </service>
 
         <service
                 android:name=".push.service.MiPushFacadeService"

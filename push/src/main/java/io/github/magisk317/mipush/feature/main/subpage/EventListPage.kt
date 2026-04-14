@@ -59,7 +59,7 @@ import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
-import com.magisk317.Global
+import io.github.magisk317.mipush.Global
 import com.xiaomi.xmsf.R
 import com.xiaomi.xmsf.push.utils.RegSecUtils
 import kotlinx.coroutines.Dispatchers
@@ -87,7 +87,7 @@ import java.util.Calendar
 import java.util.Date
 
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.magisk317.main.viewmodel.EventListViewModel
+import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
 
 private val receiveDateFormat: SimpleDateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
 

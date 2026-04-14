@@ -32,6 +32,47 @@ class ManifestContractTest {
         assertEquals("signature", permission!!.getAttributeNS(ANDROID_NS, "protectionLevel"))
     }
 
+    @Test
+    fun `stock push providers are restored with stock authorities`() {
+        val document = parseManifest()
+
+        assertApplicationNodeAttribute(document, "provider", "com.xiaomi.xmsf.provider.ChannelProvider", "authorities", "com.xiaomi.xmsf.provider.CHANNEL")
+        assertApplicationNodeAttribute(document, "provider", "com.xiaomi.push.provider.PushSupportProvider", "authorities", "com.xiaomi.push.provider.PUSH_SUPPORT")
+        assertApplicationNodeAttribute(document, "provider", "com.xiaomi.push.provider.PushCommonProvider", "authorities", "com.xiaomi.push.provider.PUSH_COMMON")
+        assertApplicationNodeAttribute(document, "provider", "com.xiaomi.xmsf.provider.PushProfileIdProvider", "authorities", "com.xiaomi.push.provider.profile")
+        assertApplicationNodeAttribute(document, "provider", "com.xiaomi.xmsf.pushcontrol.PushControlProvider", "authorities", "com.xiaomi.xmsf.pushcontrol.PushControlProvider")
+        assertApplicationNodeAttribute(document, "provider", "com.xiaomi.xmsf.provider.MiCloudSettingsProvider", "authorities", "com.xiaomi.xmsf.provider.MiCloudSettingsProvider")
+    }
+
+    @Test
+    fun `stock bridge and listener services are restored`() {
+        val document = parseManifest()
+
+        assertApplicationNodeExists(document, "service", "com.xiaomi.xmsf.push.service.StatService")
+        assertApplicationNodeExists(document, "service", "com.xiaomi.xmsf.push.service.notificationcollection.NotificationListener")
+        assertApplicationNodeExists(document, "service", "com.xiaomi.xmsf.services.MainProcBridgeService")
+        assertApplicationNodeExists(document, "service", "com.xiaomi.xmsf.services.ServiceBoxService")
+        assertApplicationNodeExists(document, "service", "com.xiaomi.xmsf.services.keepalive.strategy.KeepAliveConfigService")
+        assertApplicationNodeExists(document, "service", "com.xiaomi.xmsf.sync.BindMiCloudPushService")
+    }
+
+    @Test
+    fun `stock upload and inner receivers are restored`() {
+        val document = parseManifest()
+
+        assertApplicationNodeExists(document, "receiver", "com.xiaomi.xmsf.push.service.receivers.XMSFUploadReceiver")
+        assertApplicationNodeExists(document, "receiver", "com.xiaomi.xmsf.pushprocess.PushInnerReceiver")
+    }
+
+    @Test
+    fun `stock file provider authority replaces legacy top authority`() {
+        val document = parseManifest()
+        val provider = findApplicationNodeByAndroidName(document, "provider", "androidx.core.content.FileProvider")
+
+        assertNotNull(provider)
+        assertEquals("com.xiaomi.xmsf.fileprovider", provider!!.getAttributeNS(ANDROID_NS, "authorities"))
+    }
+
     private fun parseManifest() = DocumentBuilderFactory.newInstance()
         .apply { isNamespaceAware = true }
         .newDocumentBuilder()
@@ -55,6 +96,25 @@ class ManifestContractTest {
             }
         }
         return null
+    }
+
+    private fun assertApplicationNodeExists(document: org.w3c.dom.Document, tagName: String, androidName: String) {
+        assertNotNull(
+            findApplicationNodeByAndroidName(document, tagName, androidName),
+            "Missing <$tagName android:name=\"$androidName\"> in manifest",
+        )
+    }
+
+    private fun assertApplicationNodeAttribute(
+        document: org.w3c.dom.Document,
+        tagName: String,
+        androidName: String,
+        attribute: String,
+        expectedValue: String,
+    ) {
+        val node = findApplicationNodeByAndroidName(document, tagName, androidName)
+        assertNotNull(node, "Missing <$tagName android:name=\"$androidName\"> in manifest")
+        assertEquals(expectedValue, node!!.getAttributeNS(ANDROID_NS, attribute))
     }
 
     private fun findNodeByAndroidName(document: org.w3c.dom.Document, tagName: String, androidName: String): Element? {

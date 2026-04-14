@@ -9,10 +9,10 @@ import android.text.TextUtils
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
-import com.magisk317.utils.RegistrationHelper
-import com.magisk317.Global
-import com.magisk317.compat.RegistrationStateCompat
-import com.magisk317.compat.RegistrationStateStore
+import io.github.magisk317.mipush.utils.RegistrationHelper
+import io.github.magisk317.mipush.Global
+import io.github.magisk317.mipush.compat.RegistrationStateCompat
+import io.github.magisk317.mipush.compat.RegistrationStateStore
 import com.xiaomi.xmsf.R
 import java.util.Date
 import java.util.Locale

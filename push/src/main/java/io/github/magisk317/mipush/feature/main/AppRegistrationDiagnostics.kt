@@ -3,8 +3,8 @@ package io.github.magisk317.mipush.feature.main
 import android.content.Context
 import android.content.pm.PackageManager
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
-import com.magisk317.compat.RegistrationStateCompat
-import com.magisk317.utils.RegistrationHelper
+import io.github.magisk317.mipush.compat.RegistrationStateCompat
+import io.github.magisk317.mipush.utils.RegistrationHelper
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.common.utils.Utils

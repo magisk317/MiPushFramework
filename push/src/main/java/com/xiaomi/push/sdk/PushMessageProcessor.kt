@@ -7,12 +7,12 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
-import com.magisk317.Global
-import com.magisk317.push.pipeline.MiPushRuntimeBridge
-import com.magisk317.XMPushUtils
+import io.github.magisk317.mipush.Global
+import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
+import io.github.magisk317.mipush.XMPushUtils
 import com.topjohnwu.superuser.Shell
 import com.xiaomi.push.service.MIPushNotificationHelper
-import com.xiaomi.push.service.MyMIPushNotificationHelper
+import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmsf.push.notification.NotificationController

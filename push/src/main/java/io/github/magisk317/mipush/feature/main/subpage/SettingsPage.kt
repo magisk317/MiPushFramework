@@ -45,7 +45,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.magisk317.main.viewmodel.SettingsViewModel
+import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import com.xiaomi.xmsf.BuildConfig
 import com.xiaomi.xmsf.R
 import dev.chrisbanes.haze.HazeState

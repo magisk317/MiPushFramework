@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.feature.ui.theme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
-import com.magisk317.data.PreferenceRepository
+import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.uikit.theme.MagiskUiKitTheme
 import io.github.magisk317.uikit.theme.UiKitStyle
 

@@ -6,7 +6,7 @@
         <item>de.robv.android.xposed.installer</item>
         <item>com.xiaomi.xmsf</item>
         <item>com.tencent.mm</item>
-        <item>top.trumeet.mipush</item>
+        <item>io.github.magisk317.mipush</item>
     </string-array>
 
     <!-- 任意应用包名包含以下项则不建议伪装机型 -->
