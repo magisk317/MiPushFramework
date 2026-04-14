@@ -15,6 +15,7 @@ import com.xiaomi.channel.commonutils.string.XMStringUtils;
 import com.xiaomi.push.service.OnlineConfig;
 import com.xiaomi.push.service.PacketHelper;
 import com.xiaomi.push.service.PushConstants;
+import com.xiaomi.push.service.PushVersionInfo;
 import com.xiaomi.xmpush.thrift.ActionType;
 import com.xiaomi.xmpush.thrift.ConfigKey;
 import com.xiaomi.xmpush.thrift.NotificationType;
@@ -51,8 +52,7 @@ public class SyncInfoHelper {
                 Map<String, String> map2 = xmPushActionNotification.extra;
                 Context context3 = context;
                 PreferenceUtils.putNotNullExtra(map2, Constants.EXTRA_KEY_APP_VERSION_CODE, Integer.toString(AppInfoUtils.getVersionCode(context3, context3.getPackageName())));
-                PreferenceUtils.putNotNullExtra(xmPushActionNotification.extra, PushConstants.KEY_PUSH_SDK_VERSION_NAME, PushConstants.PUSH_VERSION_NAME);
-                PreferenceUtils.putNotNullExtra(xmPushActionNotification.extra, PushConstants.KEY_PUSH_SDK_VERSION_CODE, Integer.toString(PushConstants.PUSH_VERSION_CODE));
+                PushVersionInfo.appendPushSdkExtras(xmPushActionNotification.extra);
                 PreferenceUtils.putNotNullExtra(xmPushActionNotification.extra, "token", appInfoHolder.getAppToken());
                 DeviceInfo.fillLocalVirtDevId(context, xmPushActionNotification.extra);
                 if (!MIUIUtils.isGlobalRegion()) {

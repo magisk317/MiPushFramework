@@ -6,7 +6,7 @@ import com.xiaomi.push.protobuf.ChannelMessage;
 import com.xiaomi.push.service.PushClientsManager;
 import com.xiaomi.push.service.PushSlimHandshakePlan;
 import com.xiaomi.push.service.PushSlimPayloadPlan;
-import com.xiaomi.push.service.PushSlimStreamRuntime;
+import io.github.magisk317.mipush.service.runtime.PushSlimStreamRuntime;
 import com.xiaomi.push.service.RC4Cryption;
 import java.io.BufferedInputStream;
 import java.io.EOFException;

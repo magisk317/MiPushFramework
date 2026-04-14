@@ -7,7 +7,7 @@ import com.xiaomi.channel.commonutils.string.MD5;
 import com.xiaomi.measite.smack.AndroidDebugger;
 import com.xiaomi.push.service.PushConnectionListenerEvent;
 import com.xiaomi.push.service.PushConnectionStatusPlan;
-import com.xiaomi.push.service.PushConnectionStatusRuntime;
+import io.github.magisk317.mipush.service.runtime.PushConnectionStatusRuntime;
 import com.xiaomi.push.service.PushClientsManager;
 import com.xiaomi.push.service.PushConstants;
 import com.xiaomi.push.service.XMPushService;

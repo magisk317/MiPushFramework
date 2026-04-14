@@ -43,7 +43,7 @@ import com.xiaomi.xmpush.thrift.XmPushActionSubscriptionResult;
 import com.xiaomi.xmpush.thrift.XmPushActionUnRegistrationResult;
 import com.xiaomi.xmpush.thrift.XmPushActionUnSubscriptionResult;
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils;
-import com.xiaomi.xmsf.runtime.PushRuntime;
+import io.github.magisk317.mipush.runtime.PushRuntime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;

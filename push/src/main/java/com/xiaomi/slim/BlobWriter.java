@@ -5,7 +5,7 @@ import com.xiaomi.channel.commonutils.android.SystemUtils;
 import com.xiaomi.channel.commonutils.logger.MyLog;
 import com.xiaomi.channel.commonutils.misc.DateTimeHelper;
 import com.xiaomi.push.protobuf.ChannelMessage;
-import com.xiaomi.push.service.PushSlimStreamRuntime;
+import io.github.magisk317.mipush.service.runtime.PushSlimStreamRuntime;
 import com.xiaomi.push.service.PushSlimWritePlan;
 import com.xiaomi.push.service.RC4Cryption;
 import com.xiaomi.push.service.ServiceConfig;

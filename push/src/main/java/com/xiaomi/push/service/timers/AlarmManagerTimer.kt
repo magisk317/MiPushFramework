@@ -1,7 +1,7 @@
 package com.xiaomi.push.service.timers
 
 import android.content.Context
-import com.magisk317.compat.AlarmManagerTimerCompat
+import io.github.magisk317.mipush.compat.AlarmManagerTimerCompat
 
 open class AlarmManagerTimer(context: Context) : Alarm.IAlarm {
     private val delegate = AlarmManagerTimerCompat(context)

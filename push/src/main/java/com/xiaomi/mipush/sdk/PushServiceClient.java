@@ -26,9 +26,9 @@ import com.xiaomi.push.service.PushConstants;
 import com.xiaomi.push.service.PushProvision;
 import com.xiaomi.push.service.clientReport.PushClientReportManager;
 import com.xiaomi.push.service.clientReport.ReportConstants;
-import com.xiaomi.xmsf.runtime.PushRuntime;
-import com.xiaomi.xmsf.runtime.PushRuntimeRegistrationTaskStore;
-import com.xiaomi.xmsf.runtime.RegistrationIntentDispatcher;
+import io.github.magisk317.mipush.runtime.PushRuntime;
+import io.github.magisk317.mipush.runtime.PushRuntimeRegistrationTaskStore;
+import io.github.magisk317.mipush.runtime.RegistrationIntentDispatcher;
 import com.xiaomi.xmpush.thrift.ActionType;
 import com.xiaomi.xmpush.thrift.BootModeType;
 import com.xiaomi.xmpush.thrift.ClientUploadDataItem;
@@ -560,7 +560,7 @@ public class PushServiceClient {
             PushRuntimeRegistrationTaskStore.cache(this.mContext.getPackageName(), intent, "PushServiceClient.processRegisterTask", "legacy_cached_task", System.currentTimeMillis());
         }
         PushRuntimeRegistrationTaskStore.dispatchAll("PushServiceClient.processRegisterTask", new RegistrationIntentDispatcher() { // from class: com.xiaomi.mipush.sdk.PushServiceClient.5
-            @Override // com.xiaomi.xmsf.runtime.RegistrationIntentDispatcher
+            @Override // io.github.magisk317.mipush.runtime.RegistrationIntentDispatcher
             public boolean dispatch(String str, Intent intent2) {
                 PushServiceClient.this.callService(intent2);
                 return true;
