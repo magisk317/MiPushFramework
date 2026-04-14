@@ -50,6 +50,8 @@ object PushRuntime {
     private const val MESSAGE_DEDUP_WINDOW_MS = 60_000L
     private const val APP_ACTION_BURST_WINDOW_MS = 2_000L
     private const val REGISTRATION_REPLAY_WINDOW_MS = 30_000L
+    private const val MAX_REGISTRATION_RECORDS = 512
+    private const val MAX_CHANNEL_RECORDS = 256
     private val logger = object {
         fun d(message: String) = Napier.d(message, tag = "PushRuntime")
         fun e(message: String, throwable: Throwable) = Napier.e(message, throwable, tag = "PushRuntime")
@@ -542,6 +544,7 @@ object PushRuntime {
         )
         synchronized(lock) {
             channelRecords[channelIdentity(record)] = record
+            evictOldestIfNeeded(channelRecords, MAX_CHANNEL_RECORDS)
             lastChannelPackage = packageName
             lastChannelState = state
         }
@@ -678,6 +681,7 @@ object PushRuntime {
         )
         synchronized(lock) {
             registrationRecords[packageName] = record
+            evictOldestIfNeeded(registrationRecords, MAX_REGISTRATION_RECORDS)
             lastRegistrationPackage = packageName
             lastRegistrationState = state
             updateLastObservationLocked(packageName, "registration:${state.name}")
@@ -812,6 +816,17 @@ object PushRuntime {
             append(record.userId ?: "")
             append(':')
             append(record.session ?: "")
+        }
+    }
+
+    /**
+     * Evict oldest entries from a LinkedHashMap when it exceeds [maxSize].
+     * Must be called under [lock].
+     */
+    private fun <K, V> evictOldestIfNeeded(map: LinkedHashMap<K, V>, maxSize: Int) {
+        while (map.size > maxSize) {
+            val firstKey = map.keys.firstOrNull() ?: break
+            map.remove(firstKey)
         }
     }
 }
