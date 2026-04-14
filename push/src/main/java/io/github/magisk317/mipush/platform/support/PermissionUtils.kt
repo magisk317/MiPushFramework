@@ -7,7 +7,7 @@ import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
 import androidx.core.content.ContextCompat
-import com.magisk317.utils.PrivilegeElevator
+import io.github.magisk317.mipush.utils.PrivilegeElevator
 import com.topjohnwu.superuser.Shell
 import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.common.Constants

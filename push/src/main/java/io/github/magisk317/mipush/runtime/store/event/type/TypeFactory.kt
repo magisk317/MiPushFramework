@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.runtime.store.event.type
 
 import android.annotation.SuppressLint
-import com.magisk317.XMPushUtils
+import io.github.magisk317.mipush.XMPushUtils
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmsf.utils.ConvertUtils

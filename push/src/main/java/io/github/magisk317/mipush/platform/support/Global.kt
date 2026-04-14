@@ -1,0 +1,57 @@
+package io.github.magisk317.mipush.platform.support
+
+import com.xiaomi.xmsf.push.utils.ConfigValueConverter
+import com.xiaomi.xmsf.push.utils.IconConfigurations
+import com.xiaomi.xmsf.utils.ConfigCenter
+import io.github.magisk317.mipush.common.cache.ApplicationNameCache
+import io.github.magisk317.mipush.common.cache.IconCache
+import io.github.magisk317.mipush.framework.hook.ModernHookHandler
+import io.github.magisk317.mipush.framework.sdk.MiPushEventListener
+import io.github.magisk317.mipush.service.RegistrationRecorder
+import io.github.magisk317.mipush.common.utils.Singleton
+
+object Global {
+    @JvmStatic
+    fun HookHandler(): ModernHookHandler = Singleton.instance()
+
+    @JvmStatic
+    fun setHookHandler(hookHandler: ModernHookHandler) {
+        Singleton.reset(hookHandler)
+    }
+
+    @JvmStatic
+    fun MiPushEventListener(): MiPushEventListener = Singleton.instance()
+
+    @JvmStatic
+    fun setMiPushEventListener(listener: MiPushEventListener) {
+        Singleton.reset(listener)
+    }
+
+    @JvmStatic
+    fun RegistrationRecorder(): RegistrationRecorder = Singleton.instance()
+
+    @JvmStatic
+    fun setRegistrationRecorder(instance: RegistrationRecorder) {
+        Singleton.reset(instance)
+    }
+
+    @JvmStatic
+    fun ConfigValueConverter(): ConfigValueConverter = Singleton.instance()
+
+    @JvmStatic
+    fun IconConfigurations(): IconConfigurations = Singleton.instance()
+
+    @JvmStatic
+    fun ConfigCenter(): ConfigCenter = Singleton.instance()
+
+    @JvmStatic
+    fun setConfigCenter(configCenter: ConfigCenter) {
+        Singleton.reset(configCenter)
+    }
+
+    @JvmStatic
+    fun ApplicationNameCache(): ApplicationNameCache = ApplicationNameCache
+
+    @JvmStatic
+    fun IconCache(): IconCache = IconCache
+}

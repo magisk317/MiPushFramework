@@ -5,7 +5,7 @@ import android.net.Uri
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import androidx.sqlite.db.SimpleSQLiteQuery
-import com.magisk317.XMPushUtils
+import io.github.magisk317.mipush.XMPushUtils
 import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
 import com.xiaomi.xmsf.push.utils.RegSecUtils
 import com.xiaomi.xmsf.utils.ConvertUtils

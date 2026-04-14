@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.runtime.store.db
 import android.text.TextUtils
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
-import com.magisk317.Global
+import io.github.magisk317.mipush.Global
 import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.common.BuildConfig.DEBUG
 import io.github.magisk317.mipush.common.utils.Utils

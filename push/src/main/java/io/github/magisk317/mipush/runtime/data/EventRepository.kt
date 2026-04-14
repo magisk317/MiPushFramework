@@ -3,9 +3,9 @@ package io.github.magisk317.mipush.runtime.data
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import com.magisk317.XMPushUtils
-import com.magisk317.service.XMPushServiceLifecycleBridge
-import com.magisk317.utils.MockMIPushMessage
+import io.github.magisk317.mipush.XMPushUtils
+import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
+import io.github.magisk317.mipush.utils.MockMIPushMessage
 import com.xiaomi.push.service.MIPushEventProcessor
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.XmPushActionCommandResult
@@ -17,7 +17,7 @@ import com.xiaomi.xmsf.push.notification.NotificationController
 import com.xiaomi.xmsf.push.utils.Configurations
 import com.xiaomi.xmsf.push.utils.RegSecUtils
 import com.xiaomi.push.service.XMPushService as SdkXMPushService
-import com.xiaomi.xmsf.push.service.XMPushService as AppXMPushService
+import com.xiaomi.xmsf.push.service.MiPushFacadeService as AppXMPushService
 import com.xiaomi.xmsf.utils.ConfigCenter
 import com.xiaomi.xmsf.utils.ConvertUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -135,7 +135,7 @@ class EventRepository @Inject constructor(
         logger.d(
             "EventRepository",
             "mockMessage request pkg=${containerWithRegSec.packageName} action=${containerWithRegSec.action} " +
-                "messageId=${com.magisk317.push.pipeline.MessageIdentity.fromContainer(containerWithRegSec)} " +
+                "messageId=${io.github.magisk317.mipush.push.pipeline.MessageIdentity.fromContainer(containerWithRegSec)} " +
                 "isEncrypt=${containerWithRegSec.isEncryptAction} isRequest=${containerWithRegSec.isRequest}"
         )
         val regSec = RegSecUtils.getRegSec(containerWithRegSec)
@@ -189,7 +189,7 @@ class EventRepository @Inject constructor(
         logger.d(
             "EventRepository",
             "mockMessage finished pkg=${replayContainer.packageName} action=${replayContainer.action} " +
-                "messageId=${com.magisk317.push.pipeline.MessageIdentity.fromContainer(replayContainer)} handled=$handled"
+                "messageId=${io.github.magisk317.mipush.push.pipeline.MessageIdentity.fromContainer(replayContainer)} handled=$handled"
         )
         if (!handled) {
             Utils.makeText(

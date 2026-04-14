@@ -7,7 +7,7 @@ import android.content.pm.ServiceInfo
 import android.text.TextUtils
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
-import com.magisk317.push.hook.HookTraceCompat
+import io.github.magisk317.mipush.push.hook.HookTraceCompat
 import com.xiaomi.mipush.sdk.ManifestChecker
 import com.xiaomi.mipush.sdk.PushMessageHandler
 import com.xiaomi.push.service.PushConstants

@@ -1,14 +1,14 @@
 package io.github.magisk317.mipush.platform.support
 
-import com.xiaomi.xmsf.runtime.PushRuntimeComponents
+import io.github.magisk317.mipush.runtime.PushRuntimeComponents
 
 object LegacyComponentNames {
-    const val MAIN_ACTIVITY = "top.trumeet.mipushframework.main.MainActivity"
-    const val APPLICATION_INFO_PAGE = "top.trumeet.mipushframework.main.ApplicationInfoPage"
-    const val HELP_PAGE = "top.trumeet.mipushframework.main.HelpPage"
-    const val RECENT_EVENT_LIST_PAGE = "top.trumeet.mipushframework.main.RecentEventListPage"
-    const val REQUEST_PERMISSION_PAGE = "top.trumeet.mipushframework.wizard.RequestPermissionPage"
-    const val WELCOME_ACTIVITY = "top.trumeet.mipushframework.wizard.WelcomeActivity"
+    const val MAIN_ACTIVITY = "io.github.magisk317.mipush.feature.main.MainActivity"
+    const val APPLICATION_INFO_PAGE = "io.github.magisk317.mipush.feature.main.ApplicationInfoPage"
+    const val HELP_PAGE = "io.github.magisk317.mipush.feature.main.HelpPage"
+    const val RECENT_EVENT_LIST_PAGE = "io.github.magisk317.mipush.feature.main.RecentEventListPage"
+    const val REQUEST_PERMISSION_PAGE = "io.github.magisk317.mipush.feature.wizard.RequestPermissionPage"
+    const val WELCOME_ACTIVITY = "io.github.magisk317.mipush.feature.wizard.WelcomeActivity"
     const val DETECTION_SERVICE = "io.github.magisk317.mipush.platform.activity.DetectionService"
 
     val manifestActivities = setOf(

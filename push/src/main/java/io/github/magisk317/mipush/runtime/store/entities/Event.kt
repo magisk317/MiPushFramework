@@ -6,7 +6,7 @@ import androidx.room.Entity
 import androidx.room.Ignore
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.magisk317.XMPushUtils
+import io.github.magisk317.mipush.XMPushUtils
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.common.utils.Utils
 import kotlin.annotation.AnnotationRetention.SOURCE

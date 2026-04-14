@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.runtime.store.event
 
 import android.content.Context
-import com.magisk317.Global
+import io.github.magisk317.mipush.Global
 import io.github.magisk317.mipush.runtime.store.entities.Event
 
 /**
