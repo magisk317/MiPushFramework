@@ -21,8 +21,8 @@ import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.misc.ScheduledJobManager
 import com.xiaomi.mipush.sdk.MiPushClient
 import com.xiaomi.push.service.PushServiceConstants
-import com.xiaomi.xmsf.FirstRegister
-import com.xiaomi.xmsf.RetryRegister
+import io.github.magisk317.mipush.app.FirstRegister
+import io.github.magisk317.mipush.app.RetryRegister
 import io.github.magisk317.mipush.service.PushServiceStarter
 import com.xiaomi.xmsf.push.service.receivers.BootReceiver
 import com.xiaomi.xmsf.push.service.receivers.KeepAliveReceiver

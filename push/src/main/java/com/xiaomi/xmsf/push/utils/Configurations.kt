@@ -11,7 +11,7 @@ import java.lang.reflect.InvocationTargetException
 
 import javax.inject.Inject
 import javax.inject.Singleton as JavaxSingleton
-import com.xiaomi.xmsf.utils.ConfigCenter
+import io.github.magisk317.mipush.app.ConfigCenter
 
 @JavaxSingleton
 class Configurations @Inject constructor(

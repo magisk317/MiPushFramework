@@ -20,7 +20,7 @@ import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.PushRegistrationState
 import io.github.magisk317.mipush.runtime.PushRuntimeBridgeHost
 import io.github.magisk317.mipush.runtime.PushRuntimeComponents
-import com.xiaomi.xmsf.utils.ConvertUtils
+import io.github.magisk317.mipush.utils.ConvertUtils
 import dagger.hilt.android.AndroidEntryPoint
 import io.github.aakira.napier.Napier
 import javax.inject.Inject

@@ -16,7 +16,7 @@ import org.json.JSONException
 import io.github.magisk317.mipush.Global
 import io.github.magisk317.mipush.common.utils.Singleton
 import io.github.magisk317.mipush.common.utils.Utils
-import com.xiaomi.xmsf.utils.ConfigCenter
+import io.github.magisk317.mipush.app.ConfigCenter
 import kotlinx.coroutines.runBlocking
 
 import javax.inject.Inject

@@ -27,7 +27,7 @@ import com.xiaomi.push.service.MIPushNotificationHelper
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import com.xiaomi.xmsf.push.notification.NotificationController
+import io.github.magisk317.mipush.notification.NotificationController
 import io.github.magisk317.mipush.runtime.PushRuntime
 import com.xiaomi.xmsf.push.utils.Configurations
 import java.util.function.Consumer

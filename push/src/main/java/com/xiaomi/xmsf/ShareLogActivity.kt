@@ -4,7 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import com.xiaomi.xmsf.utils.LogUtils
+import io.github.magisk317.mipush.utils.LogUtils
 
 class ShareLogActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -10,7 +10,7 @@ import androidx.core.content.edit
 import android.database.MatrixCursor
 import com.xiaomi.push.service.OnlineConfig
 import com.xiaomi.xmsf.account.DefaultAccountCloudBridge
-import com.xiaomi.xmsf.push.notification.NotificationChannelManager
+import io.github.magisk317.mipush.notification.NotificationChannelManager
 import com.xiaomi.xmsf.push.service.XMAccountManager
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.runtime.PushRuntime
