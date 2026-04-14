@@ -311,14 +311,7 @@ tasks.register("checkLegacyCompatEntryPointsOnly") {
         projectRoot.resolve("push/src/main/java/top/trumeet/mipush"),
         projectRoot.resolve("push/src/test/java/top/trumeet/mipush"),
     )
-    val allowedFiles = setOf(
-        "push/src/main/java/top/trumeet/mipushframework/main/MainActivity.kt",
-        "push/src/main/java/top/trumeet/mipushframework/main/ApplicationInfoPage.kt",
-        "push/src/main/java/top/trumeet/mipushframework/main/HelpPage.kt",
-        "push/src/main/java/top/trumeet/mipushframework/main/RecentEventListPage.kt",
-        "push/src/main/java/top/trumeet/mipushframework/wizard/RequestPermissionPage.kt",
-        "push/src/main/java/top/trumeet/mipushframework/wizard/WelcomeActivity.kt",
-    )
+    val allowedFiles = emptySet<String>()
 
     doLast {
         val actualLegacyFiles = legacyRoots.asSequence()
