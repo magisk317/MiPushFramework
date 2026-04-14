@@ -64,18 +64,18 @@ object Constants {
      * Use in wizard, finish activity when user click NEXT,
      * not go next page.
      */
-    const val EXTRA_FINISH_ON_NEXT = "top.trumeet.xmsf.EXTRA_FINISH_ON_NEXT"
+    const val EXTRA_FINISH_ON_NEXT = "com.xiaomi.xmsf.EXTRA_FINISH_ON_NEXT"
 
     /**
      * Application log file
      */
     const val LOG_FILE = "/file.log"
 
-    const val AUTHORITY_FILE_PROVIDER = "top.trumeet.mipushframework.fileprovider"
+    const val AUTHORITY_FILE_PROVIDER = "com.xiaomi.xmsf.fileprovider"
 
     const val SERVICE_APP_NAME = "com.xiaomi.xmsf"
 
-    const val MANAGER_APP_NAME = "top.trumeet.mipush"
+    const val MANAGER_APP_NAME = "io.github.magisk317.mipush"
 
     @JvmField
     val PUSH_SERVICE_VERSION_CODE = BuildConfig.PUSH_VERSION_CODE.toInt()

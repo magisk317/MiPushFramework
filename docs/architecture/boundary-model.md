@@ -15,11 +15,12 @@ MiPushFramework is not just an app project. It currently mixes four distinct lay
    - The code that defines the shipped `com.xiaomi.xmsf` behavior for this project.
    - Primary prefixes:
      - `com.xiaomi.xmsf.*`
-     - `top.trumeet.*`
      - `com.magisk317.*`
      - `io.github.magisk317.mipush.*`
      - app-facing service/sdk surfaces such as `com.xiaomi.push.service.*`,
        `com.xiaomi.mipush.sdk.*`, and `com.xiaomi.push.sdk.*`
+   - Legacy `top.trumeet.*` entrypoints are compat shims only and should not be used as the
+     primary implementation namespace for new work.
 
 3. **legacy-runtime**
    - Vendored Xiaomi push/runtime/network/telemetry stacks that are packaged into the app but are
