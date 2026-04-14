@@ -72,7 +72,7 @@
             android:supportsRtl="true"
             android:theme="@style/AppTheme"
             android:resizeableActivity="true"
-            android:usesCleartextTraffic="true"
+            android:networkSecurityConfig="@xml/network_security_config"
             tools:ignore="GoogleAppIndexingWarning"
             android:forceQueryable="true">
         <meta-data
