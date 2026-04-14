@@ -2,8 +2,8 @@ package io.github.magisk317.mipush
 
 import io.github.magisk317.mipush.service.RegistrationRecorder
 import io.github.magisk317.mipush.common.utils.Singleton
-import com.xiaomi.xmsf.push.utils.ConfigValueConverter
-import com.xiaomi.xmsf.push.utils.IconConfigurations
+import io.github.magisk317.mipush.utils.ConfigValueConverter
+import io.github.magisk317.mipush.utils.IconConfigurations
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.common.cache.ApplicationNameCache
 import io.github.magisk317.mipush.common.cache.IconCache

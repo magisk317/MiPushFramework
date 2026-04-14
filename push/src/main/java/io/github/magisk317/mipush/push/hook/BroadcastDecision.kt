@@ -8,7 +8,7 @@ import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import com.xiaomi.xmsf.push.utils.Configurations
+import io.github.magisk317.mipush.utils.Configurations
 
 object BroadcastDecision {
     @JvmStatic

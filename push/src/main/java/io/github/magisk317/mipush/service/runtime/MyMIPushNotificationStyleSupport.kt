@@ -20,9 +20,9 @@ import io.github.magisk317.mipush.Global
 import io.github.magisk317.mipush.XMPushUtils
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import com.xiaomi.xmsf.push.notification.NotificationController.getBitmapFromUri
-import com.xiaomi.xmsf.push.notification.NotificationController.getLargeIcon
-import com.xiaomi.xmsf.push.notification.NotificationController.roundLargeIconIfConfigured
+import io.github.magisk317.mipush.notification.NotificationController.getBitmapFromUri
+import io.github.magisk317.mipush.notification.NotificationController.getLargeIcon
+import io.github.magisk317.mipush.notification.NotificationController.roundLargeIconIfConfigured
 
 internal object MyMIPushNotificationStyleSupport {
     private const val NOTIFICATION_BIG_STYLE_MIN_LEN = 25

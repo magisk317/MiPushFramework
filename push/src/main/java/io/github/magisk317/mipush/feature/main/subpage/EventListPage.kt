@@ -61,7 +61,7 @@ import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.Global
 import com.xiaomi.xmsf.R
-import com.xiaomi.xmsf.push.utils.RegSecUtils
+import io.github.magisk317.mipush.utils.RegSecUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

@@ -10,7 +10,7 @@ import android.provider.Settings
 import android.text.TextUtils
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import com.xiaomi.xmsf.R
-import com.xiaomi.xmsf.push.notification.NotificationChannelManager
+import io.github.magisk317.mipush.notification.NotificationChannelManager
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.utils.NotificationUtils
 import io.github.magisk317.mipush.common.utils.Utils

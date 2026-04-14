@@ -27,10 +27,10 @@ import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.runtime.PushRuntime
-import com.xiaomi.xmsf.push.notification.NotificationController
-import com.xiaomi.xmsf.push.utils.Configurations
-import com.xiaomi.xmsf.push.utils.IconConfigurations
-import com.xiaomi.xmsf.push.utils.PackageConfig
+import io.github.magisk317.mipush.notification.NotificationController
+import io.github.magisk317.mipush.utils.Configurations
+import io.github.magisk317.mipush.utils.IconConfigurations
+import io.github.magisk317.mipush.utils.PackageConfig
 import io.github.magisk317.mipush.app.ConfigCenter
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors

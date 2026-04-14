@@ -13,7 +13,7 @@ import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.runtime.PushRegistrationState
 import io.github.magisk317.mipush.runtime.PushRuntime
-import com.xiaomi.xmsf.push.utils.RegSecUtils
+import io.github.magisk317.mipush.utils.RegSecUtils
 import io.github.magisk317.mipush.utils.ConvertUtils
 import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb

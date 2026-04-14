@@ -7,7 +7,7 @@ import io.github.aakira.napier.DebugAntilog
 import androidx.sqlite.db.SimpleSQLiteQuery
 import io.github.magisk317.mipush.XMPushUtils
 import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
-import com.xiaomi.xmsf.push.utils.RegSecUtils
+import io.github.magisk317.mipush.utils.RegSecUtils
 import io.github.magisk317.mipush.utils.ConvertUtils
 import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.common.utils.DatabaseUtils

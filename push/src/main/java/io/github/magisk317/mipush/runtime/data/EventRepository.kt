@@ -12,10 +12,10 @@ import com.xiaomi.xmpush.thrift.XmPushActionCommandResult
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
 import com.xiaomi.xmsf.R
-import com.xiaomi.xmsf.push.notification.NotificationChannelManager
-import com.xiaomi.xmsf.push.notification.NotificationController
-import com.xiaomi.xmsf.push.utils.Configurations
-import com.xiaomi.xmsf.push.utils.RegSecUtils
+import io.github.magisk317.mipush.notification.NotificationChannelManager
+import io.github.magisk317.mipush.notification.NotificationController
+import io.github.magisk317.mipush.utils.Configurations
+import io.github.magisk317.mipush.utils.RegSecUtils
 import com.xiaomi.push.service.XMPushService as SdkXMPushService
 import com.xiaomi.xmsf.push.service.MiPushFacadeService as AppXMPushService
 import io.github.magisk317.mipush.app.ConfigCenter

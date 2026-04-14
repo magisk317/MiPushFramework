@@ -6,7 +6,7 @@ import io.github.aakira.napier.DebugAntilog
 import com.xiaomi.mipush.sdk.DecryptException
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.*
-import com.xiaomi.xmsf.push.utils.RegSecUtils
+import io.github.magisk317.mipush.utils.RegSecUtils
 import com.xiaomi.channel.commonutils.android.DataCryptUtils
 import com.xiaomi.channel.commonutils.string.Base64Coder
 import io.github.magisk317.mipush.platform.support.XMPushUtils
