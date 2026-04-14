@@ -40,6 +40,10 @@ buildscript {
         }
     }
 
+    dependencies {
+        classpath(files("gradle/gradle-9-compat.jar"))
+    }
+
     configurations.configureEach {
         resolutionStrategy.eachDependency {
             val key = "${requested.group}:${requested.name}"
