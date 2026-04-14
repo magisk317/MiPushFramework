@@ -50,7 +50,9 @@ class PushMessageProcessor @Inject constructor(
     init {
         try {
             io.github.magisk317.mipush.common.utils.Singleton.reset(this)
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            io.github.aakira.napier.Napier.w("Singleton.reset failed for PushMessageProcessor", t, tag = "PushMessageProcessor")
+        }
     }
 
     private var mCachedMsgIds: MutableSet<String> = java.util.Collections.synchronizedSet(java.util.LinkedHashSet<String>())
@@ -279,7 +281,8 @@ class PushMessageProcessor @Inject constructor(
                 logger.d(packageInfo(targetPackage, "app is at foreground"))
             }
         } catch (e: InterruptedException) {
-            e.printStackTrace()
+            Thread.currentThread().interrupt()
+            logger.e(packageInfo(targetPackage, "pullUpApp interrupted"), e)
         } catch (e: RuntimeException) {
             logger.e(packageInfo(targetPackage, "pullUpApp failed ${e.localizedMessage}"), e)
         }

@@ -22,7 +22,9 @@ class ApplicationIconCache @Inject constructor(@param:ApplicationContext val con
     init {
         try {
             io.github.magisk317.mipush.common.utils.Singleton.reset(this)
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            io.github.aakira.napier.Napier.w("Singleton.reset failed for ApplicationIconCache", t, tag = "ApplicationIconCache")
+        }
     }
 
     val defaultAppIcon by lazy {

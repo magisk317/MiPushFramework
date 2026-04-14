@@ -1,13 +1,18 @@
 package io.github.magisk317.mipush.platform.support
 
+import io.github.aakira.napier.Napier
 import java.io.BufferedReader
 import java.io.Closeable
 import java.io.DataOutputStream
 import java.io.IOException
 import java.io.InputStreamReader
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.TimeUnit
 
 object ShellUtils {
+    private const val TAG = "ShellUtils"
+    private const val PROCESS_TIMEOUT_SECONDS = 30L
+
     class CommandResult(
         @JvmField var result: Int,
         @JvmField var successMsg: String?,
@@ -84,7 +89,7 @@ object ShellUtils {
             os.writeBytes("exit\n")
             os.flush()
 
-            result = process.waitFor()
+            // Drain stdout/stderr BEFORE waitFor to avoid deadlock on large output.
             if (isNeedResultMsg) {
                 successMsg = StringBuilder()
                 errorMsg = StringBuilder()
@@ -100,11 +105,22 @@ object ShellUtils {
                     errorMsg.append(line)
                 }
             }
+
+            val finished = process.waitFor(PROCESS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            if (!finished) {
+                Napier.w("Shell process timed out after ${PROCESS_TIMEOUT_SECONDS}s", tag = TAG)
+                process.destroyForcibly()
+            } else {
+                result = process.exitValue()
+            }
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+            Napier.e("Shell execution interrupted", e, tag = TAG)
         } catch (e: Exception) {
-            e.printStackTrace()
+            Napier.e("Shell execution failed", e, tag = TAG)
         } finally {
             closeIO(os, successResult, errorResult)
-            process?.destroy()
+            process?.destroyForcibly()
         }
 
         return CommandResult(result, successMsg?.toString(), errorMsg?.toString())
@@ -116,7 +132,7 @@ object ShellUtils {
                 try {
                     closeable.close()
                 } catch (e: IOException) {
-                    e.printStackTrace()
+                    Napier.w("Failed to close IO resource", e, tag = TAG)
                 }
             }
         }

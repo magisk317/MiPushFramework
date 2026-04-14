@@ -21,6 +21,7 @@ import com.xiaomi.xmsf.push.service.MiPushFacadeService as AppXMPushService
 import com.xiaomi.xmsf.utils.ConfigCenter
 import com.xiaomi.xmsf.utils.ConvertUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
+import io.github.aakira.napier.Napier
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import org.apache.thrift.TBase
@@ -53,7 +54,9 @@ class EventRepository @Inject constructor(
     init {
         try {
             io.github.magisk317.mipush.common.utils.Singleton.reset(this)
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            io.github.aakira.napier.Napier.w("Singleton.reset failed for EventRepository", t, tag = "EventRepository")
+        }
     }
 
     fun getStatus(container: XmPushActionContainer?): MutableSet<String> {
@@ -206,7 +209,7 @@ class EventRepository @Inject constructor(
             configurations.handle(event.pkg, newContainer)
             containerToJson(newContainer, event.regSec).toString()
         } catch (e: Throwable) {
-            e.printStackTrace()
+            Napier.e("getContent failed for ${event.pkg}", e, tag = "EventRepository")
             e.toString()
         }
     }

@@ -32,7 +32,9 @@ class IconConfigurations @Inject constructor(
     init {
         try {
             io.github.magisk317.mipush.common.utils.Singleton.reset(this)
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            io.github.aakira.napier.Napier.w("Singleton.reset failed for IconConfigurations", t, tag = "IconConfigurations")
+        }
     }
     private val iconConfigs = hashMapOf<String, IconConfig>()
 

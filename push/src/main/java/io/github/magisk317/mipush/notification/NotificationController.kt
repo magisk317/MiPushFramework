@@ -240,7 +240,7 @@ object NotificationController {
             try {
                 Configurations.getInstance().handle(container.packageName, copy)
             } catch (e: Throwable) {
-                e.printStackTrace()
+                io.github.aakira.napier.Napier.e("NotificationController: handle config failed for ${container.packageName}", e, tag = "NotificationController")
             }
             val copyMeta = copy.metaInfo ?: return
             updateSummaryNotification(context, copyMeta, container.packageName, notificationGroup)

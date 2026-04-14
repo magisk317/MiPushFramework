@@ -16,7 +16,7 @@ object PermissionInfoFactory {
             val constructor = clazz.getConstructor(Context::class.java)
             constructor.newInstance(context) as PermissionInfo
         } catch (e: Exception) {
-            e.printStackTrace()
+            io.github.aakira.napier.Napier.w("PermissionInfoFactory: failed to create ${clazz.simpleName}", e, tag = "PermissionInfoFactory")
             null
         }
     }

@@ -54,7 +54,9 @@ class SettingsManager @Inject constructor(
     init {
         try {
             io.github.magisk317.mipush.common.utils.Singleton.reset(this)
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            io.github.aakira.napier.Napier.w("Singleton.reset failed for SettingsManager", t, tag = "SettingsManager")
+        }
     }
 
     val mClearingHistory: AtomicBoolean = AtomicBoolean(false)
