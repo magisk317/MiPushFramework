@@ -10,7 +10,7 @@ versionCode = "7"
 versionName = "0.3.17"
 pushVersionCode = "1003003000"
 
-agp = "9.2.0-rc01"
+agp = "9.3.0-alpha01"
 compose-bom = "2026.03.01"
 kotlin = "2.3.20"
 ksp = "2.3.6"
