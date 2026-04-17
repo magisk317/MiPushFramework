@@ -1,4 +1,5 @@
 pluginManagement {
+    includeBuild("build-logic")
     repositories {
         google()
         mavenCentral()
@@ -9,9 +10,6 @@ pluginManagement {
         eachPlugin {
             if (requested.id.id == "org.greenrobot.greendao") {
                 useModule("org.greenrobot:greendao-gradle-plugin:${requested.version}")
-            }
-            if (requested.id.id == "io.github.wurensen.android-aspectjx") {
-                useModule("io.github.wurensen:gradle-android-plugin-aspectjx:${requested.version}")
             }
         }
     }
@@ -40,10 +38,6 @@ buildscript {
         }
     }
 
-    dependencies {
-        classpath(files("gradle/gradle-9-compat.jar"))
-    }
-
     configurations.configureEach {
         resolutionStrategy.eachDependency {
             val key = "${requested.group}:${requested.name}"
@@ -64,9 +58,6 @@ dependencyResolutionManagement {
         maven { url = uri("https://jitpack.io") }
     }
 }
-
-requireExistingProjectDir("build-logic")
-includeBuild("build-logic")
 
 rootProject.name = "MiPushFramework"
 requireExistingProjectDir("magisk-ui-kit")
