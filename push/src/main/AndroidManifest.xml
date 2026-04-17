@@ -48,6 +48,7 @@
     <uses-permission android:name="android.permission.GET_ACCOUNTS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
@@ -96,7 +97,7 @@
         <!-- Compat entry for legacy callers that resolve com.xiaomi.push.service.XMPushService -->
         <service
                 android:name="com.xiaomi.xmsf.push.service.CompatXMPushService"
-                android:foregroundServiceType="dataSync"
+                android:foregroundServiceType="remoteMessaging"
                 android:exported="true" />
         <activity
                 android:name="io.github.magisk317.mipush.feature.wizard.WelcomeActivity"
@@ -311,15 +312,15 @@
 
         <service
                 android:name=".push.service.MiPushFacadeService"
-                android:foregroundServiceType="dataSync"
+                android:foregroundServiceType="remoteMessaging"
                 android:exported="true" />
         <service
                 android:name=".push.service.XMPushService"
-                android:foregroundServiceType="dataSync"
+                android:foregroundServiceType="remoteMessaging"
                 android:exported="true" />
         <service
                 android:name="com.xiaomi.push.service.XMPushService"
-                android:foregroundServiceType="dataSync"
+                android:foregroundServiceType="remoteMessaging"
                 android:exported="true" />
 
 
