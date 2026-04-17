@@ -1,7 +1,6 @@
 package com.xiaomi.clientreport.processor
 
 import android.content.Context
-import android.text.TextUtils
 import android.text.format.Formatter
 import android.util.Base64
 import com.xiaomi.channel.commonutils.android.DataCryptUtils
@@ -152,7 +151,7 @@ open class DefaultEventProcessor(context: Context) : IEventProcessor {
             fileLock = randomAccessFile.channel.lock()
             bufferedOutputStream = BufferedOutputStream(FileOutputStream(File(writeFileName), true))
             for (i in baseClientReportArr.indices) {
-                val baseClientReport = baseClientReportArr[i] ?: continue
+                val baseClientReport = baseClientReportArr[i]
                 if (!ClientReportUtil.isFileCanBeUse(mContext, writeFileName)) {
                     val length = baseClientReportArr.size - i
                     val baseClientReportArr2 = arrayOfNulls<BaseClientReport>(length)
@@ -185,9 +184,8 @@ open class DefaultEventProcessor(context: Context) : IEventProcessor {
             return XMStringUtils.bytesToString(bArr) ?: ""
         }
         val eventKeyWithDefault = ClientReportUtil.getEventKeyWithDefault(mContext)
-        if (eventKeyWithDefault.isEmpty()) return ""
-        val key = ClientReportUtil.parseKey(eventKeyWithDefault) ?: return ""
-        if (key.isEmpty()) return ""
+        if (eventKeyWithDefault.isNullOrEmpty()) return ""
+        val key = ClientReportUtil.parseKey(eventKeyWithDefault)
         return try {
             XMStringUtils.bytesToString(
                 Base64.decode(
@@ -251,23 +249,8 @@ open class DefaultEventProcessor(context: Context) : IEventProcessor {
         var randomAccessFile2: RandomAccessFile? = null
         var fileLockLock: FileLock? = null
         var file3: File? = null
-        val length = readFileName.size
-        var i = 0
-        while (i < length) {
-            val file4 = readFileName[i]
-            if (file4 == null) {
-                if (fileLockLock != null && fileLockLock.isValid) {
-                    try {
-                        fileLockLock.release()
-                    } catch (e: IOException) {
-                        MyLog.e(e)
-                    }
-                }
-                IOUtils.closeQuietly(randomAccessFile2)
-                if (file3 != null) {
-                    file3.delete()
-                }
-            } else {
+        for (file4 in readFileName) {
+            if (true) {
                 val randomAccessFile3 = randomAccessFile2
                 val fileLock2 = fileLockLock
                 val file5 = file3
@@ -275,7 +258,7 @@ open class DefaultEventProcessor(context: Context) : IEventProcessor {
                 var fileLock3: FileLock? = fileLockLock
                 var file: File? = file3
                 try {
-                    if (file4.length() > DATA_FILE_MAX_SIZE) {
+                    if (file4.length() > DATA_FILE_MAX_SIZE.toLong()) {
                         MyLog.e("eventData read from cache file failed because ${file4.name} is too big")
                         reportDropFile(file4.name, Formatter.formatFileSize(mContext, file4.length()))
                         file4.delete()
@@ -338,8 +321,8 @@ open class DefaultEventProcessor(context: Context) : IEventProcessor {
                 }
                 file?.delete()
             }
-            i++
         }
+
     }
 
     override fun send(list: List<String>) {
@@ -357,15 +340,14 @@ open class DefaultEventProcessor(context: Context) : IEventProcessor {
     override fun stringToBytes(str: String): ByteArray {
         if (str.isEmpty()) return ByteArray(0)
         if (!ClientReportLogicManager.getInstance(mContext).config.isEventEncrypted) {
-            return XMStringUtils.getBytes(str) ?: ByteArray(0)
+            return XMStringUtils.getBytes(str)
         }
         val eventKeyWithDefault = ClientReportUtil.getEventKeyWithDefault(mContext)
         val bytes = XMStringUtils.getBytes(str)
-        if (eventKeyWithDefault.isEmpty() || bytes == null || bytes.size <= 1) return ByteArray(0)
-        val key = ClientReportUtil.parseKey(eventKeyWithDefault) ?: return ByteArray(0)
+        val key = ClientReportUtil.parseKey(eventKeyWithDefault)
         return try {
             if (key.size > 1) {
-                DataCryptUtils.mipushEncrypt(key, Base64.encode(bytes, 2)) ?: ByteArray(0)
+                DataCryptUtils.mipushEncrypt(key, Base64.encode(bytes, 2))
             } else {
                 ByteArray(0)
             }
@@ -376,19 +358,13 @@ open class DefaultEventProcessor(context: Context) : IEventProcessor {
     }
 
     override fun write(baseClientReportArr: Array<BaseClientReport>) {
-        if (baseClientReportArr.isEmpty() || baseClientReportArr[0] == null) {
+        if (baseClientReportArr.isEmpty()) {
             MyLog.w("event data write to cache file failed because data null")
             return
         }
         var baseClientReportArr2 = baseClientReportArr
-        var baseClientReportArrWrite2FileLocked: Array<BaseClientReport>?
         do {
-            baseClientReportArrWrite2FileLocked = write2FileLocked(baseClientReportArr2)
-            if (baseClientReportArrWrite2FileLocked == null || baseClientReportArrWrite2FileLocked.isEmpty()) {
-                return
-            } else {
-                baseClientReportArr2 = baseClientReportArrWrite2FileLocked
-            }
-        } while (baseClientReportArrWrite2FileLocked[0] != null)
+            baseClientReportArr2 = write2FileLocked(baseClientReportArr2) ?: return
+        } while (true)
     }
 }

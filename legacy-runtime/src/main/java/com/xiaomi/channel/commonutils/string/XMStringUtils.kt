@@ -183,7 +183,7 @@ object XMStringUtils {
         val sb = StringBuffer(256)
         if (next != null) sb.append(next)
         while (it.hasNext()) {
-            if (str != null) sb.append(str)
+            sb.append(str)
             val next2 = it.next()
             if (next2 != null) sb.append(next2)
         }
@@ -197,13 +197,11 @@ object XMStringUtils {
 
     @JvmStatic
     fun join(objArr: Array<Any?>, c: Char): String? {
-        if (objArr == null) return null
         return join(objArr, c, 0, objArr.size)
     }
 
     @JvmStatic
     fun join(objArr: Array<Any?>, c: Char, start: Int, end: Int): String? {
-        if (objArr == null) return null
         val count = end - start
         if (count <= 0) return ""
         val sb = StringBuffer(count * ((if (objArr[start] == null) 16 else objArr[start].toString().length) + 1))
@@ -216,13 +214,11 @@ object XMStringUtils {
 
     @JvmStatic
     fun join(objArr: Array<Any?>, str: String?): String? {
-        if (objArr == null) return null
         return join(objArr, str, 0, objArr.size)
     }
 
     @JvmStatic
     fun join(objArr: Array<Any?>, str: String?, start: Int, end: Int): String? {
-        if (objArr == null) return null
         val delimiter = str ?: ""
         val count = end - start
         if (count <= 0) return ""
@@ -269,12 +265,12 @@ object XMStringUtils {
 
     @JvmStatic
     fun toIntArray(list: List<Int>): IntArray {
-        return list.map { it.toInt() }.toIntArray()
+        return list.toIntArray()
     }
 
     @JvmStatic
     fun toLongArray(list: List<Long>): LongArray {
-        return list.map { it.toLong() }.toLongArray()
+        return list.toLongArray()
     }
 
     @JvmStatic
