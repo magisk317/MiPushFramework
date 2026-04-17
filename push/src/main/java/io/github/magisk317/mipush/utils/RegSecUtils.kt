@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.utils
 
 import android.text.TextUtils
-import io.github.magisk317.mipush.XMPushUtils
+import io.github.magisk317.mipush.platform.support.XMPushUtils
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.runtime.store.entities.Event
 

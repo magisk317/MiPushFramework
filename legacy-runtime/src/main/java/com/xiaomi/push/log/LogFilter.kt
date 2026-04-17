@@ -63,13 +63,13 @@ internal class LogFilter {
     }
 
     private fun filter2File(outputFile: File) {
-        if (outputFile == null || mFiles.isEmpty()) return
+        if (mFiles.isEmpty()) return
         val pattern = Pattern.compile("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}")
         var writer: BufferedWriter? = null
         try {
             writer = BufferedWriter(OutputStreamWriter(FileOutputStream(outputFile)))
             for (logFile in mFiles) {
-                if (logFile == null || !logFile.exists()) continue
+                if (!logFile.exists()) continue
                 var reader: BufferedReader? = null
                 try {
                     reader = BufferedReader(InputStreamReader(FileInputStream(logFile)))

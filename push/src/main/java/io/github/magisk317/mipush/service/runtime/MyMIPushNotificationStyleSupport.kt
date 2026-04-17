@@ -1,13 +1,6 @@
 package io.github.magisk317.mipush.service.runtime
-import com.xiaomi.push.service.*
-import com.xiaomi.smack.packet.*
-import com.xiaomi.smack.*
-import com.xiaomi.slim.*
-import com.xiaomi.push.service.timers.*
-import com.xiaomi.push.service.*
 
 import android.content.Context
-import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.Build
@@ -16,8 +9,11 @@ import androidx.core.app.Person
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
-import io.github.magisk317.mipush.Global
-import io.github.magisk317.mipush.XMPushUtils
+import com.xiaomi.push.service.ImageUtils
+import com.xiaomi.push.service.MIPushNotificationViewSupport
+import io.github.aakira.napier.Napier
+import io.github.magisk317.mipush.platform.support.Global
+import io.github.magisk317.mipush.platform.support.XMPushUtils
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.notification.NotificationController.getBitmapFromUri
@@ -25,19 +21,12 @@ import io.github.magisk317.mipush.notification.NotificationController.getLargeIc
 import io.github.magisk317.mipush.notification.NotificationController.roundLargeIconIfConfigured
 
 internal object MyMIPushNotificationStyleSupport {
-    private const val NOTIFICATION_BIG_STYLE_MIN_LEN = 25
-
-    fun getPackageContext(context: Context, packageName: String): Context {
-        if (!io.github.magisk317.mipush.notification.NotificationManagerEx.isHooked) {
-            return context
-        }
-        return try {
-            context.createPackageContext(packageName, 0)
-        } catch (e: PackageManager.NameNotFoundException) {
-            MyMIPushNotificationLogs.logger.e(e.message ?: "Unknown package manager error", e)
-            context
-        }
+    private const val TAG = "MyNotificationStyle"
+    private val logger = object {
+        fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
     }
+    
+    private const val NOTIFICATION_BIG_STYLE_MIN_LEN = 25
 
     fun normalStyleNotificationBuilder(
         context: Context,
@@ -105,12 +94,12 @@ internal object MyMIPushNotificationStyleSupport {
     private fun getBigPic(context: Context, metaInfo: PushMetaInfo): Bitmap? {
         val configuration = XMPushUtils.getConfiguration(metaInfo)
         val bigPicUri = configuration.notificationBigPicUri(null)
-        return Global.IconCache().getBitmap(
+        return Global.iconCache().getBitmap(
             context,
             bigPicUri,
             object : io.github.magisk317.mipush.common.cache.IconCache.Converter<String, Bitmap> {
                 override fun convert(ctx: Context, b: String): Bitmap {
-                    return getBitmapFromUri(ctx, b, 1 * MyNotificationIconHelper.MiB)!!
+                    return getBitmapFromUri(ctx, b, 1024 * 1024)!! // 1 MiB
                 }
             }
         )
@@ -135,7 +124,7 @@ internal object MyMIPushNotificationStyleSupport {
             }
             null
         } catch (e: Exception) {
-            MyMIPushNotificationLogs.logger.e(e.localizedMessage, e)
+            logger.e("Failed to add to existing notification", e)
             null
         }
     }
@@ -275,7 +264,7 @@ internal object MyMIPushNotificationStyleSupport {
                 arrayOf(values.getOrNull(0).orEmpty(), values.getOrNull(1).orEmpty())
             }
         } catch (e: Exception) {
-            MyMIPushNotificationLogs.logger.e(e.message ?: "Error in determineTitleAndDespByDIP", e)
+            logger.e("Error in determineTitleAndDespByDIP", e)
             arrayOf(pushMetaInfo.title.orEmpty(), pushMetaInfo.description.orEmpty())
         }
     }

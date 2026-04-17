@@ -27,10 +27,8 @@ class PushMessageHandler : BaseService() {
         @JvmStatic
         fun addJob(context: Context, intent: Intent) {
             MyLog.v("addjob PushMessageHandler $intent")
-            if (intent != null) {
-                scheduleJob(context, intent)
-                startService(context)
-            }
+            scheduleJob(context, intent)
+            startService(context)
         }
 
         @JvmStatic
@@ -57,7 +55,7 @@ class PushMessageHandler : BaseService() {
                     context.applicationContext,
                     MessageHandleService.MessageHandleJob(
                         intent,
-                        SystemUtils.loadClass(context, resolveInfo.activityInfo.name)!!.getDeclaredConstructor().newInstance() as PushMessageReceiver
+                        SystemUtils.loadClass(context, resolveInfo.activityInfo.name).getDeclaredConstructor().newInstance() as PushMessageReceiver
                     )
                 )
                 MessageHandleService.onHandleIntent(context, Intent(context.applicationContext, MessageHandleService::class.java))
@@ -115,14 +113,12 @@ class PushMessageHandler : BaseService() {
                     try {
                         val list = context.packageManager.queryBroadcastReceivers(intent2, 32)
                         var next: ResolveInfo? = null
-                        if (list != null) {
-                            for (item in list) {
-                                if (item.activityInfo != null && item.activityInfo.packageName == context.packageName &&
-                                    PushMessageReceiver::class.java.isAssignableFrom(SystemUtils.loadClass(context, item.activityInfo.name))
-                                ) {
-                                    next = item
-                                    break
-                                }
+                        for (item in list) {
+                            if (item.activityInfo != null && item.activityInfo.packageName == context.packageName &&
+                                PushMessageReceiver::class.java.isAssignableFrom(SystemUtils.loadClass(context, item.activityInfo.name))
+                            ) {
+                                next = item
+                                break
                             }
                         }
                         if (next != null) {
@@ -180,9 +176,10 @@ class PushMessageHandler : BaseService() {
                 for (callback in sICallbackResult) {
                     if (callback is MiPushClient.UPSRegisterCallBack) {
                         val tokenResult = MiPushClient.TokenResult()
-                        if (miPushCommandMessage != null && miPushCommandMessage.getCommandArguments() != null && miPushCommandMessage.getCommandArguments()!!.isNotEmpty()) {
+                        val args = miPushCommandMessage?.getCommandArguments()
+                        if (args != null && args.isNotEmpty()) {
                             tokenResult.setResultCode(miPushCommandMessage.getResultCode())
-                            tokenResult.setToken(miPushCommandMessage.getCommandArguments()!![0])
+                            tokenResult.setToken(args[0])
                         }
                         callback.onResult(tokenResult)
                     }
@@ -219,7 +216,7 @@ class PushMessageHandler : BaseService() {
                     onCommandResult(
                         context,
                         pushMessageInterface.getCategory() ?: "",
-                        command!!,
+                        command,
                         pushMessageInterface.getResultCode(),
                         pushMessageInterface.getReason(),
                         pushMessageInterface.getCommandArguments()
@@ -277,7 +274,6 @@ class PushMessageHandler : BaseService() {
         }
 
         private fun scheduleJob(context: Context, intent: Intent) {
-            if (intent == null || sPool.isShutdown) return
             sPool.execute {
                 onHandleIntent(context, intent)
             }

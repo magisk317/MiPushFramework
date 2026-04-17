@@ -1,10 +1,10 @@
 # MiPushFramework
 
-[![CI](https://github.com/magisk317/MiPushFramework/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/magisk317/MiPushFramework/actions/workflows/ci.yml)
-[![Build APK](https://github.com/magisk317/MiPushFramework/actions/workflows/build-apk.yml/badge.svg)](https://github.com/magisk317/MiPushFramework/actions/workflows/build-apk.yml)
-[![Security Guard](https://github.com/magisk317/MiPushFramework/actions/workflows/security-guard.yml/badge.svg?branch=dev)](https://github.com/magisk317/MiPushFramework/actions/workflows/security-guard.yml)
-[![Dependency Submission](https://github.com/magisk317/MiPushFramework/actions/workflows/dependency-submission.yml/badge.svg?branch=dev)](https://github.com/magisk317/MiPushFramework/actions/workflows/dependency-submission.yml)
-[![Latest Release](https://img.shields.io/github/v/release/magisk317/MiPushFramework)](https://github.com/magisk317/MiPushFramework/releases)
+[![CI](https://github.io/github/magisk317/MiPushFramework/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.io/github/magisk317/MiPushFramework/actions/workflows/ci.yml)
+[![Build APK](https://github.io/github/magisk317/MiPushFramework/actions/workflows/build-apk.yml/badge.svg)](https://github.io/github/magisk317/MiPushFramework/actions/workflows/build-apk.yml)
+[![Security Guard](https://github.io/github/magisk317/MiPushFramework/actions/workflows/security-guard.yml/badge.svg?branch=dev)](https://github.io/github/magisk317/MiPushFramework/actions/workflows/security-guard.yml)
+[![Dependency Submission](https://github.io/github/magisk317/MiPushFramework/actions/workflows/dependency-submission.yml/badge.svg?branch=dev)](https://github.io/github/magisk317/MiPushFramework/actions/workflows/dependency-submission.yml)
+[![Latest Release](https://img.shields.io/github/v/release/magisk317/MiPushFramework)](https://github.io/github/magisk317/MiPushFramework/releases)
 [![License GPL-3.0](https://img.shields.io/badge/license-GPLv3.0-blue.svg)](LICENSE)
 ![Android 9.0+](https://img.shields.io/badge/Android-9.0%2B-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.x-7F52FF?logo=kotlin&logoColor=white)
@@ -58,7 +58,7 @@
 * 简单，安装非常简单
 * 使用后，其他应用的 `XMPushService` 会自动禁用，就像在 MIUI，同时还能保证推送
 * 完整事件记录，可以监控每个应用的 注册和推送
-* 拦截小米推送产生的不必要唤醒，也能阻止它读取您的隐私
+* 保留小米推送基础推送能力，默认禁用遥测/数据上报功能
 * 自定义能力，定制你的消息内容与行为
 
 
@@ -68,7 +68,7 @@
 
 安装步骤非常简单 ：
 
-* 前往 [Releases](https://github.com/magisk317/MiPushFramework/releases) 或 [CI](https://github.com/magisk317/MiPushFramework/actions/workflows/ci.yml)，下载最新的 APK 并安装。
+* 前往 [Releases](https://github.io/github/magisk317/MiPushFramework/releases) 或 [CI](https://github.io/github/magisk317/MiPushFramework/actions/workflows/ci.yml)，下载最新的 APK 并安装。
 * 跟着向导进行设置
 * 可选：开启高级配置中的 推送服务保活 选项
 

@@ -2,7 +2,7 @@ package com.xiaomi.channel.commonutils.string
 
 object Base64Coder {
     private val map1 = CharArray(64)
-    private lateinit var map2: ByteArray
+    private val map2: ByteArray
     private val systemLineSeparator = System.getProperty("line.separator")
 
     init {
@@ -179,7 +179,7 @@ object Base64Coder {
 
     @JvmStatic
     fun encodeLines(bArr: ByteArray): String {
-        return encodeLines(bArr, 0, bArr.size, 76, systemLineSeparator)
+        return encodeLines(bArr, 0, bArr.size, 76, systemLineSeparator ?: "\n")
     }
 
     @JvmStatic

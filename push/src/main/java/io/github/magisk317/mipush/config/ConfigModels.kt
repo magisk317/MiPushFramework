@@ -37,7 +37,7 @@ enum class ConfigContentSource {
 data class LocalConfigFile(
     val path: String,
     val name: String,
-    val uri: Uri,
+    val uri: Uri?,
     val sha: String,
     val size: Long,
     val lastModified: Long,

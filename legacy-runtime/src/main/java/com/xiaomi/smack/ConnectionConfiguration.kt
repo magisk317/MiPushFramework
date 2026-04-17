@@ -35,7 +35,7 @@ class ConnectionConfiguration : Cloneable {
         this.httpProxy = httpProxy
     }
 
-    open fun getConnectionBlob(): ByteArray? = null
+    fun getConnectionBlob(): ByteArray? = null
 
     fun getHost(): String {
         if (host == null) {

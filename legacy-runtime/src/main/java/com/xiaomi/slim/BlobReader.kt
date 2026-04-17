@@ -47,6 +47,7 @@ internal class BlobReader(
                 mConnection.notifyDataArrived(blob2)
             }
             MyLog.w("[Slim] CONN: host = ${from.host}")
+            mConnection.notifyDataArrived(blob)
         }
         if (!valid) {
             MyLog.w("[Slim] Invalid CONN")
@@ -57,7 +58,7 @@ internal class BlobReader(
             val blob3 = read()
             mConnection.setReadAlive()
             val observer = XMPushServiceProxy.get()?.runtimeObserver
-            val payloadPlan = observer?.resolveSlimInboundPlan(blob3.channelId.toInt(), blob3.cmd) ?: PushSlimInboundPlan(PushSlimInboundAction.None)
+            val payloadPlan = observer?.resolveSlimInboundPlan(blob3.channelId, blob3.cmd) ?: PushSlimInboundPlan(PushSlimInboundAction.None)
             
             payloadPlan.eventAction?.let { MyLog.w("[slim] $it") }
             

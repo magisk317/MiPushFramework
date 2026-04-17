@@ -1,6 +1,6 @@
 package com.xiaomi.xmsf
 
-import com.xiaomi.xmsf.runtime.PushRuntimeComponents
+import io.github.magisk317.mipush.runtime.core.PushRuntimeComponents
 import io.github.magisk317.mipush.platform.support.LegacyComponentNames
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test

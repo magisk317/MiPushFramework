@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.runtime.data
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import io.github.magisk317.mipush.XMPushUtils
+import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
 import io.github.magisk317.mipush.utils.MockMIPushMessage
 import com.xiaomi.push.service.MIPushEventProcessor
@@ -179,9 +179,41 @@ class EventRepository @Inject constructor(
         }
 
         if (pushService == null) {
-            logger.d("EventRepository", "pushService is null, starting AppXMPushService (Bridge)")
+            logger.d("EventRepository", "pushService is null, ensuring observer and starting service")
+            // Ensure the runtime observer is initialized before starting the push service.
+            // Normally BootReceiver does this, but it may not have run.
+            if (com.xiaomi.push.service.XMPushService.observer == null) {
+                logger.d("EventRepository", "XMPushService.observer is null, initializing MiPushRuntimeObserverBridge")
+                io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge(context)
+            }
             context.startService(Intent(context, AppXMPushService::class.java))
-            Utils.makeText(context, "Service starting, please try again", 0)
+            // Wait for service to become ready, then retry
+            Thread {
+                val maxWaitMs = 5000L
+                val intervalMs = 100L
+                var waited = 0L
+                while (waited < maxWaitMs) {
+                    Thread.sleep(intervalMs)
+                    waited += intervalMs
+                    val service = XMPushServiceLifecycleBridge.peekService()
+                    if (service != null) {
+                        logger.d("EventRepository", "pushService became ready after ${waited}ms, replaying mock")
+                        val replayContainer2 = containerWithRegSec.deepCopy()
+                        val handled2 = MockMIPushMessage.mockProcessMIPushMessage(service, replayContainer2)
+                        logger.d("EventRepository", "deferred mockMessage handled=$handled2")
+                        if (!handled2) {
+                            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                Utils.makeText(context, context.getString(R.string.mock_notification_failed), 0)
+                            }
+                        }
+                        return@Thread
+                    }
+                }
+                logger.w("EventRepository", "pushService did not become ready within ${maxWaitMs}ms")
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    Utils.makeText(context, context.getString(R.string.mock_notification_failed), 0)
+                }
+            }.start()
             return
         }
         val replayContainer = containerWithRegSec.deepCopy()

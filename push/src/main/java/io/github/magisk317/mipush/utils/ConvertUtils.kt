@@ -20,6 +20,7 @@ object ConvertUtils {
     private val TAG = ConvertUtils::class.java.simpleName
     private val logger = object {
         fun e(msg: String?, t: Throwable? = null) = Napier.e(msg ?: "", t, tag = TAG)
+        fun w(msg: String?) = Napier.w(msg ?: "", tag = TAG)
     }
 
     private val json = Json {
@@ -135,15 +136,29 @@ object ConvertUtils {
         val resolution = resolvePushActionBytes(container, regSec) ?: return null
         val oriMsgBytes = resolution.payload ?: return null
         return try {
-            val createRespMessageFromAction: Method = com.xiaomi.mipush.sdk.PushContainerHelper::class.java
-                .getDeclaredMethod("createRespMessageFromAction", ActionType::class.java, Boolean::class.javaPrimitiveType)
+            val helperClazz = com.xiaomi.mipush.sdk.PushContainerHelper::class.java
+            val createRespMessageFromAction: Method = helperClazz.getDeclaredMethod(
+                "createRespMessageFromAction",
+                ActionType::class.java,
+                Boolean::class.javaPrimitiveType
+            )
             createRespMessageFromAction.isAccessible = true
-            val packet = createMessageFromAction(container.action, container.isRequest)
+            
+            val packet = createRespMessageFromAction.invoke(
+                null,
+                container.action,
+                container.isRequest
+            ) as? TBase<*, *>
+            
             if (packet != null) {
                 fillPacket(packet, oriMsgBytes)
             }
             packet
+        } catch (e: InvocationTargetException) {
+            logger.e("InvocationTargetException calling createRespMessageFromAction: ${e.targetException.message}", e.targetException)
+            throw e
         } catch (e: Exception) {
+            logger.e("Exception calling createRespMessageFromAction: ${e.message}", e)
             throw e
         }
     }
@@ -167,7 +182,8 @@ object ConvertUtils {
                 lastError = e
             }
         }
-        throw DecryptException("the aes decrypt failed.", lastError)
+        logger.w("the aes decrypt failed for ${container.packageName}.")
+        return null
     }
 
     private fun persistResolvedRegSec(packageName: String?, regSec: String?) {
@@ -184,44 +200,5 @@ object ConvertUtils {
             ByteArray::class.java
         )
         method.invoke(null, packet, bytes)
-    }
-
-    private fun createMessageFromAction(act: ActionType, isRequest: Boolean): TBase<*, *>? {
-        if (isRequest) {
-            return createRequestMessageFromAction(act)
-        }
-        return createResponseMessageFromAction(act)
-    }
-
-    private fun createRequestMessageFromAction(act: ActionType): TBase<*, *>? {
-        return when (act) {
-            ActionType.Registration -> XmPushActionRegistration()
-            ActionType.UnRegistration -> XmPushActionUnRegistration()
-            ActionType.Subscription -> XmPushActionSubscription()
-            ActionType.UnSubscription -> XmPushActionUnSubscription()
-            ActionType.SendMessage -> XmPushActionSendMessage()
-            ActionType.AckMessage -> XmPushActionAckMessage()
-            ActionType.SetConfig -> XmPushActionCommand()
-            ActionType.ReportFeedback -> XmPushActionSendFeedback()
-            ActionType.Notification -> XmPushActionNotification()
-            ActionType.Command -> XmPushActionCommand()
-            else -> null
-        }
-    }
-
-    private fun createResponseMessageFromAction(act: ActionType): TBase<*, *>? {
-        return when (act) {
-            ActionType.Registration -> XmPushActionRegistrationResult()
-            ActionType.UnRegistration -> XmPushActionUnRegistrationResult()
-            ActionType.Subscription -> XmPushActionSubscriptionResult()
-            ActionType.UnSubscription -> XmPushActionUnSubscriptionResult()
-            ActionType.SendMessage -> XmPushActionSendMessage()
-            ActionType.AckMessage -> XmPushActionAckMessage()
-            ActionType.SetConfig -> XmPushActionCommandResult()
-            ActionType.ReportFeedback -> XmPushActionSendFeedbackResult()
-            ActionType.Notification -> XmPushActionAckNotification().apply { setErrorCodeIsSet(true) }
-            ActionType.Command -> XmPushActionCommandResult()
-            else -> null
-        }
     }
 }

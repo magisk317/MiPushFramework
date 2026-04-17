@@ -98,6 +98,7 @@ import io.github.magisk317.mipush.feature.main.subpage.Settings
 import io.github.magisk317.mipush.feature.main.subpage.SettingsPagePreview
 import io.github.magisk317.mipush.feature.ui.theme.*
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
+import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.runtime.data.EventRepository
@@ -109,6 +110,7 @@ import kotlin.math.hypot
 private val mainActivityUtils = MainActivityUtils()
 private var placeholder by mutableStateOf("Search...")
 
+@AndroidEntryPoint
 open class MainActivity : ComponentActivity() {
     companion object {
         const val EXTRA_START_TAB = "extra_start_tab"

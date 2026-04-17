@@ -45,7 +45,8 @@ object PushSlimStreamRuntime {
             3 -> PushSlimPayloadPlan(PushSlimPayloadAction.ParsePacket)
             else -> PushSlimPayloadPlan(
                 action = PushSlimPayloadAction.IgnoreUnknown,
-                eventAction = "slim_unknown_payload_type"
+                eventAction = "slim_unknown_payload_type",
+                shouldLogUnknownType = true
             )
         }
     }

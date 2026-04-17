@@ -74,15 +74,15 @@ class StatsContext(
         }
     }
 
-    override fun connectionClosed(connection: Connection, code: Int, exc: Exception?) {
+    override fun connectionClosed(connection: Connection, reason: Int, error: Exception?) {
         var uidRxBytes: Long
         var uidTxBytes: Long
-        if (reason == 0 && exception == null) {
-            reason = code
-            exception = exc
-            StatsHelper.connectionDown(connection.getHost() ?: "", exc)
+        if (this.reason == 0 && exception == null) {
+            this.reason = reason
+            exception = error
+            StatsHelper.connectionDown(connection.getHost() ?: "", error)
         }
-        if (code == 22 && channelConnectedTime != 0L) {
+        if (reason == 22 && channelConnectedTime != 0L) {
             var lastPingRecv = connection.getLastPingRecv() - channelConnectedTime
             if (lastPingRecv < 0L) {
                 lastPingRecv = 0L
@@ -115,7 +115,7 @@ class StatsContext(
 
     fun getCaughtException(): Exception? = exception
 
-    override fun reconnectionFailed(connection: Connection, exc: Exception) {
+    override fun reconnectionFailed(connection: Connection, error: Exception) {
         StatsHelper.stats(
             0,
             ChannelStatsType.CHANNEL_CON_FAIL.value,

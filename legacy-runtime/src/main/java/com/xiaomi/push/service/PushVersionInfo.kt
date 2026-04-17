@@ -1,30 +1,30 @@
 package com.xiaomi.push.service
 
 object PushVersionInfo {
-    const val STOCK_XMSF_APP_VERSION_NAME = com.xiaomi.xmsf.runtime.PushVersionInfo.STOCK_XMSF_APP_VERSION_NAME
-    const val STOCK_XMSF_APP_VERSION_CODE = com.xiaomi.xmsf.runtime.PushVersionInfo.STOCK_XMSF_APP_VERSION_CODE
+    const val STOCK_XMSF_APP_VERSION_NAME = io.github.magisk317.mipush.runtime.core.PushVersionInfo.STOCK_XMSF_APP_VERSION_NAME
+    const val STOCK_XMSF_APP_VERSION_CODE = io.github.magisk317.mipush.runtime.core.PushVersionInfo.STOCK_XMSF_APP_VERSION_CODE
 
-    const val PUSH_SDK_VERSION_NAME = com.xiaomi.xmsf.runtime.PushVersionInfo.PUSH_SDK_VERSION_NAME
-    const val PUSH_SDK_VERSION_CODE = com.xiaomi.xmsf.runtime.PushVersionInfo.PUSH_SDK_VERSION_CODE
+    const val PUSH_SDK_VERSION_NAME = io.github.magisk317.mipush.runtime.core.PushVersionInfo.PUSH_SDK_VERSION_NAME
+    const val PUSH_SDK_VERSION_CODE = io.github.magisk317.mipush.runtime.core.PushVersionInfo.PUSH_SDK_VERSION_CODE
 
     @JvmStatic
     fun reportedAppVersionName(packageName: String, actualVersionName: String): String {
-        return com.xiaomi.xmsf.runtime.PushVersionInfo.reportedAppVersionName(packageName, actualVersionName)
+        return io.github.magisk317.mipush.runtime.core.PushVersionInfo.reportedAppVersionName(packageName, actualVersionName)
     }
 
     @JvmStatic
     fun reportedAppVersionCode(packageName: String, actualVersionCode: Int): Int {
-        return com.xiaomi.xmsf.runtime.PushVersionInfo.reportedAppVersionCode(packageName, actualVersionCode)
+        return io.github.magisk317.mipush.runtime.core.PushVersionInfo.reportedAppVersionCode(packageName, actualVersionCode)
     }
 
     @JvmStatic
     fun appendPushSdkExtras(target: MutableMap<String, String>) {
-        com.xiaomi.xmsf.runtime.PushVersionInfo.appendPushSdkExtras(target)
+        io.github.magisk317.mipush.runtime.core.PushVersionInfo.appendPushSdkExtras(target)
     }
 
     @JvmStatic
     fun pushSdkExtras(): Map<String, String> {
-        return com.xiaomi.xmsf.runtime.PushVersionInfo.pushSdkExtras()
+        return io.github.magisk317.mipush.runtime.core.PushVersionInfo.pushSdkExtras()
     }
 
     @JvmStatic
@@ -33,7 +33,7 @@ object PushVersionInfo {
         packageName: String,
         actualVersionCode: Int,
     ) {
-        com.xiaomi.xmsf.runtime.PushVersionInfo.appendAccountRegistrationParams(target, packageName, actualVersionCode)
+        io.github.magisk317.mipush.runtime.core.PushVersionInfo.appendAccountRegistrationParams(target, packageName, actualVersionCode)
     }
 
     @JvmStatic
@@ -42,6 +42,6 @@ object PushVersionInfo {
         countryCode: String,
         region: String,
     ): LinkedHashMap<String, String> {
-        return com.xiaomi.xmsf.runtime.PushVersionInfo.buildClientExtraAttributes(runningPackages, countryCode, region)
+        return io.github.magisk317.mipush.runtime.core.PushVersionInfo.buildClientExtraAttributes(runningPackages, countryCode, region)
     }
 }

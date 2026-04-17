@@ -5,7 +5,7 @@ import android.content.Intent
 import android.widget.Toast
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
-import io.github.magisk317.mipush.Global
+import io.github.magisk317.mipush.platform.support.Global
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.common.Constants
@@ -68,13 +68,13 @@ class RegisterRecorder(private val context: Context) {
     }
 
     fun showRegisterNotification(application: RegisteredApplication) {
-        val appName = Global.ApplicationNameCache().getAppName(context, application.packageName)
+        val appName = Global.applicationNameCache().getAppName(context, application.packageName)
         val usedString = context.getString(R.string.notification_registerAllowed, appName)
         Utils.makeText(context, usedString, Toast.LENGTH_SHORT)
     }
 
     fun canShowRegisterNotification(application: RegisteredApplication): Boolean {
-        var notificationOnRegister = runBlocking { Global.ConfigCenter().isNotificationOnRegisterAsync() }
+        var notificationOnRegister = runBlocking { Global.configCenter().isNotificationOnRegisterAsync() }
         notificationOnRegister = notificationOnRegister && application.notificationOnRegister
         return notificationOnRegister
     }

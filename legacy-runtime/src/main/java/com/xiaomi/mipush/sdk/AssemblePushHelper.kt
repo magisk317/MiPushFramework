@@ -50,8 +50,8 @@ object AssemblePushHelper {
         val tokenKey = getTokenKey(AssemblePush.ASSEMBLE_PUSH_HUAWEI)
         val tokenKey2 = getTokenKey(AssemblePush.ASSEMBLE_PUSH_FCM)
         val z = !TextUtils.isEmpty(sharedPreferences.getString(tokenKey, "")) && TextUtils.isEmpty(sharedPreferences.getString(tokenKey2, ""))
-        if (z) {
-            PushServiceClient.getInstance(context).send3rdPushHint(2, tokenKey!!)
+        if (z && tokenKey != null) {
+            PushServiceClient.getInstance(context).send3rdPushHint(2, tokenKey)
         }
     }
 
@@ -66,7 +66,10 @@ object AssemblePushHelper {
     fun convertMessage(intent: Intent) {
         val extras = intent.extras ?: return
         if (!extras.containsKey(HMS_NOTIFICATION_CONTENT)) return
-        intent.putExtra(PushMessageHelper.KEY_MESSAGE, parseMiPushMessage(extras.getString(HMS_NOTIFICATION_CONTENT)!!))
+        val hmsContent = extras.getString(HMS_NOTIFICATION_CONTENT)
+        if (hmsContent != null) {
+            intent.putExtra(PushMessageHelper.KEY_MESSAGE, parseMiPushMessage(hmsContent))
+        }
     }
 
     @JvmStatic
@@ -84,11 +87,13 @@ object AssemblePushHelper {
                 } catch (e: Exception) {
                     MyLog.e(e.toString())
                 }
-                "brand:${AssemblePushUtils.getPhoneBrand(context).name}${Constants.WAVE_SEPARATOR}token:${getAssemblePushToken(context, tokenKey!!)}${Constants.WAVE_SEPARATOR}package_name:${context.packageName}${Constants.WAVE_SEPARATOR}app_id:$i"
+                val brandName = AssemblePushUtils.getPhoneBrand(context).name
+                val token = if (tokenKey != null) getAssemblePushToken(context, tokenKey) else ""
+                "brand:$brandName${Constants.WAVE_SEPARATOR}token:$token${Constants.WAVE_SEPARATOR}package_name:${context.packageName}${Constants.WAVE_SEPARATOR}app_id:$i"
             }
-            AssemblePush.ASSEMBLE_PUSH_FCM -> "brand:${PhoneBrand.FCM.name}${Constants.WAVE_SEPARATOR}token:${getAssemblePushToken(context, tokenKey!!)}${Constants.WAVE_SEPARATOR}package_name:${context.packageName}"
-            AssemblePush.ASSEMBLE_PUSH_COS -> "brand:${PhoneBrand.OPPO.name}${Constants.WAVE_SEPARATOR}token:${getAssemblePushToken(context, tokenKey!!)}${Constants.WAVE_SEPARATOR}package_name:${context.packageName}"
-            AssemblePush.ASSEMBLE_PUSH_FTOS -> "brand:${PhoneBrand.VIVO.name}${Constants.WAVE_SEPARATOR}token:${getAssemblePushToken(context, tokenKey!!)}${Constants.WAVE_SEPARATOR}package_name:${context.packageName}"
+            AssemblePush.ASSEMBLE_PUSH_FCM -> "brand:${PhoneBrand.FCM.name}${Constants.WAVE_SEPARATOR}token:${if (tokenKey != null) getAssemblePushToken(context, tokenKey) else ""}${Constants.WAVE_SEPARATOR}package_name:${context.packageName}"
+            AssemblePush.ASSEMBLE_PUSH_COS -> "brand:${PhoneBrand.OPPO.name}${Constants.WAVE_SEPARATOR}token:${if (tokenKey != null) getAssemblePushToken(context, tokenKey) else ""}${Constants.WAVE_SEPARATOR}package_name:${context.packageName}"
+            AssemblePush.ASSEMBLE_PUSH_FTOS -> "brand:${PhoneBrand.VIVO.name}${Constants.WAVE_SEPARATOR}token:${if (tokenKey != null) getAssemblePushToken(context, tokenKey) else ""}${Constants.WAVE_SEPARATOR}package_name:${context.packageName}"
         }
         map[Constants.ASSEMBLE_PUSH_REG_INFO] = str
         return map
@@ -97,8 +102,7 @@ object AssemblePushHelper {
     @JvmStatic
     fun getAssemblePushToken(context: Context, key: String): String {
         return synchronized(this) {
-            val str3 = mTokens[key]
-            if (TextUtils.isEmpty(str3)) "" else str3!!
+            mTokens[key] ?: ""
         }
     }
 
@@ -108,18 +112,16 @@ object AssemblePushHelper {
             setPackage(context.packageName)
         }
         return try {
-            val listQueryBroadcastReceivers = context.packageManager.queryBroadcastReceivers(intent, 32)
+            val list = context.packageManager.queryBroadcastReceivers(intent, 32)
             var next: android.content.pm.ResolveInfo? = null
-            if (listQueryBroadcastReceivers != null) {
-                for (item in listQueryBroadcastReceivers) {
-                    if (item.activityInfo != null && item.activityInfo.packageName == context.packageName) {
-                        next = item
-                        break
-                    }
+            for (item in list) {
+                if (item.activityInfo != null && item.activityInfo.packageName == context.packageName) {
+                    next = item
+                    break
                 }
             }
             if (next != null) {
-                SystemUtils.loadClass(context, next.activityInfo.name)!!.getDeclaredConstructor().newInstance() as PushMessageReceiver
+                SystemUtils.loadClass(context, next.activityInfo.name).getDeclaredConstructor().newInstance() as PushMessageReceiver
             } else {
                 null
             }
@@ -166,7 +168,7 @@ object AssemblePushHelper {
         val miPushMessage = MiPushMessage()
         if (!TextUtils.isEmpty(str)) {
             try {
-                val jSONObject = JSONObject(str!!)
+                val jSONObject = JSONObject(str)
                 if (jSONObject.has(KEY_MESSAGE_ID)) miPushMessage.messageId = jSONObject.getString(KEY_MESSAGE_ID)
                 if (jSONObject.has(KEY_DESC)) miPushMessage.description = jSONObject.getString(KEY_DESC)
                 if (jSONObject.has(KEY_TITLE)) miPushMessage.title = jSONObject.getString(KEY_TITLE)
@@ -225,7 +227,7 @@ object AssemblePushHelper {
     fun saveAssemblePushTokenAfterAck(context: Context, assemblePush: AssemblePush, token: String) {
         ScheduledJobManager.getInstance(context).addOneShootJob {
             if (TextUtils.isEmpty(token)) return@addOneShootJob
-            val strArrSplit = token!!.split(Constants.WAVE_SEPARATOR)
+            val strArrSplit = token.split(Constants.WAVE_SEPARATOR)
             var strSubstring = ""
             for (str2 in strArrSplit) {
                 if (!TextUtils.isEmpty(str2) && str2.startsWith("token:")) {
@@ -250,8 +252,8 @@ object AssemblePushHelper {
                 MyLog.w("ASSEMBLE_PUSH : can not find the key of token used in sp file")
             } else if (TextUtils.isEmpty(token)) {
                 MyLog.w("ASSEMBLE_PUSH : token is null")
-            } else {
-                mTokens[tokenKey!!] = token
+            } else if (tokenKey != null) {
+                mTokens[tokenKey] = token
             }
         }
     }

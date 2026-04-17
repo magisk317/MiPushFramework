@@ -76,10 +76,8 @@ class AssemblePushCollectionsManager private constructor(context: Context) : Abs
     }
 
     fun addManager(assemblePush: AssemblePush, abstractPushManager: AbstractPushManager) {
-        if (abstractPushManager != null) {
-            mManagers.remove(assemblePush)
-            mManagers[assemblePush] = abstractPushManager
-        }
+        mManagers.remove(assemblePush)
+        mManagers[assemblePush] = abstractPushManager
     }
 
     fun contain(assemblePush: AssemblePush): Boolean = mManagers.containsKey(assemblePush)
@@ -102,7 +100,7 @@ class AssemblePushCollectionsManager private constructor(context: Context) : Abs
         }
         if (mManagers.isNotEmpty()) {
             for (abstractPushManager in mManagers.values) {
-                abstractPushManager?.register()
+                abstractPushManager.register()
             }
             AssemblePushHelper.checkAssemblePushStatus(mContext)
         }
@@ -131,7 +129,7 @@ class AssemblePushCollectionsManager private constructor(context: Context) : Abs
     override fun unregister() {
         MyLog.w("ASSEMBLE_PUSH : assemble push unregister")
         for (abstractPushManager in mManagers.values) {
-            abstractPushManager?.unregister()
+            abstractPushManager.unregister()
         }
         mManagers.clear()
     }

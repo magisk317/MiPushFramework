@@ -17,7 +17,6 @@ import java.lang.reflect.Method
 
 @Suppress("UNCHECKED_CAST")
 class MiPushManifestChecker private constructor(
-    private val manifestChecker: Class<*>,
     private val context: Context
 ) {
     private val TAG2 = "MiPushManifestChecker"
@@ -26,21 +25,15 @@ class MiPushManifestChecker private constructor(
         fun w(msg: String) = Napier.w(msg, tag = TAG2)
     }
 
-    private val checkServicesMethod: Method = manifestChecker.getDeclaredMethod("checkServices", Context::class.java, PackageInfo::class.java).apply {
-        isAccessible = true
-    }
-
     fun checkPermissions(packageInfo: PackageInfo): Boolean {
         return try {
-            val method = manifestChecker.getDeclaredMethod("checkPermissions", Context::class.java, PackageInfo::class.java)
-            method.isAccessible = true
-            method.invoke(null, context, packageInfo)
+            ManifestChecker.checkPermissions(context, packageInfo)
             true
         } catch (e: Throwable) {
             if (!isIllegalManifestException(e)) {
                 logger.e("checkPermissions", e)
             } else {
-                logger.e("checkPermissions: " + packageInfo.packageName + "," + (e as InvocationTargetException).cause!!.message)
+                logger.e("checkPermissions: " + packageInfo.packageName + "," + (e as? InvocationTargetException)?.cause?.message)
             }
             false
         }
@@ -48,10 +41,12 @@ class MiPushManifestChecker private constructor(
 
     fun checkReceivers(packageName: String): Boolean {
         return try {
-            val appCtx = context.createPackageContext(packageName, Context.CONTEXT_IGNORE_SECURITY or Context.CONTEXT_INCLUDE_CODE)
-            val method = manifestChecker.getDeclaredMethod("checkReceivers", Context::class.java)
-            method.isAccessible = true
-            method.invoke(null, appCtx)
+            val appCtx = XMPushUtils.getPackageContext(
+                context,
+                packageName,
+                Context.CONTEXT_IGNORE_SECURITY or Context.CONTEXT_INCLUDE_CODE
+            )
+            ManifestChecker.checkReceivers(appCtx)
             true
         } catch (e: Throwable) {
             if (!isIllegalManifestException(e)) {
@@ -67,49 +62,7 @@ class MiPushManifestChecker private constructor(
             return true
         }
         return try {
-            val configServiceProcessMap = HashMap<String, String?>()
-            val requiredServicesMap = HashMap<String, ManifestChecker.ServiceCheckInfo>()
-            val pushHandlerServiceName = PushMessageHandler::class.java.name
-            requiredServicesMap[pushHandlerServiceName] =
-                ManifestChecker.ServiceCheckInfo(pushHandlerServiceName, true, true, "")
-
-            if (pkgInfo.services != null) {
-                for (info: ServiceInfo in pkgInfo.services) {
-                    if (!TextUtils.isEmpty(info.name) && requiredServicesMap.containsKey(info.name)) {
-                        val checkInfo = requiredServicesMap.remove(info.name)!!
-                        val enabled = checkInfo.enabled
-                        val exported = checkInfo.exported
-                        val permission = checkInfo.permission
-                        if (enabled && !info.enabled) {
-                            throw IllegalStateException("service ${info.name} has wrong enabled attribute")
-                        }
-                        if (exported && !info.exported) {
-                            throw IllegalStateException("service ${info.name} has wrong exported attribute")
-                        }
-                        if (!TextUtils.isEmpty(permission) && !TextUtils.equals(permission, info.permission)) {
-                            throw IllegalStateException("service ${info.name} has wrong permission attribute")
-                        }
-                        configServiceProcessMap[info.name] = info.processName
-                        if (requiredServicesMap.isEmpty()) {
-                            break
-                        }
-                    }
-                }
-            }
-
-            if (requiredServicesMap.isNotEmpty()) {
-                throw IllegalStateException("service missing or disabled: " + requiredServicesMap.keys.iterator().next())
-            }
-
-            if (configServiceProcessMap.containsKey(PushConstants.XM_SERVICE_CLASS_NAME_JAR)
-                && configServiceProcessMap.containsKey(PushConstants.PUSH_SERVICE_CLASS_NAME_JAR)
-                && !TextUtils.equals(
-                    configServiceProcessMap[PushConstants.XM_SERVICE_CLASS_NAME_JAR],
-                    configServiceProcessMap[PushConstants.PUSH_SERVICE_CLASS_NAME_JAR]
-                )
-            ) {
-                throw IllegalStateException("XM_SERVICE and PUSH_SERVICE must be in same process")
-            }
+            ManifestChecker.checkServices(context, pkgInfo)
             true
         } catch (e: Throwable) {
             if (e is IllegalStateException) {
@@ -127,13 +80,8 @@ class MiPushManifestChecker private constructor(
         private val TAG: String = MiPushManifestChecker::class.java.simpleName
 
         @JvmStatic
-        @Throws(PackageManager.NameNotFoundException::class, ClassNotFoundException::class, NoSuchMethodException::class)
         fun create(context: Context): MiPushManifestChecker {
-            val manifestChecker = context.createPackageContext(
-                Constants.SERVICE_APP_NAME,
-                Context.CONTEXT_INCLUDE_CODE or Context.CONTEXT_IGNORE_SECURITY
-            ).classLoader.loadClass("com.xiaomi.mipush.sdk.ManifestChecker")
-            return MiPushManifestChecker(manifestChecker, context)
+            return MiPushManifestChecker(context)
         }
 
         private fun isIllegalManifestException(e0: Throwable): Boolean {
@@ -141,7 +89,7 @@ class MiPushManifestChecker private constructor(
             if (e is InvocationTargetException) {
                 e = e.targetException
             }
-            return e.javaClass.name == "com.xiaomi.mipush.sdk.ManifestChecker\$IllegalManifestException"
+            return e is ManifestChecker.IllegalManifestException
         }
     }
 }

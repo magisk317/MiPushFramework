@@ -25,10 +25,12 @@ class JobSchedulerThread(
     private val taskQueue = JobSchedulerTaskQueue()
 
     private fun signalLocked() {
+        @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
         (this as java.lang.Object).notify()
     }
 
     private fun waitLocked(timeoutMs: Long? = null) {
+        @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
         val objectMonitor = this as java.lang.Object
         if (timeoutMs == null) {
             objectMonitor.wait()

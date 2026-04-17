@@ -11,7 +11,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
 import io.github.aakira.napier.Napier
-import io.github.magisk317.mipush.Global
+import io.github.magisk317.mipush.platform.support.Global
 import com.xiaomi.xmsf.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -30,7 +30,7 @@ class ForegroundHelper(private val service: Service) {
         // Check keep-alive preference asynchronously to avoid blocking the main thread.
         CoroutineScope(Dispatchers.Main.immediate).launch {
             try {
-                if (!Global.ConfigCenter().isStartForegroundServiceAsync()) {
+                if (!Global.configCenter().isStartForegroundServiceAsync()) {
                     stopForegroundNotification()
                 }
             } catch (t: Throwable) {

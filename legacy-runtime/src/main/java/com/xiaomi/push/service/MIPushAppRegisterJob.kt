@@ -31,16 +31,20 @@ class MIPushAppRegisterJob(
             return
         }
         pushService.runtimeObserver.onAccountEvent(packageName, "account_ready")
+        MyLog.w("[MIPushAppRegisterJob] start prepare client info for $packageName")
         val activeClients = PushClientsManager.getInstance().getAllClientLoginInfoByChid("5")
         val client = if (activeClients.isEmpty()) {
+            MyLog.w("[MIPushAppRegisterJob] create new client info for $packageName")
             account.toClientLoginInfo(pushService, pushService).also { loginInfo ->
                 MIPushHelper.prepareClientLoginInfo(pushService, loginInfo)
                 PushClientsManager.getInstance().addActiveClient(loginInfo)
                 pushService.runtimeObserver.syncChannelTracker("MIPushAppRegisterJob.process:add_client")
             }
         } else {
+            MyLog.w("[MIPushAppRegisterJob] reuse existing client info for $packageName")
             activeClients.iterator().next()
         }
+        MyLog.w("[MIPushAppRegisterJob] client info ready, status=${client.status}")
         if (!pushService.isConnected) {
             pushService.runtimeObserver.onChannelStateChanged(
                 packageName,

@@ -38,9 +38,7 @@ object PushStatClient4Hybrid {
     }
 
     private fun record(jSONObject: JSONObject) {
-        if (jSONObject != null) {
-            PushStatClientManager.getInstance(sContext!!).record(jSONObject.toString())
-        }
+        PushStatClientManager.getInstance(sContext!!).record(jSONObject.toString())
     }
 
     fun recordCalculateEvent(str: String, str2: String, j: Long) {

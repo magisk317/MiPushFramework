@@ -71,7 +71,7 @@ class AwakeManager private constructor(context: Context) {
     }
 
     fun wakeup(context: Context, str: String, i: Int, str2: String, str3: String) {
-        if (context == null || TextUtils.isEmpty(str) || TextUtils.isEmpty(str2) || TextUtils.isEmpty(str3)) {
+        if (TextUtils.isEmpty(str) || TextUtils.isEmpty(str2) || TextUtils.isEmpty(str3)) {
             AwakeUploadHelper.uploadData(context, "$str", 1008, "A receive a incorrect message")
             return
         }

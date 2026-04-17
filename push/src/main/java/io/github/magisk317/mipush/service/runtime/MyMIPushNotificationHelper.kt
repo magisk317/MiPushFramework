@@ -1,10 +1,4 @@
 package io.github.magisk317.mipush.service.runtime
-import com.xiaomi.push.service.*
-import com.xiaomi.smack.packet.*
-import com.xiaomi.smack.*
-import com.xiaomi.slim.*
-import com.xiaomi.push.service.timers.*
-import com.xiaomi.push.service.*
 
 import android.content.Context
 import android.content.Intent
@@ -13,19 +7,22 @@ import android.os.PowerManager
 import android.widget.Toast
 import androidx.annotation.NonNull
 import androidx.core.app.NotificationCompat
+import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.push.hook.ExplicitHookBridge
 import io.github.magisk317.mipush.push.hook.HookTraceCompat
 import io.github.magisk317.mipush.push.pipeline.MessageIdentity
 import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
 import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry
-import io.github.magisk317.mipush.Global
-import io.github.magisk317.mipush.XMPushUtils
+import io.github.magisk317.mipush.platform.support.Global
+import io.github.magisk317.mipush.platform.support.XMPushUtils
 import com.xiaomi.channel.commonutils.android.AppInfoUtils
 import com.xiaomi.mipush.sdk.PushMessageProcessor
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmsf.R
+import com.xiaomi.push.service.MIPushNotificationHelper
+import com.xiaomi.push.service.PushConstants
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.notification.NotificationController
 import io.github.magisk317.mipush.utils.Configurations
@@ -46,10 +43,14 @@ class MyMIPushNotificationHelper {
     )
 
     companion object {
-        const val CLASS_NAME_PUSH_MESSAGE_HANDLER = "com.xiaomi.mipush.sdk.PushMessageHandler"
+        private const val TAG = "MyNotificationHelper"
+        private val logger = object {
+            fun i(msg: String) = Napier.i(msg, tag = TAG)
+            fun w(msg: String) = Napier.w(msg, tag = TAG)
+            fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
+        }
 
-        private val logger = MyMIPushNotificationLogs.logger
-
+        const val CLASS_NAME_PUSH_MESSAGE_HANDLER = Constants.PUSH_MESSAGE_HANDLER_CLASS
         private const val GROUP_TYPE_MIPUSH_GROUP = "#group#"
         private const val GROUP_TYPE_PASS_THROUGH = "#pass_through#"
 
@@ -129,10 +130,6 @@ class MyMIPushNotificationHelper {
                                     "messageId=$messageId"
                             )
                             doNotifyPushMessage(context, container, decryptedContent)
-                            logger.i(
-                                "policy_notify dispatch finished pkg=$packageName action=${container.action} " +
-                                    "messageId=$messageId"
-                            )
                         } catch (e: Exception) {
                             logger.e(
                                 "policy_notify dispatch failed pkg=$packageName action=${container.action} " +
@@ -165,12 +162,12 @@ class MyMIPushNotificationHelper {
                                 launchApp = true
                             )
                         } catch (e: Exception) {
-                            logger.e(e.localizedMessage, e)
+                            logger.e("Failed to dispatch downstream payload", e)
                         }
                     }
                 }
             } catch (e: Exception) {
-                logger.e(e.localizedMessage, e)
+                logger.e("handleNotificationByConfigurations encountered error", e)
             }
         }
 
@@ -178,7 +175,7 @@ class MyMIPushNotificationHelper {
             if (!tryLoadConfigurations) {
                 tryLoadConfigurations = true
                 try {
-                    val configCenter: ConfigCenter = Global.ConfigCenter()
+                    val configCenter: ConfigCenter = Global.configCenter()
                     val configurationDirectory = runBlocking { configCenter.getConfigurationDirectoryAsync() }
                     loadConfigurations(context, configurationDirectory)
                 } catch (e: Exception) {
@@ -194,7 +191,7 @@ class MyMIPushNotificationHelper {
         private fun loadConfigurations(context: Context, configurationDirectory: Uri?) {
             val configurations = Configurations.getInstance()
             if (configurations.init(context, configurationDirectory)) {
-                val iconConfigurations: IconConfigurations = Global.IconConfigurations()
+                val iconConfigurations: IconConfigurations = Global.iconConfigurations()
                 iconConfigurations.init(context, configurationDirectory)
             }
         }
@@ -211,7 +208,7 @@ class MyMIPushNotificationHelper {
         private fun doNotifyPushMessage(context: Context, container: XmPushActionContainer, decryptedContent: ByteArray) {
             val metaInfo = container.metaInfo
             val messageId = MessageIdentity.fromContainer(container)
-            logPushMessage(metaInfo)
+            logger.i("title:${metaInfo.title}  description:${metaInfo.description}")
             val result = getNotificationFor(context, container, decryptedContent)
             logger.i(
                 "doNotifyPushMessage publish start pkg=${container.packageName} action=${container.action} " +
@@ -224,14 +221,6 @@ class MyMIPushNotificationHelper {
                 container.packageName,
                 result.notificationBuilder
             )
-            logger.i(
-                "doNotifyPushMessage publish end pkg=${container.packageName} action=${container.action} " +
-                    "messageId=$messageId notificationId=${result.notificationId}"
-            )
-        }
-
-        private fun logPushMessage(metaInfo: PushMetaInfo) {
-            logger.i("title:${metaInfo.title}  description:${metaInfo.description}")
         }
 
         @NonNull
@@ -243,7 +232,7 @@ class MyMIPushNotificationHelper {
             val metaInfo = container.metaInfo
             val packageName = container.packageName
 
-            val pkgCtx = MyMIPushNotificationStyleSupport.getPackageContext(context, packageName)
+            val pkgCtx = XMPushUtils.getPackageContext(context, packageName)
             val message = MyMIPushNotificationStyleSupport.createMessage(context, container, pkgCtx)
             val custom = XMPushUtils.getConfiguration(metaInfo)
             val useMessagingStyle = message != null && custom.useMessagingStyle(false)
@@ -273,7 +262,7 @@ class MyMIPushNotificationHelper {
 
             val intentExtra = Intent()
             intentExtra.putExtra(Constants.INTENT_NOTIFICATION_ID, notificationId)
-            intentExtra.putExtra(Constants.INTENT_NOTIFICATION_GROUP, notificationBuilder.build().group)
+            intentExtra.putExtra(Constants.INTENT_NOTIFICATION_GROUP, group)
 
             val localPendingIntent = MyMIPushNotificationIntentSupport.buildClickedPendingIntent(
                 context,
@@ -315,8 +304,6 @@ class MyMIPushNotificationHelper {
         private fun getGroupName(xmPushService: Context, buildContainer: XmPushActionContainer): String {
             val metaInfo = buildContainer.metaInfo
             val packageName = buildContainer.packageName
-            RegisteredApplicationDb.getRegisteredApplication(packageName)
-
             val configuration = XMPushUtils.getConfiguration(metaInfo)
             var group = configuration.notificationGroup(null)
             group = if (group != null) {
@@ -337,7 +324,7 @@ class MyMIPushNotificationHelper {
             packageName: String,
             localBuilder: NotificationCompat.Builder
         ) {
-            if (runBlocking { Global.ConfigCenter().isDebugModeAsync() }) {
+            if (runBlocking { Global.configCenter().isDebugModeAsync() }) {
                 val icon = R.drawable.ic_notifications_black_24dp
                 val pendingIntentJump =
                     MyMIPushNotificationIntentSupport.startServicePendingIntent(
@@ -372,9 +359,6 @@ class MyMIPushNotificationHelper {
             return intent
         }
 
-        /**
-         * @see PushMessageProcessor#getNotificationMessageIntent
-         */
         @JvmStatic
         fun getSdkIntent(context: Context, container: XmPushActionContainer): Intent? {
             return MyMIPushNotificationIntentSupport.getSdkIntent(context, container)

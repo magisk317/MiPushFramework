@@ -78,7 +78,7 @@ object JavaCalls {
         val paramTypes = getParameterTypes(*args)
         val params = getParameters(*args)
         return getDeclaredMethod(cls, name, *paramTypes)
-            .invoke(null, *params)
+            .invoke(null, *params) as Any
     }
 
     @JvmStatic
@@ -94,7 +94,7 @@ object JavaCalls {
             SystemUtils.loadClass(null, className),
             name,
             *paramTypes
-        ).invoke(null, *params)
+        ).invoke(null, *params) as Any
     }
 
     private fun compareClassLists(clsArr: Array<Class<*>>, clsArr2: Array<out Class<*>?>): Boolean {
@@ -105,9 +105,10 @@ object JavaCalls {
             return false
         }
         for (i in clsArr.indices) {
-            if (clsArr2[i] != null && !clsArr[i].isAssignableFrom(clsArr2[i])) {
+            val cls2 = clsArr2[i]
+            if (cls2 != null && !clsArr[i].isAssignableFrom(cls2)) {
                 val map = PRIMITIVE_MAP
-                if (!map.containsKey(clsArr[i]) || map[clsArr[i]] != map[clsArr2[i]]) {
+                if (!map.containsKey(clsArr[i]) || map[clsArr[i]] != map[cls2]) {
                     return false
                 }
             }
@@ -116,9 +117,6 @@ object JavaCalls {
     }
 
     private fun findMethodByName(methodArr: Array<Method>, name: String, paramTypes: Array<out Class<*>?>): Method? {
-        if (name == null) {
-            throw NullPointerException("Method name must not be null.")
-        }
         for (method in methodArr) {
             if (method.name == name && compareClassLists(method.parameterTypes, paramTypes)) {
                 return method
@@ -134,8 +132,9 @@ object JavaCalls {
             method.isAccessible = true
             return method
         }
-        if (cls.superclass != null) {
-            return getDeclaredMethod(cls.superclass, name, *paramTypes)
+        val superCls = cls.superclass
+        if (superCls != null) {
+            return getDeclaredMethod(superCls, name, *paramTypes)
         }
         throw NoSuchMethodException()
     }
@@ -181,7 +180,7 @@ object JavaCalls {
             }
         }
         field.isAccessible = true
-        return field.get(obj)
+        return field.get(obj) as Any
     }
 
     private fun getParameterTypes(vararg args: Any?): Array<Class<*>?> {

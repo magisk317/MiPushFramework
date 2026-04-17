@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.service
 
 import android.os.Build
-import io.github.magisk317.mipush.Global
+import io.github.magisk317.mipush.platform.support.Global
 import com.xiaomi.push.revival.NotificationsRevivalForSelfUpdated
 import com.xiaomi.push.service.XMPushService
 import com.xiaomi.push.service.XMPushServiceMessenger
@@ -9,7 +9,7 @@ import com.xiaomi.push.service.XMPushServiceMessenger
 object XMPushServiceAbilityAssembler {
     @JvmStatic
     fun prepare(pushService: XMPushService) {
-        Global.RegistrationRecorder().initContext(pushService)
+        Global.registrationRecorder().initContext(pushService)
     }
 
     @JvmStatic

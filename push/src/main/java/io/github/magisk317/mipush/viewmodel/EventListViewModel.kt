@@ -9,7 +9,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.magisk317.mipush.app.SettingsManager
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.feature.main.subpage.EventInfoForDisplay
-import io.github.magisk317.mipush.platform.support.GlobalSingletons
+import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.runtime.data.EventRepository
 import io.github.magisk317.mipush.runtime.store.entities.Event
 import io.github.magisk317.mipush.runtime.store.event.type.TypeFactory
@@ -72,7 +72,7 @@ class EventListViewModel @Inject constructor(
             receiveDate = Date(it.date),
             title = type.getTitle(context).toString(),
             content = content,
-            appName = GlobalSingletons.applicationNameCache().getAppName(context, it.pkg).toString(),
+            appName = Global.applicationNameCache().getAppName(context, it.pkg).toString(),
             event = it,
         )
     }

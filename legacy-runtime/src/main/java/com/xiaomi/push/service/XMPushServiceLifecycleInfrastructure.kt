@@ -31,9 +31,6 @@ class XMPushServiceLifecycleInfrastructure(
             object : Handler(Looper.getMainLooper()) {
                 override fun handleMessage(message: android.os.Message) {
                     super.handleMessage(message)
-                    if (message == null) {
-                        return
-                    }
                     try {
                         when (message.what) {
                             17 -> {

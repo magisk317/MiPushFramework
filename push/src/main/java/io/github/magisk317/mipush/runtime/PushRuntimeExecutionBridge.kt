@@ -5,7 +5,7 @@ import android.os.Bundle
 import io.github.magisk317.mipush.diagnostics.PushHealthSnapshotLogger
 import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
 import io.github.magisk317.mipush.utils.RegistrationHelper
-import io.github.magisk317.mipush.XMPushUtils
+import io.github.magisk317.mipush.platform.support.XMPushUtils
 import com.xiaomi.mipush.sdk.MiPushClient
 import com.xiaomi.mipush.sdk.PushServiceClient
 import com.xiaomi.push.sdk.PushMessageProcessor

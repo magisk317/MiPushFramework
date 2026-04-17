@@ -227,7 +227,7 @@ class PacketSync(
         when {
             Blob.CMD_PING == cmd -> {
                 val payload = blob.payload
-                if (payload != null && payload.isNotEmpty()) {
+                if (payload.isNotEmpty()) {
                     val ping = ChannelMessage.XMMsgPing.parseFrom(payload)
                     if (ping.hasPsc()) {
                         ServiceConfig.getInstance().handle(ping.psc)

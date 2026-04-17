@@ -10,7 +10,7 @@ import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import io.github.magisk317.mipush.utils.RegistrationHelper
-import io.github.magisk317.mipush.Global
+import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.compat.RegistrationStateCompat
 import io.github.magisk317.mipush.compat.RegistrationStateStore
 import com.xiaomi.xmsf.R
@@ -60,6 +60,10 @@ object ApplicationPageOperation {
         miPushApplications.totalPkg = packageInfos.size
         logger.d("[loadApp] get package info ms: %d", timer.restart())
 
+        // Batch fetch all last receive times to avoid N+1 queries
+        val lastReceiveTimes = runBlocking { EventDb.getAllLastReceiveTimesAsync() }
+        logger.d("[loadApp] batch fetch lastReceiveTimes ms: %d", timer.restart())
+
         removePackagesThatNotSupportMiPushServices(packageInfos, registeredPkgs)
         logger.d("[loadApp] filter not service package ms: %d", timer.restart())
 
@@ -73,17 +77,18 @@ object ApplicationPageOperation {
         addApplicationPinYinName(res)
         logger.d("[loadApp] query pinyin ms: %d", timer.restart())
 
-        addLastReceiveTimeInfo(res)
+        addLastReceiveTimeInfo(res, lastReceiveTimes)
         logger.d("[loadApp] query lastReceiveTime ms: %d", timer.restart())
         return miPushApplications
     }
 
     @JvmStatic
-    fun addLastReceiveTimeInfo(res: List<RegisteredApplication>) {
+    fun addLastReceiveTimeInfo(res: List<RegisteredApplication>, timesMap: Map<String, Long>) {
         for (application in res) {
-            application.lastReceiveTime = Date(
-                runBlocking { EventDb.getLastReceiveTimeAsync(application.packageName) }
-            )
+            val timeFromDb = timesMap[application.packageName] ?: 0L
+            // Also check the runtime cache in Utils (which might be fresher for some entries)
+            val timeFromCache = Utils.getLastReceiveTime(application.packageName)
+            application.lastReceiveTime = Date(maxOf(timeFromDb, timeFromCache ?: 0L))
         }
     }
 
@@ -101,7 +106,7 @@ object ApplicationPageOperation {
                 continue
             }
             val context = Utils.getApplication() ?: continue
-            application.appName = Global.ApplicationNameCache()
+            application.appName = Global.applicationNameCache()
                 .getAppName(context, application.packageName).toString()
         }
     }
@@ -350,7 +355,7 @@ object ApplicationPageOperation {
 
         for (application in list) {
             val pkg = application.packageName
-            application.appName = Global.ApplicationNameCache().getAppName(context, pkg).toString()
+            application.appName = Global.applicationNameCache().getAppName(context, pkg).toString()
             if (
                 application.registeredType == RegisteredApplication.RegisteredType.NotRegistered &&
                 localRegisteredPkgs.contains(pkg)

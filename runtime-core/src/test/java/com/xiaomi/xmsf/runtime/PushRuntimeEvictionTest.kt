@@ -1,4 +1,4 @@
-package com.xiaomi.xmsf.runtime
+package io.github.magisk317.mipush.runtime.core
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull

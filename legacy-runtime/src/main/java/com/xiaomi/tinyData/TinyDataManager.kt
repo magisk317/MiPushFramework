@@ -82,10 +82,6 @@ class TinyDataManager private constructor(private val mContext: Context) {
         private var sInstance: TinyDataManager? = null
 
         fun getInstance(context: Context): TinyDataManager? {
-            if (context == null) {
-                MyLog.e("[TinyDataManager]:mContext is null, TinyDataManager.getInstance(Context) failed.")
-                return null
-            }
             if (sInstance == null) {
                 synchronized(TinyDataManager::class.java) {
                     if (sInstance == null) {

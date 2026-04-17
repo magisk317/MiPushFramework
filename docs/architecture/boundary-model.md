@@ -15,7 +15,7 @@ MiPushFramework is not just an app project. It currently mixes four distinct lay
    - The code that defines the shipped `com.xiaomi.xmsf` behavior for this project.
    - Primary prefixes:
      - `com.xiaomi.xmsf.*`
-     - `com.magisk317.*`
+     - `io.github.magisk317.*`
      - `io.github.magisk317.mipush.*`
      - app-facing service/sdk surfaces such as `com.xiaomi.push.service.*`,
        `com.xiaomi.mipush.sdk.*`, and `com.xiaomi.push.sdk.*`

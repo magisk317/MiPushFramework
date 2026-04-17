@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "com.xiaomi.xmsf.runtime"
+    namespace = "io.github.magisk317.mipush.runtime.core"
 
     defaultConfig {
         buildConfigField("int", "RUNTIME_API_VERSION", "3")

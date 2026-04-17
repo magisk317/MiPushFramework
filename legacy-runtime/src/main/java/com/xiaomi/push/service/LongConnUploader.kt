@@ -23,22 +23,21 @@ class LongConnUploader(
         }
     }
 
-    override fun checkCanUpload(clientUploadDataItem: ClientUploadDataItem, packageName: String): Boolean {
+    override fun checkCanUpload(clientUploadDataItem: ClientUploadDataItem, str: String): Boolean {
         return getAppId(pushService.packageName) != null
     }
 
-    override fun upload(items: MutableList<ClientUploadDataItem>, packageName: String, sourcePackage: String) {
+    override fun upload(list: MutableList<ClientUploadDataItem>, str: String, str2: String) {
         pushService.executeJob(
             object : XMPushService.Job(XMPushServiceJob.TYPE_SEND_MSG) {
                 override fun getDesc(): String = "Send tiny data."
-
                 override fun process() {
-                    val appId = getAppId(packageName)
+                    val appId = getAppId(str)
                     if (appId == null) {
-                        MyLog.e("TinyData LongConnUploader.upload missing appId for $packageName")
+                        MyLog.e("TinyData LongConnUploader.upload missing appId for $str")
                         return
                     }
-                    val notifications = TinyDataHelper.pack(items, packageName, appId, Blob.MAX_BLOB_SIZE)
+                    val notifications = TinyDataHelper.pack(list, str, appId, Blob.MAX_BLOB_SIZE)
                     if (notifications == null) {
                         MyLog.e("TinyData LongConnUploader.upload Get a null XmPushActionNotification list when TinyDataHelper.pack() in XMPushService.")
                         return
@@ -46,19 +45,19 @@ class LongConnUploader(
                     for (notification in notifications) {
                         notification.putToExtra(TinyDataHelper.KEY_UPLOAD_WAY, "longXMPushService")
                         val requestContainer = MIPushHelper.generateRequestContainer(
-                            packageName,
+                            str,
                             appId,
                             notification,
                             ActionType.Notification,
                         )
-                        if (!TextUtils.isEmpty(sourcePackage) && !TextUtils.equals(packageName, sourcePackage)) {
+                        if (!TextUtils.isEmpty(str2) && !TextUtils.equals(str, str2)) {
                             if (requestContainer.metaInfo == null) {
                                 requestContainer.metaInfo = PushMetaInfo().apply { id = "-1" }
                             }
-                            requestContainer.metaInfo.putToInternal(PushConstants.EXTRA_TRAFFIC_SOURCE_PKG, sourcePackage)
+                            requestContainer.metaInfo.putToInternal(PushConstants.EXTRA_TRAFFIC_SOURCE_PKG, str2)
                         }
                         pushService.sendMessage(
-                            packageName,
+                            str,
                             XmPushThriftSerializeUtils.convertThriftObjectToBytes(requestContainer),
                             true,
                         )

@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
 import io.github.aakira.napier.Napier
-import io.github.magisk317.mipush.Global
+import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.runtime.PushRuntimeComponents
 import kotlinx.coroutines.launch
 
@@ -25,7 +25,7 @@ object PushServiceStarter {
     fun refreshForegroundStartPreference() {
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             cachedShouldForegroundStart = try {
-                Global.ConfigCenter().shouldStartPushAsForegroundServiceAsync()
+                Global.configCenter().shouldStartPushAsForegroundServiceAsync()
             } catch (_: Throwable) {
                 false
             }

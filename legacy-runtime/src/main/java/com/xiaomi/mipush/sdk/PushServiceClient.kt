@@ -314,7 +314,6 @@ class PushServiceClient private constructor(context: Context) {
                     xmPushActionNotification2.type = NotificationType.ThirdPartyRegUpdate.value
                     map?.let { xmPushActionNotification2.setExtra(it) }
                 }
-                else -> {}
             }
             MyLog.persist("type:$retryType, $id")
             xmPushActionNotification2.setAppId(AppInfoHolder.getInstance(mContext).appID)

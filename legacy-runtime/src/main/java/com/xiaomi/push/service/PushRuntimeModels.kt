@@ -3,42 +3,17 @@ package com.xiaomi.push.service
 import com.xiaomi.push.service.PushClientsManager.ClientStatus
 
 // --- Foundation Core States ---
+// Canonical definitions are in runtime-core (io.github.magisk317.mipush.runtime.core).
+// These typealiases allow legacy-runtime code to use the short names without import changes.
 
-enum class PushChannelState {
-    Unbound,
-    Binding,
-    Bound,
-    Unbinding,
-    Closed,
-    Kicked,
-    OpenFailed
-}
+typealias PushChannelState = io.github.magisk317.mipush.runtime.core.PushChannelState
+typealias PushConnectionState = io.github.magisk317.mipush.runtime.core.PushConnectionState
+typealias PushRegistrationState = io.github.magisk317.mipush.runtime.core.PushRegistrationState
+typealias ConnectionStatus = io.github.magisk317.mipush.runtime.core.ConnectionStatus
+typealias PushSlimInboundAction = io.github.magisk317.mipush.runtime.core.PushSlimInboundAction
+typealias PushSlimInboundPlan = io.github.magisk317.mipush.runtime.core.PushSlimInboundPlan
+typealias PushSlimPingPlan = io.github.magisk317.mipush.runtime.core.PushSlimPingPlan
 
-enum class PushConnectionState {
-    Disconnected,
-    Connecting,
-    Connected,
-    Disconnecting
-}
-
-enum class PushRegistrationState {
-    Unregistered,
-    Registering,
-    Registered,
-    Unregistering,
-    Failed
-}
-
-enum class ConnectionStatus {
-    connecting,
-    connected,
-    disconnected;
-
-    companion object {
-        @JvmStatic
-        fun of(i: Int): ConnectionStatus = entries[i]
-    }
-}
 
 // --- Socket Connection Plans ---
 
@@ -182,36 +157,10 @@ data class PushRedirectPlan(
 // PushSlimInboundAction, PushSlimInboundPlan, PushSlimPingPlan are defined in runtime-core
 // (PushSlimConnectionTypes.kt) and inherited via api(project(":runtime-core")).
 
-enum class PushSlimPayloadAction {
-    None,
-    Normal,
-    Ack,
-    Error,
-    DeliverBlob,
-    ParseSecurePacket,
-    ParsePacket,
-    IgnoreUnknown
-}
-
-data class PushSlimPayloadPlan(
-    val action: PushSlimPayloadAction,
-    val eventAction: String? = null,
-    val shouldLogUnknownType: Boolean = false
-)
-
-data class PushSlimHandshakePlan(
-    val valid: Boolean,
-    val eventAction: String,
-    val shouldEmitConfigBlob: Boolean = false,
-    val failureReason: String? = null
-)
-
-data class PushSlimWritePlan(
-    val eventAction: String? = null,
-    val shouldDrop: Boolean = false,
-    val requiredCapacity: Int = 0,
-    val shouldEncrypt: Boolean = false
-)
+typealias PushSlimHandshakePlan = io.github.magisk317.mipush.runtime.core.PushSlimHandshakePlan
+typealias PushSlimPayloadPlan = io.github.magisk317.mipush.runtime.core.PushSlimPayloadPlan
+typealias PushSlimPayloadAction = io.github.magisk317.mipush.runtime.core.PushSlimPayloadAction
+typealias PushSlimWritePlan = io.github.magisk317.mipush.runtime.core.PushSlimWritePlan
 
 // --- Service Intent Plans ---
 

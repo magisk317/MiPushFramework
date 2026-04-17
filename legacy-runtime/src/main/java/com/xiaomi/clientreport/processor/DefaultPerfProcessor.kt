@@ -59,19 +59,18 @@ open class DefaultPerfProcessor(context: Context) : IPerfProcessor {
 
     override fun preProcess(baseClientReport: BaseClientReport) {
         if (baseClientReport is PerfClientReport && mPerfMap != null) {
-            val perfClientReport = baseClientReport as PerfClientReport
-            val firstPerfFileName = getFirstPerfFileName(perfClientReport)
-            val strGenerateKey = PerfKVFileHelper.generateKey(perfClientReport)
+            val firstPerfFileName = getFirstPerfFileName(baseClientReport)
+            val strGenerateKey = PerfKVFileHelper.generateKey(baseClientReport)
             var map2 = mPerfMap!![firstPerfFileName]
             if (map2 == null) {
                 map2 = HashMap()
             }
             val perfClientReport2 = map2[strGenerateKey] as PerfClientReport?
             if (perfClientReport2 != null) {
-                perfClientReport.perfCounts += perfClientReport2.perfCounts
-                perfClientReport.perfLatencies += perfClientReport2.perfLatencies
+                baseClientReport.perfCounts += perfClientReport2.perfCounts
+                baseClientReport.perfLatencies += perfClientReport2.perfLatencies
             }
-            map2[strGenerateKey] = perfClientReport
+            map2[strGenerateKey] = baseClientReport
             mPerfMap!![firstPerfFileName] = map2
         }
     }
@@ -95,11 +94,9 @@ open class DefaultPerfProcessor(context: Context) : IPerfProcessor {
         val readFileName = ClientReportUtil.getReadFileName(mContext, UPLOAD_FOLDER)
         if (readFileName.isNullOrEmpty()) return
         for (file in readFileName) {
-            if (file != null) {
-                val listExtractToDatas = PerfKVFileHelper.extractToDatas(mContext, file.absolutePath)
-                file.delete()
-                send(listExtractToDatas)
-            }
+            val listExtractToDatas = PerfKVFileHelper.extractToDatas(mContext, file.absolutePath)
+            file.delete()
+            send(listExtractToDatas)
         }
     }
 

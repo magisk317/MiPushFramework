@@ -47,13 +47,15 @@ class LogUploader private constructor(context: Context) {
         @Throws(JSONException::class)
         private fun checkLimit(): Boolean {
             val prefs = mContext.getSharedPreferences(PREF_NAME, 0)
-            var jsonString = prefs.getString(PREF_KEY_REQUEST, "")
+            var jsonString = prefs.getString(PREF_KEY_REQUEST, "") ?: ""
             var currentTime = System.currentTimeMillis()
             var times = 0
             try {
-                val json = JSONObject(jsonString)
-                currentTime = json.getLong(NotifyAdsDef.JSON_TAG_ACTIONTIME)
-                times = json.getInt("times")
+                if (!jsonString.isEmpty()) {
+                    val json = JSONObject(jsonString)
+                    currentTime = json.getLong(NotifyAdsDef.JSON_TAG_ACTIONTIME)
+                    times = json.getInt("times")
+                }
             } catch (e: JSONException) {
             }
             var newTimes = times
@@ -135,7 +137,7 @@ class LogUploader private constructor(context: Context) {
                 current?.postProcess()
             }
             override fun process() {
-                val task = mTasks.peek() as Task?
+                val task = mTasks.peek()
                 if (task == null || !task.canExcuteNow()) return
                 if (mTasks.remove(task)) {
                     current = task
@@ -146,7 +148,7 @@ class LogUploader private constructor(context: Context) {
     }
 
     private fun uploadIfNeed(delay: Long) {
-        val task = mTasks.peek() as Task?
+        val task = mTasks.peek()
         if (task == null || !task.canExcuteNow()) return
         executeTask(delay)
     }

@@ -4,7 +4,7 @@ import android.content.Context
 import android.net.Uri
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
-import io.github.magisk317.mipush.Global
+import io.github.magisk317.mipush.platform.support.Global
 import com.xiaomi.channel.commonutils.android.Region
 import com.xiaomi.network.HostFilter
 import com.xiaomi.network.HostManager
@@ -44,7 +44,7 @@ object NetworkPolicyCompat {
 
     @JvmStatic
     fun applyXmppHostOverride(context: Context) {
-        val configured = runBlocking { Global.ConfigCenter().getXMPPServerAsync() }.orEmpty().trim()
+        val configured = runBlocking { Global.configCenter().getXMPPServerAsync() }.orEmpty().trim()
         val defaultHost = ConnectionConfiguration.XMPP_SERVER_CHINA_HOST_P
         if (configured.isEmpty()) {
             ConnectionConfiguration.setXmppServerHost(defaultHost)

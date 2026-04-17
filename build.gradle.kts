@@ -72,9 +72,9 @@ tasks.register("checkNoLegacyNihilityImports") {
         val allowedPaths = setOf(
             "com/nihility/",
             "com/xiaomi/xmsf/push/notification/NotificationManagerEx.kt",
-            "com/magisk317/hook/LegacyHookApi.kt",
-            "com/magisk317/utils/Singleton.kt",
-            "com/magisk317/service/XMPushServiceListener.kt"
+            "io/github/magisk317/mipush/hook/LegacyHookApi.kt",
+            "io/github/magisk317/mipush/utils/Singleton.kt",
+            "io/github/magisk317/mipush/service/XMPushServiceListener.kt"
         )
 
         val violations = mutableListOf<String>()

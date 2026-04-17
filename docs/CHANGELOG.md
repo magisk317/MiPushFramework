@@ -16,7 +16,7 @@
 - `[config/runtime]` 修复配置替换中的包名占位符处理问题，改进 `${name}` 与 `$$` 转义替换，减少配置命中后的错替换。
 - `[build/ci]` GitHub Release、tag 校验、Telegram 通知、Android SDK 平台别名和共享子模块检查继续收敛，发版链路更稳定一致。
 
-> Full Changelog: https://github.com/magisk317/MiPushFramework/compare/v0.3.16...v0.3.17
+> Full Changelog: https://github.io/github/magisk317/MiPushFramework/compare/v0.3.16...v0.3.17
 
 ---
 
@@ -26,4 +26,4 @@
 - `[runtime]` 继续维护系统级推送、配置同步与运行时兼容链路，优先保证 GitHub 渠道版本的稳定性与可回溯性。
 - `[build/ci]` 构建链路对齐 Android 37 / JDK 25，并继续收敛发布前校验与 GitHub Release 体验。
 
-> Full Changelog: https://github.com/magisk317/MiPushFramework/compare/v0.3.15...v0.3.16
+> Full Changelog: https://github.io/github/magisk317/MiPushFramework/compare/v0.3.15...v0.3.16

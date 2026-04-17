@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.runtime.store.db
 import android.text.TextUtils
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
-import io.github.magisk317.mipush.Global
+import io.github.magisk317.mipush.platform.support.Global
 import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.common.BuildConfig.DEBUG
 import io.github.magisk317.mipush.common.utils.Utils
@@ -45,7 +45,7 @@ object RegisteredApplicationDb {
             type = RegisteredApplication.Type.ASK,
             notificationOnRegister = true,
             registeredType = RegisteredApplication.RegisteredType.NotRegistered,
-            appName = Global.ApplicationNameCache()
+            appName = Global.applicationNameCache()
                 .getAppName(requireNotNull(Utils.getApplication()), pkg)
                 .toString()
         )

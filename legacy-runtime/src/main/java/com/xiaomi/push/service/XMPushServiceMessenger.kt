@@ -28,7 +28,11 @@ class XMPushServiceMessenger(
             addAction(PushConstants.ACTION_RESET_CONNECTION)
             addAction(IntentStartForeground)
         }
-        xmPushService.registerReceiver(this, filter)
+        if (android.os.Build.VERSION.SDK_INT >= 34) {
+            xmPushService.registerReceiver(this, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            xmPushService.registerReceiver(this, filter)
+        }
     }
 
     override fun onReceive(context: Context, intent: Intent) {

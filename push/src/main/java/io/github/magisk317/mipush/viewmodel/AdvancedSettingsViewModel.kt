@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.magisk317.mipush.app.SettingsManager
 import io.github.magisk317.mipush.data.PreferenceRepository
-import io.github.magisk317.mipush.framework.sdk.PushMessageProcessor
+import com.xiaomi.push.sdk.PushMessageProcessor
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn

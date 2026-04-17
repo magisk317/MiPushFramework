@@ -181,7 +181,8 @@ object MyLog {
     }
 
     @JvmStatic
-    fun v(objArr: Array<Any>) {
+    fun v(objArr: Array<*>) {
+        @Suppress("UNCHECKED_CAST")
         log(DEBUG, XMStringUtils.join(objArr as Array<Any?>, ",") ?: "")
     }
 

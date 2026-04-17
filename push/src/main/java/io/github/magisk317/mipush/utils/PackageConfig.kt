@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.utils
 
 import android.os.Build
-import io.github.magisk317.mipush.Global
+import io.github.magisk317.mipush.platform.support.Global
 import org.apache.thrift.TBase
 import org.json.JSONArray
 import org.json.JSONException
@@ -59,7 +59,7 @@ class PackageConfig(private val configurations: Configurations) {
             val replacements = mutableListOf<Replacement>()
             while (matcher.find()) {
                 val replacement = when (matcher.group()) {
-                    "$" -> "$"
+                    "$$" -> "$"
                     else -> {
                         val groupName = matcher.group(1)
                         if (!groupName.isNullOrEmpty()) {
@@ -102,7 +102,7 @@ class PackageConfig(private val configurations: Configurations) {
                 val cfgKey = cfgKeys.next()
                 val field = data.javaClass.getDeclaredField(cfgKey)
                 val newPath = concat(path, arrayOf(cfgKey))
-                val value = Global.ConfigValueConverter().convert(root, newPath, field.get(data))
+                val value = Global.configValueConverter().convert(root, newPath, field.get(data))
 
                 val isMap = value is Map<*, *>
                 val isTBase = value is TBase<*, *>
@@ -128,7 +128,7 @@ class PackageConfig(private val configurations: Configurations) {
                         if (mismatchField(
                                 cfgSubObj,
                                 cfgSubKey,
-                                Global.ConfigValueConverter().convert(root, subPath, subMap[cfgSubKey]),
+                                Global.configValueConverter().convert(root, subPath, subMap[cfgSubKey]),
                                 matchGroup
                             )
                         ) {

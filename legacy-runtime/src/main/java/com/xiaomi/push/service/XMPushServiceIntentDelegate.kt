@@ -71,9 +71,15 @@ internal class XMPushServiceIntentDelegate(
             PushConstants.ACTION_RESET_CONNECTION == action -> handleResetConnection(intent)
             PushConstants.ACTION_UPDATE_CHANNEL_INFO == action -> handleUpdateChannelInfo(intent)
             action == ACTION_SCREEN_ON || action == ACTION_SCREEN_OFF -> handleScreenState(action)
-            PushConstants.MIPUSH_ACTION_REGISTER_APP == action -> appIntentDelegate.handleRegisterApp(intent)
+            PushConstants.MIPUSH_ACTION_REGISTER_APP == action -> {
+                service.runtimeObserver.onApplicationIntentReceived(intent)
+                appIntentDelegate.handleRegisterApp(intent)
+            }
             PushConstants.MIPUSH_ACTION_SEND_MESSAGE == action ||
-                PushConstants.MIPUSH_ACTION_UNREGISTER_APP == action -> appIntentDelegate.handleMiPushAppIntent(intent)
+                PushConstants.MIPUSH_ACTION_UNREGISTER_APP == action -> {
+                service.runtimeObserver.onApplicationIntentReceived(intent)
+                appIntentDelegate.handleMiPushAppIntent(intent)
+            }
             PushServiceConstants.ACTION_UNINSTALL == action -> appIntentDelegate.handleUninstall(intent)
             PushServiceConstants.ACTION_PACKAGE_DATA_CLEARED == action -> appIntentDelegate.handlePackageDataCleared(intent)
             PushConstants.MIPUSH_ACTION_CLEAR_NOTIFICATION == action -> appIntentDelegate.handleClearNotification(intent)

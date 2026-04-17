@@ -3,8 +3,8 @@ package io.github.magisk317.mipush.push.pipeline
 import android.content.Context
 import android.content.Intent
 import io.github.aakira.napier.Napier
-import io.github.magisk317.mipush.Global
-import io.github.magisk317.mipush.XMPushUtils
+import io.github.magisk317.mipush.platform.support.Global
+import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.compat.RegistrationStateStore
 import io.github.magisk317.mipush.service.RegisterRecorder
 import com.xiaomi.push.service.PushConstants
@@ -46,7 +46,7 @@ object MiPushRuntimeBridge {
     fun onApplicationIntentReceived(context: Context, intent: Intent?) {
         if (intent == null) return
         runCatching {
-            Global.MiPushEventListener().receiveFromApplication(intent)
+            Global.miPushEventListener().receiveFromApplication(intent)
             RegisterRecorder(context).recordRegisterRequest(intent)
             intent.getStringExtra(io.github.magisk317.mipush.common.Constants.EXTRA_MI_PUSH_PACKAGE)
                 ?.takeIf { it.isNotBlank() }
@@ -71,7 +71,7 @@ object MiPushRuntimeBridge {
     fun onIntentForwardedToServer(intent: Intent?) {
         if (intent == null) return
         runCatching {
-            Global.MiPushEventListener().transferToServer(intent)
+            Global.miPushEventListener().transferToServer(intent)
         }.onFailure {
             logger.e("onIntentForwardedToServer failed", it)
         }
@@ -143,13 +143,13 @@ object MiPushRuntimeBridge {
             )
         }
         runCatching {
-            Global.RegistrationRecorder().initContext(context.applicationContext)
-            Global.RegistrationRecorder().recordRegSec(container)
+            Global.registrationRecorder().initContext(context.applicationContext)
+            Global.registrationRecorder().recordRegSec(container)
         }.onFailure {
             logger.e("recordRegSec failed source=$source", it)
         }
         runCatching {
-            Global.MiPushEventListener().receiveFromServer(container)
+            Global.miPushEventListener().receiveFromServer(container)
         }.onFailure {
             logger.e("receiveFromServer callback failed source=$source", it)
         }
@@ -187,7 +187,7 @@ object MiPushRuntimeBridge {
             source = "MiPushRuntimeBridge.onTransferToApplication"
         )
         runCatching {
-            Global.MiPushEventListener().transferToApplication(container)
+            Global.miPushEventListener().transferToApplication(container)
         }.onFailure {
             logger.e("transferToApplication callback failed", it)
         }
@@ -399,5 +399,29 @@ object MiPushRuntimeBridge {
             recentRegisterToasts[pkg] = now
         }
         RegisterRecorder(context.applicationContext).showRegisterToastIfUserAllow(application)
+    }
+
+    @JvmStatic
+    fun triggerRegistration(context: Context, packageName: String) {
+        logger.i("force triggering registration for $packageName")
+        
+        // 1. Send wake-up intent (com.xiaomi.mipush.RECEIVE_MESSAGE)
+        // Many MiPush SDK versions check registration status on any incoming message
+        val wakeUpIntent = Intent("com.xiaomi.mipush.RECEIVE_MESSAGE").apply {
+            `package` = packageName
+            // Add a fake payload that will be ignored but triggers the receiver
+            putExtra("mipush_payload", ByteArray(0))
+            addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
+        }
+        XMPushUtils.dispatchToApplication(context, packageName, ByteArray(0))
+        
+        // 2. Mock connectivity change (connectivity change often triggers re-reg)
+        val connIntent = Intent("android.net.conn.CONNECTIVITY_CHANGE").apply {
+            `package` = packageName
+        }
+        runCatching { context.sendBroadcast(connIntent) }
+
+        // 3. Request registration in our own runtime (to clear windows and prepare)
+        PushRuntime.forceTriggerRegistration(packageName, "MiPushRuntimeBridge.triggerRegistration")
     }
 }

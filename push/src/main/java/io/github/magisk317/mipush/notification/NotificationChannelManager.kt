@@ -12,7 +12,7 @@ import android.text.TextUtils
 import androidx.annotation.RequiresApi
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import com.xiaomi.xmpush.thrift.PushMetaInfo
-import io.github.magisk317.mipush.platform.support.GlobalSingletons
+import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.common.utils.NotificationUtils.getChannelIdByPkg
 import io.github.magisk317.mipush.common.utils.NotificationUtils.getGroupIdByPkg
@@ -87,7 +87,7 @@ object NotificationChannelManager {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             return null
         }
-        val appName = GlobalSingletons.applicationNameCache().getAppName(context, packageName) ?: return null
+        val appName = Global.applicationNameCache().getAppName(context, packageName) ?: return null
         return createNotificationChannel(metaInfo, packageName, appName)
     }
 

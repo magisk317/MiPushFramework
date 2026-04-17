@@ -16,10 +16,10 @@ import com.xiaomi.channel.commonutils.network.Network
 import com.xiaomi.push.log.LogUploader
 import com.xiaomi.smack.util.TrafficUtils
 import com.xiaomi.stats.StatsHandler
-import com.xiaomi.xmsf.runtime.PushConnectionState
-import com.xiaomi.xmsf.runtime.PushRuntime
+import io.github.magisk317.mipush.runtime.core.PushConnectionState
+import io.github.magisk317.mipush.runtime.core.PushRuntime
 
-import io.github.magisk317.mipush.framework.lifecycle.runtime.PushAccountRuntime
+// removed PushAccountRuntime
 
 class XMPushServiceLifecycleRuntime(
     private val service: XMPushService,
@@ -93,9 +93,7 @@ class XMPushServiceLifecycleRuntime(
                 }
             }
             service.executeJob(prepareAccountJob)
-            PushAccountRuntime.setAccountChangeListener("XMPushService.postOnCreate") {
-                service.executeJob(prepareAccountJob)
-            }
+            service.executeJob(prepareAccountJob)
         }
         try {
             if (SystemUtils.isBootCompleted()) {

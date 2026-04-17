@@ -255,6 +255,10 @@ public class AppInfoHolder {
         return this.mInfoData.appID;
     }
 
+    public String getAppId() {
+        return getAppID();
+    }
+
     public String getAppRegion() {
         return this.mInfoData.appRegion;
     }

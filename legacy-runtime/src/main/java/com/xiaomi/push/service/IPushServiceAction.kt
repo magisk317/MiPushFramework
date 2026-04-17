@@ -23,7 +23,7 @@ interface IPushServiceAction {
     fun sendMessage(packageName: String?, payload: ByteArray?, cacheIfUnavailable: Boolean)
     fun registerForMiPushApp(payload: ByteArray?, packageName: String?)
     fun postOnCreate()
-    fun scheduleConnect(ignoreActive: Boolean)
+    fun scheduleConnect(forceReconnect: Boolean)
     fun scheduleRebindChannel(clientLoginInfo: PushClientsManager.ClientLoginInfo?)
     fun handleIntent(intent: Intent)
     fun sendPongIfNeed()

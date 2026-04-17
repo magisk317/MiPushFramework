@@ -31,9 +31,7 @@ object PushStatClient {
     }
 
     fun record(clientUploadDataItem: ClientUploadDataItem) {
-        if (clientUploadDataItem != null) {
-            PushStatClientManager.getInstance(sContext!!).record(clientUploadDataItem)
-        }
+        PushStatClientManager.getInstance(sContext!!).record(clientUploadDataItem)
     }
 
     fun record(str: String) {
@@ -42,9 +40,7 @@ object PushStatClient {
     }
 
     private fun record(jSONObject: JSONObject) {
-        if (jSONObject != null) {
-            record(jSONObject.toString())
-        }
+        record(jSONObject.toString())
     }
 
     fun recordCalculateEvent(str: String, str2: String, j: Long) {

@@ -20,8 +20,8 @@ import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.push.pipeline.MessageIdentity
 import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
-import io.github.magisk317.mipush.Global
-import io.github.magisk317.mipush.XMPushUtils
+import io.github.magisk317.mipush.platform.support.Global
+import io.github.magisk317.mipush.platform.support.XMPushUtils
 import com.topjohnwu.superuser.Shell
 import com.xiaomi.push.service.MIPushNotificationHelper
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper

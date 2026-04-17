@@ -122,7 +122,7 @@ class PushClientsManager private constructor() {
             if (pushAction?.runtimeObserver?.shouldNotifyClient(this, type, reasonCode, errorType) == true) {
                 notifyClientStatus(type, reasonCode, reasonMessage, errorType)
             } else {
-                action.executeJobDelayed(notifyClientJob.build(type, reasonCode, reasonMessage, errorType), notifyDelay.toLong())
+                action.executeJobDelayed(notifyClientJob.build(type, reasonCode, reasonMessage, errorType), notifyDelay)
             }
         }
 

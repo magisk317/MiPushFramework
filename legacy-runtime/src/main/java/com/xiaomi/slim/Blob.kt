@@ -12,7 +12,7 @@ import java.io.UnsupportedEncodingException
 import java.nio.ByteBuffer
 
 open class Blob {
-    private var mPayloadType: Short = PAYLOAD_BINARY.toShort()
+    private var mPayloadType: Short = PAYLOAD_BINARY
     private var mPayload: ByteArray = EMPTY
     var mPackageName: String? = null
     private var mHeader: ChannelMessage.ClientHeader = ChannelMessage.ClientHeader()
@@ -305,7 +305,7 @@ open class Blob {
                     s2.toInt(),
                 )
                 val bArr = ByteArray(i)
-                byteBufferSlice.position((s2 + 8).toInt())
+                byteBufferSlice.position(s2 + 8)
                 byteBufferSlice.get(bArr, 0, i)
                 Blob(clientHeader, s, bArr)
             } catch (e: Exception) {

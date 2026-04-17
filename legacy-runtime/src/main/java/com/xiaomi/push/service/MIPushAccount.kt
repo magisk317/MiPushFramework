@@ -3,6 +3,7 @@ package com.xiaomi.push.service
 import android.content.Context
 import com.xiaomi.channel.commonutils.android.AppInfoUtils
 import com.xiaomi.channel.commonutils.android.SystemUtils
+import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.mipush.sdk.Constants
 import java.util.Locale
 
@@ -56,26 +57,34 @@ class MIPushAccount(
         clientLoginInfo.chid = "5"
         clientLoginInfo.authMethod = "XMPUSH-PASS"
         clientLoginInfo.kick = false
-        clientLoginInfo.clientExtra = ServiceClientIntentSupport.joinAttributes(
-            PushVersionInfo.buildClientExtraAttributes(
-                runningPackages = if (isMIUIPush(context)) AppInfoUtils.getRunningAppPkgNames(context) else "",
-                countryCode = AppRegionStorage.getInstance(context).getCountryCode().orEmpty(),
-                region = AppRegionStorage.getInstance(context).getRegion().orEmpty(),
-            ),
-        )
-        clientLoginInfo.cloudExtra = String.format(
-            "%1\$s:%2\$s,%3\$s:%4\$s,%5\$s:%6\$s,sync:1",
-            PushServiceConstants.EXTENSION_ATTRIBUTE_OPENPLATFORM_APPID,
-            if (isMIUIPush(context)) MIPushAccountUtils.MIPUSH_MIUI_APPID else appId,
-            "locale",
-            Locale.getDefault().toString(),
-            Constants.EXTRA_KEY_MIID,
-            SystemUtils.getMIID(context),
-        )
-        if (isAbTestSupported(context)) {
-            clientLoginInfo.cloudExtra += String.format(",%1\$s:%2\$s", "ab", abTag)
-        }
         clientLoginInfo.mClientEventDispatcher = clientEventDispatcher
+        try {
+            clientLoginInfo.clientExtra = ServiceClientIntentSupport.joinAttributes(
+                PushVersionInfo.buildClientExtraAttributes(
+                    runningPackages = if (isMIUIPush(context)) AppInfoUtils.getRunningAppPkgNames(context) else "",
+                    countryCode = AppRegionStorage.getInstance(context).getCountryCode().orEmpty(),
+                    region = AppRegionStorage.getInstance(context).getRegion().orEmpty(),
+                ),
+            )
+        } catch (t: Throwable) {
+            MyLog.e("[MIPushAccount] failed to build clientExtra: $t")
+        }
+        try {
+            clientLoginInfo.cloudExtra = String.format(
+                "%1\$s:%2\$s,%3\$s:%4\$s,%5\$s:%6\$s,sync:1",
+                PushServiceConstants.EXTENSION_ATTRIBUTE_OPENPLATFORM_APPID,
+                if (isMIUIPush(context)) MIPushAccountUtils.MIPUSH_MIUI_APPID else appId,
+                "locale",
+                Locale.getDefault().toString(),
+                Constants.EXTRA_KEY_MIID,
+                SystemUtils.getMIID(context),
+            )
+            if (isAbTestSupported(context)) {
+                clientLoginInfo.cloudExtra += String.format(",%1\$s:%2\$s", "ab", abTag)
+            }
+        } catch (t: Throwable) {
+            MyLog.e("[MIPushAccount] failed to build cloudExtra: $t")
+        }
         return clientLoginInfo
     }
 

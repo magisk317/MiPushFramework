@@ -33,7 +33,22 @@ android {
     }
 
     buildTypes {
+        debug {
+            isMinifyEnabled = false
+            isShrinkResources = false
+            // Reduce debug APK size
+            packaging {
+                jniLibs {
+                    useLegacyPackaging = false
+                }
+                dex {
+                    useLegacyPackaging = false
+                }
+            }
+        }
         release {
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -47,6 +62,11 @@ dependencies {
     implementation(project(":common"))
     implementation(project(":magisk-ui-kit"))
     implementation(project(":legacy-runtime"))
+    // push IS the MiPush SDK — 88 files in com.xiaomi.mipush.sdk.* directly import
+    // com.xiaomi.xmpush.thrift.* (ActionType, ConfigKey, XmPushThriftSerializeUtils, etc.).
+    // These are not transitively available through legacy-runtime (uses implementation,
+    // not api), so push must depend on protocol-frozen directly. This is a pragmatic
+    // boundary: the SDK implementation necessarily touches the protocol layer.
     implementation(project(":protocol-frozen"))
 
     implementation(libs.napier)

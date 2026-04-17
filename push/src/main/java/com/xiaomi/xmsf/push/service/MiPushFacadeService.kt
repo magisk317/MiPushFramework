@@ -66,7 +66,15 @@ open class MiPushFacadeService : Service() {
             "XMPushService.onStartCommand",
             "action=${intent?.action ?: "null"}"
         )
-        intent?.let { PushRuntime.submitBridgeIntent(it) }
+        intent?.let { it ->
+            val processedIntent = if (it.action == null && it.hasExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE)) {
+                Napier.w("Received intent with null action but MiPush extras, fixing as RegisterApp request", tag = TAG)
+                Intent(it).apply { action = PushConstants.MIPUSH_ACTION_REGISTER_APP }
+            } else {
+                it
+            }
+            PushRuntime.submitBridgeIntent(processedIntent) 
+        }
         return START_STICKY
     }
 
@@ -200,7 +208,7 @@ open class MiPushFacadeService : Service() {
     }
 
     private fun forwardToPushServiceMain(intent: Intent) {
-        val intent2 = PushRuntimeComponents.newLegacyMainServiceIntent(this, intent.action).apply {
+        val intent2 = PushRuntimeComponents.newLegacyMainServiceIntent(this, intent.action ?: "com.xiaomi.push.service.ACTION_START").apply {
             putExtras(intent)
         }
         PushServiceStarter.start(this, intent2)

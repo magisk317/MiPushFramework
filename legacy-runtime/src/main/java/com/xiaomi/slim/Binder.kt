@@ -57,8 +57,8 @@ internal object Binder {
             "to" to "xiaomi.com",
         ).apply {
             put("kick", if (clientLoginInfo.kick) "1" else Blob.CLIENT_PING_ID)
-            put("client_attrs", clientLoginInfo.clientExtra ?: "")
-            put("cloud_attrs", clientLoginInfo.cloudExtra ?: "")
+            put("client_attrs", clientLoginInfo.clientExtra)
+            put("cloud_attrs", clientLoginInfo.cloudExtra)
         }
 
         strGenerateSignature = if (clientLoginInfo.authMethod == "XIAOMI-PASS" || clientLoginInfo.authMethod == "XMPUSH-PASS") {

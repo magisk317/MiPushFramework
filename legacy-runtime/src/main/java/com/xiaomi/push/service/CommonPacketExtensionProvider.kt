@@ -68,12 +68,12 @@ class CommonPacketExtensionProvider : PacketExtensionProvider {
     }
 
     @Throws(Exception::class)
-    override fun parseExtension(parser: XmlPullParser): CommonPacketExtension? {
+    override fun parseExtension(xmlPullParser: XmlPullParser): CommonPacketExtension? {
         while (true) {
-            when (parser.eventType) {
+            when (xmlPullParser.eventType) {
                 XmlPullParser.END_DOCUMENT -> return null
-                XmlPullParser.START_TAG -> return parseExtensionFromStartTag(parser)
-                else -> parser.next()
+                XmlPullParser.START_TAG -> return parseExtensionFromStartTag(xmlPullParser)
+                else -> xmlPullParser.next()
             }
         }
     }

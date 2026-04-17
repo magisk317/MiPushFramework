@@ -31,7 +31,6 @@ object CDEntrance {
 
     private fun getIntentHandler(): IntentHandler {
         return IntentHandler { context, intent ->
-            if (intent == null) return@IntentHandler
             ScheduledJobManager.getInstance(context).addOneShootJob {
                 handleIntent(context, intent)
             }

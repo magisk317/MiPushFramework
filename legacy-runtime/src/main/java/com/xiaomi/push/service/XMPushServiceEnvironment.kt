@@ -46,6 +46,7 @@ object XMPushServiceEnvironment {
                 }
                 try {
                     synchronized(monitor) {
+                        @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
                         (monitor as java.lang.Object).wait(100L)
                     }
                 } catch (_: InterruptedException) {

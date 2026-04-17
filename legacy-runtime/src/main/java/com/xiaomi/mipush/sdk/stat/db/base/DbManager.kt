@@ -43,7 +43,7 @@ class DbManager private constructor(private val mContext: Context) {
                 dbHelper = mDbHelperMap[str]
                 if (dbHelper == null) {
                     dbHelper = mBaseDbHelperFactory!!.getDbHelper(mContext, str)
-                    mDbHelperMap[str] = dbHelper!!
+                    mDbHelperMap[str] = dbHelper
                 }
             }
         }
@@ -96,7 +96,7 @@ class DbManager private constructor(private val mContext: Context) {
             dbHelper = mDbHelperMap[dataPath]
             if (dbHelper == null) {
                 dbHelper = mBaseDbHelperFactory!!.getDbHelper(mContext, dataPath)
-                mDbHelperMap[dataPath] = dbHelper!!
+                mDbHelperMap[dataPath] = dbHelper
             }
         }
         if (mPool.isShutdown) return
@@ -156,7 +156,7 @@ class DbManager private constructor(private val mContext: Context) {
             dbHelper = mDbHelperMap[dataPath]
             if (dbHelper == null) {
                 dbHelper = mBaseDbHelperFactory!!.getDbHelper(mContext, dataPath)
-                mDbHelperMap[dataPath] = dbHelper!!
+                mDbHelperMap[dataPath] = dbHelper
             }
         }
         if (mPool.isShutdown) return
@@ -293,7 +293,7 @@ class DbManager private constructor(private val mContext: Context) {
                 mOrderBy,
                 if (i <= 0) null else i.toString(),
             )
-            if (cursorQuery != null && cursorQuery.moveToFirst()) {
+            if (cursorQuery.moveToFirst()) {
                 do {
                     val tProcessOneData = processOneData(context, cursorQuery)
                     if (tProcessOneData != null) {
@@ -337,7 +337,7 @@ class DbManager private constructor(private val mContext: Context) {
         @Throws(Exception::class)
         override fun doRun(context: Context, db: SQLiteDatabase) {
             for (baseJob in mJobs) {
-                baseJob?.doRun(context, db)
+                baseJob.doRun(context, db)
             }
         }
     }

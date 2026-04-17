@@ -5,7 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageInfo
 import io.github.magisk317.mipush.hook.HookedMethodHandler
 import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
-import io.github.magisk317.mipush.service.ConnectionStatus
+import io.github.magisk317.mipush.runtime.core.ConnectionStatus
 import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
 import com.xiaomi.network.Fallback
 import com.xiaomi.push.service.MIPushNotificationHelper

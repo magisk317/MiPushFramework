@@ -41,4 +41,12 @@ interface EventDao {
 
     @Query("SELECT * FROM EVENT WHERE pkg = :pkg AND type = :type ORDER BY date DESC LIMIT 1")
     suspend fun getLastEventByType(pkg: String, type: Int): Event?
+
+    @Query("SELECT pkg, MAX(date) as date FROM EVENT WHERE type = 10 GROUP BY pkg")
+    suspend fun getAllLastReceiveTimes(): List<PackageLastTime>
 }
+
+data class PackageLastTime(
+    val pkg: String,
+    val date: Long
+)

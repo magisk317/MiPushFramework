@@ -22,6 +22,8 @@ class SlimConnection(
     private var mReaderThread: Thread? = null
     private var mWriter: BlobWriter? = null
     private var mDerivedKey: ByteArray? = null
+    @Volatile
+    private var isShuttingDown = false
 
     private fun getPing(isServerPing: Boolean): Blob {
         val ping = Ping()
@@ -77,6 +79,10 @@ class SlimConnection(
     @Throws(XMPPException::class)
     override fun bind(clientLoginInfo: PushClientsManager.ClientLoginInfo) {
         synchronized(this) {
+            if (challenge.isNullOrEmpty()) {
+                MyLog.w("[Slim] delay bind chid=${clientLoginInfo.chid} as challenge is missing")
+                return
+            }
             Binder.bind(clientLoginInfo, challenge, this)
         }
     }
@@ -122,6 +128,24 @@ class SlimConnection(
             MyLog.w("[Slim] RCV ping id=${blob.packetID}")
         }
         
+        if (inboundPlan.action == PushSlimInboundAction.ChallengeReceived) {
+            this.challenge = String(blob.payload)
+            MyLog.w("[Slim] RCV challenge=${this.challenge}")
+            
+            // Trigger binding for all pending clients
+            mPushAction.executeJob(object : com.xiaomi.push.service.XMPushServiceJob(0) {
+                override fun getDesc(): String = "re-bind after challenge"
+                override fun process() {
+                    PushClientsManager.getInstance().getAllClients().forEach { client ->
+                        if (client.status == PushClientsManager.ClientStatus.unbind || client.status == PushClientsManager.ClientStatus.binding) {
+                            MyLog.w("[Slim] auto bind chid=${client.chid} after challenge")
+                            mPushAction.executeJob(com.xiaomi.push.service.BindJob(mPushAction, client))
+                        }
+                    }
+                }
+            })
+        }
+        
         inboundPlan.eventAction?.let { eventAction ->
             mPushAction.runtimeObserver.onChannelEvent(null, eventAction, "SlimConnection.notifyDataArrived")
         }
@@ -139,6 +163,7 @@ class SlimConnection(
     }
 
     override fun notifyConnectionError(reason: Int, exc: Exception?) {
+        if (isShuttingDown) return
         mPushAction.executeJob(object : com.xiaomi.push.service.XMPushServiceJob(2) {
             override fun getDesc(): String = "shutdown the connection. $reason, $exc"
             override fun process() {
@@ -153,7 +178,15 @@ class SlimConnection(
     }
 
     override fun send(blob: Blob) {
-        val writer = mWriter ?: throw IllegalStateException("the writer is null.")
+        if (isShuttingDown) {
+            MyLog.w("[Slim] skip sending blob as connection is shutting down")
+            return
+        }
+        val writer = mWriter
+        if (writer == null) {
+            notifyConnectionError(10, IOException("the writer is null."))
+            return
+        }
         try {
             val bytesWritten = writer.write(blob)
             setReadAlive() // Corrected: should be write alive but matching current Connection.kt simplicity
@@ -174,7 +207,8 @@ class SlimConnection(
             }
             notifyPacketSent(blob)
         } catch (e: Exception) {
-            throw IllegalStateException("failed to send blob", e)
+            MyLog.w("[Slim] send blob failed: $e")
+            notifyConnectionError(10, e)
         }
     }
 
@@ -197,6 +231,8 @@ class SlimConnection(
         error: Exception?,
     ) {
         synchronized(this) {
+            if (isShuttingDown) return
+            isShuttingDown = true
             mReader?.let {
                 it.shutdown()
                 mReader = null

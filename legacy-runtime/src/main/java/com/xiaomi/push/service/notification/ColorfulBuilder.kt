@@ -138,11 +138,10 @@ class ColorfulBuilder(
             getRemoteViews()?.setViewVisibility(iconId, 8)
             getRemoteViews()?.setViewVisibility(bgId, 8)
             try {
+                val clazz = SystemUtils.loadClass(getContext(), "android.app.Notification\$DecoratedCustomViewStyle")
                 JavaCalls.callMethod(
                     this, "setStyle",
-                    SystemUtils.loadClass(getContext(), "android.app.Notification\$DecoratedCustomViewStyle")
-                        ?.getConstructor()
-                        ?.newInstance()
+                    clazz.getConstructor().newInstance()
                 )
             } catch (e: Exception) {
                 MyLog.w("load class DecoratedCustomViewStyle failed")

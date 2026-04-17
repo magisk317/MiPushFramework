@@ -18,6 +18,7 @@ class XMPushServiceLifecycleDelegate(
     fun onCreate() {
         MyLog.init(service.applicationContext)
         SystemUtils.initialize(service)
+        service.runtimeObserver.onServiceCreated(service)
         val account = service.runtimeObserver.applyStoredAccountEnvironment(service)
         if (account != null) {
             BuildSettings.setEnvType(service.runtimeObserver.envType(service))
@@ -86,6 +87,7 @@ class XMPushServiceLifecycleDelegate(
         ServiceConfig.getInstance().clear()
         Alarm.stop()
         service.clearPingCallbacks()
+        service.runtimeObserver.onServiceDestroy()
     }
 
     fun onStart(intent: Intent?, startId: Int) {

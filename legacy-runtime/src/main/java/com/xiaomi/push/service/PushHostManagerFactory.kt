@@ -73,18 +73,18 @@ class PushHostManagerFactory(
     ) : HostManager(mContext, hostFilter, httpGet, userId) {
         @Throws(IOException::class)
         override fun getRemoteFallbackJSON(
-            hosts: ArrayList<String>,
-            requestHost: String,
-            uuid: String,
-            forceRefresh: Boolean,
+            arrayList: ArrayList<String>,
+            str: String,
+            str2: String,
+            z: Boolean,
         ): String? {
             return try {
                 val effectiveUuid = if (StatsHandler.getInstance().isAllowStats()) {
-                    ServiceConfig.getDeviceUUID() ?: uuid
+                    ServiceConfig.getDeviceUUID() ?: str2
                 } else {
-                    uuid
+                    str2
                 }
-                super.getRemoteFallbackJSON(hosts, requestHost, effectiveUuid, forceRefresh)
+                super.getRemoteFallbackJSON(arrayList, str, effectiveUuid, z)
             } catch (e: IOException) {
                 StatsHelper.stats(0, ChannelStatsType.GSLB_ERR.value, 1, "", if (Network.hasNetwork(mContext)) 1 else 0)
                 throw e

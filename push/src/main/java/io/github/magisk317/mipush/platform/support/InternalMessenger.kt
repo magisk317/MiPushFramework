@@ -24,7 +24,7 @@ object InternalEventBus {
 }
 
 open class InternalMessenger(private val context: Context) {
-    private val listeners: ArrayList<io.github.magisk317.mipush.framework.sdk.MessageListener> = ArrayList()
+    private val listeners: ArrayList<io.github.magisk317.mipush.MessageListener> = ArrayList()
     private var job: Job? = null
     private val filters: ArrayList<IntentFilter> = ArrayList()
 
@@ -58,7 +58,7 @@ open class InternalMessenger(private val context: Context) {
         filters.clear()
     }
 
-    fun addListener(listener: io.github.magisk317.mipush.framework.sdk.MessageListener) {
+    fun addListener(listener: io.github.magisk317.mipush.MessageListener) {
         listeners.add(listener)
     }
 

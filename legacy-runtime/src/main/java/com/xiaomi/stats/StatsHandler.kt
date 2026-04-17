@@ -68,7 +68,7 @@ class StatsHandler private constructor() {
         val stats: LinkedList<Stats.Item> = statsContainer.stats
         while (stats.isNotEmpty()) {
             try {
-                val statsEvent = from(stats.last)
+                val statsEvent = from(stats.last())
                 if (statsEvent != null) {
                     statsEvent.write(protocol)
                 }
@@ -95,7 +95,6 @@ class StatsHandler private constructor() {
         }
     }
 
-    @JvmOverloads
     fun add(chid: Int, type: Int, value: Int, host: String) {
         synchronized(this) {
             if (uuid == null) {

@@ -16,7 +16,7 @@ internal class ServiceActionAwakeModule : IAwakeModule {
         val awakeInfoStr = awakeInfo.awakeInfo
         val awakeForeground = awakeInfo.awakeForeground
 
-        if (context == null || TextUtils.isEmpty(targetPackageName) || TextUtils.isEmpty(action) || TextUtils.isEmpty(awakeInfoStr)) {
+        if (TextUtils.isEmpty(targetPackageName) || TextUtils.isEmpty(action) || TextUtils.isEmpty(awakeInfoStr)) {
             val logContent = if (TextUtils.isEmpty(awakeInfoStr)) "service" else awakeInfoStr!!
             AwakeUploadHelper.uploadData(context, logContent, 1008, "argument error")
             return
@@ -66,15 +66,11 @@ internal class ServiceActionAwakeModule : IAwakeModule {
     }
 
     override fun doAwake(context: Context, awakeInfo: AwakeInfo) {
-        if (awakeInfo != null) {
-            awakeByServiceAction(context, awakeInfo)
-        } else {
-            AwakeUploadHelper.uploadData(context, "service", 1008, "A receive incorrect message")
-        }
+        awakeByServiceAction(context, awakeInfo)
     }
 
     override fun doSendAwakeResult(context: Context, intent: Intent, str: String) {
-        if (context == null || context !is Service) {
+        if (context !is Service) {
             AwakeUploadHelper.uploadData(context, "service", 1008, "A receive incorrect message")
         } else {
             parseService(context, intent)

@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.utils
 import android.content.Context
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
-import io.github.magisk317.mipush.Global
+import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.network.NetworkPolicyCompat
 import io.github.magisk317.mipush.hook.Configurations
 import io.github.magisk317.mipush.hook.Dependencies
@@ -53,7 +53,7 @@ object Hooker {
     private fun initMiPushHookLib(context: Context) {
         val configurations = object : Configurations {
             override fun getXMPPServer(): String =
-                runBlocking { Global.ConfigCenter().getXMPPServerAsync() }.orEmpty()
+                runBlocking { Global.configCenter().getXMPPServerAsync() }.orEmpty()
         }
         Dependencies.set(object : OuterDependencies {
             override fun configuration(): Configurations = configurations
@@ -61,7 +61,7 @@ object Hooker {
             override fun serviceListener(pushService: XMPushService): XMPushServiceListener =
                 XMPushServiceAbility(pushService)
 
-            override fun hookedMethodHandler(): HookedMethodHandler = Global.HookHandler()
+            override fun hookedMethodHandler(): HookedMethodHandler = Global.hookHandler()
         })
     }
 
@@ -125,18 +125,18 @@ object Hooker {
 
     private fun buildMiSDKLogger(): LoggerInterface {
         return object : LoggerInterface {
-            override fun setTag(tag: String) {
-                innerTag = "$TAG-$tag"
+            override fun setTag(str: String) {
+                innerTag = "$TAG-$str"
             }
 
             private var innerTag = TAG
 
-            override fun log(content: String, t: Throwable) {
-                Napier.i(content, t, tag = innerTag)
+            override fun log(str: String, th: Throwable) {
+                Napier.i(str, th, tag = innerTag)
             }
 
-            override fun log(content: String) {
-                Napier.i(content, tag = innerTag)
+            override fun log(str: String) {
+                Napier.i(str, tag = innerTag)
             }
         }
     }

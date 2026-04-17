@@ -29,9 +29,9 @@ public static java.lang.String TABLENAME;
 -dontwarn android.app.Notification
 
 # Singleton.instance() creates these via reflection with no-arg constructors.
--keepclassmembers class com.magisk317.push.hook.ModernHookHandler { <init>(); }
--keepclassmembers class com.magisk317.MiPushEventListener { <init>(); }
--keepclassmembers class com.magisk317.service.RegistrationRecorder { <init>(); }
+-keepclassmembers class io.github.magisk317.mipush.push.hook.ModernHookHandler { <init>(); }
+-keepclassmembers class io.github.magisk317.mipush.MiPushEventListener { <init>(); }
+-keepclassmembers class io.github.magisk317.mipush.service.RegistrationRecorder { <init>(); }
 -keepclassmembers class com.xiaomi.xmsf.push.utils.ConfigValueConverter { <init>(); }
 -keepclassmembers class com.xiaomi.xmsf.push.utils.IconConfigurations { <init>(); }
 -keepclassmembers class com.xiaomi.xmsf.utils.ConfigCenter { <init>(); }
@@ -40,4 +40,4 @@ public static java.lang.String TABLENAME;
 -keepclassmembers class io.github.magisk317.mipush.common.cache.IconCache { <init>(); }
 
 # Avoid R8 horizontal class merging/obfuscation side effects in wizard permission operators.
--keep class top.trumeet.mipushframework.wizard.permission.** { *; }
+-keep class io.github.magisk317.mipush.feature.wizard.permission.** { *; }

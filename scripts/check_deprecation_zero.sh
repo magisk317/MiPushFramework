@@ -5,10 +5,10 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
 SOURCE_PATHS=(
-  "common/src/main/java/com/magisk317"
+  "common/src/main/java/io/github/magisk317"
   "common/src/main/java/top/trumeet"
   "runtime-core/src/main/java"
-  "push/src/main/java/com/magisk317"
+  "push/src/main/java/io/github/magisk317"
   "push/src/main/java/top/trumeet"
 )
 

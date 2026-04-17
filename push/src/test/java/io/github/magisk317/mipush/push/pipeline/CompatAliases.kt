@@ -1,0 +1,5 @@
+package io.github.magisk317.mipush.push.pipeline
+
+typealias MessageIdentity = io.github.magisk317.mipush.push.pipeline.MessageIdentity
+typealias MiPushRuntimeBridge = io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
+typealias MockMessageRegistry = io.github.magisk317.mipush.push.pipeline.MockMessageRegistry

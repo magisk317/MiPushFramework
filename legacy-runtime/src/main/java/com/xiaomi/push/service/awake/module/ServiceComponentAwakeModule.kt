@@ -12,7 +12,7 @@ import com.xiaomi.push.service.awake.AwakeUploadHelper
 
 internal class ServiceComponentAwakeModule : IAwakeModule {
     private fun awakeByServiceName(context: Context, packageName: String, className: String, awakeInfoStr: String) {
-        if (context == null || TextUtils.isEmpty(packageName) || TextUtils.isEmpty(className)) {
+        if (TextUtils.isEmpty(packageName) || TextUtils.isEmpty(className)) {
             val logContent = if (TextUtils.isEmpty(awakeInfoStr)) "service" else awakeInfoStr
             AwakeUploadHelper.uploadData(context, logContent, 1008, "argument error")
             return
@@ -68,18 +68,16 @@ internal class ServiceComponentAwakeModule : IAwakeModule {
     }
 
     override fun doAwake(context: Context, awakeInfo: AwakeInfo) {
-        if (awakeInfo != null) {
-            awakeByServiceName(
-                context,
-                awakeInfo.targetPackageName!!,
-                awakeInfo.className!!,
-                awakeInfo.awakeInfo!!
-            )
-        }
+        awakeByServiceName(
+            context,
+            awakeInfo.targetPackageName!!,
+            awakeInfo.className!!,
+            awakeInfo.awakeInfo!!
+        )
     }
 
     override fun doSendAwakeResult(context: Context, intent: Intent, str: String) {
-        if (context == null || context !is Service) return
+        if (context !is Service) return
         parseService(context, intent)
     }
 }

@@ -13,6 +13,7 @@ import androidx.core.app.NotificationChannelGroupCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import io.github.magisk317.mipush.diagnostics.PushHealthSnapshotLogger
+import io.github.magisk317.mipush.telemetry.TelemetryDisabler
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
@@ -54,6 +55,7 @@ class MiPushFrameworkApp : Application() {
         applicationScope = MainScope()
         super.onCreate()
         DatabaseUtils.init(this)
+        TelemetryDisabler.disableAll(this)
         PrivilegeElevator.tryToElevate()
         Utils.setApplicationContext(this)
         initBasicLogger()
@@ -62,6 +64,12 @@ class MiPushFrameworkApp : Application() {
         Hooker.setLogger(PushControllerUtils.wrapContext(this))
         Hooker.hook(this)
         NotificationManagerEx.init(applicationContext)
+        // Initialize the runtime observer early so XMPushService.observer is set
+        // before any service start. BootReceiver normally does this, but it may
+        // not exist in the manifest or may not have fired yet.
+        if (com.xiaomi.push.service.XMPushService.observer == null) {
+            io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge(this)
+        }
         PushRuntimeExecutionBridge.attach(this)
         PushRuntimeChannelTracker.attach(this)
         PushControllerUtils.setAllEnable(true, this)

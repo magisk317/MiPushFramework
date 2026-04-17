@@ -10,7 +10,7 @@ from pathlib import Path
 PRODUCT_PREFIXES = (
     "push/src/main/java/com/xiaomi/xmsf/",
     "push/src/main/java/top/trumeet/",
-    "push/src/main/java/com/magisk317/",
+    "push/src/main/java/io/github/magisk317/",
     "push/src/main/java/io/github/magisk317/",
     "push/src/main/java/com/xiaomi/mipush/sdk/",
     "push/src/main/java/com/xiaomi/push/sdk/",

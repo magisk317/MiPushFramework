@@ -1,6 +1,5 @@
 package io.github.magisk317.mipush.config
 
-import android.net.Uri
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
@@ -123,7 +122,7 @@ class ConfigSyncMergerTest {
     private fun localFile(path: String, sha: String, isValid: Boolean = true) = LocalConfigFile(
         path = path,
         name = path.removeSuffix(".json"),
-        uri = Uri.parse("content://test/$path"),
+        uri = null,
         sha = sha,
         size = 100L,
         lastModified = 0L,

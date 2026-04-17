@@ -13,6 +13,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.RequiresApi
@@ -154,7 +155,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                 application = RegisteredApplication()
                 application.packageName = pkg
                 application.registeredType = RegisteredType.NotRegistered
-                application.appName = io.github.magisk317.mipush.Global.ApplicationNameCache()
+                application.appName = io.github.magisk317.mipush.platform.support.Global.applicationNameCache()
                     .getAppName(this, pkg).toString()
             }
             if (
@@ -474,7 +475,11 @@ open class ApplicationInfoPage : ComponentActivity() {
                 Toast.makeText(context, R.string.force_register_failed, Toast.LENGTH_LONG).show()
                 return
             }
-        forceRegisterWithFeedback(context, packageName)
+        
+        lifecycleScope.launch {
+            kotlinx.coroutines.delay(500)
+            forceRegisterWithFeedback(context, packageName)
+        }
     }
 
     private fun stopTargetAppBestEffort(packageName: String) {

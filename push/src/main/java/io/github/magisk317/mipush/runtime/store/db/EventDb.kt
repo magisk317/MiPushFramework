@@ -5,7 +5,7 @@ import android.net.Uri
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import androidx.sqlite.db.SimpleSQLiteQuery
-import io.github.magisk317.mipush.XMPushUtils
+import io.github.magisk317.mipush.platform.support.XMPushUtils
 import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
 import io.github.magisk317.mipush.utils.RegSecUtils
 import io.github.magisk317.mipush.utils.ConvertUtils
@@ -177,5 +177,9 @@ object EventDb {
         val lastReceiveTime = event?.date ?: 0L
         Utils.setLastReceiveTime(packageName, lastReceiveTime)
         return lastReceiveTime
+    }
+
+    suspend fun getAllLastReceiveTimesAsync(): Map<String, Long> {
+        return eventDao.getAllLastReceiveTimes().associate { it.pkg to it.date }
     }
 }

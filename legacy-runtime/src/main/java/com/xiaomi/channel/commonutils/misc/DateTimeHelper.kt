@@ -68,7 +68,12 @@ object DateTimeHelper {
         if (TextUtils.isEmpty(str)) return -1L
         val gregorianCalendar = GregorianCalendar()
         return try {
-            gregorianCalendar.time = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(str)
+            val date = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(str)
+            if (date != null) {
+                gregorianCalendar.time = date
+            } else {
+                return -1L
+            }
             gregorianCalendar.timeZone = sBeijingTimeZone
             gregorianCalendar.timeInMillis
         } catch (e: ParseException) {

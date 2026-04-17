@@ -1,6 +1,6 @@
 package com.xiaomi.push.service
 
-import com.xiaomi.xmsf.runtime.PushChannelState
+import io.github.magisk317.mipush.runtime.core.PushChannelState
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue

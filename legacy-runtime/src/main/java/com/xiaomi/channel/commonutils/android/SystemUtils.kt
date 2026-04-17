@@ -118,9 +118,9 @@ object SystemUtils {
             throw ClassNotFoundException("class is empty")
         }
         val hasContext = context != null
-        if (hasContext && Build.VERSION.SDK_INT >= 29) {
+        if (context != null && Build.VERSION.SDK_INT >= 29) {
             try {
-                return context!!.classLoader.loadClass(str)
+                return context.classLoader.loadClass(str)
             } catch (e: ClassNotFoundException) {
             }
         }

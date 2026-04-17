@@ -10,7 +10,7 @@ from pathlib import Path
 LAYER_RULES = [
     ("product-owned", "push/src/main/java/com/xiaomi/xmsf/"),
     ("product-owned", "push/src/main/java/top/trumeet/"),
-    ("product-owned", "push/src/main/java/com/magisk317/"),
+    ("product-owned", "push/src/main/java/io/github/magisk317/"),
     ("product-owned", "push/src/main/java/io/github/magisk317/"),
     ("product-owned", "push/src/main/java/com/xiaomi/push/service/"),
     ("product-owned", "push/src/main/java/com/xiaomi/mipush/sdk/"),

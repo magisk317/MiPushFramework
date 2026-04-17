@@ -37,23 +37,21 @@ class BaseDataSender(
         if (list.isEmpty()) return
         val arrayList = ArrayList<ClientUploadDataItem>()
         for (messageModel in list) {
-            if (messageModel != null) {
-                val clientUploadDataItem = ClientUploadDataItem()
-                try {
-                    XmPushThriftSerializeUtils.convertByteArrayToThriftObject(
-                        clientUploadDataItem,
-                        messageModel.messageItem,
-                    )
-                    if (TextUtils.isEmpty(clientUploadDataItem.id) ||
-                        !messageModel.id.toString()
-                            .equals(UploadDataHelper.getRowId(clientUploadDataItem.id), ignoreCase = true)
-                    ) {
-                        clientUploadDataItem.id = UploadDataHelper.getTinyDataItemId(messageModel.id)
-                    }
-                    arrayList.add(clientUploadDataItem)
-                } catch (e: Exception) {
-                    MyLog.e(e)
+            val clientUploadDataItem = ClientUploadDataItem()
+            try {
+                XmPushThriftSerializeUtils.convertByteArrayToThriftObject(
+                    clientUploadDataItem,
+                    messageModel.messageItem,
+                )
+                if (TextUtils.isEmpty(clientUploadDataItem.id) ||
+                    !messageModel.id.toString()
+                        .equals(UploadDataHelper.getRowId(clientUploadDataItem.id), ignoreCase = true)
+                ) {
+                    clientUploadDataItem.id = UploadDataHelper.getTinyDataItemId(messageModel.id)
                 }
+                arrayList.add(clientUploadDataItem)
+            } catch (e: Exception) {
+                MyLog.e(e)
             }
         }
         val mapSend = UploadDataHelper.send(

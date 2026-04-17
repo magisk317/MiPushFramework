@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.utils
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.SdkNotificationCompat
-import io.github.magisk317.mipush.XMPushUtils
+import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.push.pipeline.MessageIdentity
 import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry
 import com.xiaomi.channel.commonutils.reflect.JavaCalls
@@ -123,7 +123,7 @@ object MockMIPushMessage {
         )
         logger.d(
             "processMIPushMessage invoked payloadSize=${mockDecryptedContent.size} " +
-                "resultType=${result?.javaClass?.name ?: "void"} result=$result"
+                "resultType=${result.javaClass.name ?: "void"} result=$result"
         )
     }
 

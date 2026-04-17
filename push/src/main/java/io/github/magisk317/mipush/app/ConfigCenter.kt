@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import com.xiaomi.push.service.XMPushService
-import io.github.magisk317.mipush.platform.support.GlobalSingletons
+import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.utils.Configurations
 import kotlinx.coroutines.flow.first
@@ -83,7 +83,7 @@ class ConfigCenter @Inject constructor(
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             val directory = getConfigurationDirectoryAsync()
             Configurations.getInstance().init(context, directory)
-            GlobalSingletons.iconConfigurations().init(context, directory)
+            Global.iconConfigurations().init(context, directory)
             val intent = Intent()
             intent.component = ComponentName(context, XMPushService::class.java)
             intent.action = Constants.CONFIGURATIONS_UPDATE_ACTION

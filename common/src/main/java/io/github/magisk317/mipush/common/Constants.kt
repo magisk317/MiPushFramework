@@ -89,4 +89,13 @@ object Constants {
 
     const val CONFIGURATIONS_FILE_NAME = "configs.json"
     const val CONFIGURATIONS_UPDATE_ACTION = "__MIPUSH_CONFIGURATIONS_UPDATE__"
+
+    // MiPush Component Names
+    const val PUSH_MESSAGE_HANDLER_CLASS = "com.xiaomi.mipush.sdk.PushMessageHandler"
+    const val MESSAGE_HANDLE_SERVICE_CLASS = "com.xiaomi.mipush.sdk.MessageHandleService"
+    const val XM_PUSH_SERVICE_CLASS = "com.xiaomi.push.service.XMPushService"
+    const val XM_JOB_SERVICE_CLASS = "com.xiaomi.push.service.XMJobService"
+    const val PUSH_SERVICE_RECEIVER_CLASS = "com.xiaomi.mipush.sdk.PushServiceReceiver"
+    const val PING_RECEIVER_CLASS = "com.xiaomi.push.service.receivers.PingReceiver"
+    const val PUSH_MESSAGE_RECEIVER_CLASS = "com.xiaomi.mipush.sdk.PushMessageReceiver"
 }

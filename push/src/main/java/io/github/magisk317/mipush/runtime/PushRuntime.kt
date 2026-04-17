@@ -5,55 +5,55 @@ import android.content.Intent
 object PushRuntime {
     @JvmStatic
     fun attachBridgeHost(host: PushRuntimeBridgeHost) =
-        com.xiaomi.xmsf.runtime.PushRuntime.attachBridgeHost(host)
+        io.github.magisk317.mipush.runtime.core.PushRuntime.attachBridgeHost(host)
 
     @JvmStatic
     fun attachExecutionHost(host: PushRuntimeExecutionHost) =
-        com.xiaomi.xmsf.runtime.PushRuntime.attachExecutionHost(host)
+        io.github.magisk317.mipush.runtime.core.PushRuntime.attachExecutionHost(host)
 
     @JvmStatic
     fun detachExecutionHost(host: PushRuntimeExecutionHost) =
-        com.xiaomi.xmsf.runtime.PushRuntime.detachExecutionHost(host)
+        io.github.magisk317.mipush.runtime.core.PushRuntime.detachExecutionHost(host)
 
     @JvmStatic
     fun detachBridgeHost(host: PushRuntimeBridgeHost) =
-        com.xiaomi.xmsf.runtime.PushRuntime.detachBridgeHost(host)
+        io.github.magisk317.mipush.runtime.core.PushRuntime.detachBridgeHost(host)
 
     @JvmStatic
     fun submitBridgeIntent(intent: Intent) =
-        com.xiaomi.xmsf.runtime.PushRuntime.submitBridgeIntent(intent)
+        io.github.magisk317.mipush.runtime.core.PushRuntime.submitBridgeIntent(intent)
 
     @JvmStatic
     fun snapshot(): PushRuntimeSnapshot =
-        com.xiaomi.xmsf.runtime.PushRuntime.snapshot()
+        io.github.magisk317.mipush.runtime.core.PushRuntime.snapshot()
 
     @JvmStatic
     fun requestFrameworkRegistration(source: String, reason: String? = null): Boolean =
-        com.xiaomi.xmsf.runtime.PushRuntime.requestFrameworkRegistration(source, reason)
+        io.github.magisk317.mipush.runtime.core.PushRuntime.requestFrameworkRegistration(source, reason)
 
     @JvmStatic
     fun requestApplicationRegistration(packageName: String, source: String, reason: String? = null): Boolean =
-        com.xiaomi.xmsf.runtime.PushRuntime.requestApplicationRegistration(packageName, source, reason)
+        io.github.magisk317.mipush.runtime.core.PushRuntime.requestApplicationRegistration(packageName, source, reason)
 
     @JvmStatic
     fun handleBootCompleted(source: String): PushRuntimeRegistrationDispatchResult =
-        com.xiaomi.xmsf.runtime.PushRuntime.handleBootCompleted(source)
+        io.github.magisk317.mipush.runtime.core.PushRuntime.handleBootCompleted(source)
 
     @JvmStatic
     fun handleNetworkAvailable(source: String): PushRuntimeRegistrationDispatchResult =
-        com.xiaomi.xmsf.runtime.PushRuntime.handleNetworkAvailable(source)
+        io.github.magisk317.mipush.runtime.core.PushRuntime.handleNetworkAvailable(source)
 
     @JvmStatic
     fun handleAccountChanged(source: String): PushRuntimeRegistrationDispatchResult =
-        com.xiaomi.xmsf.runtime.PushRuntime.handleAccountChanged(source)
+        io.github.magisk317.mipush.runtime.core.PushRuntime.handleAccountChanged(source)
 
     @JvmStatic
     fun requestConnection(source: String, reason: String? = null): Boolean =
-        com.xiaomi.xmsf.runtime.PushRuntime.requestConnection(source, reason)
+        io.github.magisk317.mipush.runtime.core.PushRuntime.requestConnection(source, reason)
 
     @JvmStatic
     fun requestConnectionReset(source: String, reason: String? = null): Boolean =
-        com.xiaomi.xmsf.runtime.PushRuntime.requestConnectionReset(source, reason)
+        io.github.magisk317.mipush.runtime.core.PushRuntime.requestConnectionReset(source, reason)
 
     @JvmStatic
     fun dispatchDownstreamPayload(
@@ -64,7 +64,7 @@ object PushRuntime {
         source: String,
         launchApp: Boolean
     ): PushRuntimeApplicationDispatchResult =
-        com.xiaomi.xmsf.runtime.PushRuntime.dispatchDownstreamPayload(
+        io.github.magisk317.mipush.runtime.core.PushRuntime.dispatchDownstreamPayload(
             packageName,
             action,
             messageId,
@@ -81,7 +81,7 @@ object PushRuntime {
         notificationGroup: String?,
         source: String
     ): Boolean =
-        com.xiaomi.xmsf.runtime.PushRuntime.cancelNotificationForPayload(
+        io.github.magisk317.mipush.runtime.core.PushRuntime.cancelNotificationForPayload(
             packageName,
             payload,
             notificationId,
@@ -96,7 +96,7 @@ object PushRuntime {
         reason: String? = null,
         nowMs: Long = System.currentTimeMillis()
     ): PushRegistrationRecord =
-        com.xiaomi.xmsf.runtime.PushRuntime.observeRegistrationRequest(packageName, source, reason, nowMs)
+        io.github.magisk317.mipush.runtime.core.PushRuntime.observeRegistrationRequest(packageName, source, reason, nowMs)
 
     @JvmStatic
     fun observeRegistrationResult(
@@ -106,7 +106,7 @@ object PushRuntime {
         reason: String? = null,
         nowMs: Long = System.currentTimeMillis()
     ): PushRegistrationRecord =
-        com.xiaomi.xmsf.runtime.PushRuntime.observeRegistrationResult(packageName, success, source, reason, nowMs)
+        io.github.magisk317.mipush.runtime.core.PushRuntime.observeRegistrationResult(packageName, success, source, reason, nowMs)
 
     @JvmStatic
     fun observeUnregistration(
@@ -115,7 +115,7 @@ object PushRuntime {
         reason: String? = null,
         nowMs: Long = System.currentTimeMillis()
     ): PushRegistrationRecord =
-        com.xiaomi.xmsf.runtime.PushRuntime.observeUnregistration(packageName, source, reason, nowMs)
+        io.github.magisk317.mipush.runtime.core.PushRuntime.observeUnregistration(packageName, source, reason, nowMs)
 
     @JvmStatic
     fun observeRegistrationState(
@@ -125,7 +125,7 @@ object PushRuntime {
         reason: String? = null,
         nowMs: Long = System.currentTimeMillis()
     ): PushRegistrationRecord =
-        com.xiaomi.xmsf.runtime.PushRuntime.observeRegistrationState(packageName, state, source, reason, nowMs)
+        io.github.magisk317.mipush.runtime.core.PushRuntime.observeRegistrationState(packageName, state, source, reason, nowMs)
 
     @JvmStatic
     fun observeInboundMessage(
@@ -136,7 +136,7 @@ object PushRuntime {
         isAck: Boolean = false,
         nowMs: Long = System.currentTimeMillis()
     ): Boolean =
-        com.xiaomi.xmsf.runtime.PushRuntime.observeInboundMessage(packageName, action, messageId, source, isAck, nowMs)
+        io.github.magisk317.mipush.runtime.core.PushRuntime.observeInboundMessage(packageName, action, messageId, source, isAck, nowMs)
 
     @JvmStatic
     fun observeTransferToApplication(
@@ -145,17 +145,18 @@ object PushRuntime {
         messageId: String?,
         source: String,
         nowMs: Long = System.currentTimeMillis()
-    ) = com.xiaomi.xmsf.runtime.PushRuntime.observeTransferToApplication(packageName, action, messageId, source, nowMs)
+    ) = io.github.magisk317.mipush.runtime.core.PushRuntime.observeTransferToApplication(packageName, action, messageId, source, nowMs)
 
     @JvmStatic
     fun observeNotificationEvent(packageName: String?, action: String, source: String) =
-        com.xiaomi.xmsf.runtime.PushRuntime.observeNotificationEvent(packageName, action, source)
+        io.github.magisk317.mipush.runtime.core.PushRuntime.observeNotificationEvent(packageName, action, source)
 
     @JvmStatic
     fun observeChannelEvent(packageName: String?, action: String, source: String) =
-        com.xiaomi.xmsf.runtime.PushRuntime.observeChannelEvent(packageName, action, source)
+        io.github.magisk317.mipush.runtime.core.PushRuntime.observeChannelEvent(packageName, action, source)
 
     @JvmStatic
+    @JvmOverloads
     fun observeConnectionState(
         state: PushConnectionState,
         source: String,
@@ -163,26 +164,7 @@ object PushRuntime {
         reason: String? = null,
         nowMs: Long = System.currentTimeMillis()
     ): PushConnectionRecord =
-        com.xiaomi.xmsf.runtime.PushRuntime.observeConnectionState(state, source, host, reason, nowMs)
-
-    @JvmStatic
-    fun observeConnectionState(
-        state: com.xiaomi.push.service.PushConnectionState,
-        source: String,
-        host: String?,
-        reason: String?
-    ): PushConnectionRecord =
-        observeConnectionState(
-            state = when (state) {
-                com.xiaomi.push.service.PushConnectionState.Connected -> PushConnectionState.Connected
-                com.xiaomi.push.service.PushConnectionState.Connecting -> PushConnectionState.Connecting
-                com.xiaomi.push.service.PushConnectionState.Disconnected,
-                com.xiaomi.push.service.PushConnectionState.Disconnecting -> PushConnectionState.Disconnected
-            },
-            source = source,
-            host = host,
-            reason = reason
-        )
+        io.github.magisk317.mipush.runtime.core.PushRuntime.observeConnectionState(state, source, host, reason, nowMs)
 
     @JvmStatic
     fun observeChannelState(
@@ -196,7 +178,7 @@ object PushRuntime {
         reasonMessage: String? = null,
         nowMs: Long = System.currentTimeMillis()
     ): PushChannelRecord =
-        com.xiaomi.xmsf.runtime.PushRuntime.observeChannelState(
+        io.github.magisk317.mipush.runtime.core.PushRuntime.observeChannelState(
             packageName,
             channelId,
             userId,
@@ -215,17 +197,21 @@ object PushRuntime {
         channels: List<PushChannelRecord>,
         source: String,
         nowMs: Long = System.currentTimeMillis()
-    ) = com.xiaomi.xmsf.runtime.PushRuntime.synchronizeChannels(connectionState, host, channels, source, nowMs)
+    ) = io.github.magisk317.mipush.runtime.core.PushRuntime.synchronizeChannels(connectionState, host, channels, source, nowMs)
 
     @JvmStatic
     fun observeAccountEvent(action: String, source: String) =
-        com.xiaomi.xmsf.runtime.PushRuntime.observeAccountEvent(action, source)
+        io.github.magisk317.mipush.runtime.core.PushRuntime.observeAccountEvent(action, source)
 
     @JvmStatic
     fun capabilities(): PushRuntimeCapabilities =
-        com.xiaomi.xmsf.runtime.PushRuntime.capabilities()
+        io.github.magisk317.mipush.runtime.core.PushRuntime.capabilities()
+
+    @JvmStatic
+    fun forceTriggerRegistration(packageName: String, source: String, reason: String? = null): Boolean =
+        io.github.magisk317.mipush.runtime.core.PushRuntime.forceTriggerRegistration(packageName, source, reason)
 
     @JvmStatic
     fun clearStateForTests() =
-        com.xiaomi.xmsf.runtime.PushRuntime.clearStateForTests()
+        io.github.magisk317.mipush.runtime.core.PushRuntime.clearStateForTests()
 }

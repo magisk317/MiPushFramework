@@ -1,14 +1,18 @@
 package io.github.magisk317.mipush.platform.support
 
-import io.github.magisk317.mipush.framework.hook.HookTraceCompat
+import io.github.magisk317.mipush.push.hook.HookTraceCompat
 import com.xiaomi.channel.commonutils.reflect.JavaCalls
 import com.xiaomi.mipush.sdk.PushContainerHelper
 import com.xiaomi.push.service.MIPushEventProcessor
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.PushMetaInfo
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
+import io.github.magisk317.mipush.notification.NotificationManagerEx
 import org.apache.thrift.TBase
 import io.github.magisk317.mipush.common.utils.CustomConfiguration
 import io.github.magisk317.mipush.common.utils.Utils
@@ -33,6 +37,18 @@ object XMPushUtils {
             return CustomConfiguration(null)
         }
         return CustomConfiguration(metaInfo.extra)
+    }
+
+    @JvmStatic
+    fun getPackageContext(context: Context, packageName: String, flags: Int = 0): Context {
+        if (!NotificationManagerEx.isHooked) {
+            return context
+        }
+        return try {
+            context.createPackageContext(packageName, flags)
+        } catch (e: PackageManager.NameNotFoundException) {
+            context
+        }
     }
 
     @JvmStatic
@@ -64,7 +80,7 @@ object XMPushUtils {
             Utils.getApplication(),
             action,
             actionType,
-            false,
+            JavaCalls.JavaParam(Boolean::class.javaPrimitiveType!!, false),
             packageName,
             appId
         ) as XmPushActionContainer
@@ -75,4 +91,77 @@ object XMPushUtils {
     @JvmStatic
     fun <T : TBase<T, *>> packToBytes(container: T): ByteArray =
         XmPushThriftSerializeUtils.convertThriftObjectToBytes(container)
+
+    @JvmStatic
+    fun dispatchToApplication(
+        context: Context,
+        packageName: String,
+        payload: ByteArray,
+        fromNotification: Boolean = false
+    ): Boolean {
+        if (packageName.isBlank()) return false
+        
+        val intent = Intent("com.xiaomi.mipush.RECEIVE_MESSAGE").apply {
+            `package` = packageName
+            putExtra("mipush_payload", payload)
+            putExtra("mipush_receive_time", System.currentTimeMillis())
+            if (fromNotification) {
+                putExtra("from_notification", true)
+            }
+            // Try to add category if it's a notification
+            val notifyId = packToContainer(payload)?.metaInfo?.notifyId
+            if (notifyId != null) {
+                addCategory(notifyId.toString())
+            }
+        }
+
+        // 1. Try explicit service dispatch (PushMessageHandler)
+        val serviceIntent = Intent(intent).apply {
+            component = android.content.ComponentName(packageName, io.github.magisk317.mipush.common.Constants.PUSH_MESSAGE_HANDLER_CLASS)
+        }
+        val started = runCatching { context.startService(serviceIntent) }.getOrNull()
+        if (started != null) {
+            return true
+        }
+
+        // 2. Fallback to broadcast dispatch
+        // Query explicit receivers first to bypass some restrictions or for logging
+        val explicitReceivers = runCatching {
+            context.packageManager.queryBroadcastReceivers(
+                intent,
+                PackageManager.MATCH_DISABLED_COMPONENTS
+            )
+        }.getOrDefault(emptyList())
+            .mapNotNull { resolveInfo ->
+                val activityInfo = resolveInfo.activityInfo ?: return@mapNotNull null
+                if (activityInfo.packageName != packageName) return@mapNotNull null
+                val canDispatch = activityInfo.enabled &&
+                    (activityInfo.exported || activityInfo.packageName == context.packageName)
+                if (!canDispatch) return@mapNotNull null
+                android.content.ComponentName(activityInfo.packageName, activityInfo.name)
+            }
+            .distinct()
+
+        if (explicitReceivers.isNotEmpty()) {
+            var dispatched = false
+            for (component in explicitReceivers) {
+                val explicitIntent = Intent(intent).apply {
+                    this.component = component
+                    `package` = null
+                }
+                val delivered = runCatching {
+                    context.sendBroadcast(explicitIntent)
+                    true
+                }.getOrDefault(false)
+                dispatched = dispatched || delivered
+            }
+            return dispatched
+        }
+
+        // 3. Final generic broadcast
+        return runCatching {
+            context.sendBroadcast(intent)
+            true
+        }.getOrDefault(false)
+    }
 }

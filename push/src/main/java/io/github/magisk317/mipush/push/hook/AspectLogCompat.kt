@@ -12,7 +12,7 @@ import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmsf.BuildConfig
 import io.github.magisk317.mipush.utils.ConvertUtils
-import io.github.magisk317.mipush.Global
+import io.github.magisk317.mipush.platform.support.Global
 import kotlinx.coroutines.runBlocking
 
 internal object AspectLogCompat {
@@ -29,7 +29,7 @@ internal object AspectLogCompat {
         if (BuildConfig.DEBUG) return true
         val now = SystemClock.elapsedRealtime()
         if (now - lastRefreshAt < 3000) return cachedEnabled
-        cachedEnabled = runCatching { runBlocking { Global.ConfigCenter().isDebugModeAsync() } }
+        cachedEnabled = runCatching { runBlocking { Global.configCenter().isDebugModeAsync() } }
             .getOrDefault(false)
         lastRefreshAt = now
         return cachedEnabled

@@ -15,7 +15,7 @@ internal class ProviderAwakeModule : IAwakeModule {
         val awakeInfoStr = awakeInfo.awakeInfo
         val awakeForeground = awakeInfo.awakeForeground
 
-        if (context == null || TextUtils.isEmpty(action) || TextUtils.isEmpty(awakeInfoStr)) {
+        if (TextUtils.isEmpty(action) || TextUtils.isEmpty(awakeInfoStr)) {
             val logContent = if (TextUtils.isEmpty(awakeInfoStr)) "provider" else awakeInfoStr!!
             AwakeUploadHelper.uploadData(context, logContent, 1008, "argument error")
             return
@@ -90,11 +90,7 @@ internal class ProviderAwakeModule : IAwakeModule {
     }
 
     override fun doAwake(context: Context, awakeInfo: AwakeInfo) {
-        if (awakeInfo != null) {
-            awakeByProvider(context, awakeInfo)
-        } else {
-            AwakeUploadHelper.uploadData(context, "provider", 1008, "A receive incorrect message")
-        }
+        awakeByProvider(context, awakeInfo)
     }
 
     override fun doSendAwakeResult(context: Context, intent: Intent, str: String) {

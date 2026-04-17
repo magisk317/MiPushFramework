@@ -13,7 +13,7 @@ import androidx.documentfile.provider.DocumentFile
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.Serializable
 import org.json.JSONException
-import io.github.magisk317.mipush.Global
+import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.common.utils.Singleton
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.app.ConfigCenter

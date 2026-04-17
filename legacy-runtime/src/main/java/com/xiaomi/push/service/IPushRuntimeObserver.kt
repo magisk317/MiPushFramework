@@ -24,6 +24,7 @@ interface IPushRuntimeObserver {
     fun notifyConnectionFailed(activeClients: Any) {}
     
     // --- Lifecycle & System ---
+    fun onServiceCreated(service: android.app.Service) {}
     fun postOnCreate() {}
     fun onServiceDestroy() {}
     fun networkChanged() {}
@@ -54,6 +55,12 @@ interface IPushRuntimeObserver {
     fun clearRegistrationTasks(packageName: String) {}
     fun onAccountEvent(packageName: String, event: String) {}
     fun attachAccountClient(client: Any) {}
+
+    /**
+     * Notifies the product layer about an intent received from an application.
+     * This is used for recording events like registration requests and message sent events.
+     */
+    fun onApplicationIntentReceived(intent: Intent) {}
     
     // --- Channel & Message Management ---
     fun onChannelEvent(packageName: String?, event: String, reason: String)

@@ -78,6 +78,6 @@ open class MessageQueryJob(
     }
 
     override fun processOneData(context: Context, cursor: Cursor): MessageInfoContract.MessageModel? {
-        return if (cursor != null) MessageInfoContract.MessageModel.build(cursor) else null
+        return MessageInfoContract.MessageModel.build(cursor)
     }
 }

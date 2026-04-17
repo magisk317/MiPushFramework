@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.main.viewmodel
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import io.github.magisk317.mipush.Global
+import io.github.magisk317.mipush.platform.support.Global
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -68,7 +68,7 @@ class EventListViewModel @Inject constructor(
             receiveDate = Date(it.date),
             title = type.getTitle(context).toString(),
             content = content,
-            appName = Global.ApplicationNameCache().getAppName(context, it.pkg).toString(),
+            appName = Global.applicationNameCache().getAppName(context, it.pkg).toString(),
             event = it,
         )
     }

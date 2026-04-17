@@ -24,7 +24,7 @@ abstract class FileLockerWorker : Runnable {
 
         @JvmStatic
         fun runMutiProcessJob(context: Context, name: String?, runnable: Runnable?) {
-            val file = if (!TextUtils.isEmpty(name)) {
+            val file = if (!name.isNullOrEmpty()) {
                 File(context.filesDir, name)
             } else {
                 null

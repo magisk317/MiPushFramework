@@ -81,20 +81,33 @@ object PushReconnectRuntime {
     fun planReconnect(
         state: PushReconnectState,
         forceImmediate: Boolean,
-        shouldReconnect: Boolean,
+        currentlyConnected: Boolean,
+        allowedByPolicy: Boolean,
         hasPendingConnectJob: Boolean,
         nowMs: Long
     ): PushReconnectAttemptPlan {
-        if (!shouldReconnect) {
+        if (!allowedByPolicy) {
             return PushReconnectAttemptPlan(
                 action = PushReconnectAction.SkipNoReconnect,
                 delayMs = 0,
                 nextState = state,
                 shouldDumpNativeNetInfo = false,
                 shouldRunConnectivityTest = false,
-                eventAction = "reconnect_blocked"
+                eventAction = "reconnect_blocked_by_policy"
             )
         }
+
+        if (currentlyConnected && !forceImmediate) {
+            return PushReconnectAttemptPlan(
+                action = PushReconnectAction.SkipNoReconnect,
+                delayMs = 0,
+                nextState = state.copy(attempts = 0), // Reset attempts if already connected
+                shouldDumpNativeNetInfo = false,
+                shouldRunConnectivityTest = false,
+                eventAction = "reconnect_skipped_already_connected"
+            )
+        }
+
         if (forceImmediate) {
             return PushReconnectAttemptPlan(
                 action = PushReconnectAction.Immediate,

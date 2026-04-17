@@ -140,12 +140,18 @@ object PushControllerUtils {
 
     @SuppressLint("WrongConstant")
     private fun setBootReceiverEnable(enable: Boolean, context: Context) {
-        context.packageManager.setComponentEnabledSetting(
-            ComponentName(context, BootReceiver::class.java),
-            if (enable) PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-            else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-            PackageManager.DONT_KILL_APP
-        )
+        try {
+            context.packageManager.setComponentEnabledSetting(
+                ComponentName(context, BootReceiver::class.java),
+                if (enable) PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                PackageManager.DONT_KILL_APP
+            )
+        } catch (e: IllegalArgumentException) {
+            // Component may not exist in the host package (e.g. when injected via LSPosed
+            // into com.xiaomi.xmsf which has a different manifest).
+            logger.w("setBootReceiverEnable failed: ${e.message}")
+        }
     }
 
     @JvmStatic

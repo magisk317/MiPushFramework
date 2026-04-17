@@ -19,7 +19,7 @@ class BootReceiver : BroadcastReceiver() {
                 source = "BootReceiver.onReceive"
             )
             runCatching {
-                ClientEventDispatcher().notifyServiceStarted(context, io.github.magisk317.mipush.framework.MiPushRuntimeObserverBridge(context))
+                ClientEventDispatcher().notifyServiceStarted(context, io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge(context))
                 PushRuntime.handleBootCompleted("BootReceiver.onReceive")
             }
         }

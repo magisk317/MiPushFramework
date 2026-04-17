@@ -81,39 +81,37 @@ object UploadDataHelper {
         var i2 = 0
         for (i3 in list.indices) {
             val clientUploadDataItem = list[i3]
-            if (clientUploadDataItem != null) {
-                val length =
-                    XmPushThriftSerializeUtils.convertThriftObjectToBytes(clientUploadDataItem).size
-                if (length > i) {
-                    MyLog.e(
-                        "data is too big, ignore upload request item:${clientUploadDataItem.id}",
-                    )
-                } else {
-                    var clientUploadData2 = clientUploadData
-                    var strGeneratePacketID2 = strGeneratePacketID
-                    var i4 = i2
-                    if (i2 + length > i) {
-                        val xmPushActionNotification =
-                            XmPushActionNotification(strGeneratePacketID, false)
-                        xmPushActionNotification.packageName = str
-                        xmPushActionNotification.appId = str2
-                        xmPushActionNotification.type = NotificationType.UploadTinyData.value
-                        xmPushActionNotification.setBinaryExtra(IOUtils.gZip(
-                            XmPushThriftSerializeUtils.convertThriftObjectToBytes(
-                                clientUploadData,
-                            ),
-                        ))
-                        arrayList.add(xmPushActionNotification)
-                        clientUploadData2 = ClientUploadData()
-                        strGeneratePacketID2 = PacketHelper.generatePacketID()
-                        i4 = 0
-                    }
-                    clientUploadData2.addToUploadDataItems(clientUploadDataItem)
-                    map[clientUploadDataItem.id] = strGeneratePacketID2
-                    i2 = i4 + length
-                    strGeneratePacketID = strGeneratePacketID2
-                    clientUploadData = clientUploadData2
+            val length =
+                XmPushThriftSerializeUtils.convertThriftObjectToBytes(clientUploadDataItem).size
+            if (length > i) {
+                MyLog.e(
+                    "data is too big, ignore upload request item:${clientUploadDataItem.id}",
+                )
+            } else {
+                var clientUploadData2 = clientUploadData
+                var strGeneratePacketID2 = strGeneratePacketID
+                var i4 = i2
+                if (i2 + length > i) {
+                    val xmPushActionNotification =
+                        XmPushActionNotification(strGeneratePacketID, false)
+                    xmPushActionNotification.packageName = str
+                    xmPushActionNotification.appId = str2
+                    xmPushActionNotification.type = NotificationType.UploadTinyData.value
+                    xmPushActionNotification.setBinaryExtra(IOUtils.gZip(
+                        XmPushThriftSerializeUtils.convertThriftObjectToBytes(
+                            clientUploadData,
+                        ),
+                    ))
+                    arrayList.add(xmPushActionNotification)
+                    clientUploadData2 = ClientUploadData()
+                    strGeneratePacketID2 = PacketHelper.generatePacketID()
+                    i4 = 0
                 }
+                clientUploadData2.addToUploadDataItems(clientUploadDataItem)
+                map[clientUploadDataItem.id] = strGeneratePacketID2
+                i2 = i4 + length
+                strGeneratePacketID = strGeneratePacketID2
+                clientUploadData = clientUploadData2
             }
         }
         if (clientUploadData.uploadDataItemsSize != 0) {

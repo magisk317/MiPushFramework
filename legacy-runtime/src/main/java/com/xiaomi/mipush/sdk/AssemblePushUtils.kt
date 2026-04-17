@@ -13,22 +13,14 @@ object AssemblePushUtils {
     private var isGoogleServiceSatisfied = -1
 
     fun getPhoneBrand(context: Context): PhoneBrand {
-        return try {
-            if (context.packageManager.getServiceInfo(ComponentName(HMS_PUSH_PACKAGE_NAME, HMS_PUSH_CLASS_NAME), 128) == null || !isAvailableEMUI()) {
-                PhoneBrand.OTHER
-            } else {
-                PhoneBrand.HUAWEI
-            }
-        } catch (e: Exception) {
-            PhoneBrand.OTHER
-        }
+        return PhoneBrand.OTHER
     }
 
     private fun isAvailableEMUI(): Boolean {
         return try {
             val str = JavaCalls.callStaticMethod("android.os.SystemProperties", "get", "ro.build.hw_emui_api_level", "") as String?
-            if (TextUtils.isEmpty(str)) false
-            else str!!.toInt() >= 9
+            val emuiLevel = str?.toIntOrNull() ?: 0
+            emuiLevel >= 9
         } catch (e: Exception) {
             MyLog.e(e)
             false

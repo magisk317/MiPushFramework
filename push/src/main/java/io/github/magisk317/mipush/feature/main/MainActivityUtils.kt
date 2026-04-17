@@ -5,9 +5,9 @@ import android.content.Intent
 import android.content.IntentFilter
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
-import io.github.magisk317.mipush.Global
-import io.github.magisk317.mipush.service.ConnectionStatus
-import io.github.magisk317.mipush.InternalMessenger
+import io.github.magisk317.mipush.platform.support.Global
+import io.github.magisk317.mipush.runtime.core.ConnectionStatus
+import io.github.magisk317.mipush.platform.support.InternalMessenger
 import com.xiaomi.push.service.XMPushServiceMessenger
 
 class MainActivityUtils {

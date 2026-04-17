@@ -1,6 +1,5 @@
 package io.github.magisk317.mipush.service.runtime
 import com.xiaomi.push.service.*
-import com.xiaomi.xmsf.runtime.PushConnectionState
 import com.xiaomi.slim.*
 
 object PushSlimConnectionRuntime {
@@ -24,6 +23,10 @@ object PushSlimConnectionRuntime {
                 connectionState = PushConnectionState.Disconnected,
                 connectionReason = "server_close_blob",
                 disconnectReasonCode = 13
+            )
+            Blob.CMD_CONN -> PushSlimInboundPlan(
+                action = PushSlimInboundAction.ChallengeReceived,
+                eventAction = "slim_challenge_received"
             )
             else -> PushSlimInboundPlan(action = PushSlimInboundAction.None)
         }

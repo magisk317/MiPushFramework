@@ -69,7 +69,7 @@ object Singleton {
         synchronized(klass) {
             obj = instances[klass] as? T
             if (obj != null) {
-                return obj!!
+                return obj
             }
             return try {
                 val constructor = klass.getDeclaredConstructor()

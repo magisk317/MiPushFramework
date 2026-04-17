@@ -6,9 +6,9 @@ import com.xiaomi.channel.commonutils.logger.MyLog;
 import com.xiaomi.push.mpcd.Constants;
 import com.xiaomi.push.protobuf.ChannelMessage;
 import com.xiaomi.push.service.PushClientsManager;
-import com.xiaomi.push.service.PushSlimInboundAction;
-import com.xiaomi.push.service.PushSlimInboundPlan;
-import com.xiaomi.push.service.PushSlimPingPlan;
+import io.github.magisk317.mipush.runtime.core.PushSlimInboundAction;
+import io.github.magisk317.mipush.runtime.core.PushSlimInboundPlan;
+import io.github.magisk317.mipush.runtime.core.PushSlimPingPlan;
 import io.github.magisk317.mipush.service.runtime.PushSlimConnectionRuntime;
 import io.github.magisk317.mipush.service.runtime.PushSocketConnectionRuntime;
 import com.xiaomi.push.service.ServiceConfig;
@@ -137,7 +137,7 @@ public class SlimConnection extends SocketConnection {
             PushRuntime.observeChannelEvent(null, inboundPlan.getEventAction(), "SlimConnection.notifyDataArrived");
         }
         if (inboundPlan.getConnectionState() != null) {
-            com.xiaomi.xmsf.runtime.PushRuntime.observeConnectionState(inboundPlan.getConnectionState(), "SlimConnection.notifyDataArrived", getHost(), inboundPlan.getConnectionReason(), System.currentTimeMillis());
+            PushRuntime.observeConnectionState(inboundPlan.getConnectionState(), "SlimConnection.notifyDataArrived", getHost(), inboundPlan.getConnectionReason());
         }
         if (inboundPlan.getDisconnectReasonCode() != null) {
             notifyConnectionError(inboundPlan.getDisconnectReasonCode().intValue(), null);

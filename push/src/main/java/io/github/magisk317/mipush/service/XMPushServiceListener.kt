@@ -1,5 +1,7 @@
 package io.github.magisk317.mipush.service
 
+import io.github.magisk317.mipush.runtime.core.ConnectionStatus
+
 import android.content.Intent
 
 interface XMPushServiceListener {
@@ -7,20 +9,9 @@ interface XMPushServiceListener {
     fun destroy() {}
     fun start(intent: Intent) {}
 
-    enum class ConnectionStatus {
-        connecting,
-        connected,
-        disconnected;
-
-        companion object {
-            @JvmStatic
-            fun of(i: Int): ConnectionStatus {
-                return values()[i]
-            }
-        }
-    }
+    typealias ConnectionStatus = io.github.magisk317.mipush.runtime.core.ConnectionStatus
 
     fun connectionStatusChanged(connectionStatus: ConnectionStatus) {}
 }
 
-typealias ConnectionStatus = XMPushServiceListener.ConnectionStatus
+typealias ConnectionStatus = io.github.magisk317.mipush.runtime.core.ConnectionStatus

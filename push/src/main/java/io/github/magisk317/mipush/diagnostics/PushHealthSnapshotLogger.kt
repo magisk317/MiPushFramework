@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.diagnostics
 
 import android.app.Application
 import android.content.Context
-import io.github.magisk317.mipush.Global
+import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
 import com.xiaomi.mipush.sdk.MiPushClient
 import io.github.magisk317.mipush.runtime.PushRuntime
@@ -60,7 +60,7 @@ object PushHealthSnapshotLogger {
             ?: context.packageName
         val pushEnabled = runCatching { PushControllerUtils.isPrefsEnable(context) }.getOrDefault(false)
         val regIdPresent = runCatching { MiPushClient.getRegId(context).isNotBlank() }.getOrDefault(false)
-        val debugMode = runCatching { runBlocking { Global.ConfigCenter().isDebugModeAsync() } }.getOrDefault(false)
+        val debugMode = runCatching { runBlocking { Global.configCenter().isDebugModeAsync() } }.getOrDefault(false)
         val lifecycle = XMPushServiceLifecycleBridge.snapshot()
         val runtime = PushRuntime.snapshot()
         return Snapshot(

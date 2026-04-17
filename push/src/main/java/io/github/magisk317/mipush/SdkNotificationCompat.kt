@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush
 
 import android.os.Build
-import io.github.magisk317.mipush.XMPushUtils
+import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
 import com.xiaomi.push.service.XMPushService
 import com.xiaomi.xmpush.thrift.ActionType

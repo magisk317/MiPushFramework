@@ -12,6 +12,7 @@ import android.service.notification.StatusBarNotification
 import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.push.service.NotificationUtils
 import com.xiaomi.push.service.NotificationIdentityBridge
+import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.aakira.napier.Napier
 import java.util.Collections
 
@@ -178,11 +179,14 @@ object NotificationManagerEx {
         if (packageName == appContext.packageName) {
             return notificationManager
         }
+        val packageContext = XMPushUtils.getPackageContext(appContext, packageName)
+        if (packageContext === appContext) {
+            return null
+        }
         return try {
-            val packageContext = appContext.createPackageContext(packageName, 0)
             packageContext.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
         } catch (e: Exception) {
-            logger.e("Failed to create package NotificationManager for $packageName", e)
+            logger.e("Failed to query package NotificationManager for $packageName", e)
             null
         }
     }

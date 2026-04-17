@@ -266,11 +266,6 @@ private fun DisplayBlock(viewModel: SettingsViewModel) {
     val themeState by viewModel.themeState.collectAsStateWithLifecycle()
     val themeEntries = stringArrayResource(R.array.theme_mode_entries)
     val selectedThemeIndex = themeState.mode.coerceIn(0, themeEntries.lastIndex)
-    val uiKitStyleEntries = arrayOf(
-        stringResource(R.string.ui_kit_style_expressive),
-        stringResource(R.string.ui_kit_style_miuix),
-    )
-    val selectedUiKitStyleIndex = themeState.uiKitStyle.coerceIn(0, uiKitStyleEntries.lastIndex)
 
     SettingsListItem(
         title = stringResource(R.string.pref_choose_theme_title),
@@ -281,14 +276,6 @@ private fun DisplayBlock(viewModel: SettingsViewModel) {
         onValueSelectedWithPosition = { index, x, y ->
             viewModel.setThemeMode(index, x, y)
         },
-    )
-
-    SettingsListItem(
-        title = stringResource(R.string.pref_ui_kit_style_title),
-        summary = uiKitStyleEntries[selectedUiKitStyleIndex],
-        values = uiKitStyleEntries,
-        selected = selectedUiKitStyleIndex,
-        onValueSelected = { index -> viewModel.setUiKitStyle(index) },
     )
 
     SettingsSwitchItem(

@@ -34,9 +34,9 @@ object MiPushClient4Hybrid {
     private val sRegisterTimeMap = HashMap<String, Long>()
 
     class MiPushCallback {
-        open fun onCommandResult(str: String, miPushCommandMessage: MiPushCommandMessage) {}
-        open fun onReceiveRegisterResult(str: String, miPushCommandMessage: MiPushCommandMessage) {}
-        open fun onReceiveUnregisterResult(str: String, miPushCommandMessage: MiPushCommandMessage) {}
+        fun onCommandResult(str: String, miPushCommandMessage: MiPushCommandMessage) {}
+        fun onReceiveRegisterResult(str: String, miPushCommandMessage: MiPushCommandMessage) {}
+        fun onReceiveUnregisterResult(str: String, miPushCommandMessage: MiPushCommandMessage) {}
     }
 
     private fun addPullNotificationTime(context: Context, str: String) {
@@ -44,8 +44,12 @@ object MiPushClient4Hybrid {
     }
 
     private fun getDeviceStatus(miPushMessage: MiPushMessage, z: Boolean): Short {
-        val str = miPushMessage.extra?.get(Constants.EXTRA_KEY_HYBRID_DEVICE_STATUS)
-        var value = if (!TextUtils.isEmpty(str)) str!!.toInt() else 0
+        val extra = miPushMessage.extra
+        var value = if (extra != null && extra.containsKey(Constants.EXTRA_KEY_HYBRID_DEVICE_STATUS)) {
+            extra[Constants.EXTRA_KEY_HYBRID_DEVICE_STATUS]?.toInt() ?: 0
+        } else {
+            0
+        }
         if (!z) {
             value = (value and (-4)) + AppInfoUtils.AppNotificationOp.NOT_ALLOWED.value
         }
@@ -167,8 +171,7 @@ object MiPushClient4Hybrid {
     @JvmStatic
     fun reportMessageArrived(context: Context, miPushMessage: MiPushMessage, z: Boolean) {
         val extra = miPushMessage.extra
-        if (miPushMessage == null || extra == null) {
-            MyLog.w("do not ack message, message is null")
+        if (extra == null) {
             return
         }
         try {

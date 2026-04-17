@@ -225,7 +225,8 @@ object IOUtils {
                     val name = entry.name
                     val file = File(outDir + name)
                     if (!name.endsWith("/")) {
-                        val parent = File(file.parent)
+                        val parentStr = file.parent ?: continue
+                        val parent = File(parentStr)
                         if (!parent.exists() || !parent.isDirectory) {
                             parent.mkdirs()
                             hideFromMediaScanner(parent)
@@ -311,7 +312,7 @@ object IOUtils {
         var zipOutputStream: ZipOutputStream? = null
         try {
             zipOutputStream = ZipOutputStream(BufferedOutputStream(FileOutputStream(zipFile)))
-            zipOutputStream!!.setLevel(Deflater.BEST_SPEED)
+            zipOutputStream.setLevel(Deflater.BEST_SPEED)
             zip(zipOutputStream, file, file.name, null)
         } finally {
             closeQuietly(zipOutputStream)

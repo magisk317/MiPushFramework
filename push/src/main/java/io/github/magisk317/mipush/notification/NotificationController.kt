@@ -25,7 +25,7 @@ import com.xiaomi.push.service.MyNotificationIconHelper
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmsf.R
-import io.github.magisk317.mipush.platform.support.GlobalSingletons
+import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.utils.Configurations
 import io.github.magisk317.mipush.utils.IconConfigurations
@@ -249,7 +249,7 @@ object NotificationController {
 
     @JvmStatic
     fun getIconColor(ctx: Context, pkg: String): Int {
-        return GlobalSingletons.iconCache().getAppColor(
+        return Global.iconCache().getAppColor(
             ctx,
             pkg,
             object : io.github.magisk317.mipush.common.cache.IconCache.Converter<Bitmap, Int> {
@@ -271,12 +271,13 @@ object NotificationController {
     @JvmStatic
     fun processIcon(context: Context, packageName: String, notificationBuilder: NotificationCompat.Builder) {
         notificationBuilder.setSmallIcon(R.drawable.ic_notifications_black_24dp)
-        val pkgContext = try {
-            context.createPackageContext(
-                packageName,
-                Context.CONTEXT_INCLUDE_CODE or Context.CONTEXT_IGNORE_SECURITY
-            )
-        } catch (_: PackageManager.NameNotFoundException) {
+        val pkgContext = XMPushUtils.getPackageContext(
+            context,
+            packageName,
+            Context.CONTEXT_INCLUDE_CODE or Context.CONTEXT_IGNORE_SECURITY
+        )
+        if (pkgContext === context) {
+            // Means it failed or not hooked
             return
         }
         val largeIconId = getIconId(context, packageName, NOTIFICATION_LARGE_ICON)
@@ -287,7 +288,7 @@ object NotificationController {
         notificationBuilder.color = getIconColor(context, packageName)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val iconConfig = GlobalSingletons.iconConfigurations().get(packageName)
+            val iconConfig = Global.iconConfigurations().get(packageName)
             if (iconConfig != null && iconConfig.isEnabled == true && iconConfig.isEnabledAll == true) {
                 val iconBitmap = iconConfig.bitmap()
                 if (iconBitmap != null) {
@@ -310,7 +311,7 @@ object NotificationController {
                 notificationBuilder.color = iconConfig.color()
                 return
             }
-            val iconCache = GlobalSingletons.iconCache().getIconCache(
+            val iconCache = Global.iconCache().getIconCache(
                 context,
                 packageName,
                 object : io.github.magisk317.mipush.common.cache.IconCache.Converter<Bitmap, IconCompat> {
@@ -336,7 +337,7 @@ object NotificationController {
             return
         }
         if (localText == null) {
-            localText = GlobalSingletons.applicationNameCache().getAppName(context, packageName)
+            localText = Global.applicationNameCache().getAppName(context, packageName)
         }
         val color = localBuilder.color
         if (color == Notification.COLOR_DEFAULT) {

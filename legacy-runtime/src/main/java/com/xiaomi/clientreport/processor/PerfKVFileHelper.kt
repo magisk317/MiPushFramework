@@ -132,11 +132,10 @@ object PerfKVFileHelper {
             val fileLockLock = randomAccessFile3.channel.lock()
             val fromFile = readFromFile(str)
             for (baseClientReport in baseClientReportArr) {
-                if (baseClientReport != null) {
-                    val strGenerateKey =
-                        generateKey(baseClientReport as PerfClientReport)
-                    val j = (baseClientReport as PerfClientReport).perfCounts
-                    val j2 = (baseClientReport as PerfClientReport).perfLatencies
+                if (baseClientReport is PerfClientReport) {
+                    val strGenerateKey = generateKey(baseClientReport)
+                    val j = baseClientReport.perfCounts
+                    val j2 = baseClientReport.perfLatencies
                     if (strGenerateKey.isNotEmpty() && j > 0 && j2 >= 0) {
                         putInMemeory(fromFile, strGenerateKey, j, j2)
                     }

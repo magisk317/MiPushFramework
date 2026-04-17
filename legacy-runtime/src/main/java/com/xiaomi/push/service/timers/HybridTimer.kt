@@ -16,7 +16,7 @@ class HybridTimer(context: Context) : Alarm.IAlarm {
 
     override fun stop() = delegate.stop()
 
-    open fun getPingInteval(): Long = pingInterval
+    fun getPingInteval(): Long = pingInterval
 
     companion object {
         private var pingInterval: Long = DateTimeHelper.HOUR_IN_MS.toLong()

@@ -59,7 +59,7 @@ import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
-import io.github.magisk317.mipush.Global
+import io.github.magisk317.mipush.platform.support.Global
 import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.utils.RegSecUtils
 import kotlinx.coroutines.Dispatchers
@@ -116,7 +116,7 @@ fun EventList(
             if (packageName.isBlank()) {
                 null
             } else {
-                Global.ApplicationNameCache().getAppName(context, packageName).toString()
+                Global.applicationNameCache().getAppName(context, packageName).toString()
                     .takeIf { it.isNotBlank() }
                     ?.takeUnless { it == packageName }
                     ?: packageName

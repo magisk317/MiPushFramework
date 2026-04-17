@@ -1,7 +1,7 @@
 package com.xiaomi.push.service
 
 import com.xiaomi.slim.Blob
-import com.xiaomi.xmsf.runtime.PushConnectionState
+import io.github.magisk317.mipush.runtime.core.PushConnectionState
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull

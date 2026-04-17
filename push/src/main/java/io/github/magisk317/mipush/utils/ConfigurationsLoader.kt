@@ -6,7 +6,7 @@ import android.util.Pair
 import android.widget.Toast
 import androidx.documentfile.provider.DocumentFile
 import io.github.aakira.napier.Napier
-import io.github.magisk317.mipush.Global
+import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.app.ConfigCenter
 import org.json.JSONArray
 import org.json.JSONException
