@@ -1,0 +1,17 @@
+package io.github.magisk317.mipush.runtime.event
+
+import android.content.Context
+import io.github.magisk317.mipush.common.R
+import io.github.magisk317.mipush.runtime.core.store.entities.Event
+import io.github.magisk317.mipush.runtime.event.EventType
+
+/**
+ * Created by Trumeet on 2018/2/7.
+ */
+class CommandType(mInfo: String?, pkg: String?, payload: ByteArray?) :
+    EventType(Event.Type.Command, mInfo, pkg, payload) {
+
+    override fun getSummary(context: Context): CharSequence {
+        return context.getString(R.string.event_command)
+    }
+}

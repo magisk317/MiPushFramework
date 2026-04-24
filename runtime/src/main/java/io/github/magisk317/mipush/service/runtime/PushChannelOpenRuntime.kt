@@ -1,0 +1,145 @@
+package io.github.magisk317.mipush.service.runtime
+import io.github.magisk317.mipush.protocol.model.*
+
+import android.content.Context
+import android.content.Intent
+import android.os.Messenger
+import androidx.core.content.IntentCompat
+import com.xiaomi.channel.commonutils.logger.MyLog
+import com.xiaomi.channel.commonutils.string.MD5
+import com.xiaomi.push.service.*
+
+object PushChannelOpenRuntime {
+    @JvmStatic
+    fun requestFromIntent(intent: Intent): PushChannelOpenRequest {
+        return PushChannelOpenRequest(
+            channelId = intent.getStringExtra(PushConstants.EXTRA_CHANNEL_ID),
+            userId = intent.getStringExtra(PushConstants.EXTRA_USER_ID),
+            token = intent.getStringExtra(PushConstants.EXTRA_TOKEN),
+            packageName = intent.getStringExtra(PushConstants.EXTRA_PACKAGE_NAME),
+            clientExtra = intent.getStringExtra(PushConstants.EXTRA_CLIENT_ATTR),
+            cloudExtra = intent.getStringExtra(PushConstants.EXTRA_CLOUD_ATTR),
+            kick = intent.getBooleanExtra(PushConstants.EXTRA_KICK, false),
+            security = intent.getStringExtra(PushConstants.EXTRA_SECURITY),
+            session = intent.getStringExtra(PushConstants.EXTRA_SESSION),
+            authMethod = intent.getStringExtra(PushConstants.EXTRA_AUTH_METHOD),
+            messenger = IntentCompat.getParcelableExtra(intent, PushConstants.EXTRA_MESSENGER, Messenger::class.java),
+        )
+    }
+
+    @JvmStatic
+    fun shouldRebind(
+        existingClient: PushClientsManager.ClientLoginInfo?,
+        request: PushChannelOpenRequest
+    ): Boolean {
+        return shouldRebind(
+            channelId = request.channelId,
+            existingSession = existingClient?.session,
+            requestedSession = request.session,
+            existingSecurity = existingClient?.security,
+            requestedSecurity = request.security
+        )
+    }
+
+    @JvmStatic
+    fun shouldRebind(
+        channelId: String?,
+        existingSession: String?,
+        requestedSession: String?,
+        existingSecurity: String?,
+        requestedSecurity: String?
+    ): Boolean {
+        if (channelId.isNullOrBlank()) {
+            return false
+        }
+        var shouldRebind = false
+        if (!existingSession.isNullOrEmpty() && existingSession != requestedSession) {
+            safeWarn(
+                "session changed. old session=$existingSession, new session=$requestedSession chid = $channelId"
+            )
+            shouldRebind = true
+        }
+        if (requestedSecurity != existingSecurity) {
+            safeWarn(
+                "security changed. chid = $channelId sechash = ${MD5.MD5_32(requestedSecurity ?: "")}"
+            )
+            shouldRebind = true
+        }
+        return shouldRebind
+    }
+
+    @JvmStatic
+    fun decideOpenPlan(
+        hasNetwork: Boolean,
+        isConnected: Boolean,
+        clientStatus: PushClientsManager.ClientStatus?,
+        shouldRebind: Boolean
+    ): PushChannelOpenPlan {
+        val effectiveStatus = clientStatus ?: PushClientsManager.ClientStatus.unbind
+        return when {
+            !hasNetwork -> PushChannelOpenPlan(
+                action = PushChannelOpenAction.OpenFailedNoNetwork,
+                state = PushChannelState.OpenFailed,
+                sourceSuffix = "no_network",
+                reasonCode = 2,
+                reasonMessage = "network_unavailable"
+            )
+            !isConnected -> PushChannelOpenPlan(
+                action = PushChannelOpenAction.ScheduleConnect,
+                state = PushChannelState.Binding,
+                sourceSuffix = "schedule_connect"
+            )
+            effectiveStatus == PushClientsManager.ClientStatus.unbind -> PushChannelOpenPlan(
+                action = PushChannelOpenAction.Bind,
+                state = PushChannelState.Binding,
+                sourceSuffix = "bind"
+            )
+            shouldRebind -> PushChannelOpenPlan(
+                action = PushChannelOpenAction.Rebind,
+                state = PushChannelState.Binding,
+                sourceSuffix = "rebind"
+            )
+            effectiveStatus == PushClientsManager.ClientStatus.binding -> PushChannelOpenPlan(
+                action = PushChannelOpenAction.AlreadyBinding,
+                state = PushChannelState.Binding,
+                sourceSuffix = "already_binding"
+            )
+            effectiveStatus == PushClientsManager.ClientStatus.binded -> PushChannelOpenPlan(
+                action = PushChannelOpenAction.AlreadyBound,
+                state = PushChannelState.Bound,
+                sourceSuffix = "already_bound"
+            )
+            else -> PushChannelOpenPlan(
+                action = PushChannelOpenAction.NoAction,
+                state = PushChannelState.Unbound,
+                sourceSuffix = "noop"
+            )
+        }
+    }
+
+    @JvmStatic
+    fun applyClientUpdate(
+        client: PushClientsManager.ClientLoginInfo,
+        request: PushChannelOpenRequest,
+        clientEventDispatcher: ClientEventDispatcher,
+        context: Context
+    ) {
+        client.chid = request.channelId.orEmpty()
+        client.userId = request.userId.orEmpty()
+        client.token = request.token.orEmpty()
+        client.pkgName = request.packageName.orEmpty()
+        client.clientExtra = request.clientExtra.orEmpty()
+        client.cloudExtra = request.cloudExtra.orEmpty()
+        client.kick = request.kick
+        client.security = request.security.orEmpty()
+        client.session = request.session.orEmpty()
+        client.authMethod = request.authMethod.orEmpty()
+        client.mClientEventDispatcher = clientEventDispatcher
+        client.watch(request.messenger)
+        client.context = context
+    }
+
+    private fun safeWarn(message: String) {
+        runCatching { MyLog.w(message) }
+    }
+}

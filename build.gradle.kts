@@ -10,6 +10,7 @@ plugins {
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.hilt.android) apply false
+    id("magisk.maintenance")
 }
 
 val securityOverrides: Map<String, String> = run {
@@ -55,12 +56,7 @@ tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
 
-tasks.register<Exec>("cleanupGradleCaches") {
-    group = "maintenance"
-    description = "Remove stale Gradle version caches under the project-local .gradle directory."
-    workingDir = rootProject.projectDir
-    commandLine("bash", "${rootProject.projectDir}/scripts/cleanup_gradle_caches.sh")
-}
+// Maintenance task now automatically hooked via magisk.maintenance plugin
 
 tasks.register("checkNoLegacyNihilityImports") {
     group = "verification"
