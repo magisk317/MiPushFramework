@@ -183,7 +183,7 @@ object ConvertUtils {
             }
         }
         logger.w("the aes decrypt failed for ${container.packageName}.")
-        return null
+        throw DecryptException("the aes decrypt failed.")
     }
 
     private fun persistResolvedRegSec(packageName: String?, regSec: String?) {
