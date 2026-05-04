@@ -1,5 +1,6 @@
 plugins {
     id("mipush.android.library")
+    id("mipush.android.room")
     alias(libs.plugins.kotlin.serialization)
 }
 
@@ -25,6 +26,7 @@ dependencies {
     implementation(project(":protocol-frozen"))
     compileOnly(project(":protocol"))
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.collection)
     implementation(libs.androidx.annotation)
     implementation(libs.androidx.documentfile)
     implementation(libs.kotlinx.coroutines.android)

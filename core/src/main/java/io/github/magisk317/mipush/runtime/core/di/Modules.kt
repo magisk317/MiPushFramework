@@ -9,10 +9,10 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import io.github.magisk317.mipush.runtime.core.store.db.AppDatabase
-import io.github.magisk317.mipush.runtime.core.store.db.AppDatabaseMigrations
-import io.github.magisk317.mipush.runtime.core.store.db.EventDao
-import io.github.magisk317.mipush.runtime.core.store.db.RegisteredApplicationDao
+import io.github.magisk317.mipush.common.store.db.AppDatabase
+import io.github.magisk317.mipush.common.store.db.AppDatabaseMigrations
+import io.github.magisk317.mipush.common.store.db.EventDao
+import io.github.magisk317.mipush.common.store.db.RegisteredApplicationDao
 import io.github.magisk317.mipush.runtime.core.data.dataStore
 import javax.inject.Singleton
 

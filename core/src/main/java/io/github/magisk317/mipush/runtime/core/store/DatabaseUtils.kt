@@ -2,14 +2,11 @@ package io.github.magisk317.mipush.runtime.core.store
 
 import android.content.Context
 import androidx.room.Room
-import io.github.magisk317.mipush.runtime.core.store.db.AppDatabase
-import io.github.magisk317.mipush.runtime.core.store.db.AppDatabaseMigrations
-import io.github.magisk317.mipush.runtime.core.store.db.EventDao
-import io.github.magisk317.mipush.runtime.core.store.db.RegisteredApplicationDao
+import io.github.magisk317.mipush.common.store.db.AppDatabase
+import io.github.magisk317.mipush.common.store.db.AppDatabaseMigrations
+import io.github.magisk317.mipush.common.store.db.EventDao
+import io.github.magisk317.mipush.common.store.db.RegisteredApplicationDao
 
-/**
- * Created by Trumeet on 2017/12/23.
- */
 object DatabaseUtils {
     @Volatile
     private var database: AppDatabase? = null
