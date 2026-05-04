@@ -1,5 +1,6 @@
 plugins {
     id("mipush.android.library")
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -21,10 +22,15 @@ android {
 }
 
 dependencies {
+    implementation(project(":protocol-frozen"))
+    compileOnly(project(":protocol"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.annotation)
+    implementation(libs.androidx.documentfile)
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.javax.inject)
     implementation(libs.napier)
-    // javax.inject no longer needed; annotations removed from common caches
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.mockkery.runtime.jvm)
     testRuntimeOnly(libs.junit.platform.launcher)

@@ -46,7 +46,9 @@ import io.github.magisk317.mipush.service.runtime.PushReconnectRuntime
 import io.github.magisk317.mipush.service.runtime.PushServiceConnectionRuntime
 import io.github.magisk317.mipush.service.runtime.PushServiceIntentRuntime
 import io.github.magisk317.mipush.service.runtime.PushSlimConnectionRuntime
+import io.github.magisk317.mipush.service.runtime.PushSlimStreamRuntime
 import io.github.magisk317.mipush.service.runtime.PushSocketConnectionRuntime
+import io.github.magisk317.mipush.service.runtime.RegistrationThrottle
 import io.github.magisk317.mipush.service.runtime.NetworkCheckupRuntime
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.service.runtime.PushPacketSyncRuntime
@@ -487,6 +489,14 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         envType: Int,
         servicePackageName: String
     ): PushServiceRegisterAppPlan {
+        // Throttle registration requests when channel is not bound to prevent registration storms
+        if (packageName != null) {
+            val allClients = PushClientsManager.getInstance().getAllClients()
+            val channelBound = allClients.any { it.status == PushClientsManager.ClientStatus.binded }
+            if (RegistrationThrottle.shouldThrottle(packageName, channelBound)) {
+                return PushServiceRegisterAppPlan(action = PushServiceRegisterAppAction.Ignore)
+            }
+        }
         return PushServiceIntentRuntime.resolveRegisterAppPlan(packageName, payload, envChanged, envType, servicePackageName)
     }
 
@@ -571,8 +581,8 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         )
     }
 
-    override fun planSlimHandshake(): PushSlimHandshakePlan {
-        return PushSlimHandshakePlan(valid = true, eventAction = "slim_handshake_sent", shouldEmitConfigBlob = false)
+    override fun planSlimHandshake(hasChallenge: Boolean, hasConfigMessage: Boolean): PushSlimHandshakePlan {
+        return PushSlimStreamRuntime.planHandshake(hasChallenge, hasConfigMessage)
     }
 
     override fun resolveSlimInboundPlan(channelId: Int, cmd: String?): PushSlimInboundPlan {

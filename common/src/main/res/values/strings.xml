@@ -20,6 +20,8 @@
 
 
     <string name="error_usage_stats">Getting UsageStats error. If your system does not support this feature, MiPush will try Accessibility as a fallback.</string>
+    <string name="log_share_error">Cannot share logs：%1$s</string>
+    <string name="log_clear_done">Logs cleaned.</string>
 
 
 

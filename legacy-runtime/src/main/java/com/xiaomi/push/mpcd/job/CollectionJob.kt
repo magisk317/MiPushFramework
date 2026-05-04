@@ -89,7 +89,8 @@ abstract class CollectionJob(
         }
 
         private fun writeItemToFile(context: Context, dataCollectionItem: DataCollectionItem, secret: String) {
-            val encryptedData = CDataHelper.encryptData(secret, XmPushThriftSerializeUtils.convertThriftObjectToBytes(dataCollectionItem))
+            val itemBytes = XmPushThriftSerializeUtils.convertThriftObjectToBytes(dataCollectionItem) ?: return
+            val encryptedData = CDataHelper.encryptData(secret, itemBytes)
             if (encryptedData == null || encryptedData.isEmpty()) return
 
             synchronized(Constants.cDataLock4Thread) {

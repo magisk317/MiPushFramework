@@ -115,7 +115,7 @@ interface IPushRuntimeObserver {
     fun planFailureRetry(oldConnPoint: String?, newConnPoint: String?): PushSocketFailurePlan
     fun evaluateShortConnection(nowElapsed: Long, lastConnectedTime: Long, hasNetwork: Boolean, curShortConnCount: Int, networkInterval: Long, maxShortConnCount: Int): PushShortConnectionPlan
     
-    fun planSlimHandshake(): PushSlimHandshakePlan
+    fun planSlimHandshake(hasChallenge: Boolean, hasConfigMessage: Boolean): PushSlimHandshakePlan
     fun resolveSlimInboundPlan(channelId: Int, cmd: String?): PushSlimInboundPlan
     fun planSlimPayload(packageName: String?, chid: String?, chidStatus: String?, binderStatus: String?): PushSlimPayloadPlan
     fun resolveSlimSendPingPlan(): PushSlimPingPlan

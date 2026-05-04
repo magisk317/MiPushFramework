@@ -42,7 +42,8 @@ object MIPushHelper {
                 setCmd(Blob.CMD_SECMSG, "message")
                 target.userId = accountId.substringBefore("@")
                 target.resource = accountId.substringAfter("/")
-                setPayload(XmPushThriftSerializeUtils.convertThriftObjectToBytes(container), account.security)
+                val payload = XmPushThriftSerializeUtils.convertThriftObjectToBytes(container) ?: return null
+                setPayload(payload, account.security)
                 setPayloadType(1)
             }.also {
                 MyLog.w("try send mi push message. packagename:${container.packageName} action:${container.action}")
@@ -199,7 +200,7 @@ object MIPushHelper {
         actionType: ActionType,
         isRequest: Boolean,
     ): XmPushActionContainer {
-        val body = XmPushThriftSerializeUtils.convertThriftObjectToBytes(payload)
+        val body = XmPushThriftSerializeUtils.convertThriftObjectToBytes(payload) ?: ByteArray(0)
         val target = Target().apply {
             channelId = MIPUSH_CHANNEL_ID.toLong()
             userId = "fakeid"

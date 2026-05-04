@@ -31,7 +31,9 @@ internal class BlobReader(
         if (Blob.CMD_CONN == blob.cmd) {
             val from = ChannelMessage.XMMsgConnResp.parseFrom(blob.payload)
             val observer = XMPushServiceProxy.get()?.runtimeObserver
-            val handshakePlan = observer?.planSlimHandshake() ?: PushSlimHandshakePlan(true, "slim_handshake_sent", false)
+            val hasChallenge = from.hasChallenge()
+            val hasConfigMessage = from.hasPsc()
+            val handshakePlan = observer?.planSlimHandshake(hasChallenge, hasConfigMessage) ?: PushSlimHandshakePlan(true, "slim_handshake_sent", false)
             MyLog.w("[slim] ${handshakePlan.eventAction}")
             valid = handshakePlan.valid
             if (handshakePlan.valid) {

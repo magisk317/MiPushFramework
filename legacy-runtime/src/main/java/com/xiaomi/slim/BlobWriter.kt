@@ -22,7 +22,7 @@ internal class BlobWriter(
     @Throws(IOException::class)
     fun openStream() {
         val observer = XMPushServiceProxy.get()?.runtimeObserver
-        val handshakePlan = observer?.planSlimHandshake() ?: PushSlimHandshakePlan(true, "slim_handshake_sent", false)
+        val handshakePlan = observer?.planSlimHandshake(hasChallenge = false, hasConfigMessage = false) ?: PushSlimHandshakePlan(true, "slim_handshake_sent", false)
         
         val connReq = ChannelMessage.XMMsgConn().apply {
             setVersion(Blob.VERSION.toInt())

@@ -85,7 +85,8 @@ class UploadJob(private val context: Context) : ScheduledJobManager.Job() {
                 }
                 val collectData = XmPushActionCollectData()
                 collectData.dataCollectionItems = subListItems
-                val gzipped = IOUtils.gZip(XmPushThriftSerializeUtils.convertThriftObjectToBytes(collectData))
+                val collectBytes = XmPushThriftSerializeUtils.convertThriftObjectToBytes(collectData) ?: return
+                val gzipped = IOUtils.gZip(collectBytes)
                 val notification = XmPushActionNotification("-1", false)
                 notification.type = NotificationType.DataCollection.value
                 notification.binaryExtra = ByteBuffer.wrap(gzipped)

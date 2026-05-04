@@ -62,6 +62,7 @@ dependencyResolutionManagement {
 rootProject.name = "MiPushFramework"
 requireExistingProjectDir("magisk-ui-kit")
 requireExistingProjectDir("legacy-runtime")
+requireExistingProjectDir("protocol")
 requireExistingProjectDir("protocol-frozen")
-include(":push", ":common", ":runtime-core", ":magisk-ui-kit", ":legacy-runtime", ":protocol-frozen")
+include(":push", ":common", ":runtime-core", ":magisk-ui-kit", ":legacy-runtime", ":protocol-frozen", ":protocol")
 project(":magisk-ui-kit").projectDir = file("magisk-ui-kit")

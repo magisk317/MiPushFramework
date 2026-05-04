@@ -56,6 +56,7 @@ android {
 
 tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
     jvmArgs("-Xshare:off")
+    useJUnitPlatform()
 }
 
 dependencies {

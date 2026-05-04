@@ -45,10 +45,11 @@ object TinyDataHelper {
         appId: String,
         uploadData: ClientUploadData,
     ): XmPushActionNotification {
+        val uploadBytes = XmPushThriftSerializeUtils.convertThriftObjectToBytes(uploadData) ?: ByteArray(0)
         return XmPushActionNotification("-1", false)
             .setPackageName(packageName)
             .setAppId(appId)
-            .setBinaryExtra(IOUtils.gZip(XmPushThriftSerializeUtils.convertThriftObjectToBytes(uploadData)))
+            .setBinaryExtra(IOUtils.gZip(uploadBytes))
             .setType(NotificationType.UploadTinyData.value)
     }
 
@@ -89,7 +90,16 @@ object TinyDataHelper {
                 }
                 extra.remove("item_size")
             }
-            val actualSize = if (declaredSize > 0) declaredSize else XmPushThriftSerializeUtils.convertThriftObjectToBytes(item).size
+            val itemBytes = XmPushThriftSerializeUtils.convertThriftObjectToBytes(item)
+            val actualSize = if (declaredSize > 0) {
+                declaredSize
+            } else {
+                itemBytes?.size ?: 0
+            }
+            if (itemBytes == null && declaredSize <= 0) {
+                MyLog.e("TinyData serialization failed, ignore upload request item:${item.id}")
+                continue
+            }
             if (actualSize > maxSize) {
                 MyLog.e("TinyData is too big, ignore upload request item:${item.id}")
                 continue

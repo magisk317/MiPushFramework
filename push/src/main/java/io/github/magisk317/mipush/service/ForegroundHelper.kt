@@ -55,7 +55,7 @@ class ForegroundHelper(private val service: Service) {
             service.startForeground(
                 NOTIFICATION_ALIVE_ID,
                 notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING
             )
         } else {
             service.startForeground(NOTIFICATION_ALIVE_ID, notification)

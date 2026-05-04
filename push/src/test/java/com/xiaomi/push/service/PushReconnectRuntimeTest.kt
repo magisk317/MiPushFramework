@@ -68,14 +68,16 @@ class PushReconnectRuntimeTest {
         val immediate = PushReconnectRuntime.planReconnect(
             state = state,
             forceImmediate = true,
-            shouldReconnect = true,
+            currentlyConnected = false,
+            allowedByPolicy = true,
             hasPendingConnectJob = false,
             nowMs = 1000L
         )
         val replaceExisting = PushReconnectRuntime.planReconnect(
             state = state,
             forceImmediate = true,
-            shouldReconnect = true,
+            currentlyConnected = false,
+            allowedByPolicy = true,
             hasPendingConnectJob = true,
             nowMs = 1000L
         )
@@ -91,14 +93,16 @@ class PushReconnectRuntimeTest {
         val secondAttempt = PushReconnectRuntime.planReconnect(
             state = PushReconnectRuntime.initialState().copy(attempts = 1, lastConnectTime = 1000L),
             forceImmediate = false,
-            shouldReconnect = true,
+            currentlyConnected = false,
+            allowedByPolicy = true,
             hasPendingConnectJob = false,
             nowMs = 2000L
         )
         val thirdAttempt = PushReconnectRuntime.planReconnect(
             state = PushReconnectRuntime.initialState().copy(attempts = 2, lastConnectTime = 1000L),
             forceImmediate = false,
-            shouldReconnect = true,
+            currentlyConnected = false,
+            allowedByPolicy = true,
             hasPendingConnectJob = false,
             nowMs = 2000L
         )

@@ -81,8 +81,12 @@ object UploadDataHelper {
         var i2 = 0
         for (i3 in list.indices) {
             val clientUploadDataItem = list[i3]
-            val length =
-                XmPushThriftSerializeUtils.convertThriftObjectToBytes(clientUploadDataItem).size
+            val itemBytes = XmPushThriftSerializeUtils.convertThriftObjectToBytes(clientUploadDataItem)
+            if (itemBytes == null) {
+                MyLog.e("failed to serialize upload request item:${clientUploadDataItem.id}")
+                continue
+            }
+            val length = itemBytes.size
             if (length > i) {
                 MyLog.e(
                     "data is too big, ignore upload request item:${clientUploadDataItem.id}",
@@ -92,15 +96,18 @@ object UploadDataHelper {
                 var strGeneratePacketID2 = strGeneratePacketID
                 var i4 = i2
                 if (i2 + length > i) {
+                    val uploadBytes = XmPushThriftSerializeUtils.convertThriftObjectToBytes(clientUploadData)
+                    if (uploadBytes == null) {
+                        MyLog.e("failed to serialize batched tiny data payload")
+                        continue
+                    }
                     val xmPushActionNotification =
                         XmPushActionNotification(strGeneratePacketID, false)
                     xmPushActionNotification.packageName = str
                     xmPushActionNotification.appId = str2
                     xmPushActionNotification.type = NotificationType.UploadTinyData.value
                     xmPushActionNotification.setBinaryExtra(IOUtils.gZip(
-                        XmPushThriftSerializeUtils.convertThriftObjectToBytes(
-                            clientUploadData,
-                        ),
+                        uploadBytes,
                     ))
                     arrayList.add(xmPushActionNotification)
                     clientUploadData2 = ClientUploadData()
@@ -115,12 +122,17 @@ object UploadDataHelper {
             }
         }
         if (clientUploadData.uploadDataItemsSize != 0) {
+            val uploadBytes = XmPushThriftSerializeUtils.convertThriftObjectToBytes(clientUploadData)
+            if (uploadBytes == null) {
+                MyLog.e("failed to serialize final tiny data payload")
+                return arrayList
+            }
             val xmPushActionNotification2 = XmPushActionNotification(strGeneratePacketID, true)
             xmPushActionNotification2.packageName = str
             xmPushActionNotification2.appId = str2
             xmPushActionNotification2.type = NotificationType.UploadTinyData.value
             xmPushActionNotification2.setBinaryExtra(IOUtils.gZip(
-                XmPushThriftSerializeUtils.convertThriftObjectToBytes(clientUploadData),
+                uploadBytes,
             ))
             arrayList.add(xmPushActionNotification2)
         }

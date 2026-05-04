@@ -12,7 +12,7 @@ class XmPushActionOperator(
 
     fun sendMessage(sendMsgContainer: XmPushActionContainer, packageName: String) {
         val msgBytes = XmPushThriftSerializeUtils.convertThriftObjectToBytes(sendMsgContainer)
-        if (msgBytes.isEmpty()) {
+        if (msgBytes == null || msgBytes.isEmpty()) {
             MyLog.w("failed to serialize container")
             return
         }

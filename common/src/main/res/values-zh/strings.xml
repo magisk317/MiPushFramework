@@ -21,6 +21,8 @@
 
 
     <string name="error_usage_stats">获取“使用统计”异常。如果系统不支持，MiPush 会自动尝试使用辅助模式作为兜底。</string>
+    <string name="log_share_error">无法分享日志：%1$s</string>
+    <string name="log_clear_done">清空日志成功</string>
 
     <string name="settings_experimental">实验室</string>
 
