@@ -276,6 +276,32 @@ class PushRuntimeTest {
     }
 
     @Test
+    fun `force trigger ignores reentrant application registration dispatch`() {
+        PushRuntime.clearStateForTests()
+        var nestedDispatchResult = true
+        val host = TestExecutionHost(
+            onApplicationRegistration = { packageName, _ ->
+                nestedDispatchResult = PushRuntime.forceTriggerRegistration(
+                    packageName,
+                    "test:nested",
+                    "reentrant"
+                )
+                true
+            }
+        )
+        PushRuntime.attachExecutionHost(host)
+        try {
+            val dispatched = PushRuntime.forceTriggerRegistration("com.example.app", "test", "manual")
+
+            assertTrue(dispatched)
+            assertFalse(nestedDispatchResult)
+            assertEquals(listOf("com.example.app"), host.replayedPackages)
+        } finally {
+            PushRuntime.detachExecutionHost(host)
+        }
+    }
+
+    @Test
     fun `capabilities expose runtime spine contract`() {
         PushRuntime.clearStateForTests()
         val capabilities = PushRuntime.capabilities()
@@ -306,7 +332,8 @@ class PushRuntimeTest {
 
     private class TestExecutionHost(
         private val downstreamDispatchResult: PushRuntimeApplicationDispatchResult = PushRuntimeApplicationDispatchResult(),
-        private val cancelNotificationResult: Boolean = false
+        private val cancelNotificationResult: Boolean = false,
+        private val onApplicationRegistration: ((String, String) -> Boolean)? = null
     ) : PushRuntimeExecutionHost {
         val frameworkRegistrationReasons = mutableListOf<String>()
         val replayedPackages = mutableListOf<String>()
@@ -324,7 +351,7 @@ class PushRuntimeTest {
 
         override fun requestApplicationRegistration(packageName: String, reason: String): Boolean {
             replayedPackages += packageName
-            return true
+            return onApplicationRegistration?.invoke(packageName, reason) ?: true
         }
 
         override fun processPendingRegisterTasks(reason: String): Boolean {

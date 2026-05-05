@@ -7,6 +7,7 @@ import com.xiaomi.channel.commonutils.android.DataCryptUtils
 import com.xiaomi.channel.commonutils.string.Base64Coder
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
+import com.xiaomi.xmpush.thrift.XmPushActionRegistration
 import com.xiaomi.xmpush.thrift.XmPushActionSendMessage
 import io.github.magisk317.mipush.utils.ConvertUtils
 import org.junit.jupiter.api.AfterEach
@@ -104,6 +105,25 @@ class ConvertUtilsTest {
 
         assertEquals(true, json.contains("decrypt_failed"))
         assertEquals(true, json.contains("the aes decrypt failed."))
+    }
+
+    @Test
+    fun getResponseMessageBodyFromContainer_parsesRegistrationRequestsAsRegistrationBody() {
+        val request = XmPushActionRegistration("request-id", "app-id", "token").apply {
+            packageName = "com.example.app"
+        }
+        val container = XmPushActionContainer().apply {
+            action = ActionType.Registration
+            isRequest = true
+            packageName = "com.example.app"
+            setEncryptAction(false)
+            setPushAction(TSerializer(TBinaryProtocol.Factory()).serialize(request))
+        }
+
+        val body = ConvertUtils.getResponseMessageBodyFromContainer(container, null)
+
+        assertEquals(XmPushActionRegistration::class.java, body?.javaClass)
+        assertEquals("request-id", (body as XmPushActionRegistration).id)
     }
 
     private fun encryptedSendMessageContainer(

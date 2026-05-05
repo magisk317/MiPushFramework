@@ -325,7 +325,11 @@ class RegistrationHelper(
                 XMPushUtils.packToBytes(createForceRegisterMessage(packageName))
             }.getOrNull() ?: return false
             
-            PushRuntime.forceTriggerRegistration(packageName, "RegistrationHelper.tryForceRegisterFallback")
+            PushRuntime.observeRegistrationRequest(
+                packageName,
+                "RegistrationHelper.tryForceRegisterFallback",
+                "force_trigger_fallback"
+            )
             runBlocking {
                 EventDb.insertEventAsync(Event.ResultType.OK, RegistrationType("force_trigger_fallback", packageName, null))
             }
@@ -347,7 +351,11 @@ class RegistrationHelper(
                 throw UnsupportedOperationException("force register unsupported for $packageName: ${plan.summary()}")
             }
             
-            PushRuntime.forceTriggerRegistration(packageName, "RegistrationHelper.tryForceRegister")
+            PushRuntime.observeRegistrationRequest(
+                packageName,
+                "RegistrationHelper.tryForceRegister",
+                "force_trigger"
+            )
             runBlocking {
                 EventDb.insertEventAsync(Event.ResultType.OK, RegistrationType("force_trigger", packageName, null))
             }

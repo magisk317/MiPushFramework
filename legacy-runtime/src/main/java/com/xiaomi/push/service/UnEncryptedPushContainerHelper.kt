@@ -4,14 +4,19 @@ import android.content.Context
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.XmPushActionAckMessage
 import com.xiaomi.xmpush.thrift.XmPushActionAckNotification
+import com.xiaomi.xmpush.thrift.XmPushActionCommand
 import com.xiaomi.xmpush.thrift.XmPushActionCommandResult
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
+import com.xiaomi.xmpush.thrift.XmPushActionRegistration
 import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
 import com.xiaomi.xmpush.thrift.XmPushActionSendFeedbackResult
 import com.xiaomi.xmpush.thrift.XmPushActionSendMessage
+import com.xiaomi.xmpush.thrift.XmPushActionSubscription
 import com.xiaomi.xmpush.thrift.XmPushActionSubscriptionResult
+import com.xiaomi.xmpush.thrift.XmPushActionUnRegistration
 import com.xiaomi.xmpush.thrift.XmPushActionUnRegistrationResult
+import com.xiaomi.xmpush.thrift.XmPushActionUnSubscription
 import com.xiaomi.xmpush.thrift.XmPushActionUnSubscriptionResult
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
 import org.apache.thrift.TBase
@@ -20,10 +25,10 @@ import org.apache.thrift.TException
 object UnEncryptedPushContainerHelper {
     private fun createRespMessageFromAction(actionType: ActionType, isRequest: Boolean): TBase<*, *>? {
         return when (actionType) {
-            ActionType.Registration -> XmPushActionRegistrationResult()
-            ActionType.UnRegistration -> XmPushActionUnRegistrationResult()
-            ActionType.Subscription -> XmPushActionSubscriptionResult()
-            ActionType.UnSubscription -> XmPushActionUnSubscriptionResult()
+            ActionType.Registration -> if (isRequest) XmPushActionRegistration() else XmPushActionRegistrationResult()
+            ActionType.UnRegistration -> if (isRequest) XmPushActionUnRegistration() else XmPushActionUnRegistrationResult()
+            ActionType.Subscription -> if (isRequest) XmPushActionSubscription() else XmPushActionSubscriptionResult()
+            ActionType.UnSubscription -> if (isRequest) XmPushActionUnSubscription() else XmPushActionUnSubscriptionResult()
             ActionType.SendMessage -> XmPushActionSendMessage()
             ActionType.AckMessage -> XmPushActionAckMessage()
             ActionType.SetConfig -> XmPushActionCommandResult()
@@ -35,7 +40,7 @@ object UnEncryptedPushContainerHelper {
                     XmPushActionAckNotification().apply { setErrorCodeIsSet(true) }
                 }
             }
-            ActionType.Command -> XmPushActionCommandResult()
+            ActionType.Command -> if (isRequest) XmPushActionCommand() else XmPushActionCommandResult()
             else -> null
         }
     }

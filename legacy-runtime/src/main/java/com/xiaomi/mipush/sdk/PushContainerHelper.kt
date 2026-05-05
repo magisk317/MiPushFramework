@@ -13,11 +13,16 @@ import com.xiaomi.xmpush.thrift.XmPushActionAckNotification
 import com.xiaomi.xmpush.thrift.XmPushActionCommandResult
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
+import com.xiaomi.xmpush.thrift.XmPushActionCommand
+import com.xiaomi.xmpush.thrift.XmPushActionRegistration
 import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
 import com.xiaomi.xmpush.thrift.XmPushActionSendFeedbackResult
 import com.xiaomi.xmpush.thrift.XmPushActionSendMessage
+import com.xiaomi.xmpush.thrift.XmPushActionSubscription
 import com.xiaomi.xmpush.thrift.XmPushActionSubscriptionResult
+import com.xiaomi.xmpush.thrift.XmPushActionUnRegistration
 import com.xiaomi.xmpush.thrift.XmPushActionUnRegistrationResult
+import com.xiaomi.xmpush.thrift.XmPushActionUnSubscription
 import com.xiaomi.xmpush.thrift.XmPushActionUnSubscriptionResult
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
 import org.apache.thrift.TBase
@@ -33,10 +38,10 @@ class PushContainerHelper private constructor() {
         @JvmStatic
         fun createRespMessageFromAction(actionType: ActionType, z: Boolean): TBase<*, *>? {
             return when (actionType) {
-                ActionType.Registration -> XmPushActionRegistrationResult()
-                ActionType.UnRegistration -> XmPushActionUnRegistrationResult()
-                ActionType.Subscription -> XmPushActionSubscriptionResult()
-                ActionType.UnSubscription -> XmPushActionUnSubscriptionResult()
+                ActionType.Registration -> if (z) XmPushActionRegistration() else XmPushActionRegistrationResult()
+                ActionType.UnRegistration -> if (z) XmPushActionUnRegistration() else XmPushActionUnRegistrationResult()
+                ActionType.Subscription -> if (z) XmPushActionSubscription() else XmPushActionSubscriptionResult()
+                ActionType.UnSubscription -> if (z) XmPushActionUnSubscription() else XmPushActionUnSubscriptionResult()
                 ActionType.SendMessage -> XmPushActionSendMessage()
                 ActionType.AckMessage -> XmPushActionAckMessage()
                 ActionType.SetConfig -> XmPushActionCommandResult()
@@ -50,7 +55,7 @@ class PushContainerHelper private constructor() {
                         }
                     }
                 }
-                ActionType.Command -> XmPushActionCommandResult()
+                ActionType.Command -> if (z) XmPushActionCommand() else XmPushActionCommandResult()
                 else -> null
             }
         }

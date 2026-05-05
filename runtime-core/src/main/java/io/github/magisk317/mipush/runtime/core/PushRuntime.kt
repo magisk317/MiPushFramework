@@ -62,6 +62,7 @@ object PushRuntime {
     private val recentMessageIds = LinkedHashMap<String, Long>()
     private val recentPackageActions = LinkedHashMap<String, Long>()
     private val recentRegistrationReplays = LinkedHashMap<String, Long>()
+    private val activeRegistrationDispatches = mutableSetOf<String>()
     private val registrationRecords = LinkedHashMap<String, PushRegistrationRecord>()
     private val channelRecords = LinkedHashMap<String, PushChannelRecord>()
     private var bridgeHost: PushRuntimeBridgeHost? = null
@@ -626,6 +627,10 @@ object PushRuntime {
     @JvmStatic
     fun forceTriggerRegistration(packageName: String, source: String, reason: String? = null): Boolean {
         synchronized(lock) {
+            if (activeRegistrationDispatches.contains(packageName)) {
+                logger.d("skip reentrant application registration package=$packageName source=$source reason=$reason")
+                return false
+            }
             recentRegistrationReplays.remove(packageName)
             recentPackageActions.remove("$packageName:registration:Registering")
         }
@@ -639,6 +644,7 @@ object PushRuntime {
             recentMessageIds.clear()
             recentPackageActions.clear()
             recentRegistrationReplays.clear()
+            activeRegistrationDispatches.clear()
             registrationRecords.clear()
             channelRecords.clear()
             bridgeHost = null
@@ -760,31 +766,24 @@ object PushRuntime {
         reason: String,
         limit: Int = 8
     ): Int {
-        val host: PushRuntimeExecutionHost
         val pendingPackages: List<String>
         val nowMs = System.currentTimeMillis()
         synchronized(lock) {
             pruneMessageWindowsLocked(nowMs)
-            host = executionHost ?: return 0
+            if (executionHost == null) return 0
             pendingPackages = registrationRecords.values
                 .asSequence()
                 .filter { it.packageName != PushRuntimeComponents.SERVICE_PACKAGE }
                 .filter { it.state == PushRegistrationState.Registering || it.state == PushRegistrationState.Failed || it.state == PushRegistrationState.NotRegistered }
+                .filterNot { activeRegistrationDispatches.contains(it.packageName) }
                 .filter { shouldReplayRegistrationLocked(it.packageName, nowMs) }
                 .take(limit)
                 .map { it.packageName }
                 .toList()
-            pendingPackages.forEach { recentRegistrationReplays[it] = nowMs }
         }
         var dispatched = 0
         pendingPackages.forEach { packageName ->
-            val result = runCatching {
-                host.requestApplicationRegistration(packageName, buildReason(source, reason))
-            }.getOrElse {
-                logger.e("requestApplicationRegistration failed package=$packageName", it)
-                false
-            }
-            if (result) {
+            if (dispatchApplicationRegistration(packageName, source, reason)) {
                 dispatched += 1
             }
         }
@@ -795,15 +794,29 @@ object PushRuntime {
     }
 
     private fun replayApplicationRegistration(packageName: String, source: String, reason: String?): Boolean {
+        return dispatchApplicationRegistration(packageName, source, reason)
+    }
+
+    private fun dispatchApplicationRegistration(packageName: String, source: String, reason: String?): Boolean {
         val host = synchronized(lock) {
+            if (activeRegistrationDispatches.contains(packageName)) {
+                logger.d("skip active application registration package=$packageName source=$source reason=$reason")
+                return false
+            }
+            val activeHost = executionHost ?: return false
             recentRegistrationReplays[packageName] = System.currentTimeMillis()
-            executionHost
-        } ?: return false
+            activeRegistrationDispatches += packageName
+            activeHost
+        }
         return runCatching {
             host.requestApplicationRegistration(packageName, buildReason(source, reason))
         }.getOrElse {
             logger.e("requestApplicationRegistration failed package=$packageName", it)
             false
+        }.also {
+            synchronized(lock) {
+                activeRegistrationDispatches -= packageName
+            }
         }
     }
 
