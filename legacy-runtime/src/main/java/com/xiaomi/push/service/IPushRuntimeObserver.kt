@@ -119,7 +119,7 @@ interface IPushRuntimeObserver {
     fun resolveSlimInboundPlan(channelId: Int, cmd: String?): PushSlimInboundPlan
     fun planSlimPayload(packageName: String?, chid: String?, chidStatus: String?, binderStatus: String?): PushSlimPayloadPlan
     fun resolveSlimSendPingPlan(): PushSlimPingPlan
-    fun planSlimWrite(isPing: Boolean): PushSlimWritePlan
+    fun planSlimWrite(serializedSize: Int, cmd: String?, currentCapacity: Int): PushSlimWritePlan
     
     fun planConnectionEvent(event: PushConnectionListenerEvent): PushConnectionStatusPlan
     fun buildGslbRequest(baseUrl: String, sdkVersion: Int, droidVersion: Int, model: String, incremental: String, miuiType: Int): PushGslbRequest

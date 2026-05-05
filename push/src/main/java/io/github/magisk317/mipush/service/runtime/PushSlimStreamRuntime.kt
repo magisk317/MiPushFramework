@@ -59,6 +59,7 @@ object PushSlimStreamRuntime {
     ): PushSlimWritePlan {
         if (serializedSize > MAX_BLOB_SIZE) {
             return PushSlimWritePlan(
+                eventAction = "slim_write_drop",
                 shouldDrop = true,
                 requiredCapacity = currentCapacity,
                 shouldEncrypt = false
@@ -66,6 +67,7 @@ object PushSlimStreamRuntime {
         }
         val requiredCapacity = serializedSize + HEADER_SIZE + CRC_SIZE
         return PushSlimWritePlan(
+            eventAction = if (Blob.CMD_PING == cmd) "slim_ping_sent" else "slim_write",
             shouldDrop = false,
             requiredCapacity = if (requiredCapacity > currentCapacity || currentCapacity > 4096) {
                 requiredCapacity

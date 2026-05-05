@@ -636,8 +636,8 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         )
     }
 
-    override fun planSlimWrite(isPing: Boolean): PushSlimWritePlan {
-        return PushSlimWritePlan(eventAction = if (isPing) "slim_ping_sent" else "slim_write")
+    override fun planSlimWrite(serializedSize: Int, cmd: String?, currentCapacity: Int): PushSlimWritePlan {
+        return PushSlimStreamRuntime.planWrite(serializedSize, cmd, currentCapacity)
     }
 
     override fun planConnectionEvent(event: PushConnectionListenerEvent): PushConnectionStatusPlan {

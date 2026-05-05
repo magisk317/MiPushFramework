@@ -54,6 +54,19 @@ class PushSlimStreamRuntimeTest {
 
         assertFalse(plan.shouldDrop)
         assertFalse(plan.shouldEncrypt)
+        assertEquals("slim_write", plan.eventAction)
+    }
+
+    @Test
+    fun `non conn blob write is encrypted`() {
+        val plan = PushSlimStreamRuntime.planWrite(
+            serializedSize = 100,
+            cmd = Blob.CMD_BIND,
+            currentCapacity = 2048
+        )
+
+        assertFalse(plan.shouldDrop)
+        assertTrue(plan.shouldEncrypt)
     }
 
     @Test
@@ -65,5 +78,7 @@ class PushSlimStreamRuntimeTest {
         )
 
         assertTrue(plan.shouldDrop)
+        assertFalse(plan.shouldEncrypt)
+        assertEquals("slim_write_drop", plan.eventAction)
     }
 }

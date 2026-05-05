@@ -49,7 +49,8 @@ internal class BlobWriter(
         val serializedSize = blob.serializedSize
         
         val observer = XMPushServiceProxy.get()?.runtimeObserver
-        val writePlan = observer?.planSlimWrite(Blob.CMD_PING == blob.cmd) ?: PushSlimWritePlan(if (Blob.CMD_PING == blob.cmd) "slim_ping_sent" else null)
+        val writePlan = observer?.planSlimWrite(serializedSize, blob.cmd, mBuffer.capacity())
+            ?: fallbackWritePlan(serializedSize, blob.cmd, mBuffer.capacity())
         
         writePlan.eventAction?.let { MyLog.w("[slim] $it") }
         
@@ -91,6 +92,27 @@ internal class BlobWriter(
         val bytes = mBuffer.position() + 4
         MyLog.v("[Slim] Send {cmd=${blob.cmd};chid=${blob.channelId};len=$bytes}")
         return bytes
+    }
+
+    private fun fallbackWritePlan(serializedSize: Int, cmd: String?, currentCapacity: Int): PushSlimWritePlan {
+        if (serializedSize > Blob.MAX_BLOB_SIZE) {
+            return PushSlimWritePlan(
+                eventAction = "slim_write_drop",
+                shouldDrop = true,
+                requiredCapacity = currentCapacity,
+                shouldEncrypt = false
+            )
+        }
+        val requiredCapacity = serializedSize + Blob.HEADER_SIZE + Blob.CHCKSUM_SIZE
+        return PushSlimWritePlan(
+            eventAction = if (Blob.CMD_PING == cmd) "slim_ping_sent" else "slim_write",
+            requiredCapacity = if (requiredCapacity > currentCapacity || currentCapacity > 4096) {
+                requiredCapacity
+            } else {
+                currentCapacity.coerceAtLeast(2048)
+            },
+            shouldEncrypt = Blob.CMD_CONN != cmd
+        )
     }
 
     @Throws(IOException::class)

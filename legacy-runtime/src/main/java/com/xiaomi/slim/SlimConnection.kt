@@ -135,21 +135,7 @@ class SlimConnection(
         }
         
         if (inboundPlan.action == PushSlimInboundAction.ChallengeReceived) {
-            this.challenge = String(blob.payload)
-            MyLog.w("[Slim] RCV challenge=${this.challenge}")
-            
-            // Trigger binding for all pending clients
-            mPushAction.executeJob(object : com.xiaomi.push.service.XMPushServiceJob(0) {
-                override fun getDesc(): String = "re-bind after challenge"
-                override fun process() {
-                    PushClientsManager.getInstance().getAllClients().forEach { client ->
-                        if (client.status == PushClientsManager.ClientStatus.unbind || client.status == PushClientsManager.ClientStatus.binding) {
-                            MyLog.w("[Slim] auto bind chid=${client.chid} after challenge")
-                            mPushAction.executeJob(com.xiaomi.push.service.BindJob(mPushAction, client))
-                        }
-                    }
-                }
-            })
+            onChallengeReceived(extractChallenge(blob), "SlimConnection.notifyDataArrived")
         }
         
         inboundPlan.eventAction?.let { eventAction ->
@@ -181,6 +167,48 @@ class SlimConnection(
     internal fun notifyDataArrived(packet: Packet?) {
         if (packet == null) return
         super.notifyDataArrived(packet)
+    }
+
+    private fun extractChallenge(blob: Blob): String? {
+        if (blob.cmd == Blob.CMD_CONN) {
+            return runCatching {
+                ChannelMessage.XMMsgConnResp.parseFrom(blob.payload).challenge
+            }.getOrNull()
+        }
+        return runCatching { String(blob.payload) }.getOrNull()
+    }
+
+    internal fun onChallengeReceived(receivedChallenge: String?, source: String) {
+        val shouldRebind = synchronized(this) {
+            if (receivedChallenge.isNullOrEmpty()) {
+                MyLog.w("[Slim] RCV challenge missing in CONN response from $source")
+                return
+            }
+            if (challenge == receivedChallenge) {
+                return
+            }
+            challenge = receivedChallenge
+            mDerivedKey = null
+            true
+        }
+        MyLog.w("[Slim] RCV challenge=$receivedChallenge")
+        if (shouldRebind) {
+            rebindClientsAfterChallenge()
+        }
+    }
+
+    private fun rebindClientsAfterChallenge() {
+        mPushAction.executeJob(object : com.xiaomi.push.service.XMPushServiceJob(0) {
+            override fun getDesc(): String = "re-bind after challenge"
+            override fun process() {
+                PushClientsManager.getInstance().getAllClients().forEach { client ->
+                    if (client.status == PushClientsManager.ClientStatus.unbind || client.status == PushClientsManager.ClientStatus.binding) {
+                        MyLog.w("[Slim] auto bind chid=${client.chid} after challenge")
+                        mPushAction.executeJob(com.xiaomi.push.service.BindJob(mPushAction, client))
+                    }
+                }
+            }
+        })
     }
 
     override fun send(blob: Blob) {

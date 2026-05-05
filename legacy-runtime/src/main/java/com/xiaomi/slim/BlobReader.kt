@@ -37,14 +37,13 @@ internal class BlobReader(
         if (Blob.CMD_CONN == blob.cmd) {
             val from = ChannelMessage.XMMsgConnResp.parseFrom(blob.payload)
             val observer = XMPushServiceProxy.get()?.runtimeObserver
-            val hasChallenge = from.hasChallenge()
+            val hasChallenge = from.hasChallenge() && from.challenge.isNotEmpty()
             val hasConfigMessage = from.hasPsc()
             val handshakePlan = observer?.planSlimHandshake(hasChallenge, hasConfigMessage) ?: PushSlimHandshakePlan(true, "slim_handshake_sent", false)
             MyLog.w("[slim] ${handshakePlan.eventAction}")
             valid = handshakePlan.valid
             if (handshakePlan.valid) {
-                 // Challenge is now handled via notification or direct field if needed
-                 // mConnection.challenge is usually set during bind or from CONN resp
+                mConnection.onChallengeReceived(from.challenge, "BlobReader.loop")
             }
             if (handshakePlan.shouldEmitConfigBlob) {
                 val psc = from.psc
