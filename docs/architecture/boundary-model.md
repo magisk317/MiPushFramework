@@ -83,3 +83,8 @@ Delete before translating where possible:
 - `legacy-runtime` contains vendored runtime still needed after pruning.
 - `protocol-frozen` contains protocol/serialization source that must remain wire-stable.
 - Device system jars remain external reference inputs, not source modules.
+
+## Working Migration Plan
+
+The current package-by-package Java to Kotlin porting and `push/` split rules are tracked in
+`docs/architecture/push-module-split.md`.

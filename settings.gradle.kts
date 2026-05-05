@@ -1,5 +1,5 @@
 pluginManagement {
-    includeBuild("build-logic")
+    includeBuild("buildlogic")
     repositories {
         google()
         mavenCentral()
@@ -60,9 +60,9 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "MiPushFramework"
-requireExistingProjectDir("magisk-ui-kit")
+requireExistingProjectDir("uikit")
 requireExistingProjectDir("legacy-runtime")
 requireExistingProjectDir("protocol")
 requireExistingProjectDir("protocol-frozen")
-include(":push", ":common", ":runtime-core", ":magisk-ui-kit", ":legacy-runtime", ":protocol-frozen", ":protocol")
-project(":magisk-ui-kit").projectDir = file("magisk-ui-kit")
+include(":push", ":common", ":runtime-core", ":uikit", ":legacy-runtime", ":protocol-frozen", ":protocol")
+project(":uikit").projectDir = file("uikit")

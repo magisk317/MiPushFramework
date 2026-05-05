@@ -61,7 +61,7 @@ tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
 
 dependencies {
     implementation(project(":common"))
-    implementation(project(":magisk-ui-kit"))
+    implementation(project(":uikit"))
     implementation(project(":legacy-runtime"))
     // push IS the MiPush SDK — 88 files in com.xiaomi.mipush.sdk.* directly import
     // com.xiaomi.xmpush.thrift.* (ActionType, ConfigKey, XmPushThriftSerializeUtils, etc.).
