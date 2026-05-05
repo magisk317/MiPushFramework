@@ -4,6 +4,10 @@ import android.text.TextUtils
 import org.json.JSONException
 import org.json.JSONObject
 
+/*
+ * Local legacy stat client model retained for compatibility.
+ * No stock 7.4.67-C or 2026-04-13 current override same-path source was found in the dump.
+ */
 class EventDataItem {
     private var mCategory: String? = null
     private var mKey: String? = null

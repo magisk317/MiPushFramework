@@ -17,6 +17,13 @@ import java.io.File
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/t9/c.java
+ * Current override same-path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/push/log/LogUploader.java
+ * Stock class name is obfuscated as t9.c; this file keeps the deobfuscated com.xiaomi.push.log.LogUploader API.
+ */
 class LogUploader private constructor(context: Context) {
     private val mTasks: ConcurrentLinkedQueue<Task> = ConcurrentLinkedQueue()
     private var mContext: Context = context

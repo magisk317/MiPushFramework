@@ -3,6 +3,12 @@ package com.xiaomi.smack
 import com.xiaomi.channel.commonutils.misc.BuildSettings
 import com.xiaomi.channel.commonutils.misc.DebugSwitch
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/qa/c.java
+ * Stock class name is obfuscated as qa.c; this file keeps the deobfuscated com.xiaomi.smack.ConnectionConfiguration API.
+ */
 class ConnectionConfiguration : Cloneable {
     var connectionPoint: String? = null
         private set

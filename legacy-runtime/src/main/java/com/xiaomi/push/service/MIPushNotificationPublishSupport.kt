@@ -184,16 +184,14 @@ object MIPushNotificationPublishSupport {
         val jobId = ScheduledJobConstants.NOTIFICATION_TIMEOUT_JOB_ID + messageId
         val scheduledJobManager = ScheduledJobManager.getInstance(context)
         scheduledJobManager.cancelJob(jobId)
-        scheduledJobManager.addOneShootJob(
-            object : ScheduledJobManager.Job() {
-                override fun getJobId(): String = jobId
+        val timeoutJob = object : ScheduledJobManager.Job() {
+            override fun getJobId(): String = jobId
 
-                override fun run() {
-                    notificationManager.cancel(notificationId)
-                }
-            },
-            timeout,
-        )
+            override fun run() {
+                notificationManager.cancel(notificationId)
+            }
+        }
+        scheduledJobManager.addOneShootJob(timeoutJob as ScheduledJobManager.Job?, timeout)
     }
 
     private fun getTimeout(extra: Map<String, String>?): Int {

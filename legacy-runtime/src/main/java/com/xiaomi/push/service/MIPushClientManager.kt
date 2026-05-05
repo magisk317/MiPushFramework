@@ -47,7 +47,7 @@ object MIPushClientManager {
                     try {
                         val packageName = packet.packageName
                         val payload = XmPushThriftSerializeUtils.convertThriftObjectToBytes(packet as TBase<*, *>) ?: return
-                        MIPushHelper.sendPacket(pushAction, context, packageName, payload)
+                        MIPushHelper.sendPacket(pushAction, context, packageName ?: context.packageName, payload)
                         if (!isMainThread) {
                             Thread.sleep(700L)
                         }
@@ -67,7 +67,7 @@ object MIPushClientManager {
                     try {
                         val packageName = packet.packageName
                         val payload = XmPushThriftSerializeUtils.convertThriftObjectToBytes(packet as TBase<*, *>) ?: return
-                        MIPushHelper.sendPacket(pushAction, context, packageName, payload)
+                        MIPushHelper.sendPacket(pushAction, context, packageName ?: context.packageName, payload)
                     } catch (e: Exception) {
                         MyLog.e(e)
                     }

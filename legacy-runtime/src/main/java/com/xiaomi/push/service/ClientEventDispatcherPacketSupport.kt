@@ -162,7 +162,7 @@ internal object ClientEventDispatcherPacketSupport {
                 val extension: CommonPacketExtension? = packet.getExtension("s")
                 if (extension != null) {
                     payload = RC4Cryption.decrypt(
-                        RC4Cryption.generateKeyForRC4(clientLoginInfo.security, packet.packetID),
+                        RC4Cryption.generateKeyForRC4(clientLoginInfo.security, packet.packetID ?: ""),
                         extension.text
                     )
                     pushAction.runtimeObserver.onPayloadReceived(

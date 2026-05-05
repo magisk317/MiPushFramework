@@ -4,6 +4,10 @@ import android.content.ContentValues
 import com.xiaomi.mipush.sdk.stat.db.base.DbManager
 import com.xiaomi.mipush.sdk.stat.upload.UploadDataHelper
 
+/*
+ * Local legacy stat update job retained for compatibility.
+ * No stock 7.4.67-C or 2026-04-13 current override same-path source was found in the dump.
+ */
 open class MessageUpdateJob(
     str: String,
     str2: String,

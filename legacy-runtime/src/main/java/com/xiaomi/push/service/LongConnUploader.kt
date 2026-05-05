@@ -11,6 +11,12 @@ import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/com/xiaomi/push/service/b0.java
+ * Stock class name is obfuscated as com.xiaomi.push.service.b0; this file keeps the deobfuscated LongConnUploader API.
+ */
 class LongConnUploader(
     private val pushService: XMPushService,
 ) : TinyDataUploader {

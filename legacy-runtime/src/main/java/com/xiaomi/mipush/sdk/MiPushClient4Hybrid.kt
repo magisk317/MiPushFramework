@@ -25,6 +25,12 @@ import com.xiaomi.xmpush.thrift.XmPushActionUnRegistrationResult
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
 import java.util.LinkedList
 
+/*
+ * Current override reference: com.xiaomi.xmsf 0.3.17-20260410000745 (versionCode 1003003000),
+ * base.apk sha256 f3d72b6f5e1427ceecd3147a051d58e4dc95bb528397d486658e01cad9f7e590,
+ * JADX path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/mipush/sdk/MiPushClient4Hybrid.java
+ * No stock 7.4.67-C same-path hybrid client source was found in the split source tree.
+ */
 object MiPushClient4Hybrid {
     private const val LAST_PULL_NOTIFICATION_PREFIX = "last_pull_notification_"
     private const val TAG = "MiPushClient4Hybrid "
@@ -96,7 +102,9 @@ object MiPushClient4Hybrid {
         if (AppInfoHolder.getInstance(context).isHybridAppRegistered(packageName, appToken, appId)) {
             val hybridAppInfo = AppInfoHolder.getInstance(context).getHybridAppInfo(appId)
             if (hybridAppInfo != null) {
-                val arrayList = ArrayList<String>().apply { add(hybridAppInfo.regID) }
+                val arrayList = ArrayList<String>().apply {
+                    hybridAppInfo.regID?.let { add(it) }
+                }
                 val miPushCommandMessage = PushMessageHelper.generateCommandMessage(Command.COMMAND_REGISTER.value, arrayList, 0L, null, null)
                 sCallback?.onReceiveRegisterResult(appId, miPushCommandMessage)
             }
@@ -141,7 +149,7 @@ object MiPushClient4Hybrid {
             if (!MIUIUtils.isGlobalRegion()) {
                 val strQuicklyGetIMEI = DeviceInfo.quicklyGetIMEI(context)
                 if (!TextUtils.isEmpty(strQuicklyGetIMEI)) {
-                    setImeiMd5(XMStringUtils.getMd5Digest(strQuicklyGetIMEI))
+                    setImeiMd5(XMStringUtils.getMd5Digest(strQuicklyGetIMEI!!))
                 }
             }
             val spaceId = DeviceInfo.getSpaceId()

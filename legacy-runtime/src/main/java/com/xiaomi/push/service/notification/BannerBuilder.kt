@@ -11,6 +11,13 @@ import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.push.service.MIPushNotificationHelper
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/ha/a.java
+ * Current override same-path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/push/service/notification/BannerBuilder.java
+ * Stock class name is obfuscated as ha.a; this file keeps the deobfuscated com.xiaomi.push.service.notification.BannerBuilder API.
+ */
 class BannerBuilder(context: Context, str: String) : CustomNotificationBuilder(context, 0, str) {
     private var mBannerBitmap: Bitmap? = null
     private var mImageTextColor = INVALID_COLOR

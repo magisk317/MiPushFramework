@@ -8,6 +8,10 @@ import com.xiaomi.channel.commonutils.file.IOUtils
 import java.io.File
 import java.io.FileOutputStream
 
+/*
+ * Local legacy crash storage helper retained for compatibility.
+ * No stock 7.4.67-C or 2026-04-13 current override same-path source was found in the dump.
+ */
 class CrashStorage private constructor(private val mContext: Context) {
     companion object {
         const val CRASH_FILE_PATH = "/crash"

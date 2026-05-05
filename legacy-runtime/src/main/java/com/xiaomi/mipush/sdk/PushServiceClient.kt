@@ -40,6 +40,12 @@ import com.xiaomi.xmpush.thrift.XmPushActionUnRegistration
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
 import org.apache.thrift.TBase
 
+/*
+ * Current override reference: com.xiaomi.xmsf 0.3.17-20260410000745 (versionCode 1003003000),
+ * base.apk sha256 f3d72b6f5e1427ceecd3147a051d58e4dc95bb528397d486658e01cad9f7e590,
+ * JADX path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/mipush/sdk/PushServiceClient.java
+ * Stock 7.4.67-C keeps this behavior across obfuscated com.xiaomi.mipush.sdk classes; no same-path source was found.
+ */
 class PushServiceClient private constructor(context: Context) {
     companion object {
         private const val MAX_PENDING_MESSAGES_SIZE = 50
@@ -571,11 +577,11 @@ class PushServiceClient private constructor(context: Context) {
         sendMessage(t, actionType, z, z2, pushMetaInfo, z3, mContext.packageName, AppInfoHolder.getInstance(mContext).appID)
     }
 
-    fun <T : TBase<T, *>> sendMessage(t: T, actionType: ActionType, z: Boolean, z2: Boolean, pushMetaInfo: PushMetaInfo?, z3: Boolean, str: String, str2: String) {
+    fun <T : TBase<T, *>> sendMessage(t: T, actionType: ActionType, z: Boolean, z2: Boolean, pushMetaInfo: PushMetaInfo?, z3: Boolean, str: String, str2: String?) {
         sendMessage(t, actionType, z, z2, pushMetaInfo, z3, str, str2, true)
     }
 
-    fun <T : TBase<T, *>> sendMessage(t: T, actionType: ActionType, z: Boolean, z2: Boolean, pushMetaInfo: PushMetaInfo?, z3: Boolean, str: String, str2: String, z4: Boolean) {
+    fun <T : TBase<T, *>> sendMessage(t: T, actionType: ActionType, z: Boolean, z2: Boolean, pushMetaInfo: PushMetaInfo?, z3: Boolean, str: String, str2: String?, z4: Boolean) {
         if (!AppInfoHolder.getInstance(mContext).appRegistered()) {
             if (z2) {
                 addPendRequest(t, actionType, z)

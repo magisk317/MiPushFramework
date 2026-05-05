@@ -18,6 +18,13 @@ import com.xiaomi.xmpush.thrift.ConfigKey
 import com.xiaomi.xmpush.thrift.NotificationType
 import java.util.HashMap
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/ea/c.java
+ * Current override same-path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/push/service/clientReport/PushClientReportHelper.java
+ * Stock class name is obfuscated as ea.c; current override keeps only helper/config APIs, while this file retains client-report tiny-data upload compatibility.
+ */
 object PushClientReportHelper {
     private var mUploader: Uploader? = null
     private var notificationTypeMap: MutableMap<String, NotificationType>? = null
@@ -27,7 +34,7 @@ object PushClientReportHelper {
     }
 
     @JvmStatic
-    fun changeOrdinalToCode(enum: Enum<*>): Int {
+    fun changeOrdinalToCode(enum: Enum<*>?): Int {
         return when (enum) {
             is ActionType -> enum.ordinal + 1001
             is NotificationType -> enum.ordinal + 2001

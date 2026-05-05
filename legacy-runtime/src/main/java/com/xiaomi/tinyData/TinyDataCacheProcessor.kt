@@ -3,7 +3,6 @@ package com.xiaomi.tinyData
 import android.content.Context
 import android.text.TextUtils
 import com.xiaomi.channel.commonutils.android.DeviceInfo
-import com.xiaomi.channel.commonutils.logger.LoggerInterface
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.network.Network
 import com.xiaomi.push.service.DefaultConfig
@@ -15,6 +14,12 @@ import com.xiaomi.push.service.TinyDataStorage
 import com.xiaomi.push.service.PingCallBack
 import java.io.File
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/wa/a.java
+ * Stock class name is obfuscated as wa.a; this file keeps the deobfuscated com.xiaomi.tinyData.TinyDataCacheProcessor API.
+ */
 class TinyDataCacheProcessor(private val mContext: Context) : PingCallBack {
     private var mPeriod: Int = 0
     private var mUploadSwitch: Boolean = false

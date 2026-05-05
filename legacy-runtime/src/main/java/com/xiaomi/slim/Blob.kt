@@ -11,6 +11,12 @@ import java.io.IOException
 import java.io.UnsupportedEncodingException
 import java.nio.ByteBuffer
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/pa/b.java
+ * Stock class name is obfuscated as pa.b; this file keeps the deobfuscated com.xiaomi.slim.Blob API.
+ */
 open class Blob {
     private var mPayloadType: Short = PAYLOAD_BINARY
     private var mPayload: ByteArray = EMPTY
@@ -266,7 +272,7 @@ open class Blob {
         ): Blob {
             val blob = Blob()
             val chId = try {
-                packet.channelId.toInt()
+                packet.channelId?.toInt() ?: 1
             } catch (e: Exception) {
                 MyLog.w("Blob parse chid err ${e.message}")
                 1

@@ -13,6 +13,12 @@ import com.xiaomi.smack.Connection
 import com.xiaomi.smack.ConnectionListener
 import com.xiaomi.smack.SmackConfiguration
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/oa/c.java
+ * Stock class name is obfuscated as oa.c; this file keeps the deobfuscated com.xiaomi.stats.StatsContext API.
+ */
 class StatsContext(
     val pushService: XMPushService,
     var connection: Connection? = null
@@ -80,7 +86,7 @@ class StatsContext(
         if (this.reason == 0 && exception == null) {
             this.reason = reason
             exception = error
-            StatsHelper.connectionDown(connection.getHost() ?: "", error)
+            StatsHelper.connectionDown(connection.host ?: "", error)
         }
         if (reason == 22 && channelConnectedTime != 0L) {
             var lastPingRecv = connection.getLastPingRecv() - channelConnectedTime
@@ -120,7 +126,7 @@ class StatsContext(
             0,
             ChannelStatsType.CHANNEL_CON_FAIL.value,
             1,
-            connection.getHost() ?: "",
+            connection.host ?: "",
             if (Network.hasNetwork(pushService)) 1 else 0
         )
         statsChannelIfNeed()
@@ -129,7 +135,7 @@ class StatsContext(
     override fun reconnectionSuccessful(connection: Connection) {
         statsChannelIfNeed()
         channelConnectedTime = SystemClock.elapsedRealtime()
-        StatsHelper.trackEnd(0, ChannelStatsType.CONN_SUCCESS.value, connection.getHost() ?: "", connection.getConnTryTimes())
+        StatsHelper.trackEnd(0, ChannelStatsType.CONN_SUCCESS.value, connection.host ?: "", connection.getConnTryTimes())
     }
 
     @Synchronized

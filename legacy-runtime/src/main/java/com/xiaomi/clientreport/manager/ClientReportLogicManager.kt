@@ -45,7 +45,7 @@ class ClientReportLogicManager private constructor(private val mContext: Context
     private val mEventMap = HashMap<String, ArrayList<BaseClientReport>>()
 
     private fun delayRunJob(job: ScheduledJobManager.Job, i: Int) {
-        ScheduledJobManager.getInstance(mContext).addOneShootJob(job, i)
+        ScheduledJobManager.getInstance(mContext).addOneShootJob(job as ScheduledJobManager.Job?, i)
     }
 
     private fun getEventCacheCountInMemory(): Int {

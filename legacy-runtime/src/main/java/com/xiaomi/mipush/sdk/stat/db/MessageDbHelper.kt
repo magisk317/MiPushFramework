@@ -4,6 +4,10 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import com.xiaomi.mipush.sdk.stat.db.base.BaseDbHelper
 
+/*
+ * Local legacy stat database helper retained for compatibility.
+ * No stock 7.4.67-C or 2026-04-13 current override same-path source was found in the dump.
+ */
 class MessageDbHelper(
     context: Context,
     str: String,

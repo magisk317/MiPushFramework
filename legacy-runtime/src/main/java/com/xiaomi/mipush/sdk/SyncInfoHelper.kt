@@ -23,6 +23,12 @@ import com.xiaomi.xmpush.thrift.XmPushActionNotification
 import java.text.Collator
 import java.util.Locale
 
+/*
+ * Current override reference: com.xiaomi.xmsf 0.3.17-20260410000745 (versionCode 1003003000),
+ * base.apk sha256 f3d72b6f5e1427ceecd3147a051d58e4dc95bb528397d486658e01cad9f7e590,
+ * JADX path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/mipush/sdk/SyncInfoHelper.java
+ * No stock 7.4.67-C same-path source was found in the split source tree.
+ */
 object SyncInfoHelper {
     private const val DEFAULT_LAST_SYNC_INFO = -1L
     private const val DEFAULT_PERIOD_IN_SECOND = 1209600
@@ -55,7 +61,7 @@ object SyncInfoHelper {
             PreferenceUtils.putNotNullExtra(xmPushActionNotification.extra, "token", appInfoHolder.appToken)
             DeviceInfo.fillLocalVirtDevId(context, xmPushActionNotification.extra)
             if (!MIUIUtils.isGlobalRegion()) {
-                val md5Digest = XMStringUtils.getMd5Digest(DeviceInfo.blockingGetIMEI(context))
+                val md5Digest = XMStringUtils.getMd5Digest(DeviceInfo.blockingGetIMEI(context).orEmpty())
                 val strBlockingGetSubIMEISMd5 = DeviceInfo.blockingGetSubIMEISMd5(context)
                 val imeiMd5 = if (!TextUtils.isEmpty(strBlockingGetSubIMEISMd5)) "$md5Digest,$strBlockingGetSubIMEISMd5" else md5Digest
                 if (!TextUtils.isEmpty(imeiMd5)) {

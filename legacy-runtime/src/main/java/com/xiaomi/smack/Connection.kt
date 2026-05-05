@@ -21,6 +21,12 @@ import java.util.concurrent.CancellationException
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/qa/b.java
+ * Stock class name is obfuscated as qa.b; this file keeps the deobfuscated com.xiaomi.smack.Connection API.
+ */
 abstract class Connection(
     protected val mPushAction: IPushServiceAction,
     protected val mContext: android.content.Context,
@@ -90,6 +96,10 @@ abstract class Connection(
     abstract fun bind(clientLoginInfo: PushClientsManager.ClientLoginInfo)
     abstract fun unbind(chid: String, userId: String)
 
+    fun clearCachedStatus() {
+        // The legacy runtime does not retain Java's status history list yet; keep the public ABI for callers.
+    }
+
     open fun send(blob: Blob) {}
     open fun batchSend(blobArray: Array<Blob>) {}
     open fun sendPing(isServerPing: Boolean) {}
@@ -97,7 +107,7 @@ abstract class Connection(
     open fun notifyConnectionError(reason: Int, exc: Exception?) {}
 
     open val key: ByteArray? get() = null
-    open fun getHost(): String? = null
+    open val host: String? get() = null
 
     open fun getConnTryTimes(): Int = 0
     open fun getLastPingRecv(): Long = 0L
@@ -201,18 +211,19 @@ abstract class Connection(
         private val connectionCounter = AtomicInteger(0)
         var DEBUG_ENABLED = false
 
-        const val ERR_TCP_TIMEOUT = 1
-        const val ERR_TCP_CONNRESET = 2
-        const val ERR_TCP_BROKEN_PIPE = 3
-        const val ERR_TCP_OTHER = 4
-        const val ERR_BOSH = 5
-        const val ERR_TCP_UKNOWNHOST = 6
-        const val ERR_XMPP = 7
-        const val ERR_UNKNOWN = 8
-        const val ERR_TCP_NETUNREACH = 9
-        const val ERR_TCP_CONNREFUSED = 10
-        const val ERR_TCP_NOACCESS = 11
-        const val ERR_TCP_NOROUTETOHOST = 12
-        const val ERR_TCP_INVALARG = 13
+        const val ERR_BOSH = 499
+        const val ERR_TCP_BROKEN_PIPE = 110
+        const val ERR_TCP_CONNREFUSED = 103
+        const val ERR_TCP_CONNRESET = 109
+        const val ERR_TCP_INVALARG = 106
+        const val ERR_TCP_NETUNREACH = 102
+        const val ERR_TCP_NOACCESS = 101
+        const val ERR_TCP_NOROUTETOHOST = 104
+        const val ERR_TCP_OTHER = 199
+        const val ERR_TCP_READ_TIMEOUT = 108
+        const val ERR_TCP_TIMEOUT = 105
+        const val ERR_TCP_UKNOWNHOST = 107
+        const val ERR_UNKNOWN = 0
+        const val ERR_XMPP = 399
     }
 }

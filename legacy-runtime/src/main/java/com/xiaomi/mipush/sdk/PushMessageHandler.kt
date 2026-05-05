@@ -18,6 +18,12 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/com/xiaomi/mipush/sdk/PushMessageHandler.java
+ * Current override same-path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/mipush/sdk/PushMessageHandler.java
+ */
 class PushMessageHandler : BaseService() {
     companion object {
         private val sICallbackResult = ArrayList<MiPushClient.ICallbackResult<*>>()
@@ -176,10 +182,12 @@ class PushMessageHandler : BaseService() {
                 for (callback in sICallbackResult) {
                     if (callback is MiPushClient.UPSRegisterCallBack) {
                         val tokenResult = MiPushClient.TokenResult()
-                        val args = miPushCommandMessage?.getCommandArguments()
-                        if (args != null && args.isNotEmpty()) {
-                            tokenResult.setResultCode(miPushCommandMessage.getResultCode())
-                            tokenResult.setToken(args[0])
+                        miPushCommandMessage?.let {
+                            val args = it.commandArguments
+                            if (!args.isNullOrEmpty()) {
+                                tokenResult.setResultCode(it.resultCode)
+                                tokenResult.setToken(args[0])
+                            }
                         }
                         callback.onResult(tokenResult)
                     }
@@ -205,40 +213,40 @@ class PushMessageHandler : BaseService() {
                 return
             }
             if (pushMessageInterface is MiPushCommandMessage) {
-                val command = pushMessageInterface.getCommand()
+                val command = pushMessageInterface.command
                 if (Command.COMMAND_REGISTER.value == command) {
-                    val commandArguments = pushMessageInterface.getCommandArguments()
+                    val commandArguments = pushMessageInterface.commandArguments
                     val str = if (commandArguments != null && commandArguments.isNotEmpty()) commandArguments[0] else null
-                    onInitializeResult(pushMessageInterface.getResultCode(), pushMessageInterface.getReason(), str)
+                    onInitializeResult(pushMessageInterface.resultCode, pushMessageInterface.reason, str)
                     return
                 }
                 if (Command.COMMAND_SET_ALIAS.value == command || Command.COMMAND_UNSET_ALIAS.value == command || Command.COMMAND_SET_ACCEPT_TIME.value == command) {
                     onCommandResult(
                         context,
-                        pushMessageInterface.getCategory() ?: "",
+                        pushMessageInterface.category ?: "",
                         command,
-                        pushMessageInterface.getResultCode(),
-                        pushMessageInterface.getReason(),
-                        pushMessageInterface.getCommandArguments()
+                        pushMessageInterface.resultCode,
+                        pushMessageInterface.reason,
+                        pushMessageInterface.commandArguments
                     )
                     return
                 }
                 if (Command.COMMAND_SUBSCRIBE_TOPIC.value == command) {
-                    val commandArguments = pushMessageInterface.getCommandArguments()
+                    val commandArguments = pushMessageInterface.commandArguments
                     onSubscribeResult(
                         context,
-                        pushMessageInterface.getCategory() ?: "",
-                        pushMessageInterface.getResultCode(),
-                        pushMessageInterface.getReason(),
+                        pushMessageInterface.category ?: "",
+                        pushMessageInterface.resultCode,
+                        pushMessageInterface.reason,
                         if (commandArguments == null || commandArguments.isEmpty()) null else commandArguments[0]
                     )
                 } else if (Command.COMMAND_UNSUBSCRIBE_TOPIC.value == command) {
-                    val commandArguments = pushMessageInterface.getCommandArguments()
+                    val commandArguments = pushMessageInterface.commandArguments
                     onUnsubscribeResult(
                         context,
-                        pushMessageInterface.getCategory() ?: "",
-                        pushMessageInterface.getResultCode(),
-                        pushMessageInterface.getReason(),
+                        pushMessageInterface.category ?: "",
+                        pushMessageInterface.resultCode,
+                        pushMessageInterface.reason,
                         if (commandArguments == null || commandArguments.isEmpty()) null else commandArguments[0]
                     )
                 }

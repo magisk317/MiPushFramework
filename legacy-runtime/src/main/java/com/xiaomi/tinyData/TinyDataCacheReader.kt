@@ -3,7 +3,6 @@ package com.xiaomi.tinyData
 import android.content.Context
 import com.xiaomi.channel.commonutils.android.DataCryptUtils
 import com.xiaomi.channel.commonutils.file.IOUtils
-import com.xiaomi.channel.commonutils.logger.LoggerInterface
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.misc.ByteUtils
 import com.xiaomi.channel.commonutils.misc.ScheduledJobManager
@@ -16,6 +15,12 @@ import java.io.FileInputStream
 import java.io.RandomAccessFile
 import java.nio.channels.FileLock
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/wa/b.java
+ * Stock class name is obfuscated as wa.b; this file keeps the deobfuscated com.xiaomi.tinyData.TinyDataCacheReader API.
+ */
 class TinyDataCacheReader private constructor() {
     private class TinyDataReadJob(
         private val mContext: Context,

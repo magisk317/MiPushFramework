@@ -27,7 +27,7 @@ class CommonPacketExtensionProvider : PacketExtensionProvider {
             if (parser.attributeCount > 0) {
                 attributeNames = Array(parser.attributeCount) { index -> parser.getAttributeName(index) }
                 attributeValues = Array(parser.attributeCount) { index ->
-                    StringUtils.unescapeFromXML(parser.getAttributeValue(index))
+                    StringUtils.unescapeFromXML(parser.getAttributeValue(index)).orEmpty()
                 }
             } else {
                 attributeNames = null

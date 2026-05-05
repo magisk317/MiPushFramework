@@ -8,6 +8,13 @@ import com.xiaomi.channel.commonutils.string.Base64Coder
 import com.xiaomi.push.service.OnlineConfig
 import com.xiaomi.xmpush.thrift.ConfigKey
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/u9/c.java
+ * Current override same-path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/push/mpcd/CDataHelper.java
+ * Stock class name is obfuscated as u9.c; this file keeps the deobfuscated CDataHelper API.
+ */
 object CDataHelper {
     @JvmStatic
     fun checkDataCollectionJobMutual(context: Context, tag: String, period: Long): Boolean {

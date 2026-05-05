@@ -7,6 +7,10 @@ import com.xiaomi.mipush.sdk.stat.PushStatClientManager
 import com.xiaomi.xmpush.thrift.ClientUploadDataItem
 import org.json.JSONObject
 
+/*
+ * Local legacy stat client facade retained for compatibility.
+ * No stock 7.4.67-C or 2026-04-13 current override same-path source was found in the dump.
+ */
 object PushStatClient {
     private var sContext: Context? = null
 

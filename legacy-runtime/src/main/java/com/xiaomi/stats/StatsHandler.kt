@@ -16,6 +16,12 @@ import org.apache.thrift.protocol.XmPushTBinaryProtocol
 import org.apache.thrift.transport.TMemoryBuffer
 import java.util.LinkedList
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/oa/d.java
+ * Stock class name is obfuscated as oa.d; this file keeps the deobfuscated com.xiaomi.stats.StatsHandler API.
+ */
 class StatsHandler private constructor() {
     private var context: StatsContext? = null
     private var duration = 0
@@ -26,7 +32,7 @@ class StatsHandler private constructor() {
 
     private fun from(item: Stats.Item): StatsEvent? {
         return if (item.key != 0) {
-            StatsEvent().apply {
+            createStatsEvent().apply {
                 type = ChannelStatsType.CHANNEL_STATS_COUNTER.value
                 subvalue = item.key
                 annotation = item.annotation
@@ -176,7 +182,7 @@ class StatsHandler private constructor() {
 
     fun shouldSendStatsNow(): Boolean {
         stopStatsIfNeed()
-        return allowStatsUpload && statsContainer.count > 0
+        return allowStatsUpload && statsContainer.getCount() > 0
     }
 
     companion object {

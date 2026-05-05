@@ -47,7 +47,7 @@ class XMPushServiceMessenger(
         observer.onConnectionStateChanged(
             stateName = getDesc(connectionStatus),
             reason = "status_change",
-            host = xmPushService.currentConnection?.getHost() ?: "",
+            host = xmPushService.currentConnection?.host ?: "",
             message = ""
         )
 
@@ -59,7 +59,7 @@ class XMPushServiceMessenger(
         intent.putExtra("status", connectionStatus)
         val currentConnection: Connection? = xmPushService.currentConnection
         if (currentConnection != null) {
-            intent.putExtra("host", currentConnection.getHost())
+            intent.putExtra("host", currentConnection.host)
         }
         return intent
     }

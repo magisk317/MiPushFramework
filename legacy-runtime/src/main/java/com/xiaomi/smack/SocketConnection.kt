@@ -13,6 +13,12 @@ import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.*
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/qa/h.java
+ * Stock class name is obfuscated as qa.h; this file keeps the deobfuscated com.xiaomi.smack.SocketConnection API.
+ */
 open class SocketConnection(
     pushAction: IPushServiceAction,
     context: android.content.Context,
@@ -85,7 +91,8 @@ open class SocketConnection(
     override fun bind(clientLoginInfo: PushClientsManager.ClientLoginInfo) {}
     override fun unbind(chid: String, userId: String) {}
 
-    override fun getHost(): String? = mHost
+    override val host: String?
+        get() = mHost
 
     override val isConnected: Boolean
         get() = socket?.isConnected ?: false

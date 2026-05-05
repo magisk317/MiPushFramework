@@ -5,6 +5,13 @@ import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.push.service.XMJobService
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/ia/b.java
+ * Current override same-path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/push/service/timers/Alarm.java
+ * Stock class name is obfuscated as ia.b; this file keeps the deobfuscated com.xiaomi.push.service.timers.Alarm API.
+ */
 object Alarm {
     const val SYSTEM_ALARM = 0
     const val HYBRID_ALARM = 2
@@ -29,6 +36,7 @@ object Alarm {
             }
             if (oldLevel != sLevel && sLevel == 2) {
                 stop()
+                sAlarmInstance = HybridTimer(context)
             }
         }
     }
@@ -40,7 +48,8 @@ object Alarm {
 
     @JvmStatic
     fun initialize(context: Context) {
-        // Implementation set by product layer
+        val applicationContext = context.applicationContext
+        sAlarmInstance = createProductAlarm(applicationContext) ?: AlarmV21(applicationContext)
     }
 
     @JvmStatic
@@ -69,5 +78,12 @@ object Alarm {
                 it.stop()
             }
         }
+    }
+
+    private fun createProductAlarm(context: Context): IAlarm? {
+        return runCatching {
+            val clazz = Class.forName("com.xiaomi.push.service.timers.AlarmManagerTimer")
+            clazz.getConstructor(Context::class.java).newInstance(context) as? IAlarm
+        }.getOrNull()
     }
 }

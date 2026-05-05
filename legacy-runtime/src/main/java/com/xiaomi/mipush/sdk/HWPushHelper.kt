@@ -8,6 +8,12 @@ import android.text.TextUtils
 import org.json.JSONArray
 import org.json.JSONObject
 
+/*
+ * Current override reference: com.xiaomi.xmsf 0.3.17-20260410000745 (versionCode 1003003000),
+ * base.apk sha256 f3d72b6f5e1427ceecd3147a051d58e4dc95bb528397d486658e01cad9f7e590,
+ * JADX path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/mipush/sdk/HWPushHelper.java
+ * No stock 7.4.67-C same-path source was found in the split source tree.
+ */
 object HWPushHelper {
     private const val LAST_CONNECT_TIME = "last_connect_time"
     private const val LAST_GET_TOKEN_TIME = "last_get_token_time"

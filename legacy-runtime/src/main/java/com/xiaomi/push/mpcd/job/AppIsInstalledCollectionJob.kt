@@ -8,6 +8,12 @@ import com.xiaomi.channel.commonutils.string.Base64Coder
 import com.xiaomi.push.mpcd.Constants
 import com.xiaomi.xmpush.thrift.ClientCollectionType
 
+/*
+ * Current override reference: com.xiaomi.xmsf 0.3.17-20260410000745 (versionCode 1003003000),
+ * base.apk sha256 f3d72b6f5e1427ceecd3147a051d58e4dc95bb528397d486658e01cad9f7e590,
+ * JADX path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/push/mpcd/job/AppIsInstalledCollectionJob.java
+ * No stock 7.4.67-C same-path job source was found; stock 7.x still exposes the AppIsInstalled config/type ids in za.f and za.c.
+ */
 class AppIsInstalledCollectionJob(
     context: Context,
     period: Int,

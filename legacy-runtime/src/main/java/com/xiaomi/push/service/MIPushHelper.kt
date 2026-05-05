@@ -143,7 +143,7 @@ object MIPushHelper {
                     if (TextUtils.isEmpty(gaid) || TextUtils.equals(storedGaid, gaid)) {
                         return
                     }
-                    sync.put("GAID", "gaid", gaid)
+                    sync.put("GAID", "gaid", gaid!!)
                     val notification = XmPushActionNotification().apply {
                         setAppId(account.appId)
                         setType(NotificationType.ClientInfoUpdate.value)

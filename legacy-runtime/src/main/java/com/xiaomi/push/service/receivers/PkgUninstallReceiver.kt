@@ -10,11 +10,23 @@ import com.xiaomi.push.service.PushConstants
 import com.xiaomi.push.service.PushServiceConstants
 import com.xiaomi.push.service.ServiceClient
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/com/xiaomi/xmsf/push/service/receivers/PkgActionsReceiver.java
+ * Current override reference: com.xiaomi.xmsf/current/base/sources/com/xiaomi/xmsf/push/service/receivers/PkgUninstallReceiver.java
+ * Stock combines package-data-cleared and package-removed handling; this file keeps the split deobfuscated API.
+ */
 class PkgUninstallReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         if (intent == null ||
-            "android.intent.action.PACKAGE_FULLY_REMOVED" != intent.action
+            "android.intent.action.PACKAGE_REMOVED" != intent.action
         ) {
+            return
+        }
+
+        val replacing = intent.extras?.getBoolean("android.intent.extra.REPLACING") ?: false
+        if (replacing) {
             return
         }
 
@@ -26,8 +38,8 @@ class PkgUninstallReceiver : BroadcastReceiver() {
         try {
             val serviceIntent = Intent().apply {
                 component = ComponentName(context, PushConstants.PUSH_SERVICE_CLASS_NAME_JAR)
-                action = PushServiceConstants.ACTION_PACKAGE_UNINSTALLED
-                putExtra(PushServiceConstants.EXTRA_UNINSTALLED_PKG_NAME, encodedSchemeSpecificPart)
+                action = PushServiceConstants.ACTION_UNINSTALL
+                putExtra(PushServiceConstants.EXTRA_UNINSTALL_PKG_NAME, encodedSchemeSpecificPart)
             }
             ServiceClient.getInstance(context).startServiceSafely(serviceIntent)
         } catch (e: Exception) {

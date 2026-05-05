@@ -10,6 +10,12 @@ import com.xiaomi.push.thrift.StatsEvents
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
 import java.util.Hashtable
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/oa/e.java
+ * Stock class name is obfuscated as oa.e; this file keeps the deobfuscated com.xiaomi.stats.StatsHelper API.
+ */
 object StatsHelper {
     private const val MAX_KEY_VALUE = 16777215
     private val PING_RTT_VALUE = ChannelStatsType.PING_RTT.value
@@ -22,7 +28,7 @@ object StatsHelper {
     fun connectFail(host: String, exc: Exception?) {
         try {
             val typeWrapper = StatsAnalyser.fromConnectionException(exc)
-            StatsHandler.getInstance().add(StatsEvent().apply {
+            StatsHandler.getInstance().add(StatsHandler.getInstance().createStatsEvent().apply {
                 type = typeWrapper.type?.value ?: 0
                 annotation = typeWrapper.annotation
                 this.host = host
@@ -36,7 +42,7 @@ object StatsHelper {
     fun connectionDown(host: String, exc: Exception?) {
         try {
             val typeWrapper = StatsAnalyser.fromDisconnectEx(exc)
-            StatsHandler.getInstance().add(StatsEvent().apply {
+            StatsHandler.getInstance().add(StatsHandler.getInstance().createStatsEvent().apply {
                 type = typeWrapper.type?.value ?: 0
                 annotation = typeWrapper.annotation
                 this.host = host
@@ -48,7 +54,7 @@ object StatsHelper {
 
     @JvmStatic
     fun count(value: Int) {
-        StatsHandler.getInstance().add(StatsEvent().apply {
+        StatsHandler.getInstance().add(StatsHandler.getInstance().createStatsEvent().apply {
             type = ChannelStatsType.CHANNEL_STATS_COUNTER.value
             subvalue = value
         })
@@ -79,7 +85,7 @@ object StatsHelper {
 
     @JvmStatic
     fun stats(chid: Int, type: Int, value: Int, host: String, subvalue: Int) {
-        StatsHandler.getInstance().add(StatsEvent().apply {
+        StatsHandler.getInstance().add(StatsHandler.getInstance().createStatsEvent().apply {
             this.chid = chid.toByte()
             this.type = type
             this.value = value
@@ -126,7 +132,7 @@ object StatsHelper {
             val key = (chid shl 24) or type
             val time = Holder.sTimeTracker[key]
             if (time != null) {
-                StatsHandler.getInstance().add(StatsEvent().apply {
+                StatsHandler.getInstance().add(StatsHandler.getInstance().createStatsEvent().apply {
                     this.type = type
                     value = (currentTimeMillis - time).toInt()
                     if (host != null) this.host = host

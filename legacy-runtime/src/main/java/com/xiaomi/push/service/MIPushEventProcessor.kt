@@ -61,7 +61,7 @@ class MIPushEventProcessor {
         if (extension != null) {
             try {
                 val decrypted = RC4Cryption.decrypt(
-                    RC4Cryption.generateKeyForRC4(clientLoginInfo.security, packet.packetID),
+                    RC4Cryption.generateKeyForRC4(clientLoginInfo.security, packet.packetID ?: ""),
                     extension.text,
                 )
                 processMIPushMessage(pushAction, decrypted, TrafficUtils.getTrafficFlow(packet.toXML()).toLong())

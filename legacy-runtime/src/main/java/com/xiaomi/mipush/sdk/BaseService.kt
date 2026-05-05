@@ -9,6 +9,12 @@ import android.os.Message
 import com.xiaomi.channel.commonutils.logger.MyLog
 import java.lang.ref.WeakReference
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/com/xiaomi/mipush/sdk/BaseService.java
+ * Current override same-path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/mipush/sdk/BaseService.java
+ */
 abstract class BaseService : Service() {
     private var mHandler: TimeoutHandler? = null
 

@@ -17,6 +17,12 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
+/*
+ * Current override reference: com.xiaomi.xmsf 0.3.17-20260410000745 (versionCode 1003003000),
+ * base.apk sha256 f3d72b6f5e1427ceecd3147a051d58e4dc95bb528397d486658e01cad9f7e590,
+ * JADX path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/mipush/sdk/stat/db/base/DbManager.java
+ * No stock 7.4.67-C same-path stat source was found in the split source tree.
+ */
 class DbManager private constructor(private val mContext: Context) {
 
     private var mBaseDbHelperFactory: BaseDbHelperFactory? = null
@@ -62,26 +68,26 @@ class DbManager private constructor(private val mContext: Context) {
     }
 
     private fun sendExecCmd() {
-        ScheduledJobManager.getInstance(mContext).addOneShootJob(
-            object : ScheduledJobManager.Job() {
-                override fun getJobId(): String = ScheduledJobConstants.SEND_EXEC_CMD_JOB_ID
+        val job = object : ScheduledJobManager.Job() {
+            override fun getJobId(): String = ScheduledJobConstants.SEND_EXEC_CMD_JOB_ID
 
-                override fun run() {
-                    synchronized(mPendingList) {
-                        if (mPendingList.isNotEmpty()) {
-                            if (mPendingList.size > 1) {
-                                exec(ArrayList(mPendingList))
-                            } else {
-                                execNow(mPendingList[0])
-                            }
-                            mPendingList.clear()
-                            System.gc()
+            override fun run() {
+                synchronized(mPendingList) {
+                    if (mPendingList.isNotEmpty()) {
+                        if (mPendingList.size > 1) {
+                            exec(ArrayList(mPendingList))
+                        } else {
+                            execNow(mPendingList[0])
                         }
+                        mPendingList.clear()
+                        System.gc()
                     }
                 }
-            },
-            OnlineConfig.getInstance(mContext)
-                .getIntValue(ConfigKey.StatDataProcessFrequency.value, 5),
+            }
+        }
+        ScheduledJobManager.getInstance(mContext).addOneShootJob(
+            job as ScheduledJobManager.Job?,
+            OnlineConfig.getInstance(mContext).getIntValue(ConfigKey.StatDataProcessFrequency.value, 5),
         )
     }
 

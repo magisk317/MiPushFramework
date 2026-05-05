@@ -205,7 +205,7 @@ class PacketSync(
             is IQ -> {
                 val extension = packet.getExtension("kick")
                 if (extension != null) {
-                    handleKick(channelId, packet.to, extension.getAttributeValue("type"), extension.getAttributeValue("reason"))
+                    handleKick(channelId ?: "1", packet.to, extension.getAttributeValue("type"), extension.getAttributeValue("reason"))
                     return
                 }
             }

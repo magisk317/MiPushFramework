@@ -1,7 +1,12 @@
 package com.xiaomi.push.service.clientReport
 
 /*
- * Constants for client report data.
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX paths:
+ * - com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/ea/c.java
+ * - com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/n5/b.java
+ * No current same-path ReportConstants.java is present in the 2026-04-13 current override; stock inlines many of these report ids.
  */
 object ReportConstants {
     const val ACTION_DATA_DELETE_EVENT = "com.xiaomi.clientreport.collector.action.delete_event"

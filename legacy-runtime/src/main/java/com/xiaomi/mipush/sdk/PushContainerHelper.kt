@@ -22,6 +22,12 @@ import com.xiaomi.xmpush.thrift.XmPushActionUnSubscriptionResult
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
 import org.apache.thrift.TBase
 
+/*
+ * Current override reference: com.xiaomi.xmsf 0.3.17-20260410000745 (versionCode 1003003000),
+ * base.apk sha256 f3d72b6f5e1427ceecd3147a051d58e4dc95bb528397d486658e01cad9f7e590,
+ * JADX path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/mipush/sdk/PushContainerHelper.java
+ * No stock 7.4.67-C same-path source was found in the split source tree.
+ */
 class PushContainerHelper private constructor() {
     companion object {
         @JvmStatic
@@ -72,7 +78,7 @@ class PushContainerHelper private constructor() {
                     return null
                 }
                 try {
-                    bArrMipushEncrypt = DataCryptUtils.mipushEncrypt(Base64Coder.decode(regSecret), bArrConvertThriftObjectToBytes)
+                    bArrMipushEncrypt = DataCryptUtils.mipushEncrypt(Base64Coder.decode(regSecret!!), bArrConvertThriftObjectToBytes)
                 } catch (e: Exception) {
                     MyLog.e("encryption error. ")
                     bArrMipushEncrypt = bArrConvertThriftObjectToBytes
@@ -141,7 +147,7 @@ class PushContainerHelper private constructor() {
                     return null
                 }
                 try {
-                    bArrMipushEncrypt = DataCryptUtils.mipushEncrypt(Base64Coder.decode(regSecret), bArrConvertThriftObjectToBytes)
+                    bArrMipushEncrypt = DataCryptUtils.mipushEncrypt(Base64Coder.decode(regSecret!!), bArrConvertThriftObjectToBytes)
                 } catch (e: Exception) {
                     MyLog.e("encryption error. ")
                 }
@@ -185,7 +191,11 @@ class PushContainerHelper private constructor() {
                         it.get(bytes)
                         bytes
                     } ?: return null
-                    DataCryptUtils.mipushDecrypt(Base64Coder.decode(AppInfoHolder.getInstance(context).regSecret), encrypted)
+                    val regSecret = AppInfoHolder.getInstance(context).regSecret
+                    if (TextUtils.isEmpty(regSecret)) {
+                        return null
+                    }
+                    DataCryptUtils.mipushDecrypt(Base64Coder.decode(regSecret!!), encrypted)
                 } catch (e: Exception) {
                     throw DecryptException("the aes decrypt failed.", e)
                 }

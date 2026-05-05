@@ -158,7 +158,7 @@ internal object MIPushTopNotificationSupport {
             MyLog.w("schedule top notification next update delay: $period")
             ScheduledJobManager.getInstance(context).cancelJob(generateTopNotificationUpdateJobId(notificationId, messageId!!))
             ScheduledJobManager.getInstance(context).addOneShootJob(
-                buildTopNotificationUpdateJob(context, packageName, notificationId, messageId, null),
+                buildTopNotificationUpdateJob(context, packageName, notificationId, messageId, null) as ScheduledJobManager.Job?,
                 period,
             )
             return

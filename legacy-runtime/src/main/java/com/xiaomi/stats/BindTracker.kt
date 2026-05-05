@@ -5,6 +5,12 @@ import com.xiaomi.push.service.PushClientsManager
 import com.xiaomi.push.service.XMPushServiceJob
 import com.xiaomi.push.thrift.ChannelStatsType
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/oa/a.java
+ * Stock class name is obfuscated as oa.a; this file keeps the deobfuscated com.xiaomi.stats.BindTracker API.
+ */
 internal class BindTracker(
     private val pushAction: IPushServiceAction,
     private val client: PushClientsManager.ClientLoginInfo
@@ -44,7 +50,7 @@ internal class BindTracker(
             statsEvent?.let { event ->
                 val conn = connection
                 if (conn != null) {
-                    event.host = conn.getHost() ?: ""
+                    event.host = conn.host ?: ""
                 }
                 event.user = client.userId
                 event.value = 1

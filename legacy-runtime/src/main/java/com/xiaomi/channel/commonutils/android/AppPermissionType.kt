@@ -1,0 +1,309 @@
+package com.xiaomi.channel.commonutils.android
+
+/*
+ * Current override reference: com.xiaomi.xmsf 0.3.17-20260410000745 (versionCode 1003003000),
+ * base.apk sha256 f3d72b6f5e1427ceecd3147a051d58e4dc95bb528397d486658e01cad9f7e590,
+ * JADX path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/channel/commonutils/android/AppPermissionType.java
+ */
+enum class AppPermissionType(val value: Int) {
+    INTERNET(0),
+    ACCESS_NETWORK_STATE(1),
+    CHANGE_NETWORK_STATE(2),
+    ACCESS_WIFI_STATE(3),
+    CHANGE_WIFI_STATE(4),
+    BLUETOOTH(5),
+    BLUETOOTH_ADMIN(6),
+    WRITE_OWNER_DATA(7),
+    WRITE_EXTERNAL_STORAGE(8),
+    READ_PHONE_STATE(9),
+    CALL_PHONE(10),
+    READ_PHONE_SMS(11),
+    SEND_SMS(12),
+    RECEIVE_SMS(13),
+    WRITE_SMS(14),
+    BROADCAST_SMS(15),
+    BATTERY_STATS(16),
+    CAMERA(17),
+    FLASHLIGHT(18),
+    VIBRATE(19),
+    READ_CONTACTS(20),
+    WRITE_CONTACTS(21),
+    RECORD_AUDIO(22),
+    SET_ORIENTATION(23),
+    SET_TIME(24),
+    SET_TIME_ZONE(25),
+    READ_OWNER_DATA(26),
+    DELETE_CACHE_FILES(27),
+    DELETE_PACKAGES(28),
+    MODIFY_AUDIO_SETTINGS(29),
+    PROCESS_OUTGOING_CALLS(30),
+    READ_HISTORY_BOOKMARKS(31),
+    REBOOT(32),
+    SET_WALLPAPER(33),
+    RECEIVE_MMS(34),
+    WRITE_HISTORY_BOOKMARKS(35),
+    GET_TASKS(36),
+    ACCESS_CHECKIN_PROPERTIES(37),
+    ACCESS_COARSE_LOCATION(38),
+    ACCESS_FINE_LOCATION(39),
+    ACCESS_LOCATION_EXTRA_COMMANDS(40),
+    ACCESS_NOTIFICATION_POLICY(41),
+    ACCOUNT_MANAGER(42),
+    ADD_VOICEMAIL(43),
+    BIND_ACCESSIBILITY_SERVICE(44),
+    BIND_APPWIDGET(45),
+    BIND_CARRIER_MESSAGING_SERVICE(46),
+    BIND_CARRIER_SERVICES(47),
+    BIND_CHOOSER_TARGET_SERVICE(48),
+    BIND_CONDITION_PROVIDER_SERVICE(49),
+    BIND_DEVICE_ADMIN(50),
+    BIND_DREAM_SERVICE(51),
+    BIND_INCALL_SERVICE(52),
+    BIND_INPUT_METHOD(53),
+    BIND_MIDI_DEVICE_SERVICE(54),
+    BIND_NFC_SERVICE(55),
+    BIND_NOTIFICATION_LISTENER_SERVICE(56),
+    BIND_PRINT_SERVICE(57),
+    BIND_QUICK_SETTINGS_TILE(58),
+    BIND_REMOTEVIEWS(59),
+    BIND_SCREENING_SERVICE(60),
+    BIND_TELECOM_CONNECTION_SERVICE(61),
+    BIND_TEXT_SERVICE(62),
+    BIND_TV_INPUT(63),
+    BIND_VOICE_INTERACTION(64),
+    BIND_VPN_SERVICE(65),
+    BIND_VR_LISTENER_SERVICE(66),
+    BIND_WALLPAPER(67),
+    BLUETOOTH_PRIVILEGED(68),
+    BODY_SENSORS(69),
+    BROADCAST_PACKAGE_REMOVED(70),
+    BROADCAST_STICKY(71),
+    BROADCAST_WAP_PUSH(72),
+    CALL_PRIVILEGED(73),
+    CAPTURE_AUDIO_OUTPUT(74),
+    CAPTURE_SECURE_VIDEO_OUTPUT(75),
+    CAPTURE_VIDEO_OUTPUT(76),
+    CHANGE_COMPONENT_ENABLED_STATE(77),
+    CHANGE_CONFIGURATION(78),
+    CHANGE_WIFI_MULTICAST_STATE(79),
+    CLEAR_APP_CACHE(80),
+    CONTROL_LOCATION_UPDATES(81),
+    DIAGNOSTIC(82),
+    DISABLE_KEYGUARD(83),
+    DUMP(84),
+    EXPAND_STATUS_BAR(85),
+    FACTORY_TEST(86),
+    GET_ACCOUNTS(87),
+    GET_ACCOUNTS_PRIVILEGED(88),
+    GET_PACKAGE_SIZE(89),
+    GLOBAL_SEARCH(90),
+    INSTALL_LOCATION_PROVIDER(91),
+    INSTALL_PACKAGES(92),
+    INSTALL_SHORTCUT(93),
+    KILL_BACKGROUND_PROCESSES(94),
+    LOCATION_HARDWARE(95),
+    MANAGE_DOCUMENTS(96),
+    MASTER_CLEAR(97),
+    MEDIA_CONTENT_CONTROL(98),
+    MODIFY_PHONE_STATE(99),
+    MOUNT_FORMAT_FILESYSTEMS(100),
+    MOUNT_UNMOUNT_FILESYSTEMS(101),
+    NFC(102),
+    PACKAGE_USAGE_STATS(103),
+    PERSISTENT_ACTIVITY(104),
+    READ_CALENDAR(105),
+    READ_CALL_LOG(106),
+    READ_EXTERNAL_STORAGE(107),
+    READ_FRAME_BUFFER(108),
+    READ_INPUT_STATE(109),
+    READ_LOGS(110),
+    READ_SYNC_SETTINGS(111),
+    READ_SYNC_STATS(112),
+    READ_VOICEMAIL(113),
+    RECEIVE_BOOT_COMPLETED(114),
+    RECEIVE_WAP_PUSH(115),
+    REORDER_TASKS(116),
+    REQUEST_IGNORE_BATTERY_OPTIMIZATIONS(117),
+    REQUEST_INSTALL_PACKAGES(118),
+    RESTART_PACKAGES(119),
+    SEND_RESPOND_VIA_MESSAGE(120),
+    SET_ALARM(121),
+    SET_ALWAYS_FINISH(122),
+    SET_ANIMATION_SCALE(123),
+    SET_DEBUG_APP(124),
+    SET_PREFERRED_APPLICATIONS(125),
+    SET_PROCESS_LIMIT(126),
+    SET_WALLPAPER_HINTS(127),
+    SIGNAL_PERSISTENT_PROCESSES(128),
+    STATUS_BAR(129),
+    SYSTEM_ALERT_WINDOW(130),
+    TRANSMIT_IR(131),
+    UNINSTALL_SHORTCUT(132),
+    UPDATE_DEVICE_STATS(133),
+    USE_FINGERPRINT(134),
+    USE_SIP(135),
+    WRITE_GSERVICES(136),
+    WAKE_LOCK(137),
+    WRITE_APN_SETTINGS(138),
+    WRITE_CALENDAR(139),
+    WRITE_CALL_LOG(140),
+    WRITE_SECURE_SETTINGS(141),
+    WRITE_SETTINGS(142),
+    WRITE_SYNC_SETTINGS(143),
+    WRITE_VOICEMAIL(144),
+    ;
+
+    companion object {
+        @JvmStatic
+        fun findByValue(i: Int): AppPermissionType? {
+            return when (i) {
+                0 -> INTERNET
+                1 -> ACCESS_NETWORK_STATE
+                2 -> CHANGE_NETWORK_STATE
+                3 -> ACCESS_WIFI_STATE
+                4 -> CHANGE_WIFI_STATE
+                5 -> BLUETOOTH
+                6 -> BLUETOOTH_ADMIN
+                7 -> WRITE_OWNER_DATA
+                8 -> WRITE_EXTERNAL_STORAGE
+                9 -> READ_PHONE_STATE
+                10 -> CALL_PHONE
+                11 -> READ_PHONE_SMS
+                12 -> SEND_SMS
+                13 -> RECEIVE_SMS
+                14 -> WRITE_SMS
+                15 -> BROADCAST_SMS
+                16 -> BATTERY_STATS
+                17 -> CAMERA
+                18 -> FLASHLIGHT
+                19 -> VIBRATE
+                20 -> READ_CONTACTS
+                21 -> WRITE_CONTACTS
+                22 -> RECORD_AUDIO
+                23 -> SET_ORIENTATION
+                24 -> SET_TIME
+                25 -> SET_TIME_ZONE
+                26 -> READ_OWNER_DATA
+                27 -> DELETE_CACHE_FILES
+                28 -> DELETE_PACKAGES
+                29 -> MODIFY_AUDIO_SETTINGS
+                30 -> PROCESS_OUTGOING_CALLS
+                31 -> READ_HISTORY_BOOKMARKS
+                32 -> REBOOT
+                33 -> SET_WALLPAPER
+                34 -> RECEIVE_MMS
+                35 -> WRITE_HISTORY_BOOKMARKS
+                36 -> GET_TASKS
+                37 -> ACCESS_CHECKIN_PROPERTIES
+                38 -> ACCESS_COARSE_LOCATION
+                39 -> ACCESS_FINE_LOCATION
+                40 -> ACCESS_LOCATION_EXTRA_COMMANDS
+                41 -> ACCESS_NOTIFICATION_POLICY
+                42 -> ACCOUNT_MANAGER
+                43 -> ADD_VOICEMAIL
+                44 -> BIND_ACCESSIBILITY_SERVICE
+                45 -> BIND_APPWIDGET
+                46 -> BIND_CARRIER_MESSAGING_SERVICE
+                47 -> ACCESS_CHECKIN_PROPERTIES
+                48 -> BIND_CHOOSER_TARGET_SERVICE
+                49 -> BIND_CONDITION_PROVIDER_SERVICE
+                50 -> BIND_DEVICE_ADMIN
+                51 -> BIND_DREAM_SERVICE
+                52 -> BIND_INCALL_SERVICE
+                53 -> BIND_INPUT_METHOD
+                54 -> BIND_MIDI_DEVICE_SERVICE
+                55 -> BIND_NFC_SERVICE
+                56 -> BIND_NOTIFICATION_LISTENER_SERVICE
+                57 -> BIND_PRINT_SERVICE
+                58 -> BIND_QUICK_SETTINGS_TILE
+                59 -> BIND_REMOTEVIEWS
+                60 -> BIND_SCREENING_SERVICE
+                61 -> BIND_TELECOM_CONNECTION_SERVICE
+                62 -> ACCOUNT_MANAGER
+                63 -> BIND_TV_INPUT
+                64 -> BIND_VOICE_INTERACTION
+                65 -> BIND_VPN_SERVICE
+                66 -> BIND_VR_LISTENER_SERVICE
+                67 -> BIND_WALLPAPER
+                68 -> BLUETOOTH_PRIVILEGED
+                69 -> BODY_SENSORS
+                70 -> BROADCAST_PACKAGE_REMOVED
+                71 -> BROADCAST_STICKY
+                72 -> BROADCAST_WAP_PUSH
+                73 -> CALL_PRIVILEGED
+                74 -> CAPTURE_AUDIO_OUTPUT
+                75 -> CAPTURE_SECURE_VIDEO_OUTPUT
+                76 -> CAPTURE_VIDEO_OUTPUT
+                77 -> CHANGE_COMPONENT_ENABLED_STATE
+                78 -> CHANGE_CONFIGURATION
+                79 -> CHANGE_WIFI_MULTICAST_STATE
+                80 -> CLEAR_APP_CACHE
+                81 -> CONTROL_LOCATION_UPDATES
+                82 -> DIAGNOSTIC
+                83 -> DISABLE_KEYGUARD
+                84 -> DUMP
+                85 -> EXPAND_STATUS_BAR
+                86 -> FACTORY_TEST
+                87 -> GET_ACCOUNTS
+                88 -> GET_ACCOUNTS_PRIVILEGED
+                89 -> GET_PACKAGE_SIZE
+                90 -> GLOBAL_SEARCH
+                91 -> INSTALL_LOCATION_PROVIDER
+                92 -> INSTALL_PACKAGES
+                93 -> INSTALL_SHORTCUT
+                94 -> KILL_BACKGROUND_PROCESSES
+                95 -> LOCATION_HARDWARE
+                96 -> MANAGE_DOCUMENTS
+                97 -> MASTER_CLEAR
+                98 -> MEDIA_CONTENT_CONTROL
+                99 -> MODIFY_PHONE_STATE
+                100 -> MOUNT_FORMAT_FILESYSTEMS
+                101 -> MOUNT_UNMOUNT_FILESYSTEMS
+                102 -> NFC
+                103 -> PACKAGE_USAGE_STATS
+                104 -> PERSISTENT_ACTIVITY
+                105 -> READ_CALENDAR
+                106 -> READ_CALL_LOG
+                107 -> READ_EXTERNAL_STORAGE
+                108 -> READ_FRAME_BUFFER
+                109 -> READ_INPUT_STATE
+                110 -> READ_LOGS
+                111 -> READ_SYNC_SETTINGS
+                112 -> READ_SYNC_STATS
+                113 -> READ_VOICEMAIL
+                114 -> RECEIVE_BOOT_COMPLETED
+                115 -> RECEIVE_WAP_PUSH
+                116 -> REORDER_TASKS
+                117 -> REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+                118 -> REQUEST_INSTALL_PACKAGES
+                119 -> RESTART_PACKAGES
+                120 -> SEND_RESPOND_VIA_MESSAGE
+                121 -> SET_ALARM
+                122 -> SET_ALWAYS_FINISH
+                123 -> SET_ANIMATION_SCALE
+                124 -> SET_DEBUG_APP
+                125 -> SET_PREFERRED_APPLICATIONS
+                126 -> SET_PROCESS_LIMIT
+                127 -> SET_WALLPAPER_HINTS
+                128 -> SIGNAL_PERSISTENT_PROCESSES
+                129 -> STATUS_BAR
+                130 -> SYSTEM_ALERT_WINDOW
+                131 -> TRANSMIT_IR
+                132 -> UNINSTALL_SHORTCUT
+                133 -> UPDATE_DEVICE_STATS
+                134 -> USE_FINGERPRINT
+                135 -> USE_SIP
+                136 -> WRITE_GSERVICES
+                137 -> WAKE_LOCK
+                138 -> WRITE_APN_SETTINGS
+                139 -> WRITE_CALENDAR
+                140 -> WRITE_CALL_LOG
+                141 -> WRITE_SECURE_SETTINGS
+                142 -> WRITE_SETTINGS
+                143 -> WRITE_SYNC_SETTINGS
+                144 -> WRITE_VOICEMAIL
+                else -> null
+            }
+        }
+    }
+}

@@ -3,6 +3,10 @@ package com.xiaomi.mipush.sdk.stat.db
 import android.database.Cursor
 import android.provider.BaseColumns
 
+/*
+ * Local legacy stat table contract retained for compatibility.
+ * No stock 7.4.67-C or 2026-04-13 current override same-path source was found in the dump.
+ */
 object MessageInfoContract {
     const val LIMIT: Int = 10
     const val NO_UPLOAD: Int = 0

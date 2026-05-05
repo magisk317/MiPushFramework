@@ -22,6 +22,13 @@ import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
 import java.io.File
 import java.nio.ByteBuffer
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/v9/c.java
+ * Current override same-path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/push/mpcd/job/UploadJob.java
+ * Stock class name is obfuscated as v9.c; this file keeps the deobfuscated UploadJob API.
+ */
 class UploadJob(private val context: Context) : ScheduledJobManager.Job() {
     private val mSharedPreference: SharedPreferences = context.getSharedPreferences("mipush_extra", 0)
     private val mOnlineConfig: OnlineConfig = OnlineConfig.getInstance(context)

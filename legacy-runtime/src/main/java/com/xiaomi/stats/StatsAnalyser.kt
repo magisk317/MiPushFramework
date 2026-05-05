@@ -3,6 +3,12 @@ package com.xiaomi.stats
 import com.xiaomi.channel.commonutils.stats.Stats
 import com.xiaomi.push.thrift.ChannelStatsType
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/oa/b.java
+ * Stock class name is obfuscated as oa.b; this file keeps the deobfuscated com.xiaomi.stats.StatsAnalyser API.
+ */
 internal class StatsAnalyser private constructor() {
     internal class TypeWraper {
         var type: ChannelStatsType? = null

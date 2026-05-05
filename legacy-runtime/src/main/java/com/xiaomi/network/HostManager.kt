@@ -470,7 +470,7 @@ open class HostManager @JvmOverloads constructor(
             arrayList = ArrayList()
             val httpApis = map.values
             for (value in httpApis) {
-                if (value.host_infoSize > 0) {
+                if (value.getHost_infoSize() > 0) {
                     arrayList.add(value)
                 }
             }

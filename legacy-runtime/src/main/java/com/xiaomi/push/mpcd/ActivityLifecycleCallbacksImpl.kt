@@ -9,6 +9,13 @@ import com.xiaomi.push.mpcd.job.CollectionJob
 import com.xiaomi.xmpush.thrift.ClientCollectionType
 import com.xiaomi.xmpush.thrift.DataCollectionItem
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/u9/a.java
+ * Current override same-path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/push/mpcd/ActivityLifecycleCallbacksImpl.java
+ * Stock class name is obfuscated as u9.a; this file keeps the deobfuscated activity timestamp collector API.
+ */
 class ActivityLifecycleCallbacksImpl(
     private val mContext: Context,
     private var mActiveStartTS: String

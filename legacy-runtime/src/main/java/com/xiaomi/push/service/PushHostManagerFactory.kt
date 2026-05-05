@@ -132,7 +132,7 @@ class PushHostManagerFactory(
         }
         val fallbacksByHost: Fallback? = hostManager.getFallbacksByHost(currentConnection.config.host!!, false)
         val hosts = fallbacksByHost?.getHosts() ?: arrayListOf<String>()
-        val reconnectPlan = pushService.runtimeObserver.decideBucketReconnect(true, currentConnection.getHost()!!, hosts)
+        val reconnectPlan = pushService.runtimeObserver.decideBucketReconnect(true, currentConnection.host!!, hosts)
         pushService.runtimeObserver.onChannelEvent(null, reconnectPlan.eventAction, "PushHostManagerFactory.onConfigMsgReceive")
         if (!reconnectPlan.shouldReconnect) {
             return
@@ -141,7 +141,7 @@ class PushHostManagerFactory(
         pushService.runtimeObserver.onConnectionStateChanged(
             stateName = "Disconnected",
             reason = "PushHostManagerFactory.onConfigMsgReceive",
-            host = currentConnection.getHost() ?: "",
+            host = currentConnection.host ?: "",
             message = reconnectPlan.connectionStateReason ?: "",
         )
         pushService.disconnect(0, null)

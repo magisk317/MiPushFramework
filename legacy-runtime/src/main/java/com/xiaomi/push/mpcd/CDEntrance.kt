@@ -14,6 +14,15 @@ import com.xiaomi.xmpush.thrift.ClientCollectionType
 import com.xiaomi.xmpush.thrift.ConfigKey
 import com.xiaomi.xmpush.thrift.DataCollectionItem
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX paths:
+ * - com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/vb/b.java
+ * - com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/u9/e.java
+ * Current override same-path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/push/mpcd/CDEntrance.java
+ * Stock package collection entrance is split between vb.b and u9.e; this file keeps the deobfuscated CDEntrance API.
+ */
 object CDEntrance {
     private const val BROADCAST_ACTION_PERIOD = 1L
 

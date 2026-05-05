@@ -6,6 +6,10 @@ import com.xiaomi.mipush.sdk.stat.PushStatClientManager
 import com.xiaomi.mipush.sdk.stat.upload.IDbPathGetter
 import org.json.JSONObject
 
+/*
+ * Local legacy hybrid stat client facade retained for compatibility.
+ * No stock 7.4.67-C or 2026-04-13 current override same-path source was found in the dump.
+ */
 object PushStatClient4Hybrid {
     private var sContext: Context? = null
 

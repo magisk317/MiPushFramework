@@ -11,6 +11,10 @@ import com.xiaomi.mipush.sdk.stat.db.base.DbManager
 import com.xiaomi.xmpush.thrift.ClientUploadDataItem
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
 
+/*
+ * Local legacy stat data sender retained for compatibility.
+ * No stock 7.4.67-C or 2026-04-13 current override same-path source was found in the dump.
+ */
 class BaseDataSender(
     private var mDbPathGetter: IDbPathGetter,
 ) : IDataSender, IDbPathGetter {

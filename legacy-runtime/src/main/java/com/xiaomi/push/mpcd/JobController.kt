@@ -15,6 +15,13 @@ import com.xiaomi.push.mpcd.job.UploadJob
 import com.xiaomi.push.service.OnlineConfig
 import com.xiaomi.xmpush.thrift.ConfigKey
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/u9/e.java
+ * Current override same-path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/push/mpcd/JobController.java
+ * Stock class name is obfuscated as u9.e; this file keeps the deobfuscated JobController scheduler API.
+ */
 class JobController private constructor(private val context: Context) {
     private fun makeSurePeriodNotTooSmall(period: Int): Int = maxOf(60, period)
 

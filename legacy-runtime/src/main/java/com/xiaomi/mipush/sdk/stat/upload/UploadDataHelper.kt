@@ -27,6 +27,10 @@ import java.text.SimpleDateFormat
 import java.util.HashMap
 import java.util.Locale
 
+/*
+ * Local legacy stat upload helper retained for compatibility.
+ * No stock 7.4.67-C or 2026-04-13 current override same-path source was found in the dump.
+ */
 object UploadDataHelper {
     private const val NEED_ACK = "need_ack"
     const val REAL_SOURCE = "real_source"

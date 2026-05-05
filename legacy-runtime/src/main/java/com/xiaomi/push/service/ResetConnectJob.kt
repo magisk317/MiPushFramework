@@ -26,7 +26,7 @@ class ResetConnectJob(
         pushAction.runtimeObserver.onConnectionStateChanged(
             stateName = "Disconnected",
             reason = "reset_connect_job",
-            host = pushAction.currentConnection?.getHost() ?: "",
+            host = pushAction.currentConnection?.host ?: "",
             message = "reset_connect_job"
         )
         pushAction.disconnect(11, null)

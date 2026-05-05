@@ -4,12 +4,18 @@ import android.os.Bundle
 import com.xiaomi.mipush.sdk.PushMessageHandler.PushMessageInterface
 import java.io.Serializable
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/com/xiaomi/mipush/sdk/MiPushCommandMessage.java
+ * Current override same-path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/mipush/sdk/MiPushCommandMessage.java
+ */
 class MiPushCommandMessage : PushMessageInterface, Serializable {
-    private var category: String? = null
-    private var command: String? = null
-    private var commandArguments: List<String>? = null
-    private var reason: String? = null
-    private var resultCode: Long = 0
+    var category: String? = null
+    var command: String? = null
+    var commandArguments: List<String>? = null
+    var reason: String? = null
+    var resultCode: Long = 0
 
     companion object {
         private const val KEY_CATEGORY = "category"
@@ -30,18 +36,6 @@ class MiPushCommandMessage : PushMessageInterface, Serializable {
             }
         }
     }
-
-    fun getCategory(): String? = category
-    fun getCommand(): String? = command
-    fun getCommandArguments(): List<String>? = commandArguments
-    fun getReason(): String? = reason
-    fun getResultCode(): Long = resultCode
-
-    fun setCategory(category: String?) { this.category = category }
-    fun setCommand(command: String?) { this.command = command }
-    fun setCommandArguments(commandArguments: List<String>?) { this.commandArguments = commandArguments }
-    fun setReason(reason: String?) { this.reason = reason }
-    fun setResultCode(resultCode: Long) { this.resultCode = resultCode }
 
     fun toBundle(): Bundle {
         return Bundle().apply {

@@ -5,6 +5,13 @@ import android.text.TextUtils
 import com.xiaomi.push.mpcd.Constants
 import com.xiaomi.xmpush.thrift.ClientCollectionType
 
+/*
+ * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
+ * split-XiaomiServiceFrameworkCN-master.apk sha256 444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b,
+ * JADX path: com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources/vb/a.java
+ * Current override same-path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/push/mpcd/job/BroadcastActionCollectionjob.java
+ * Stock class name is obfuscated as vb.a; this file keeps the deobfuscated BroadcastActionCollectionjob API.
+ */
 class BroadcastActionCollectionjob(context: Context, period: Int) : CollectionJob(context, period) {
 
     private fun shrinkActionInfo(prefix: String, actions: String): String {
