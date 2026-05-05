@@ -25,7 +25,7 @@ object PushPacketRuntime {
             )
         }
 
-        packet.setPackageName(packageName)
+        packet.packageName = packageName
         val resolvedChannelId = packet.channelId?.takeIf { it.isNotBlank() } ?: packageChannels.first().also {
             packet.channelId = it
         }

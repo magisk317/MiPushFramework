@@ -105,7 +105,7 @@ class XMPushServiceLifecycleRuntime(
     }
 
     fun connectionClosed(connection: Connection, reason: Int, error: Exception?) {
-        StatsHandler.getContext().connectionClosed(connection, reason, error)
+        StatsHandler.getContext()?.connectionClosed(connection, reason, error)
         XMPushServiceLifecycleBridge.onConnectionStatusChanged(XMPushServiceListener.ConnectionStatus.disconnected)
         val plan = PushServiceConnectionRuntime.planConnectionClosed(service.shouldFalldown())
         PushRuntime.observeChannelEvent(null, plan.eventAction, "XMPushServiceLifecycleRuntime.connectionClosed")
@@ -118,11 +118,11 @@ class XMPushServiceLifecycleRuntime(
         MyLog.v("begin to connect...")
         XMPushServiceLifecycleBridge.onConnectionStatusChanged(XMPushServiceListener.ConnectionStatus.connecting)
         PushRuntime.observeConnectionState(PushConnectionState.Connecting, "XMPushServiceLifecycleRuntime.connectionStarted", connection.host, "listener_started")
-        StatsHandler.getContext().connectionStarted(connection)
+        StatsHandler.getContext()?.connectionStarted(connection)
     }
 
     fun reconnectionFailed(connection: Connection, error: Exception) {
-        StatsHandler.getContext().reconnectionFailed(connection, error)
+        StatsHandler.getContext()?.reconnectionFailed(connection, error)
         XMPushServiceLifecycleBridge.onConnectionStatusChanged(XMPushServiceListener.ConnectionStatus.disconnected)
         val plan = PushServiceConnectionRuntime.planReconnectionFailure(service.shouldFalldown())
         PushRuntime.observeChannelEvent(null, plan.eventAction, "XMPushServiceLifecycleRuntime.reconnectionFailed")
@@ -135,7 +135,7 @@ class XMPushServiceLifecycleRuntime(
     }
 
     fun reconnectionSuccessful(connection: Connection) {
-        StatsHandler.getContext().reconnectionSuccessful(connection)
+        StatsHandler.getContext()?.reconnectionSuccessful(connection)
         XMPushServiceLifecycleBridge.onConnectionStatusChanged(XMPushServiceListener.ConnectionStatus.connected)
         val plan = PushServiceConnectionRuntime.planReconnectionSuccess(Alarm.isAlive(), service.shouldFalldown())
         PushRuntime.observeChannelEvent(null, plan.eventAction, "XMPushServiceLifecycleRuntime.reconnectionSuccessful")
