@@ -46,7 +46,7 @@ class MiuiPushMessageReceiver : PushMessageReceiver() {
 
     private fun routeIncomingMessage(context: Context, miPushMessage: MiPushMessage, isNotified: Boolean) {
         logger.i("onReceiveMessage -> $miPushMessage")
-        val pkg = miPushMessage.extra["miui_package_name"]
+        val pkg = miPushMessage.extra?.get("miui_package_name")
         if (!pkg.isNullOrBlank()) {
             PushRuntime.observeNotificationEvent(
                 packageName = pkg,
