@@ -19,6 +19,14 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
+      - name: Download artifacts
+        if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+          path: artifacts
+          github-token: ${{ github.token }}
+
       - name: Send Notification
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
@@ -43,38 +51,50 @@ jobs:
             exit 0
           fi
 
-          THREAD_PARAM_MSG=""
-          if [ -n "$TG_THREAD_ID" ]; then
-            THREAD_PARAM_MSG="-d message_thread_id=$TG_THREAD_ID"
-          fi
+          # Function to send document
+          send_document() {
+            local file=$1
+            local thread=$2
+            local caption=$3
+            echo "Sending $file to Telegram..."
+            curl --fail-with-body -sS -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendDocument" \
+              -F "chat_id=${TG_CHAT_ID}" \
+              ${thread:+-F "message_thread_id=$thread"} \
+              -F "document=@$file" \
+              ${caption:+-F "caption=$caption"}
+          }
 
           # CI workflow run notification
           if [ -n "$WF_RUN_ID" ]; then
-            # Only send for dev branch success
-            if [ "$WF_RUN_BRANCH" != "dev" ]; then
+            if [ "$WF_RUN_BRANCH" != "dev" ] || [ "$WF_RUN_CONCLUSION" != "success" ]; then
               exit 0
             fi
-            if [ "$WF_RUN_CONCLUSION" != "success" ]; then
-              exit 0
-            fi
-            CI_MSG=$(printf '✅ workflow %s\n\n📋 %s\n🔗 Run: %s' \
+            
+            CI_MSG=$(printf '✅ CI: %s\n📋 %s\n🔗 Run: %s' \
               "$WF_RUN_NAME" "$CI_COMMIT_TITLE" "$WF_RUN_URL")
-            CI_THREAD_PARAM=""
-            if [ -n "$TG_CI_THREAD_ID" ]; then
-              CI_THREAD_PARAM="-d message_thread_id=$TG_CI_THREAD_ID"
-            fi
+            
+            CI_THREAD=""
+            if [ -n "$TG_CI_THREAD_ID" ]; then CI_THREAD="$TG_CI_THREAD_ID"; fi
+
             curl --fail-with-body -sS -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
               -d "chat_id=${TG_CHAT_ID}" \
-              $CI_THREAD_PARAM \
+              ${CI_THREAD:+-d "message_thread_id=$CI_THREAD"} \
               --data-urlencode "text=${CI_MSG}" \
               -d "disable_web_page_preview=true"
+
+            # Upload arm64-v8a artifact only
+            if [ -d "artifacts" ]; then
+              find artifacts -type f -name "*arm64-v8a*.apk" | while read -r apk; do
+                send_document "$apk" "$CI_THREAD" ""
+              done
+            fi
             exit 0
           fi
 
+          # Release notification
           if [ -z "$RELEASE_TAG" ]; then
             RELEASE_TAG="$(git tag --points-at HEAD | sort -V | tail -n 1)"
           fi
-
           if [ -z "$RELEASE_TAG" ]; then
             RELEASE_TAG="${GITHUB_REF_NAME:-manual}"
           fi
@@ -94,12 +114,26 @@ jobs:
           fi
 
           CAPTION=$(printf '📦 MiPushFramework Release: %s\n\n%s' "$RELEASE_TAG" "$RELEASE_CONTENT")
+          
+          RELEASE_THREAD=""
+          if [ -n "$TG_THREAD_ID" ]; then RELEASE_THREAD="$TG_THREAD_ID"; fi
 
-          response="$(
-            curl --fail-with-body -sS -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
-              -d "chat_id=${TG_CHAT_ID}" \
-              $THREAD_PARAM_MSG \
-              --data-urlencode "text=${CAPTION}" \
-              -d "disable_web_page_preview=true"
-          )"
-          echo "$response"
+          # Send Text First
+          curl --fail-with-body -sS -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${TG_CHAT_ID}" \
+            ${RELEASE_THREAD:+-d "message_thread_id=$RELEASE_THREAD"} \
+            --data-urlencode "text=${CAPTION}" \
+            -d "disable_web_page_preview=true"
+
+          # Download and Upload arm64-v8a assets only
+          if [ "$ASSETS_JSON" != "null" ]; then
+            echo "$ASSETS_JSON" | jq -c '.[]' | while read -r asset; do
+              name=$(echo "$asset" | jq -r '.name')
+              url=$(echo "$asset" | jq -r '.browser_download_url')
+              if [[ "$name" == *arm64-v8a*.apk ]]; then
+                echo "Downloading $name..."
+                curl -L -sS -o "$name" "$url"
+                send_document "$name" "$RELEASE_THREAD" ""
+              fi
+            done
+          fi

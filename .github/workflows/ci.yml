@@ -54,9 +54,33 @@ jobs:
               echo "| $name | $size |"
             done < <(find push/build/outputs/apk -path '*/debug/*.apk' | sort)
           } >> "$GITHUB_STEP_SUMMARY"
-      - name: Upload Debug APKs
+      - name: Upload Debug APK (arm64-v8a)
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: MiPushFramework-debug-apks
-          path: push/build/outputs/apk/**/debug/*.apk
+          name: MiPushFramework-debug-arm64-v8a
+          path: push/build/outputs/apk/debug/**/*arm64-v8a*.apk
+      - name: Upload Debug APK (armeabi-v7a)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: MiPushFramework-debug-armeabi-v7a
+          path: push/build/outputs/apk/debug/**/*armeabi-v7a*.apk
+      - name: Upload Debug APK (x86)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: MiPushFramework-debug-x86
+          path: push/build/outputs/apk/debug/**/*_x86.apk
+      - name: Upload Debug APK (x86_64)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: MiPushFramework-debug-x86_64
+          path: push/build/outputs/apk/debug/**/*_x86_64.apk
+      - name: Upload Debug APK (universal)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: MiPushFramework-debug-universal
+          path: push/build/outputs/apk/debug/**/*universal*.apk

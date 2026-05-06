@@ -282,7 +282,7 @@ object NotificationManagerEx {
             val visible = when (strategy) {
                 NotificationIdentityBridge.Strategy.FRAMEWORK -> true
                 NotificationIdentityBridge.Strategy.DELEGATED ->
-                    NotificationIdentityBridge.getTargetNotificationChannel(appContext, packageName, channelId) != null
+                    isHooked || NotificationIdentityBridge.getTargetNotificationChannel(appContext, packageName, channelId) != null
                 NotificationIdentityBridge.Strategy.UNSUPPORTED -> compatAttempt
             }
             logger.d(
@@ -620,29 +620,32 @@ object NotificationManagerEx {
         packageName: String
     ): Boolean {
         logger.d("areNotificationsEnabled() called with: packageName = $packageName")
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            if (shouldUseModernIdentityStrategy(packageName)) {
-                val strategy = NotificationIdentityBridge.resolveStrategy(appContext, packageName)
-                val enabled = strategy == NotificationIdentityBridge.Strategy.FRAMEWORK ||
-                    strategy == NotificationIdentityBridge.Strategy.DELEGATED
-                if (!enabled) {
-                    maybeLogDiagnosticsOnce("identity-disabled", packageName, null, null)
-                }
-                enabled
-            } else if (!canUseLegacyPackageScopedApis()) {
-                val packageNotificationManager = getNotificationManagerForPackage(packageName)
-                if (packageNotificationManager != null && packageNotificationManager !== notificationManager) {
-                    try {
-                        return packageNotificationManager.areNotificationsEnabled()
-                    } catch (e: Exception) {
-                        logger.e("Failed to query notifications enabled via package context for $packageName", e)
-                    }
-                }
-            }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return true
+
+        // 1. Check if the target app has notifications enabled in the system
+        val systemEnabled = try {
+            val packageNM = getNotificationManagerForPackage(packageName)
+            packageNM?.areNotificationsEnabled() ?: notificationManager.areNotificationsEnabled()
+        } catch (e: Exception) {
             notificationManager.areNotificationsEnabled()
-        } else {
-            true
         }
+        
+        if (!systemEnabled) {
+            logger.d("System notifications disabled for $packageName")
+            return false
+        }
+
+        // 2. Check if identity strategy is supported for this package
+        if (shouldUseModernIdentityStrategy(packageName)) {
+            val strategy = NotificationIdentityBridge.resolveStrategy(appContext, packageName)
+            val strategySupported = strategy != NotificationIdentityBridge.Strategy.UNSUPPORTED
+            if (!strategySupported) {
+                maybeLogDiagnosticsOnce("identity-unsupported", packageName, null, null)
+            }
+            return strategySupported
+        }
+        
+        return true
     }
 
     fun getActiveNotifications(

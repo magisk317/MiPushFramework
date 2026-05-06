@@ -19,6 +19,9 @@ object NotificationIdentityBridge {
         fun e(message: String, throwable: Throwable? = null) = Napier.e(message, throwable, tag = TAG)
     }
 
+    @JvmField
+    var isHooked = false
+
     enum class Strategy {
         FRAMEWORK,
         DELEGATED,
@@ -60,13 +63,18 @@ object NotificationIdentityBridge {
     }
 
     fun resolveStrategy(context: Context, packageName: String): Strategy {
+        if (isHooked) {
+            return Strategy.FRAMEWORK
+        }
         if (packageName == appContext(context).packageName) {
             return Strategy.UNSUPPORTED
         }
         if (isFrameworkIdentitySupported(context)) {
             return Strategy.FRAMEWORK
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && canNotifyAsPackage(context, packageName)) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // Be optimistic: if we are on Android 10+, try DELEGATED even if initial check fails.
+            // This accommodates cases where LSPosed/Root might allow notifyAsPackage but not affect our probe.
             return Strategy.DELEGATED
         }
         return Strategy.UNSUPPORTED
@@ -290,7 +298,7 @@ object NotificationIdentityBridge {
             globalActive.filter { it.matchesRelatedTarget() }.take(8).toSnapshotString()
         }.getOrElse { "${it.javaClass.simpleName}:${it.message}" }
 
-        return "global=$globalMatches relatedGlobal=$relatedGlobal app=disabled"
+        return "global=$globalMatches relatedGlobal=$relatedGlobal"
     }
 
     fun cancelAsTargetPackage(
@@ -395,6 +403,7 @@ object NotificationIdentityBridge {
         return buildString {
             append("identity-diagnostics")
             append(" strategy=").append(strategy)
+            append(" isHooked=").append(isHooked)
             append(" sdk=").append(Build.VERSION.SDK_INT)
             append(" release=").append(Build.VERSION.RELEASE)
             append(" codename=").append(Build.VERSION.CODENAME)

@@ -62,88 +62,42 @@ jobs:
           ALIAS_NAME: ${{ secrets.KEY_ALIAS }}
           ALIAS_PASS: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Upload APK Artifact
+      - name: Upload Release APK (arm64-v8a)
         uses: actions/upload-artifact@v7
         with:
-          name: apks-github
-          path: push/build/outputs/apk/release/**/*.apk
+          name: apks-github-arm64-v8a
+          path: push/build/outputs/apk/release/**/*arm64-v8a*.apk
 
-      - name: Detect GitHub Signatures
-        id: github_signatures
-        shell: bash
-        run: |
-          shopt -s nullglob
-          files=(push/build/outputs/apk-signatures/release/**/*.idsig)
-          if (( ${#files[@]} == 0 )); then
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          echo "exists=true" >> "$GITHUB_OUTPUT"
-          {
-            echo "paths<<EOF"
-            printf '%s\n' "${files[@]}"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Upload Signature Artifact
-        if: steps.github_signatures.outputs.exists == 'true'
+      - name: Upload Release APK (armeabi-v7a)
         uses: actions/upload-artifact@v7
         with:
-          name: signatures-github
-          path: ${{ steps.github_signatures.outputs.paths }}
+          name: apks-github-armeabi-v7a
+          path: push/build/outputs/apk/release/**/*armeabi-v7a*.apk
 
-  release:
-    name: Create Release
-    needs: [build-github-apk]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    env:
-      HAS_RELEASE_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE != '' }}
-    steps:
-      - uses: actions/checkout@v6
+      - name: Upload Release APK (x86)
+        uses: actions/upload-artifact@v7
         with:
-          submodules: recursive
-          fetch-depth: 0
+          name: apks-github-x86
+          path: push/build/outputs/apk/release/**/*_x86.apk
 
-      - uses: actions/download-artifact@v8
+      - name: Upload Release APK (x86_64)
+        uses: actions/upload-artifact@v7
         with:
-          pattern: apks-github*
-          path: artifacts/apks
-          merge-multiple: true
+          name: apks-github-x86_64
+          path: push/build/outputs/apk/release/**/*_x86_64.apk
 
-      - uses: actions/download-artifact@v8
+      - name: Upload Release APK (universal)
+        uses: actions/upload-artifact@v7
         with:
-          pattern: signatures-github*
-          path: artifacts/signatures
-          merge-multiple: true
-
-      - name: Create Draft Release
-        if: startsWith(github.ref, 'refs/tags/') && env.HAS_RELEASE_KEYSTORE == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          tag_name="${GITHUB_REF_NAME}"
-          release_name="$tag_name"
-          release_notes="MiPushFramework Release ${tag_name}"
-          if [[ -f "docs/CHANGELOG.md" ]]; then
-            extracted_notes="$(awk -v tag="$tag_name" '
-              index($0, "## [" tag "]") == 1 {capture=1; next}
-              capture && /^## \[/ {exit}
-              capture {print}
-            ' docs/CHANGELOG.md)"
-            if [[ -n "$extracted_notes" ]]; then
-              release_notes="$extracted_notes"
-            fi
-          fi
+          name: apks-github-universal
+          path: push/build/outputs/apk/release/**/*universal*.apk
 
           mapfile -d '' release_assets < <(
-            find artifacts/apks artifacts/signatures -type f \( -name '*.apk' -o -name '*.idsig' \) -print0 | sort -z
+            find artifacts/apks -type f -name '*.apk' -print0 | sort -z
           )
           if [[ ${#release_assets[@]} == 0 ]]; then
-            echo "ERROR: no release assets found under artifacts/apks or artifacts/signatures" >&2
-            find artifacts/apks artifacts/signatures -maxdepth 6 -type f | sort >&2 || true
+            echo "ERROR: no release assets found under artifacts/apks" >&2
+            find artifacts/apks -maxdepth 6 -type f | sort >&2 || true
             exit 1
           fi
 
