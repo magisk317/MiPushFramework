@@ -99,10 +99,19 @@ public class AppInfoUtils {
             if (applicationInfo.packageName.equals(context.getPackageName())) {
                 boolValueOf = Boolean.valueOf(((NotificationManager) context.getSystemService("notification")).areNotificationsEnabled());
             } else {
-                Object objCallMethod = i >= 29 ? JavaCalls.callMethod(context.getSystemService("notification"), "getService", new Object[0]) : context.getSystemService(LEGACY_SECURITY_SERVICE);
+                Object service = i >= 29 ? JavaCalls.callMethod(context.getSystemService("notification"), "getService", new Object[0]) : context.getSystemService(LEGACY_SECURITY_SERVICE);
                 boolValueOf = null;
-                if (objCallMethod != null) {
-                    boolValueOf = (Boolean) JavaCalls.callMethodOrThrow(objCallMethod, "areNotificationsEnabledForPackage", applicationInfo.packageName, Integer.valueOf(applicationInfo.uid));
+                if (service != null) {
+                    // Try areNotificationsEnabledForPackage first, fallback to canNotifyAsPackage
+                    try {
+                        boolValueOf = (Boolean) JavaCalls.callMethodOrThrow(service, "areNotificationsEnabledForPackage", applicationInfo.packageName, Integer.valueOf(applicationInfo.uid));
+                    } catch (NoSuchMethodException e1) {
+                        try {
+                            boolValueOf = (Boolean) JavaCalls.callMethodOrThrow(service, "canNotifyAsPackage", applicationInfo.packageName, Integer.valueOf(applicationInfo.uid), Boolean.FALSE);
+                        } catch (NoSuchMethodException e2) {
+                            // Method not available on this ROM, return UNKNOWN silently
+                        }
+                    }
                 }
             }
             if (boolValueOf != null) {

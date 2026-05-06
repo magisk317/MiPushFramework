@@ -98,12 +98,27 @@ object AppInfoUtils {
                     context.getSystemService(LEGACY_SECURITY_SERVICE)
                 }
                 if (service != null) {
-                    JavaCalls.callMethodOrThrow(
-                        service,
-                        "areNotificationsEnabledForPackage",
-                        applicationInfo.packageName,
-                        applicationInfo.uid,
-                    ) as? Boolean
+                    // Try areNotificationsEnabledForPackage first, fallback to canNotifyAsPackage
+                    try {
+                        JavaCalls.callMethodOrThrow(
+                            service,
+                            "areNotificationsEnabledForPackage",
+                            applicationInfo.packageName,
+                            applicationInfo.uid,
+                        ) as? Boolean
+                    } catch (_: NoSuchMethodException) {
+                        try {
+                            JavaCalls.callMethodOrThrow(
+                                service,
+                                "canNotifyAsPackage",
+                                applicationInfo.packageName,
+                                applicationInfo.uid,
+                                false,
+                            ) as? Boolean
+                        } catch (_: NoSuchMethodException) {
+                            null // Method not available on this ROM
+                        }
+                    }
                 } else {
                     null
                 }
