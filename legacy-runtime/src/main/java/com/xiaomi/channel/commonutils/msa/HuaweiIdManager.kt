@@ -10,7 +10,8 @@ import android.os.Looper
 import android.os.Parcel
 import android.os.RemoteException
 import com.xiaomi.channel.commonutils.logger.MyLog
-import java.lang.Object
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /*
  * Current override reference: com.xiaomi.xmsf 0.3.17-20260410000745 (versionCode 1003003000),
@@ -27,7 +28,7 @@ class HuaweiIdManager(private val mContext: Context) : IdManager {
     private var mIsOaidLimited = false
     @Volatile
     private var mAaid: String? = null
-    private val mLockObj = Object()
+    private val mLatch = CountDownLatch(1)
 
     private inner class IdentifierServiceConnection : ServiceConnection {
         override fun onServiceConnected(componentName: ComponentName, iBinder: IBinder) {
@@ -39,13 +40,7 @@ class HuaweiIdManager(private val mContext: Context) : IdManager {
             } finally {
                 unbindService()
                 mState = STATE_END
-                synchronized(mLockObj) {
-                    try {
-                        mLockObj.notifyAll()
-                    } catch (e: Exception) {
-                        // ignore
-                    }
-                }
+                mLatch.countDown()
             }
         }
 
@@ -120,13 +115,11 @@ class HuaweiIdManager(private val mContext: Context) : IdManager {
         if (mState != STATE_BINDING || Looper.myLooper() == Looper.getMainLooper()) {
             return
         }
-        synchronized(mLockObj) {
-            try {
-                MyLog.w("huawei's $str wait...")
-                mLockObj.wait(TIME_WAIT_LOCK.toLong())
-            } catch (e: Exception) {
-                // ignore
-            }
+        try {
+            MyLog.w("huawei's $str wait...")
+            mLatch.await(TIME_WAIT_LOCK.toLong(), TimeUnit.MILLISECONDS)
+        } catch (e: Exception) {
+            // ignore
         }
     }
 

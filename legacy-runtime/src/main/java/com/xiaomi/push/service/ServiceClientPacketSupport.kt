@@ -28,7 +28,7 @@ object ServiceClientPacketSupport {
 
     @JvmStatic
     fun buildPacketBundle(packet: Packet): Bundle? {
-        return packet.toBundle()?.also {
+        return packet.toBundle().also {
             MyLog.v("SEND:${packet.toXML()}")
         }
     }

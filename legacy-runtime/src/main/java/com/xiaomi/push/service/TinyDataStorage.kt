@@ -86,7 +86,7 @@ object TinyDataStorage {
                 getTinyDataKeyWithDefault(context),
                 XmPushThriftSerializeUtils.convertThriftObjectToBytes(item),
             )
-            if (encrypted == null || encrypted.isEmpty()) {
+            if (encrypted.isEmpty()) {
                 MyLog.w("TinyData write to cache file failed case encryption fail item:${item.id}   ts:${System.currentTimeMillis()}")
                 return
             }

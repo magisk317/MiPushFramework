@@ -336,7 +336,7 @@ object PacketParserUtils {
         if (extensionProvider !is CommonPacketExtensionProvider) {
             return null
         }
-        return extensionProvider.parseExtension(xmlPullParser) as? CommonPacketExtension
+        return extensionProvider.parseExtension(xmlPullParser)
     }
 
     @JvmStatic

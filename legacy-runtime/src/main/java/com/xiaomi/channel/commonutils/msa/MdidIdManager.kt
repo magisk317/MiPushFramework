@@ -9,7 +9,8 @@ import com.xiaomi.channel.commonutils.logger.MyLog
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
-import java.lang.Object
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 
 /*
@@ -28,7 +29,8 @@ class MdidIdManager(context: Context) : IdManager, InvocationHandler {
     private var mMethodGetAAID: Method? = null
     private var mMethodIsSupported: Method? = null
     private var mMethodShutDown: Method? = null
-    private val mLockObj = Object()
+    private val mLatch = CountDownLatch(1)
+    private val mRetryLock = Any()
     @Volatile
     private var mRetryCount = 0
     @Volatile
@@ -86,13 +88,7 @@ class MdidIdManager(context: Context) : IdManager, InvocationHandler {
     }
 
     private fun cancelWait() {
-        synchronized(mLockObj) {
-            try {
-                mLockObj.notifyAll()
-            } catch (e: Exception) {
-                // ignore
-            }
-        }
+        mLatch.countDown()
     }
 
     private fun initClass(context: Context) {
@@ -128,7 +124,7 @@ class MdidIdManager(context: Context) : IdManager, InvocationHandler {
         var elapsed = SystemClock.elapsedRealtime() - kotlin.math.abs(start)
         val retryCount = mRetryCount
         if (elapsed > TIME_WAIT_LOCK && retryCount < MAX_RETRY_COUNT) {
-            synchronized(mLockObj) {
+            synchronized(mRetryLock) {
                 if (mGettingOrGotTime == start && mRetryCount == retryCount) {
                     outLog("retry, current count is $retryCount")
                     mRetryCount += 1
@@ -146,14 +142,12 @@ class MdidIdManager(context: Context) : IdManager, InvocationHandler {
         ) {
             return
         }
-        synchronized(mLockObj) {
-            if (mIdData == null) {
-                try {
-                    outLog("$str wait...")
-                    mLockObj.wait(TIME_WAIT_LOCK.toLong())
-                } catch (e: Exception) {
-                    // ignore
-                }
+        if (mIdData == null) {
+            try {
+                outLog("$str wait...")
+                mLatch.await(TIME_WAIT_LOCK, TimeUnit.MILLISECONDS)
+            } catch (e: Exception) {
+                // ignore
             }
         }
     }

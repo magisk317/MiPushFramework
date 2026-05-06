@@ -29,7 +29,7 @@ object MdidJLibrary {
     @JvmStatic
     fun checkAndLoadMdidSdk(context: Context): Boolean {
         return try {
-            val cls = SystemUtils.loadClass(context, CORE_CLASS_JLIBRARY) ?: return false
+            val cls = SystemUtils.loadClass(context, CORE_CLASS_JLIBRARY)
             callInitEntry(cls, context)
             true
         } catch (throwable: Throwable) {

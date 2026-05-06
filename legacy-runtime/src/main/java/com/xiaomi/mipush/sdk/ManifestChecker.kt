@@ -195,10 +195,10 @@ object ManifestChecker {
     fun checkServices(context: Context, packageInfo: PackageInfo) {
         val processMap = HashMap<String, String?>()
         val serviceRequirements = HashMap<String, ServiceCheckInfo>()
-        serviceRequirements[PushMessageHandler::class.java.canonicalName] =
-            ServiceCheckInfo(PushMessageHandler::class.java.canonicalName, true, true, "")
-        serviceRequirements[MessageHandleService::class.java.canonicalName] =
-            ServiceCheckInfo(MessageHandleService::class.java.canonicalName, true, false, "")
+        serviceRequirements[PushMessageHandler::class.java.canonicalName!!] =
+            ServiceCheckInfo(PushMessageHandler::class.java.canonicalName!!, true, true, "")
+        serviceRequirements[MessageHandleService::class.java.canonicalName!!] =
+            ServiceCheckInfo(MessageHandleService::class.java.canonicalName!!, true, false, "")
         if (
             !MiPushClient.shouldUseMIUIPush(context) ||
             containAnyService(packageInfo, arrayOf(PushConstants.XM_SERVICE_CLASS_NAME_JAR, PushConstants.PUSH_SERVICE_CLASS_NAME_JAR))
@@ -269,8 +269,8 @@ object ManifestChecker {
         }
         if (
             !TextUtils.equals(
-                processMap[PushMessageHandler::class.java.canonicalName],
-                processMap[MessageHandleService::class.java.canonicalName],
+                processMap[PushMessageHandler::class.java.canonicalName!!],
+                processMap[MessageHandleService::class.java.canonicalName!!],
             )
         ) {
             throw IllegalManifestException(

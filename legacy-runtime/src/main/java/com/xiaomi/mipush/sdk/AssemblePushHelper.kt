@@ -165,7 +165,7 @@ object AssemblePushHelper {
 
     @JvmStatic
     fun isOpenAssemblePushOnlineSwitch(context: Context, assemblePush: AssemblePush): Boolean {
-        val configKey = AssemblePushInfoHelper.getConfigKeyByType(assemblePush) ?: return false
+        val configKey = AssemblePushInfoHelper.getConfigKeyByType(assemblePush)
         return OnlineConfig.getInstance(context).getBooleanValue(configKey.value, true)
     }
 

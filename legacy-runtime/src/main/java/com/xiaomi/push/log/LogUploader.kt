@@ -107,7 +107,7 @@ class LogUploader private constructor(context: Context) {
                     val map: MutableMap<String, String> = mutableMapOf()
                     map["uid"] = ServiceConfig.getDeviceUUID()!!
                     map["token"] = token
-                    map["net"] = Network.getActiveConnPoint(mContext)!!
+                    map["net"] = Network.getActiveConnPoint(mContext)
                     Network.uploadFile(url, map as Map<String, String>, file, PushConstants.UPLOAD_FILE_POST_KEY)
                 }
                 uploaded = true

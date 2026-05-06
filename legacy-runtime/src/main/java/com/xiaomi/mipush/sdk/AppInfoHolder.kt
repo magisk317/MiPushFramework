@@ -132,7 +132,7 @@ class AppInfoHolder private constructor(private val mContext: Context) {
             @JvmStatic
             fun parseClientInfoData(context: Context, str: String?): ClientInfoData? {
                 return try {
-                    val jsonObject = JSONObject(str)
+                    val jsonObject = JSONObject(str!!)
                     ClientInfoData(context).apply {
                         appID = jsonObject.getString(PREF_KEY_APP_ID)
                         appToken = jsonObject.getString(PREF_KEY_APP_TOKEN)

@@ -198,7 +198,7 @@ object MIPushAccountUtils {
             params["ram"] = DeviceInfo.getRamSize()
             params["rom"] = DeviceInfo.getRomSize()
 
-            val responseString = Network.doHttpPost(context, getAccountURL(context, observer), params)?.responseString.orEmpty()
+            val responseString = Network.doHttpPost(context, getAccountURL(context, observer), params).responseString.orEmpty()
             if (responseString.isEmpty()) {
                 return null
             }

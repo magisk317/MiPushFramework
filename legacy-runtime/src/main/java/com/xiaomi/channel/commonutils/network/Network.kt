@@ -381,17 +381,15 @@ object Network {
         }
         val stringBuffer = StringBuffer()
         for ((key, value) in params) {
-            if (key != null && value != null) {
-                try {
-                    stringBuffer.append(URLEncoder.encode(key, "UTF-8"))
-                    stringBuffer.append("=")
-                    stringBuffer.append(URLEncoder.encode(value, "UTF-8"))
-                    stringBuffer.append("&")
-                } catch (e: UnsupportedEncodingException) {
-                    Log.d(LogTag, "Failed to convert from params map to string: $e")
-                    Log.d(LogTag, "map: $params")
-                    return null
-                }
+            try {
+                stringBuffer.append(URLEncoder.encode(key, "UTF-8"))
+                stringBuffer.append("=")
+                stringBuffer.append(URLEncoder.encode(value, "UTF-8"))
+                stringBuffer.append("&")
+            } catch (e: UnsupportedEncodingException) {
+                Log.d(LogTag, "Failed to convert from params map to string: $e")
+                Log.d(LogTag, "map: $params")
+                return null
             }
         }
         if (stringBuffer.isNotEmpty()) {
@@ -853,15 +851,13 @@ object Network {
             httpURLConnection.connectTimeout = CONNECTION_TIMEOUT
             httpURLConnection.readTimeout = READ_TIMEOUT
             val contentType = httpURLConnection.contentType
-            if (!TextUtils.isEmpty(contentType)) {
                 val matcher = ContentTypePattern_Charset.matcher(contentType)
                 if (matcher.matches()) {
                     val group = matcher.group(2)
                     if (!TextUtils.isEmpty(group)) {
-                        encoding = group
+                        encoding = group!!
                     }
                 }
-            }
             inputStream = httpURLConnection.inputStream
             val buffer = ByteArray(1024)
             val read = inputStream.read(buffer)
@@ -875,7 +871,7 @@ object Network {
                 if (matcher.find()) {
                     val group = matcher.group(2)
                     if (!TextUtils.isEmpty(group)) {
-                        encoding = group
+                        encoding = group!!
                     }
                 }
             }

@@ -173,10 +173,8 @@ class XMPPError {
             var i = 0
             for (extension in list) {
                 val extensionBundle = extension.toBundle()
-                if (extensionBundle != null) {
-                    bundleArr[i] = extensionBundle
-                    i++
-                }
+                bundleArr[i] = extensionBundle
+                i++
             }
             bundle.putParcelableArray(PushConstants.EXTRA_EXTENSIONS, bundleArr)
         }
