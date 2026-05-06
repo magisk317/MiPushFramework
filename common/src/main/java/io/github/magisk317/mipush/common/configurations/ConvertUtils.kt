@@ -68,8 +68,14 @@ object ConvertUtils {
                 put("pushActionUnavailable", "decrypt_failed")
                 put("pushActionError", e.message ?: "the aes decrypt failed.")
             } catch (e: Exception) {
-                logger.e(e.localizedMessage, e)
-                put("pushActionError", e.message ?: "Unknown error")
+                val rootCause = generateSequence(e.cause) { it.cause }.lastOrNull() ?: e
+                val detail = if (rootCause is org.apache.thrift.transport.TTransportException) {
+                    "thrift_deserialize_failed: ${rootCause.message} payloadSize=${container.getPushAction()?.size ?: 0}"
+                } else {
+                    e.message ?: "Unknown error"
+                }
+                logger.e("toJson error for ${container.packageName}: $detail", e)
+                put("pushActionError", detail)
             }
         }
         return root

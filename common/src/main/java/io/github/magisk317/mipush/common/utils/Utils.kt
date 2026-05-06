@@ -176,6 +176,17 @@ object Utils {
                 secrets += sec
             }
         }
+        // Fallback: read regSec from the target app's own mipush SharedPreferences
+        if (secrets.isEmpty()) {
+            try {
+                val pkgContext = app.createPackageContext(packageName, 0)
+                val regSec = pkgContext.getSharedPreferences(PREF_MIPUSH, 0)
+                    ?.getString("regSec", null)
+                if (!regSec.isNullOrEmpty()) {
+                    secrets += regSec
+                }
+            } catch (_: Exception) {}
+        }
         return secrets.toList()
     }
 
