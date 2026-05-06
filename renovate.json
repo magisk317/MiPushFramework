@@ -4,6 +4,8 @@
         "config:recommended"
     ],
     "forkProcessing": "enabled",
+    "pruneStaleBranches": true,
+    "pruneBranchAfterAutomerge": true,
     "baseBranchPatterns": [
         "dev"
     ],
@@ -13,11 +15,47 @@
                 "minor",
                 "patch"
             ],
+            "automerge": true,
+            "automergeType": "pr",
             "groupName": "all non-major dependencies",
             "groupSlug": "all-minor-patch",
             "matchPackageNames": [
                 "*"
             ]
+        },
+        {
+            "matchManagers": [
+                "gradle",
+                "maven"
+            ],
+            "addLabels": [
+                "dependencies",
+                "java"
+            ]
+        },
+        {
+            "matchManagers": [
+                "github-actions"
+            ],
+            "addLabels": [
+                "dependencies",
+                "github_actions"
+            ]
+        },
+        {
+            "matchPackageNames": [
+                "int:versionCode",
+                "int:pushVersionCode",
+                "int:MODULE_VERSION",
+                "int:VERSION_CODE",
+                "int:PUSH_VERSION_CODE"
+            ],
+            "enabled": false
         }
-    ]
+    ],
+    "osvVulnerabilityAlerts": true,
+    "vulnerabilityAlerts": {
+        "enabled": true,
+        "labels": ["security"]
+    }
 }
