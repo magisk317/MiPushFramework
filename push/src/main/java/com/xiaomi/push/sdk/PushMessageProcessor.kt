@@ -3,15 +3,11 @@ package com.xiaomi.push.sdk
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Bundle
 import io.github.aakira.napier.Napier
-import io.github.aakira.napier.DebugAntilog
-import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import com.topjohnwu.superuser.Shell
-import com.xiaomi.push.service.MIPushNotificationHelper
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
@@ -21,7 +17,6 @@ import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.platform.activity.AccessMode
 import io.github.magisk317.mipush.platform.activity.ITopActivity
 import io.github.magisk317.mipush.platform.activity.TopActivityFactory
-import io.github.magisk317.mipush.common.utils.Utils
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -128,14 +123,13 @@ class PushMessageProcessor @Inject constructor(
     }
 
     fun launchApp(context: Context, container: XmPushActionContainer) {
-        val topActivity = resolveTopActivity(context)
-        if (!topActivity.isEnabled(context)) {
-            topActivity.guideToEnable(context)
+        val targetPackage = container.packageName
+        if (targetPackage.isBlank()) {
+            logger.w("skip launch app because target package is blank")
             return
         }
-        val targetPackage = container.packageName
-        // activeApp(context, targetPackage)
-        // pullUpApp(context, targetPackage, container)
+        activeApp(targetPackage)
+        pullUpApp(context, targetPackage, container)
     }
 
     fun startService(
@@ -198,6 +192,82 @@ class PushMessageProcessor @Inject constructor(
             ApplicationDeliveryResult()
         }
     }
+
+    private fun activeApp(targetPackage: String) {
+        runCatching {
+            Shell.cmd("pm enable $targetPackage").exec()
+        }.onFailure {
+            logger.w(packageInfo(targetPackage, "pm enable failed: ${it.localizedMessage}"))
+        }
+    }
+
+    private fun getJumpIntent(context: Context, container: XmPushActionContainer): Intent? {
+        return MyMIPushNotificationHelper.getSdkIntent(context, container)
+            ?: getJumpIntentFromPkg(context, container.packageName)
+    }
+
+    private fun getJumpIntentFromPkg(context: Context, targetPackage: String): Intent? {
+        return runCatching {
+            context.packageManager.getLaunchIntentForPackage(targetPackage)
+        }.onFailure {
+            logger.e(packageInfo(targetPackage, "get launch intent failed"), it)
+        }.getOrNull()?.also {
+            logger.d(packageInfo(targetPackage, "resolved launch intent=$it"))
+        }
+    }
+
+    private fun pullUpApp(context: Context, targetPackage: String, container: XmPushActionContainer): Long {
+        val start = System.currentTimeMillis()
+        try {
+            val topActivity = resolveTopActivity(context)
+            if (!topActivity.isEnabled(context)) {
+                logger.w(packageInfo(targetPackage, "top activity detector disabled, launch without foreground verification"))
+                startJumpIntent(context, targetPackage, getJumpIntent(context, container))
+                return System.currentTimeMillis() - start
+            }
+
+            if (!topActivity.isAppForeground(context, targetPackage)) {
+                logger.d(packageInfo(targetPackage, "app is not at front, pull up"))
+                startJumpIntent(context, targetPackage, getJumpIntent(context, container))
+                for (i in 0 until APP_CHECK_FRONT_MAX_RETRY) {
+                    if (topActivity.isAppForeground(context, targetPackage)) {
+                        break
+                    }
+                    Thread.sleep(APP_CHECK_SLEEP_DURATION_MS)
+                    if (i == (APP_CHECK_FRONT_MAX_RETRY / 2)) {
+                        startJumpIntent(context, targetPackage, getJumpIntentFromPkg(context, targetPackage))
+                    }
+                }
+                if ((System.currentTimeMillis() - start) >= APP_CHECK_SLEEP_MAX_TIMEOUT_MS) {
+                    logger.w(packageInfo(targetPackage, "pull up app timeout"))
+                }
+            } else {
+                logger.d(packageInfo(targetPackage, "app is at foreground"))
+            }
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+            logger.e(packageInfo(targetPackage, "pullUpApp interrupted"), e)
+        } catch (e: RuntimeException) {
+            logger.e(packageInfo(targetPackage, "pullUpApp failed ${e.localizedMessage}"), e)
+        }
+        return System.currentTimeMillis() - start
+    }
+
+    private fun startJumpIntent(context: Context, targetPackage: String, intent: Intent?) {
+        if (intent == null) {
+            logger.w(packageInfo(targetPackage, "can not resolve launch intent"))
+            return
+        }
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        runCatching {
+            context.startActivity(intent)
+            logger.d(packageInfo(targetPackage, "start activity intent=$intent"))
+        }.onFailure {
+            logger.e(packageInfo(targetPackage, "start activity failed"), it)
+        }
+    }
+
+    private fun packageInfo(packageName: String, message: String): String = "[$packageName] $message"
 }
 
 @dagger.hilt.EntryPoint

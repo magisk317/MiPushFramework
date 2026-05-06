@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.Build
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.core.app.Person
 import androidx.core.content.pm.ShortcutInfoCompat
@@ -19,14 +20,42 @@ import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.notification.NotificationController.getBitmapFromUri
 import io.github.magisk317.mipush.notification.NotificationController.getLargeIcon
 import io.github.magisk317.mipush.notification.NotificationController.roundLargeIconIfConfigured
+import java.util.LinkedHashMap
 
 internal object MyMIPushNotificationStyleSupport {
     private const val TAG = "MyNotificationStyle"
     private val logger = object {
+        fun d(msg: String) = Napier.d(msg, tag = TAG)
         fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
     }
     
     private const val NOTIFICATION_BIG_STYLE_MIN_LEN = 25
+    private const val MAX_CACHED_CONVERSATIONS = 128
+    private const val MAX_MESSAGES_PER_CONVERSATION = 25
+    private const val CONVERSATION_HISTORY_TTL_MS = 2 * 60 * 60 * 1000L
+
+    private data class ConversationKey(
+        val packageName: String,
+        val notificationId: Int,
+        val conversationId: String?
+    )
+
+    private data class CachedMessage(
+        val key: String,
+        val message: NotificationCompat.MessagingStyle.Message
+    )
+
+    private data class ConversationHistory(
+        val messages: MutableList<CachedMessage>,
+        var updatedElapsedMs: Long
+    )
+
+    private val conversationHistories =
+        object : LinkedHashMap<ConversationKey, ConversationHistory>(16, 0.75f, true) {
+            override fun removeEldestEntry(
+                eldest: MutableMap.MutableEntry<ConversationKey, ConversationHistory>
+            ): Boolean = size > MAX_CACHED_CONVERSATIONS
+        }
 
     fun normalStyleNotificationBuilder(
         context: Context,
@@ -63,13 +92,16 @@ internal object MyMIPushNotificationStyleSupport {
         pkgCtx: Context
     ): NotificationCompat.Builder {
         val packageName = container.packageName
-        val messagingBuilder = addToExistingMessageNotification(context, packageName, notificationId, message)
-        return messagingBuilder ?: createMessageStyleNotificationBuilder(
+        val metaInfo = container.metaInfo
+        val group = getGroupFor(context, metaInfo).build()
+        val messages = collectConversationMessages(packageName, notificationId, metaInfo, message)
+        return createMessageStyleNotificationBuilder(
             context,
             container,
-            message,
+            messages,
             pkgCtx,
-            packageName
+            packageName,
+            group
         )
     }
 
@@ -105,28 +137,108 @@ internal object MyMIPushNotificationStyleSupport {
         )
     }
 
-    private fun addToExistingMessageNotification(
-        context: Context,
+    fun clearConversationHistory(packageName: String, notificationId: Int) {
+        synchronized(conversationHistories) {
+            val iterator = conversationHistories.keys.iterator()
+            var removed = 0
+            while (iterator.hasNext()) {
+                val key = iterator.next()
+                if (key.packageName == packageName && key.notificationId == notificationId) {
+                    iterator.remove()
+                    removed++
+                }
+            }
+            if (removed > 0) {
+                logger.d("clear conversation history pkg=$packageName id=$notificationId removed=$removed")
+            }
+        }
+    }
+
+    private fun collectConversationMessages(
         packageName: String,
         notificationId: Int,
+        metaInfo: PushMetaInfo,
         message: NotificationCompat.MessagingStyle.Message
-    ): NotificationCompat.Builder? {
-        return try {
+    ): List<NotificationCompat.MessagingStyle.Message> {
+        val key = conversationKey(packageName, notificationId, metaInfo)
+        val messageKey = messageKey(metaInfo, message)
+        val fallbackMessageKey = messageKey(null, message)
+        val now = SystemClock.elapsedRealtime()
+        var seededCount = 0
+        var appended = false
+        val messages = synchronized(conversationHistories) {
+            var history = conversationHistories[key]
+            if (history != null && now - history.updatedElapsedMs > CONVERSATION_HISTORY_TTL_MS) {
+                conversationHistories.remove(key)
+                history = null
+            }
+            if (history == null) {
+                val seededMessages = activeStyleMessages(packageName, notificationId)
+                    .distinctBy { messageKey(null, it) }
+                    .takeLast(MAX_MESSAGES_PER_CONVERSATION)
+                    .map { CachedMessage(messageKey(null, it), it) }
+                    .toMutableList()
+                seededCount = seededMessages.size
+                history = ConversationHistory(seededMessages, now)
+                conversationHistories[key] = history
+            }
+            if (history.messages.none { it.key == messageKey || it.key == fallbackMessageKey }) {
+                history.messages.add(CachedMessage(messageKey, message))
+                appended = true
+            }
+            while (history.messages.size > MAX_MESSAGES_PER_CONVERSATION) {
+                history.messages.removeAt(0)
+            }
+            history.updatedElapsedMs = now
+            history.messages.map { it.message }
+        }
+        logger.d(
+            "conversation history pkg=$packageName id=$notificationId conversation=${key.conversationId} " +
+                "messages=${messages.size} seeded=$seededCount appended=$appended messageKey=$messageKey"
+        )
+        return messages
+    }
+
+    private fun conversationKey(
+        packageName: String,
+        notificationId: Int,
+        metaInfo: PushMetaInfo
+    ): ConversationKey {
+        val custom = XMPushUtils.getConfiguration(metaInfo)
+        val conversationId = custom.conversationId(null)
+            ?: if (metaInfo.isSetNotifyId()) metaInfo.notifyId.toString() else null
+        return ConversationKey(packageName, notificationId, conversationId)
+    }
+
+    private fun messageKey(
+        metaInfo: PushMetaInfo?,
+        message: NotificationCompat.MessagingStyle.Message
+    ): String {
+        val pushId = metaInfo?.id
+        if (!pushId.isNullOrBlank()) {
+            return "id:$pushId"
+        }
+        val person = message.person
+        val sender = person?.key ?: person?.name?.toString().orEmpty()
+        return "msg:${message.timestamp}:$sender:${message.text}"
+    }
+
+    private fun activeStyleMessages(
+        packageName: String,
+        notificationId: Int
+    ): List<NotificationCompat.MessagingStyle.Message> {
+        try {
             val activeNotification = findActiveNotification(packageName, notificationId)
             if (activeNotification != null) {
                 val activeStyle = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(activeNotification)
                 if (activeStyle != null) {
-                    return NotificationCompat.Builder(context, activeNotification).apply {
-                        activeStyle.addMessage(message)
-                        setStyle(activeStyle)
-                    }
+                    return activeStyle.messages
                 }
             }
-            null
         } catch (e: Exception) {
-            logger.e("Failed to add to existing notification", e)
-            null
+            logger.e("Failed to read active messaging notification", e)
         }
+        return emptyList()
     }
 
     private fun findActiveNotification(packageName: String, notificationId: Int) =
@@ -138,20 +250,20 @@ internal object MyMIPushNotificationStyleSupport {
     private fun createMessageStyleNotificationBuilder(
         context: Context,
         container: XmPushActionContainer,
-        message: NotificationCompat.MessagingStyle.Message,
+        messages: List<NotificationCompat.MessagingStyle.Message>,
         pkgCtx: Context,
-        packageName: String
+        packageName: String,
+        group: Person
     ): NotificationCompat.Builder {
         val metaInfo = container.metaInfo
-        val group = getGroupFor(context, metaInfo).build()
         return NotificationCompat.Builder(context, "xmsf.default").apply {
-            attachMessagingStyle(message, group, metaInfo, this)
+            attachMessagingStyle(messages, group, metaInfo, this)
             addShortcutToEnableMessagingStyle(context, container, pkgCtx, packageName, group, this)
         }
     }
 
     private fun attachMessagingStyle(
-        message: NotificationCompat.MessagingStyle.Message,
+        messages: List<NotificationCompat.MessagingStyle.Message>,
         group: Person,
         metaInfo: PushMetaInfo,
         notificationBuilder: NotificationCompat.Builder
@@ -159,7 +271,7 @@ internal object MyMIPushNotificationStyleSupport {
         val style = NotificationCompat.MessagingStyle(group)
         style.setConversationTitle(group.name)
         style.setGroupConversation(isGroupConversation(metaInfo))
-        style.addMessage(message)
+        messages.forEach { style.addMessage(it) }
         notificationBuilder.setStyle(style)
     }
 

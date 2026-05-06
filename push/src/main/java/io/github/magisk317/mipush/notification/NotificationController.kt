@@ -21,6 +21,7 @@ import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
+import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationStyleSupport
 import com.xiaomi.push.service.MyNotificationIconHelper
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
@@ -222,6 +223,7 @@ object NotificationController {
         notificationGroup: String?,
         clearGroup: Boolean
     ) {
+        MyMIPushNotificationStyleSupport.clearConversationHistory(container.packageName, notificationId)
         getNotificationManagerEx().cancel(
             container.packageName,
             MyMIPushNotificationHelper.getNotificationTag(container),
