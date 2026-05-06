@@ -27,4 +27,13 @@ interface RegisteredApplicationDao {
 
     @Delete
     suspend fun delete(application: RegisteredApplication)
+
+    @Query("UPDATE REGISTERED_APPLICATION SET notification_on_register = :enabled")
+    suspend fun updateAllNotificationOnRegister(enabled: Boolean): Int
+
+    @Query("UPDATE REGISTERED_APPLICATION SET blocked = :blocked WHERE id = :id")
+    suspend fun updateBlocked(id: Long, blocked: Boolean): Int
+
+    @Query("SELECT blocked FROM REGISTERED_APPLICATION WHERE pkg = :pkg LIMIT 1")
+    suspend fun isBlocked(pkg: String): Boolean
 }

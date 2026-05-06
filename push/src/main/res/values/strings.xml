@@ -210,6 +210,7 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="permission_allow_receive_register_result">Receive registration result (not implemented)</string>
     <string name="permission_notification_on_register">Show notification when registering</string>
     <string name="permission_summary_notification_on_register">In order to use, you need to enable global register notification switch in Advance Setting as well</string>
+    <string name="notification_on_register_global_disabled_hint">Please enable \"Notify On App Register\" in Settings first</string>
 
     <string name="register_type_allow">Allow registration, automatic</string>
     <string name="register_type_deny">Block registration</string>
@@ -266,6 +267,7 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="recent_activity_filter_status_normal">Normal</string>
     <string name="recent_activity_filter_status_disabled">Disabled</string>
     <string name="recent_activity_filter_status_denied">Denied</string>
+    <string name="recent_activity_action_hide_registration">Hide registration messages</string>
 
     <!-- Update -->
     <string name="action_help">Help</string>
@@ -441,6 +443,8 @@ This could be the application doing a reverse registration, or the registration 
     <string name="app_detail_activity_and_behavior">Recent activity &amp; behavior</string>
     <string name="app_detail_recent_activity_summary">View recent registration, delivery, and notification events for this app.</string>
     <string name="app_detail_notifications">Notifications &amp; channels</string>
+    <string name="app_detail_block">Block this app</string>
+    <string name="app_detail_block_summary">Block all push messages, registrations, and event records for this app.</string>
     <string name="overview_app_stats_title">Application stats</string>
     <string name="overview_runtime_title">Runtime status</string>
     <string name="overview_project_title">Project actions</string>

@@ -18,6 +18,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -51,6 +52,9 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -86,6 +90,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.common.utils.Utils
+import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import io.github.magisk317.mipush.runtime.store.entities.Event
 import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
@@ -217,38 +222,46 @@ open class ApplicationInfoPage : ComponentActivity() {
             )
         }
 
+        val snackbarHostState = remember { SnackbarHostState() }
+
         Theme {
             Surface(
                 modifier = Modifier.fillMaxSize(),
                 color = MaterialTheme.colorScheme.background,
             ) {
-                val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-                val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-                SectionColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = MaterialTheme.spacing.medium),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                        top = topInset + MaterialTheme.spacing.medium,
-                        bottom = bottomInset + MaterialTheme.spacing.medium,
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
-                ) {
-                    SettingsScreen()
+                Box(modifier = Modifier.fillMaxSize()) {
+                    val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+                    val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                    SectionColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = MaterialTheme.spacing.medium),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                            top = topInset + MaterialTheme.spacing.medium,
+                            bottom = bottomInset + MaterialTheme.spacing.medium,
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
+                    ) {
+                        SettingsScreen(snackbarHostState)
+                    }
+                    SnackbarHost(
+                        hostState = snackbarHostState,
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                    )
                 }
             }
         }
     }
 
     @Composable
-    fun SettingsScreen() {
+    fun SettingsScreen(snackbarHostState: SnackbarHostState) {
         ApplicationInfoHeader()
         RegistrationDiagnosticsCard()
         RegistrationActionsCard()
         TipsCard()
-        ActivitySectionCard()
+        ActivitySectionCard(snackbarHostState)
         NotificationSection()
     }
 
@@ -685,17 +698,38 @@ open class ApplicationInfoPage : ComponentActivity() {
     }
 
     @Composable
-    private fun ActivitySectionCard() {
+    private fun ActivitySectionCard(snackbarHostState: SnackbarHostState) {
+        val context = LocalContext.current
+        val scope = rememberCoroutineScope()
+        val globalEnabled = remember {
+            runBlocking {
+                io.github.magisk317.mipush.platform.support.Global.configCenter()
+                    .isNotificationOnRegisterAsync()
+            }
+        }
         var checked by remember { mutableStateOf(applicationInfo.notificationOnRegister) }
+        var blocked by remember { mutableStateOf(applicationInfo.blocked) }
 
         DetailSectionCard(
             title = stringResource(R.string.app_detail_activity_and_behavior),
         ) {
+            SettingSwitchRow(
+                title = stringResource(R.string.app_detail_block),
+                summary = stringResource(R.string.app_detail_block_summary),
+                checked = blocked,
+                showDivider = true,
+            ) {
+                blocked = it
+                applicationInfo.blocked = blocked
+                RegisteredApplicationDb.update(applicationInfo)
+            }
+
             ActionSummaryRow(
                 title = stringResource(R.string.recent_activity_view),
                 summary = stringResource(R.string.app_detail_recent_activity_summary),
                 actionLabel = stringResource(R.string.recent_activity_view),
                 showDivider = true,
+                enabled = !blocked,
             ) {
                 appConfigurationUtils.gotoRecentEventsPage()
             }
@@ -704,10 +738,20 @@ open class ApplicationInfoPage : ComponentActivity() {
                 title = stringResource(R.string.permission_notification_on_register),
                 summary = stringResource(R.string.permission_summary_notification_on_register),
                 checked = checked,
+                enabled = globalEnabled && !blocked,
                 showDivider = false,
+                onClickWhenDisabled = {
+                    scope.launch {
+                        snackbarHostState.showSnackbar(
+                            message = context.getString(R.string.notification_on_register_global_disabled_hint),
+                            duration = SnackbarDuration.Short,
+                        )
+                    }
+                },
             ) {
                 checked = it
                 applicationInfo.notificationOnRegister = checked
+                RegisteredApplicationDb.update(applicationInfo)
             }
         }
     }
@@ -874,12 +918,21 @@ private fun SettingSwitchRow(
     title: String,
     summary: String,
     checked: Boolean,
+    enabled: Boolean = true,
     showDivider: Boolean = false,
+    onClickWhenDisabled: (() -> Unit)? = null,
     onCheckedChange: (Boolean) -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .then(
+                if (!enabled && onClickWhenDisabled != null) {
+                    Modifier.clickable { onClickWhenDisabled() }
+                } else {
+                    Modifier
+                }
+            )
             .padding(horizontal = MaterialTheme.spacing.large, vertical = MaterialTheme.spacing.medium),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -887,17 +940,19 @@ private fun SettingSwitchRow(
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
+                color = if (enabled) Color.Unspecified else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
             )
             Text(
                 text = summary,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
             )
         }
         Spacer(Modifier.width(MaterialTheme.spacing.medium))
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange,
+            onCheckedChange = if (enabled) onCheckedChange else null,
+            enabled = enabled,
         )
     }
     if (showDivider) {

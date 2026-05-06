@@ -71,6 +71,10 @@ class MyMIPushNotificationHelper {
                 logger.i("skip non-display notification action=${container.action} pkg=${container.packageName}")
                 return
             }
+            if (RegisteredApplicationDb.isBlocked(container.packageName)) {
+                logger.i("skip blocked application pkg=${container.packageName} action=${container.action}")
+                return
+            }
             HookTraceCompat.notifyPushMessage(container, decryptedContent)
             if (!MiPushRuntimeBridge.onNotificationDispatch(context, container, decryptedContent)) {
                 logger.i(
@@ -208,6 +212,10 @@ class MyMIPushNotificationHelper {
         private fun doNotifyPushMessage(context: Context, container: XmPushActionContainer, decryptedContent: ByteArray) {
             val metaInfo = container.metaInfo
             val messageId = MessageIdentity.fromContainer(container)
+            if (metaInfo == null) {
+                logger.w("doNotifyPushMessage: metaInfo is null, skip notification pkg=${container.packageName} messageId=$messageId")
+                return
+            }
             logger.i("title:${metaInfo.title}  description:${metaInfo.description}")
             val result = getNotificationFor(context, container, decryptedContent)
             logger.i(

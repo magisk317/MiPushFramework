@@ -38,6 +38,11 @@ class RegisterRecorder(private val context: Context) {
                 return
             }
 
+            if (RegisteredApplicationDb.isBlocked(pkg)) {
+                logger.d("skip blocked application registration pkg=$pkg")
+                return
+            }
+
             logger.d("onHandleIntent -> A application want to register push")
             showRegisterToastIfUserAllow(RegisteredApplicationDb.registerApplication(pkg))
             saveRegisterAppRecord(pkg)

@@ -197,6 +197,7 @@
     <string name="permission_allow_receive_register_result">接收注册结果（暂时无效）</string>
     <string name="permission_notification_on_register">注册时显示通知</string>
     <string name="permission_summary_notification_on_register">需要在设置-高级配置中打开全局注册通知开关</string>
+    <string name="notification_on_register_global_disabled_hint">请先到设置中打开「应用注册时显示通知」总开关</string>
     <string name="register_type_allow">允许并自动注册</string>
 
     <string name="register_type_deny">阻止注册</string>
@@ -247,6 +248,7 @@
     <string name="recent_activity_filter_status_normal">正常</string>
     <string name="recent_activity_filter_status_disabled">已禁用</string>
     <string name="recent_activity_filter_status_denied">已拒绝</string>
+    <string name="recent_activity_action_hide_registration">隐藏注册消息</string>
     <string name="action_help">帮助</string>
 
 
@@ -414,6 +416,8 @@
     <string name="app_detail_activity_and_behavior">近期活动与行为</string>
     <string name="app_detail_recent_activity_summary">查看这个应用最近的注册、到达和通知事件。</string>
     <string name="app_detail_notifications">通知与渠道</string>
+    <string name="app_detail_block">拉黑此应用</string>
+    <string name="app_detail_block_summary">拉黑后，该应用的所有推送消息、注册请求和事件记录都将被忽略。</string>
     <string name="overview_app_stats_title">应用统计</string>
     <string name="overview_runtime_title">运行状态</string>
     <string name="overview_project_title">项目入口</string>

@@ -81,6 +81,9 @@ class RegisteredApplication : Parcelable {
     @ColumnInfo(name = "notification_on_register")
     var notificationOnRegister: Boolean = false
 
+    @ColumnInfo(name = "blocked", defaultValue = "0")
+    var blocked: Boolean = false
+
     @RegisteredType
     @ColumnInfo(name = "registered_type")
     var registeredType: Int = RegisteredType.NotRegistered
@@ -112,7 +115,8 @@ class RegisteredApplication : Parcelable {
         type: Int,
         notificationOnRegister: Boolean,
         registeredType: Int,
-        appName: String
+        appName: String,
+        blocked: Boolean = false
     ) {
         this.id = id
         this.packageName = packageName
@@ -120,6 +124,7 @@ class RegisteredApplication : Parcelable {
         this.notificationOnRegister = notificationOnRegister
         this.registeredType = registeredType
         this.appName = appName
+        this.blocked = blocked
     }
 
     constructor()

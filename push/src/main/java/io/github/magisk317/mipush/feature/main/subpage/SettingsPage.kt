@@ -22,18 +22,23 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
@@ -65,6 +70,9 @@ import io.github.magisk317.mipush.feature.ui.component.SettingsSwitchItem
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 import io.github.magisk317.mipush.feature.ui.theme.Theme
 import io.github.magisk317.mipush.feature.ui.theme.spacing
+import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 @Composable
 fun Settings(
@@ -76,16 +84,25 @@ fun Settings(
     hazeState: HazeState? = null,
     hazeStyle: HazeStyle? = null,
 ) {
+    val snackbarHostState = remember { SnackbarHostState() }
+
     Page {
-        SettingsScreen(
-            contentPadding = contentPadding,
-            onShowAboutDialog = onShowAboutDialog,
-            viewModel = viewModel,
-            onSectionChanged = onSectionChanged,
-            sectionBackSignal = sectionBackSignal,
-            hazeState = hazeState,
-            hazeStyle = hazeStyle,
-        )
+        Box(modifier = Modifier.fillMaxSize()) {
+            SettingsScreen(
+                contentPadding = contentPadding,
+                onShowAboutDialog = onShowAboutDialog,
+                viewModel = viewModel,
+                onSectionChanged = onSectionChanged,
+                sectionBackSignal = sectionBackSignal,
+                hazeState = hazeState,
+                hazeStyle = hazeStyle,
+                snackbarHostState = snackbarHostState,
+            )
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
+        }
     }
 }
 
@@ -98,6 +115,7 @@ private fun SettingsScreen(
     sectionBackSignal: Int,
     hazeState: HazeState?,
     hazeStyle: HazeStyle?,
+    snackbarHostState: SnackbarHostState,
 ) {
     val title = stringResource(R.string.main_settings)
     val density = LocalDensity.current
@@ -143,7 +161,7 @@ private fun SettingsScreen(
                 expanded = serviceExpanded,
                 onExpandedChange = { serviceExpanded = !serviceExpanded },
             ) {
-                ServiceConfigurationBlock(viewModel)
+                ServiceConfigurationBlock(viewModel, snackbarHostState)
             }
 
             SettingsSectionCard(
@@ -230,8 +248,9 @@ private fun SettingsSectionCard(
 }
 
 @Composable
-private fun ServiceConfigurationBlock(viewModel: SettingsViewModel) {
+private fun ServiceConfigurationBlock(viewModel: SettingsViewModel, snackbarHostState: SnackbarHostState) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val isStartForeground by viewModel.isStartForeground.collectAsStateWithLifecycle()
     val notificationOnRegister by viewModel.notificationOnRegister.collectAsStateWithLifecycle()
 
@@ -249,7 +268,20 @@ private fun ServiceConfigurationBlock(viewModel: SettingsViewModel) {
     SettingsSwitchItem(
         title = stringResource(R.string.settings_notify_on_register),
         checked = notificationOnRegister,
-    ) { viewModel.setNotificationOnRegister(it) }
+    ) { newValue ->
+        viewModel.setNotificationOnRegister(newValue)
+        if (!newValue) {
+            scope.launch(Dispatchers.IO) {
+                RegisteredApplicationDb.updateAllNotificationOnRegister(false)
+            }
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    message = context.getString(R.string.notification_on_register_global_disabled_hint),
+                    duration = SnackbarDuration.Short,
+                )
+            }
+        }
+    }
 
     SettingsItem(
         title = stringResource(R.string.settings_permission_check),

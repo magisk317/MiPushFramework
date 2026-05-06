@@ -78,4 +78,19 @@ object RegisteredApplicationDb {
     private fun insert(application: RegisteredApplication): Long = runBlocking {
         registeredApplicationDao.insert(application)
     }
+
+    @JvmStatic
+    fun updateAllNotificationOnRegister(enabled: Boolean): Int = runBlocking {
+        registeredApplicationDao.updateAllNotificationOnRegister(enabled)
+    }
+
+    @JvmStatic
+    fun updateBlocked(id: Long, blocked: Boolean): Int = runBlocking {
+        registeredApplicationDao.updateBlocked(id, blocked)
+    }
+
+    @JvmStatic
+    fun isBlocked(pkg: String): Boolean = runBlocking {
+        registeredApplicationDao.isBlocked(pkg)
+    }
 }

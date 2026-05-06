@@ -120,6 +120,10 @@ object MiPushRuntimeBridge {
         source: String
     ): Boolean {
         val container = XMPushUtils.packToContainer(payload) ?: return false
+        if (container.packageName != null && RegisteredApplicationDb.isBlocked(container.packageName)) {
+            logger.d("skip blocked application payload source=$source pkg=${container.packageName}")
+            return false
+        }
         val isMockReplay = MockMessageRegistry.isMarked(container)
         val actionName = container.action?.name ?: "Unknown"
         val messageId = MessageIdentity.fromContainer(container)
@@ -196,6 +200,10 @@ object MiPushRuntimeBridge {
     private fun recordEvent(context: Context, container: XmPushActionContainer) {
         val pkg = container.packageName
         if (pkg.isNullOrBlank()) {
+            return
+        }
+        if (RegisteredApplicationDb.isBlocked(pkg)) {
+            logger.d("skip event record for blocked application pkg=$pkg")
             return
         }
         val eventType = TypeFactory.createForStore(container)
