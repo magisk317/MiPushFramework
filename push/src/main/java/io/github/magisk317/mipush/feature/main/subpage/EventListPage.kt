@@ -110,6 +110,7 @@ fun EventList(
         var filtersExpanded by rememberSaveable { mutableStateOf(false) }
         var selectedTypeFilters by remember { mutableStateOf(emptySet<EventTypeFilter>()) }
         var selectedStatusFilters by remember { mutableStateOf(emptySet<EventStatusFilter>()) }
+        var hideRegistration by rememberSaveable { mutableStateOf(false) }
         var groupMode by rememberSaveable(groupByApp, packageName) { mutableStateOf(groupByApp) }
         val showGroupedByApp = packageName.isEmpty() && groupMode
         val resolvedTitle = remember(packageName) {
@@ -155,6 +156,7 @@ fun EventList(
                         viewModel = viewModel,
                         selectedTypeFilters = selectedTypeFilters,
                         selectedStatusFilters = selectedStatusFilters,
+                        hideRegistration = hideRegistration,
                         hazeState = hazeState
                     )
                 } else {
@@ -176,6 +178,7 @@ fun EventList(
                         ),
                         selectedTypeFilters = selectedTypeFilters,
                         selectedStatusFilters = selectedStatusFilters,
+                        hideRegistration = hideRegistration,
                         hazeState = hazeState,
                         hazeStyle = hazeStyle
                     )
@@ -207,6 +210,23 @@ fun EventList(
                                             stringResource(R.string.recent_activity_action_group_by_app)
                                         },
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                IconButton(onClick = { hideRegistration = !hideRegistration }) {
+                                    Icon(
+                                        painter = painterResource(
+                                            if (hideRegistration) {
+                                                R.drawable.ic_notifications_off_24dp
+                                            } else {
+                                                R.drawable.ic_notifications_black_24dp
+                                            },
+                                        ),
+                                        contentDescription = stringResource(R.string.recent_activity_action_hide_registration),
+                                        tint = if (hideRegistration) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
                                     )
                                 }
                             }
@@ -455,7 +475,16 @@ private enum class EventStatusFilter(val labelRes: Int) {
 private fun EventInfoForDisplay.matchesFilters(
     selectedTypeFilters: Set<EventTypeFilter>,
     selectedStatusFilters: Set<EventStatusFilter>,
+    hideRegistration: Boolean = false,
 ): Boolean {
+    if (hideRegistration && event.type in setOf(
+            Event.Type.Registration,
+            Event.Type.RegistrationResult,
+            Event.Type.UnRegistration,
+        )
+    ) {
+        return false
+    }
     val matchesType = selectedTypeFilters.isEmpty() || selectedTypeFilters.any { filter ->
         when (filter) {
             EventTypeFilter.Notification -> event.type == Event.Type.SendMessage && !isPassThroughMessage()
@@ -501,6 +530,7 @@ private fun EventGroupList(
     viewModel: EventListViewModel,
     selectedTypeFilters: Set<EventTypeFilter>,
     selectedStatusFilters: Set<EventStatusFilter>,
+    hideRegistration: Boolean = false,
     hazeState: HazeState? = null
 ) {
     val context = LocalContext.current
@@ -512,7 +542,7 @@ private fun EventGroupList(
     var isLoading by remember { mutableStateOf(false) }
     fun rebuildGroups() {
         val grouped = allEvents
-            .filter { it.matchesFilters(selectedTypeFilters, selectedStatusFilters) }
+            .filter { it.matchesFilters(selectedTypeFilters, selectedStatusFilters, hideRegistration) }
             .groupBy { it.packageName }
             .map { (pkg, events) ->
                 val sortedEvents = events.sortedByDescending { it.receiveDate.time }
@@ -665,7 +695,9 @@ private fun EventDetailsDialog(
 ) {
     var json by remember {
         mutableStateOf(
-            content ?: viewModel.getJson(clickedEvent.event)
+            content
+                ?: viewModel.getJson(clickedEvent.event)
+                ?: buildEventDebugInfo(clickedEvent)
         )
     }
     val context = LocalContext.current
@@ -725,6 +757,22 @@ private fun EventDetailsDialog(
     )
 }
 
+private fun buildEventDebugInfo(event: EventInfoForDisplay): String {
+    return buildString {
+        appendLine("packageName=${event.packageName}")
+        appendLine("appName=${event.appName ?: "<unknown>"}")
+        appendLine("title=${event.title}")
+        appendLine("channel=${event.channel.ifBlank { "<none>" }}")
+        appendLine("configOptions=${event.configOptions.joinToString(",").ifBlank { "<none>" }}")
+        appendLine("receiveDate=${receiveDateFormat.format(event.receiveDate)}")
+        appendLine("type=${event.event.type}")
+        appendLine("result=${event.event.result}")
+        appendLine("info=${event.event.info ?: "<none>"}")
+        appendLine("payloadBytes=${event.event.payload?.size ?: 0}")
+        appendLine("content=${event.content}")
+    }
+}
+
 private val g_items = mutableStateListOf<EventInfoForDisplay>()
 
 private fun EventInfoForDisplay.composeKey(): String {
@@ -752,6 +800,7 @@ private fun EventList(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     selectedTypeFilters: Set<EventTypeFilter> = emptySet(),
     selectedStatusFilters: Set<EventStatusFilter> = emptySet(),
+    hideRegistration: Boolean = false,
     hazeState: HazeState? = null,
     hazeStyle: HazeStyle? = null
 ) {
@@ -803,7 +852,7 @@ private fun EventList(
     }
 
     val isNeedMore: (Int) -> Boolean = { hasMore && !isLoading && it >= items.size - 10 }
-    val filteredItems = items.filter { it.matchesFilters(selectedTypeFilters, selectedStatusFilters) }
+    val filteredItems = items.filter { it.matchesFilters(selectedTypeFilters, selectedStatusFilters, hideRegistration) }
 
     RefreshableLazyColumn(
         doRefresh,

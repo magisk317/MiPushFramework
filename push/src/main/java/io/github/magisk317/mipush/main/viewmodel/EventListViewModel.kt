@@ -95,8 +95,8 @@ class EventListViewModel @Inject constructor(
         return eventRepository.getContent(event, container)
     }
 
-    fun getJson(event: Event): String {
-        return eventRepository.getJson(event).toString()
+    fun getJson(event: Event): String? {
+        return eventRepository.getJson(event)?.toString()
     }
     
     suspend fun fetchEventsSuspend(isRefresh: Boolean, lastId: Long?, packageName: String, query: String): List<EventInfoForDisplay> {

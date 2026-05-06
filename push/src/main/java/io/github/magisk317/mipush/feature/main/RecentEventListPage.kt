@@ -13,11 +13,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import dev.chrisbanes.haze.HazeState
+import dagger.hilt.android.AndroidEntryPoint
 import io.github.magisk317.mipush.feature.main.subpage.EventList
 import io.github.magisk317.mipush.feature.ui.theme.Theme
 import io.github.magisk317.mipush.feature.ui.theme.SystemBarsScrim
 import io.github.magisk317.mipush.feature.ui.theme.rememberHazeStyle
 
+@AndroidEntryPoint
 open class RecentEventListPage : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
