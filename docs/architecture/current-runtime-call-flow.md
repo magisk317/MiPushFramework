@@ -44,7 +44,7 @@ Key source:
 
 Key source:
 
-- `runtime-core/src/main/java/com/xiaomi/xmsf/runtime/PushRuntime.kt`
+- `runtime-core/src/main/java/io/github/magisk317/mipush/runtime/core/PushRuntime.kt`
 
 ## 4. Execution Host
 
@@ -102,7 +102,7 @@ Supporting layers:
 
 Key sources:
 
-- `push/src/main/java/io/github/magisk317/mipush/framework/notification/MyMIPushNotificationHelper.kt`
+- `push/src/main/java/io/github/magisk317/mipush/service/runtime/MyMIPushNotificationHelper.kt`
 - `push/src/main/java/io/github/magisk317/mipush/notification/NotificationManagerEx.kt`
 - `legacy-runtime/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt`
 

@@ -1,14 +1,14 @@
-# Push Module Split And Kotlin Port Plan
+# Push Module Split And Kotlin Port Record
 
-This document continues the refactor plan in `/home/lzc/.claude/plans/vivid-frolicking-hummingbird.md`.
-It is the working rulebook for splitting `push/` while porting the remaining Java sources to Kotlin.
+This document records the completed `push` split and Java-to-Kotlin port. It is retained as a
+historical ownership map for future runtime work, not as an active migration checklist.
 
 ## Current Snapshot
 
-As of 2026-05-05, after the runtime, timer, service receiver, client-report, remaining `com.xiaomi.push.*` splits, and the final `PushMessageProcessor` Kotlin port, `push/src/main/java` contains:
+As of 2026-05-06, after the runtime, timer, service receiver, client-report, remaining `com.xiaomi.push.*` splits, and the final `PushMessageProcessor` Kotlin port, `push/src/main/java` contains:
 
 - 0 Java files
-- 269 Kotlin files
+- 268 Kotlin files
 
 The remaining legacy app-facing compatibility surface now lives primarily under:
 
@@ -37,65 +37,33 @@ Use these two source trees differently:
   - APK SHA-256 `f3d72b6f5e1427ceecd3147a051d58e4dc95bb528397d486658e01cad9f7e590`
   - useful for identifying current shipped behavior, but not a stock 7.x source.
 
-There are no remaining Java sources under `push/src/main/java`.
-Source-trace cleanup now focuses on retained `legacy-runtime/com/xiaomi/*` compatibility classes, where old
-3.x decompiler banners still need to be normalized to the 7.4.67-C stock and/or 2026-04-13 current references.
+There are no remaining Java sources under `push/src/main/java` or `legacy-runtime/src/main/java`.
 Stock 7.x files often contain JADX artifacts such as obfuscated names, synthetic switch maps, or invalid `??`
-temporaries; those are reference signals, not source-ready code.
+temporaries; those remain reference signals, not source-ready code.
 
-## Goals
+## Current Rules
 
-1. Convert remaining Java in `push/` to Kotlin in small package-sized batches.
-2. Preserve useful source comments while porting:
-   - Javadoc and behavior notes stay with the relevant declaration.
-   - Inline comments stay near the same branch or side effect.
-   - Decompiler source comments such as `JADX INFO` are kept when the file still tracks stock code.
-   - Java `@Override // ...` comments may become Kotlin comments when they clarify the original owner.
-3. Use 7.x dump references to update behavior when the change is clear and compatibility-preserving.
+1. Keep `push/` as the product/app/system-entry module.
+2. Keep retained `com.xiaomi.*` runtime code in `legacy-runtime` unless there is a clear product-owned reason to move it.
+3. Keep protocol and generated-like wire types in `protocol-frozen`.
 4. Keep `com.xiaomi.*` package names for compatibility-sensitive surfaces.
-5. Split modules only after ownership is clear; do not move code just because it compiles.
+5. Device dump sources remain references only; they do not enter the Gradle source graph.
 
 ## Ownership Rules
 
-Classify each package before translating it:
+Classify each package before moving or rewriting it:
 
 - Product-owned code remains in `push/` unless it is reusable across modules.
 - Long-connection runtime code moves toward `legacy-runtime` when it is still required but not product-owned.
 - Protocol and generated-like wire types stay in `protocol-frozen`.
 - Platform/system references from device dumps never enter the Gradle source graph directly.
 
-Suggested first migration lanes:
+## Kotlin Maintenance Notes
 
-- `com.xiaomi.slim.*` and `com.xiaomi.smack.*`: runtime transport, good candidates for `legacy-runtime` after Kotlin parity.
-- `com.xiaomi.stats.*` and `com.xiaomi.tinyData.*`: telemetry/runtime support, review delete-first candidates before porting.
-- `com.xiaomi.mipush.sdk.*`: the `push/` duplicates are now removed or ported; retained app-facing compatibility code stays in `legacy-runtime` until the public API and manifest/broadcast behavior are stable.
-- `com.xiaomi.push.service.*`: split by role; runtime internals trend toward `legacy-runtime`, stock compatibility glue stays in `push/`.
-
-## Porting Workflow
-
-For each batch:
-
-1. List Java files and call sites with `rg`.
-2. Compare the repo file with the same path under the 7.x dump.
-3. Prefer stock 7.x for behavior, then use the current override only to explain current project-specific drift.
-4. Mark differences as one of:
-   - behavior update to port
-   - decompiler rename/artifact to ignore
-   - project-specific runtime bridge to keep
-   - deletion candidate
-5. Convert Java to Kotlin with the same package and public JVM surface.
-6. Preserve comments during the conversion.
-7. Delete the same-class Java file in the same change.
-8. Run at least `./gradlew :push:compileDebugKotlin`.
-9. For moved code, run the destination module compile task too.
-
-## Kotlin Porting Notes
-
-- Avoid creative rewrites during the first port; keep control flow close to the reviewed Java.
 - Prefer Kotlin nullability that matches actual Java behavior, especially for decompiled platform/runtime code.
 - Keep constants and static factory calls stable for Java callers.
-- Use explicit `Blob.CMD_*`-style qualifiers when it prevents ambiguity in mixed Java/Kotlin packages.
-- Be careful with Java package-private methods. Kotlin may widen JVM visibility, so compile the batch before moving on.
+- Use explicit `Blob.CMD_*`-style qualifiers when it prevents ambiguity in compatibility code.
+- Be careful when changing Java-facing APIs; Kotlin may widen JVM visibility or change generated signatures.
 
 ## Completed Slices
 

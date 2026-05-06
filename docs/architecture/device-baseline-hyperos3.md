@@ -31,13 +31,13 @@ Collected outside the repo as reference samples:
 - `miui-services.jar` is dominated by `com.miui.server` and vendor namespaces
   - treat as MIUI/OEM extension boundary
 - `xmsf.apk` includes both product code and embedded legacy runtime
-  - product-owned examples: `com.xiaomi.xmsf`, `top.trumeet`, `io.github.magisk317`, `io.github.magisk317`
+  - product-owned examples: `com.xiaomi.xmsf`, `io.github.magisk317`, `io.github.magisk317.mipush`
   - embedded legacy/runtime examples: `com.xiaomi.push`, `com.xiaomi.mipush`,
     `com.xiaomi.channel`, `com.xiaomi.smack`, `com.xiaomi.slim`, `org.apache.thrift`
 
 ## Practical Consequence
 
-When deciding whether a repository package should be deleted, isolated, or rewritten:
+When deciding whether a repository package should be isolated or rewritten:
 - compare against framework / services / MIUI jars for **platform responsibility**
 - compare against current `xmsf.apk` for **what the project currently ships**
 - do not treat the shipped `xmsf.apk` as “official system xmsf”; it is the project build

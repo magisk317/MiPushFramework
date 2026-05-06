@@ -19,8 +19,8 @@ MiPushFramework is not just an app project. It currently mixes four distinct lay
      - `io.github.magisk317.mipush.*`
      - app-facing service/sdk surfaces such as `com.xiaomi.push.service.*`,
        `com.xiaomi.mipush.sdk.*`, and `com.xiaomi.push.sdk.*`
-   - Legacy `top.trumeet.*` entrypoints are compat shims only and should not be used as the
-     primary implementation namespace for new work.
+   - Retired `top.trumeet.*` source roots are no longer part of the active source tree. Preserve
+     stock-facing package/component names only where external compatibility requires them.
 
 3. **legacy-runtime**
    - Vendored Xiaomi push/runtime/network/telemetry stacks that are packaged into the app but are
@@ -69,22 +69,14 @@ MiPushFramework is not just an app project. It currently mixes four distinct lay
 - `platform-reference` artifacts never enter the Gradle build graph.
 - `frozen-protocol` changes must be compatibility-preserving and non-creative.
 
-## Delete-First Candidates
-
-Delete before translating where possible:
-- demo / sample / `usagedemo` code
-- duplicated `BuildConfig` shells
-- thin marker enums / interfaces / trivial holders
-- old ads / debug / support code that is not used by the current minimum compatibility chain
-
-## Structural End State
+## Structural State
 
 - `push` becomes the product/app/system-entry module only.
 - `legacy-runtime` contains vendored runtime still needed after pruning.
 - `protocol-frozen` contains protocol/serialization source that must remain wire-stable.
 - Device system jars remain external reference inputs, not source modules.
 
-## Working Migration Plan
+## Refactor Record
 
-The current package-by-package Java to Kotlin porting and `push/` split rules are tracked in
-`docs/architecture/push-module-split.md`.
+The package-by-package Java to Kotlin porting and `push/` split are complete. The retained history
+and ownership notes are recorded in `docs/architecture/push-module-split.md`.
