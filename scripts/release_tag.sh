@@ -22,8 +22,7 @@ run_pre_push_checks() {
   (
     cd "$ROOT_DIR"
     bash scripts/with_workspace_gradle_lock.sh -I gradle/security-overrides.init.gradle --warning-mode all \
-      :checkNoLegacyNihilityImports \
-      :checkNoLegacyDialogActionButtons \
+      :checkReadmeBuildRequirements \
       :common:check \
       :push:assembleDebug \
       :push:testDebugUnitTest \
