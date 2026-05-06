@@ -1,4 +1,4 @@
-name: Dependabot Janitor
+name: Dependency Janitor
 
 on:
   schedule:

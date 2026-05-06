@@ -11,8 +11,6 @@ jobs:
     permissions:
       contents: write
 
-    if: github.actor != 'dependabot[bot]' && github.actor != 'app/dependabot'
-
     steps:
       - uses: actions/checkout@v6
         with:

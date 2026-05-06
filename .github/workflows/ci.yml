@@ -29,7 +29,6 @@ jobs:
           validate-wrappers: false
           allow-snapshot-wrappers: true
       - name: Validate security override files
-        if: github.actor != 'dependabot[bot]' && github.actor != 'app/dependabot'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
