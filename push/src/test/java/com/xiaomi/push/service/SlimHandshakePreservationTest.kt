@@ -171,7 +171,7 @@ class SlimHandshakePreservationTest {
         )
 
         if (channelId != 0) {
-            assertEquals(PushSlimInboundAction.None, plan.action)
+            assertEquals(PushSlimInboundAction.DeliverBlob, plan.action)
             assertNull(plan.eventAction)
             assertFalse(plan.shouldUpdateLastReceived)
             assertNull(plan.connectionState)

@@ -411,11 +411,7 @@ object DeviceInfo {
         } else {
             null
         }
-        return if (myUserId != null) {
-            Integer::class.java.cast(myUserId).toInt()
-        } else {
-            -1
-        }
+        return (myUserId as? Number)?.toInt() ?: -1
     }
 
     @JvmStatic

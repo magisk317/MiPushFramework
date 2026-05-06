@@ -10,6 +10,7 @@ import android.os.Looper
 import android.os.Parcel
 import android.os.RemoteException
 import com.xiaomi.channel.commonutils.logger.MyLog
+import java.lang.Object
 
 /*
  * Current override reference: com.xiaomi.xmsf 0.3.17-20260410000745 (versionCode 1003003000),

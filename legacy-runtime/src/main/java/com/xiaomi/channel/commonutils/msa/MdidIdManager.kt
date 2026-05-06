@@ -9,6 +9,7 @@ import com.xiaomi.channel.commonutils.logger.MyLog
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
+import java.lang.Object
 import kotlin.math.abs
 
 /*
@@ -124,7 +125,7 @@ class MdidIdManager(context: Context) : IdManager, InvocationHandler {
         }
         val start = mGettingOrGotTime
         var effectiveStart = start
-        var elapsed = SystemClock.elapsedRealtime() - abs(start)
+        var elapsed = SystemClock.elapsedRealtime() - kotlin.math.abs(start)
         val retryCount = mRetryCount
         if (elapsed > TIME_WAIT_LOCK && retryCount < MAX_RETRY_COUNT) {
             synchronized(mLockObj) {

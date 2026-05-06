@@ -25,10 +25,13 @@ class AppDatabaseMigrationContractTest {
     }
 
     @Test
-    fun `migration registry currently exposes only baseline migration`() {
-        assertEquals(1, AppDatabaseMigrations.ALL.size)
+    fun `migration registry exposes all migrations`() {
+        assertEquals(2, AppDatabaseMigrations.ALL.size)
         assertEquals(1, AppDatabaseMigrations.MIGRATION_1_2.startVersion)
         assertEquals(2, AppDatabaseMigrations.MIGRATION_1_2.endVersion)
+        
+        assertEquals(2, AppDatabaseMigrations.MIGRATION_2_3.startVersion)
+        assertEquals(3, AppDatabaseMigrations.MIGRATION_2_3.endVersion)
     }
 
     private class SqlRecorder : InvocationHandler {

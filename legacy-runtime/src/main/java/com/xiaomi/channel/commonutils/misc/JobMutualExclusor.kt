@@ -43,9 +43,9 @@ object JobMutualExclusor {
             e.printStackTrace()
             true
         } finally {
-            if (fileLock != null && fileLock!!.isValid) {
+            if (fileLock?.isValid == true) {
                 try {
-                    fileLock!!.release()
+                    fileLock.release()
                 } catch (e: IOException) {
                     // ignore
                 }

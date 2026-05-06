@@ -44,7 +44,7 @@ class PushSlimConnectionRuntimeTest {
             cmd = "MSG"
         )
 
-        assertEquals(PushSlimInboundAction.None, plan.action)
+        assertEquals(PushSlimInboundAction.DeliverBlob, plan.action)
         assertNull(plan.eventAction)
         assertFalse(plan.shouldUpdateLastReceived)
         assertNull(plan.disconnectReasonCode)
