@@ -404,9 +404,11 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun processMIPushMessage(payload: ByteArray, trafficBytes: Long) {
-        if (MiPushRuntimeBridge.onPayloadFromServer(appContext, payload, trafficBytes, "MiPushRuntimeObserverBridge.processMIPushMessage")) {
-            MyMIPushNotificationHelper.notifyPushMessage(appContext, payload)
-        }
+        // Don't re-enter onPayloadFromServer here — it was already called by onPayloadReceived
+        // via ClientEventDispatcher.notifyPacketArrival, which marks the message as seen.
+        // Re-entering would cause shouldProcessPayloadIdentity to return false (duplicate),
+        // so notifyPushMessage would never be called.
+        MyMIPushNotificationHelper.notifyPushMessage(appContext, payload)
     }
 
     override fun postProcessMIPushMessage(targetPackage: String, payload: ByteArray, intent: Intent) {
@@ -525,6 +527,9 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         envType: Int,
         servicePackageName: String
     ): PushServiceRegisterAppPlan {
+        if (packageName != null && io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb.isBlocked(packageName)) {
+            return PushServiceRegisterAppPlan(action = PushServiceRegisterAppAction.Ignore)
+        }
         // Throttle registration requests when channel is not bound to prevent registration storms
         if (packageName != null) {
             val allClients = PushClientsManager.getInstance().getAllClients()

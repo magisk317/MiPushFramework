@@ -287,6 +287,8 @@ class PacketSync(
         }
     }
 
+    private val pushEventProcessor = MIPushEventProcessor()
+
     private fun handleClientBlob(blob: Blob, cmd: String?) {
         val channelId = blob.channelId.toString()
         when {
@@ -297,6 +299,9 @@ class PacketSync(
             cmd == Blob.CMD_KICK -> {
                 val kick = ChannelMessage.XMMsgKick.parseFrom(blob.payload)
                 handleKick(channelId, blob.fullUserName, kick.type, kick.reason)
+            }
+            cmd == Blob.CMD_SECMSG -> {
+                ClientEventDispatcherPacketSupport.notifyPacketArrival(pushAction, channelId, blob, pushEventProcessor)
             }
         }
     }

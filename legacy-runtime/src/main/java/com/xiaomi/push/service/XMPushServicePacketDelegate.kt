@@ -162,7 +162,12 @@ internal class XMPushServicePacketDelegate(
 
                         override fun process() {
                             try {
-                                MIPushHelper.sendPacket(service, packageName, payload)
+                                val blob = MIPushHelper.constructBlob(service, service, payload)
+                                if (blob != null) {
+                                    service.sendPacket(blob)
+                                } else {
+                                    MyLog.e("failed to construct blob for $packageName")
+                                }
                             } catch (e: XMPPException) {
                                 MyLog.e(e)
                                 service.disconnect(10, e)

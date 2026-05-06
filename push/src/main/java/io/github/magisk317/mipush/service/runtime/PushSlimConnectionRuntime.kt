@@ -9,7 +9,7 @@ object PushSlimConnectionRuntime {
         cmd: String?
     ): PushSlimInboundPlan {
         if (channelId != 0) {
-            return PushSlimInboundPlan(action = PushSlimInboundAction.None)
+            return PushSlimInboundPlan(action = PushSlimInboundAction.DeliverBlob)
         }
         return when (cmd) {
             Blob.CMD_PING -> PushSlimInboundPlan(

@@ -152,6 +152,7 @@ class SlimConnection(
         inboundPlan.disconnectReasonCode?.let { disconnectReasonCode ->
             notifyConnectionError(disconnectReasonCode, null)
         }
+        super.notifyDataArrived(blob)
     }
 
     override fun notifyConnectionError(reason: Int, exc: Exception?) {
@@ -223,7 +224,7 @@ class SlimConnection(
         }
         try {
             val bytesWritten = writer.write(blob)
-            setReadAlive() // Corrected: should be write alive but matching current Connection.kt simplicity
+            setWriteAlive()
             val packageName = blob.packageName
             if (!TextUtils.isEmpty(packageName)) {
                 try {

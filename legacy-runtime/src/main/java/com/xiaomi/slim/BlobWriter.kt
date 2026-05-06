@@ -1,6 +1,9 @@
 package com.xiaomi.slim
 
+import android.os.Build
+import com.xiaomi.channel.commonutils.android.SystemUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
+import com.xiaomi.channel.commonutils.misc.DateTimeHelper
 import com.xiaomi.push.protobuf.ChannelMessage
 import com.xiaomi.push.service.*
 import com.xiaomi.smack.Connection
@@ -8,6 +11,8 @@ import java.io.BufferedOutputStream
 import java.io.IOException
 import java.io.OutputStream
 import java.nio.ByteBuffer
+import java.util.Locale
+import java.util.TimeZone
 import java.util.zip.Adler32
 
 /*
@@ -24,24 +29,47 @@ internal class BlobWriter(
     private var mBuffer: ByteBuffer = ByteBuffer.allocate(2048)
     private val mCRCBuf: ByteBuffer = ByteBuffer.allocate(4)
     private val mChecksumTool = Adler32()
+    private var mKey: ByteArray? = null
+    private val mTimeZone: Int
+    private val mDSTSavings: Int
+
+    init {
+        val timeZone = TimeZone.getDefault()
+        mTimeZone = timeZone.rawOffset / DateTimeHelper.HOUR_IN_MS
+        mDSTSavings = if (timeZone.useDaylightTime()) 1 else 0
+    }
 
     @Throws(IOException::class)
     fun openStream() {
-        val observer = XMPushServiceProxy.get()?.runtimeObserver
-        val handshakePlan = observer?.planSlimHandshake(hasChallenge = false, hasConfigMessage = false) ?: PushSlimHandshakePlan(true, "slim_handshake_sent", false)
-        
+        val deviceUuid = ServiceConfig.getDeviceUUID()
         val connReq = ChannelMessage.XMMsgConn().apply {
-            setVersion(Blob.VERSION.toInt())
-            setModel(android.os.Build.MODEL)
-            setOs(android.os.Build.VERSION.RELEASE)
-            setSdk(38) // Example value
+            setVersion(Connection.ERR_TCP_INVALARG)
+            setModel(Build.MODEL)
+            setOs(SystemUtils.getManufacturerOSVersion())
+            if (!deviceUuid.isNullOrEmpty()) {
+                setUdid(deviceUuid)
+            }
+            mConnection.config.connectionPoint?.let(::setConnpt)
+            mConnection.host?.let(::setHost)
+            setLocale(Locale.getDefault().toString())
+            setAndver(Build.VERSION.SDK_INT)
+            setSdk(41)
+            mConnection.config.getConnectionBlob()?.let {
+                setPsc(ChannelMessage.PushServiceConfigMsg.parseFrom(it))
+            }
         }
-        
+
         val blob = Blob().apply {
+            setChannelId(0)
             setCmd(Blob.CMD_CONN, null)
+            setFrom(0L, Blob.XIAOMI_SERVER, null)
             setPayload(connReq.toByteArray(), null)
         }
         write(blob)
+        MyLog.w(
+            "[slim] open conn: andver=${Build.VERSION.SDK_INT} sdk=41 hash=$deviceUuid " +
+                "tz=$mTimeZone:$mDSTSavings Model=${Build.MODEL} os=${Build.VERSION.INCREMENTAL}"
+        )
     }
 
     @Throws(IOException::class)
@@ -74,8 +102,10 @@ internal class BlobWriter(
         blob.toByteArray(mBuffer)
         
         if (writePlan.shouldEncrypt) {
-            val key = mConnection.key
-            if (key != null) {
+            if (mKey == null) {
+                mKey = mConnection.key
+            }
+            mKey?.let { key ->
                 RC4Cryption.encrypt(key, mBuffer.array(), true, position, serializedSize)
             }
         }

@@ -74,24 +74,24 @@ internal class BlobReader(
                     mConnection.notifyDataArrived(blob3)
                 }
                 PushSlimInboundAction.ParseSecurePacket -> {
-                    val packageName = blob3.packageName
                     try {
-                        val key = mConnection.key
-                        if (key != null) {
-                            RC4Cryption.encrypt(key, blob3.payload, true, 0, blob3.payload.size)
-                            mConnection.notifyDataArrived(mPacketParser.parse(blob3.payload, mConnection))
-                        } else {
-                            mConnection.notifyDataArrived(mPacketParser.parse(blob3.getDecryptedPayload(mConnection.challenge), mConnection))
-                        }
+                        val clientLoginInfo = PushClientsManager.getInstance()
+                            .getClientLoginInfoByChidAndUserId(
+                                blob3.channelId.toString(),
+                                blob3.fullUserName
+                            ) ?: error("missing client info")
+                        mConnection.notifyDataArrived(
+                            mPacketParser.parse(blob3.getDecryptedPayload(clientLoginInfo.security), mConnection)
+                        )
                     } catch (e: Exception) {
-                        MyLog.e("fail to decrypt blob from $packageName. chid=${blob3.channelId} $e")
+                        MyLog.w("[Slim] Parse packet from Blob chid=${blob3.channelId}; Id=${blob3.packetID} failure:${e.message}")
                     }
                 }
                 PushSlimInboundAction.ParsePacket -> {
                     try {
                         mConnection.notifyDataArrived(mPacketParser.parse(blob3.payload, mConnection))
                     } catch (e: Exception) {
-                        MyLog.e("fail to parse blob chid=${blob3.channelId} $e")
+                        MyLog.w("[Slim] Parse packet from Blob chid=${blob3.channelId}; Id=${blob3.packetID} failure:${e.message}")
                     }
                 }
                 else -> {
