@@ -325,17 +325,16 @@ class RegistrationHelper(
                 XMPushUtils.packToBytes(createForceRegisterMessage(packageName))
             }.getOrNull() ?: return false
             
-            PushRuntime.observeRegistrationRequest(
-                packageName,
-                "RegistrationHelper.tryForceRegisterFallback",
-                "force_trigger_fallback"
-            )
-            runBlocking {
-                EventDb.insertEventAsync(Event.ResultType.OK, RegistrationType("force_trigger_fallback", packageName, null))
-            }
-            
             val dispatched = XMPushUtils.dispatchToApplication(Utils.getApplication() ?: return false, packageName, msgBytes)
             if (dispatched) {
+                PushRuntime.observeRegistrationRequest(
+                    packageName,
+                    "RegistrationHelper.tryForceRegisterFallback",
+                    "force_trigger_fallback"
+                )
+                runBlocking {
+                    EventDb.insertEventAsync(Event.ResultType.OK, RegistrationType("force_trigger_fallback", packageName, null))
+                }
                 logger.i("force register fallback for $packageName dispatched")
             } else {
                 logger.w("force register fallback for $packageName failed")
@@ -344,20 +343,11 @@ class RegistrationHelper(
         }
 
         @JvmStatic
-        fun tryForceRegister(packageName: String) {
-            val app = Utils.getApplication() ?: return
+        fun tryForceRegister(packageName: String): Boolean {
+            val app = Utils.getApplication() ?: return false
             val plan = inspectForceRegisterPlan(packageName)
             if (!plan.supportsServiceDispatch) {
                 throw UnsupportedOperationException("force register unsupported for $packageName: ${plan.summary()}")
-            }
-            
-            PushRuntime.observeRegistrationRequest(
-                packageName,
-                "RegistrationHelper.tryForceRegister",
-                "force_trigger"
-            )
-            runBlocking {
-                EventDb.insertEventAsync(Event.ResultType.OK, RegistrationType("force_trigger", packageName, null))
             }
 
             val container = createForceRegisterMessage(packageName)
@@ -365,10 +355,19 @@ class RegistrationHelper(
             
             val dispatched = XMPushUtils.dispatchToApplication(app, packageName, msgBytes)
             if (dispatched) {
+                PushRuntime.observeRegistrationRequest(
+                    packageName,
+                    "RegistrationHelper.tryForceRegister",
+                    "force_trigger"
+                )
+                runBlocking {
+                    EventDb.insertEventAsync(Event.ResultType.OK, RegistrationType("force_trigger", packageName, null))
+                }
                 logger.i("force register for $packageName dispatched")
             } else {
                 logger.w("force register for $packageName failed to dispatch")
             }
+            return dispatched
         }
 
         @JvmStatic

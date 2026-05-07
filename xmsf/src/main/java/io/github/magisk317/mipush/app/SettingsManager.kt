@@ -150,8 +150,8 @@ class SettingsManager @Inject constructor(
             }
             try {
                 val success = if (plan.supportsServiceDispatch) {
-                    RegistrationHelper.tryForceRegister(packageName)
-                    true
+                    RegistrationHelper.tryForceRegister(packageName) ||
+                        (plan.supportsReceiverFallback && RegistrationHelper.tryForceRegisterFallback(packageName))
                 } else {
                     RegistrationHelper.tryForceRegisterFallback(packageName)
                 }

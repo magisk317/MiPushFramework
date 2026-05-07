@@ -67,9 +67,9 @@ object PushRuntimeExecutionBridge : PushRuntimeExecutionHost {
                 "PushRuntimeExecutionBridge.appRegister",
                 "pkg=$packageName reason=$reason"
             )
-            RegistrationHelper.tryForceRegister(packageName)
-            logger.d("requestApplicationRegistration pkg=$packageName reason=$reason")
-            true
+            val dispatched = RegistrationHelper.tryForceRegister(packageName)
+            logger.d("requestApplicationRegistration pkg=$packageName reason=$reason dispatched=$dispatched")
+            dispatched
         }.getOrElse {
             logger.e("requestApplicationRegistration failed pkg=$packageName reason=$reason", it)
             false

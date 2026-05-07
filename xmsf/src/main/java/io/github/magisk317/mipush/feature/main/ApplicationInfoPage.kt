@@ -510,7 +510,7 @@ open class ApplicationInfoPage : ComponentActivity() {
         val result = runCatching {
             RegistrationHelper.tryForceRegister(packageName)
         }
-        if (result.isSuccess) {
+        if (result.getOrDefault(false)) {
             Toast.makeText(context, R.string.force_register_sent, Toast.LENGTH_SHORT).show()
             return
         }
@@ -519,7 +519,7 @@ open class ApplicationInfoPage : ComponentActivity() {
             Toast.makeText(context, R.string.force_register_unavailable, Toast.LENGTH_LONG).show()
             return
         }
-        if (RegistrationHelper.tryForceRegisterFallback(packageName)) {
+        if (runCatching { RegistrationHelper.tryForceRegisterFallback(packageName) }.getOrDefault(false)) {
             Toast.makeText(context, R.string.force_register_sent, Toast.LENGTH_SHORT).show()
         } else {
             Toast.makeText(context, R.string.force_register_failed, Toast.LENGTH_LONG).show()
