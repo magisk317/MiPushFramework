@@ -88,7 +88,7 @@ jobs:
           echo "Security overrides auto-synced. A new CI run will pick up the fix."
           exit 1
       - name: Build & Test
-        run: bash scripts/with_workspace_gradle_lock.sh -I gradle/security-overrides.init.gradle --warning-mode all :checkReadmeBuildRequirements :common:check :xmsf:assembleDebug :mipush:assembleDebug testDebugUnitTest -PbuildSplits -Pkotlin.incremental=false
+        run: bash scripts/with_workspace_gradle_lock.sh -I gradle/security-overrides.init.gradle --warning-mode all :checkReadmeBuildRequirements :common:check :xmsf:assembleDebug :mipush:assembleDebug testDebugUnitTest -PbuildSplits -PminifyDebug -Pkotlin.incremental=false
       - name: Write build summary
         if: always()
         run: |

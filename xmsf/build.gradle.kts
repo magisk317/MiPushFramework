@@ -34,8 +34,12 @@ android {
 
     buildTypes {
         debug {
-            isMinifyEnabled = false
-            isShrinkResources = false
+            val ciMinify = project.hasProperty("minifyDebug")
+            isMinifyEnabled = ciMinify
+            isShrinkResources = ciMinify
+            if (ciMinify) {
+                proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            }
             // Reduce debug APK size
             packaging {
                 jniLibs {
