@@ -39,14 +39,7 @@ jq -r '
   .[]
   | select(.dependency.package.ecosystem == "maven")
   | .dependency.package.name as $pkg
-  | (
-      [
-        (.security_vulnerability.first_patched_version.identifier // empty),
-        (.security_advisory.vulnerabilities[]?.first_patched_version.identifier // empty)
-      ]
-      | map(select(length > 0))
-      | unique[]
-    ) as $ver
+  | (.security_vulnerability.first_patched_version.identifier // empty) as $ver
   | [$pkg, $ver]
   | @tsv
 ' "${ALERTS_JSON_FILE}" | while IFS=$'\t' read -r pkg ver; do

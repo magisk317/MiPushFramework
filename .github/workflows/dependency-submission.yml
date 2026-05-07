@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      security-events: read
 
     steps:
       - uses: actions/checkout@v6
@@ -30,7 +31,25 @@ jobs:
           chmod +x scripts/sync_security_overrides.sh
           scripts/sync_security_overrides.sh --check
 
-      - name: Submit Dependency Graph
+      - name: Generate Dependency Graph
+        id: dependency-graph
         uses: gradle/actions/dependency-submission@v6
         with:
           additional-arguments: -I gradle/security-overrides.init.gradle
+          dependency-graph: generate-and-upload
+          dependency-graph-exclude-configurations: "^classpath$"
+
+      - name: Validate generated dependency graph
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x scripts/validate_dependabot_graph.sh
+          snapshot="${{ steps.dependency-graph.outputs.dependency-graph-file }}"
+          test -n "${snapshot}"
+          scripts/validate_dependabot_graph.sh --snapshot "${snapshot}"
+
+      - name: Submit Dependency Graph
+        uses: gradle/actions/dependency-submission@v6
+        with:
+          dependency-graph: download-and-submit
