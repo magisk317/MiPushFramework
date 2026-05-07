@@ -5,7 +5,6 @@ on: pull_request
 permissions:
   contents: write
   pull-requests: write
-  checks: read
 
 jobs:
   auto-merge:
@@ -30,62 +29,9 @@ jobs:
         )
       )
     steps:
-      - name: Enable auto-merge for Renovate PPs
+      - name: Merge Renovate PR
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          SHA: ${{ github.event.pull_request.head.sha }}
           PR_URL: ${{github.event.pull_request.html_url}}
         run: |
-          required_checks=("build")
-          deadline=$((SECONDS + 1800))
-
-          while (( SECONDS < deadline )); do
-              checks_json="$(gh api "/repos/${REPO}/commits/${SHA}/check-runs?per_page=100")"
-              waiting=0
-              failed=0
-              missing=0
-
-              for check_name in "${required_checks[@]}"; do
-                status="$(echo "$checks_json" | jq -r --arg n "$check_name" '.check_runs | map(select(.name == $n)) | sort_by(.started_at // .created_at) | last | .status // "missing"')"
-                conclusion="$(echo "$checks_json" | jq -r --arg n "$check_name" '.check_runs | map(select(.name == $n)) | sort_by(.started_at // .created_at) | last | .conclusion // "missing"')"
-
-                if [[ "$status" == "missing" ]]; then
-                  echo "Waiting for check '$check_name' to appear..."
-                  missing=1
-                  continue
-                fi
-
-                if [[ "$status" != "completed" ]]; then
-                  echo "Waiting for check '$check_name' (status=$status)..."
-                  waiting=1
-                  continue
-                fi
-
-                if [[ "$conclusion" != "success" ]]; then
-                  echo "Required check '$check_name' failed (conclusion=$conclusion)."
-                  failed=1
-                else
-                  echo "Required check '$check_name' passed."
-                fi
-              done
-
-              if [[ "$failed" -eq 1 ]]; then
-                exit 1
-              fi
-
-              if [[ "$missing" -eq 1 || "$waiting" -eq 1 ]]; then
-                echo "Still waiting for checks..."
-              else
-                break
-              fi
-
-              sleep 15
-            done
-
-          if (( SECONDS >= deadline )); then
-            echo "Timed out waiting for required checks to complete."
-            exit 1
-          fi
-
           gh pr merge --merge --delete-branch "$PR_URL"
