@@ -32,10 +32,10 @@ public static java.lang.String TABLENAME;
 -keepclassmembers class io.github.magisk317.mipush.push.hook.ModernHookHandler { <init>(); }
 -keepclassmembers class io.github.magisk317.mipush.MiPushEventListener { <init>(); }
 -keepclassmembers class io.github.magisk317.mipush.service.RegistrationRecorder { <init>(); }
--keepclassmembers class com.xiaomi.xmsf.push.utils.ConfigValueConverter { <init>(); }
--keepclassmembers class com.xiaomi.xmsf.push.utils.IconConfigurations { <init>(); }
--keepclassmembers class com.xiaomi.xmsf.utils.ConfigCenter { <init>(); }
--keepclassmembers class com.xiaomi.xmsf.push.utils.Configurations { <init>(); }
+-keepclassmembers class io.github.magisk317.mipush.utils.ConfigValueConverter { <init>(); }
+-keepclassmembers class io.github.magisk317.mipush.utils.IconConfigurations { <init>(); }
+-keepclassmembers class io.github.magisk317.mipush.app.ConfigCenter { <init>(); }
+-keepclassmembers class io.github.magisk317.mipush.utils.Configurations { <init>(); }
 -keepclassmembers class io.github.magisk317.mipush.common.cache.ApplicationNameCache { <init>(); }
 -keepclassmembers class io.github.magisk317.mipush.common.cache.IconCache { <init>(); }
 
