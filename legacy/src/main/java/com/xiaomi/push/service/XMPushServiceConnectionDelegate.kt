@@ -142,12 +142,13 @@ class XMPushServiceConnectionDelegate(
 
     private fun connectBySlim() {
         try {
-            service.slimConnection.addPacketListener(
+            val slimConnection = service.recreateSlimConnection()
+            slimConnection.addPacketListener(
                 service.servicePacketListener,
                 PacketFilter { true },
             )
-            service.slimConnection.connect()
-            service.currentConnection = service.slimConnection
+            slimConnection.connect()
+            service.currentConnection = slimConnection
         } catch (e: XMPPException) {
             MyLog.e("fail to create Slim connection", e)
             service.slimConnection.disconnect(3, e)

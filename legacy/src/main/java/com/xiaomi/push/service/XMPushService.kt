@@ -285,6 +285,16 @@ open class XMPushService : Service(), ConnectionListener, IPushServiceAction {
         currentConnection = null
     }
 
+    fun recreateSlimConnection(): SlimConnection {
+        runCatching {
+            slimConnection.removeConnectionListener(this)
+        }
+        return SlimConnection(this, this, connectionConfiguration).also { connection ->
+            connection.addConnectionListener(this)
+            slimConnection = connection
+        }
+    }
+
     fun clearConnectionChangeReceiver() {
         connectionChangeReceiver = null
     }

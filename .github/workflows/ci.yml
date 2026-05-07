@@ -1,6 +1,7 @@
 name: CI
 permissions:
   contents: read
+  security-events: read
 
 on:
   pull_request:
@@ -34,7 +35,22 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
+          if [[ "$EVENT_NAME" == "pull_request" ]] && [[ "$HEAD_REF" == renovate/* || "$PR_AUTHOR" == "dependabot[bot]" || "$PR_AUTHOR" == "app/dependabot" || "$PR_AUTHOR" == "github-actions[bot]" || "$PR_AUTHOR" == "renovate[bot]" ]]; then
+            test -f gradle/security-overrides.properties
+            test -f gradle/security-overrides.init.gradle
+            {
+              echo "## CI security override note"
+              echo ""
+              echo "- Bot or renovate PR detected (${PR_AUTHOR:-unknown}, ${HEAD_REF:-unknown})"
+              echo "- Skipped remote Dependabot alerts sync check in CI"
+              echo "- Verified security override files exist"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           chmod +x scripts/sync_security_overrides.sh
           scripts/sync_security_overrides.sh --check
       - name: Build & Test

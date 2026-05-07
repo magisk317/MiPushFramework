@@ -24,16 +24,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           # Bot PR token cannot query Dependabot alerts API in this context.
           # Keep PR check green while still enforcing file presence.
-          if [[ "$EVENT_NAME" == "pull_request" ]] && [[ "$PR_AUTHOR" == "dependabot[bot]" || "$PR_AUTHOR" == "app/dependabot" || "$PR_AUTHOR" == "github-actions[bot]" || "$PR_AUTHOR" == "renovate[bot]" ]]; then
+          if [[ "$EVENT_NAME" == "pull_request" ]] && [[ "$HEAD_REF" == renovate/* || "$PR_AUTHOR" == "dependabot[bot]" || "$PR_AUTHOR" == "app/dependabot" || "$PR_AUTHOR" == "github-actions[bot]" || "$PR_AUTHOR" == "renovate[bot]" ]]; then
             test -f gradle/security-overrides.properties
             test -f gradle/security-overrides.init.gradle
             {
               echo "## Security guard note"
               echo ""
-              echo "- Bot PR detected (${PR_AUTHOR})"
+              echo "- Bot or renovate PR detected (${PR_AUTHOR}, ${HEAD_REF})"
               echo "- Skipped remote Dependabot alerts sync check to avoid token-scope 403 in pull_request context"
               echo "- Verified security override files exist"
             } >> "$GITHUB_STEP_SUMMARY"
@@ -49,13 +50,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           # Skip for bot PRs to avoid token-scope 403
-          if [[ "$EVENT_NAME" == "pull_request" ]] && [[ "$PR_AUTHOR" == "dependabot[bot]" || "$PR_AUTHOR" == "app/dependabot" || "$PR_AUTHOR" == "github-actions[bot]" || "$PR_AUTHOR" == "renovate[bot]" ]]; then
+          if [[ "$EVENT_NAME" == "pull_request" ]] && [[ "$HEAD_REF" == renovate/* || "$PR_AUTHOR" == "dependabot[bot]" || "$PR_AUTHOR" == "app/dependabot" || "$PR_AUTHOR" == "github-actions[bot]" || "$PR_AUTHOR" == "renovate[bot]" ]]; then
             {
               echo "## Security alert snapshot"
               echo ""
-              echo "- Status: Skipped for bot PR (${PR_AUTHOR}) (403 restriction)"
+              echo "- Status: Skipped for bot or renovate PR (${PR_AUTHOR}, ${HEAD_REF}) (403 restriction)"
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
