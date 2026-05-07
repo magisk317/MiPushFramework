@@ -142,30 +142,40 @@ object ConvertUtils {
         val resolution = resolvePushActionBytes(container, regSec) ?: return null
         val oriMsgBytes = resolution.payload ?: return null
         return try {
-            val helperClazz = com.xiaomi.mipush.sdk.PushContainerHelper::class.java
-            val createRespMessageFromAction: Method = helperClazz.getDeclaredMethod(
-                "createRespMessageFromAction",
-                ActionType::class.java,
-                Boolean::class.javaPrimitiveType
-            )
-            createRespMessageFromAction.isAccessible = true
-            
-            val packet = createRespMessageFromAction.invoke(
-                null,
-                container.action,
-                container.isRequest
-            ) as? TBase<*, *>
+            val packet = createMessageFromAction(container.action, container.isRequest)
             
             if (packet != null) {
                 fillPacket(packet, oriMsgBytes)
             }
             packet
         } catch (e: InvocationTargetException) {
-            logger.e("InvocationTargetException calling createRespMessageFromAction: ${e.targetException.message}", e.targetException)
+            logger.e("InvocationTargetException decoding push action: ${e.targetException.message}", e.targetException)
             throw e
         } catch (e: Exception) {
-            logger.e("Exception calling createRespMessageFromAction: ${e.message}", e)
+            logger.e("Exception decoding push action: ${e.message}", e)
             throw e
+        }
+    }
+
+    private fun createMessageFromAction(actionType: ActionType?, isRequest: Boolean): TBase<*, *>? {
+        return when (actionType) {
+            ActionType.Registration -> if (isRequest) XmPushActionRegistration() else XmPushActionRegistrationResult()
+            ActionType.UnRegistration -> if (isRequest) XmPushActionUnRegistration() else XmPushActionUnRegistrationResult()
+            ActionType.Subscription -> if (isRequest) XmPushActionSubscription() else XmPushActionSubscriptionResult()
+            ActionType.UnSubscription -> if (isRequest) XmPushActionUnSubscription() else XmPushActionUnSubscriptionResult()
+            ActionType.SendMessage -> XmPushActionSendMessage()
+            ActionType.AckMessage -> XmPushActionAckMessage()
+            ActionType.SetConfig -> XmPushActionCommandResult()
+            ActionType.ReportFeedback -> XmPushActionSendFeedbackResult()
+            ActionType.Notification -> {
+                if (isRequest) {
+                    XmPushActionNotification()
+                } else {
+                    XmPushActionAckNotification().apply { setErrorCodeIsSet(true) }
+                }
+            }
+            ActionType.Command -> if (isRequest) XmPushActionCommand() else XmPushActionCommandResult()
+            else -> null
         }
     }
 

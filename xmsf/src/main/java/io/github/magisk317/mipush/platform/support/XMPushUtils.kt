@@ -1,11 +1,10 @@
 package io.github.magisk317.mipush.platform.support
 
 import io.github.magisk317.mipush.push.hook.HookTraceCompat
-import com.xiaomi.channel.commonutils.reflect.JavaCalls
-import com.xiaomi.mipush.sdk.PushContainerHelper
 import com.xiaomi.push.service.MIPushEventProcessor
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.PushMetaInfo
+import com.xiaomi.xmpush.thrift.Target
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -74,16 +73,20 @@ object XMPushUtils {
         actionType: ActionType,
         appId: String?
     ): XmPushActionContainer {
-        val container = JavaCalls.callStaticMethod(
-            PushContainerHelper::class.java.name,
-            "generateRequestContainer",
-            Utils.getApplication(),
-            action,
-            actionType,
-            JavaCalls.JavaParam(Boolean::class.javaPrimitiveType!!, false),
-            packageName,
-            appId
-        ) as XmPushActionContainer
+        val payload = XmPushThriftSerializeUtils.convertThriftObjectToBytes(action)
+            ?: throw IllegalArgumentException("Unable to serialize push action: ${action.javaClass.name}")
+        val container = XmPushActionContainer().apply {
+            target = Target().apply {
+                channelId = 5L
+                userId = "fakeid"
+            }
+            setPushAction(payload)
+            this.action = actionType
+            isRequest = true
+            this.packageName = packageName
+            setEncryptAction(false)
+            appid = appId
+        }
         HookTraceCompat.onBuildContainer(0, container)
         return container
     }

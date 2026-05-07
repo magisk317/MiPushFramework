@@ -1,14 +1,13 @@
 package io.github.magisk317.mipush.common.configurations
 
-import com.xiaomi.channel.commonutils.reflect.JavaCalls
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.PushMetaInfo
+import com.xiaomi.xmpush.thrift.Target
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
 import org.apache.thrift.TBase
 import io.github.magisk317.mipush.common.utils.CustomConfiguration
-import io.github.magisk317.mipush.common.utils.Utils
 
 /**
  * XM 推送核心工具类 (不依赖 Hook 逻辑)
@@ -57,18 +56,20 @@ object XMPushUtils {
         actionType: ActionType,
         appId: String?
     ): XmPushActionContainer {
-        // Since we moved PushContainerHelper to protocol, we can try to call it directly or via reflection if it has private methods.
-        // The previous implementation used reflection on PushContainerHelper.
-        return JavaCalls.callStaticMethod(
-            "com.xiaomi.mipush.sdk.PushContainerHelper",
-            "generateRequestContainer",
-            Utils.getApplication(),
-            action,
-            actionType,
-            JavaCalls.JavaParam(Boolean::class.javaPrimitiveType!!, false),
-            packageName,
-            appId
-        ) as XmPushActionContainer
+        val payload = XmPushThriftSerializeUtils.convertThriftObjectToBytes(action)
+            ?: throw IllegalArgumentException("Unable to serialize push action: ${action.javaClass.name}")
+        return XmPushActionContainer().apply {
+            target = Target().apply {
+                channelId = 5L
+                userId = "fakeid"
+            }
+            setPushAction(payload)
+            this.action = actionType
+            isRequest = true
+            this.packageName = packageName
+            setEncryptAction(false)
+            appid = appId
+        }
     }
 
     @JvmStatic
