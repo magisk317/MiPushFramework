@@ -117,6 +117,9 @@ class SlimConnection(
     @Throws(XMPPException::class, IOException::class)
     override fun initConnection() {
         synchronized(this) {
+            // Reconnection reuses the service-owned SlimConnection instance. Reset the shutdown
+            // guard here so a previously closed connection can send bind/register blobs again.
+            isShuttingDown = false
             initReaderAndWriter()
             mWriter?.openStream()
         }
