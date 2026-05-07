@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">MiPush Module</string>
+    <string name="xposedDescription">Runtime enhancement module for MiPushFramework: target-app notification identity and Xiaomi-device compatibility hooks.</string>
+</resources>

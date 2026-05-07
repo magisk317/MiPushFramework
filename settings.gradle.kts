@@ -55,14 +55,15 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven { url = uri("https://api.xposed.info/") }
         maven { url = uri("https://jitpack.io") }
     }
 }
 
 rootProject.name = "MiPushFramework"
 requireExistingProjectDir("uikit")
-requireExistingProjectDir("legacy-runtime")
+requireExistingProjectDir("legacy")
 requireExistingProjectDir("protocol")
-requireExistingProjectDir("protocol-frozen")
-include(":push", ":common", ":runtime-core", ":uikit", ":legacy-runtime", ":protocol-frozen", ":protocol")
+requireExistingProjectDir("pinned")
+include(":xmsf", ":mipush", ":xposed", ":common", ":core", ":uikit", ":legacy", ":pinned", ":protocol")
 project(":uikit").projectDir = file("uikit")

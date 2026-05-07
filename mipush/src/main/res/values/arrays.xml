@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="xposed_scope">
+        <item>com.xiaomi.xmsf</item>
+        <item>android</item>
+        <item>com.android.systemui</item>
+        <item>com.ss.android.ugc.aweme</item>
+        <item>com.tencent.wework</item>
+        <item>com.eg.android.AlipayGphone</item>
+        <item>com.taobao.taobao</item>
+        <item>com.taobao.idlefish</item>
+        <item>com.ss.android.lark</item>
+        <item>com.sankuai.meituan</item>
+        <item>com.sankuai.meituan.enterprise</item>
+        <item>com.jingdong.app.mall</item>
+    </string-array>
+</resources>

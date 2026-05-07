@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.android.library) apply false
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.compose) apply false
+    alias(libs.plugins.kotlin.parcelize) apply false
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.hilt.android) apply false
@@ -28,6 +29,15 @@ val versionNameProvider = versionNameOverride
     .map { it.replace(Regex("^v"), "") }
 val versionNameStr = try { versionNameProvider.get() } catch (e: Exception) { libs.versions.versionName.get() }
 version = versionNameStr
+
+val gitVersionCode = providers.exec {
+    commandLine("git", "rev-list", "--first-parent", "--count", "HEAD")
+    isIgnoreExitValue = true
+}.standardOutput.asText.map { it.trim().toIntOrNull() ?: -1 }.orElse(-1)
+
+extra["gitVersionCode"] = gitVersionCode
+extra["gitVersionName"] = versionNameProvider
+extra["APPLICATION_ID"] = "io.github.magisk317.mipush"
 
 allprojects {
     configurations.configureEach {

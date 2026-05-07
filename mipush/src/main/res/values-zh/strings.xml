@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">MiPush 模块</string>
+    <string name="xposedDescription">为 MiPushFramework 提供运行时增强能力：目标应用通知身份增强与小米设备兼容伪装。</string>
+</resources>
