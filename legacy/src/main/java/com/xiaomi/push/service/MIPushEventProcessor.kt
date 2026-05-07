@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.text.TextUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
+import com.xiaomi.mipush.sdk.Constants
 import com.xiaomi.slim.Blob
 import com.xiaomi.smack.packet.CommonPacketExtension
 import com.xiaomi.smack.packet.Message
@@ -128,7 +129,31 @@ class MIPushEventProcessor {
         }
 
         private fun processMIPushMessage(pushAction: IPushServiceAction, payload: ByteArray, trafficBytes: Long) {
+            val container = buildContainer(payload)
+            if (container == null) {
+                pushAction.runtimeObserver.processMIPushMessage(payload, trafficBytes)
+                return
+            }
             pushAction.runtimeObserver.processMIPushMessage(payload, trafficBytes)
+            maybeAckInboundSendMessage(pushAction, container)
+        }
+
+        private fun maybeAckInboundSendMessage(pushAction: IPushServiceAction, container: XmPushActionContainer) {
+            if (container.action != ActionType.SendMessage || container.metaInfo == null) {
+                return
+            }
+            if (!container.isEncryptAction || isHybridMessage(container)) {
+                return
+            }
+            val metaInfo = container.metaInfo
+            metaInfo.putToExtra(PushConstants.MESSAGE_RECEIVE_TIME, System.currentTimeMillis().toString())
+            MIPushAckDispatcher.sendAckMessage(pushAction, container)
+        }
+
+        private fun isHybridMessage(container: XmPushActionContainer): Boolean {
+            val action = container.metaInfo?.extra?.get(Constants.EXTRA_KEY_PUSH_SERVER_ACTION)
+            return action == Constants.EXTRA_VALUE_HYBRID_MESSAGE ||
+                action == Constants.EXTRA_VALUE_PLATFORM_MESSAGE
         }
     }
 }

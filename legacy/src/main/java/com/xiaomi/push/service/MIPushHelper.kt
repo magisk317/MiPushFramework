@@ -171,11 +171,13 @@ object MIPushHelper {
     @Throws(XMPPException::class)
     fun sendPacket(pushAction: IPushServiceAction, context: Context, container: XmPushActionContainer) {
         PerfMessageHelper.collectUpStream(container.packageName, context, container, -1)
-        // Hard dependency on XMPushService.currentConnection should be refactored too if possible.
-        // For now, assume pushAction can provide what's needed or we continue using proxy.
-        // wait, IPushServiceAction doesn't have currentConnection.
-        // This logic might need to stay in the Service or be proxied.
-        // Actually, we can add getBinaryConnection to IPushServiceAction.
+        val blob = constructBlob(pushAction.runtimeObserver.loadAccount(context, "MIPushHelper.sendPacket"), context, container)
+        if (blob == null) {
+            val payload = XmPushThriftSerializeUtils.convertThriftObjectToBytes(container) ?: ByteArray(0)
+            MIPushClientManager.notifyError(context, container.packageName, payload, 70000003, "not a valid message")
+            return
+        }
+        requireBinaryConnection(pushAction.currentConnection).send(blob)
     }
 
     @JvmStatic
@@ -190,7 +192,9 @@ object MIPushHelper {
         val blob = constructBlob(pushAction, context, payload)
         if (blob == null) {
             MIPushClientManager.notifyError(context, packageName, payload, 70000003, "not a valid message")
+            return
         }
+        requireBinaryConnection(pushAction.currentConnection).send(blob)
     }
 
     private fun <T : TBase<T, *>> generateContainer(
