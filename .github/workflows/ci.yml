@@ -121,7 +121,7 @@ jobs:
               echo ""
               echo "- **Alias script: NOT needed**"
               echo "- Primary build succeeded without the alias workaround."
-              echo "- The Android SDK platform `android-37` was resolved natively."
+              echo "- The Android SDK platform android-37 was resolved natively."
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
@@ -194,13 +194,13 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: MiPushFramework-debug-x86
-          path: xmsf/build/outputs/apk/debug/**/*_x86.apk
+          path: xmsf/build/outputs/apk/debug/**/*x86_*.apk
       - name: Upload XMSF Debug APK (x86_64)
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: MiPushFramework-debug-x86_64
-          path: xmsf/build/outputs/apk/debug/**/*_x86_64.apk
+          path: xmsf/build/outputs/apk/debug/**/*x86_64*.apk
       - name: Upload XMSF Debug APK (universal)
         if: always()
         uses: actions/upload-artifact@v7
@@ -224,13 +224,13 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: MiPush-debug-x86
-          path: mipush/build/outputs/apk/debug/**/*_x86.apk
+          path: mipush/build/outputs/apk/debug/**/*x86_*.apk
       - name: Upload MiPush Debug APK (x86_64)
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: MiPush-debug-x86_64
-          path: mipush/build/outputs/apk/debug/**/*_x86_64.apk
+          path: mipush/build/outputs/apk/debug/**/*x86_64*.apk
       - name: Upload MiPush Debug APK (universal)
         if: always()
         uses: actions/upload-artifact@v7
