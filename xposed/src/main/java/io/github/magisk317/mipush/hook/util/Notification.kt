@@ -41,6 +41,7 @@ fun Notification.getTickerTextValue(): String? {
     return tickerText?.toString()
 }
 
+@Suppress("DEPRECATION")
 fun Notification.hasCustomVisualContent(): Boolean {
     return contentView != null || bigContentView != null || headsUpContentView != null
 }
