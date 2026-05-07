@@ -1,6 +1,9 @@
+import org.gradle.api.provider.Provider
+
 plugins {
     id("mipush.android.library")
     id("mipush.android.room")
+    alias(libs.plugins.kotlin.parcelize)
     alias(libs.plugins.kotlin.serialization)
 }
 
@@ -8,6 +11,14 @@ android {
     namespace = "io.github.magisk317.mipush.common"
 
     defaultConfig {
+        @Suppress("UNCHECKED_CAST")
+        val gitVersionName = (rootProject.extra["gitVersionName"] as Provider<String>).get()
+        @Suppress("UNCHECKED_CAST")
+        val gitVersionCode = (rootProject.extra["gitVersionCode"] as Provider<Int>).get()
+
+        buildConfigField("String", "APPLICATION_ID", "\"${rootProject.extra["APPLICATION_ID"]}\"")
+        buildConfigField("String", "VERSION_NAME", "\"$gitVersionName\"")
+        buildConfigField("int", "VERSION_CODE", "$gitVersionCode")
         buildConfigField("String", "PUSH_VERSION_CODE", "\"${libs.versions.versionCode.get()}\"")
     }
 
@@ -23,7 +34,7 @@ android {
 }
 
 dependencies {
-    implementation(project(":protocol-frozen"))
+    implementation(project(":pinned"))
     compileOnly(project(":protocol"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.collection)

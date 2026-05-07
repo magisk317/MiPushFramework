@@ -24,8 +24,8 @@ run_pre_push_checks() {
     bash scripts/with_workspace_gradle_lock.sh -I gradle/security-overrides.init.gradle --warning-mode all \
       :checkReadmeBuildRequirements \
       :common:check \
-      :push:assembleDebug \
-      :push:testDebugUnitTest \
+      :xmsf:assembleDebug \
+      :xmsf:testDebugUnitTest \
       -PbuildSplits \
       -Pkotlin.incremental=false
   )

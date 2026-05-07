@@ -28,6 +28,8 @@ jobs:
         with:
           validate-wrappers: false
           allow-snapshot-wrappers: true
+      - name: Normalize Android SDK platform aliases
+        run: bash scripts/ensure_android_sdk_platform_alias.sh
       - name: Validate security override files
         env:
           GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
@@ -36,51 +38,82 @@ jobs:
           chmod +x scripts/sync_security_overrides.sh
           scripts/sync_security_overrides.sh --check
       - name: Build & Test
-        run: bash scripts/with_workspace_gradle_lock.sh -I gradle/security-overrides.init.gradle --warning-mode all :checkReadmeBuildRequirements :common:check :push:assembleDebug :push:testDebugUnitTest -PbuildSplits -Pkotlin.incremental=false
+        run: bash scripts/with_workspace_gradle_lock.sh -I gradle/security-overrides.init.gradle --warning-mode all :checkReadmeBuildRequirements :common:check :xmsf:assembleDebug :mipush:assembleDebug testDebugUnitTest -PbuildSplits -Pkotlin.incremental=false
       - name: Write build summary
         if: always()
         run: |
           {
             echo "## Debug APK summary"
             echo ""
-            echo "| File | Size |"
-            echo "| --- | --- |"
+            echo "| App | File | Size |"
+            echo "| --- | --- | --- |"
             while IFS= read -r apk; do
               if [ ! -f "$apk" ]; then
                 continue
               fi
               size=$(du -h "$apk" | awk '{print $1}')
               name=$(basename "$apk")
-              echo "| $name | $size |"
-            done < <(find push/build/outputs/apk -path '*/debug/*.apk' | sort)
+              app=$(printf '%s\n' "$apk" | awk -F/ '{print $1}')
+              echo "| $app | $name | $size |"
+            done < <(find xmsf/build/outputs/apk mipush/build/outputs/apk -path '*/debug/*.apk' | sort)
           } >> "$GITHUB_STEP_SUMMARY"
-      - name: Upload Debug APK (arm64-v8a)
+      - name: Upload XMSF Debug APK (arm64-v8a)
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: MiPushFramework-debug-arm64-v8a
-          path: push/build/outputs/apk/debug/**/*arm64-v8a*.apk
-      - name: Upload Debug APK (armeabi-v7a)
+          path: xmsf/build/outputs/apk/debug/**/*arm64-v8a*.apk
+      - name: Upload XMSF Debug APK (armeabi-v7a)
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: MiPushFramework-debug-armeabi-v7a
-          path: push/build/outputs/apk/debug/**/*armeabi-v7a*.apk
-      - name: Upload Debug APK (x86)
+          path: xmsf/build/outputs/apk/debug/**/*armeabi-v7a*.apk
+      - name: Upload XMSF Debug APK (x86)
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: MiPushFramework-debug-x86
-          path: push/build/outputs/apk/debug/**/*_x86.apk
-      - name: Upload Debug APK (x86_64)
+          path: xmsf/build/outputs/apk/debug/**/*_x86.apk
+      - name: Upload XMSF Debug APK (x86_64)
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: MiPushFramework-debug-x86_64
-          path: push/build/outputs/apk/debug/**/*_x86_64.apk
-      - name: Upload Debug APK (universal)
+          path: xmsf/build/outputs/apk/debug/**/*_x86_64.apk
+      - name: Upload XMSF Debug APK (universal)
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: MiPushFramework-debug-universal
-          path: push/build/outputs/apk/debug/**/*universal*.apk
+          path: xmsf/build/outputs/apk/debug/**/*universal*.apk
+      - name: Upload MiPush Debug APK (arm64-v8a)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: MiPush-debug-arm64-v8a
+          path: mipush/build/outputs/apk/debug/**/*arm64-v8a*.apk
+      - name: Upload MiPush Debug APK (armeabi-v7a)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: MiPush-debug-armeabi-v7a
+          path: mipush/build/outputs/apk/debug/**/*armeabi-v7a*.apk
+      - name: Upload MiPush Debug APK (x86)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: MiPush-debug-x86
+          path: mipush/build/outputs/apk/debug/**/*_x86.apk
+      - name: Upload MiPush Debug APK (x86_64)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: MiPush-debug-x86_64
+          path: mipush/build/outputs/apk/debug/**/*_x86_64.apk
+      - name: Upload MiPush Debug APK (universal)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: MiPush-debug-universal
+          path: mipush/build/outputs/apk/debug/**/*universal*.apk

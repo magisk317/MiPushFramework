@@ -12,6 +12,8 @@
 **/build/
 .gradle/
 /out/
+.externalNativeBuild
+.cxx
 
 # Keystores and sensitive files
 *.jks
