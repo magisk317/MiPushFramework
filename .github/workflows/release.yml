@@ -1,0 +1,180 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-release:
+    name: Validate Release Metadata
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Validate release notes and tag/version consistency
+        run: |
+          chmod +x scripts/check_release_guard.sh
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            scripts/check_release_guard.sh "${GITHUB_REF_NAME}"
+          else
+            scripts/check_release_guard.sh
+          fi
+
+  build-xmsf-apk:
+    name: Build XMSF Release APK
+    needs: [validate-release]
+    runs-on: ubuntu-latest
+    env:
+      HAS_RELEASE_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE != '' }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          validate-wrappers: false
+          allow-snapshot-wrappers: true
+
+      - name: Normalize Android SDK platform aliases
+        run: bash scripts/ensure_android_sdk_platform_alias.sh
+
+      - name: Decode Keystore
+        if: env.HAS_RELEASE_KEYSTORE == 'true'
+        run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > .yuuta.jks
+
+      - name: Build XMSF release APK
+        run: bash scripts/build_release.sh -Pkotlin.incremental=false
+        env:
+          KEYSTORE_PASS: ${{ secrets.STORE_PASSWORD }}
+          ALIAS_NAME: ${{ secrets.KEY_ALIAS }}
+          ALIAS_PASS: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Upload XMSF release artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: apks-xmsf
+          path: xmsf/build/outputs/apk/release/**/*.apk
+
+  build-mipush-apk:
+    name: Build MiPush Release APK
+    needs: [validate-release]
+    runs-on: ubuntu-latest
+    env:
+      HAS_RELEASE_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE != '' }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          validate-wrappers: false
+          allow-snapshot-wrappers: true
+
+      - name: Normalize Android SDK platform aliases
+        run: bash scripts/ensure_android_sdk_platform_alias.sh
+
+      - name: Decode Keystore
+        if: env.HAS_RELEASE_KEYSTORE == 'true'
+        run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > .yuuta.jks
+
+      - name: Build MiPush release APK
+        run: bash scripts/with_workspace_gradle_lock.sh :mipush:assembleRelease -PbuildSplits=true -Pkotlin.incremental=false
+        env:
+          KEYSTORE_PASS: ${{ secrets.STORE_PASSWORD }}
+          ALIAS_NAME: ${{ secrets.KEY_ALIAS }}
+          ALIAS_PASS: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Upload MiPush release artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: apks-mipush
+          path: mipush/build/outputs/apk/release/**/*.apk
+
+  create-release:
+    name: Create Release
+    needs: [build-xmsf-apk, build-mipush-apk]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      HAS_RELEASE_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE != '' }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: apks-*
+          path: artifacts/apks
+          merge-multiple: true
+
+      - name: Create Draft Release
+        if: startsWith(github.ref, 'refs/tags/') && env.HAS_RELEASE_KEYSTORE == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          tag_name="${GITHUB_REF_NAME}"
+          release_name="$tag_name"
+          release_notes="MiPushFramework Release ${tag_name}"
+          if [[ -f "docs/CHANGELOG.md" ]]; then
+            extracted_notes="$(awk -v tag="$tag_name" '
+              $0 == "## [" tag "]" {capture=1; next}
+              capture && /^## \[/ {exit}
+              capture {print}
+            ' docs/CHANGELOG.md)"
+            if [[ -n "$extracted_notes" ]]; then
+              release_notes="$extracted_notes"
+            fi
+          fi
+
+          mapfile -d '' release_assets < <(
+            find artifacts/apks -type f -name '*.apk' -print0 | sort -z
+          )
+          if [[ ${#release_assets[@]} == 0 ]]; then
+            echo "ERROR: no release assets found under artifacts/apks" >&2
+            find artifacts/apks -maxdepth 6 -type f | sort >&2 || true
+            exit 1
+          fi
+
+          if gh release view "$tag_name" >/dev/null 2>&1; then
+            gh release upload "$tag_name" "${release_assets[@]}" --clobber
+            gh release edit "$tag_name" --title "$release_name" --notes "$release_notes"
+          else
+            gh release create "$tag_name" "${release_assets[@]}" \
+              --draft \
+              --title "$release_name" \
+              --verify-tag \
+              --generate-notes \
+              --notes "$release_notes"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT != '' && secrets.GH_PAT || github.token }}

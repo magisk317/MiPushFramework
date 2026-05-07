@@ -26,8 +26,8 @@ echo "Override files changed. Running build/test validation before opening PR...
 bash scripts/with_workspace_gradle_lock.sh --no-daemon \
   -I gradle/security-overrides.init.gradle \
   --warning-mode all \
-  :push:assembleDebug \
-  :push:testDebugUnitTest \
+  :xmsf:assembleDebug \
+  :xmsf:testDebugUnitTest \
   -PbuildSplits \
   -Pkotlin.incremental=false
 

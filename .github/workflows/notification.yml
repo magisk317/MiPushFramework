@@ -64,12 +64,16 @@ jobs:
               ${caption:+-F "caption=$caption"}
           }
 
-          # CI workflow run notification
+          # CI workflow-run notification
           if [ -n "$WF_RUN_ID" ]; then
-            if [ "$WF_RUN_BRANCH" != "dev" ] || [ "$WF_RUN_CONCLUSION" != "success" ]; then
+            if [ "$WF_RUN_CONCLUSION" != "success" ]; then
               exit 0
             fi
-            
+
+            if [ "$WF_RUN_NAME" != "CI" ] || [ "$WF_RUN_BRANCH" != "dev" ]; then
+              exit 0
+            fi
+
             CI_MSG=$(printf '✅ CI: %s\n📋 %s\n🔗 Run: %s' \
               "$WF_RUN_NAME" "$CI_COMMIT_TITLE" "$WF_RUN_URL")
             
@@ -82,9 +86,9 @@ jobs:
               --data-urlencode "text=${CI_MSG}" \
               -d "disable_web_page_preview=true"
 
-            # Upload arm64-v8a artifact only
+            # Upload arm64-v8a artifacts only for both xmsf and mipush
             if [ -d "artifacts" ]; then
-              find artifacts -type f -name "*arm64-v8a*.apk" | while read -r apk; do
+              find artifacts -type f \( -name "*MiPushFramework*arm64-v8a*.apk" -o -name "*MiPush*arm64-v8a*.apk" -o -name "*arm64-v8a*.apk" \) | sort -u | while read -r apk; do
                 send_document "$apk" "$CI_THREAD" ""
               done
             fi
@@ -125,12 +129,12 @@ jobs:
             --data-urlencode "text=${CAPTION}" \
             -d "disable_web_page_preview=true"
 
-          # Download and Upload arm64-v8a assets only
+          # Download and upload arm64-v8a assets only for both xmsf and mipush
           if [ "$ASSETS_JSON" != "null" ]; then
             echo "$ASSETS_JSON" | jq -c '.[]' | while read -r asset; do
               name=$(echo "$asset" | jq -r '.name')
               url=$(echo "$asset" | jq -r '.browser_download_url')
-              if [[ "$name" == *arm64-v8a*.apk ]]; then
+              if [[ "$name" == *arm64-v8a*.apk ]] && [[ "$name" == *MiPushFramework* || "$name" == *MiPush* ]]; then
                 echo "Downloading $name..."
                 curl -L -sS -o "$name" "$url"
                 send_document "$name" "$RELEASE_THREAD" ""
