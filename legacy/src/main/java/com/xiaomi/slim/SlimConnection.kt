@@ -89,6 +89,10 @@ class SlimConnection(
                 MyLog.w("[Slim] delay bind chid=${clientLoginInfo.chid} as challenge is missing")
                 return
             }
+            MyLog.w(
+                "[Slim] bind request instance=${hashCode()} chid=${clientLoginInfo.chid} " +
+                    "status=${clientLoginInfo.status} shuttingDown=$isShuttingDown host=$host"
+            )
             Binder.bind(clientLoginInfo, challenge, this)
         }
     }
@@ -117,9 +121,14 @@ class SlimConnection(
     @Throws(XMPPException::class, IOException::class)
     override fun initConnection() {
         synchronized(this) {
+            val wasShuttingDown = isShuttingDown
             // Reconnection reuses the service-owned SlimConnection instance. Reset the shutdown
             // guard here so a previously closed connection can send bind/register blobs again.
             isShuttingDown = false
+            MyLog.w(
+                "[Slim] initConnection instance=${hashCode()} " +
+                    "reusedAfterShutdown=$wasShuttingDown socket=${socket?.hashCode()} host=$host"
+            )
             initReaderAndWriter()
             mWriter?.openStream()
         }
@@ -217,15 +226,26 @@ class SlimConnection(
 
     override fun send(blob: Blob) {
         if (isShuttingDown) {
-            MyLog.w("[Slim] skip sending blob as connection is shutting down")
+            MyLog.w(
+                "[Slim] skip sending blob as connection is shutting down " +
+                    "instance=${hashCode()} cmd=${blob.cmd} chid=${blob.channelId} packetId=${blob.packetID}"
+            )
             return
         }
         val writer = mWriter
         if (writer == null) {
+            MyLog.w(
+                "[Slim] skip sending blob because writer is null " +
+                    "instance=${hashCode()} cmd=${blob.cmd} chid=${blob.channelId} packetId=${blob.packetID}"
+            )
             notifyConnectionError(10, IOException("the writer is null."))
             return
         }
         try {
+            MyLog.w(
+                "[Slim] send blob instance=${hashCode()} cmd=${blob.cmd} " +
+                    "chid=${blob.channelId} packetId=${blob.packetID} host=$host"
+            )
             val bytesWritten = writer.write(blob)
             setWriteAlive()
             val packageName = blob.packageName
@@ -270,6 +290,10 @@ class SlimConnection(
     ) {
         synchronized(this) {
             if (isShuttingDown) return
+            MyLog.w(
+                "[Slim] shutdown instance=${hashCode()} reason=$reason " +
+                    "error=${error?.javaClass?.simpleName}:${error?.message}"
+            )
             isShuttingDown = true
             mReader?.let {
                 it.shutdown()

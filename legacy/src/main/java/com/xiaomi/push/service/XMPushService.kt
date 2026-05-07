@@ -286,12 +286,22 @@ open class XMPushService : Service(), ConnectionListener, IPushServiceAction {
     }
 
     fun recreateSlimConnection(): SlimConnection {
+        val previous = runCatching { slimConnection }.getOrNull()
+        MyLog.w(
+            "recreateSlimConnection previous=" +
+                if (previous == null) {
+                    "null"
+                } else {
+                    "${previous.hashCode()} connected=${previous.isConnected} connecting=${previous.isConnecting}"
+                }
+        )
         runCatching {
             slimConnection.removeConnectionListener(this)
         }
         return SlimConnection(this, this, connectionConfiguration).also { connection ->
             connection.addConnectionListener(this)
             slimConnection = connection
+            MyLog.w("recreateSlimConnection created=${connection.hashCode()} host=${connection.host}")
         }
     }
 

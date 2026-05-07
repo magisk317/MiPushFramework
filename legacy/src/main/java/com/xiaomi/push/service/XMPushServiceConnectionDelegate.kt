@@ -14,6 +14,14 @@ class XMPushServiceConnectionDelegate(
 ) {
     fun connect() {
         val currentConnection = service.currentConnection
+        MyLog.w(
+            "connect() currentConnection=" +
+                if (currentConnection == null) {
+                    "null"
+                } else {
+                    "${currentConnection.hashCode()} connected=${currentConnection.isConnected} connecting=${currentConnection.isConnecting} host=${currentConnection.host}"
+                }
+        )
         val plan = service.runtimeObserver.resolveConnectionAttemptPlan(
             currentConnection?.isConnecting == true,
             currentConnection?.isConnected == true,
@@ -143,12 +151,14 @@ class XMPushServiceConnectionDelegate(
     private fun connectBySlim() {
         try {
             val slimConnection = service.recreateSlimConnection()
+            MyLog.w("connectBySlim using=${slimConnection.hashCode()} current=${service.currentConnection?.hashCode()}")
             slimConnection.addPacketListener(
                 service.servicePacketListener,
                 PacketFilter { true },
             )
             slimConnection.connect()
             service.currentConnection = slimConnection
+            MyLog.w("connectBySlim connected current=${service.currentConnection?.hashCode()} host=${service.currentConnection?.host}")
         } catch (e: XMPPException) {
             MyLog.e("fail to create Slim connection", e)
             service.slimConnection.disconnect(3, e)
