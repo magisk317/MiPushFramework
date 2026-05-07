@@ -54,8 +54,16 @@ class MyMIPushNotificationHelper {
         private const val GROUP_TYPE_MIPUSH_GROUP = "#group#"
         private const val GROUP_TYPE_PASS_THROUGH = "#pass_through#"
 
+        @Volatile
+        private var notificationSessionStartedAtMs: Long = System.currentTimeMillis()
         private var tryLoadConfigurations = false
         private val executorService: ExecutorService = Executors.newFixedThreadPool(3)
+
+        @JvmStatic
+        fun markNotificationSessionStarted(source: String, nowMs: Long = System.currentTimeMillis()) {
+            notificationSessionStartedAtMs = nowMs
+            logger.i("notification session started at=$nowMs source=$source")
+        }
 
         @JvmStatic
         fun notifyPushMessage(context: Context, decryptedContent: ByteArray) {
@@ -73,6 +81,21 @@ class MyMIPushNotificationHelper {
             }
             if (RegisteredApplicationDb.isBlocked(container.packageName)) {
                 logger.i("skip blocked application pkg=${container.packageName} action=${container.action}")
+                return
+            }
+            if (!isMockReplay && shouldDropReplayNotification(container)) {
+                val messageTs = container.metaInfo?.messageTs ?: 0L
+                val sessionStartedAtMs = notificationSessionStartedAtMs
+                logger.i(
+                    "skip replay notification publish pkg=${container.packageName} action=${container.action} " +
+                        "messageId=$messageId messageTs=$messageTs " +
+                        "sessionStartedAtMs=$sessionStartedAtMs"
+                )
+                PushRuntime.observeNotificationEvent(
+                    packageName = container.packageName,
+                    action = "replay_notification_drop",
+                    source = "MyMIPushNotificationHelper.notifyPushMessage"
+                )
                 return
             }
             HookTraceCompat.notifyPushMessage(container, decryptedContent)
@@ -190,6 +213,24 @@ class MyMIPushNotificationHelper {
 
         internal fun shouldPublishNotification(container: XmPushActionContainer): Boolean {
             return container.action == ActionType.SendMessage
+        }
+
+        internal fun shouldDropReplayNotification(
+            container: XmPushActionContainer,
+            sessionStartedAtMs: Long = notificationSessionStartedAtMs
+        ): Boolean {
+            if (container.action != ActionType.SendMessage) {
+                return false
+            }
+            val metaInfo = container.metaInfo ?: return false
+            if (!metaInfo.isSetMessageTs()) {
+                return false
+            }
+            val messageTs = metaInfo.messageTs
+            if (messageTs <= 0L || sessionStartedAtMs <= 0L) {
+                return false
+            }
+            return messageTs < sessionStartedAtMs
         }
 
         private fun loadConfigurations(context: Context, configurationDirectory: Uri?) {

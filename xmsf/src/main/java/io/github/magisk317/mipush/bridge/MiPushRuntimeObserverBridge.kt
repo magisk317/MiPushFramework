@@ -155,6 +155,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
 
     override fun reconnectionSuccessful(connection: Connection) {
         PushRuntime.observeChannelEvent(null, "reconnect_success", "MiPushRuntimeObserverBridge.reconnectionSuccessful")
+        MyMIPushNotificationHelper.markNotificationSessionStarted("MiPushRuntimeObserverBridge.reconnectionSuccessful")
         PushRuntime.observeConnectionState(
             state = PushConnectionState.Connected,
             source = "MiPushRuntimeObserverBridge.reconnectionSuccessful",
@@ -175,6 +176,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
 
     override fun connectionStarted(connection: Connection) {
         PushRuntime.observeChannelEvent(null, "connection_started", "MiPushRuntimeObserverBridge.connectionStarted")
+        MyMIPushNotificationHelper.markNotificationSessionStarted("MiPushRuntimeObserverBridge.connectionStarted")
         PushRuntime.observeConnectionState(
             state = PushConnectionState.Connecting,
             source = "MiPushRuntimeObserverBridge.connectionStarted",
