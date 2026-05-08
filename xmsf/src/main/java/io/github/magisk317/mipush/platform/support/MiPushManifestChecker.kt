@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.os.Build
 import android.text.TextUtils
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
@@ -14,6 +15,7 @@ import com.xiaomi.push.service.PushConstants
 import io.github.magisk317.mipush.common.Constants
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
+import java.util.concurrent.ConcurrentHashMap
 
 @Suppress("UNCHECKED_CAST")
 class MiPushManifestChecker private constructor(
@@ -61,17 +63,21 @@ class MiPushManifestChecker private constructor(
         if (TextUtils.equals(pkgInfo.packageName, PushConstants.PUSH_SERVICE_PACKAGE_NAME)) {
             return true
         }
+        val cacheKey = serviceCheckKey(pkgInfo)
+        serviceCheckCache[cacheKey]?.let { return it }
         return try {
             ManifestChecker.checkServices(context, pkgInfo)
+            serviceCheckCache[cacheKey] = true
             true
         } catch (e: Throwable) {
             if (e is IllegalStateException) {
-                logger.w("checkServices: " + pkgInfo.packageName + "," + e.message)
+                warnServiceIssueOnce(cacheKey, "checkServices: " + pkgInfo.packageName + "," + e.message)
             } else if (!isIllegalManifestException(e)) {
                 logger.e("checkServices", e)
             } else {
-                logger.w("checkServices: " + pkgInfo.packageName + "," + e.message)
+                warnServiceIssueOnce(cacheKey, "checkServices: " + pkgInfo.packageName + "," + e.message)
             }
+            serviceCheckCache[cacheKey] = false
             false
         }
     }
@@ -82,6 +88,30 @@ class MiPushManifestChecker private constructor(
         @JvmStatic
         fun create(context: Context): MiPushManifestChecker {
             return MiPushManifestChecker(context)
+        }
+
+        private val serviceCheckCache = ConcurrentHashMap<String, Boolean>()
+        private val warnedServiceIssues = ConcurrentHashMap.newKeySet<String>()
+
+        private fun serviceCheckKey(pkgInfo: PackageInfo): String {
+            val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                pkgInfo.longVersionCode
+            } else {
+                @Suppress("DEPRECATION")
+                pkgInfo.versionCode.toLong()
+            }
+            val serviceSignature = pkgInfo.services
+                ?.map { "${it.name}:${it.enabled}:${it.exported}" }
+                ?.sorted()
+                ?.joinToString("|")
+                .orEmpty()
+            return "${pkgInfo.packageName}#$versionCode#$serviceSignature"
+        }
+
+        private fun warnServiceIssueOnce(cacheKey: String, message: String) {
+            if (warnedServiceIssues.add(cacheKey)) {
+                Napier.w(message, tag = MiPushManifestChecker::class.java.simpleName)
+            }
         }
 
         private fun isIllegalManifestException(e0: Throwable): Boolean {
