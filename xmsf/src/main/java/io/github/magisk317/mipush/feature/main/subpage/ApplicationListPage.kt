@@ -31,7 +31,6 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -55,7 +54,10 @@ import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import io.github.aakira.napier.DebugAntilog
 import com.xiaomi.xmsf.R
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.common.utils.Utils
@@ -154,7 +156,12 @@ fun ApplicationList(
         }
     }
 
-    val refreshScope = rememberCoroutineScope()
+    val refreshScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose {
+            refreshScope.cancel()
+        }
+    }
     val stats by remember {
         derivedStateOf {
             g_items.toApplicationStats()
