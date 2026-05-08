@@ -59,7 +59,8 @@ internal object MyMIPushNotificationStyleSupport {
 
     fun normalStyleNotificationBuilder(
         context: Context,
-        metaInfo: PushMetaInfo
+        metaInfo: PushMetaInfo,
+        packageName: String
     ): NotificationCompat.Builder {
         val title = metaInfo.title.orEmpty()
         val description = metaInfo.description.orEmpty()
@@ -81,6 +82,11 @@ internal object MyMIPushNotificationStyleSupport {
             val titleAndDesp = determineTitleAndDespByDIP(context, metaInfo)
             setContentTitle(titleAndDesp[0])
             setContentText(titleAndDesp[1])
+
+            val smallIconId = MIPushNotificationViewSupport.getIdForSmallIcon(context, packageName)
+            if (smallIconId != 0) {
+                setSmallIcon(smallIconId)
+            }
         }
     }
 

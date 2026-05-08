@@ -296,7 +296,7 @@ class MyMIPushNotificationHelper {
                     pkgCtx
                 )
             } else {
-                MyMIPushNotificationStyleSupport.normalStyleNotificationBuilder(context, container.metaInfo)
+                MyMIPushNotificationStyleSupport.normalStyleNotificationBuilder(pkgCtx, container.metaInfo, packageName)
             }
 
             if (metaInfo.extra != null) {
