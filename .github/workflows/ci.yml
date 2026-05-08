@@ -29,66 +29,9 @@ jobs:
         with:
           validate-wrappers: false
           allow-snapshot-wrappers: true
-      - name: Validate security override files
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
-          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
-          EVENT_NAME: ${{ github.event_name }}
-          HEAD_REF: ${{ github.head_ref }}
-        run: |
-          # Skip validation on auto-sync commits to avoid loops.
-          if git log -1 --format=%s | grep -q '\[auto-sync\]'; then
-            {
-              echo "## CI security override note"
-              echo ""
-              echo "- Auto-sync commit detected, skipping validation."
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
 
-          # Bot PRs cannot query Dependabot alerts API; just check files exist.
-          if [[ "$EVENT_NAME" == "pull_request" ]] && [[ "$HEAD_REF" == renovate/* || "$PR_AUTHOR" == "dependabot[bot]" || "$PR_AUTHOR" == "app/dependabot" || "$PR_AUTHOR" == "github-actions[bot]" || "$PR_AUTHOR" == "renovate[bot]" ]]; then
-            test -f gradle/security-overrides.properties
-            test -f gradle/security-overrides.init.gradle
-            {
-              echo "## CI security override note"
-              echo ""
-              echo "- Bot or renovate PR detected (${PR_AUTHOR:-unknown}, ${HEAD_REF:-unknown})"
-              echo "- Skipped remote Dependabot alerts sync check in CI"
-              echo "- Verified security override files exist"
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-
-          chmod +x scripts/sync_security_overrides.sh
-
-          # If check passes, we're done.
-          if scripts/sync_security_overrides.sh --check; then
-            exit 0
-          fi
-
-          # Overrides are stale — sync, commit, and push to trigger a fresh CI run.
-          echo "::group::Auto-sync security overrides"
-          scripts/sync_security_overrides.sh
-          echo "::endgroup::"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add gradle/security-overrides.properties gradle/security-overrides.init.gradle
-          git commit -m "chore(security): auto-sync dependency security overrides [auto-sync]"
-          git push
-
-          {
-            echo "## CI security override note"
-            echo ""
-            echo "- **Security overrides were stale — auto-synced and pushed.**"
-            echo "- A fresh CI run will be triggered automatically."
-          } >> "$GITHUB_STEP_SUMMARY"
-          echo "Security overrides auto-synced. A new CI run will pick up the fix."
-          exit 1
       - name: Build & Test
-        run: bash scripts/with_workspace_gradle_lock.sh -I gradle/security-overrides.init.gradle --warning-mode all :checkReadmeBuildRequirements :common:check :xmsf:assembleDebug :mipush:assembleDebug testDebugUnitTest -PbuildSplits -PminifyDebug -Pkotlin.incremental=false
+        run: bash scripts/with_workspace_gradle_lock.sh --warning-mode all :checkReadmeBuildRequirements :common:check :xmsf:assembleDebug :mipush:assembleDebug testDebugUnitTest -PbuildSplits -PminifyDebug -Pkotlin.incremental=false
       - name: Write build summary
         if: always()
         run: |

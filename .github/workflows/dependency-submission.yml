@@ -24,19 +24,10 @@ jobs:
           distribution: temurin
           java-version: 25
 
-      - name: Validate security override files
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
-        run: |
-          chmod +x scripts/sync_security_overrides.sh
-          scripts/sync_security_overrides.sh --check
-
       - name: Generate Dependency Graph
         id: dependency-graph
         uses: gradle/actions/dependency-submission@v6
         with:
-          additional-arguments: -I gradle/security-overrides.init.gradle
           dependency-graph: generate-and-upload
           dependency-graph-exclude-configurations: "^classpath$"
 
