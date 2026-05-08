@@ -12,14 +12,17 @@ plugins {
     id("magisk.maintenance")
 }
 
-val securityOverrides: Map<String, String> = run {
-    val file = rootProject.file("gradle/security-overrides.properties")
-    if (!file.exists()) {
-        emptyMap()
-    } else {
-        val props = java.util.Properties()
-        file.reader().use { props.load(it) }
-        props.stringPropertyNames().associateWith { props.getProperty(it) }
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    configurations.all {
+        resolutionStrategy {
+            // BEGIN AUTO FORCED DEPENDENCIES (managed by workflow)
+            // END AUTO FORCED DEPENDENCIES (managed by workflow)
+        }
     }
 }
 
@@ -41,13 +44,9 @@ extra["APPLICATION_ID"] = "io.github.magisk317.mipush"
 
 allprojects {
     configurations.configureEach {
-        resolutionStrategy.eachDependency {
-            val key = "${requested.group}:${requested.name}"
-            val forcedVersion = securityOverrides[key]
-            if (!forcedVersion.isNullOrBlank() && requested.version != forcedVersion) {
-                useVersion(forcedVersion)
-                because("Security override from gradle/security-overrides.properties")
-            }
+        resolutionStrategy {
+            // BEGIN AUTO FORCED DEPENDENCIES (managed by workflow)
+            // END AUTO FORCED DEPENDENCIES (managed by workflow)
         }
     }
 
