@@ -101,7 +101,7 @@ jobs:
               exit 0
             fi
 
-            CI_MSG=$(printf '✅ CI: %s\n📋 %s\n🔗 Run: %s' \
+            CI_MSG=$(printf '✅ Workflow: %s\n📋 %s\n🔗 Run: %s' \
               "$WF_RUN_NAME" "$CI_COMMIT_TITLE" "$WF_RUN_URL")
             
             CI_THREAD=""
