@@ -176,6 +176,12 @@ while IFS= read -r alert; do
   fi
 
   matched_alerts=$((matched_alerts + 1))
+
+  # Skip buildscript dependencies (settings.gradle.kts) since we can't override transitive BOM dependencies
+  if [[ "${manifest}" == "settings.gradle.kts" ]]; then
+    continue
+  fi
+
   while IFS= read -r version; do
     if version_in_range "${version}" "${range}"; then
       vulnerable_matches=$((vulnerable_matches + 1))
