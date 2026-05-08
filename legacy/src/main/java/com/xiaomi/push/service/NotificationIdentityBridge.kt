@@ -133,6 +133,27 @@ object NotificationIdentityBridge {
         }
     }
 
+    fun getTargetNotificationChannelGroups(context: Context, packageName: String): List<NotificationChannelGroup> {
+        return when (resolveStrategy(context, packageName)) {
+            Strategy.FRAMEWORK -> runCatching {
+                NotificationManagerPlatformSupport.getNotificationChannelGroups(packageName)
+            }.getOrNull().orEmpty()
+
+            Strategy.DELEGATED -> runCatching {
+                val remoteService = service() ?: return@runCatching emptyList<NotificationChannelGroup>()
+                val groups = remoteService.javaClass.getMethod(
+                    "getNotificationChannelGroups",
+                    String::class.java,
+                    String::class.java,
+                    Int::class.javaPrimitiveType
+                ).invoke(remoteService, appContext(context).packageName, packageName, callingUserId(context))
+                listFromParceledListSlice<NotificationChannelGroup>(groups)
+            }.getOrNull().orEmpty()
+
+            Strategy.UNSUPPORTED -> emptyList()
+        }
+    }
+
     fun getTargetNotificationChannel(
         context: Context,
         packageName: String,

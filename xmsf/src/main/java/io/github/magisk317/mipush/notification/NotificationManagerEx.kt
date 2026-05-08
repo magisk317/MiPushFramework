@@ -477,7 +477,27 @@ object NotificationManagerEx {
                     return targetChannels
                 }
                 maybeLogDiagnosticsOnce("target-channel-list-empty", packageName, null, null)
-                notificationManager.getNotificationChannels()
+                if (!canUseLegacyPackageScopedApis()) {
+                    val packageNotificationManager = getNotificationManagerForPackage(packageName)
+                    if (packageNotificationManager != null && packageNotificationManager !== notificationManager) {
+                        try {
+                            return packageNotificationManager.notificationChannels
+                        } catch (e: Exception) {
+                            logger.e("Failed to query channels via package context for $packageName", e)
+                        }
+                    }
+                }
+                return try {
+                    val method = NotificationManager::class.java.getMethod(
+                        "getNotificationChannelsForPackage",
+                        String::class.java,
+                        Int::class.javaPrimitiveType
+                    )
+                    method.invoke(notificationManager, packageName, 0) as? List<NotificationChannel?>
+                } catch (e: Exception) {
+                    logger.e("Failed to invoke getNotificationChannelsForPackage", e)
+                    emptyList()
+                }
             } else if (!canUseLegacyPackageScopedApis()) {
                 val packageNotificationManager = getNotificationManagerForPackage(packageName)
                 if (packageNotificationManager != null && packageNotificationManager !== notificationManager) {
@@ -578,7 +598,32 @@ object NotificationManagerEx {
         logger.d("getNotificationChannelGroups() called with: packageName = $packageName")
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (shouldUseModernIdentityStrategy(packageName)) {
-                notificationManager.getNotificationChannelGroups()
+                val targetGroups = NotificationIdentityBridge.getTargetNotificationChannelGroups(appContext, packageName)
+                if (targetGroups.isNotEmpty()) {
+                    return targetGroups
+                }
+                maybeLogDiagnosticsOnce("target-group-list-empty", packageName, null, null)
+                if (!canUseLegacyPackageScopedApis()) {
+                    val packageNotificationManager = getNotificationManagerForPackage(packageName)
+                    if (packageNotificationManager != null && packageNotificationManager !== notificationManager) {
+                        try {
+                            return packageNotificationManager.notificationChannelGroups
+                        } catch (e: Exception) {
+                            logger.e("Failed to query groups via package context for $packageName", e)
+                        }
+                    }
+                }
+                return try {
+                    val method = NotificationManager::class.java.getMethod(
+                        "getNotificationChannelGroupsForPackage",
+                        String::class.java,
+                        Int::class.javaPrimitiveType
+                    )
+                    method.invoke(notificationManager, packageName, 0) as? List<NotificationChannelGroup?>
+                } catch (e: Exception) {
+                    logger.e("Failed to invoke getNotificationChannelGroupsForPackage", e)
+                    emptyList()
+                }
             } else if (!canUseLegacyPackageScopedApis()) {
                 val packageNotificationManager = getNotificationManagerForPackage(packageName)
                 if (packageNotificationManager != null && packageNotificationManager !== notificationManager) {

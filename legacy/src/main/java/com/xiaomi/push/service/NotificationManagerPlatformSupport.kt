@@ -148,6 +148,18 @@ internal object NotificationManagerPlatformSupport {
     }
 
     @JvmStatic
+    @Throws(Exception::class)
+    fun getNotificationChannelGroups(packageName: String): List<NotificationChannelGroup>? {
+        val pkgUid = getPkgUid(packageName)
+        if (pkgUid == -1) {
+            return null
+        }
+        val slice = JavaCalls.callMethod(nms, "getNotificationChannelGroupsForPackage", packageName, pkgUid)
+        val items = getListFromParceledListSlice(slice) ?: return null
+        return items.map { it as NotificationChannelGroup }
+    }
+
+    @JvmStatic
     fun filterLocalActiveNotifications(packageName: String, notifications: Array<StatusBarNotification>?): List<StatusBarNotification> {
         val isMiui = MIUIUtils.isMIUI()
         if (notifications.isNullOrEmpty()) {
