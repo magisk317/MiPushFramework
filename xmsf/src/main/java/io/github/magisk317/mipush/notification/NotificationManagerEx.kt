@@ -19,7 +19,8 @@ import java.util.Collections
 object NotificationManagerEx {
     private const val TAG = "NotificationManagerEx"
     private const val MODERN_IDENTITY_FIRST_SDK = Build.VERSION_CODES.Q
-    const val HOOK_API_VERSION = 1
+    @JvmField
+    val HOOK_API_VERSION = 1
     private val logger = object {
         fun d(msg: String) = Napier.d(msg, tag = TAG)
         fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
