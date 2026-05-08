@@ -1,12 +1,12 @@
 package io.github.magisk317.mipush.app
 
-import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
-import com.xiaomi.push.service.XMPushService
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.data.PreferenceRepository
+import io.github.magisk317.mipush.control.PushControllerUtils
+import io.github.magisk317.mipush.runtime.PushRuntimeComponents
+import io.github.magisk317.mipush.service.PushServiceStarter
 import io.github.magisk317.mipush.utils.Configurations
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -84,10 +84,13 @@ class ConfigCenter @Inject constructor(
             val directory = getConfigurationDirectoryAsync()
             Configurations.getInstance().init(context, directory)
             Global.iconConfigurations().init(context, directory)
-            val intent = Intent()
-            intent.component = ComponentName(context, XMPushService::class.java)
-            intent.action = Constants.CONFIGURATIONS_UPDATE_ACTION
-            context.startService(intent)
+            if (!PushControllerUtils.isAppMainProc(context)) {
+                val intent = PushRuntimeComponents.newLegacyMainServiceIntent(
+                    context,
+                    Constants.CONFIGURATIONS_UPDATE_ACTION
+                )
+                PushServiceStarter.start(context, intent)
+            }
         }
     }
 }
