@@ -158,7 +158,7 @@ object EventDb {
                 ) as XmPushActionRegistrationResult
             } catch (_: Exception) {
             }
-            if (event.type == Event.Type.RegistrationResult && (data == null || data.errorCode.toInt() == 0)) {
+            if (event.type == Event.Type.RegistrationResult && data?.errorCode?.toInt() == 0) {
                 info.registered.add(event.pkg)
             } else {
                 info.unregistered.add(event.pkg)

@@ -126,6 +126,22 @@ class ConvertUtilsTest {
         assertEquals("request-id", (body as XmPushActionRegistration).id)
     }
 
+    @Test
+    fun toJson_marksEmptyPushActionWithoutDeserializeFailure() {
+        val container = XmPushActionContainer().apply {
+            action = ActionType.Registration
+            isRequest = false
+            packageName = "com.example.app"
+            setEncryptAction(false)
+            setPushAction(ByteArray(0))
+        }
+
+        val json = ConvertUtils.toJson(container, null).toString()
+
+        assertEquals(true, json.contains("empty_payload"))
+        assertEquals(false, json.contains("thrift_deserialize_failed"))
+    }
+
     private fun encryptedSendMessageContainer(
         packageName: String,
         messageId: String,

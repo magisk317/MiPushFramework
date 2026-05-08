@@ -61,6 +61,8 @@ object ConvertUtils {
                 val message = getResponseMessageBodyFromContainer(container, regSec)
                 if (message != null) {
                     put("pushAction", thriftToJson(message))
+                } else if (container.getPushAction()?.isEmpty() == true) {
+                    put("pushActionUnavailable", "empty_payload")
                 } else if (!container.isEncryptAction) {
                     put("pushActionUnavailable", "unsupported_action")
                 }
@@ -142,6 +144,9 @@ object ConvertUtils {
         }
         val resolution = resolvePushActionBytes(container, regSec) ?: return null
         val oriMsgBytes = resolution.payload ?: return null
+        if (oriMsgBytes.isEmpty()) {
+            return null
+        }
         return try {
             val packet = createMessageFromAction(container.action, container.isRequest)
             
