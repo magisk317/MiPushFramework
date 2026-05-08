@@ -107,8 +107,10 @@ class PushReconnectRuntimeTest {
             nowMs = 2000L
         )
 
+        assertEquals(PushReconnectAction.Schedule, secondAttempt.action)
         assertTrue(secondAttempt.shouldDumpNativeNetInfo)
         assertFalse(secondAttempt.shouldRunConnectivityTest)
+        assertEquals(PushReconnectAction.Schedule, thirdAttempt.action)
         assertFalse(thirdAttempt.shouldDumpNativeNetInfo)
         assertTrue(thirdAttempt.shouldRunConnectivityTest)
     }

@@ -172,6 +172,20 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
             host = connection.host,
             reason = error?.message ?: reason.toString()
         )
+        val service = XMPushServiceProxy.get()
+        val shouldFalldown = (service as? XMPushService)?.shouldFalldown() ?: false
+        val plan = PushServiceConnectionRuntime.planConnectionClosed(shouldFalldown)
+        PushRuntime.observeChannelEvent(null, plan.eventAction, "MiPushRuntimeObserverBridge.connectionClosed")
+        if (plan.shouldScheduleReconnect) {
+            if (service != null) {
+                service.scheduleConnect(false)
+            } else {
+                PushRuntime.requestConnection(
+                    source = "MiPushRuntimeObserverBridge.connectionClosed",
+                    reason = "connection_closed_no_service_proxy"
+                )
+            }
+        }
     }
 
     override fun connectionStarted(connection: Connection) {

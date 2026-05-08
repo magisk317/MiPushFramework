@@ -226,6 +226,11 @@ internal class XMPushServiceIntentDelegate(
             return
         }
         Alarm.registerPing(false)
+        if (!service.isConnected && !service.isConnecting) {
+            MyLog.w("timer found disconnected channel, schedule reconnect.")
+            service.scheduleConnect(true)
+            return
+        }
         if (service.shouldCheckAlive()) {
             service.checkAlive(false)
         }
@@ -233,6 +238,11 @@ internal class XMPushServiceIntentDelegate(
 
     private fun handleCheckAlive() {
         MyLog.w("Service called on check alive.")
+        if (!service.isConnected && !service.isConnecting) {
+            MyLog.w("check alive found disconnected channel, schedule reconnect.")
+            service.scheduleConnect(true)
+            return
+        }
         if (service.shouldCheckAlive()) {
             service.checkAlive(false)
         }

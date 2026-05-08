@@ -132,7 +132,7 @@ object PushReconnectRuntime {
         val delayed = computeDelayedReconnect(state, nowMs)
         val nextState = delayed.nextState.copy(attempts = delayed.nextState.attempts + 1)
         return PushReconnectAttemptPlan(
-            action = PushReconnectAction.Delayed,
+            action = PushReconnectAction.Schedule,
             delayMs = delayed.delayMs,
             nextState = nextState,
             shouldDumpNativeNetInfo = nextState.attempts == 2,

@@ -38,7 +38,8 @@ class ReconnectionManager(
                 return
             }
 
-            PushReconnectAction.Schedule -> {
+            PushReconnectAction.Schedule,
+            PushReconnectAction.Delayed -> {
                 // Continue to schedule logic below
             }
 
