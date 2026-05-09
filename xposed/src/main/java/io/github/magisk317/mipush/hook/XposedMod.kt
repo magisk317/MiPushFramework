@@ -17,6 +17,8 @@ import io.github.magisk317.mipush.hook.xmsf.HookXmsf
 import io.github.magisk317.mipush.hook.system.HookSystemService
 import io.github.magisk317.mipush.hook.systemui.HookNotificationSettingsManager
 import io.github.magisk317.mipush.hook.systemui.HookSystemUIPlugin
+import io.github.magisk317.mipush.hook.keepalive.KeepAliveHook
+
 import io.github.magisk317.mipush.xposed.findClass
 import io.github.magisk317.mipush.xposed.hook
 import io.github.magisk317.mipush.xposed.hookAllMethods
@@ -212,6 +214,8 @@ class XposedMod : IXposedHookLoadPackage, IXposedHookZygoteInit {
         if (processName == ANDROID_PACKAGE_NAME) {
             if (packageName == ANDROID_PACKAGE_NAME) {
                 HookSystemService().hook(lpparam.classLoader)
+                KeepAliveHook().hook(lpparam.classLoader)
+
             }
             return
         }

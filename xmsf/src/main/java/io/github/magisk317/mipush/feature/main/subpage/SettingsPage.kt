@@ -2,7 +2,10 @@
 
 package io.github.magisk317.mipush.feature.main.subpage
 
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -30,6 +33,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
@@ -49,7 +53,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import com.xiaomi.xmsf.BuildConfig
 import com.xiaomi.xmsf.R
@@ -71,6 +78,7 @@ import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 import io.github.magisk317.mipush.feature.ui.theme.Theme
 import io.github.magisk317.mipush.feature.ui.theme.spacing
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
+import io.github.magisk317.mipush.service.KeepAliveAccessibilityService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -255,6 +263,28 @@ private fun ServiceConfigurationBlock(viewModel: SettingsViewModel, snackbarHost
     val notificationOnRegister by viewModel.notificationOnRegister.collectAsStateWithLifecycle()
 
     SetXMPPServer(viewModel)
+    val keepAliveOomAdj by viewModel.keepAliveOomAdj.collectAsStateWithLifecycle()
+    val keepAliveAntiKill by viewModel.keepAliveAntiKill.collectAsStateWithLifecycle()
+    val keepAliveStandbyBypass by viewModel.keepAliveStandbyBypass.collectAsStateWithLifecycle()
+    val keepAliveDozeBypass by viewModel.keepAliveDozeBypass.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var accessibilityStatusRefresh by remember { mutableIntStateOf(0) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                accessibilityStatusRefresh += 1
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+    val keepAliveAccessibilityServiceEnabled = remember(context, accessibilityStatusRefresh) {
+        isKeepAliveAccessibilityServiceEnabled(context)
+    }
+    val activityIntentNotFoundMessage = stringResource(R.string.activity_intent_not_found)
+    val notificationOnRegisterDisabledMessage = stringResource(R.string.notification_on_register_global_disabled_hint)
 
     SettingsSwitchItem(
         title = stringResource(R.string.settings_start_foreground_service),
@@ -264,6 +294,62 @@ private fun ServiceConfigurationBlock(viewModel: SettingsViewModel, snackbarHost
         viewModel.setStartForeground(it)
         viewModel.startMiPushServiceAsForegroundService(context)
     }
+
+    SettingsSwitchItem(
+        title = stringResource(R.string.pref_keepalive_oom_adj_title),
+        summary = stringResource(R.string.pref_keepalive_oom_adj_summary),
+        checked = keepAliveOomAdj,
+    ) {
+        viewModel.setKeepAliveOomAdj(it)
+    }
+
+    SettingsSwitchItem(
+        title = stringResource(R.string.pref_keepalive_anti_kill_title),
+        summary = stringResource(R.string.pref_keepalive_anti_kill_summary),
+        checked = keepAliveAntiKill,
+    ) {
+        viewModel.setKeepAliveAntiKill(it)
+    }
+
+    SettingsSwitchItem(
+        title = stringResource(R.string.pref_keepalive_standby_bypass_title),
+        summary = stringResource(R.string.pref_keepalive_standby_bypass_summary),
+        checked = keepAliveStandbyBypass,
+    ) {
+        viewModel.setKeepAliveStandbyBypass(it)
+    }
+
+    SettingsSwitchItem(
+        title = stringResource(R.string.pref_keepalive_doze_bypass_title),
+        summary = stringResource(R.string.pref_keepalive_doze_bypass_summary),
+        checked = keepAliveDozeBypass,
+    ) {
+        viewModel.setKeepAliveDozeBypass(it)
+    }
+
+    SettingsItem(
+        title = stringResource(R.string.pref_keepalive_dedicated_service_title),
+        summary = stringResource(
+            if (keepAliveAccessibilityServiceEnabled) {
+                R.string.pref_keepalive_dedicated_service_enabled_summary
+            } else {
+                R.string.pref_keepalive_dedicated_service_disabled_summary
+            }
+        ),
+    ) {
+        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+        runCatching {
+            context.startActivity(intent)
+        }.onFailure {
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    message = activityIntentNotFoundMessage,
+                    duration = SnackbarDuration.Short,
+                )
+            }
+        }
+    }
+
 
     SettingsSwitchItem(
         title = stringResource(R.string.settings_notify_on_register),
@@ -276,7 +362,7 @@ private fun ServiceConfigurationBlock(viewModel: SettingsViewModel, snackbarHost
             }
             scope.launch {
                 snackbarHostState.showSnackbar(
-                    message = context.getString(R.string.notification_on_register_global_disabled_hint),
+                    message = notificationOnRegisterDisabledMessage,
                     duration = SnackbarDuration.Short,
                 )
             }
@@ -310,10 +396,12 @@ private fun DisplayBlock(viewModel: SettingsViewModel) {
         },
     )
 
+
     SettingsSwitchItem(
         title = stringResource(R.string.settings_show_all_events),
         checked = showAllEvents,
     ) { viewModel.setShowAllEvents(it) }
+
 
     SettingsSwitchItem(
         title = stringResource(R.string.settings_show_loaded_file_after_configurations_loaded),
@@ -353,6 +441,7 @@ private fun DataMaintenanceBlock(viewModel: SettingsViewModel) {
         viewModel.tryForceRegisterAllApplications(context)
     }
 
+
     SettingsSwitchItem(
         title = stringResource(R.string.settings_debug_mode),
         summary = stringResource(R.string.settings_debug_mode_summary),
@@ -388,6 +477,25 @@ private fun AboutBlock(onShowAboutDialog: (String) -> Unit) {
         title = stringResource(R.string.action_about),
     ) {
         mainActivityOperation.showAboutDialog(onShowAboutDialog)
+    }
+}
+
+private fun isKeepAliveAccessibilityServiceEnabled(context: Context): Boolean {
+    val accessibilityEnabled = runCatching {
+        Settings.Secure.getInt(context.contentResolver, Settings.Secure.ACCESSIBILITY_ENABLED)
+    }.getOrDefault(0)
+    if (accessibilityEnabled != 1) {
+        return false
+    }
+
+    val enabledServices = Settings.Secure.getString(
+        context.contentResolver,
+        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+    ) ?: return false
+    val expected = ComponentName(context, KeepAliveAccessibilityService::class.java)
+    return enabledServices.split(':').any { service ->
+        val component = ComponentName.unflattenFromString(service) ?: return@any false
+        component.packageName == expected.packageName && component.className == expected.className
     }
 }
 

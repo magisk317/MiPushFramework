@@ -254,11 +254,7 @@ class PackageConfig(private val configurations: Configurations) {
             val groups = getNamedGroupCandidates(regex)
             for (i in groups.indices) {
                 val name = groups[i]
-                matchGroup[name] = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    matcher.group(name) ?: ""
-                } else {
-                    matcher.group(i + 1) ?: ""
-                }
+                matchGroup[name] = matcher.group(name) ?: ""
             }
             return false
         }

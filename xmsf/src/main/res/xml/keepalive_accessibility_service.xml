@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowContentChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags=""
+    android:canRetrieveWindowContent="false"
+    android:description="@string/pref_keepalive_dedicated_service_summary"
+    android:notificationTimeout="100" />

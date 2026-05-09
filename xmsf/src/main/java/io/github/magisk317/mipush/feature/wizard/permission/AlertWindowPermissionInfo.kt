@@ -5,7 +5,6 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import com.xiaomi.xmsf.R
 
-@RequiresApi(api = Build.VERSION_CODES.M)
 class AlertWindowPermissionInfo(private val context: Context) : PermissionInfo {
     override val permissionOperator: PermissionOperator
         get() = AlertWindowPermissionOperator(context)

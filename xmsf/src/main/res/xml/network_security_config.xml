@@ -20,7 +20,7 @@
         <domain includeSubdomains="true">miui.com</domain>
         <domain includeSubdomains="true">xmpush.xiaomi.com</domain>
         <!-- localhost for local debug/testing -->
-        <domain>127.0.0.1</domain>
-        <domain>localhost</domain>
+        <domain includeSubdomains="true">127.0.0.1</domain>
+        <domain includeSubdomains="true">localhost</domain>
     </domain-config>
 </network-security-config>

@@ -28,9 +28,7 @@ class NotificationListener : NotificationListenerService() {
         @JvmStatic
         fun ensureStarted(context: Context) {
             runCatching {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    requestRebind(ComponentName(context, NotificationListener::class.java))
-                }
+                requestRebind(ComponentName(context, NotificationListener::class.java))
                 context.startService(Intent(context, NotificationListener::class.java))
             }
         }

@@ -1,5 +1,6 @@
 package com.xiaomi.xmsf.account
 
+import android.annotation.SuppressLint
 import android.accounts.Account
 import android.accounts.AccountManager
 import android.content.Context
@@ -126,6 +127,7 @@ class DefaultAccountCloudBridge private constructor(
         private const val ACCOUNT_PACKAGE_NAME = "com.xiaomi.account"
         private const val CLOUD_SERVICE_PACKAGE_NAME = "com.miui.cloudservice"
 
+        @SuppressLint("StaticFieldLeak")
         @Volatile
         private var instance: DefaultAccountCloudBridge? = null
 

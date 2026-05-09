@@ -42,6 +42,14 @@ object DataStoreManager {
         get() = repository.isStartForeground
     val startPushAsForegroundService: Flow<Boolean>
         get() = repository.startPushAsForegroundService
+    val keepAliveOomAdj: Flow<Boolean>
+        get() = repository.keepAliveOomAdj
+    val keepAliveAntiKill: Flow<Boolean>
+        get() = repository.keepAliveAntiKill
+    val keepAliveStandbyBypass: Flow<Boolean>
+        get() = repository.keepAliveStandbyBypass
+    val keepAliveDozeBypass: Flow<Boolean>
+        get() = repository.keepAliveDozeBypass
     val hazeBlurRadius: Flow<Int>
         get() = repository.hazeBlurRadius
     val hazeTintAlpha: Flow<Float>
@@ -95,6 +103,22 @@ object DataStoreManager {
 
     suspend fun setStartPushAsForegroundService(start: Boolean) {
         repository.setStartPushAsForegroundService(start)
+    }
+
+    suspend fun setKeepAliveOomAdj(enable: Boolean) {
+        repository.setKeepAliveOomAdj(enable)
+    }
+
+    suspend fun setKeepAliveAntiKill(enable: Boolean) {
+        repository.setKeepAliveAntiKill(enable)
+    }
+
+    suspend fun setKeepAliveStandbyBypass(enable: Boolean) {
+        repository.setKeepAliveStandbyBypass(enable)
+    }
+
+    suspend fun setKeepAliveDozeBypass(enable: Boolean) {
+        repository.setKeepAliveDozeBypass(enable)
     }
 
     suspend fun setXmppServer(host: String) {

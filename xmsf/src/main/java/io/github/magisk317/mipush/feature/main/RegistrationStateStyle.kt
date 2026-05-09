@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.feature.main
 
 import android.content.Context
+import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.Color
 import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
@@ -19,23 +20,21 @@ object RegistrationStateStyle {
         return app.lastReceiveTime.time > 0L
     }
 
-    fun contentOf(app: RegisteredApplication, context: Context): Pair<String, Color> {
-        val prefix =
-            if (!app.existServices) context.getString(R.string.mipush_services_not_found) + " - "
-            else ""
-        return Pair(prefix + registrationLabelOf(app, context), colorOf(app))
+    fun contentOf(app: RegisteredApplication): Pair<Int, Color> {
+        return Pair(registrationLabelResOf(app), colorOf(app))
     }
 
-    fun registrationLabelOf(app: RegisteredApplication, context: Context): String {
+    @StringRes
+    fun registrationLabelResOf(app: RegisteredApplication): Int {
         return when (app.registeredType) {
-            RegisteredApplication.RegisteredType.Registered -> context.getString(R.string.app_registered)
+            RegisteredApplication.RegisteredType.Registered -> R.string.app_registered
             else -> {
                 if (hasObservedActivity(app)) {
-                    context.getString(R.string.app_registration_observed)
+                    R.string.app_registration_observed
                 } else if (app.registeredType == RegisteredApplication.RegisteredType.Unregistered) {
-                    context.getString(R.string.app_registered_error)
+                    R.string.app_registered_error
                 } else {
-                    context.getString(R.string.status_app_not_registered)
+                    R.string.status_app_not_registered
                 }
             }
         }

@@ -8,6 +8,10 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
+import io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS
+import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
+import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
 import io.github.magisk317.mipush.common.utils.Utils
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -33,6 +37,11 @@ class PreferenceRepository @Inject constructor(
     private val SHOW_ALL_EVENTS = booleanPreferencesKey("show_all_events")
     private val START_FOREGROUND = booleanPreferencesKey("start_foreground")
     private val START_PUSH_AS_FOREGROUND_SERVICE = booleanPreferencesKey("start_push_as_foreground_service")
+    private val KEEPALIVE_OOM_ADJ = booleanPreferencesKey(KEEPALIVE_PREF_OOM_ADJ)
+    private val KEEPALIVE_ANTI_KILL = booleanPreferencesKey(KEEPALIVE_PREF_ANTI_KILL)
+    private val KEEPALIVE_STANDBY_BYPASS = booleanPreferencesKey(KEEPALIVE_PREF_STANDBY_BYPASS)
+    private val KEEPALIVE_DOZE_BYPASS = booleanPreferencesKey(KEEPALIVE_PREF_DOZE_BYPASS)
+
     private val HAZE_BLUR_RADIUS = intPreferencesKey("haze_blur_radius")
     private val HAZE_TINT_ALPHA = floatPreferencesKey("haze_tint_alpha")
     private val SHOW_WIZARD = booleanPreferencesKey("show_wizard")
@@ -56,6 +65,11 @@ class PreferenceRepository @Inject constructor(
     val isShowAllEvents: Flow<Boolean> = dataStore.data.map { it[SHOW_ALL_EVENTS] ?: false }
     val isStartForeground: Flow<Boolean> = dataStore.data.map { it[START_FOREGROUND] ?: true }
     val startPushAsForegroundService: Flow<Boolean> = dataStore.data.map { it[START_PUSH_AS_FOREGROUND_SERVICE] ?: true }
+    val keepAliveOomAdj: Flow<Boolean> = dataStore.data.map { it[KEEPALIVE_OOM_ADJ] ?: false }
+    val keepAliveAntiKill: Flow<Boolean> = dataStore.data.map { it[KEEPALIVE_ANTI_KILL] ?: false }
+    val keepAliveStandbyBypass: Flow<Boolean> = dataStore.data.map { it[KEEPALIVE_STANDBY_BYPASS] ?: false }
+    val keepAliveDozeBypass: Flow<Boolean> = dataStore.data.map { it[KEEPALIVE_DOZE_BYPASS] ?: false }
+
     val hazeBlurRadius: Flow<Int> = dataStore.data.map { it[HAZE_BLUR_RADIUS] ?: 25 }
     val hazeTintAlpha: Flow<Float> = dataStore.data.map { it[HAZE_TINT_ALPHA] ?: 0.2f }
     val showWizard: Flow<Boolean> = dataStore.data.map { it[SHOW_WIZARD] ?: true }
@@ -106,6 +120,22 @@ class PreferenceRepository @Inject constructor(
 
     suspend fun setStartPushAsForegroundService(start: Boolean) {
         dataStore.edit { it[START_PUSH_AS_FOREGROUND_SERVICE] = start }
+    }
+
+    suspend fun setKeepAliveOomAdj(enable: Boolean) {
+        dataStore.edit { it[KEEPALIVE_OOM_ADJ] = enable }
+    }
+
+    suspend fun setKeepAliveAntiKill(enable: Boolean) {
+        dataStore.edit { it[KEEPALIVE_ANTI_KILL] = enable }
+    }
+
+    suspend fun setKeepAliveStandbyBypass(enable: Boolean) {
+        dataStore.edit { it[KEEPALIVE_STANDBY_BYPASS] = enable }
+    }
+
+    suspend fun setKeepAliveDozeBypass(enable: Boolean) {
+        dataStore.edit { it[KEEPALIVE_DOZE_BYPASS] = enable }
     }
 
     suspend fun setXmppServer(host: String) {

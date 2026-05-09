@@ -74,7 +74,7 @@ class MiuiPushActivateService : Service() {
     }
 
     fun addRegisteredPackage(pkg: String, appId: String) {
-        getSharedPreferences("pref_registered_pkg_names", 0).edit().putString(pkg, appId).commit()
+        getSharedPreferences("pref_registered_pkg_names", 0).edit().putString(pkg, appId).apply()
     }
 
     private fun handleIntentInternal(intent: Intent?) {

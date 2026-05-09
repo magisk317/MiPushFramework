@@ -1,5 +1,6 @@
 package com.xiaomi.xmsf.stock
 
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -183,14 +184,12 @@ object StockSurfaceSupport {
         if (packageName.isBlank() || channelName.isBlank() || channelId.isBlank()) {
             return pushSupportResult(CODE_UNEXPECTED, message = "pkgName_channelName_channelId_required")
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationManagerEx.createNotificationChannels(
-                packageName,
-                listOf(NotificationChannel(channelId, channelName, importance).apply {
-                    description = channelDescription
-                }),
-            )
-        }
+        NotificationManagerEx.createNotificationChannels(
+            packageName,
+            listOf(NotificationChannel(channelId, channelName, importance).apply {
+                description = channelDescription
+            }),
+        )
         return pushSupportResult(CODE_OK, Bundle().apply {
             putString("pkgName", packageName)
             putString("channelId", channelId)
@@ -208,9 +207,7 @@ object StockSurfaceSupport {
         if (packageName.isBlank() || channelId.isBlank()) {
             return pushSupportResult(CODE_UNEXPECTED, message = "pkgName_channelId_required")
         }
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            return pushSupportResult(CODE_NOT_SUPPORTED, message = "notification_channels_unsupported")
-        }
+
         val channel = NotificationChannelManager.getNotificationManagerEx().getNotificationChannel(packageName, channelId)
             ?: return pushSupportResult(CODE_NOT_FOUND, message = "channel_missing")
         val permissions = computeChannelPermissions(channel)
@@ -304,6 +301,7 @@ object StockSurfaceSupport {
     }
 
     @JvmStatic
+    @SuppressLint("StaticFieldLeak")
     fun accountAvailabilityBundle(context: Context): Bundle {
         val availability = DefaultAccountCloudBridge.getInstance(context).availability()
         return Bundle().apply {
@@ -484,6 +482,7 @@ object StockSurfaceSupport {
     }
 
     private object UtilsContextHolder {
+        @SuppressLint("StaticFieldLeak")
         lateinit var context: Context
     }
 }

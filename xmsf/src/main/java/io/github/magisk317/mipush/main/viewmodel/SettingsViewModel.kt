@@ -58,6 +58,18 @@ class SettingsViewModel @Inject constructor(
     val isStartForeground: StateFlow<Boolean> = preferenceRepository.isStartForeground
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val keepAliveOomAdj: StateFlow<Boolean> = preferenceRepository.keepAliveOomAdj
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val keepAliveAntiKill: StateFlow<Boolean> = preferenceRepository.keepAliveAntiKill
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val keepAliveStandbyBypass: StateFlow<Boolean> = preferenceRepository.keepAliveStandbyBypass
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val keepAliveDozeBypass: StateFlow<Boolean> = preferenceRepository.keepAliveDozeBypass
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     init {
         viewModelScope.launch {
             preferenceRepository.themeMode.collect { mode ->
@@ -123,6 +135,22 @@ class SettingsViewModel @Inject constructor(
 
     fun setStartForeground(enabled: Boolean) {
         viewModelScope.launch { preferenceRepository.setIsStartForeground(enabled) }
+    }
+
+    fun setKeepAliveOomAdj(value: Boolean) = viewModelScope.launch {
+        preferenceRepository.setKeepAliveOomAdj(value)
+    }
+
+    fun setKeepAliveAntiKill(value: Boolean) = viewModelScope.launch {
+        preferenceRepository.setKeepAliveAntiKill(value)
+    }
+
+    fun setKeepAliveStandbyBypass(value: Boolean) = viewModelScope.launch {
+        preferenceRepository.setKeepAliveStandbyBypass(value)
+    }
+
+    fun setKeepAliveDozeBypass(value: Boolean) = viewModelScope.launch {
+        preferenceRepository.setKeepAliveDozeBypass(value)
     }
 
     fun setThemeMode(mode: Int, x: Float = -1f, y: Float = -1f) {

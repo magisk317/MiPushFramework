@@ -9,7 +9,6 @@ import androidx.annotation.RequiresApi
 import io.github.magisk317.mipush.platform.service.PushServiceAccessibility
 import io.github.magisk317.mipush.platform.support.PermissionUtils
 
-@RequiresApi(api = Build.VERSION_CODES.M)
 class RequestIgnoreBatteryOptimizationsPermissionOperator(
     private val context: Context
 ) : PermissionOperator {

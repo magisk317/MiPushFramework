@@ -18,6 +18,11 @@
         <item quantity="other">天</item>
     </plurals>
     <string name="common_err">%1$s</string>
+    <string name="start">开始</string>
+    <string name="end">结束</string>
+    <string name="settings_experimental">实验性</string>
+    <string name="wizard_title_doze_whitelist">忽略电池优化</string>
+    <string name="wizard_descr_doze_whitelist">将推送服务加入电池优化白名单。</string>
 
     <!-- Log -->
     <string name="allow">允许</string>
@@ -480,5 +485,18 @@
         <item>@string/theme_dark</item>
         <item>@string/theme_black</item>
     </string-array>
+
+    <string name="pref_keepalive_oom_adj_title">OomAdj 提权</string>
+    <string name="pref_keepalive_oom_adj_summary">通过 Hook 提权让服务获得前台级别的优先级。</string>
+    <string name="pref_keepalive_anti_kill_title">防杀拦截</string>
+    <string name="pref_keepalive_anti_kill_summary">拦截系统 AMS 杀后台操作。</string>
+    <string name="pref_keepalive_standby_bypass_title">绕过待机分组</string>
+    <string name="pref_keepalive_standby_bypass_summary">强制处于 Active 分组，防止被限制后台活动。</string>
+    <string name="pref_keepalive_doze_bypass_title">绕过 Doze</string>
+    <string name="pref_keepalive_doze_bypass_summary">拦截进入打盹休眠模式。</string>
+    <string name="pref_keepalive_dedicated_service_title">专属保活无障碍服务</string>
+    <string name="pref_keepalive_dedicated_service_summary">打开系统无障碍设置，手动启用专属保活服务。</string>
+    <string name="pref_keepalive_dedicated_service_enabled_summary">已在系统无障碍设置中启用。</string>
+    <string name="pref_keepalive_dedicated_service_disabled_summary">尚未启用，点击打开系统无障碍设置。</string>
 
 </resources>

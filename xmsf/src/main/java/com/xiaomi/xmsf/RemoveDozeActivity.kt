@@ -29,7 +29,7 @@ class RemoveDozeActivity : ComponentActivity() {
     @SuppressLint("BatteryLife")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || PushServiceAccessibility.isInDozeWhiteList(this)) {
+        if (PushServiceAccessibility.isInDozeWhiteList(this)) {
             setResultAndFinish(Activity.RESULT_OK)
             return
         }

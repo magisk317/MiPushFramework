@@ -106,10 +106,6 @@ class MyPushMessageHandler : Service() {
     }
 
     private fun runWithAppStateElevatedToForeground(pkg: String, task: Consumer<Boolean>) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
-            task.accept(false)
-            return
-        }
         val intent = Intent().setClassName(pkg, MyMIPushNotificationHelper.CLASS_NAME_PUSH_MESSAGE_HANDLER)
         val appContext = applicationContext
         val successful = appContext.bindService(
@@ -120,7 +116,6 @@ class MyPushMessageHandler : Service() {
                     appContext.unbindService(this)
                 }
 
-                @RequiresApi(Build.VERSION_CODES.P)
                 override fun onNullBinding(name: ComponentName) {
                     runTaskAndUnbind()
                 }

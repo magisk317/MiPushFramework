@@ -10,7 +10,6 @@ import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.platform.override.AppOpsManagerOverride
 import io.github.magisk317.mipush.platform.support.PermissionUtils
 
-@RequiresApi(api = Build.VERSION_CODES.M)
 class AlertWindowPermissionOperator(private val context: Context) : PermissionOperator {
     override fun isPermissionGranted(): Boolean {
         return Settings.canDrawOverlays(context)

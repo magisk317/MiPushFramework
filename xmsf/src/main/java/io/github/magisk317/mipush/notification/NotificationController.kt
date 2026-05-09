@@ -136,7 +136,7 @@ object NotificationController {
         extras.putString("target_package", packageName)
         extras.putString("miui.targetPkg", packageName)
         notificationBuilder.addExtras(extras)
-        processIcon(context, packageName, notificationBuilder)
+        val color = processIcon(context, packageName, notificationBuilder)
 
         val configuration = XMPushUtils.getConfiguration(metaInfo)
         val iconUri = configuration.notificationLargeIconUri(null)
@@ -146,7 +146,7 @@ object NotificationController {
         }
 
         val subText = configuration.subText(null)
-        buildExtraSubText(context, packageName, notificationBuilder, subText)
+        buildExtraSubText(context, packageName, notificationBuilder, subText, color)
 
         val focusParam = configuration.focusParam(null)
         if (focusParam != null) {
@@ -237,7 +237,7 @@ object NotificationController {
             )
             return
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && notificationGroup != null) {
+        if (notificationGroup != null) {
             val copy = container.deepCopy()
             try {
                 Configurations.getInstance().handle(container.packageName, copy)
@@ -271,7 +271,8 @@ object NotificationController {
     }
 
     @JvmStatic
-    fun processIcon(context: Context, packageName: String, notificationBuilder: NotificationCompat.Builder) {
+    fun processIcon(context: Context, packageName: String, notificationBuilder: NotificationCompat.Builder): Int {
+        var color = getIconColor(context, packageName)
         notificationBuilder.setSmallIcon(R.drawable.ic_notifications_black_24dp)
         val pkgContext = XMPushUtils.getPackageContext(
             context,
@@ -280,38 +281,40 @@ object NotificationController {
         )
         if (pkgContext === context) {
             // Means it failed or not hooked
-            return
+            return color
         }
         val largeIconId = getIconId(context, packageName, NOTIFICATION_LARGE_ICON)
         val smallIconId = getIconId(context, packageName, NOTIFICATION_SMALL_ICON)
         if (largeIconId > 0) {
             notificationBuilder.setLargeIcon(BitmapFactory.decodeResource(pkgContext.resources, largeIconId))
         }
-        notificationBuilder.color = getIconColor(context, packageName)
+        notificationBuilder.setColor(color)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        run {
             val iconConfig = Global.iconConfigurations().get(packageName)
             if (iconConfig != null && iconConfig.isEnabled == true && iconConfig.isEnabledAll == true) {
                 val iconBitmap = iconConfig.bitmap()
                 if (iconBitmap != null) {
                     notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(iconBitmap))
-                    notificationBuilder.color = iconConfig.color()
-                    return
+                    color = iconConfig.color()
+                    notificationBuilder.setColor(color)
+                    return color
                 }
             }
             if (smallIconId > 0) {
                 notificationBuilder.setSmallIcon(IconCompat.createWithResource(pkgContext, smallIconId))
-                return
+                return color
             }
             if (largeIconId > 0) {
                 notificationBuilder.setSmallIcon(IconCompat.createWithResource(pkgContext, largeIconId))
-                return
+                return color
             }
             val iconBitmap = iconConfig?.bitmap()
             if (iconBitmap != null && iconConfig.isEnabled == true) {
                 notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(iconBitmap))
-                notificationBuilder.color = iconConfig.color()
-                return
+                color = iconConfig.color()
+                notificationBuilder.setColor(color)
+                return color
             }
             val iconCache = Global.iconCache().getIconCache(
                 context,
@@ -324,6 +327,7 @@ object NotificationController {
                 notificationBuilder.setSmallIcon(iconCache)
             }
         }
+        return color
     }
 
     @JvmStatic
@@ -331,7 +335,8 @@ object NotificationController {
         context: Context,
         packageName: String,
         localBuilder: NotificationCompat.Builder,
-        text: CharSequence?
+        text: CharSequence?,
+        color: Int
     ) {
         var localText = text
         if ("".contentEquals(localText)) {
@@ -341,7 +346,6 @@ object NotificationController {
         if (localText == null) {
             localText = Global.applicationNameCache().getAppName(context, packageName)
         }
-        val color = localBuilder.color
         if (color == Notification.COLOR_DEFAULT) {
             localBuilder.setSubText(localText)
             return

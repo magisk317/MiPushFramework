@@ -61,48 +61,17 @@ class AlarmManagerTimerCompat(private val context: Context) {
 
     private fun register(intent: Intent, triggerAtMillis: Long) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val pendingIntentFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            PendingIntent.FLAG_IMMUTABLE
-        } else {
-            0
-        }
-        pi = PendingIntent.getBroadcast(context, 0, intent, pendingIntentFlags)
+        pi = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_IMMUTABLE)
         val pendingIntent = pi ?: return
 
-        when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.M -> {
-                JavaCalls.callMethod(
-                    alarmManager,
-                    "setExactAndAllowWhileIdle",
-                    0,
-                    triggerAtMillis,
-                    pendingIntent
-                )
-            }
-
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT -> {
-                setExact(alarmManager, triggerAtMillis, pendingIntent)
-            }
-
-            else -> {
-                alarmManager.set(0, triggerAtMillis, pendingIntent)
-            }
-        }
+        alarmManager.setExactAndAllowWhileIdle(
+            AlarmManager.RTC_WAKEUP,
+            triggerAtMillis,
+            pendingIntent
+        )
 
         MyLog.v("register timer$triggerAtMillis")
     }
 
-    private fun setExact(alarmManager: AlarmManager, triggerAtMillis: Long, pendingIntent: PendingIntent) {
-        try {
-            val method = AlarmManager::class.java.getMethod(
-                "setExact",
-                Int::class.javaPrimitiveType,
-                Long::class.javaPrimitiveType,
-                PendingIntent::class.java
-            )
-            method.invoke(alarmManager, 0, triggerAtMillis, pendingIntent)
-        } catch (e: Exception) {
-            MyLog.e(e)
-        }
-    }
+
 }
