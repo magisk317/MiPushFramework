@@ -187,10 +187,12 @@ object NmsPermissionHooker {
             val nmsClass = findClass("com.android.server.notification.NotificationManagerService", classLoader)
             findMethodExact(nmsClass, "checkCallerIsSystem", *emptyArray<Any>())
                 .hook {
-                    doBefore {
+                    replace {
                         if (fromXmsf()) {
-                            result = null
+                            XLog.d(TAG, "checkCallerIsSystem bypassed for xmsf")
+                            return@replace null
                         }
+                        XposedBridge.invokeOriginalMethod(method, thisObject, args)
                     }
                 }
             XLog.i(TAG, "checkCallerIsSystem hook installed")
