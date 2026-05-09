@@ -50,10 +50,6 @@ object DataStoreManager {
         get() = repository.keepAliveStandbyBypass
     val keepAliveDozeBypass: Flow<Boolean>
         get() = repository.keepAliveDozeBypass
-    val keepAliveAccessibilityHeartbeat: Flow<Boolean>
-        get() = repository.keepAliveAccessibilityHeartbeat
-    val keepAliveDedicatedService: Flow<Boolean>
-        get() = repository.keepAliveDedicatedService
     val hazeBlurRadius: Flow<Int>
         get() = repository.hazeBlurRadius
     val hazeTintAlpha: Flow<Float>
@@ -123,14 +119,6 @@ object DataStoreManager {
 
     suspend fun setKeepAliveDozeBypass(enable: Boolean) {
         repository.setKeepAliveDozeBypass(enable)
-    }
-
-    suspend fun setKeepAliveAccessibilityHeartbeat(enable: Boolean) {
-        repository.setKeepAliveAccessibilityHeartbeat(enable)
-    }
-
-    suspend fun setKeepAliveDedicatedService(enable: Boolean) {
-        repository.setKeepAliveDedicatedService(enable)
     }
 
     suspend fun setXmppServer(host: String) {

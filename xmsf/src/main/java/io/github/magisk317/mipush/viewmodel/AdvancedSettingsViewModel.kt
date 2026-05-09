@@ -50,12 +50,6 @@ class AdvancedSettingsViewModel @Inject constructor(
     val keepAliveDozeBypass: StateFlow<Boolean> = preferenceRepository.keepAliveDozeBypass
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    val keepAliveAccessibilityHeartbeat: StateFlow<Boolean> = preferenceRepository.keepAliveAccessibilityHeartbeat
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-
-    val keepAliveDedicatedService: StateFlow<Boolean> = preferenceRepository.keepAliveDedicatedService
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-
     val accessMode: StateFlow<String> = preferenceRepository.accessMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "0")
 
@@ -93,14 +87,6 @@ class AdvancedSettingsViewModel @Inject constructor(
 
     fun setKeepAliveDozeBypass(value: Boolean) = viewModelScope.launch {
         preferenceRepository.setKeepAliveDozeBypass(value)
-    }
-
-    fun setKeepAliveAccessibilityHeartbeat(value: Boolean) = viewModelScope.launch {
-        preferenceRepository.setKeepAliveAccessibilityHeartbeat(value)
-    }
-
-    fun setKeepAliveDedicatedService(value: Boolean) = viewModelScope.launch {
-        preferenceRepository.setKeepAliveDedicatedService(value)
     }
 
     fun setAccessMode(index: Int) = viewModelScope.launch {

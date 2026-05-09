@@ -8,9 +8,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ACCESSIBILITY_HEARTBEAT
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
-import io.github.magisk317.mipush.common.KEEPALIVE_PREF_DEDICATED_SERVICE
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
@@ -43,8 +41,6 @@ class PreferenceRepository @Inject constructor(
     private val KEEPALIVE_ANTI_KILL = booleanPreferencesKey(KEEPALIVE_PREF_ANTI_KILL)
     private val KEEPALIVE_STANDBY_BYPASS = booleanPreferencesKey(KEEPALIVE_PREF_STANDBY_BYPASS)
     private val KEEPALIVE_DOZE_BYPASS = booleanPreferencesKey(KEEPALIVE_PREF_DOZE_BYPASS)
-    private val KEEPALIVE_ACCESSIBILITY_HEARTBEAT = booleanPreferencesKey(KEEPALIVE_PREF_ACCESSIBILITY_HEARTBEAT)
-    private val KEEPALIVE_DEDICATED_SERVICE = booleanPreferencesKey(KEEPALIVE_PREF_DEDICATED_SERVICE)
 
     private val HAZE_BLUR_RADIUS = intPreferencesKey("haze_blur_radius")
     private val HAZE_TINT_ALPHA = floatPreferencesKey("haze_tint_alpha")
@@ -73,8 +69,6 @@ class PreferenceRepository @Inject constructor(
     val keepAliveAntiKill: Flow<Boolean> = dataStore.data.map { it[KEEPALIVE_ANTI_KILL] ?: false }
     val keepAliveStandbyBypass: Flow<Boolean> = dataStore.data.map { it[KEEPALIVE_STANDBY_BYPASS] ?: false }
     val keepAliveDozeBypass: Flow<Boolean> = dataStore.data.map { it[KEEPALIVE_DOZE_BYPASS] ?: false }
-    val keepAliveAccessibilityHeartbeat: Flow<Boolean> = dataStore.data.map { it[KEEPALIVE_ACCESSIBILITY_HEARTBEAT] ?: false }
-    val keepAliveDedicatedService: Flow<Boolean> = dataStore.data.map { it[KEEPALIVE_DEDICATED_SERVICE] ?: false }
 
     val hazeBlurRadius: Flow<Int> = dataStore.data.map { it[HAZE_BLUR_RADIUS] ?: 25 }
     val hazeTintAlpha: Flow<Float> = dataStore.data.map { it[HAZE_TINT_ALPHA] ?: 0.2f }
@@ -142,14 +136,6 @@ class PreferenceRepository @Inject constructor(
 
     suspend fun setKeepAliveDozeBypass(enable: Boolean) {
         dataStore.edit { it[KEEPALIVE_DOZE_BYPASS] = enable }
-    }
-
-    suspend fun setKeepAliveAccessibilityHeartbeat(enable: Boolean) {
-        dataStore.edit { it[KEEPALIVE_ACCESSIBILITY_HEARTBEAT] = enable }
-    }
-
-    suspend fun setKeepAliveDedicatedService(enable: Boolean) {
-        dataStore.edit { it[KEEPALIVE_DEDICATED_SERVICE] = enable }
     }
 
     suspend fun setXmppServer(host: String) {

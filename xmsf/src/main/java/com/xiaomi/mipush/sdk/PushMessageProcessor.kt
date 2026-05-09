@@ -48,7 +48,9 @@ import java.net.URISyntaxException
 import java.net.URL
 import java.util.LinkedList
 import java.util.Queue
+import java.util.Locale
 import java.util.TimeZone
+import android.content.pm.PackageManager
 import org.apache.thrift.TBase
 import org.apache.thrift.TException
 
@@ -822,7 +824,7 @@ class PushMessageProcessor private constructor(context: Context) {
         val currentTimeMillis = System.currentTimeMillis()
         if (kotlin.math.abs(currentTimeMillis - sharedPreferences.getLong(Constants.SP_KEY_LAST_REINITIALIZE, 0L)) > 1800000) {
             MiPushClient.reInitialize(sAppContext, RegistrationReason.PackageUnregistered)
-            sharedPreferences.edit().putLong(Constants.SP_KEY_LAST_REINITIALIZE, currentTimeMillis).commit()
+            sharedPreferences.edit().putLong(Constants.SP_KEY_LAST_REINITIALIZE, currentTimeMillis).apply()
         }
     }
 
@@ -835,8 +837,8 @@ class PushMessageProcessor private constructor(context: Context) {
         val start = ((((startHour * 60) + list[0].split(":")[1].toLong()) - rawOffset) + 1440) % 1440
         val end = ((((list[1].split(":")[0].toLong() * 60) + list[1].split(":")[1].toLong()) - rawOffset) + 1440) % 1440
         return arrayListOf(
-            String.format("%1$02d:%2$02d", start / 60, start % 60),
-            String.format("%1$02d:%2$02d", end / 60, end % 60)
+            String.format(Locale.US, "%1$02d:%2$02d", start / 60, start % 60),
+            String.format(Locale.US, "%1$02d:%2$02d", end / 60, end % 60)
         )
     }
 
@@ -1085,7 +1087,7 @@ class PushMessageProcessor private constructor(context: Context) {
                     val intentUri = map["intent_uri"]
                     if (intentUri != null) {
                         try {
-                            intent = Intent.parseUri(intentUri, 1)
+                            intent = Intent.parseUri(intentUri, Intent.URI_INTENT_SCHEME)
                             intent.setPackage(packageName)
                         } catch (e: URISyntaxException) {
                             MyLog.e("Cause:" + e.message)
@@ -1121,9 +1123,9 @@ class PushMessageProcessor private constructor(context: Context) {
             if (intentFlags >= 0) {
                 intent.flags = intentFlags
             }
-            intent.addFlags(268435456)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             try {
-                val resolveActivity: ResolveInfo? = context.packageManager.resolveActivity(intent, 65536)
+                val resolveActivity: ResolveInfo? = context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
                 if (resolveActivity != null) {
                     return intent
                 }

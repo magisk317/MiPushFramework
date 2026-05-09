@@ -7,6 +7,8 @@ class BackgroundActivityStartAbility(
     private val pushService: XMPushService
 ) : XMPushServiceListener {
     override fun created() {
-        BackgroundActivityStartEnabler.initialize(pushService)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            BackgroundActivityStartEnabler.initialize(pushService)
+        }
     }
 }

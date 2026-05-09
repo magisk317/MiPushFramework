@@ -8,6 +8,9 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationChannelGroupCompat
 import androidx.core.app.NotificationCompat
@@ -128,20 +131,21 @@ class MiPushFrameworkApp : Application() {
             .setShowWhen(true)
             .setAutoCancel(true)
             .build()
-        manager.notify(javaClass.simpleName, 100, notification)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+            manager.notify(javaClass.simpleName, 100, notification)
+        }
     }
 
     private fun createWarnChannel(manager: NotificationManagerCompat) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannelCompat.Builder(CHANNEL_WARN, NotificationManager.IMPORTANCE_HIGH)
-                .setName(getString(R.string.wizard_title_doze_whitelist))
-            val notificationChannelGroup = NotificationChannelGroupCompat.Builder(CHANNEL_WARN)
-                .setName(CHANNEL_WARN)
-                .build()
-            manager.createNotificationChannelGroup(notificationChannelGroup)
-            channel.setGroup(notificationChannelGroup.id)
-            manager.createNotificationChannel(channel.build())
-        }
+        val channel = NotificationChannelCompat.Builder(CHANNEL_WARN, NotificationManager.IMPORTANCE_HIGH)
+            .setName(getString(R.string.wizard_title_doze_whitelist))
+        val notificationChannelGroup = NotificationChannelGroupCompat.Builder(CHANNEL_WARN)
+            .setName(CHANNEL_WARN)
+            .build()
+        manager.createNotificationChannelGroup(notificationChannelGroup)
+        channel.setGroup(notificationChannelGroup.id)
+        manager.createNotificationChannel(channel.build())
     }
 
     private fun getLastStartupTime(): Long {

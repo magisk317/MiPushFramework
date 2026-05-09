@@ -43,10 +43,6 @@ extra["gitVersionName"] = versionNameProvider
 extra["APPLICATION_ID"] = "io.github.magisk317.mipush"
 
 allprojects {
-    tasks.withType<com.android.build.gradle.internal.lint.AndroidLintTask>().configureEach {
-        enabled = false
-    }
-
     configurations.configureEach {
         resolutionStrategy {
             // BEGIN AUTO FORCED DEPENDENCIES (managed by workflow)

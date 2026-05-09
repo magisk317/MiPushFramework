@@ -20,7 +20,6 @@ import kotlin.annotation.AnnotationRetention.SOURCE
 class Event {
 
     @get:Ignore
-    @get:androidx.annotation.Nullable
     val container: XmPushActionContainer?
         get() = payload?.let { XMPushUtils.packToContainer(it) }
 
@@ -36,7 +35,8 @@ class Event {
         Type.SetConfig,
         Type.Subscription,
         Type.UnSubscription,
-        Type.RegistrationResult
+        Type.RegistrationResult,
+        Type.SendMessage
     )
     @Retention(SOURCE)
     @Target(

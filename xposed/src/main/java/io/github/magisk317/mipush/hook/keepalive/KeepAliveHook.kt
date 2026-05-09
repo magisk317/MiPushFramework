@@ -15,58 +15,86 @@ import io.github.magisk317.mipush.common.KEEPALIVE_PREF_PATH_FLAGS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.hook.XLog
+import java.lang.reflect.Method
 
 class KeepAliveHook {
     companion object {
         private const val TAG = "KeepAliveHook"
         private const val FOREGROUND_APP_ADJ = 0
         private const val STANDBY_BUCKET_ACTIVE = 10
-        private const val PREF_CACHE_TTL_MS = 5_000L
+        private const val PREF_REFRESH_INTERVAL_MS = 60_000L
         private val PREF_URI = Uri.parse("content://$KEEPALIVE_PREF_AUTHORITY/$KEEPALIVE_PREF_PATH_FLAGS")
-    }
+        private val STANDBY_RESTRICTED_BUCKETS = setOf(20, 30, 40, 45, 50)
+        private val PREF_KEYS = arrayOf(
+            KEEPALIVE_PREF_OOM_ADJ,
+            KEEPALIVE_PREF_ANTI_KILL,
+            KEEPALIVE_PREF_STANDBY_BYPASS,
+            KEEPALIVE_PREF_DOZE_BYPASS,
+        )
 
-    private var cachedPrefs: Map<String, Boolean> = emptyMap()
-    private var cachedAt: Long = 0L
+        @Volatile
+        private var flags = KeepAliveFlags()
 
-    private fun isKeepAliveOomAdjEnabled() = readPrefEnabled(KEEPALIVE_PREF_OOM_ADJ)
-    private fun isKeepAliveAntiKillEnabled() = readPrefEnabled(KEEPALIVE_PREF_ANTI_KILL)
-    private fun isKeepAliveStandbyBypassEnabled() = readPrefEnabled(KEEPALIVE_PREF_STANDBY_BYPASS)
-    private fun isKeepAliveDozeBypassEnabled() = readPrefEnabled(KEEPALIVE_PREF_DOZE_BYPASS)
-
-    private fun readPrefEnabled(key: String): Boolean {
-        val now = System.currentTimeMillis()
-        val cached = cachedPrefs
-        if (now - cachedAt < PREF_CACHE_TTL_MS) {
-            return cached[key] == true
-        }
-
-        val loaded: Map<String, Boolean> = runCatching {
-            val app = AndroidAppHelper.currentApplication() ?: return@runCatching cached
-            app.contentResolver.query(PREF_URI, null, null, null, null)?.use { cursor ->
-                val keyIndex = cursor.getColumnIndex(KEEPALIVE_PREF_COLUMN_KEY)
-                val enabledIndex = cursor.getColumnIndex(KEEPALIVE_PREF_COLUMN_ENABLED)
-                if (keyIndex < 0 || enabledIndex < 0) return@use emptyMap<String, Boolean>()
-                buildMap<String, Boolean> {
-                    while (cursor.moveToNext()) {
-                        put(cursor.getString(keyIndex), cursor.getInt(enabledIndex) != 0)
-                    }
-                }
-            }.orEmpty()
-        }.onFailure {
-            XLog.w(TAG, "failed to read keepalive prefs: ${it.message}")
-        }.getOrDefault(emptyMap())
-
-        cachedPrefs = loaded
-        cachedAt = now
-        return loaded[key] == true
+        @Volatile
+        private var refreshLoopStarted = false
     }
 
     fun hook(classLoader: ClassLoader) {
         XLog.i(TAG, "loading in system_server")
+        startPreferenceRefreshLoop()
         hookOomAdjuster(classLoader)
         hookKillProcess(classLoader)
         hookAppStandbyController(classLoader)
         hookDeviceIdleController(classLoader)
+    }
+
+    private fun startPreferenceRefreshLoop() {
+        if (refreshLoopStarted) return
+        synchronized(KeepAliveHook::class.java) {
+            if (refreshLoopStarted) return
+            refreshLoopStarted = true
+            Thread({
+                while (true) {
+                    refreshFlags()
+                    try {
+                        Thread.sleep(PREF_REFRESH_INTERVAL_MS)
+                    } catch (_: InterruptedException) {
+                        return@Thread
+                    }
+                }
+            }, "MiPushKeepAlivePrefs").apply {
+                isDaemon = true
+                start()
+            }
+        }
+    }
+
+    private fun refreshFlags() {
+        runCatching {
+            val app = AndroidAppHelper.currentApplication() ?: return
+            val values = app.contentResolver.query(PREF_URI, null, null, PREF_KEYS, null)?.use { cursor ->
+                val keyIndex = cursor.getColumnIndex(KEEPALIVE_PREF_COLUMN_KEY)
+                val enabledIndex = cursor.getColumnIndex(KEEPALIVE_PREF_COLUMN_ENABLED)
+                if (keyIndex < 0 || enabledIndex < 0) {
+                    emptyMap()
+                } else {
+                    buildMap<String, Boolean> {
+                        while (cursor.moveToNext()) {
+                            put(cursor.getString(keyIndex), cursor.getInt(enabledIndex) != 0)
+                        }
+                    }
+                }
+            }.orEmpty()
+
+            flags = KeepAliveFlags(
+                oomAdj = values[KEEPALIVE_PREF_OOM_ADJ] == true,
+                antiKill = values[KEEPALIVE_PREF_ANTI_KILL] == true,
+                standbyBypass = values[KEEPALIVE_PREF_STANDBY_BYPASS] == true,
+                dozeBypass = values[KEEPALIVE_PREF_DOZE_BYPASS] == true,
+            )
+        }.onFailure {
+            XLog.w(TAG, "failed to refresh keepalive prefs: ${it.message}")
+        }
     }
 
     private fun hookOomAdjuster(classLoader: ClassLoader) {
@@ -87,7 +115,7 @@ class KeepAliveHook {
 
             XposedBridge.hookAllMethods(oomAdjusterClass, targetMethodName, object : XC_MethodHook() {
                 override fun afterHookedMethod(param: MethodHookParam) {
-                    if (!isKeepAliveOomAdjEnabled()) return
+                    if (!flags.oomAdj) return
                     adjustOomAdjForTarget(param)
                 }
             })
@@ -124,29 +152,43 @@ class KeepAliveHook {
     private fun hookKillProcess(classLoader: ClassLoader) {
         try {
             val amsClass = XposedHelpers.findClass("com.android.server.am.ActivityManagerService", classLoader)
-            val methods = listOf("killProcessLocked", "cleanUpApplicationRecordLocked", "handleAppDiedLocked")
-            for (methodName in methods) {
-                try {
-                    XposedBridge.hookAllMethods(amsClass, methodName, object : XC_MethodHook() {
-                        override fun beforeHookedMethod(param: MethodHookParam) {
-                            if (!isKeepAliveAntiKillEnabled()) return
-                            if (shouldSkipKill(param)) {
-                                param.result = null
-                                XLog.w(TAG, "intercepted kill for $XMSF_PACKAGE_NAME in $methodName")
-                            }
-                        }
-                    })
-                    XLog.w(TAG, "successfully hooked AMS kill method: $methodName")
-                } catch (e: Exception) { }
-            }
+            val methodName = "killProcessLocked"
+            XposedBridge.hookAllMethods(amsClass, methodName, object : XC_MethodHook() {
+                override fun beforeHookedMethod(param: MethodHookParam) {
+                    if (!flags.antiKill) return
+                    if (shouldSkipKill(param)) {
+                        param.result = defaultResultFor(param.method)
+                        XLog.w(TAG, "intercepted kill for $XMSF_PACKAGE_NAME in $methodName")
+                    }
+                }
+            })
+            XLog.w(TAG, "successfully hooked AMS kill method: $methodName")
         } catch (t: Throwable) {
             XLog.e(TAG, "failed to hook AMS kill", t)
+        }
+    }
+
+    private fun defaultResultFor(method: Any?): Any? {
+        val returnType = (method as? Method)?.returnType ?: return null
+        return when (returnType) {
+            java.lang.Boolean.TYPE -> false
+            java.lang.Byte.TYPE -> 0.toByte()
+            java.lang.Short.TYPE -> 0.toShort()
+            java.lang.Integer.TYPE -> 0
+            java.lang.Long.TYPE -> 0L
+            java.lang.Float.TYPE -> 0f
+            java.lang.Double.TYPE -> 0.0
+            java.lang.Character.TYPE -> 0.toChar()
+            else -> null
         }
     }
 
     private fun shouldSkipKill(param: XC_MethodHook.MethodHookParam): Boolean {
         for (arg in param.args) {
             if (arg == null) continue
+            if (arg is String && arg == XMSF_PACKAGE_NAME) {
+                return true
+            }
             try {
                 val processName = XposedHelpers.getObjectField(arg, "processName") as? String
                 if (processName == XMSF_PACKAGE_NAME) return true
@@ -166,12 +208,12 @@ class KeepAliveHook {
     private fun hookAppStandbyController(classLoader: ClassLoader) {
         try {
             val standbyClass = XposedHelpers.findClass("com.android.server.usage.AppStandbyController", classLoader)
-            val methods = listOf("setActiveBucket", "postMessage", "setAppStandbyBucket")
+            val methods = listOf("setActiveBucket", "setAppStandbyBucket")
             for (methodName in methods) {
                 try {
                     XposedBridge.hookAllMethods(standbyClass, methodName, object : XC_MethodHook() {
                         override fun beforeHookedMethod(param: MethodHookParam) {
-                            if (!isKeepAliveStandbyBypassEnabled()) return
+                            if (!flags.standbyBypass) return
                             overrideStandbyBucket(param)
                         }
                     })
@@ -184,22 +226,14 @@ class KeepAliveHook {
     }
 
     private fun overrideStandbyBucket(param: XC_MethodHook.MethodHookParam) {
-        var targetPkg: String? = null
-        for (arg in param.args) {
-            if (arg is String && targetPkg == null) {
-                targetPkg = arg
-            }
-        }
-        if (targetPkg != XMSF_PACKAGE_NAME) return
+        if (!hasTargetPackageArg(param)) return
 
         for (i in param.args.indices) {
-            if (param.args[i] is Int) {
-                val currentBucket = param.args[i] as Int
-                if (currentBucket != STANDBY_BUCKET_ACTIVE) {
-                    param.args[i] = STANDBY_BUCKET_ACTIVE
-                    XLog.d(TAG, "forced standby bucket ACTIVE for $targetPkg (was $currentBucket)")
-                }
-                break
+            val currentBucket = param.args[i] as? Int ?: continue
+            if (currentBucket in STANDBY_RESTRICTED_BUCKETS) {
+                param.args[i] = STANDBY_BUCKET_ACTIVE
+                XLog.d(TAG, "forced standby bucket ACTIVE for $XMSF_PACKAGE_NAME (was $currentBucket)")
+                return
             }
         }
     }
@@ -207,30 +241,43 @@ class KeepAliveHook {
     private fun hookDeviceIdleController(classLoader: ClassLoader) {
         try {
             val idleClass = XposedHelpers.findClass("com.android.server.DeviceIdleController", classLoader)
-            val methods = listOf("becomeActiveIfAppTempIdleLocked", "stepIdleStateLocked", "setAppIdleAsync")
-            for (methodName in methods) {
-                try {
-                    XposedBridge.hookAllMethods(idleClass, methodName, object : XC_MethodHook() {
-                        override fun beforeHookedMethod(param: MethodHookParam) {
-                            if (!isKeepAliveDozeBypassEnabled()) return
-                            bypassDozeForTarget(param)
-                        }
-                    })
-                } catch (e: Exception) {}
-            }
+            val methodName = "setAppIdleAsync"
+            XposedBridge.hookAllMethods(idleClass, methodName, object : XC_MethodHook() {
+                override fun beforeHookedMethod(param: MethodHookParam) {
+                    if (!flags.dozeBypass) return
+                    keepTargetActive(param)
+                }
+            })
             XLog.w(TAG, "successfully hooked DeviceIdleController")
         } catch (t: Throwable) {
             XLog.e(TAG, "failed to hook DeviceIdleController", t)
         }
     }
 
-    private fun bypassDozeForTarget(param: XC_MethodHook.MethodHookParam) {
-        for (arg in param.args) {
-            if (arg is String && arg == XMSF_PACKAGE_NAME) {
-                param.result = null
-                XLog.d(TAG, "bypassed doze for $XMSF_PACKAGE_NAME")
-                return
+    private fun keepTargetActive(param: XC_MethodHook.MethodHookParam) {
+        if (!hasTargetPackageArg(param)) return
+
+        for (i in param.args.indices) {
+            val idle = param.args[i] as? Boolean ?: continue
+            if (idle) {
+                param.args[i] = false
+                XLog.d(TAG, "kept $XMSF_PACKAGE_NAME active in DeviceIdleController")
             }
+            return
         }
     }
+
+    private fun hasTargetPackageArg(param: XC_MethodHook.MethodHookParam): Boolean {
+        for (arg in param.args) {
+            if (arg is String && arg == XMSF_PACKAGE_NAME) return true
+        }
+        return false
+    }
+
+    private data class KeepAliveFlags(
+        val oomAdj: Boolean = false,
+        val antiKill: Boolean = false,
+        val standbyBypass: Boolean = false,
+        val dozeBypass: Boolean = false,
+    )
 }

@@ -80,7 +80,7 @@ import io.github.magisk317.mipush.feature.ui.component.WorkspaceTopBarSearchOver
 import io.github.magisk317.mipush.feature.ui.component.WorkspaceListItem
 
 data class AppInfoForDisplay(
-    val registrationState: Pair<String, Color>,
+    val registrationState: Pair<Int, Color>,
     val lastReceiveTime: String,
     val registrationType: String,
 )
@@ -372,7 +372,7 @@ private fun updateInfos(
     val infoMap = emptyMap<String, AppInfoForDisplay>().toMutableMap()
     applications.res.forEach {
         infoMap[it.packageName] = AppInfoForDisplay(
-            registrationState = RegistrationStateStyle.contentOf(it, context),
+            registrationState = RegistrationStateStyle.contentOf(it),
             lastReceiveTime = if (it.lastReceiveTime.time == 0L) ""
             else context.getString(R.string.last_receive) + ParseUtils.getFriendlyDateString(
                 it.lastReceiveTime,
@@ -465,8 +465,10 @@ private fun ApplicationItem(item: RegisteredApplication, onAppClick: (String) ->
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            val registrationLabel = stringResource(info.registrationState.first)
+            val prefix = if (!item.existServices) stringResource(R.string.mipush_services_not_found) + " - " else ""
             AppListBadge(
-                text = info.registrationState.first,
+                text = prefix + registrationLabel,
                 containerColor = statusColor.copy(alpha = 0.14f),
                 contentColor = statusColor,
             )

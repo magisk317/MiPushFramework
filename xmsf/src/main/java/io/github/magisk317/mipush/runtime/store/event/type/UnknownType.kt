@@ -24,6 +24,7 @@ class UnknownType(mType: Int, mInfo: String?, pkg: String?, payload: ByteArray?)
             Event.Type.UnSubscription -> "UnSubscription"
             Event.Type.SetConfig -> "SetConfig"
             Event.Type.Subscription -> "Subscription"
+            Event.Type.RegistrationResult -> "RegistrationResult"
             else -> null
         }
     }

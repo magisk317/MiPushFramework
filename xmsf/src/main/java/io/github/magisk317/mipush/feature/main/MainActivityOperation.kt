@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.feature.main
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import java.util.Locale
 import com.xiaomi.xmsf.BuildConfig
 import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
@@ -21,6 +22,7 @@ class MainActivityOperation(private val context: Context) {
 
     fun showAboutDialog(onShow: (String) -> Unit) {
         val versionInfo = String.format(
+            Locale.US,
             "name: %s\ncode: %d\nchannel: %s\ntype: %s",
             BuildConfig.VERSION_NAME,
             BuildConfig.VERSION_CODE,
