@@ -41,6 +41,7 @@ object DataStoreManager {
     val isStartForeground: Flow<Boolean>
         get() = repository.isStartForeground
     val startPushAsForegroundService: Flow<Boolean>
+        get() = repository.startPushAsForegroundService
     val keepAliveOomAdj: Flow<Boolean>
         get() = repository.keepAliveOomAdj
     val keepAliveAntiKill: Flow<Boolean>
@@ -53,8 +54,6 @@ object DataStoreManager {
         get() = repository.keepAliveAccessibilityHeartbeat
     val keepAliveDedicatedService: Flow<Boolean>
         get() = repository.keepAliveDedicatedService
-
-        get() = repository.startPushAsForegroundService
     val hazeBlurRadius: Flow<Int>
         get() = repository.hazeBlurRadius
     val hazeTintAlpha: Flow<Float>
@@ -107,26 +106,31 @@ object DataStoreManager {
     }
 
     suspend fun setStartPushAsForegroundService(start: Boolean) {
+        repository.setStartPushAsForegroundService(start)
+    }
+
     suspend fun setKeepAliveOomAdj(enable: Boolean) {
         repository.setKeepAliveOomAdj(enable)
     }
+
     suspend fun setKeepAliveAntiKill(enable: Boolean) {
         repository.setKeepAliveAntiKill(enable)
     }
+
     suspend fun setKeepAliveStandbyBypass(enable: Boolean) {
         repository.setKeepAliveStandbyBypass(enable)
     }
+
     suspend fun setKeepAliveDozeBypass(enable: Boolean) {
         repository.setKeepAliveDozeBypass(enable)
     }
+
     suspend fun setKeepAliveAccessibilityHeartbeat(enable: Boolean) {
         repository.setKeepAliveAccessibilityHeartbeat(enable)
     }
+
     suspend fun setKeepAliveDedicatedService(enable: Boolean) {
         repository.setKeepAliveDedicatedService(enable)
-    }
-
-        repository.setStartPushAsForegroundService(start)
     }
 
     suspend fun setXmppServer(host: String) {

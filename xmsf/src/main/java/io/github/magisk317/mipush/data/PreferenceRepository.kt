@@ -121,31 +121,29 @@ class PreferenceRepository @Inject constructor(
     suspend fun setStartPushAsForegroundService(start: Boolean) {
         dataStore.edit { it[START_PUSH_AS_FOREGROUND_SERVICE] = start }
     }
+
     suspend fun setKeepAliveOomAdj(enable: Boolean) {
         dataStore.edit { it[KEEPALIVE_OOM_ADJ] = enable }
     }
+
     suspend fun setKeepAliveAntiKill(enable: Boolean) {
         dataStore.edit { it[KEEPALIVE_ANTI_KILL] = enable }
     }
+
     suspend fun setKeepAliveStandbyBypass(enable: Boolean) {
         dataStore.edit { it[KEEPALIVE_STANDBY_BYPASS] = enable }
     }
+
     suspend fun setKeepAliveDozeBypass(enable: Boolean) {
         dataStore.edit { it[KEEPALIVE_DOZE_BYPASS] = enable }
     }
+
     suspend fun setKeepAliveAccessibilityHeartbeat(enable: Boolean) {
         dataStore.edit { it[KEEPALIVE_ACCESSIBILITY_HEARTBEAT] = enable }
     }
+
     suspend fun setKeepAliveDedicatedService(enable: Boolean) {
         dataStore.edit { it[KEEPALIVE_DEDICATED_SERVICE] = enable }
-
-    }
-    }
-    }
-    }
-    }
-    }
-
     }
 
     suspend fun setXmppServer(host: String) {

@@ -61,19 +61,24 @@ class SettingsViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val isStartForeground: StateFlow<Boolean> = preferenceRepository.isStartForeground
-    val keepAliveOomAdj: StateFlow<Boolean> = preferenceRepository.keepAliveOomAdj
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-    val keepAliveAntiKill: StateFlow<Boolean> = preferenceRepository.keepAliveAntiKill
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-    val keepAliveStandbyBypass: StateFlow<Boolean> = preferenceRepository.keepAliveStandbyBypass
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-    val keepAliveDozeBypass: StateFlow<Boolean> = preferenceRepository.keepAliveDozeBypass
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-    val keepAliveAccessibilityHeartbeat: StateFlow<Boolean> = preferenceRepository.keepAliveAccessibilityHeartbeat
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-    val keepAliveDedicatedService: StateFlow<Boolean> = preferenceRepository.keepAliveDedicatedService
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val keepAliveOomAdj: StateFlow<Boolean> = preferenceRepository.keepAliveOomAdj
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val keepAliveAntiKill: StateFlow<Boolean> = preferenceRepository.keepAliveAntiKill
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val keepAliveStandbyBypass: StateFlow<Boolean> = preferenceRepository.keepAliveStandbyBypass
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val keepAliveDozeBypass: StateFlow<Boolean> = preferenceRepository.keepAliveDozeBypass
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val keepAliveAccessibilityHeartbeat: StateFlow<Boolean> = preferenceRepository.keepAliveAccessibilityHeartbeat
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val keepAliveDedicatedService: StateFlow<Boolean> = preferenceRepository.keepAliveDedicatedService
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     init {
@@ -140,26 +145,31 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun setStartForeground(enabled: Boolean) {
+        viewModelScope.launch { preferenceRepository.setIsStartForeground(enabled) }
+    }
+
     fun setKeepAliveOomAdj(value: Boolean) = viewModelScope.launch {
         preferenceRepository.setKeepAliveOomAdj(value)
     }
+
     fun setKeepAliveAntiKill(value: Boolean) = viewModelScope.launch {
         preferenceRepository.setKeepAliveAntiKill(value)
     }
+
     fun setKeepAliveStandbyBypass(value: Boolean) = viewModelScope.launch {
         preferenceRepository.setKeepAliveStandbyBypass(value)
     }
+
     fun setKeepAliveDozeBypass(value: Boolean) = viewModelScope.launch {
         preferenceRepository.setKeepAliveDozeBypass(value)
     }
+
     fun setKeepAliveAccessibilityHeartbeat(value: Boolean) = viewModelScope.launch {
         preferenceRepository.setKeepAliveAccessibilityHeartbeat(value)
     }
+
     fun setKeepAliveDedicatedService(value: Boolean) = viewModelScope.launch {
         preferenceRepository.setKeepAliveDedicatedService(value)
-    }
-
-        viewModelScope.launch { preferenceRepository.setIsStartForeground(enabled) }
     }
 
     fun setThemeMode(mode: Int, x: Float = -1f, y: Float = -1f) {

@@ -73,19 +73,6 @@
             android:theme="@style/AppTheme"
             android:resizeableActivity="true"
             android:networkSecurityConfig="@xml/network_security_config"
-
-        <service
-            android:name="io.github.magisk317.mipush.service.KeepAliveAccessibilityService"
-            android:exported="false"
-            android:label="@string/pref_keepalive_dedicated_service_title"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/keepalive_accessibility_service" />
-        </service>
             tools:ignore="GoogleAppIndexingWarning"
             android:forceQueryable="true">
         <meta-data
@@ -97,6 +84,20 @@
         <meta-data
                 android:name="com.xiaomi.xms.support_kit"
                 android:value="true" />
+
+        <service
+                android:name="io.github.magisk317.mipush.service.KeepAliveAccessibilityService"
+                android:exported="false"
+                android:label="@string/pref_keepalive_dedicated_service_title"
+                android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+
+            <meta-data
+                    android:name="android.accessibilityservice"
+                    android:resource="@xml/keepalive_accessibility_service" />
+        </service>
 
 
         <activity

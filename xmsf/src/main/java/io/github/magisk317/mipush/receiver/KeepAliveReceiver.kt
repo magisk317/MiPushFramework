@@ -35,7 +35,7 @@ class KeepAliveReceiver : BroadcastReceiver() {
             kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
                 try {
                     val preferenceRepository = io.github.magisk317.mipush.data.DataStoreManager
-                    val hbEnabled = kotlinx.coroutines.flow.first(preferenceRepository.keepAliveAccessibilityHeartbeat)
+                    val hbEnabled = preferenceRepository.keepAliveAccessibilityHeartbeat.first()
                     if (hbEnabled) {
                         // Simulate heartbeat / Accessibility wake mechanism if needed.
                         // The primary KeepAliveReceiver itself is the heartbeat.
