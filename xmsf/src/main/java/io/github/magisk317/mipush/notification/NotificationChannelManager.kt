@@ -64,8 +64,13 @@ object NotificationChannelManager {
     @JvmStatic
     fun isNotificationChannelEnabled(packageName: String, channelId: String?): Boolean {
         if (!TextUtils.isEmpty(channelId)) {
-            val channel = NotificationManagerEx.getNotificationChannel(packageName, channelId)
-            return isNotificationChannelEnabled(channel)
+            return try {
+                val channel = NotificationManagerEx.getNotificationChannel(packageName, channelId)
+                isNotificationChannelEnabled(channel)
+            } catch (_: Exception) {
+                // 查询失败时降级为"已启用"，避免阻塞列表/渲染链路
+                true
+            }
         }
         return false
     }
