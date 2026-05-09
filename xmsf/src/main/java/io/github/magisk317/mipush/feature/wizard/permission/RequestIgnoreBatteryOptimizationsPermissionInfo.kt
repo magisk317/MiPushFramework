@@ -5,7 +5,6 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import com.xiaomi.xmsf.R
 
-@RequiresApi(api = Build.VERSION_CODES.M)
 class RequestIgnoreBatteryOptimizationsPermissionInfo(
     private val context: Context
 ) : PermissionInfo {

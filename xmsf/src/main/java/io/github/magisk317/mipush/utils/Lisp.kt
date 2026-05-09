@@ -50,18 +50,11 @@ object Lisp {
             "decode-base64" to Callable {
                 val base64 = evaluated.optString(1)
                 val decoders: Array<Callable<ByteArray>> =
-                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-                        arrayOf(
-                            Callable { android.util.Base64.decode(base64, android.util.Base64.DEFAULT) },
-                            Callable { android.util.Base64.decode(base64, android.util.Base64.URL_SAFE) }
-                        )
-                    } else {
-                        arrayOf(
-                            Callable { Base64.getDecoder().decode(base64) },
-                            Callable { Base64.getUrlDecoder().decode(base64) },
-                            Callable { Base64.getMimeDecoder().decode(base64) }
-                        )
-                    }
+                    arrayOf(
+                        Callable { Base64.getDecoder().decode(base64) },
+                        Callable { Base64.getUrlDecoder().decode(base64) },
+                        Callable { Base64.getMimeDecoder().decode(base64) }
+                    )
                 var err: Exception? = null
                 for (decoder in decoders) {
                     try {

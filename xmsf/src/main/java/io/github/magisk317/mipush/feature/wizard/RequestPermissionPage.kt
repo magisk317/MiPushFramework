@@ -304,10 +304,8 @@ private fun getPermissionInfos(context: Context): List<PermissionInfo> {
         add(RootPermissionInfo(context))
         add(UsageStatsPermissionInfo(context))
         add(AccessibilityPermissionInfo(context))
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            add(RequestIgnoreBatteryOptimizationsPermissionInfo(context))
-            add(AlertWindowPermissionInfo(context))
-        }
+        add(RequestIgnoreBatteryOptimizationsPermissionInfo(context))
+        add(AlertWindowPermissionInfo(context))
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             add(NotificationPermissionInfo(context))
         }

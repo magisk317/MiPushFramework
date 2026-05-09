@@ -21,7 +21,6 @@ object NotificationChannelManager {
     @JvmStatic
     fun getNotificationManagerEx(): NotificationManagerEx = NotificationManagerEx
 
-    @TargetApi(26)
     private fun createGroupWithPackage(
         packageName: String,
         appName: CharSequence
@@ -36,20 +35,17 @@ object NotificationChannelManager {
         val channelDescription = configuration.channelDescription(null)
         val sound = configuration.soundUrl(null)
 
-        var channel: NotificationChannel? = null
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            channel = NotificationChannel(
-                getChannelId(metaInfo, packageName),
-                channelName,
-                NotificationManager.IMPORTANCE_DEFAULT
-            )
-            channel.description = channelDescription
-            if (sound != null) {
-                val attr = AudioAttributes.Builder()
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                    .build()
-                channel.setSound(Uri.parse(sound), attr)
-            }
+        val channel = NotificationChannel(
+            getChannelId(metaInfo, packageName),
+            channelName,
+            NotificationManager.IMPORTANCE_DEFAULT
+        )
+        channel.description = channelDescription
+        if (sound != null) {
+            val attr = AudioAttributes.Builder()
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build()
+            channel.setSound(Uri.parse(sound), attr)
         }
         return channel
     }
@@ -61,21 +57,17 @@ object NotificationChannelManager {
     }
 
     @JvmStatic
-    @RequiresApi(Build.VERSION_CODES.O)
     fun isNotificationChannelEnabled(channel: NotificationChannel?): Boolean {
         return channel != null && channel.importance != NotificationManager.IMPORTANCE_NONE
     }
 
     @JvmStatic
     fun isNotificationChannelEnabled(packageName: String, channelId: String?): Boolean {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            if (!TextUtils.isEmpty(channelId)) {
-                val channel = NotificationManagerEx.getNotificationChannel(packageName, channelId)
-                return isNotificationChannelEnabled(channel)
-            }
-            return false
+        if (!TextUtils.isEmpty(channelId)) {
+            val channel = NotificationManagerEx.getNotificationChannel(packageName, channelId)
+            return isNotificationChannelEnabled(channel)
         }
-        return NotificationManagerEx.areNotificationsEnabled(packageName)
+        return false
     }
 
     @JvmStatic
@@ -84,9 +76,6 @@ object NotificationChannelManager {
         metaInfo: PushMetaInfo,
         packageName: String
     ): NotificationChannel? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            return null
-        }
         val appName = Global.applicationNameCache().getAppName(context, packageName) ?: return null
         return createNotificationChannel(metaInfo, packageName, appName)
     }
@@ -103,7 +92,7 @@ object NotificationChannelManager {
         )
 
         val notificationChannel = createChannelWithPackage(metaInfo, packageName)
-        if (notificationChannel != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (notificationChannel != null) {
             notificationChannel.group = notificationChannelGroup.id
         }
 

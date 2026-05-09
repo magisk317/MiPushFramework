@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.feature.main
 
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
 import android.app.NotificationManager
@@ -72,6 +73,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -297,7 +299,7 @@ open class ApplicationInfoPage : ComponentActivity() {
         } else {
             stringResource(R.string.mipush_services_not_found)
         }
-        val registrationValue = RegistrationStateStyle.registrationLabelOf(applicationInfo, context)
+        val registrationValue = stringResource(RegistrationStateStyle.registrationLabelResOf(applicationInfo))
         val lastPush = formatTime(applicationInfo.lastReceiveTime.time)
 
         ElevatedCard(
@@ -572,7 +574,7 @@ open class ApplicationInfoPage : ComponentActivity() {
             )
             AppDetailValueRow(
                 label = stringResource(R.string.registration_diagnostics_local_state),
-                value = context.getString(
+                value = stringResource(
                     R.string.registration_diagnostics_local_state_value,
                     info.hasLocalRegistration.toFlagValue(),
                     info.regSecCount,
@@ -581,7 +583,7 @@ open class ApplicationInfoPage : ComponentActivity() {
             )
             AppDetailValueRow(
                 label = stringResource(R.string.registration_diagnostics_recent_event),
-                value = formatRecentRegistrationEvent(context, info),
+                value = formatRecentRegistrationEvent(info),
             )
             AppDetailValueRow(
                 label = stringResource(R.string.registration_diagnostics_inference),
@@ -605,7 +607,9 @@ open class ApplicationInfoPage : ComponentActivity() {
     @Composable
     private fun RegistrationActionsCard() {
         val context = LocalContext.current
+        val resources = LocalResources.current
         val scope = rememberCoroutineScope()
+        val launchObserveTimeoutMessage = stringResource(R.string.registration_action_launch_observe_timeout)
 
         DetailSectionCard(
             title = stringResource(R.string.registration_actions_group),
@@ -651,12 +655,12 @@ open class ApplicationInfoPage : ComponentActivity() {
                             diagnostics.hasLocalRegistration ||
                             diagnostics.latestRegistrationEventDate != null
                         ) {
-                            context.getString(
+                            resources.getString(
                                 R.string.registration_action_launch_observe_result,
-                                context.getString(registrationInferenceLabelRes(diagnostics.inferenceReason)),
+                                resources.getString(registrationInferenceLabelRes(diagnostics.inferenceReason)),
                             )
                         } else {
-                            context.getString(R.string.registration_action_launch_observe_timeout)
+                            launchObserveTimeoutMessage
                         }
                         Toast.makeText(context, resultText, Toast.LENGTH_LONG).show()
                     }
@@ -701,6 +705,9 @@ open class ApplicationInfoPage : ComponentActivity() {
     private fun ActivitySectionCard(snackbarHostState: SnackbarHostState) {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
+        val notificationOnRegisterDisabledMessage = stringResource(
+            R.string.notification_on_register_global_disabled_hint,
+        )
         val globalEnabled = remember {
             runBlocking {
                 io.github.magisk317.mipush.platform.support.Global.configCenter()
@@ -743,7 +750,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                 onClickWhenDisabled = {
                     scope.launch {
                         snackbarHostState.showSnackbar(
-                            message = context.getString(R.string.notification_on_register_global_disabled_hint),
+                            message = notificationOnRegisterDisabledMessage,
                             duration = SnackbarDuration.Short,
                         )
                     }
@@ -756,6 +763,7 @@ open class ApplicationInfoPage : ComponentActivity() {
         }
     }
 
+    @SuppressLint("LocalContextGetResourceValueCall")
     @Composable
     private fun NotificationSection() {
         val isPreview = LocalInspectionMode.current
@@ -764,7 +772,7 @@ open class ApplicationInfoPage : ComponentActivity() {
             title = stringResource(R.string.app_detail_notifications),
             summary = stringResource(R.string.settings_manage_app_notifications_summary),
         ) {
-            if (Build.VERSION.SDK_INT >= VERSION_CODES.O && !isPreview) {
+            if (!isPreview) {
                 NotificationChannelGroups()
             } else {
                 ActionSummaryRow(
@@ -778,7 +786,6 @@ open class ApplicationInfoPage : ComponentActivity() {
         }
     }
 
-    @RequiresApi(VERSION_CODES.O)
     @Composable
     private fun NotificationChannelGroups() {
         val isPreview = LocalInspectionMode.current
@@ -1027,16 +1034,17 @@ private fun formatTime(time: Long?): String {
     return SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(time))
 }
 
-private fun formatRecentRegistrationEvent(context: Context, diagnostics: AppRegistrationDiagnostics): String {
+@Composable
+private fun formatRecentRegistrationEvent(diagnostics: AppRegistrationDiagnostics): String {
     val label = when (diagnostics.latestRegistrationEventType) {
-        Event.Type.Registration -> context.getString(R.string.registration_event_registration)
+        Event.Type.Registration -> stringResource(R.string.registration_event_registration)
         Event.Type.RegistrationResult -> if (diagnostics.latestRegistrationEventResult == Event.ResultType.OK) {
-            context.getString(R.string.registration_event_registration_result_ok)
+            stringResource(R.string.registration_event_registration_result_ok)
         } else {
-            context.getString(R.string.registration_event_registration_result_failed)
+            stringResource(R.string.registration_event_registration_result_failed)
         }
-        Event.Type.UnRegistration -> context.getString(R.string.registration_event_unregistration)
-        else -> context.getString(R.string.registration_event_none)
+        Event.Type.UnRegistration -> stringResource(R.string.registration_event_unregistration)
+        else -> stringResource(R.string.registration_event_none)
     }
     val date = formatTime(diagnostics.latestRegistrationEventDate)
     return if (date == "-") label else "$label @ $date"

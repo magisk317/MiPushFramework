@@ -68,9 +68,6 @@ object PermissionUtils {
 
     @JvmStatic
     fun requestIgnoreBatteryOptimizations(context: Context): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            return true
-        }
         if (!(hasRootAccess() || requestRootAccess())) {
             return false
         }

@@ -121,7 +121,7 @@ object PushControllerUtils {
                 logger.e(e)
             }
             MiPushClient.unregisterPush(wrapContext(context))
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            run {
                 val scheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as? JobScheduler
                 scheduler?.cancelAll()
             }

@@ -94,12 +94,7 @@ class MiPushManifestChecker private constructor(
         private val warnedServiceIssues = ConcurrentHashMap.newKeySet<String>()
 
         private fun serviceCheckKey(pkgInfo: PackageInfo): String {
-            val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                pkgInfo.longVersionCode
-            } else {
-                @Suppress("DEPRECATION")
-                pkgInfo.versionCode.toLong()
-            }
+            val versionCode = pkgInfo.longVersionCode
             val serviceSignature = pkgInfo.services
                 ?.map { "${it.name}:${it.enabled}:${it.exported}" }
                 ?.sorted()
