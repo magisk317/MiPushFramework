@@ -32,6 +32,9 @@
     <permission
             android:name="com.xiaomi.xmsf.permission.UPDATE_KA_CONFIG"
             android:protectionLevel="signature" />
+    <permission
+            android:name="com.xiaomi.xmsf.permission.READ_KEEPALIVE_PREFS"
+            android:protectionLevel="signature" />
 
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="com.xiaomi.xmsf.permission.MIPUSH_RECEIVE" />
@@ -39,6 +42,11 @@
     <uses-permission android:name="com.xiaomi.xmsf.permission.USE_XMSF_UPLOAD" />
     <uses-permission android:name="com.xiaomi.permission.SEND_PUSH" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM"
+        tools:ignore="UseExactAlarm" />
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
@@ -111,6 +119,7 @@
         <service
                 android:name="com.xiaomi.xmsf.push.service.CompatXMPushService"
                 android:foregroundServiceType="remoteMessaging"
+                tools:ignore="ExportedService"
                 android:exported="true" />
         <activity
                 android:name="io.github.magisk317.mipush.feature.wizard.WelcomeActivity"
@@ -121,21 +130,28 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name="io.github.magisk317.mipush.feature.wizard.RequestPermissionPage" />
+        <activity
+                android:name="io.github.magisk317.mipush.feature.wizard.RequestPermissionPage"
+                android:exported="false" />
 
-        <activity android:name="io.github.magisk317.mipush.feature.main.MainActivity" />
+        <activity
+                android:name="io.github.magisk317.mipush.feature.main.MainActivity"
+                android:exported="false" />
 
         <activity
                 android:name="io.github.magisk317.mipush.feature.main.ApplicationInfoPage"
-                android:configChanges="screenLayout|screenSize|orientation" />
+                android:configChanges="screenLayout|screenSize|orientation"
+                android:exported="false" />
 
         <activity
                 android:name="io.github.magisk317.mipush.feature.main.RecentEventListPage"
-                android:label="@string/recent_activity_title" />
+                android:label="@string/recent_activity_title"
+                android:exported="false" />
         <activity
                 android:name="io.github.magisk317.mipush.feature.main.HelpPage"
                 android:label="@string/helplib_title"
-                android:theme="@style/AppTheme" />
+                android:theme="@style/AppTheme"
+                android:exported="false" />
 
         <provider
                 android:name="androidx.core.content.FileProvider"
@@ -159,6 +175,7 @@
                 android:name="com.xiaomi.xmsf.utils.ModuleLogProvider"
                 android:authorities="com.xiaomi.xmsf.module.log"
                 android:exported="true"
+                tools:ignore="ExportedContentProvider"
                 android:grantUriPermissions="false" />
         <provider
                 android:name="com.xiaomi.push.providers.TrafficProvider"
@@ -173,10 +190,12 @@
         <provider
                 android:name="com.xiaomi.xmsf.provider.KeepAlivePreferenceProvider"
                 android:authorities="com.xiaomi.xmsf.keepalive.prefs"
+                android:readPermission="com.xiaomi.xmsf.permission.READ_KEEPALIVE_PREFS"
                 android:exported="true" />
         <provider
                 android:name="com.xiaomi.xmsf.pushcontrol.PushControlProvider"
                 android:authorities="com.xiaomi.xmsf.pushcontrol.PushControlProvider"
+                tools:ignore="ExportedContentProvider"
                 android:exported="true" />
         <provider
                 android:name="com.xiaomi.xmsf.provider.ChannelProvider"
@@ -191,10 +210,12 @@
         <provider
                 android:name="com.xiaomi.push.provider.PushCommonProvider"
                 android:authorities="com.xiaomi.push.provider.PUSH_COMMON"
+                tools:ignore="ExportedContentProvider"
                 android:exported="true" />
         <provider
                 android:name="com.xiaomi.xmsf.provider.PushProfileIdProvider"
                 android:authorities="com.xiaomi.push.provider.profile"
+                tools:ignore="ExportedContentProvider"
                 android:exported="true" />
 
         <receiver
@@ -233,6 +254,7 @@
 
         <receiver
                 android:name=".push.service.receivers.MiuiPushMessageReceiver"
+                tools:ignore="ExportedReceiver"
                 android:exported="true">
             <intent-filter>
                 <action android:name="com.xiaomi.mipush.RECEIVE_MESSAGE" />
@@ -284,13 +306,16 @@
             </intent-filter>
         </receiver>
 
-        <receiver android:name="com.xiaomi.push.revival.NotificationsRevivalForSelfUpdated" />
+        <receiver
+                android:name="com.xiaomi.push.revival.NotificationsRevivalForSelfUpdated"
+                android:exported="false" />
         <service
                 android:name=".push.service.HttpService"
                 android:permission="com.xiaomi.xmsf.permission.BIND_HTTP_SERVICE"
                 android:exported="true" />
         <service
                 android:name="com.xiaomi.xmsf.push.service.StatService"
+                tools:ignore="ExportedService"
                 android:exported="true" />
         <service
                 android:name="com.xiaomi.xmsf.push.service.notificationcollection.NotificationListener"
@@ -307,6 +332,7 @@
         <service
                 android:name="com.xiaomi.xmsf.services.ServiceBoxService"
                 android:exported="true"
+                tools:ignore="ExportedService"
                 android:process=":services" />
         <service
                 android:name="com.xiaomi.xmsf.services.keepalive.strategy.KeepAliveConfigService"
@@ -330,14 +356,17 @@
         <service
                 android:name=".push.service.MiPushFacadeService"
                 android:foregroundServiceType="remoteMessaging"
+                tools:ignore="ExportedService"
                 android:exported="true" />
         <service
                 android:name=".push.service.XMPushService"
                 android:foregroundServiceType="remoteMessaging"
+                tools:ignore="ExportedService"
                 android:exported="true" />
         <service
                 android:name="com.xiaomi.push.service.XMPushService"
                 android:foregroundServiceType="remoteMessaging"
+                tools:ignore="ExportedService"
                 android:exported="true" />
 
 
@@ -346,8 +375,11 @@
         <service
                 android:name="com.xiaomi.mipush.sdk.PushMessageHandler"
                 android:enabled="true"
+                tools:ignore="ExportedService"
                 android:exported="true" />
-        <service android:name="com.xiaomi.mipush.sdk.MessageHandleService" />
+        <service
+                android:name="com.xiaomi.mipush.sdk.MessageHandleService"
+                android:exported="false" />
         <service
                 android:name="com.xiaomi.push.service.XMJobService"
                 android:enabled="true"
@@ -356,9 +388,12 @@
 
         <service
                 android:name=".push.service.MiuiPushActivateService"
+                tools:ignore="ExportedService"
                 android:exported="true" />
 
-        <service android:name="com.xiaomi.push.sdk.MyPushMessageHandler" />
+        <service
+                android:name="com.xiaomi.push.sdk.MyPushMessageHandler"
+                android:exported="false" />
 
         <!-- Push API -->
         <service

@@ -51,7 +51,7 @@ class ForegroundHelper(private val service: Service) {
             .setOngoing(true)
             .setShowWhen(true)
             .build()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             service.startForeground(
                 NOTIFICATION_ALIVE_ID,
                 notification,
@@ -64,16 +64,14 @@ class ForegroundHelper(private val service: Service) {
 
     internal fun createNotificationGroupForPushStatus() {
         val manager = NotificationManagerCompat.from(service.applicationContext)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val groupId = "status_group"
-            val group = NotificationChannelGroupCompat.Builder(groupId)
-                .setName(CHANNEL_STATUS)
-            manager.createNotificationChannelGroup(group.build())
-            val channel = NotificationChannelCompat.Builder(
-                CHANNEL_STATUS, NotificationManager.IMPORTANCE_MIN
-            )
-                .setName(service.getString(R.string.notification_category_alive)).setGroup(groupId)
-            manager.createNotificationChannel(channel.build())
-        }
+        val groupId = "status_group"
+        val group = NotificationChannelGroupCompat.Builder(groupId)
+            .setName(CHANNEL_STATUS)
+        manager.createNotificationChannelGroup(group.build())
+        val channel = NotificationChannelCompat.Builder(
+            CHANNEL_STATUS, NotificationManager.IMPORTANCE_MIN
+        )
+            .setName(service.getString(R.string.notification_category_alive)).setGroup(groupId)
+        manager.createNotificationChannel(channel.build())
     }
 }
