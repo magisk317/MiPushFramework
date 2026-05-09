@@ -48,38 +48,68 @@ jobs:
               name=$(basename "$apk")
               app=$(printf '%s\n' "$apk" | awk -F/ '{print $1}')
               echo "| $app | $name | $size |"
-            done < <(find xmsf/build/outputs/apk mipush/build/outputs/apk -path '*/debug/*.apk' | sort)
+            done < <(find xmsf/build/outputs/apk mipush/build/outputs/apk -path '*/debug/*.apk' -not -path '*/androidTest/*' | sort)
           } >> "$GITHUB_STEP_SUMMARY"
-      - name: Upload XMSF Debug APK (arm64-v8a)
+      - name: Upload XMSF Normal Debug APK (arm64-v8a)
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: MiPushFramework-debug-arm64-v8a
-          path: xmsf/build/outputs/apk/debug/**/*arm64-v8a*.apk
-      - name: Upload XMSF Debug APK (armeabi-v7a)
+          name: xmsf-normal-debug-arm64-v8a
+          path: xmsf/build/outputs/apk/normal/debug/**/*arm64-v8a*.apk
+      - name: Upload XMSF vc105 Debug APK (arm64-v8a)
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: MiPushFramework-debug-armeabi-v7a
-          path: xmsf/build/outputs/apk/debug/**/*armeabi-v7a*.apk
-      - name: Upload XMSF Debug APK (x86)
+          name: xmsf-vc105-debug-arm64-v8a
+          path: xmsf/build/outputs/apk/vc105/debug/**/*arm64-v8a*.apk
+      - name: Upload XMSF Normal Debug APK (armeabi-v7a)
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: MiPushFramework-debug-x86
-          path: xmsf/build/outputs/apk/debug/**/*x86_*.apk
-      - name: Upload XMSF Debug APK (x86_64)
+          name: xmsf-normal-debug-armeabi-v7a
+          path: xmsf/build/outputs/apk/normal/debug/**/*armeabi-v7a*.apk
+      - name: Upload XMSF Normal Debug APK (x86)
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: MiPushFramework-debug-x86_64
-          path: xmsf/build/outputs/apk/debug/**/*x86_64*.apk
-      - name: Upload XMSF Debug APK (universal)
+          name: xmsf-normal-debug-x86
+          path: xmsf/build/outputs/apk/normal/debug/**/*x86_*.apk
+      - name: Upload XMSF Normal Debug APK (x86_64)
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: MiPushFramework-debug-universal
-          path: xmsf/build/outputs/apk/debug/**/*universal*.apk
+          name: xmsf-normal-debug-x86_64
+          path: xmsf/build/outputs/apk/normal/debug/**/*x86_64*.apk
+      - name: Upload XMSF Normal Debug APK (universal)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: xmsf-normal-debug-universal
+          path: xmsf/build/outputs/apk/normal/debug/**/*universal*.apk
+      - name: Upload XMSF vc105 Debug APK (armeabi-v7a)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: xmsf-vc105-debug-armeabi-v7a
+          path: xmsf/build/outputs/apk/vc105/debug/**/*armeabi-v7a*.apk
+      - name: Upload XMSF vc105 Debug APK (x86)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: xmsf-vc105-debug-x86
+          path: xmsf/build/outputs/apk/vc105/debug/**/*x86_*.apk
+      - name: Upload XMSF vc105 Debug APK (x86_64)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: xmsf-vc105-debug-x86_64
+          path: xmsf/build/outputs/apk/vc105/debug/**/*x86_64*.apk
+      - name: Upload XMSF vc105 Debug APK (universal)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: xmsf-vc105-debug-universal
+          path: xmsf/build/outputs/apk/vc105/debug/**/*universal*.apk
       - name: Upload MiPush Debug APK (arm64-v8a)
         if: always()
         uses: actions/upload-artifact@v7

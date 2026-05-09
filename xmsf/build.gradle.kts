@@ -7,7 +7,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-extra["mipushArtifactBaseName"] = "MiPushFramework"
+extra["mipushArtifactBaseName"] = "xmsf"
 
 val versionNameStr = rootProject.version.toString().ifBlank { libs.versions.versionName.get() }
 val pushVersionCode = libs.versions.pushVersionCode.get().toInt()
@@ -18,6 +18,18 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    flavorDimensions += "version"
+
+    productFlavors {
+        create("normal") {
+            dimension = "version"
+        }
+        create("vc105") {
+            dimension = "version"
+            versionCode = 105
+        }
     }
 
     defaultConfig {
