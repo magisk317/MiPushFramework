@@ -483,6 +483,7 @@ object NotificationManagerEx {
                     String::class.java,
                     Int::class.javaPrimitiveType
                 )
+                @Suppress("UNCHECKED_CAST")
                 method.invoke(notificationManager, packageName, 0) as? List<NotificationChannel?>
             } catch (e: Exception) {
                 logger.e("Failed to invoke getNotificationChannelsForPackage", e)
@@ -597,6 +598,7 @@ object NotificationManagerEx {
                     String::class.java,
                     Int::class.javaPrimitiveType
                 )
+                @Suppress("UNCHECKED_CAST")
                 method.invoke(notificationManager, packageName, 0) as? List<NotificationChannelGroup?>
             } catch (e: Exception) {
                 logger.e("Failed to invoke getNotificationChannelGroupsForPackage", e)
