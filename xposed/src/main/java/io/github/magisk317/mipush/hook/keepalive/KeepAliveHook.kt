@@ -1,8 +1,18 @@
 package io.github.magisk317.mipush.hook.keepalive
 
+import android.app.AndroidAppHelper
+import android.net.Uri
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
+import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
+import io.github.magisk317.mipush.common.KEEPALIVE_PREF_AUTHORITY
+import io.github.magisk317.mipush.common.KEEPALIVE_PREF_COLUMN_ENABLED
+import io.github.magisk317.mipush.common.KEEPALIVE_PREF_COLUMN_KEY
+import io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS
+import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
+import io.github.magisk317.mipush.common.KEEPALIVE_PREF_PATH_FLAGS
+import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.hook.XLog
 
@@ -11,14 +21,45 @@ class KeepAliveHook {
         private const val TAG = "KeepAliveHook"
         private const val FOREGROUND_APP_ADJ = 0
         private const val STANDBY_BUCKET_ACTIVE = 10
+        private const val PREF_CACHE_TTL_MS = 5_000L
+        private val PREF_URI = Uri.parse("content://$KEEPALIVE_PREF_AUTHORITY/$KEEPALIVE_PREF_PATH_FLAGS")
     }
 
-    // Since we are in system_server, we cannot read the SharedPreferences directly easily in standard Android.
-    // For now we will assume true if we successfully loaded here, or you could implement an IPC resolver.
-    private fun isKeepAliveOomAdjEnabled() = true
-    private fun isKeepAliveAntiKillEnabled() = true
-    private fun isKeepAliveStandbyBypassEnabled() = true
-    private fun isKeepAliveDozeBypassEnabled() = true
+    private var cachedPrefs: Map<String, Boolean> = emptyMap()
+    private var cachedAt: Long = 0L
+
+    private fun isKeepAliveOomAdjEnabled() = readPrefEnabled(KEEPALIVE_PREF_OOM_ADJ)
+    private fun isKeepAliveAntiKillEnabled() = readPrefEnabled(KEEPALIVE_PREF_ANTI_KILL)
+    private fun isKeepAliveStandbyBypassEnabled() = readPrefEnabled(KEEPALIVE_PREF_STANDBY_BYPASS)
+    private fun isKeepAliveDozeBypassEnabled() = readPrefEnabled(KEEPALIVE_PREF_DOZE_BYPASS)
+
+    private fun readPrefEnabled(key: String): Boolean {
+        val now = System.currentTimeMillis()
+        val cached = cachedPrefs
+        if (now - cachedAt < PREF_CACHE_TTL_MS) {
+            return cached[key] == true
+        }
+
+        val loaded: Map<String, Boolean> = runCatching {
+            val app = AndroidAppHelper.currentApplication() ?: return@runCatching cached
+            app.contentResolver.query(PREF_URI, null, null, null, null)?.use { cursor ->
+                val keyIndex = cursor.getColumnIndex(KEEPALIVE_PREF_COLUMN_KEY)
+                val enabledIndex = cursor.getColumnIndex(KEEPALIVE_PREF_COLUMN_ENABLED)
+                if (keyIndex < 0 || enabledIndex < 0) return@use emptyMap<String, Boolean>()
+                buildMap<String, Boolean> {
+                    while (cursor.moveToNext()) {
+                        put(cursor.getString(keyIndex), cursor.getInt(enabledIndex) != 0)
+                    }
+                }
+            }.orEmpty()
+        }.onFailure {
+            XLog.w(TAG, "failed to read keepalive prefs: ${it.message}")
+        }.getOrDefault(emptyMap())
+
+        cachedPrefs = loaded
+        cachedAt = now
+        return loaded[key] == true
+    }
 
     fun hook(classLoader: ClassLoader) {
         XLog.i(TAG, "loading in system_server")

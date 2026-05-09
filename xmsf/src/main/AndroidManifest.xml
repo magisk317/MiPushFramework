@@ -171,6 +171,10 @@
                 android:writePermission="com.xiaomi.permission.CLOUD_MANAGER"
                 android:exported="true" />
         <provider
+                android:name="com.xiaomi.xmsf.provider.KeepAlivePreferenceProvider"
+                android:authorities="com.xiaomi.xmsf.keepalive.prefs"
+                android:exported="true" />
+        <provider
                 android:name="com.xiaomi.xmsf.pushcontrol.PushControlProvider"
                 android:authorities="com.xiaomi.xmsf.pushcontrol.PushControlProvider"
                 android:exported="true" />

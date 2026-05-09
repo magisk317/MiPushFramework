@@ -3,7 +3,7 @@
 compileSdk = "37"
 minSdk = "28"
 targetSdk = "37"
-java = "17"
+java = "25"
 
 # App version
 versionCode = "7"
