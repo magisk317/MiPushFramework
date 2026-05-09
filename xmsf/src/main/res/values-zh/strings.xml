@@ -481,4 +481,17 @@
         <item>@string/theme_black</item>
     </string-array>
 
+    <string name="pref_keepalive_oom_adj_title">OomAdj 提权</string>
+    <string name="pref_keepalive_oom_adj_summary">通过 Hook 提权让服务获得前台级别的优先级。</string>
+    <string name="pref_keepalive_anti_kill_title">防杀拦截</string>
+    <string name="pref_keepalive_anti_kill_summary">拦截系统 AMS 杀后台操作。</string>
+    <string name="pref_keepalive_standby_bypass_title">绕过待机分组</string>
+    <string name="pref_keepalive_standby_bypass_summary">强制处于 Active 分组，防止被限制后台活动。</string>
+    <string name="pref_keepalive_doze_bypass_title">绕过 Doze</string>
+    <string name="pref_keepalive_doze_bypass_summary">拦截进入打盹休眠模式。</string>
+    <string name="pref_keepalive_accessibility_heartbeat_title">无障碍心跳检测</string>
+    <string name="pref_keepalive_accessibility_heartbeat_summary">定期检查进程存活状态，如果掉线则拉起。</string>
+    <string name="pref_keepalive_dedicated_service_title">专属保活无障碍服务</string>
+    <string name="pref_keepalive_dedicated_service_summary">开启一个空壳无障碍服务，崩溃后由系统自动重启拉起应用。</string>
+
 </resources>

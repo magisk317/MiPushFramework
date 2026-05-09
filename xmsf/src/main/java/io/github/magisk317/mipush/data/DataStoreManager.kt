@@ -41,6 +41,19 @@ object DataStoreManager {
     val isStartForeground: Flow<Boolean>
         get() = repository.isStartForeground
     val startPushAsForegroundService: Flow<Boolean>
+    val keepAliveOomAdj: Flow<Boolean>
+        get() = repository.keepAliveOomAdj
+    val keepAliveAntiKill: Flow<Boolean>
+        get() = repository.keepAliveAntiKill
+    val keepAliveStandbyBypass: Flow<Boolean>
+        get() = repository.keepAliveStandbyBypass
+    val keepAliveDozeBypass: Flow<Boolean>
+        get() = repository.keepAliveDozeBypass
+    val keepAliveAccessibilityHeartbeat: Flow<Boolean>
+        get() = repository.keepAliveAccessibilityHeartbeat
+    val keepAliveDedicatedService: Flow<Boolean>
+        get() = repository.keepAliveDedicatedService
+
         get() = repository.startPushAsForegroundService
     val hazeBlurRadius: Flow<Int>
         get() = repository.hazeBlurRadius
@@ -94,6 +107,25 @@ object DataStoreManager {
     }
 
     suspend fun setStartPushAsForegroundService(start: Boolean) {
+    suspend fun setKeepAliveOomAdj(enable: Boolean) {
+        repository.setKeepAliveOomAdj(enable)
+    }
+    suspend fun setKeepAliveAntiKill(enable: Boolean) {
+        repository.setKeepAliveAntiKill(enable)
+    }
+    suspend fun setKeepAliveStandbyBypass(enable: Boolean) {
+        repository.setKeepAliveStandbyBypass(enable)
+    }
+    suspend fun setKeepAliveDozeBypass(enable: Boolean) {
+        repository.setKeepAliveDozeBypass(enable)
+    }
+    suspend fun setKeepAliveAccessibilityHeartbeat(enable: Boolean) {
+        repository.setKeepAliveAccessibilityHeartbeat(enable)
+    }
+    suspend fun setKeepAliveDedicatedService(enable: Boolean) {
+        repository.setKeepAliveDedicatedService(enable)
+    }
+
         repository.setStartPushAsForegroundService(start)
     }
 

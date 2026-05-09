@@ -503,4 +503,17 @@ This could be the application doing a reverse registration, or the registration 
         <item>@string/theme_dark</item>
         <item>@string/theme_black</item>
     </string-array>
+    <string name="pref_keepalive_oom_adj_title">OOM Adj Elevation</string>
+    <string name="pref_keepalive_oom_adj_summary">Elevate background processes OOM Adj to foreground level.</string>
+    <string name="pref_keepalive_anti_kill_title">Anti-Kill</string>
+    <string name="pref_keepalive_anti_kill_summary">Intercept AMS kill process actions to prevent being killed.</string>
+    <string name="pref_keepalive_standby_bypass_title">Bypass Standby</string>
+    <string name="pref_keepalive_standby_bypass_summary">Force app into active standby bucket.</string>
+    <string name="pref_keepalive_doze_bypass_title">Bypass Doze</string>
+    <string name="pref_keepalive_doze_bypass_summary">Prevent the app from entering Doze mode.</string>
+    <string name="pref_keepalive_accessibility_heartbeat_title">Accessibility Heartbeat</string>
+    <string name="pref_keepalive_accessibility_heartbeat_summary">Periodically check and revive the app process using accessibility services.</string>
+    <string name="pref_keepalive_dedicated_service_title">Dedicated Keep-Alive Service</string>
+    <string name="pref_keepalive_dedicated_service_summary">Enable an empty accessibility service that system will auto-restart when app dies.</string>
+
 </resources>

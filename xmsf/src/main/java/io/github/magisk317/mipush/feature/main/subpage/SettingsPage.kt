@@ -255,6 +255,14 @@ private fun ServiceConfigurationBlock(viewModel: SettingsViewModel, snackbarHost
     val notificationOnRegister by viewModel.notificationOnRegister.collectAsStateWithLifecycle()
 
     SetXMPPServer(viewModel)
+    val keepAliveOomAdj by viewModel.keepAliveOomAdj.collectAsStateWithLifecycle()
+    val keepAliveAntiKill by viewModel.keepAliveAntiKill.collectAsStateWithLifecycle()
+    val keepAliveStandbyBypass by viewModel.keepAliveStandbyBypass.collectAsStateWithLifecycle()
+    val keepAliveDozeBypass by viewModel.keepAliveDozeBypass.collectAsStateWithLifecycle()
+    val keepAliveAccessibilityHeartbeat by viewModel.keepAliveAccessibilityHeartbeat.collectAsStateWithLifecycle()
+    val keepAliveDedicatedService by viewModel.keepAliveDedicatedService.collectAsStateWithLifecycle()
+
+
 
     SettingsSwitchItem(
         title = stringResource(R.string.settings_start_foreground_service),
@@ -264,6 +272,56 @@ private fun ServiceConfigurationBlock(viewModel: SettingsViewModel, snackbarHost
         viewModel.setStartForeground(it)
         viewModel.startMiPushServiceAsForegroundService(context)
     }
+
+    SettingsSwitchItem(
+        title = stringResource(R.string.pref_keepalive_oom_adj_title),
+        summary = stringResource(R.string.pref_keepalive_oom_adj_summary),
+        checked = keepAliveOomAdj,
+    ) {
+        viewModel.setKeepAliveOomAdj(it)
+    }
+
+    SettingsSwitchItem(
+        title = stringResource(R.string.pref_keepalive_anti_kill_title),
+        summary = stringResource(R.string.pref_keepalive_anti_kill_summary),
+        checked = keepAliveAntiKill,
+    ) {
+        viewModel.setKeepAliveAntiKill(it)
+    }
+
+    SettingsSwitchItem(
+        title = stringResource(R.string.pref_keepalive_standby_bypass_title),
+        summary = stringResource(R.string.pref_keepalive_standby_bypass_summary),
+        checked = keepAliveStandbyBypass,
+    ) {
+        viewModel.setKeepAliveStandbyBypass(it)
+    }
+
+    SettingsSwitchItem(
+        title = stringResource(R.string.pref_keepalive_doze_bypass_title),
+        summary = stringResource(R.string.pref_keepalive_doze_bypass_summary),
+        checked = keepAliveDozeBypass,
+    ) {
+        viewModel.setKeepAliveDozeBypass(it)
+    }
+
+    SettingsSwitchItem(
+        title = stringResource(R.string.pref_keepalive_accessibility_heartbeat_title),
+        summary = stringResource(R.string.pref_keepalive_accessibility_heartbeat_summary),
+        checked = keepAliveAccessibilityHeartbeat,
+    ) {
+        viewModel.setKeepAliveAccessibilityHeartbeat(it)
+    }
+
+    SettingsSwitchItem(
+        title = stringResource(R.string.pref_keepalive_dedicated_service_title),
+        summary = stringResource(R.string.pref_keepalive_dedicated_service_summary),
+        checked = keepAliveDedicatedService,
+    ) {
+        viewModel.setKeepAliveDedicatedService(it)
+
+    }
+
 
     SettingsSwitchItem(
         title = stringResource(R.string.settings_notify_on_register),
@@ -310,10 +368,12 @@ private fun DisplayBlock(viewModel: SettingsViewModel) {
         },
     )
 
+
     SettingsSwitchItem(
         title = stringResource(R.string.settings_show_all_events),
         checked = showAllEvents,
     ) { viewModel.setShowAllEvents(it) }
+
 
     SettingsSwitchItem(
         title = stringResource(R.string.settings_show_loaded_file_after_configurations_loaded),
@@ -352,6 +412,7 @@ private fun DataMaintenanceBlock(viewModel: SettingsViewModel) {
     ) {
         viewModel.tryForceRegisterAllApplications(context)
     }
+
 
     SettingsSwitchItem(
         title = stringResource(R.string.settings_debug_mode),

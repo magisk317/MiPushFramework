@@ -1,0 +1,195 @@
+package io.github.magisk317.mipush.hook.keepalive
+
+import de.robv.android.xposed.XC_MethodHook
+import de.robv.android.xposed.XposedBridge
+import de.robv.android.xposed.XposedHelpers
+import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
+import io.github.magisk317.mipush.hook.XLog
+
+class KeepAliveHook {
+    companion object {
+        private const val TAG = "KeepAliveHook"
+        private const val FOREGROUND_APP_ADJ = 0
+        private const val STANDBY_BUCKET_ACTIVE = 10
+    }
+
+    // Since we are in system_server, we cannot read the SharedPreferences directly easily in standard Android.
+    // For now we will assume true if we successfully loaded here, or you could implement an IPC resolver.
+    private fun isKeepAliveOomAdjEnabled() = true
+    private fun isKeepAliveAntiKillEnabled() = true
+    private fun isKeepAliveStandbyBypassEnabled() = true
+    private fun isKeepAliveDozeBypassEnabled() = true
+
+    fun hook(classLoader: ClassLoader) {
+        XLog.i(TAG, "loading in system_server")
+        hookOomAdjuster(classLoader)
+        hookKillProcess(classLoader)
+        hookAppStandbyController(classLoader)
+        hookDeviceIdleController(classLoader)
+    }
+
+    private fun hookOomAdjuster(classLoader: ClassLoader) {
+        try {
+            val oomAdjusterClass = XposedHelpers.findClass("com.android.server.am.OomAdjuster", classLoader)
+            var targetMethodName: String? = null
+            for (method in oomAdjusterClass.declaredMethods) {
+                if (method.name == "computeOomAdjLSP" || method.name == "computeOomAdjLocked") {
+                    targetMethodName = method.name
+                    break
+                }
+            }
+
+            if (targetMethodName == null) {
+                XLog.w(TAG, "no computeOomAdj method found")
+                return
+            }
+
+            XposedBridge.hookAllMethods(oomAdjusterClass, targetMethodName, object : XC_MethodHook() {
+                override fun afterHookedMethod(param: MethodHookParam) {
+                    if (!isKeepAliveOomAdjEnabled()) return
+                    adjustOomAdjForTarget(param)
+                }
+            })
+            XLog.w(TAG, "successfully hooked OomAdjuster")
+        } catch (t: Throwable) {
+            XLog.e(TAG, "failed to hook OomAdjuster", t)
+        }
+    }
+
+    private fun adjustOomAdjForTarget(param: XC_MethodHook.MethodHookParam) {
+        for (arg in param.args) {
+            if (arg == null) continue
+            val processName = try {
+                XposedHelpers.getObjectField(arg, "processName") as? String
+            } catch (e: Exception) { null } ?: continue
+
+            if (processName != XMSF_PACKAGE_NAME) continue
+
+            val adjFields = listOf("curAdj", "mCurAdj", "setAdj")
+            for (field in adjFields) {
+                try {
+                    val currentAdj = XposedHelpers.getIntField(arg, field)
+                    if (currentAdj > FOREGROUND_APP_ADJ) {
+                        XposedHelpers.setIntField(arg, field, FOREGROUND_APP_ADJ)
+                        XLog.d(TAG, "set adj=$FOREGROUND_APP_ADJ for $processName (field=$field, was=$currentAdj)")
+                    }
+                    return
+                } catch (e: Exception) { }
+            }
+            break
+        }
+    }
+
+    private fun hookKillProcess(classLoader: ClassLoader) {
+        try {
+            val amsClass = XposedHelpers.findClass("com.android.server.am.ActivityManagerService", classLoader)
+            val methods = listOf("killProcessLocked", "cleanUpApplicationRecordLocked", "handleAppDiedLocked")
+            for (methodName in methods) {
+                try {
+                    XposedBridge.hookAllMethods(amsClass, methodName, object : XC_MethodHook() {
+                        override fun beforeHookedMethod(param: MethodHookParam) {
+                            if (!isKeepAliveAntiKillEnabled()) return
+                            if (shouldSkipKill(param)) {
+                                param.result = null
+                                XLog.w(TAG, "intercepted kill for $XMSF_PACKAGE_NAME in $methodName")
+                            }
+                        }
+                    })
+                    XLog.w(TAG, "successfully hooked AMS kill method: $methodName")
+                } catch (e: Exception) { }
+            }
+        } catch (t: Throwable) {
+            XLog.e(TAG, "failed to hook AMS kill", t)
+        }
+    }
+
+    private fun shouldSkipKill(param: XC_MethodHook.MethodHookParam): Boolean {
+        for (arg in param.args) {
+            if (arg == null) continue
+            try {
+                val processName = XposedHelpers.getObjectField(arg, "processName") as? String
+                if (processName == XMSF_PACKAGE_NAME) return true
+            } catch (e: Exception) { }
+
+            try {
+                val info = XposedHelpers.getObjectField(arg, "info")
+                if (info != null) {
+                    val pkgName = XposedHelpers.getObjectField(info, "packageName") as? String
+                    if (pkgName == XMSF_PACKAGE_NAME) return true
+                }
+            } catch (e: Exception) { }
+        }
+        return false
+    }
+
+    private fun hookAppStandbyController(classLoader: ClassLoader) {
+        try {
+            val standbyClass = XposedHelpers.findClass("com.android.server.usage.AppStandbyController", classLoader)
+            val methods = listOf("setActiveBucket", "postMessage", "setAppStandbyBucket")
+            for (methodName in methods) {
+                try {
+                    XposedBridge.hookAllMethods(standbyClass, methodName, object : XC_MethodHook() {
+                        override fun beforeHookedMethod(param: MethodHookParam) {
+                            if (!isKeepAliveStandbyBypassEnabled()) return
+                            overrideStandbyBucket(param)
+                        }
+                    })
+                } catch (e: Exception) {}
+            }
+            XLog.w(TAG, "successfully hooked AppStandbyController")
+        } catch (t: Throwable) {
+            XLog.e(TAG, "failed to hook AppStandbyController", t)
+        }
+    }
+
+    private fun overrideStandbyBucket(param: XC_MethodHook.MethodHookParam) {
+        var targetPkg: String? = null
+        for (arg in param.args) {
+            if (arg is String && targetPkg == null) {
+                targetPkg = arg
+            }
+        }
+        if (targetPkg != XMSF_PACKAGE_NAME) return
+
+        for (i in param.args.indices) {
+            if (param.args[i] is Int) {
+                val currentBucket = param.args[i] as Int
+                if (currentBucket != STANDBY_BUCKET_ACTIVE) {
+                    param.args[i] = STANDBY_BUCKET_ACTIVE
+                    XLog.d(TAG, "forced standby bucket ACTIVE for $targetPkg (was $currentBucket)")
+                }
+                break
+            }
+        }
+    }
+
+    private fun hookDeviceIdleController(classLoader: ClassLoader) {
+        try {
+            val idleClass = XposedHelpers.findClass("com.android.server.DeviceIdleController", classLoader)
+            val methods = listOf("becomeActiveIfAppTempIdleLocked", "stepIdleStateLocked", "setAppIdleAsync")
+            for (methodName in methods) {
+                try {
+                    XposedBridge.hookAllMethods(idleClass, methodName, object : XC_MethodHook() {
+                        override fun beforeHookedMethod(param: MethodHookParam) {
+                            if (!isKeepAliveDozeBypassEnabled()) return
+                            bypassDozeForTarget(param)
+                        }
+                    })
+                } catch (e: Exception) {}
+            }
+            XLog.w(TAG, "successfully hooked DeviceIdleController")
+        } catch (t: Throwable) {
+            XLog.e(TAG, "failed to hook DeviceIdleController", t)
+        }
+    }
+
+    private fun bypassDozeForTarget(param: XC_MethodHook.MethodHookParam) {
+        for (arg in param.args) {
+            if (arg is String && arg == XMSF_PACKAGE_NAME) {
+                param.result = null
+                XLog.d(TAG, "bypassed doze for $XMSF_PACKAGE_NAME")
+                return
+            }
+        }
+    }
+}
