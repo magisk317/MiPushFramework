@@ -56,18 +56,23 @@ import io.github.magisk317.mipush.feature.wizard.permission.NotificationPermissi
 import io.github.magisk317.mipush.feature.wizard.permission.RootPermissionInfo
 import io.github.magisk317.mipush.feature.wizard.permission.UsageStatsPermissionInfo
 import io.github.magisk317.mipush.feature.ui.theme.Theme
+import io.github.magisk317.mipush.platform.support.PermissionUtils
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.app.MiPushFrameworkApp
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Button
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -129,6 +134,8 @@ fun PermissionMainActivity(
             getPermissionInfos(context).filter { it !is DisplayOnlyPhonyPermissionInfo }
         }
         val preferenceRepository = remember { PreferenceRepository() }
+        val scope = rememberCoroutineScope()
+        var permissionStates by remember { mutableStateOf<Map<Int, Boolean>>(emptyMap()) }
 
         // Use a key to trigger recomposition when we return from settings
         var checkTrigger by remember { mutableIntStateOf(0) }
@@ -145,24 +152,37 @@ fun PermissionMainActivity(
             }
         }
 
-        val allGranted = checkTrigger.let { _ -> areAllPermissionRequirementsSatisfied(permissionInfos) }
+        val allGranted = checkTrigger.let { _ ->
+            areAllPermissionRequirementsSatisfied(permissionInfos, permissionStates)
+        }
 
         // Track which permissions we've already tried to auto-request this session
         val autoRequestedSet = remember { mutableStateOf(setOf<Int>()) }
 
         LaunchedEffect(checkTrigger) {
-            if (!allGranted) {
+            val refreshedStates = withContext(Dispatchers.IO) {
+                PermissionUtils.refreshRootAccessIfGranted()
+                evaluatePermissionStates(permissionInfos)
+            }
+            permissionStates = refreshedStates
+            if (!areAllPermissionRequirementsSatisfied(permissionInfos, refreshedStates)) {
                 permissionInfos.forEachIndexed { index, it ->
-                    if (!isPermissionRequirementSatisfied(it, permissionInfos) && index !in autoRequestedSet.value) {
+                    if (!it.isRequired) {
+                        return@forEachIndexed
+                    }
+                    if (!isPermissionRequirementSatisfied(index, permissionInfos, refreshedStates) && index !in autoRequestedSet.value) {
                         logger.d("Auto-requesting permission: ${it.permissionTitle}")
                         autoRequestedSet.value += index
 
                         val grantedSilently = it.permissionOperator.requestPermissionSilently()
-                        if (grantedSilently && isPermissionRequirementSatisfied(it, permissionInfos)) {
-                            checkTrigger++
-                            return@LaunchedEffect
-                        }
                         if (grantedSilently) {
+                            val updatedStates = withContext(Dispatchers.IO) {
+                                evaluatePermissionStates(permissionInfos)
+                            }
+                            permissionStates = updatedStates
+                            if (isPermissionRequirementSatisfied(index, permissionInfos, updatedStates)) {
+                                checkTrigger++
+                            }
                             return@LaunchedEffect
                         }
 
@@ -203,9 +223,27 @@ fun PermissionMainActivity(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(permissionInfos) { info ->
-                    PermissionItem(info, permissionInfos, checkTrigger) {
-                        checkTrigger++
+                itemsIndexed(permissionInfos) { index, info ->
+                    PermissionItem(
+                        info = info,
+                        isGranted = isPermissionRequirementSatisfied(index, permissionInfos, permissionStates),
+                    ) {
+                        scope.launch {
+                            val handledSilently = info.permissionOperator.requestPermissionSilently()
+                            if (!handledSilently) {
+                                if (info is RootPermissionInfo) {
+                                    withContext(Dispatchers.IO) {
+                                        info.permissionOperator.requestPermission()
+                                    }
+                                } else {
+                                    info.permissionOperator.requestPermission()
+                                }
+                            }
+                            permissionStates = withContext(Dispatchers.IO) {
+                                evaluatePermissionStates(permissionInfos)
+                            }
+                            checkTrigger++
+                        }
                     }
                 }
             }
@@ -239,12 +277,9 @@ fun PermissionMainActivity(
 @Composable
 fun PermissionItem(
     info: PermissionInfo,
-    permissionInfos: List<PermissionInfo>,
-    checkTrigger: Int,
+    isGranted: Boolean,
     onPermissionStateChanged: () -> Unit
 ) {
-    val isGranted = checkTrigger.let { _ -> isPermissionRequirementSatisfied(info, permissionInfos) }
-    
     ListItem(
         headlineContent = { 
             Text(
@@ -271,12 +306,7 @@ fun PermissionItem(
         modifier = Modifier
             .clickable {
                 if (!isGranted) {
-                    val handledSilently = info.permissionOperator.requestPermissionSilently()
-                    if (handledSilently) {
-                        onPermissionStateChanged()
-                        return@clickable
-                    }
-                    info.permissionOperator.requestPermission()
+                    onPermissionStateChanged()
                 }
             }
             .background(
@@ -322,26 +352,39 @@ private fun PermissionInfo.requirementGroupKey(): String? {
     }
 }
 
+private fun evaluatePermissionStates(permissionInfos: List<PermissionInfo>): Map<Int, Boolean> {
+    return permissionInfos.mapIndexed { index, info ->
+        index to runCatching {
+            info.permissionOperator.isPermissionGranted()
+        }.getOrDefault(false)
+    }.toMap()
+}
+
 private fun isPermissionRequirementSatisfied(
-    info: PermissionInfo,
-    permissionInfos: List<PermissionInfo>
+    index: Int,
+    permissionInfos: List<PermissionInfo>,
+    permissionStates: Map<Int, Boolean>
 ): Boolean {
+    val info = permissionInfos[index]
     val groupKey = info.requirementGroupKey()
     return if (groupKey == null) {
-        info.permissionOperator.isPermissionGranted()
+        permissionStates[index] == true
     } else {
-        permissionInfos.any {
-            it.requirementGroupKey() == groupKey &&
-                it.permissionOperator.isPermissionGranted()
+        permissionInfos.withIndex().any {
+            it.value.requirementGroupKey() == groupKey &&
+                permissionStates[it.index] == true
         }
     }
 }
 
-private fun areAllPermissionRequirementsSatisfied(permissionInfos: List<PermissionInfo>): Boolean {
-    val groupedInfos = permissionInfos
-        .filter { it.isRequired }
-        .groupBy { it.requirementGroupKey() ?: "single:${it::class.java.name}" }
+private fun areAllPermissionRequirementsSatisfied(
+    permissionInfos: List<PermissionInfo>,
+    permissionStates: Map<Int, Boolean>
+): Boolean {
+    val groupedInfos = permissionInfos.withIndex()
+        .filter { it.value.isRequired }
+        .groupBy { it.value.requirementGroupKey() ?: "single:${it.value::class.java.name}" }
     return groupedInfos.values.all { group ->
-        group.any { it.permissionOperator.isPermissionGranted() }
+        group.any { permissionStates[it.index] == true }
     }
 }

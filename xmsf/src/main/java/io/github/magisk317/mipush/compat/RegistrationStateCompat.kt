@@ -4,6 +4,7 @@ import android.os.SystemClock
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import com.topjohnwu.superuser.Shell
+import io.github.magisk317.mipush.platform.support.PermissionUtils
 
 object RegistrationStateCompat {
     private val diagnosticPackages = setOf("com.ss.android.ugc.aweme")
@@ -50,8 +51,19 @@ object RegistrationStateCompat {
     private fun getRootCapability(): RootCapability {
         val now = SystemClock.elapsedRealtime()
         val cached = rootCapabilityCache
-        if (cached != null && now - cached.checkedAtElapsedMs <= ROOT_CAPABILITY_TTL_MS) {
+        if (
+            cached != null &&
+            now - cached.checkedAtElapsedMs <= ROOT_CAPABILITY_TTL_MS &&
+            (cached.available || !PermissionUtils.hasCachedRootAccess())
+        ) {
             return cached
+        }
+        if (!PermissionUtils.hasCachedRootAccess()) {
+            return RootCapability(
+                available = false,
+                mountMasterAvailable = false,
+                checkedAtElapsedMs = now
+            ).also { rootCapabilityCache = it }
         }
         val uid = runCatching { runCommand("id -u").out.firstOrNull()?.trim() }.getOrNull()
         if (uid == "0") {
@@ -86,10 +98,7 @@ object RegistrationStateCompat {
 
     private fun hasRootProbeAccess(currentUid: String?): Boolean {
         if (currentUid == "0") return true
-        val suUid = runCatching {
-            Shell.cmd("su -c 'id -u'").exec().out.firstOrNull()?.trim()
-        }.getOrNull()
-        return suUid == "0"
+        return PermissionUtils.hasCachedRootAccess()
     }
 
     @JvmStatic
@@ -100,7 +109,7 @@ object RegistrationStateCompat {
             "/data/user/0/$packageName/files/keva/repo/mipush/mipush.blk",
             "/data_mirror/data_ce/null/0/$packageName/files/keva/repo/mipush/mipush.blk"
         )
-        val uid = runCatching { Shell.cmd("id -u").exec().out.firstOrNull()?.trim() }.getOrNull()
+        val uid = if (PermissionUtils.hasCachedRootAccess()) "cached_root" else null
         logger.d("check local registration, pkg=$packageName, shell uid=$uid")
         for (path in paths) {
             if (probe(path, useSu = true)) {
@@ -138,7 +147,11 @@ object RegistrationStateCompat {
                 "echo true || echo false"
         val result = if (useSu) {
             val capability = getRootCapability()
-            runAsRoot(cmd, preferMountMaster = capability.mountMasterAvailable)
+            if (capability.available) {
+                runAsRoot(cmd, preferMountMaster = capability.mountMasterAvailable)
+            } else {
+                null
+            }
         } else {
             runCommand(cmd)
         }
@@ -150,7 +163,11 @@ object RegistrationStateCompat {
         val out = runCatching {
             if (useSu) {
                 val capability = getRootCapability()
-                runAsRoot(cmd, preferMountMaster = capability.mountMasterAvailable)?.out
+                if (capability.available) {
+                    runAsRoot(cmd, preferMountMaster = capability.mountMasterAvailable)?.out
+                } else {
+                    null
+                }
             } else {
                 runCommand(cmd).out
             }
@@ -170,7 +187,7 @@ object RegistrationStateCompat {
         logger.d("find local registration start: queried=${packages.size}")
         if (packages.isEmpty()) return emptySet()
         val result = linkedSetOf<String>()
-        val uid = runCatching { Shell.cmd("id -u").exec().out.firstOrNull()?.trim() }.getOrNull()
+        val uid = if (PermissionUtils.hasCachedRootAccess()) "cached_root" else null
         logger.d("find local registration shell uid=$uid")
         val capability = getRootCapability()
         if (!capability.available && !hasRootProbeAccess(uid)) {

@@ -13,13 +13,38 @@ import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.platform.override.AppOpsManagerOverride
+import java.util.concurrent.atomic.AtomicReference
 
 object PermissionUtils {
+    private val rootAccessCache = AtomicReference<Boolean?>(null)
+
     @JvmStatic
     fun hasRootAccess(): Boolean {
+        if (Shell.isAppGrantedRoot() == false) {
+            rootAccessCache.set(false)
+            return false
+        }
         return runCatching {
             Shell.cmd("id -u").exec().out.firstOrNull()?.trim() == "0"
-        }.getOrDefault(false)
+        }.getOrDefault(false).also { rootAccessCache.set(it) }
+    }
+
+    @JvmStatic
+    fun hasCachedRootAccess(): Boolean {
+        return rootAccessCache.get() == true
+    }
+
+    @JvmStatic
+    fun refreshRootAccessIfGranted(): Boolean {
+        val granted = Shell.isAppGrantedRoot()
+        if (granted == false) {
+            rootAccessCache.set(false)
+            return false
+        }
+        if (granted != true && rootAccessCache.get() != true) {
+            return false
+        }
+        return hasRootAccess()
     }
 
     @JvmStatic
@@ -27,17 +52,17 @@ object PermissionUtils {
         return runCatching {
             PrivilegeElevator.tryToElevate()
             hasRootAccess()
-        }.getOrDefault(false)
+        }.getOrDefault(false).also { rootAccessCache.set(it) }
     }
 
     @JvmStatic
     fun canAssignPermissionViaAppOps(): Boolean {
-        return Utils.isAppOpsInstalled() || ShellUtils.isSuAvailable()
+        return Utils.isAppOpsInstalled() || hasCachedRootAccess()
     }
 
     @JvmStatic
     fun lunchAppOps(context: Context, permission: String, tips: CharSequence): Boolean {
-        if ((hasRootAccess() || requestRootAccess()) && ShellUtils.isSuAvailable()) {
+        if (hasCachedRootAccess() && ShellUtils.isSuAvailable()) {
             if (allowPermission(permission)) {
                 return true
             }
@@ -68,7 +93,7 @@ object PermissionUtils {
 
     @JvmStatic
     fun requestIgnoreBatteryOptimizations(context: Context): Boolean {
-        if (!(hasRootAccess() || requestRootAccess())) {
+        if (!hasCachedRootAccess()) {
             return false
         }
         val commands = listOf(
@@ -85,7 +110,7 @@ object PermissionUtils {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
             return true
         }
-        if (!(hasRootAccess() || requestRootAccess())) {
+        if (!hasCachedRootAccess()) {
             return false
         }
         val packageName = context.packageName

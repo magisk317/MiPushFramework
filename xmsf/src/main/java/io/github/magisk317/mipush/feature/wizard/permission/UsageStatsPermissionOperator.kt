@@ -43,6 +43,7 @@ class UsageStatsPermissionOperator(private val context: Context) : PermissionOpe
     }
 
     private fun isGrantedByShell(packageName: String): Boolean {
+        if (!PermissionUtils.hasCachedRootAccess()) return false
         val commands = listOf(
             "appops get $packageName GET_USAGE_STATS",
             "appops get $packageName android:get_usage_stats",
