@@ -101,6 +101,12 @@ jobs:
               exit 0
             fi
 
+            # Skip CI notification if commit is tagged (Release workflow handles it)
+            if git tag --points-at "$WF_RUN_SHA" 2>/dev/null | grep -q .; then
+              echo "Commit $WF_RUN_SHA has tags, skipping CI notification (Release will notify)."
+              exit 0
+            fi
+
             CI_MSG=$(printf '✅ Workflow: %s\n📋 %s\n🔗 Run: %s' \
               "$WF_RUN_NAME" "$CI_COMMIT_TITLE" "$WF_RUN_URL")
             
