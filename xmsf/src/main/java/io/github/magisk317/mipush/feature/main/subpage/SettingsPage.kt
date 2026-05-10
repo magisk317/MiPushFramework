@@ -494,7 +494,12 @@ private fun DataMaintenanceBlock(viewModel: SettingsViewModel, snackbarHostState
     SettingsItem(
         title = stringResource(R.string.try_to_force_register_all_applications),
     ) {
-        viewModel.tryForceRegisterAllApplications(context)
+        scope.launch {
+            val message = withContext(Dispatchers.IO) {
+                viewModel.tryForceRegisterAllApplications(context)
+            }
+            snackbarHostState.showSnackbar(message)
+        }
     }
 
 

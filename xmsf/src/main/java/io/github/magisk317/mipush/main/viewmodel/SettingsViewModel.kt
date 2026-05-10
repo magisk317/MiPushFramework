@@ -203,8 +203,8 @@ class SettingsViewModel @Inject constructor(
         settingsManager.shareLogs(context)
     }
 
-    fun tryForceRegisterAllApplications(context: android.content.Context) {
-        settingsManager.tryForceRegisterAllApplications(context)
+    fun tryForceRegisterAllApplications(context: android.content.Context): String {
+        return settingsManager.tryForceRegisterAllApplications(context)
     }
 
     fun getXMPPServerHint(): String = settingsManager.getXMPPServerHint()

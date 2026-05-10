@@ -85,6 +85,7 @@ import io.github.magisk317.mipush.compat.RegistrationStateCompat
 import io.github.magisk317.mipush.compat.RegistrationStateStore
 import io.github.magisk317.mipush.utils.RegistrationHelper
 import io.github.magisk317.mipush.config.ConfigNavigationHelper
+import io.github.magisk317.mipush.platform.support.PermissionUtils
 import com.topjohnwu.superuser.Shell
 import com.xiaomi.xmsf.BuildConfig
 import com.xiaomi.xmsf.R
@@ -259,7 +260,7 @@ open class ApplicationInfoPage : ComponentActivity() {
 
     @Composable
     fun SettingsScreen(snackbarHostState: SnackbarHostState) {
-        ApplicationInfoHeader()
+        ApplicationInfoHeader(snackbarHostState)
         RegistrationDiagnosticsCard()
         RegistrationActionsCard()
         TipsCard()
@@ -268,7 +269,7 @@ open class ApplicationInfoPage : ComponentActivity() {
     }
 
     @Composable
-    private fun ApplicationInfoHeader() {
+    private fun ApplicationInfoHeader(snackbarHostState: SnackbarHostState) {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         val configNavigationHelper = remember { ConfigNavigationHelper() }
@@ -423,7 +424,11 @@ open class ApplicationInfoPage : ComponentActivity() {
                     ) {
                         FilledTonalButton(
                             onClick = {
-                                launchTargetAppAndForceRegister(context, applicationInfo.packageName)
+                                launchTargetAppAndForceRegister(
+                                    context,
+                                    applicationInfo.packageName,
+                                    snackbarHostState,
+                                )
                             },
                         ) {
                             Text(
@@ -472,28 +477,56 @@ open class ApplicationInfoPage : ComponentActivity() {
         )
     }
 
-    private fun launchTargetAppAndForceRegister(context: Context, packageName: String) {
-        val plan = RegistrationHelper.inspectForceRegisterPlan(packageName)
-        if (!plan.supportsServiceDispatch && !plan.supportsReceiverFallback) {
-            Toast.makeText(context, R.string.force_register_unavailable, Toast.LENGTH_LONG).show()
-            return
-        }
-        stopTargetAppBestEffort(packageName)
-        val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
-        if (launchIntent == null) {
-            Toast.makeText(context, R.string.force_register_failed, Toast.LENGTH_LONG).show()
-            return
-        }
-        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        runCatching { context.startActivity(launchIntent) }
-            .onFailure {
-                Toast.makeText(context, R.string.force_register_failed, Toast.LENGTH_LONG).show()
-                return
-            }
-        
+    private fun launchTargetAppAndForceRegister(
+        context: Context,
+        packageName: String,
+        snackbarHostState: SnackbarHostState,
+    ) {
         lifecycleScope.launch {
+            val hasRoot = withContext(Dispatchers.IO) {
+                PermissionUtils.refreshRootAccessIfGranted()
+            }
+            if (!hasRoot) {
+                snackbarHostState.showSnackbar(
+                    message = context.getString(R.string.force_register_requires_root),
+                    duration = SnackbarDuration.Short,
+                )
+                return@launch
+            }
+
+            val plan = withContext(Dispatchers.IO) {
+                RegistrationHelper.inspectForceRegisterPlan(packageName)
+            }
+            if (!plan.supportsServiceDispatch && !plan.supportsReceiverFallback) {
+                snackbarHostState.showSnackbar(
+                    message = context.getString(R.string.force_register_unavailable),
+                    duration = SnackbarDuration.Short,
+                )
+                return@launch
+            }
+
+            withContext(Dispatchers.IO) {
+                stopTargetAppBestEffort(packageName)
+            }
+            val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
+            if (launchIntent == null) {
+                snackbarHostState.showSnackbar(
+                    message = context.getString(R.string.force_register_failed),
+                    duration = SnackbarDuration.Short,
+                )
+                return@launch
+            }
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            if (runCatching { context.startActivity(launchIntent) }.isFailure) {
+                snackbarHostState.showSnackbar(
+                    message = context.getString(R.string.force_register_failed),
+                    duration = SnackbarDuration.Short,
+                )
+                return@launch
+            }
+
             kotlinx.coroutines.delay(500)
-            forceRegisterWithFeedback(context, packageName)
+            forceRegisterWithFeedback(context, packageName, snackbarHostState)
         }
     }
 
@@ -503,29 +536,35 @@ open class ApplicationInfoPage : ComponentActivity() {
         }
     }
 
-    private fun forceRegisterWithFeedback(context: Context, packageName: String) {
-        val uid = runCatching { Shell.cmd("id -u").exec().out.firstOrNull()?.trim() }.getOrNull()
-        if (uid != "0") {
-            Toast.makeText(context, R.string.force_register_requires_root, Toast.LENGTH_LONG).show()
-            return
+    private suspend fun forceRegisterWithFeedback(
+        context: Context,
+        packageName: String,
+        snackbarHostState: SnackbarHostState,
+    ) {
+        val message = withContext(Dispatchers.IO) {
+            if (!PermissionUtils.refreshRootAccessIfGranted()) {
+                return@withContext context.getString(R.string.force_register_requires_root)
+            }
+            val result = runCatching {
+                RegistrationHelper.tryForceRegister(packageName)
+            }
+            if (result.getOrDefault(false)) {
+                return@withContext context.getString(R.string.force_register_sent)
+            }
+            val cause = result.exceptionOrNull()
+            if (cause is NoClassDefFoundError || cause is ClassNotFoundException || cause is UnsupportedOperationException) {
+                return@withContext context.getString(R.string.force_register_unavailable)
+            }
+            if (runCatching { RegistrationHelper.tryForceRegisterFallback(packageName) }.getOrDefault(false)) {
+                context.getString(R.string.force_register_sent)
+            } else {
+                context.getString(R.string.force_register_failed)
+            }
         }
-        val result = runCatching {
-            RegistrationHelper.tryForceRegister(packageName)
-        }
-        if (result.getOrDefault(false)) {
-            Toast.makeText(context, R.string.force_register_sent, Toast.LENGTH_SHORT).show()
-            return
-        }
-        val cause = result.exceptionOrNull()
-        if (cause is NoClassDefFoundError || cause is ClassNotFoundException || cause is UnsupportedOperationException) {
-            Toast.makeText(context, R.string.force_register_unavailable, Toast.LENGTH_LONG).show()
-            return
-        }
-        if (runCatching { RegistrationHelper.tryForceRegisterFallback(packageName) }.getOrDefault(false)) {
-            Toast.makeText(context, R.string.force_register_sent, Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(context, R.string.force_register_failed, Toast.LENGTH_LONG).show()
-        }
+        snackbarHostState.showSnackbar(
+            message = message,
+            duration = SnackbarDuration.Short,
+        )
     }
 
     @Composable

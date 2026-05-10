@@ -1,8 +1,8 @@
 # MiPushFramework
 
 [![CI](https://github.com/magisk317/MiPushFramework/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/magisk317/MiPushFramework/actions/workflows/ci.yml)
-[![Build APK](https://github.com/magisk317/MiPushFramework/actions/workflows/build-apk.yml/badge.svg)](https://github.com/magisk317/MiPushFramework/actions/workflows/build-apk.yml)
-[![Security Guard](https://github.com/magisk317/MiPushFramework/actions/workflows/security-guard.yml/badge.svg?branch=dev)](https://github.com/magisk317/MiPushFramework/actions/workflows/security-guard.yml)
+[![Release](https://github.com/magisk317/MiPushFramework/actions/workflows/release.yml/badge.svg)](https://github.com/magisk317/MiPushFramework/actions/workflows/release.yml)
+[![Dependency Force Manager](https://github.com/magisk317/MiPushFramework/actions/workflows/dependency-force-manager.yml/badge.svg)](https://github.com/magisk317/MiPushFramework/actions/workflows/dependency-force-manager.yml)
 [![Dependency Submission](https://github.com/magisk317/MiPushFramework/actions/workflows/dependency-submission.yml/badge.svg?branch=dev)](https://github.com/magisk317/MiPushFramework/actions/workflows/dependency-submission.yml)
 [![Latest Release](https://img.shields.io/github/v/release/magisk317/MiPushFramework)](https://github.com/magisk317/MiPushFramework/releases)
 [![License GPL-3.0](https://img.shields.io/badge/license-GPLv3.0-blue.svg)](LICENSE)

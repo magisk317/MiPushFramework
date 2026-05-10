@@ -15,8 +15,8 @@ import com.xiaomi.xmsf.BuildConfig
 import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.diagnostics.PushHealthSnapshotLogger
 import io.github.magisk317.mipush.platform.support.InternalMessenger
+import io.github.magisk317.mipush.platform.support.PermissionUtils
 import io.github.magisk317.mipush.utils.RegistrationHelper
-import com.topjohnwu.superuser.Shell
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.push.service.PushServiceConstants
 import com.xiaomi.push.service.XMPushServiceMessenger
@@ -111,7 +111,7 @@ class SettingsManager @Inject constructor(
         }
     }
 
-    fun tryForceRegisterAllApplications(context: Context) {
+    fun tryForceRegisterAllApplications(context: Context): String {
         var successCount = 0
         var failedCount = 0
         var unsupportedCount = 0
@@ -129,11 +129,9 @@ class SettingsManager @Inject constructor(
             )
         }
 
-        val uid = runCatching { Shell.cmd("id -u").exec().out.firstOrNull()?.trim() }.getOrNull()
-        if (uid != "0") {
-            Toast.makeText(context, R.string.force_register_requires_root, Toast.LENGTH_LONG).show()
+        if (!PermissionUtils.refreshRootAccessIfGranted()) {
             logSnapshot("root_missing")
-            return
+            return context.getString(R.string.force_register_requires_root)
         }
 
         val miPushApplications: ApplicationPageOperation.MiPushApplications = ApplicationPageOperation.getMiPushApplications()
@@ -181,9 +179,8 @@ class SettingsManager @Inject constructor(
         }
 
         if (successCount == 0 && (failedCount > 0 || unsupportedCount > 0)) {
-            Toast.makeText(context, R.string.force_register_unavailable, Toast.LENGTH_LONG).show()
             logSnapshot("all_failed")
-            return
+            return context.getString(R.string.force_register_unavailable)
         }
 
         val resultMessage = if (failedCount == 0 && unsupportedCount == 0) {
@@ -191,8 +188,8 @@ class SettingsManager @Inject constructor(
         } else {
             context.getString(R.string.force_register_partial, successCount, failedCount + unsupportedCount)
         }
-        Toast.makeText(context, resultMessage, Toast.LENGTH_LONG).show()
         logSnapshot("completed")
+        return resultMessage
     }
 
     fun sendXMPPReconnectRequest(context: Context) {
