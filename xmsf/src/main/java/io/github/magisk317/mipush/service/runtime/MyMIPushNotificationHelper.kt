@@ -215,6 +215,8 @@ class MyMIPushNotificationHelper {
             return container.action == ActionType.SendMessage
         }
 
+        private const val REPLAY_WINDOW_MS = 6 * 60 * 60 * 1000L // 6 hours
+
         internal fun shouldDropReplayNotification(
             container: XmPushActionContainer,
             sessionStartedAtMs: Long = notificationSessionStartedAtMs
@@ -230,7 +232,7 @@ class MyMIPushNotificationHelper {
             if (messageTs <= 0L || sessionStartedAtMs <= 0L) {
                 return false
             }
-            return messageTs < sessionStartedAtMs
+            return messageTs < sessionStartedAtMs - REPLAY_WINDOW_MS
         }
 
         private fun loadConfigurations(context: Context, configurationDirectory: Uri?) {
