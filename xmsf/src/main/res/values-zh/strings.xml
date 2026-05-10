@@ -220,7 +220,25 @@
     <string name="settings_permission_check_summary">重新打开权限引导页，补齐未授权权限。</string>
 
     <string name="settings_get_log">获取日志</string>
-    <string name="settings_get_log_summary">点按分享日志，必要时请随 Issue 一起提交。</string>
+    <string name="settings_get_log_summary">点击查看、分享或清空日志。</string>
+    <string name="settings_runtime_log_retention_days">日志保留天数</string>
+    <string name="settings_runtime_log_retention_days_summary">按天轮转，保留最近 %1$d 天日志</string>
+    <string name="settings_runtime_log_retention_days_hint">单位：天，最小值 1，默认 7。</string>
+    <string name="settings_runtime_log_retention_days_error">请输入大于等于 1 的整数。</string>
+    <string name="runtime_log_viewer_title">调试日志</string>
+    <string name="runtime_log_export_failed">导出失败：%1$s</string>
+    <string name="runtime_log_share_failed">分享失败：%1$s</string>
+    <string name="runtime_log_cleared">日志与崩溃文件已清空</string>
+    <string name="runtime_log_clear_partial_failed">部分清空失败：%1$s</string>
+    <string name="runtime_log_info_loading">正在加载日志...</string>
+    <string name="runtime_log_info_empty">暂无运行日志</string>
+    <string name="runtime_log_info_summary">文件：%1$d 个，大小：%2$s，条目：%3$d</string>
+    <string name="runtime_log_info_range">范围：%1$s - %2$s</string>
+    <string name="runtime_log_info_preview_title">最近日志</string>
+    <string name="runtime_log_action_wrap">换行</string>
+    <string name="runtime_log_action_no_wrap">不换行</string>
+    <string name="action_share">分享</string>
+    <string name="action_clear">清空</string>
     <string name="helplib_action_about">关于</string>
     <string name="action_back">返回</string>
 

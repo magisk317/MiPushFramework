@@ -13,6 +13,7 @@ import io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
 import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.uikit.theme.UiKitStyle
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -50,6 +51,7 @@ class PreferenceRepository @Inject constructor(
     private val APP_FILTER_MODE = intPreferencesKey("app_filter_mode")
     private val THEME_MODE = intPreferencesKey("theme_mode")
     private val UI_KIT_STYLE = intPreferencesKey("ui_kit_style")
+    private val RUNTIME_LOG_RETENTION_DAYS = intPreferencesKey("runtime_log_retention_days")
     private val LAST_CONFIG_SYNC_TIME = longPreferencesKey("last_config_sync_time")
     private val CONFIG_REMOTE_REPOSITORY = stringPreferencesKey("config_remote_repository")
     private val CONFIG_REMOTE_BRANCH = stringPreferencesKey("config_remote_branch")
@@ -77,7 +79,10 @@ class PreferenceRepository @Inject constructor(
     val eventGroupByApp: Flow<Boolean> = dataStore.data.map { it[EVENT_GROUP_BY_APP] ?: false }
     val appFilterMode: Flow<Int> = dataStore.data.map { it[APP_FILTER_MODE] ?: 0 }
     val themeMode: Flow<Int> = dataStore.data.map { it[THEME_MODE] ?: 0 }
-    val uiKitStyle: Flow<Int> = dataStore.data.map { it[UI_KIT_STYLE] ?: 0 }
+    val uiKitStyle: Flow<Int> = dataStore.data.map { UiKitStyle.Expressive.value }
+    val runtimeLogRetentionDays: Flow<Int> = dataStore.data.map {
+        (it[RUNTIME_LOG_RETENTION_DAYS] ?: 7).coerceAtLeast(1)
+    }
     val lastConfigSyncTime: Flow<Long> = dataStore.data.map { it[LAST_CONFIG_SYNC_TIME] ?: 0L }
     val configRemoteRepository: Flow<String> = dataStore.data.map {
         it[CONFIG_REMOTE_REPOSITORY] ?: "magisk317/MiPushConfigurations"
@@ -175,7 +180,11 @@ class PreferenceRepository @Inject constructor(
     }
 
     suspend fun setUiKitStyle(style: Int) {
-        dataStore.edit { it[UI_KIT_STYLE] = style }
+        dataStore.edit { it[UI_KIT_STYLE] = UiKitStyle.Expressive.value }
+    }
+
+    suspend fun setRuntimeLogRetentionDays(days: Int) {
+        dataStore.edit { it[RUNTIME_LOG_RETENTION_DAYS] = days.coerceAtLeast(1) }
     }
 
     suspend fun setLastConfigSyncTime(time: Long) {

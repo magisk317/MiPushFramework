@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.magisk317.mipush.app.SettingsManager
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.data.PreferenceRepository
+import io.github.magisk317.mipush.utils.LogUtils
 import io.github.magisk317.uikit.theme.UiKitStyle
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -60,6 +61,9 @@ class SettingsViewModel @Inject constructor(
     val showAllEvents: StateFlow<Boolean> = preferenceRepository.showAllEvents
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val runtimeLogRetentionDays: StateFlow<Int> = preferenceRepository.runtimeLogRetentionDays
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 7)
+
     val isStartForeground: StateFlow<Boolean> = preferenceRepository.isStartForeground
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
@@ -90,6 +94,11 @@ class SettingsViewModel @Inject constructor(
                 if (previous.uiKitStyle != style) {
                     _themeState.value = previous.copy(uiKitStyle = style)
                 }
+            }
+        }
+        viewModelScope.launch {
+            preferenceRepository.runtimeLogRetentionDays.collect { days ->
+                LogUtils.setRetentionDays(days)
             }
         }
     }
@@ -169,6 +178,13 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             preferenceRepository.setUiKitStyle(style)
             _themeState.value = _themeState.value.copy(uiKitStyle = style)
+        }
+    }
+
+    fun setRuntimeLogRetentionDays(days: Int) {
+        viewModelScope.launch {
+            preferenceRepository.setRuntimeLogRetentionDays(days)
+            LogUtils.setRetentionDays(days)
         }
     }
 
