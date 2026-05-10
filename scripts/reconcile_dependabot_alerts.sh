@@ -33,6 +33,10 @@ python3 scripts/manage_dependency_forces.py read-forces \
   --toml-file gradle/libs.versions.toml \
   --output "${FORCED_FILE}"
 
+# Convert array format to lookup map: {"group:artifact": "version"}
+FORCED_MAP="${TMP_DIR}/forced_map.json"
+jq 'reduce .[] as $e ({}; . + {($e.group + ":" + $e.artifact): $e.version})' "${FORCED_FILE}" > "${FORCED_MAP}"
+
 covered=0
 uncovered=0
 total=$(jq 'length' "${ALERTS_FILE}")
@@ -42,7 +46,7 @@ while IFS= read -r line; do
   pkg="$(echo "${line}" | jq -r '.dependency.package.name')"
   severity="$(echo "${line}" | jq -r '.security_vulnerability.severity')"
   patched="$(echo "${line}" | jq -r '.security_vulnerability.first_patched_version.identifier // ""')"
-  forced_version="$(jq -r --arg dep "${pkg}" '.[$dep] // ""' "${FORCED_FILE}")"
+  forced_version="$(jq -r --arg dep "${pkg}" '.[$dep] // ""' "${FORCED_MAP}")"
 
   if [[ -z "${patched}" || -z "${forced_version}" ]]; then
     echo "UNMATCHED #${id} ${pkg} (severity=${severity}, patched=${patched:-n/a}, forced=${forced_version:-n/a})"
