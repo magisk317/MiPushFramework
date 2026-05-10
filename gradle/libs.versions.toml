@@ -42,7 +42,6 @@ mockkery = "3.3.0"
 napier = "2.7.1"
 robolectric = "4.16.1"
 room = "2.8.4"
-screenshot-validation = "0.0.1-alpha14"
 xposed = "82"
 
 [libraries]
@@ -95,7 +94,6 @@ androidx-test-ext = { module = "androidx.test.ext:junit", version.ref = "android
 androidx-test-espresso = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }
 mockkery-runtime-jvm = { module = "dev.mokkery:mokkery-runtime-jvm", version.ref = "mockkery" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
-screenshot-validation = { module = "com.android.tools.screenshot:screenshot-validation-api", version.ref = "screenshot-validation" }
 
 # Build logic dependencies
 android-gradlePlugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
