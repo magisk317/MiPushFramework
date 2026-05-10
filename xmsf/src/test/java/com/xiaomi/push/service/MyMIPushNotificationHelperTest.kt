@@ -22,7 +22,8 @@ class MyMIPushNotificationHelperTest {
     }
 
     @Test
-    fun `shouldDropReplayNotification drops messages older than notification session`() {
+    fun `shouldDropReplayNotification drops messages older than replay window`() {
+        val sixHoursMs = 6 * 60 * 60 * 1000L
         val container = XmPushActionContainer().apply {
             action = ActionType.SendMessage
             metaInfo = PushMetaInfo().apply {
@@ -31,12 +32,21 @@ class MyMIPushNotificationHelperTest {
             }
         }
 
+        // messageTs is 7 hours before session -> should drop
         assertTrue(
             MyMIPushNotificationHelper.shouldDropReplayNotification(
                 container = container,
-                sessionStartedAtMs = 1_001L,
+                sessionStartedAtMs = 1_000L + sixHoursMs + 3_600_000L,
             )
         )
+        // messageTs is 5 hours before session -> within window, should keep
+        assertFalse(
+            MyMIPushNotificationHelper.shouldDropReplayNotification(
+                container = container,
+                sessionStartedAtMs = 1_000L + sixHoursMs - 3_600_000L,
+            )
+        )
+        // messageTs equals session -> should keep
         assertFalse(
             MyMIPushNotificationHelper.shouldDropReplayNotification(
                 container = container,
