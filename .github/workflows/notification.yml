@@ -161,7 +161,7 @@ jobs:
             echo "$ASSETS_JSON" | jq -c '.[]' | while read -r asset; do
               name=$(echo "$asset" | jq -r '.name')
               url=$(echo "$asset" | jq -r '.browser_download_url')
-              if [[ "$name" == *arm64-v8a*.apk ]] && [[ "$name" == *MiPushFramework* || "$name" == *MiPush* ]]; then
+              if [[ "$name" == *arm64-v8a*.apk ]] && [[ "$name" == *MiPushFramework* || "$name" == *MiPush* || "$name" == *xmsf* ]]; then
                 echo "Downloading $name..."
                 curl -L -sS -o "$name" "$url"
                 send_document "$name" "$RELEASE_THREAD" ""
