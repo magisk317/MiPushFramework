@@ -68,7 +68,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: apks-xmsf
-          path: xmsf/build/outputs/apk/release/**/*.apk
+          path: |
+            xmsf/build/outputs/apk/normal/release/**/*.apk
+            xmsf/build/outputs/apk/vc105/release/**/*.apk
 
   build-mipush-apk:
     name: Build MiPush Release APK
