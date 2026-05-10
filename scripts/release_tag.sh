@@ -21,7 +21,7 @@ run_pre_push_checks() {
   echo "Running pre-push CI command..."
   (
     cd "$ROOT_DIR"
-    bash scripts/with_workspace_gradle_lock.sh -I gradle/security-overrides.init.gradle --warning-mode all \
+    bash scripts/with_workspace_gradle_lock.sh --warning-mode all \
       :checkReadmeBuildRequirements \
       :common:check \
       :xmsf:assembleDebug \

@@ -13,18 +13,27 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "Syncing security overrides from open Dependabot alerts..."
-chmod +x scripts/sync_security_overrides.sh
-scripts/sync_security_overrides.sh
+ALERTS_JSON="/tmp/dependabot-alerts.json"
+REMOVABLE_JSON="/tmp/removable.json"
 
-if git diff --quiet -- gradle/security-overrides.properties gradle/security-overrides.init.gradle; then
-  echo "No override changes generated. Skipping build validation."
+echo "Fetching open Dependabot alerts..."
+gh api --paginate "/repos/{owner}/{repo}/dependabot/alerts?state=open" > "$ALERTS_JSON" 2>/dev/null || echo '[]' > "$ALERTS_JSON"
+echo '[]' > "$REMOVABLE_JSON"
+
+echo "Applying security force updates..."
+python3 scripts/manage_dependency_forces.py apply-updates \
+  --build-file build.gradle.kts \
+  --toml-file gradle/libs.versions.toml \
+  --removable-json "$REMOVABLE_JSON" \
+  --alerts-json "$ALERTS_JSON"
+
+if git diff --quiet -- build.gradle.kts; then
+  echo "No force changes generated. Skipping build validation."
   exit 0
 fi
 
-echo "Override files changed. Running build/test validation before opening PR..."
+echo "Force entries changed. Running build/test validation before opening PR..."
 bash scripts/with_workspace_gradle_lock.sh --no-daemon \
-  -I gradle/security-overrides.init.gradle \
   --warning-mode all \
   :xmsf:assembleDebug \
   :xmsf:testDebugUnitTest \
