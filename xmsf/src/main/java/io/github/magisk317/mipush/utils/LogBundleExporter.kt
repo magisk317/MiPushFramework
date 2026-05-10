@@ -29,6 +29,7 @@ internal object LogBundleExporter {
     private val LSPOSED_LOG_DIRS = listOf(
         "/data/adb/lspd/log",
     )
+    private val sensitiveTokenPattern = Regex("""(?i)(?:ipc_)?token=[^\s,"')}\]]+""")
     private val opLock = Any()
     private val logger = object {
         fun i(message: String) = Napier.i(message, tag = "LogBundleExporter")
@@ -51,6 +52,7 @@ internal object LogBundleExporter {
             val now = Date()
             val timestamp = LogUtils.dateInfo(now)
             pruneCurrentDayLocalLogs(context, now)
+            val deletedLegacyLogs = LogUtils.deleteLegacyTextLogFiles(context)
             val exportDir = getPrivateExportDir(context)
             if (!ensureDirectory(exportDir, recreateWhenFile = true)) {
                 val details = "export root unavailable: ${exportDir.absolutePath}"
@@ -69,6 +71,9 @@ internal object LogBundleExporter {
             }
             val details = mutableListOf<String>()
             try {
+                if (deletedLegacyLogs > 0) {
+                    details += "legacy runtime text logs cleared: $deletedLegacyLogs"
+                }
                 copyAppLogs(context, stagingDir, details)
                 copyCrashLogs(context, stagingDir, details)
                 copyMiPushSdkLogs(context, stagingDir, details)
@@ -77,6 +82,7 @@ internal object LogBundleExporter {
                     details += "lsposed log missing or unreadable"
                 }
                 captureLogcat(stagingDir, details)
+                sanitizeDirectory(stagingDir)
 
                 val payloadCount = stagingDir.walkTopDown()
                     .count { it.isFile }
@@ -185,24 +191,22 @@ internal object LogBundleExporter {
     }
 
     private fun copyAppLogs(context: Context, stagingDir: File, details: MutableList<String>) {
-        val sources = listOf(
-            "log" to getLogDir(context),
-            "legacy_cache_log" to getLegacyCacheLogDir(context),
-        )
+        val src = getLogDir(context)
         var copiedAny = false
-        sources.forEach { (label, src) ->
-            if (src.exists() && src.isDirectory && src.listFiles()?.isNotEmpty() == true) {
-                copyDirectory(src, File(stagingDir, "app/$label"))
-                details += "$label: ${src.absolutePath}"
-                copiedAny = true
+        if (src.exists() && src.isDirectory && src.listFiles()?.isNotEmpty() == true) {
+            val stagedAppLogDir = File(stagingDir, "app/log")
+            copyDirectory(src, stagedAppLogDir) { file ->
+                file.name.endsWith(".jsonl")
             }
-        }
-        val moduleLogDir = File(getLogDir(context), "modules")
-        if (moduleLogDir.exists() && moduleLogDir.isDirectory && moduleLogDir.listFiles()?.isNotEmpty() == true) {
-            details += "module log: ${moduleLogDir.absolutePath}"
+            copiedAny = stagedAppLogDir.walkTopDown().any { it.isFile }
+            if (copiedAny) {
+                details += "log: ${src.absolutePath}"
+                details += summarizeRuntimeLogFiles(stagedAppLogDir)
+            }
         }
         if (!copiedAny) {
             details += "app log missing"
+            details += "runtime log files: 0"
         }
     }
 
@@ -293,13 +297,12 @@ internal object LogBundleExporter {
             if (!ensureDirectory(parent, recreateWhenFile = true)) return false
             val process = ProcessBuilder(command)
                 .redirectErrorStream(true)
+                .redirectOutput(ProcessBuilder.Redirect.to(output))
                 .start()
-            output.outputStream().use { out ->
-                process.inputStream.copyTo(out)
-            }
-            process.waitFor(6, TimeUnit.SECONDS)
-            if (process.isAlive) {
-                process.destroy()
+            val completed = process.waitFor(6, TimeUnit.SECONDS)
+            if (!completed) {
+                process.destroyForcibly()
+                return@runCatching false
             }
             output.exists() && output.length() > 0
         }.getOrDefault(false)
@@ -372,6 +375,32 @@ internal object LogBundleExporter {
         }.getOrDefault(false)
     }
 
+    private fun summarizeRuntimeLogFiles(stagedAppLogDir: File): String {
+        val files = stagedAppLogDir.walkTopDown()
+            .filter { file ->
+                file.isFile && file.name.startsWith("runtime.") && file.name.endsWith(".jsonl")
+            }
+            .toList()
+        val totalBytes = files.sumOf { it.length() }
+        return "runtime log files: ${files.size}, bytes=$totalBytes"
+    }
+
+    private fun sanitizeDirectory(root: File) {
+        root.walkTopDown()
+            .filter { it.isFile && it.length() <= 20 * 1024 * 1024L }
+            .forEach { file ->
+                runCatching {
+                    val original = file.readText()
+                    val sanitized = sensitiveTokenPattern.replace(original) { match ->
+                        match.value.substringBefore("=") + "=<redacted>"
+                    }
+                    if (sanitized != original) {
+                        file.writeText(sanitized)
+                    }
+                }
+            }
+    }
+
     private fun ensureDirectory(dir: File, recreateWhenFile: Boolean): Boolean {
         if (dir.exists()) {
             if (dir.isDirectory) return true
@@ -417,19 +446,25 @@ internal object LogBundleExporter {
         val stderr: String,
     )
 
-    private fun runSuCommand(command: String): ShellResult = try {
-        val process = ProcessBuilder("su", "-c", command).start()
-        val stdout = process.inputStream.bufferedReader().use { it.readText() }
-        val stderr = process.errorStream.bufferedReader().use { it.readText() }
-        val exitCode = process.waitFor()
-        ShellResult(exitCode, stdout, stderr)
-    } catch (e: IOException) {
-        ShellResult(-1, "", e.message ?: e.javaClass.simpleName)
-    } catch (e: SecurityException) {
-        ShellResult(-1, "", e.message ?: e.javaClass.simpleName)
-    } catch (e: InterruptedException) {
-        Thread.currentThread().interrupt()
-        ShellResult(-1, "", e.message ?: e.javaClass.simpleName)
+    private fun runSuCommand(command: String): ShellResult {
+        return try {
+            val process = ProcessBuilder("su", "-c", command).start()
+            val completed = process.waitFor(8, TimeUnit.SECONDS)
+            if (!completed) {
+                process.destroyForcibly()
+                return ShellResult(-1, "", "timeout")
+            }
+            val stdout = process.inputStream.bufferedReader().use { it.readText() }
+            val stderr = process.errorStream.bufferedReader().use { it.readText() }
+            ShellResult(process.exitValue(), stdout, stderr)
+        } catch (e: IOException) {
+            ShellResult(-1, "", e.message ?: e.javaClass.simpleName)
+        } catch (e: SecurityException) {
+            ShellResult(-1, "", e.message ?: e.javaClass.simpleName)
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+            ShellResult(-1, "", e.message ?: e.javaClass.simpleName)
+        }
     }
 
     private fun shQuote(value: String): String {
@@ -439,8 +474,6 @@ internal object LogBundleExporter {
     private fun pruneCurrentDayLocalLogs(context: Context, now: Date) {
         runCatching {
             LogUtils.pruneAppLogsForToday(getLogDir(context), now)
-            LogUtils.pruneAppLogsForToday(getLegacyCacheLogDir(context), now)
-            LogUtils.pruneModuleLogsForToday(File(getLogDir(context), "modules"), now)
             LogUtils.pruneDailyFiles(getCrashDir(context), LogUtils.currentDateString(now), crashFilePattern)
         }.onFailure {
             logger.w("Failed to prune local logs before export: ${it.message ?: it.javaClass.simpleName}")

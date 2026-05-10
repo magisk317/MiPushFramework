@@ -4,12 +4,7 @@ import android.content.ContentProvider
 import android.content.ContentValues
 import android.database.Cursor
 import android.net.Uri
-import io.github.magisk317.mipush.utils.LogBundleExporter
 import io.github.magisk317.mipush.utils.LogUtils
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 class ModuleLogProvider : ContentProvider() {
     companion object {
@@ -17,8 +12,6 @@ class ModuleLogProvider : ContentProvider() {
         private const val PATH_ENTRY = "entry"
         private const val SOURCE_DEFAULT = "module"
         private const val LEVEL_DEFAULT = "I"
-        private val fileDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-        private val logDateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
 
         fun entryUri(): Uri = Uri.parse("content://$AUTHORITY/$PATH_ENTRY")
 
@@ -47,47 +40,17 @@ class ModuleLogProvider : ContentProvider() {
         val processName = values?.getAsString("process_name").orEmpty()
         val message = values?.getAsString("message").orEmpty()
         val throwable = values?.getAsString("throwable").orEmpty()
-        val now = Date()
-        val logDir = File(LogBundleExporter.getLogDir(context), "modules")
         synchronized(writeLock) {
-            runCatching {
-                if (!logDir.exists()) {
-                    logDir.mkdirs()
-                }
-                LogUtils.pruneModuleLogsForToday(logDir, now)
-                val file = File(logDir, "${source}_${fileDateFormat.format(now)}.txt")
-                val line = buildString {
-                    append(logDateFormat.format(now))
-                    append(" [")
-                    append(source)
-                    append("/")
-                    append(level)
-                    append("] ")
-                    if (tag.isNotBlank()) {
-                        append(tag)
-                    } else {
-                        append("unknown")
-                    }
-                    if (packageName.isNotBlank() || processName.isNotBlank()) {
-                        append(" ")
-                        append("pkg=")
-                        append(packageName.ifBlank { "unknown" })
-                        append(" ")
-                        append("proc=")
-                        append(processName.ifBlank { "unknown" })
-                    }
-                    append(": ")
-                    append(message)
-                    append('\n')
-                    if (throwable.isNotBlank()) {
-                        append(throwable)
-                        if (!throwable.endsWith('\n')) {
-                            append('\n')
-                        }
-                    }
-                }
-                file.appendText(line)
-            }
+            LogUtils.appendModuleLog(
+                context = context,
+                source = source,
+                level = level,
+                tag = tag,
+                packageName = packageName,
+                processName = processName,
+                message = message,
+                throwable = throwable,
+            )
         }
         return entryUri()
     }
