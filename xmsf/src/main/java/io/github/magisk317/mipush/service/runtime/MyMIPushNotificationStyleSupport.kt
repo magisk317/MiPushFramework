@@ -13,6 +13,7 @@ import androidx.core.graphics.drawable.IconCompat
 import com.xiaomi.push.service.ImageUtils
 import com.xiaomi.push.service.MIPushNotificationViewSupport
 import io.github.aakira.napier.Napier
+import io.github.magisk317.mipush.notification.SweetTagHandler
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import com.xiaomi.xmpush.thrift.PushMetaInfo
@@ -64,6 +65,7 @@ internal object MyMIPushNotificationStyleSupport {
     ): NotificationCompat.Builder {
         val title = metaInfo.title.orEmpty()
         val description = metaInfo.description.orEmpty()
+        val renderedDescription = SweetTagHandler.renderFtHtmlIfNeeded(description)
         val bigPic = getBigPic(context, metaInfo)
 
         return NotificationCompat.Builder(context, "xmsf.default").apply {
@@ -74,14 +76,14 @@ internal object MyMIPushNotificationStyleSupport {
                 setStyle(style)
             } else if (description.length > NOTIFICATION_BIG_STYLE_MIN_LEN) {
                 val style = NotificationCompat.BigTextStyle()
-                style.bigText(description)
+                style.bigText(renderedDescription)
                 style.setBigContentTitle(title)
                 setStyle(style)
             }
 
             val titleAndDesp = determineTitleAndDespByDIP(context, metaInfo)
             setContentTitle(titleAndDesp[0])
-            setContentText(titleAndDesp[1])
+            setContentText(SweetTagHandler.renderFtHtmlIfNeeded(titleAndDesp[1]))
 
             val smallIconId = MIPushNotificationViewSupport.getIdForSmallIcon(context, packageName)
             if (smallIconId != 0) {

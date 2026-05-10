@@ -19,7 +19,7 @@ android {
         buildConfigField("String", "APPLICATION_ID", "\"${rootProject.extra["APPLICATION_ID"]}\"")
         buildConfigField("String", "VERSION_NAME", "\"$gitVersionName\"")
         buildConfigField("int", "VERSION_CODE", "$gitVersionCode")
-        buildConfigField("String", "PUSH_VERSION_CODE", "\"${libs.versions.versionCode.get()}\"")
+        buildConfigField("String", "PUSH_VERSION_CODE", "\"${libs.versions.pushVersionCode.get()}\"")
     }
 
     buildTypes {

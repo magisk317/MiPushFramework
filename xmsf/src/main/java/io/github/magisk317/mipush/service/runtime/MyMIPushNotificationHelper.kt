@@ -25,6 +25,8 @@ import com.xiaomi.push.service.MIPushNotificationHelper
 import com.xiaomi.push.service.PushConstants
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.notification.NotificationController
+import io.github.magisk317.mipush.notification.NotificationSortFilter
+import io.github.magisk317.mipush.notification.VoipNotificationHelper
 import io.github.magisk317.mipush.utils.Configurations
 import io.github.magisk317.mipush.utils.IconConfigurations
 import io.github.magisk317.mipush.utils.PackageConfig
@@ -260,7 +262,36 @@ class MyMIPushNotificationHelper {
                 return
             }
             logger.i("title:${metaInfo.title}  description:${metaInfo.description}")
-            val result = getNotificationFor(context, container, decryptedContent)
+            val notificationId = getNotificationId(container)
+            if (VoipNotificationHelper.shouldDropStale(metaInfo, container.packageName)) {
+                logger.i("skip stale voip notification pkg=${container.packageName} messageId=$messageId")
+                PushRuntime.observeNotificationEvent(
+                    packageName = container.packageName,
+                    action = "voip_sequence_drop",
+                    source = "MyMIPushNotificationHelper.doNotifyPushMessage"
+                )
+                return
+            }
+            if (VoipNotificationHelper.isVoipEndEvent(metaInfo)) {
+                logger.i("cancel voip notification pkg=${container.packageName} messageId=$messageId notificationId=$notificationId")
+                NotificationController.cancel(context, container, notificationId, null, clearGroup = false)
+                PushRuntime.observeNotificationEvent(
+                    packageName = container.packageName,
+                    action = "voip_cancel",
+                    source = "MyMIPushNotificationHelper.doNotifyPushMessage"
+                )
+                return
+            }
+            if (NotificationSortFilter.shouldFilter(context, metaInfo, container.packageName, notificationId)) {
+                logger.i("skip focus-filtered notification pkg=${container.packageName} action=${container.action} messageId=$messageId")
+                PushRuntime.observeNotificationEvent(
+                    packageName = container.packageName,
+                    action = "focus_filter_drop",
+                    source = "MyMIPushNotificationHelper.doNotifyPushMessage"
+                )
+                return
+            }
+            val result = getNotificationFor(context, container, decryptedContent, notificationId)
             logger.i(
                 "doNotifyPushMessage publish start pkg=${container.packageName} action=${container.action} " +
                     "messageId=$messageId notificationId=${result.notificationId}"
@@ -278,7 +309,8 @@ class MyMIPushNotificationHelper {
         private fun getNotificationFor(
             context: Context,
             container: XmPushActionContainer,
-            decryptedContent: ByteArray
+            decryptedContent: ByteArray,
+            notificationId: Int
         ): NotificationInfo {
             val metaInfo = container.metaInfo
             val packageName = container.packageName
@@ -288,8 +320,26 @@ class MyMIPushNotificationHelper {
             val custom = XMPushUtils.getConfiguration(metaInfo)
             val useMessagingStyle = message != null && custom.useMessagingStyle(false)
 
-            val notificationId = getNotificationId(container)
-            val notificationBuilder = if (useMessagingStyle) {
+            val group = getGroupName(context, container)
+            val intentExtra = Intent()
+            intentExtra.putExtra(Constants.INTENT_NOTIFICATION_ID, notificationId)
+            intentExtra.putExtra(Constants.INTENT_NOTIFICATION_GROUP, group)
+
+            val localPendingIntent = MyMIPushNotificationIntentSupport.buildClickedPendingIntent(
+                context,
+                container,
+                decryptedContent,
+                notificationId,
+                intentExtra.extras
+            )
+
+            val voipBuilder = if (VoipNotificationHelper.isVoipNotification(metaInfo)) {
+                VoipNotificationHelper.buildVoipNotification(
+                    context, container, metaInfo, notificationId, localPendingIntent
+                )
+            } else null
+
+            val notificationBuilder = voipBuilder ?: if (useMessagingStyle) {
                 MyMIPushNotificationStyleSupport.messagingStyleNotificationBuilder(
                     context,
                     container,
@@ -308,20 +358,7 @@ class MyMIPushNotificationHelper {
 
             notificationBuilder.setWhen(metaInfo.messageTs)
             notificationBuilder.setShowWhen(true)
-            val group = getGroupName(context, container)
             notificationBuilder.setGroup(group)
-
-            val intentExtra = Intent()
-            intentExtra.putExtra(Constants.INTENT_NOTIFICATION_ID, notificationId)
-            intentExtra.putExtra(Constants.INTENT_NOTIFICATION_GROUP, group)
-
-            val localPendingIntent = MyMIPushNotificationIntentSupport.buildClickedPendingIntent(
-                context,
-                container,
-                decryptedContent,
-                notificationId,
-                intentExtra.extras
-            )
 
             if (localPendingIntent != null) {
                 notificationBuilder.setContentIntent(localPendingIntent)

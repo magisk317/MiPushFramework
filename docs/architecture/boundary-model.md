@@ -2,81 +2,74 @@
 
 ## Summary
 
-MiPushFramework is not just an app project. It currently mixes four distinct layers inside the
-`push` module:
+MiPushFramework is a system-package-compatible app split into explicit Gradle modules:
 
-1. **platform-reference**
-   - Device system artifacts such as `framework.jar`, `services.jar`, `miui-framework.jar`,
-     `miui-services.jar`, and `xiaomi-framework.jar`.
-   - These are sources of truth for capability and boundary discovery only.
-   - They must not be treated as app-owned code.
+1. **xmsf**
+   - Product-owned `com.xiaomi.xmsf` application, manifest entrypoints, UI, settings, stock
+     compatibility surfaces, notification publish, runtime adapters, and Xposed-facing bridges.
+   - Compatibility-sensitive package/component names are preserved here when external callers expect
+     stock XMSF names.
 
-2. **product-owned**
-   - The code that defines the shipped `com.xiaomi.xmsf` behavior for this project.
-   - Primary prefixes:
-     - `com.xiaomi.xmsf.*`
-     - `io.github.magisk317.*`
-     - `io.github.magisk317.mipush.*`
-     - app-facing service/sdk surfaces such as `com.xiaomi.push.service.*`,
-       `com.xiaomi.mipush.sdk.*`, and `com.xiaomi.push.sdk.*`
-   - Retired `top.trumeet.*` source roots are no longer part of the active source tree. Preserve
-     stock-facing package/component names only where external compatibility requires them.
+2. **core**
+   - Product-owned runtime models and facades such as `PushRuntime`.
+   - This module is the shared spine for routing, registration, notification accounting, and
+     runtime state that should not depend on app UI code.
 
-3. **legacy-runtime**
+3. **legacy**
    - Vendored Xiaomi push/runtime/network/telemetry stacks that are packaged into the app but are
-     not the desired long-term product architecture.
-   - Typical prefixes:
-     - `com.xiaomi.channel.*`
-     - `com.xiaomi.network.*`
-     - `com.xiaomi.smack.*`
-     - `com.xiaomi.slim.*`
-     - `com.xiaomi.clientreport.*`
-     - `com.xiaomi.stats.*`
-     - `com.xiaomi.tinyData.*`
-     - `com.xiaomi.common.logger.*`
-     - `com.xiaomi.push.mpcd.*`
+     not the desired long-term feature layer.
+   - Typical prefixes include `com.xiaomi.channel.*`, `com.xiaomi.network.*`,
+     `com.xiaomi.smack.*`, `com.xiaomi.slim.*`, `com.xiaomi.clientreport.*`,
+     `com.xiaomi.stats.*`, `com.xiaomi.tinyData.*`, and retained
+     `com.xiaomi.push.service.*` runtime code.
 
-4. **frozen-protocol**
+4. **pinned / protocol**
    - Protocol and serialization layers that should be treated like generated or frozen source.
-   - Typical prefixes:
-     - `org.apache.thrift.*`
-     - `com.google.protobuf.micro.*`
-     - `com.xiaomi.xmpush.thrift.*`
-     - `com.xiaomi.push.protobuf.*`
-     - `com.xiaomi.push.thrift.*`
+   - `pinned` is the dependency used by runtime modules for the currently packaged frozen protocol
+     surface; `protocol` remains a parallel protocol module and should not grow business behavior.
+   - Typical prefixes include `org.apache.thrift.*`, `com.google.protobuf.micro.*`,
+     `com.xiaomi.xmpush.thrift.*`, `com.xiaomi.push.protobuf.*`, and
+     `com.xiaomi.push.thrift.*`.
+
+5. **common / mipush / xposed / uikit**
+   - `common` holds shared app/runtime utilities and persistence models.
+   - `mipush` holds client-facing SDK compatibility code.
+   - `xposed` holds hook-side integration and must avoid depending on app-process-only state.
+   - `uikit` holds reusable Compose UI building blocks.
+
+Device dumps and platform jars are reference inputs only. They must not enter the Gradle source
+graph.
 
 ## Compatibility Constraints
 
 - The shipped package name remains `com.xiaomi.xmsf`.
-- Compatibility is intentionally reduced to the minimum set that still preserves:
-  - registration
-  - long-lived connection
-  - downstream message dispatch
-  - ACK / error feedback
-  - target-package notification publish / click / grouping behavior
-- Internal structure may change aggressively as long as these external contracts remain stable:
-  - package / component names
-  - manifest entrypoints
-  - broadcast actions
-  - intent extras
-  - binder and wire behavior
+- Compatibility is intentionally reduced to the minimum set that still preserves registration,
+  long-lived connection, downstream dispatch, ACK/error feedback, notification publish/click/grouping
+  behavior, and stock-facing provider/service authorities.
+- Internal structure may change as long as external contracts remain stable: package/component
+  names, manifest entrypoints, broadcast actions, intent extras, binder contracts, and wire behavior.
 
 ## Layering Rules
 
-- `product-owned` code must not directly import deep `legacy-runtime` or `frozen-protocol`
-  packages except through explicit facades.
-- `legacy-runtime` code may depend on `frozen-protocol`, but feature/UI code must not.
-- `platform-reference` artifacts never enter the Gradle build graph.
-- `frozen-protocol` changes must be compatibility-preserving and non-creative.
+- Product UI/settings code should depend on `core`, `common`, and explicit xmsf adapters, not deep
+  legacy/protocol packages.
+- `xmsf/src/main/java/io/github/magisk317/mipush/service/runtime` and
+  `xmsf/src/main/java/io/github/magisk317/mipush/bridge` are the allowed adapter areas for direct
+  legacy/protocol interaction.
+- `legacy` may depend on frozen protocol types, but new product behavior should not be added there
+  unless it is preserving a stock runtime contract.
+- `pinned` and `protocol` changes must be compatibility-preserving and non-creative.
+- Platform/system reference artifacts remain outside the build graph.
 
-## Structural State
+## Current Architecture Debts
 
-- `push` becomes the product/app/system-entry module only.
-- `legacy-runtime` contains vendored runtime still needed after pruning.
-- `protocol-frozen` contains protocol/serialization source that must remain wire-stable.
-- Device system jars remain external reference inputs, not source modules.
+- The configuration stack still exists in both `common/.../configurations` and `xmsf/.../utils`.
+  Treat the xmsf stack as the active notification/runtime path for now; do not change one side
+  without checking whether the other side needs an equivalent fix.
+- `pinned` and `protocol` have overlapping packages. Keep using existing module dependencies unless
+  a dedicated protocol consolidation is planned.
 
 ## Refactor Record
 
-The package-by-package Java to Kotlin porting and `push/` split are complete. The retained history
+The package-by-package Java-to-Kotlin port and old `push/` split are complete. The retained history
 and ownership notes are recorded in `docs/architecture/push-module-split.md`.

@@ -1,6 +1,6 @@
 # Current Runtime Call Flow
 
-This document captures the current product-owned runtime chain after the `runtime-core` and `legacy-runtime` boundary split.
+This document captures the current product-owned runtime chain after the `core`, `legacy`, `pinned`, and `protocol` module split.
 
 It is the reference for future stock-XMSF ports: new compatibility features should attach to one of these stages instead of bypassing the runtime spine.
 
@@ -18,7 +18,7 @@ It is the reference for future stock-XMSF ports: new compatibility features shou
 
 Key source:
 
-- `push/src/main/java/io/github/magisk317/mipush/app/MiPushFrameworkApp.kt`
+- `xmsf/src/main/java/io/github/magisk317/mipush/app/MiPushFrameworkApp.kt`
 
 ## 2. Bridge Entry
 
@@ -31,11 +31,11 @@ Key source:
 
 Key source:
 
-- `push/src/main/java/com/xiaomi/xmsf/push/service/MiPushFacadeService.kt`
+- `xmsf/src/main/java/com/xiaomi/xmsf/push/service/MiPushFacadeService.kt`
 
 ## 3. Runtime Spine
 
-- Entry point: `runtime-core` `PushRuntime`
+- Entry point: `core` `PushRuntime`
 - Main work:
   - queue and drain bridge intents
   - track registration, connection, and channel state
@@ -44,7 +44,7 @@ Key source:
 
 Key source:
 
-- `runtime-core/src/main/java/io/github/magisk317/mipush/runtime/core/PushRuntime.kt`
+- `core/src/main/java/io/github/magisk317/mipush/runtime/core/PushRuntime.kt`
 
 ## 4. Execution Host
 
@@ -60,7 +60,7 @@ Key source:
 
 Key source:
 
-- `push/src/main/java/io/github/magisk317/mipush/runtime/PushRuntimeExecutionBridge.kt`
+- `xmsf/src/main/java/io/github/magisk317/mipush/runtime/PushRuntimeExecutionBridge.kt`
 
 ## 5. Legacy Long Connection
 
@@ -72,7 +72,7 @@ Key source:
 
 Key source:
 
-- `legacy-runtime/src/main/java/com/xiaomi/push/service/XMPushService.kt`
+- `legacy/src/main/java/com/xiaomi/push/service/XMPushService.kt`
 
 ## 6. Downstream Delivery
 
@@ -84,7 +84,7 @@ Key source:
 
 Key source:
 
-- `push/src/main/java/com/xiaomi/push/sdk/PushMessageProcessor.kt`
+- `xmsf/src/main/java/com/xiaomi/push/sdk/PushMessageProcessor.kt`
 
 ## 7. Notification Publish
 
@@ -92,6 +92,7 @@ Key source:
 - Main work:
   - unpack and dedupe payload
   - apply package-config operations
+  - align stock notification behavior for focus, VoIP, SweetTag, grouping, click, and action intents
   - publish, ignore, wake, or open based on resolved policy
 
 Supporting layers:
@@ -102,9 +103,9 @@ Supporting layers:
 
 Key sources:
 
-- `push/src/main/java/io/github/magisk317/mipush/service/runtime/MyMIPushNotificationHelper.kt`
-- `push/src/main/java/io/github/magisk317/mipush/notification/NotificationManagerEx.kt`
-- `legacy-runtime/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt`
+- `xmsf/src/main/java/io/github/magisk317/mipush/service/runtime/MyMIPushNotificationHelper.kt`
+- `xmsf/src/main/java/io/github/magisk317/mipush/notification/NotificationManagerEx.kt`
+- `legacy/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt`
 
 ## 8. Stock Compatibility Surfaces
 
@@ -124,11 +125,11 @@ Key sources:
 - Main work:
   - expose stock provider authorities and service names expected by callers
   - bridge stock-facing calls into `PushRuntime`, notification helpers, online config, and app DB state
-  - keep subprocess and keepalive coordination inside product-owned glue instead of pushing it down into `legacy-runtime`
+  - keep subprocess and keepalive coordination inside product-owned glue instead of pushing it down into `legacy`
 
 Key source:
 
-- `push/src/main/java/com/xiaomi/xmsf/stock/StockSurfaceSupport.kt`
+- `xmsf/src/main/java/com/xiaomi/xmsf/stock/StockSurfaceSupport.kt`
 
 ## 9. Account / Cloud Bridge
 
@@ -141,7 +142,7 @@ Key source:
 
 Key source:
 
-- `push/src/main/java/com/xiaomi/xmsf/account/AccountCloudBridge.kt`
+- `xmsf/src/main/java/com/xiaomi/xmsf/account/AccountCloudBridge.kt`
 
 ## Porting Rule
 
@@ -158,3 +159,11 @@ When porting stock XMSF behavior, first classify the feature into one of these s
 - account / cloud bridge
 
 Only bypass `PushRuntime` when the stock feature is strictly self-contained and does not participate in routing, lifecycle, or shared compatibility state.
+
+## Adapter Boundary
+
+`xmsf/src/main/java/io/github/magisk317/mipush/service/runtime` and
+`xmsf/src/main/java/io/github/magisk317/mipush/bridge` are the allowed product-owned adapters
+that may touch legacy/runtime and protocol types directly. UI, settings, and feature code should
+go through these adapters or through `core` facades instead of importing deep `com.xiaomi.*`
+transport/protocol classes.

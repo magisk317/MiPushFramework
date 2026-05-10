@@ -5,6 +5,9 @@
 ---
 
 ## [v0.4.1] - Unreleased
+- `[feat(notification)]` 对齐 stock 7.4.67 通知样式：新增 focus 删除过滤、VoIP 来电样式、SweetTag `<ft>` 富文本渲染、通知按钮与全屏来电入口。
+- `[fix(notification)]` 修复 focus 图片按 key 取图、focus 删除状态持久化、VoIP style type 6 `cust_btn_*` 按钮、`voip_type=0` 结束事件和 sequence 旧消息过滤。
+- `[docs/architecture]` 更新模块边界和运行时调用链文档，当前模块以 `xmsf/core/legacy/pinned/protocol` 为准，device dump 参考路径为 `device_dumps`。
 
 ---
 

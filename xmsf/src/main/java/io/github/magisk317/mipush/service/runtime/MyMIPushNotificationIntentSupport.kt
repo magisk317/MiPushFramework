@@ -28,6 +28,8 @@ internal object MyMIPushNotificationIntentSupport {
         fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
     }
 
+    private const val KEY_NOTIFICATION_STYLE_TYPE = "notification_style_type"
+    private const val STYLE_TYPE_VOIP = "6"
     private const val NOTIFICATION_ACTION_BUTTON_PLACE_MID = 2
     private const val NOTIFICATION_ACTION_BUTTON_PLACE_RIGHT = 3
     private const val NOTIFICATION_STYLE_BUTTON_LEFT_INTENT_CLASS = "notification_style_button_left_intent_class"
@@ -45,9 +47,17 @@ internal object MyMIPushNotificationIntentSupport {
     private const val NOTIFICATION_STYLE_BUTTON_RIGHT_NAME = "notification_style_button_right_name"
     private const val NOTIFICATION_STYLE_BUTTON_RIGHT_NOTIFY_EFFECT = "notification_style_button_right_notify_effect"
     private const val NOTIFICATION_STYLE_BUTTON_RIGHT_WEB_URI = "notification_style_button_right_web_uri"
-    
+
     private val FLAG_IMMUTABLE_UPDATE_CURRENT =
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+
+    internal data class StyleActionKeys(
+        val name: String,
+        val notifyEffect: String,
+        val intentUri: String,
+        val intentClass: String,
+        val webUri: String
+    )
 
     fun addStyleActions(
         builder: NotificationCompat.Builder,
@@ -55,17 +65,13 @@ internal object MyMIPushNotificationIntentSupport {
         pkgName: String,
         metaExtra: Map<String, String>
     ) {
-        val left = getStylePendingIntent(context, pkgName, 1, metaExtra)
-        if (left != null && !TextUtils.isEmpty(metaExtra[NOTIFICATION_STYLE_BUTTON_LEFT_NAME])) {
-            builder.addAction(0, metaExtra[NOTIFICATION_STYLE_BUTTON_LEFT_NAME], left)
-        }
-        val mid = getStylePendingIntent(context, pkgName, NOTIFICATION_ACTION_BUTTON_PLACE_MID, metaExtra)
-        if (mid != null && !TextUtils.isEmpty(metaExtra[NOTIFICATION_STYLE_BUTTON_MID_NAME])) {
-            builder.addAction(0, metaExtra[NOTIFICATION_STYLE_BUTTON_MID_NAME], mid)
-        }
-        val right = getStylePendingIntent(context, pkgName, NOTIFICATION_ACTION_BUTTON_PLACE_RIGHT, metaExtra)
-        if (right != null && !TextUtils.isEmpty(metaExtra[NOTIFICATION_STYLE_BUTTON_RIGHT_NAME])) {
-            builder.addAction(0, metaExtra[NOTIFICATION_STYLE_BUTTON_RIGHT_NAME], right)
+        for (place in 1..NOTIFICATION_ACTION_BUTTON_PLACE_RIGHT) {
+            val title = getStyleActionTitle(place, metaExtra)
+            if (TextUtils.isEmpty(title)) continue
+            val pendingIntent = getStylePendingIntent(context, pkgName, place, metaExtra)
+            if (pendingIntent != null) {
+                builder.addAction(0, title, pendingIntent)
+            }
         }
     }
 
@@ -197,9 +203,9 @@ internal object MyMIPushNotificationIntentSupport {
         val intent = if (metaExtra == null) null else getPendingIntentFromExtra(context, pkgName, place, metaExtra)
         return if (intent == null) null else PendingIntent.getActivity(
             context,
-            0,
+            place,
             intent,
-            PendingIntent.FLAG_IMMUTABLE
+            FLAG_IMMUTABLE_UPDATE_CURRENT
         )
     }
 
@@ -209,12 +215,8 @@ internal object MyMIPushNotificationIntentSupport {
         place: Int,
         extra: Map<String, String>
     ): Intent? {
-        val typeKey = when {
-            place < NOTIFICATION_ACTION_BUTTON_PLACE_MID -> NOTIFICATION_STYLE_BUTTON_LEFT_NOTIFY_EFFECT
-            place < NOTIFICATION_ACTION_BUTTON_PLACE_RIGHT -> NOTIFICATION_STYLE_BUTTON_MID_NOTIFY_EFFECT
-            else -> NOTIFICATION_STYLE_BUTTON_RIGHT_NOTIFY_EFFECT
-        }
-        val typeId = extra[typeKey]
+        val keys = styleActionKeys(place, extra)
+        val typeId = extra[keys.notifyEffect]
         if (TextUtils.isEmpty(typeId)) {
             return null
         }
@@ -307,18 +309,9 @@ internal object MyMIPushNotificationIntentSupport {
         place: Int,
         extra: Map<String, String>
     ): Intent? {
-        val intentUriKey = when {
-            place < NOTIFICATION_ACTION_BUTTON_PLACE_MID -> NOTIFICATION_STYLE_BUTTON_LEFT_INTENT_URI
-            place < NOTIFICATION_ACTION_BUTTON_PLACE_RIGHT -> NOTIFICATION_STYLE_BUTTON_MID_INTENT_URI
-            else -> NOTIFICATION_STYLE_BUTTON_RIGHT_INTENT_URI
-        }
-        val intentClassKey = when {
-            place < NOTIFICATION_ACTION_BUTTON_PLACE_MID -> NOTIFICATION_STYLE_BUTTON_LEFT_INTENT_CLASS
-            place < NOTIFICATION_ACTION_BUTTON_PLACE_RIGHT -> NOTIFICATION_STYLE_BUTTON_MID_INTENT_CLASS
-            else -> NOTIFICATION_STYLE_BUTTON_RIGHT_INTENT_CLASS
-        }
-        if (extra.containsKey(intentUriKey)) {
-            val intentStr = extra[intentUriKey] ?: return null
+        val keys = styleActionKeys(place, extra)
+        if (extra.containsKey(keys.intentUri)) {
+            val intentStr = extra[keys.intentUri] ?: return null
             return try {
                 Intent.parseUri(intentStr, Intent.URI_INTENT_SCHEME).apply {
                     `package` = pkgName
@@ -328,25 +321,59 @@ internal object MyMIPushNotificationIntentSupport {
                 null
             }
         }
-        if (!extra.containsKey(intentClassKey)) {
+        if (!extra.containsKey(keys.intentClass)) {
             return null
         }
-        val className = extra[intentClassKey] ?: return null
+        val className = extra[keys.intentClass] ?: return null
         return Intent().apply {
             component = ComponentName(pkgName, className)
         }
     }
 
     private fun getWebIntent(place: Int, extra: Map<String, String>): Intent? {
-        val webUriKey = when {
-            place < NOTIFICATION_ACTION_BUTTON_PLACE_MID -> NOTIFICATION_STYLE_BUTTON_LEFT_WEB_URI
-            place < NOTIFICATION_ACTION_BUTTON_PLACE_RIGHT -> NOTIFICATION_STYLE_BUTTON_MID_WEB_URI
-            else -> NOTIFICATION_STYLE_BUTTON_RIGHT_WEB_URI
-        }
-        return normalizeWebUri(extra[webUriKey])?.let { uri ->
+        val keys = styleActionKeys(place, extra)
+        return normalizeWebUri(extra[keys.webUri])?.let { uri ->
             Intent(Intent.ACTION_VIEW).apply {
                 data = Uri.parse(uri)
             }
+        }
+    }
+
+    internal fun getStyleActionTitle(place: Int, extra: Map<String, String>): String? =
+        extra[styleActionKeys(place, extra).name]
+
+    internal fun styleActionKeys(place: Int, extra: Map<String, String>): StyleActionKeys {
+        if (extra[KEY_NOTIFICATION_STYLE_TYPE] == STYLE_TYPE_VOIP) {
+            return StyleActionKeys(
+                name = "cust_btn_${place}_n",
+                notifyEffect = "cust_btn_${place}_ne",
+                intentUri = "cust_btn_${place}_iu",
+                intentClass = "cust_btn_${place}_ic",
+                webUri = "cust_btn_${place}_wu"
+            )
+        }
+        return when {
+            place < NOTIFICATION_ACTION_BUTTON_PLACE_MID -> StyleActionKeys(
+                name = NOTIFICATION_STYLE_BUTTON_LEFT_NAME,
+                notifyEffect = NOTIFICATION_STYLE_BUTTON_LEFT_NOTIFY_EFFECT,
+                intentUri = NOTIFICATION_STYLE_BUTTON_LEFT_INTENT_URI,
+                intentClass = NOTIFICATION_STYLE_BUTTON_LEFT_INTENT_CLASS,
+                webUri = NOTIFICATION_STYLE_BUTTON_LEFT_WEB_URI
+            )
+            place < NOTIFICATION_ACTION_BUTTON_PLACE_RIGHT -> StyleActionKeys(
+                name = NOTIFICATION_STYLE_BUTTON_MID_NAME,
+                notifyEffect = NOTIFICATION_STYLE_BUTTON_MID_NOTIFY_EFFECT,
+                intentUri = NOTIFICATION_STYLE_BUTTON_MID_INTENT_URI,
+                intentClass = NOTIFICATION_STYLE_BUTTON_MID_INTENT_CLASS,
+                webUri = NOTIFICATION_STYLE_BUTTON_MID_WEB_URI
+            )
+            else -> StyleActionKeys(
+                name = NOTIFICATION_STYLE_BUTTON_RIGHT_NAME,
+                notifyEffect = NOTIFICATION_STYLE_BUTTON_RIGHT_NOTIFY_EFFECT,
+                intentUri = NOTIFICATION_STYLE_BUTTON_RIGHT_INTENT_URI,
+                intentClass = NOTIFICATION_STYLE_BUTTON_RIGHT_INTENT_CLASS,
+                webUri = NOTIFICATION_STYLE_BUTTON_RIGHT_WEB_URI
+            )
         }
     }
 

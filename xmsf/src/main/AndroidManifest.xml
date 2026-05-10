@@ -239,6 +239,9 @@
                 <action android:name="com.xiaomi.push.PING_TIMER" />
             </intent-filter>
         </receiver>
+        <receiver
+                android:name="io.github.magisk317.mipush.notification.NotificationFocusDeleteReceiver"
+                android:exported="false" />
 
         <receiver
                 android:name=".push.service.receivers.PkgUninstallReceiver"

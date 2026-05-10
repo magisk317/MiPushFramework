@@ -43,6 +43,7 @@
 
 - 基本的推送能力。基本与 MIUI ROM 中的推送服务（`com.xiaomi.xmsf`）一致，不过默认禁止拉起应用
 - 对通知的改写。可以通过配置文件，修改消息的标题、内容及样式等，控制收到消息时忽略、亮屏或自动弹出等
+- 通知样式兼容。对齐部分 stock XMSF 行为，支持 focus 通知、VoIP 来电样式和 SweetTag 富文本
 - 观测。可以在本项目的应用界面中，查看都有什么应用接入了小米推送服务及其推送的消息内容
 
 ### 注意
@@ -72,6 +73,24 @@
 * 跟着向导进行设置
 * 可选：开启高级配置中的 推送服务保活 选项
 
+### normal 与 vc105 版本的区别
+
+Release 页面提供两个版本：`normal` 和 `vc105`，核心区别在于**消息传递方式**：
+
+| 版本 | versionCode | 传递方式 | 说明 |
+|------|------------|---------|------|
+| normal | 1003003000 | bindService | 默认版本，推荐优先使用 |
+| vc105 | 105 | startService | 兼容版本 |
+
+小米推送 SDK 根据 xmsf 的 versionCode 决定传递方式：
+- `versionCode >= 106`：使用 `bindService` 传递消息
+- `versionCode == 105`：使用 `startService` 传递消息
+
+**选择建议**：
+- 优先使用 **normal** 版本，稳定性更好
+- 部分 ROM（如 ColorOS）无法使用 bind 方式时，切换为 **vc105**
+- MIUI 使用 normal 版本的额外好处：重启后不会被系统还原成官方版本
+
 ### 常见问题
 
 - 是否支持分身（999）应用？
@@ -80,7 +99,7 @@
 
 - 配置文件都有什么作用？我应该使用配置文件吗？
     - 配置文件可以修改消息的标题、内容及样式等，控制收到消息时忽略、亮屏或自动弹出等
-    - 目前大部分“官方”配置都可以无脑使用，部分配置是否要使用，参见[仓库说明](https://github.com/NihilityT/MiPushConfigurations)、配置名或配置中的 description 字段
+    - 目前大部分“官方”配置都可以无脑使用，部分配置是否要使用，参见[仓库说明](https://github.com/magisk317/MiPushConfigurations)、配置名或配置中的 description 字段
 
 
 - 是否应该安装为系统应用？
@@ -115,6 +134,7 @@
 - 列表页统一使用 `RefreshableLazyColumn`，加载体验统一使用最短可见时长策略。
 - 动态路由统一使用 `AppDestinations.*.route(...)` 构造，避免手写字符串拼接。
 - 运行时主链梳理见 `docs/architecture/current-runtime-call-flow.md`。
+- 模块边界以 `docs/architecture/boundary-model.md` 为准，stock dump 只作为行为参考，不进入源码图。
 
 
 

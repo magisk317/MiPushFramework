@@ -1,6 +1,6 @@
-# protocol-frozen
+# pinned
 
-Planned home for protocol/runtime source that must behave like generated or frozen code.
+Packaged home for protocol/runtime source that must behave like generated or frozen code.
 
 Examples:
 - `org.apache.thrift.*`

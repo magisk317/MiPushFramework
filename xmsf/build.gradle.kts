@@ -95,8 +95,11 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
 
     testImplementation(libs.junit.jupiter)
+    testImplementation(libs.junit4)
     testImplementation(libs.mockkery.runtime.jvm)
+    testImplementation(libs.robolectric)
     testRuntimeOnly(libs.junit.platform.launcher)
+    testRuntimeOnly(libs.junit.vintage.engine)
 
     implementation(libs.palette)
     implementation(libs.androidx.startup.runtime)

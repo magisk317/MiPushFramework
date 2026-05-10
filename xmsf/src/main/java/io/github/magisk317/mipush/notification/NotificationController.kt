@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import android.service.notification.StatusBarNotification
@@ -98,7 +99,14 @@ object NotificationController {
         notificationBuilder.setChannelId(channelId)
         notificationBuilder.setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
         notificationBuilder.setDefaults(Notification.DEFAULT_ALL)
-        notificationBuilder.priority = NotificationCompat.PRIORITY_HIGH
+        if (!VoipNotificationHelper.isVoipNotification(metaInfo)) {
+            notificationBuilder.priority = NotificationCompat.PRIORITY_HIGH
+        }
+
+        val description = metaInfo.description
+        if (SweetTagHandler.containsFtTag(description)) {
+            notificationBuilder.setContentText(SweetTagHandler.renderFtHtmlIfNeeded(description))
+        }
 
         val notification = notify(context, notificationId, packageName, notificationBuilder, metaInfo) ?: return
         updateSummaryNotification(context, metaInfo, packageName, notification.group)
@@ -148,25 +156,17 @@ object NotificationController {
         val subText = configuration.subText(null)
         buildExtraSubText(context, packageName, notificationBuilder, subText, color)
 
-        val focusParam = configuration.focusParam(null)
-        if (focusParam != null) {
-            val focusBundle = Bundle()
-            focusBundle.putString("miui.focus.param", focusParam)
-            val picsBundle = Bundle()
-            for (key in configuration.keys()) {
-                if (key.startsWith("miui.focus.pic_")) {
-                    val url = configuration.get(key, null)
-                    focusBundle.putString(key, url)
-                    picsBundle.putParcelable(key, getBitmapFromUri(context, iconUri, 200 * KIB))
-                }
-            }
-            if (!picsBundle.isEmpty) {
-                focusBundle.putBundle("miui.focus.pics", picsBundle)
-            }
+        val focusBundle = buildFocusBundle(configuration) { url ->
+            getBitmapFromUri(context, url, 200 * KIB)
+        }
+        if (focusBundle != null) {
             notificationBuilder.addExtras(focusBundle)
         }
 
-        notificationBuilder.setAutoCancel(true)
+        NotificationSortFilter.attachDeleteIntentIfNeeded(context, notificationBuilder, packageName, metaInfo, notificationId)
+        if (!VoipNotificationHelper.isVoipNotification(metaInfo)) {
+            notificationBuilder.setAutoCancel(true)
+        }
         val notification = notificationBuilder.build()
         val channel = getNotificationManagerEx().getNotificationChannel(packageName, notification.channelId)
         if (!NotificationContentSupport.hasMeaningfulVisibleText(context, packageName, notification, channel)) {
@@ -213,6 +213,37 @@ object NotificationController {
             }
         }
         return bitmap
+    }
+
+    internal fun collectFocusPicUris(configuration: CustomConfiguration): Map<String, String> {
+        return configuration.keys()
+            .filter { it.startsWith("miui.focus.pic_") }
+            .mapNotNull { key ->
+                val uri = configuration.get(key, null)
+                if (uri.isNullOrBlank()) null else key to uri
+            }
+            .toMap()
+    }
+
+    internal fun buildFocusBundle(
+        configuration: CustomConfiguration,
+        bitmapLoader: (String) -> Bitmap?
+    ): Bundle? {
+        val focusParam = configuration.focusParam(null) ?: return null
+        val focusBundle = Bundle()
+        focusBundle.putString("miui.focus.param", focusParam)
+        val picsBundle = Bundle()
+        for ((key, url) in collectFocusPicUris(configuration)) {
+            focusBundle.putString(key, url)
+            val bitmap = bitmapLoader(url)
+            if (bitmap != null) {
+                picsBundle.putParcelable(key, Icon.createWithBitmap(bitmap))
+            }
+        }
+        if (!picsBundle.isEmpty) {
+            focusBundle.putBundle("miui.focus.pics", picsBundle)
+        }
+        return focusBundle
     }
 
     @JvmStatic

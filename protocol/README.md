@@ -1,6 +1,7 @@
 # protocol
 
-Planned home for protocol/runtime source that must behave like generated or frozen code.
+Parallel protocol/runtime module retained for frozen wire-source work. The packaged runtime path
+currently uses `pinned`; this module must still behave like generated or frozen code.
 
 Examples:
 - `org.apache.thrift.*`
