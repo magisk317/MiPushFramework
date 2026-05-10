@@ -113,8 +113,15 @@ tasks.register("checkReadmeBuildRequirements") {
     }
 }
 
+tasks.register<Exec>("verifyModuleBoundaries") {
+    group = "verification"
+    description = "Fail when UI/settings code adds new direct imports of deep Xiaomi runtime/protocol types."
+    commandLine("bash", "scripts/verify_module_boundaries.sh")
+}
+
 tasks.matching { it.name == "check" }.configureEach {
     dependsOn("checkReadmeBuildRequirements")
+    dependsOn("verifyModuleBoundaries")
 }
 
 tasks.register("exportVersion") {
