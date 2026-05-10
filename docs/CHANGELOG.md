@@ -4,8 +4,12 @@
 
 ---
 
+## [v0.4.1] - Unreleased
+
+---
+
 ## [v0.4.0] - 2026-05-10
-- 版本：`versionCode 105` / `versionName 0.3.18`。
+- 版本：`versionCode 105` / `versionName 0.4.0`。
 - 发布说明：本次为大规模重构版本，完成 monorepo 整合、命名空间迁移与 legacy-runtime Kotlin 化，同时修复多项推送与通知链路问题。
 - `[refactor/monorepo]` 将 MiPush 各模块合并至 MiPushFramework 单仓，重构 protocol、legacy-runtime、push-service、push-core、common 等模块边界，删除冗余 typealias 与重复源文件。
 - `[refactor/namespace]` 命名空间从 `com.magisk317` 迁移至 `io.github.magisk317.mipush`，同步更新 app 层、runtime store 与 settings。
