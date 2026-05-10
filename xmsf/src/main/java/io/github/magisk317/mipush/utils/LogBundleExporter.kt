@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.platform.support.PermissionUtils
 
 internal object LogBundleExporter {
     private const val ZIP_MIME_TYPE = "application/zip"
@@ -246,6 +247,11 @@ internal object LogBundleExporter {
         }
         if (copied) return true
 
+        if (!PermissionUtils.refreshRootAccessIfGranted()) {
+            details += "lsposed su skipped: root not granted"
+            return false
+        }
+
         val targetPath = lsposedTargetRoot.absolutePath
         val targetUid = runCatching { android.os.Process.myUid() }.getOrDefault(-1)
         val shellCmd = buildString {
@@ -285,6 +291,7 @@ internal object LogBundleExporter {
             details += "logcat: direct"
             return
         }
+        if (!PermissionUtils.refreshRootAccessIfGranted()) return
         val su = dumpCommandOutput(listOf("su", "-c", "logcat -d -v threadtime -b all"), output)
         if (su) {
             details += "logcat: su"
@@ -420,6 +427,10 @@ internal object LogBundleExporter {
     private fun deleteRecursivelyWithSuFallback(target: File): Boolean {
         if (!target.exists()) return true
         if (target.deleteRecursively()) return true
+        if (!PermissionUtils.refreshRootAccessIfGranted()) {
+            logger.w("Skip su rm fallback because root is not granted: ${target.absolutePath}")
+            return !target.exists()
+        }
         val suResult = runSuCommand("rm -rf ${shQuote(target.absolutePath)}")
         val deleted = !target.exists()
         if (!deleted) {
