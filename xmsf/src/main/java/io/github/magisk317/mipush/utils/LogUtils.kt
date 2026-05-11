@@ -162,7 +162,7 @@ object LogUtils {
             pid = android.os.Process.myPid(),
             uid = android.os.Process.myUid(),
             threadName = thread.name.orEmpty(),
-            threadId = thread.id,
+            threadId = thread.compatThreadId(),
         )
         val line = encodeJsonLine(entry) + "\n"
         val logDir = LogBundleExporter.getLogDir(context)
@@ -175,6 +175,9 @@ object LogUtils {
             }
         }
     }
+
+    @Suppress("DEPRECATION")
+    private fun Thread.compatThreadId(): Long = id
 
     @JvmStatic
     fun getLogFolder(context: Context): String {

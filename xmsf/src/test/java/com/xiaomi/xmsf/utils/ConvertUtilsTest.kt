@@ -92,7 +92,7 @@ class ConvertUtilsTest {
     }
 
     @Test
-    fun toJson_marksEncryptedPayloadAsDecryptFailedWhenCandidatesDoNotWork() {
+    fun toJson_omitsEncryptedPayloadWhenCandidatesDoNotWork() {
         val wrongRegSec = encodeRegSec("wrong-secret-000")
         val correctRegSec = encodeRegSec("right-secret-111")
         val container = encryptedSendMessageContainer(
@@ -103,8 +103,8 @@ class ConvertUtilsTest {
 
         val json = ConvertUtils.toJson(container, wrongRegSec).toString()
 
-        assertEquals(true, json.contains("decrypt_failed"))
-        assertEquals(true, json.contains("the aes decrypt failed."))
+        assertEquals(false, json.contains("decrypt_failed"))
+        assertEquals(false, json.contains("pushAction"))
     }
 
     @Test

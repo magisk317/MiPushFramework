@@ -195,7 +195,6 @@ object ConvertUtils {
             Napier.w("resolvePushActionBytes: no regSec candidates for pkg=${container.packageName}", tag = TAG)
             return null
         }
-        var lastError: Exception? = null
         for (candidateRegSec in candidateRegSecs) {
             try {
                 val keyBytes = Base64Coder.decode(candidateRegSec)
@@ -204,12 +203,10 @@ object ConvertUtils {
                 logger.d("resolvePushActionBytes: decrypt success for pkg=${container.packageName}")
                 return PushActionResolution(payload, candidateRegSec)
             } catch (e: Exception) {
-                lastError = e
                 logger.d("resolvePushActionBytes: decrypt failed for pkg=${container.packageName}, trying next candidate")
             }
         }
         logger.w("resolvePushActionBytes: all regSec candidates failed for pkg=${container.packageName}")
-        // Temporarily revert to returning null instead of throwing to diagnose regSec issues
         return null
     }
 

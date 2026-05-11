@@ -193,15 +193,13 @@ object ConvertUtils {
         if (candidateRegSecs.isEmpty()) {
             return null
         }
-        var lastError: Exception? = null
         for (candidateRegSec in candidateRegSecs) {
             try {
                 val keyBytes = Base64Coder.decode(candidateRegSec)
                 val payload = DataCryptUtils.mipushDecrypt(keyBytes, container.getPushAction()) as ByteArray
                 persistResolvedRegSec(container.packageName, candidateRegSec)
                 return PushActionResolution(payload, candidateRegSec)
-            } catch (e: Exception) {
-                lastError = e
+            } catch (_: Exception) {
             }
         }
         logger.w("the aes decrypt failed for ${container.packageName}.")
