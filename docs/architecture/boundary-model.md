@@ -78,6 +78,16 @@ graph.
 - `common/.../utils/LogBundleExporter` is retained only for reusable private-file export helpers and
   does not attempt `su` fallback. Root-only collection belongs in the xmsf exporter.
 
+## Public Interfaces
+
+- **`RootAccessFacade`**: Query cached state, request authorization explicitly, refresh only when
+  already authorized, execute root shell commands. Located at
+  `xmsf/src/main/java/io/github/magisk317/mipush/platform/support/RootAccessFacade.kt`.
+- **`BoundedShellRunner`**: Execute ordinary or root shell with unified timeout and result structure.
+- **`RuntimeSettingsAdapter`**: Route UI/settings operations for XMPP host, forced registration,
+  service foregrounding, and similar runtime actions through an adapter instead of calling legacy
+  runtime directly.
+
 ## Current Architecture Debts
 
 - The configuration stack still exists in both `common/.../configurations` and `xmsf/.../utils`.
@@ -92,6 +102,18 @@ graph.
 - `uikit` remains source-owned outside this repository. When embedded in a parent build, the desired
   next step is parent-version-catalog first with standalone fallback, but this repo does not change
   the `uikit` source checkout as part of the architecture boundary work.
+
+## Build And Verification
+
+```bash
+./gradlew verifyModuleBoundaries   # Check import boundaries
+./gradlew :xmsf:testNormalDebugUnitTest
+./gradlew :common:check :core:testDebugUnitTest :mipush:testDebugUnitTest
+./gradlew assembleDebug -PbuildSplits=true -PbuildTs=$(date +%Y%m%d%H%M%S)
+```
+
+Boundary baseline is maintained at `scripts/module_boundary_baseline.txt` and validated by
+`scripts/verify_module_boundaries.sh`.
 
 ## Refactor Record
 
