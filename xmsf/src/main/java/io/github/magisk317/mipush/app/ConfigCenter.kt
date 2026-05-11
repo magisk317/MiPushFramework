@@ -10,6 +10,7 @@ import io.github.magisk317.mipush.service.PushServiceStarter
 import io.github.magisk317.mipush.utils.Configurations
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.common.Constants
 
 import javax.inject.Inject
@@ -81,16 +82,28 @@ class ConfigCenter @Inject constructor(
         // Use a cached directory value to avoid blocking the calling thread.
         // The configuration directory rarely changes and is set explicitly by the user.
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-            val directory = getConfigurationDirectoryAsync()
-            Configurations.getInstance().init(context, directory)
-            Global.iconConfigurations().init(context, directory)
-            if (!PushControllerUtils.isAppMainProc(context)) {
-                val intent = PushRuntimeComponents.newLegacyMainServiceIntent(
-                    context,
-                    Constants.CONFIGURATIONS_UPDATE_ACTION
-                )
-                PushServiceStarter.start(context, intent)
-            }
+            loadConfigurationsNow(context)
         }
+    }
+
+    suspend fun loadConfigurationsNow(context: Context): Boolean =
+        withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val appContext = context.applicationContext
+            val directory = getConfigurationDirectoryAsync()
+            loadConfigurationsFromDirectory(appContext, directory)
+        }
+
+    internal fun loadConfigurationsFromDirectory(context: Context, directory: Uri?): Boolean {
+        val appContext = context.applicationContext
+        val configLoaded = Configurations.getInstance().init(appContext, directory)
+        val iconLoaded = Global.iconConfigurations().init(appContext, directory)
+        if (!PushControllerUtils.isAppMainProc(appContext)) {
+            val intent = PushRuntimeComponents.newLegacyMainServiceIntent(
+                appContext,
+                Constants.CONFIGURATIONS_UPDATE_ACTION
+            )
+            PushServiceStarter.start(appContext, intent)
+        }
+        return configLoaded && iconLoaded
     }
 }

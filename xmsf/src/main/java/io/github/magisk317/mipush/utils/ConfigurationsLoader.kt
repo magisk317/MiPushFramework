@@ -20,9 +20,15 @@ import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.common.utils.Utils
 
 @Singleton
-class ConfigurationsLoader @Inject constructor(
-    private val configCenter: ConfigCenter
+class ConfigurationsLoader private constructor(
+    private val configCenter: ConfigCenter?,
+    @Suppress("unused") private val jsonOnly: Boolean,
 ) {
+    @Inject
+    constructor(configCenter: ConfigCenter) : this(configCenter, false)
+
+    internal constructor() : this(null, true)
+
     private var version: String? = null
     private var packageConfigs: MutableMap<String, MutableList<Any>> = hashMapOf()
 
@@ -44,7 +50,7 @@ class ConfigurationsLoader @Inject constructor(
             val loadedFiles = mutableListOf<DocumentFile>()
             parseDirectory(context, treeUri, exceptions, loadedFiles, configurations)
 
-            if (loadedFiles.isNotEmpty() && runBlocking { configCenter.isShowConfigurationListOnLoadedAsync() }) {
+            if (loadedFiles.isNotEmpty() && runBlocking { configCenter?.isShowConfigurationListOnLoadedAsync() ?: false }) {
                 val loadedList = StringBuilder("loaded configuration list:")
                 for (file in loadedFiles) {
                     loadedList.append('\n')
