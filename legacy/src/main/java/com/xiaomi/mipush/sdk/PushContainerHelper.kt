@@ -25,6 +25,7 @@ import com.xiaomi.xmpush.thrift.XmPushActionUnRegistrationResult
 import com.xiaomi.xmpush.thrift.XmPushActionUnSubscription
 import com.xiaomi.xmpush.thrift.XmPushActionUnSubscriptionResult
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
+import java.nio.ByteBuffer
 import org.apache.thrift.TBase
 
 /*
@@ -35,6 +36,13 @@ import org.apache.thrift.TBase
  */
 class PushContainerHelper private constructor() {
     companion object {
+        private fun ByteBuffer.copyRemainingBytes(): ByteArray {
+            val readOnlyBuffer = asReadOnlyBuffer()
+            val bytes = ByteArray(readOnlyBuffer.remaining())
+            readOnlyBuffer.get(bytes)
+            return bytes
+        }
+
         @JvmStatic
         fun createRespMessageFromAction(actionType: ActionType, z: Boolean): TBase<*, *>? {
             return when (actionType) {
@@ -176,11 +184,7 @@ class PushContainerHelper private constructor() {
             if (xmPushActionContainer.isEncryptAction) return null
             val tBase = createRespMessageFromAction(xmPushActionContainer.action, xmPushActionContainer.isRequest)
             if (tBase != null) {
-                val array = xmPushActionContainer.pushAction?.let {
-                    val bytes = ByteArray(it.remaining())
-                    it.get(bytes)
-                    bytes
-                } ?: return null
+                val array = xmPushActionContainer.pushAction?.copyRemainingBytes() ?: return null
                 XmPushThriftSerializeUtils.convertByteArrayToThriftObject(tBase, array)
             }
             return tBase
@@ -191,11 +195,7 @@ class PushContainerHelper private constructor() {
         fun getResponseMessageBodyFromContainer(context: Context, xmPushActionContainer: XmPushActionContainer): TBase<*, *>? {
             val pushAction: ByteArray = if (xmPushActionContainer.isEncryptAction) {
                 try {
-                    val encrypted = xmPushActionContainer.pushAction?.let {
-                        val bytes = ByteArray(it.remaining())
-                        it.get(bytes)
-                        bytes
-                    } ?: return null
+                    val encrypted = xmPushActionContainer.pushAction?.copyRemainingBytes() ?: return null
                     val regSecret = AppInfoHolder.getInstance(context).regSecret
                     if (TextUtils.isEmpty(regSecret)) {
                         return null
@@ -205,11 +205,7 @@ class PushContainerHelper private constructor() {
                     throw DecryptException("the aes decrypt failed.", e)
                 }
             } else {
-                xmPushActionContainer.pushAction?.let {
-                    val bytes = ByteArray(it.remaining())
-                    it.get(bytes)
-                    bytes
-                } ?: return null
+                xmPushActionContainer.pushAction?.copyRemainingBytes() ?: return null
             }
             val tBase = createRespMessageFromAction(xmPushActionContainer.action, xmPushActionContainer.isRequest)
             if (tBase != null) {
