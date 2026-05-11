@@ -2,12 +2,6 @@
 # Format: relative/path.kt|import ...
 # The boundary check only fails on new entries not listed here.
 xmsf/src/main/java/io/github/magisk317/mipush/app/RetryRegister.kt|import com.xiaomi.channel.commonutils.logger.MyLog
-xmsf/src/main/java/io/github/magisk317/mipush/app/SettingsManager.kt|import com.xiaomi.push.service.PushConstants
-xmsf/src/main/java/io/github/magisk317/mipush/app/SettingsManager.kt|import com.xiaomi.push.service.PushServiceConstants
-xmsf/src/main/java/io/github/magisk317/mipush/app/SettingsManager.kt|import com.xiaomi.push.service.XMPushServiceMessenger
-xmsf/src/main/java/io/github/magisk317/mipush/app/SettingsManager.kt|import com.xiaomi.smack.ConnectionConfiguration
 xmsf/src/main/java/io/github/magisk317/mipush/feature/main/MainActivityUtils.kt|import com.xiaomi.push.service.XMPushServiceMessenger
 xmsf/src/main/java/io/github/magisk317/mipush/main/viewmodel/AdvancedSettingsViewModel.kt|import com.xiaomi.push.sdk.PushMessageProcessor
 xmsf/src/main/java/io/github/magisk317/mipush/main/viewmodel/EventListViewModel.kt|import com.xiaomi.xmpush.thrift.XmPushActionContainer
-xmsf/src/main/java/io/github/magisk317/mipush/viewmodel/AdvancedSettingsViewModel.kt|import com.xiaomi.push.sdk.PushMessageProcessor
-xmsf/src/main/java/io/github/magisk317/mipush/viewmodel/EventListViewModel.kt|import com.xiaomi.xmpush.thrift.XmPushActionContainer

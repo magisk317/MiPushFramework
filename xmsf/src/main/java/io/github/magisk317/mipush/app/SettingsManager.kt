@@ -10,20 +10,13 @@ import android.os.Build
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import io.github.magisk317.mipush.network.NetworkPolicyCompat
 import com.xiaomi.xmsf.BuildConfig
 import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.diagnostics.PushHealthSnapshotLogger
-import io.github.magisk317.mipush.platform.support.InternalMessenger
 import io.github.magisk317.mipush.platform.support.PermissionUtils
 import io.github.magisk317.mipush.utils.RegistrationHelper
-import com.xiaomi.push.service.PushConstants
-import com.xiaomi.push.service.PushServiceConstants
-import com.xiaomi.push.service.XMPushServiceMessenger
-import com.xiaomi.smack.ConnectionConfiguration
 import io.github.magisk317.mipush.notification.NotificationController
 import io.github.magisk317.mipush.utils.LogUtils
-import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.db.EventDb
@@ -31,6 +24,7 @@ import io.github.magisk317.mipush.runtime.store.entities.Event
 import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
 import io.github.magisk317.mipush.runtime.store.event.type.NotificationType
 import io.github.magisk317.mipush.feature.main.subpage.ApplicationPageOperation
+import io.github.magisk317.mipush.service.runtime.RuntimeSettingsAdapter
 import java.util.Date
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
@@ -43,13 +37,13 @@ import kotlinx.coroutines.withContext
 
 @Singleton
 class SettingsManager @Inject constructor(
-    @param:ApplicationContext private val context: Context,
-    private val configCenter: ConfigCenter
+    private val configCenter: ConfigCenter,
+    private val runtimeSettingsAdapter: RuntimeSettingsAdapter,
 ) {
     // No-arg fallback for legacy Singleton access.
     constructor() : this(
-        io.github.magisk317.mipush.common.utils.Utils.getApplication()!!,
-        io.github.magisk317.mipush.common.utils.Singleton.instance<ConfigCenter>()
+        io.github.magisk317.mipush.common.utils.Singleton.instance<ConfigCenter>(),
+        io.github.magisk317.mipush.common.utils.Singleton.instance<RuntimeSettingsAdapter>(),
     )
 
     init {
@@ -84,7 +78,7 @@ class SettingsManager @Inject constructor(
     }
 
     fun startMiPushServiceAsForegroundService(context: Context) {
-        InternalMessenger(context).send(Intent(XMPushServiceMessenger.IntentStartForeground))
+        runtimeSettingsAdapter.startMiPushServiceAsForegroundService(context)
     }
 
     fun notifyMockNotification(context: Context) {
@@ -193,17 +187,15 @@ class SettingsManager @Inject constructor(
     }
 
     fun sendXMPPReconnectRequest(context: Context) {
-        InternalMessenger(context).send(Intent(PushConstants.ACTION_RESET_CONNECTION))
+        runtimeSettingsAdapter.sendXmppReconnectRequest(context)
     }
 
     fun setXMPPServer(context: Context, newHost: String) {
-        runBlocking { configCenter.setXMPPServerAsync(newHost) }
-        NetworkPolicyCompat.applyXmppHostOverride(context.applicationContext)
-        sendXMPPReconnectRequest(context)
+        runtimeSettingsAdapter.setXmppServer(context, newHost)
     }
 
     fun getXMPPServerHint(): String {
-        return ConnectionConfiguration.getXmppServerHost() + ":" + PushServiceConstants.XMPP_SERVER_PORT
+        return runtimeSettingsAdapter.getXmppServerHint()
     }
 
     fun getXMPPServer(context: Context): String? = runBlocking { configCenter.getXMPPServerAsync() }
