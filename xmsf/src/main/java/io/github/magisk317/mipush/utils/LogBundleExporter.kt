@@ -10,11 +10,11 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.util.Date
-import java.util.Locale
 import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.platform.support.PermissionUtils
 
 internal object LogBundleExporter {
@@ -292,7 +292,7 @@ internal object LogBundleExporter {
             return
         }
         if (!PermissionUtils.refreshRootAccessIfGranted()) return
-        val su = dumpCommandOutput(listOf("su", "-c", "logcat -d -v threadtime -b all"), output)
+        val su = dumpRootCommandOutput("logcat -d -v threadtime -b all", output)
         if (su) {
             details += "logcat: su"
         }
@@ -311,6 +311,17 @@ internal object LogBundleExporter {
                 process.destroyForcibly()
                 return@runCatching false
             }
+            output.exists() && output.length() > 0
+        }.getOrDefault(false)
+    }
+
+    private fun dumpRootCommandOutput(command: String, output: File): Boolean {
+        return runCatching {
+            val parent = output.parentFile ?: return false
+            if (!ensureDirectory(parent, recreateWhenFile = true)) return false
+            val result = AppRootAccessFacade.runRootCommand(command, timeoutMs = 6_000L)
+            if (!result.isSuccess) return false
+            output.writeText(result.stdoutText)
             output.exists() && output.length() > 0
         }.getOrDefault(false)
     }
@@ -458,24 +469,8 @@ internal object LogBundleExporter {
     )
 
     private fun runSuCommand(command: String): ShellResult {
-        return try {
-            val process = ProcessBuilder("su", "-c", command).start()
-            val completed = process.waitFor(8, TimeUnit.SECONDS)
-            if (!completed) {
-                process.destroyForcibly()
-                return ShellResult(-1, "", "timeout")
-            }
-            val stdout = process.inputStream.bufferedReader().use { it.readText() }
-            val stderr = process.errorStream.bufferedReader().use { it.readText() }
-            ShellResult(process.exitValue(), stdout, stderr)
-        } catch (e: IOException) {
-            ShellResult(-1, "", e.message ?: e.javaClass.simpleName)
-        } catch (e: SecurityException) {
-            ShellResult(-1, "", e.message ?: e.javaClass.simpleName)
-        } catch (e: InterruptedException) {
-            Thread.currentThread().interrupt()
-            ShellResult(-1, "", e.message ?: e.javaClass.simpleName)
-        }
+        val result = AppRootAccessFacade.runRootCommand(command)
+        return ShellResult(result.exitCode, result.stdoutText, result.stderrText)
     }
 
     private fun shQuote(value: String): String {

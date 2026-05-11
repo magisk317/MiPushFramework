@@ -2,8 +2,8 @@ package io.github.magisk317.mipush.compat
 
 import android.os.SystemClock
 import io.github.aakira.napier.Napier
-import io.github.aakira.napier.DebugAntilog
-import com.topjohnwu.superuser.Shell
+import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
+import io.github.magisk317.mipush.platform.support.BoundedShellResult
 import io.github.magisk317.mipush.platform.support.PermissionUtils
 
 object RegistrationStateCompat {
@@ -27,7 +27,6 @@ object RegistrationStateCompat {
 
     private data class RootCapability(
         val available: Boolean,
-        val mountMasterAvailable: Boolean,
         val checkedAtElapsedMs: Long
     )
 
@@ -41,12 +40,7 @@ object RegistrationStateCompat {
         val appToken: String?
     )
 
-    private fun runCommand(command: String): Shell.Result = Shell.cmd(command).exec()
-
-    private fun isRootResult(result: Shell.Result?): Boolean {
-        if (result == null || !result.isSuccess) return false
-        return result.out.firstOrNull()?.trim() == "0"
-    }
+    private fun runCommand(command: String): BoundedShellResult = AppRootAccessFacade.runShellCommand(command)
 
     private fun getRootCapability(): RootCapability {
         val now = SystemClock.elapsedRealtime()
@@ -61,39 +55,18 @@ object RegistrationStateCompat {
         if (!PermissionUtils.hasCachedRootAccess()) {
             return RootCapability(
                 available = false,
-                mountMasterAvailable = false,
                 checkedAtElapsedMs = now
             ).also { rootCapabilityCache = it }
         }
-        val uid = runCatching { runCommand("id -u").out.firstOrNull()?.trim() }.getOrNull()
-        if (uid == "0") {
-            return RootCapability(
-                available = true,
-                mountMasterAvailable = true,
-                checkedAtElapsedMs = now
-            ).also { rootCapabilityCache = it }
-        }
-        val suMount = runCatching { runCommand("su --mount-master -c \"id -u\"") }.getOrNull()
-        val suNormal = runCatching { runCommand("su -c \"id -u\"") }.getOrNull()
         return RootCapability(
-            available = isRootResult(suMount) || isRootResult(suNormal),
-            mountMasterAvailable = isRootResult(suMount),
+            available = AppRootAccessFacade.refreshRootAccessIfGranted(),
             checkedAtElapsedMs = now
         ).also { rootCapabilityCache = it }
     }
 
-    private fun runAsRoot(command: String, preferMountMaster: Boolean): Shell.Result? {
-        val escaped = command.replace("\"", "\\\"")
-        if (preferMountMaster) {
-            val mountResult = runCatching { runCommand("su --mount-master -c \"$escaped\"") }.getOrNull()
-            if (mountResult != null && mountResult.isSuccess) return mountResult
-        }
-        val suResult = runCatching { runCommand("su -c \"$escaped\"") }.getOrNull()
-        if (suResult != null && suResult.isSuccess) return suResult
-        if (!preferMountMaster) {
-            return runCatching { runCommand("su --mount-master -c \"$escaped\"") }.getOrNull()
-        }
-        return suResult
+    private fun runAsRoot(command: String): BoundedShellResult? {
+        val result = AppRootAccessFacade.runRootCommand(command)
+        return result.takeIf { it.isSuccess }
     }
 
     private fun hasRootProbeAccess(currentUid: String?): Boolean {
@@ -148,14 +121,14 @@ object RegistrationStateCompat {
         val result = if (useSu) {
             val capability = getRootCapability()
             if (capability.available) {
-                runAsRoot(cmd, preferMountMaster = capability.mountMasterAvailable)
+                runAsRoot(cmd)
             } else {
                 null
             }
         } else {
             runCommand(cmd)
         }
-        return result?.out?.firstOrNull()?.trim() == "true"
+        return result?.stdout?.firstOrNull()?.trim() == "true"
     }
 
     private fun probeByRead(path: String, useSu: Boolean): Boolean {
@@ -164,12 +137,12 @@ object RegistrationStateCompat {
             if (useSu) {
                 val capability = getRootCapability()
                 if (capability.available) {
-                    runAsRoot(cmd, preferMountMaster = capability.mountMasterAvailable)?.out
+                    runAsRoot(cmd)?.stdout
                 } else {
                     null
                 }
             } else {
-                runCommand(cmd).out
+                runCommand(cmd).stdout
             }
         }.getOrNull() ?: return false
         return containsRegistrationMarkers(out.joinToString("\n"))
@@ -228,14 +201,14 @@ object RegistrationStateCompat {
                 append("done; ")
                 append("done")
             }
-            val out = runAsRoot(script, preferMountMaster = capability.mountMasterAvailable)
+            val out = runAsRoot(script)
             if (out != null && out.isSuccess) {
-                result += out.out.map { it.trim() }.filter { it.isNotEmpty() }
+                result += out.stdout.map { it.trim() }.filter { it.isNotEmpty() }
                 continue
             }
             val fallbackOut = runCatching { runCommand(script) }.getOrNull()
             if (fallbackOut != null && fallbackOut.isSuccess) {
-                result += fallbackOut.out.map { it.trim() }.filter { it.isNotEmpty() }
+                result += fallbackOut.stdout.map { it.trim() }.filter { it.isNotEmpty() }
                 continue
             }
             hasBatchExecutionFailure = true
@@ -262,9 +235,9 @@ object RegistrationStateCompat {
         val out = runCatching {
             if (useSu) {
                 val capability = getRootCapability()
-                runAsRoot(cmd, preferMountMaster = capability.mountMasterAvailable)?.out
+                runAsRoot(cmd)?.stdout
             } else {
-                runCommand(cmd).out
+                runCommand(cmd).stdout
             }
         }.getOrNull() ?: return
         val content = out.joinToString("\n")

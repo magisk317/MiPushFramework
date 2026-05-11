@@ -3,10 +3,8 @@ package io.github.magisk317.mipush.utils
 import android.content.Context
 import android.content.Intent
 import io.github.aakira.napier.Napier
-import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
-import com.topjohnwu.superuser.Shell
 import com.xiaomi.push.sdk.MyPushMessageHandler
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.NotificationType
@@ -22,6 +20,7 @@ import io.github.magisk317.mipush.common.Constants.PING_RECEIVER_CLASS
 import io.github.magisk317.mipush.common.Constants.PUSH_MESSAGE_RECEIVER_CLASS
 import android.content.pm.PackageManager
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
+import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.core.PushRuntime
 import io.github.magisk317.mipush.runtime.store.db.EventDb
@@ -40,7 +39,7 @@ class RegistrationHelper(
     )
 
     fun removeMiPushXml(): Boolean {
-        val result = Shell.cmd(
+        val result = AppRootAccessFacade.runRootCommand(
             String.format(
                 "rm $(ls -1" +
                     " /data/user/0/%s/shared_prefs/mipush*.xml" +
@@ -49,7 +48,7 @@ class RegistrationHelper(
                 packageName,
                 packageName
             )
-        ).exec()
+        )
         return result.isSuccess
     }
 

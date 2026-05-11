@@ -6,8 +6,7 @@ import android.app.NotificationManager
 import android.media.AudioAttributes
 import android.net.Uri
 import io.github.magisk317.mipush.hook.XLog
-import java.io.BufferedReader
-import java.io.InputStreamReader
+import io.github.magisk317.mipush.hook.util.BoundedRootRunner
 
 object RootNotificationHelper {
     private const val TAG = "RootNotificationHelper"
@@ -16,21 +15,14 @@ object RootNotificationHelper {
 
     fun isRootAvailable(): Boolean {
         rootAvailable?.let { return it }
-        return try {
-            val process = Runtime.getRuntime().exec("su -c id")
-            val reader = BufferedReader(InputStreamReader(process.inputStream))
-            val output = reader.readLine() ?: ""
-            reader.close()
-            process.waitFor()
-            val available = output.contains("uid=0")
-            rootAvailable = available
-            XLog.d(TAG, "root check: $available")
-            available
-        } catch (e: Exception) {
-            rootAvailable = false
-            XLog.d(TAG, "root check failed: ${e.message}")
-            false
+        val result = BoundedRootRunner.run("id", timeoutMs = 3_000L)
+        val available = result.isSuccess && result.stdout.contains("uid=0")
+        rootAvailable = available
+        XLog.d(TAG, "root check: $available")
+        if (!available && result.stderr.isNotBlank()) {
+            XLog.d(TAG, "root check failed: ${result.stderr}")
         }
+        return available
     }
 
     fun getNotificationChannel(packageName: String, channelId: String?): NotificationChannel? {
@@ -61,32 +53,13 @@ object RootNotificationHelper {
     }
 
     private fun execDumpsys(command: String): String? {
-        return try {
-            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", command))
-            val reader = BufferedReader(InputStreamReader(process.inputStream))
-            val output = StringBuilder()
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
-                output.appendLine(line)
-            }
-            reader.close()
-            val errReader = BufferedReader(InputStreamReader(process.errorStream))
-            val err = StringBuilder()
-            while (errReader.readLine().also { line = it } != null) {
-                err.appendLine(line)
-            }
-            errReader.close()
-            process.waitFor()
-            if (process.exitValue() != 0) {
-                XLog.w(TAG, "dumpsys failed: $command, exit=${process.exitValue()}, err=$err")
-                null
-            } else {
-                output.toString()
-            }
-        } catch (e: Exception) {
-            XLog.w(TAG, "dumpsys exception: $command, ${e.message}")
-            null
+        val result = BoundedRootRunner.run(command)
+        if (!result.isSuccess) {
+            val error = result.stderr.ifBlank { result.stdout }.ifBlank { "unknown" }
+            XLog.w(TAG, "dumpsys failed: $command, exit=${result.exitCode}, err=$error")
+            return null
         }
+        return result.stdout
     }
 
     private fun parseChannels(output: String, packageName: String): List<NotificationChannel?> {

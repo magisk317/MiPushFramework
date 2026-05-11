@@ -7,7 +7,7 @@ import android.os.Bundle
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
 import io.github.magisk317.mipush.platform.support.XMPushUtils
-import com.topjohnwu.superuser.Shell
+import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
@@ -195,7 +195,7 @@ class PushMessageProcessor @Inject constructor(
 
     private fun activeApp(targetPackage: String) {
         runCatching {
-            Shell.cmd("pm enable $targetPackage").exec()
+            AppRootAccessFacade.runRootCommand("pm enable $targetPackage")
         }.onFailure {
             logger.w(packageInfo(targetPackage, "pm enable failed: ${it.localizedMessage}"))
         }
