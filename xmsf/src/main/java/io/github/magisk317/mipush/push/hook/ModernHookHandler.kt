@@ -34,6 +34,7 @@ class ModernHookHandler : HookedMethodHandler {
     ) {
         HookTraceCompat.postProcessMIPushMessage(pkgName, payload, newMessageIntent)
         XMPushServiceLifecycleBridge.ensureCreated(pushService)
+        io.github.aakira.napier.Napier.d("postProcessMIPushMessage: onTransferToApplication payload.size=${payload.size}", tag = "ModernHookHandler")
         newMessageIntent.getByteArrayExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD)
             ?.let { MiPushRuntimeBridge.onTransferToApplication(it) }
         MiPushRuntimeBridge.onTransferToApplication(payload)
@@ -109,6 +110,7 @@ class ModernHookHandler : HookedMethodHandler {
         packetBytesLen: Long
     ) {
         HookTraceCompat.processMIPushMessage(packetBytesLen, "ModernHookHandler.processMIPushMessage")
+        io.github.aakira.napier.Napier.d("processMIPushMessage: calling onPayloadFromServer payload.size=${decryptedContent.size}", tag = "ModernHookHandler")
         MiPushRuntimeBridge.onPayloadFromServer(
             pushService,
             decryptedContent,
