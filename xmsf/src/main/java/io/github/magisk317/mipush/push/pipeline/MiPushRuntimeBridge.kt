@@ -200,6 +200,7 @@ object MiPushRuntimeBridge {
     private fun recordEvent(context: Context, container: XmPushActionContainer) {
         val pkg = container.packageName
         if (pkg.isNullOrBlank()) {
+            logger.d("recordEvent skip: empty package")
             return
         }
         if (RegisteredApplicationDb.isBlocked(pkg)) {
@@ -209,7 +210,10 @@ object MiPushRuntimeBridge {
         val eventType = TypeFactory.createForStore(container)
         val application = RegisteredApplicationDb.registerApplication(pkg)
         applyRegistrationStateFromContainer(container, application)
+        val messageId = MessageIdentity.fromContainer(container)
+        logger.d("recordEvent start pkg=$pkg action=${container.action?.name} messageId=$messageId eventType=${eventType.type}")
         runBlocking { EventDb.insertEventAsync(Event.ResultType.OK, eventType) }
+        logger.d("recordEvent done pkg=$pkg action=${container.action?.name} messageId=$messageId")
         if (eventType.type == Event.Type.Registration || eventType.type == Event.Type.RegistrationResult) {
             maybeShowRegisterToast(context, pkg, application)
         }
