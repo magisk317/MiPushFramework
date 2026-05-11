@@ -25,7 +25,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          ref: beta
+          ref: dev
           submodules: recursive
           fetch-depth: 0
 
@@ -143,7 +143,7 @@ jobs:
         uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GH_PAT != '' && secrets.GH_PAT || github.token }}
-          base: beta
+          base: dev
           branch: chore/dependency-force-update
           delete-branch: true
           title: "build: update forced dependencies"
