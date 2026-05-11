@@ -41,3 +41,9 @@ public static java.lang.String TABLENAME;
 
 # Avoid R8 horizontal class merging/obfuscation side effects in wizard permission operators.
 -keep class io.github.magisk317.mipush.feature.wizard.permission.** { *; }
+
+# Xposed hooks resolve these classes and methods by string name from the host
+# process, so minified builds must keep their binary API stable.
+-keep class io.github.magisk317.mipush.notification.NotificationManagerEx { *; }
+-keep class com.xiaomi.push.service.NotificationIdentityBridge { *; }
+-keep class com.xiaomi.push.service.NotificationIdentityBridge$* { *; }
