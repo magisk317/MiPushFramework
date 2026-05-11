@@ -85,8 +85,8 @@ import io.github.magisk317.mipush.compat.RegistrationStateCompat
 import io.github.magisk317.mipush.compat.RegistrationStateStore
 import io.github.magisk317.mipush.utils.RegistrationHelper
 import io.github.magisk317.mipush.config.ConfigNavigationHelper
+import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.platform.support.PermissionUtils
-import com.topjohnwu.superuser.Shell
 import com.xiaomi.xmsf.BuildConfig
 import com.xiaomi.xmsf.R
 import kotlinx.coroutines.Dispatchers
@@ -532,7 +532,7 @@ open class ApplicationInfoPage : ComponentActivity() {
 
     private fun stopTargetAppBestEffort(packageName: String) {
         runCatching {
-            Shell.cmd("am force-stop $packageName").exec()
+            AppRootAccessFacade.runRootCommand("am force-stop $packageName")
         }
     }
 

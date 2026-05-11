@@ -10,27 +10,18 @@ import android.os.Build
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import io.github.magisk317.mipush.network.NetworkPolicyCompat
 import com.xiaomi.xmsf.BuildConfig
 import com.xiaomi.xmsf.R
-import io.github.magisk317.mipush.diagnostics.PushHealthSnapshotLogger
-import io.github.magisk317.mipush.platform.support.InternalMessenger
-import io.github.magisk317.mipush.platform.support.PermissionUtils
-import io.github.magisk317.mipush.utils.RegistrationHelper
-import com.xiaomi.push.service.PushConstants
-import com.xiaomi.push.service.PushServiceConstants
-import com.xiaomi.push.service.XMPushServiceMessenger
-import com.xiaomi.smack.ConnectionConfiguration
 import io.github.magisk317.mipush.notification.NotificationController
 import io.github.magisk317.mipush.utils.LogUtils
-import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.entities.Event
-import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
 import io.github.magisk317.mipush.runtime.store.event.type.NotificationType
 import io.github.magisk317.mipush.feature.main.subpage.ApplicationPageOperation
+import io.github.magisk317.mipush.service.runtime.RuntimeSettingsAdapter
+import io.github.magisk317.mipush.service.runtime.RuntimeSettingsAdapter.ForceRegisterStage
 import java.util.Date
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
@@ -43,13 +34,13 @@ import kotlinx.coroutines.withContext
 
 @Singleton
 class SettingsManager @Inject constructor(
-    @param:ApplicationContext private val context: Context,
-    private val configCenter: ConfigCenter
+    private val configCenter: ConfigCenter,
+    private val runtimeSettingsAdapter: RuntimeSettingsAdapter,
 ) {
     // No-arg fallback for legacy Singleton access.
     constructor() : this(
-        io.github.magisk317.mipush.common.utils.Utils.getApplication()!!,
-        io.github.magisk317.mipush.common.utils.Singleton.instance<ConfigCenter>()
+        io.github.magisk317.mipush.common.utils.Singleton.instance<ConfigCenter>(),
+        io.github.magisk317.mipush.common.utils.Singleton.instance<RuntimeSettingsAdapter>(),
     )
 
     init {
@@ -84,7 +75,7 @@ class SettingsManager @Inject constructor(
     }
 
     fun startMiPushServiceAsForegroundService(context: Context) {
-        InternalMessenger(context).send(Intent(XMPushServiceMessenger.IntentStartForeground))
+        runtimeSettingsAdapter.startMiPushServiceAsForegroundService(context)
     }
 
     fun notifyMockNotification(context: Context) {
@@ -112,98 +103,33 @@ class SettingsManager @Inject constructor(
     }
 
     fun tryForceRegisterAllApplications(context: Context): String {
-        var successCount = 0
-        var failedCount = 0
-        var unsupportedCount = 0
-        val unsupportedReasons = linkedMapOf<String, Int>()
-        val unsupportedSamples = linkedMapOf<String, MutableList<String>>()
-        val failureTypes = linkedMapOf<String, Int>()
-        fun logSnapshot(stage: String) {
-            val unsupportedSummary = unsupportedReasons.entries.joinToString(",") { "${it.key}:${it.value}" }
-            val sampleSummary = unsupportedSamples.entries.joinToString(";") { "${it.key}=${it.value.joinToString(",")}" }
-            val failureSummary = failureTypes.entries.joinToString(",") { "${it.key}:${it.value}" }
-            PushHealthSnapshotLogger.log(
-                context,
-                "SettingsManager.tryForceRegisterAllApplications",
-                "stage=$stage success=$successCount failed=$failedCount unsupported=$unsupportedCount unsupportedReasons=$unsupportedSummary unsupportedSamples=$sampleSummary failureTypes=$failureSummary"
-            )
-        }
-
-        if (!PermissionUtils.refreshRootAccessIfGranted()) {
-            logSnapshot("root_missing")
+        val outcome = runtimeSettingsAdapter.tryForceRegisterAllApplications(
+            context = context,
+            applications = ApplicationPageOperation.getMiPushApplications().res,
+        )
+        if (outcome.stage == ForceRegisterStage.ROOT_MISSING) {
             return context.getString(R.string.force_register_requires_root)
         }
-
-        val miPushApplications: ApplicationPageOperation.MiPushApplications = ApplicationPageOperation.getMiPushApplications()
-        for (registeredApplication: RegisteredApplication in miPushApplications.res) {
-            val packageName = registeredApplication.packageName
-            val plan = RegistrationHelper.inspectForceRegisterPlan(packageName)
-            if (!plan.supportsServiceDispatch && !plan.supportsReceiverFallback) {
-                unsupportedCount++
-                unsupportedReasons[plan.reason] = (unsupportedReasons[plan.reason] ?: 0) + 1
-                unsupportedSamples.getOrPut(plan.reason) { mutableListOf() }.apply {
-                    if (size < 5) add(packageName)
-                }
-                continue
-            }
-            try {
-                val success = if (plan.supportsServiceDispatch) {
-                    RegistrationHelper.tryForceRegister(packageName) ||
-                        (plan.supportsReceiverFallback && RegistrationHelper.tryForceRegisterFallback(packageName))
-                } else {
-                    RegistrationHelper.tryForceRegisterFallback(packageName)
-                }
-                if (success) {
-                    successCount++
-                } else {
-                    failedCount++
-                    failureTypes["FallbackDispatchFailed"] = (failureTypes["FallbackDispatchFailed"] ?: 0) + 1
-                }
-            } catch (e: UnsupportedOperationException) {
-                unsupportedCount++
-                unsupportedReasons[plan.reason] = (unsupportedReasons[plan.reason] ?: 0) + 1
-                unsupportedSamples.getOrPut(plan.reason) { mutableListOf() }.apply {
-                    if (size < 5) add(packageName)
-                }
-            } catch (_: NoClassDefFoundError) {
-                failedCount++
-                failureTypes["NoClassDefFoundError"] = (failureTypes["NoClassDefFoundError"] ?: 0) + 1
-            } catch (_: ClassNotFoundException) {
-                failedCount++
-                failureTypes["ClassNotFoundException"] = (failureTypes["ClassNotFoundException"] ?: 0) + 1
-            } catch (t: Throwable) {
-                failedCount++
-                val key = t::class.java.simpleName.ifBlank { "Throwable" }
-                failureTypes[key] = (failureTypes[key] ?: 0) + 1
-            }
-        }
-
-        if (successCount == 0 && (failedCount > 0 || unsupportedCount > 0)) {
-            logSnapshot("all_failed")
+        if (outcome.stage == ForceRegisterStage.ALL_FAILED) {
             return context.getString(R.string.force_register_unavailable)
         }
-
-        val resultMessage = if (failedCount == 0 && unsupportedCount == 0) {
-            context.getString(R.string.force_register_done, successCount)
+        return if (outcome.nonSuccessCount == 0) {
+            context.getString(R.string.force_register_done, outcome.successCount)
         } else {
-            context.getString(R.string.force_register_partial, successCount, failedCount + unsupportedCount)
+            context.getString(R.string.force_register_partial, outcome.successCount, outcome.nonSuccessCount)
         }
-        logSnapshot("completed")
-        return resultMessage
     }
 
     fun sendXMPPReconnectRequest(context: Context) {
-        InternalMessenger(context).send(Intent(PushConstants.ACTION_RESET_CONNECTION))
+        runtimeSettingsAdapter.sendXmppReconnectRequest(context)
     }
 
     fun setXMPPServer(context: Context, newHost: String) {
-        runBlocking { configCenter.setXMPPServerAsync(newHost) }
-        NetworkPolicyCompat.applyXmppHostOverride(context.applicationContext)
-        sendXMPPReconnectRequest(context)
+        runtimeSettingsAdapter.setXmppServer(context, newHost)
     }
 
     fun getXMPPServerHint(): String {
-        return ConnectionConfiguration.getXmppServerHost() + ":" + PushServiceConstants.XMPP_SERVER_PORT
+        return runtimeSettingsAdapter.getXmppServerHint()
     }
 
     fun getXMPPServer(context: Context): String? = runBlocking { configCenter.getXMPPServerAsync() }

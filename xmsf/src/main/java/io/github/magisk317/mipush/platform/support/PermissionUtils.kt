@@ -4,56 +4,25 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
-import android.provider.Settings
 import android.widget.Toast
 import androidx.core.content.ContextCompat
-import io.github.magisk317.mipush.utils.PrivilegeElevator
-import com.topjohnwu.superuser.Shell
 import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.platform.override.AppOpsManagerOverride
-import java.util.concurrent.atomic.AtomicReference
 
 object PermissionUtils {
-    private val rootAccessCache = AtomicReference<Boolean?>(null)
+    @JvmStatic
+    fun hasRootAccess(): Boolean = AppRootAccessFacade.refreshRootAccessIfGranted()
 
     @JvmStatic
-    fun hasRootAccess(): Boolean {
-        if (Shell.isAppGrantedRoot() == false) {
-            rootAccessCache.set(false)
-            return false
-        }
-        return runCatching {
-            Shell.cmd("id -u").exec().out.firstOrNull()?.trim() == "0"
-        }.getOrDefault(false).also { rootAccessCache.set(it) }
-    }
+    fun hasCachedRootAccess(): Boolean = AppRootAccessFacade.hasCachedRootAccess()
 
     @JvmStatic
-    fun hasCachedRootAccess(): Boolean {
-        return rootAccessCache.get() == true
-    }
+    fun refreshRootAccessIfGranted(): Boolean = AppRootAccessFacade.refreshRootAccessIfGranted()
 
     @JvmStatic
-    fun refreshRootAccessIfGranted(): Boolean {
-        val granted = Shell.isAppGrantedRoot()
-        if (granted == false) {
-            rootAccessCache.set(false)
-            return false
-        }
-        if (granted != true && rootAccessCache.get() != true) {
-            return false
-        }
-        return hasRootAccess()
-    }
-
-    @JvmStatic
-    fun requestRootAccess(): Boolean {
-        return runCatching {
-            PrivilegeElevator.tryToElevate()
-            hasRootAccess()
-        }.getOrDefault(false).also { rootAccessCache.set(it) }
-    }
+    fun requestRootAccess(): Boolean = AppRootAccessFacade.requestRootAccess()
 
     @JvmStatic
     fun canAssignPermissionViaAppOps(): Boolean {
@@ -62,7 +31,7 @@ object PermissionUtils {
 
     @JvmStatic
     fun lunchAppOps(context: Context, permission: String, tips: CharSequence): Boolean {
-        if (hasCachedRootAccess() && ShellUtils.isSuAvailable()) {
+        if (hasCachedRootAccess()) {
             if (allowPermission(permission)) {
                 return true
             }
@@ -86,9 +55,9 @@ object PermissionUtils {
 
     @JvmStatic
     fun allowPermission(permission: String): Boolean {
-        return ShellUtils.exec(
+        return AppRootAccessFacade.runRootCommand(
             "appops set --user " + Utils.myUid() + " " + Constants.SERVICE_APP_NAME + " " + permission + " " + AppOpsManagerOverride.MODE_ALLOWED
-        )
+        ).isSuccess
     }
 
     @JvmStatic
@@ -100,7 +69,7 @@ object PermissionUtils {
             "cmd deviceidle whitelist +${context.packageName}",
             "dumpsys deviceidle whitelist +${context.packageName}"
         )
-        commands.forEach { ShellUtils.exec(it) }
+        commands.forEach { AppRootAccessFacade.runRootCommand(it) }
         val powerManager = context.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
         return powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true
     }
@@ -120,7 +89,7 @@ object PermissionUtils {
             "appops set --user ${Utils.myUid()} $packageName android:post_notification allow",
             "cmd appops set $packageName POST_NOTIFICATION allow"
         )
-        commands.forEach { ShellUtils.exec(it) }
+        commands.forEach { AppRootAccessFacade.runRootCommand(it) }
         return ContextCompat.checkSelfPermission(
             context,
             android.Manifest.permission.POST_NOTIFICATIONS

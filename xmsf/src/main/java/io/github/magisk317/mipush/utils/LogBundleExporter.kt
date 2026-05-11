@@ -10,12 +10,13 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.util.Date
-import java.util.Locale
 import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import io.github.magisk317.mipush.common.Constants
-import io.github.magisk317.mipush.platform.support.PermissionUtils
+import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
+import io.github.magisk317.mipush.platform.support.BoundedShellResult
+import io.github.magisk317.mipush.platform.support.BoundedShellRunner
 
 internal object LogBundleExporter {
     private const val ZIP_MIME_TYPE = "application/zip"
@@ -47,6 +48,29 @@ internal object LogBundleExporter {
         val success: Boolean,
         val details: String,
     )
+
+    interface RootCommandAccess {
+        fun refreshRootAccessIfGranted(): Boolean
+
+        fun runRootCommand(
+            command: String,
+            timeoutMs: Long = BoundedShellRunner.DEFAULT_TIMEOUT_MS,
+        ): BoundedShellResult
+    }
+
+    private object DefaultRootCommandAccess : RootCommandAccess {
+        override fun refreshRootAccessIfGranted(): Boolean = AppRootAccessFacade.refreshRootAccessIfGranted()
+
+        override fun runRootCommand(command: String, timeoutMs: Long): BoundedShellResult {
+            return AppRootAccessFacade.runRootCommand(command, timeoutMs = timeoutMs)
+        }
+    }
+
+    var rootCommandAccess: RootCommandAccess = DefaultRootCommandAccess
+
+    fun resetRootCommandAccessForTest() {
+        rootCommandAccess = DefaultRootCommandAccess
+    }
 
     fun buildLogBundle(context: Context): ExportResult {
         synchronized(opLock) {
@@ -247,7 +271,7 @@ internal object LogBundleExporter {
         }
         if (copied) return true
 
-        if (!PermissionUtils.refreshRootAccessIfGranted()) {
+        if (!rootCommandAccess.refreshRootAccessIfGranted()) {
             details += "lsposed su skipped: root not granted"
             return false
         }
@@ -291,8 +315,8 @@ internal object LogBundleExporter {
             details += "logcat: direct"
             return
         }
-        if (!PermissionUtils.refreshRootAccessIfGranted()) return
-        val su = dumpCommandOutput(listOf("su", "-c", "logcat -d -v threadtime -b all"), output)
+        if (!rootCommandAccess.refreshRootAccessIfGranted()) return
+        val su = dumpRootCommandOutput("logcat -d -v threadtime -b all", output)
         if (su) {
             details += "logcat: su"
         }
@@ -311,6 +335,17 @@ internal object LogBundleExporter {
                 process.destroyForcibly()
                 return@runCatching false
             }
+            output.exists() && output.length() > 0
+        }.getOrDefault(false)
+    }
+
+    private fun dumpRootCommandOutput(command: String, output: File): Boolean {
+        return runCatching {
+            val parent = output.parentFile ?: return false
+            if (!ensureDirectory(parent, recreateWhenFile = true)) return false
+            val result = rootCommandAccess.runRootCommand(command, timeoutMs = 6_000L)
+            if (!result.isSuccess) return false
+            output.writeText(result.stdoutText)
             output.exists() && output.length() > 0
         }.getOrDefault(false)
     }
@@ -427,7 +462,7 @@ internal object LogBundleExporter {
     private fun deleteRecursivelyWithSuFallback(target: File): Boolean {
         if (!target.exists()) return true
         if (target.deleteRecursively()) return true
-        if (!PermissionUtils.refreshRootAccessIfGranted()) {
+        if (!rootCommandAccess.refreshRootAccessIfGranted()) {
             logger.w("Skip su rm fallback because root is not granted: ${target.absolutePath}")
             return !target.exists()
         }
@@ -458,24 +493,8 @@ internal object LogBundleExporter {
     )
 
     private fun runSuCommand(command: String): ShellResult {
-        return try {
-            val process = ProcessBuilder("su", "-c", command).start()
-            val completed = process.waitFor(8, TimeUnit.SECONDS)
-            if (!completed) {
-                process.destroyForcibly()
-                return ShellResult(-1, "", "timeout")
-            }
-            val stdout = process.inputStream.bufferedReader().use { it.readText() }
-            val stderr = process.errorStream.bufferedReader().use { it.readText() }
-            ShellResult(process.exitValue(), stdout, stderr)
-        } catch (e: IOException) {
-            ShellResult(-1, "", e.message ?: e.javaClass.simpleName)
-        } catch (e: SecurityException) {
-            ShellResult(-1, "", e.message ?: e.javaClass.simpleName)
-        } catch (e: InterruptedException) {
-            Thread.currentThread().interrupt()
-            ShellResult(-1, "", e.message ?: e.javaClass.simpleName)
-        }
+        val result = rootCommandAccess.runRootCommand(command)
+        return ShellResult(result.exitCode, result.stdoutText, result.stderrText)
     }
 
     private fun shQuote(value: String): String {

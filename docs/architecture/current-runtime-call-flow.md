@@ -167,3 +167,8 @@ Only bypass `PushRuntime` when the stock feature is strictly self-contained and 
 that may touch legacy/runtime and protocol types directly. UI, settings, and feature code should
 go through these adapters or through `core` facades instead of importing deep `com.xiaomi.*`
 transport/protocol classes.
+
+Settings/runtime actions such as foregrounding the push service, resetting the XMPP connection, and
+reading the current stock XMPP host are routed through `RuntimeSettingsAdapter`. Root and shell
+actions are routed through `RootAccessFacade`, with hook-side root probes kept in the xposed module's
+bounded runner.
