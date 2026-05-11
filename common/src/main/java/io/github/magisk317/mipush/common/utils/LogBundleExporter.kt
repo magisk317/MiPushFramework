@@ -10,7 +10,6 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.util.Date
-import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import io.github.magisk317.mipush.common.Constants
@@ -22,12 +21,8 @@ object LogBundleExporter {
     private const val PRIVATE_LOG_DIR_NAME = "log"
     private const val PRIVATE_CRASH_DIR_NAME = "crash"
     private const val PRIVATE_EXPORT_DIR_NAME = "xmsf_logs"
-    private const val LEGACY_CACHE_LOG_DIR_NAME = "logs"
-    private const val MI_PUSH_LOG_DIR_NAME = "MiPushLog"
     private val crashFilePattern = Regex("^Crash_\\d{4}-\\d{2}-\\d{2}\\.txt$")
-    private val LSPOSED_LOG_DIRS = listOf(
-        "/data/adb/lspd/log",
-    )
+    private val legacyTextLogFilePattern = Regex("^logs_\\d{4}-\\d{2}-\\d{2}\\.txt$")
     private val opLock = Any()
     private val logger = object {
         fun i(message: String) = Napier.i(message, tag = "LogBundleExporter")
@@ -70,12 +65,6 @@ object LogBundleExporter {
             try {
                 copyAppLogs(context, stagingDir, details)
                 copyCrashLogs(context, stagingDir, details)
-                copyMiPushSdkLogs(context, stagingDir, details)
-                val lsposedCopied = copyLsposedLogs(stagingDir, details)
-                if (!lsposedCopied) {
-                    details += "lsposed log missing or unreadable"
-                }
-                captureLogcat(stagingDir, details)
 
                 val payloadCount = stagingDir.walkTopDown()
                     .count { it.isFile }
@@ -150,7 +139,6 @@ object LogBundleExporter {
             val targets = listOf(
                 "log" to getLogDir(context),
                 "crash" to getCrashDir(context),
-                "legacy_cache_log" to getLegacyCacheLogDir(context),
                 "private_export" to getPrivateExportDir(context),
             )
             targets.forEach { (name, dir) ->
@@ -170,12 +158,7 @@ object LogBundleExporter {
 
     fun getCrashDir(context: Context): File = ensurePrivateSubDir(context, PRIVATE_CRASH_DIR_NAME)
 
-    private fun getLegacyCacheLogDir(context: Context): File = File(context.cacheDir, LEGACY_CACHE_LOG_DIR_NAME)
-
     private fun getPrivateExportDir(context: Context): File = ensurePrivateSubDir(context, PRIVATE_EXPORT_DIR_NAME)
-
-    private fun getMiPushSdkLogDir(context: Context): File? =
-        context.getExternalFilesDir(null)?.let { File(it, MI_PUSH_LOG_DIR_NAME) }
 
     private fun ensurePrivateSubDir(context: Context, name: String): File {
         val dir = File(context.filesDir, name)
@@ -184,21 +167,17 @@ object LogBundleExporter {
     }
 
     private fun copyAppLogs(context: Context, stagingDir: File, details: MutableList<String>) {
-        val sources = listOf(
-            "log" to getLogDir(context),
-            "legacy_cache_log" to getLegacyCacheLogDir(context),
-        )
+        val src = getLogDir(context)
         var copiedAny = false
-        sources.forEach { (label, src) ->
-            if (src.exists() && src.isDirectory && src.listFiles()?.isNotEmpty() == true) {
-                copyDirectory(src, File(stagingDir, "app/$label"))
-                details += "$label: ${src.absolutePath}"
-                copiedAny = true
+        if (src.exists() && src.isDirectory && src.listFiles()?.isNotEmpty() == true) {
+            val stagedAppLogDir = File(stagingDir, "app/log")
+            copyDirectory(src, stagedAppLogDir) { file ->
+                file.parentFile == src && isGenericLocalLogFile(file)
             }
-        }
-        val moduleLogDir = File(getLogDir(context), "modules")
-        if (moduleLogDir.exists() && moduleLogDir.isDirectory && moduleLogDir.listFiles()?.isNotEmpty() == true) {
-            details += "module log: ${moduleLogDir.absolutePath}"
+            copiedAny = stagedAppLogDir.walkTopDown().any { it.isFile }
+            if (copiedAny) {
+                details += "log: ${src.absolutePath}"
+            }
         }
         if (!copiedAny) {
             details += "app log missing"
@@ -213,65 +192,6 @@ object LogBundleExporter {
         } else {
             details += "crash log missing"
         }
-    }
-
-    private fun copyMiPushSdkLogs(context: Context, stagingDir: File, details: MutableList<String>) {
-        val sdkDir = getMiPushSdkLogDir(context)
-        if (sdkDir != null && sdkDir.exists() && sdkDir.isDirectory && sdkDir.listFiles()?.isNotEmpty() == true) {
-            copyDirectory(sdkDir, File(stagingDir, "app/mipush_sdk"))
-            details += "mipush sdk log: ${sdkDir.absolutePath}"
-        }
-    }
-
-    private fun copyLsposedLogs(stagingDir: File, details: MutableList<String>): Boolean {
-        val lsposedTargetRoot = File(stagingDir, "lsposed")
-        var copied = false
-        LSPOSED_LOG_DIRS.forEach { path ->
-            val src = File(path)
-            if (src.exists() && src.canRead()) {
-                val target = File(lsposedTargetRoot, src.name)
-                copyDirectory(src, target) { file ->
-                    !file.name.contains("old", ignoreCase = true)
-                }
-                if (target.walkTopDown().any { it.isFile }) {
-                    details += "lsposed direct: $path"
-                    copied = true
-                }
-            }
-        }
-        if (copied) return true
-
-        details += "lsposed root-only source skipped by common exporter"
-        return false
-    }
-
-    private fun captureLogcat(stagingDir: File, details: MutableList<String>) {
-        val logcatDir = File(stagingDir, "logcat")
-        if (!ensureDirectory(logcatDir, recreateWhenFile = true)) return
-        val output = File(logcatDir, "logcat_all.txt")
-        val direct = dumpCommandOutput(listOf("logcat", "-d", "-v", "threadtime", "-b", "all"), output)
-        if (direct) {
-            details += "logcat: direct"
-            return
-        }
-    }
-
-    private fun dumpCommandOutput(command: List<String>, output: File): Boolean {
-        return runCatching {
-            val parent = output.parentFile ?: return false
-            if (!ensureDirectory(parent, recreateWhenFile = true)) return false
-            val process = ProcessBuilder(command)
-                .redirectErrorStream(true)
-                .start()
-            output.outputStream().use { out ->
-                process.inputStream.copyTo(out)
-            }
-            process.waitFor(6, TimeUnit.SECONDS)
-            if (process.isAlive) {
-                process.destroy()
-            }
-            output.exists() && output.length() > 0
-        }.getOrDefault(false)
     }
 
     private fun copyDirectory(source: File, target: File, includeFile: (File) -> Boolean = { true }) {
@@ -341,6 +261,10 @@ object LogBundleExporter {
         }.getOrDefault(false)
     }
 
+    private fun isGenericLocalLogFile(file: File): Boolean {
+        return file.isFile && (file.name.endsWith(".jsonl") || legacyTextLogFilePattern.matches(file.name))
+    }
+
     private fun ensureDirectory(dir: File, recreateWhenFile: Boolean): Boolean {
         if (dir.exists()) {
             if (dir.isDirectory) return true
@@ -377,8 +301,6 @@ object LogBundleExporter {
     private fun pruneCurrentDayLocalLogs(context: Context, now: Date) {
         runCatching {
             LogUtils.pruneAppLogsForToday(getLogDir(context), now)
-            LogUtils.pruneAppLogsForToday(getLegacyCacheLogDir(context), now)
-            LogUtils.pruneModuleLogsForToday(File(getLogDir(context), "modules"), now)
             LogUtils.pruneDailyFiles(getCrashDir(context), LogUtils.currentDateString(now), crashFilePattern)
         }.onFailure {
             logger.w("Failed to prune local logs before export: ${it.message ?: it.javaClass.simpleName}")
