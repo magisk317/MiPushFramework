@@ -2,7 +2,9 @@ package io.github.magisk317.mipush.utils
 
 import android.content.Context
 import io.github.aakira.napier.Napier
+import io.github.magisk317.mipush.platform.support.BoundedShellResult
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -31,6 +33,7 @@ class LogUtilsRobolectricTest {
 
     @After
     fun tearDown() {
+        LogBundleExporter.resetRootCommandAccessForTest()
         LogBundleExporter.clearLogFolders(context)
     }
 
@@ -119,5 +122,32 @@ class LogUtilsRobolectricTest {
         assertFalse(text.contains("token=plain"))
         assertTrue(text.contains("ipc_token=<redacted>"))
         assertTrue(text.contains("token=<redacted>"))
+    }
+
+    @Test
+    fun `export does not run su commands when root is not granted`() {
+        val currentDate = LogUtils.currentDateString(Date())
+        File(LogBundleExporter.getLogDir(context), "runtime.$currentDate.jsonl")
+            .writeText("""{"timestamp":1,"message":"hello"}""")
+        val rootAccess = RecordingRootAccess(granted = false)
+        LogBundleExporter.rootCommandAccess = rootAccess
+
+        val result = LogBundleExporter.buildLogBundle(context)
+
+        assertNotNull(result.file)
+        assertEquals(emptyList<String>(), rootAccess.commands)
+    }
+
+    private class RecordingRootAccess(
+        private val granted: Boolean,
+    ) : LogBundleExporter.RootCommandAccess {
+        val commands = mutableListOf<String>()
+
+        override fun refreshRootAccessIfGranted(): Boolean = granted
+
+        override fun runRootCommand(command: String, timeoutMs: Long): BoundedShellResult {
+            commands += command
+            return BoundedShellResult(0, stdout = listOf("root-output"))
+        }
     }
 }

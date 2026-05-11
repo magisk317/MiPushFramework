@@ -41,6 +41,28 @@ class RootAccessFacadeTest {
     }
 
     @Test
+    fun `refresh revokes cached root access when grant becomes denied`() {
+        var grantState: Boolean? = true
+        val runner = RecordingRunner(
+            "id -u" to BoundedShellResult(0, stdout = listOf("0")),
+        )
+        val facade = RootAccessFacade(
+            runner = runner,
+            rootGrantState = { grantState },
+            requestRootGrant = {},
+        )
+
+        assertTrue(facade.refreshRootAccessIfGranted())
+        assertTrue(facade.hasCachedRootAccess())
+
+        grantState = false
+
+        assertFalse(facade.refreshRootAccessIfGranted())
+        assertFalse(facade.hasCachedRootAccess())
+        assertEquals(listOf("id -u"), runner.commands)
+    }
+
+    @Test
     fun `root command returns stderr and timeout from bounded runner`() {
         val runner = RecordingRunner(
             "id -u" to BoundedShellResult(0, stdout = listOf("0")),

@@ -15,7 +15,8 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
-import io.github.magisk317.mipush.platform.support.PermissionUtils
+import io.github.magisk317.mipush.platform.support.BoundedShellResult
+import io.github.magisk317.mipush.platform.support.BoundedShellRunner
 
 internal object LogBundleExporter {
     private const val ZIP_MIME_TYPE = "application/zip"
@@ -47,6 +48,29 @@ internal object LogBundleExporter {
         val success: Boolean,
         val details: String,
     )
+
+    interface RootCommandAccess {
+        fun refreshRootAccessIfGranted(): Boolean
+
+        fun runRootCommand(
+            command: String,
+            timeoutMs: Long = BoundedShellRunner.DEFAULT_TIMEOUT_MS,
+        ): BoundedShellResult
+    }
+
+    private object DefaultRootCommandAccess : RootCommandAccess {
+        override fun refreshRootAccessIfGranted(): Boolean = AppRootAccessFacade.refreshRootAccessIfGranted()
+
+        override fun runRootCommand(command: String, timeoutMs: Long): BoundedShellResult {
+            return AppRootAccessFacade.runRootCommand(command, timeoutMs = timeoutMs)
+        }
+    }
+
+    var rootCommandAccess: RootCommandAccess = DefaultRootCommandAccess
+
+    fun resetRootCommandAccessForTest() {
+        rootCommandAccess = DefaultRootCommandAccess
+    }
 
     fun buildLogBundle(context: Context): ExportResult {
         synchronized(opLock) {
@@ -247,7 +271,7 @@ internal object LogBundleExporter {
         }
         if (copied) return true
 
-        if (!PermissionUtils.refreshRootAccessIfGranted()) {
+        if (!rootCommandAccess.refreshRootAccessIfGranted()) {
             details += "lsposed su skipped: root not granted"
             return false
         }
@@ -291,7 +315,7 @@ internal object LogBundleExporter {
             details += "logcat: direct"
             return
         }
-        if (!PermissionUtils.refreshRootAccessIfGranted()) return
+        if (!rootCommandAccess.refreshRootAccessIfGranted()) return
         val su = dumpRootCommandOutput("logcat -d -v threadtime -b all", output)
         if (su) {
             details += "logcat: su"
@@ -319,7 +343,7 @@ internal object LogBundleExporter {
         return runCatching {
             val parent = output.parentFile ?: return false
             if (!ensureDirectory(parent, recreateWhenFile = true)) return false
-            val result = AppRootAccessFacade.runRootCommand(command, timeoutMs = 6_000L)
+            val result = rootCommandAccess.runRootCommand(command, timeoutMs = 6_000L)
             if (!result.isSuccess) return false
             output.writeText(result.stdoutText)
             output.exists() && output.length() > 0
@@ -438,7 +462,7 @@ internal object LogBundleExporter {
     private fun deleteRecursivelyWithSuFallback(target: File): Boolean {
         if (!target.exists()) return true
         if (target.deleteRecursively()) return true
-        if (!PermissionUtils.refreshRootAccessIfGranted()) {
+        if (!rootCommandAccess.refreshRootAccessIfGranted()) {
             logger.w("Skip su rm fallback because root is not granted: ${target.absolutePath}")
             return !target.exists()
         }
@@ -469,7 +493,7 @@ internal object LogBundleExporter {
     )
 
     private fun runSuCommand(command: String): ShellResult {
-        val result = AppRootAccessFacade.runRootCommand(command)
+        val result = rootCommandAccess.runRootCommand(command)
         return ShellResult(result.exitCode, result.stdoutText, result.stderrText)
     }
 
