@@ -16,6 +16,8 @@
 
 当前开发分支的最低支持版本已经提升到 Android 9.0（API 28），构建环境也已经对齐到 Java 25+（JDK 25）/ Gradle 9.x。如果你是从旧文档或历史 release 了解这个项目，请以 `gradle/libs.versions.toml` 中的构建参数为准。
 
+当前 `dev` 使用较激进的 Android Gradle Plugin、Kotlin 和 JDK 版本以便尽早暴露兼容问题；release 或紧急修复如果需要稳定通道，应单独开任务降风险，而不是在常规架构收口里回退工具链。
+
 ## 什么是小米系统级推送，为什么会有这个项目
 
 小米推送是小米公司提供的推送服务，许多 App 都在使用（如酷安）。
@@ -135,6 +137,7 @@ Release 页面提供两个版本：`normal` 和 `vc105`，核心区别在于**�
 - 动态路由统一使用 `AppDestinations.*.route(...)` 构造，避免手写字符串拼接。
 - 运行时主链梳理见 `docs/architecture/current-runtime-call-flow.md`。
 - 模块边界以 `docs/architecture/boundary-model.md` 为准，stock dump 只作为行为参考，不进入源码图。
+- `./gradlew verifyModuleBoundaries` 会阻止 UI/settings/viewmodel 继续新增 deep `com.xiaomi.*` 依赖；确需例外时先放到 runtime/bridge adapter，再评估 baseline。
 
 
 
