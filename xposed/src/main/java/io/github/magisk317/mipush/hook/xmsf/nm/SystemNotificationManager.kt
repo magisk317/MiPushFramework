@@ -10,6 +10,7 @@ import io.github.magisk317.mipush.xposed.callMethod
 import io.github.magisk317.mipush.xposed.callStaticMethod
 import io.github.magisk317.mipush.xposed.setField
 import org.lsposed.hiddenapibypass.HiddenApiBypass
+import java.lang.reflect.InvocationTargetException
 
 object SystemNotificationManager {
     private const val TAG = "SystemNotificationManager"
@@ -30,17 +31,88 @@ object SystemNotificationManager {
         return AndroidAppHelper.currentApplication().callMethod("getUserId") as Int? ?: 0
     }
 
+    private fun Throwable.unwrapSystemCallFailure(): Throwable {
+        return when (this) {
+            is InvocationTargetException -> targetException ?: cause ?: this
+            is XposedHelpers.InvocationTargetError -> cause ?: this
+            else -> this
+        }
+    }
+
+    private inline fun <T> runSystemCall(
+        operation: String,
+        packageName: String,
+        fallback: (Throwable) -> T,
+        block: () -> T
+    ): T {
+        return try {
+            block()
+        } catch (t: Throwable) {
+            val cause = t.unwrapSystemCallFailure()
+            if (cause is SecurityException) {
+                XLog.w(TAG, "$operation: system API blocked for $packageName: ${cause.message}")
+            } else {
+                XLog.e(TAG, "$operation: system API failed for $packageName", cause)
+            }
+            fallback(cause)
+        }
+    }
+
+    private fun localNotificationManager(): NotificationManager? {
+        return runCatching {
+            AndroidAppHelper.currentApplication().getSystemService(NotificationManager::class.java)
+        }.getOrNull()
+    }
+
+    private fun isCurrentPackage(packageName: String): Boolean {
+        return runCatching {
+            AndroidAppHelper.currentApplication().packageName == packageName
+        }.getOrDefault(false)
+    }
+
+    private fun notifyLocally(tag: String?, id: Int, notification: Notification) {
+        runCatching {
+            localNotificationManager()?.notify(tag, id, notification)
+        }.onFailure {
+            XLog.e(TAG, "notify: local fallback failed", it)
+        }
+    }
+
+    private fun cancelLocally(tag: String?, id: Int) {
+        runCatching {
+            localNotificationManager()?.cancel(tag, id)
+        }.onFailure {
+            XLog.e(TAG, "cancel: local fallback failed", it)
+        }
+    }
+
+    private fun createChannelsLocally(channels: List<NotificationChannel>) {
+        runCatching {
+            localNotificationManager()?.createNotificationChannels(channels)
+        }.onFailure {
+            XLog.e(TAG, "createNotificationChannels: local fallback failed", it)
+        }
+    }
+
+    private fun createGroupsLocally(groups: List<NotificationChannelGroup>) {
+        runCatching {
+            localNotificationManager()?.createNotificationChannelGroups(groups)
+        }.onFailure {
+            XLog.e(TAG, "createNotificationChannelGroups: local fallback failed", it)
+        }
+    }
+
     fun notify(
         packageName: String,
         tag: String?, id: Int, notification: Notification
     ) {
         XLog.d(TAG, "notify() called with: packageName = $packageName, tag = $tag, id = $id, notification = $notification")
-        try {
+        runSystemCall("notify", packageName, fallback = {
+            notifyLocally(tag, id, notification)
+        }) {
             val methodEnqueueNotificationWithTag = XposedHelpers.findMethodExact(notificationManager.javaClass, "enqueueNotificationWithTag", String::class.java, String::class.java, String::class.java, Int::class.java, Notification::class.java, Int::class.java)
             val opPkg = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ANDROID_PACKAGE_NAME else packageName
             methodEnqueueNotificationWithTag.invoke(notificationManager, packageName, opPkg, tag, id, notification, getUserId())
-        } catch (e: SecurityException) {
-            XLog.w(TAG, "notify: system API blocked (Android 17+) for $packageName: ${e.message}")
         }
     }
 
@@ -49,7 +121,9 @@ object SystemNotificationManager {
         tag: String?, id: Int
     ) {
         XLog.d(TAG, "cancel() called with: packageName = $packageName, tag = $tag, id = $id")
-        try {
+        runSystemCall("cancel", packageName, fallback = {
+            cancelLocally(tag, id)
+        }) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 val methodCancelNotificationWithTag = XposedHelpers.findMethodExact(notificationManager.javaClass, "cancelNotificationWithTag", String::class.java, String::class.java, String::class.java, Int::class.java, Int::class.java)
                 methodCancelNotificationWithTag.invoke(notificationManager, packageName, ANDROID_PACKAGE_NAME, tag, id, getUserId())
@@ -57,8 +131,6 @@ object SystemNotificationManager {
                 val methodCancelNotificationWithTag = XposedHelpers.findMethodExact(notificationManager.javaClass, "cancelNotificationWithTag", String::class.java, String::class.java, Int::class.java, Int::class.java)
                 methodCancelNotificationWithTag.invoke(notificationManager, packageName, tag, id, getUserId())
             }
-        } catch (e: SecurityException) {
-            XLog.w(TAG, "cancel: system API blocked (Android 17+) for $packageName: ${e.message}")
         }
     }
 
@@ -67,12 +139,12 @@ object SystemNotificationManager {
         channels: List<NotificationChannel>
     ) {
         XLog.d(TAG, "createNotificationChannels() called with: packageName = $packageName, channels = $channels")
-        try {
+        runSystemCall("createNotificationChannels", packageName, fallback = {
+            createChannelsLocally(channels)
+        }) {
             val channelsList = XposedHelpers.findConstructorExact("android.content.pm.ParceledListSlice", null, List::class.java)
                 .newInstance(channels)
             notificationManager.callMethod("createNotificationChannelsForPackage", packageName, getUid(packageName), channelsList)
-        } catch (e: SecurityException) {
-            XLog.w(TAG, "createNotificationChannels: system API blocked (Android 17+) for $packageName: ${e.message}")
         }
     }
 
@@ -81,7 +153,14 @@ object SystemNotificationManager {
         channelId: String?
     ): NotificationChannel? {
         XLog.d(TAG, "getNotificationChannel() called with: packageName = $packageName, channelId = $channelId")
-        return try {
+        return runSystemCall("getNotificationChannel", packageName, fallback = {
+            RootNotificationHelper.getNotificationChannel(packageName, channelId)
+                ?: if (isCurrentPackage(packageName) && !channelId.isNullOrEmpty()) {
+                    localNotificationManager()?.getNotificationChannel(channelId)
+                } else {
+                    null
+                }
+        }) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 XposedHelpers.findMethodExact(notificationManager.javaClass, "getNotificationChannelForPackage", String::class.java, Int::class.java, String::class.java, String::class.java, Boolean::class.java)
                     .invoke(notificationManager, packageName, getUid(packageName), channelId, null, false) as NotificationChannel?
@@ -89,9 +168,6 @@ object SystemNotificationManager {
                 XposedHelpers.findMethodExact(notificationManager.javaClass, "getNotificationChannelForPackage", String::class.java, Int::class.java, String::class.java, Boolean::class.java)
                     .invoke(notificationManager, packageName, getUid(packageName), channelId, false) as NotificationChannel?
             }
-        } catch (e: SecurityException) {
-            XLog.w(TAG, "getNotificationChannel: system API blocked (Android 17+), trying root fallback for $packageName/$channelId")
-            RootNotificationHelper.getNotificationChannel(packageName, channelId)
         }
     }
 
@@ -99,14 +175,18 @@ object SystemNotificationManager {
         packageName: String
     ): List<NotificationChannel?>? {
         XLog.d(TAG, "getNotificationChannels() called with: packageName = $packageName")
-        return try {
+        return runSystemCall("getNotificationChannels", packageName, fallback = {
+            RootNotificationHelper.getNotificationChannels(packageName)
+                ?: if (isCurrentPackage(packageName)) {
+                    localNotificationManager()?.notificationChannels
+                } else {
+                    null
+                }
+        }) {
             val parceledListSlice = XposedHelpers.findMethodExact(notificationManager.javaClass, "getNotificationChannelsForPackage", String::class.java, Int::class.java, Boolean::class.java)
                 .invoke(notificationManager, packageName, getUid(packageName), false)
             @Suppress("UNCHECKED_CAST")
             parceledListSlice?.callMethod("getList") as List<NotificationChannel?>?
-        } catch (e: SecurityException) {
-            XLog.w(TAG, "getNotificationChannels: system API blocked (Android 17+), trying root fallback for $packageName")
-            RootNotificationHelper.getNotificationChannels(packageName)
         }
     }
 
@@ -133,10 +213,16 @@ object SystemNotificationManager {
         channelId: String
     ) {
         XLog.d(TAG, "deleteNotificationChannel() called with: packageName = $packageName, channelId = $channelId")
-        try {
+        runSystemCall("deleteNotificationChannel", packageName, fallback = {
+            runCatching {
+                if (isCurrentPackage(packageName)) {
+                    localNotificationManager()?.deleteNotificationChannel(channelId)
+                }
+            }.onFailure {
+                XLog.e(TAG, "deleteNotificationChannel: local fallback failed", it)
+            }
+        }) {
             notificationManager.callMethod("deleteNotificationChannel", packageName, channelId)
-        } catch (e: SecurityException) {
-            XLog.w(TAG, "deleteNotificationChannel: system API blocked (Android 17+) for $packageName/$channelId: ${e.message}")
         }
     }
 
@@ -153,24 +239,32 @@ object SystemNotificationManager {
         //     .newInstance(groups)
         // notificationManager.callMethod("createNotificationChannelGroups", packageName, list)
 
-        groups.forEach {
-            it.setField("mName", "Mi Push", String::class.java)
+        runSystemCall("createNotificationChannelGroups", packageName, fallback = {
+            createGroupsLocally(groups)
+        }) {
+            groups.forEach {
+                it.setField("mName", "Mi Push", String::class.java)
 
-            // 无法 hook
-            // void createNotificationChannelGroup(String pkg, int uid, NotificationChannelGroup group, boolean fromApp, boolean fromListener)
-            // notificationManager.callMethod("createNotificationChannelGroup", packageName, getUid(packageName), it, true, false)
-            try {
-                // void updateNotificationChannelGroupForPackage(String pkg, int uid, in NotificationChannelGroup group);
-                // 因 createNotificationChannelGroup 的 fromApp 为 false，首次创建会产生 NullPointerException
-                notificationManager.callMethod(
-                    "updateNotificationChannelGroupForPackage",
-                    packageName,
-                    getUid(packageName),
-                    it
-                )
-            } catch (e: Throwable) {
-                // ignore
-                // Attempt to invoke virtual method 'boolean android.app.NotificationChannelGroup.isBlocked()' on a null object reference
+                // 无法 hook
+                // void createNotificationChannelGroup(String pkg, int uid, NotificationChannelGroup group, boolean fromApp, boolean fromListener)
+                // notificationManager.callMethod("createNotificationChannelGroup", packageName, getUid(packageName), it, true, false)
+                try {
+                    // void updateNotificationChannelGroupForPackage(String pkg, int uid, in NotificationChannelGroup group);
+                    // 因 createNotificationChannelGroup 的 fromApp 为 false，首次创建会产生 NullPointerException
+                    notificationManager.callMethod(
+                        "updateNotificationChannelGroupForPackage",
+                        packageName,
+                        getUid(packageName),
+                        it
+                    )
+                } catch (e: Throwable) {
+                    val cause = e.unwrapSystemCallFailure()
+                    if (cause is SecurityException) {
+                        throw e
+                    }
+                    // ignore
+                    // Attempt to invoke virtual method 'boolean android.app.NotificationChannelGroup.isBlocked()' on a null object reference
+                }
             }
         }
     }
@@ -180,11 +274,15 @@ object SystemNotificationManager {
         groupId: String
     ): NotificationChannelGroup? {
         XLog.d(TAG, "getNotificationChannelGroup() called with: packageName = $packageName, groupId = $groupId")
-        return try {
-            notificationManager.callMethod("getNotificationChannelGroupForPackage", groupId, packageName, getUid(packageName)) as NotificationChannelGroup?
-        } catch (e: SecurityException) {
-            XLog.w(TAG, "getNotificationChannelGroup: system API blocked (Android 17+), trying root fallback for $packageName/$groupId")
+        return runSystemCall("getNotificationChannelGroup", packageName, fallback = {
             RootNotificationHelper.getNotificationChannelGroup(packageName, groupId)
+                ?: if (isCurrentPackage(packageName)) {
+                    localNotificationManager()?.getNotificationChannelGroup(groupId)
+                } else {
+                    null
+                }
+        }) {
+            notificationManager.callMethod("getNotificationChannelGroupForPackage", groupId, packageName, getUid(packageName)) as NotificationChannelGroup?
         }
     }
 
@@ -192,14 +290,18 @@ object SystemNotificationManager {
         packageName: String
     ): List<NotificationChannelGroup?>? {
         XLog.d(TAG, "getNotificationChannelGroups() called with: packageName = $packageName")
-        return try {
+        return runSystemCall("getNotificationChannelGroups", packageName, fallback = {
+            RootNotificationHelper.getNotificationChannelGroups(packageName)
+                ?: if (isCurrentPackage(packageName)) {
+                    localNotificationManager()?.notificationChannelGroups
+                } else {
+                    null
+                }
+        }) {
             val parceledListSlice = XposedHelpers.findMethodExact(notificationManager.javaClass, "getNotificationChannelGroupsForPackage", String::class.java, Int::class.java, Boolean::class.java)
                 .invoke(notificationManager, packageName, getUid(packageName), false)
             @Suppress("UNCHECKED_CAST")
             parceledListSlice?.callMethod("getList") as List<NotificationChannelGroup?>?
-        } catch (e: SecurityException) {
-            XLog.w(TAG, "getNotificationChannelGroups: system API blocked (Android 17+), trying root fallback for $packageName")
-            RootNotificationHelper.getNotificationChannelGroups(packageName)
         }
     }
 
@@ -208,10 +310,16 @@ object SystemNotificationManager {
         groupId: String
     ) {
         XLog.d(TAG, "deleteNotificationChannelGroup() called with: packageName = $packageName, groupId = $groupId")
-        try {
+        runSystemCall("deleteNotificationChannelGroup", packageName, fallback = {
+            runCatching {
+                if (isCurrentPackage(packageName)) {
+                    localNotificationManager()?.deleteNotificationChannelGroup(groupId)
+                }
+            }.onFailure {
+                XLog.e(TAG, "deleteNotificationChannelGroup: local fallback failed", it)
+            }
+        }) {
             notificationManager.callMethod("deleteNotificationChannelGroup", packageName, groupId)
-        } catch (e: SecurityException) {
-            XLog.w(TAG, "deleteNotificationChannelGroup: system API blocked (Android 17+) for $packageName/$groupId: ${e.message}")
         }
     }
 
@@ -219,11 +327,15 @@ object SystemNotificationManager {
         packageName: String
     ): Boolean {
         XLog.d(TAG, "areNotificationsEnabled() called with: packageName = $packageName")
-        return try {
+        return runSystemCall("areNotificationsEnabled", packageName, fallback = {
+            RootNotificationHelper.areNotificationsEnabled(packageName)
+                ?: if (isCurrentPackage(packageName)) {
+                    localNotificationManager()?.areNotificationsEnabled() ?: true
+                } else {
+                    true
+                }
+        }) {
             notificationManager.callMethod("areNotificationsEnabledForPackage", packageName, getUid(packageName)) as Boolean
-        } catch (e: SecurityException) {
-            XLog.w(TAG, "areNotificationsEnabled: system API blocked (Android 17+), trying root fallback for $packageName")
-            RootNotificationHelper.areNotificationsEnabled(packageName) ?: true
         }
     }
 
@@ -231,14 +343,13 @@ object SystemNotificationManager {
         packageName: String
     ): Array<StatusBarNotification?>? {
         XLog.d(TAG, "getActiveNotifications() called with: packageName = $packageName")
-        return try {
+        return runSystemCall("getActiveNotifications", packageName, fallback = {
+            null
+        }) {
             val parceledListSlice = notificationManager.callMethod("getAppActiveNotifications", packageName, getUserId())
             @Suppress("UNCHECKED_CAST")
             val list = parceledListSlice?.callMethod("getList") as List<StatusBarNotification>
             list.toTypedArray()
-        } catch (e: SecurityException) {
-            XLog.w(TAG, "getActiveNotifications: system API blocked (Android 17+), returning null for $packageName")
-            null
         }
     }
 

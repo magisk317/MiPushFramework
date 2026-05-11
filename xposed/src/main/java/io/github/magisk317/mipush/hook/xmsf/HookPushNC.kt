@@ -195,19 +195,23 @@ object HookPushNC {
         //        packageName: String,
         //        groupId: String?
         //    ): NotificationChannelGroup?
-        classNotificationManager.hookMethod(
-            "getNotificationChannelGroup",
-            String::class.java,
-            String::class.java
-        ) {
-            replace(hookCheck) {
-                tryInvoke {
-                    return@replace SystemNotificationManager.getNotificationChannelGroup(
-                        args[0] as String,
-                        args[1] as String
-                    )
+        runCatching {
+            classNotificationManager.hookMethod(
+                "getNotificationChannelGroup",
+                String::class.java,
+                String::class.java
+            ) {
+                replace(hookCheck) {
+                    tryInvoke {
+                        return@replace SystemNotificationManager.getNotificationChannelGroup(
+                            args[0] as String,
+                            args[1] as String
+                        )
+                    }
                 }
             }
+        }.onFailure {
+            XLog.e(TAG, "skip getNotificationChannelGroup hook", it)
         }
 
         //getNotificationChannelGroups(
