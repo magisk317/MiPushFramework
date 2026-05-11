@@ -793,7 +793,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     resolve_natural = subparsers.add_parser("resolve-natural")
     resolve_natural.add_argument("--gradlew", default="./gradlew")
-    resolve_natural.add_argument("--project", default=":app")
+    resolve_natural.add_argument("--project", default=":mipush")
     resolve_natural.add_argument("--forced-json", required=True)
     resolve_natural.add_argument("--output", required=True)
     resolve_natural.add_argument("--config", action="append", default=[])
@@ -840,7 +840,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     resolve_alert_natural = subparsers.add_parser("resolve-alert-natural")
     resolve_alert_natural.add_argument("--gradlew", default="./gradlew")
-    resolve_alert_natural.add_argument("--project", default=":app")
+    resolve_alert_natural.add_argument("--project", default=":mipush")
     resolve_alert_natural.add_argument("--alerts-json", required=True)
     resolve_alert_natural.add_argument("--output", required=True)
     resolve_alert_natural.add_argument("--config", action="append", default=[])
