@@ -21,6 +21,7 @@ object ConvertUtils {
     private val logger = object {
         fun e(msg: String?, t: Throwable? = null) = Napier.e(msg ?: "", t, tag = TAG)
         fun w(msg: String?) = Napier.w(msg ?: "", tag = TAG)
+        fun d(msg: String?) = Napier.d(msg ?: "", tag = TAG)
     }
 
     private val json = Json {
@@ -189,7 +190,9 @@ object ConvertUtils {
             return PushActionResolution(container.getPushAction(), null)
         }
         val candidateRegSecs = RegSecUtils.getCandidateRegSecs(container, regSec)
+        logger.d("resolvePushActionBytes: pkg=${container.packageName} candidateCount=${candidateRegSecs.size} candidates=${candidateRegSecs.map { it.take(8) + "..." }}")
         if (candidateRegSecs.isEmpty()) {
+            Napier.w("resolvePushActionBytes: no regSec candidates for pkg=${container.packageName}", tag = TAG)
             return null
         }
         var lastError: Exception? = null
@@ -198,13 +201,16 @@ object ConvertUtils {
                 val keyBytes = Base64Coder.decode(candidateRegSec)
                 val payload = DataCryptUtils.mipushDecrypt(keyBytes, container.getPushAction())
                 persistResolvedRegSec(container.packageName, candidateRegSec)
+                logger.d("resolvePushActionBytes: decrypt success for pkg=${container.packageName}")
                 return PushActionResolution(payload, candidateRegSec)
             } catch (e: Exception) {
                 lastError = e
+                logger.d("resolvePushActionBytes: decrypt failed for pkg=${container.packageName}, trying next candidate")
             }
         }
-        logger.w("the aes decrypt failed for ${container.packageName}.")
-        throw DecryptException("the aes decrypt failed.")
+        logger.w("resolvePushActionBytes: all regSec candidates failed for pkg=${container.packageName}")
+        // Temporarily revert to returning null instead of throwing to diagnose regSec issues
+        return null
     }
 
     private fun persistResolvedRegSec(packageName: String?, regSec: String?) {

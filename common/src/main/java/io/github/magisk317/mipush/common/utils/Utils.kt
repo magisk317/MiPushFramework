@@ -12,6 +12,7 @@ import android.widget.Toast
 import androidx.annotation.ColorInt
 import androidx.annotation.NonNull
 import androidx.annotation.StringRes
+import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import io.github.magisk317.mipush.platform.override.AppOpsManagerOverride
 import java.util.*
@@ -174,18 +175,28 @@ object Utils {
             val sec = app.getSharedPreferences(prefName, 0)?.getString(packageName, null)
             if (!sec.isNullOrEmpty()) {
                 secrets += sec
+                Napier.d("getRegSecs: found regSec in pref=$prefName pkg=$packageName", tag = "Utils")
             }
         }
         // Fallback: read regSec from the target app's own mipush SharedPreferences
         if (secrets.isEmpty()) {
             try {
+                Napier.d("getRegSecs: trying fallback createPackageContext pkg=$packageName", tag = "Utils")
                 val pkgContext = app.createPackageContext(packageName, 0)
                 val regSec = pkgContext.getSharedPreferences(PREF_MIPUSH, 0)
                     ?.getString("regSec", null)
                 if (!regSec.isNullOrEmpty()) {
                     secrets += regSec
+                    Napier.d("getRegSecs: found regSec via fallback pkg=$packageName", tag = "Utils")
+                } else {
+                    Napier.w("getRegSecs: fallback found no regSec pkg=$packageName", tag = "Utils")
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                Napier.e("getRegSecs: fallback failed pkg=$packageName", e, tag = "Utils")
+            }
+        }
+        if (secrets.isEmpty()) {
+            Napier.w("getRegSecs: no regSec found for pkg=$packageName", tag = "Utils")
         }
         return secrets.toList()
     }
