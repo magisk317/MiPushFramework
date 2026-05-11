@@ -33,8 +33,8 @@ jobs:
 
       - name: Validate generated dependency graph
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT != '' && secrets.GH_PAT || github.token }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT != '' && secrets.GH_PAT || github.token }}
         run: |
           chmod +x scripts/validate_dependabot_graph.sh
           snapshot="${{ steps.dependency-graph.outputs.dependency-graph-file }}"
@@ -42,6 +42,12 @@ jobs:
           scripts/validate_dependabot_graph.sh --snapshot "${snapshot}"
 
       - name: Submit Dependency Graph
-        uses: gradle/actions/dependency-submission@v6
-        with:
-          dependency-graph: download-and-submit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          snapshot="${{ steps.dependency-graph.outputs.dependency-graph-file }}"
+          test -n "${snapshot}"
+          gh api \
+            --method POST \
+            "/repos/${GITHUB_REPOSITORY}/dependency-graph/snapshots" \
+            --input "${snapshot}"

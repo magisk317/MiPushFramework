@@ -32,7 +32,8 @@ jobs:
     steps:
       - name: Merge Renovate PR
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
           PR_URL: ${{github.event.pull_request.html_url}}
         run: |
+          test -n "$GH_TOKEN"
           gh pr merge --merge --delete-branch "$PR_URL"

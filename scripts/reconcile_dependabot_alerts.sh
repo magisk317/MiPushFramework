@@ -15,7 +15,17 @@ fi
 
 REPO="${GITHUB_REPOSITORY:-}"
 if [[ -z "${REPO}" ]]; then
-  REPO="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
+  origin_url="$(git config --get remote.origin.url || true)"
+  REPO="$(
+    sed -E \
+      -e 's#^git@github.com:##' \
+      -e 's#^https://github.com/##' \
+      -e 's#\.git$##' \
+      <<< "${origin_url}"
+  )"
+  if [[ "${REPO}" != */* ]]; then
+    REPO="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
+  fi
 fi
 
 TMP_DIR="$(mktemp -d)"
