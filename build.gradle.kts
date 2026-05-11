@@ -21,6 +21,18 @@ buildscript {
     configurations.all {
         resolutionStrategy {
             // BEGIN AUTO FORCED DEPENDENCIES (managed by workflow)
+            force("io.netty:netty-codec:4.1.133.Final")
+            force("io.netty:netty-codec-http:4.1.133.Final")
+            force("io.netty:netty-codec-http2:4.1.133.Final")
+            force("io.netty:netty-common:4.1.118.Final")
+            force("io.netty:netty-handler:4.1.118.Final")
+            force("io.netty:netty-handler-proxy:4.1.133.Final")
+            force("org.apache.commons:commons-lang3:3.18.0")
+            force("org.apache.httpcomponents:httpclient:4.5.13")
+            force("org.bitbucket.b_c:jose4j:0.9.6")
+            force("org.bouncycastle:bcpkix-jdk18on:1.84")
+            force("org.bouncycastle:bcprov-jdk18on:1.84")
+            force("org.jdom:jdom2:2.0.6.1")
             // END AUTO FORCED DEPENDENCIES (managed by workflow)
         }
     }
@@ -46,6 +58,18 @@ allprojects {
     configurations.configureEach {
         resolutionStrategy {
             // BEGIN AUTO FORCED DEPENDENCIES (managed by workflow)
+            force("io.netty:netty-codec:4.1.133.Final")
+            force("io.netty:netty-codec-http:4.1.133.Final")
+            force("io.netty:netty-codec-http2:4.1.133.Final")
+            force("io.netty:netty-common:4.1.118.Final")
+            force("io.netty:netty-handler:4.1.118.Final")
+            force("io.netty:netty-handler-proxy:4.1.133.Final")
+            force("org.apache.commons:commons-lang3:3.18.0")
+            force("org.apache.httpcomponents:httpclient:4.5.13")
+            force("org.bitbucket.b_c:jose4j:0.9.6")
+            force("org.bouncycastle:bcpkix-jdk18on:1.84")
+            force("org.bouncycastle:bcprov-jdk18on:1.84")
+            force("org.jdom:jdom2:2.0.6.1")
             // END AUTO FORCED DEPENDENCIES (managed by workflow)
         }
     }
