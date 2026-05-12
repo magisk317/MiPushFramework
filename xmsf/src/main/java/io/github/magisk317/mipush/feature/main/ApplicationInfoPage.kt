@@ -710,18 +710,37 @@ open class ApplicationInfoPage : ComponentActivity() {
 
     @Composable
     private fun TipsCard() {
+        val context = LocalContext.current
         val shouldSuggestFakeApp = appConfigurationUtils.shouldSuggestFakeApp(applicationInfo.packageName)
         val registeredType = applicationInfo.registeredType
         if (registeredType != RegisteredType.NotRegistered && registeredType != RegisteredType.Unregistered) {
             return
         }
+        var diagnostics by remember(applicationInfo.packageName, registeredType) {
+            mutableStateOf<AppRegistrationDiagnostics?>(null)
+        }
+        LaunchedEffect(applicationInfo.packageName, registeredType) {
+            diagnostics = withContext(Dispatchers.IO) {
+                AppRegistrationDiagnosticsHelper.load(
+                    context = context,
+                    packageName = applicationInfo.packageName,
+                    registeredType = registeredType,
+                )
+            }
+        }
+        val shouldSuggestResetprop = shouldSuggestFakeApp && diagnostics?.inferenceReason in setOf(
+            "unregistered_after_attempt",
+            "registration_result_failed",
+            "local_state_stale",
+            "has_secret_but_no_local_reg",
+        )
 
         val title: String
         val description: String
         if (registeredType == RegisteredType.NotRegistered) {
             title = stringResource(R.string.status_app_not_registered_title)
             description = stringResource(
-                if (shouldSuggestFakeApp) {
+                if (shouldSuggestResetprop) {
                     R.string.status_app_not_registered_detail_with_fake_suggest
                 } else {
                     R.string.status_app_not_registered_detail_without_fake_suggest
