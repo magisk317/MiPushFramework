@@ -8,7 +8,9 @@ import android.os.Looper
 import android.os.SystemClock
 import de.robv.android.xposed.callbacks.XC_LoadPackage
 import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.mipush.hook.fakedevice.compat.ModuleCompatProfile
 import io.github.magisk317.mipush.hook.fakedevice.compat.ModuleCredentialResolver
+import io.github.magisk317.mipush.hook.fakedevice.compat.ModuleCompatRegistry
 import io.github.magisk317.mipush.hook.fakedevice.compat.ModuleProcessPolicy
 import io.github.magisk317.mipush.xposed.callStaticMethod
 import io.github.magisk317.mipush.xposed.findClass
@@ -29,10 +31,10 @@ object ForceMiPushRegister {
     private val regIdRetryCounts: MutableMap<String, Int> = Collections.synchronizedMap(HashMap())
     private val cloudPushRetryElapsedMs: MutableMap<String, Long> = Collections.synchronizedMap(HashMap())
 
-    fun hook(lpparam: XC_LoadPackage.LoadPackageParam) {
+    fun hook(lpparam: XC_LoadPackage.LoadPackageParam, profile: ModuleCompatProfile) {
         val packageName = lpparam.packageName
         val processName = lpparam.processName
-        if (!ModuleProcessPolicy.shouldHandleProcess(packageName, processName)) return
+        if (!ModuleProcessPolicy.shouldHandleProcess(profile, packageName, processName)) return
 
         Application::class.java.hookMethod("onCreate") {
             doAfter {
@@ -41,7 +43,8 @@ object ForceMiPushRegister {
                     packageName = packageName,
                     processName = processName,
                     classLoader = lpparam.classLoader,
-                    application = app
+                    application = app,
+                    profile = profile,
                 )
             }
         }
@@ -51,9 +54,10 @@ object ForceMiPushRegister {
         packageName: String,
         processName: String,
         classLoader: ClassLoader,
-        application: Application
+        application: Application,
+        profile: ModuleCompatProfile? = ModuleCompatRegistry.resolveProfile(packageName, processName, classLoader),
     ) {
-        if (!ModuleProcessPolicy.shouldHandleProcess(packageName, processName)) return
+        if (!ModuleProcessPolicy.shouldHandleProcess(profile, packageName, processName)) return
         traceRegisterCalls(packageName, classLoader)
         tryRegister(application, packageName, processName, classLoader)
     }
@@ -63,7 +67,8 @@ object ForceMiPushRegister {
         processName: String,
         classLoader: ClassLoader
     ) {
-        if (!ModuleProcessPolicy.shouldHandleProcess(packageName, processName)) return
+        val profile = ModuleCompatRegistry.resolveProfile(packageName, processName, classLoader)
+        if (!ModuleProcessPolicy.shouldHandleProcess(profile, packageName, processName)) return
         val processKey = "$packageName@$processName"
         val now = SystemClock.elapsedRealtime()
         val lastRetryAt = cloudPushRetryElapsedMs[processKey] ?: 0L
@@ -208,6 +213,8 @@ object ForceMiPushRegister {
 
         traceAliBridge(packageName, classLoader)
         traceAccsBridge(packageName, classLoader)
+        traceUmengBridge(packageName, classLoader)
+        traceJPushBridge(packageName, classLoader)
     }
 
     private fun traceAliBridge(packageName: String, classLoader: ClassLoader) {
@@ -249,6 +256,7 @@ object ForceMiPushRegister {
     private fun traceAccsBridge(packageName: String, classLoader: ClassLoader) {
         val classNames = listOf(
             "com.taobao.accs.EventReceiver",
+            "com.taobao.accs.ServiceReceiver",
             "com.taobao.accs.ChannelService",
             "com.taobao.accs.data.MsgDistributeService",
             "org.android.agoo.accs.AgooService",
@@ -289,14 +297,85 @@ object ForceMiPushRegister {
         }
     }
 
+    private fun traceUmengBridge(packageName: String, classLoader: ClassLoader) {
+        val classNames = listOf(
+            "com.umeng.message.PushAgent",
+            "com.umeng.message.UmengRegistrar",
+            "com.umeng.message.XiaomiIntentService",
+            "com.umeng.message.UmengMessageCallbackHandlerService",
+            "com.umeng.message.UmengIntentService",
+            "org.android.agoo.xiaomi.MiPushRegistar",
+        )
+        val methodNames = listOf(
+            "register",
+            "onCreate",
+            "onHandleIntent",
+            "onMessage",
+            "onReceive",
+            "getRegistrationId",
+            "getToken",
+            "enable",
+        )
+        traceBridgeMethods(packageName, classLoader, classNames, methodNames)
+    }
+
+    private fun traceJPushBridge(packageName: String, classLoader: ClassLoader) {
+        val classNames = listOf(
+            "cn.jpush.android.api.JPushInterface",
+            "cn.jpush.android.thirdpush.xiaomi.XMPushManager",
+            "cn.jpush.android.service.PluginXiaomiPlatformsReceiver",
+            "cn.jpush.android.service.PluginVivoMessageReceiver",
+            "cn.jpush.android.service.PluginMeizuPlatformsReceiver",
+        )
+        val methodNames = listOf(
+            "init",
+            "register",
+            "resumePush",
+            "stopPush",
+            "setAlias",
+            "setTags",
+            "getRegistrationID",
+            "onReceive",
+            "onCommandResult",
+        )
+        traceBridgeMethods(packageName, classLoader, classNames, methodNames)
+    }
+
+    private fun traceBridgeMethods(
+        packageName: String,
+        classLoader: ClassLoader,
+        classNames: List<String>,
+        methodNames: List<String>,
+    ) {
+        classNames.forEach { className ->
+            val clazz = runCatching { classLoader.findClass(className) }.getOrNull() ?: return@forEach
+            methodNames.forEach { methodName ->
+                val exists = runCatching { clazz.declaredMethods.any { it.name == methodName } }.getOrDefault(false)
+                if (!exists) return@forEach
+                runCatching {
+                    clazz.hookAllMethods(methodName) {
+                        doBefore {
+                            XLog.t(TAG, "$className.$methodName before: pkg=$packageName, args=${safeArgs(args)}")
+                        }
+                        doAfter {
+                            if (throwable != null) {
+                                XLog.e(TAG, "$className.$methodName throwable for $packageName", throwable)
+                            } else {
+                                XLog.t(TAG, "$className.$methodName after: pkg=$packageName, result=${safeValue(result)}")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private fun safeArgs(args: Array<Any?>): String {
         return args.joinToString(prefix = "[", postfix = "]") { safeValue(it) }
     }
 
     private fun safeValue(value: Any?): String {
-        if (value == null) return "null"
-        val text = value.toString().replace("\n", " ").replace("\r", " ")
-        return if (text.length > 200) text.take(200) + "..." else text
+        return VendorPushHookHelper.sanitizeForLog(value)
     }
 
     private fun scheduleRetry(app: Application, packageName: String, processName: String) {

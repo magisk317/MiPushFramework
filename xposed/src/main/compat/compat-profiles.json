@@ -18,7 +18,7 @@
     },
     {
       "packageName": "cn.gov.tax.its",
-      "hookPipelines": ["ALIPAY"]
+      "hookPipelines": ["ALIPAY", "ALI_AGOO_ACCS", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP"]
     },
     {
       "packageName": "com.alibaba.android.rimet",
@@ -34,7 +34,7 @@
     },
     {
       "packageName": "com.coolapk.market",
-      "hookPipelines": ["COOLAPK"]
+      "hookPipelines": ["COOLAPK", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"]
     },
     {
       "packageName": "com.dianping.v1",
@@ -42,7 +42,7 @@
     },
     {
       "packageName": "com.didi.es.psngr",
-      "hookPipelines": [],
+      "hookPipelines": ["HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP"],
       "credentialOverride": {
         "appId": "2882303761517422605",
         "appKey": "5811742279605"
@@ -50,7 +50,7 @@
     },
     {
       "packageName": "com.eg.android.AlipayGphone",
-      "hookPipelines": ["ALIPAY"],
+      "hookPipelines": ["ALIPAY", "ALI_AGOO_ACCS", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"],
       "credentialOverride": {
         "appId": "2882303761517401694",
         "appKey": "5471740167694"
@@ -58,15 +58,15 @@
     },
     {
       "packageName": "com.jingdong.app.mall",
-      "hookPipelines": ["COMMON"]
+      "hookPipelines": ["COMMON", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"]
     },
     {
       "packageName": "com.sankuai.meituan",
-      "hookPipelines": ["FAKE_MIUI_ONLY"]
+      "hookPipelines": ["FAKE_MIUI_ONLY", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"]
     },
     {
       "packageName": "com.sankuai.meituan.enterprise",
-      "hookPipelines": ["FAKE_MIUI_ONLY"]
+      "hookPipelines": ["FAKE_MIUI_ONLY", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP"]
     },
     {
       "packageName": "com.sankuai.meituan.takeoutnew",
@@ -74,7 +74,7 @@
     },
     {
       "packageName": "com.ss.android.lark",
-      "hookPipelines": ["DOUYIN"],
+      "hookPipelines": ["DOUYIN", "ALI_AGOO_ACCS", "UMENG_PUSH", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"],
       "credentialOverride": {
         "appId": "2882303761517565276",
         "appKey": "5701756525276"
@@ -82,7 +82,7 @@
     },
     {
       "packageName": "com.ss.android.ugc.aweme",
-      "hookPipelines": ["DOUYIN"],
+      "hookPipelines": ["DOUYIN", "ALI_AGOO_ACCS", "UMENG_PUSH", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP"],
       "credentialOverride": {
         "appId": "2882303761517509924",
         "appKey": "5571750917924"
@@ -90,15 +90,15 @@
     },
     {
       "packageName": "com.taobao.idlefish",
-      "hookPipelines": ["ALIPAY"]
+      "hookPipelines": ["ALIPAY", "ALI_AGOO_ACCS", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"]
     },
     {
       "packageName": "com.taobao.taobao",
-      "hookPipelines": ["ALIPAY"]
+      "hookPipelines": ["ALIPAY", "ALI_AGOO_ACCS", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"]
     },
     {
       "packageName": "com.tencent.mobileqq",
-      "hookPipelines": ["QQ", "XGPUSH"]
+      "hookPipelines": ["QQ", "XGPUSH", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP"]
     },
     {
       "packageName": "com.tencent.tim",
@@ -106,11 +106,11 @@
     },
     {
       "packageName": "com.tencent.wework",
-      "hookPipelines": ["COMMON", "XGPUSH"]
+      "hookPipelines": ["COMMON", "XGPUSH", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP"]
     },
     {
       "packageName": "com.unionpay",
-      "hookPipelines": [],
+      "hookPipelines": ["HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"],
       "credentialOverride": {
         "appId": "2882303761517149951",
         "appKey": "5801714911951"
@@ -122,7 +122,15 @@
     },
     {
       "packageName": "com.ruanmei.ithome",
-      "hookPipelines": ["COMMON"]
+      "hookPipelines": ["COMMON", "ALI_AGOO_ACCS", "UMENG_PUSH", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"]
+    },
+    {
+      "packageName": "com.xiaomi.smarthome",
+      "hookPipelines": ["JPUSH", "VIVO_PUSH", "OPPO_HEYTAP"]
+    },
+    {
+      "packageName": "com.ziroom.ziroomcustomer",
+      "hookPipelines": ["JPUSH", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"]
     }
   ]
 }

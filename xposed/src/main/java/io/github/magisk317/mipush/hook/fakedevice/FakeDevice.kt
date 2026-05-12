@@ -16,6 +16,13 @@ object FakeDevice {
             HookPipelineId.DOUYIN -> DouYin()
             HookPipelineId.QQ -> QQ()
             HookPipelineId.XGPUSH -> XGPush()
+            HookPipelineId.HUAWEI_HMS -> HuaweiHmsPush()
+            HookPipelineId.VIVO_PUSH -> VivoPush()
+            HookPipelineId.OPPO_HEYTAP -> OppoHeytapPush()
+            HookPipelineId.MEIZU_PUSH -> MeizuPush()
+            HookPipelineId.JPUSH -> JPush()
+            HookPipelineId.ALI_AGOO_ACCS -> AliAgooAccs()
+            HookPipelineId.UMENG_PUSH -> UmengPush()
             HookPipelineId.PINDUODUO -> PinDuoDuo()
             HookPipelineId.FAKE_MIUI_ONLY -> FakeMiuiOnly()
             HookPipelineId.COOLAPK -> CoolApk()
@@ -35,14 +42,17 @@ object FakeDevice {
             return
         }
 
-        val profile = ModuleCompatRegistry.getProfile(packageName)
+        val profile = ModuleCompatRegistry.resolveProfile(packageName, processName, lpparam.classLoader)
         if (profile == null) {
             XLog.d(TAG, "skip fake() without profile for $packageName in process=$processName")
             return
         }
+        if (profile.isAutoDetected) {
+            XLog.i(TAG, "auto-detected MiPush compat profile for $packageName in process=$processName")
+        }
 
         // Registration-only profiles still need the runtime registration hook.
-        ForceMiPushRegister.hook(lpparam)
+        ForceMiPushRegister.hook(lpparam, profile)
 
         val pipelines = profile.hookPipelines
         if (pipelines.isEmpty()) {

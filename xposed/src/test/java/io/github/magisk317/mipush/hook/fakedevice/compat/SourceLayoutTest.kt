@@ -60,6 +60,7 @@ class SourceLayoutTest {
         val allowedHuaweiInteropFiles = setOf(
             "common/src/main/java/io/github/magisk317/mipush/common/Constant.kt",
             "xposed/src/main/java/io/github/magisk317/mipush/hook/compat/legacyhuawei/LegacyHuaweiSignatureCompat.kt",
+            "xposed/src/main/java/io/github/magisk317/mipush/hook/fakedevice/HuaweiHmsPush.kt",
             "xposed/src/main/java/io/github/magisk317/mipush/hook/fakedevice/PinDuoDuo.kt",
         )
 

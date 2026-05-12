@@ -11,4 +11,5 @@ data class ModuleCompatProfile(
     val credentialOverride: ModuleCredential? = null,
     val allowedProcessSuffixes: Set<String>? = null,
     val deniedProcessPrefixes: List<String>? = null,
+    val isAutoDetected: Boolean = false,
 )
