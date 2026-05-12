@@ -80,6 +80,15 @@ class LogUtilsRobolectricTest {
     }
 
     @Test
+    fun `app logs do not write redundant app route file`() {
+        Napier.i("route trim check", tag = "DiagRoute")
+
+        val summary = LogUtils.summarizeFiles(context)
+        assertTrue(summary.files.any { it.name.matches(Regex("""runtime\.\d{4}-\d{2}-\d{2}\.jsonl""")) })
+        assertFalse(summary.files.any { it.name.matches(Regex("""runtime\.app\.\d{4}-\d{2}-\d{2}\.jsonl""")) })
+    }
+
+    @Test
     fun `summary reads new time-only jsonl entries`() {
         val logDir = LogBundleExporter.getLogDir(context)
         val file = File(logDir, "runtime.2026-05-11.jsonl").apply {
@@ -154,6 +163,58 @@ class LogUtilsRobolectricTest {
         assertFalse(text.contains("token=plain"))
         assertTrue(text.contains("ipc_token=<redacted>"))
         assertTrue(text.contains("token=<redacted>"))
+    }
+
+    @Test
+    fun `export skips redundant app route logs`() {
+        val currentDate = LogUtils.currentDateString(Date())
+        val logDir = LogBundleExporter.getLogDir(context)
+        File(logDir, "runtime.$currentDate.jsonl")
+            .writeText("""{"time":"2026-05-12 10:00:00.000","route":"app","message":"aggregate"}""")
+        File(logDir, "runtime.app.$currentDate.jsonl")
+            .writeText("""{"time":"2026-05-12 10:00:00.000","route":"app","message":"duplicate"}""")
+        File(logDir, "runtime.sms_hook.$currentDate.jsonl")
+            .writeText("""{"time":"2026-05-12 10:00:00.000","route":"sms_hook","message":"module"}""")
+
+        val result = LogBundleExporter.buildLogBundle(context)
+
+        val zip = result.file
+        assertNotNull(zip)
+        val names = ZipFile(zip).use { archive ->
+            archive.entries().asSequence().map { it.name }.toList()
+        }
+        assertTrue(names.any { it == "app/log/runtime.$currentDate.jsonl" })
+        assertTrue(names.any { it == "app/log/runtime.sms_hook.$currentDate.jsonl" })
+        assertFalse(names.any { it == "app/log/runtime.app.$currentDate.jsonl" })
+    }
+
+    @Test
+    fun `lsposed rotating logs keep latest two per kind`() {
+        val root = File(context.cacheDir, "lsposed_trim_test").apply {
+            deleteRecursively()
+            mkdirs()
+        }
+        val logDir = File(root, "log").apply { mkdirs() }
+        val verboseOld = File(logDir, "verbose_2026-05-12T15:08:20.327032.log").apply { writeText("v1") }
+        val verboseMid = File(logDir, "verbose_2026-05-12T15:08:24.703911.log").apply { writeText("v2") }
+        val verboseNew = File(logDir, "verbose_2026-05-12T15:08:36.052652.log").apply { writeText("v3") }
+        val modulesOld = File(logDir, "modules_2026-05-12T12:30:03.140636.log").apply { writeText("m1") }
+        val modulesMid = File(logDir, "modules_2026-05-12T13:37:13.540595.log").apply { writeText("m2") }
+        val modulesNew = File(logDir, "modules_2026-05-12T15:03:24.198501.log").apply { writeText("m3") }
+        val props = File(logDir, "props.txt").apply { writeText("props") }
+        val kmsg = File(logDir, "kmsg.log").apply { writeText("kmsg") }
+
+        val deleted = LogBundleExporter.trimLsposedRotatingLogs(root)
+
+        assertEquals(2, deleted)
+        assertFalse(verboseOld.exists())
+        assertTrue(verboseMid.exists())
+        assertTrue(verboseNew.exists())
+        assertFalse(modulesOld.exists())
+        assertTrue(modulesMid.exists())
+        assertTrue(modulesNew.exists())
+        assertTrue(props.exists())
+        assertTrue(kmsg.exists())
     }
 
     @Test

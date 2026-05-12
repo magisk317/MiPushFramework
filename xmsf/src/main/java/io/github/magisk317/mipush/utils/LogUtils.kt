@@ -18,10 +18,12 @@ object LogUtils {
     private const val DEFAULT_RETENTION_DAYS = 7
     private const val MIN_RETENTION_DAYS = 1
     private const val MAX_READ_LINES = 2000
+    private const val DEFAULT_ROUTE = "app"
     private val dailyDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
     private val logTimestampFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
     private val dailyRuntimeLogPattern = Regex("""^runtime(?:\.[A-Za-z0-9_.-]+)?\.\d{4}-\d{2}-\d{2}\.jsonl$""")
     private val dailyLogDateRegex = Regex("""^runtime(?:\.[^.]+)*\.(\d{4}-\d{2}-\d{2})\.jsonl$""")
+    private val redundantAppRouteRuntimeLogPattern = Regex("""^runtime\.app\.\d{4}-\d{2}-\d{2}\.jsonl$""")
     private val legacyTextLogPattern = Regex("""^(logs_\d{4}-\d{2}-\d{2}|runtime(?:\.[A-Za-z0-9_.-]+)?)\.(txt|log)$""")
     private val legacyModuleTextLogPattern = Regex("""^[A-Za-z0-9_.-]+_\d{4}-\d{2}-\d{2}\.txt$""")
 
@@ -81,8 +83,9 @@ object LogUtils {
         val resolved = context.applicationContext ?: context
         appContext = resolved
         runCatching {
+            val logDir = LogBundleExporter.getLogDir(resolved)
             deleteLegacyTextLogFiles(resolved)
-            pruneExpiredRuntimeLogs(LogBundleExporter.getLogDir(resolved), Date())
+            pruneExpiredRuntimeLogs(logDir, Date())
             Napier.base(FileAntilog(resolved))
         }.onFailure {
             Napier.base(DebugAntilog())
@@ -162,7 +165,10 @@ object LogUtils {
                 if (!logDir.exists()) logDir.mkdirs()
                 pruneExpiredRuntimeLogs(logDir, now)
                 writeLineToFile(File(logDir, "runtime.${currentDateString(now)}.jsonl"), line)
-                writeLineToFile(File(logDir, "runtime.${sanitizeSegment(route)}.${currentDateString(now)}.jsonl"), line)
+                val routeName = sanitizeSegment(route)
+                if (routeName != DEFAULT_ROUTE) {
+                    writeLineToFile(File(logDir, "runtime.$routeName.${currentDateString(now)}.jsonl"), line)
+                }
             }
         }
     }
@@ -258,6 +264,10 @@ object LogUtils {
         return deleted
     }
 
+    internal fun isRedundantAppRouteRuntimeLog(file: File): Boolean {
+        return file.isFile && redundantAppRouteRuntimeLogPattern.matches(file.name)
+    }
+
     @JvmStatic
     fun logArchiveName(date: Date): String {
         return "logs_" + dateInfo(date)
@@ -292,7 +302,7 @@ object LogUtils {
         val logDir = LogBundleExporter.getLogDir(context)
         return logDir.listFiles()
             .orEmpty()
-            .filter { it.isFile && dailyRuntimeLogPattern.matches(it.name) }
+            .filter { it.isFile && dailyRuntimeLogPattern.matches(it.name) && !isRedundantAppRouteRuntimeLog(it) }
             .sortedWith(compareBy<File> { dailyLogDate(it.name).orEmpty() }.thenBy { it.name })
     }
 
@@ -329,8 +339,13 @@ object LogUtils {
         }.timeInMillis
         logDir.listFiles()
             .orEmpty()
-            .filter { it.isFile && dailyRuntimeLogPattern.matches(it.name) }
             .forEach { file ->
+                if (!file.isFile) return@forEach
+                if (isRedundantAppRouteRuntimeLog(file)) {
+                    runCatching { file.delete() }
+                    return@forEach
+                }
+                if (!dailyRuntimeLogPattern.matches(file.name)) return@forEach
                 val fileTime = dailyLogDateStartMs(file.name) ?: file.lastModified()
                 if (fileTime > 0L && fileTime < cutoff) {
                     runCatching { file.delete() }

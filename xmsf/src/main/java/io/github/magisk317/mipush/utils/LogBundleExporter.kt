@@ -27,7 +27,9 @@ internal object LogBundleExporter {
     private const val PRIVATE_EXPORT_DIR_NAME = "xmsf_logs"
     private const val LEGACY_CACHE_LOG_DIR_NAME = "logs"
     private const val MI_PUSH_LOG_DIR_NAME = "MiPushLog"
+    private const val LSPOSED_ROTATING_LOGS_PER_KIND = 2
     private val crashFilePattern = Regex("^Crash_\\d{4}-\\d{2}-\\d{2}\\.txt$")
+    private val lsposedRotatingLogPattern = Regex("""^(verbose|modules)_.+\.log$""")
     private val LSPOSED_LOG_DIRS = listOf(
         "/data/adb/lspd/log",
     )
@@ -221,7 +223,7 @@ internal object LogBundleExporter {
         if (src.exists() && src.isDirectory && src.listFiles()?.isNotEmpty() == true) {
             val stagedAppLogDir = File(stagingDir, "app/log")
             copyDirectory(src, stagedAppLogDir) { file ->
-                file.name.endsWith(".jsonl")
+                file.name.endsWith(".jsonl") && !LogUtils.isRedundantAppRouteRuntimeLog(file)
             }
             copiedAny = stagedAppLogDir.walkTopDown().any { it.isFile }
             if (copiedAny) {
@@ -263,6 +265,10 @@ internal object LogBundleExporter {
                 copyDirectory(src, target) { file ->
                     !file.name.contains("old", ignoreCase = true)
                 }
+                val trimmed = trimLsposedRotatingLogs(target)
+                if (trimmed > 0) {
+                    details += "lsposed rotating logs trimmed: $trimmed"
+                }
                 if (target.walkTopDown().any { it.isFile }) {
                     details += "lsposed direct: $path"
                     copied = true
@@ -298,6 +304,10 @@ internal object LogBundleExporter {
             }
         }
         val suResult = runSuCommand(shellCmd)
+        val trimmed = trimLsposedRotatingLogs(lsposedTargetRoot)
+        if (trimmed > 0) {
+            details += "lsposed rotating logs trimmed: $trimmed"
+        }
         if (suResult.exitCode == 0 && lsposedTargetRoot.walkTopDown().any { it.isFile }) {
             details += "lsposed copied via su"
             return true
@@ -425,6 +435,32 @@ internal object LogBundleExporter {
             .toList()
         val totalBytes = files.sumOf { it.length() }
         return "runtime log files: ${files.size}, bytes=$totalBytes"
+    }
+
+    internal fun trimLsposedRotatingLogs(root: File): Int {
+        if (!root.exists() || !root.isDirectory) return 0
+        var deleted = 0
+        root.walkTopDown()
+            .filter { it.isFile }
+            .mapNotNull { file ->
+                val kind = lsposedRotatingLogPattern.matchEntire(file.name)
+                    ?.groupValues
+                    ?.getOrNull(1)
+                    ?: return@mapNotNull null
+                "${file.parentFile?.absolutePath.orEmpty()}:$kind" to file
+            }
+            .groupBy({ it.first }, { it.second })
+            .values
+            .forEach { files ->
+                files.sortedWith(compareByDescending<File> { it.name }.thenByDescending { it.lastModified() })
+                    .drop(LSPOSED_ROTATING_LOGS_PER_KIND)
+                    .forEach { file ->
+                        if (deleteRecursivelyWithSuFallback(file)) {
+                            deleted += 1
+                        }
+                    }
+            }
+        return deleted
     }
 
     private fun sanitizeDirectory(root: File) {
