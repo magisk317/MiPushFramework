@@ -22,6 +22,36 @@ class MyMIPushNotificationHelperTest {
     }
 
     @Test
+    fun `shouldDispatchNonDisplayPayload allows only command-style server results`() {
+        val registrationResult = XmPushActionContainer().apply {
+            action = ActionType.Registration
+            isRequest = false
+        }
+        val registrationRequest = XmPushActionContainer().apply {
+            action = ActionType.Registration
+            isRequest = true
+        }
+        val commandResult = XmPushActionContainer().apply {
+            action = ActionType.Command
+            isRequest = false
+        }
+        val notification = XmPushActionContainer().apply {
+            action = ActionType.Notification
+            isRequest = false
+        }
+        val sendMessage = XmPushActionContainer().apply {
+            action = ActionType.SendMessage
+            isRequest = false
+        }
+
+        assertTrue(MyMIPushNotificationHelper.shouldDispatchNonDisplayPayload(registrationResult))
+        assertTrue(MyMIPushNotificationHelper.shouldDispatchNonDisplayPayload(commandResult))
+        assertFalse(MyMIPushNotificationHelper.shouldDispatchNonDisplayPayload(registrationRequest))
+        assertFalse(MyMIPushNotificationHelper.shouldDispatchNonDisplayPayload(notification))
+        assertFalse(MyMIPushNotificationHelper.shouldDispatchNonDisplayPayload(sendMessage))
+    }
+
+    @Test
     fun `shouldDropReplayNotification drops messages older than replay window`() {
         val sixHoursMs = 6 * 60 * 60 * 1000L
         val container = XmPushActionContainer().apply {

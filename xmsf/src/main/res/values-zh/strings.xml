@@ -232,13 +232,17 @@
     <string name="runtime_log_clear_partial_failed">部分清空失败：%1$s</string>
     <string name="runtime_log_info_loading">正在加载日志...</string>
     <string name="runtime_log_info_empty">暂无运行日志</string>
-    <string name="runtime_log_info_summary">文件：%1$d 个，大小：%2$s，条目：%3$d</string>
+    <string name="runtime_log_info_summary">文件：%1$d 个，条目：%2$d</string>
     <string name="runtime_log_info_range">范围：%1$s - %2$s</string>
     <string name="runtime_log_info_preview_title">最近日志</string>
     <string name="runtime_log_action_wrap">换行</string>
     <string name="runtime_log_action_no_wrap">不换行</string>
+    <string name="runtime_log_action_format">格式化</string>
+    <string name="runtime_log_action_compact">压缩</string>
+    <string name="runtime_log_delete_failed">删除失败：%1$s</string>
     <string name="action_share">分享</string>
     <string name="action_clear">清空</string>
+    <string name="action_delete">删除</string>
     <string name="helplib_action_about">关于</string>
     <string name="action_back">返回</string>
 

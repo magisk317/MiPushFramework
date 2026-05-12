@@ -49,10 +49,16 @@ class LogUtilsRobolectricTest {
         assertNotNull(content)
         assertTrue(content!!.text.contains(""""tag":"DiagTest""""))
         assertTrue(content.text.contains(""""message":"hello token=secret""""))
+        assertTrue(content.text.contains(""""time":"""))
+        assertFalse(content.text.contains(""""timestamp":"""))
+        assertFalse(content.text.contains(""""source":"""))
+        assertFalse(content.text.contains(""""uid":"""))
+        assertFalse(content.text.contains(""""threadId":"""))
+        assertFalse(content.text.contains(""""throwable":"""))
     }
 
     @Test
-    fun `module logs use source route jsonl file`() {
+    fun `module logs use route jsonl file`() {
         LogUtils.appendModuleLog(
             context = context,
             source = "sms_hook",
@@ -69,8 +75,34 @@ class LogUtilsRobolectricTest {
         assertNotNull(moduleFile)
         val content = LogUtils.readLogFile(context, moduleFile!!.name)
         assertNotNull(content)
-        assertTrue(content!!.text.contains(""""source":"sms_hook""""))
+        assertTrue(content!!.text.contains(""""route":"sms_hook""""))
         assertTrue(content.text.contains("module hello"))
+    }
+
+    @Test
+    fun `summary reads new time-only jsonl entries`() {
+        val logDir = LogBundleExporter.getLogDir(context)
+        val file = File(logDir, "runtime.2026-05-11.jsonl").apply {
+            writeText("""{"time":"2026-05-11 23:38:47.000","level":"I","tag":"Diag","message":"new"}""")
+        }
+
+        val summary = LogUtils.summarizeFiles(context)
+        val info = summary.files.firstOrNull { it.name == file.name }
+
+        assertNotNull(info)
+        assertEquals(info!!.firstTimestamp, info.lastTimestamp)
+        assertTrue(info.firstTimestamp ?: 0L > 0L)
+    }
+
+    @Test
+    fun `runtime log file can be deleted by name`() {
+        Napier.i("delete me", tag = "DiagDelete")
+        val file = LogUtils.summarizeFiles(context).files.first { it.name.startsWith("runtime.") }
+
+        assertTrue(LogUtils.deleteRuntimeLogFile(context, file.name))
+
+        assertFalse(LogUtils.summarizeFiles(context).files.any { it.name == file.name })
+        assertFalse(LogUtils.deleteRuntimeLogFile(context, "../${file.name}"))
     }
 
     @Test

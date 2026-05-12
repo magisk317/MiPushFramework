@@ -21,6 +21,8 @@ object MyLog {
 
     private var sContext: Context? = null
     private var LOG_LEVEL = 2
+    @Volatile
+    private var debugLoggingEnabled = false
     private var isXMSF = false
     private var DEFAULT_TAG = "XMPush-${Process.myPid()}"
     private var logger: LoggerInterface = DefaultAndroidLogger()
@@ -29,19 +31,37 @@ object MyLog {
     private val NEGATIVE_CODE = -1
     private val mCodeGenerator = AtomicInteger(1)
 
-    private class DefaultAndroidLogger : LoggerInterface {
+    private class DefaultAndroidLogger : LevelAwareLoggerInterface {
         private var mTag: String = DEFAULT_TAG
 
         override fun log(str: String) {
-            Log.v(mTag, str)
+            log(INFO, str)
         }
 
         override fun log(str: String, th: Throwable) {
-            Log.v(mTag, str, th)
+            log(INFO, str, th)
         }
 
         override fun setTag(str: String) {
             mTag = str
+        }
+
+        override fun log(level: Int, str: String) {
+            when (level) {
+                DEBUG -> Log.d(mTag, str)
+                WARN -> Log.w(mTag, str)
+                ERROR, FATAL -> Log.e(mTag, str)
+                else -> Log.i(mTag, str)
+            }
+        }
+
+        override fun log(level: Int, str: String, th: Throwable) {
+            when (level) {
+                DEBUG -> Log.d(mTag, str, th)
+                WARN -> Log.w(mTag, str, th)
+                ERROR, FATAL -> Log.e(mTag, str, th)
+                else -> Log.i(mTag, str, th)
+            }
         }
     }
 
@@ -91,28 +111,43 @@ object MyLog {
 
     @JvmStatic
     fun log(level: Int, str: String) {
-        if (level >= LOG_LEVEL) {
-            logger.log(str)
+        if (shouldLog(level)) {
+            val currentLogger = logger
+            if (currentLogger is LevelAwareLoggerInterface) {
+                currentLogger.log(level, str)
+            } else {
+                currentLogger.log(str)
+            }
         }
     }
 
     @JvmStatic
     fun log(level: Int, str: String, th: Throwable) {
-        if (level >= LOG_LEVEL) {
-            logger.log(str, th)
+        if (shouldLog(level)) {
+            val currentLogger = logger
+            if (currentLogger is LevelAwareLoggerInterface) {
+                currentLogger.log(level, str, th)
+            } else {
+                currentLogger.log(str, th)
+            }
         }
     }
 
     @JvmStatic
     fun log(level: Int, th: Throwable) {
-        if (level >= LOG_LEVEL) {
-            logger.log("", th)
+        if (shouldLog(level)) {
+            val currentLogger = logger
+            if (currentLogger is LevelAwareLoggerInterface) {
+                currentLogger.log(level, "", th)
+            } else {
+                currentLogger.log("", th)
+            }
         }
     }
 
     @JvmStatic
     fun pe(code: Int?) {
-        if (LOG_LEVEL <= 1 && code != null && mStartTimes.containsKey(code)) {
+        if (debugLoggingEnabled && LOG_LEVEL <= 1 && code != null && mStartTimes.containsKey(code)) {
             val jLongValue = mStartTimes.remove(code)!!
             val strRemove = mActionNames.remove(code)
             val jCurrentTimeMillis = System.currentTimeMillis()
@@ -147,7 +182,7 @@ object MyLog {
 
     @JvmStatic
     fun ps(str: String): Int {
-        if (LOG_LEVEL > 1) {
+        if (!debugLoggingEnabled || LOG_LEVEL > 1) {
             return NEGATIVE_CODE
         }
         val numValueOf = mCodeGenerator.incrementAndGet()
@@ -163,6 +198,11 @@ object MyLog {
             log(WARN, "set log level as $level")
         }
         LOG_LEVEL = level
+    }
+
+    @JvmStatic
+    fun setDebugLoggingEnabled(enabled: Boolean) {
+        debugLoggingEnabled = enabled
     }
 
     @JvmStatic
@@ -202,5 +242,10 @@ object MyLog {
 
     private fun wrapMessage(str: String, str2: String): String {
         return "${jointThreadId()}[$str] $str2"
+    }
+
+    private fun shouldLog(level: Int): Boolean {
+        if (level == DEBUG && !debugLoggingEnabled) return false
+        return level >= LOG_LEVEL
     }
 }

@@ -45,13 +45,10 @@ object LogUtils {
         val message: String,
         val throwable: String = "",
         val route: String = "app",
-        val source: String = route,
         val packageName: String = "",
         val processName: String = "",
         val pid: Int = 0,
-        val uid: Int = 0,
         val threadName: String = "",
-        val threadId: Long = 0L,
     )
 
     data class RuntimeLogFileInfo(
@@ -106,7 +103,6 @@ object LogUtils {
                 message = message.orEmpty(),
                 throwable = throwable?.stackTraceToString().orEmpty(),
                 route = "app",
-                source = "app",
                 packageName = context.packageName,
                 processName = LogUtils.currentProcessName(),
             )
@@ -130,7 +126,6 @@ object LogUtils {
             message = message,
             throwable = throwable,
             route = sanitizeSegment(source.ifBlank { "module" }),
-            source = source.ifBlank { "module" },
             packageName = packageName,
             processName = processName,
         )
@@ -143,7 +138,6 @@ object LogUtils {
         message: String,
         throwable: String,
         route: String,
-        source: String,
         packageName: String,
         processName: String,
     ) {
@@ -156,13 +150,10 @@ object LogUtils {
             message = message,
             throwable = throwable,
             route = route,
-            source = source,
             packageName = packageName,
             processName = processName,
             pid = android.os.Process.myPid(),
-            uid = android.os.Process.myUid(),
             threadName = thread.name.orEmpty(),
-            threadId = thread.compatThreadId(),
         )
         val line = encodeJsonLine(entry) + "\n"
         val logDir = LogBundleExporter.getLogDir(context)
@@ -175,9 +166,6 @@ object LogUtils {
             }
         }
     }
-
-    @Suppress("DEPRECATION")
-    private fun Thread.compatThreadId(): Long = id
 
     @JvmStatic
     fun getLogFolder(context: Context): String {
@@ -242,6 +230,12 @@ object LogUtils {
             truncated = lines.size > displayed.size,
             text = displayed.joinToString("\n"),
         )
+    }
+
+    fun deleteRuntimeLogFile(context: Context, name: String): Boolean {
+        val safeName = File(name).name
+        val file = getRuntimeLogFiles(context).firstOrNull { it.name == safeName } ?: return false
+        return file.delete()
     }
 
     fun deleteLegacyTextLogFiles(context: Context): Int {
@@ -309,7 +303,7 @@ object LogUtils {
         file.forEachLine { line ->
             if (line.isBlank()) return@forEachLine
             lineCount += 1
-            val timestamp = parseTimestamp(line)
+            val timestamp = parseLogTimeMs(line)
             if (timestamp != null) {
                 if (firstTimestamp == null) firstTimestamp = timestamp
                 lastTimestamp = timestamp
@@ -359,39 +353,45 @@ object LogUtils {
         file.appendText(line)
     }
 
-    private fun parseTimestamp(line: String): Long? {
-        val marker = "\"timestamp\":"
-        val start = line.indexOf(marker)
-        if (start < 0) return null
-        val numberStart = start + marker.length
-        val numberEnd = line.indexOfFirst(numberStart) { !it.isDigit() }.let { if (it < 0) line.length else it }
-        return line.substring(numberStart, numberEnd).toLongOrNull()
-    }
-
-    private inline fun String.indexOfFirst(startIndex: Int, predicate: (Char) -> Boolean): Int {
-        for (index in startIndex until length) {
-            if (predicate(this[index])) return index
-        }
-        return -1
+    private fun parseLogTimeMs(line: String): Long? {
+        val timeMarker = "\"time\":\""
+        val timeStart = line.indexOf(timeMarker)
+        if (timeStart < 0) return null
+        val valueStart = timeStart + timeMarker.length
+        val valueEnd = line.indexOf('"', valueStart)
+        if (valueEnd < 0) return null
+        return runCatching {
+            synchronized(logTimestampFormat) {
+                logTimestampFormat.parse(line.substring(valueStart, valueEnd))?.time
+            }
+        }.getOrNull()
     }
 
     private fun encodeJsonLine(entry: RuntimeLogEntry): String {
         return buildString {
             append('{')
-            append("\"timestamp\":").append(entry.timestamp)
-            append(",\"time\":").appendJsonString(logTimestampFormat.format(Date(entry.timestamp)))
+            append("\"time\":").appendJsonString(
+                synchronized(logTimestampFormat) {
+                    logTimestampFormat.format(Date(entry.timestamp))
+                },
+            )
             append(",\"level\":").appendJsonString(entry.level)
             append(",\"tag\":").appendJsonString(entry.tag)
             append(",\"message\":").appendJsonString(entry.message)
-            append(",\"throwable\":").appendJsonString(entry.throwable)
+            if (entry.throwable.isNotBlank()) {
+                append(",\"throwable\":").appendJsonString(entry.throwable)
+            }
             append(",\"route\":").appendJsonString(entry.route)
-            append(",\"source\":").appendJsonString(entry.source)
-            append(",\"packageName\":").appendJsonString(entry.packageName)
-            append(",\"processName\":").appendJsonString(entry.processName)
+            if (entry.packageName.isNotBlank()) {
+                append(",\"packageName\":").appendJsonString(entry.packageName)
+            }
+            if (entry.processName.isNotBlank()) {
+                append(",\"processName\":").appendJsonString(entry.processName)
+            }
             append(",\"pid\":").append(entry.pid)
-            append(",\"uid\":").append(entry.uid)
-            append(",\"threadName\":").appendJsonString(entry.threadName)
-            append(",\"threadId\":").append(entry.threadId)
+            if (entry.threadName.isNotBlank()) {
+                append(",\"threadName\":").appendJsonString(entry.threadName)
+            }
             append('}')
         }
     }

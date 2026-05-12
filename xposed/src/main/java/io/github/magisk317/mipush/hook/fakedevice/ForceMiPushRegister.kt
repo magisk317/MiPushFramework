@@ -79,10 +79,24 @@ object ForceMiPushRegister {
             XLog.w(TAG, "skip cloudpush register retry: currentApplication unavailable for $packageName in process=$processName")
             return
         }
+        val classMiPushClient = runCatching {
+            classLoader.findClass("com.xiaomi.mipush.sdk.MiPushClient")
+        }.getOrNull()
+        val currentRegId = classMiPushClient?.let {
+            readRegId(it, app.applicationContext)
+        }.orEmpty()
+        if (currentRegId.isNotBlank()) {
+            markRegistered(processKey)
+            XLog.i(
+                TAG,
+                "skip cloudpush register retry for $packageName in process=$processName, " +
+                    "regId already available=${currentRegId.take(24)}"
+            )
+            return
+        }
         cloudPushRetryElapsedMs[processKey] = now
         triedPackages.remove(processKey)
         retryCounts.remove(processKey)
-        regIdRetryCounts.remove(processKey)
         XLog.i(TAG, "cloudpush handshake detected, retry register for $packageName in process=$processName")
         traceRegisterCalls(packageName, classLoader)
         tryRegister(app, packageName, processName, classLoader)
@@ -116,27 +130,35 @@ object ForceMiPushRegister {
 
         try {
             val appContext = app.applicationContext
+            val existingRegId = readRegId(classMiPushClient, appContext)
+            if (existingRegId.isNotBlank()) {
+                markRegistered(processKey)
+                XLog.i(
+                    TAG,
+                    "skip force register for $packageName in process=$processName, " +
+                        "regId already available=${existingRegId.take(24)}"
+                )
+                return
+            }
+            if (regIdRetryCounts.containsKey(processKey)) {
+                XLog.d(TAG, "skip force register for $packageName in process=$processName, regId check already scheduled")
+                return
+            }
             classMiPushClient.callStaticMethod(
                 "registerPush",
                 appContext,
                 credential.appId,
                 credential.appKey
             )
-            val regId = runCatching {
-                classMiPushClient.callStaticMethod("getRegId", appContext) as? String
-            }.getOrNull().orEmpty()
+            val regId = readRegId(classMiPushClient, appContext)
             XLog.i(
                 TAG,
                 "forced registerPush for $packageName in process=$processName, appId=${credential.appId.take(12)}..., regId=${regId.take(24)}"
             )
             if (regId.isNotBlank()) {
-                triedPackages.add(processKey)
+                markRegistered(processKey)
             } else {
-                if (!regIdRetryCounts.containsKey(processKey)) {
-                    scheduleRegIdCheck(app, packageName, processName, classMiPushClient, appContext)
-                } else {
-                    XLog.d(TAG, "regId still empty for $packageName in process=$processName, check already scheduled")
-                }
+                scheduleRegIdCheck(app, packageName, processName, classMiPushClient, appContext)
             }
         } catch (e: Throwable) {
             XLog.e(TAG, "force registerPush failed for $packageName in process=$processName", e)
@@ -319,20 +341,30 @@ object ForceMiPushRegister {
             if (triedPackages.contains(processKey)) {
                 return@postDelayed
             }
-            val regId = runCatching {
-                classMiPushClient.callStaticMethod("getRegId", appContext) as? String
-            }.getOrNull().orEmpty()
+            val regId = readRegId(classMiPushClient, appContext)
             if (regId.isNotBlank()) {
                 XLog.i(
                     TAG,
                     "regId available for $packageName in process=$processName, regId=${regId.take(24)}"
                 )
-                triedPackages.add(processKey)
+                markRegistered(processKey)
             } else {
                 scheduleRegIdCheck(app, packageName, processName, classMiPushClient, appContext)
             }
         }, delay)
         XLog.d(TAG, "scheduled regId check#${nextIndex + 1} for $packageName in process=$processName after ${delay}ms")
+    }
+
+    private fun readRegId(classMiPushClient: Class<*>, appContext: Context): String {
+        return runCatching {
+            classMiPushClient.callStaticMethod("getRegId", appContext) as? String
+        }.getOrNull().orEmpty()
+    }
+
+    private fun markRegistered(processKey: String) {
+        triedPackages.add(processKey)
+        retryCounts.remove(processKey)
+        regIdRetryCounts.remove(processKey)
     }
 
 }

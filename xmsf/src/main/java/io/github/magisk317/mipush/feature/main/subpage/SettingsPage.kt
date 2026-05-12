@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -28,6 +29,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -423,7 +425,7 @@ private fun DataMaintenanceBlock(viewModel: SettingsViewModel, snackbarHostState
     var showRuntimeLogInfoDialog by remember { mutableStateOf(false) }
     var runtimeLogDialogData by remember { mutableStateOf<RuntimeLogDialogData?>(null) }
     var showRuntimeLogFullScreenPreview by remember { mutableStateOf(false) }
-    var runtimeLogWrapLines by rememberSaveable { mutableStateOf(false) }
+    var runtimeLogExpandedFormat by rememberSaveable { mutableStateOf(false) }
     var showRuntimeLogRetentionDialog by remember { mutableStateOf(false) }
     var runtimeLogRetentionInput by remember(runtimeLogRetentionDays) {
         mutableStateOf(runtimeLogRetentionDays.toString())
@@ -521,7 +523,33 @@ private fun DataMaintenanceBlock(viewModel: SettingsViewModel, snackbarHostState
             onDismiss = { showRuntimeLogInfoDialog = false },
             onShare = { shareRuntimeLogBundle() },
             onSelectFile = { fileName -> loadRuntimeLogDialog(fileName) },
-            onOpenPreview = { showRuntimeLogFullScreenPreview = true },
+            onOpenPreview = {
+                runtimeLogExpandedFormat = false
+                showRuntimeLogFullScreenPreview = true
+            },
+            onDeleteFile = { fileName ->
+                scope.launch {
+                    val files = dialogData?.summary?.files.orEmpty()
+                    val selectedIndex = files.indexOfFirst { it.name == fileName }
+                    val nextSelection = if (selectedIndex >= 0) {
+                        files.getOrNull(selectedIndex + 1)?.name ?: files.getOrNull(selectedIndex - 1)?.name
+                    } else {
+                        null
+                    }
+                    val deleted = withContext(Dispatchers.IO) {
+                        LogUtils.deleteRuntimeLogFile(context, fileName)
+                    }
+                    showRuntimeLogFullScreenPreview = false
+                    runtimeLogDialogData = withContext(Dispatchers.IO) {
+                        loadRuntimeLogDialogData(context, nextSelection)
+                    }
+                    if (!deleted) {
+                        snackbarHostState.showSnackbar(
+                            context.getString(R.string.runtime_log_delete_failed, fileName),
+                        )
+                    }
+                }
+            },
             onClear = {
                 scope.launch {
                     val result = withContext(Dispatchers.IO) {
@@ -544,9 +572,10 @@ private fun DataMaintenanceBlock(viewModel: SettingsViewModel, snackbarHostState
         if (showRuntimeLogFullScreenPreview && content != null) {
             RuntimeLogFullScreenPreviewDialog(
                 fileName = content.name,
-                text = dialogData.formattedPreview,
-                wrapLines = runtimeLogWrapLines,
-                onWrapLinesChange = { runtimeLogWrapLines = it },
+                compactText = dialogData.compactPreview,
+                formattedText = dialogData.formattedPreview,
+                expandedFormat = runtimeLogExpandedFormat,
+                onExpandedFormatChange = { runtimeLogExpandedFormat = it },
                 onDismiss = { showRuntimeLogFullScreenPreview = false },
             )
         }
@@ -598,6 +627,7 @@ private data class RuntimeLogDialogData(
     val summary: LogUtils.RuntimeLogFileSummary,
     val selectedFileName: String?,
     val content: LogUtils.RuntimeLogFileContent?,
+    val compactPreview: String,
     val formattedPreview: String,
 )
 
@@ -608,6 +638,7 @@ private fun RuntimeLogInfoDialog(
     onShare: () -> Unit,
     onSelectFile: (String) -> Unit,
     onOpenPreview: () -> Unit,
+    onDeleteFile: (String) -> Unit,
     onClear: () -> Unit,
 ) {
     AlertDialog(
@@ -632,7 +663,6 @@ private fun RuntimeLogInfoDialog(
                             text = stringResource(
                                 id = R.string.runtime_log_info_summary,
                                 summary.fileCount,
-                                formatLogSize(summary.totalBytes),
                                 summary.entryCount,
                             ),
                             maxLines = 1,
@@ -663,20 +693,35 @@ private fun RuntimeLogInfoDialog(
                     ) {
                         summary.files.forEach { file ->
                             val selected = file.name == data.selectedFileName
-                            Text(
-                                text = formatRuntimeLogFileListLine(file, selected),
+                            Row(
                                 modifier = Modifier
                                     .clickable { onSelectFile(file.name) }
-                                    .padding(vertical = 2.dp),
-                                maxLines = 1,
-                                softWrap = false,
-                                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                                color = if (selected) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface
-                                },
-                            )
+                                    .padding(vertical = 1.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = formatRuntimeLogFileListLine(file, selected),
+                                    modifier = Modifier
+                                        .padding(vertical = 2.dp),
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                                    color = if (selected) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurface
+                                    },
+                                )
+                                if (!selected) {
+                                    IconButton(onClick = { onDeleteFile(file.name) }) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Delete,
+                                            contentDescription = stringResource(id = R.string.action_delete),
+                                            tint = MaterialTheme.colorScheme.error,
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -684,15 +729,18 @@ private fun RuntimeLogInfoDialog(
                     text = stringResource(id = R.string.runtime_log_info_preview_title),
                     style = MaterialTheme.typography.titleSmall,
                 )
+                val previewVerticalScroll = rememberScrollState()
+                val previewHorizontalScroll = rememberScrollState()
                 Text(
-                    text = data.formattedPreview.ifBlank { stringResource(id = R.string.runtime_log_info_empty) },
+                    text = data.compactPreview.ifBlank { stringResource(id = R.string.runtime_log_info_empty) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(max = 280.dp)
-                        .verticalScroll(rememberScrollState())
+                        .verticalScroll(previewVerticalScroll)
+                        .horizontalScroll(previewHorizontalScroll)
                         .clickable(enabled = data.content != null, onClick = onOpenPreview),
                     style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                    softWrap = true,
+                    softWrap = false,
                 )
             }
         },
@@ -712,9 +760,10 @@ private fun RuntimeLogInfoDialog(
 @Composable
 private fun RuntimeLogFullScreenPreviewDialog(
     fileName: String,
-    text: String,
-    wrapLines: Boolean,
-    onWrapLinesChange: (Boolean) -> Unit,
+    compactText: String,
+    formattedText: String,
+    expandedFormat: Boolean,
+    onExpandedFormatChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     Dialog(
@@ -735,13 +784,13 @@ private fun RuntimeLogFullScreenPreviewDialog(
                             }
                         },
                         actions = {
-                            TextButton(onClick = { onWrapLinesChange(!wrapLines) }) {
+                            TextButton(onClick = { onExpandedFormatChange(!expandedFormat) }) {
                                 Text(
                                     text = stringResource(
-                                        id = if (wrapLines) {
-                                            R.string.runtime_log_action_no_wrap
+                                        id = if (expandedFormat) {
+                                            R.string.runtime_log_action_compact
                                         } else {
-                                            R.string.runtime_log_action_wrap
+                                            R.string.runtime_log_action_format
                                         },
                                     ),
                                 )
@@ -752,6 +801,7 @@ private fun RuntimeLogFullScreenPreviewDialog(
             ) { padding ->
                 val vertical = rememberScrollState()
                 val horizontal = rememberScrollState()
+                val text = if (expandedFormat) formattedText else compactText
                 Text(
                     text = text.ifBlank { stringResource(id = R.string.runtime_log_info_empty) },
                     modifier = Modifier
@@ -759,9 +809,9 @@ private fun RuntimeLogFullScreenPreviewDialog(
                         .padding(padding)
                         .padding(12.dp)
                         .verticalScroll(vertical)
-                        .then(if (wrapLines) Modifier else Modifier.horizontalScroll(horizontal)),
+                        .horizontalScroll(horizontal),
                     style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                    softWrap = wrapLines,
+                    softWrap = false,
                 )
             }
         }
@@ -785,12 +835,14 @@ private fun loadRuntimeLogDialogData(context: Context, selectedFileName: String?
     val content = selected?.let { fileName ->
         runCatching { LogUtils.readLogFile(context, fileName) }.getOrNull()
     }
-    val preview = content?.let { formatRuntimeLogContent(it.name, it.text) }.orEmpty()
+    val compactPreview = content?.let { formatRuntimeLogContent(it.name, it.text, expanded = false) }.orEmpty()
+    val formattedPreview = content?.let { formatRuntimeLogContent(it.name, it.text, expanded = true) }.orEmpty()
     return RuntimeLogDialogData(
         summary = summary,
         selectedFileName = selected,
         content = content,
-        formattedPreview = preview,
+        compactPreview = compactPreview,
+        formattedPreview = formattedPreview,
     )
 }
 
@@ -809,20 +861,21 @@ private fun formatRuntimeLogFileListLine(file: LogUtils.RuntimeLogFileInfo, sele
     return "$marker -rw------- $lines $size $modified ${file.name}"
 }
 
-private fun formatRuntimeLogContent(fileName: String, text: String): String {
+private fun formatRuntimeLogContent(fileName: String, text: String, expanded: Boolean): String {
     if (!fileName.endsWith(".jsonl")) return text
+    val separator = if (expanded) "\n\n" else "\n"
     return text.lineSequence()
         .filter { it.isNotBlank() }
-        .joinToString(separator = "\n\n") { line ->
-            formatJsonLine(line)
+        .joinToString(separator = separator) { line ->
+            formatJsonLine(line, expanded)
         }
 }
 
-private fun formatJsonLine(line: String): String {
+private fun formatJsonLine(line: String, expanded: Boolean): String {
     return runCatching {
         when (val value = JSONTokener(line).nextValue()) {
-            is JSONObject -> value.toString(2)
-            is JSONArray -> value.toString(2)
+            is JSONObject -> if (expanded) value.toString(2) else value.toString()
+            is JSONArray -> if (expanded) value.toString(2) else value.toString()
             else -> line
         }
     }.getOrDefault(line)

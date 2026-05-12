@@ -252,13 +252,17 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="runtime_log_clear_partial_failed">Partially cleared: %1$s</string>
     <string name="runtime_log_info_loading">Loading logs...</string>
     <string name="runtime_log_info_empty">No runtime logs yet</string>
-    <string name="runtime_log_info_summary">Files: %1$d, size: %2$s, entries: %3$d</string>
+    <string name="runtime_log_info_summary">Files: %1$d, entries: %2$d</string>
     <string name="runtime_log_info_range">Range: %1$s - %2$s</string>
     <string name="runtime_log_info_preview_title">Recent logs</string>
     <string name="runtime_log_action_wrap">Wrap</string>
     <string name="runtime_log_action_no_wrap">No wrap</string>
+    <string name="runtime_log_action_format">Format</string>
+    <string name="runtime_log_action_compact">Compact</string>
+    <string name="runtime_log_delete_failed">Delete failed: %1$s</string>
     <string name="action_share">Share</string>
     <string name="action_clear">Clear</string>
+    <string name="action_delete">Delete</string>
 
 
     <!-- Recent Activity -->

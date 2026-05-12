@@ -41,6 +41,9 @@ import com.xiaomi.xmsf.stock.StockSurfaceBootstrap
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import com.xiaomi.channel.commonutils.logger.MyLog
 
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
@@ -106,7 +109,18 @@ class MiPushFrameworkApp : Application() {
 
     private fun initBasicLogger() {
         LogUtils.init(this)
-        logger.i("App starts: ${BuildConfig.VERSION_NAME}")
+        // 读取初始 debugMode 并立即同步到 MyLog，避免启动阶段 DEBUG 日志被错误过滤
+        val initialDebugMode = runCatching {
+            runBlocking { preferenceRepository.isDebugMode.first() }
+        }.getOrDefault(false)
+        MyLog.setDebugLoggingEnabled(initialDebugMode)
+        // 收集后续变更，确保设置页开关拨动后实时生效
+        applicationScope.launch {
+            preferenceRepository.isDebugMode.collect { enabled ->
+                MyLog.setDebugLoggingEnabled(enabled)
+            }
+        }
+        logger.i("App starts: ${BuildConfig.VERSION_NAME}, debugMode=$initialDebugMode")
     }
 
     private fun notifyDozeWhiteListRequest(manager: NotificationManagerCompat) {

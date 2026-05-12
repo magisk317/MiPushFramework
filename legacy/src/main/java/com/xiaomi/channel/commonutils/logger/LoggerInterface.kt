@@ -7,3 +7,9 @@ interface LoggerInterface {
 
     fun setTag(str: String)
 }
+
+interface LevelAwareLoggerInterface : LoggerInterface {
+    fun log(level: Int, str: String)
+
+    fun log(level: Int, str: String, th: Throwable)
+}

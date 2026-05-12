@@ -31,6 +31,7 @@ import io.github.magisk317.mipush.utils.Configurations
 import io.github.magisk317.mipush.utils.IconConfigurations
 import io.github.magisk317.mipush.utils.PackageConfig
 import io.github.magisk317.mipush.app.ConfigCenter
+import java.util.LinkedHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlinx.coroutines.runBlocking
@@ -55,11 +56,14 @@ class MyMIPushNotificationHelper {
         const val CLASS_NAME_PUSH_MESSAGE_HANDLER = Constants.PUSH_MESSAGE_HANDLER_CLASS
         private const val GROUP_TYPE_MIPUSH_GROUP = "#group#"
         private const val GROUP_TYPE_PASS_THROUGH = "#pass_through#"
+        private const val NON_DISPLAY_DISPATCH_WINDOW_MS = 30_000L
 
         @Volatile
         private var notificationSessionStartedAtMs: Long = System.currentTimeMillis()
         private var tryLoadConfigurations = false
         private val executorService: ExecutorService = Executors.newFixedThreadPool(3)
+        private val nonDisplayDispatchLock = Any()
+        private val recentNonDisplayDispatches = LinkedHashMap<String, Long>()
 
         @JvmStatic
         fun markNotificationSessionStarted(source: String, nowMs: Long = System.currentTimeMillis()) {
@@ -78,7 +82,8 @@ class MyMIPushNotificationHelper {
                     "moduleEnhanced=${io.github.magisk317.mipush.notification.NotificationManagerEx.isHooked}"
             )
             if (!shouldPublishNotification(container)) {
-                logger.i("skip non-display notification action=${container.action} pkg=${container.packageName}")
+                dispatchNonDisplayPayloadToApplication(context, container, decryptedContent, messageId)
+                logger.i("skip non-display notification publish action=${container.action} pkg=${container.packageName}")
                 return
             }
             if (RegisteredApplicationDb.isBlocked(container.packageName)) {
@@ -215,6 +220,79 @@ class MyMIPushNotificationHelper {
 
         internal fun shouldPublishNotification(container: XmPushActionContainer): Boolean {
             return container.action == ActionType.SendMessage
+        }
+
+        internal fun shouldDispatchNonDisplayPayload(container: XmPushActionContainer): Boolean {
+            if (container.isRequest) {
+                return false
+            }
+            return when (container.action) {
+                ActionType.Registration,
+                ActionType.UnRegistration,
+                ActionType.Command -> true
+                else -> false
+            }
+        }
+
+        private fun dispatchNonDisplayPayloadToApplication(
+            context: Context,
+            container: XmPushActionContainer,
+            decryptedContent: ByteArray,
+            messageId: String?
+        ) {
+            if (!shouldDispatchNonDisplayPayload(container)) {
+                return
+            }
+            val packageName = container.packageName
+            if (packageName.isNullOrBlank()) {
+                logger.w("skip non-display payload dispatch because package is blank action=${container.action}")
+                return
+            }
+            val action = container.action?.name ?: "Unknown"
+            if (!claimNonDisplayDispatch(packageName, action, messageId)) {
+                logger.i("skip duplicate non-display payload dispatch pkg=$packageName action=$action messageId=$messageId")
+                return
+            }
+            HookTraceCompat.notifyPushMessage(container, decryptedContent)
+            val dispatched = XMPushUtils.dispatchToApplication(
+                context = context,
+                packageName = packageName,
+                payload = decryptedContent,
+                fromNotification = false
+            )
+            if (dispatched) {
+                PushRuntime.observeTransferToApplication(
+                    packageName = packageName,
+                    action = action,
+                    messageId = messageId,
+                    source = "MyMIPushNotificationHelper.nonDisplayPayload"
+                )
+            } else {
+                logger.w("non-display payload dispatch failed pkg=$packageName action=$action messageId=$messageId")
+            }
+        }
+
+        private fun claimNonDisplayDispatch(
+            packageName: String,
+            action: String,
+            messageId: String?,
+            nowMs: Long = System.currentTimeMillis()
+        ): Boolean {
+            val key = "$packageName|$action|${messageId.orEmpty()}"
+            synchronized(nonDisplayDispatchLock) {
+                val iterator = recentNonDisplayDispatches.entries.iterator()
+                while (iterator.hasNext()) {
+                    val entry = iterator.next()
+                    if ((nowMs - entry.value) > NON_DISPLAY_DISPATCH_WINDOW_MS) {
+                        iterator.remove()
+                    }
+                }
+                if (recentNonDisplayDispatches.containsKey(key)) {
+                    return false
+                }
+                recentNonDisplayDispatches[key] = nowMs
+                return true
+            }
         }
 
         private const val REPLAY_WINDOW_MS = 6 * 60 * 60 * 1000L // 6 hours
