@@ -337,9 +337,18 @@ class PushMessageProcessor private constructor(context: Context) {
         messageId: String?,
         eventMessageType: Int
     ): PushMessageInterface? {
-        val requestId = AppInfoHolder.getInstance(sAppContext).appRegRequestId
+        val appInfoHolder = AppInfoHolder.getInstance(sAppContext)
+        val requestId = appInfoHolder.appRegRequestId
+        MyLog.w(
+            "registration result received errorCode=${result.errorCode} reason=${result.reason} " +
+                "requestIdPresent=${!TextUtils.isEmpty(requestId)} resultIdMatch=${TextUtils.equals(requestId, result.id)} " +
+                "resultAppIdPresent=${!TextUtils.isEmpty(result.appId)} resultAppIdMatch=${TextUtils.equals(appInfoHolder.appID, result.appId)} " +
+                "regIdPresent=${!TextUtils.isEmpty(result.regId)} regSecretPresent=${!TextUtils.isEmpty(result.regSecret)} " +
+                "regionPresent=${!TextUtils.isEmpty(result.region)} messageIdPresent=${!TextUtils.isEmpty(messageId)} " +
+                appInfoHolder.registrationStateSummary(result.appId, appInfoHolder.appToken)
+        )
         if (TextUtils.isEmpty(requestId) || !TextUtils.equals(requestId, result.id)) {
-            MyLog.w("bad Registration result:")
+            MyLog.w("bad Registration result: " + appInfoHolder.registrationStateSummary(result.appId, appInfoHolder.appToken))
             PushClientReportManager.getInstance(sAppContext).reportEvent4ERROR(
                 sAppContext.packageName,
                 PushClientReportHelper.getInterfaceIdByType(eventMessageType),
@@ -348,9 +357,10 @@ class PushMessageProcessor private constructor(context: Context) {
             )
             return null
         }
-        AppInfoHolder.getInstance(sAppContext).appRegRequestId = null
+        appInfoHolder.appRegRequestId = null
         if (result.errorCode == 0L) {
-            AppInfoHolder.getInstance(sAppContext).putRegIDAndSecret(result.regId, result.regSecret, result.region)
+            appInfoHolder.putRegIDAndSecret(result.regId, result.regSecret, result.region)
+            MyLog.w("registration result stored " + appInfoHolder.registrationStateSummary(result.appId, appInfoHolder.appToken))
             PushClientReportManager.getInstance(sAppContext).reportEvent(
                 sAppContext.packageName,
                 PushClientReportHelper.getInterfaceIdByType(eventMessageType),
@@ -359,6 +369,10 @@ class PushMessageProcessor private constructor(context: Context) {
                 ReportConstants.REGISTER_SUCCESS
             )
         } else {
+            MyLog.w(
+                "registration result failed errorCode=${result.errorCode} reason=${result.reason} " +
+                    appInfoHolder.registrationStateSummary(result.appId, appInfoHolder.appToken)
+            )
             PushClientReportManager.getInstance(sAppContext).reportEvent(
                 sAppContext.packageName,
                 PushClientReportHelper.getInterfaceIdByType(eventMessageType),

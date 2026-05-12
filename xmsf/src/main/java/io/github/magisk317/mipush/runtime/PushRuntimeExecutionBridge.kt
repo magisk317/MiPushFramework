@@ -6,6 +6,7 @@ import io.github.magisk317.mipush.diagnostics.PushHealthSnapshotLogger
 import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
 import io.github.magisk317.mipush.utils.RegistrationHelper
 import io.github.magisk317.mipush.platform.support.XMPushUtils
+import com.xiaomi.mipush.sdk.AppInfoHolder
 import com.xiaomi.mipush.sdk.MiPushClient
 import com.xiaomi.mipush.sdk.PushServiceClient
 import com.xiaomi.push.sdk.PushMessageProcessor
@@ -40,7 +41,12 @@ object PushRuntimeExecutionBridge : PushRuntimeExecutionHost {
     override fun requestFrameworkRegistration(reason: String): Boolean {
         val context = appContext ?: return false
         return runCatching {
-            PushHealthSnapshotLogger.log(context, "PushRuntimeExecutionBridge.frameworkRegister", "reason=$reason")
+            val appInfoHolder = AppInfoHolder.getInstance(context)
+            PushHealthSnapshotLogger.log(
+                context,
+                "PushRuntimeExecutionBridge.frameworkRegister",
+                "reason=$reason before=${appInfoHolder.registrationStateSummary(Constants.APP_ID, Constants.APP_KEY)}"
+            )
             MiPushClient.registerPush(context, Constants.APP_ID, Constants.APP_KEY)
             val regIdPresent = MiPushClient.getRegId(context).isNotBlank()
             if (regIdPresent) {
@@ -51,7 +57,10 @@ object PushRuntimeExecutionBridge : PushRuntimeExecutionHost {
                     reason = "reg_id_present"
                 )
             }
-            logger.d("requestFrameworkRegistration reason=$reason regIdPresent=$regIdPresent")
+            logger.d(
+                "requestFrameworkRegistration reason=$reason regIdPresent=$regIdPresent " +
+                    appInfoHolder.registrationStateSummary(Constants.APP_ID, Constants.APP_KEY)
+            )
             true
         }.getOrElse {
             logger.e("requestFrameworkRegistration failed reason=$reason", it)

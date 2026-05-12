@@ -230,6 +230,25 @@ class AppInfoHolder private constructor(private val mContext: Context) {
         return mInfoData.isVaild(str, str2)
     }
 
+    fun registrationStateSummary(expectedAppId: String? = mInfoData.appID, expectedAppToken: String? = mInfoData.appToken): String {
+        val instanceId = runCatching { DeviceInfo.getInstanceId(mContext) }.getOrNull()
+        val simpleDeviceId = runCatching { DeviceInfo.getSimpleDeviceId(mContext) }.getOrNull()
+        val deviceIdPresent = !TextUtils.isEmpty(mInfoData.deviceId)
+        return "valid=${mInfoData.isValid}" +
+            " appIdPresent=${!TextUtils.isEmpty(mInfoData.appID)}" +
+            " appTokenPresent=${!TextUtils.isEmpty(mInfoData.appToken)}" +
+            " appIdMatch=${TextUtils.equals(mInfoData.appID, expectedAppId)}" +
+            " appTokenMatch=${TextUtils.equals(mInfoData.appToken, expectedAppToken)}" +
+            " regIdPresent=${!TextUtils.isEmpty(mInfoData.regID)}" +
+            " regSecretPresent=${!TextUtils.isEmpty(mInfoData.regSecret)}" +
+            " deviceIdPresent=$deviceIdPresent" +
+            " instanceDeviceMatch=${deviceIdPresent && TextUtils.equals(mInfoData.deviceId, instanceId)}" +
+            " simpleDeviceMatch=${deviceIdPresent && TextUtils.equals(mInfoData.deviceId, simpleDeviceId)}" +
+            " envType=${mInfoData.envType}" +
+            " regionPresent=${!TextUtils.isEmpty(mInfoData.appRegion)}" +
+            " requestIdPresent=${!TextUtils.isEmpty(appRegRequestId)}"
+    }
+
     fun checkAppInfo(): Boolean {
         if (mInfoData.isVaild()) {
             return true

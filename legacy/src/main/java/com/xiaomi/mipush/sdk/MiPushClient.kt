@@ -400,17 +400,23 @@ abstract class MiPushClient {
                 if (SystemUtils.isDebuggable(sContext)) {
                     ManifestChecker.asynCheckManifest(sContext)
                 }
-                val envChanged = AppInfoHolder.getInstance(sContext).envType != Constants.getEnvType()
-                if (!envChanged && !shouldSendRegRequest(sContext)) {
+                val appInfoHolder = AppInfoHolder.getInstance(sContext)
+                val envChanged = appInfoHolder.envType != Constants.getEnvType()
+                val sendRegRequest = shouldSendRegRequest(sContext)
+                MyLog.w(
+                    "registration initialize envChanged=$envChanged sendRegRequest=$sendRegRequest " +
+                        appInfoHolder.registrationStateSummary(appId, appToken)
+                )
+                if (!envChanged && !sendRegRequest) {
                     PushServiceClient.getInstance(sContext).awakePushService()
-                    MyLog.w("Could not send  register message within 5s repeatly .")
+                    MyLog.w("Could not send register message within 5s repeatedly. " + appInfoHolder.registrationStateSummary(appId, appToken))
                     return
                 }
-                if (envChanged || !AppInfoHolder.getInstance(sContext).appRegistered(appId, appToken) || AppInfoHolder.getInstance(sContext).invalidated()) {
+                if (envChanged || !appInfoHolder.appRegistered(appId, appToken) || appInfoHolder.invalidated()) {
                     val randomDeviceId = XMStringUtils.generateRandomString(6)
-                    AppInfoHolder.getInstance(sContext).clear()
-                    AppInfoHolder.getInstance(sContext).setEnvType(Constants.getEnvType())
-                    AppInfoHolder.getInstance(sContext).putAppIDAndToken(appId, appToken, randomDeviceId)
+                    appInfoHolder.clear()
+                    appInfoHolder.setEnvType(Constants.getEnvType())
+                    appInfoHolder.putAppIDAndToken(appId, appToken, randomDeviceId)
                     MiTinyDataClient.MiTinyDataClientImp.getInstance().processPendingList(MiTinyDataClient.PENDING_REASON_APPID)
                     clearExtras(sContext)
                     clearNotification(context)
@@ -442,15 +448,20 @@ abstract class MiPushClient {
                             setSpaceId(spaceId)
                         }
                     }
+                    MyLog.w(
+                        "registration request dispatch idPresent=${!TextUtils.isEmpty(registration.id)} " +
+                            "envChanged=$envChanged " + appInfoHolder.registrationStateSummary(appId, appToken)
+                    )
                     PushServiceClient.getInstance(sContext).register(registration, envChanged)
                     sContext.getSharedPreferences(PREF_EXTRA, 4).getBoolean(PushConstants.SP_KEY_MIPUSH_REGISTED, true)
                 } else {
+                    MyLog.w("registration already valid " + appInfoHolder.registrationStateSummary(appId, appToken))
                     if (1 == PushMessageHelper.getPushMode(sContext)) {
                         checkNotNull(callback, "callback")
-                        callback!!.onInitializeResult(0L, null, AppInfoHolder.getInstance(sContext).regID)
+                        callback!!.onInitializeResult(0L, null, appInfoHolder.regID)
                     } else {
                         val args = ArrayList<String>()
-                        AppInfoHolder.getInstance(sContext).regID?.let { args.add(it) }
+                        appInfoHolder.regID?.let { args.add(it) }
                         PushMessageHelper.sendCommandMessageBroadcast(
                             sContext,
                             PushMessageHelper.generateCommandMessage(Command.COMMAND_REGISTER.value, args, 0L, null, null)
