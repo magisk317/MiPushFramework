@@ -151,9 +151,10 @@ private fun SettingsScreen(
     val density = LocalDensity.current
     var fixedTopHeightPx by remember { mutableIntStateOf(0) }
     var serviceExpanded by rememberSaveable { mutableStateOf(false) }
-    var displayExpanded by rememberSaveable { mutableStateOf(false) }
-    var dataExpanded by rememberSaveable { mutableStateOf(false) }
-    var developerExpanded by rememberSaveable { mutableStateOf(false) }
+    var keepAliveExpanded by rememberSaveable { mutableStateOf(false) }
+    var notificationsExpanded by rememberSaveable { mutableStateOf(false) }
+    var diagnosticsExpanded by rememberSaveable { mutableStateOf(false) }
+    var registrationExpanded by rememberSaveable { mutableStateOf(false) }
     var aboutExpanded by rememberSaveable { mutableStateOf(false) }
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val fixedTopHeight = if (fixedTopHeightPx > 0) {
@@ -191,31 +192,39 @@ private fun SettingsScreen(
                 expanded = serviceExpanded,
                 onExpandedChange = { serviceExpanded = !serviceExpanded },
             ) {
-                ServiceConfigurationBlock(viewModel, snackbarHostState)
+                ConnectionServiceBlock(viewModel)
             }
 
             SettingsSectionCard(
-                title = stringResource(R.string.settings_home_display_title),
-                expanded = displayExpanded,
-                onExpandedChange = { displayExpanded = !displayExpanded },
+                title = stringResource(R.string.settings_home_keepalive_title),
+                expanded = keepAliveExpanded,
+                onExpandedChange = { keepAliveExpanded = !keepAliveExpanded },
             ) {
-                DisplayBlock(viewModel)
+                KeepAliveBlock(viewModel, snackbarHostState)
             }
 
             SettingsSectionCard(
-                title = stringResource(R.string.settings_home_data_title),
-                expanded = dataExpanded,
-                onExpandedChange = { dataExpanded = !dataExpanded },
+                title = stringResource(R.string.settings_home_notifications_title),
+                expanded = notificationsExpanded,
+                onExpandedChange = { notificationsExpanded = !notificationsExpanded },
             ) {
-                DataMaintenanceBlock(viewModel, snackbarHostState)
+                NotificationsBlock(viewModel, snackbarHostState)
             }
 
             SettingsSectionCard(
-                title = stringResource(R.string.settings_home_developer_title),
-                expanded = developerExpanded,
-                onExpandedChange = { developerExpanded = !developerExpanded },
+                title = stringResource(R.string.settings_home_diagnostics_title),
+                expanded = diagnosticsExpanded,
+                onExpandedChange = { diagnosticsExpanded = !diagnosticsExpanded },
             ) {
-                ExperimentalBlock(viewModel)
+                DiagnosticsBlock(viewModel, snackbarHostState)
+            }
+
+            SettingsSectionCard(
+                title = stringResource(R.string.settings_home_registration_title),
+                expanded = registrationExpanded,
+                onExpandedChange = { registrationExpanded = !registrationExpanded },
+            ) {
+                DataRegistrationBlock(viewModel, snackbarHostState)
             }
 
             SettingsSectionCard(
@@ -278,13 +287,33 @@ private fun SettingsSectionCard(
 }
 
 @Composable
-private fun ServiceConfigurationBlock(viewModel: SettingsViewModel, snackbarHostState: SnackbarHostState) {
+private fun ConnectionServiceBlock(viewModel: SettingsViewModel) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val isStartForeground by viewModel.isStartForeground.collectAsStateWithLifecycle()
-    val notificationOnRegister by viewModel.notificationOnRegister.collectAsStateWithLifecycle()
 
     SetXMPPServer(viewModel)
+
+    SettingsSwitchItem(
+        title = stringResource(R.string.settings_start_foreground_service),
+        summary = stringResource(R.string.settings_start_foreground_service_summary),
+        checked = isStartForeground,
+    ) {
+        viewModel.setStartForeground(it)
+        viewModel.startMiPushServiceAsForegroundService(context)
+    }
+
+    SettingsItem(
+        title = stringResource(R.string.settings_permission_check),
+        summary = stringResource(R.string.settings_permission_check_summary),
+    ) {
+        context.startActivity(LegacyUiEntryPoints.requestPermissionIntent(context, recheckOnly = true))
+    }
+}
+
+@Composable
+private fun KeepAliveBlock(viewModel: SettingsViewModel, snackbarHostState: SnackbarHostState) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val keepAliveOomAdj by viewModel.keepAliveOomAdj.collectAsStateWithLifecycle()
     val keepAliveAntiKill by viewModel.keepAliveAntiKill.collectAsStateWithLifecycle()
     val keepAliveStandbyBypass by viewModel.keepAliveStandbyBypass.collectAsStateWithLifecycle()
@@ -306,16 +335,6 @@ private fun ServiceConfigurationBlock(viewModel: SettingsViewModel, snackbarHost
         isKeepAliveAccessibilityServiceEnabled(context)
     }
     val activityIntentNotFoundMessage = stringResource(R.string.activity_intent_not_found)
-    val notificationOnRegisterDisabledMessage = stringResource(R.string.notification_on_register_global_disabled_hint)
-
-    SettingsSwitchItem(
-        title = stringResource(R.string.settings_start_foreground_service),
-        summary = stringResource(R.string.settings_start_foreground_service_summary),
-        checked = isStartForeground,
-    ) {
-        viewModel.setStartForeground(it)
-        viewModel.startMiPushServiceAsForegroundService(context)
-    }
 
     SettingsSwitchItem(
         title = stringResource(R.string.pref_keepalive_oom_adj_title),
@@ -371,7 +390,15 @@ private fun ServiceConfigurationBlock(viewModel: SettingsViewModel, snackbarHost
             }
         }
     }
+}
 
+@Composable
+private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: SnackbarHostState) {
+    val scope = rememberCoroutineScope()
+    val notificationOnRegister by viewModel.notificationOnRegister.collectAsStateWithLifecycle()
+    val showAllEvents by viewModel.showAllEvents.collectAsStateWithLifecycle()
+    val showConfigurationList by viewModel.showConfigurationList.collectAsStateWithLifecycle()
+    val notificationOnRegisterDisabledMessage = stringResource(R.string.notification_on_register_global_disabled_hint)
 
     SettingsSwitchItem(
         title = stringResource(R.string.settings_notify_on_register),
@@ -391,24 +418,10 @@ private fun ServiceConfigurationBlock(viewModel: SettingsViewModel, snackbarHost
         }
     }
 
-    SettingsItem(
-        title = stringResource(R.string.settings_permission_check),
-        summary = stringResource(R.string.settings_permission_check_summary),
-    ) {
-        context.startActivity(LegacyUiEntryPoints.requestPermissionIntent(context, recheckOnly = true))
-    }
-}
-
-@Composable
-private fun DisplayBlock(viewModel: SettingsViewModel) {
-    val showAllEvents by viewModel.showAllEvents.collectAsStateWithLifecycle()
-    val showConfigurationList by viewModel.showConfigurationList.collectAsStateWithLifecycle()
-
     SettingsSwitchItem(
         title = stringResource(R.string.settings_show_all_events),
         checked = showAllEvents,
     ) { viewModel.setShowAllEvents(it) }
-
 
     SettingsSwitchItem(
         title = stringResource(R.string.settings_show_loaded_file_after_configurations_loaded),
@@ -417,7 +430,7 @@ private fun DisplayBlock(viewModel: SettingsViewModel) {
 }
 
 @Composable
-private fun DataMaintenanceBlock(viewModel: SettingsViewModel, snackbarHostState: SnackbarHostState) {
+private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: SnackbarHostState) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val debugMode by viewModel.debugMode.collectAsStateWithLifecycle()
@@ -464,13 +477,6 @@ private fun DataMaintenanceBlock(viewModel: SettingsViewModel, snackbarHostState
     }
 
     SettingsItem(
-        title = stringResource(R.string.settings_clear_history),
-        summary = stringResource(R.string.settings_clear_history_summary),
-    ) {
-        viewModel.clearHistory(context)
-    }
-
-    SettingsItem(
         title = stringResource(R.string.settings_get_log),
         summary = stringResource(R.string.settings_get_log_summary),
     ) {
@@ -493,23 +499,18 @@ private fun DataMaintenanceBlock(viewModel: SettingsViewModel, snackbarHostState
         viewModel.clearLog(context)
     }
 
-    SettingsItem(
-        title = stringResource(R.string.try_to_force_register_all_applications),
-    ) {
-        scope.launch {
-            val message = withContext(Dispatchers.IO) {
-                viewModel.tryForceRegisterAllApplications(context)
-            }
-            snackbarHostState.showSnackbar(message)
-        }
-    }
-
-
     SettingsSwitchItem(
         title = stringResource(R.string.settings_debug_mode),
         summary = stringResource(R.string.settings_debug_mode_summary),
         checked = debugMode,
     ) { viewModel.setDebugMode(it) }
+
+    SettingsItem(
+        title = stringResource(R.string.settings_mock_notification),
+        summary = stringResource(R.string.settings_mock_notification_summary),
+    ) {
+        viewModel.notifyMockNotification(context)
+    }
 
     if (showRuntimeLogInfoDialog) {
         LaunchedEffect(showRuntimeLogInfoDialog) {
@@ -898,14 +899,26 @@ private fun formatLogSize(bytes: Long): String {
 }
 
 @Composable
-private fun ExperimentalBlock(viewModel: SettingsViewModel) {
+private fun DataRegistrationBlock(viewModel: SettingsViewModel, snackbarHostState: SnackbarHostState) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     SettingsItem(
-        title = stringResource(R.string.settings_mock_notification),
-        summary = stringResource(R.string.settings_mock_notification_summary),
+        title = stringResource(R.string.settings_clear_history),
+        summary = stringResource(R.string.settings_clear_history_summary),
     ) {
-        viewModel.notifyMockNotification(context)
+        viewModel.clearHistory(context)
+    }
+
+    SettingsItem(
+        title = stringResource(R.string.try_to_force_register_all_applications),
+    ) {
+        scope.launch {
+            val message = withContext(Dispatchers.IO) {
+                viewModel.tryForceRegisterAllApplications(context)
+            }
+            snackbarHostState.showSnackbar(message)
+        }
     }
 }
 
