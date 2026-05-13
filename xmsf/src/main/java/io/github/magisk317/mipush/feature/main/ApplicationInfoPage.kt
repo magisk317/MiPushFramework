@@ -545,6 +545,14 @@ open class ApplicationInfoPage : ComponentActivity() {
             if (!PermissionUtils.refreshRootAccessIfGranted()) {
                 return@withContext context.getString(R.string.force_register_requires_root)
             }
+            if (
+                applicationInfo.registeredType != RegisteredType.Registered &&
+                RegistrationStateCompat.hasLocalRegistrationArtifacts(packageName)
+            ) {
+                runCatching {
+                    RegistrationHelper(context, packageName).removeMiPushData()
+                }
+            }
             val result = runCatching {
                 RegistrationHelper.tryForceRegister(packageName)
             }

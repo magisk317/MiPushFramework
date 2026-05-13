@@ -76,12 +76,7 @@ object RegistrationStateCompat {
 
     @JvmStatic
     fun hasValidLocalRegistration(packageName: String): Boolean {
-        val paths = listOf(
-            "/data/user/0/$packageName/shared_prefs/mipush.xml",
-            "/data_mirror/data_ce/null/0/$packageName/shared_prefs/mipush.xml",
-            "/data/user/0/$packageName/files/keva/repo/mipush/mipush.blk",
-            "/data_mirror/data_ce/null/0/$packageName/files/keva/repo/mipush/mipush.blk"
-        )
+        val paths = registrationArtifactPaths(packageName)
         val uid = if (PermissionUtils.hasCachedRootAccess()) "cached_root" else null
         logger.d("check local registration, pkg=$packageName, shell uid=$uid")
         for (path in paths) {
@@ -109,6 +104,15 @@ object RegistrationStateCompat {
         return false
     }
 
+    @JvmStatic
+    fun hasLocalRegistrationArtifacts(packageName: String): Boolean {
+        val uid = if (PermissionUtils.hasCachedRootAccess()) "cached_root" else null
+        logger.d("check local registration artifacts, pkg=$packageName, shell uid=$uid")
+        return registrationArtifactPaths(packageName).any { path ->
+            fileExists(path, useSu = true) || fileExists(path, useSu = false)
+        }
+    }
+
     private fun probe(path: String, useSu: Boolean): Boolean {
         val cmd =
             "[ -f $path ] && " +
@@ -118,6 +122,21 @@ object RegistrationStateCompat {
                 "(grep -aq '$KEVA_VALID_PATTERN' $path && grep -aq '$KEVA_REG_ID_PATTERN' $path && grep -aq '$KEVA_APP_TOKEN_PATTERN' $path)" +
                 ") && " +
                 "echo true || echo false"
+        val result = if (useSu) {
+            val capability = getRootCapability()
+            if (capability.available) {
+                runAsRoot(cmd)
+            } else {
+                null
+            }
+        } else {
+            runCommand(cmd)
+        }
+        return result?.stdout?.firstOrNull()?.trim() == "true"
+    }
+
+    private fun fileExists(path: String, useSu: Boolean): Boolean {
+        val cmd = "[ -e $path ] && echo true || echo false"
         val result = if (useSu) {
             val capability = getRootCapability()
             if (capability.available) {
@@ -299,5 +318,14 @@ object RegistrationStateCompat {
 
     private fun String.truncateForDiagnostic(limit: Int = 32): String {
         return if (length <= limit) this else take(limit)
+    }
+
+    private fun registrationArtifactPaths(packageName: String): List<String> {
+        return listOf(
+            "/data/user/0/$packageName/shared_prefs/mipush.xml",
+            "/data_mirror/data_ce/null/0/$packageName/shared_prefs/mipush.xml",
+            "/data/user/0/$packageName/files/keva/repo/mipush/mipush.blk",
+            "/data_mirror/data_ce/null/0/$packageName/files/keva/repo/mipush/mipush.blk"
+        )
     }
 }

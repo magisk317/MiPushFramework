@@ -38,22 +38,31 @@ class RegistrationHelper(
         val exported: Boolean
     )
 
-    fun removeMiPushXml(): Boolean {
+    fun removeMiPushData(): Boolean {
         val result = AppRootAccessFacade.runRootCommand(
             String.format(
-                "rm $(ls -1" +
+                "rm -rf $(ls -1" +
                     " /data/user/0/%s/shared_prefs/mipush*.xml" +
                     " /data_mirror/data_ce/null/0/%s/shared_prefs/mipush*.xml" +
+                    " /data/user/0/%s/files/keva/repo/mipush" +
+                    " /data/user/0/%s/files/keva/repo/mipush*" +
+                    " /data_mirror/data_ce/null/0/%s/files/keva/repo/mipush" +
+                    " /data_mirror/data_ce/null/0/%s/files/keva/repo/mipush*" +
                     " 2> /dev/null)",
+                packageName,
+                packageName,
+                packageName,
+                packageName,
                 packageName,
                 packageName
             )
         )
+        logger.i("remove mipush data for $packageName success=${result.isSuccess}")
         return result.isSuccess
     }
 
     fun deleteRegistrationInfoAndRetryForceRegister() {
-        removeMiPushXml()
+        removeMiPushData()
         MyPushMessageHandler.launchApp(context, createForceRegisterMessage(packageName))
         tryForceRegister(packageName)
     }
