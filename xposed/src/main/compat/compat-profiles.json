@@ -34,7 +34,11 @@
     },
     {
       "packageName": "com.coolapk.market",
-      "hookPipelines": ["COOLAPK", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"]
+      "hookPipelines": ["COOLAPK", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"],
+      "credentialOverride": {
+        "appId": "2882303761517155131",
+        "appKey": "5431715541131"
+      }
     },
     {
       "packageName": "com.dianping.v1",

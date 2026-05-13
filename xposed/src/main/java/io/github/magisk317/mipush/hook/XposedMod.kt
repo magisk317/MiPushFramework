@@ -42,8 +42,8 @@ class XposedMod : IXposedHookLoadPackage, IXposedHookZygoteInit {
 
     override fun handleLoadPackage(lpparam: LoadPackageParam) {
         try {
-            val packageName = lpparam.packageName.orEmpty()
-            val processName = lpparam.processName.orEmpty()
+            val packageName = safeLoadPackageString(lpparam, "packageName")
+            val processName = safeLoadPackageString(lpparam, "processName")
             if (packageName == TAX_PACKAGE_NAME || processName.startsWith("$TAX_PACKAGE_NAME:")) {
                 XLog.i(TAG, "enter handleLoadPackage pkg=$packageName proc=$processName cl=${lpparam.classLoader}")
             }
@@ -53,11 +53,17 @@ class XposedMod : IXposedHookLoadPackage, IXposedHookZygoteInit {
                 return
             }
             classLoader.doOnce("$packageName#$processName") {
-                hook(lpparam)
+                hook(lpparam, packageName, processName, classLoader)
             }
         } catch (e: Throwable) {
             XLog.e(TAG, "critical error in handleLoadPackage: ${e.message}", e)
         }
+    }
+
+    private fun safeLoadPackageString(lpparam: LoadPackageParam, fieldName: String): String {
+        return runCatching {
+            lpparam.javaClass.getField(fieldName).get(lpparam) as? String
+        }.getOrNull().orEmpty()
     }
 
     override fun initZygote(startupParam: IXposedHookZygoteInit.StartupParam) {
@@ -195,9 +201,12 @@ class XposedMod : IXposedHookLoadPackage, IXposedHookZygoteInit {
         }
     }
 
-    private fun hook(lpparam: LoadPackageParam) {
-        val packageName = lpparam.packageName.orEmpty()
-        val processName = lpparam.processName.orEmpty()
+    private fun hook(
+        lpparam: LoadPackageParam,
+        packageName: String,
+        processName: String,
+        classLoader: ClassLoader
+    ) {
         if (packageName == TAX_PACKAGE_NAME || processName.startsWith("$TAX_PACKAGE_NAME:")) {
             XLog.i(TAG, "enter hook pkg=$packageName proc=$processName")
         }
@@ -213,8 +222,8 @@ class XposedMod : IXposedHookLoadPackage, IXposedHookZygoteInit {
 
         if (processName == ANDROID_PACKAGE_NAME) {
             if (packageName == ANDROID_PACKAGE_NAME) {
-                HookSystemService().hook(lpparam.classLoader)
-                KeepAliveHook().hook(lpparam.classLoader)
+                HookSystemService().hook(classLoader)
+                KeepAliveHook().hook(classLoader)
 
             }
             return

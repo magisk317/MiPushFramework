@@ -57,6 +57,10 @@ class ModuleCompatRegistryTest {
             ),
             ModuleCompatRegistry.resolveHookPipelines("com.coolapk.market"),
         )
+        assertEquals(
+            ModuleCredential(appId = "2882303761517155131", appKey = "5431715541131"),
+            ModuleCompatRegistry.credentialOverride("com.coolapk.market"),
+        )
     }
 
     @Test
