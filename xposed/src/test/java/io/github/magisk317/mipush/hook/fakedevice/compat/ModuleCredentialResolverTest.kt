@@ -1,8 +1,8 @@
 package io.github.magisk317.mipush.hook.fakedevice.compat
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Test
 
 class ModuleCredentialResolverTest {
     @Test
@@ -19,6 +19,57 @@ class ModuleCredentialResolverTest {
 
         assertEquals(
             ModuleCredential(appId = "2882303761517000000", appKey = "ABCD1234EFGH"),
+            resolved,
+        )
+    }
+
+    @Test
+    fun `real MIAPP metadata keys resolve numeric app key`() {
+        val resolved = ModuleCredentialResolver.resolveFromMetadataEntries(
+            listOf(
+                mapOf(
+                    "MIAPP_ID" to "2882303761517506461",
+                    "MIAPP_KEY" to "5601750626461",
+                ),
+            ),
+        )
+
+        assertEquals(
+            ModuleCredential(appId = "2882303761517506461", appKey = "5601750626461"),
+            resolved,
+        )
+    }
+
+    @Test
+    fun `agoo xiaomi metadata strips manifest prefixes`() {
+        val resolved = ModuleCredentialResolver.resolveFromMetadataEntries(
+            listOf(
+                mapOf(
+                    "org.android.agoo.xiaomi.app_id" to "appid=2882303761517245189",
+                    "org.android.agoo.xiaomi.app_key" to "appkey=5461724563189",
+                ),
+            ),
+        )
+
+        assertEquals(
+            ModuleCredential(appId = "2882303761517245189", appKey = "5461724563189"),
+            resolved,
+        )
+    }
+
+    @Test
+    fun `xiaomi metadata strips numeric long suffix`() {
+        val resolved = ModuleCredentialResolver.resolveFromMetadataEntries(
+            listOf(
+                mapOf(
+                    "XIAOMI_APP_ID" to "2882303761517463096L",
+                    "XIAOMI_APP_KEY" to "5101746355096L",
+                ),
+            ),
+        )
+
+        assertEquals(
+            ModuleCredential(appId = "2882303761517463096", appKey = "5101746355096"),
             resolved,
         )
     }

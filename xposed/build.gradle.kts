@@ -140,6 +140,7 @@ dependencies {
     implementation(project(":common"))
     compileOnly(libs.xposed.api)
     implementation(libs.hiddenapibypass)
+    testImplementation(libs.junit.jupiter)
     testImplementation(libs.junit4)
     testRuntimeOnly(libs.junit.platform.launcher)
     testRuntimeOnly(libs.junit.vintage.engine)

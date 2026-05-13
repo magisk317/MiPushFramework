@@ -10,17 +10,29 @@ object ModuleCredentialResolver {
     private val appIdKeys = arrayOf(
         "com.xiaomi.push.api_id",
         "com.xiaomi.push.app_id",
+        "com.xiaomi.mipush.APP_ID",
+        "org.android.agoo.xiaomi.app_id",
         "mipush_app_id",
         "MIPUSH_APPID",
         "MI_PUSH_APP_ID",
+        "MIAPP_ID",
+        "XM_APP_ID",
+        "XIAOMI_APP_ID",
+        "XIAOMI_PUSH_APP_ID",
     )
 
     private val appKeyKeys = arrayOf(
         "com.xiaomi.push.api_key",
         "com.xiaomi.push.app_key",
+        "com.xiaomi.mipush.APP_KEY",
+        "org.android.agoo.xiaomi.app_key",
         "mipush_app_key",
         "MIPUSH_APPKEY",
         "MI_PUSH_APP_KEY",
+        "MIAPP_KEY",
+        "XM_APP_KEY",
+        "XIAOMI_APP_KEY",
+        "XIAOMI_PUSH_APP_KEY",
     )
 
     fun resolve(context: Context, packageName: String): ModuleCredential? {
@@ -86,7 +98,7 @@ object ModuleCredentialResolver {
 
     private fun firstMetaValue(meta: Map<String, String>, keys: Array<String>): String? {
         keys.forEach { key ->
-            val value = meta[key]?.trim()
+            val value = meta[key]?.let(::normalizeCredentialValue)
             if (!value.isNullOrBlank()) {
                 return value
             }
@@ -110,7 +122,7 @@ object ModuleCredentialResolver {
     private fun findFallbackValue(entries: List<Map<String, String>>, isAppId: Boolean): String? {
         entries.forEach { entry ->
             entry.forEach { (key, rawValue) ->
-                val value = rawValue.trim()
+                val value = normalizeCredentialValue(rawValue)
                 if (value.isEmpty()) {
                     return@forEach
                 }
@@ -122,9 +134,8 @@ object ModuleCredentialResolver {
                         return value
                     }
                 } else {
-                    if ((keyNormalized.contains("xiaomi") || keyNormalized.contains("mipush") || keyNormalized.contains("app_key")) &&
-                        value.matches(Regex("^[0-9A-Za-z]{12,}$")) &&
-                        !value.matches(Regex("^\\d+$"))
+                    if ((keyNormalized.contains("app_key") || keyNormalized.contains("appkey") || keyNormalized.contains("api_key")) &&
+                        value.matches(Regex("^[0-9A-Za-z]{12,}$"))
                     ) {
                         return value
                     }
@@ -132,5 +143,15 @@ object ModuleCredentialResolver {
             }
         }
         return null
+    }
+
+    private fun normalizeCredentialValue(rawValue: String): String {
+        val value = rawValue.trim()
+        val strippedPrefix = value.substringAfter("=", value).trim()
+        return if (strippedPrefix.matches(Regex("^\\d+L$"))) {
+            strippedPrefix.dropLast(1)
+        } else {
+            strippedPrefix
+        }
     }
 }
