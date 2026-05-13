@@ -48,7 +48,11 @@ object FakeDevice {
             return
         }
         if (profile.isAutoDetected) {
-            XLog.i(TAG, "auto-detected MiPush compat profile for $packageName in process=$processName")
+            XLog.i(
+                TAG,
+                "auto-detected MiPush compat profile for $packageName in process=$processName " +
+                    "pipelines=${profile.hookPipelines.joinToString()}"
+            )
         }
 
         // Registration-only profiles still need the runtime registration hook.

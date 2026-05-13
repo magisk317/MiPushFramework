@@ -90,7 +90,7 @@ class ModuleCompatRegistryTest {
     }
 
     @Test
-    fun `registry builds auto common profile when mipush classes are present`() {
+    fun `registry builds auto force register profile when mipush classes are present`() {
         val loader = object : ClassLoader() {
             override fun loadClass(name: String?): Class<*> {
                 if (name == "com.xiaomi.mipush.sdk.MiPushClient") {
@@ -100,15 +100,48 @@ class ModuleCompatRegistryTest {
             }
         }
 
-        val profile = ModuleCompatRegistry.buildAutoCommonProfile(
+        val profile = ModuleCompatRegistry.buildAutoForceRegisterProfile(
             packageName = "com.example.auto",
             processName = "com.example.auto",
             classLoader = loader,
         )
 
         assertNotNull(profile)
-        assertEquals(listOf(HookPipelineId.COMMON), profile!!.hookPipelines)
+        assertEquals(
+            listOf(
+                HookPipelineId.COMMON,
+                HookPipelineId.HUAWEI_HMS,
+                HookPipelineId.VIVO_PUSH,
+                HookPipelineId.OPPO_HEYTAP,
+                HookPipelineId.MEIZU_PUSH,
+                HookPipelineId.JPUSH,
+                HookPipelineId.ALI_AGOO_ACCS,
+                HookPipelineId.UMENG_PUSH,
+            ),
+            profile!!.hookPipelines,
+        )
         assertTrue(profile.isAutoDetected)
+    }
+
+    @Test
+    fun `registry builds auto force register profile for custom process names`() {
+        val loader = object : ClassLoader() {
+            override fun loadClass(name: String?): Class<*> {
+                if (name == "com.tencent.android.mipush.XMPushMessageReceiver") {
+                    return String::class.java
+                }
+                throw ClassNotFoundException(name)
+            }
+        }
+
+        val profile = ModuleCompatRegistry.buildAutoForceRegisterProfile(
+            packageName = "com.example.auto",
+            processName = "com.vendor.customprocess",
+            classLoader = loader,
+        )
+
+        assertNotNull(profile)
+        assertTrue(profile!!.isAutoDetected)
     }
 
     @Test

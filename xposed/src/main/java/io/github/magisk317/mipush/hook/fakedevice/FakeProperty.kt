@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
 import android.os.Build
+import io.github.magisk317.mipush.common.fakedevice.MiPushResetpropTemplate
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.xposed.*
 import java.util.concurrent.atomic.AtomicBoolean
@@ -79,8 +80,9 @@ fun fakeProperty(property: Property, overrideValue: String) = fakeProperty(Pair(
 fun fakeAllBuildInProperties() {
     val isXiaomi = DeviceDetector.isXiaomiDevice()
     XLog.d(TAG, "Device detection: isXiaomi=$isXiaomi, brand=${Build.BRAND}, manufacturer=${Build.MANUFACTURER}")
-    
-    val propsToFake = Property.values()
+
+    val baseProps = LinkedHashMap<String, String>()
+    Property.values()
         .filter { prop ->
             when {
                 // 始终清空其他厂商特征
@@ -94,11 +96,17 @@ fun fakeAllBuildInProperties() {
                 else -> true
             }
         }
-        .map { it.entry }
-        .toTypedArray()
-    
-    XLog.d(TAG, "Applying ${propsToFake.size} properties (total ${Property.values().size})")
-    fakeProperty(*propsToFake)
+        .forEach { prop ->
+            baseProps[prop.key] = prop.value
+        }
+
+    val propsToFake = MiPushResetpropTemplate.mergedCustomProps(baseProps)
+    XLog.i(
+        TAG,
+        "Applying ${propsToFake.size} fake properties " +
+            "(base=${baseProps.size}, template=${MiPushResetpropTemplate.defaultCustomProps().size}, autoMiPush=${!isXiaomi})"
+    )
+    fakeProperty(*propsToFake.entries.map { it.key to it.value }.toTypedArray())
 }
 
 fun fakeProperty(vararg properties: Property) {
@@ -111,39 +119,13 @@ private val hooked = AtomicBoolean(false)
 fun fakeProperty(vararg properties: Pair<String, String>) {
     propertyMap.putAll(properties)
 
-    if (propertyMap.containsKey(Property.BRAND.key)) {
-        Build::class.java["BRAND"] = propertyMap[Property.BRAND.key]
-    }
-
-    if (propertyMap.containsKey(Property.MANUFACTURER.key)) {
-        Build::class.java["MANUFACTURER"] = propertyMap[Property.MANUFACTURER.key]
-    }
-
-    if (propertyMap.containsKey("ro.product.model")) {
-        Build::class.java["MODEL"] = propertyMap["ro.product.model"]
-    }
-
-    if (propertyMap.containsKey("ro.product.device")) {
-        Build::class.java["DEVICE"] = propertyMap["ro.product.device"]
-    }
-
-    if (propertyMap.containsKey("ro.product.name")) {
-        Build::class.java["PRODUCT"] = propertyMap["ro.product.name"]
-    }
-
-    if (propertyMap.containsKey("ro.build.display.id")) {
-        Build::class.java["DISPLAY"] = propertyMap["ro.build.display.id"]
-    }
-
-    if (propertyMap.containsKey("ro.build.user")) {
-        Build::class.java["USER"] = propertyMap["ro.build.user"]
-    }
+    applyBuildFieldOverrides()
 
     if (hooked.getAndSet(true)) return
 
     val classSystemProperties = Build::class.java.classLoader!!.findClass("android.os.SystemProperties")
 
-    val callback: HookContext.() -> Unit = {
+    val getCallback: HookContext.() -> Unit = {
         doBefore {
             val key = args[0] as String
             propertyMap[key]?.let {
@@ -152,19 +134,114 @@ fun fakeProperty(vararg properties: Pair<String, String>) {
         }
     }
 
-    classSystemProperties.hookMethod("get", String::class.java, callback = callback)
-    classSystemProperties.hookMethod("get", String::class.java, String::class.java, callback = callback)
-
-    Runtime::class.java.hookMethod("exec", String::class.java) {
+    classSystemProperties.hookMethod("get", String::class.java, callback = getCallback)
+    classSystemProperties.hookMethod("get", String::class.java, String::class.java, callback = getCallback)
+    classSystemProperties.hookMethod("getInt", String::class.java, Int::class.javaPrimitiveType!!) {
         doBefore {
-            val cmd = args[0] as String
-            if (cmd.startsWith("getprop")) {
-                val key = cmd.removePrefix("getprop").trim()
-                propertyMap[key]?.let {
-                    XLog.d(TAG, "hook getprop $key")
-                    args[0] = "echo $it"
+            val key = args[0] as String
+            propertyMap[key]?.toIntOrNull()?.let { result = it }
+        }
+    }
+    classSystemProperties.hookMethod("getLong", String::class.java, Long::class.javaPrimitiveType!!) {
+        doBefore {
+            val key = args[0] as String
+            propertyMap[key]?.toLongOrNull()?.let { result = it }
+        }
+    }
+    classSystemProperties.hookMethod("getBoolean", String::class.java, Boolean::class.javaPrimitiveType!!) {
+        doBefore {
+            val key = args[0] as String
+            propertyMap[key]?.let { value ->
+                when (value.lowercase()) {
+                    "1", "true", "y", "yes", "on" -> result = true
+                    "0", "false", "n", "no", "off" -> result = false
                 }
             }
         }
     }
+
+    Runtime::class.java.hookAllMethods("exec") {
+        doBefore {
+            val key = extractGetpropKey(args.getOrNull(0)) ?: return@doBefore
+            val value = propertyMap[key] ?: return@doBefore
+            val replacement = replacementCommand(value)
+            XLog.d(TAG, "hook exec getprop $key")
+            when (args[0]) {
+                is String -> args[0] = replacement
+                is Array<*> -> args[0] = arrayOf("sh", "-c", replacement)
+            }
+        }
+    }
+
+    ProcessBuilder::class.java.hookMethod("start") {
+        doBefore {
+            val processBuilder = thisObject as? ProcessBuilder ?: return@doBefore
+            val command = runCatching { processBuilder.command() }.getOrNull() ?: return@doBefore
+            val key = extractGetpropKey(command.toTypedArray()) ?: return@doBefore
+            val value = propertyMap[key] ?: return@doBefore
+            XLog.d(TAG, "hook ProcessBuilder getprop $key")
+            processBuilder.command(listOf("sh", "-c", replacementCommand(value)))
+        }
+    }
+}
+
+private fun applyBuildFieldOverrides() {
+    setStaticFieldIfPresent(Build::class.java, "BRAND", propertyMap[Property.BRAND.key])
+    setStaticFieldIfPresent(Build::class.java, "MANUFACTURER", propertyMap[Property.MANUFACTURER.key])
+    setStaticFieldIfPresent(Build::class.java, "MODEL", propertyMap["ro.product.model"])
+    setStaticFieldIfPresent(Build::class.java, "DEVICE", propertyMap["ro.product.device"])
+    setStaticFieldIfPresent(Build::class.java, "PRODUCT", propertyMap["ro.product.name"])
+    setStaticFieldIfPresent(Build::class.java, "DISPLAY", propertyMap["ro.build.display.id"])
+    setStaticFieldIfPresent(Build::class.java, "USER", propertyMap["ro.build.user"])
+    setStaticFieldIfPresent(Build::class.java, "ID", propertyMap["ro.build.id"])
+    setStaticFieldIfPresent(Build::class.java, "FINGERPRINT", propertyMap["ro.build.fingerprint"])
+    setStaticFieldIfPresent(Build.VERSION::class.java, "RELEASE", propertyMap["ro.build.version.release"])
+    propertyMap["ro.build.version.sdk"]?.toIntOrNull()?.let { sdkInt ->
+        setStaticFieldIfPresent(Build.VERSION::class.java, "SDK_INT", sdkInt)
+    }
+}
+
+private fun setStaticFieldIfPresent(targetClass: Class<*>, fieldName: String, value: String?) {
+    if (value == null) return
+    runCatching { targetClass.setField(fieldName, value, String::class.java) }
+}
+
+private fun setStaticFieldIfPresent(targetClass: Class<*>, fieldName: String, value: Int) {
+    runCatching { targetClass.setField(fieldName, value, Int::class.javaPrimitiveType!!) }
+}
+
+private fun extractGetpropKey(commandArg: Any?): String? {
+    return when (commandArg) {
+        is String -> parseGetpropFromCommand(commandArg)
+        is Array<*> -> parseGetpropFromTokens(commandArg.filterIsInstance<String>())
+        else -> null
+    }
+}
+
+private fun parseGetpropFromCommand(command: String): String? {
+    val trimmed = command.trim()
+    if (trimmed.isEmpty()) return null
+    if (trimmed.startsWith("getprop ")) {
+        return trimmed.removePrefix("getprop").trim().takeIf { it.isNotEmpty() }
+    }
+    if (trimmed.startsWith("/system/bin/getprop ")) {
+        return trimmed.removePrefix("/system/bin/getprop").trim().takeIf { it.isNotEmpty() }
+    }
+    return null
+}
+
+private fun parseGetpropFromTokens(tokens: List<String>): String? {
+    if (tokens.isEmpty()) return null
+    val command = tokens.first()
+    val isGetprop = command == "getprop" || command.endsWith("/getprop")
+    if (!isGetprop) return null
+    return tokens.getOrNull(1)?.trim()?.takeIf { it.isNotEmpty() }
+}
+
+private fun replacementCommand(value: String): String {
+    return "printf %s ${quoteForShell(value)}"
+}
+
+private fun quoteForShell(value: String): String {
+    return "'" + value.replace("'", "'\"'\"'") + "'"
 }

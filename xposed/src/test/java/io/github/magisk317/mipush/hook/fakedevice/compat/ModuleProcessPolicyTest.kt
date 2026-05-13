@@ -33,4 +33,16 @@ class ModuleProcessPolicyTest {
         assertFalse(ModuleProcessPolicy.shouldHandleProcess(profile, "com.example.app", "com.example.app:push"))
         assertFalse(ModuleProcessPolicy.shouldHandleProcess(profile, "com.example.app", "com.example.app:sync"))
     }
+
+    @Test
+    fun `auto detected profile allows custom process names`() {
+        val profile = ModuleCompatProfile(
+            packageName = "com.example.app",
+            hookPipelines = emptyList(),
+            isAutoDetected = true,
+        )
+
+        assertTrue(ModuleProcessPolicy.shouldHandleProcess(profile, "com.example.app", "com.vendor.customprocess"))
+        assertFalse(ModuleProcessPolicy.shouldHandleProcess(profile, "com.example.app", ""))
+    }
 }

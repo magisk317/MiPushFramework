@@ -32,6 +32,9 @@ object ModuleProcessPolicy {
         if (profile == null) {
             return false
         }
+        if (profile.isAutoDetected) {
+            return processName.isNotBlank()
+        }
         if (processName == packageName) {
             return true
         }
