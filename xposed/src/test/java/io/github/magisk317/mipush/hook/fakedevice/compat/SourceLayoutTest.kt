@@ -1,9 +1,9 @@
 package io.github.magisk317.mipush.hook.fakedevice.compat
 
 import java.io.File
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 
 class SourceLayoutTest {
     private fun repoRoot(): File {
@@ -43,8 +43,8 @@ class SourceLayoutTest {
                         ?: error("Missing package declaration in $relativePath")
                     val expectedSuffix = packageName.replace('.', '/') + "/" + file.name
                     assertTrue(
-                        "Expected $relativePath to end with $expectedSuffix",
                         relativePath.endsWith(expectedSuffix),
+                        "Expected $relativePath to end with $expectedSuffix",
                     )
                 }
         }
@@ -70,11 +70,11 @@ class SourceLayoutTest {
                 .forEach { file ->
                     val relativePath = file.relativeTo(root).invariantSeparatorsPath
                     val text = file.readText()
-                    assertFalse("Found legacy HookHMS symbol in $relativePath", text.contains("HookHMS"))
-                    assertFalse("Found legacy FakeHmsSignature symbol in $relativePath", text.contains("FakeHmsSignature"))
+                    assertFalse(text.contains("HookHMS"), "Found legacy HookHMS symbol in $relativePath")
+                    assertFalse(text.contains("FakeHmsSignature"), "Found legacy FakeHmsSignature symbol in $relativePath")
                     if (relativePath !in allowedHuaweiInteropFiles) {
-                        assertFalse("Unexpected Huawei interop reference in $relativePath", text.contains("com.huawei"))
-                        assertFalse("Unexpected HwPushReceiver reference in $relativePath", text.contains("HwPushReceiver"))
+                        assertFalse(text.contains("com.huawei"), "Unexpected Huawei interop reference in $relativePath")
+                        assertFalse(text.contains("HwPushReceiver"), "Unexpected HwPushReceiver reference in $relativePath")
                     }
                 }
         }
