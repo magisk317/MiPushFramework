@@ -130,7 +130,7 @@ class KeepAliveHook {
             if (arg == null) continue
             val processName = try {
                 XposedHelpers.getObjectField(arg, "processName") as? String
-            } catch (e: Exception) { null } ?: continue
+            } catch (_: Throwable) { null } ?: continue
 
             if (processName != XMSF_PACKAGE_NAME) continue
 
@@ -143,7 +143,7 @@ class KeepAliveHook {
                         XLog.d(TAG, "set adj=$FOREGROUND_APP_ADJ for $processName (field=$field, was=$currentAdj)")
                     }
                     return
-                } catch (e: Exception) { }
+                } catch (_: Throwable) { }
             }
             break
         }
@@ -192,7 +192,7 @@ class KeepAliveHook {
             try {
                 val processName = XposedHelpers.getObjectField(arg, "processName") as? String
                 if (processName == XMSF_PACKAGE_NAME) return true
-            } catch (e: Exception) { }
+            } catch (_: Throwable) { }
 
             try {
                 val info = XposedHelpers.getObjectField(arg, "info")
@@ -200,7 +200,7 @@ class KeepAliveHook {
                     val pkgName = XposedHelpers.getObjectField(info, "packageName") as? String
                     if (pkgName == XMSF_PACKAGE_NAME) return true
                 }
-            } catch (e: Exception) { }
+            } catch (_: Throwable) { }
         }
         return false
     }
@@ -217,7 +217,7 @@ class KeepAliveHook {
                             overrideStandbyBucket(param)
                         }
                     })
-                } catch (e: Exception) {}
+                } catch (_: Throwable) {}
             }
             XLog.w(TAG, "successfully hooked AppStandbyController")
         } catch (t: Throwable) {

@@ -1,6 +1,15 @@
 package io.github.magisk317.mipush.hook.fakedevice.compat
 
 object ModuleCompatRegistry {
+    private val autoDeniedPackagePrefixes = listOf(
+        "android.",
+        "com.android.",
+        "com.google.android.",
+        "com.miui.",
+        "com.xiaomi.",
+        "miui.",
+    )
+
     private val autoAggressivePipelines = listOf(
         HookPipelineId.COMMON,
         HookPipelineId.HUAWEI_HMS,
@@ -60,6 +69,7 @@ object ModuleCompatRegistry {
     ): ModuleCompatProfile? {
         if (classLoader == null) return null
         if (processName.isBlank()) return null
+        if (isAutoDeniedPackage(packageName)) return null
         val hasMiPushSdk = autoForceRegisterCandidates.any { className ->
             runCatching { classLoader.loadClass(className) }.isSuccess
         }
@@ -69,5 +79,10 @@ object ModuleCompatRegistry {
             hookPipelines = autoAggressivePipelines,
             isAutoDetected = true,
         )
+    }
+
+    private fun isAutoDeniedPackage(packageName: String): Boolean {
+        if (packageName == "android") return true
+        return autoDeniedPackagePrefixes.any { prefix -> packageName.startsWith(prefix) }
     }
 }

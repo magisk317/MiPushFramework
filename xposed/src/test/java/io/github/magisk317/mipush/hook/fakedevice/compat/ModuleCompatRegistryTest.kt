@@ -165,6 +165,48 @@ class ModuleCompatRegistryTest {
     }
 
     @Test
+    fun `registry skips auto force register profile for Xiaomi system packages`() {
+        val loader = object : ClassLoader() {
+            override fun loadClass(name: String?): Class<*> {
+                if (name == "com.xiaomi.mipush.sdk.MiPushClient") {
+                    return String::class.java
+                }
+                throw ClassNotFoundException(name)
+            }
+        }
+
+        assertNull(
+            ModuleCompatRegistry.buildAutoForceRegisterProfile(
+                packageName = "com.xiaomi.account",
+                processName = "com.xiaomi.account",
+                classLoader = loader,
+            ),
+        )
+        assertNull(
+            ModuleCompatRegistry.buildAutoForceRegisterProfile(
+                packageName = "com.miui.cloudservice",
+                processName = "com.miui.cloudservice",
+                classLoader = loader,
+            ),
+        )
+    }
+
+    @Test
+    fun `registry keeps explicit Xiaomi package profile`() {
+        val profile = ModuleCompatRegistry.getProfile("com.xiaomi.smarthome")
+
+        assertNotNull(profile)
+        assertEquals(
+            listOf(
+                HookPipelineId.JPUSH,
+                HookPipelineId.VIVO_PUSH,
+                HookPipelineId.OPPO_HEYTAP,
+            ),
+            profile!!.hookPipelines,
+        )
+    }
+
+    @Test
     fun `registry keeps registration only profile without hook pipelines`() {
         val profile = ModuleCompatRegistry.getProfile("com.alibaba.android.rimet")
         assertNotNull(profile)
