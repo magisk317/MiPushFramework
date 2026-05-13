@@ -116,6 +116,19 @@ fun fakeProperty(vararg properties: Property) {
 private val propertyMap: MutableMap<String, String> = HashMap()
 private val hooked = AtomicBoolean(false)
 
+private val buildStringFieldMappings = listOf(
+    BuildStringFieldMapping("ro.product.brand", Build::class.java, "BRAND"),
+    BuildStringFieldMapping("ro.product.manufacturer", Build::class.java, "MANUFACTURER"),
+    BuildStringFieldMapping("ro.product.model", Build::class.java, "MODEL"),
+    BuildStringFieldMapping("ro.product.device", Build::class.java, "DEVICE"),
+    BuildStringFieldMapping("ro.product.name", Build::class.java, "PRODUCT"),
+    BuildStringFieldMapping("ro.build.display.id", Build::class.java, "DISPLAY"),
+    BuildStringFieldMapping("ro.build.user", Build::class.java, "USER"),
+    BuildStringFieldMapping("ro.build.id", Build::class.java, "ID"),
+    BuildStringFieldMapping("ro.build.fingerprint", Build::class.java, "FINGERPRINT"),
+    BuildStringFieldMapping("ro.build.version.release", Build.VERSION::class.java, "RELEASE"),
+)
+
 fun fakeProperty(vararg properties: Pair<String, String>) {
     propertyMap.putAll(properties)
 
@@ -186,18 +199,34 @@ fun fakeProperty(vararg properties: Pair<String, String>) {
 }
 
 private fun applyBuildFieldOverrides() {
-    setStaticFieldIfPresent(Build::class.java, "BRAND", propertyMap[Property.BRAND.key])
-    setStaticFieldIfPresent(Build::class.java, "MANUFACTURER", propertyMap[Property.MANUFACTURER.key])
-    setStaticFieldIfPresent(Build::class.java, "MODEL", propertyMap["ro.product.model"])
-    setStaticFieldIfPresent(Build::class.java, "DEVICE", propertyMap["ro.product.device"])
-    setStaticFieldIfPresent(Build::class.java, "PRODUCT", propertyMap["ro.product.name"])
-    setStaticFieldIfPresent(Build::class.java, "DISPLAY", propertyMap["ro.build.display.id"])
-    setStaticFieldIfPresent(Build::class.java, "USER", propertyMap["ro.build.user"])
-    setStaticFieldIfPresent(Build::class.java, "ID", propertyMap["ro.build.id"])
-    setStaticFieldIfPresent(Build::class.java, "FINGERPRINT", propertyMap["ro.build.fingerprint"])
-    setStaticFieldIfPresent(Build.VERSION::class.java, "RELEASE", propertyMap["ro.build.version.release"])
+    propertyMap.buildFieldOverrides().forEach { override ->
+        setStaticFieldIfPresent(override.targetClass, override.fieldName, override.value)
+    }
     propertyMap["ro.build.version.sdk"]?.toIntOrNull()?.let { sdkInt ->
         setStaticFieldIfPresent(Build.VERSION::class.java, "SDK_INT", sdkInt)
+    }
+}
+
+internal data class BuildFieldOverride(
+    val targetClass: Class<*>,
+    val fieldName: String,
+    val value: String,
+)
+
+private data class BuildStringFieldMapping(
+    val propertyKey: String,
+    val targetClass: Class<*>,
+    val fieldName: String,
+)
+
+internal fun Map<String, String>.buildFieldOverrides(): List<BuildFieldOverride> {
+    return buildStringFieldMappings.mapNotNull { mapping ->
+        val value = this[mapping.propertyKey] ?: return@mapNotNull null
+        BuildFieldOverride(
+            targetClass = mapping.targetClass,
+            fieldName = mapping.fieldName,
+            value = value,
+        )
     }
 }
 
