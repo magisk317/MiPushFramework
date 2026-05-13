@@ -5,6 +5,7 @@ plugins {
     id("mipush.android.compose")
     id("mipush.app.packaging")
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.robolectric.junit5)
 }
 
 extra["mipushArtifactBaseName"] = "xmsf"
@@ -89,11 +90,10 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
 
     testImplementation(libs.junit.jupiter)
-    testImplementation(libs.junit4)
     testImplementation(libs.mockkery.runtime.jvm)
     testImplementation(libs.robolectric)
+    testImplementation(libs.robolectric.junit5.extension)
     testRuntimeOnly(libs.junit.platform.launcher)
-    testRuntimeOnly(libs.junit.vintage.engine)
 
     implementation(libs.palette)
     implementation(libs.androidx.startup.runtime)

@@ -3,14 +3,14 @@ package io.github.magisk317.mipush.service.runtime
 import android.app.Notification
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmsf.R
-import org.junit.Assert.assertFalse
-import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
-@RunWith(RobolectricTestRunner::class)
+@ExtendWith(RobolectricExtension::class)
 @Config(sdk = [28])
 class MyMIPushNotificationStyleSupportRobolectricTest {
 

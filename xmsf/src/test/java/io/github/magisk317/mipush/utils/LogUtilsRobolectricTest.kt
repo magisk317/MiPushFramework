@@ -3,27 +3,27 @@ package io.github.magisk317.mipush.utils
 import android.content.Context
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.platform.support.BoundedShellResult
-import org.junit.After
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertTrue
-import org.junit.Before
-import org.junit.Test
-import org.junit.runner.RunWith
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 import org.robolectric.RuntimeEnvironment
-import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 import java.io.File
 import java.util.Date
 import java.util.zip.ZipFile
 
-@RunWith(RobolectricTestRunner::class)
+@ExtendWith(RobolectricExtension::class)
 @Config(sdk = [28])
 class LogUtilsRobolectricTest {
     private lateinit var context: Context
 
-    @Before
+    @BeforeEach
     fun setUp() {
         context = RuntimeEnvironment.getApplication()
         LogBundleExporter.clearLogFolders(context)
@@ -31,7 +31,7 @@ class LogUtilsRobolectricTest {
         LogUtils.setRetentionDays(7)
     }
 
-    @After
+    @AfterEach
     fun tearDown() {
         LogBundleExporter.resetRootCommandAccessForTest()
         LogBundleExporter.clearLogFolders(context)

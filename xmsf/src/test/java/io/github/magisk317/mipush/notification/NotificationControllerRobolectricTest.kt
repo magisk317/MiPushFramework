@@ -2,16 +2,19 @@ package io.github.magisk317.mipush.notification
 
 import android.graphics.Bitmap
 import android.graphics.drawable.Icon
+import android.os.Build
+import android.os.Bundle
+import android.os.Parcelable
 import io.github.magisk317.mipush.common.utils.CustomConfiguration
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
-import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 import org.robolectric.annotation.Config
+import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
-@RunWith(RobolectricTestRunner::class)
+@ExtendWith(RobolectricExtension::class)
 @Config(sdk = [28])
 class NotificationControllerRobolectricTest {
 
@@ -40,7 +43,16 @@ class NotificationControllerRobolectricTest {
 
         val pics = focusBundle.getBundle("miui.focus.pics")
         assertNotNull(pics)
-        assertNotNull(pics!!.getParcelable<Icon>("miui.focus.pic_profile"))
-        assertNull(pics.getParcelable<Icon>("miui.focus.pic_aod"))
+        assertNotNull(pics!!.parcelable<Icon>("miui.focus.pic_profile"))
+        assertNull(pics.parcelable<Icon>("miui.focus.pic_aod"))
+    }
+
+    private inline fun <reified T : Parcelable> Bundle.parcelable(key: String): T? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            getParcelable(key, T::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            getParcelable(key)
+        }
     }
 }

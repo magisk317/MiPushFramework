@@ -6,15 +6,15 @@ import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.utils.Configurations
 import io.github.magisk317.mipush.utils.ConfigurationsLoader
 import io.github.magisk317.mipush.utils.PackageConfig
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 import org.robolectric.annotation.Config
+import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
-@RunWith(RobolectricTestRunner::class)
+@ExtendWith(RobolectricExtension::class)
 @Config(sdk = [28])
 class ConfigurationRuntimeContractTest {
     @Test
