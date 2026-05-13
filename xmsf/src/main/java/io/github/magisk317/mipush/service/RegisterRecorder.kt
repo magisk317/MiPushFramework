@@ -15,6 +15,7 @@ import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import io.github.magisk317.mipush.runtime.store.entities.Event
 import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
 import io.github.magisk317.mipush.runtime.store.event.type.RegistrationType
+import io.github.magisk317.mipush.service.runtime.RegistrationIntentDeduper
 import kotlinx.coroutines.runBlocking
 
 class RegisterRecorder(private val context: Context) {
@@ -35,6 +36,11 @@ class RegisterRecorder(private val context: Context) {
             val pkg = intent?.getStringExtra(Constants.EXTRA_MI_PUSH_PACKAGE)
             if (pkg == null) {
                 logger.e("Package name is NULL!")
+                return
+            }
+
+            if (RegistrationIntentDeduper.shouldDrop("register_recorder", intent)) {
+                logger.d("skip duplicate register record pkg=$pkg")
                 return
             }
 

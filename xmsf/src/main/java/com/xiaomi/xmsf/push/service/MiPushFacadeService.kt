@@ -20,6 +20,7 @@ import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.PushRegistrationState
 import io.github.magisk317.mipush.runtime.PushRuntimeBridgeHost
 import io.github.magisk317.mipush.runtime.PushRuntimeComponents
+import io.github.magisk317.mipush.service.runtime.RegistrationIntentDeduper
 import io.github.magisk317.mipush.utils.ConvertUtils
 import dagger.hilt.android.AndroidEntryPoint
 import io.github.aakira.napier.Napier
@@ -89,6 +90,11 @@ open class MiPushFacadeService : Service() {
     }
 
     private fun handleRuntimeIntent(intent: Intent) {
+        if (RegistrationIntentDeduper.shouldDrop("facade_forward", intent)) {
+            val packageName = RegistrationIntentDeduper.packageName(intent).orEmpty()
+            logger.d("drop duplicate register intent before legacy forward pkg=$packageName")
+            return
+        }
         if (intent.component?.className == PushRuntimeComponents.LEGACY_MAIN_SERVICE_CLASS) {
             XMPushServiceLifecycleBridge.recordPendingStart(intent)
         }

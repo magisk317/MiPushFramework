@@ -4,6 +4,7 @@ import android.content.Intent
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.network.NetworkPolicyCompat
+import io.github.magisk317.mipush.service.runtime.RegistrationIntentDeduper
 import com.xiaomi.push.service.XMPushService
 
 /**
@@ -22,6 +23,9 @@ object XMPushServiceLifecycleBridge {
 
     @JvmStatic
     fun recordPendingStart(intent: Intent) {
+        if (RegistrationIntentDeduper.shouldDrop("legacy_lifecycle", intent)) {
+            return
+        }
         val immediateListener = registry.recordPendingStart(intent)
         if (immediateListener != null) {
             runCatching { immediateListener.start(Intent(intent)) }
