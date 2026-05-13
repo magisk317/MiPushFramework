@@ -30,6 +30,22 @@ class ModuleCompatRegistryTest {
     }
 
     @Test
+    fun `registry keeps remote discovered credential overrides`() {
+        assertEquals(
+            ModuleCredential(appId = "2882303761517506461", appKey = "5601750626461"),
+            ModuleCompatRegistry.credentialOverride("com.jingdong.app.mall"),
+        )
+        assertEquals(
+            ModuleCredential(appId = "2882303761517245189", appKey = "5461724563189"),
+            ModuleCompatRegistry.credentialOverride("com.taobao.idlefish"),
+        )
+        assertEquals(
+            ModuleCredential(appId = "2882303761517463096", appKey = "5101746355096"),
+            ModuleCompatRegistry.credentialOverride("com.tencent.wework"),
+        )
+    }
+
+    @Test
     fun `registry keeps credential override with vendor pipelines`() {
         val profile = ModuleCompatRegistry.getProfile("com.unionpay")
         assertNotNull(profile)

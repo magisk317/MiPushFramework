@@ -62,7 +62,11 @@
     },
     {
       "packageName": "com.jingdong.app.mall",
-      "hookPipelines": ["COMMON", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"]
+      "hookPipelines": ["COMMON", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"],
+      "credentialOverride": {
+        "appId": "2882303761517506461",
+        "appKey": "5601750626461"
+      }
     },
     {
       "packageName": "com.sankuai.meituan",
@@ -94,7 +98,11 @@
     },
     {
       "packageName": "com.taobao.idlefish",
-      "hookPipelines": ["ALIPAY", "ALI_AGOO_ACCS", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"]
+      "hookPipelines": ["ALIPAY", "ALI_AGOO_ACCS", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"],
+      "credentialOverride": {
+        "appId": "2882303761517245189",
+        "appKey": "5461724563189"
+      }
     },
     {
       "packageName": "com.taobao.taobao",
@@ -110,7 +118,11 @@
     },
     {
       "packageName": "com.tencent.wework",
-      "hookPipelines": ["COMMON", "XGPUSH", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP"]
+      "hookPipelines": ["COMMON", "XGPUSH", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP"],
+      "credentialOverride": {
+        "appId": "2882303761517463096",
+        "appKey": "5101746355096"
+      }
     },
     {
       "packageName": "com.unionpay",
