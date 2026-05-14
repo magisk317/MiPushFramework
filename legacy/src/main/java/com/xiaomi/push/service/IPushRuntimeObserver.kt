@@ -47,6 +47,7 @@ interface IPushRuntimeObserver {
     fun resolveAccountUrl(region: String?, oneBoxBuild: Boolean, oneBoxHost: String, sandBoxBuild: Boolean): String
     fun onRegistrationStateChanged(packageName: String, state: PushRegistrationState, reason: String, message: String)
     fun onRegistrationResult(packageName: String, success: Boolean, source: String, reason: String) {}
+    fun repairRegistrationPayload(context: Context, packageName: String): PushRegistrationPayloadRepairResult? = null
     fun cacheRegistrationRequest(packageName: String, payload: ByteArray)
     fun clearAccount(context: Context, packageName: String) {}
     fun observeUnregistration(packageName: String, state: PushRegistrationState) {}

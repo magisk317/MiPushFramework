@@ -191,6 +191,13 @@ data class PushServiceRegisterAppPlan(
     val envType: Int = 0
 )
 
+data class PushRegistrationPayloadRepairResult(
+    val packageName: String,
+    val appId: String,
+    val appToken: String,
+    val payload: ByteArray,
+)
+
 enum class PushServiceRegisterAppAction {
     Ignore,
     RegisterNow,

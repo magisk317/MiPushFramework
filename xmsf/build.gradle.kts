@@ -16,6 +16,12 @@ val pushVersionCode = libs.versions.pushVersionCode.get().toInt()
 android {
     namespace = "com.xiaomi.xmsf"
 
+    sourceSets {
+        getByName("main") {
+            assets.srcDir(rootProject.layout.projectDirectory.dir("xposed/src/main/compat"))
+        }
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true

@@ -46,6 +46,7 @@ import com.xiaomi.push.service.PushServiceMiPushPayloadDispatchPlan
 import com.xiaomi.push.service.PushServiceRegisterAppPlan
 import com.xiaomi.push.service.PushServiceRegisterAppAction
 import com.xiaomi.push.service.PushServiceResetConnectionPlan
+import com.xiaomi.push.service.PushRegistrationPayloadRepairResult
 import com.xiaomi.push.service.PushShortConnectionPlan
 import com.xiaomi.push.service.PushSlimHandshakePlan
 import com.xiaomi.push.service.PushSlimInboundPlan
@@ -85,10 +86,10 @@ import io.github.magisk317.mipush.service.runtime.PushSlimConnectionRuntime
 import io.github.magisk317.mipush.service.runtime.PushSlimStreamRuntime
 import io.github.magisk317.mipush.service.runtime.PushSocketConnectionRuntime
 import io.github.magisk317.mipush.service.runtime.RegistrationThrottle
+import io.github.magisk317.mipush.service.runtime.RegistrationPayloadRepair
 import io.github.magisk317.mipush.service.runtime.NetworkCheckupRuntime
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.service.runtime.PushPacketSyncRuntime
-import org.json.JSONException
 import java.io.IOException
 
 class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeObserver {
@@ -270,8 +271,8 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         } catch (e: IOException) {
             PushRuntime.observeAccountEvent("account_register_failed_io", source)
             null
-        } catch (e: JSONException) {
-            PushRuntime.observeAccountEvent("account_register_failed_json", source)
+        } catch (e: Exception) {
+            PushRuntime.observeAccountEvent("account_register_failed_runtime", source)
             null
         }
     }
@@ -290,6 +291,10 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
 
     override fun onRegistrationResult(packageName: String, success: Boolean, source: String, reason: String) {
         PushRuntime.observeRegistrationResult(packageName, success, source, reason)
+    }
+
+    override fun repairRegistrationPayload(context: Context, packageName: String): PushRegistrationPayloadRepairResult? {
+        return RegistrationPayloadRepair.repair(context, packageName)
     }
 
     override fun cacheRegistrationRequest(packageName: String, payload: ByteArray) {

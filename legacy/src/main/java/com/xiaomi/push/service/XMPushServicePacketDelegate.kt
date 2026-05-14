@@ -87,6 +87,12 @@ internal class XMPushServicePacketDelegate(
     fun registerForMiPushApp(payload: ByteArray?, packageName: String?) {
         val observedPackageName = packageName ?: service.packageName
         if (payload == null) {
+            val repaired = service.runtimeObserver.repairRegistrationPayload(service, observedPackageName)
+            if (repaired != null) {
+                MyLog.w("register request without payload repaired for $observedPackageName")
+                registerForMiPushApp(repaired.payload, repaired.packageName)
+                return
+            }
             service.runtimeObserver.onRegistrationResult(observedPackageName, false, "XMPushService.registerForMiPushApp", "null_payload")
             MIPushClientManager.notifyError(service, observedPackageName, byteArrayOf(), 70000003, "null payload")
             MyLog.w("register request without payload")
