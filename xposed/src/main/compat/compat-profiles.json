@@ -17,6 +17,14 @@
       }
     },
     {
+      "packageName": "cn.dxy.android.aspirin",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761517137936",
+        "appKey": "5881713762936"
+      }
+    },
+    {
       "packageName": "cn.gov.tax.its",
       "hookPipelines": ["ALIPAY", "ALI_AGOO_ACCS", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP"]
     },
@@ -25,11 +33,27 @@
       "hookPipelines": []
     },
     {
+      "packageName": "com.baidu.netdisk.samsung",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761517140785",
+        "appKey": "5991714079785"
+      }
+    },
+    {
       "packageName": "com.chinamworld.bocmbci",
       "hookPipelines": [],
       "credentialOverride": {
         "appId": "2882303761517152467",
         "appKey": "5171715279467"
+      }
+    },
+    {
+      "packageName": "com.cib.cibmb",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761517416334",
+        "appKey": "5351741613334"
       }
     },
     {
@@ -53,6 +77,14 @@
       }
     },
     {
+      "packageName": "com.sdu.didi.psnger",
+      "hookPipelines": ["HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP"],
+      "credentialOverride": {
+        "appId": "2882303761517342044",
+        "appKey": "5611734215044"
+      }
+    },
+    {
       "packageName": "com.eg.android.AlipayGphone",
       "hookPipelines": ["ALIPAY", "ALI_AGOO_ACCS", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"],
       "credentialOverride": {
@@ -61,11 +93,27 @@
       }
     },
     {
+      "packageName": "com.henzanapp.miaomiaozhe",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761517561776",
+        "appKey": "XM_5481756131776"
+      }
+    },
+    {
       "packageName": "com.jingdong.app.mall",
       "hookPipelines": ["COMMON", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"],
       "credentialOverride": {
         "appId": "2882303761517506461",
         "appKey": "5601750626461"
+      }
+    },
+    {
+      "packageName": "com.oppo.store",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761517948037",
+        "appKey": "5951794869037"
       }
     },
     {
@@ -79,6 +127,14 @@
     {
       "packageName": "com.sankuai.meituan.takeoutnew",
       "hookPipelines": ["FAKE_MIUI_ONLY"]
+    },
+    {
+      "packageName": "com.smile.gifmaker",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761517130534",
+        "appKey": "5431713053534"
+      }
     },
     {
       "packageName": "com.ss.android.lark",
