@@ -2,9 +2,6 @@ package io.github.magisk317.mipush.common.configurations
 
 import android.os.Build
 import io.github.aakira.napier.Napier
-import org.json.JSONArray
-import org.json.JSONObject
-import org.json.JSONTokener
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import java.util.Base64
@@ -25,19 +22,19 @@ object Lisp {
         if (expr is String) {
             return expr
         }
-        if (expr is JSONArray) {
+        if (expr is ConfigJsonArray) {
             return evaluate(expr, extension)
         }
         return extension.evaluate(expr)
     }
 
-    private fun evaluate(expr: JSONArray, extension: Evaluable): Any? {
+    private fun evaluate(expr: ConfigJsonArray, extension: Evaluable): Any? {
         val method = evaluate(expr.opt(0), extension) as? String ?: return null
         if (method == "cond") {
             return evaluateCond(expr, extension)
         }
 
-        val evaluated = JSONArray().apply {
+        val evaluated = ConfigJsonArray().apply {
             put(method)
             for (i in 1 until expr.length()) {
                 put(evaluate(expr.opt(i), extension))
@@ -73,12 +70,12 @@ object Lisp {
                 }
                 throw (err ?: IllegalStateException("decode-base64 failed"))
             },
-            "parse-json" to Callable { JSONTokener(evaluated.optString(1)).nextValue() },
+            "parse-json" to Callable { ConfigJson.parse(evaluated.optString(1)) },
             "property" to Callable {
                 val obj = evaluated.opt(2)
                 when (obj) {
-                    is JSONObject -> obj.opt(evaluated.optString(1))
-                    is JSONArray -> obj.opt(evaluated.optInt(1))
+                    is ConfigJsonObject -> obj.opt(evaluated.optString(1))
+                    is ConfigJsonArray -> obj.opt(evaluated.optInt(1))
                     else -> null
                 }
             },
@@ -99,11 +96,11 @@ object Lisp {
         }
     }
 
-    private fun evaluateCond(expr: JSONArray, extension: Evaluable): Any? {
+    private fun evaluateCond(expr: ConfigJsonArray, extension: Evaluable): Any? {
         for (i in 1 until expr.length()) {
-            val clause = expr.optJSONArray(i) ?: return null
+            val clause = expr.optConfigJsonArray(i) ?: return null
             val test = clause.opt(0)
-            if (test is JSONArray) {
+            if (test is ConfigJsonArray) {
                 if (evaluate(test, extension) == true) {
                     var ret: Any? = null
                     for (j in 1 until clause.length()) {
@@ -112,7 +109,7 @@ object Lisp {
                     return ret
                 }
             }
-            val subCond = JSONArray().apply {
+            val subCond = ConfigJsonArray().apply {
                 put("cond")
                 put(clause)
             }

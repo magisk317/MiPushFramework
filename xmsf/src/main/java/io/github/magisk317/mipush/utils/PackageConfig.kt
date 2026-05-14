@@ -2,16 +2,16 @@ package io.github.magisk317.mipush.utils
 
 import android.os.Build
 import io.github.magisk317.mipush.platform.support.Global
+import io.github.magisk317.mipush.common.configurations.ConfigJsonArray
+import io.github.magisk317.mipush.common.configurations.ConfigJsonException
+import io.github.magisk317.mipush.common.configurations.ConfigJsonObject
 import org.apache.thrift.TBase
-import org.json.JSONArray
-import org.json.JSONException
-import org.json.JSONObject
 import java.lang.reflect.InvocationTargetException
 import java.util.regex.Pattern
 
 class PackageConfig(private val configurations: Configurations) {
-    var cfgMatch: JSONObject? = null
-    var cfgReplace: JSONObject? = null
+    var cfgMatch: ConfigJsonObject? = null
+    var cfgReplace: ConfigJsonObject? = null
     var operation: MutableSet<String> = hashSetOf()
     var stop: Boolean = true
 
@@ -82,7 +82,7 @@ class PackageConfig(private val configurations: Configurations) {
         }
 
         @Throws(NoSuchFieldException::class, IllegalAccessException::class)
-        private fun match(data: TBase<*, *>?, cfgMatch: JSONObject?): MutableMap<String, String>? {
+        private fun match(data: TBase<*, *>?, cfgMatch: ConfigJsonObject?): MutableMap<String, String>? {
             return match(data, data, cfgMatch, arrayOf())
         }
 
@@ -90,7 +90,7 @@ class PackageConfig(private val configurations: Configurations) {
         private fun match(
             root: TBase<*, *>?,
             data: TBase<*, *>?,
-            cfgMatch: JSONObject?,
+            cfgMatch: ConfigJsonObject?,
             path: Array<String>
         ): MutableMap<String, String>? {
             val matchGroup = hashMapOf<String, String>()
@@ -107,11 +107,11 @@ class PackageConfig(private val configurations: Configurations) {
                 val isMap = value is Map<*, *>
                 val isTBase = value is TBase<*, *>
 
-                var cfgSubObj: JSONObject? = null
+                var cfgSubObj: ConfigJsonObject? = null
                 if (isMap || isTBase) {
                     try {
-                        cfgSubObj = cfgMatch.getJSONObject(cfgKey)
-                    } catch (e: JSONException) {
+                        cfgSubObj = cfgMatch.getConfigJsonObject(cfgKey)
+                    } catch (e: ConfigJsonException) {
                         throw NoSuchFieldException(
                             "The type of field \"$cfgKey\" is ${value.javaClass.simpleName}, not ${cfgMatch.opt(cfgKey)?.javaClass}"
                         )
@@ -150,7 +150,7 @@ class PackageConfig(private val configurations: Configurations) {
         @Throws(NoSuchFieldException::class, IllegalAccessException::class)
         private fun replace(
             data: TBase<*, *>?,
-            cfgReplace: JSONObject?,
+            cfgReplace: ConfigJsonObject?,
             configurations: Configurations,
             configWalker: Walker
         ) {
@@ -165,11 +165,11 @@ class PackageConfig(private val configurations: Configurations) {
                 val isMap = Map::class.java.isAssignableFrom(field.type)
                 val isTBase = TBase::class.java.isAssignableFrom(field.type)
 
-                var cfgSubObj: JSONObject? = null
+                var cfgSubObj: ConfigJsonObject? = null
                 if (isMap || isTBase) {
                     try {
-                        cfgSubObj = cfgReplace.getJSONObject(cfgKey)
-                    } catch (e: JSONException) {
+                        cfgSubObj = cfgReplace.getConfigJsonObject(cfgKey)
+                    } catch (e: ConfigJsonException) {
                         throw NoSuchFieldException(
                             "The type of field \"$cfgKey\" is ${field.type.simpleName}, not ${cfgReplace.opt(cfgKey)?.javaClass}"
                         )
@@ -186,7 +186,7 @@ class PackageConfig(private val configurations: Configurations) {
                             subMap.remove(cfgSubKey)
                         } else {
                             val cfgSubVal = cfgSubObj.opt(cfgSubKey)
-                            if (cfgSubVal is JSONArray) {
+                            if (cfgSubVal is ConfigJsonArray) {
                                 val value = configurations.evaluate(cfgSubVal, configWalker)
                                 if (value == null) {
                                     subMap.remove(cfgSubKey)
@@ -204,7 +204,7 @@ class PackageConfig(private val configurations: Configurations) {
                     replace(field.get(data) as TBase<*, *>?, cfgSubObj, configurations, configWalker)
                 } else {
                     var cfgValueObj = cfgReplace.opt(cfgKey)
-                    val evaluated = cfgValueObj is JSONArray
+                    val evaluated = cfgValueObj is ConfigJsonArray
                     if (evaluated) {
                         cfgValueObj = configurations.evaluate(cfgValueObj, configWalker)
                     }
@@ -235,7 +235,7 @@ class PackageConfig(private val configurations: Configurations) {
         }
 
         private fun mismatchField(
-            obj: JSONObject,
+            obj: ConfigJsonObject,
             cfgKey: String,
             value: Any?,
             matchGroup: MutableMap<String, String>

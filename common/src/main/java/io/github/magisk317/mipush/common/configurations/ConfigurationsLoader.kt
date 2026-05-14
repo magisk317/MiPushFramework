@@ -6,9 +6,6 @@ import android.util.Pair
 import android.widget.Toast
 import androidx.documentfile.provider.DocumentFile
 import io.github.aakira.napier.Napier
-import org.json.JSONArray
-import org.json.JSONException
-import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.regex.Pattern
@@ -38,7 +35,7 @@ class ConfigurationsLoader @Inject constructor(
             if (context == null || treeUri == null) {
                 break
             }
-            val exceptions = mutableListOf<Pair<DocumentFile, JSONException>>()
+            val exceptions = mutableListOf<Pair<DocumentFile, ConfigJsonException>>()
             val loadedFiles = mutableListOf<DocumentFile>()
             parseDirectory(context, treeUri, exceptions, loadedFiles, configurations)
 
@@ -66,7 +63,7 @@ class ConfigurationsLoader @Inject constructor(
     private fun parseDirectory(
         context: Context,
         treeUri: Uri,
-        exceptions: MutableList<Pair<DocumentFile, JSONException>>,
+        exceptions: MutableList<Pair<DocumentFile, ConfigJsonException>>,
         loadedFiles: MutableList<DocumentFile>,
         configurations: Configurations
     ): Boolean {
@@ -86,63 +83,63 @@ class ConfigurationsLoader @Inject constructor(
             try {
                 parse(json, configurations)
                 loadedFiles.add(file)
-            } catch (e: JSONException) {
+            } catch (e: ConfigJsonException) {
                 exceptions.add(Pair(file, e))
             }
         }
         return false
     }
 
-    @Throws(JSONException::class)
+    @Throws(ConfigJsonException::class)
     fun load(json: String, configurations: Configurations) {
         parse(json, configurations)
     }
 
-    @Throws(JSONException::class)
+    @Throws(ConfigJsonException::class)
     private fun parse(json: String, configurations: Configurations) {
-        val jsonObject = JSONObject(json)
+        val jsonObject = ConfigJsonObject(json)
         version = jsonObject.getString("version")
-        val packageConfigsObj = jsonObject.getJSONObject("configs")
+        val packageConfigsObj = jsonObject.getConfigJsonObject("configs")
         val packageNames = packageConfigsObj.keys()
         while (packageNames.hasNext()) {
             val packageName = packageNames.next()
-            val configsObj = packageConfigsObj.getJSONArray(packageName)
+            val configsObj = packageConfigsObj.getConfigJsonArray(packageName)
             packageConfigs[packageName] = parseConfigs(configsObj, configurations)
         }
     }
 
-    @Throws(JSONException::class)
-    private fun parseConfigs(configsObj: JSONArray, configurations: Configurations): MutableList<Any> {
+    @Throws(ConfigJsonException::class)
+    private fun parseConfigs(configsObj: ConfigJsonArray, configurations: Configurations): MutableList<Any> {
         val configs = mutableListOf<Any>()
         for (i in 0 until configsObj.length()) {
             val config = configsObj.get(i)
             when (config) {
-                is JSONArray -> configs.add(config)
+                is ConfigJsonArray -> configs.add(config)
                 is String -> configs.add(config)
-                else -> configs.add(parseConfig(configsObj.getJSONObject(i), configurations))
+                else -> configs.add(parseConfig(configsObj.getConfigJsonObject(i), configurations))
             }
         }
         return configs
     }
 
-    @Throws(JSONException::class)
-    fun parseConfig(configObj: JSONObject, configurations: Configurations): PackageConfig {
+    @Throws(ConfigJsonException::class)
+    fun parseConfig(configObj: ConfigJsonObject, configurations: Configurations): PackageConfig {
         val config = PackageConfig(configurations)
         if (!configObj.isNull(PackageConfig.KEY_META_INFO)) {
-            val obj = JSONObject()
-            obj.put(PackageConfig.KEY_META_INFO, configObj.getJSONObject(PackageConfig.KEY_META_INFO))
+            val obj = ConfigJsonObject()
+            obj.put(PackageConfig.KEY_META_INFO, configObj.getConfigJsonObject(PackageConfig.KEY_META_INFO))
             config.cfgMatch = obj
         }
         if (!configObj.isNull(PackageConfig.KEY_NEW_META_INFO)) {
-            val obj = JSONObject()
-            obj.put(PackageConfig.KEY_META_INFO, configObj.getJSONObject(PackageConfig.KEY_NEW_META_INFO))
+            val obj = ConfigJsonObject()
+            obj.put(PackageConfig.KEY_META_INFO, configObj.getConfigJsonObject(PackageConfig.KEY_NEW_META_INFO))
             config.cfgReplace = obj
         }
         if (!configObj.isNull(PackageConfig.KEY_MATCH)) {
-            config.cfgMatch = configObj.getJSONObject(PackageConfig.KEY_MATCH)
+            config.cfgMatch = configObj.getConfigJsonObject(PackageConfig.KEY_MATCH)
         }
         if (!configObj.isNull(PackageConfig.KEY_REPLACE)) {
-            config.cfgReplace = configObj.getJSONObject(PackageConfig.KEY_REPLACE)
+            config.cfgReplace = configObj.getConfigJsonObject(PackageConfig.KEY_REPLACE)
         }
         if (!configObj.isNull(PackageConfig.KEY_OPERATION)) {
             val operations = configObj.getString(PackageConfig.KEY_OPERATION)
@@ -176,7 +173,7 @@ class ConfigurationsLoader @Inject constructor(
         @JvmStatic
         fun getJsonExceptionMessage(
             context: Context,
-            pair: Pair<DocumentFile, JSONException>
+            pair: Pair<DocumentFile, ConfigJsonException>
         ): StringBuilder {
             val file = pair.first
             val e = pair.second
@@ -192,7 +189,7 @@ class ConfigurationsLoader @Inject constructor(
                 val errorLine = beforeErr.size
                 val errorColumn = beforeErr[beforeErr.size - 1].length
                 val exceptionMessage = errmsg.substring(0, matcher.start())
-                    .replace("org.json.JSONException: ", "")
+                    .replace("ConfigJsonException: ", "")
                     .replaceFirst("(after )(.*)( at)".toRegex(), "$1\"$2\"$3")
                 errmsg = StringBuilder("$exceptionMessage line $errorLine column $errorColumn")
 

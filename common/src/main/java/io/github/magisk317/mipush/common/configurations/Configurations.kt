@@ -2,9 +2,6 @@ package io.github.magisk317.mipush.common.configurations
 
 import io.github.aakira.napier.Napier
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import org.json.JSONArray
-import org.json.JSONException
-import org.json.JSONObject
 import java.lang.reflect.InvocationTargetException
 
 import javax.inject.Inject
@@ -21,13 +18,13 @@ class Configurations @Inject constructor(
     fun init(context: android.content.Context?, treeUri: android.net.Uri?): Boolean =
         loader.init(context, treeUri, this)
 
-    @Throws(JSONException::class)
+    @Throws(ConfigJsonException::class)
     fun load(json: String) {
         loader.load(json, this)
     }
 
     @Throws(
-        JSONException::class,
+        ConfigJsonException::class,
         NoSuchFieldException::class,
         IllegalAccessException::class,
         InvocationTargetException::class,
@@ -47,7 +44,7 @@ class Configurations @Inject constructor(
     }
 
     @Throws(
-        JSONException::class,
+        ConfigJsonException::class,
         NoSuchFieldException::class,
         InvocationTargetException::class,
         IllegalAccessException::class,
@@ -62,7 +59,7 @@ class Configurations @Inject constructor(
     @Throws(
         NoSuchFieldException::class,
         IllegalAccessException::class,
-        JSONException::class,
+        ConfigJsonException::class,
         NoSuchMethodException::class,
         InvocationTargetException::class
     )
@@ -86,9 +83,9 @@ class Configurations @Inject constructor(
                     }
                 } else {
                     var refConfigs: MutableList<Any>? = null
-                    if (configItem is JSONArray) {
+                    if (configItem is ConfigJsonArray) {
                         val value = evaluate(configItem, data)
-                        if (value is JSONObject) {
+                        if (value is ConfigJsonObject) {
                             refConfigs = mutableListOf(loader.parseConfig(value, this))
                         } else if (value != null) {
                             refConfigs = loader.getConfigs()[value.toString()]
@@ -148,16 +145,16 @@ class Configurations @Inject constructor(
         val data: XmPushActionContainer?
     ) : Lisp.Evaluable {
         override fun evaluate(expr: Any?): Any? {
-            if (expr is JSONObject) {
+            if (expr is ConfigJsonObject) {
                 return expr
             }
-            if (expr is JSONArray) {
+            if (expr is ConfigJsonArray) {
                 return evaluate(expr)
             }
             return null
         }
 
-        private fun evaluate(expr: JSONArray): Any? {
+        private fun evaluate(expr: ConfigJsonArray): Any? {
             val method = expr.opt(0) as? String ?: return null
             if (method == "cond") {
                 return evaluateCond(expr)
@@ -182,13 +179,13 @@ class Configurations @Inject constructor(
             return null
         }
 
-        private fun evaluateCond(expr: JSONArray): Any? {
+        private fun evaluateCond(expr: ConfigJsonArray): Any? {
             try {
                 val length = expr.length()
                 for (i in 1 until length) {
-                    val clause = expr.optJSONArray(i) ?: return null
+                    val clause = expr.optConfigJsonArray(i) ?: return null
                     val test = clause.opt(0)
-                    if (test is JSONObject) {
+                    if (test is ConfigJsonObject) {
                         val config = loader.parseConfig(test, this@Configurations)
                         if (config.getWalker(data).match()) {
                             return clause.opt(1)

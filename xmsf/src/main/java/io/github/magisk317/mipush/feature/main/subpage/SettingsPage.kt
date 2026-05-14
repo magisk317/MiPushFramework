@@ -97,9 +97,9 @@ import io.github.magisk317.mipush.utils.LogUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
-import org.json.JSONTokener
+import io.github.magisk317.mipush.common.configurations.ConfigJson
+import io.github.magisk317.mipush.common.configurations.ConfigJsonArray
+import io.github.magisk317.mipush.common.configurations.ConfigJsonObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -874,9 +874,9 @@ private fun formatRuntimeLogContent(fileName: String, text: String, expanded: Bo
 
 private fun formatJsonLine(line: String, expanded: Boolean): String {
     return runCatching {
-        when (val value = JSONTokener(line).nextValue()) {
-            is JSONObject -> if (expanded) value.toString(2) else value.toString()
-            is JSONArray -> if (expanded) value.toString(2) else value.toString()
+        when (val value = ConfigJson.parse(line)) {
+            is ConfigJsonObject -> if (expanded) value.toString(2) else value.toString()
+            is ConfigJsonArray -> if (expanded) value.toString(2) else value.toString()
             else -> line
         }
     }.getOrDefault(line)

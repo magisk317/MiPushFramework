@@ -12,7 +12,6 @@ import androidx.core.app.NotificationCompat
 import androidx.documentfile.provider.DocumentFile
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.Serializable
-import org.json.JSONException
 import io.github.magisk317.mipush.common.utils.Utils
 import kotlinx.coroutines.runBlocking
 
@@ -58,7 +57,7 @@ class IconConfigurations @Inject constructor(
             if (context == null || treeUri == null) {
                 break
             }
-            val exceptions = mutableListOf<Pair<DocumentFile, JSONException>>()
+            val exceptions = mutableListOf<Pair<DocumentFile, ConfigJsonException>>()
             val loadedFiles = mutableListOf<DocumentFile>()
             parseDirectory(context, treeUri, exceptions, loadedFiles)
 
@@ -87,7 +86,7 @@ class IconConfigurations @Inject constructor(
     private fun parseDirectory(
         context: Context,
         treeUri: Uri,
-        exceptions: MutableList<Pair<DocumentFile, JSONException>>,
+        exceptions: MutableList<Pair<DocumentFile, ConfigJsonException>>,
         loadedFiles: MutableList<DocumentFile>
     ): Boolean {
         var documentFile = DocumentFile.fromTreeUri(context, treeUri) ?: return true
@@ -102,7 +101,7 @@ class IconConfigurations @Inject constructor(
             try {
                 parse(json)
                 loadedFiles.add(file)
-            } catch (e: JSONException) {
+            } catch (e: ConfigJsonException) {
                 exceptions.add(Pair(file, e))
             }
         }
