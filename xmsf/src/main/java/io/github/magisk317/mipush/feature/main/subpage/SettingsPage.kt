@@ -505,11 +505,18 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
         checked = debugMode,
     ) { viewModel.setDebugMode(it) }
 
+    var showMockPanel by remember { mutableStateOf(false) }
     SettingsItem(
         title = stringResource(R.string.settings_mock_notification),
         summary = stringResource(R.string.settings_mock_notification_summary),
     ) {
-        viewModel.notifyMockNotification(context)
+        showMockPanel = true
+    }
+    if (showMockPanel) {
+        io.github.magisk317.mipush.feature.diagnostic.MockNotificationPanel(
+            onDismiss = { showMockPanel = false },
+            onFire = { kind, pkg -> viewModel.notifyMockNotification(context, kind, pkg) },
+        )
     }
 
     if (showRuntimeLogInfoDialog) {

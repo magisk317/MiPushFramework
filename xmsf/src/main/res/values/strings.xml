@@ -539,4 +539,28 @@ This could be the application doing a reverse registration, or the registration 
     <string name="pref_keepalive_dedicated_service_enabled_summary">Enabled in system Accessibility settings.</string>
     <string name="pref_keepalive_dedicated_service_disabled_summary">Not enabled. Tap to open system Accessibility settings.</string>
 
+    <string name="mock_target_package">Target Package</string>
+    <string name="mock_kind_plain">Plain</string>
+    <string name="mock_kind_plain_desc">Basic notification with title and text</string>
+    <string name="mock_kind_big_text">BigText</string>
+    <string name="mock_kind_big_text_desc">Expandable large text notification</string>
+    <string name="mock_kind_big_picture">BigPicture</string>
+    <string name="mock_kind_big_picture_desc">Notification with large image</string>
+    <string name="mock_kind_inbox">Inbox</string>
+    <string name="mock_kind_inbox_desc">Multi-line inbox style</string>
+    <string name="mock_kind_messaging">Messaging</string>
+    <string name="mock_kind_messaging_desc">Conversation style notification</string>
+    <string name="mock_kind_media">Media</string>
+    <string name="mock_kind_media_desc">Media playback controls</string>
+    <string name="mock_kind_progress">Progress</string>
+    <string name="mock_kind_progress_desc">Ongoing progress bar notification</string>
+    <string name="mock_kind_heads_up">Heads-up</string>
+    <string name="mock_kind_heads_up_desc">High priority banner notification</string>
+    <string name="mock_kind_focus_basic">Focus (Dynamic Island)</string>
+    <string name="mock_kind_focus_basic_desc">Focus notification with miui.focus.param (requires root)</string>
+    <string name="mock_kind_focus_pic">Focus + Picture</string>
+    <string name="mock_kind_focus_pic_desc">Focus notification with image (requires root)</string>
+    <string name="mock_kind_voip">VoIP Incoming Call</string>
+    <string name="mock_kind_voip_desc">Full-screen call notification</string>
+
 </resources>

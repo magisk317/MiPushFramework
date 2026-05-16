@@ -22,7 +22,7 @@ import io.github.magisk317.mipush.runtime.store.event.type.NotificationType
 import io.github.magisk317.mipush.feature.main.subpage.ApplicationPageOperation
 import io.github.magisk317.mipush.service.runtime.RuntimeSettingsAdapter
 import io.github.magisk317.mipush.service.runtime.RuntimeSettingsAdapter.ForceRegisterStage
-import java.util.Date
+
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -79,6 +79,14 @@ class SettingsManager @Inject constructor(
     }
 
     fun notifyMockNotification(context: Context) {
+        notifyMockNotification(context, io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.BIG_TEXT, BuildConfig.APPLICATION_ID)
+    }
+
+    fun notifyMockNotification(
+        context: Context,
+        kind: io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind,
+        packageName: String
+    ) {
         if (Build.VERSION.SDK_INT >= 33) {
             if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 if (context is Activity) {
@@ -89,13 +97,9 @@ class SettingsManager @Inject constructor(
                 return
             }
         }
-        val packageName = BuildConfig.APPLICATION_ID
-        val date = Date()
-        val title = context.getString(R.string.debug_test_title)
-        val description = context.getString(R.string.debug_test_content) + date.toString()
-        NotificationController.test(context, packageName, title, description)
+        NotificationController.testMock(context, kind, packageName)
         runCatching {
-            val type = NotificationType("mock:$title", packageName, null).apply {
+            val type = NotificationType("mock:${kind.name}", packageName, null).apply {
                 this.type = Event.Type.SendMessage
             }
             runBlocking { EventDb.insertEventAsync(Event.ResultType.OK, type) }

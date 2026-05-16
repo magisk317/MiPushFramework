@@ -161,6 +161,7 @@ object NotificationController {
         }
         if (focusBundle != null) {
             notificationBuilder.addExtras(focusBundle)
+            notificationBuilder.priority = NotificationCompat.PRIORITY_HIGH
         }
 
         NotificationSortFilter.attachDeleteIntentIfNeeded(context, notificationBuilder, packageName, metaInfo, notificationId)
@@ -173,12 +174,12 @@ object NotificationController {
             logger.d("drop contentless notification pkg=$packageName id=$notificationId channel=${notification.channelId}")
             return null
         }
-        getNotificationManagerEx().notify(
-            packageName,
-            MyMIPushNotificationHelper.getNotificationTag(packageName),
-            notificationId,
-            notification
-        )
+        val tag = MyMIPushNotificationHelper.getNotificationTag(packageName)
+        getNotificationManagerEx().notify(packageName, tag, notificationId, notification)
+        if (focusBundle != null) {
+            val key = "0|$packageName|$notificationId|$tag|0"
+            FocusNotificationRegistry.register(context, key)
+        }
         return notification
     }
 
@@ -255,11 +256,9 @@ object NotificationController {
         clearGroup: Boolean
     ) {
         MyMIPushNotificationStyleSupport.clearConversationHistory(container.packageName, notificationId)
-        getNotificationManagerEx().cancel(
-            container.packageName,
-            MyMIPushNotificationHelper.getNotificationTag(container),
-            notificationId
-        )
+        val tag = MyMIPushNotificationHelper.getNotificationTag(container)
+        getNotificationManagerEx().cancel(container.packageName, tag, notificationId)
+        FocusNotificationRegistry.unregister(context, "0|${container.packageName}|$notificationId|$tag|0")
         if (clearGroup) {
             getNotificationManagerEx().cancel(
                 container.packageName,
@@ -390,34 +389,129 @@ object NotificationController {
 
     @JvmStatic
     fun test(context: Context, packageName: String, title: String, description: String) {
+        testMock(context, io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.BIG_TEXT, packageName)
+    }
+
+    @JvmStatic
+    fun testMock(
+        context: Context,
+        kind: io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind,
+        packageName: String
+    ) {
         val metaInfo = PushMetaInfo()
+        val extra = HashMap<String, String>()
+        val title = context.getString(R.string.debug_test_title)
+        val description = context.getString(R.string.debug_test_content) + " " + java.util.Date()
+        metaInfo.title = title
+        metaInfo.description = description
+
+        when (kind) {
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_BASIC -> {
+                extra["miui.focus.param"] = """{"updatable":true,"reopen":"close"}"""
+            }
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_WITH_PIC -> {
+                extra["miui.focus.param"] = """{"updatable":true,"reopen":"close"}"""
+                extra["miui.focus.pic_main"] = "https://cdn.cnbj1.fds.api.mi-img.com/mipush/focus_demo.png"
+            }
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.VOIP_INCOMING -> {
+                extra["notification_style_type"] = "6"
+                extra["msg_busi_type"] = "voip"
+                extra["voip_type"] = "1"
+                extra["sequence"] = System.currentTimeMillis().toString()
+            }
+            else -> {}
+        }
+        metaInfo.extra = extra
+
         NotificationChannelManager.registerChannelIfNeeded(context, metaInfo, packageName)
         val id = (System.currentTimeMillis() / 1000L).toInt()
-        val localBuilder = NotificationCompat.Builder(
-            context,
-            NotificationChannelManager.getChannelId(metaInfo, packageName)
-        )
-        val style = NotificationCompat.BigTextStyle()
-        style.bigText(description)
-        style.setBigContentTitle(title)
-        style.setSummaryText(description)
-        localBuilder.setStyle(style)
-        localBuilder.setWhen(System.currentTimeMillis())
-        localBuilder.setShowWhen(true)
+        val channelId = NotificationChannelManager.getChannelId(metaInfo, packageName)
+        val builder = NotificationCompat.Builder(context, channelId)
+        builder.setWhen(System.currentTimeMillis())
+        builder.setShowWhen(true)
 
         val notifyIntent = LegacyUiEntryPoints.mainActivityIntent(
             context = context,
             startTab = MainActivity.START_TAB_SETTINGS,
-        ).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        }
+        ).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK }
         val notifyPendingIntent = PendingIntent.getActivity(
-            context,
-            0,
-            notifyIntent,
+            context, 0, notifyIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        localBuilder.setContentIntent(notifyPendingIntent)
-        publish(context, metaInfo, id, packageName, localBuilder)
+        builder.setContentIntent(notifyPendingIntent)
+
+        when (kind) {
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.PLAIN -> {
+                builder.setContentTitle(title)
+                builder.setContentText(description)
+            }
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.BIG_TEXT -> {
+                val style = NotificationCompat.BigTextStyle()
+                style.bigText(description)
+                style.setBigContentTitle(title)
+                style.setSummaryText(description)
+                builder.setStyle(style)
+            }
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.BIG_PICTURE -> {
+                val style = NotificationCompat.BigPictureStyle()
+                style.setBigContentTitle(title)
+                style.setSummaryText(description)
+                builder.setStyle(style)
+                builder.setContentTitle(title)
+                builder.setContentText(description)
+            }
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.INBOX -> {
+                val style = NotificationCompat.InboxStyle()
+                style.setBigContentTitle(title)
+                style.addLine("Line 1: $description")
+                style.addLine("Line 2: Another message")
+                style.addLine("Line 3: Third message")
+                style.setSummaryText("+3 messages")
+                builder.setStyle(style)
+            }
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.MESSAGING -> {
+                val person = androidx.core.app.Person.Builder().setName("Test User").build()
+                val style = NotificationCompat.MessagingStyle(person)
+                style.setConversationTitle("Test Conversation")
+                style.addMessage(description, System.currentTimeMillis(), person)
+                style.addMessage("Reply message", System.currentTimeMillis() + 1000, person)
+                builder.setStyle(style)
+            }
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.MEDIA -> {
+                builder.setContentTitle(title)
+                builder.setContentText("Now Playing - $description")
+                builder.setOngoing(true)
+                builder.addAction(R.drawable.ic_notifications_black_24dp, "Prev", notifyPendingIntent)
+                builder.addAction(R.drawable.ic_notifications_black_24dp, "Pause", notifyPendingIntent)
+                builder.addAction(R.drawable.ic_notifications_black_24dp, "Next", notifyPendingIntent)
+            }
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.PROGRESS -> {
+                builder.setContentTitle(title)
+                builder.setContentText("Downloading...")
+                builder.setProgress(100, 65, false)
+                builder.setOngoing(true)
+            }
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.HEADS_UP -> {
+                builder.setContentTitle(title)
+                builder.setContentText(description)
+                builder.priority = NotificationCompat.PRIORITY_HIGH
+                builder.setCategory(Notification.CATEGORY_ALARM)
+            }
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_BASIC,
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_WITH_PIC -> {
+                builder.setContentTitle(title)
+                builder.setContentText(description)
+                builder.priority = NotificationCompat.PRIORITY_HIGH
+            }
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.VOIP_INCOMING -> {
+                builder.setContentTitle("Incoming Call")
+                builder.setContentText(description)
+                builder.priority = NotificationCompat.PRIORITY_MAX
+                builder.setCategory(Notification.CATEGORY_CALL)
+                builder.setOngoing(true)
+                builder.setFullScreenIntent(notifyPendingIntent, true)
+            }
+        }
+        publish(context, metaInfo, id, packageName, builder)
     }
 }
