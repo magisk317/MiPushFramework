@@ -64,6 +64,7 @@ class ModuleCompatRegistryTest {
         assertEquals(
             listOf(
                 HookPipelineId.HUAWEI_HMS,
+                HookPipelineId.MIPUSH_COMPONENT_VISIBILITY,
                 HookPipelineId.VIVO_PUSH,
                 HookPipelineId.OPPO_HEYTAP,
                 HookPipelineId.MEIZU_PUSH,
@@ -78,6 +79,7 @@ class ModuleCompatRegistryTest {
         assertEquals(
             listOf(
                 HookPipelineId.COOLAPK,
+                HookPipelineId.MIPUSH_COMPONENT_VISIBILITY,
                 HookPipelineId.HUAWEI_HMS,
                 HookPipelineId.VIVO_PUSH,
                 HookPipelineId.OPPO_HEYTAP,
@@ -98,6 +100,7 @@ class ModuleCompatRegistryTest {
                 HookPipelineId.DOUYIN,
                 HookPipelineId.ALI_AGOO_ACCS,
                 HookPipelineId.UMENG_PUSH,
+                HookPipelineId.MIPUSH_COMPONENT_VISIBILITY,
                 HookPipelineId.HUAWEI_HMS,
                 HookPipelineId.VIVO_PUSH,
                 HookPipelineId.OPPO_HEYTAP,

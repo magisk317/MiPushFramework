@@ -96,4 +96,14 @@ class MiPushComponentVisibilityTest {
         assertTrue(MiPushComponentVisibility.shouldPatchProviderQuery("com.xiaomi.xmsf"))
         assertFalse(MiPushComponentVisibility.shouldPatchProviderQuery("com.other.app"))
     }
+
+    @Test
+    fun `provider authority matches known xmsf push authorities`() {
+        assertTrue(MiPushComponentVisibility.isMiPushProviderAuthority("com.xiaomi.xmsf.provider.CHANNEL"))
+        assertTrue(MiPushComponentVisibility.isMiPushProviderAuthority("com.xiaomi.push.provider.PUSH_SUPPORT"))
+        assertTrue(MiPushComponentVisibility.isMiPushProviderAuthority("com.xiaomi.push.provider.PUSH_COMMON"))
+        assertTrue(MiPushComponentVisibility.isMiPushProviderAuthority("com.xiaomi.push.provider.profile"))
+        assertFalse(MiPushComponentVisibility.isMiPushProviderAuthority("com.other.provider"))
+        assertFalse(MiPushComponentVisibility.isMiPushProviderAuthority(null))
+    }
 }

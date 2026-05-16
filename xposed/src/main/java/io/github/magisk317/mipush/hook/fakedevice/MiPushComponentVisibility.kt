@@ -61,6 +61,7 @@ class MiPushComponentVisibility : IFakeDevice {
         private val activityQueryMethodNames = setOf("queryIntentActivities", "queryIntentActivitiesAsUser")
         private val activityResolveMethodNames = setOf("resolveActivity", "resolveActivityAsUser")
         private val providerQueryMethodNames = setOf("queryContentProviders")
+        private val providerResolveMethodNames = setOf("resolveContentProvider", "resolveContentProviderAsUser")
         private val installedPackageMethodNames = setOf("getInstalledPackages", "getInstalledPackagesAsUser")
         private val installedApplicationMethodNames = setOf("getInstalledApplications", "getInstalledApplicationsAsUser")
         private val installerPackageMethodNames = setOf("getInstallerPackageName", "getInstallerForPackage")
@@ -111,6 +112,17 @@ class MiPushComponentVisibility : IFakeDevice {
         internal fun shouldPatchProviderQuery(processName: String?): Boolean {
             return processName == null || processName == XMSF_PACKAGE
         }
+
+        private val xmsfAuthorities = setOf(
+            CHANNEL_AUTHORITY,
+            PUSH_SUPPORT_AUTHORITY,
+            PUSH_COMMON_AUTHORITY,
+            PUSH_PROFILE_AUTHORITY,
+        )
+
+        internal fun isMiPushProviderAuthority(authority: String?): Boolean {
+            return authority != null && authority in xmsfAuthorities
+        }
     }
 
     override fun fake(lpparam: XC_LoadPackage.LoadPackageParam): Boolean {
@@ -150,6 +162,7 @@ class MiPushComponentVisibility : IFakeDevice {
             in activityQueryMethodNames -> hookActivityQuery(method, context)
             in activityResolveMethodNames -> hookActivityResolve(method, context)
             in providerQueryMethodNames -> hookProviderQuery(method, context)
+            in providerResolveMethodNames -> hookProviderResolve(method, context)
             in installedPackageMethodNames -> hookInstalledPackages(method, context)
             in installedApplicationMethodNames -> hookInstalledApplications(method, context)
             in installerPackageMethodNames -> hookInstallerPackage(method, context)
@@ -375,6 +388,36 @@ class MiPushComponentVisibility : IFakeDevice {
                     "${method.name}:$argsSummary",
                     "diagnostic ${method.name} pkg=${context.packageName} proc=${context.processName} " +
                         "args=$argsSummary resultCount=${resultCount(result)} throwable=${throwable?.javaClass?.simpleName}"
+                )
+            }
+        }
+        return true
+    }
+
+    private fun hookProviderResolve(method: Method, context: VisibilityContext): Boolean {
+        if (!markHooked(method, context)) return false
+        method.hook {
+            doAfter {
+                val authority = firstStringArg() ?: return@doAfter
+                if (!isMiPushProviderAuthority(authority)) return@doAfter
+                if (throwable == null && result is ProviderInfo) {
+                    rateLimitedLog(
+                        context,
+                        "${method.name}:$authority:false",
+                        "resolveContentProvider authority=$authority pkg=${context.packageName} " +
+                            "proc=${context.processName} patched=false"
+                    )
+                    return@doAfter
+                }
+                val provider = fakeXmsfProviderInfos().firstOrNull { it.authority == authority }
+                    ?: return@doAfter
+                throwable = null
+                result = provider
+                rateLimitedLog(
+                    context,
+                    "${method.name}:$authority:true",
+                    "resolveContentProvider authority=$authority pkg=${context.packageName} " +
+                        "proc=${context.processName} patched=true"
                 )
             }
         }
