@@ -4,6 +4,7 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.xposed.findClass
 import io.github.magisk317.mipush.xposed.hookMethod
+import miui.os.Build
 import miui.external.SdkHelper
 
 open class Common : IFakeDevice {
@@ -47,7 +48,7 @@ open class Common : IFakeDevice {
         }
 
         val classMap: Map<String, Class<out Any>> = mapOf(
-            "miui.os.Build" to Any::class.java,
+            Build::class.java.name to Build::class.java,
             SdkHelper::class.java.name to SdkHelper::class.java,
         )
         Class::class.java.hookMethod(

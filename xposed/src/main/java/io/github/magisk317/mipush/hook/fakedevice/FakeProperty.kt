@@ -106,7 +106,7 @@ fun fakeAllBuildInProperties() {
         "Applying ${propsToFake.size} fake properties " +
             "(base=${baseProps.size}, template=${MiPushResetpropTemplate.defaultCustomProps().size}, autoMiPush=${!isXiaomi})"
     )
-    fakeProperty(*propsToFake.entries.map { it.key to it.value }.toTypedArray())
+    fakePropertiesSafely(propsToFake)
 }
 
 fun fakeProperty(vararg properties: Property) {
@@ -117,15 +117,22 @@ private val propertyMap: MutableMap<String, String> = HashMap()
 private val hooked = AtomicBoolean(false)
 
 private val buildStringFieldMappings = listOf(
+    BuildStringFieldMapping("ro.product.board", Build::class.java, "BOARD"),
     BuildStringFieldMapping("ro.product.brand", Build::class.java, "BRAND"),
     BuildStringFieldMapping("ro.product.manufacturer", Build::class.java, "MANUFACTURER"),
     BuildStringFieldMapping("ro.product.model", Build::class.java, "MODEL"),
     BuildStringFieldMapping("ro.product.device", Build::class.java, "DEVICE"),
     BuildStringFieldMapping("ro.product.name", Build::class.java, "PRODUCT"),
+    BuildStringFieldMapping("ro.product.cpu.abi", Build::class.java, "CPU_ABI"),
+    BuildStringFieldMapping("ro.product.cpu.abi2", Build::class.java, "CPU_ABI2"),
     BuildStringFieldMapping("ro.build.display.id", Build::class.java, "DISPLAY"),
     BuildStringFieldMapping("ro.build.user", Build::class.java, "USER"),
+    BuildStringFieldMapping("ro.build.host", Build::class.java, "HOST"),
     BuildStringFieldMapping("ro.build.id", Build::class.java, "ID"),
     BuildStringFieldMapping("ro.build.fingerprint", Build::class.java, "FINGERPRINT"),
+    BuildStringFieldMapping("ro.build.tags", Build::class.java, "TAGS"),
+    BuildStringFieldMapping("ro.build.type", Build::class.java, "TYPE"),
+    BuildStringFieldMapping("ro.build.version.incremental", Build.VERSION::class.java, "INCREMENTAL"),
     BuildStringFieldMapping("ro.build.version.release", Build.VERSION::class.java, "RELEASE"),
 )
 
@@ -136,7 +143,11 @@ fun fakeProperty(vararg properties: Pair<String, String>) {
 
     if (hooked.getAndSet(true)) return
 
-    val classSystemProperties = Build::class.java.classLoader!!.findClass("android.os.SystemProperties")
+    val classSystemProperties = runCatching {
+        Build::class.java.classLoader!!.findClass("android.os.SystemProperties")
+    }.onFailure {
+        XLog.w(TAG, "skip SystemProperties hook: ${it.javaClass.simpleName}: ${it.message}")
+    }.getOrNull() ?: return
 
     val getCallback: HookContext.() -> Unit = {
         doBefore {
@@ -147,53 +158,75 @@ fun fakeProperty(vararg properties: Pair<String, String>) {
         }
     }
 
-    classSystemProperties.hookMethod("get", String::class.java, callback = getCallback)
-    classSystemProperties.hookMethod("get", String::class.java, String::class.java, callback = getCallback)
-    classSystemProperties.hookMethod("getInt", String::class.java, Int::class.javaPrimitiveType!!) {
-        doBefore {
-            val key = args[0] as String
-            propertyMap[key]?.toIntOrNull()?.let { result = it }
+    runCatching {
+        classSystemProperties.hookMethod("get", String::class.java, callback = getCallback)
+        classSystemProperties.hookMethod("get", String::class.java, String::class.java, callback = getCallback)
+        classSystemProperties.hookMethod("getInt", String::class.java, Int::class.javaPrimitiveType!!) {
+            doBefore {
+                val key = args[0] as String
+                propertyMap[key]?.toIntOrNull()?.let { result = it }
+            }
         }
-    }
-    classSystemProperties.hookMethod("getLong", String::class.java, Long::class.javaPrimitiveType!!) {
-        doBefore {
-            val key = args[0] as String
-            propertyMap[key]?.toLongOrNull()?.let { result = it }
+        classSystemProperties.hookMethod("getLong", String::class.java, Long::class.javaPrimitiveType!!) {
+            doBefore {
+                val key = args[0] as String
+                propertyMap[key]?.toLongOrNull()?.let { result = it }
+            }
         }
-    }
-    classSystemProperties.hookMethod("getBoolean", String::class.java, Boolean::class.javaPrimitiveType!!) {
-        doBefore {
-            val key = args[0] as String
-            propertyMap[key]?.let { value ->
-                when (value.lowercase()) {
-                    "1", "true", "y", "yes", "on" -> result = true
-                    "0", "false", "n", "no", "off" -> result = false
+        classSystemProperties.hookMethod("getBoolean", String::class.java, Boolean::class.javaPrimitiveType!!) {
+            doBefore {
+                val key = args[0] as String
+                propertyMap[key]?.let { value ->
+                    when (value.lowercase()) {
+                        "1", "true", "y", "yes", "on" -> result = true
+                        "0", "false", "n", "no", "off" -> result = false
+                    }
                 }
             }
         }
+    }.onFailure {
+        XLog.w(TAG, "skip part of SystemProperties hooks: ${it.javaClass.simpleName}: ${it.message}")
     }
 
-    Runtime::class.java.hookAllMethods("exec") {
-        doBefore {
-            val key = extractGetpropKey(args.getOrNull(0)) ?: return@doBefore
-            val value = propertyMap[key] ?: return@doBefore
-            val replacement = replacementCommand(value)
-            XLog.d(TAG, "hook exec getprop $key")
-            when (args[0]) {
-                is String -> args[0] = replacement
-                is Array<*> -> args[0] = arrayOf("sh", "-c", replacement)
+    runCatching {
+        Runtime::class.java.hookAllMethods("exec") {
+            doBefore {
+                val key = extractGetpropKey(args.getOrNull(0)) ?: return@doBefore
+                val value = propertyMap[key] ?: return@doBefore
+                val replacement = replacementCommand(value)
+                XLog.d(TAG, "hook exec getprop $key")
+                when (args[0]) {
+                    is String -> args[0] = replacement
+                    is Array<*> -> args[0] = arrayOf("sh", "-c", replacement)
+                }
             }
         }
+    }.onFailure {
+        XLog.w(TAG, "skip Runtime.exec getprop hook: ${it.javaClass.simpleName}: ${it.message}")
     }
 
-    ProcessBuilder::class.java.hookMethod("start") {
-        doBefore {
-            val processBuilder = thisObject as? ProcessBuilder ?: return@doBefore
-            val command = runCatching { processBuilder.command() }.getOrNull() ?: return@doBefore
-            val key = extractGetpropKey(command.toTypedArray()) ?: return@doBefore
-            val value = propertyMap[key] ?: return@doBefore
-            XLog.d(TAG, "hook ProcessBuilder getprop $key")
-            processBuilder.command(listOf("sh", "-c", replacementCommand(value)))
+    runCatching {
+        ProcessBuilder::class.java.hookMethod("start") {
+            doBefore {
+                val processBuilder = thisObject as? ProcessBuilder ?: return@doBefore
+                val command = runCatching { processBuilder.command() }.getOrNull() ?: return@doBefore
+                val key = extractGetpropKey(command.toTypedArray()) ?: return@doBefore
+                val value = propertyMap[key] ?: return@doBefore
+                XLog.d(TAG, "hook ProcessBuilder getprop $key")
+                processBuilder.command(listOf("sh", "-c", replacementCommand(value)))
+            }
+        }
+    }.onFailure {
+        XLog.w(TAG, "skip ProcessBuilder getprop hook: ${it.javaClass.simpleName}: ${it.message}")
+    }
+}
+
+private fun fakePropertiesSafely(properties: Map<String, String>) {
+    properties.forEach { (key, value) ->
+        runCatching {
+            fakeProperty(key to value)
+        }.onFailure {
+            XLog.w(TAG, "skip fake property $key: ${it.javaClass.simpleName}: ${it.message}")
         }
     }
 }
@@ -233,10 +266,16 @@ internal fun Map<String, String>.buildFieldOverrides(): List<BuildFieldOverride>
 private fun setStaticFieldIfPresent(targetClass: Class<*>, fieldName: String, value: String?) {
     if (value == null) return
     runCatching { targetClass.setField(fieldName, value, String::class.java) }
+        .onFailure {
+            XLog.w(TAG, "skip Build field ${targetClass.name}#$fieldName: ${it.javaClass.simpleName}: ${it.message}")
+        }
 }
 
 private fun setStaticFieldIfPresent(targetClass: Class<*>, fieldName: String, value: Int) {
     runCatching { targetClass.setField(fieldName, value, Int::class.javaPrimitiveType!!) }
+        .onFailure {
+            XLog.w(TAG, "skip Build field ${targetClass.name}#$fieldName: ${it.javaClass.simpleName}: ${it.message}")
+        }
 }
 
 private fun extractGetpropKey(commandArg: Any?): String? {

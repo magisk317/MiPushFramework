@@ -32,4 +32,32 @@ class FakePropertyTest {
         )
         assertFalse(overrides.any { it.fieldName == "ro.build.hw_emui_api_level" })
     }
+
+    @Test
+    fun `build field overrides include push identity fields from real Xiaomi props`() {
+        val overrides = mapOf(
+            "ro.product.board" to "picasso",
+            "ro.product.cpu.abi" to "arm64-v8a",
+            "ro.product.cpu.abi2" to "armeabi-v7a",
+            "ro.build.host" to "miui-build",
+            "ro.build.tags" to "release-keys",
+            "ro.build.type" to "user",
+            "ro.build.version.incremental" to "V13.0.5.0.SGICNXM",
+        ).buildFieldOverrides()
+
+        assertEquals(7, overrides.size)
+        assertTrue(overrides.any { it.targetClass == Build::class.java && it.fieldName == "BOARD" && it.value == "picasso" })
+        assertTrue(overrides.any { it.targetClass == Build::class.java && it.fieldName == "CPU_ABI" && it.value == "arm64-v8a" })
+        assertTrue(overrides.any { it.targetClass == Build::class.java && it.fieldName == "CPU_ABI2" && it.value == "armeabi-v7a" })
+        assertTrue(overrides.any { it.targetClass == Build::class.java && it.fieldName == "HOST" && it.value == "miui-build" })
+        assertTrue(overrides.any { it.targetClass == Build::class.java && it.fieldName == "TAGS" && it.value == "release-keys" })
+        assertTrue(overrides.any { it.targetClass == Build::class.java && it.fieldName == "TYPE" && it.value == "user" })
+        assertTrue(
+            overrides.any {
+                it.targetClass == Build.VERSION::class.java &&
+                    it.fieldName == "INCREMENTAL" &&
+                    it.value == "V13.0.5.0.SGICNXM"
+            },
+        )
+    }
 }

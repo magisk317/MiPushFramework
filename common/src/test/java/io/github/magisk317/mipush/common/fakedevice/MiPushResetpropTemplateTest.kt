@@ -10,8 +10,11 @@ class MiPushResetpropTemplateTest {
         val props = MiPushResetpropTemplate.defaultCustomProps()
 
         assertEquals("Xiaomi", props["ro.fota.oem"])
-        assertEquals("V125", props["ro.miui.ui.version.name"])
+        assertEquals("V130", props["ro.miui.ui.version.name"])
         assertEquals("zh-CN", props["ro.product.locale"])
+        assertEquals("1", props["sys.boot_completed"])
+        assertEquals("arm64-v8a,armeabi-v7a,armeabi", props["ro.product.cpu.abilist"])
+        assertEquals("V13.0.5.0.SGICNXM", props["ro.build.version.incremental"])
     }
 
     @Test
@@ -23,8 +26,24 @@ class MiPushResetpropTemplateTest {
             )
         )
 
-        assertEquals("V125", merged["ro.miui.ui.version.name"])
+        assertEquals("V130", merged["ro.miui.ui.version.name"])
         assertEquals("Xiaomi", merged["ro.product.brand"])
         assertTrue(merged.containsKey("ro.miui.region"))
+    }
+
+    @Test
+    fun `template clears competing vendor region fallbacks`() {
+        val merged = MiPushResetpropTemplate.mergedCustomProps(
+            linkedMapOf(
+                "ro.miui.region" to "CN",
+                "persist.sys.oppo.region" to "IN",
+                "ro.hw.country" to "EU",
+                "ro.vivo.os.version" to "14",
+            )
+        )
+
+        assertEquals("", merged["persist.sys.oppo.region"])
+        assertEquals("", merged["ro.hw.country"])
+        assertEquals("", merged["ro.vivo.os.version"])
     }
 }

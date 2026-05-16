@@ -26,6 +26,7 @@ class SourceLayoutTest {
             File(root, "xposed/src/main/java"),
         )
         val allowedExceptions = setOf(
+            "xposed/src/main/java/io/github/magisk317/mipush/hook/fakedevice/fakeclass/MiuiBuild.kt",
             "xposed/src/main/java/io/github/magisk317/mipush/hook/fakedevice/fakeclass/SdkHelper.kt",
         )
 
