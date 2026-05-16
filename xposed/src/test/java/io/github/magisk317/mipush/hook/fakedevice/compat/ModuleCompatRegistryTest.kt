@@ -30,6 +30,18 @@ class ModuleCompatRegistryTest {
     }
 
     @Test
+    fun `registry enables MiPush component visibility for hidden-sensitive packages`() {
+        assertTrue(
+            ModuleCompatRegistry.resolveHookPipelines("com.ss.android.ugc.aweme")
+                .contains(HookPipelineId.MIPUSH_COMPONENT_VISIBILITY),
+        )
+        assertTrue(
+            ModuleCompatRegistry.resolveHookPipelines("com.jingdong.app.mall")
+                .contains(HookPipelineId.MIPUSH_COMPONENT_VISIBILITY),
+        )
+    }
+
+    @Test
     fun `registry keeps remote discovered credential overrides`() {
         assertEquals(
             ModuleCredential(appId = "2882303761517506461", appKey = "5601750626461"),
@@ -137,6 +149,7 @@ class ModuleCompatRegistryTest {
                 HookPipelineId.JPUSH,
                 HookPipelineId.ALI_AGOO_ACCS,
                 HookPipelineId.UMENG_PUSH,
+                HookPipelineId.MIPUSH_COMPONENT_VISIBILITY,
             ),
             profile!!.hookPipelines,
         )

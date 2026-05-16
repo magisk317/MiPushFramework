@@ -19,6 +19,7 @@ object ModuleCompatRegistry {
         HookPipelineId.JPUSH,
         HookPipelineId.ALI_AGOO_ACCS,
         HookPipelineId.UMENG_PUSH,
+        HookPipelineId.MIPUSH_COMPONENT_VISIBILITY,
     )
 
     private val autoForceRegisterCandidates = setOf(

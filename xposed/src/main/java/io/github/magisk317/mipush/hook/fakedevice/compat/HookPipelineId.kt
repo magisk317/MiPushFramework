@@ -14,6 +14,7 @@ enum class HookPipelineId {
     ALI_AGOO_ACCS,
     UMENG_PUSH,
     PINDUODUO,
+    MIPUSH_COMPONENT_VISIBILITY,
     FAKE_MIUI_ONLY,
     COOLAPK,
 }

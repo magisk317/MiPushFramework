@@ -24,6 +24,7 @@ object FakeDevice {
             HookPipelineId.ALI_AGOO_ACCS -> AliAgooAccs()
             HookPipelineId.UMENG_PUSH -> UmengPush()
             HookPipelineId.PINDUODUO -> PinDuoDuo()
+            HookPipelineId.MIPUSH_COMPONENT_VISIBILITY -> MiPushComponentVisibility()
             HookPipelineId.FAKE_MIUI_ONLY -> FakeMiuiOnly()
             HookPipelineId.COOLAPK -> CoolApk()
         }

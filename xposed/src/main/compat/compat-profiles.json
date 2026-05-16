@@ -102,7 +102,7 @@
     },
     {
       "packageName": "com.jingdong.app.mall",
-      "hookPipelines": ["COMMON", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"],
+      "hookPipelines": ["COMMON", "MIPUSH_COMPONENT_VISIBILITY", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"],
       "credentialOverride": {
         "appId": "2882303761517506461",
         "appKey": "5601750626461"
@@ -146,7 +146,7 @@
     },
     {
       "packageName": "com.ss.android.ugc.aweme",
-      "hookPipelines": ["DOUYIN", "ALI_AGOO_ACCS", "UMENG_PUSH", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP"],
+      "hookPipelines": ["DOUYIN", "ALI_AGOO_ACCS", "UMENG_PUSH", "MIPUSH_COMPONENT_VISIBILITY", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP"],
       "credentialOverride": {
         "appId": "2882303761517509924",
         "appKey": "5571750917924"
