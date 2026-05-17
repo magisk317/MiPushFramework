@@ -1,16 +1,6 @@
 package io.github.magisk317.mipush.hook.fakedevice.compat
 
 object ModuleProcessPolicy {
-    private val defaultAllowedProcessSuffixes = setOf(
-        ":push",
-        ":pushservice",
-        ":mipush",
-        ":mipushservice",
-        ":wschannel",
-        ":channel",
-        ":xmpush",
-    )
-
     private val defaultDeniedProcessPrefixes = listOf(
         ":sandboxed_process",
         ":widgetProcess",
@@ -46,7 +36,10 @@ object ModuleProcessPolicy {
         if (deniedPrefixes.any { suffix.startsWith(it) }) {
             return false
         }
-        val allowedSuffixes = profile.allowedProcessSuffixes ?: defaultAllowedProcessSuffixes
-        return suffix in allowedSuffixes
+        val allowedSuffixes = profile.allowedProcessSuffixes
+        if (allowedSuffixes != null) {
+            return suffix in allowedSuffixes
+        }
+        return true
     }
 }
