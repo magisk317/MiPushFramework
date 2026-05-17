@@ -553,6 +553,7 @@ class MiPushComponentVisibility : IFakeDevice {
         }
     }
 
+    @Suppress("DEPRECATION")
     private fun fakeOwnPackageInfo(context: VisibilityContext): PackageInfo {
         return PackageInfo().apply {
             packageName = context.packageName
