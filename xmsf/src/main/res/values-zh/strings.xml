@@ -75,10 +75,10 @@
 
     <string name="settings_mock_notification_summary">点击模拟通知到达消息</string>
 
-    <string name="debug_test_title">这是一个测试标题</string>
+    <string name="debug_test_title">这是一条%1$s测试</string>
 
 
-    <string name="debug_test_content">这是一个测试内容</string>
+    <string name="debug_test_content">这是%1$s测试内容</string>
     <string name="settings_notify_on_register">应用注册时显示通知</string>
     <string name="settings_show_loaded_file_after_configurations_loaded">在配置加载完成后显示加载成功的配置文件</string>
     <string name="settings_debug_mode">启用调试模式</string>
@@ -521,5 +521,50 @@
     <string name="pref_keepalive_dedicated_service_summary">打开系统无障碍设置，手动启用专属保活服务。</string>
     <string name="pref_keepalive_dedicated_service_enabled_summary">已在系统无障碍设置中启用。</string>
     <string name="pref_keepalive_dedicated_service_disabled_summary">尚未启用，点击打开系统无障碍设置。</string>
+
+    <string name="mock_target_package">目标包名</string>
+
+    <!-- Mock notification content strings -->
+    <string name="mock_channel_name">模拟通知测试</string>
+    <string name="mock_bigtext_summary">大文本摘要</string>
+    <string name="mock_bigpicture_summary">大图片摘要</string>
+    <string name="mock_inbox_line1">第1行: %1$s</string>
+    <string name="mock_inbox_line2">第2行: 另一条消息</string>
+    <string name="mock_inbox_line3">第3行: 第三条消息</string>
+    <string name="mock_inbox_summary">+3 条消息</string>
+    <string name="mock_messaging_user">测试用户</string>
+    <string name="mock_messaging_conversation">测试对话</string>
+    <string name="mock_messaging_reply">回复消息</string>
+    <string name="mock_media_now_playing">正在播放 - %1$s</string>
+    <string name="mock_media_prev">上一首</string>
+    <string name="mock_media_pause">暂停</string>
+    <string name="mock_media_next">下一首</string>
+    <string name="mock_progress_downloading">下载中…</string>
+    <string name="mock_voip_title">来电</string>
+    <string name="mock_voip_accept">接听</string>
+    <string name="mock_voip_decline">拒绝</string>
+
+    <string name="mock_kind_plain">纯文本</string>
+    <string name="mock_kind_plain_desc">带标题和文本的基础通知</string>
+    <string name="mock_kind_big_text">大文本</string>
+    <string name="mock_kind_big_text_desc">可展开的长文本通知</string>
+    <string name="mock_kind_big_picture">大图片</string>
+    <string name="mock_kind_big_picture_desc">带大图的通知</string>
+    <string name="mock_kind_inbox">收件箱</string>
+    <string name="mock_kind_inbox_desc">多行收件箱样式</string>
+    <string name="mock_kind_messaging">消息</string>
+    <string name="mock_kind_messaging_desc">对话样式通知</string>
+    <string name="mock_kind_media">媒体</string>
+    <string name="mock_kind_media_desc">媒体播放控制</string>
+    <string name="mock_kind_progress">进度</string>
+    <string name="mock_kind_progress_desc">持续进度条通知</string>
+    <string name="mock_kind_heads_up">浮动通知</string>
+    <string name="mock_kind_heads_up_desc">高优先级横幅通知</string>
+    <string name="mock_kind_focus_basic">焦点通知（灵动岛）</string>
+    <string name="mock_kind_focus_basic_desc">带 miui.focus.param 的焦点通知（需要 root）</string>
+    <string name="mock_kind_focus_pic">焦点 + 图片</string>
+    <string name="mock_kind_focus_pic_desc">带图片的焦点通知（需要 root）</string>
+    <string name="mock_kind_voip">VoIP 来电</string>
+    <string name="mock_kind_voip_desc">全屏来电通知</string>
 
 </resources>

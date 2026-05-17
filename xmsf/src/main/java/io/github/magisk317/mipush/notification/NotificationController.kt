@@ -398,37 +398,25 @@ object NotificationController {
         kind: io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind,
         packageName: String
     ) {
-        val metaInfo = PushMetaInfo()
-        val extra = HashMap<String, String>()
-        val title = context.getString(R.string.debug_test_title)
-        val description = context.getString(R.string.debug_test_content) + " " + java.util.Date()
-        metaInfo.title = title
-        metaInfo.description = description
+        val kindLabel = context.getString(kind.labelRes)
+        val title = context.getString(R.string.debug_test_title, kindLabel)
+        val description = context.getString(R.string.debug_test_content, kindLabel) + "\n" + java.util.Date()
 
-        when (kind) {
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_BASIC -> {
-                extra["miui.focus.param"] = """{"updatable":true,"reopen":"close"}"""
-            }
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_WITH_PIC -> {
-                extra["miui.focus.param"] = """{"updatable":true,"reopen":"close"}"""
-                extra["miui.focus.pic_main"] = "https://cdn.cnbj1.fds.api.mi-img.com/mipush/focus_demo.png"
-            }
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.VOIP_INCOMING -> {
-                extra["notification_style_type"] = "6"
-                extra["msg_busi_type"] = "voip"
-                extra["voip_type"] = "1"
-                extra["sequence"] = System.currentTimeMillis().toString()
-            }
-            else -> {}
-        }
-        metaInfo.extra = extra
+        val nm = context.getSystemService(android.app.NotificationManager::class.java)
+        val mockChannelId = "xmsf_mock_high"
+        val mockChannel = android.app.NotificationChannel(
+            mockChannelId,
+            context.getString(R.string.mock_channel_name),
+            android.app.NotificationManager.IMPORTANCE_HIGH,
+        )
+        nm.createNotificationChannel(mockChannel)
 
-        NotificationChannelManager.registerChannelIfNeeded(context, metaInfo, packageName)
         val id = (System.currentTimeMillis() / 1000L).toInt()
-        val channelId = NotificationChannelManager.getChannelId(metaInfo, packageName)
-        val builder = NotificationCompat.Builder(context, channelId)
+        val builder = NotificationCompat.Builder(context, mockChannelId)
+        builder.setSmallIcon(R.drawable.ic_notifications_black_24dp)
         builder.setWhen(System.currentTimeMillis())
         builder.setShowWhen(true)
+        builder.setAutoCancel(true)
 
         val notifyIntent = LegacyUiEntryPoints.mainActivityIntent(
             context = context,
@@ -440,78 +428,175 @@ object NotificationController {
         )
         builder.setContentIntent(notifyPendingIntent)
 
+        val targetExtras = Bundle().apply {
+            putString("target_package", packageName)
+            putString("miui.targetPkg", packageName)
+        }
+        builder.addExtras(targetExtras)
+
         when (kind) {
             io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.PLAIN -> {
                 builder.setContentTitle(title)
                 builder.setContentText(description)
             }
             io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.BIG_TEXT -> {
+                builder.setContentTitle(title)
+                builder.setContentText(description)
                 val style = NotificationCompat.BigTextStyle()
-                style.bigText(description)
+                style.bigText("$description\n\nLine 2\nLine 3\nLine 4 (expand to view)")
                 style.setBigContentTitle(title)
-                style.setSummaryText(description)
+                style.setSummaryText(context.getString(R.string.mock_bigtext_summary))
                 builder.setStyle(style)
             }
             io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.BIG_PICTURE -> {
-                val style = NotificationCompat.BigPictureStyle()
-                style.setBigContentTitle(title)
-                style.setSummaryText(description)
-                builder.setStyle(style)
                 builder.setContentTitle(title)
                 builder.setContentText(description)
+                val pic = createDemoBitmap(800, 400, 0xFF2962FFu.toInt())
+                val style = NotificationCompat.BigPictureStyle()
+                style.bigPicture(pic)
+                style.setBigContentTitle(title)
+                style.setSummaryText(context.getString(R.string.mock_bigpicture_summary))
+                builder.setLargeIcon(pic)
+                builder.setStyle(style)
             }
             io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.INBOX -> {
+                builder.setContentTitle(title)
+                builder.setContentText("$description (3 lines)")
                 val style = NotificationCompat.InboxStyle()
                 style.setBigContentTitle(title)
-                style.addLine("Line 1: $description")
-                style.addLine("Line 2: Another message")
-                style.addLine("Line 3: Third message")
-                style.setSummaryText("+3 messages")
+                style.addLine(context.getString(R.string.mock_inbox_line1, description))
+                style.addLine(context.getString(R.string.mock_inbox_line2))
+                style.addLine(context.getString(R.string.mock_inbox_line3))
+                style.setSummaryText(context.getString(R.string.mock_inbox_summary))
                 builder.setStyle(style)
             }
             io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.MESSAGING -> {
-                val person = androidx.core.app.Person.Builder().setName("Test User").build()
+                val person = androidx.core.app.Person.Builder().setName(context.getString(R.string.mock_messaging_user)).build()
                 val style = NotificationCompat.MessagingStyle(person)
-                style.setConversationTitle("Test Conversation")
+                style.setConversationTitle(context.getString(R.string.mock_messaging_conversation))
                 style.addMessage(description, System.currentTimeMillis(), person)
-                style.addMessage("Reply message", System.currentTimeMillis() + 1000, person)
+                style.addMessage(context.getString(R.string.mock_messaging_reply), System.currentTimeMillis() + 1000, person)
                 builder.setStyle(style)
             }
             io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.MEDIA -> {
                 builder.setContentTitle(title)
-                builder.setContentText("Now Playing - $description")
+                builder.setContentText(context.getString(R.string.mock_media_now_playing, description))
                 builder.setOngoing(true)
-                builder.addAction(R.drawable.ic_notifications_black_24dp, "Prev", notifyPendingIntent)
-                builder.addAction(R.drawable.ic_notifications_black_24dp, "Pause", notifyPendingIntent)
-                builder.addAction(R.drawable.ic_notifications_black_24dp, "Next", notifyPendingIntent)
+                builder.addAction(R.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_media_prev), notifyPendingIntent)
+                builder.addAction(R.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_media_pause), notifyPendingIntent)
+                builder.addAction(R.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_media_next), notifyPendingIntent)
             }
             io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.PROGRESS -> {
                 builder.setContentTitle(title)
-                builder.setContentText("Downloading...")
+                builder.setContentText(context.getString(R.string.mock_progress_downloading))
                 builder.setProgress(100, 65, false)
                 builder.setOngoing(true)
+                builder.setAutoCancel(false)
             }
             io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.HEADS_UP -> {
                 builder.setContentTitle(title)
                 builder.setContentText(description)
                 builder.priority = NotificationCompat.PRIORITY_HIGH
                 builder.setCategory(Notification.CATEGORY_ALARM)
+                builder.setDefaults(NotificationCompat.DEFAULT_ALL)
             }
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_BASIC,
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_BASIC -> {
+                builder.setContentTitle(title)
+                builder.setContentText(description)
+                builder.priority = NotificationCompat.PRIORITY_HIGH
+                builder.setOngoing(true)
+                val focusBundle = Bundle()
+                focusBundle.putString("miui.focus.param", """{"updatable":true,"reopen":"close"}""")
+                builder.addExtras(focusBundle)
+            }
             io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_WITH_PIC -> {
                 builder.setContentTitle(title)
                 builder.setContentText(description)
                 builder.priority = NotificationCompat.PRIORITY_HIGH
+                val pic = createDemoBitmap(400, 400, 0xFFFF6F00u.toInt())
+                val focusBundle = Bundle()
+                focusBundle.putString("miui.focus.param", """{"updatable":true,"reopen":"close"}""")
+                val picsBundle = Bundle()
+                picsBundle.putParcelable("miui.focus.pic_main", Icon.createWithBitmap(pic))
+                focusBundle.putBundle("miui.focus.pics", picsBundle)
+                builder.addExtras(focusBundle)
+                builder.setLargeIcon(pic)
             }
             io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.VOIP_INCOMING -> {
-                builder.setContentTitle("Incoming Call")
+                builder.setContentTitle(context.getString(R.string.mock_voip_title))
                 builder.setContentText(description)
                 builder.priority = NotificationCompat.PRIORITY_MAX
                 builder.setCategory(Notification.CATEGORY_CALL)
                 builder.setOngoing(true)
+                builder.setAutoCancel(false)
                 builder.setFullScreenIntent(notifyPendingIntent, true)
+                val voipExtras = Bundle()
+                voipExtras.putString("notification_style_type", "6")
+                voipExtras.putString("msg_busi_type", "voip")
+                voipExtras.putString("voip_type", "1")
+                builder.addExtras(voipExtras)
+                builder.addAction(R.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_voip_accept), notifyPendingIntent)
+                builder.addAction(R.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_voip_decline), notifyPendingIntent)
             }
         }
-        publish(context, metaInfo, id, packageName, builder)
+
+        val tag = "xmsf_mock_${kind.name}"
+        nm.notify(tag, id, builder.build())
+        if (kind == io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_BASIC ||
+            kind == io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_WITH_PIC) {
+            val actualPkg = context.packageName
+            val key = focusNotificationKey(context, actualPkg, id, tag)
+            FocusNotificationRegistry.registerReplacingUidVariants(context, key)
+            // Simulate refresh effect: update notification every 2 seconds for 5 times
+            Thread {
+                val steps = listOf(
+                    "已接单，骑手正在赶往商家",
+                    "骑手已到店，等待取餐",
+                    "骑手已取餐，正在配送中",
+                    "骑手距您约500米",
+                    "骑手已到达，请取餐",
+                )
+                for (i in steps.indices) {
+                    Thread.sleep(2000)
+                    builder.setContentText(steps[i])
+                    builder.setWhen(System.currentTimeMillis())
+                    nm.notify(tag, id, builder.build())
+                }
+            }.start()
+        }
+    }
+
+    private fun focusNotificationKey(context: Context, packageName: String, notificationId: Int, tag: String?): String {
+        val uid = resolveNotificationUid(context, packageName)
+        return "0|$packageName|$notificationId|$tag|$uid"
+    }
+
+    private fun resolveNotificationUid(context: Context, packageName: String): Int {
+        return runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getApplicationInfo(packageName, PackageManager.ApplicationInfoFlags.of(0)).uid
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getApplicationInfo(packageName, 0).uid
+            }
+        }.getOrElse { error ->
+            val fallback = if (packageName == context.packageName) android.os.Process.myUid() else 0
+            Napier.w("failed to resolve uid for focus notification pkg=$packageName fallback=$fallback", error, tag = TAG)
+            fallback
+        }
+    }
+
+    private fun createDemoBitmap(width: Int, height: Int, color: Int): Bitmap {
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        canvas.drawColor(color)
+        val paint = android.graphics.Paint().apply {
+            this.color = Color.WHITE
+            textSize = (height / 4).toFloat()
+            isAntiAlias = true
+            textAlign = android.graphics.Paint.Align.CENTER
+        }
+        canvas.drawText("XMSF", (width / 2).toFloat(), height / 2 + paint.textSize / 3, paint)
+        return bitmap
     }
 }

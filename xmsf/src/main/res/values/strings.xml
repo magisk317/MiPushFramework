@@ -58,8 +58,8 @@
 
     <string name="settings_mock_notification">Simulate received a message</string>
     <string name="settings_mock_notification_summary">Tap to send a simulated test message.</string>
-    <string name="debug_test_title">This is Title</string>
-    <string name="debug_test_content">This is Content</string>
+    <string name="debug_test_title">%1$s Test</string>
+    <string name="debug_test_content">%1$s test content</string>
     <string name="accessibility_desc">Used for foreground app detection when UsageStats is unavailable.</string>
     <string name="settings_notify_on_register">Notify On App Register</string>
     <string name="settings_show_loaded_file_after_configurations_loaded">Show Loaded File After Configurations Loaded</string>
@@ -562,5 +562,25 @@ This could be the application doing a reverse registration, or the registration 
     <string name="mock_kind_focus_pic_desc">Focus notification with image (requires root)</string>
     <string name="mock_kind_voip">VoIP Incoming Call</string>
     <string name="mock_kind_voip_desc">Full-screen call notification</string>
+
+    <!-- Mock notification content strings -->
+    <string name="mock_channel_name">Mock Notification Test</string>
+    <string name="mock_bigtext_summary">BigText summary</string>
+    <string name="mock_bigpicture_summary">BigPicture summary</string>
+    <string name="mock_inbox_line1">Line 1: %1$s</string>
+    <string name="mock_inbox_line2">Line 2: Another message</string>
+    <string name="mock_inbox_line3">Line 3: Third message</string>
+    <string name="mock_inbox_summary">+3 messages</string>
+    <string name="mock_messaging_user">Test User</string>
+    <string name="mock_messaging_conversation">Test Conversation</string>
+    <string name="mock_messaging_reply">Reply message</string>
+    <string name="mock_media_now_playing">Now Playing - %1$s</string>
+    <string name="mock_media_prev">Prev</string>
+    <string name="mock_media_pause">Pause</string>
+    <string name="mock_media_next">Next</string>
+    <string name="mock_progress_downloading">Downloading…</string>
+    <string name="mock_voip_title">Incoming Call</string>
+    <string name="mock_voip_accept">Accept</string>
+    <string name="mock_voip_decline">Decline</string>
 
 </resources>

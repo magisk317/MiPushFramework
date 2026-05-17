@@ -11,6 +11,7 @@ import org.json.JSONArray
 object FocusNotificationRegistry {
     private const val TAG = "FocusNotificationRegistry"
     private const val SETTING_KEY = "updatable_focus_notifs"
+    private const val KEY_PARTS = 5
 
     enum class WriteAvailability { SECURE_PERMISSION, ROOT_SHELL, NONE }
 
@@ -27,11 +28,24 @@ object FocusNotificationRegistry {
         return modifyKeys(context, add = key, remove = null)
     }
 
+    fun registerReplacingUidVariants(context: Context, key: String): Boolean {
+        return modifyKeys(context, add = key, removeIdentity = key)
+    }
+
     fun unregister(context: Context, key: String): Boolean {
         return modifyKeys(context, add = null, remove = key)
     }
 
-    private fun modifyKeys(context: Context, add: String?, remove: String?): Boolean {
+    fun unregisterAllUidVariants(context: Context, key: String): Boolean {
+        return modifyKeys(context, add = null, removeIdentity = key)
+    }
+
+    private fun modifyKeys(
+        context: Context,
+        add: String?,
+        remove: String? = null,
+        removeIdentity: String? = null
+    ): Boolean {
         val availability = isWriteAvailable(context)
         if (availability == WriteAvailability.NONE) {
             Napier.d("skip focus registry: no write access", tag = TAG)
@@ -39,11 +53,21 @@ object FocusNotificationRegistry {
         }
         val current = readCurrentKeys(context)
         val modified = current.toMutableSet()
-        if (add != null) modified.add(add)
+        if (removeIdentity != null) {
+            modified.removeAll { sameNotificationIdentity(it, removeIdentity) }
+        }
         if (remove != null) modified.remove(remove)
+        if (add != null) modified.add(add)
         if (modified == current) return true
         val json = JSONArray(modified.toList()).toString()
         return writeKeys(context, json, availability)
+    }
+
+    private fun sameNotificationIdentity(left: String, right: String): Boolean {
+        val leftParts = left.split("|")
+        val rightParts = right.split("|")
+        if (leftParts.size != KEY_PARTS || rightParts.size != KEY_PARTS) return left == right
+        return leftParts.take(KEY_PARTS - 1) == rightParts.take(KEY_PARTS - 1)
     }
 
     private fun readCurrentKeys(context: Context): Set<String> {
