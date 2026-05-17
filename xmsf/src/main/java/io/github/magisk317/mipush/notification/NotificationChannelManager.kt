@@ -38,7 +38,7 @@ object NotificationChannelManager {
         val channel = NotificationChannel(
             getChannelId(metaInfo, packageName),
             channelName,
-            NotificationManager.IMPORTANCE_DEFAULT
+            NotificationManager.IMPORTANCE_HIGH
         )
         channel.description = channelDescription
         if (sound != null) {
@@ -99,9 +99,10 @@ object NotificationChannelManager {
         val notificationChannel = createChannelWithPackage(metaInfo, packageName)
         if (notificationChannel != null) {
             notificationChannel.group = notificationChannelGroup.id
-        }
-
-        if (notificationChannel != null) {
+            val existing = getNotificationManagerEx().getNotificationChannel(packageName, notificationChannel.id)
+            if (existing != null && existing.importance < NotificationManager.IMPORTANCE_HIGH) {
+                getNotificationManagerEx().deleteNotificationChannel(packageName, notificationChannel.id)
+            }
             getNotificationManagerEx().createNotificationChannels(
                 packageName,
                 listOf(notificationChannel)
