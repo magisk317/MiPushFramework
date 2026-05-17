@@ -6,6 +6,7 @@ import android.net.Uri
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -17,16 +18,21 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -41,6 +47,7 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,6 +57,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -70,11 +78,11 @@ import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.platform.support.Global
 import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.utils.RegSecUtils
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.entities.Event
@@ -310,9 +318,26 @@ fun EventList(
                     .padding(
                         start = MaterialTheme.spacing.medium,
                         end = MaterialTheme.spacing.medium,
-                        bottom = contentPadding.calculateBottomPadding() + MaterialTheme.spacing.medium,
+                        bottom = contentPadding.calculateBottomPadding() +
+                            WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
+                            MaterialTheme.spacing.medium,
                     ),
-            )
+            ) { data ->
+                val dismissState = rememberSwipeToDismissBoxState()
+                LaunchedEffect(dismissState.currentValue, data) {
+                    if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
+                        data.dismiss()
+                    }
+                }
+                SwipeToDismissBox(
+                    state = dismissState,
+                    enableDismissFromStartToEnd = true,
+                    enableDismissFromEndToStart = true,
+                    backgroundContent = {},
+                ) {
+                    DeleteCountdownSnackbar(data)
+                }
+            }
         }
     }
 }
@@ -785,6 +810,7 @@ private fun MutableList<EventInfoForDisplay>.appendDistinct(itemsToAppend: List<
     }
 }
 
+
 @Composable
 private fun EventList(
     onClick: (EventInfoForDisplay) -> Unit,
@@ -801,13 +827,14 @@ private fun EventList(
     viewModel: EventListViewModel,
 ) {
     val isPreview = LocalInspectionMode.current
+    val context = LocalContext.current
     val items = remember {
         if (packageName.isEmpty() && !isPreview) g_items
         else mutableStateListOf()
     }
 
-
     val refreshScope = rememberCoroutineScope { Dispatchers.IO }
+    val actionScope = rememberCoroutineScope()
     var isLoading by remember { mutableStateOf(false) }
     var hasMore by rememberSaveable(query, packageName) { mutableStateOf(true) }
     val doLoadMore: (onRefreshed: () -> Unit) -> Unit = doLoadMore@{ onRefreshed ->
@@ -849,12 +876,26 @@ private fun EventList(
 
     val isNeedMore: (Int) -> Boolean = { hasMore && !isLoading && it >= items.size - 10 }
     val filteredItems = items.filter { it.matchesFilters(selectedTypeFilters, selectedStatusFilters) }
-    fun restoreVisibleItem(item: EventInfoForDisplay, restored: EventInfoForDisplay) {
-        val insertAt = items.indexOfFirst { it.receiveDate.time < item.receiveDate.time }
-        if (insertAt >= 0) {
-            items.add(insertAt, restored)
-        } else {
-            items.add(restored)
+
+    fun deleteEventWithUndo(item: EventInfoForDisplay) {
+        val key = item.composeKey()
+        val insertAt = items.indexOfFirst { it.composeKey() == key }.coerceAtLeast(0)
+        items.removeAll { it.composeKey() == key }
+
+        actionScope.launch {
+            viewModel.deleteEvent(item)
+            snackbarHostState.currentSnackbarData?.dismiss()
+            val result = snackbarHostState.showSnackbar(
+                message = context.getString(R.string.recent_activity_deleted),
+                actionLabel = context.getString(R.string.action_undo),
+                duration = SnackbarDuration.Long,
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.restoreEvent(item)?.let { restored ->
+                    val idx = insertAt.coerceIn(0, items.size)
+                    items.add(idx, restored)
+                }
+            }
         }
     }
 
@@ -883,12 +924,7 @@ private fun EventList(
             items(filteredItems, key = { it.composeKey() }) {
                 SwipeToDeleteEventItem(
                     item = it,
-                    viewModel = viewModel,
-                    snackbarHostState = snackbarHostState,
-                    onRemoved = { removed ->
-                        items.removeAll { item -> item.composeKey() == removed.composeKey() }
-                    },
-                    onRestored = ::restoreVisibleItem,
+                    onDelete = ::deleteEventWithUndo,
                     onClick = onClick,
                 )
             }
@@ -899,46 +935,14 @@ private fun EventList(
 @Composable
 private fun SwipeToDeleteEventItem(
     item: EventInfoForDisplay,
-    viewModel: EventListViewModel,
-    snackbarHostState: SnackbarHostState,
-    onRemoved: (EventInfoForDisplay) -> Unit,
-    onRestored: (EventInfoForDisplay, EventInfoForDisplay) -> Unit,
+    onDelete: (EventInfoForDisplay) -> Unit,
     onClick: (EventInfoForDisplay) -> Unit,
 ) {
-    val context = LocalContext.current
     val dismissState = rememberSwipeToDismissBoxState()
     LaunchedEffect(dismissState.currentValue) {
-        if (dismissState.currentValue == SwipeToDismissBoxValue.Settled) {
-            return@LaunchedEffect
-        }
-        onRemoved(item)
-        if (!viewModel.deleteEvent(item)) {
-            onRestored(item, item)
-            snackbarHostState.showSnackbar(
-                message = context.getString(R.string.recent_activity_delete_failed),
-                duration = SnackbarDuration.Short,
-            )
-            return@LaunchedEffect
-        }
-        snackbarHostState.currentSnackbarData?.dismiss()
-        val snackbarResult = async {
-            snackbarHostState.showSnackbar(
-                message = context.getString(R.string.recent_activity_deleted),
-                actionLabel = context.getString(R.string.action_undo),
-                duration = SnackbarDuration.Indefinite,
-            )
-        }
-        val timeoutJob = launch {
-            delay(5_000L)
-            snackbarHostState.currentSnackbarData?.dismiss()
-        }
-        val result = snackbarResult.await()
-        timeoutJob.cancel()
-        if (result == SnackbarResult.ActionPerformed) {
-            viewModel.restoreEvent(item)?.let { restored ->
-                onRestored(item, restored)
-            }
-        }
+        if (dismissState.currentValue == SwipeToDismissBoxValue.Settled) return@LaunchedEffect
+        onDelete(item)
+        dismissState.reset()
     }
 
     SwipeToDismissBox(
@@ -946,16 +950,17 @@ private fun SwipeToDeleteEventItem(
         enableDismissFromStartToEnd = true,
         enableDismissFromEndToStart = true,
         backgroundContent = {
+            val fromEnd = dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 12.dp)
                     .background(
                         color = MaterialTheme.colorScheme.errorContainer,
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(8.dp),
                     )
-                    .padding(horizontal = MaterialTheme.spacing.large),
-                contentAlignment = Alignment.Center,
+                    .padding(horizontal = 24.dp),
+                contentAlignment = if (fromEnd) Alignment.CenterEnd else Alignment.CenterStart,
             ) {
                 Text(
                     text = stringResource(R.string.action_delete),
@@ -970,7 +975,10 @@ private fun SwipeToDeleteEventItem(
 }
 
 @Composable
-private fun EventItem(item: EventInfoForDisplay, onClick: (EventInfoForDisplay) -> Unit) {
+private fun EventItem(
+    item: EventInfoForDisplay,
+    onClick: (EventInfoForDisplay) -> Unit,
+) {
     val disabled = item.isDisabled()
     val denied = item.event.result != Event.ResultType.OK
     val appName = item.appName?.takeIf { it.isNotBlank() } ?: item.packageName
@@ -980,10 +988,11 @@ private fun EventItem(item: EventInfoForDisplay, onClick: (EventInfoForDisplay) 
     } else {
         appName
     }
+    val surface = MaterialTheme.colorScheme.surface
     val containerColor = when {
-        disabled -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.22f)
-        denied -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.18f)
-        else -> Color.Transparent
+        disabled -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.22f).compositeOver(surface)
+        denied -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.18f).compositeOver(surface)
+        else -> surface
     }
 
     WorkspaceListItem(
@@ -1046,9 +1055,27 @@ private fun EventItem(item: EventInfoForDisplay, onClick: (EventInfoForDisplay) 
     }
 }
 
-/**
- * 空状态UI - 当没有日志时显示
- */
+@Composable
+private fun DeleteCountdownSnackbar(data: androidx.compose.material3.SnackbarData) {
+    var secondsLeft by remember { mutableIntStateOf(5) }
+    LaunchedEffect(data) {
+        repeat(5) {
+            delay(1_000L)
+            secondsLeft--
+        }
+        data.dismiss()
+    }
+    Snackbar(
+        action = {
+            TextButton(onClick = { data.performAction() }) {
+                Text("${data.visuals.actionLabel} (${secondsLeft}s)")
+            }
+        },
+    ) {
+        Text(data.visuals.message)
+    }
+}
+
 @Composable
 fun EmptyEventState(modifier: Modifier = Modifier) {
     WorkspaceEmptyState(
