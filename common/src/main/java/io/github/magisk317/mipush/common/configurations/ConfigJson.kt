@@ -47,7 +47,6 @@ object ConfigJson {
                 ?: element.longOrNull
                 ?: element.doubleOrNull
                 ?: element.contentOrNull
-            else -> element.toString()
         }
     }
 
