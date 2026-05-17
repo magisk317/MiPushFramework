@@ -263,6 +263,7 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="action_share">Share</string>
     <string name="action_clear">Clear</string>
     <string name="action_delete">Delete</string>
+    <string name="action_undo">Undo</string>
 
 
     <!-- Recent Activity -->
@@ -289,7 +290,8 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="recent_activity_filter_status_normal">Normal</string>
     <string name="recent_activity_filter_status_disabled">Disabled</string>
     <string name="recent_activity_filter_status_denied">Denied</string>
-    <string name="recent_activity_action_hide_registration">Hide registration messages</string>
+    <string name="recent_activity_deleted">Event deleted</string>
+    <string name="recent_activity_delete_failed">Failed to delete event</string>
 
     <!-- Update -->
     <string name="action_help">Help</string>

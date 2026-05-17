@@ -108,6 +108,19 @@ class EventListViewModel @Inject constructor(
         }
     }
 
+    suspend fun deleteEvent(item: EventInfoForDisplay): Boolean {
+        return withContext(Dispatchers.IO) {
+            eventRepository.deleteEvent(item.event)
+        }
+    }
+
+    suspend fun restoreEvent(item: EventInfoForDisplay): EventInfoForDisplay? {
+        return withContext(Dispatchers.IO) {
+            val restoredId = eventRepository.restoreEvent(item.event)
+            toEventInfoForDisplay(item.event.apply { id = restoredId })
+        }
+    }
+
     fun clearHistory() {
         settingsManager.clearHistory(context, viewModelScope)
     }

@@ -27,11 +27,19 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -63,6 +71,8 @@ import io.github.magisk317.mipush.platform.support.Global
 import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.utils.RegSecUtils
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.common.Constants
@@ -103,16 +113,17 @@ fun EventList(
     hazeStyle: HazeStyle? = null
 ) {
     Page {
-        val context = LocalContext.current
+        Box(modifier = Modifier.fillMaxSize()) {
+            val context = LocalContext.current
         var clickedEvent by remember { mutableStateOf<EventInfoForDisplay?>(null) }
         var currentQuery by rememberSaveable(query) { mutableStateOf(query) }
         var searchExpanded by rememberSaveable(query) { mutableStateOf(query.isNotBlank()) }
         var filtersExpanded by rememberSaveable { mutableStateOf(false) }
         var selectedTypeFilters by remember { mutableStateOf(emptySet<EventTypeFilter>()) }
         var selectedStatusFilters by remember { mutableStateOf(emptySet<EventStatusFilter>()) }
-        var hideRegistration by rememberSaveable { mutableStateOf(false) }
         var groupMode by rememberSaveable(groupByApp, packageName) { mutableStateOf(groupByApp) }
         val showGroupedByApp = packageName.isEmpty() && groupMode
+        val snackbarHostState = remember { SnackbarHostState() }
         val resolvedTitle = remember(packageName) {
             if (packageName.isBlank()) {
                 null
@@ -156,7 +167,6 @@ fun EventList(
                         viewModel = viewModel,
                         selectedTypeFilters = selectedTypeFilters,
                         selectedStatusFilters = selectedStatusFilters,
-                        hideRegistration = hideRegistration,
                         hazeState = hazeState
                     )
                 } else {
@@ -178,9 +188,10 @@ fun EventList(
                         ),
                         selectedTypeFilters = selectedTypeFilters,
                         selectedStatusFilters = selectedStatusFilters,
-                        hideRegistration = hideRegistration,
                         hazeState = hazeState,
-                        hazeStyle = hazeStyle
+                        hazeStyle = hazeStyle,
+                        snackbarHostState = snackbarHostState,
+                        viewModel = viewModel,
                     )
                 }
             },
@@ -210,23 +221,6 @@ fun EventList(
                                             stringResource(R.string.recent_activity_action_group_by_app)
                                         },
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                                IconButton(onClick = { hideRegistration = !hideRegistration }) {
-                                    Icon(
-                                        painter = painterResource(
-                                            if (hideRegistration) {
-                                                R.drawable.ic_notifications_off_24dp
-                                            } else {
-                                                R.drawable.ic_notifications_black_24dp
-                                            },
-                                        ),
-                                        contentDescription = stringResource(R.string.recent_activity_action_hide_registration),
-                                        tint = if (hideRegistration) {
-                                            MaterialTheme.colorScheme.primary
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurfaceVariant
-                                        },
                                     )
                                 }
                             }
@@ -309,6 +303,17 @@ fun EventList(
                 }
             }
         )
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(
+                        start = MaterialTheme.spacing.medium,
+                        end = MaterialTheme.spacing.medium,
+                        bottom = contentPadding.calculateBottomPadding() + MaterialTheme.spacing.medium,
+                    ),
+            )
+        }
     }
 }
 
@@ -475,16 +480,7 @@ private enum class EventStatusFilter(val labelRes: Int) {
 private fun EventInfoForDisplay.matchesFilters(
     selectedTypeFilters: Set<EventTypeFilter>,
     selectedStatusFilters: Set<EventStatusFilter>,
-    hideRegistration: Boolean = false,
 ): Boolean {
-    if (hideRegistration && event.type in setOf(
-            Event.Type.Registration,
-            Event.Type.RegistrationResult,
-            Event.Type.UnRegistration,
-        )
-    ) {
-        return false
-    }
     val matchesType = selectedTypeFilters.isEmpty() || selectedTypeFilters.any { filter ->
         when (filter) {
             EventTypeFilter.Notification -> event.type == Event.Type.SendMessage && !isPassThroughMessage()
@@ -530,7 +526,6 @@ private fun EventGroupList(
     viewModel: EventListViewModel,
     selectedTypeFilters: Set<EventTypeFilter>,
     selectedStatusFilters: Set<EventStatusFilter>,
-    hideRegistration: Boolean = false,
     hazeState: HazeState? = null
 ) {
     val context = LocalContext.current
@@ -542,7 +537,7 @@ private fun EventGroupList(
     var isLoading by remember { mutableStateOf(false) }
     fun rebuildGroups() {
         val grouped = allEvents
-            .filter { it.matchesFilters(selectedTypeFilters, selectedStatusFilters, hideRegistration) }
+            .filter { it.matchesFilters(selectedTypeFilters, selectedStatusFilters) }
             .groupBy { it.packageName }
             .map { (pkg, events) ->
                 val sortedEvents = events.sortedByDescending { it.receiveDate.time }
@@ -800,9 +795,10 @@ private fun EventList(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     selectedTypeFilters: Set<EventTypeFilter> = emptySet(),
     selectedStatusFilters: Set<EventStatusFilter> = emptySet(),
-    hideRegistration: Boolean = false,
     hazeState: HazeState? = null,
-    hazeStyle: HazeStyle? = null
+    hazeStyle: HazeStyle? = null,
+    snackbarHostState: SnackbarHostState,
+    viewModel: EventListViewModel,
 ) {
     val isPreview = LocalInspectionMode.current
     val items = remember {
@@ -852,7 +848,15 @@ private fun EventList(
     }
 
     val isNeedMore: (Int) -> Boolean = { hasMore && !isLoading && it >= items.size - 10 }
-    val filteredItems = items.filter { it.matchesFilters(selectedTypeFilters, selectedStatusFilters, hideRegistration) }
+    val filteredItems = items.filter { it.matchesFilters(selectedTypeFilters, selectedStatusFilters) }
+    fun restoreVisibleItem(item: EventInfoForDisplay, restored: EventInfoForDisplay) {
+        val insertAt = items.indexOfFirst { it.receiveDate.time < item.receiveDate.time }
+        if (insertAt >= 0) {
+            items.add(insertAt, restored)
+        } else {
+            items.add(restored)
+        }
+    }
 
     RefreshableLazyColumn(
         doRefresh,
@@ -877,9 +881,91 @@ private fun EventList(
             }
         } else {
             items(filteredItems, key = { it.composeKey() }) {
-                EventItem(it, onClick)
+                SwipeToDeleteEventItem(
+                    item = it,
+                    viewModel = viewModel,
+                    snackbarHostState = snackbarHostState,
+                    onRemoved = { removed ->
+                        items.removeAll { item -> item.composeKey() == removed.composeKey() }
+                    },
+                    onRestored = ::restoreVisibleItem,
+                    onClick = onClick,
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun SwipeToDeleteEventItem(
+    item: EventInfoForDisplay,
+    viewModel: EventListViewModel,
+    snackbarHostState: SnackbarHostState,
+    onRemoved: (EventInfoForDisplay) -> Unit,
+    onRestored: (EventInfoForDisplay, EventInfoForDisplay) -> Unit,
+    onClick: (EventInfoForDisplay) -> Unit,
+) {
+    val context = LocalContext.current
+    val dismissState = rememberSwipeToDismissBoxState()
+    LaunchedEffect(dismissState.currentValue) {
+        if (dismissState.currentValue == SwipeToDismissBoxValue.Settled) {
+            return@LaunchedEffect
+        }
+        onRemoved(item)
+        if (!viewModel.deleteEvent(item)) {
+            onRestored(item, item)
+            snackbarHostState.showSnackbar(
+                message = context.getString(R.string.recent_activity_delete_failed),
+                duration = SnackbarDuration.Short,
+            )
+            return@LaunchedEffect
+        }
+        snackbarHostState.currentSnackbarData?.dismiss()
+        val snackbarResult = async {
+            snackbarHostState.showSnackbar(
+                message = context.getString(R.string.recent_activity_deleted),
+                actionLabel = context.getString(R.string.action_undo),
+                duration = SnackbarDuration.Indefinite,
+            )
+        }
+        val timeoutJob = launch {
+            delay(5_000L)
+            snackbarHostState.currentSnackbarData?.dismiss()
+        }
+        val result = snackbarResult.await()
+        timeoutJob.cancel()
+        if (result == SnackbarResult.ActionPerformed) {
+            viewModel.restoreEvent(item)?.let { restored ->
+                onRestored(item, restored)
+            }
+        }
+    }
+
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = true,
+        enableDismissFromEndToStart = true,
+        backgroundContent = {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                    )
+                    .padding(horizontal = MaterialTheme.spacing.large),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = stringResource(R.string.action_delete),
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        },
+    ) {
+        EventItem(item, onClick)
     }
 }
 
@@ -1045,7 +1131,15 @@ fun EventListPreview() {
     }
 
     Page {
-        EventList({ }, getEvents, "", "", contentPadding = PaddingValues(0.dp))
+        EventList(
+            onClick = { },
+            getEvents = getEvents,
+            query = "",
+            packageName = "",
+            contentPadding = PaddingValues(0.dp),
+            snackbarHostState = remember { SnackbarHostState() },
+            viewModel = hiltViewModel(),
+        )
     }
 }
 

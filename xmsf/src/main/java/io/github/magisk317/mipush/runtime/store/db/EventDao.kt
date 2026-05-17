@@ -30,6 +30,9 @@ interface EventDao {
     @Query("DELETE FROM EVENT WHERE type IN (0, 2, 10) AND date < :date")
     suspend fun deleteHistory(date: Long): Int
 
+    @Query("DELETE FROM EVENT WHERE id = :id")
+    suspend fun deleteById(id: Long): Int
+
     @Query(
         "SELECT e.* FROM EVENT e " +
             "INNER JOIN (" +

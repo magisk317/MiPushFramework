@@ -127,6 +127,25 @@ class EventRepository @Inject constructor(
         return EventDb.queryByPage(pageIndex, pageSize, types, packetName, query)
     }
 
+    suspend fun deleteEvent(event: Event): Boolean {
+        val id = event.id ?: return false
+        return EventDb.deleteByIdAsync(id)
+    }
+
+    suspend fun restoreEvent(event: Event): Long {
+        val restored = Event(
+            id = null,
+            pkg = event.pkg,
+            type = event.type,
+            date = event.date,
+            result = event.result,
+            info = event.info,
+            payload = event.payload,
+            regSec = event.regSec,
+        )
+        return EventDb.insertEventAsync(restored)
+    }
+
     fun copyToClipboard(info: CharSequence) {
         val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboardManager.setPrimaryClip(android.content.ClipData.newPlainText(null, info))

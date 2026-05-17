@@ -145,6 +145,10 @@ object EventDb {
         eventDao.deleteHistory(data)
     }
 
+    suspend fun deleteByIdAsync(id: Long): Boolean {
+        return eventDao.deleteById(id) > 0
+    }
+
     suspend fun queryRegisteredAsync(): RegistrationInfo {
         val events = eventDao.queryRegisteredStatus()
         val info = RegistrationInfo()

@@ -243,6 +243,7 @@
     <string name="action_share">分享</string>
     <string name="action_clear">清空</string>
     <string name="action_delete">删除</string>
+    <string name="action_undo">撤销</string>
     <string name="helplib_action_about">关于</string>
     <string name="action_back">返回</string>
 
@@ -275,7 +276,8 @@
     <string name="recent_activity_filter_status_normal">正常</string>
     <string name="recent_activity_filter_status_disabled">已禁用</string>
     <string name="recent_activity_filter_status_denied">已拒绝</string>
-    <string name="recent_activity_action_hide_registration">隐藏注册消息</string>
+    <string name="recent_activity_deleted">记录已删除</string>
+    <string name="recent_activity_delete_failed">删除记录失败</string>
     <string name="action_help">帮助</string>
 
 
