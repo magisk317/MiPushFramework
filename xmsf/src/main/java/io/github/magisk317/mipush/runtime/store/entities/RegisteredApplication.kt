@@ -105,10 +105,6 @@ class RegisteredApplication : Parcelable {
     var lastReceiveTime: Date = Date(0)
 
     @Ignore
-    @JvmField
-    var registrationTypeReason: String = "unknown"
-
-    @Ignore
     constructor(
         id: Long?,
         packageName: String,

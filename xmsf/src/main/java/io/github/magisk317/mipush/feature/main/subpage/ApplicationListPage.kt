@@ -1,7 +1,6 @@
 package io.github.magisk317.mipush.feature.main.subpage
 
 import android.content.Context
-import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -82,7 +81,6 @@ import io.github.magisk317.mipush.feature.ui.component.WorkspaceListItem
 data class AppInfoForDisplay(
     val registrationState: Pair<Int, Color>,
     val lastReceiveTime: String,
-    val registrationType: String,
 )
 
 private var g_itemsInfo by mutableStateOf(emptyMap<String, AppInfoForDisplay>())
@@ -379,27 +377,9 @@ private fun updateInfos(
                 Utils.getUTC(),
                 context
             ),
-            registrationType = registrationTypeShortLabel(it.registrationTypeReason),
         )
     }
     g_itemsInfo = infoMap
-}
-
-private fun registrationTypeShortLabel(reason: String): String {
-    return reason.replace('_', '-')
-}
-
-@StringRes
-private fun registrationTypeLabelRes(reason: String): Int {
-    return when (reason) {
-        "direct_sdk" -> R.string.registration_type_direct_sdk
-        "receiver_only" -> R.string.registration_type_receiver_only
-        "bridge_wrapper" -> R.string.registration_type_bridge_wrapper
-        "unsupported_components" -> R.string.registration_type_unsupported_components
-        "package_not_found" -> R.string.registration_type_package_not_found
-        "application_unavailable" -> R.string.registration_type_application_unavailable
-        else -> R.string.registration_type_unknown
-    }
 }
 
 @Composable
@@ -471,11 +451,6 @@ private fun ApplicationItem(item: RegisteredApplication, onAppClick: (String) ->
                 text = prefix + registrationLabel,
                 containerColor = statusColor.copy(alpha = 0.14f),
                 contentColor = statusColor,
-            )
-            AppListBadge(
-                text = info.registrationType,
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             AppListBadge(
                 text = activityLabel,

@@ -317,48 +317,6 @@
     <string name="help_article_can_not_receive_push">无法收到推送</string>
     <string name="help_article_register_error">注册异常</string>
     <string name="help_article_no_register">注册列表为空</string>
-    <string name="help_article_registration_types">应用类型说明</string>
-
-    <string name="app_registration_type_format">类型：%1$s</string>
-    <string name="registration_type_direct_sdk">direct_sdk</string>
-    <string name="registration_type_receiver_only">receiver_only</string>
-    <string name="registration_type_bridge_wrapper">bridge_wrapper</string>
-    <string name="registration_type_unsupported_components">unsupported_components</string>
-    <string name="registration_type_package_not_found">package_not_found</string>
-    <string name="registration_type_application_unavailable">application_unavailable</string>
-    <string name="registration_type_unknown">unknown</string>
-    <string name="registration_diagnostics_group">注册诊断</string>
-    <string name="registration_diagnostics_loading">正在加载注册诊断…</string>
-    <string name="registration_diagnostics_display_type">显示类型</string>
-    <string name="registration_diagnostics_force_type">强制注册路径</string>
-    <string name="registration_diagnostics_components">组件面</string>
-    <string name="registration_diagnostics_components_value">runtime=%1$s handler=%2$s receiver=%3$s bridge=%4$s launcher=%5$s</string>
-    <string name="registration_diagnostics_local_state">本地注册状态</string>
-    <string name="registration_diagnostics_local_state_value">localReg=%1$s regSec=%2$d lastPush=%3$s</string>
-    <string name="registration_diagnostics_recent_event">最近注册事件</string>
-    <string name="registration_diagnostics_inference">诊断结论</string>
-    <string name="registration_diagnostics_refresh_summary">重新读取本地注册、事件和组件状态。</string>
-    <string name="registration_actions_group">注册动作</string>
-    <string name="registration_action_launch_observe">启动并观察注册</string>
-    <string name="registration_action_launch_observe_summary">只启动应用并观察它是否自行发起注册，不主动注入 fake 消息。</string>
-    <string name="registration_action_launch_observe_started">已启动应用，正在观察注册行为…</string>
-    <string name="registration_action_launch_observe_timeout">观察结束：未看到明显注册变化。</string>
-    <string name="registration_action_launch_observe_no_launcher">目标应用没有可启动入口。</string>
-    <string name="registration_action_launch_observe_result">观察结果：%1$s</string>
-    <string name="registration_event_none">无注册事件</string>
-    <string name="registration_event_registration">收到注册请求</string>
-    <string name="registration_event_registration_result_ok">注册结果成功</string>
-    <string name="registration_event_registration_result_failed">注册结果失败</string>
-    <string name="registration_event_unregistration">发生反注册</string>
-    <string name="registration_inference_registered">已注册完成。</string>
-    <string name="registration_inference_never_attempted">尚未观察到注册尝试，应用可能还没走到注册时机。</string>
-    <string name="registration_inference_unregistered_after_attempt">应用发起过注册，但之后又发生了反注册。</string>
-    <string name="registration_inference_registration_result_failed">应用发起过注册，但最近一次注册结果是失败。</string>
-    <string name="registration_inference_registering_or_waiting_result">应用已经发起注册，可能仍在等待结果或连接建立。</string>
-    <string name="registration_inference_local_state_stale">本地残留了注册痕迹，但当前状态没有对齐到已注册。</string>
-    <string name="registration_inference_has_secret_but_no_local_reg">已经拿到 regSec，但本地未形成完整注册记录。</string>
-    <string name="registration_inference_unknown">当前证据还不足以判断失败原因。</string>
-
     <string name="settings_manage_app_notifications">管理通知</string>
     <string name="settings_manage_app_notifications_summary">控制本应用所发通知的声音、重要度等细节。</string>
     <string-array name="register_types">
@@ -441,6 +399,7 @@
     <string name="app_detail_registration_status">注册状态</string>
     <string name="app_detail_last_push">最近推送</string>
     <string name="app_detail_registered_state">当前活跃状态</string>
+    <string name="app_detail_registration_tip_summary">注册提示</string>
     <string name="app_detail_activity_and_behavior">近期活动与行为</string>
     <string name="app_detail_recent_activity_summary">查看这个应用最近的注册、到达和通知事件。</string>
     <string name="app_detail_notifications">通知与渠道</string>

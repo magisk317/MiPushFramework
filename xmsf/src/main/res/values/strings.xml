@@ -349,54 +349,11 @@ This could be the application doing a reverse registration, or the registration 
         <item>help_article_can_not_receive_push|can_not_receive_push</item>
         <item>help_article_register_error|register_error</item>
         <item>help_article_no_register|no_register</item>
-        <item>help_article_registration_types|registration_types</item>
     </string-array>
 
     <string name="help_article_can_not_receive_push">Can not receive push message</string>
     <string name="help_article_register_error">register error</string>
     <string name="help_article_no_register">no register app</string>
-    <string name="help_article_registration_types">app registration types</string>
-
-    <string name="app_registration_type_format">Type: %1$s</string>
-    <string name="registration_type_direct_sdk">direct_sdk</string>
-    <string name="registration_type_receiver_only">receiver_only</string>
-    <string name="registration_type_bridge_wrapper">bridge_wrapper</string>
-    <string name="registration_type_unsupported_components">unsupported_components</string>
-    <string name="registration_type_package_not_found">package_not_found</string>
-    <string name="registration_type_application_unavailable">application_unavailable</string>
-    <string name="registration_type_unknown">unknown</string>
-    <string name="registration_diagnostics_group">Registration diagnostics</string>
-    <string name="registration_diagnostics_loading">Loading diagnostics…</string>
-    <string name="registration_diagnostics_display_type">Display type</string>
-    <string name="registration_diagnostics_force_type">Force-register path</string>
-    <string name="registration_diagnostics_components">Components</string>
-    <string name="registration_diagnostics_components_value">runtime=%1$s handler=%2$s receiver=%3$s bridge=%4$s launcher=%5$s</string>
-    <string name="registration_diagnostics_local_state">Local registration state</string>
-    <string name="registration_diagnostics_local_state_value">localReg=%1$s regSec=%2$d lastPush=%3$s</string>
-    <string name="registration_diagnostics_recent_event">Latest registration event</string>
-    <string name="registration_diagnostics_inference">Diagnosis</string>
-    <string name="registration_diagnostics_refresh_summary">Reload local registration markers, events, and component state.</string>
-    <string name="registration_actions_group">Registration actions</string>
-    <string name="registration_action_launch_observe">Launch and observe registration</string>
-    <string name="registration_action_launch_observe_summary">Only launch the app and observe whether it registers by itself. No fake message injection.</string>
-    <string name="registration_action_launch_observe_started">App launched, observing registration behavior…</string>
-    <string name="registration_action_launch_observe_timeout">Observation finished: no obvious registration change was seen.</string>
-    <string name="registration_action_launch_observe_no_launcher">The target app has no launchable entry.</string>
-    <string name="registration_action_launch_observe_result">Observation result: %1$s</string>
-    <string name="registration_event_none">No registration event</string>
-    <string name="registration_event_registration">Registration requested</string>
-    <string name="registration_event_registration_result_ok">Registration result OK</string>
-    <string name="registration_event_registration_result_failed">Registration result failed</string>
-    <string name="registration_event_unregistration">Unregistered</string>
-    <string name="registration_inference_registered">Registered successfully.</string>
-    <string name="registration_inference_never_attempted">No registration attempt has been observed yet.</string>
-    <string name="registration_inference_unregistered_after_attempt">The app appears to have unregistered after attempting registration.</string>
-    <string name="registration_inference_registration_result_failed">A registration attempt was observed, but the latest result failed.</string>
-    <string name="registration_inference_registering_or_waiting_result">The app has requested registration and may still be waiting for a result.</string>
-    <string name="registration_inference_local_state_stale">Local registration markers exist, but current state is not aligned to registered.</string>
-    <string name="registration_inference_has_secret_but_no_local_reg">A regSec exists, but no complete local registration record was found.</string>
-    <string name="registration_inference_unknown">The current evidence is not enough to explain the registration state.</string>
-
     <string name="settings_manage_app_notifications">Manage notifications</string>
     <string name="settings_manage_app_notifications_summary">Control the sound, importance level, etc. of the app notifications.</string>
     <string name="group_notifications_for_same_session_clear_title">clear all notifications of session when the notification of session was clicked</string>
@@ -463,6 +420,7 @@ This could be the application doing a reverse registration, or the registration 
     <string name="app_detail_registration_status">Registration status</string>
     <string name="app_detail_last_push">Last push</string>
     <string name="app_detail_registered_state">Current activity state</string>
+    <string name="app_detail_registration_tip_summary">Registration guidance</string>
     <string name="app_detail_activity_and_behavior">Recent activity &amp; behavior</string>
     <string name="app_detail_recent_activity_summary">View recent registration, delivery, and notification events for this app.</string>
     <string name="app_detail_notifications">Notifications &amp; channels</string>

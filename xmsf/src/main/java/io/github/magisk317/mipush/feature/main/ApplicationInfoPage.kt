@@ -3,21 +3,17 @@ package io.github.magisk317.mipush.feature.main
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
-import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.net.Uri
-import android.os.Build
-import android.os.Build.VERSION_CODES
 import android.os.Bundle
 import android.provider.Settings
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.FlowRow
@@ -50,7 +46,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarDuration
@@ -73,8 +68,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
-import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -95,21 +88,15 @@ import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.common.utils.Utils
 import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
-import io.github.magisk317.mipush.runtime.store.entities.Event
 import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
 import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication.RegisteredType
 import io.github.magisk317.mipush.feature.ui.component.AppIcon
-import io.github.magisk317.mipush.feature.ui.component.ActionStrip
 import io.github.magisk317.mipush.feature.ui.component.DetailDivider
 import io.github.magisk317.mipush.feature.ui.component.DetailSectionCard
 import io.github.magisk317.mipush.feature.ui.component.DialogAction
 import io.github.magisk317.mipush.feature.ui.component.DialogActionRow
-import io.github.magisk317.mipush.feature.ui.component.LabelValueBlock
 import io.github.magisk317.mipush.feature.ui.component.MarkdownView
-import io.github.magisk317.mipush.feature.ui.component.MetricGrid
-import io.github.magisk317.mipush.feature.ui.component.MetricSpec
 import io.github.magisk317.mipush.feature.ui.component.SectionColumn
-import io.github.magisk317.mipush.feature.ui.component.SettingsDialogItem
 import io.github.magisk317.mipush.feature.ui.component.SettingsItem
 import io.github.magisk317.mipush.feature.main.AppConfigurationUtils
 import io.github.magisk317.mipush.feature.main.AppRegistrationDiagnostics
@@ -198,7 +185,6 @@ open class ApplicationInfoPage : ComponentActivity() {
 
         if (packageInfo == null) {
             application.existServices = false
-            application.registrationTypeReason = "package_not_found"
             return
         }
 
@@ -208,12 +194,6 @@ open class ApplicationInfoPage : ComponentActivity() {
             info = packageInfo,
         )
 
-        val serviceNames = packageInfo.services?.mapNotNull { it.name }?.toSet() ?: emptySet()
-        val receiverNames = packageInfo.receivers?.mapNotNull { it.name }?.toSet() ?: emptySet()
-        application.registrationTypeReason = RegistrationHelper.classifyDisplayTypeReason(
-            serviceNames = serviceNames,
-            receiverNames = receiverNames,
-        )
     }
 
     @Composable
@@ -261,8 +241,6 @@ open class ApplicationInfoPage : ComponentActivity() {
     @Composable
     fun SettingsScreen(snackbarHostState: SnackbarHostState) {
         ApplicationInfoHeader(snackbarHostState)
-        RegistrationDiagnosticsCard()
-        RegistrationActionsCard()
         TipsCard()
         ActivitySectionCard(snackbarHostState)
         NotificationSection()
@@ -273,28 +251,10 @@ open class ApplicationInfoPage : ComponentActivity() {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         val configNavigationHelper = remember { ConfigNavigationHelper() }
-        val diagnostics by androidx.compose.runtime.produceState<AppRegistrationDiagnostics?>(
-            initialValue = null,
-            key1 = applicationInfo.packageName,
-        ) {
-            value = withContext(Dispatchers.IO) {
-                AppRegistrationDiagnosticsHelper.load(
-                    context = context,
-                    packageName = applicationInfo.packageName,
-                    registeredType = applicationInfo.registeredType,
-                )
-            }
+        val integrationType = remember(applicationInfo.packageName) {
+            loadIntegrationTypeReason(applicationInfo.packageName)
         }
-        val resolvedTypeReason = remember(applicationInfo.registrationTypeReason, diagnostics?.displayTypeReason) {
-            when {
-                applicationInfo.registrationTypeReason.isNotBlank() &&
-                    applicationInfo.registrationTypeReason != "unknown" -> applicationInfo.registrationTypeReason
-                !diagnostics?.displayTypeReason.isNullOrBlank() &&
-                    diagnostics?.displayTypeReason != "unknown" -> diagnostics?.displayTypeReason.orEmpty()
-                else -> applicationInfo.registrationTypeReason.ifBlank { "unknown" }
-            }
-        }
-        val typeLabel = registrationTypeShortLabel(resolvedTypeReason)
+        val integrationTypeLabel = registrationTypeShortLabel(integrationType)
         val serviceState = if (applicationInfo.existServices) {
             stringResource(R.string.app_detail_service_ready)
         } else {
@@ -380,11 +340,15 @@ open class ApplicationInfoPage : ComponentActivity() {
                         )
                         HeaderMetricCard(
                             label = stringResource(R.string.app_detail_integration_type),
-                            value = typeLabel,
+                            value = integrationTypeLabel,
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight(),
-                            accent = MaterialTheme.colorScheme.secondary,
+                            accent = if (applicationInfo.existServices) {
+                                MaterialTheme.colorScheme.secondary
+                            } else {
+                                RegistrationStateStyle.ErrorColor
+                            },
                         )
                     }
 
@@ -466,6 +430,28 @@ open class ApplicationInfoPage : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun loadIntegrationTypeReason(packageName: String): String {
+        val packageInfo = runCatching {
+            PackageManagerCompatBridge.getPackageInfo(
+                packageManager,
+                packageName,
+                PackageManager.GET_SERVICES or PackageManager.GET_RECEIVERS,
+            )
+        }.getOrNull() ?: return "package_not_found"
+        val serviceNames = packageInfo.services
+            ?.mapNotNull(ServiceInfo::name)
+            ?.toSet()
+            ?: emptySet()
+        val receiverNames = packageInfo.receivers
+            ?.mapNotNull { it.name }
+            ?.toSet()
+            ?: emptySet()
+        return RegistrationHelper.classifyDisplayTypeReason(
+            serviceNames = serviceNames,
+            receiverNames = receiverNames,
+        )
     }
 
     private fun openSystemAppInfo(context: Context) {
@@ -576,147 +562,6 @@ open class ApplicationInfoPage : ComponentActivity() {
     }
 
     @Composable
-    private fun RegistrationDiagnosticsCard() {
-        val context = LocalContext.current
-        val scope = rememberCoroutineScope()
-        var diagnostics by remember(applicationInfo.packageName) { mutableStateOf<AppRegistrationDiagnostics?>(null) }
-
-        fun refreshDiagnostics() {
-            scope.launch(Dispatchers.IO) {
-                val loaded = AppRegistrationDiagnosticsHelper.load(
-                    context = context,
-                    packageName = applicationInfo.packageName,
-                    registeredType = applicationInfo.registeredType,
-                )
-                withContext(Dispatchers.Main) {
-                    diagnostics = loaded
-                }
-            }
-        }
-
-        LaunchedEffect(applicationInfo.packageName) {
-            refreshDiagnostics()
-        }
-
-        DetailSectionCard(
-            title = stringResource(R.string.registration_diagnostics_group),
-            summary = stringResource(R.string.registration_diagnostics_refresh_summary),
-        ) {
-            val info = diagnostics
-            if (info == null) {
-                Text(
-                    text = stringResource(R.string.registration_diagnostics_loading),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(MaterialTheme.spacing.large),
-                )
-                return@DetailSectionCard
-            }
-
-            AppDetailValueRow(
-                label = stringResource(R.string.registration_diagnostics_display_type),
-                value = registrationTypeShortLabel(
-                    applicationInfo.registrationTypeReason.ifBlank { info.displayTypeReason },
-                ),
-            )
-            AppDetailValueRow(
-                label = stringResource(R.string.registration_diagnostics_local_state),
-                value = stringResource(
-                    R.string.registration_diagnostics_local_state_value,
-                    info.hasLocalRegistration.toFlagValue(),
-                    info.regSecCount,
-                    formatTime(info.lastReceiveTime),
-                ),
-            )
-            AppDetailValueRow(
-                label = stringResource(R.string.registration_diagnostics_recent_event),
-                value = formatRecentRegistrationEvent(info),
-            )
-            AppDetailValueRow(
-                label = stringResource(R.string.registration_diagnostics_inference),
-                value = stringResource(registrationInferenceLabelRes(info.inferenceReason)),
-                showDivider = false,
-            )
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(MaterialTheme.spacing.large),
-                contentAlignment = Alignment.CenterEnd,
-            ) {
-                OutlinedButton(onClick = { refreshDiagnostics() }) {
-                    Text(stringResource(R.string.action_update))
-                }
-            }
-        }
-    }
-
-    @Composable
-    private fun RegistrationActionsCard() {
-        val context = LocalContext.current
-        val resources = LocalResources.current
-        val scope = rememberCoroutineScope()
-        val launchObserveTimeoutMessage = stringResource(R.string.registration_action_launch_observe_timeout)
-
-        DetailSectionCard(
-            title = stringResource(R.string.registration_actions_group),
-            summary = stringResource(R.string.registration_action_launch_observe_summary),
-        ) {
-            ActionSummaryRow(
-                title = stringResource(R.string.registration_action_launch_observe),
-                summary = stringResource(R.string.registration_action_launch_observe_summary),
-                actionLabel = stringResource(R.string.registration_action_launch_observe),
-            ) {
-                scope.launch(Dispatchers.IO) {
-                    val packageName = applicationInfo.packageName
-                    val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
-                    if (launchIntent == null) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(
-                                context,
-                                R.string.registration_action_launch_observe_no_launcher,
-                                Toast.LENGTH_LONG,
-                            ).show()
-                        }
-                        return@launch
-                    }
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(
-                            context,
-                            R.string.registration_action_launch_observe_started,
-                            Toast.LENGTH_SHORT,
-                        ).show()
-                    }
-                    stopTargetAppBestEffort(packageName)
-                    val diagnostics = AppRegistrationDiagnosticsHelper.launchAndObserve(
-                        context = context,
-                        packageName = packageName,
-                        registeredTypeProvider = {
-                            RegisteredApplicationDb.getRegisteredApplication(packageName)?.registeredType
-                                ?: applicationInfo.registeredType
-                        },
-                    )
-                    withContext(Dispatchers.Main) {
-                        val resultText = if (
-                            diagnostics.registeredType == RegisteredType.Registered ||
-                            diagnostics.hasLocalRegistration ||
-                            diagnostics.latestRegistrationEventDate != null
-                        ) {
-                            resources.getString(
-                                R.string.registration_action_launch_observe_result,
-                                resources.getString(registrationInferenceLabelRes(diagnostics.inferenceReason)),
-                            )
-                        } else {
-                            launchObserveTimeoutMessage
-                        }
-                        Toast.makeText(context, resultText, Toast.LENGTH_LONG).show()
-                    }
-                }
-            }
-        }
-    }
-
-    @Composable
     private fun TipsCard() {
         val context = LocalContext.current
         val shouldSuggestFakeApp = appConfigurationUtils.shouldSuggestFakeApp(applicationInfo.packageName)
@@ -730,7 +575,6 @@ open class ApplicationInfoPage : ComponentActivity() {
         LaunchedEffect(applicationInfo.packageName, registeredType) {
             diagnostics = withContext(Dispatchers.IO) {
                 AppRegistrationDiagnosticsHelper.load(
-                    context = context,
                     packageName = applicationInfo.packageName,
                     registeredType = registeredType,
                 )
@@ -761,7 +605,7 @@ open class ApplicationInfoPage : ComponentActivity() {
 
         DetailSectionCard(
             title = title,
-            summary = stringResource(R.string.registration_diagnostics_group),
+            summary = stringResource(R.string.app_detail_registration_tip_summary),
         ) {
             Tips(description = description)
         }
@@ -1034,23 +878,6 @@ private fun SettingSwitchRow(
 }
 
 @Composable
-private fun AppDetailValueRow(
-    label: String,
-    value: String,
-    showDivider: Boolean = true,
-) {
-    LabelValueBlock(
-        label = label,
-        value = value,
-    )
-    if (showDivider) {
-        DetailDivider()
-    }
-}
-
-private fun Boolean.toFlagValue(): String = if (this) "Y" else "N"
-
-@Composable
 private fun HeaderMetricCard(
     label: String,
     value: String,
@@ -1100,49 +927,8 @@ private fun formatTime(time: Long?): String {
     return SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(time))
 }
 
-@Composable
-private fun formatRecentRegistrationEvent(diagnostics: AppRegistrationDiagnostics): String {
-    val label = when (diagnostics.latestRegistrationEventType) {
-        Event.Type.Registration -> stringResource(R.string.registration_event_registration)
-        Event.Type.RegistrationResult -> if (diagnostics.latestRegistrationEventResult == Event.ResultType.OK) {
-            stringResource(R.string.registration_event_registration_result_ok)
-        } else {
-            stringResource(R.string.registration_event_registration_result_failed)
-        }
-        Event.Type.UnRegistration -> stringResource(R.string.registration_event_unregistration)
-        else -> stringResource(R.string.registration_event_none)
-    }
-    val date = formatTime(diagnostics.latestRegistrationEventDate)
-    return if (date == "-") label else "$label @ $date"
-}
-
-private fun registrationTypeLabelRes(reason: String): Int {
-    return when (reason) {
-        "direct_sdk" -> R.string.registration_type_direct_sdk
-        "receiver_only" -> R.string.registration_type_receiver_only
-        "bridge_wrapper" -> R.string.registration_type_bridge_wrapper
-        "unsupported_components" -> R.string.registration_type_unsupported_components
-        "package_not_found" -> R.string.registration_type_package_not_found
-        "application_unavailable" -> R.string.registration_type_application_unavailable
-        else -> R.string.registration_type_unknown
-    }
-}
-
 private fun registrationTypeShortLabel(reason: String): String {
     return reason.replace('_', '-')
-}
-
-private fun registrationInferenceLabelRes(reason: String): Int {
-    return when (reason) {
-        "registered" -> R.string.registration_inference_registered
-        "never_attempted" -> R.string.registration_inference_never_attempted
-        "unregistered_after_attempt" -> R.string.registration_inference_unregistered_after_attempt
-        "registration_result_failed" -> R.string.registration_inference_registration_result_failed
-        "registering_or_waiting_result" -> R.string.registration_inference_registering_or_waiting_result
-        "local_state_stale" -> R.string.registration_inference_local_state_stale
-        "has_secret_but_no_local_reg" -> R.string.registration_inference_has_secret_but_no_local_reg
-        else -> R.string.registration_inference_unknown
-    }
 }
 
 @Composable

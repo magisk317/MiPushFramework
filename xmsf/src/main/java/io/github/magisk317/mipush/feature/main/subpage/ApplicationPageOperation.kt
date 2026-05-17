@@ -27,15 +27,6 @@ import io.github.magisk317.mipush.feature.main.RegistrationStateStyle
 import io.github.magisk317.mipush.platform.support.MiPushManifestChecker
 
 object ApplicationPageOperation {
-    private val registrationTypeDebugPackages = setOf(
-        "com.chinamworld.bocmbci",
-        "cn.com.cmbc.newmbank",
-        "cn.cyberIdentity.certification",
-        "com.unionpay",
-        "com.coolapk.market",
-        "com.tencent.mobileqq",
-        "com.miui.cloudservice"
-    )
     private val TAG = ApplicationPageOperation::class.java.simpleName
     private val logger = object {
         fun d(msg: String, vararg args: Any?) {
@@ -134,28 +125,6 @@ object ApplicationPageOperation {
         val currentAppPkgName = info.packageName
         val application = registeredPkgs[currentAppPkgName] ?: registerApplication(currentAppPkgName)
         application.existServices = hasMiPushServices(checker, info)
-        val serviceNames = info.services?.mapNotNull(ServiceInfo::name)?.toSet() ?: emptySet()
-        val receiverNames = info.receivers?.mapNotNull { it.name }?.toSet() ?: emptySet()
-        val plan = RegistrationHelper.classifyForceRegisterPlan(
-            packageName = currentAppPkgName,
-            serviceNames = serviceNames,
-            receiverNames = receiverNames
-        )
-        val displayReason = RegistrationHelper.classifyDisplayTypeReason(
-            serviceNames = serviceNames,
-            receiverNames = receiverNames
-        )
-        application.registrationTypeReason = displayReason
-        if (currentAppPkgName in registrationTypeDebugPackages) {
-            logger.d(
-                "[type] %s display=%s force=%s services=%s receivers=%s",
-                currentAppPkgName,
-                displayReason,
-                plan.reason,
-                serviceNames.joinToString(","),
-                receiverNames.joinToString(",")
-            )
-        }
         return application
     }
 
@@ -194,16 +163,19 @@ object ApplicationPageOperation {
             ?.mapNotNull { it.name }
             ?.toSet()
             ?: emptySet()
-        val displayReason = RegistrationHelper.classifyDisplayTypeReason(
+        val plan = RegistrationHelper.classifyForceRegisterPlan(
+            packageName = info.packageName,
             serviceNames = serviceNames,
             receiverNames = receiverNames
         )
-        if (displayReason == "unsupported_components") {
+        if (
+            plan.serviceCandidates.isEmpty() &&
+            plan.receiverCandidates.isEmpty() &&
+            plan.bridgeCandidates.isEmpty()
+        ) {
             return false
         }
-        // Keep the visibility check aligned with the same classifier used by the type badge.
-        // Only direct-sdk apps should be validated by ManifestChecker's strict service rules.
-        if (displayReason == "direct_sdk") {
+        if (plan.serviceCandidates.isNotEmpty()) {
             checker?.checkServices(info)
         }
         return true
