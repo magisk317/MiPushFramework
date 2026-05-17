@@ -26,7 +26,13 @@
     },
     {
       "packageName": "cn.gov.tax.its",
-      "hookPipelines": ["ALIPAY", "ALI_AGOO_ACCS", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP"]
+      "hookPipelines": [
+        "ALIPAY",
+        "ALI_AGOO_ACCS",
+        "HUAWEI_HMS",
+        "VIVO_PUSH",
+        "OPPO_HEYTAP"
+      ]
     },
     {
       "packageName": "com.alibaba.android.rimet",
@@ -58,7 +64,14 @@
     },
     {
       "packageName": "com.coolapk.market",
-      "hookPipelines": ["COOLAPK", "MIPUSH_COMPONENT_VISIBILITY", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"],
+      "hookPipelines": [
+        "COOLAPK",
+        "MIPUSH_COMPONENT_VISIBILITY",
+        "HUAWEI_HMS",
+        "VIVO_PUSH",
+        "OPPO_HEYTAP",
+        "MEIZU_PUSH"
+      ],
       "credentialOverride": {
         "appId": "2882303761517155131",
         "appKey": "5431715541131"
@@ -66,11 +79,18 @@
     },
     {
       "packageName": "com.dianping.v1",
-      "hookPipelines": ["FAKE_MIUI_ONLY"]
+      "hookPipelines": [
+        "FAKE_MIUI_ONLY"
+      ]
     },
     {
       "packageName": "com.didi.es.psngr",
-      "hookPipelines": ["HUAWEI_HMS", "MIPUSH_COMPONENT_VISIBILITY", "VIVO_PUSH", "OPPO_HEYTAP"],
+      "hookPipelines": [
+        "HUAWEI_HMS",
+        "MIPUSH_COMPONENT_VISIBILITY",
+        "VIVO_PUSH",
+        "OPPO_HEYTAP"
+      ],
       "credentialOverride": {
         "appId": "2882303761517422605",
         "appKey": "5811742279605"
@@ -78,7 +98,12 @@
     },
     {
       "packageName": "com.sdu.didi.psnger",
-      "hookPipelines": ["HUAWEI_HMS", "MIPUSH_COMPONENT_VISIBILITY", "VIVO_PUSH", "OPPO_HEYTAP"],
+      "hookPipelines": [
+        "HUAWEI_HMS",
+        "MIPUSH_COMPONENT_VISIBILITY",
+        "VIVO_PUSH",
+        "OPPO_HEYTAP"
+      ],
       "credentialOverride": {
         "appId": "2882303761517342044",
         "appKey": "5611734215044"
@@ -86,7 +111,14 @@
     },
     {
       "packageName": "com.eg.android.AlipayGphone",
-      "hookPipelines": ["ALIPAY", "ALI_AGOO_ACCS", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"],
+      "hookPipelines": [
+        "ALIPAY",
+        "ALI_AGOO_ACCS",
+        "HUAWEI_HMS",
+        "VIVO_PUSH",
+        "OPPO_HEYTAP",
+        "MEIZU_PUSH"
+      ],
       "credentialOverride": {
         "appId": "2882303761517401694",
         "appKey": "5471740167694"
@@ -97,12 +129,19 @@
       "hookPipelines": [],
       "credentialOverride": {
         "appId": "2882303761517561776",
-        "appKey": "XM_5481756131776"
+        "appKey": "5481756131776"
       }
     },
     {
       "packageName": "com.jingdong.app.mall",
-      "hookPipelines": ["COMMON", "MIPUSH_COMPONENT_VISIBILITY", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"],
+      "hookPipelines": [
+        "COMMON",
+        "MIPUSH_COMPONENT_VISIBILITY",
+        "HUAWEI_HMS",
+        "VIVO_PUSH",
+        "OPPO_HEYTAP",
+        "MEIZU_PUSH"
+      ],
       "credentialOverride": {
         "appId": "2882303761517506461",
         "appKey": "5601750626461"
@@ -118,15 +157,30 @@
     },
     {
       "packageName": "com.sankuai.meituan",
-      "hookPipelines": ["FAKE_MIUI_ONLY", "MIPUSH_COMPONENT_VISIBILITY", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"]
+      "hookPipelines": [
+        "FAKE_MIUI_ONLY",
+        "MIPUSH_COMPONENT_VISIBILITY",
+        "HUAWEI_HMS",
+        "VIVO_PUSH",
+        "OPPO_HEYTAP",
+        "MEIZU_PUSH"
+      ]
     },
     {
       "packageName": "com.sankuai.meituan.enterprise",
-      "hookPipelines": ["FAKE_MIUI_ONLY", "MIPUSH_COMPONENT_VISIBILITY", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP"]
+      "hookPipelines": [
+        "FAKE_MIUI_ONLY",
+        "MIPUSH_COMPONENT_VISIBILITY",
+        "HUAWEI_HMS",
+        "VIVO_PUSH",
+        "OPPO_HEYTAP"
+      ]
     },
     {
       "packageName": "com.sankuai.meituan.takeoutnew",
-      "hookPipelines": ["FAKE_MIUI_ONLY"]
+      "hookPipelines": [
+        "FAKE_MIUI_ONLY"
+      ]
     },
     {
       "packageName": "com.smile.gifmaker",
@@ -138,7 +192,16 @@
     },
     {
       "packageName": "com.ss.android.lark",
-      "hookPipelines": ["DOUYIN", "ALI_AGOO_ACCS", "UMENG_PUSH", "MIPUSH_COMPONENT_VISIBILITY", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"],
+      "hookPipelines": [
+        "DOUYIN",
+        "ALI_AGOO_ACCS",
+        "UMENG_PUSH",
+        "MIPUSH_COMPONENT_VISIBILITY",
+        "HUAWEI_HMS",
+        "VIVO_PUSH",
+        "OPPO_HEYTAP",
+        "MEIZU_PUSH"
+      ],
       "credentialOverride": {
         "appId": "2882303761517565276",
         "appKey": "5701756525276"
@@ -146,7 +209,15 @@
     },
     {
       "packageName": "com.ss.android.ugc.aweme",
-      "hookPipelines": ["DOUYIN", "ALI_AGOO_ACCS", "UMENG_PUSH", "MIPUSH_COMPONENT_VISIBILITY", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP"],
+      "hookPipelines": [
+        "DOUYIN",
+        "ALI_AGOO_ACCS",
+        "UMENG_PUSH",
+        "MIPUSH_COMPONENT_VISIBILITY",
+        "HUAWEI_HMS",
+        "VIVO_PUSH",
+        "OPPO_HEYTAP"
+      ],
       "credentialOverride": {
         "appId": "2882303761517509924",
         "appKey": "5571750917924"
@@ -154,7 +225,15 @@
     },
     {
       "packageName": "com.taobao.idlefish",
-      "hookPipelines": ["ALIPAY", "ALI_AGOO_ACCS", "MIPUSH_COMPONENT_VISIBILITY", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"],
+      "hookPipelines": [
+        "ALIPAY",
+        "ALI_AGOO_ACCS",
+        "MIPUSH_COMPONENT_VISIBILITY",
+        "HUAWEI_HMS",
+        "VIVO_PUSH",
+        "OPPO_HEYTAP",
+        "MEIZU_PUSH"
+      ],
       "credentialOverride": {
         "appId": "2882303761517245189",
         "appKey": "5461724563189"
@@ -162,19 +241,43 @@
     },
     {
       "packageName": "com.taobao.taobao",
-      "hookPipelines": ["ALIPAY", "ALI_AGOO_ACCS", "MIPUSH_COMPONENT_VISIBILITY", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"]
+      "hookPipelines": [
+        "ALIPAY",
+        "ALI_AGOO_ACCS",
+        "MIPUSH_COMPONENT_VISIBILITY",
+        "HUAWEI_HMS",
+        "VIVO_PUSH",
+        "OPPO_HEYTAP",
+        "MEIZU_PUSH"
+      ]
     },
     {
       "packageName": "com.tencent.mobileqq",
-      "hookPipelines": ["QQ", "XGPUSH", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP"]
+      "hookPipelines": [
+        "QQ",
+        "XGPUSH",
+        "HUAWEI_HMS",
+        "VIVO_PUSH",
+        "OPPO_HEYTAP"
+      ]
     },
     {
       "packageName": "com.tencent.tim",
-      "hookPipelines": ["QQ", "XGPUSH"]
+      "hookPipelines": [
+        "QQ",
+        "XGPUSH"
+      ]
     },
     {
       "packageName": "com.tencent.wework",
-      "hookPipelines": ["COMMON", "XGPUSH", "MIPUSH_COMPONENT_VISIBILITY", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP"],
+      "hookPipelines": [
+        "COMMON",
+        "XGPUSH",
+        "MIPUSH_COMPONENT_VISIBILITY",
+        "HUAWEI_HMS",
+        "VIVO_PUSH",
+        "OPPO_HEYTAP"
+      ],
       "credentialOverride": {
         "appId": "2882303761517463096",
         "appKey": "5101746355096"
@@ -182,7 +285,13 @@
     },
     {
       "packageName": "com.unionpay",
-      "hookPipelines": ["HUAWEI_HMS", "MIPUSH_COMPONENT_VISIBILITY", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"],
+      "hookPipelines": [
+        "HUAWEI_HMS",
+        "MIPUSH_COMPONENT_VISIBILITY",
+        "VIVO_PUSH",
+        "OPPO_HEYTAP",
+        "MEIZU_PUSH"
+      ],
       "credentialOverride": {
         "appId": "2882303761517149951",
         "appKey": "5801714911951"
@@ -190,19 +299,195 @@
     },
     {
       "packageName": "com.xunmeng.pinduoduo",
-      "hookPipelines": ["PINDUODUO"]
+      "hookPipelines": [
+        "PINDUODUO"
+      ]
     },
     {
       "packageName": "com.ruanmei.ithome",
-      "hookPipelines": ["COMMON", "ALI_AGOO_ACCS", "UMENG_PUSH", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"]
+      "hookPipelines": [
+        "COMMON",
+        "ALI_AGOO_ACCS",
+        "UMENG_PUSH",
+        "HUAWEI_HMS",
+        "VIVO_PUSH",
+        "OPPO_HEYTAP",
+        "MEIZU_PUSH"
+      ]
     },
     {
       "packageName": "com.xiaomi.smarthome",
-      "hookPipelines": ["JPUSH", "VIVO_PUSH", "OPPO_HEYTAP"]
+      "hookPipelines": [
+        "JPUSH",
+        "VIVO_PUSH",
+        "OPPO_HEYTAP"
+      ],
+      "credentialOverride": {
+        "appId": "2882303761517233197",
+        "appKey": "5541723310197"
+      }
     },
     {
       "packageName": "com.ziroom.ziroomcustomer",
-      "hookPipelines": ["JPUSH", "HUAWEI_HMS", "VIVO_PUSH", "OPPO_HEYTAP", "MEIZU_PUSH"]
+      "hookPipelines": [
+        "JPUSH",
+        "HUAWEI_HMS",
+        "VIVO_PUSH",
+        "OPPO_HEYTAP",
+        "MEIZU_PUSH"
+      ]
+    },
+    {
+      "packageName": "com.hupu.games",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761517135243",
+        "appKey": "5821713550243"
+      }
+    },
+    {
+      "packageName": "air.tv.douyu.android",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761517236666",
+        "appKey": "5771723656666"
+      }
+    },
+    {
+      "packageName": "cn.xiaolongonly.andpodsop",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761518000149",
+        "appKey": "5571800070149"
+      }
+    },
+    {
+      "packageName": "com.tencent.qqmusic",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761517135981",
+        "appKey": "5671713524981"
+      }
+    },
+    {
+      "packageName": "com.xiachufang",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761517191879",
+        "appKey": "5821719151879"
+      }
+    },
+    {
+      "packageName": "com.ct.client",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761517139124",
+        "appKey": "5801713950124"
+      }
+    },
+    {
+      "packageName": "com.jd.jrapp",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761517245308",
+        "appKey": "5721724562308"
+      }
+    },
+    {
+      "packageName": "com.htinns",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761517141762",
+        "appKey": "5301714177762"
+      }
+    },
+    {
+      "packageName": "com.csair.mbp",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761517194342",
+        "appKey": "5681719477342"
+      }
+    },
+    {
+      "packageName": "tv.danmaku.bili",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761517136414",
+        "appKey": "5701713650414"
+      }
+    },
+    {
+      "packageName": "cn.damai",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761517123928",
+        "appKey": "5871712399928"
+      }
+    },
+    {
+      "packageName": "ctrip.android.view",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761517118322",
+        "appKey": "5261711871322"
+      }
+    },
+    {
+      "packageName": "cn.gov.pbc.dcep",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761519955324",
+        "appKey": "5501995531324"
+      }
+    },
+    {
+      "packageName": "com.yipiao",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761517122873",
+        "appKey": "5861712295873"
+      }
+    },
+    {
+      "packageName": "com.hungrypanda.waimai",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761518257113",
+        "appKey": "5131825723113"
+      }
+    },
+    {
+      "packageName": "com.netease.cloudmusic",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761517142681",
+        "appKey": "5211714249681"
+      }
+    },
+    {
+      "packageName": "com.meitu.meiyancamera",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761517138668",
+        "appKey": "5661713878668"
+      }
+    },
+    {
+      "packageName": "com.wuba.zhuanzhuan",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761517375238",
+        "appKey": "5621737535238"
+      }
+    },
+    {
+      "packageName": "com.autonavi.minimap",
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761517465546",
+        "appKey": "5831746549546"
+      }
     }
   ]
 }
