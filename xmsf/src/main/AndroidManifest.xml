@@ -248,7 +248,8 @@
                 android:exported="false" />
         <receiver
                 android:name="io.github.magisk317.mipush.notification.FocusInteractionReceiver"
-                android:exported="true">
+                android:exported="true"
+                android:permission="com.android.systemui.permission.NOTIFICATION">
             <intent-filter>
                 <action android:name="com.android.systemui.action.NOTIFICATION_INTERACTION_EVENT" />
             </intent-filter>

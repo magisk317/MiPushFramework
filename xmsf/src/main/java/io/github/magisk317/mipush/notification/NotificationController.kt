@@ -177,8 +177,10 @@ object NotificationController {
         val tag = MyMIPushNotificationHelper.getNotificationTag(packageName)
         getNotificationManagerEx().notify(packageName, tag, notificationId, notification)
         if (focusBundle != null) {
-            val key = "0|$packageName|$notificationId|$tag|0"
-            FocusNotificationRegistry.register(context, key)
+            FocusNotificationRegistry.registerReplacingUidVariants(
+                context,
+                focusNotificationKey(context, packageName, notificationId, tag)
+            )
         }
         return notification
     }
@@ -258,7 +260,10 @@ object NotificationController {
         MyMIPushNotificationStyleSupport.clearConversationHistory(container.packageName, notificationId)
         val tag = MyMIPushNotificationHelper.getNotificationTag(container)
         getNotificationManagerEx().cancel(container.packageName, tag, notificationId)
-        FocusNotificationRegistry.unregister(context, "0|${container.packageName}|$notificationId|$tag|0")
+        FocusNotificationRegistry.unregisterAllUidVariants(
+            context,
+            focusNotificationKey(context, container.packageName, notificationId, tag)
+        )
         if (clearGroup) {
             getNotificationManagerEx().cancel(
                 container.packageName,
