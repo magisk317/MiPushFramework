@@ -108,6 +108,17 @@ object NotificationController {
             notificationBuilder.setContentText(SweetTagHandler.renderFtHtmlIfNeeded(description))
         }
 
+        // Framework-side Live Update detection and styling
+        val liveUpdateResult = LiveUpdateDetector.detect(context, metaInfo, packageName)
+        if (liveUpdateResult.isProgress) {
+            Napier.i(
+                "Applying Live Update style pkg=$packageName category=${liveUpdateResult.category} " +
+                    "progress=${liveUpdateResult.progressPercent}",
+                tag = TAG
+            )
+            ProgressStyleBuilder.applyProgressStyle(context, notificationBuilder, metaInfo, liveUpdateResult)
+        }
+
         val notification = notify(context, notificationId, packageName, notificationBuilder, metaInfo) ?: return
         updateSummaryNotification(context, metaInfo, packageName, notification.group)
     }
@@ -168,7 +179,7 @@ object NotificationController {
         if (!VoipNotificationHelper.isVoipNotification(metaInfo)) {
             notificationBuilder.setAutoCancel(true)
         }
-        val notification = notificationBuilder.build()
+        val notification = ProgressStyleBuilder.buildNotification(context, notificationBuilder)
         val channel = getNotificationManagerEx().getNotificationChannel(packageName, notification.channelId)
         if (!NotificationContentSupport.hasMeaningfulVisibleText(context, packageName, notification, channel)) {
             logger.d("drop contentless notification pkg=$packageName id=$notificationId channel=${notification.channelId}")
@@ -423,6 +434,8 @@ object NotificationController {
         builder.setShowWhen(true)
         builder.setAutoCancel(true)
 
+        val tag = "xmsf_mock_${kind.name}"
+
         val notifyIntent = LegacyUiEntryPoints.mainActivityIntent(
             context = context,
             startTab = MainActivity.START_TAB_SETTINGS,
@@ -543,10 +556,64 @@ object NotificationController {
                 builder.addAction(R.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_voip_accept), notifyPendingIntent)
                 builder.addAction(R.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_voip_decline), notifyPendingIntent)
             }
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.LIVE_UPDATE_DELIVERY -> {
+                val deliveryTitle = context.getString(R.string.mock_live_update_delivery_title)
+                val deliveryDesc = context.getString(R.string.mock_live_update_delivery_desc)
+                builder.setContentTitle(deliveryTitle)
+                builder.setContentText(deliveryDesc)
+                builder.priority = NotificationCompat.PRIORITY_HIGH
+                val detection = LiveUpdateDetector.DetectionResult(
+                    isProgress = true,
+                    category = LiveUpdateDetector.ProgressCategory.DELIVERY,
+                    progressPercent = 65,
+                    progressText = deliveryDesc,
+                    startLabel = "商家",
+                    endLabel = "目的地",
+                    trackerLabel = "配送中"
+                )
+                val metaInfo = PushMetaInfo()
+                metaInfo.setTitle(deliveryTitle)
+                metaInfo.setDescription(deliveryDesc)
+                ProgressStyleBuilder.applyProgressStyle(context, builder, metaInfo, detection)
+                // Simulate progress updates
+                Thread {
+                    val steps = listOf(65, 75, 85, 95, 100)
+                    val texts = listOf(
+                        "骑手已取餐，预计15分钟送达",
+                        "骑手距您约800米",
+                        "骑手距您约500米",
+                        "骑手距您约100米",
+                        "骑手已到达，请取餐"
+                    )
+                    for (i in steps.indices) {
+                        Thread.sleep(3000)
+                        val updateBuilder = NotificationCompat.Builder(context, mockChannelId).apply {
+                            setSmallIcon(R.drawable.ic_notifications_black_24dp)
+                            setWhen(System.currentTimeMillis())
+                            setContentTitle(deliveryTitle)
+                            setContentText(texts[i])
+                            setOngoing(true)
+                            setProgress(100, steps[i], false)
+                            priority = NotificationCompat.PRIORITY_HIGH
+                        }
+                        val updateDetection = detection.copy(
+                            progressPercent = steps[i],
+                            progressText = texts[i]
+                        )
+                        val updateMetaInfo = PushMetaInfo()
+                        updateMetaInfo.setTitle(deliveryTitle)
+                        updateMetaInfo.setDescription(texts[i])
+                        ProgressStyleBuilder.applyProgressStyle(context, updateBuilder, updateMetaInfo, updateDetection)
+                        nm.notify(tag, id, ProgressStyleBuilder.buildNotification(context, updateBuilder))
+                    }
+                    // Auto-cancel when complete
+                    Thread.sleep(2000)
+                    nm.cancel(tag, id)
+                }.start()
+            }
         }
 
-        val tag = "xmsf_mock_${kind.name}"
-        nm.notify(tag, id, builder.build())
+        nm.notify(tag, id, ProgressStyleBuilder.buildNotification(context, builder))
         if (kind == io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_BASIC ||
             kind == io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_WITH_PIC) {
             val actualPkg = context.packageName

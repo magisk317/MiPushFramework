@@ -14,4 +14,5 @@ enum class MockNotificationKind(val labelRes: Int, val descRes: Int) {
     FOCUS_BASIC(R.string.mock_kind_focus_basic, R.string.mock_kind_focus_basic_desc),
     FOCUS_WITH_PIC(R.string.mock_kind_focus_pic, R.string.mock_kind_focus_pic_desc),
     VOIP_INCOMING(R.string.mock_kind_voip, R.string.mock_kind_voip_desc),
+    LIVE_UPDATE_DELIVERY(R.string.mock_kind_live_update, R.string.mock_kind_live_update_desc),
 }

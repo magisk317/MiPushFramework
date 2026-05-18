@@ -522,6 +522,12 @@ This could be the application doing a reverse registration, or the registration 
     <string name="mock_kind_focus_pic_desc">Focus notification with image (requires root)</string>
     <string name="mock_kind_voip">VoIP Incoming Call</string>
     <string name="mock_kind_voip_desc">Full-screen call notification</string>
+    <string name="mock_kind_live_update">Live Update</string>
+    <string name="mock_kind_live_update_desc">Android 16+ progress-style promoted notification</string>
+    <string name="mock_live_update_delivery_title">外卖配送中</string>
+    <string name="mock_live_update_delivery_desc">骑手已取餐，预计15分钟送达</string>
+    <string name="mock_live_update_ride_title">司机正在前往上车点</string>
+    <string name="mock_live_update_ride_desc">距您约500米，预计3分钟到达</string>
 
     <!-- Mock notification content strings -->
     <string name="mock_channel_name">Mock Notification Test</string>
