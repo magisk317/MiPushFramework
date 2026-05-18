@@ -3,6 +3,7 @@ package com.xiaomi.push.service
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -93,5 +94,34 @@ class MyMIPushNotificationHelperTest {
         }
 
         assertFalse(MyMIPushNotificationHelper.shouldDropReplayNotification(container, sessionStartedAtMs = 1_000_000L))
+    }
+
+    @Test
+    fun `getNotificationId keeps notifyId semantics when notifyId exists`() {
+        val container = XmPushActionContainer().apply {
+            packageName = "com.example.app"
+            metaInfo = PushMetaInfo().apply {
+                id = "meta-id"
+                setNotifyId(42)
+                putToExtra(PushConstants.EXTRA_JOB_KEY, "job-123")
+            }
+        }
+
+        val expected = "com.example.app_42".hashCode()
+        assertEquals(expected, MyMIPushNotificationHelper.getNotificationId(container))
+    }
+
+    @Test
+    fun `getNotificationId falls back to message identity when notifyId absent`() {
+        val container = XmPushActionContainer().apply {
+            packageName = "com.example.app"
+            metaInfo = PushMetaInfo().apply {
+                id = "meta-id"
+                putToExtra(PushConstants.EXTRA_JOB_KEY, "job-123")
+            }
+        }
+
+        val expected = "com.example.app_job-123".hashCode()
+        assertEquals(expected, MyMIPushNotificationHelper.getNotificationId(container))
     }
 }

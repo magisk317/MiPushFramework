@@ -460,7 +460,16 @@ class MyMIPushNotificationHelper {
         @JvmStatic
         fun getNotificationId(container: XmPushActionContainer): Int {
             val metaInfo = container.metaInfo
-            val id = if (metaInfo.isSetNotifyId()) metaInfo.notifyId.toString() else metaInfo.id
+            val baseId = if (metaInfo.isSetNotifyId()) metaInfo.notifyId.toString() else metaInfo.id
+            val messageId = MessageIdentity.fromContainer(container)
+            // Keep server-provided notifyId semantics for clear/cancel compatibility.
+            // Only fall back to message identity when notifyId is not provided.
+            val id = when {
+                metaInfo.isSetNotifyId() -> metaInfo.notifyId.toString()
+                !messageId.isNullOrEmpty() -> messageId
+                !baseId.isNullOrEmpty() -> baseId
+                else -> "0"
+            }
             val idWithPackage = MIPushNotificationHelper.getTargetPackage(container) + "_" + id
             return idWithPackage.hashCode()
         }
