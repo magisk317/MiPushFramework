@@ -120,6 +120,13 @@ object MiPushRuntimeBridge {
         source: String
     ): Boolean {
         val container = XMPushUtils.packToContainer(payload) ?: return false
+        if (StalePackagePushGuard.shouldDropInbound(context, container, source)) {
+            logger.i(
+                "drop payload for absent package source=$source pkg=${container.packageName} " +
+                    "action=${container.action?.name} messageId=${MessageIdentity.fromContainer(container)}"
+            )
+            return false
+        }
         if (container.packageName != null && RegisteredApplicationDb.isBlocked(container.packageName)) {
             logger.d("skip blocked application payload source=$source pkg=${container.packageName}")
             return false

@@ -93,4 +93,14 @@ object RegisteredApplicationDb {
     fun isBlocked(pkg: String): Boolean = runBlocking {
         registeredApplicationDao.isBlocked(pkg)
     }
+
+    @JvmStatic
+    fun markUnregistered(pkg: String): Boolean = runBlocking {
+        val application = registeredApplicationDao.getByPackageName(pkg) ?: return@runBlocking false
+        if (application.registeredType == RegisteredApplication.RegisteredType.Unregistered) {
+            return@runBlocking false
+        }
+        application.registeredType = RegisteredApplication.RegisteredType.Unregistered
+        registeredApplicationDao.update(application) > 0
+    }
 }

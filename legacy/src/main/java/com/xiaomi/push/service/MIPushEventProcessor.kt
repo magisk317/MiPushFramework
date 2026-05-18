@@ -2,6 +2,7 @@ package com.xiaomi.push.service
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.text.TextUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.mipush.sdk.Constants
@@ -145,9 +146,33 @@ class MIPushEventProcessor {
             if (!container.isEncryptAction || isHybridMessage(container)) {
                 return
             }
+            if (isTargetPackageMissing(pushAction.context, container)) {
+                if (!container.packageName.isNullOrBlank() && !container.appid.isNullOrBlank()) {
+                    MIPushAckDispatcher.sendAppNotInstallNotification(pushAction, container)
+                }
+                pushAction.runtimeObserver.onNotificationEvent(
+                    container.packageName,
+                    "app_absent_ack_instead_of_normal_ack",
+                    "MIPushEventProcessor.maybeAckInboundSendMessage",
+                )
+                return
+            }
             val metaInfo = container.metaInfo
             metaInfo.putToExtra(PushConstants.MESSAGE_RECEIVE_TIME, System.currentTimeMillis().toString())
             MIPushAckDispatcher.sendAckMessage(pushAction, container)
+        }
+
+        private fun isTargetPackageMissing(context: Context, container: XmPushActionContainer): Boolean {
+            val packageName = MIPushNotificationHelper.getTargetPackage(container)
+            if (packageName.isNullOrBlank()) return false
+            if (packageName == context.packageName) return false
+            if (packageName == PushConstants.PUSH_SERVICE_PACKAGE_NAME) return false
+            return try {
+                context.packageManager.getPackageInfo(packageName, 0)
+                false
+            } catch (_: PackageManager.NameNotFoundException) {
+                true
+            }
         }
 
         private fun isHybridMessage(container: XmPushActionContainer): Boolean {

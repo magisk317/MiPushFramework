@@ -57,8 +57,14 @@ object Utils {
 
     @JvmStatic
     fun isAppInstalled(packageName: String): Boolean {
+        val app = context ?: return false
+        return isAppInstalled(app, packageName)
+    }
+
+    @JvmStatic
+    fun isAppInstalled(context: Context, packageName: String): Boolean {
         return try {
-            getPackageInfoCompat(context!!, packageName, 0) != null
+            getPackageInfoCompat(context, packageName, 0) != null
         } catch (e: PackageManager.NameNotFoundException) {
             false
         }
@@ -215,6 +221,17 @@ object Utils {
     }
 
     @JvmStatic
+    fun removeRegSec(pkgName: String) {
+        val app = getApplication() ?: return
+        for (prefName in REG_SEC_PREFS) {
+            app.getSharedPreferences(prefName, 0)
+                ?.edit()
+                ?.remove(pkgName)
+                ?.commit()
+        }
+    }
+
+    @JvmStatic
     fun getLastReceiveTime(packageName: String): Long? {
         val secSp = getApplication()?.getSharedPreferences("last_receive_time", 0)
         if (secSp?.contains(packageName) == false) {
@@ -229,5 +246,11 @@ object Utils {
         val secEditor = secSp?.edit()
         secEditor?.putLong(pkgName, time)
         secEditor?.commit()
+    }
+
+    @JvmStatic
+    fun removeLastReceiveTime(pkgName: String) {
+        val secSp = getApplication()?.getSharedPreferences("last_receive_time", 0)
+        secSp?.edit()?.remove(pkgName)?.commit()
     }
 }

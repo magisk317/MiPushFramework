@@ -13,6 +13,7 @@ import io.github.magisk317.mipush.push.hook.HookTraceCompat
 import io.github.magisk317.mipush.push.pipeline.MessageIdentity
 import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
 import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry
+import io.github.magisk317.mipush.push.pipeline.StalePackagePushGuard
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import com.xiaomi.channel.commonutils.android.AppInfoUtils
@@ -81,6 +82,13 @@ class MyMIPushNotificationHelper {
                     "messageId=$messageId payloadSize=${decryptedContent.size} mockReplay=$isMockReplay " +
                     "moduleEnhanced=${io.github.magisk317.mipush.notification.NotificationManagerEx.isHooked}"
             )
+            if (StalePackagePushGuard.shouldDropNotification(context, container, "MyMIPushNotificationHelper.notifyPushMessage")) {
+                logger.i(
+                    "skip absent package notification pkg=${container.packageName} action=${container.action} " +
+                        "messageId=$messageId"
+                )
+                return
+            }
             if (!shouldPublishNotification(container)) {
                 dispatchNonDisplayPayloadToApplication(context, container, decryptedContent, messageId)
                 logger.i("skip non-display notification publish action=${container.action} pkg=${container.packageName}")
