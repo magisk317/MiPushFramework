@@ -72,6 +72,14 @@ allprojects {
             force("org.bouncycastle:bcprov-jdk18on:1.84")
             force("org.jdom:jdom2:2.0.6.1")
             // END AUTO FORCED DEPENDENCIES (managed by workflow)
+
+            // Custom migration overrides for Java 26 compatibility
+            force("org.jetbrains.kotlin:kotlin-metadata-jvm:${libs.versions.kotlin.get()}")
+            force("org.ow2.asm:asm:9.10")
+            force("org.ow2.asm:asm-commons:9.10")
+            force("org.ow2.asm:asm-tree:9.10")
+            force("org.ow2.asm:asm-analysis:9.10")
+            force("org.ow2.asm:asm-util:9.10")
         }
     }
 

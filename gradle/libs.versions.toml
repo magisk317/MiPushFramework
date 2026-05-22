@@ -3,7 +3,7 @@
 compileSdk = "37"
 minSdk = "28"
 targetSdk = "37"
-java = "25"
+java = "26"
 
 # App version
 versionCode = "7"
@@ -12,7 +12,7 @@ pushVersionCode = "1003003000"
 
 agp = "9.3.0-alpha07"
 compose-bom = "2026.05.01"
-kotlin = "2.3.21"
+kotlin = "2.4.0-RC"
 ksp = "2.3.8"
 lifecycle = "2.10.0"
 navigation = "2.9.8"
