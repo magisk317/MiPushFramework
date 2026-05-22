@@ -50,6 +50,7 @@ class MyMIPushNotificationHelper {
     companion object {
         private const val TAG = "MyNotificationHelper"
         private val logger = object {
+            fun d(msg: String) = Napier.d(msg, tag = TAG)
             fun i(msg: String) = Napier.i(msg, tag = TAG)
             fun w(msg: String) = Napier.w(msg, tag = TAG)
             fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
@@ -70,7 +71,7 @@ class MyMIPushNotificationHelper {
         @JvmStatic
         fun markNotificationSessionStarted(source: String, nowMs: Long = System.currentTimeMillis()) {
             notificationSessionStartedAtMs = nowMs
-            logger.i("notification session started at=$nowMs source=$source")
+            logger.d("notification session started at=$nowMs source=$source")
         }
 
         @JvmStatic
@@ -78,7 +79,7 @@ class MyMIPushNotificationHelper {
             val container = XMPushUtils.packToContainer(decryptedContent) ?: return
             val messageId = MessageIdentity.fromContainer(container)
             val isMockReplay = MockMessageRegistry.isMarked(container)
-            logger.i(
+            logger.d(
                 "notifyPushMessage start pkg=${container.packageName} action=${container.action} " +
                     "messageId=$messageId payloadSize=${decryptedContent.size} mockReplay=$isMockReplay " +
                     "moduleEnhanced=${io.github.magisk317.mipush.notification.NotificationManagerEx.isHooked}"
@@ -92,7 +93,7 @@ class MyMIPushNotificationHelper {
             }
             if (!shouldPublishNotification(container)) {
                 dispatchNonDisplayPayloadToApplication(context, container, decryptedContent, messageId)
-                logger.i("skip non-display notification publish action=${container.action} pkg=${container.packageName}")
+                logger.d("skip non-display notification publish action=${container.action} pkg=${container.packageName}")
                 return
             }
             if (RegisteredApplicationDb.isBlocked(container.packageName)) {
@@ -116,7 +117,7 @@ class MyMIPushNotificationHelper {
             }
             HookTraceCompat.notifyPushMessage(container, decryptedContent)
             if (!MiPushRuntimeBridge.onNotificationDispatch(context, container, decryptedContent)) {
-                logger.i(
+                logger.d(
                     "skip duplicate notification publish action=${container.action} pkg=${container.packageName} " +
                         "messageId=$messageId mockReplay=$isMockReplay"
                 )
@@ -148,7 +149,7 @@ class MyMIPushNotificationHelper {
             try {
                 val messageId = MessageIdentity.fromContainer(container)
                 val operations = Configurations.getInstance().handle(packageName, container)
-                logger.i(
+                logger.d(
                     "handleNotificationByConfigurations pkg=$packageName action=${container.action} " +
                         "messageId=$messageId operations=$operations"
                 )
@@ -168,7 +169,7 @@ class MyMIPushNotificationHelper {
                     )
                     executorService.execute {
                         try {
-                            logger.i(
+                            logger.d(
                                 "policy_notify dispatch start pkg=$packageName action=${container.action} " +
                                     "messageId=$messageId"
                             )
@@ -259,7 +260,7 @@ class MyMIPushNotificationHelper {
             }
             val action = container.action?.name ?: "Unknown"
             if (!claimNonDisplayDispatch(packageName, action, messageId)) {
-                logger.i("skip duplicate non-display payload dispatch pkg=$packageName action=$action messageId=$messageId")
+                logger.d("skip duplicate non-display payload dispatch pkg=$packageName action=$action messageId=$messageId")
                 return
             }
             HookTraceCompat.notifyPushMessage(container, decryptedContent)
@@ -348,7 +349,6 @@ class MyMIPushNotificationHelper {
                 logger.w("doNotifyPushMessage: metaInfo is null, skip notification pkg=${container.packageName} messageId=$messageId")
                 return
             }
-            logger.i("title:${metaInfo.title}  description:${metaInfo.description}")
             val notificationId = getNotificationId(container)
             if (VoipNotificationHelper.shouldDropStale(metaInfo, container.packageName)) {
                 logger.i("skip stale voip notification pkg=${container.packageName} messageId=$messageId")
@@ -379,7 +379,7 @@ class MyMIPushNotificationHelper {
                 return
             }
             val result = getNotificationFor(context, container, decryptedContent, notificationId)
-            logger.i(
+            logger.d(
                 "doNotifyPushMessage publish start pkg=${container.packageName} action=${container.action} " +
                     "messageId=$messageId notificationId=${result.notificationId}"
             )

@@ -6,8 +6,6 @@ import android.app.NotificationChannelGroup
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.service.notification.StatusBarNotification
 import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.push.service.NotificationUtils
@@ -26,8 +24,6 @@ object NotificationManagerEx {
         fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
     }
     private val diagnosticsLogged = Collections.synchronizedSet(mutableSetOf<String>())
-    private val snapshotHandler by lazy { Handler(Looper.getMainLooper()) }
-    private val snapshotDelaysMs = longArrayOf(0L, 300L, 1500L, 3000L)
 
     private lateinit var appContext: Context
     private lateinit var notificationManager: NotificationManager
@@ -122,15 +118,6 @@ object NotificationManagerEx {
             if (!MIUIUtils.isXMS() && MIUIUtils.isXMSF(appContext)) {
                 NotificationUtils.setTargetPackage(notification, packageName)
             }
-            val extrasTarget = notification.extras?.getString("target_package")
-            val extrasXmsfTarget = notification.extras?.getString("xmsf_target_package")
-            val extrasMiuiTarget = notification.extras?.getString("miui.targetPkg")
-            val observedTarget = NotificationUtils.getTargetPackage(notification)
-            logger.d(
-                "markLocalTargetPackage pkg=$packageName extrasTarget=$extrasTarget " +
-                    "extrasXmsfTarget=$extrasXmsfTarget extrasMiuiTarget=$extrasMiuiTarget " +
-                    "observedTarget=$observedTarget moduleEnhanced=${isModuleEnhancedModeActive(packageName)}"
-            )
         }.onFailure {
             logger.e("Failed to mark local target package for $packageName", it)
         }
@@ -282,48 +269,13 @@ object NotificationManagerEx {
                     isHooked || NotificationIdentityBridge.getTargetNotificationChannel(appContext, packageName, channelId) != null
                 NotificationIdentityBridge.Strategy.UNSUPPORTED -> compatAttempt
             }
-            logger.d(
-                "shouldNotifyAsPackage() packageName=$packageName channelId=$channelId " +
-                    "strategy=$strategy compatAttempt=$compatAttempt visible=$visible sdk=${Build.VERSION.SDK_INT}"
-            )
             if (!visible) {
                 maybeLogDiagnosticsOnce("identity-precheck-failed", packageName, channelId, notification.group)
             }
             return visible
         }
         val packageChannelVisible = getDirectPackageNotificationChannel(packageName, channelId) != null
-        logger.d(
-            "shouldNotifyAsPackage() packageName=$packageName channelId=$channelId " +
-                "visible=$packageChannelVisible sdk=${Build.VERSION.SDK_INT}"
-        )
         return packageChannelVisible
-    }
-
-    private fun logPostedSnapshot(
-        mode: String,
-        packageName: String,
-        tag: String?,
-        id: Int
-    ) {
-        if (!::appContext.isInitialized || !shouldUseModernIdentityStrategy(packageName)) {
-            return
-        }
-        snapshotDelaysMs.forEach { delayMs ->
-            snapshotHandler.postDelayed({
-                runCatching {
-                    val snapshot = NotificationIdentityBridge.dumpPostedNotificationSnapshot(appContext, packageName, tag, id)
-                    logger.d(
-                        "posted-notification-snapshot mode=$mode delayMs=$delayMs " +
-                            "pkg=$packageName tag=$tag id=$id $snapshot"
-                    )
-                }.onFailure {
-                    logger.e(
-                        "Failed to dump posted notification snapshot for $packageName/$id delayMs=$delayMs",
-                        it
-                    )
-                }
-            }, delayMs)
-        }
     }
 
     fun notify(
@@ -331,29 +283,15 @@ object NotificationManagerEx {
         tag: String?, id: Int, notification: Notification
     ) {
         // Fully replaced by HookPushNC when the Xposed module is active.
-        logger.d("notify() called with: packageName = $packageName, tag = $tag, id = $id, notification = $notification")
-        if (isModuleEnhancedModeActive(packageName)) {
-            logger.d("notify() module-enhanced mode active pkg=$packageName tag=$tag id=$id")
-        }
         markLocalTargetPackage(packageName, notification)
         if (shouldUseModernIdentityStrategy(packageName)) {
             if (shouldNotifyAsPackage(packageName, notification)) {
                 if (NotificationIdentityBridge.notifyAsTargetPackage(appContext, packageName, tag, id, notification)) {
-                    logger.d(
-                        "notify() posted via target identity pkg=$packageName tag=$tag id=$id " +
-                            "channel=${notification.channelId} group=${notification.group}"
-                    )
-                    logPostedSnapshot("target", packageName, tag, id)
                     return
                 }
                 maybeLogDiagnosticsOnce("identity-notify-fallback", packageName, notification.channelId, notification.group)
             }
             notificationManager.notify(tag, id, notification)
-            logger.d(
-                "notify() posted locally after identity fallback pkg=$packageName tag=$tag id=$id " +
-                    "channel=${notification.channelId} group=${notification.group}"
-            )
-            logPostedSnapshot("local", packageName, tag, id)
             return
         }
         if (shouldNotifyAsPackage(packageName, notification)) {
@@ -366,20 +304,12 @@ object NotificationManagerEx {
                     Notification::class.java
                 )
                 method.invoke(notificationManager, packageName, tag, id, notification)
-                logger.d(
-                    "notify() posted via notifyAsPackage pkg=$packageName tag=$tag id=$id " +
-                        "channel=${notification.channelId} group=${notification.group}"
-                )
                 return
             } catch (e: Exception) {
                 logger.e("Failed to invoke notifyAsPackage", e)
             }
         }
         notificationManager.notify(tag, id, notification)
-        logger.d(
-            "notify() posted locally pkg=$packageName tag=$tag id=$id " +
-                "channel=${notification.channelId} group=${notification.group}"
-        )
     }
 
     fun cancel(

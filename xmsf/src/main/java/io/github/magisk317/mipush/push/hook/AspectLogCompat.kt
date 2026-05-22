@@ -3,14 +3,12 @@ package io.github.magisk317.mipush.push.hook
 import android.content.Intent
 import android.os.SystemClock
 import io.github.aakira.napier.Napier
-import io.github.aakira.napier.DebugAntilog
 import com.xiaomi.network.Fallback
 import com.xiaomi.push.service.XMPushService
 import com.xiaomi.smack.packet.Packet
 import com.xiaomi.slim.Blob
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import com.xiaomi.xmsf.BuildConfig
 import io.github.magisk317.mipush.utils.ConvertUtils
 import io.github.magisk317.mipush.platform.support.Global
 import kotlinx.coroutines.runBlocking
@@ -21,12 +19,11 @@ internal object AspectLogCompat {
     }
     private val indentLevel = ThreadLocal.withInitial { 0 }
     @Volatile
-    private var cachedEnabled = BuildConfig.DEBUG
+    private var cachedEnabled = false
     @Volatile
     private var lastRefreshAt = 0L
 
     private fun enabled(): Boolean {
-        if (BuildConfig.DEBUG) return true
         val now = SystemClock.elapsedRealtime()
         if (now - lastRefreshAt < 3000) return cachedEnabled
         cachedEnabled = runCatching { runBlocking { Global.configCenter().isDebugModeAsync() } }

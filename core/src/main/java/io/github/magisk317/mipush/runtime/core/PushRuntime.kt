@@ -445,10 +445,12 @@ object PushRuntime {
                 ackMessageCount += 1
             }
             updateLastObservationLocked(packageName, action)
-            logger.d(
-                "observeInboundMessage pkg=$packageName action=$action source=$source " +
-                    "messageId=$messageId duplicated=$duplicated ack=$isAck"
-            )
+            if (duplicated) {
+                logger.d(
+                    "drop duplicate inbound message pkg=$packageName action=$action source=$source " +
+                        "messageId=$messageId ack=$isAck"
+                )
+            }
             return !duplicated
         }
     }
@@ -466,7 +468,6 @@ object PushRuntime {
             updateLastObservationLocked(packageName, action)
             markMessageIdentityLocked(packageName, action, messageId, nowMs)
         }
-        logger.d("observeTransferToApplication pkg=$packageName action=$action source=$source")
     }
 
     @JvmStatic
@@ -479,7 +480,6 @@ object PushRuntime {
             notificationEventCount += 1
             updateLastObservationLocked(packageName, action)
         }
-        logger.d("observeNotificationEvent pkg=$packageName action=$action source=$source")
     }
 
     @JvmStatic
@@ -492,7 +492,6 @@ object PushRuntime {
             channelEventCount += 1
             updateLastObservationLocked(packageName, action)
         }
-        logger.d("observeChannelEvent pkg=$packageName action=$action source=$source")
     }
 
     @JvmStatic
@@ -515,7 +514,6 @@ object PushRuntime {
             connectionRecord = record
             updateLastObservationLocked(lastPackageName, "connection:${state.name}")
         }
-        logger.d("observeConnectionState state=$state source=$source host=$host reason=$reason")
         return record
     }
 
@@ -603,7 +601,6 @@ object PushRuntime {
             accountEventCount += 1
             updateLastObservationLocked(lastPackageName, action)
         }
-        logger.d("observeAccountEvent action=$action source=$source")
     }
 
     @JvmStatic
@@ -701,7 +698,6 @@ object PushRuntime {
             lastRegistrationState = state
             updateLastObservationLocked(packageName, "registration:${state.name}")
         }
-        logger.d("updateRegistrationRecord pkg=$packageName state=$state source=$source reason=$reason")
         return record
     }
 
