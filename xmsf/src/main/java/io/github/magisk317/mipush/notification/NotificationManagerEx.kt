@@ -339,12 +339,20 @@ object NotificationManagerEx {
         if (shouldUseModernIdentityStrategy(packageName)) {
             if (shouldNotifyAsPackage(packageName, notification)) {
                 if (NotificationIdentityBridge.notifyAsTargetPackage(appContext, packageName, tag, id, notification)) {
+                    logger.d(
+                        "notify() posted via target identity pkg=$packageName tag=$tag id=$id " +
+                            "channel=${notification.channelId} group=${notification.group}"
+                    )
                     logPostedSnapshot("target", packageName, tag, id)
                     return
                 }
                 maybeLogDiagnosticsOnce("identity-notify-fallback", packageName, notification.channelId, notification.group)
             }
             notificationManager.notify(tag, id, notification)
+            logger.d(
+                "notify() posted locally after identity fallback pkg=$packageName tag=$tag id=$id " +
+                    "channel=${notification.channelId} group=${notification.group}"
+            )
             logPostedSnapshot("local", packageName, tag, id)
             return
         }
@@ -358,12 +366,20 @@ object NotificationManagerEx {
                     Notification::class.java
                 )
                 method.invoke(notificationManager, packageName, tag, id, notification)
+                logger.d(
+                    "notify() posted via notifyAsPackage pkg=$packageName tag=$tag id=$id " +
+                        "channel=${notification.channelId} group=${notification.group}"
+                )
                 return
             } catch (e: Exception) {
                 logger.e("Failed to invoke notifyAsPackage", e)
             }
         }
         notificationManager.notify(tag, id, notification)
+        logger.d(
+            "notify() posted locally pkg=$packageName tag=$tag id=$id " +
+                "channel=${notification.channelId} group=${notification.group}"
+        )
     }
 
     fun cancel(
@@ -374,12 +390,15 @@ object NotificationManagerEx {
         logger.d("cancel() called with: packageName = $packageName, tag = $tag, id = $id")
         if (shouldUseModernIdentityStrategy(packageName)) {
             if (NotificationIdentityBridge.cancelAsTargetPackage(appContext, packageName, tag, id)) {
+                logger.d("cancel() completed via target identity pkg=$packageName tag=$tag id=$id")
                 return
             }
             maybeLogDiagnosticsOnce("identity-cancel-fallback", packageName, null, null)
             notificationManager.cancel(tag, id)
+            logger.d("cancel() completed locally after identity fallback pkg=$packageName tag=$tag id=$id")
             return
         }
+        var targetCancelSucceeded = false
         if (canUseLegacyPackageScopedApis() || Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
             try {
                 val method = NotificationManager::class.java.getMethod(
@@ -389,11 +408,16 @@ object NotificationManagerEx {
                     Int::class.javaPrimitiveType
                 )
                 method.invoke(notificationManager, packageName, tag, id)
+                targetCancelSucceeded = true
             } catch (e: Exception) {
                 logger.e("Failed to invoke cancelAsPackage", e)
             }
         }
         notificationManager.cancel(tag, id)
+        logger.d(
+            "cancel() completed locally pkg=$packageName tag=$tag id=$id " +
+                "targetCancelSucceeded=$targetCancelSucceeded"
+        )
     }
 
     fun createNotificationChannels(
