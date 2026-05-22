@@ -97,7 +97,7 @@ class PackageConfig(private val configurations: Configurations) {
             val cfgKeys = cfgMatch.keys()
             while (cfgKeys.hasNext()) {
                 val cfgKey = cfgKeys.next()
-                val field = data.javaClass.getDeclaredField(cfgKey)
+                val field = data.javaClass.declaredFields.firstOrNull { it.name == cfgKey } ?: return null
                 val newPath = concat(path, arrayOf(cfgKey))
                 val value = Singleton.instance<io.github.magisk317.mipush.common.configurations.ConfigValueConverter>().convert(root, newPath, field.get(data))
 

@@ -119,6 +119,40 @@ class ConfigurationRuntimeContractTest {
         assertEquals("Global", container.metaInfo.title)
     }
 
+    @Test
+    fun `runtime config missing match field behaves as non match and keeps evaluating later rules`() {
+        val configurations = Configurations(ConfigurationsLoader())
+        configurations.load(
+            """
+            {
+              "version": "1",
+              "configs": {
+                "com.example.app": [
+                  {
+                    "match": { "metaInfo": { "__missing_runtime_contract_field__": ".*" } },
+                    "replace": { "metaInfo": { "title": "Unexpected" } },
+                    "operation": "open",
+                    "stop": true
+                  },
+                  {
+                    "match": { "metaInfo": { "title": "^Legacy (?<name>.+)$" } },
+                    "replace": { "metaInfo": { "title": "Configured ${'$'}{name}" } },
+                    "operation": "notify",
+                    "stop": true
+                  }
+                ]
+              }
+            }
+            """.trimIndent(),
+        )
+        val container = notificationContainer()
+
+        val operations = configurations.handle("com.example.app", container)
+
+        assertEquals(setOf(PackageConfig.OPERATION_NOTIFY), operations)
+        assertEquals("Configured Alice", container.metaInfo.title)
+    }
+
     private fun notificationContainer(): XmPushActionContainer {
         return XmPushActionContainer().apply {
             action = ActionType.SendMessage
