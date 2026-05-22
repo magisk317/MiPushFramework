@@ -42,12 +42,12 @@ object MIPushAckDispatcher {
     }
 
     @JvmStatic
-    fun sendAppNotInstallNotification(pushAction: IPushServiceAction, container: XmPushActionContainer) {
+    fun sendAppNotInstallNotification(pushAction: IPushServiceAction, container: XmPushActionContainer, targetPackage: String) {
         enqueue(pushAction, "send app absent message.") {
             MIPushHelper.sendPacket(
                 pushAction,
                 pushAction.context,
-                MIPushHelper.contructAppAbsentMessage(container.packageName, container.appid),
+                MIPushHelper.contructAppAbsentMessage(targetPackage, container.appid),
             )
         }
     }

@@ -146,12 +146,13 @@ class MIPushEventProcessor {
             if (!container.isEncryptAction || isHybridMessage(container)) {
                 return
             }
-            if (isTargetPackageMissing(pushAction.context, container)) {
-                if (!container.packageName.isNullOrBlank() && !container.appid.isNullOrBlank()) {
-                    MIPushAckDispatcher.sendAppNotInstallNotification(pushAction, container)
+            val missingTargetPackage = resolveMissingTargetPackage(pushAction.context, container)
+            if (missingTargetPackage != null) {
+                if (!container.appid.isNullOrBlank()) {
+                    MIPushAckDispatcher.sendAppNotInstallNotification(pushAction, container, missingTargetPackage)
                 }
                 pushAction.runtimeObserver.onNotificationEvent(
-                    container.packageName,
+                    missingTargetPackage,
                     "app_absent_ack_instead_of_normal_ack",
                     "MIPushEventProcessor.maybeAckInboundSendMessage",
                 )
@@ -162,16 +163,20 @@ class MIPushEventProcessor {
             MIPushAckDispatcher.sendAckMessage(pushAction, container)
         }
 
-        private fun isTargetPackageMissing(context: Context, container: XmPushActionContainer): Boolean {
+        @JvmStatic
+        fun resolveMissingTargetPackage(context: Context, container: XmPushActionContainer): String? {
             val packageName = MIPushNotificationHelper.getTargetPackage(container)
-            if (packageName.isNullOrBlank()) return false
-            if (packageName == context.packageName) return false
-            if (packageName == PushConstants.PUSH_SERVICE_PACKAGE_NAME) return false
+            if (packageName.isNullOrBlank()) return null
+            if (packageName == context.packageName) return null
+            if (packageName == PushConstants.PUSH_SERVICE_PACKAGE_NAME) return null
             return try {
                 context.packageManager.getPackageInfo(packageName, 0)
-                false
+                null
             } catch (_: PackageManager.NameNotFoundException) {
-                true
+                packageName
+            } catch (t: RuntimeException) {
+                MyLog.w("resolve target package failed: ${t.message}")
+                null
             }
         }
 
