@@ -93,8 +93,22 @@ object LogUtils {
     }
 
     fun setRetentionDays(days: Int) {
-        retentionDays = days.coerceAtLeast(MIN_RETENTION_DAYS)
-        appContext?.let { pruneExpiredRuntimeLogs(LogBundleExporter.getLogDir(it), Date()) }
+        val logDir = appContext?.let { LogBundleExporter.getLogDir(it) }
+        updateRetentionDays(days, logDir)
+    }
+
+    internal fun setRetentionDays(context: Context, days: Int) {
+        val resolved = context.applicationContext ?: context
+        appContext = resolved
+        updateRetentionDays(days, LogBundleExporter.getLogDir(resolved))
+    }
+
+    internal fun resetForTest() {
+        synchronized(writeLock) {
+            appContext = null
+            retentionDays = DEFAULT_RETENTION_DAYS
+        }
+        Napier.takeLogarithm()
     }
 
     private class FileAntilog(private val context: Context) : Antilog() {
@@ -278,7 +292,9 @@ object LogUtils {
         return SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(date)
     }
 
-    internal fun currentDateString(now: Date = Date()): String = dailyDateFormat.format(now)
+    internal fun currentDateString(now: Date = Date()): String = synchronized(dailyDateFormat) {
+        dailyDateFormat.format(now)
+    }
 
     internal fun pruneAppLogsForToday(logDir: File, now: Date = Date()) {
         pruneExpiredRuntimeLogs(logDir, now)
@@ -358,8 +374,17 @@ object LogUtils {
     private fun dailyLogDateStartMs(name: String): Long? {
         val date = dailyLogDate(name) ?: return null
         return runCatching {
-            dailyDateFormat.parse(date)?.time
+            synchronized(dailyDateFormat) {
+                dailyDateFormat.parse(date)?.time
+            }
         }.getOrNull()
+    }
+
+    private fun updateRetentionDays(days: Int, logDir: File?) {
+        synchronized(writeLock) {
+            retentionDays = days.coerceAtLeast(MIN_RETENTION_DAYS)
+            logDir?.let { pruneExpiredRuntimeLogs(it, Date()) }
+        }
     }
 
     private fun writeLineToFile(file: File, line: String) {

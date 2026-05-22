@@ -26,13 +26,15 @@ class LogUtilsRobolectricTest {
     @BeforeEach
     fun setUp() {
         context = RuntimeEnvironment.getApplication()
+        LogUtils.resetForTest()
         LogBundleExporter.clearLogFolders(context)
         LogUtils.init(context)
-        LogUtils.setRetentionDays(7)
+        LogUtils.setRetentionDays(context, 7)
     }
 
     @AfterEach
     fun tearDown() {
+        LogUtils.resetForTest()
         LogBundleExporter.resetRootCommandAccessForTest()
         LogBundleExporter.clearLogFolders(context)
     }
@@ -137,7 +139,7 @@ class LogUtilsRobolectricTest {
             writeText("""{"timestamp":946684800000,"message":"old"}""")
         }
 
-        LogUtils.setRetentionDays(1)
+        LogUtils.setRetentionDays(context, 1)
 
         assertFalse(oldFile.exists())
     }
