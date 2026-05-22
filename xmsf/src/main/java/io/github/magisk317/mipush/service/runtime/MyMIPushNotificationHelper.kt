@@ -26,6 +26,7 @@ import com.xiaomi.push.service.MIPushNotificationHelper
 import com.xiaomi.push.service.PushConstants
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.notification.NotificationController
+import io.github.magisk317.mipush.notification.LiveUpdateDetector
 import io.github.magisk317.mipush.notification.NotificationSortFilter
 import io.github.magisk317.mipush.notification.VoipNotificationHelper
 import io.github.magisk317.mipush.utils.Configurations
@@ -459,19 +460,31 @@ class MyMIPushNotificationHelper {
 
         @JvmStatic
         fun getNotificationId(container: XmPushActionContainer): Int {
-            val metaInfo = container.metaInfo
-            val baseId = if (metaInfo.isSetNotifyId()) metaInfo.notifyId.toString() else metaInfo.id
+            val packageName = MIPushNotificationHelper.getTargetPackage(container)
+            val metaInfo = container.metaInfo ?: return "${packageName}_0".hashCode()
             val messageId = MessageIdentity.fromContainer(container)
-            // Keep server-provided notifyId semantics for clear/cancel compatibility.
-            // Only fall back to message identity when notifyId is not provided.
             val id = when {
-                metaInfo.isSetNotifyId() -> metaInfo.notifyId.toString()
+                shouldUseStableNotifyId(container) -> metaInfo.notifyId.toString()
                 !messageId.isNullOrEmpty() -> messageId
-                !baseId.isNullOrEmpty() -> baseId
+                !metaInfo.id.isNullOrEmpty() -> metaInfo.id
+                metaInfo.isSetNotifyId() -> metaInfo.notifyId.toString()
                 else -> "0"
             }
-            val idWithPackage = MIPushNotificationHelper.getTargetPackage(container) + "_" + id
-            return idWithPackage.hashCode()
+            return "${packageName}_$id".hashCode()
+        }
+
+        private fun shouldUseStableNotifyId(container: XmPushActionContainer): Boolean {
+            val metaInfo = container.metaInfo ?: return false
+            if (!metaInfo.isSetNotifyId()) {
+                return false
+            }
+            if (VoipNotificationHelper.isVoipNotification(metaInfo) || VoipNotificationHelper.isVoipEndEvent(metaInfo)) {
+                return true
+            }
+            if (XMPushUtils.getConfiguration(metaInfo).focusParam(null) != null) {
+                return true
+            }
+            return LiveUpdateDetector.isPotentialLiveUpdate(metaInfo)
         }
 
         @JvmStatic

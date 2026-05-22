@@ -5,6 +5,7 @@ import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -97,18 +98,13 @@ class MyMIPushNotificationHelperTest {
     }
 
     @Test
-    fun `getNotificationId keeps notifyId semantics when notifyId exists`() {
-        val container = XmPushActionContainer().apply {
-            packageName = "com.example.app"
-            metaInfo = PushMetaInfo().apply {
-                id = "meta-id"
-                setNotifyId(42)
-                putToExtra(PushConstants.EXTRA_JOB_KEY, "job-123")
-            }
-        }
+    fun `getNotificationId uses message identity for regular notifications even when notifyId repeats`() {
+        val first = notificationContainer("job-123")
+        val second = notificationContainer("job-456")
 
-        val expected = "com.example.app_42".hashCode()
-        assertEquals(expected, MyMIPushNotificationHelper.getNotificationId(container))
+        assertEquals("com.ruanmei.ithome_job-123".hashCode(), MyMIPushNotificationHelper.getNotificationId(first))
+        assertEquals("com.ruanmei.ithome_job-456".hashCode(), MyMIPushNotificationHelper.getNotificationId(second))
+        assertNotEquals(MyMIPushNotificationHelper.getNotificationId(first), MyMIPushNotificationHelper.getNotificationId(second))
     }
 
     @Test
@@ -123,5 +119,39 @@ class MyMIPushNotificationHelperTest {
 
         val expected = "com.example.app_job-123".hashCode()
         assertEquals(expected, MyMIPushNotificationHelper.getNotificationId(container))
+    }
+
+    @Test
+    fun `getNotificationId keeps notifyId for update style notifications`() {
+        val voip = notificationContainer("job-voip").apply {
+            metaInfo.putToExtra("msg_busi_type", "voip")
+            metaInfo.putToExtra("voip_type", "1")
+        }
+        val focus = notificationContainer("job-focus").apply {
+            metaInfo.putToExtra("miui.focus.param", """{"updatable":true,"reopen":"close"}""")
+        }
+        val liveUpdate = notificationContainer("job-live").apply {
+            metaInfo.title = "外卖配送"
+            metaInfo.description = "骑手正在配送中，预计5分钟送达"
+        }
+
+        val expected = "com.ruanmei.ithome_42".hashCode()
+        assertEquals(expected, MyMIPushNotificationHelper.getNotificationId(voip))
+        assertEquals(expected, MyMIPushNotificationHelper.getNotificationId(focus))
+        assertEquals(expected, MyMIPushNotificationHelper.getNotificationId(liveUpdate))
+    }
+
+    private fun notificationContainer(jobKey: String): XmPushActionContainer {
+        return XmPushActionContainer().apply {
+            packageName = "com.ruanmei.ithome"
+            action = ActionType.SendMessage
+            metaInfo = PushMetaInfo().apply {
+                id = "meta-$jobKey"
+                title = "新闻标题"
+                description = "新闻内容"
+                setNotifyId(42)
+                putToExtra(PushConstants.EXTRA_JOB_KEY, jobKey)
+            }
+        }
     }
 }
