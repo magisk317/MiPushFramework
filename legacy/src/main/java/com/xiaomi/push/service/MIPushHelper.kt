@@ -116,6 +116,11 @@ object MIPushHelper {
                         PushClientsManager.ClientStatus.binded -> {
                             val action = clientLoginInfo.getPushAction()
                             if (action != null) {
+                                MIPushAppAbsentManager.flushPending(
+                                    action,
+                                    context,
+                                    "MIPushHelper.prepareClientLoginInfo:binded"
+                                )
                                 MIPushClientManager.processPendingRegistrationRequest(action, context)
                                 MIPushClientManager.processPendingMessages(action, context)
                             }

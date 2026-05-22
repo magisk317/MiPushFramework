@@ -10,7 +10,6 @@ import com.xiaomi.clientreport.data.Config
 import com.xiaomi.clientreport.util.ClientReportUtil
 import com.xiaomi.push.service.clientReport.PushClientReportHelper
 import com.xiaomi.smack.ConnectionConfiguration
-import com.xiaomi.smack.XMPPException
 import com.xiaomi.tinyData.TinyDataManager
 import com.xiaomi.xmpush.thrift.ClientUploadDataItem
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
@@ -93,26 +92,16 @@ class XMPushServiceAppIntentDelegate(
             MyLog.w("close the miliao channel as the app is uninstalled.")
             return
         }
-        val sharedPreferences = service.getSharedPreferences(PushServiceConstants.PREF_KEY_REGISTERED_PKGS, 0)
-        val appId = sharedPreferences.getString(packageName, null)
+        val appId = MIPushAppAbsentManager.getRememberedAppId(service, packageName)
         if (appId.isNullOrEmpty() || !removed) {
             return
         }
-        sharedPreferences.edit().remove(packageName).commit()
+        MIPushAppAbsentManager.forgetRegisteredPackage(service, packageName)
         if (MIPushNotificationHelper.hasLocalNotifyType(service, packageName)) {
             MIPushNotificationHelper.clearLocalNotifyType(service, packageName)
         }
         MIPushNotificationHelper.clearNotification(service, packageName)
-        if (!service.isConnected) {
-            return
-        }
-        try {
-            MIPushHelper.sendPacket(service, MIPushHelper.contructAppAbsentMessage(packageName, appId))
-            MyLog.w("uninstall $packageName msg sent")
-        } catch (e: XMPPException) {
-            MyLog.e("Fail to send Message: ${e.message}")
-            service.disconnect(10, e)
-        }
+        MIPushAppAbsentManager.sendOrQueue(service, service, packageName, appId, "XMPushService.handleUninstall")
     }
 
     fun handlePackageDataCleared(intent: Intent) {

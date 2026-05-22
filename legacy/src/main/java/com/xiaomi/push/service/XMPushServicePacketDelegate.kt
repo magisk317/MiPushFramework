@@ -105,6 +105,7 @@ internal class XMPushServicePacketDelegate(
                 val registration = XmPushActionRegistration()
                 try {
                     XmPushThriftSerializeUtils.convertByteArrayToThriftObject(registration, container.getPushAction())
+                    MIPushAppAbsentManager.rememberRegisteredPackage(service, container.packageName, registration.appId)
                     service.runtimeObserver.cacheRegistrationRequest(container.packageName, payload)
                     service.runtimeObserver.onRegistrationStateChanged(
                         container.packageName,
