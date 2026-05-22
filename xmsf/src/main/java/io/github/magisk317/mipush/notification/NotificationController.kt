@@ -126,21 +126,24 @@ object NotificationController {
     @JvmStatic
     fun getExistsChannelId(context: Context, metaInfo: PushMetaInfo, packageName: String): String {
         val custom = XMPushUtils.getConfiguration(metaInfo)
-        val preferredBorrowed = custom.borrowChannelId(null)
-        val borrowedChannel = getNotificationManagerEx().findPreferredTargetChannel(packageName, preferredBorrowed)
-        if (borrowedChannel != null) {
-            if (borrowedChannel.id != preferredBorrowed) {
-                logger.d("getExistsChannelId() auto-borrow channel pkg=$packageName channel=${borrowedChannel.id}")
+        val preferredBorrowed = custom.borrowChannelId(null)?.takeIf { it.isNotBlank() }
+        if (preferredBorrowed != null) {
+            val borrowedChannel = getNotificationManagerEx().findPreferredTargetChannel(packageName, preferredBorrowed)
+            if (borrowedChannel != null) {
+                logger.d("getExistsChannelId() explicit borrow channel pkg=$packageName channel=${borrowedChannel.id}")
+                return borrowedChannel.id
             }
-            return borrowedChannel.id
+            logger.d("getExistsChannelId() requested borrow channel unavailable pkg=$packageName channel=$preferredBorrowed")
         }
         val fallbackChannelId = NotificationChannelManager.getChannelId(metaInfo, packageName)
-        if (getNotificationManagerEx().supportsTargetChannelProvisioning(packageName)) {
+        val supportsTargetProvisioning = getNotificationManagerEx().supportsTargetChannelProvisioning(packageName)
+        if (supportsTargetProvisioning) {
             NotificationChannelManager.registerChannelIfNeeded(context, metaInfo, packageName)
+            logger.d("getExistsChannelId() use managed target channel pkg=$packageName channel=$fallbackChannelId")
             return fallbackChannelId
         }
         NotificationChannelManager.registerChannelIfNeeded(context, metaInfo, packageName)
-        logger.d("getExistsChannelId() fallback to local channel pkg=$packageName channel=$fallbackChannelId")
+        logger.d("getExistsChannelId() fallback to local managed channel pkg=$packageName channel=$fallbackChannelId")
         return fallbackChannelId
     }
 

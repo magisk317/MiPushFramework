@@ -170,16 +170,15 @@ object NotificationIdentityBridge {
         packageName: String,
         preferredChannelId: String?
     ): NotificationChannel? {
+        if (preferredChannelId.isNullOrEmpty()) {
+            return null
+        }
         val channels = getTargetNotificationChannels(context, packageName)
             .filter { it.importance != NotificationManager.IMPORTANCE_NONE }
         if (channels.isEmpty()) {
             return null
         }
-        if (!preferredChannelId.isNullOrEmpty()) {
-            channels.firstOrNull { it.id == preferredChannelId }?.let { return it }
-        }
-        channels.firstOrNull { it.id == NotificationChannel.DEFAULT_CHANNEL_ID }?.let { return it }
-        return channels.firstOrNull()
+        return channels.firstOrNull { it.id == preferredChannelId }
     }
 
     fun createTargetNotificationChannelGroups(

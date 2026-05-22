@@ -1,6 +1,9 @@
 package io.github.magisk317.mipush.notification
 
 import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.drawable.Icon
 import android.os.Build
@@ -9,6 +12,7 @@ import android.os.Parcelable
 import androidx.core.app.NotificationCompat
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import io.github.magisk317.mipush.common.utils.CustomConfiguration
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -23,6 +27,60 @@ import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 @ExtendWith(RobolectricExtension::class)
 @Config(sdk = [28])
 class NotificationControllerRobolectricTest {
+
+    @AfterEach
+    fun tearDown() {
+        val notificationManager = RuntimeEnvironment.getApplication()
+            .getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.deleteNotificationChannel("target-default-implicit")
+        notificationManager.deleteNotificationChannel("target-explicit")
+    }
+
+    @Test
+    fun `channel selection uses managed channel when borrow channel is absent`() {
+        val context = RuntimeEnvironment.getApplication()
+        val packageName = context.packageName
+        val metaInfo = PushMetaInfo().apply {
+            extra = mutableMapOf("channel_id" to "push")
+        }
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(
+            NotificationChannel(
+                "target-default-implicit",
+                "Target Default",
+                NotificationManager.IMPORTANCE_DEFAULT
+            )
+        )
+
+        NotificationManagerEx.init(context)
+
+        val channelId = NotificationController.getExistsChannelId(context, metaInfo, packageName)
+
+        assertEquals(NotificationChannelManager.getChannelId(metaInfo, packageName), channelId)
+    }
+
+    @Test
+    fun `channel selection borrows only the explicitly requested channel`() {
+        val context = RuntimeEnvironment.getApplication()
+        val packageName = context.packageName
+        val metaInfo = PushMetaInfo().apply {
+            extra = mutableMapOf("__mi_push_borrow_channel_id" to "target-explicit")
+        }
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(
+            NotificationChannel(
+                "target-explicit",
+                "Target Explicit",
+                NotificationManager.IMPORTANCE_DEFAULT
+            )
+        )
+
+        NotificationManagerEx.init(context)
+
+        val channelId = NotificationController.getExistsChannelId(context, metaInfo, packageName)
+
+        assertEquals("target-explicit", channelId)
+    }
 
     @Test
     fun `focus bundle uses each focus pic uri and skips missing bitmaps`() {

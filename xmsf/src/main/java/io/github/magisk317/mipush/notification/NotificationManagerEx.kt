@@ -159,13 +159,11 @@ object NotificationManagerEx {
         if (!::appContext.isInitialized) {
             return null
         }
+        if (preferredChannelId.isNullOrBlank()) {
+            return null
+        }
         if (packageName == appContext.packageName) {
-            return if (!preferredChannelId.isNullOrEmpty()) {
-                notificationManager.getNotificationChannel(preferredChannelId)
-            } else {
-                notificationManager.notificationChannels
-                    .firstOrNull { it.importance != NotificationManager.IMPORTANCE_NONE }
-            }
+            return notificationManager.getNotificationChannel(preferredChannelId)
         }
         return if (shouldUseModernIdentityStrategy(packageName)) {
             NotificationIdentityBridge.getPreferredTargetNotificationChannel(appContext, packageName, preferredChannelId)

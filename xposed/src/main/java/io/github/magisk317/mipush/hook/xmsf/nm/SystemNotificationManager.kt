@@ -194,6 +194,9 @@ object SystemNotificationManager {
         packageName: String,
         preferredChannelId: String?
     ): NotificationChannel? {
+        if (preferredChannelId.isNullOrBlank()) {
+            return null
+        }
         val channels = getNotificationChannels(packageName)
             .orEmpty()
             .filterNotNull()
@@ -201,11 +204,7 @@ object SystemNotificationManager {
         if (channels.isEmpty()) {
             return null
         }
-        if (!preferredChannelId.isNullOrEmpty()) {
-            channels.firstOrNull { it.id == preferredChannelId }?.let { return it }
-        }
-        channels.firstOrNull { it.id == NotificationChannel.DEFAULT_CHANNEL_ID }?.let { return it }
-        return channels.firstOrNull()
+        return channels.firstOrNull { it.id == preferredChannelId }
     }
 
     fun deleteNotificationChannel(
