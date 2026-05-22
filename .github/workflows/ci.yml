@@ -23,7 +23,7 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "25"
+          java-version: "26"
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
@@ -31,7 +31,7 @@ jobs:
           allow-snapshot-wrappers: true
 
       - name: Build & Test
-        run: bash scripts/with_workspace_gradle_lock.sh --warning-mode all :checkReadmeBuildRequirements :common:check :xmsf:assembleDebug :mipush:assembleDebug testDebugUnitTest -PbuildSplits -PminifyDebug -Pkotlin.incremental=false
+        run: bash scripts/with_workspace_gradle_lock.sh --warning-mode all :checkReadmeBuildRequirements :common:check :xmsf:testNormalDebugUnitTest :xmsf:testVc105DebugUnitTest :xmsf:assembleDebug :mipush:assembleDebug testDebugUnitTest -PbuildSplits -PminifyDebug -Pkotlin.incremental=false
       - name: Write build summary
         if: always()
         run: |
