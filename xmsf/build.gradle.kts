@@ -96,7 +96,7 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
 
     testImplementation(libs.junit.jupiter)
-    testImplementation(libs.mockkery.runtime.jvm)
+    testImplementation(libs.mockk)
     testImplementation(libs.robolectric)
     testImplementation(libs.robolectric.junit5.extension)
     testRuntimeOnly(libs.junit.platform.launcher)

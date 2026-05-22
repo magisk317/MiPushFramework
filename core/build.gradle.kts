@@ -26,6 +26,6 @@ dependencies {
     implementation(libs.napier)
 
     testImplementation(libs.junit.jupiter)
-    testImplementation(libs.mockkery.runtime.jvm)
+    testImplementation(libs.mockk)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

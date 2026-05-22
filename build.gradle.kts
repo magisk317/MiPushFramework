@@ -80,6 +80,8 @@ allprojects {
             force("org.ow2.asm:asm-tree:9.10")
             force("org.ow2.asm:asm-analysis:9.10")
             force("org.ow2.asm:asm-util:9.10")
+            force("net.bytebuddy:byte-buddy:${libs.versions.bytebuddy.get()}")
+            force("net.bytebuddy:byte-buddy-agent:${libs.versions.bytebuddy.get()}")
         }
     }
 
