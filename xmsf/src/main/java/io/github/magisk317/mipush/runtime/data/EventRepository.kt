@@ -31,6 +31,7 @@ import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.entities.Event
 import io.github.magisk317.mipush.config.ConfigNavigationHelper
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
+import io.github.magisk317.mipush.service.PushServiceStarter
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.runBlocking
@@ -205,34 +206,8 @@ class EventRepository @Inject constructor(
                 logger.d("EventRepository", "XMPushService.observer is null, initializing MiPushRuntimeObserverBridge")
                 io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge(context)
             }
-            context.startService(Intent(context, AppXMPushService::class.java))
-            // Wait for service to become ready, then retry
-            Thread {
-                val maxWaitMs = 5000L
-                val intervalMs = 100L
-                var waited = 0L
-                while (waited < maxWaitMs) {
-                    Thread.sleep(intervalMs)
-                    waited += intervalMs
-                    val service = XMPushServiceLifecycleBridge.peekService()
-                    if (service != null) {
-                        logger.d("EventRepository", "pushService became ready after ${waited}ms, replaying mock")
-                        val replayContainer2 = containerWithRegSec.deepCopy()
-                        val handled2 = MockMIPushMessage.mockProcessMIPushMessage(service, replayContainer2)
-                        logger.d("EventRepository", "deferred mockMessage handled=$handled2")
-                        if (!handled2) {
-                            android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                Utils.makeText(context, context.getString(R.string.mock_notification_failed), 0)
-                            }
-                        }
-                        return@Thread
-                    }
-                }
-                logger.w("EventRepository", "pushService did not become ready within ${maxWaitMs}ms")
-                android.os.Handler(android.os.Looper.getMainLooper()).post {
-                    Utils.makeText(context, context.getString(R.string.mock_notification_failed), 0)
-                }
-            }.start()
+            PushServiceStarter.start(context, Intent(context, AppXMPushService::class.java))
+            waitForPushServiceAndReplay(containerWithRegSec)
             return
         }
         val replayContainer = containerWithRegSec.deepCopy()
@@ -273,8 +248,59 @@ class EventRepository @Inject constructor(
     private fun configureContainer(container: XmPushActionContainer): Set<String> {
         return try {
             configurations.handle(container.packageName, container)
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
+            Napier.w("configureContainer failed for ${container.packageName}: ${t.message}", tag = "EventRepository")
             HashSet()
+        }
+    }
+
+    private fun waitForPushServiceAndReplay(containerWithRegSec: XmPushActionContainer) {
+        Thread {
+            try {
+                val waitedMs = waitForPushService { service, waited ->
+                    logger.d("EventRepository", "pushService became ready after ${waited}ms, replaying mock")
+                    val replayContainer = containerWithRegSec.deepCopy()
+                    val handled = MockMIPushMessage.mockProcessMIPushMessage(service, replayContainer)
+                    logger.d("EventRepository", "deferred mockMessage handled=$handled")
+                    if (!handled) {
+                        showMockFailedToast()
+                    }
+                }
+                if (waitedMs == null) {
+                    logger.w("EventRepository", "pushService did not become ready within ${MOCK_REPLAY_MAX_WAIT_MS}ms")
+                    showMockFailedToast()
+                }
+            } catch (t: InterruptedException) {
+                Thread.currentThread().interrupt()
+                logger.w("EventRepository", "mock replay wait interrupted", t)
+            } catch (t: Throwable) {
+                logger.e("EventRepository", "deferred mock replay failed", t)
+                showMockFailedToast()
+            }
+        }.apply {
+            name = "MiPushMockReplay"
+            isDaemon = true
+            start()
+        }
+    }
+
+    private fun waitForPushService(onReady: (SdkXMPushService, Long) -> Unit): Long? {
+        var waited = 0L
+        while (waited < MOCK_REPLAY_MAX_WAIT_MS) {
+            Thread.sleep(MOCK_REPLAY_POLL_MS)
+            waited += MOCK_REPLAY_POLL_MS
+            val service = XMPushServiceLifecycleBridge.peekService()
+            if (service != null) {
+                onReady(service, waited)
+                return waited
+            }
+        }
+        return null
+    }
+
+    private fun showMockFailedToast() {
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            Utils.makeText(context, context.getString(R.string.mock_notification_failed), 0)
         }
     }
 
@@ -321,6 +347,8 @@ class EventRepository @Inject constructor(
     }
 
     companion object {
+        private const val MOCK_REPLAY_MAX_WAIT_MS = 5_000L
+        private const val MOCK_REPLAY_POLL_MS = 100L
         private val logger = object {
             fun d(tag: String, msg: String) = io.github.aakira.napier.Napier.d(msg, tag = tag)
             fun i(tag: String, msg: String) = io.github.aakira.napier.Napier.i(msg, tag = tag)
