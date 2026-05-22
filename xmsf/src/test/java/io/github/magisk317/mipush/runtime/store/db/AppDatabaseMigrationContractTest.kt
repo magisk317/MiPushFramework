@@ -1,18 +1,24 @@
 package io.github.magisk317.mipush.runtime.store.db
 
 import androidx.sqlite.db.SupportSQLiteDatabase
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.slot
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import java.lang.reflect.InvocationHandler
-import java.lang.reflect.Proxy
 
 class AppDatabaseMigrationContractTest {
 
     @Test
     fun `migration 1 to 2 creates required indexes`() {
-        val recorder = SqlRecorder()
+        val statements = mutableListOf<String>()
+        val db = mockk<SupportSQLiteDatabase>(relaxed = true)
+        val sqlSlot = slot<String>()
+        every { db.execSQL(capture(sqlSlot)) } answers {
+            statements += sqlSlot.captured
+        }
 
-        AppDatabaseMigrations.MIGRATION_1_2.migrate(recorder.database)
+        AppDatabaseMigrations.MIGRATION_1_2.migrate(db)
 
         assertEquals(
             listOf(
@@ -20,7 +26,7 @@ class AppDatabaseMigrationContractTest {
                 "CREATE INDEX IF NOT EXISTS `index_EVENT_date` ON `EVENT` (`date`)",
                 "CREATE UNIQUE INDEX IF NOT EXISTS `index_REGISTERED_APPLICATION_pkg` ON `REGISTERED_APPLICATION` (`pkg`)",
             ),
-            recorder.statements,
+            statements,
         )
     }
 
@@ -33,35 +39,5 @@ class AppDatabaseMigrationContractTest {
         assertEquals(2, AppDatabaseMigrations.MIGRATION_2_3.startVersion)
         assertEquals(3, AppDatabaseMigrations.MIGRATION_2_3.endVersion)
     }
-
-    private class SqlRecorder : InvocationHandler {
-        val statements = mutableListOf<String>()
-
-        val database: SupportSQLiteDatabase =
-            Proxy.newProxyInstance(
-                SupportSQLiteDatabase::class.java.classLoader,
-                arrayOf(SupportSQLiteDatabase::class.java),
-                this,
-            ) as SupportSQLiteDatabase
-
-        override fun invoke(proxy: Any?, method: java.lang.reflect.Method, args: Array<out Any?>?): Any? {
-            if (method.name == "execSQL" && !args.isNullOrEmpty()) {
-                statements += args[0] as String
-                return null
-            }
-            return defaultValue(method.returnType)
-        }
-
-        private fun defaultValue(returnType: Class<*>): Any? = when (returnType) {
-            java.lang.Boolean.TYPE -> false
-            java.lang.Byte.TYPE -> 0.toByte()
-            java.lang.Short.TYPE -> 0.toShort()
-            java.lang.Integer.TYPE -> 0
-            java.lang.Long.TYPE -> 0L
-            java.lang.Float.TYPE -> 0f
-            java.lang.Double.TYPE -> 0.0
-            java.lang.Character.TYPE -> 0.toChar()
-            else -> null
-        }
-    }
 }
+
