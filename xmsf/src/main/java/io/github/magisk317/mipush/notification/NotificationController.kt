@@ -176,7 +176,7 @@ object NotificationController {
         }
 
         NotificationSortFilter.attachDeleteIntentIfNeeded(context, notificationBuilder, packageName, metaInfo, notificationId)
-        if (!VoipNotificationHelper.isVoipNotification(metaInfo)) {
+        if (shouldAutoCancelNotification(metaInfo, notificationBuilder)) {
             notificationBuilder.setAutoCancel(true)
         }
         val notification = ProgressStyleBuilder.buildNotification(context, notificationBuilder)
@@ -194,6 +194,15 @@ object NotificationController {
             )
         }
         return notification
+    }
+
+    @JvmStatic
+    internal fun shouldAutoCancelNotification(
+        metaInfo: PushMetaInfo,
+        notificationBuilder: NotificationCompat.Builder
+    ): Boolean {
+        return !VoipNotificationHelper.isVoipNotification(metaInfo) &&
+            !ProgressStyleBuilder.isLiveUpdate(notificationBuilder)
     }
 
     @JvmStatic

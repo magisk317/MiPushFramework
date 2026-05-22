@@ -50,6 +50,11 @@ object ProgressStyleBuilder {
     }
 
     @JvmStatic
+    fun isLiveUpdate(builder: NotificationCompat.Builder): Boolean {
+        return builder.extras.getBoolean(EXTRA_LIVE_UPDATE, false)
+    }
+
+    @JvmStatic
     fun applyNativeProgressStyleIfNeeded(context: Context, notification: Notification): Notification {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.BAKLAVA) {
             return notification
