@@ -21,6 +21,7 @@ import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.utils.LogUtils
+import io.github.magisk317.mipush.bridge.LegacyLoggerBridge
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.utils.Hooker
 import io.github.magisk317.mipush.utils.PrivilegeElevator
@@ -43,7 +44,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import com.xiaomi.channel.commonutils.logger.MyLog
 
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
@@ -113,11 +113,11 @@ class MiPushFrameworkApp : Application() {
         val initialDebugMode = runCatching {
             runBlocking { preferenceRepository.isDebugMode.first() }
         }.getOrDefault(false)
-        MyLog.setDebugLoggingEnabled(initialDebugMode)
+        LegacyLoggerBridge.setDebugLoggingEnabled(initialDebugMode)
         // 收集后续变更，确保设置页开关拨动后实时生效
         applicationScope.launch {
             preferenceRepository.isDebugMode.collect { enabled ->
-                MyLog.setDebugLoggingEnabled(enabled)
+                LegacyLoggerBridge.setDebugLoggingEnabled(enabled)
             }
         }
         logger.i("App starts: ${BuildConfig.VERSION_NAME}, debugMode=$initialDebugMode")

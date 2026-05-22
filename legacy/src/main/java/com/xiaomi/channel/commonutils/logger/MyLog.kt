@@ -8,6 +8,7 @@ import android.util.Log
 import com.xiaomi.channel.commonutils.string.XMStringUtils
 import java.io.PrintWriter
 import java.io.StringWriter
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
 object MyLog {
@@ -20,14 +21,15 @@ object MyLog {
     const val WARN = 2
 
     private var sContext: Context? = null
+    @Volatile
     private var LOG_LEVEL = 2
     @Volatile
     private var debugLoggingEnabled = false
     private var isXMSF = false
     private var DEFAULT_TAG = "XMPush-${Process.myPid()}"
     private var logger: LoggerInterface = DefaultAndroidLogger()
-    private val mStartTimes = HashMap<Int, Long>()
-    private val mActionNames = HashMap<Int, String>()
+    private val mStartTimes = ConcurrentHashMap<Int, Long>()
+    private val mActionNames = ConcurrentHashMap<Int, String>()
     private val NEGATIVE_CODE = -1
     private val mCodeGenerator = AtomicInteger(1)
 
@@ -148,7 +150,7 @@ object MyLog {
     @JvmStatic
     fun pe(code: Int?) {
         if (debugLoggingEnabled && LOG_LEVEL <= 1 && code != null && mStartTimes.containsKey(code)) {
-            val jLongValue = mStartTimes.remove(code)!!
+            val jLongValue = mStartTimes.remove(code) ?: return
             val strRemove = mActionNames.remove(code)
             val jCurrentTimeMillis = System.currentTimeMillis()
             logger.log("$strRemove ends in ${jCurrentTimeMillis - jLongValue} ms")
