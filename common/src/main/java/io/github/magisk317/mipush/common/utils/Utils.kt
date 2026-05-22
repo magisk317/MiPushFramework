@@ -26,6 +26,7 @@ object Utils {
         PREF_MIPUSH_APPS_SECRET,
         PREF_MIPUSH
     )
+    private val missingRegSecPackageWarnings = Collections.synchronizedSet(mutableSetOf<String>())
 
     @JvmStatic
     var context: Context? = null
@@ -177,6 +178,7 @@ object Utils {
     fun getRegSecs(packageName: String): List<String> {
         val app = getApplication() ?: return emptyList()
         val secrets = linkedSetOf<String>()
+        var targetPackageMissing = false
         for (prefName in REG_SEC_PREFS) {
             val sec = app.getSharedPreferences(prefName, 0)?.getString(packageName, null)
             if (!sec.isNullOrEmpty()) {
@@ -197,11 +199,16 @@ object Utils {
                 } else {
                     Napier.w("getRegSecs: fallback found no regSec pkg=$packageName", tag = "Utils")
                 }
+            } catch (e: PackageManager.NameNotFoundException) {
+                targetPackageMissing = true
+                if (missingRegSecPackageWarnings.add(packageName)) {
+                    Napier.w("getRegSecs: target package not installed pkg=$packageName", tag = "Utils")
+                }
             } catch (e: Exception) {
                 Napier.e("getRegSecs: fallback failed pkg=$packageName", e, tag = "Utils")
             }
         }
-        if (secrets.isEmpty()) {
+        if (secrets.isEmpty() && !targetPackageMissing) {
             Napier.w("getRegSecs: no regSec found for pkg=$packageName", tag = "Utils")
         }
         return secrets.toList()

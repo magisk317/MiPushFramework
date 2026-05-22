@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.hook.xmsf.nm
 
 import android.app.*
+import android.content.pm.PackageManager
 import android.os.Build
 import android.service.notification.StatusBarNotification
 import de.robv.android.xposed.XposedHelpers
@@ -14,6 +15,7 @@ import java.lang.reflect.InvocationTargetException
 
 object SystemNotificationManager {
     private const val TAG = "SystemNotificationManager"
+    private val missingPackageWarnings = mutableSetOf<String>()
 
     init {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -25,6 +27,17 @@ object SystemNotificationManager {
 
     private fun getUid(packageName: String): Int {
         return AndroidAppHelper.currentApplication().packageManager.getPackageUid(packageName, 0)
+    }
+
+    private fun resolveUid(packageName: String, operation: String): Int? {
+        return try {
+            getUid(packageName)
+        } catch (e: PackageManager.NameNotFoundException) {
+            if (missingPackageWarnings.add("$operation|$packageName")) {
+                XLog.w(TAG, "$operation: target package not installed, skip target system API for $packageName")
+            }
+            null
+        }
     }
 
     private fun getUserId(): Int {
@@ -107,6 +120,10 @@ object SystemNotificationManager {
         tag: String?, id: Int, notification: Notification
     ) {
         XLog.d(TAG, "notify() called with: packageName = $packageName, tag = $tag, id = $id, notification = $notification")
+        if (!isCurrentPackage(packageName) && resolveUid(packageName, "notify") == null) {
+            notifyLocally(tag, id, notification)
+            return
+        }
         runSystemCall("notify", packageName, fallback = {
             notifyLocally(tag, id, notification)
         }) {
@@ -139,12 +156,17 @@ object SystemNotificationManager {
         channels: List<NotificationChannel>
     ) {
         XLog.d(TAG, "createNotificationChannels() called with: packageName = $packageName, channels = $channels")
+        val uid = resolveUid(packageName, "createNotificationChannels")
+        if (uid == null) {
+            createChannelsLocally(channels)
+            return
+        }
         runSystemCall("createNotificationChannels", packageName, fallback = {
             createChannelsLocally(channels)
         }) {
             val channelsList = XposedHelpers.findConstructorExact("android.content.pm.ParceledListSlice", null, List::class.java)
                 .newInstance(channels)
-            notificationManager.callMethod("createNotificationChannelsForPackage", packageName, getUid(packageName), channelsList)
+            notificationManager.callMethod("createNotificationChannelsForPackage", packageName, uid, channelsList)
         }
     }
 
@@ -153,6 +175,15 @@ object SystemNotificationManager {
         channelId: String?
     ): NotificationChannel? {
         XLog.d(TAG, "getNotificationChannel() called with: packageName = $packageName, channelId = $channelId")
+        val uid = resolveUid(packageName, "getNotificationChannel")
+        if (uid == null) {
+            return RootNotificationHelper.getNotificationChannel(packageName, channelId)
+                ?: if (isCurrentPackage(packageName) && !channelId.isNullOrEmpty()) {
+                    localNotificationManager()?.getNotificationChannel(channelId)
+                } else {
+                    null
+                }
+        }
         return runSystemCall("getNotificationChannel", packageName, fallback = {
             RootNotificationHelper.getNotificationChannel(packageName, channelId)
                 ?: if (isCurrentPackage(packageName) && !channelId.isNullOrEmpty()) {
@@ -163,10 +194,10 @@ object SystemNotificationManager {
         }) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 XposedHelpers.findMethodExact(notificationManager.javaClass, "getNotificationChannelForPackage", String::class.java, Int::class.java, String::class.java, String::class.java, Boolean::class.java)
-                    .invoke(notificationManager, packageName, getUid(packageName), channelId, null, false) as NotificationChannel?
+                    .invoke(notificationManager, packageName, uid, channelId, null, false) as NotificationChannel?
             } else {
                 XposedHelpers.findMethodExact(notificationManager.javaClass, "getNotificationChannelForPackage", String::class.java, Int::class.java, String::class.java, Boolean::class.java)
-                    .invoke(notificationManager, packageName, getUid(packageName), channelId, false) as NotificationChannel?
+                    .invoke(notificationManager, packageName, uid, channelId, false) as NotificationChannel?
             }
         }
     }
@@ -175,6 +206,15 @@ object SystemNotificationManager {
         packageName: String
     ): List<NotificationChannel?>? {
         XLog.d(TAG, "getNotificationChannels() called with: packageName = $packageName")
+        val uid = resolveUid(packageName, "getNotificationChannels")
+        if (uid == null) {
+            return RootNotificationHelper.getNotificationChannels(packageName)
+                ?: if (isCurrentPackage(packageName)) {
+                    localNotificationManager()?.notificationChannels
+                } else {
+                    null
+                }
+        }
         return runSystemCall("getNotificationChannels", packageName, fallback = {
             RootNotificationHelper.getNotificationChannels(packageName)
                 ?: if (isCurrentPackage(packageName)) {
@@ -184,7 +224,7 @@ object SystemNotificationManager {
                 }
         }) {
             val parceledListSlice = XposedHelpers.findMethodExact(notificationManager.javaClass, "getNotificationChannelsForPackage", String::class.java, Int::class.java, Boolean::class.java)
-                .invoke(notificationManager, packageName, getUid(packageName), false)
+                .invoke(notificationManager, packageName, uid, false)
             @Suppress("UNCHECKED_CAST")
             parceledListSlice?.callMethod("getList") as List<NotificationChannel?>?
         }
@@ -231,6 +271,11 @@ object SystemNotificationManager {
         groups: List<NotificationChannelGroup>
     ) {
         XLog.d(TAG, "createNotificationChannelGroups() called with: packageName = $packageName, groups = $groups")
+        val uid = resolveUid(packageName, "createNotificationChannelGroups")
+        if (uid == null) {
+            createGroupsLocally(groups)
+            return
+        }
 
         // 无法指定 uid，调用成功也不会生效
         // void createNotificationChannelGroups(String pkg, in ParceledListSlice channelGroupList);
@@ -253,7 +298,7 @@ object SystemNotificationManager {
                     notificationManager.callMethod(
                         "updateNotificationChannelGroupForPackage",
                         packageName,
-                        getUid(packageName),
+                        uid,
                         it
                     )
                 } catch (e: Throwable) {
@@ -273,6 +318,15 @@ object SystemNotificationManager {
         groupId: String
     ): NotificationChannelGroup? {
         XLog.d(TAG, "getNotificationChannelGroup() called with: packageName = $packageName, groupId = $groupId")
+        val uid = resolveUid(packageName, "getNotificationChannelGroup")
+        if (uid == null) {
+            return RootNotificationHelper.getNotificationChannelGroup(packageName, groupId)
+                ?: if (isCurrentPackage(packageName)) {
+                    localNotificationManager()?.getNotificationChannelGroup(groupId)
+                } else {
+                    null
+                }
+        }
         return runSystemCall("getNotificationChannelGroup", packageName, fallback = {
             RootNotificationHelper.getNotificationChannelGroup(packageName, groupId)
                 ?: if (isCurrentPackage(packageName)) {
@@ -281,7 +335,7 @@ object SystemNotificationManager {
                     null
                 }
         }) {
-            notificationManager.callMethod("getNotificationChannelGroupForPackage", groupId, packageName, getUid(packageName)) as NotificationChannelGroup?
+            notificationManager.callMethod("getNotificationChannelGroupForPackage", groupId, packageName, uid) as NotificationChannelGroup?
         }
     }
 
@@ -289,6 +343,15 @@ object SystemNotificationManager {
         packageName: String
     ): List<NotificationChannelGroup?>? {
         XLog.d(TAG, "getNotificationChannelGroups() called with: packageName = $packageName")
+        val uid = resolveUid(packageName, "getNotificationChannelGroups")
+        if (uid == null) {
+            return RootNotificationHelper.getNotificationChannelGroups(packageName)
+                ?: if (isCurrentPackage(packageName)) {
+                    localNotificationManager()?.notificationChannelGroups
+                } else {
+                    null
+                }
+        }
         return runSystemCall("getNotificationChannelGroups", packageName, fallback = {
             RootNotificationHelper.getNotificationChannelGroups(packageName)
                 ?: if (isCurrentPackage(packageName)) {
@@ -298,7 +361,7 @@ object SystemNotificationManager {
                 }
         }) {
             val parceledListSlice = XposedHelpers.findMethodExact(notificationManager.javaClass, "getNotificationChannelGroupsForPackage", String::class.java, Int::class.java, Boolean::class.java)
-                .invoke(notificationManager, packageName, getUid(packageName), false)
+                .invoke(notificationManager, packageName, uid, false)
             @Suppress("UNCHECKED_CAST")
             parceledListSlice?.callMethod("getList") as List<NotificationChannelGroup?>?
         }
@@ -326,6 +389,15 @@ object SystemNotificationManager {
         packageName: String
     ): Boolean {
         XLog.d(TAG, "areNotificationsEnabled() called with: packageName = $packageName")
+        val uid = resolveUid(packageName, "areNotificationsEnabled")
+        if (uid == null) {
+            return RootNotificationHelper.areNotificationsEnabled(packageName)
+                ?: if (isCurrentPackage(packageName)) {
+                    localNotificationManager()?.areNotificationsEnabled() ?: true
+                } else {
+                    true
+                }
+        }
         return runSystemCall("areNotificationsEnabled", packageName, fallback = {
             RootNotificationHelper.areNotificationsEnabled(packageName)
                 ?: if (isCurrentPackage(packageName)) {
@@ -334,7 +406,7 @@ object SystemNotificationManager {
                     true
                 }
         }) {
-            notificationManager.callMethod("areNotificationsEnabledForPackage", packageName, getUid(packageName)) as Boolean
+            notificationManager.callMethod("areNotificationsEnabledForPackage", packageName, uid) as Boolean
         }
     }
 
