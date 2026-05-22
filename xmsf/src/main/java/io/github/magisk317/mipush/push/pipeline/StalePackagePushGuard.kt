@@ -22,20 +22,31 @@ object StalePackagePushGuard {
 
     @JvmStatic
     fun shouldDropInbound(context: Context, container: XmPushActionContainer, source: String): Boolean {
-        val packageName = container.packageName
-        if (!isPackageAbsent(context, packageName)) return false
-        markPackageAbsent(context, packageName, source, clearLastReceiveTime = false)
+        val targetPackage = resolveTargetPackage(container) ?: return false
+        if (!isPackageAbsent(context, targetPackage)) return false
+        markPackageAbsent(context, targetPackage, source, clearLastReceiveTime = false)
         return true
     }
 
     @JvmStatic
     fun shouldDropNotification(context: Context, container: XmPushActionContainer, source: String): Boolean {
-        val targetPackage = runCatching { MIPushNotificationHelper.getTargetPackage(container) }
-            .getOrNull()
-            ?: container.packageName
+        val targetPackage = resolveTargetPackage(container) ?: return false
         if (!isPackageAbsent(context, targetPackage)) return false
         markPackageAbsent(context, targetPackage, source, clearLastReceiveTime = false)
         return true
+    }
+
+    @JvmStatic
+    internal fun resolveTargetPackage(container: XmPushActionContainer): String? {
+        val miuiTargetPackage = container.metaInfo?.extra
+            ?.get(MIPushNotificationHelper.MIUI_PACKAGE_NAME)
+            ?.takeIf { it.isNotBlank() }
+        if (miuiTargetPackage != null) {
+            return miuiTargetPackage
+        }
+        return runCatching { MIPushNotificationHelper.getTargetPackage(container) }
+            .getOrNull()
+            ?: container.packageName
     }
 
     private fun isPackageAbsent(context: Context, packageName: String?): Boolean {

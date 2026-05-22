@@ -83,6 +83,19 @@ object MiPushRuntimeBridge {
         val actionName = resolvedContainer?.action?.name ?: "Unknown"
         val messageId = MessageIdentity.fromContainer(resolvedContainer)
         val isMockReplay = MockMessageRegistry.isMarked(resolvedContainer)
+        if (resolvedContainer != null &&
+            StalePackagePushGuard.shouldDropNotification(
+                context,
+                resolvedContainer,
+                "MiPushRuntimeBridge.onNotificationDispatch"
+            )
+        ) {
+            logger.i(
+                "drop notification dispatch for absent package pkg=${StalePackagePushGuard.resolveTargetPackage(resolvedContainer)} " +
+                    "action=$actionName messageId=$messageId"
+            )
+            return false
+        }
         if (payload != null && resolvedContainer != null && !isMockReplay) {
             val allowed = consumeNotificationDispatchAllowance(
                 packageName = resolvedContainer.packageName,

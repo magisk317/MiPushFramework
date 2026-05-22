@@ -1,6 +1,11 @@
 package io.github.magisk317.mipush.push.pipeline
 
+import com.xiaomi.push.service.MIPushNotificationHelper
+import com.xiaomi.push.service.PushConstants
+import com.xiaomi.xmpush.thrift.PushMetaInfo
+import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.runtime.core.PushRuntime
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -33,5 +38,17 @@ class MiPushRuntimeBridgeTest {
                 payloadSize = 128,
             ),
         )
+    }
+
+    @Test
+    fun `stale package guard resolves miui target package`() {
+        val container = XmPushActionContainer().apply {
+            packageName = PushConstants.PUSH_SERVICE_PACKAGE_NAME
+            metaInfo = PushMetaInfo().apply {
+                extra = mutableMapOf(MIPushNotificationHelper.MIUI_PACKAGE_NAME to "com.example.removed")
+            }
+        }
+
+        assertEquals("com.example.removed", StalePackagePushGuard.resolveTargetPackage(container))
     }
 }
