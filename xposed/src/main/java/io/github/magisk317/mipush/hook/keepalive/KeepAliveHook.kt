@@ -41,6 +41,7 @@ class KeepAliveHook {
 
     fun hook(classLoader: ClassLoader) {
         XLog.i(TAG, "loading in system_server")
+        refreshFlags()
         startPreferenceRefreshLoop()
         hookOomAdjuster(classLoader)
         hookKillProcess(classLoader)
@@ -113,13 +114,17 @@ class KeepAliveHook {
                 return
             }
 
-            XposedBridge.hookAllMethods(oomAdjusterClass, targetMethodName, object : XC_MethodHook() {
+            val hooks = XposedBridge.hookAllMethods(oomAdjusterClass, targetMethodName, object : XC_MethodHook() {
                 override fun afterHookedMethod(param: MethodHookParam) {
                     if (!flags.oomAdj) return
                     adjustOomAdjForTarget(param)
                 }
             })
-            XLog.w(TAG, "successfully hooked OomAdjuster")
+            if (hooks.isEmpty()) {
+                XLog.w(TAG, "no OomAdjuster hooks installed for $targetMethodName")
+            } else {
+                XLog.w(TAG, "successfully hooked OomAdjuster method=$targetMethodName count=${hooks.size}")
+            }
         } catch (t: Throwable) {
             XLog.e(TAG, "failed to hook OomAdjuster", t)
         }
@@ -153,7 +158,7 @@ class KeepAliveHook {
         try {
             val amsClass = XposedHelpers.findClass("com.android.server.am.ActivityManagerService", classLoader)
             val methodName = "killProcessLocked"
-            XposedBridge.hookAllMethods(amsClass, methodName, object : XC_MethodHook() {
+            val hooks = XposedBridge.hookAllMethods(amsClass, methodName, object : XC_MethodHook() {
                 override fun beforeHookedMethod(param: MethodHookParam) {
                     if (!flags.antiKill) return
                     if (shouldSkipKill(param)) {
@@ -162,7 +167,11 @@ class KeepAliveHook {
                     }
                 }
             })
-            XLog.w(TAG, "successfully hooked AMS kill method: $methodName")
+            if (hooks.isEmpty()) {
+                XLog.w(TAG, "no AMS kill hooks installed for $methodName")
+            } else {
+                XLog.w(TAG, "successfully hooked AMS kill method: $methodName count=${hooks.size}")
+            }
         } catch (t: Throwable) {
             XLog.e(TAG, "failed to hook AMS kill", t)
         }
@@ -209,17 +218,22 @@ class KeepAliveHook {
         try {
             val standbyClass = XposedHelpers.findClass("com.android.server.usage.AppStandbyController", classLoader)
             val methods = listOf("setActiveBucket", "setAppStandbyBucket")
+            var installed = 0
             for (methodName in methods) {
                 try {
-                    XposedBridge.hookAllMethods(standbyClass, methodName, object : XC_MethodHook() {
+                    installed += XposedBridge.hookAllMethods(standbyClass, methodName, object : XC_MethodHook() {
                         override fun beforeHookedMethod(param: MethodHookParam) {
                             if (!flags.standbyBypass) return
                             overrideStandbyBucket(param)
                         }
-                    })
+                    }).size
                 } catch (_: Throwable) {}
             }
-            XLog.w(TAG, "successfully hooked AppStandbyController")
+            if (installed == 0) {
+                XLog.w(TAG, "no AppStandbyController hooks installed")
+            } else {
+                XLog.w(TAG, "successfully hooked AppStandbyController count=$installed")
+            }
         } catch (t: Throwable) {
             XLog.e(TAG, "failed to hook AppStandbyController", t)
         }
@@ -242,13 +256,17 @@ class KeepAliveHook {
         try {
             val idleClass = XposedHelpers.findClass("com.android.server.DeviceIdleController", classLoader)
             val methodName = "setAppIdleAsync"
-            XposedBridge.hookAllMethods(idleClass, methodName, object : XC_MethodHook() {
+            val hooks = XposedBridge.hookAllMethods(idleClass, methodName, object : XC_MethodHook() {
                 override fun beforeHookedMethod(param: MethodHookParam) {
                     if (!flags.dozeBypass) return
                     keepTargetActive(param)
                 }
             })
-            XLog.w(TAG, "successfully hooked DeviceIdleController")
+            if (hooks.isEmpty()) {
+                XLog.w(TAG, "no DeviceIdleController hooks installed for $methodName")
+            } else {
+                XLog.w(TAG, "successfully hooked DeviceIdleController count=${hooks.size}")
+            }
         } catch (t: Throwable) {
             XLog.e(TAG, "failed to hook DeviceIdleController", t)
         }
