@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cleanup_submodule_lockfiles() {
   local submodule
-  for submodule in magisk-ui-kit smscode-core; do
+  for submodule in uikit legacy protocol pinned; do
     [ -e "${ROOT_DIR}/${submodule}/.git" ] || continue
 
     while IFS= read -r lockfile; do
@@ -26,12 +26,12 @@ bash "${ROOT_DIR}/scripts/with_workspace_gradle_lock.sh" \
   --write-locks \
   --warning-mode all \
   :core:check \
-  :runtime:check \
-  :app:check \
-  assembleGithubApi101Debug \
-  assembleGithubLegacyDebug \
-  :app:koverVerifyGithubApi101Debug \
-  :app:koverHtmlReportGithubApi101Debug \
+  :common:check \
+  :xposed:check \
+  :xmsf:check \
+  :mipush:check \
+  :xmsf:assembleNormalDebug \
+  :mipush:assembleDebug \
   -PbuildSplits \
   "$@"
 
