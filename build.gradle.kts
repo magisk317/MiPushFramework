@@ -1,3 +1,6 @@
+import dev.detekt.gradle.Detekt
+import dev.detekt.gradle.extensions.DetektExtension
+
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
 plugins {
@@ -10,7 +13,19 @@ plugins {
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.hilt.android) apply false
     alias(libs.plugins.robolectric.junit5) apply false
+    alias(libs.plugins.detekt) apply false
+    alias(libs.plugins.kover)
     id("magisk.maintenance")
+}
+
+kover {
+    reports {
+        verify {
+            rule {
+                minBound(0)
+            }
+        }
+    }
 }
 
 buildscript {
@@ -55,6 +70,44 @@ extra["gitVersionCode"] = gitVersionCode
 extra["gitVersionName"] = versionNameProvider
 extra["APPLICATION_ID"] = "io.github.magisk317.mipush"
 
+val catalog = libs
+val forcedKotlinVersion = libs.versions.kotlin.get()
+val forcedByteBuddyVersion = libs.versions.bytebuddy.get()
+
+subprojects {
+    fun Project.configureDetekt() {
+        apply(plugin = "dev.detekt")
+        extensions.configure<DetektExtension> {
+            autoCorrect = false
+            parallel = true
+            buildUponDefaultConfig = false
+            config.setFrom(files("${rootProject.projectDir}/config/detekt/detekt.yml"))
+        }
+        dependencies {
+            "detektPlugins"(catalog.detekt.rules.ktlint)
+        }
+        tasks.withType<Detekt>().configureEach {
+            // Initial rollout is report-only so existing hook/runtime debt does not block builds.
+            ignoreFailures = true
+            reports {
+                html.required.set(true)
+                checkstyle.required.set(true)
+                sarif.required.set(true)
+                markdown.required.set(false)
+            }
+        }
+    }
+
+    apply(plugin = "org.jetbrains.kotlinx.kover")
+
+    pluginManager.withPlugin("com.android.application") {
+        configureDetekt()
+    }
+    pluginManager.withPlugin("com.android.library") {
+        configureDetekt()
+    }
+}
+
 allprojects {
     configurations.configureEach {
         resolutionStrategy {
@@ -74,14 +127,14 @@ allprojects {
             // END AUTO FORCED DEPENDENCIES (managed by workflow)
 
             // Custom migration overrides for Java 26 compatibility
-            force("org.jetbrains.kotlin:kotlin-metadata-jvm:${libs.versions.kotlin.get()}")
+            force("org.jetbrains.kotlin:kotlin-metadata-jvm:$forcedKotlinVersion")
             force("org.ow2.asm:asm:9.10")
             force("org.ow2.asm:asm-commons:9.10")
             force("org.ow2.asm:asm-tree:9.10")
             force("org.ow2.asm:asm-analysis:9.10")
             force("org.ow2.asm:asm-util:9.10")
-            force("net.bytebuddy:byte-buddy:${libs.versions.bytebuddy.get()}")
-            force("net.bytebuddy:byte-buddy-agent:${libs.versions.bytebuddy.get()}")
+            force("net.bytebuddy:byte-buddy:$forcedByteBuddyVersion")
+            force("net.bytebuddy:byte-buddy-agent:$forcedByteBuddyVersion")
         }
     }
 

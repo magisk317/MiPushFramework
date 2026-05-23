@@ -1,0 +1,116 @@
+config:
+  validation: true
+
+naming:
+  FunctionNaming:
+    active: true
+    functionPattern: '[a-zA-Z][a-zA-Z0-9]*'
+    excludes: ['**/test/**', '**/androidTest/**']
+  VariableNaming:
+    active: true
+    variablePattern: '(_)?[a-z][A-Za-z0-9]*'
+  TopLevelPropertyNaming:
+    active: true
+    propertyPattern: '[A-Za-z][_A-Za-z0-9]*'
+
+style:
+  MagicNumber:
+    active: true
+    excludes: ['**/test/**', '**/androidTest/**', '**/*.kts']
+    ignoreNumbers:
+      - '-1'
+      - '0'
+      - '1'
+      - '2'
+      - '3'
+      - '4'
+      - '5'
+      - '6'
+      - '8'
+      - '10'
+      - '16'
+      - '22'
+      - '24'
+      - '26'
+      - '28'
+      - '30'
+      - '32'
+      - '33'
+      - '41'
+      - '57'
+      - '60'
+      - '90'
+      - '100'
+      - '127'
+      - '129'
+      - '200'
+      - '255'
+      - '256'
+      - '300'
+      - '400'
+      - '500'
+      - '600'
+      - '1000'
+      - '1200'
+      - '3000'
+    ignoreHashCodeFunction: true
+    ignorePropertyDeclaration: true
+    ignoreLocalVariableDeclaration: true
+    ignoreConstantDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+    ignoreAnnotation: true
+    ignoreNamedArgument: true
+    ignoreEnums: true
+    ignoreRanges: true
+    ignoreExtensionFunctions: true
+  WildcardImport:
+    active: false
+  ReturnCount:
+    active: true
+    max: 12
+  MaxLineLength:
+    active: true
+    maxLineLength: 180
+
+complexity:
+  LongMethod:
+    active: true
+    allowedLines: 700
+    ignoreAnnotated: ['Composable']
+  TooManyFunctions:
+    active: true
+    allowedFunctionsPerFile: 120
+    allowedFunctionsPerClass: 120
+    allowedFunctionsPerInterface: 120
+    allowedFunctionsPerObject: 120
+  CyclomaticComplexMethod:
+    active: true
+    allowedComplexity: 60
+  NestedBlockDepth:
+    active: true
+    allowedDepth: 10
+
+exceptions:
+  SwallowedException:
+    active: true
+    allowedExceptionNameRegex: '_|(ignore|expected).*'
+  TooGenericExceptionCaught:
+    active: true
+    exceptionNames:
+      - 'ArrayIndexOutOfBoundsException'
+      - 'Error'
+      - 'Exception'
+      - 'IllegalMonitorStateException'
+      - 'IndexOutOfBoundsException'
+      - 'NullPointerException'
+      - 'RuntimeException'
+      - 'Throwable'
+    allowedExceptionNameRegex: '_|(ignore|expected).*'
+    excludes:
+      - '**/legacy/**'
+      - '**/protocol/**'
+      - '**/xposed/**'
+      - '**/service/runtime/**'
+      - '**/platform/support/**'
+      - '**/*ViewModel.kt'
+      - '**/utils/**'
