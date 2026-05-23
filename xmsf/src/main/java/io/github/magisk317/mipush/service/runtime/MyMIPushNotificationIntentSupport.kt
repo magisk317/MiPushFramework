@@ -13,7 +13,6 @@ import android.text.TextUtils
 import androidx.core.app.NotificationCompat
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.push.hook.ExplicitHookBridge
-import io.github.magisk317.mipush.platform.support.XMPushUtils
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.push.service.MIPushNotificationHelper
@@ -126,17 +125,18 @@ internal object MyMIPushNotificationIntentSupport {
             addCategory(metaInfo.notifyId.toString())
         }
 
-        val configuration = XMPushUtils.getConfiguration(metaInfo)
         val activityIntent = getSdkIntent(context, container)
-        if (!configuration.useClickedActivity(false) || activityIntent == null) {
+        if (!shouldUseSdkActivityClick(activityIntent != null)) {
             return PendingIntent.getService(context, notificationId, serviceIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
         }
 
-        activityIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        activityIntent!!.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         activityIntent.putExtra("mipush_serviceIntent", serviceIntent)
         activityIntent.putExtras(serviceIntent)
         return PendingIntent.getActivity(context, notificationId, activityIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
     }
+
+    internal fun shouldUseSdkActivityClick(sdkIntentAvailable: Boolean): Boolean = sdkIntentAvailable
 
     fun getSdkIntent(context: Context, container: XmPushActionContainer): Intent? {
         val pkgName = container.packageName
