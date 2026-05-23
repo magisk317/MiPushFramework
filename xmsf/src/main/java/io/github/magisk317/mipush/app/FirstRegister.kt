@@ -7,7 +7,14 @@ import io.github.magisk317.mipush.control.PushControllerUtils
 import io.github.magisk317.mipush.control.PushControllerUtils.pushRegistered
 import java.util.Objects
 
-class FirstRegister(private val context: Context) : Runnable {
+class FirstRegister(
+    private val context: Context,
+    private val isRegistered: (Context) -> Boolean = ::pushRegistered,
+    private val requestRegistration: (String, String) -> Boolean = { source, reason ->
+        PushRuntime.requestFrameworkRegistration(source = source, reason = reason)
+    },
+    private val scheduleRetry: (Context, Int) -> Unit = PushControllerUtils::registerPush,
+) : Runnable {
     private val TAG = "FirstRegister"
     private val logger = object {
         fun i(msg: String) = Napier.i(msg, tag = TAG)
@@ -16,14 +23,21 @@ class FirstRegister(private val context: Context) : Runnable {
 
     override fun run() {
         Objects.requireNonNull(context)
-        PushRuntime.requestFrameworkRegistration(
-            source = "FirstRegister.run",
-            reason = "initial_register"
-        )
-        if (pushRegistered(context)) {
+        if (isRegistered(context)) {
+            PushRuntime.observeRegistrationResult(
+                packageName = context.packageName,
+                success = true,
+                source = "FirstRegister.run",
+                reason = "reg_id_present"
+            )
+            logger.i("register successed")
+            return
+        }
+        requestRegistration("FirstRegister.run", "initial_register")
+        if (isRegistered(context)) {
             logger.i("register successed")
         } else {
-            PushControllerUtils.registerPush(context, 0)
+            scheduleRetry(context, 0)
         }
         try {
             Thread.sleep(100L)
