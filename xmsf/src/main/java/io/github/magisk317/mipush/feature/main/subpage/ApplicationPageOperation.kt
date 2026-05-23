@@ -284,9 +284,10 @@ object ApplicationPageOperation {
     }
 
     private fun isQueryMatched(info: RegisteredApplication, query: String): Boolean {
-        return info.packageName.lowercase().contains(query) ||
-            info.appName.lowercase().contains(query) ||
-            info.appNamePinYin.contains(query)
+        val q = query.lowercase()
+        return info.packageName.lowercase().contains(q) ||
+            info.appName.lowercase().contains(q) ||
+            info.appNamePinYin.lowercase().contains(q)
     }
 
     @JvmStatic
