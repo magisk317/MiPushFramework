@@ -10,9 +10,9 @@ import android.content.pm.ProviderInfo
 import android.content.pm.ResolveInfo
 import android.content.pm.ServiceInfo
 import android.os.Process
-import de.robv.android.xposed.XC_MethodHook
-import de.robv.android.xposed.callbacks.XC_LoadPackage
+import io.github.magisk317.mipush.xposed.LoadParam
 import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.mipush.xposed.MethodHookParam
 import io.github.magisk317.mipush.xposed.findClass
 import io.github.magisk317.mipush.xposed.hook
 import java.lang.reflect.Method
@@ -125,10 +125,10 @@ class MiPushComponentVisibility : IFakeDevice {
         }
     }
 
-    override fun fake(lpparam: XC_LoadPackage.LoadPackageParam): Boolean {
+    override fun fake(lpparam: LoadParam): Boolean {
         val packageName = lpparam.packageName.orEmpty()
         val processName = lpparam.processName.orEmpty()
-        val classLoader = lpparam.classLoader ?: return false
+        val classLoader = lpparam.classLoader
         val pmClass = runCatching {
             classLoader.findClass("android.app.ApplicationPackageManager")
         }.onFailure {
@@ -512,7 +512,7 @@ class MiPushComponentVisibility : IFakeDevice {
         return true
     }
 
-    private fun XC_MethodHook.MethodHookParam.applyPatchedResult(
+    private fun MethodHookParam.applyPatchedResult(
         context: VisibilityContext,
         methodName: String,
         queryPackage: String,
@@ -849,11 +849,11 @@ class MiPushComponentVisibility : IFakeDevice {
         }
     }
 
-    private fun XC_MethodHook.MethodHookParam.firstStringArg(): String? {
+    private fun MethodHookParam.firstStringArg(): String? {
         return args.firstOrNull { it is String } as? String
     }
 
-    private fun XC_MethodHook.MethodHookParam.firstIntentArg(): Intent? {
+    private fun MethodHookParam.firstIntentArg(): Intent? {
         return args.firstOrNull { it is Intent } as? Intent
     }
 

@@ -1,13 +1,13 @@
 package io.github.magisk317.mipush.hook
 
-import android.app.AndroidAppHelper
 import android.content.ContentValues
 import android.net.Uri
 import android.os.Process
 import android.util.Log
-import de.robv.android.xposed.XC_MethodHook
-import de.robv.android.xposed.XposedBridge
 import io.github.magisk317.mipush.xposed.BuildConfig
+import io.github.magisk317.mipush.xposed.MethodHookParam
+import io.github.magisk317.mipush.xposed.XposedRuntime
+import io.github.magisk317.mipush.xposed.currentApplication
 import java.lang.reflect.Method
 
 import java.util.concurrent.Executors
@@ -44,7 +44,7 @@ object XLog {
         emit("E", tag, message, throwable)
     }
 
-    fun XC_MethodHook.MethodHookParam.logMethod(tag: String, stackTrace: Boolean = false) {
+    fun MethodHookParam.logMethod(tag: String, stackTrace: Boolean = false) {
         d(tag, "╔═══════════════════════════════════════════════════════")
         d(tag, method.toString())
         d(tag, "${method.name} called with ${args.contentDeepToString()}")
@@ -60,10 +60,8 @@ object XLog {
     }
 
     private fun emit(level: String, tag: String, message: String?, throwable: Throwable?) {
-        XposedBridge.log("[MiPush][$level][$tag] $message")
-        if (throwable != null) {
-            XposedBridge.log(throwable)
-        }
+        val priority = priorityFor(level)
+        XposedRuntime.log(priority, tag, "[MiPush][$level][$tag] $message", throwable)
         logExecutor.execute {
             runCatching {
                 relayToFramework(level, tag, message, throwable)
@@ -73,7 +71,7 @@ object XLog {
 
     private fun relayToFramework(level: String, tag: String, message: String?, throwable: Throwable?) {
         if (level == "T") return
-        val application = runCatching { AndroidAppHelper.currentApplication() }.getOrNull() ?: return
+        val application = currentApplication() ?: return
         runCatching {
             val values = ContentValues().apply {
                 put("source", SOURCE)
@@ -88,5 +86,13 @@ object XLog {
             }
             application.contentResolver.insert(FRAMEWORK_LOG_URI, values)
         }
+    }
+
+    private fun priorityFor(level: String): Int = when (level) {
+        "E" -> Log.ERROR
+        "W" -> Log.WARN
+        "I" -> Log.INFO
+        "D" -> Log.DEBUG
+        else -> Log.VERBOSE
     }
 }

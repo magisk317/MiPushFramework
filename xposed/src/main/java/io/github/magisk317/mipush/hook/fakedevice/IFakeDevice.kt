@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
-import de.robv.android.xposed.callbacks.XC_LoadPackage
+import io.github.magisk317.mipush.xposed.LoadParam
 
 interface IFakeDevice {
-    fun fake(lpparam: XC_LoadPackage.LoadPackageParam): Boolean
+    fun fake(lpparam: LoadParam): Boolean
 }

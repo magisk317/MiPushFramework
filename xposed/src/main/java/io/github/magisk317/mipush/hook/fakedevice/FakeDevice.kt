@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
-import de.robv.android.xposed.callbacks.XC_LoadPackage
+import io.github.magisk317.mipush.xposed.LoadParam
 import io.github.magisk317.mipush.hook.compat.legacyhuawei.LegacyHuaweiSignatureCompat
 import io.github.magisk317.mipush.hook.fakedevice.compat.HookPipelineId
 import io.github.magisk317.mipush.hook.fakedevice.compat.ModuleCompatRegistry
@@ -30,7 +30,7 @@ object FakeDevice {
         }
     }
 
-    fun fake(lpparam: XC_LoadPackage.LoadPackageParam) {
+    fun fake(lpparam: LoadParam) {
         val packageName = lpparam.packageName.orEmpty()
         val processName = lpparam.processName.orEmpty()
         XLog.d(TAG, "fake() called with: packageName = $packageName, processName = $processName")

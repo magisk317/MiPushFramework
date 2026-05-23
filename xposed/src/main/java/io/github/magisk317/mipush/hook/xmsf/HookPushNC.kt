@@ -5,8 +5,8 @@ import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
 import android.content.Context
 import android.service.notification.StatusBarNotification
-import de.robv.android.xposed.XposedHelpers
-import de.robv.android.xposed.XposedHelpers.ClassNotFoundError
+import io.github.magisk317.mipush.xposed.XposedHelpers
+import io.github.magisk317.mipush.xposed.XposedHelpers.ClassNotFoundError
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.xmsf.nm.SystemNotificationManager
 import io.github.magisk317.mipush.hook.system.HookSystemService

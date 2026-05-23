@@ -1,18 +1,18 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
 import android.app.Application
-import android.app.AndroidAppHelper
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import de.robv.android.xposed.callbacks.XC_LoadPackage
+import io.github.magisk317.mipush.xposed.LoadParam
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.fakedevice.compat.ModuleCompatProfile
 import io.github.magisk317.mipush.hook.fakedevice.compat.ModuleCredentialResolver
 import io.github.magisk317.mipush.hook.fakedevice.compat.ModuleCompatRegistry
 import io.github.magisk317.mipush.hook.fakedevice.compat.ModuleProcessPolicy
 import io.github.magisk317.mipush.xposed.callStaticMethod
+import io.github.magisk317.mipush.xposed.currentApplication
 import io.github.magisk317.mipush.xposed.findClass
 import io.github.magisk317.mipush.xposed.hookAllMethods
 import io.github.magisk317.mipush.xposed.hookMethod
@@ -31,7 +31,7 @@ object ForceMiPushRegister {
     private val regIdRetryCounts: MutableMap<String, Int> = Collections.synchronizedMap(HashMap())
     private val cloudPushRetryElapsedMs: MutableMap<String, Long> = Collections.synchronizedMap(HashMap())
 
-    fun hook(lpparam: XC_LoadPackage.LoadPackageParam, profile: ModuleCompatProfile) {
+    fun hook(lpparam: LoadParam, profile: ModuleCompatProfile) {
         val packageName = lpparam.packageName
         val processName = lpparam.processName
         if (!ModuleProcessPolicy.shouldHandleProcess(profile, packageName, processName)) return
@@ -80,7 +80,7 @@ object ForceMiPushRegister {
             )
             return
         }
-        val app = runCatching { AndroidAppHelper.currentApplication() }.getOrNull() ?: run {
+        val app = currentApplication() ?: run {
             XLog.w(TAG, "skip cloudpush register retry: currentApplication unavailable for $packageName in process=$processName")
             return
         }

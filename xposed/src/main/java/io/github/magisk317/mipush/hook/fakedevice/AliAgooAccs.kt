@@ -1,9 +1,9 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
-import de.robv.android.xposed.callbacks.XC_LoadPackage
+import io.github.magisk317.mipush.xposed.LoadParam
 
 class AliAgooAccs : Common() {
-    override fun fake(lpparam: XC_LoadPackage.LoadPackageParam): Boolean {
+    override fun fake(lpparam: LoadParam): Boolean {
         super.fake(lpparam)
         return VendorPushHookHelper.install(lpparam, SPEC)
     }

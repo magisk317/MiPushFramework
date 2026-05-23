@@ -4,9 +4,6 @@ import android.content.pm.PackageInfo
 import android.os.Build
 import android.util.Base64
 import dalvik.system.DexClassLoader
-import de.robv.android.xposed.XC_MethodHook.Unhook
-import de.robv.android.xposed.XposedHelpers
-import de.robv.android.xposed.callbacks.XC_LoadPackage
 import io.github.magisk317.mipush.common.LEGACY_HUAWEI_CORE_SIGNATURE
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.hook.XLog
@@ -16,9 +13,9 @@ object LegacyHuaweiSignatureCompat {
     private const val TAG = "LegacyHuaweiSignatureCompat"
 
     private var verifyApkHashHooked = false
-    private var verifyApkHashUnhook: Unhook? = null
+    private var verifyApkHashUnhook: HookHandle? = null
 
-    fun hook(lpparam: XC_LoadPackage.LoadPackageParam) {
+    fun hook(lpparam: LoadParam) {
         XLog.d(TAG, "hook() called with: processName = ${lpparam.processName}")
 
         tryHookVerifyApkHash(lpparam.classLoader)

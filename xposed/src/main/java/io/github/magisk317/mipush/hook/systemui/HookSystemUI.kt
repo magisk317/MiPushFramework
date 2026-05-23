@@ -1,6 +1,5 @@
 package io.github.magisk317.mipush.hook.systemui
 
-import android.app.AndroidAppHelper
 import android.app.Notification
 import android.content.Context
 import android.content.pm.ApplicationInfo
@@ -8,9 +7,10 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.view.View
 import android.widget.RemoteViews
-import de.robv.android.xposed.XposedHelpers
+import io.github.magisk317.mipush.xposed.XposedHelpers
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.xposed.callMethod
+import io.github.magisk317.mipush.xposed.currentApplication
 import io.github.magisk317.mipush.xposed.findClass
 import io.github.magisk317.mipush.xposed.get
 import io.github.magisk317.mipush.xposed.hook
@@ -23,7 +23,7 @@ class HookSystemUI {
     }
 
     private val ID_ICON_IS_PRE_L: Int by lazy {
-        val app = AndroidAppHelper.currentApplication()
+        val app = currentApplication() ?: return@lazy 0
         app.resources.getIdentifier("icon_is_pre_L", "id", app.packageName)
     }
 
@@ -49,17 +49,18 @@ class HookSystemUI {
 
         Notification.Builder::class.java.hookAllMethods("processSmallIconColor") {
             doBefore {
-                val context: Context = thisObject["mContext"]
+                val builder = thisObject ?: return@doBefore
+                val context: Context = builder["mContext"]
                 val smallIcon = args[0] as Icon
                 val contentView = args[1] as RemoteViews
                 val p = args[2]
 
-                val isGrayscaleIcon = thisObject.callMethod("getColorUtil")!!
+                val isGrayscaleIcon = builder.callMethod("getColorUtil")!!
                     .callMethod("isGrayscaleIcon", context, smallIcon) as Boolean
 
                 if (!isGrayscaleIcon) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        contentView.setInt(android.R.id.icon, "setBackgroundColor", thisObject.callMethod("getBackgroundColor", p) as Int)
+                        contentView.setInt(android.R.id.icon, "setBackgroundColor", builder.callMethod("getBackgroundColor", p) as Int)
                     }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                         contentView.setInt(android.R.id.icon, "setOriginalIconColor", 1)

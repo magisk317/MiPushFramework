@@ -138,9 +138,9 @@ android {
 
 dependencies {
     implementation(project(":common"))
-    compileOnly(libs.xposed.api)
     compileOnly(libs.libxposed.api)
     implementation(libs.hiddenapibypass)
+    testImplementation(libs.libxposed.api)
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

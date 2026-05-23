@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
-import de.robv.android.xposed.callbacks.XC_LoadPackage
+import io.github.magisk317.mipush.xposed.LoadParam
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.xposed.findClass
 import io.github.magisk317.mipush.xposed.hookMethod
@@ -12,7 +12,7 @@ open class Common : IFakeDevice {
         private const val TAG = "Common"
     }
 
-    override fun fake(lpparam: XC_LoadPackage.LoadPackageParam): Boolean {
+    override fun fake(lpparam: LoadParam): Boolean {
         XLog.d(TAG, "fake() called with: packageName = ${lpparam.packageName}")
         fakeAllBuildInProperties()
         enableAliMiPushBridge(lpparam)
@@ -20,7 +20,7 @@ open class Common : IFakeDevice {
         return true
     }
 
-    private fun enableAliMiPushBridge(lpparam: XC_LoadPackage.LoadPackageParam) {
+    private fun enableAliMiPushBridge(lpparam: LoadParam) {
         runCatching {
             lpparam.classLoader.findClass("com.alibaba.sdk.android.push.channel.XiaomiPushUtils")
                 .hookMethod("isMiui") {
@@ -35,7 +35,7 @@ open class Common : IFakeDevice {
         }
     }
 
-    private fun fakeClass(lpparam: XC_LoadPackage.LoadPackageParam) {
+    private fun fakeClass(lpparam: LoadParam) {
         var isMIUI = false
         try {
             // check MIUI environment

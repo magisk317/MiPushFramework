@@ -1,17 +1,17 @@
 package io.github.magisk317.mipush.hook.system
 
-import android.app.AndroidAppHelper
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Binder
 import android.os.Process
-import de.robv.android.xposed.XposedHelpers
+import io.github.magisk317.mipush.xposed.XposedHelpers
 import io.github.magisk317.mipush.common.IS_SYSTEM_HOOK_READY
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.common.XMSF_FAKE_CONDITION_PROVIDER_PATH
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.fakedevice.compat.ModuleCompatRegistry
 import io.github.magisk317.mipush.xposed.callMethod
+import io.github.magisk317.mipush.xposed.currentApplication
 import io.github.magisk317.mipush.xposed.get
 import io.github.magisk317.mipush.xposed.hookAllMethods
 import io.github.magisk317.mipush.xposed.hookMethod
@@ -32,7 +32,7 @@ class HookSystemService {
             get() {
                 if (_isSystemHookReady == true) return true
                 return try {
-                    val app = AndroidAppHelper.currentApplication() ?: return false
+                    val app = currentApplication() ?: return false
                     val nm = app.getSystemService(NotificationManager::class.java) ?: return false
                     val ready = nm.callMethod("isSystemConditionProviderEnabled", IS_SYSTEM_HOOK_READY) as? Boolean ?: false
                     if (ready) _isSystemHookReady = true
@@ -119,7 +119,7 @@ class HookSystemService {
             }.orEmpty()
             if (fromComputer.isNotEmpty()) return fromComputer
 
-            val app = AndroidAppHelper.currentApplication()
+            val app = currentApplication()
             val pm = app?.packageManager ?: return emptyList()
             return runCatching { pm.getPackagesForUid(callingUid)?.toList().orEmpty() }.getOrDefault(emptyList())
         }
@@ -174,8 +174,9 @@ class HookSystemService {
         classNotificationManagerService.hookMethod("onStart") {
             doAfter {
                 XLog.d(TAG, "onStart invoked")
-                val context = thisObject.callMethod("getContext") as Context
-                val service = thisObject.get<Any?>("mService")
+                val owner = thisObject ?: return@doAfter
+                val context = owner.callMethod("getContext") as Context
+                val service = owner.get<Any?>("mService")
                 if (service == null) {
                     XLog.w(TAG, "skip system notification hook install because mService is null")
                     return@doAfter

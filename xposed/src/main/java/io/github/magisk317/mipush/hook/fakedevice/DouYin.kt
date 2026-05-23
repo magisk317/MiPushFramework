@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
 import android.os.Build
-import de.robv.android.xposed.callbacks.XC_LoadPackage
+import io.github.magisk317.mipush.xposed.LoadParam
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.xposed.findClass
 import io.github.magisk317.mipush.xposed.hookAllMethods
@@ -18,7 +18,7 @@ class DouYin : Common() {
         private val CLOUD_PUSH_METHOD_CANDIDATES = listOf("post", "get", "request", "execute")
     }
 
-    override fun fake(lpparam: XC_LoadPackage.LoadPackageParam): Boolean {
+    override fun fake(lpparam: LoadParam): Boolean {
         super.fake(lpparam)
         
         // Hook isMIUI detection - critical for DouYin to initialize MiPush SDK

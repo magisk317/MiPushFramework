@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.hook.systemui
 
-import de.robv.android.xposed.XposedHelpers
+import io.github.magisk317.mipush.xposed.XposedHelpers
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.xposed.hook
 

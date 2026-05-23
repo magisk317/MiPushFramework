@@ -4,11 +4,12 @@ import android.app.*
 import android.content.pm.PackageManager
 import android.os.Build
 import android.service.notification.StatusBarNotification
-import de.robv.android.xposed.XposedHelpers
 import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
 import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.mipush.xposed.XposedHelpers
 import io.github.magisk317.mipush.xposed.callMethod
 import io.github.magisk317.mipush.xposed.callStaticMethod
+import io.github.magisk317.mipush.xposed.currentApplication
 import io.github.magisk317.mipush.xposed.setField
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import java.lang.reflect.InvocationTargetException
@@ -26,7 +27,7 @@ object SystemNotificationManager {
     private val notificationManager: Any = NotificationManager::class.java.callStaticMethod("getService")!!
 
     private fun getUid(packageName: String): Int {
-        return AndroidAppHelper.currentApplication().packageManager.getPackageUid(packageName, 0)
+        return currentApplication()!!.packageManager.getPackageUid(packageName, 0)
     }
 
     private fun resolveUid(packageName: String, operation: String): Int? {
@@ -41,7 +42,7 @@ object SystemNotificationManager {
     }
 
     private fun getUserId(): Int {
-        return AndroidAppHelper.currentApplication().callMethod("getUserId") as Int? ?: 0
+        return currentApplication()?.callMethod("getUserId") as Int? ?: 0
     }
 
     private fun Throwable.unwrapSystemCallFailure(): Throwable {
@@ -73,13 +74,13 @@ object SystemNotificationManager {
 
     private fun localNotificationManager(): NotificationManager? {
         return runCatching {
-            AndroidAppHelper.currentApplication().getSystemService(NotificationManager::class.java)
+            currentApplication()?.getSystemService(NotificationManager::class.java)
         }.getOrNull()
     }
 
     private fun isCurrentPackage(packageName: String): Boolean {
         return runCatching {
-            AndroidAppHelper.currentApplication().packageName == packageName
+            currentApplication()?.packageName == packageName
         }.getOrDefault(false)
     }
 

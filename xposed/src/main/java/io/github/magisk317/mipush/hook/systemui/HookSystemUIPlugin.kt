@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.hook.systemui
 
 import android.content.ComponentName
 import android.content.ContextWrapper
-import de.robv.android.xposed.XposedHelpers
+import io.github.magisk317.mipush.xposed.XposedHelpers
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.xposed.getField
 import io.github.magisk317.mipush.xposed.hook
@@ -22,8 +22,9 @@ class HookSystemUIPlugin(
             )
             classPluginFactory.declaredMethods.find { it.name == "createPluginContext" }!!.hook {
                 doAfter {
+                    val owner = thisObject ?: return@doAfter
                     val componentName =
-                        thisObject.getField("mComponentName", ComponentName::class.java)
+                        owner.getField("mComponentName", ComponentName::class.java)
                     if (componentName!!.packageName == pluginPackageName) {
                         unhook()
                         val pluginContext = result as ContextWrapper

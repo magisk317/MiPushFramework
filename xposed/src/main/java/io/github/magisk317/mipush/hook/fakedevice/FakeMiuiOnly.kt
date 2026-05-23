@@ -1,9 +1,9 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
-import de.robv.android.xposed.callbacks.XC_LoadPackage
+import io.github.magisk317.mipush.xposed.LoadParam
 
 class FakeMiuiOnly : IFakeDevice {
-    override fun fake(lpparam: XC_LoadPackage.LoadPackageParam): Boolean {
+    override fun fake(lpparam: LoadParam): Boolean {
         // 清空华为 EMUI、魅族 Flyme、OPPO ColorOS 特征，防止与小米身份冲突
         fakeProperty(Property.EMUI_API)
         fakeProperty(Property.EMUI_VERSION)

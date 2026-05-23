@@ -1,10 +1,7 @@
 package io.github.magisk317.mipush.hook.keepalive
 
-import android.app.AndroidAppHelper
 import android.net.Uri
-import de.robv.android.xposed.XC_MethodHook
-import de.robv.android.xposed.XposedBridge
-import de.robv.android.xposed.XposedHelpers
+import io.github.magisk317.mipush.xposed.XposedHelpers
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_AUTHORITY
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_COLUMN_ENABLED
@@ -15,6 +12,9 @@ import io.github.magisk317.mipush.common.KEEPALIVE_PREF_PATH_FLAGS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.mipush.xposed.MethodHookParam
+import io.github.magisk317.mipush.xposed.currentApplication
+import io.github.magisk317.mipush.xposed.hookAllMethods
 import java.lang.reflect.Method
 
 class KeepAliveHook {
@@ -72,7 +72,7 @@ class KeepAliveHook {
 
     private fun refreshFlags() {
         runCatching {
-            val app = AndroidAppHelper.currentApplication() ?: return
+            val app = currentApplication() ?: return
             val values = app.contentResolver.query(PREF_URI, null, null, PREF_KEYS, null)?.use { cursor ->
                 val keyIndex = cursor.getColumnIndex(KEEPALIVE_PREF_COLUMN_KEY)
                 val enabledIndex = cursor.getColumnIndex(KEEPALIVE_PREF_COLUMN_ENABLED)
@@ -114,12 +114,12 @@ class KeepAliveHook {
                 return
             }
 
-            val hooks = XposedBridge.hookAllMethods(oomAdjusterClass, targetMethodName, object : XC_MethodHook() {
-                override fun afterHookedMethod(param: MethodHookParam) {
-                    if (!flags.oomAdj) return
-                    adjustOomAdjForTarget(param)
+            val hooks = oomAdjusterClass.hookAllMethods(targetMethodName) {
+                doAfter {
+                    if (!flags.oomAdj) return@doAfter
+                    adjustOomAdjForTarget(this)
                 }
-            })
+            }
             if (hooks.isEmpty()) {
                 XLog.w(TAG, "no OomAdjuster hooks installed for $targetMethodName")
             } else {
@@ -130,7 +130,7 @@ class KeepAliveHook {
         }
     }
 
-    private fun adjustOomAdjForTarget(param: XC_MethodHook.MethodHookParam) {
+    private fun adjustOomAdjForTarget(param: MethodHookParam) {
         for (arg in param.args) {
             if (arg == null) continue
             val processName = try {
@@ -158,15 +158,15 @@ class KeepAliveHook {
         try {
             val amsClass = XposedHelpers.findClass("com.android.server.am.ActivityManagerService", classLoader)
             val methodName = "killProcessLocked"
-            val hooks = XposedBridge.hookAllMethods(amsClass, methodName, object : XC_MethodHook() {
-                override fun beforeHookedMethod(param: MethodHookParam) {
-                    if (!flags.antiKill) return
-                    if (shouldSkipKill(param)) {
-                        param.result = defaultResultFor(param.method)
+            val hooks = amsClass.hookAllMethods(methodName) {
+                doBefore {
+                    if (!flags.antiKill) return@doBefore
+                    if (shouldSkipKill(this)) {
+                        result = defaultResultFor(method)
                         XLog.w(TAG, "intercepted kill for $XMSF_PACKAGE_NAME in $methodName")
                     }
                 }
-            })
+            }
             if (hooks.isEmpty()) {
                 XLog.w(TAG, "no AMS kill hooks installed for $methodName")
             } else {
@@ -192,7 +192,7 @@ class KeepAliveHook {
         }
     }
 
-    private fun shouldSkipKill(param: XC_MethodHook.MethodHookParam): Boolean {
+    private fun shouldSkipKill(param: MethodHookParam): Boolean {
         for (arg in param.args) {
             if (arg == null) continue
             if (arg is String && arg == XMSF_PACKAGE_NAME) {
@@ -221,12 +221,12 @@ class KeepAliveHook {
             var installed = 0
             for (methodName in methods) {
                 try {
-                    installed += XposedBridge.hookAllMethods(standbyClass, methodName, object : XC_MethodHook() {
-                        override fun beforeHookedMethod(param: MethodHookParam) {
-                            if (!flags.standbyBypass) return
-                            overrideStandbyBucket(param)
+                    installed += standbyClass.hookAllMethods(methodName) {
+                        doBefore {
+                            if (!flags.standbyBypass) return@doBefore
+                            overrideStandbyBucket(this)
                         }
-                    }).size
+                    }.size
                 } catch (_: Throwable) {}
             }
             if (installed == 0) {
@@ -239,7 +239,7 @@ class KeepAliveHook {
         }
     }
 
-    private fun overrideStandbyBucket(param: XC_MethodHook.MethodHookParam) {
+    private fun overrideStandbyBucket(param: MethodHookParam) {
         if (!hasTargetPackageArg(param)) return
 
         for (i in param.args.indices) {
@@ -256,12 +256,12 @@ class KeepAliveHook {
         try {
             val idleClass = XposedHelpers.findClass("com.android.server.DeviceIdleController", classLoader)
             val methodName = "setAppIdleAsync"
-            val hooks = XposedBridge.hookAllMethods(idleClass, methodName, object : XC_MethodHook() {
-                override fun beforeHookedMethod(param: MethodHookParam) {
-                    if (!flags.dozeBypass) return
-                    keepTargetActive(param)
+            val hooks = idleClass.hookAllMethods(methodName) {
+                doBefore {
+                    if (!flags.dozeBypass) return@doBefore
+                    keepTargetActive(this)
                 }
-            })
+            }
             if (hooks.isEmpty()) {
                 XLog.w(TAG, "no DeviceIdleController hooks installed for $methodName")
             } else {
@@ -272,7 +272,7 @@ class KeepAliveHook {
         }
     }
 
-    private fun keepTargetActive(param: XC_MethodHook.MethodHookParam) {
+    private fun keepTargetActive(param: MethodHookParam) {
         if (!hasTargetPackageArg(param)) return
 
         for (i in param.args.indices) {
@@ -285,7 +285,7 @@ class KeepAliveHook {
         }
     }
 
-    private fun hasTargetPackageArg(param: XC_MethodHook.MethodHookParam): Boolean {
+    private fun hasTargetPackageArg(param: MethodHookParam): Boolean {
         for (arg in param.args) {
             if (arg is String && arg == XMSF_PACKAGE_NAME) return true
         }

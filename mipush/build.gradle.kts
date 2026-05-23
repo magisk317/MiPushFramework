@@ -39,7 +39,6 @@ android {
 dependencies {
     api(project(":common"))
     api(project(":xposed"))
-    compileOnly(libs.xposed.api)
 
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)

@@ -1,25 +1,22 @@
 package io.github.magisk317.mipush.hook.system
 
-import android.app.AndroidAppHelper
 import android.app.Notification
 import android.app.NotificationChannelGroup
 import android.content.Context
 import android.os.Binder
 import android.os.Build
 import android.os.Process
-import de.robv.android.xposed.XC_MethodHook
-import de.robv.android.xposed.XposedBridge
-import de.robv.android.xposed.XposedHelpers.findClass
-import de.robv.android.xposed.XposedHelpers.findMethodExact
 import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.xposed.HookCallback
 import io.github.magisk317.mipush.xposed.HookContext
-import io.github.magisk317.mipush.xposed.getMiPushExtra
+import io.github.magisk317.mipush.xposed.MethodHookParam
+import io.github.magisk317.mipush.xposed.currentApplication
+import io.github.magisk317.mipush.xposed.findClass
+import io.github.magisk317.mipush.xposed.findMethodExact
 import io.github.magisk317.mipush.xposed.hook
 import io.github.magisk317.mipush.xposed.hookMethod
-import io.github.magisk317.mipush.xposed.setMiPushExtra
 
 object NmsPermissionHooker {
     private const val TAG = "NmsPermissionHooker"
@@ -42,9 +39,10 @@ object NmsPermissionHooker {
 
     private fun getPackageUid(packageName: String) = getContext().packageManager.getPackageUid(packageName, 0)
 
-    private fun getContext(): Context = AndroidAppHelper.currentApplication()
+    private fun getContext(): Context = currentApplication()
+        ?: throw IllegalStateException("currentApplication unavailable")
 
-    private fun hookPermission(targetPackageNameParamIndex: Int, hookExtra: (XC_MethodHook.MethodHookParam.() -> Unit)? = null): HookCallback = {
+    private fun hookPermission(targetPackageNameParamIndex: Int, hookExtra: (MethodHookParam.() -> Unit)? = null): HookCallback = {
         replace {
             var token: Long? = null
             if (fromXmsf()) {
@@ -52,7 +50,7 @@ object NmsPermissionHooker {
                 hookExtra?.invoke(this)
             }
             try {
-                XposedBridge.invokeOriginalMethod(method, thisObject, args)
+                invokeOriginal()
             } catch (e: java.lang.reflect.InvocationTargetException) {
                 throw e.targetException ?: e.cause ?: e
             } finally {
@@ -192,7 +190,7 @@ object NmsPermissionHooker {
                             XLog.d(TAG, "checkCallerIsSystem bypassed for xmsf")
                             return@replace null
                         }
-                        XposedBridge.invokeOriginalMethod(method, thisObject, args)
+                        invokeOriginal()
                     }
                 }
             XLog.i(TAG, "checkCallerIsSystem hook installed")

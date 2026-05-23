@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
 import android.app.Application
-import de.robv.android.xposed.callbacks.XC_LoadPackage
+import io.github.magisk317.mipush.xposed.LoadParam
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.xposed.findClass
 import io.github.magisk317.mipush.xposed.hook
@@ -43,10 +43,10 @@ internal object VendorPushHookHelper {
     private val hookedLoadClassCallbacks: MutableSet<String> = Collections.synchronizedSet(HashSet())
     private val logCounts: MutableMap<String, Int> = Collections.synchronizedMap(HashMap())
 
-    fun install(lpparam: XC_LoadPackage.LoadPackageParam, spec: VendorHookSpec): Boolean {
+    fun install(lpparam: LoadParam, spec: VendorHookSpec): Boolean {
         val packageName = lpparam.packageName.orEmpty()
         val processName = lpparam.processName.orEmpty()
-        val classLoader = lpparam.classLoader ?: return false
+        val classLoader = lpparam.classLoader
         val context = VendorHookContext(
             packageName = packageName,
             processName = processName,
@@ -70,7 +70,7 @@ internal object VendorPushHookHelper {
     }
 
     private fun installAfterApplicationCreate(
-        lpparam: XC_LoadPackage.LoadPackageParam,
+        lpparam: LoadParam,
         spec: VendorHookSpec,
         context: VendorHookContext,
     ) {
@@ -79,7 +79,7 @@ internal object VendorPushHookHelper {
         Application::class.java.hookMethod("onCreate") {
             doAfter {
                 val app = thisObject as? Application ?: return@doAfter
-                val runtimeLoader = app.classLoader ?: lpparam.classLoader ?: return@doAfter
+                val runtimeLoader = app.classLoader ?: lpparam.classLoader
                 val runtimeContext = context.copy(
                     classLoaderId = System.identityHashCode(runtimeLoader),
                 )
@@ -89,7 +89,7 @@ internal object VendorPushHookHelper {
     }
 
     private fun installLoadClassProbe(
-        lpparam: XC_LoadPackage.LoadPackageParam,
+        lpparam: LoadParam,
         spec: VendorHookSpec,
         context: VendorHookContext,
     ) {
@@ -102,7 +102,7 @@ internal object VendorPushHookHelper {
                 if (className !in targetClasses) return@doAfter
                 val loadedClass = result as? Class<*> ?: return@doAfter
                 val expectedLoader = lpparam.classLoader
-                val loadedByTarget = expectedLoader == null ||
+                val loadedByTarget =
                     loadedClass.classLoader === expectedLoader ||
                     thisObject === expectedLoader
                 if (!loadedByTarget) return@doAfter

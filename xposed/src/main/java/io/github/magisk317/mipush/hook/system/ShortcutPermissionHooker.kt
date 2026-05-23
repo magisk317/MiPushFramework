@@ -1,22 +1,19 @@
 package io.github.magisk317.mipush.hook.system
 
-import android.app.AndroidAppHelper
 import android.content.pm.ShortcutInfo
 import android.os.Binder
-import de.robv.android.xposed.XC_MethodHook
-import de.robv.android.xposed.XposedBridge
-import de.robv.android.xposed.XposedHelpers.findMethodExact
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.xposed.HookCallback
-import io.github.magisk317.mipush.xposed.getMiPushExtra
+import io.github.magisk317.mipush.xposed.MethodHookParam
+import io.github.magisk317.mipush.xposed.currentApplication
+import io.github.magisk317.mipush.xposed.findMethodExact
 import io.github.magisk317.mipush.xposed.hook
-import io.github.magisk317.mipush.xposed.setMiPushExtra
 
 object ShortcutPermissionHooker {
     private var xmsfUid = -1
     private fun getXmsfUid(): Int {
         if (xmsfUid == -1) {
-            val context = AndroidAppHelper.currentApplication()
+            val context = currentApplication()
             if (context != null) {
                 runCatching {
                     xmsfUid = context.packageManager.getPackageUid(XMSF_PACKAGE_NAME, 0)
@@ -36,7 +33,7 @@ object ShortcutPermissionHooker {
         }
     }
 
-    private fun hookPermission(targetPackageNameParamIndex: Int, hookExtra: (XC_MethodHook.MethodHookParam.() -> Unit)? = null): HookCallback = {
+    private fun hookPermission(targetPackageNameParamIndex: Int, hookExtra: (MethodHookParam.() -> Unit)? = null): HookCallback = {
         replace {
             var token: Long? = null
             if (fromXmsf()) {
@@ -44,7 +41,7 @@ object ShortcutPermissionHooker {
                 hookExtra?.invoke(this)
             }
             try {
-                XposedBridge.invokeOriginalMethod(method, thisObject, args)
+                invokeOriginal()
             } catch (e: java.lang.reflect.InvocationTargetException) {
                 throw e.targetException ?: e.cause ?: e
             } finally {

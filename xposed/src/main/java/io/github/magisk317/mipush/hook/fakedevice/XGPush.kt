@@ -1,9 +1,7 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
-import de.robv.android.xposed.XC_MethodHook
-import de.robv.android.xposed.XposedBridge
-import de.robv.android.xposed.XposedHelpers
-import de.robv.android.xposed.callbacks.XC_LoadPackage
+import io.github.magisk317.mipush.xposed.XposedHelpers
+import io.github.magisk317.mipush.xposed.LoadParam
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.xposed.findClass
 import io.github.magisk317.mipush.xposed.hook
@@ -46,7 +44,7 @@ open class XGPush : IFakeDevice {
             Collections.synchronizedMap(HashMap())
     }
 
-    override fun fake(lpparam: XC_LoadPackage.LoadPackageParam): Boolean {
+    override fun fake(lpparam: LoadParam): Boolean {
         val classLoader = lpparam.classLoader
         val packageName = lpparam.packageName.orEmpty()
         val processName = lpparam.processName.orEmpty()
@@ -319,24 +317,22 @@ open class XGPush : IFakeDevice {
     private fun fakeChannels(classChannelUtils: Class<*>): Boolean {
         XLog.d(TAG, "fakeChannels() called")
 
-        classChannelUtils.declaredMethods.forEach {
-            XposedBridge.hookMethod(it, object : XC_MethodHook() {
-                override fun beforeHookedMethod(param: MethodHookParam) {
-                    val method = param.method as Method
-
+        classChannelUtils.declaredMethods.forEach { method ->
+            method.hook {
+                doBefore {
                     if (method.name == "getMiuiVersionCode") {
-                        param.result = "13"
+                        result = "13"
                     } else if (method.name == "getMiuiVersionName") {
-                        param.result = "V130"
+                        result = "V130"
                     } else if (method.name == "isBrandXiaoMi") {
-                        param.result = true
+                        result = true
                     } else if (method.returnType == Boolean::class.java) {
-                        param.result = false
+                        result = false
                     } else if (method.returnType == String::class.java) {
-                        param.result = ""
+                        result = ""
                     }
                 }
-            })
+            }
         }
         return true
     }
