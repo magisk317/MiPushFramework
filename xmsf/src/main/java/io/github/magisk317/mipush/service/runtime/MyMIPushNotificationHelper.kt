@@ -345,11 +345,13 @@ class MyMIPushNotificationHelper {
         private fun doNotifyPushMessage(context: Context, container: XmPushActionContainer, decryptedContent: ByteArray) {
             val metaInfo = container.metaInfo
             val messageId = MessageIdentity.fromContainer(container)
+            val isMockReplay = MockMessageRegistry.isMarked(container)
             if (metaInfo == null) {
                 logger.w("doNotifyPushMessage: metaInfo is null, skip notification pkg=${container.packageName} messageId=$messageId")
                 return
             }
             val notificationId = getNotificationId(container)
+            logger.d("doNotifyPushMessage pkg=${container.packageName} messageId=$messageId notificationId=$notificationId mockReplay=$isMockReplay messageTs=${metaInfo.messageTs} notifyId=${metaInfo.notifyId}")
             if (VoipNotificationHelper.shouldDropStale(metaInfo, container.packageName)) {
                 logger.i("skip stale voip notification pkg=${container.packageName} messageId=$messageId")
                 PushRuntime.observeNotificationEvent(
@@ -463,14 +465,17 @@ class MyMIPushNotificationHelper {
             val packageName = MIPushNotificationHelper.getTargetPackage(container)
             val metaInfo = container.metaInfo ?: return "${packageName}_0".hashCode()
             val messageId = MessageIdentity.fromContainer(container)
+            val stableId = shouldUseStableNotifyId(container)
             val id = when {
-                shouldUseStableNotifyId(container) -> metaInfo.notifyId.toString()
+                stableId -> metaInfo.notifyId.toString()
                 !messageId.isNullOrEmpty() -> messageId
                 !metaInfo.id.isNullOrEmpty() -> metaInfo.id
                 metaInfo.isSetNotifyId() -> metaInfo.notifyId.toString()
                 else -> "0"
             }
-            return "${packageName}_$id".hashCode()
+            val result = "${packageName}_$id".hashCode()
+            logger.d("getNotificationId pkg=$packageName id=$id stableId=$stableId messageId=$messageId notifyId=${metaInfo.notifyId} metaInfoId=${metaInfo.id} result=$result")
+            return result
         }
 
         private fun shouldUseStableNotifyId(container: XmPushActionContainer): Boolean {

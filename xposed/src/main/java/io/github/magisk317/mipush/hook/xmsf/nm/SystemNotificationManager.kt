@@ -120,17 +120,20 @@ object SystemNotificationManager {
         packageName: String,
         tag: String?, id: Int, notification: Notification
     ) {
-        XLog.d(TAG, "notify() called with: packageName = $packageName, tag = $tag, id = $id, notification = $notification")
+        XLog.d(TAG, "notify() pkg=$packageName tag=$tag id=$id channel=${notification.channelId} group=${notification.group}")
         if (!isCurrentPackage(packageName) && resolveUid(packageName, "notify") == null) {
+            XLog.d(TAG, "notify() package not installed, falling back to local: $packageName")
             notifyLocally(tag, id, notification)
             return
         }
         runSystemCall("notify", packageName, fallback = {
+            XLog.d(TAG, "notify() system call failed, falling back to local: $packageName id=$id")
             notifyLocally(tag, id, notification)
         }) {
             val methodEnqueueNotificationWithTag = XposedHelpers.findMethodExact(notificationManager.javaClass, "enqueueNotificationWithTag", String::class.java, String::class.java, String::class.java, Int::class.java, Notification::class.java, Int::class.java)
             val opPkg = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ANDROID_PACKAGE_NAME else packageName
             methodEnqueueNotificationWithTag.invoke(notificationManager, packageName, opPkg, tag, id, notification, getUserId())
+            XLog.d(TAG, "notify() enqueue OK pkg=$packageName id=$id")
         }
     }
 
@@ -138,8 +141,9 @@ object SystemNotificationManager {
         packageName: String,
         tag: String?, id: Int
     ) {
-        XLog.d(TAG, "cancel() called with: packageName = $packageName, tag = $tag, id = $id")
+        XLog.d(TAG, "cancel() pkg=$packageName tag=$tag id=$id")
         runSystemCall("cancel", packageName, fallback = {
+            XLog.d(TAG, "cancel() system call failed, falling back to local: $packageName id=$id")
             cancelLocally(tag, id)
         }) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -414,13 +418,15 @@ object SystemNotificationManager {
     fun getActiveNotifications(
         packageName: String
     ): Array<StatusBarNotification?>? {
-        XLog.d(TAG, "getActiveNotifications() called with: packageName = $packageName")
         return runSystemCall("getActiveNotifications", packageName, fallback = {
+            XLog.d(TAG, "getActiveNotifications() system call failed for $packageName, returning null")
             null
         }) {
             val parceledListSlice = notificationManager.callMethod("getAppActiveNotifications", packageName, getUserId())
             @Suppress("UNCHECKED_CAST")
             val list = parceledListSlice?.callMethod("getList") as List<StatusBarNotification>
+            val ids = list.map { "${it.id}" }.joinToString(",")
+            XLog.d(TAG, "getActiveNotifications() pkg=$packageName count=${list.size} ids=[$ids]")
             list.toTypedArray()
         }
     }

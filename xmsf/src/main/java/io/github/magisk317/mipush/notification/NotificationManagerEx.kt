@@ -283,6 +283,7 @@ object NotificationManagerEx {
         tag: String?, id: Int, notification: Notification
     ) {
         // Fully replaced by HookPushNC when the Xposed module is active.
+        Napier.d("notify() called with: packageName = $packageName, tag = $tag, id = $id, channel = ${notification.channelId}, group = ${notification.group}", tag = TAG)
         markLocalTargetPackage(packageName, notification)
         if (shouldUseModernIdentityStrategy(packageName)) {
             if (shouldNotifyAsPackage(packageName, notification)) {
@@ -317,7 +318,7 @@ object NotificationManagerEx {
         tag: String?, id: Int
     ) {
         // Fully replaced by HookPushNC when the Xposed module is active.
-        logger.d("cancel() called with: packageName = $packageName, tag = $tag, id = $id")
+        Napier.d("cancel() called with: packageName = $packageName, tag = $tag, id = $id", tag = TAG)
         if (shouldUseModernIdentityStrategy(packageName)) {
             if (NotificationIdentityBridge.cancelAsTargetPackage(appContext, packageName, tag, id)) {
                 logger.d("cancel() completed via target identity pkg=$packageName tag=$tag id=$id")
