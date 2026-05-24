@@ -99,10 +99,6 @@ object NotificationChannelManager {
         val notificationChannel = createChannelWithPackage(metaInfo, packageName)
         if (notificationChannel != null) {
             notificationChannel.group = notificationChannelGroup.id
-            val existing = getNotificationManagerEx().getNotificationChannel(packageName, notificationChannel.id)
-            if (existing != null && existing.importance < NotificationManager.IMPORTANCE_HIGH) {
-                getNotificationManagerEx().deleteNotificationChannel(packageName, notificationChannel.id)
-            }
             getNotificationManagerEx().createNotificationChannels(
                 packageName,
                 listOf(notificationChannel)
