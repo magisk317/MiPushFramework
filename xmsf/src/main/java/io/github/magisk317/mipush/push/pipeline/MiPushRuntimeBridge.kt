@@ -13,6 +13,7 @@ import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.runtime.PushRegistrationState
 import io.github.magisk317.mipush.runtime.PushRuntime
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.utils.RegSecUtils
 import io.github.magisk317.mipush.utils.ConvertUtils
 import io.github.magisk317.mipush.runtime.store.db.EventDb
@@ -50,6 +51,7 @@ object MiPushRuntimeBridge {
             RegisterRecorder(context).recordRegisterRequest(intent)
             intent.getStringExtra(io.github.magisk317.mipush.common.Constants.EXTRA_MI_PUSH_PACKAGE)
                 ?.takeIf { it.isNotBlank() }
+                ?.takeIf { Utils.isUserApplication(context.applicationContext, it) }
                 ?.let { packageName ->
                     when (intent.action) {
                         PushConstants.MIPUSH_ACTION_REGISTER_APP -> PushRuntime.observeRegistrationRequest(
@@ -225,6 +227,10 @@ object MiPushRuntimeBridge {
         }
         if (RegisteredApplicationDb.isBlocked(pkg)) {
             logger.d("skip event record for blocked application pkg=$pkg")
+            return
+        }
+        if (!Utils.isUserApplication(context.applicationContext, pkg)) {
+            logger.d("skip event record for system application pkg=$pkg")
             return
         }
         val eventType = TypeFactory.createForStore(container)

@@ -12,6 +12,7 @@ import android.database.MatrixCursor
 import com.xiaomi.push.service.OnlineConfig
 import com.xiaomi.xmsf.account.DefaultAccountCloudBridge
 import io.github.magisk317.mipush.notification.NotificationChannelManager
+import io.github.magisk317.mipush.common.utils.Utils
 import com.xiaomi.xmsf.push.service.XMAccountManager
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.runtime.PushRuntime
@@ -343,12 +344,14 @@ object StockSurfaceSupport {
     }
 
     private fun getPushApps(context: Context): List<Bundle> {
-        return RegisteredApplicationDb.getList(null).map { application ->
-            Bundle().apply {
-                putString("packageName", application.packageName)
-                putString("appName", application.appName)
+        return RegisteredApplicationDb.getList(null)
+            .filter { Utils.isUserApplication(context, it.packageName) }
+            .map { application ->
+                Bundle().apply {
+                    putString("packageName", application.packageName)
+                    putString("appName", application.appName)
+                }
             }
-        }
     }
 
     private fun getPushMessages(extras: Bundle?): List<Bundle> {
@@ -423,6 +426,14 @@ object StockSurfaceSupport {
     }
 
     private fun getAppPushStatus(packageName: String): Bundle {
+        if (!Utils.isUserApplication(UtilsContextHolder.context, packageName)) {
+            return Bundle().apply {
+                putString("packageName", packageName)
+                putInt("pushStatus", RegisteredApplication.Type.DENY)
+                putBoolean("notificationOnRegister", false)
+                putInt("registeredType", RegisteredApplication.RegisteredType.NotRegistered)
+            }
+        }
         val application = RegisteredApplicationDb.registerApplication(packageName)
         return Bundle().apply {
             putString("packageName", application.packageName)
@@ -433,6 +444,9 @@ object StockSurfaceSupport {
     }
 
     private fun setAppPushStatus(packageName: String, status: Int): Bundle {
+        if (!Utils.isUserApplication(UtilsContextHolder.context, packageName)) {
+            return getAppPushStatus(packageName)
+        }
         val application = RegisteredApplicationDb.registerApplication(packageName)
         application.type = status
         RegisteredApplicationDb.update(application)

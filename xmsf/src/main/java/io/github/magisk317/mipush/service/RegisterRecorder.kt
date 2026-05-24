@@ -39,6 +39,11 @@ class RegisterRecorder(private val context: Context) {
                 return
             }
 
+            if (!Utils.isUserApplication(context.applicationContext, pkg)) {
+                logger.d("skip system application registration pkg=$pkg")
+                return
+            }
+
             if (RegistrationIntentDeduper.shouldDrop("register_recorder", intent)) {
                 logger.d("skip duplicate register record pkg=$pkg")
                 return

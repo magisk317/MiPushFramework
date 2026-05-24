@@ -21,7 +21,6 @@ import io.github.magisk317.mipush.common.utils.ElapsedTimer
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
-import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb.registerApplication
 import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
 import io.github.magisk317.mipush.feature.main.RegistrationStateStyle
 import io.github.magisk317.mipush.platform.support.MiPushManifestChecker
@@ -47,7 +46,7 @@ object ApplicationPageOperation {
         val registeredPkgs = getRegisteredApplicationMap(miPushApplications)
         logger.d("[loadApp] get registeredPkgs ms: %d", timer.restart())
 
-        val packageInfos = getPackagesOnDevice()
+        val packageInfos = getPackagesOnDevice().filter(::isUserApplication).toMutableList()
         miPushApplications.totalPkg = packageInfos.size
         logger.d("[loadApp] get package info ms: %d", timer.restart())
 
@@ -123,7 +122,7 @@ object ApplicationPageOperation {
         checker: MiPushManifestChecker?
     ): RegisteredApplication {
         val currentAppPkgName = info.packageName
-        val application = registeredPkgs[currentAppPkgName] ?: registerApplication(currentAppPkgName)
+        val application = registeredPkgs[currentAppPkgName] ?: RegisteredApplicationDb.registerApplication(currentAppPkgName)
         application.existServices = hasMiPushServices(checker, info)
         return application
     }
@@ -150,6 +149,7 @@ object ApplicationPageOperation {
         checker: MiPushManifestChecker?
     ): Boolean {
         return isApplicationInstalled(info) &&
+            isUserApplication(info) &&
             (isPackageStoredInDB(registeredPkgs, info) || hasMiPushServices(checker, info))
     }
 
@@ -194,6 +194,12 @@ object ApplicationPageOperation {
     }
 
     @JvmStatic
+    fun isUserApplication(info: PackageInfo): Boolean {
+        val appInfo = info.applicationInfo ?: return false
+        return Utils.isUserApplication(appInfo)
+    }
+
+    @JvmStatic
     fun getPackagesOnDevice(): MutableList<PackageInfo> {
         val app = Utils.getApplication() ?: return mutableListOf()
         val flags = PackageManager.MATCH_DISABLED_COMPONENTS or
@@ -222,6 +228,9 @@ object ApplicationPageOperation {
     fun getRegisteredApplicationMap(miPushApplications: MiPushApplications): MutableMap<String, RegisteredApplication> {
         val registeredPkgs = miPushApplications.registeredPkgs
         for (application in RegisteredApplicationDb.getList(null)) {
+            if (!Utils.isUserApplication(application.packageName)) {
+                continue
+            }
             registeredPkgs[application.packageName] = application
         }
         return registeredPkgs
@@ -328,6 +337,9 @@ object ApplicationPageOperation {
 
         for (application in list) {
             val pkg = application.packageName
+            if (!Utils.isUserApplication(context, pkg)) {
+                continue
+            }
             application.appName = Global.applicationNameCache().getAppName(context, pkg).toString()
             if (
                 application.registeredType == RegisteredApplication.RegisteredType.NotRegistered &&

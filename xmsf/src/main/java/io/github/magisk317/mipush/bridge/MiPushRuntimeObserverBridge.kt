@@ -64,6 +64,7 @@ import com.xiaomi.smack.Connection
 import com.xiaomi.smack.packet.Packet
 import dagger.hilt.android.EntryPointAccessors
 import io.github.magisk317.mipush.common.compat.NotificationCompatBridge
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.push.hook.HookTraceCompat
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
 import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
@@ -282,6 +283,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun onRegistrationStateChanged(packageName: String, state: PushRegistrationState, reason: String, message: String) {
+        if (!Utils.isUserApplication(appContext, packageName)) return
         PushRuntime.observeRegistrationState(packageName, state, reason, message)
     }
 
@@ -290,6 +292,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun onRegistrationResult(packageName: String, success: Boolean, source: String, reason: String) {
+        if (!Utils.isUserApplication(appContext, packageName)) return
         PushRuntime.observeRegistrationResult(packageName, success, source, reason)
     }
 
@@ -298,6 +301,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun cacheRegistrationRequest(packageName: String, payload: ByteArray) {
+        if (!Utils.isUserApplication(appContext, packageName)) return
         PushRuntimePendingPacketStore.cacheRegistrationRequest(packageName, payload)
     }
 
@@ -307,10 +311,12 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun observeUnregistration(packageName: String, state: PushRegistrationState) {
+        if (!Utils.isUserApplication(appContext, packageName)) return
         PushRuntime.observeUnregistration(packageName, "MiPushRuntimeObserverBridge.observeUnregistration", state.name)
     }
 
     override fun cacheRegistrationTask(packageName: String, intent: Intent, source: String, reason: String, timestampMs: Long) {
+        if (!Utils.isUserApplication(appContext, packageName)) return
         PushRuntimeRegistrationTaskStore.cache(packageName, intent, source, reason, timestampMs)
     }
 

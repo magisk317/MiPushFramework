@@ -115,7 +115,14 @@ object Utils {
 
     @JvmStatic
     fun isUserApplication(applicationInfo: ApplicationInfo): Boolean {
-        return (applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) == 0
+        val systemFlags = ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP
+        return (applicationInfo.flags and systemFlags) == 0
+    }
+
+    @JvmStatic
+    fun isUserApplication(context: Context, pkg: String): Boolean {
+        val appInfo = getApplicationInfoCompat(context, pkg, PackageManager.MATCH_UNINSTALLED_PACKAGES)
+        return appInfo?.let { isUserApplication(it) } ?: false
     }
 
     @JvmStatic
@@ -128,12 +135,8 @@ object Utils {
 
     @JvmStatic
     fun isUserApplication(pkg: String): Boolean {
-        return try {
-            val appInfo = getApplicationInfoCompat(context!!, pkg, PackageManager.MATCH_UNINSTALLED_PACKAGES)
-            appInfo?.let { isUserApplication(it) } ?: false
-        } catch (ignored: PackageManager.NameNotFoundException) {
-            false
-        }
+        val app = context ?: return false
+        return isUserApplication(app, pkg)
     }
 
     @JvmStatic
