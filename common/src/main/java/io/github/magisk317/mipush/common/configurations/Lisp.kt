@@ -64,7 +64,7 @@ object Lisp {
                     try {
                         val decoded = decoder.call()
                         return@Callable String(decoded, StandardCharsets.UTF_8)
-                    } catch (e: Exception) {
+                    } catch (e: IllegalArgumentException) {
                         err = e
                     }
                 }
@@ -90,8 +90,11 @@ object Lisp {
         val ret = methods[method] ?: return extension.evaluate(evaluated)
         return try {
             ret.call()
-        } catch (e: Exception) {
-            logger.e(method, e)
+        } catch (_: ReflectiveOperationException) {
+            null
+        } catch (_: IllegalArgumentException) {
+            null
+        } catch (_: ConfigJsonException) {
             null
         }
     }

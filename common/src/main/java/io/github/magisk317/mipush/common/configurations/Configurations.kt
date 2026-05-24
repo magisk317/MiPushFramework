@@ -171,8 +171,9 @@ class Configurations @Inject constructor(
             if (ret != null) {
                 return try {
                     ret()
-                } catch (e: Exception) {
-                    logger.e(method, e)
+                } catch (_: ClassCastException) {
+                    null
+                } catch (_: ConfigJsonException) {
                     null
                 }
             }
@@ -198,8 +199,8 @@ class Configurations @Inject constructor(
                         }
                     }
                 }
-            } catch (e: Exception) {
-                logger.e("evaluateCond", e)
+            } catch (_: ConfigJsonException) {
+            } catch (_: ClassCastException) {
             }
             return null
         }

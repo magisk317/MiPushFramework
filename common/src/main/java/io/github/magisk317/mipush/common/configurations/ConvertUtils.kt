@@ -69,7 +69,7 @@ object ConvertUtils {
             } catch (e: DecryptException) {
                 put("pushActionUnavailable", "decrypt_failed")
                 put("pushActionError", e.message ?: "the aes decrypt failed.")
-            } catch (e: Exception) {
+            } catch (e: TException) {
                 val rootCause = generateSequence(e.cause) { it.cause }.lastOrNull() ?: e
                 val detail = if (rootCause is org.apache.thrift.transport.TTransportException) {
                     "thrift_deserialize_failed: ${rootCause.message} payloadSize=${container.getPushAction()?.size ?: 0}"
@@ -78,6 +78,9 @@ object ConvertUtils {
                 }
                 logger.e("toJson error for ${container.packageName}: $detail", e)
                 put("pushActionError", detail)
+            } catch (e: ClassCastException) {
+                logger.e("toJson error for ${container.packageName}: ${e.message}", e)
+                put("pushActionError", e.message ?: "Unknown error")
             }
         }
         return root
@@ -157,7 +160,10 @@ object ConvertUtils {
         } catch (e: InvocationTargetException) {
             logger.e("InvocationTargetException decoding push action: ${e.targetException.message}", e.targetException)
             throw e
-        } catch (e: Exception) {
+        } catch (e: TException) {
+            logger.e("Exception decoding push action: ${e.message}", e)
+            throw e
+        } catch (e: ClassCastException) {
             logger.e("Exception decoding push action: ${e.message}", e)
             throw e
         }

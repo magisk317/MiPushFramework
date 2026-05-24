@@ -61,7 +61,7 @@ internal object MiuiDexUtils {
 
     @Throws(NoSuchFieldException::class, IllegalAccessException::class, ClassNotFoundException::class)
     private fun expandNativeLibraries(targetPathList: Any, extraPathList: Any, libraryPath: String) {
-        if (Build.VERSION.SDK_INT >= 23) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             mergeArray(targetPathList, extraPathList, "nativeLibraryPathElements")
         } else {
             mergeFileArray(targetPathList, libraryPath)
@@ -137,7 +137,7 @@ internal object MiuiDexUtils {
                 expandNativeLibraries(targetPathList, extraPathList, librarySearchPath)
             }
             true
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             false
         }
     }

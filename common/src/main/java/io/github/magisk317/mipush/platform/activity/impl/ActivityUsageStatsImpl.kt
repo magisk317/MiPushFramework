@@ -61,7 +61,10 @@ class ActivityUsageStatsImpl : ITopActivity {
                     )?.isNotEmpty() == true
                 }
             }
-        } catch (e: Exception) {
+        } catch (e: ReflectiveOperationException) {
+            Log.e(TAG, e.message ?: "", e)
+            false
+        } catch (e: SecurityException) {
             Log.e(TAG, e.message ?: "", e)
             false
         }
@@ -93,7 +96,8 @@ class ActivityUsageStatsImpl : ITopActivity {
                 }
                 matched
             } ?: false
-        } catch (e: RuntimeException) {
+        } catch (e: SecurityException) {
+            Log.e(TAG, "isForeground: usage stats query failed", e)
             Toast.makeText(context, R.string.error_usage_stats, Toast.LENGTH_LONG).show()
             false
         }

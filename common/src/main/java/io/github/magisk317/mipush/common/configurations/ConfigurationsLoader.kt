@@ -7,6 +7,7 @@ import android.widget.Toast
 import androidx.documentfile.provider.DocumentFile
 import io.github.aakira.napier.Napier
 import java.io.BufferedReader
+import java.io.IOException
 import java.io.InputStreamReader
 import java.util.regex.Pattern
 import javax.inject.Inject
@@ -226,7 +227,10 @@ class ConfigurationsLoader @Inject constructor(
                         }
                     }
                 }
-            } catch (e: Exception) {
+            } catch (e: IOException) {
+                Napier.e("readTextFromUri failed", e, tag = TAG)
+                Utils.makeText(context, e.toString(), Toast.LENGTH_LONG)
+            } catch (e: SecurityException) {
                 Napier.e("readTextFromUri failed", e, tag = TAG)
                 Utils.makeText(context, e.toString(), Toast.LENGTH_LONG)
             }

@@ -94,6 +94,7 @@ object PackageManagerCompatBridge {
         }
     }
 
+    @Suppress("SwallowedException") // Unwrapping InvocationTargetException to rethrow the cause
     private inline fun <T> invokeNameNotFoundAware(block: () -> T): T {
         return try {
             block()
@@ -102,7 +103,7 @@ object PackageManagerCompatBridge {
             if (cause is PackageManager.NameNotFoundException) {
                 throw cause
             }
-            throw RuntimeException(cause ?: error)
+            throw cause ?: error
         }
     }
 }

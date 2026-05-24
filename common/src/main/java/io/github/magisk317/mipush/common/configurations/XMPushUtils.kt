@@ -7,6 +7,7 @@ import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
 import org.apache.thrift.TBase
+import org.apache.thrift.TException
 import io.github.magisk317.mipush.common.utils.CustomConfiguration
 
 /**
@@ -38,7 +39,7 @@ object XMPushUtils {
         try {
             XmPushThriftSerializeUtils.convertByteArrayToThriftObject(container, payload)
             return container
-        } catch (e: Exception) {
+        } catch (_: TException) {
             return null
         }
     }

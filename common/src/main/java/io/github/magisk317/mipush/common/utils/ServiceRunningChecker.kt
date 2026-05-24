@@ -18,7 +18,7 @@ object ServiceRunningChecker {
                 context.unbindService(emptyConn)
             }
             bind
-        } catch (e: SecurityException) {
+        } catch (_: SecurityException) {
             false
         }
     }

@@ -30,12 +30,10 @@ object ApplicationNameCache {
                 val pm = ctx.packageManager
                 return try {
                     pm.getApplicationInfo(pkg, 0).loadLabel(pm)
-                } catch (e: Exception) {
-                    when (e) {
-                        is PackageManager.NameNotFoundException,
-                        is Resources.NotFoundException -> pkg
-                        else -> pkg
-                    }
+                } catch (_: PackageManager.NameNotFoundException) {
+                    pkg
+                } catch (_: Resources.NotFoundException) {
+                    pkg
                 }
             }
         }.get(pkg)

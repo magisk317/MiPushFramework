@@ -95,6 +95,8 @@ object IconCache {
     @JvmStatic
     fun dip2px(context: Context, dipValue: Float): Int {
         val scale = context.resources.displayMetrics.density
-        return (dipValue * scale + 0.5f).toInt()
+        return (dipValue * scale + ROUNDING_OFFSET).toInt()
     }
+
+    private const val ROUNDING_OFFSET = 0.5f
 }

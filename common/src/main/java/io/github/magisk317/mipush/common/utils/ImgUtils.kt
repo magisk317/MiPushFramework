@@ -18,6 +18,7 @@ import kotlin.math.min
  */
 object ImgUtils {
     private const val NUM_256 = 256
+    private const val MAX_SMOOTHING_ITERATIONS = 1000
 
     @JvmStatic
     fun trimImgToCircle(bitmap: Bitmap, colorOutsideCircle: Int): Bitmap {
@@ -334,10 +335,10 @@ object ImgUtils {
             for (yIdx in 1 until NUM_256 - 1) {
                 histgramcc[yIdx] = (histgramc[yIdx - 1] + histgramc[yIdx] + histgramc[yIdx + 1]) / 3
             }
-            histgramcc[255] = (histgramc[254] + histgramc[255] + histgramc[255]) / 3
+            histgramcc[NUM_256 - 1] = (histgramc[NUM_256 - 2] + histgramc[NUM_256 - 1] + histgramc[NUM_256 - 1]) / 3
             System.arraycopy(histgramcc, 0, histgramc, 0, NUM_256)
             iter++
-            if (iter >= 1000) return -1
+            if (iter >= MAX_SMOOTHING_ITERATIONS) return -1
         }
         // 阈值极为两峰之间的最小值
         var peakFound = false

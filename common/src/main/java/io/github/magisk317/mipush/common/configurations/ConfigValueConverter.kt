@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.common.configurations
 
 import io.github.aakira.napier.Napier
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
+import org.apache.thrift.TException
 
 class ConfigValueConverter {
     fun <T> convert(root: Any?, path: Array<String>, value: T): Any? {
@@ -9,7 +10,10 @@ class ConfigValueConverter {
             return try {
                 val container = root as XmPushActionContainer
                 ConvertUtils.getResponseMessageBodyFromContainer(container, RegSecUtils.getRegSec(container))
-            } catch (e: Throwable) {
+            } catch (e: ClassCastException) {
+                logger.e("parse pushAction failed", e)
+                null
+            } catch (e: TException) {
                 logger.e("parse pushAction failed", e)
                 null
             }

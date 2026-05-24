@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
+import android.os.RemoteException
 import android.util.Log
 
 /**
@@ -27,7 +28,7 @@ object IPCUtils {
                             listener.onDisconnected()
                         }
                     }, 0)
-                } catch (e: Exception) {
+                } catch (e: RemoteException) {
                     Log.e("IPCUtils", "Unable to link to death", e)
                 }
                 listener.onReady(binder)

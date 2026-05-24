@@ -9,7 +9,7 @@ class H2OSChecker : RomChecker {
             val opFeatures = Class.forName("com.oneplus.sdk.utils.OpFeatures")
             println(opFeatures)
             true
-        } catch (e: Throwable) {
+        } catch (_: Throwable) {
             false
         }
     }

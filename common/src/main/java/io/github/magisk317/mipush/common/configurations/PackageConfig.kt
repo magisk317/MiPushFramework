@@ -111,7 +111,7 @@ class PackageConfig(private val configurations: Configurations) {
                     } catch (e: ConfigJsonException) {
                         throw NoSuchFieldException(
                             "The type of field \"$cfgKey\" is ${value.javaClass.simpleName}, not ${cfgMatch.opt(cfgKey)?.javaClass}"
-                        )
+                        ).initCause(e)
                     }
                 }
 
@@ -169,7 +169,7 @@ class PackageConfig(private val configurations: Configurations) {
                     } catch (e: ConfigJsonException) {
                         throw NoSuchFieldException(
                             "The type of field \"$cfgKey\" is ${field.type.simpleName}, not ${cfgReplace.opt(cfgKey)?.javaClass}"
-                        )
+                        ).initCause(e)
                     }
                 }
 

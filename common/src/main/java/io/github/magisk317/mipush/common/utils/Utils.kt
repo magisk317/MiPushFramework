@@ -66,7 +66,7 @@ object Utils {
     fun isAppInstalled(context: Context, packageName: String): Boolean {
         return try {
             getPackageInfoCompat(context, packageName, 0) != null
-        } catch (e: PackageManager.NameNotFoundException) {
+        } catch (_: PackageManager.NameNotFoundException) {
             false
         }
     }
@@ -75,7 +75,7 @@ object Utils {
     fun getPackageInfoCompat(context: Context, packageName: String, flags: Int): android.content.pm.PackageInfo? {
         return try {
             PackageManagerCompatBridge.getPackageInfo(context.packageManager, packageName, flags)
-        } catch (e: PackageManager.NameNotFoundException) {
+        } catch (_: PackageManager.NameNotFoundException) {
             null
         }
     }
@@ -143,7 +143,7 @@ object Utils {
     fun getApplicationInfoCompat(context: Context, packageName: String, flags: Int): ApplicationInfo? {
         return try {
             PackageManagerCompatBridge.getApplicationInfo(context.packageManager, packageName, flags)
-        } catch (e: PackageManager.NameNotFoundException) {
+        } catch (_: PackageManager.NameNotFoundException) {
             null
         }
     }
@@ -202,7 +202,7 @@ object Utils {
                 } else {
                     Napier.w("getRegSecs: fallback found no regSec pkg=$packageName", tag = "Utils")
                 }
-            } catch (e: PackageManager.NameNotFoundException) {
+            } catch (_: PackageManager.NameNotFoundException) {
                 targetPackageMissing = true
                 if (missingRegSecPackageWarnings.add(packageName)) {
                     Napier.w("getRegSecs: target package not installed pkg=$packageName", tag = "Utils")

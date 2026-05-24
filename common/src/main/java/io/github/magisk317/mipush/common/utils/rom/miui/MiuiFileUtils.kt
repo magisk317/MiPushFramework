@@ -8,7 +8,7 @@ import java.io.File
 internal object MiuiFileUtils {
     private fun getPackageInfo(context: Context, packageName: String): PackageInfo? {
         return try {
-            context.packageManager.getPackageInfo(packageName, 128)
+            context.packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES)
         } catch (e: PackageManager.NameNotFoundException) {
             e.printStackTrace()
             null
