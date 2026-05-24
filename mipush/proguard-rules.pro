@@ -26,3 +26,6 @@
 
 # Keep parcelables used across module boundaries when minification is enabled
 -keep class io.github.magisk317.mipush.common.model.** { *; }
+
+# libxposed API is only present at runtime on rooted devices
+-dontwarn io.github.libxposed.api.**
