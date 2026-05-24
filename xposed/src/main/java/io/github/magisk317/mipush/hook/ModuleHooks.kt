@@ -16,9 +16,11 @@ import io.github.magisk317.mipush.hook.systemui.HookSystemUI
 import io.github.magisk317.mipush.hook.systemui.HookSystemUIPlugin
 import io.github.magisk317.mipush.hook.xmsf.HookXmsf
 import io.github.magisk317.mipush.xposed.LoadParam
-import io.github.magisk317.mipush.xposed.XposedHelpers
 import io.github.magisk317.mipush.xposed.XposedRuntime
+import io.github.magisk317.mipush.xposed.callStaticMethod
 import io.github.magisk317.mipush.xposed.findClass
+import io.github.magisk317.mipush.xposed.findHookClass
+import io.github.magisk317.mipush.xposed.getHookObjectField
 import io.github.magisk317.mipush.xposed.hook
 import io.github.magisk317.mipush.xposed.hookAllMethods
 import io.github.magisk317.mipush.xposed.hookMethod
@@ -164,24 +166,24 @@ class LibXposedEntry : XposedModule {
         synchronized(LibXposedEntry::class.java) {
             if (taxBindFallbackInstalled) return
             runCatching {
-                val activityThreadClass = XposedHelpers.findClass("android.app.ActivityThread", null)
+                val activityThreadClass = findHookClass("android.app.ActivityThread", null)
                 activityThreadClass.hookAllMethods("handleBindApplication") {
                     doAfter {
                         val bindData = args.firstOrNull() ?: return@doAfter
                         val runtimeProcess = runCatching {
-                            XposedHelpers.getObjectField(bindData, "processName") as? String
+                            getHookObjectField(bindData, "processName") as? String
                         }.getOrNull().orEmpty()
                         val appInfo = runCatching {
-                            XposedHelpers.getObjectField(bindData, "appInfo")
+                            getHookObjectField(bindData, "appInfo")
                         }.getOrNull()
                         val packageName = runCatching {
-                            XposedHelpers.getObjectField(appInfo, "packageName") as? String
+                            getHookObjectField(appInfo, "packageName") as? String
                         }.getOrNull().orEmpty()
                         if (packageName != TAX_PACKAGE_NAME && !runtimeProcess.startsWith("$TAX_PACKAGE_NAME:")) {
                             return@doAfter
                         }
                         val app = runCatching {
-                            XposedHelpers.callStaticMethod(activityThreadClass, "currentApplication") as? Application
+                            activityThreadClass.callStaticMethod("currentApplication") as? Application
                         }.getOrNull() ?: return@doAfter
                         val classLoader = app.classLoader ?: return@doAfter
                         XLog.i(TAG, "tax bind fallback fired pkg=$packageName proc=$runtimeProcess")

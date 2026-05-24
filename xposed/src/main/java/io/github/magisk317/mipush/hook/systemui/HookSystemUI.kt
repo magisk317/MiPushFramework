@@ -7,7 +7,6 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.view.View
 import android.widget.RemoteViews
-import io.github.magisk317.mipush.xposed.XposedHelpers
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.xposed.callMethod
 import io.github.magisk317.mipush.xposed.currentApplication

@@ -6,10 +6,12 @@ import android.os.Build
 import android.service.notification.StatusBarNotification
 import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
 import io.github.magisk317.mipush.hook.XLog
-import io.github.magisk317.mipush.xposed.XposedHelpers
 import io.github.magisk317.mipush.xposed.callMethod
 import io.github.magisk317.mipush.xposed.callStaticMethod
 import io.github.magisk317.mipush.xposed.currentApplication
+import io.github.magisk317.mipush.xposed.HookInvocationTargetError
+import io.github.magisk317.mipush.xposed.findHookConstructorExact
+import io.github.magisk317.mipush.xposed.findHookMethodExact
 import io.github.magisk317.mipush.xposed.setField
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import java.lang.reflect.InvocationTargetException
@@ -48,7 +50,7 @@ object SystemNotificationManager {
     private fun Throwable.unwrapSystemCallFailure(): Throwable {
         return when (this) {
             is InvocationTargetException -> targetException ?: cause ?: this
-            is XposedHelpers.InvocationTargetError -> cause ?: this
+            is HookInvocationTargetError -> cause ?: this
             else -> this
         }
     }
@@ -130,7 +132,7 @@ object SystemNotificationManager {
             XLog.d(TAG, "notify() system call failed, falling back to local: $packageName id=$id")
             notifyLocally(tag, id, notification)
         }) {
-            val methodEnqueueNotificationWithTag = XposedHelpers.findMethodExact(notificationManager.javaClass, "enqueueNotificationWithTag", String::class.java, String::class.java, String::class.java, Int::class.java, Notification::class.java, Int::class.java)
+            val methodEnqueueNotificationWithTag = findHookMethodExact(notificationManager.javaClass, "enqueueNotificationWithTag", String::class.java, String::class.java, String::class.java, Int::class.java, Notification::class.java, Int::class.java)
             val opPkg = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ANDROID_PACKAGE_NAME else packageName
             methodEnqueueNotificationWithTag.invoke(notificationManager, packageName, opPkg, tag, id, notification, getUserId())
             XLog.d(TAG, "notify() enqueue OK pkg=$packageName id=$id")
@@ -147,10 +149,10 @@ object SystemNotificationManager {
             cancelLocally(tag, id)
         }) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val methodCancelNotificationWithTag = XposedHelpers.findMethodExact(notificationManager.javaClass, "cancelNotificationWithTag", String::class.java, String::class.java, String::class.java, Int::class.java, Int::class.java)
+                val methodCancelNotificationWithTag = findHookMethodExact(notificationManager.javaClass, "cancelNotificationWithTag", String::class.java, String::class.java, String::class.java, Int::class.java, Int::class.java)
                 methodCancelNotificationWithTag.invoke(notificationManager, packageName, ANDROID_PACKAGE_NAME, tag, id, getUserId())
             } else {
-                val methodCancelNotificationWithTag = XposedHelpers.findMethodExact(notificationManager.javaClass, "cancelNotificationWithTag", String::class.java, String::class.java, Int::class.java, Int::class.java)
+                val methodCancelNotificationWithTag = findHookMethodExact(notificationManager.javaClass, "cancelNotificationWithTag", String::class.java, String::class.java, Int::class.java, Int::class.java)
                 methodCancelNotificationWithTag.invoke(notificationManager, packageName, tag, id, getUserId())
             }
         }
@@ -169,7 +171,7 @@ object SystemNotificationManager {
         runSystemCall("createNotificationChannels", packageName, fallback = {
             createChannelsLocally(channels)
         }) {
-            val channelsList = XposedHelpers.findConstructorExact("android.content.pm.ParceledListSlice", null, List::class.java)
+            val channelsList = findHookConstructorExact("android.content.pm.ParceledListSlice", null, List::class.java)
                 .newInstance(channels)
             notificationManager.callMethod("createNotificationChannelsForPackage", packageName, uid, channelsList)
         }
@@ -198,10 +200,10 @@ object SystemNotificationManager {
                 }
         }) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                XposedHelpers.findMethodExact(notificationManager.javaClass, "getNotificationChannelForPackage", String::class.java, Int::class.java, String::class.java, String::class.java, Boolean::class.java)
+                findHookMethodExact(notificationManager.javaClass, "getNotificationChannelForPackage", String::class.java, Int::class.java, String::class.java, String::class.java, Boolean::class.java)
                     .invoke(notificationManager, packageName, uid, channelId, null, false) as NotificationChannel?
             } else {
-                XposedHelpers.findMethodExact(notificationManager.javaClass, "getNotificationChannelForPackage", String::class.java, Int::class.java, String::class.java, Boolean::class.java)
+                findHookMethodExact(notificationManager.javaClass, "getNotificationChannelForPackage", String::class.java, Int::class.java, String::class.java, Boolean::class.java)
                     .invoke(notificationManager, packageName, uid, channelId, false) as NotificationChannel?
             }
         }
@@ -228,7 +230,7 @@ object SystemNotificationManager {
                     null
                 }
         }) {
-            val parceledListSlice = XposedHelpers.findMethodExact(notificationManager.javaClass, "getNotificationChannelsForPackage", String::class.java, Int::class.java, Boolean::class.java)
+            val parceledListSlice = findHookMethodExact(notificationManager.javaClass, "getNotificationChannelsForPackage", String::class.java, Int::class.java, Boolean::class.java)
                 .invoke(notificationManager, packageName, uid, false)
             @Suppress("UNCHECKED_CAST")
             parceledListSlice?.callMethod("getList") as List<NotificationChannel?>?
@@ -284,7 +286,7 @@ object SystemNotificationManager {
 
         // 无法指定 uid，调用成功也不会生效
         // void createNotificationChannelGroups(String pkg, in ParceledListSlice channelGroupList);
-        // val list = XposedHelpers.findConstructorExact("android.content.pm.ParceledListSlice", null, List::class.java)
+        // val list = findHookConstructorExact("android.content.pm.ParceledListSlice", null, List::class.java)
         //     .newInstance(groups)
         // notificationManager.callMethod("createNotificationChannelGroups", packageName, list)
 
@@ -365,7 +367,7 @@ object SystemNotificationManager {
                     null
                 }
         }) {
-            val parceledListSlice = XposedHelpers.findMethodExact(notificationManager.javaClass, "getNotificationChannelGroupsForPackage", String::class.java, Int::class.java, Boolean::class.java)
+            val parceledListSlice = findHookMethodExact(notificationManager.javaClass, "getNotificationChannelGroupsForPackage", String::class.java, Int::class.java, Boolean::class.java)
                 .invoke(notificationManager, packageName, uid, false)
             @Suppress("UNCHECKED_CAST")
             parceledListSlice?.callMethod("getList") as List<NotificationChannelGroup?>?

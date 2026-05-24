@@ -2,8 +2,8 @@ package io.github.magisk317.mipush.hook.systemui
 
 import android.content.ComponentName
 import android.content.ContextWrapper
-import io.github.magisk317.mipush.xposed.XposedHelpers
 import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.mipush.xposed.findHookClass
 import io.github.magisk317.mipush.xposed.getField
 import io.github.magisk317.mipush.xposed.hook
 
@@ -16,7 +16,7 @@ class HookSystemUIPlugin(
 
     fun hook(classLoader: ClassLoader) {
         try {
-            val classPluginFactory = XposedHelpers.findClass(
+            val classPluginFactory = findHookClass(
                 "com.android.systemui.shared.plugins.PluginInstance\$PluginFactory",
                 classLoader
             )

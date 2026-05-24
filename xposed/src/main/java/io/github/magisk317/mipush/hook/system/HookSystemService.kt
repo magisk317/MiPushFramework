@@ -4,7 +4,6 @@ import android.app.NotificationManager
 import android.content.Context
 import android.os.Binder
 import android.os.Process
-import io.github.magisk317.mipush.xposed.XposedHelpers
 import io.github.magisk317.mipush.common.IS_SYSTEM_HOOK_READY
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.common.XMSF_FAKE_CONDITION_PROVIDER_PATH
@@ -12,6 +11,7 @@ import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.fakedevice.compat.ModuleCompatRegistry
 import io.github.magisk317.mipush.xposed.callMethod
 import io.github.magisk317.mipush.xposed.currentApplication
+import io.github.magisk317.mipush.xposed.findHookClass
 import io.github.magisk317.mipush.xposed.get
 import io.github.magisk317.mipush.xposed.hookAllMethods
 import io.github.magisk317.mipush.xposed.hookMethod
@@ -65,9 +65,9 @@ class HookSystemService {
 
         private fun hookGlobalVisibility(classLoader: ClassLoader) {
             runCatching {
-                val packageStateClass = XposedHelpers.findClass("com.android.server.pm.pkg.PackageState", classLoader)
+                val packageStateClass = findHookClass("com.android.server.pm.pkg.PackageState", classLoader)
                 val getPackageNameMethod = packageStateClass.getMethod("getPackageName")
-                val appsFilterClass = XposedHelpers.findClass("com.android.server.pm.AppsFilterBase", classLoader)
+                val appsFilterClass = findHookClass("com.android.server.pm.AppsFilterBase", classLoader)
                 appsFilterClass.hookAllMethods("shouldFilterApplication") {
                     doAfter {
                         if (result == false) return@doAfter
@@ -113,7 +113,8 @@ class HookSystemService {
 
             val fromComputer = args.firstNotNullOfOrNull { computer ->
                 runCatching {
-                    val packages = XposedHelpers.callMethod(computer, "getPackagesForUid", callingUid) as? Array<*>
+                    val target = computer ?: return@runCatching null
+                    val packages = target.callMethod("getPackagesForUid", callingUid) as? Array<*>
                     packages?.filterIsInstance<String>()
                 }.getOrNull()
             }.orEmpty()
@@ -168,7 +169,7 @@ class HookSystemService {
     }
 
     fun hook(classLoader: ClassLoader) {
-        val classNotificationManagerService = XposedHelpers.findClass("com.android.server.notification.NotificationManagerService", classLoader)
+        val classNotificationManagerService = findHookClass("com.android.server.notification.NotificationManagerService", classLoader)
         XLog.i(TAG, "installing system notification hooks")
 
         classNotificationManagerService.hookMethod("onStart") {
@@ -199,7 +200,7 @@ class HookSystemService {
         }
 
 
-        val classShortcutService = XposedHelpers.findClass("com.android.server.pm.ShortcutService", classLoader)
+        val classShortcutService = findHookClass("com.android.server.pm.ShortcutService", classLoader)
         ShortcutPermissionHooker.hook(classShortcutService)
         hookGlobalVisibility(classLoader)
     }

@@ -39,7 +39,7 @@ object LegacyHuaweiSignatureCompat {
                 val signatures = info.signatures
                 val firstSignature = signatures?.firstOrNull()
                 if (firstSignature != null) {
-                    XposedHelpers.setObjectField(firstSignature, "mSignature", fakeSignatureBytes)
+                    setHookObjectField(firstSignature, "mSignature", fakeSignatureBytes)
                 }
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -49,7 +49,7 @@ object LegacyHuaweiSignatureCompat {
                             val apkSigners = signingInfo.apkContentsSigners
                             val signer = apkSigners?.firstOrNull()
                             if (signer != null) {
-                                XposedHelpers.setObjectField(signer, "mSignature", fakeSignatureBytes)
+                                setHookObjectField(signer, "mSignature", fakeSignatureBytes)
                             }
                         }
                     }
@@ -69,7 +69,7 @@ object LegacyHuaweiSignatureCompat {
 
             verifyApkHashHooked = true
             verifyApkHashUnhook?.unhook()
-        } catch (e: XposedHelpers.ClassNotFoundError) {
+        } catch (e: HookClassNotFoundError) {
             XLog.d(TAG, "tryHookVerifyApkHash: ClassNotFoundError")
         } catch (e: NoSuchMethodError) {
             XLog.d(TAG, "tryHookVerifyApkHash: NoSuchMethodError")

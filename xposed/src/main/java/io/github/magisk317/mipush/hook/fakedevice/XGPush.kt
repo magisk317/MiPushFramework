@@ -1,12 +1,12 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
-import io.github.magisk317.mipush.xposed.XposedHelpers
 import io.github.magisk317.mipush.xposed.LoadParam
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.xposed.findClass
 import io.github.magisk317.mipush.xposed.hook
 import io.github.magisk317.mipush.xposed.hookAllMethods
 import io.github.magisk317.mipush.xposed.hookMethod
+import io.github.magisk317.mipush.xposed.setHookStaticBooleanField
 import java.lang.reflect.Method
 import java.util.Collections
 
@@ -307,7 +307,7 @@ open class XGPush : IFakeDevice {
 
     private fun fakeXGPushConfig(classXGPushConfig: Class<*>) {
         XLog.d(TAG, "fakeXGPushConfig() called")
-        XposedHelpers.setStaticBooleanField(classXGPushConfig, "isForcedIsMiui", true)
+        setHookStaticBooleanField(classXGPushConfig, "isForcedIsMiui", true)
         // Some versions might have these methods
         classXGPushConfig.hookMethod("isSamsungDevice") { replace { false } }
         classXGPushConfig.hookMethod("isOppoDevice") { replace { false } }

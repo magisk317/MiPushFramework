@@ -5,11 +5,11 @@ import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
 import android.content.Context
 import android.service.notification.StatusBarNotification
-import io.github.magisk317.mipush.xposed.XposedHelpers
-import io.github.magisk317.mipush.xposed.XposedHelpers.ClassNotFoundError
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.xmsf.nm.SystemNotificationManager
 import io.github.magisk317.mipush.hook.system.HookSystemService
+import io.github.magisk317.mipush.xposed.HookClassNotFoundError
+import io.github.magisk317.mipush.xposed.HookInvocationTargetError
 import io.github.magisk317.mipush.xposed.findClass
 import io.github.magisk317.mipush.xposed.getOrNull
 import io.github.magisk317.mipush.xposed.hookMethod
@@ -30,7 +30,7 @@ object HookPushNC {
         return try {
             classLoader.findClass(TargetClass)
             true
-        } catch (e: ClassNotFoundError) {
+        } catch (e: HookClassNotFoundError) {
             false
         }
     }
@@ -450,7 +450,7 @@ object HookPushNC {
     private inline fun <R> tryInvoke(invoke: () -> R): R {
         try {
             return invoke()
-        } catch (e: XposedHelpers.InvocationTargetError) {
+        } catch (e: HookInvocationTargetError) {
             XLog.e(TAG, "tryInvoke: ", e)
             XLog.e(TAG, "tryInvoke targetException: ", e.cause)
             throw e.cause ?: e

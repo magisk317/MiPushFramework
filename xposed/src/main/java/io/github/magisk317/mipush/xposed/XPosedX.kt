@@ -282,6 +282,33 @@ fun currentApplication(): Application? = runCatching {
 fun invokeOriginalMethod(method: Member, thisObject: Any?, args: Array<Any?>): Any? =
     XposedRuntime.invokeOriginal(method, thisObject, args)
 
+typealias HookClassNotFoundError = XposedHelpers.ClassNotFoundError
+typealias HookInvocationTargetError = XposedHelpers.InvocationTargetError
+
+fun findHookClass(className: String, classLoader: ClassLoader?): Class<*> =
+    findClass(className, classLoader)
+
+fun findHookMethodExact(clazz: Class<*>?, methodName: String, vararg parameterTypes: Any?): Method =
+    findMethodExact(clazz, methodName, *parameterTypes)
+
+fun findHookConstructorExact(className: String, classLoader: ClassLoader?, vararg parameterTypes: Any?): Constructor<*> =
+    findConstructorExact(className, classLoader, *parameterTypes)
+
+fun getHookObjectField(obj: Any?, fieldName: String): Any? =
+    XposedHelpers.getObjectField(obj, fieldName)
+
+fun getHookIntField(obj: Any?, fieldName: String): Int =
+    XposedHelpers.getIntField(obj, fieldName)
+
+fun setHookIntField(obj: Any?, fieldName: String, value: Int) =
+    XposedHelpers.setIntField(obj, fieldName, value)
+
+fun setHookObjectField(obj: Any?, fieldName: String, value: Any?) =
+    XposedHelpers.setObjectField(obj, fieldName, value)
+
+fun setHookStaticBooleanField(clazz: Class<*>?, fieldName: String, value: Boolean) =
+    XposedHelpers.setStaticBooleanField(clazz, fieldName, value)
+
 fun MethodHookParam.setMiPushExtra(key: String, value: Any?) {
     extrasFor(this)[key] = value
 }

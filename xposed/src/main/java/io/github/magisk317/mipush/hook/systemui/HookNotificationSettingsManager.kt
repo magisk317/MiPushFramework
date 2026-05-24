@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.hook.systemui
 
-import io.github.magisk317.mipush.xposed.XposedHelpers
 import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.mipush.xposed.findHookClass
 import io.github.magisk317.mipush.xposed.hook
 
 class HookNotificationSettingsManager : ISystemUIPluginHooker {
@@ -12,7 +12,7 @@ class HookNotificationSettingsManager : ISystemUIPluginHooker {
     override fun hook(pluginLoader: ClassLoader) {
         try {
             XLog.d(TAG, "hook start")
-            val classNotificationSettingsManager = XposedHelpers.findClass(
+            val classNotificationSettingsManager = findHookClass(
                 "miui.systemui.notification.NotificationSettingsManager",
                 pluginLoader
             )

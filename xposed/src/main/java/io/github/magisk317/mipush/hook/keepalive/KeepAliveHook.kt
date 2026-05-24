@@ -1,7 +1,6 @@
 package io.github.magisk317.mipush.hook.keepalive
 
 import android.net.Uri
-import io.github.magisk317.mipush.xposed.XposedHelpers
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_AUTHORITY
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_COLUMN_ENABLED
@@ -14,7 +13,11 @@ import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.xposed.MethodHookParam
 import io.github.magisk317.mipush.xposed.currentApplication
+import io.github.magisk317.mipush.xposed.findHookClass
+import io.github.magisk317.mipush.xposed.getHookIntField
+import io.github.magisk317.mipush.xposed.getHookObjectField
 import io.github.magisk317.mipush.xposed.hookAllMethods
+import io.github.magisk317.mipush.xposed.setHookIntField
 import java.lang.reflect.Method
 
 class KeepAliveHook {
@@ -100,7 +103,7 @@ class KeepAliveHook {
 
     private fun hookOomAdjuster(classLoader: ClassLoader) {
         try {
-            val oomAdjusterClass = XposedHelpers.findClass("com.android.server.am.OomAdjuster", classLoader)
+            val oomAdjusterClass = findHookClass("com.android.server.am.OomAdjuster", classLoader)
             var targetMethodName: String? = null
             for (method in oomAdjusterClass.declaredMethods) {
                 if (method.name == "computeOomAdjLSP" || method.name == "computeOomAdjLocked") {
@@ -134,7 +137,7 @@ class KeepAliveHook {
         for (arg in param.args) {
             if (arg == null) continue
             val processName = try {
-                XposedHelpers.getObjectField(arg, "processName") as? String
+                getHookObjectField(arg, "processName") as? String
             } catch (_: Throwable) { null } ?: continue
 
             if (processName != XMSF_PACKAGE_NAME) continue
@@ -142,9 +145,9 @@ class KeepAliveHook {
             val adjFields = listOf("curAdj", "mCurAdj", "setAdj")
             for (field in adjFields) {
                 try {
-                    val currentAdj = XposedHelpers.getIntField(arg, field)
+                    val currentAdj = getHookIntField(arg, field)
                     if (currentAdj > FOREGROUND_APP_ADJ) {
-                        XposedHelpers.setIntField(arg, field, FOREGROUND_APP_ADJ)
+                        setHookIntField(arg, field, FOREGROUND_APP_ADJ)
                         XLog.d(TAG, "set adj=$FOREGROUND_APP_ADJ for $processName (field=$field, was=$currentAdj)")
                     }
                     return
@@ -156,7 +159,7 @@ class KeepAliveHook {
 
     private fun hookKillProcess(classLoader: ClassLoader) {
         try {
-            val amsClass = XposedHelpers.findClass("com.android.server.am.ActivityManagerService", classLoader)
+            val amsClass = findHookClass("com.android.server.am.ActivityManagerService", classLoader)
             val methodName = "killProcessLocked"
             val hooks = amsClass.hookAllMethods(methodName) {
                 doBefore {
@@ -199,14 +202,14 @@ class KeepAliveHook {
                 return true
             }
             try {
-                val processName = XposedHelpers.getObjectField(arg, "processName") as? String
+                val processName = getHookObjectField(arg, "processName") as? String
                 if (processName == XMSF_PACKAGE_NAME) return true
             } catch (_: Throwable) { }
 
             try {
-                val info = XposedHelpers.getObjectField(arg, "info")
+                val info = getHookObjectField(arg, "info")
                 if (info != null) {
-                    val pkgName = XposedHelpers.getObjectField(info, "packageName") as? String
+                    val pkgName = getHookObjectField(info, "packageName") as? String
                     if (pkgName == XMSF_PACKAGE_NAME) return true
                 }
             } catch (_: Throwable) { }
@@ -216,7 +219,7 @@ class KeepAliveHook {
 
     private fun hookAppStandbyController(classLoader: ClassLoader) {
         try {
-            val standbyClass = XposedHelpers.findClass("com.android.server.usage.AppStandbyController", classLoader)
+            val standbyClass = findHookClass("com.android.server.usage.AppStandbyController", classLoader)
             val methods = listOf("setActiveBucket", "setAppStandbyBucket")
             var installed = 0
             for (methodName in methods) {
@@ -254,7 +257,7 @@ class KeepAliveHook {
 
     private fun hookDeviceIdleController(classLoader: ClassLoader) {
         try {
-            val idleClass = XposedHelpers.findClass("com.android.server.DeviceIdleController", classLoader)
+            val idleClass = findHookClass("com.android.server.DeviceIdleController", classLoader)
             val methodName = "setAppIdleAsync"
             val hooks = idleClass.hookAllMethods(methodName) {
                 doBefore {
