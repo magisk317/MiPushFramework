@@ -60,13 +60,17 @@ object NotificationController {
         if (groupId == null) {
             return
         }
-        if (!needGroupOfNotifications(packageName, groupId)) {
+        val groupCount = getNotificationCountOfGroup(packageName, groupId)
+        Napier.d("updateSummaryNotification pkg=$packageName groupId=$groupId groupCount=$groupCount summaryId=${groupId.hashCode()}", tag = TAG)
+        if (groupCount <= 1) {
+            Napier.d("updateSummaryNotification cancel summary pkg=$packageName summaryId=${groupId.hashCode()} groupCount=$groupCount", tag = TAG)
             getNotificationManagerEx().cancel(packageName, null, groupId.hashCode())
             return
         }
         val builder = NotificationCompat.Builder(context, getExistsChannelId(context, metaInfo, packageName))
         builder.setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
         builder.setCategory(Notification.CATEGORY_EVENT).setGroupSummary(true).setGroup(groupId)
+        builder.setContentTitle(context.getString(R.string.group_summary_title, groupCount))
         notify(context, groupId.hashCode(), packageName, builder, metaInfo)
     }
 
@@ -80,10 +84,12 @@ object NotificationController {
         var notificationCntInGroup = 0
         for (statusBarNotification in activeNotifications) {
             val safeNotification = statusBarNotification ?: continue
-            if (groupId == safeNotification.notification.group) {
-                notificationCntInGroup++
-            }
+            val n = safeNotification.notification
+            val inGroup = groupId == n.group
+            if (inGroup) notificationCntInGroup++
+            logger.d("getNotificationCountOfGroup pkg=$packageName id=${safeNotification.id} tag=${safeNotification.tag} group=${n.group} targetGroup=$groupId match=$inGroup")
         }
+        Napier.d("getNotificationCountOfGroup result pkg=$packageName groupId=$groupId total=${activeNotifications.size} inGroup=$notificationCntInGroup", tag = TAG)
         return notificationCntInGroup
     }
 
@@ -119,7 +125,12 @@ object NotificationController {
             ProgressStyleBuilder.applyProgressStyle(context, notificationBuilder, metaInfo, liveUpdateResult)
         }
 
-        val notification = notify(context, notificationId, packageName, notificationBuilder, metaInfo) ?: return
+        val notification = notify(context, notificationId, packageName, notificationBuilder, metaInfo)
+        if (notification == null) {
+            Napier.d("publish dropped pkg=$packageName id=$notificationId (contentless or channel issue)", tag = TAG)
+            return
+        }
+        Napier.d("publish posted pkg=$packageName id=$notificationId group=${notification.group} tag=${MyMIPushNotificationHelper.getNotificationTag(packageName)}", tag = TAG)
         updateSummaryNotification(context, metaInfo, packageName, notification.group)
     }
 

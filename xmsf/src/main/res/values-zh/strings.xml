@@ -459,6 +459,7 @@
     <string name="help_page_contact_telegram_summary">更适合实时讨论、多设备排查和同步进展。</string>
     <string name="help_page_contact_issue_summary">适合附带日志、截图和稳定复现步骤做正式跟踪。</string>
     <string name="notification_channels_group_summary">检查这一组通知渠道，并继续钻取具体 channel 的行为差异。</string>
+    <string name="group_summary_title">%d 条新消息</string>
     <string name="wizard_title_ignore_battery_optimizations_permission">忽略电池优化</string>
     <string name="wizard_title_ignore_battery_optimizations_text">您需要授予“忽略电池优化”权限，否则您可能将无法在后台运行mipush服务。</string>
     <string name="wizard_title_notification_permission">通知权限</string>

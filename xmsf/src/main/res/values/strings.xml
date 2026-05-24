@@ -480,6 +480,7 @@ This could be the application doing a reverse registration, or the registration 
     <string name="help_page_contact_telegram_summary">Best for real-time discussion and cross-device troubleshooting.</string>
     <string name="help_page_contact_issue_summary">Use this when you need to attach logs, screenshots, and reproducible steps.</string>
     <string name="notification_channels_group_summary">Inspect this notification group and drill into each channel if behavior differs.</string>
+    <string name="group_summary_title">%d new messages</string>
     <string name="permission_notifications_denied">Please grant notification permission to test this feature.</string>
     <string-array name="theme_mode_entries">
         <item>@string/theme_follow_system</item>
