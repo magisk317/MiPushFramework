@@ -35,6 +35,9 @@ object LogUtils {
     @Volatile
     private var retentionDays: Int = DEFAULT_RETENTION_DAYS
 
+    @Volatile
+    private var minLogLevel: LogLevel = LogLevel.VERBOSE
+
     data class ShareIntentResult(
         val intent: Intent?,
         val error: String? = null,
@@ -82,6 +85,7 @@ object LogUtils {
     fun init(context: Context) {
         val resolved = context.applicationContext ?: context
         appContext = resolved
+        Napier.takeLogarithm()
         runCatching {
             val logDir = LogBundleExporter.getLogDir(resolved)
             deleteLegacyTextLogFiles(resolved)
@@ -90,6 +94,11 @@ object LogUtils {
         }.onFailure {
             Napier.base(DebugAntilog())
         }
+    }
+
+    @JvmStatic
+    fun setMinLogLevel(level: LogLevel) {
+        minLogLevel = level
     }
 
     fun setRetentionDays(days: Int) {
@@ -113,6 +122,7 @@ object LogUtils {
 
     private class FileAntilog(private val context: Context) : Antilog() {
         override fun performLog(priority: LogLevel, tag: String?, throwable: Throwable?, message: String?) {
+            if (priority < minLogLevel) return
             LogUtils.appendRuntimeLog(
                 context = context,
                 level = priority.name,

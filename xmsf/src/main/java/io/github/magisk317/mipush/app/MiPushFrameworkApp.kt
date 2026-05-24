@@ -20,6 +20,7 @@ import io.github.magisk317.mipush.telemetry.TelemetryDisabler
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
+import io.github.aakira.napier.LogLevel
 import io.github.magisk317.mipush.utils.LogUtils
 import io.github.magisk317.mipush.bridge.LegacyLoggerBridge
 import io.github.magisk317.mipush.notification.NotificationManagerEx
@@ -114,10 +115,12 @@ class MiPushFrameworkApp : Application() {
             runBlocking { preferenceRepository.isDebugMode.first() }
         }.getOrDefault(false)
         LegacyLoggerBridge.setDebugLoggingEnabled(initialDebugMode)
+        LogUtils.setMinLogLevel(if (initialDebugMode) LogLevel.VERBOSE else LogLevel.INFO)
         // 收集后续变更，确保设置页开关拨动后实时生效
         applicationScope.launch {
             preferenceRepository.isDebugMode.collect { enabled ->
                 LegacyLoggerBridge.setDebugLoggingEnabled(enabled)
+                LogUtils.setMinLogLevel(if (enabled) LogLevel.VERBOSE else LogLevel.INFO)
             }
         }
         logger.i("App starts: ${BuildConfig.VERSION_NAME}, debugMode=$initialDebugMode")

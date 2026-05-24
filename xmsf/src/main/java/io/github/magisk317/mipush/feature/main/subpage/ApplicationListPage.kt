@@ -62,6 +62,7 @@ import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
 import androidx.compose.ui.res.stringResource
+import io.github.magisk317.mipush.feature.main.MainScrollChromeState
 import io.github.magisk317.mipush.feature.main.RegistrationStateStyle
 import io.github.magisk317.mipush.platform.support.ParseUtils
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -104,12 +105,14 @@ fun ApplicationList(
     filterMode: Int = 0,
     onAppClick: (String) -> Unit,
     hazeState: HazeState? = null,
-    hazeStyle: HazeStyle? = null
+    hazeStyle: HazeStyle? = null,
+    scrollChromeState: MainScrollChromeState? = null,
 ) {
     val context = LocalContext.current
     ApplicationList(
         query = query,
         contentPadding = contentPadding,
+        refreshSignal = refreshSignal,
         filterMode = filterMode,
         onAppClick = onAppClick,
         getMiPushApplications = { q, mode ->
@@ -122,7 +125,8 @@ fun ApplicationList(
             miPushApplications
         },
         hazeState = hazeState,
-        hazeStyle = hazeStyle
+        hazeStyle = hazeStyle,
+        scrollChromeState = scrollChromeState,
     )
 }
 
@@ -136,7 +140,8 @@ fun ApplicationList(
     onAppClick: (String) -> Unit,
     getMiPushApplications: (query: String, filterMode: Int) -> ApplicationPageOperation.MiPushApplications,
     hazeState: HazeState? = null,
-    hazeStyle: HazeStyle? = null
+    hazeStyle: HazeStyle? = null,
+    scrollChromeState: MainScrollChromeState? = null,
 ) {
     val context = LocalContext.current
     val isPreview = LocalInspectionMode.current
@@ -180,7 +185,7 @@ fun ApplicationList(
                 }
                 // iconCache removed, AppIcon handles caching
             } catch (e: Throwable) {
-                logger.e("failed to load app list", e)
+                logger.e("failed to load app list: ${e.message}", e)
                 withContext(Dispatchers.Main) {
                     isNeedRefresh = false
                     onRefreshed()
@@ -236,6 +241,7 @@ fun ApplicationList(
                     onRefresh,
                     isNeedRefresh,
                     scrollToTopSignal = refreshSignal,
+                    scrollChromeState = scrollChromeState,
                     contentPadding = PaddingValues(
                         top = listPadding.calculateTopPadding() + 8.dp,
                         bottom = listPadding.calculateBottomPadding(),
