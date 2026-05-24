@@ -128,11 +128,11 @@ allprojects {
 
             // Custom migration overrides for Java 26 compatibility
             force("org.jetbrains.kotlin:kotlin-metadata-jvm:$forcedKotlinVersion")
-            force("org.ow2.asm:asm:9.10")
-            force("org.ow2.asm:asm-commons:9.10")
-            force("org.ow2.asm:asm-tree:9.10")
-            force("org.ow2.asm:asm-analysis:9.10")
-            force("org.ow2.asm:asm-util:9.10")
+            force("org.ow2.asm:asm:9.10.1")
+            force("org.ow2.asm:asm-commons:9.10.1")
+            force("org.ow2.asm:asm-tree:9.10.1")
+            force("org.ow2.asm:asm-analysis:9.10.1")
+            force("org.ow2.asm:asm-util:9.10.1")
             force("net.bytebuddy:byte-buddy:$forcedByteBuddyVersion")
             force("net.bytebuddy:byte-buddy-agent:$forcedByteBuddyVersion")
         }
