@@ -190,7 +190,14 @@ object NmsPermissionHooker {
                             XLog.d(TAG, "checkCallerIsSystem bypassed for xmsf")
                             return@replace null
                         }
-                        invokeOriginal()
+                        // buzzBeepBlinkForNotification calls checkCallerIsSystem after
+                        // binder identity is restored. Clear identity to avoid SecurityException.
+                        val token = Binder.clearCallingIdentity()
+                        try {
+                            invokeOriginal()
+                        } finally {
+                            Binder.restoreCallingIdentity(token)
+                        }
                     }
                 }
             XLog.i(TAG, "checkCallerIsSystem hook installed")
