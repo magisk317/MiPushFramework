@@ -450,6 +450,17 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
     var runtimeLogRetentionInput by remember(runtimeLogRetentionDays) {
         mutableStateOf(runtimeLogRetentionDays.toString())
     }
+    val runtimeLogExportFailedTemplate = stringResource(R.string.runtime_log_export_failed)
+    val logShareTitle = stringResource(R.string.log_share_title)
+    val runtimeLogShareFailedTemplate = stringResource(R.string.runtime_log_share_failed)
+    val runtimeLogDeleteFailedTemplate = stringResource(R.string.runtime_log_delete_failed)
+    val runtimeLogClearedMessage = stringResource(R.string.runtime_log_cleared)
+    val runtimeLogClearPartialFailedTemplate = stringResource(R.string.runtime_log_clear_partial_failed)
+    val runtimeLogRetentionDaysError = stringResource(R.string.settings_runtime_log_retention_days_error)
+
+    fun formatMessage(template: String, vararg args: Any?): String {
+        return String.format(Locale.getDefault(), template, *args)
+    }
 
     fun shareRuntimeLogBundle() {
         scope.launch {
@@ -458,16 +469,16 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
             }
             val file = result.file
             if (file == null) {
-                snackbarHostState.showSnackbar(context.getString(R.string.runtime_log_export_failed, result.details))
+                snackbarHostState.showSnackbar(formatMessage(runtimeLogExportFailedTemplate, result.details))
                 return@launch
             }
             runCatching {
                 val intent = LogBundleExporter.buildShareIntent(context, file)
-                context.startActivity(Intent.createChooser(intent, context.getString(R.string.log_share_title)))
+                context.startActivity(Intent.createChooser(intent, logShareTitle))
             }.onFailure {
                 snackbarHostState.showSnackbar(
-                    context.getString(
-                        R.string.runtime_log_share_failed,
+                    formatMessage(
+                        runtimeLogShareFailedTemplate,
                         it.message ?: it.javaClass.simpleName,
                     ),
                 )
@@ -560,7 +571,7 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
                     }
                     if (!deleted) {
                         snackbarHostState.showSnackbar(
-                            context.getString(R.string.runtime_log_delete_failed, fileName),
+                            formatMessage(runtimeLogDeleteFailedTemplate, fileName),
                         )
                     }
                 }
@@ -575,9 +586,9 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
                     }
                     snackbarHostState.showSnackbar(
                         if (result.success) {
-                            context.getString(R.string.runtime_log_cleared)
+                            runtimeLogClearedMessage
                         } else {
-                            context.getString(R.string.runtime_log_clear_partial_failed, result.details)
+                            formatMessage(runtimeLogClearPartialFailedTemplate, result.details)
                         },
                     )
                 }
@@ -617,7 +628,7 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
                         if (days == null || days < 1) {
                             scope.launch {
                                 snackbarHostState.showSnackbar(
-                                    context.getString(R.string.settings_runtime_log_retention_days_error),
+                                    runtimeLogRetentionDaysError,
                                 )
                             }
                             return@TextButton

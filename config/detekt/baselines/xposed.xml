@@ -1,0 +1,31 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>MagicNumber:DouYin.kt:DouYin$160</ID>
+    <ID>MagicNumber:DouYin.kt:DouYin$180</ID>
+    <ID>MagicNumber:ForceMiPushRegister.kt:ForceMiPushRegister$12</ID>
+    <ID>MagicNumber:MiPushComponentVisibility.kt:MiPushComponentVisibility$70004067</ID>
+    <ID>MagicNumber:MiPushComponentVisibility.kt:MiPushComponentVisibility$70004067L</ID>
+    <ID>MaxLineLength:DouYin.kt:DouYin$//public java.lang.String com.bytedance.common.network.DefaultNetWorkClient.post(java.lang.String,java.util.List,java.util.Map,com.bytedance.common.utility.NetworkClient$ReqContext)</ID>
+    <ID>MaxLineLength:NmsPermissionHooker.kt:NmsPermissionHooker$findMethodExact(classINotificationManager, "createNotificationChannelsForPackage", String::class.java, Int::class.java, findClass("android.content.pm.ParceledListSlice", null))</ID>
+    <ID>MaxLineLength:NmsPermissionHooker.kt:NmsPermissionHooker$findMethodExact(classINotificationManager, "enqueueNotificationWithTag", String::class.java, String::class.java, String::class.java, Int::class.java, Notification::class.java, Int::class.java)</ID>
+    <ID>MaxLineLength:NmsPermissionHooker.kt:NmsPermissionHooker$findMethodExact(classINotificationManager, "getNotificationChannelForPackage", String::class.java, Int::class.java, String::class.java, String::class.java, Boolean::class.java)</ID>
+    <ID>MaxLineLength:SystemNotificationManager.kt:SystemNotificationManager$findHookMethodExact(notificationManager.javaClass, "getNotificationChannelForPackage", String::class.java, Int::class.java, String::class.java, String::class.java, Boolean::class.java)</ID>
+    <ID>MaxLineLength:SystemNotificationManager.kt:SystemNotificationManager$val</ID>
+    <ID>MaxLineLength:SystemNotificationManager.kt:SystemNotificationManager$val methodCancelNotificationWithTag = findHookMethodExact(notificationManager.javaClass, "cancelNotificationWithTag", String::class.java, String::class.java, Int::class.java, Int::class.java)</ID>
+    <ID>MaxLineLength:SystemNotificationManager.kt:SystemNotificationManager$val methodCancelNotificationWithTag = findHookMethodExact(notificationManager.javaClass, "cancelNotificationWithTag", String::class.java, String::class.java, String::class.java, Int::class.java, Int::class.java)</ID>
+    <ID>MaxLineLength:SystemNotificationManager.kt:SystemNotificationManager$val methodEnqueueNotificationWithTag = findHookMethodExact(notificationManager.javaClass, "enqueueNotificationWithTag", String::class.java, String::class.java, String::class.java, Int::class.java, Notification::class.java, Int::class.java)</ID>
+    <ID>SwallowedException:DeviceDetector.kt:DeviceDetector$e: Exception</ID>
+    <ID>SwallowedException:HookPushNC.kt:HookPushNC$e: HookClassNotFoundError</ID>
+    <ID>SwallowedException:HookSystemService.kt:HookSystemService.Companion$t: Throwable</ID>
+    <ID>SwallowedException:LegacyHuaweiSignatureCompat.kt:LegacyHuaweiSignatureCompat$e: HookClassNotFoundError</ID>
+    <ID>SwallowedException:LegacyHuaweiSignatureCompat.kt:LegacyHuaweiSignatureCompat$e: NoSuchMethodError</ID>
+    <ID>SwallowedException:LegacyHuaweiSignatureCompat.kt:LegacyHuaweiSignatureCompat$e: Throwable</ID>
+    <ID>SwallowedException:NmsPermissionHooker.kt:NmsPermissionHooker$e: NoSuchMethodError</ID>
+    <ID>SwallowedException:NmsPermissionHooker.kt:NmsPermissionHooker$e: Throwable</ID>
+    <ID>SwallowedException:ShortcutPermissionHooker.kt:ShortcutPermissionHooker$e: Throwable</ID>
+    <ID>SwallowedException:SystemNotificationManager.kt:SystemNotificationManager$e: PackageManager.NameNotFoundException</ID>
+    <ID>VariableNaming:HookSystemUI.kt:HookSystemUI$private val ID_ICON_IS_PRE_L: Int by lazy { val app = currentApplication() ?: return@lazy 0 app.resources.getIdentifier("icon_is_pre_L", "id", app.packageName) }</ID>
+  </CurrentIssues>
+</SmellBaseline>

@@ -789,6 +789,8 @@ private fun EventList(
 ) {
     val isPreview = LocalInspectionMode.current
     val context = LocalContext.current
+    val recentActivityDeletedMessage = stringResource(R.string.recent_activity_deleted)
+    val actionUndoLabel = stringResource(R.string.action_undo)
     val items = remember {
         if (packageName.isEmpty() && !isPreview) g_items
         else mutableStateListOf()
@@ -847,8 +849,8 @@ private fun EventList(
             viewModel.deleteEvent(item)
             snackbarHostState.currentSnackbarData?.dismiss()
             val result = snackbarHostState.showSnackbar(
-                message = context.getString(R.string.recent_activity_deleted),
-                actionLabel = context.getString(R.string.action_undo),
+                message = recentActivityDeletedMessage,
+                actionLabel = actionUndoLabel,
                 duration = SnackbarDuration.Long,
             )
             if (result == SnackbarResult.ActionPerformed) {

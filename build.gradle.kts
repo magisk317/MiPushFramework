@@ -1,4 +1,5 @@
 import dev.detekt.gradle.Detekt
+import dev.detekt.gradle.DetektCreateBaselineTask
 import dev.detekt.gradle.extensions.DetektExtension
 
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
@@ -73,22 +74,37 @@ extra["APPLICATION_ID"] = "io.github.magisk317.mipush"
 val catalog = libs
 val forcedKotlinVersion = libs.versions.kotlin.get()
 val forcedByteBuddyVersion = libs.versions.bytebuddy.get()
+val detektBlockingProjects = setOf(":xposed")
+val qualityGateKoverModules = listOf("common", "core", "xposed", "xmsf")
 
 subprojects {
     fun Project.configureDetekt() {
         apply(plugin = "dev.detekt")
+        val blocksNewViolations = path in detektBlockingProjects
+        val detektBaselineFile = rootProject.layout.projectDirectory.file("config/detekt/baselines/${name}.xml")
         extensions.configure<DetektExtension> {
             autoCorrect = false
             parallel = true
             buildUponDefaultConfig = false
             config.setFrom(files("${rootProject.projectDir}/config/detekt/detekt.yml"))
+            if (blocksNewViolations) {
+                baseline.set(detektBaselineFile)
+            }
         }
         dependencies {
             "detektPlugins"(catalog.detekt.rules.ktlint)
         }
+        tasks.withType<DetektCreateBaselineTask>().configureEach {
+            if (blocksNewViolations) {
+                baseline.set(detektBaselineFile)
+            }
+        }
         tasks.withType<Detekt>().configureEach {
-            // Initial rollout is report-only so existing hook/runtime debt does not block builds.
-            ignoreFailures = true
+            if (blocksNewViolations) {
+                baseline.set(detektBaselineFile)
+            }
+            // Most modules stay report-only while xposed starts failing on findings outside its baseline.
+            ignoreFailures = !blocksNewViolations
             reports {
                 html.required.set(true)
                 checkstyle.required.set(true)
@@ -151,6 +167,32 @@ tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
 
+tasks.register("qualityGateDetekt") {
+    group = "verification"
+    description = "Runs Detekt checks that fail on new violations."
+    dependsOn(detektBlockingProjects.map { "$it:detekt" })
+}
+
+tasks.register("qualityGateKoverReports") {
+    group = "verification"
+    description = "Generates XML and HTML Kover reports for the Phase 4 target modules."
+    dependsOn(qualityGateKoverModules.flatMap { module ->
+        listOf(":$module:koverXmlReport", ":$module:koverHtmlReport")
+    })
+}
+
+tasks.register("qualityGateKoverVerify") {
+    group = "verification"
+    description = "Runs Kover verification for the Phase 4 target modules."
+    dependsOn(qualityGateKoverModules.map { module -> ":$module:koverVerify" })
+}
+
+tasks.register("qualityGateKover") {
+    group = "verification"
+    description = "Runs Phase 4 Kover report generation and verification."
+    dependsOn("qualityGateKoverReports", "qualityGateKoverVerify")
+}
+
 // Maintenance task now automatically hooked via magisk.maintenance plugin
 
 tasks.register("checkReadmeBuildRequirements") {
@@ -209,6 +251,8 @@ tasks.register<Exec>("verifyModuleBoundaries") {
 
 tasks.matching { it.name == "check" }.configureEach {
     dependsOn("checkReadmeBuildRequirements")
+    dependsOn("qualityGateDetekt")
+    dependsOn("qualityGateKoverVerify")
     dependsOn("verifyModuleBoundaries")
 }
 

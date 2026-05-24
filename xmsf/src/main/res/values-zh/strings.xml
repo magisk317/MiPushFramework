@@ -529,5 +529,11 @@
     <string name="mock_kind_focus_pic_desc">带图片的焦点通知（需要 root）</string>
     <string name="mock_kind_voip">VoIP 来电</string>
     <string name="mock_kind_voip_desc">全屏来电通知</string>
+    <string name="mock_kind_live_update">实时进度</string>
+    <string name="mock_kind_live_update_desc">Android 16+ 进度样式高优先级通知</string>
+    <string name="mock_live_update_delivery_title">外卖配送中</string>
+    <string name="mock_live_update_delivery_desc">骑手已取餐，预计15分钟送达</string>
+    <string name="mock_live_update_ride_title">司机正在前往上车点</string>
+    <string name="mock_live_update_ride_desc">距您约500米，预计3分钟到达</string>
 
 </resources>

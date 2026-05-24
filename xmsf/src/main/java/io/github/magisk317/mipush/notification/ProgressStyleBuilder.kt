@@ -91,12 +91,20 @@ object ProgressStyleBuilder {
         if (!shortText.isNullOrBlank()) {
             platformBuilder.setShortCriticalText(shortText)
         }
-        return platformBuilder
+        platformBuilder
             .setStyle(style)
             .setOngoing(true)
             .setAutoCancel(false)
-            .setRequestPromotedOngoing(true)
+        if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) {
+            requestPromotedOngoing(platformBuilder)
+        }
+        return platformBuilder
             .build()
+    }
+
+    @RequiresApi(Build.VERSION_CODES_FULL.BAKLAVA_1)
+    private fun requestPromotedOngoing(builder: Notification.Builder) {
+        builder.setRequestPromotedOngoing(true)
     }
 
     private fun applyFallbackProgressStyle(
