@@ -2,13 +2,20 @@
 
 package io.github.magisk317.mipush.feature.ui.component
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -187,16 +194,29 @@ fun OverlayHeaderScaffold(
     modifier: Modifier = Modifier,
     fallbackTopPadding: Dp,
     bottomPadding: Dp = 0.dp,
+    headerVisible: Boolean = true,
     overlayModifier: Modifier = Modifier,
     overlay: @Composable ColumnScope.() -> Unit,
     content: @Composable (PaddingValues) -> Unit,
 ) {
+    val overlayHeight by animateDpAsState(
+        targetValue = if (headerVisible) fallbackTopPadding else 0.dp,
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "overlayHeight",
+    )
+    val contentTopPadding by animateDpAsState(
+        targetValue = if (headerVisible) fallbackTopPadding else 0.dp,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "contentTopPadding",
+    )
     io.github.magisk317.uikit.surface.OverlayHeaderScaffold(
         modifier = modifier,
-        fallbackTopPadding = fallbackTopPadding,
+        fallbackTopPadding = contentTopPadding,
         bottomPadding = bottomPadding,
-        overlayModifier = overlayModifier,
-        overlay = overlay,
+        overlayModifier = overlayModifier
+            .clipToBounds()
+            .requiredHeight(overlayHeight),
+        overlay = { Column(content = overlay) },
         content = content,
     )
 }

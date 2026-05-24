@@ -1,6 +1,13 @@
 package io.github.magisk317.mipush.feature.main
 
 import android.os.SystemClock
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Apps
@@ -69,7 +76,20 @@ import io.github.magisk317.mipush.feature.navigation.AppNavHostContent
 import io.github.magisk317.mipush.feature.ui.theme.SystemBarsScrim
 
 private const val TAB_DOUBLE_TAP_REFRESH_WINDOW_MS = 350L
+private const val MAIN_CHROME_ANIMATION_MILLIS = 160
 private val COMPACT_BOTTOM_BAR_CONTENT_PADDING = 80.dp
+
+internal fun shouldKeepMainChromeVisible(route: String?, chromeVisible: Boolean): Boolean {
+    return route?.startsWith(AppDestinations.Overview.ROUTE) == true || chromeVisible
+}
+
+internal fun shouldShowBottomGestureScrim(
+    isCompact: Boolean,
+    compactBottomBarAvailable: Boolean,
+    compactBottomBarVisible: Boolean,
+): Boolean {
+    return isCompact && compactBottomBarAvailable && compactBottomBarVisible
+}
 
 @Immutable
 private data class MainTabItem(
@@ -97,6 +117,7 @@ fun MainScreen(
     var appRefreshTrigger by rememberSaveable { mutableIntStateOf(0) }
     var configRefreshTrigger by rememberSaveable { mutableIntStateOf(0) }
     val tabLastTapAt = remember { mutableStateMapOf<String, Long>() }
+    val scrollChromeState = rememberMainScrollChromeState()
 
     val tabs = listOf(
         MainTabItem(
@@ -174,6 +195,10 @@ fun MainScreen(
         }
     }
 
+    LaunchedEffect(navBackStackEntry?.destination?.route) {
+        scrollChromeState.show()
+    }
+
     fun handleTabClick(tab: MainTabItem, selected: Boolean) {
         val now = SystemClock.elapsedRealtime()
         val last = tabLastTapAt[tab.route] ?: 0L
@@ -194,6 +219,12 @@ fun MainScreen(
             restoreState = true
         }
     }
+
+    val currentDestination = navBackStackEntry?.destination
+    val currentRoute = currentDestination?.route
+    val compactBottomBarAvailable = isCompact && shouldShowCompactBottomBar(currentDestination)
+    val mainChromeVisible = shouldKeepMainChromeVisible(currentRoute, scrollChromeState.isChromeVisible)
+    val compactBottomBarVisible = compactBottomBarAvailable && mainChromeVisible
 
     @Composable
     fun MainContent(contentPadding: androidx.compose.foundation.layout.PaddingValues) {
@@ -219,6 +250,7 @@ fun MainScreen(
                     groupByApp = groupByApp,
                     hazeState = hState,
                     hazeStyle = hStyle,
+                    scrollChromeState = scrollChromeState,
                 )
             },
             appsPage = { q, padding, _, filterMode, hState, hStyle ->
@@ -230,6 +262,7 @@ fun MainScreen(
                     onAppClick = { pkg -> eventRepository.startManagePermissions(pkg, true) },
                     hazeState = hState,
                     hazeStyle = hStyle,
+                    scrollChromeState = scrollChromeState,
                 )
             },
             configsPage = { initialQuery, padding, refreshSignal, onOpenEditor, hState, hStyle ->
@@ -240,6 +273,7 @@ fun MainScreen(
                     onOpenEditor = onOpenEditor,
                     hazeState = hState,
                     hazeStyle = hStyle,
+                    scrollChromeState = scrollChromeState,
                 )
             },
             configEditorPage = { path, padding, onBack, _, _ ->
@@ -257,6 +291,7 @@ fun MainScreen(
                     sectionBackSignal = settingsBackSignal,
                     hazeState = hState,
                     hazeStyle = hStyle,
+                    scrollChromeState = scrollChromeState,
                 )
             },
             helpPage = { padding, hState, hStyle ->
@@ -275,12 +310,15 @@ fun MainScreen(
         modifier = Modifier.fillMaxSize(),
     ) {
         if (isCompact) {
-            val compactBottomPadding =
-                if (shouldShowCompactBottomBar(navBackStackEntry?.destination)) {
+            val compactBottomPadding by animateDpAsState(
+                targetValue = if (compactBottomBarVisible) {
                     COMPACT_BOTTOM_BAR_CONTENT_PADDING
                 } else {
                     0.dp
-                }
+                },
+                animationSpec = tween(MAIN_CHROME_ANIMATION_MILLIS),
+                label = "compactBottomPadding",
+            )
 
             Box(
                 modifier = Modifier
@@ -290,13 +328,21 @@ fun MainScreen(
                 MainContent(androidx.compose.foundation.layout.PaddingValues(bottom = compactBottomPadding))
             }
 
-            if (shouldShowCompactBottomBar(navBackStackEntry?.destination)) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.BottomCenter),
-                    contentAlignment = Alignment.Center,
-                ) {
+            AnimatedVisibility(
+                visible = compactBottomBarVisible,
+                enter = slideInVertically(
+                    animationSpec = tween(MAIN_CHROME_ANIMATION_MILLIS),
+                    initialOffsetY = { it },
+                ) + fadeIn(animationSpec = tween(MAIN_CHROME_ANIMATION_MILLIS)),
+                exit = slideOutVertically(
+                    animationSpec = tween(MAIN_CHROME_ANIMATION_MILLIS),
+                    targetOffsetY = { it },
+                ) + fadeOut(animationSpec = tween(MAIN_CHROME_ANIMATION_MILLIS)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -381,7 +427,11 @@ fun MainScreen(
             hazeState = hazeState,
             hazeStyle = hazeStyle,
             showTop = false,
-            showBottom = true,
+            showBottom = shouldShowBottomGestureScrim(
+                isCompact = isCompact,
+                compactBottomBarAvailable = compactBottomBarAvailable,
+                compactBottomBarVisible = compactBottomBarVisible,
+            ),
             bottomBackgroundAlpha = 0f,
         )
 

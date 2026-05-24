@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import android.widget.Toast
+
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -58,9 +59,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
@@ -82,7 +81,11 @@ import dev.chrisbanes.haze.hazeSource
 import io.github.magisk317.uikit.preference.SectionCard
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.feature.main.MainActivityOperation
+import io.github.magisk317.mipush.feature.main.MainScrollChromeState
+import io.github.magisk317.mipush.feature.main.ReportScrollStateToChrome
 import io.github.magisk317.mipush.feature.ui.component.DialogAction
+import io.github.magisk317.mipush.feature.ui.component.OverlayHeaderScaffold
+import io.github.magisk317.mipush.feature.ui.component.ScrollToTopFAB
 import io.github.magisk317.mipush.feature.ui.component.SectionColumn
 import io.github.magisk317.mipush.feature.ui.component.SettingsDialogItem
 import io.github.magisk317.mipush.feature.ui.component.SettingsItem
@@ -104,6 +107,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+
 @Composable
 fun Settings(
     contentPadding: PaddingValues = PaddingValues(0.dp),
@@ -113,11 +117,13 @@ fun Settings(
     sectionBackSignal: Int = 0,
     hazeState: HazeState? = null,
     hazeStyle: HazeStyle? = null,
+    scrollChromeState: MainScrollChromeState? = null,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
 
     Page {
         Box(modifier = Modifier.fillMaxSize()) {
+            val scrollState = androidx.compose.foundation.rememberScrollState()
             SettingsScreen(
                 contentPadding = contentPadding,
                 onShowAboutDialog = onShowAboutDialog,
@@ -127,11 +133,14 @@ fun Settings(
                 hazeState = hazeState,
                 hazeStyle = hazeStyle,
                 snackbarHostState = snackbarHostState,
+                scrollChromeState = scrollChromeState,
+                scrollState = scrollState,
             )
             SnackbarHost(
                 hostState = snackbarHostState,
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
+            ScrollToTopFAB(scrollState)
         }
     }
 }
@@ -142,14 +151,14 @@ private fun SettingsScreen(
     onShowAboutDialog: (String) -> Unit,
     viewModel: SettingsViewModel,
     onSectionChanged: (String?) -> Unit,
+    scrollState: androidx.compose.foundation.ScrollState = androidx.compose.foundation.rememberScrollState(),
     sectionBackSignal: Int,
     hazeState: HazeState?,
     hazeStyle: HazeStyle?,
     snackbarHostState: SnackbarHostState,
+    scrollChromeState: MainScrollChromeState?,
 ) {
     val title = stringResource(R.string.main_settings)
-    val density = LocalDensity.current
-    var fixedTopHeightPx by remember { mutableIntStateOf(0) }
     var serviceExpanded by rememberSaveable { mutableStateOf(false) }
     var keepAliveExpanded by rememberSaveable { mutableStateOf(false) }
     var notificationsExpanded by rememberSaveable { mutableStateOf(false) }
@@ -157,99 +166,28 @@ private fun SettingsScreen(
     var registrationExpanded by rememberSaveable { mutableStateOf(false) }
     var aboutExpanded by rememberSaveable { mutableStateOf(false) }
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val fixedTopHeight = if (fixedTopHeightPx > 0) {
-        with(density) { fixedTopHeightPx.toDp() }
-    } else {
-        topInset + 64.dp
-    }
+    val headerVisible = scrollChromeState?.isChromeVisible ?: true
+    ReportScrollStateToChrome(scrollState, scrollChromeState)
 
     LaunchedEffect(title) {
         onSectionChanged(title)
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        SectionColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .then(
-                    if (hazeState != null) {
-                        Modifier.hazeSource(state = hazeState)
-                    } else {
-                        Modifier
+    OverlayHeaderScaffold(
+        fallbackTopPadding = topInset + 64.dp,
+        headerVisible = headerVisible,
+        overlayModifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (hazeState != null && hazeStyle != null) {
+                    Modifier.hazeEffect(hazeState, hazeStyle) {
+                        forceInvalidateOnPreDraw = true
                     }
-                )
-                .verticalScroll(rememberScrollState()),
-            contentPadding = PaddingValues(
-                start = MaterialTheme.spacing.medium,
-                top = fixedTopHeight + MaterialTheme.spacing.small,
-                end = MaterialTheme.spacing.medium,
-                bottom = contentPadding.calculateBottomPadding() + MaterialTheme.spacing.large,
+                } else {
+                    Modifier
+                }
             ),
-            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
-        ) {
-            SettingsSectionCard(
-                title = stringResource(R.string.settings_home_service_title),
-                expanded = serviceExpanded,
-                onExpandedChange = { serviceExpanded = !serviceExpanded },
-            ) {
-                ConnectionServiceBlock(viewModel)
-            }
-
-            SettingsSectionCard(
-                title = stringResource(R.string.settings_home_keepalive_title),
-                expanded = keepAliveExpanded,
-                onExpandedChange = { keepAliveExpanded = !keepAliveExpanded },
-            ) {
-                KeepAliveBlock(viewModel, snackbarHostState)
-            }
-
-            SettingsSectionCard(
-                title = stringResource(R.string.settings_home_notifications_title),
-                expanded = notificationsExpanded,
-                onExpandedChange = { notificationsExpanded = !notificationsExpanded },
-            ) {
-                NotificationsBlock(viewModel, snackbarHostState)
-            }
-
-            SettingsSectionCard(
-                title = stringResource(R.string.settings_home_diagnostics_title),
-                expanded = diagnosticsExpanded,
-                onExpandedChange = { diagnosticsExpanded = !diagnosticsExpanded },
-            ) {
-                DiagnosticsBlock(viewModel, snackbarHostState)
-            }
-
-            SettingsSectionCard(
-                title = stringResource(R.string.settings_home_registration_title),
-                expanded = registrationExpanded,
-                onExpandedChange = { registrationExpanded = !registrationExpanded },
-            ) {
-                DataRegistrationBlock(viewModel, snackbarHostState)
-            }
-
-            SettingsSectionCard(
-                title = stringResource(R.string.action_about),
-                expanded = aboutExpanded,
-                onExpandedChange = { aboutExpanded = !aboutExpanded },
-            ) {
-                AboutBlock(onShowAboutDialog)
-            }
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .onSizeChanged { fixedTopHeightPx = it.height }
-                .then(
-                    if (hazeState != null && hazeStyle != null) {
-                        Modifier.hazeEffect(hazeState, hazeStyle) {
-                            forceInvalidateOnPreDraw = true
-                        }
-                    } else {
-                        Modifier
-                    }
-                ),
-        ) {
+        overlay = {
             TopAppBar(
                 title = { Text(title) },
                 windowInsets = WindowInsets.statusBars,
@@ -258,8 +196,77 @@ private fun SettingsScreen(
                     scrolledContainerColor = Color.Transparent,
                 ),
             )
-        }
-    }
+        },
+        content = { listPadding ->
+            SectionColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(
+                        if (hazeState != null) {
+                            Modifier.hazeSource(state = hazeState)
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .verticalScroll(scrollState),
+                contentPadding = PaddingValues(
+                    start = MaterialTheme.spacing.medium,
+                    top = listPadding.calculateTopPadding() + MaterialTheme.spacing.small,
+                    end = MaterialTheme.spacing.medium,
+                    bottom = contentPadding.calculateBottomPadding() + MaterialTheme.spacing.large,
+                ),
+                verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
+            ) {
+                SettingsSectionCard(
+                    title = stringResource(R.string.settings_home_service_title),
+                    expanded = serviceExpanded,
+                    onExpandedChange = { serviceExpanded = !serviceExpanded },
+                ) {
+                    ConnectionServiceBlock(viewModel)
+                }
+
+                SettingsSectionCard(
+                    title = stringResource(R.string.settings_home_keepalive_title),
+                    expanded = keepAliveExpanded,
+                    onExpandedChange = { keepAliveExpanded = !keepAliveExpanded },
+                ) {
+                    KeepAliveBlock(viewModel, snackbarHostState)
+                }
+
+                SettingsSectionCard(
+                    title = stringResource(R.string.settings_home_notifications_title),
+                    expanded = notificationsExpanded,
+                    onExpandedChange = { notificationsExpanded = !notificationsExpanded },
+                ) {
+                    NotificationsBlock(viewModel, snackbarHostState)
+                }
+
+                SettingsSectionCard(
+                    title = stringResource(R.string.settings_home_diagnostics_title),
+                    expanded = diagnosticsExpanded,
+                    onExpandedChange = { diagnosticsExpanded = !diagnosticsExpanded },
+                ) {
+                    DiagnosticsBlock(viewModel, snackbarHostState)
+                }
+
+                SettingsSectionCard(
+                    title = stringResource(R.string.settings_home_registration_title),
+                    expanded = registrationExpanded,
+                    onExpandedChange = { registrationExpanded = !registrationExpanded },
+                ) {
+                    DataRegistrationBlock(viewModel, snackbarHostState)
+                }
+
+                SettingsSectionCard(
+                    title = stringResource(R.string.action_about),
+                    expanded = aboutExpanded,
+                    onExpandedChange = { aboutExpanded = !aboutExpanded },
+                ) {
+                    AboutBlock(onShowAboutDialog)
+                }
+            }
+        },
+    )
 }
 
 @Composable

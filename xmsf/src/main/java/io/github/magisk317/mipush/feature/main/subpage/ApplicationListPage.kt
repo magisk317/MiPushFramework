@@ -75,6 +75,7 @@ import io.github.magisk317.mipush.feature.ui.component.MetricSpec
 import io.github.magisk317.mipush.feature.ui.theme.spacing
 import io.github.magisk317.mipush.feature.ui.component.OverlayHeaderScaffold
 import io.github.magisk317.mipush.feature.ui.component.RefreshableLazyColumn
+import io.github.magisk317.mipush.feature.ui.component.ScrollToTopFAB
 import io.github.magisk317.mipush.feature.ui.component.WorkspaceTopBarSearchOverlay
 import io.github.magisk317.mipush.feature.ui.component.WorkspaceListItem
 
@@ -210,10 +211,13 @@ fun ApplicationList(
 
     Page {
         val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-        val topOverlayHeight = topInset + 152.dp
+        val topOverlayHeight = topInset + if (searchExpanded) 152.dp else 96.dp
+        val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+        Box(modifier = Modifier.fillMaxSize()) {
         OverlayHeaderScaffold(
             fallbackTopPadding = topOverlayHeight,
             bottomPadding = contentPadding.calculateBottomPadding() + 28.dp,
+            headerVisible = (scrollChromeState?.isChromeVisible ?: true) || searchExpanded,
             overlayModifier = Modifier
                 .fillMaxWidth()
                 .then(
@@ -242,7 +246,8 @@ fun ApplicationList(
                             .hazeSource(hazeState)
                     } else {
                         Modifier.fillMaxSize()
-                    }
+                    },
+                    listState = listState,
                 ) {
                     items(g_items.res, { it.packageName }) {
                         ApplicationItem(it, onAppClick)
@@ -313,6 +318,8 @@ fun ApplicationList(
                 }
             },
         )
+        ScrollToTopFAB(listState)
+        }
     }
 }
 

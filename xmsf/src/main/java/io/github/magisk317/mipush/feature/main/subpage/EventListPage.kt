@@ -93,12 +93,14 @@ import io.github.magisk317.mipush.feature.ui.component.DialogActionRow
 import io.github.magisk317.mipush.feature.ui.component.InfoPill
 import io.github.magisk317.mipush.feature.ui.component.OverlayHeaderScaffold
 import io.github.magisk317.mipush.feature.ui.component.RefreshableLazyColumn
+import io.github.magisk317.mipush.feature.ui.component.ScrollToTopFAB
 import io.github.magisk317.mipush.feature.ui.component.SearchBar
 import io.github.magisk317.mipush.feature.ui.component.TextView
 import io.github.magisk317.mipush.feature.ui.component.WorkspaceEmptyState
 import io.github.magisk317.mipush.feature.ui.component.WorkspaceListItem
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 import io.github.magisk317.mipush.platform.support.ParseUtils
+import io.github.magisk317.mipush.feature.main.MainScrollChromeState
 import io.github.magisk317.mipush.feature.ui.theme.spacing
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -118,15 +120,16 @@ fun EventList(
     groupByApp: Boolean = false,
     viewModel: EventListViewModel = hiltViewModel(),
     hazeState: HazeState? = null,
-    hazeStyle: HazeStyle? = null
+    hazeStyle: HazeStyle? = null,
+    scrollChromeState: MainScrollChromeState? = null,
 ) {
     Page {
         Box(modifier = Modifier.fillMaxSize()) {
             val context = LocalContext.current
+            val listState = androidx.compose.foundation.lazy.rememberLazyListState()
         var clickedEvent by remember { mutableStateOf<EventInfoForDisplay?>(null) }
         var currentQuery by rememberSaveable(query) { mutableStateOf(query) }
         var searchExpanded by rememberSaveable(query) { mutableStateOf(query.isNotBlank()) }
-        var filtersExpanded by rememberSaveable { mutableStateOf(false) }
         var selectedTypeFilters by remember { mutableStateOf(emptySet<EventTypeFilter>()) }
         var selectedStatusFilters by remember { mutableStateOf(emptySet<EventStatusFilter>()) }
         var groupMode by rememberSaveable(groupByApp, packageName) { mutableStateOf(groupByApp) }
@@ -143,7 +146,8 @@ fun EventList(
             }
         }
         val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-        val topOverlayHeight = topInset + 132.dp
+        val searchActive = searchExpanded || currentQuery.isNotBlank()
+        val topOverlayHeight = topInset + if (searchActive) 152.dp else 64.dp
 
         clickedEvent?.let {
             EventDetailsDialog(it, viewModel = viewModel) { clickedEvent = null }
@@ -152,6 +156,7 @@ fun EventList(
         OverlayHeaderScaffold(
             fallbackTopPadding = topOverlayHeight,
             bottomPadding = contentPadding.calculateBottomPadding() + 28.dp,
+            headerVisible = scrollChromeState?.isChromeVisible ?: true,
             overlayModifier = Modifier
                 .fillMaxWidth()
                 .then(
@@ -175,7 +180,9 @@ fun EventList(
                         viewModel = viewModel,
                         selectedTypeFilters = selectedTypeFilters,
                         selectedStatusFilters = selectedStatusFilters,
-                        hazeState = hazeState
+                        hazeState = hazeState,
+                        scrollChromeState = scrollChromeState,
+                        listState = listState,
                     )
                 } else {
                     var lastId by rememberSaveable(refreshSignal) { mutableStateOf<Long?>(null) }
@@ -200,114 +207,65 @@ fun EventList(
                         hazeStyle = hazeStyle,
                         snackbarHostState = snackbarHostState,
                         viewModel = viewModel,
+                        scrollChromeState = scrollChromeState,
+                        listState = listState,
                     )
                 }
             },
             overlay = {
-                Column {
-                    TopAppBar(
-                        title = {
-                            Text(
-                                if (packageName.isNotEmpty()) resolvedTitle ?: packageName else stringResource(R.string.recent_activity_title),
-                            )
-                        },
-                        windowInsets = WindowInsets.statusBars,
-                        actions = {
-                            if (packageName.isEmpty()) {
-                                IconButton(onClick = { groupMode = !groupMode }) {
-                                    Icon(
-                                        painter = painterResource(
-                                            if (showGroupedByApp) {
-                                                R.drawable.ic_event_note_black_24dp
-                                            } else {
-                                                R.drawable.ic_apps_black_24dp
-                                            },
-                                        ),
-                                        contentDescription = if (showGroupedByApp) {
-                                            stringResource(R.string.recent_activity_action_show_events)
-                                        } else {
-                                            stringResource(R.string.recent_activity_action_group_by_app)
-                                        },
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                            IconButton(onClick = { filtersExpanded = !filtersExpanded }) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_tune_24dp),
-                                    contentDescription = stringResource(R.string.recent_activity_filter_prefix),
-                                    tint = if (filtersExpanded || selectedTypeFilters.isNotEmpty() || selectedStatusFilters.isNotEmpty()) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
-                                )
-                            }
-                            IconButton(onClick = { searchExpanded = !searchExpanded }) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_search_24dp),
-                                    contentDescription = stringResource(R.string.action_search),
-                                    tint = if (searchExpanded || currentQuery.isNotBlank()) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
-                                )
-                            }
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.Transparent,
-                            scrolledContainerColor = Color.Transparent,
-                        ),
-                    )
-                    Text(
-                        text = when {
-                            packageName.isNotEmpty() -> stringResource(R.string.app_detail_recent_activity_summary)
-                            showGroupedByApp -> stringResource(R.string.recent_activity_grouped_summary)
-                            else -> stringResource(R.string.recent_activity_stream_summary)
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(
-                            start = MaterialTheme.spacing.medium,
-                            end = MaterialTheme.spacing.medium,
-                            bottom = MaterialTheme.spacing.small,
-                        ),
-                    )
-                    if (searchExpanded || currentQuery.isNotBlank()) {
-                        SearchBar(
-                            placeholder = stringResource(android.R.string.search_go),
-                            query = currentQuery,
-                            onValueChange = { currentQuery = it },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = MaterialTheme.spacing.medium),
+                TopAppBar(
+                    title = {
+                        Text(
+                            if (packageName.isNotEmpty()) resolvedTitle ?: packageName else stringResource(R.string.recent_activity_title),
                         )
-                    }
-                    if (packageName.isNotBlank()) {
-                        Spacer(modifier = Modifier.size(MaterialTheme.spacing.extraSmall))
-                    }
-                    if (filtersExpanded) {
-                        Column(
-                            modifier = Modifier.padding(
-                                start = MaterialTheme.spacing.medium,
-                                top = MaterialTheme.spacing.small,
-                                end = MaterialTheme.spacing.medium,
-                                bottom = MaterialTheme.spacing.small,
-                            ),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            EventFilters(
-                                expanded = true,
-                                selectedTypeFilters = selectedTypeFilters,
-                                selectedStatusFilters = selectedStatusFilters,
-                                onExpandedChange = { filtersExpanded = false },
-                                onTypeFiltersChange = { selectedTypeFilters = it },
-                                onStatusFiltersChange = { selectedStatusFilters = it },
-                                showToggleAction = false,
+                    },
+                    windowInsets = WindowInsets.statusBars,
+                    actions = {
+                        if (packageName.isEmpty()) {
+                            IconButton(onClick = { groupMode = !groupMode }) {
+                                Icon(
+                                    painter = painterResource(
+                                        if (showGroupedByApp) {
+                                            R.drawable.ic_event_note_black_24dp
+                                        } else {
+                                            R.drawable.ic_apps_black_24dp
+                                        },
+                                    ),
+                                    contentDescription = if (showGroupedByApp) {
+                                        stringResource(R.string.recent_activity_action_show_events)
+                                    } else {
+                                        stringResource(R.string.recent_activity_action_group_by_app)
+                                    },
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        IconButton(onClick = { searchExpanded = !searchExpanded }) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_search_24dp),
+                                contentDescription = stringResource(R.string.action_search),
+                                tint = if (searchExpanded || currentQuery.isNotBlank()) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
                             )
                         }
-                    }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = Color.Transparent,
+                    ),
+                )
+                if (searchExpanded || currentQuery.isNotBlank()) {
+                    SearchBar(
+                        placeholder = stringResource(android.R.string.search_go),
+                        query = currentQuery,
+                        onValueChange = { currentQuery = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = MaterialTheme.spacing.medium),
+                    )
                 }
             }
         )
@@ -338,6 +296,7 @@ fun EventList(
                     DeleteCountdownSnackbar(data)
                 }
             }
+            ScrollToTopFAB(listState)
         }
     }
 }
@@ -551,7 +510,9 @@ private fun EventGroupList(
     viewModel: EventListViewModel,
     selectedTypeFilters: Set<EventTypeFilter>,
     selectedStatusFilters: Set<EventStatusFilter>,
-    hazeState: HazeState? = null
+    hazeState: HazeState? = null,
+    scrollChromeState: MainScrollChromeState? = null,
+    listState: androidx.compose.foundation.lazy.LazyListState? = null,
 ) {
     val context = LocalContext.current
     val groupedItems = remember(query) { mutableStateListOf<EventGroupForDisplay>() }
@@ -633,8 +594,10 @@ private fun EventGroupList(
         doLoadMore = doLoadMore,
         isNeedRefresh = isNeedRefresh,
         scrollToTopSignal = refreshSignal,
+        scrollChromeState = scrollChromeState,
         contentPadding = contentPadding,
-        modifier = if (hazeState != null) Modifier.hazeSource(hazeState) else Modifier
+        modifier = if (hazeState != null) Modifier.hazeSource(hazeState) else Modifier,
+        listState = listState,
     ) {
         if (groupedItems.isEmpty() && !isLoading) {
             item {
@@ -735,10 +698,6 @@ private fun EventDetailsDialog(
                         onClick = { viewModel.copyToClipboard(json) }
                     ),
                     DialogAction(
-                        label = stringResource(R.string.main_configs),
-                        onClick = { viewModel.startConfigPreview(clickedEvent.packageName) },
-                    ),
-                    DialogAction(
                         label = stringResource(R.string.action_notify),
                         onClick = {
                             RegSecUtils.getContainerWithRegSec(clickedEvent.event)?.let {
@@ -825,6 +784,8 @@ private fun EventList(
     hazeStyle: HazeStyle? = null,
     snackbarHostState: SnackbarHostState,
     viewModel: EventListViewModel,
+    scrollChromeState: MainScrollChromeState? = null,
+    listState: androidx.compose.foundation.lazy.LazyListState? = null,
 ) {
     val isPreview = LocalInspectionMode.current
     val context = LocalContext.current
@@ -905,12 +866,14 @@ private fun EventList(
         doLoadMore,
         isNeedRefresh,
         scrollToTopSignal = refreshSignal,
+        scrollChromeState = scrollChromeState,
         contentPadding = contentPadding,
         modifier = if (hazeState != null) {
             Modifier.hazeSource(hazeState)
         } else {
             Modifier
-        }
+        },
+        listState = listState,
     ) {
         if (filteredItems.isEmpty() && !isLoading) {
             item {

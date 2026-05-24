@@ -337,9 +337,10 @@
 
     <string name="message_type_notification">通知消息</string>
     <string name="message_type_pass_through">透传消息</string>
-    <string name="action_notify">发出通知</string>
+    <string name="action_notify">重放</string>
     <string name="action_configurate">执行配置</string>
     <string name="action_search">搜索</string>
+    <string name="action_scroll_to_top">回到顶部</string>
     <string name="action_expand">展开</string>
     <string name="action_collapse">收起</string>
     <string name="last_receive">最近推送：</string>

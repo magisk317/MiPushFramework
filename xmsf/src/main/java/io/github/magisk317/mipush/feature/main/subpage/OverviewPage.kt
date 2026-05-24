@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -131,6 +130,7 @@ private fun OverviewScreen(
     }
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val scrollState = rememberScrollState()
 
     Box(modifier = Modifier.fillMaxSize()) {
         SectionColumn(
@@ -143,7 +143,7 @@ private fun OverviewScreen(
                         Modifier
                     }
                 )
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(scrollState),
             contentPadding = PaddingValues(
                 start = MaterialTheme.spacing.medium,
                 top = topInset + 80.dp,
@@ -173,6 +173,7 @@ private fun OverviewScreen(
             title = { Text(text = stringResource(R.string.app_name)) },
             windowInsets = WindowInsets.statusBars,
             modifier = Modifier
+                .fillMaxWidth()
                 .align(Alignment.TopCenter)
                 .then(
                     if (hazeState != null && hazeStyle != null) {

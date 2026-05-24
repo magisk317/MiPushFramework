@@ -200,7 +200,7 @@ Please grant the <b>Run in the background or wake up</b> permissions.
 
     <string name="action_edit_permission_title">Edit Permissions (Save by ----></string>
     <string name="action_app_info">App Info</string>
-    <string name="action_notify">send notification</string>
+    <string name="action_notify">replay</string>
     <string name="action_configurate">run configuration</string>
 
     <!-- Permission -->
@@ -361,6 +361,7 @@ This could be the application doing a reverse registration, or the registration 
     <string name="group_notifications_for_same_session_clear_title">clear all notifications of session when the notification of session was clicked</string>
     <string name="show_pass_through">show \"pass through\" message as notification</string>
     <string name="action_search">Search</string>
+    <string name="action_scroll_to_top">Scroll to top</string>
     <string name="action_expand">Expand</string>
     <string name="action_collapse">Collapse</string>
     <string name="last_receive">last receive: </string>

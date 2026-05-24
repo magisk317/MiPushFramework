@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -27,6 +28,8 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import io.github.magisk317.mipush.feature.main.MainScrollChromeState
+import io.github.magisk317.mipush.feature.main.ReportLazyListScrollToChrome
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -38,8 +41,10 @@ fun RefreshableLazyColumn(
     doLoadMore: (onRefreshed: () -> Unit) -> Unit,
     isNeedRefresh: Boolean = false,
     scrollToTopSignal: Int = 0,
+    scrollChromeState: MainScrollChromeState? = null,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     modifier: Modifier = Modifier,
+    listState: LazyListState? = null,
     content: LazyListScope.() -> Unit
 ) {
     val currentIsNeedMore by rememberUpdatedState(isNeedMore)
@@ -95,12 +100,13 @@ fun RefreshableLazyColumn(
             )
         }
     ) {
-        val lazyListState = rememberLazyListState()
+        val lazyListState = listState ?: rememberLazyListState()
         LaunchedEffect(scrollToTopSignal) {
             if (scrollToTopSignal > 0) {
                 lazyListState.scrollToItem(0)
             }
         }
+        ReportLazyListScrollToChrome(lazyListState, scrollChromeState)
         LaunchedEffect(lazyListState) {
             snapshotFlow { lazyListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }
                 .distinctUntilChanged()

@@ -4,6 +4,7 @@ package io.github.magisk317.mipush.feature.main.subpage
 
 import android.content.Intent
 import android.widget.Toast
+import dev.chrisbanes.haze.hazeEffect
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -27,6 +28,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.text.KeyboardOptions
@@ -73,6 +75,8 @@ import java.util.Date
 import java.util.Locale
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
+import io.github.magisk317.mipush.feature.ui.component.OverlayHeaderScaffold
+import io.github.magisk317.mipush.feature.ui.component.ScrollToTopFAB
 import io.github.magisk317.mipush.feature.ui.component.SearchBar
 import io.github.magisk317.mipush.feature.ui.component.WorkspaceListItem
 import io.github.magisk317.mipush.config.ConfigCatalogService
@@ -82,7 +86,10 @@ import io.github.magisk317.mipush.config.ConfigListItem
 import io.github.magisk317.mipush.config.ConfigManagerViewModel
 import io.github.magisk317.mipush.config.ConfigRemoteSource
 import io.github.magisk317.mipush.config.ConfigSyncStatus
+import io.github.magisk317.mipush.feature.main.MainScrollChromeState
+import io.github.magisk317.mipush.feature.main.ReportLazyListScrollToChrome
 import io.github.magisk317.mipush.feature.ui.theme.spacing
+
 
 @Composable
 fun Configurations(
@@ -93,6 +100,7 @@ fun Configurations(
     viewModel: ConfigManagerViewModel = hiltViewModel(),
     hazeState: HazeState? = null,
     hazeStyle: HazeStyle? = null,
+    scrollChromeState: MainScrollChromeState? = null,
 ) {
     Page {
         val context = androidx.compose.ui.platform.LocalContext.current
@@ -150,78 +158,100 @@ fun Configurations(
                 }
             }
         }
+        val listState = rememberLazyListState()
+        val headerVisible = scrollChromeState?.isChromeVisible ?: true
+        ReportLazyListScrollToChrome(listState, scrollChromeState)
+        val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.safeDrawing)
-                .then(if (hazeState != null) Modifier.hazeSource(hazeState) else Modifier),
-        ) {
-            if (showRemoteSourceDialog) {
-                RemoteSourceDialog(
-                    repository = remoteRepositoryDraft,
-                    branch = remoteBranchDraft,
-                    onRepositoryChange = { remoteRepositoryDraft = it },
-                    onBranchChange = { remoteBranchDraft = it },
-                    onDismiss = { showRemoteSourceDialog = false },
-                    onResetDefault = {
-                        remoteRepositoryDraft = ConfigCatalogService.REMOTE_REPOSITORY
-                        remoteBranchDraft = ConfigCatalogService.REMOTE_BRANCH
-                    },
-                    onConfirm = {
-                        viewModel.updateRemoteSource(remoteRepositoryDraft, remoteBranchDraft)
-                        showRemoteSourceDialog = false
-                    },
-                )
-            }
-            TopAppBar(
-                title = { Text(stringResource(R.string.main_configs)) },
-                windowInsets = WindowInsets.statusBars,
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = Color.Transparent,
-                ),
+        if (showRemoteSourceDialog) {
+            RemoteSourceDialog(
+                repository = remoteRepositoryDraft,
+                branch = remoteBranchDraft,
+                onRepositoryChange = { remoteRepositoryDraft = it },
+                onBranchChange = { remoteBranchDraft = it },
+                onDismiss = { showRemoteSourceDialog = false },
+                onResetDefault = {
+                    remoteRepositoryDraft = ConfigCatalogService.REMOTE_REPOSITORY
+                    remoteBranchDraft = ConfigCatalogService.REMOTE_BRANCH
+                },
+                onConfirm = {
+                    viewModel.updateRemoteSource(remoteRepositoryDraft, remoteBranchDraft)
+                    showRemoteSourceDialog = false
+                },
             )
+        }
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(
-                    start = MaterialTheme.spacing.medium,
-                    end = MaterialTheme.spacing.medium,
-                    top = 0.dp,
-                    bottom = contentPadding.calculateBottomPadding() + MaterialTheme.spacing.large,
-                ),
-                verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
-            ) {
-                configListHeader(
-                    uiState = uiState,
-                    onClickRemoteSource = { showRemoteSourceDialog = true },
-                    onChooseDirectory = { openDirectoryLauncher.launch(null) },
-                    onImportLocal = { importLauncher.launch(arrayOf("application/json", "*/*")) },
-                    onPullRemote = viewModel::pullRemote,
-                    onReload = viewModel::reloadConfigurations,
-                    onQueryChange = viewModel::setQuery,
-                )
-
-                if (filteredItems.isEmpty() && !uiState.isLoading) {
-                    item {
-                        WorkspaceEmptyState(
-                            title = stringResource(R.string.config_empty_title),
-                            summary = stringResource(R.string.config_empty_summary),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 280.dp),
-                        )
+        Box(modifier = Modifier.fillMaxSize()) {
+        OverlayHeaderScaffold(
+            fallbackTopPadding = topInset + 64.dp,
+            headerVisible = headerVisible,
+            overlayModifier = Modifier
+                .fillMaxWidth()
+                .then(
+                    if (hazeState != null && hazeStyle != null) {
+                        Modifier.hazeEffect(hazeState, hazeStyle) {
+                            forceInvalidateOnPreDraw = true
+                        }
+                    } else {
+                        Modifier
                     }
-                } else {
-                    items(filteredItems, key = { it.path }) { item ->
-                        ConfigListEntry(
-                            item = item,
-                            onClick = { onOpenEditor(item.path) },
-                        )
+                ),
+            overlay = {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.main_configs)) },
+                    windowInsets = WindowInsets.statusBars,
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = Color.Transparent,
+                    ),
+                )
+            },
+            content = { listPadding ->
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(if (hazeState != null) Modifier.hazeSource(hazeState) else Modifier),
+                    state = listState,
+                    contentPadding = PaddingValues(
+                        start = MaterialTheme.spacing.medium,
+                        end = MaterialTheme.spacing.medium,
+                        top = listPadding.calculateTopPadding() + 8.dp,
+                        bottom = contentPadding.calculateBottomPadding() + MaterialTheme.spacing.large,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
+                ) {
+                    configListHeader(
+                        uiState = uiState,
+                        onClickRemoteSource = { showRemoteSourceDialog = true },
+                        onChooseDirectory = { openDirectoryLauncher.launch(null) },
+                        onImportLocal = { importLauncher.launch(arrayOf("application/json", "*/*")) },
+                        onPullRemote = viewModel::pullRemote,
+                        onReload = viewModel::reloadConfigurations,
+                        onQueryChange = viewModel::setQuery,
+                    )
+
+                    if (filteredItems.isEmpty() && !uiState.isLoading) {
+                        item {
+                            WorkspaceEmptyState(
+                                title = stringResource(R.string.config_empty_title),
+                                summary = stringResource(R.string.config_empty_summary),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 280.dp),
+                            )
+                        }
+                    } else {
+                        items(filteredItems, key = { it.path }) { item ->
+                            ConfigListEntry(
+                                item = item,
+                                onClick = { onOpenEditor(item.path) },
+                            )
+                        }
                     }
                 }
-            }
+            },
+        )
+        ScrollToTopFAB(listState)
         }
     }
 }
