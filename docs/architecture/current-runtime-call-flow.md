@@ -101,11 +101,15 @@ Supporting layers:
 - `NotificationController`
 - `NotificationManagerEx`
 - `NotificationIdentityBridge`
+- `MiPushIslandHook` in the Xposed `com.android.systemui` process, which injects HyperIsland focus extras for MiPush notifications before MIUI builds its inner notification bean.
+- `UnlockFocusAuthHook` in the Xposed `com.xiaomi.xmsf` process, which relaxes XMSF focus authorization for generated focus payloads.
 
 Key sources:
 
 - `xmsf/src/main/java/io/github/magisk317/mipush/service/runtime/MyMIPushNotificationHelper.kt`
 - `xmsf/src/main/java/io/github/magisk317/mipush/notification/NotificationManagerEx.kt`
+- `xposed/src/main/java/io/github/magisk317/mipush/hook/systemui/MiPushIslandHook.kt`
+- `xposed/src/main/java/io/github/magisk317/mipush/hook/xmsf/UnlockFocusAuthHook.kt`
 - `legacy/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt`
 
 ## 8. Stock Compatibility Surfaces

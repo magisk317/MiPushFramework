@@ -139,6 +139,7 @@ android {
 dependencies {
     implementation(project(":common"))
     compileOnly(libs.libxposed.api)
+    implementation(libs.hyperisland.kit)
     implementation(libs.hiddenapibypass)
     testImplementation(libs.libxposed.api)
     testImplementation(libs.junit.jupiter)

@@ -45,7 +45,7 @@
 
 - 基本的推送能力。基本与 MIUI ROM 中的推送服务（`com.xiaomi.xmsf`）一致，不过默认禁止拉起应用
 - 对通知的改写。可以通过配置文件，修改消息的标题、内容及样式等，控制收到消息时忽略、亮屏或自动弹出等
-- 通知样式兼容。对齐部分 stock XMSF 行为，支持 focus 通知、HyperIsland ToolKit 超级岛参数、VoIP 来电样式和 SweetTag 富文本
+- 通知样式兼容。对齐部分 stock XMSF 行为，支持 focus 通知、HyperIsland ToolKit 超级岛参数、SystemUI 超级岛注入、VoIP 来电样式和 SweetTag 富文本
 - 观测。可以在本项目的应用界面中，查看都有什么应用接入了小米推送服务及其推送的消息内容
 
 ### 注意

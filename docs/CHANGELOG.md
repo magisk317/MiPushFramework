@@ -6,6 +6,7 @@
 
 ## [v0.4.1] - Unreleased
 - `[feat(notification)]` 接入 HyperIsland ToolKit，未显式配置 `miui.focus.param` 的 MiPush 通知会自动生成 `param_v2` 超级岛参数与图标资源，同时保留远程配置的焦点参数优先级。
+- `[feat(xposed)]` 接入 HyperIsland SystemUI 链路，新增 MiPush 专用 IslandDispatcher、通用通知模板、SystemUI `generateInnerNotifBean` 注入与 XMSF 焦点认证绕过，并在检测到独立 HyperIsland 模块时跳过重复焦点解锁 hook。
 - `[feat(notification)]` 对齐 stock 7.4.67 通知样式：新增 focus 删除过滤、VoIP 来电样式、SweetTag `<ft>` 富文本渲染、通知按钮与全屏来电入口。
 - `[fix(notification)]` 修复 focus 图片按 key 取图、focus 删除状态持久化、VoIP style type 6 `cust_btn_*` 按钮、`voip_type=0` 结束事件和 sequence 旧消息过滤。
 - `[feat(diagnostics)]` 运行日志改为 JSONL 格式，按天轮转并默认保留 7 天；设置页“获取日志”改为预览弹窗，支持文件列表、格式化预览、全屏查看、分享和清空。

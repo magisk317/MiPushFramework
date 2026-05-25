@@ -12,9 +12,11 @@ import io.github.magisk317.mipush.hook.fakedevice.fakeAllBuildInProperties
 import io.github.magisk317.mipush.hook.keepalive.KeepAliveHook
 import io.github.magisk317.mipush.hook.system.HookSystemService
 import io.github.magisk317.mipush.hook.systemui.HookNotificationSettingsManager
+import io.github.magisk317.mipush.hook.systemui.MiPushIslandHook
 import io.github.magisk317.mipush.hook.systemui.HookSystemUI
 import io.github.magisk317.mipush.hook.systemui.HookSystemUIPlugin
 import io.github.magisk317.mipush.hook.xmsf.HookXmsf
+import io.github.magisk317.mipush.hook.xmsf.UnlockFocusAuthHook
 import io.github.magisk317.mipush.xposed.LoadParam
 import io.github.magisk317.mipush.xposed.XposedRuntime
 import io.github.magisk317.mipush.xposed.callStaticMethod
@@ -75,12 +77,14 @@ class LibXposedEntry : XposedModule {
 
         if (loadParam.packageName == "com.android.systemui") {
             removeHyperOSFocusNotificationPackageLimit(loadParam)
+            MiPushIslandHook().hook(loadParam.classLoader)
             return
         }
 
         if (loadParam.packageName == XMSF_PACKAGE_NAME) {
             if (loadParam.processName == XMSF_PROCESS_NAME) {
                 HookXmsf().hook(loadParam)
+                UnlockFocusAuthHook().hook(loadParam.classLoader)
             } else if (loadParam.processName == XMSF_PACKAGE_NAME) {
                 HookSystemUI().hook(loadParam.classLoader)
             }
@@ -100,6 +104,11 @@ class LibXposedEntry : XposedModule {
     }
 
     private fun removeHyperOSFocusNotificationPackageLimit(loadParam: LoadParam) {
+        if (isHyperIslandInstalled(loadParam.classLoader)) {
+            XLog.i(TAG, "skip focus unlock hooks because HyperIsland is installed")
+            return
+        }
+
         HookSystemUIPlugin(
             "miui.systemui.plugin",
             HookNotificationSettingsManager()
@@ -124,6 +133,16 @@ class LibXposedEntry : XposedModule {
                 XLog.e(tag, "hook failure: ${e.message}", e)
             }
         }.hook(loadParam.classLoader)
+    }
+
+    private fun isHyperIslandInstalled(classLoader: ClassLoader): Boolean {
+        return runCatching {
+            val appGlobals = findHookClass("android.app.AppGlobals", classLoader)
+            val initialApplication = appGlobals.callStaticMethod("getInitialApplication") as? Application
+            val packageManager = initialApplication?.packageManager ?: return@runCatching false
+            packageManager.getPackageInfo(HYPERISLAND_PACKAGE_NAME, 0)
+            true
+        }.getOrDefault(false)
     }
 
     private fun installTaxAttachFallbackHook() {
@@ -257,6 +276,7 @@ class LibXposedEntry : XposedModule {
     private companion object {
         private const val TAG = "LibXposedEntry"
         private const val TAX_PACKAGE_NAME = "cn.gov.tax.its"
+        private const val HYPERISLAND_PACKAGE_NAME = "io.github.hyperisland"
 
         @Volatile
         private var taxAttachFallbackInstalled = false
