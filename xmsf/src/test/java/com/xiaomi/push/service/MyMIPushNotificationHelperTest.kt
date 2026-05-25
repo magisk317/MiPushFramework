@@ -12,12 +12,49 @@ import org.junit.jupiter.api.Test
 class MyMIPushNotificationHelperTest {
 
     @Test
-    fun `shouldPublishNotification only allows send message payloads`() {
+    fun `shouldPublishNotification allows displayable push payloads`() {
         val sendMessage = XmPushActionContainer().apply { action = ActionType.SendMessage }
-        val ackNotification = XmPushActionContainer().apply { action = ActionType.Notification }
+        val displayNotification = XmPushActionContainer().apply {
+            action = ActionType.Notification
+            metaInfo = PushMetaInfo().apply {
+                title = "title"
+                description = "content"
+                passThrough = 0
+            }
+        }
+        val titleOnlyNotification = XmPushActionContainer().apply {
+            action = ActionType.Notification
+            metaInfo = PushMetaInfo().apply {
+                title = "title"
+                passThrough = 0
+            }
+        }
+        val descriptionOnlyNotification = XmPushActionContainer().apply {
+            action = ActionType.Notification
+            metaInfo = PushMetaInfo().apply {
+                description = "content"
+                passThrough = 0
+            }
+        }
+        val contentlessNotification = XmPushActionContainer().apply {
+            action = ActionType.Notification
+            metaInfo = PushMetaInfo().apply {
+                passThrough = 0
+            }
+        }
+        val ackNotification = XmPushActionContainer().apply {
+            action = ActionType.Notification
+            metaInfo = PushMetaInfo().apply {
+                passThrough = 1
+            }
+        }
         val command = XmPushActionContainer().apply { action = ActionType.Command }
 
         assertTrue(MyMIPushNotificationHelper.shouldPublishNotification(sendMessage))
+        assertTrue(MyMIPushNotificationHelper.shouldPublishNotification(displayNotification))
+        assertTrue(MyMIPushNotificationHelper.shouldPublishNotification(titleOnlyNotification))
+        assertTrue(MyMIPushNotificationHelper.shouldPublishNotification(descriptionOnlyNotification))
+        assertFalse(MyMIPushNotificationHelper.shouldPublishNotification(contentlessNotification))
         assertFalse(MyMIPushNotificationHelper.shouldPublishNotification(ackNotification))
         assertFalse(MyMIPushNotificationHelper.shouldPublishNotification(command))
         assertFalse(MyMIPushNotificationHelper.shouldPublishNotification(XmPushActionContainer()))

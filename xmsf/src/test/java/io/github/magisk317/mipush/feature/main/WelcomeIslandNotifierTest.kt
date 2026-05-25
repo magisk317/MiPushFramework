@@ -19,4 +19,16 @@ class WelcomeIslandNotifierTest {
     fun `upgrade should notify again`() {
         assertTrue(WelcomeIslandNotifier.shouldNotifyForInstall(200L, 100L))
     }
+
+    @Test
+    fun `welcome island dispatch keeps notification shade entry and floating island enabled`() {
+        val options = WelcomeIslandNotifier.welcomeDispatchOptions()
+
+        assertTrue(options.firstFloat)
+        assertTrue(options.enableFloat)
+        assertTrue(options.showNotification)
+        assertTrue(options.showIslandIcon)
+        assertTrue(options.clearBeforePost)
+        assertTrue(options.islandOuterGlow)
+    }
 }

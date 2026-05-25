@@ -231,7 +231,16 @@ class MyMIPushNotificationHelper {
         }
 
         internal fun shouldPublishNotification(container: XmPushActionContainer): Boolean {
-            return container.action == ActionType.SendMessage
+            return when (container.action) {
+                ActionType.SendMessage -> true
+                ActionType.Notification -> {
+                    val metaInfo = container.metaInfo
+                    metaInfo != null &&
+                        metaInfo.passThrough == 0 &&
+                        (!metaInfo.title.isNullOrBlank() || !metaInfo.description.isNullOrBlank())
+                }
+                else -> false
+            }
         }
 
         internal fun shouldDispatchNonDisplayPayload(container: XmPushActionContainer): Boolean {

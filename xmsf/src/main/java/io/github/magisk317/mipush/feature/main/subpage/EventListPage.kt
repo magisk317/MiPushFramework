@@ -700,8 +700,19 @@ private fun EventDetailsDialog(
                     DialogAction(
                         label = stringResource(R.string.action_notify),
                         onClick = {
-                            RegSecUtils.getContainerWithRegSec(clickedEvent.event)?.let {
-                                viewModel.mockMessage(it)
+                            val container = RegSecUtils.getContainerWithRegSec(clickedEvent.event)
+                            if (container != null) {
+                                viewModel.mockMessage(container)
+                            } else {
+                                Napier.w(
+                                    "Cannot replay event id=${clickedEvent.id} pkg=${clickedEvent.packageName}: container unavailable",
+                                    tag = "EventListPage",
+                                )
+                                Utils.makeText(
+                                    context,
+                                    context.getString(R.string.mock_notification_failed),
+                                    0,
+                                )
                             }
                         }
                     ),

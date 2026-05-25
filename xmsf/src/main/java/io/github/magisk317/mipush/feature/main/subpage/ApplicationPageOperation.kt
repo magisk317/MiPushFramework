@@ -5,7 +5,6 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
-import android.os.BadParcelableException
 import android.text.TextUtils
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
@@ -203,15 +202,37 @@ object ApplicationPageOperation {
     @JvmStatic
     fun getPackagesOnDevice(): MutableList<PackageInfo> {
         val app = Utils.getApplication() ?: return mutableListOf()
+        val packageManager = app.packageManager
         val flags = PackageManager.MATCH_DISABLED_COMPONENTS or
             PackageManager.GET_SERVICES or
             PackageManager.GET_RECEIVERS
-        return try {
-            PackageManagerCompatBridge.getInstalledPackages(app.packageManager, flags).toMutableList()
-        } catch (error: BadParcelableException) {
-            logger.e("Failed to load installed packages", error)
-            mutableListOf()
+        return loadPackagesOnDeviceIndividually(packageManager, flags)
+    }
+
+    private fun loadPackagesOnDeviceIndividually(
+        packageManager: PackageManager,
+        flags: Int,
+    ): MutableList<PackageInfo> {
+        val lightweightPackages = try {
+            PackageManagerCompatBridge.getInstalledPackages(packageManager, 0)
+        } catch (error: RuntimeException) {
+            logger.e("Failed to load lightweight installed packages", error)
+            return mutableListOf()
         }
+        val packages = mutableListOf<PackageInfo>()
+        lightweightPackages.forEach { info ->
+            val packageName = info.packageName
+            val detailedInfo = try {
+                PackageManagerCompatBridge.getPackageInfo(packageManager, packageName, flags)
+            } catch (_: PackageManager.NameNotFoundException) {
+                null
+            } catch (error: RuntimeException) {
+                logger.e("Failed to load package details for $packageName", error)
+                null
+            }
+            packages += detailedInfo ?: info
+        }
+        return packages
     }
 
     @JvmStatic

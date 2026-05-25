@@ -17,6 +17,15 @@ internal object WelcomeIslandNotifier {
     private const val NOTIFICATION_ID = 0x4d495057
     private const val WELCOME_HIGHLIGHT_COLOR = "#E040FB"
 
+    internal data class DispatchOptions(
+        val firstFloat: Boolean = true,
+        val enableFloat: Boolean = true,
+        val showNotification: Boolean = true,
+        val showIslandIcon: Boolean = true,
+        val clearBeforePost: Boolean = true,
+        val islandOuterGlow: Boolean = true,
+    )
+
     fun notifyAfterInstallOrUpdate(context: Context) {
         val appContext = context.applicationContext ?: context
         val lastUpdateTime = appContext.currentInstallUpdateTime() ?: return
@@ -44,6 +53,7 @@ internal object WelcomeIslandNotifier {
     }
 
     private fun Context.createWelcomeIslandIntent(): Intent {
+        val options = welcomeDispatchOptions()
         return Intent(ACTION_SHOW_ISLAND).apply {
             setPackage(SYSTEM_UI_PACKAGE)
             putExtra("title", getString(R.string.welcome_island_title))
@@ -51,19 +61,21 @@ internal object WelcomeIslandNotifier {
             putExtra("icon", Icon.createWithResource(this@createWelcomeIslandIntent, R.mipmap.ic_app))
             putExtra("notificationId", NOTIFICATION_ID)
             putExtra("timeoutSecs", 5)
-            putExtra("firstFloat", false)
-            putExtra("enableFloat", false)
-            putExtra("showNotification", false)
+            putExtra("firstFloat", options.firstFloat)
+            putExtra("enableFloat", options.enableFloat)
+            putExtra("showNotification", options.showNotification)
             putExtra("sourcePackage", packageName)
             putExtra("sourceChannelId", "mipush_welcome")
             putExtra("contentIntent", createContentIntent())
             putExtra("isOngoing", false)
-            putExtra("showIslandIcon", true)
-            putExtra("clearBeforePost", true)
+            putExtra("showIslandIcon", options.showIslandIcon)
+            putExtra("clearBeforePost", options.clearBeforePost)
             putExtra("highlightColor", WELCOME_HIGHLIGHT_COLOR)
-            putExtra("islandOuterGlow", true)
+            putExtra("islandOuterGlow", options.islandOuterGlow)
         }
     }
+
+    internal fun welcomeDispatchOptions(): DispatchOptions = DispatchOptions()
 
     private fun Context.createContentIntent(): PendingIntent {
         val intent = Intent(this, MainActivity::class.java)
