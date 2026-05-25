@@ -27,5 +27,9 @@
 # Keep parcelables used across module boundaries when minification is enabled
 -keep class io.github.magisk317.mipush.common.model.** { *; }
 
-# libxposed API is only present at runtime on rooted devices
+# libxposed API must not be obfuscated to prevent interface signature mismatch
+# The API is only present at runtime on rooted devices, but we need to keep
+# the interface signatures stable so our Hooker implementations can match
 -dontwarn io.github.libxposed.api.**
+-keep class io.github.libxposed.api.** { *; }
+-keep interface io.github.libxposed.api.** { *; }

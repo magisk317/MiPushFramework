@@ -32,11 +32,8 @@ object XposedRuntime {
         val activeModule = module ?: throw IllegalStateException("libxposed runtime is not installed")
         executable.isAccessible = true
         val handleRef = AtomicReference<XposedInterface.HookHandle?>()
-        val handle = activeModule.hook(executable).intercept(object : XposedInterface.Hooker {
-            override fun intercept(chain: XposedInterface.Chain): Any? {
-                return methodHook.intercept(chain, handleRef)
-            }
-        })
+        val hooker = MethodHookerImpl(methodHook, handleRef)
+        val handle = activeModule.hook(executable).intercept(hooker)
         handleRef.set(handle)
         return HookHandle(handle)
     }
@@ -68,6 +65,15 @@ object XposedRuntime {
             activeModule.log(priority, tag, message)
         } else {
             activeModule.log(priority, tag, message, throwable)
+        }
+    }
+
+    private class MethodHookerImpl(
+        private val methodHook: MethodHook,
+        private val handleRef: AtomicReference<XposedInterface.HookHandle?>
+    ) : XposedInterface.Hooker {
+        override fun intercept(chain: XposedInterface.Chain): Any? {
+            return methodHook.intercept(chain, handleRef)
         }
     }
 }

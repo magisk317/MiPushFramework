@@ -47,3 +47,10 @@ public static java.lang.String TABLENAME;
 -keep class io.github.magisk317.mipush.notification.NotificationManagerEx { *; }
 -keep class com.xiaomi.push.service.NotificationIdentityBridge { *; }
 -keep class com.xiaomi.push.service.NotificationIdentityBridge$* { *; }
+
+# Keep libxposed API to prevent obfuscation mismatch between interface and implementation
+-keep class io.github.libxposed.api.** { *; }
+-keep interface io.github.libxposed.api.** { *; }
+
+# Keep XposedRuntime inner classes to prevent lambda optimization issues
+-keep class io.github.magisk317.mipush.xposed.XposedRuntime$* { *; }
