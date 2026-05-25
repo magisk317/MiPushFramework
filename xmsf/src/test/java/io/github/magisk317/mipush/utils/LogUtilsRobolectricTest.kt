@@ -93,8 +93,9 @@ class LogUtilsRobolectricTest {
     @Test
     fun `summary reads new time-only jsonl entries`() {
         val logDir = LogBundleExporter.getLogDir(context)
-        val file = File(logDir, "runtime.2026-05-11.jsonl").apply {
-            writeText("""{"time":"2026-05-11 23:38:47.000","level":"I","tag":"Diag","message":"new"}""")
+        val currentDate = LogUtils.currentDateString(Date())
+        val file = File(logDir, "runtime.$currentDate.jsonl").apply {
+            writeText("""{"time":"$currentDate 23:38:47.000","level":"I","tag":"Diag","message":"new"}""")
         }
 
         val summary = LogUtils.summarizeFiles(context)

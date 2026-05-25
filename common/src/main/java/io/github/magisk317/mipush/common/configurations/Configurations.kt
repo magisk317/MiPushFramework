@@ -4,15 +4,11 @@ import io.github.aakira.napier.Napier
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import java.lang.reflect.InvocationTargetException
 
-import javax.inject.Inject
-import javax.inject.Singleton as JavaxSingleton
-
-@JavaxSingleton
-class Configurations @Inject constructor(
+class Configurations constructor(
     internal var loader: ConfigurationsLoader
 ) {
     init {
-        hiltInstance = this
+        injectedInstance = this
     }
 
     fun init(context: android.content.Context?, treeUri: android.net.Uri?): Boolean =
@@ -211,17 +207,16 @@ class Configurations @Inject constructor(
         private val logger = object {
             fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
         }
-        @Volatile private var hiltInstance: Configurations? = null
+        @Volatile private var injectedInstance: Configurations? = null
 
         @JvmStatic
         fun getInstance(): Configurations {
-            val hilt = hiltInstance
-            if (hilt != null) {
-                hilt.loader.reInitIfDirectoryUpdated(hilt)
-                return hilt
+            val injected = injectedInstance
+            if (injected != null) {
+                injected.loader.reInitIfDirectoryUpdated(injected)
+                return injected
             }
-            // Fallback for non-Hilt environments should be handled by the caller or by a separate bridge.
-            throw IllegalStateException("Configurations not initialized by Hilt")
+            throw IllegalStateException("Configurations not initialized")
         }
     }
 }

@@ -12,7 +12,6 @@ plugins {
     alias(libs.plugins.kotlin.parcelize) apply false
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.kotlin.serialization) apply false
-    alias(libs.plugins.hilt.android) apply false
     alias(libs.plugins.robolectric.junit5) apply false
     alias(libs.plugins.detekt) apply false
     alias(libs.plugins.kover)

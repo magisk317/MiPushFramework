@@ -237,7 +237,9 @@ object LogUtils {
 
     fun summarizeFiles(context: Context): RuntimeLogFileSummary {
         val files = getRuntimeLogFiles(context)
-        val infos = files.map { summarizeFile(it) }
+        val infos = files.mapNotNull { file ->
+            runCatching { summarizeFile(file) }.getOrNull()
+        }
         return RuntimeLogFileSummary(
             fileCount = infos.size,
             totalBytes = infos.sumOf { it.sizeBytes },

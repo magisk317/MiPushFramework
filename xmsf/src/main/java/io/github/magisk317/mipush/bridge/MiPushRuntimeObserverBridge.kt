@@ -62,14 +62,13 @@ import com.xiaomi.push.service.XMPushServiceProxy
 import com.xiaomi.slim.Blob
 import com.xiaomi.smack.Connection
 import com.xiaomi.smack.packet.Packet
-import dagger.hilt.android.EntryPointAccessors
 import io.github.magisk317.mipush.common.compat.NotificationCompatBridge
 import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.push.hook.HookTraceCompat
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
 import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
 import com.xiaomi.push.sdk.PushMessageProcessor
-import com.xiaomi.push.sdk.PushMessageProcessorEntryPoint
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
 import io.github.magisk317.mipush.runtime.PushRuntimePendingPacketStore
@@ -101,10 +100,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     private fun frameworkProcessor(): PushMessageProcessor {
-        return EntryPointAccessors.fromApplication(
-            appContext,
-            PushMessageProcessorEntryPoint::class.java
-        ).pushMessageProcessor()
+        return AppDependencies.get<PushMessageProcessor>(appContext)
     }
 
     private fun toRuntimeConnectionState(stateName: String): PushConnectionState {

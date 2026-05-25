@@ -10,12 +10,11 @@ import com.xiaomi.mipush.sdk.AppInfoHolder
 import com.xiaomi.mipush.sdk.MiPushClient
 import com.xiaomi.mipush.sdk.PushServiceClient
 import com.xiaomi.push.sdk.PushMessageProcessor
-import com.xiaomi.push.sdk.PushMessageProcessorEntryPoint
 import com.xiaomi.push.service.ResetConnectJob
 import com.xiaomi.xmsf.push.service.XMAccountManager
 import io.github.aakira.napier.Napier
-import dagger.hilt.android.EntryPointAccessors
 import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.app.di.AppDependencies
 
 object PushRuntimeExecutionBridge : PushRuntimeExecutionHost {
     private val logger = object {
@@ -222,9 +221,6 @@ object PushRuntimeExecutionBridge : PushRuntimeExecutionHost {
     }
 
     private fun getProcessor(context: Context): PushMessageProcessor {
-        return EntryPointAccessors.fromApplication(
-            context.applicationContext,
-            PushMessageProcessorEntryPoint::class.java
-        ).pushMessageProcessor()
+        return AppDependencies.get<PushMessageProcessor>(context.applicationContext)
     }
 }

@@ -6,9 +6,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.app.ConfigCenter
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
@@ -17,12 +14,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-@HiltViewModel
-class ConfigManagerViewModel @Inject constructor(
+class ConfigManagerViewModel constructor(
     private val preferenceRepository: PreferenceRepository,
     private val syncRepository: ConfigSyncRepository,
     private val configCenter: ConfigCenter,
-    @param:ApplicationContext private val context: Context,
+    private val context: Context,
 ) : ViewModel() {
     data class UiState(
         val directoryUri: String? = null,

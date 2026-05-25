@@ -34,15 +34,11 @@ import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.platform.activity.AccessMode
 import io.github.magisk317.mipush.platform.activity.ITopActivity
 import io.github.magisk317.mipush.platform.activity.TopActivityFactory
+import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.common.utils.Utils
-import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 import io.github.magisk317.mipush.common.utils.Singleton
 
-@AndroidEntryPoint
 class MyPushMessageHandler : Service() {
-    @Inject lateinit var pushMessageProcessor: PushMessageProcessor
-
     private val job = SupervisorJob()
     private val scope = CoroutineScope(Dispatchers.IO + job)
 
@@ -140,10 +136,7 @@ class MyPushMessageHandler : Service() {
         }
 
         private fun getProcessor(context: Context): PushMessageProcessor {
-            return dagger.hilt.android.EntryPointAccessors.fromApplication(
-                context.applicationContext,
-                PushMessageProcessorEntryPoint::class.java
-            ).pushMessageProcessor()
+            return AppDependencies.get<PushMessageProcessor>(context.applicationContext)
         }
 
         @JvmStatic

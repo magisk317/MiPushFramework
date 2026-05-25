@@ -16,11 +16,8 @@ import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.uikit.theme.UiKitStyle
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class PreferenceRepository @Inject constructor(
+class PreferenceRepository constructor(
     private val dataStore: DataStore<Preferences>
 ) {
     constructor() : this(

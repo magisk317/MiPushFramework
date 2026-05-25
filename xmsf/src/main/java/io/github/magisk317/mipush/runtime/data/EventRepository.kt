@@ -20,7 +20,6 @@ import com.xiaomi.push.service.XMPushService as SdkXMPushService
 import com.xiaomi.xmsf.push.service.MiPushFacadeService as AppXMPushService
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.utils.ConvertUtils
-import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.aakira.napier.Napier
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -32,13 +31,10 @@ import io.github.magisk317.mipush.runtime.store.entities.Event
 import io.github.magisk317.mipush.config.ConfigNavigationHelper
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 import io.github.magisk317.mipush.service.PushServiceStarter
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.runBlocking
 
-@Singleton
-class EventRepository @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+class EventRepository constructor(
+    private val context: Context,
     private val configCenter: ConfigCenter,
     private val configurations: Configurations,
     private val configNavigationHelper: ConfigNavigationHelper,

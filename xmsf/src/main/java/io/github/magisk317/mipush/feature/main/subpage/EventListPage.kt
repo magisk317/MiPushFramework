@@ -106,8 +106,8 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
+import org.koin.compose.viewmodel.koinViewModel
 
 private val receiveDateFormat: SimpleDateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
 
@@ -118,7 +118,7 @@ fun EventList(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     refreshSignal: Int = 0,
     groupByApp: Boolean = false,
-    viewModel: EventListViewModel = hiltViewModel(),
+    viewModel: EventListViewModel = koinViewModel(),
     hazeState: HazeState? = null,
     hazeStyle: HazeStyle? = null,
     scrollChromeState: MainScrollChromeState? = null,
@@ -1130,7 +1130,7 @@ fun EventListPreview() {
             packageName = "",
             contentPadding = PaddingValues(0.dp),
             snackbarHostState = remember { SnackbarHostState() },
-            viewModel = hiltViewModel(),
+            viewModel = koinViewModel(),
         )
     }
 }

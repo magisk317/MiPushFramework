@@ -19,11 +19,7 @@ import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.app.ConfigCenter
 import kotlinx.coroutines.runBlocking
 
-import javax.inject.Inject
-import javax.inject.Singleton as JavaxSingleton
-
-@JavaxSingleton
-class IconConfigurations @Inject constructor(
+class IconConfigurations constructor(
     private val configCenter: ConfigCenter
 ) {
     constructor() : this(Singleton.instance<ConfigCenter>())

@@ -1,7 +1,6 @@
 plugins {
     id("mipush.android.application")
     id("mipush.android.room")
-    alias(libs.plugins.hilt.android)
     id("mipush.android.compose")
     id("mipush.app.packaging")
     alias(libs.plugins.kotlin.serialization)
@@ -108,7 +107,7 @@ dependencies {
     implementation(libs.haze.android)
     implementation(libs.androidx.datastore.preferences)
 
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.compiler)
-    implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.koin.android)
+    implementation(libs.koin.androidx.compose)
+    implementation(libs.koin.compose.viewmodel)
 }

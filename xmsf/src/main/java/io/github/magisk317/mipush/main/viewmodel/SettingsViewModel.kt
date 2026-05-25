@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.app.SettingsManager
-import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.magisk317.uikit.theme.UiKitStyle
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -15,10 +14,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.utils.LogUtils
-import javax.inject.Inject
 
-@HiltViewModel
-class SettingsViewModel @Inject constructor(
+class SettingsViewModel constructor(
     private val preferenceRepository: PreferenceRepository,
     private val settingsManager: SettingsManager
 ) : ViewModel() {

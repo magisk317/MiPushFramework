@@ -5,17 +5,13 @@ import android.database.Cursor
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.documentfile.provider.DocumentFile
-import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.common.utils.Utils
 
-@Singleton
-class LocalConfigRepository @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+class LocalConfigRepository constructor(
+    private val context: Context,
 ) {
     constructor() : this(Utils.getApplication()!!)
 

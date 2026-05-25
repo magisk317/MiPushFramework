@@ -21,7 +21,7 @@ import org.junit.jupiter.params.provider.CsvSource
  * 2. When hasChallenge=false, valid=false (invalid connections are rejected)
  * 3. ForegroundHelper now uses FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING (0x200)
  *
- * Since MiPushRuntimeObserverBridge requires Android context (Hilt dependencies),
+ * Since MiPushRuntimeObserverBridge requires Android runtime dependencies,
  * we call PushSlimStreamRuntime.planHandshake() directly — which is what the fixed bridge delegates to.
  */
 class SlimHandshakeBugConditionTest {

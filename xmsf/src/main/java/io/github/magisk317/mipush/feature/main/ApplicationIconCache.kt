@@ -10,12 +10,7 @@ import androidx.compose.ui.res.imageResource
 import androidx.core.graphics.drawable.toBitmap
 import java.util.concurrent.ConcurrentHashMap
 
-import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
-import javax.inject.Singleton
-
-@Singleton
-class ApplicationIconCache @Inject constructor(@param:ApplicationContext val context: Context) {
+class ApplicationIconCache constructor(val context: Context) {
     // No-arg fallback for legacy Singleton access.
     constructor() : this(io.github.magisk317.mipush.common.utils.Utils.getApplication()!!)
 

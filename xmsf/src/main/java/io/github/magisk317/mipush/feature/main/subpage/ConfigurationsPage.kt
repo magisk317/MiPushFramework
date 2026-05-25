@@ -63,7 +63,6 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xiaomi.xmsf.R
 import dev.chrisbanes.haze.HazeState
@@ -89,6 +88,7 @@ import io.github.magisk317.mipush.config.ConfigSyncStatus
 import io.github.magisk317.mipush.feature.main.MainScrollChromeState
 import io.github.magisk317.mipush.feature.main.ReportLazyListScrollToChrome
 import io.github.magisk317.mipush.feature.ui.theme.spacing
+import org.koin.compose.viewmodel.koinViewModel
 
 
 @Composable
@@ -97,7 +97,7 @@ fun Configurations(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     refreshSignal: Int = 0,
     onOpenEditor: (String) -> Unit,
-    viewModel: ConfigManagerViewModel = hiltViewModel(),
+    viewModel: ConfigManagerViewModel = koinViewModel(),
     hazeState: HazeState? = null,
     hazeStyle: HazeStyle? = null,
     scrollChromeState: MainScrollChromeState? = null,
@@ -261,7 +261,7 @@ fun ConfigurationEditor(
     path: String,
     onBack: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(0.dp),
-    viewModel: ConfigEditorViewModel = hiltViewModel(),
+    viewModel: ConfigEditorViewModel = koinViewModel(),
 ) {
     Page {
         val context = androidx.compose.ui.platform.LocalContext.current

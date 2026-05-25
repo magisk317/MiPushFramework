@@ -15,17 +15,13 @@ import io.github.magisk317.mipush.common.configurations.ConfigJsonObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.regex.Pattern
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.common.utils.Utils
 
-@Singleton
 class ConfigurationsLoader private constructor(
     private val configCenter: ConfigCenter?,
     @Suppress("unused") private val jsonOnly: Boolean,
 ) {
-    @Inject
     constructor(configCenter: ConfigCenter) : this(configCenter, false)
 
     internal constructor() : this(null, true)

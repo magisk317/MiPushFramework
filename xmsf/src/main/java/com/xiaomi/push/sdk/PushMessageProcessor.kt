@@ -17,11 +17,8 @@ import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.platform.activity.AccessMode
 import io.github.magisk317.mipush.platform.activity.ITopActivity
 import io.github.magisk317.mipush.platform.activity.TopActivityFactory
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class PushMessageProcessor @Inject constructor(
+class PushMessageProcessor constructor(
     private val configurations: Configurations
 ) {
     // No-arg fallback for legacy Singleton access.
@@ -268,10 +265,4 @@ class PushMessageProcessor @Inject constructor(
     }
 
     private fun packageInfo(packageName: String, message: String): String = "[$packageName] $message"
-}
-
-@dagger.hilt.EntryPoint
-@dagger.hilt.InstallIn(dagger.hilt.components.SingletonComponent::class)
-interface PushMessageProcessorEntryPoint {
-    fun pushMessageProcessor(): PushMessageProcessor
 }
