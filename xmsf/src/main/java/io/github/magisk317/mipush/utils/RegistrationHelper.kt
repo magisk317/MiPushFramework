@@ -325,7 +325,7 @@ class RegistrationHelper(
         @JvmStatic
         fun tryForceRegisterFallback(packageName: String): Boolean {
             val plan = inspectForceRegisterPlan(packageName)
-            if (!plan.supportsReceiverFallback && !plan.supportsServiceDispatch) {
+            if (!plan.supportsReceiverFallback && !plan.supportsServiceDispatch && plan.bridgeCandidates.isEmpty()) {
                 logger.w("skip force register fallback for $packageName: ${plan.summary()}")
                 return false
             }

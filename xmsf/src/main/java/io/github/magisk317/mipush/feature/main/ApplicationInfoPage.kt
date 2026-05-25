@@ -483,7 +483,7 @@ open class ApplicationInfoPage : ComponentActivity() {
             val plan = withContext(Dispatchers.IO) {
                 RegistrationHelper.inspectForceRegisterPlan(packageName)
             }
-            if (!plan.supportsServiceDispatch && !plan.supportsReceiverFallback) {
+            if (!plan.supportsServiceDispatch && !plan.supportsReceiverFallback && plan.bridgeCandidates.isEmpty()) {
                 snackbarHostState.showSnackbar(
                     message = context.getString(R.string.force_register_unavailable),
                     duration = SnackbarDuration.Short,
@@ -546,7 +546,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                 return@withContext context.getString(R.string.force_register_sent)
             }
             val cause = result.exceptionOrNull()
-            if (cause is NoClassDefFoundError || cause is ClassNotFoundException || cause is UnsupportedOperationException) {
+            if (cause is NoClassDefFoundError || cause is ClassNotFoundException) {
                 return@withContext context.getString(R.string.force_register_unavailable)
             }
             if (runCatching { RegistrationHelper.tryForceRegisterFallback(packageName) }.getOrDefault(false)) {
