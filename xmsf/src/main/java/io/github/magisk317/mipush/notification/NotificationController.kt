@@ -181,6 +181,7 @@ object NotificationController {
         val subText = configuration.subText(null)
         buildExtraSubText(context, packageName, notificationBuilder, subText, color)
 
+        val islandOptions = MiPushIslandPreferences.read(context)
         val focusBundle = buildFocusBundle(configuration) { url ->
             getBitmapFromUri(context, url, 200 * KIB)
         } ?: MiPushIslandPayloadBuilder.build(
@@ -188,6 +189,7 @@ object NotificationController {
             metaInfo = metaInfo,
             packageName = packageName,
             largeIcon = largeIcon,
+            options = islandOptions,
         )
         if (focusBundle != null) {
             notificationBuilder.addExtras(focusBundle)

@@ -26,19 +26,26 @@ internal object MiPushIslandPayloadBuilder {
         return !metaInfo?.title.isNullOrBlank()
     }
 
-    fun buildFocusParam(context: Context, metaInfo: PushMetaInfo): String? {
+    fun buildFocusParam(
+        context: Context,
+        metaInfo: PushMetaInfo,
+        options: MiPushIslandOptions = MiPushIslandOptions(),
+    ): String? {
+        if (!options.canBuildFocusPayload) return null
         val title = metaInfo.title?.takeIf { it.isNotBlank() } ?: return null
         val content = metaInfo.description?.takeIf { it.isNotBlank() } ?: title
         val icon = Icon.createWithResource(context, R.drawable.ic_notifications_black_24dp)
-        return createBuilder(context, title, content, icon).buildJsonParam()
+        return createBuilder(context, title, content, icon, options).buildJsonParam()
     }
 
     fun build(
         context: Context,
         metaInfo: PushMetaInfo,
         packageName: String,
-        largeIcon: Bitmap?
+        largeIcon: Bitmap?,
+        options: MiPushIslandOptions = MiPushIslandOptions(),
     ): Bundle? {
+        if (!options.canBuildFocusPayload) return null
         if (!canBuild(metaInfo)) return null
         val title = metaInfo.title?.takeIf { it.isNotBlank() } ?: return null
         val content = metaInfo.description?.takeIf { it.isNotBlank() } ?: title
@@ -48,7 +55,7 @@ internal object MiPushIslandPayloadBuilder {
             ?: Icon.createWithResource(context, R.drawable.ic_notifications_black_24dp)
 
         return Bundle().apply {
-            putString(FOCUS_PARAM, createBuilder(context, title, content, icon).buildJsonParam())
+            putString(FOCUS_PARAM, createBuilder(context, title, content, icon, options).buildJsonParam())
             putString("hyperisland_source_pkg", packageName)
             putString("hyperisland_source_label", appLabel)
             putString(PIC_ICON, PIC_ICON)
@@ -65,7 +72,8 @@ internal object MiPushIslandPayloadBuilder {
         context: Context,
         title: String,
         content: String,
-        icon: Icon
+        icon: Icon,
+        options: MiPushIslandOptions,
     ): HyperIslandNotification {
         return HyperIslandNotification.Builder(
             context = context,
@@ -89,10 +97,10 @@ internal object MiPushIslandPayloadBuilder {
                     ),
                 ),
             )
-            .setIslandConfig(timeout = DEFAULT_TIMEOUT_SECS)
-            .setIslandFirstFloat(true)
-            .setEnableFloat(true)
-            .setShowNotification(true)
+            .setIslandConfig(timeout = options.timeoutSecs.coerceAtLeast(1))
+            .setIslandFirstFloat(options.firstFloat)
+            .setEnableFloat(options.enableFloat)
+            .setShowNotification(options.showNotification)
             .setReopen(false)
             .setAodConfig(title = content)
     }

@@ -35,6 +35,9 @@
     <permission
             android:name="com.xiaomi.xmsf.permission.READ_KEEPALIVE_PREFS"
             android:protectionLevel="signature" />
+    <permission
+            android:name="com.xiaomi.xmsf.permission.READ_ISLAND_PREFS"
+            android:protectionLevel="signature" />
 
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="com.xiaomi.xmsf.permission.MIPUSH_RECEIVE" />
@@ -196,6 +199,11 @@
                 android:name="com.xiaomi.xmsf.provider.KeepAlivePreferenceProvider"
                 android:authorities="com.xiaomi.xmsf.keepalive.prefs"
                 android:readPermission="com.xiaomi.xmsf.permission.READ_KEEPALIVE_PREFS"
+                android:exported="true" />
+        <provider
+                android:name="com.xiaomi.xmsf.provider.IslandPreferenceProvider"
+                android:authorities="com.xiaomi.xmsf.island.prefs"
+                android:readPermission="com.xiaomi.xmsf.permission.READ_ISLAND_PREFS"
                 android:exported="true" />
         <provider
                 android:name="com.xiaomi.xmsf.pushcontrol.PushControlProvider"

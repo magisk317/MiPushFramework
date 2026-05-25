@@ -8,8 +8,8 @@ data class IslandViewModel(
     val content: String,
     val icon: Icon?,
     val actions: List<Notification.Action>,
-    val timeoutSecs: Int,
-    val firstFloat: Boolean,
-    val enableFloat: Boolean,
-    val showNotification: Boolean,
+    val timeoutSecs: Int = 5,
+    val firstFloat: Boolean = true,
+    val enableFloat: Boolean = true,
+    val showNotification: Boolean = true,
 )

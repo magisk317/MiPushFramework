@@ -71,6 +71,24 @@ class SettingsViewModel constructor(
     val keepAliveDozeBypass: StateFlow<Boolean> = preferenceRepository.keepAliveDozeBypass
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val islandEnabled: StateFlow<Boolean> = preferenceRepository.islandEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val islandTimeout: StateFlow<Int> = preferenceRepository.islandTimeout
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 5)
+
+    val islandFirstFloat: StateFlow<Boolean> = preferenceRepository.islandFirstFloat
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val islandEnableFloat: StateFlow<Boolean> = preferenceRepository.islandEnableFloat
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val islandShowNotification: StateFlow<Boolean> = preferenceRepository.islandShowNotification
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val islandFocusNotification: StateFlow<Boolean> = preferenceRepository.islandFocusNotification
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
     init {
         viewModelScope.launch {
             preferenceRepository.themeMode.collect { mode ->
@@ -157,6 +175,30 @@ class SettingsViewModel constructor(
 
     fun setKeepAliveDozeBypass(value: Boolean) = viewModelScope.launch {
         preferenceRepository.setKeepAliveDozeBypass(value)
+    }
+
+    fun setIslandEnabled(value: Boolean) = viewModelScope.launch {
+        preferenceRepository.setIslandEnabled(value)
+    }
+
+    fun setIslandTimeout(value: Int) = viewModelScope.launch {
+        preferenceRepository.setIslandTimeout(value)
+    }
+
+    fun setIslandFirstFloat(value: Boolean) = viewModelScope.launch {
+        preferenceRepository.setIslandFirstFloat(value)
+    }
+
+    fun setIslandEnableFloat(value: Boolean) = viewModelScope.launch {
+        preferenceRepository.setIslandEnableFloat(value)
+    }
+
+    fun setIslandShowNotification(value: Boolean) = viewModelScope.launch {
+        preferenceRepository.setIslandShowNotification(value)
+    }
+
+    fun setIslandFocusNotification(value: Boolean) = viewModelScope.launch {
+        preferenceRepository.setIslandFocusNotification(value)
     }
 
     fun setThemeMode(mode: Int, x: Float = -1f, y: Float = -1f) {

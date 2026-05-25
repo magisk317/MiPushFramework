@@ -10,6 +10,7 @@ import android.service.notification.StatusBarNotification
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.island.IslandDispatchContract
 import io.github.magisk317.mipush.hook.island.IslandDispatcherHook
+import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.mipush.hook.island.template.NotifData
 import io.github.magisk317.mipush.hook.island.template.NotificationIslandTemplate
 import io.github.magisk317.mipush.xposed.currentApplication
@@ -18,6 +19,7 @@ import io.github.magisk317.mipush.xposed.hookMethod
 
 class MiPushIslandHook {
     fun hook(classLoader: ClassLoader) {
+        IslandPreferences.startRefreshLoop()
         IslandDispatcherHook().hook()
         hookGenerateInnerNotifBean(classLoader)
     }
@@ -38,6 +40,8 @@ class MiPushIslandHook {
 
     private fun handleStatusBarNotification(sbn: StatusBarNotification?) {
         val notification = sbn?.notification ?: return
+        val options = IslandPreferences.current()
+        if (!options.canInjectFocusPayload) return
         val extras = notification.extras ?: return
         if (extras.getBoolean(IslandDispatchContract.PROCESSED, false)) return
         if (extras.containsKey(IslandDispatchContract.FOCUS_PARAM)) return
@@ -77,6 +81,7 @@ class MiPushIslandHook {
                 isOngoing = notification.flags and Notification.FLAG_ONGOING_EVENT != 0,
                 actions = notification.actions?.toList().orEmpty(),
             ),
+            options,
         )
         XLog.d(TAG, "injected island extras pkg=$sourcePackage id=${sbn.id}")
     }

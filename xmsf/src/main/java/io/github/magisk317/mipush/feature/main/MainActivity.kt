@@ -122,6 +122,7 @@ open class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WelcomeIslandNotifier.notifyAfterInstallOrUpdate(this)
         enableEdgeToEdge()
         mainActivityUtils.initOnCreate(applicationContext, configCenter) { placeholder = it.toString() }
         val explicitRoute = intent?.getStringExtra(EXTRA_START_ROUTE)

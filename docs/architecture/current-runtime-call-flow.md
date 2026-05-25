@@ -94,6 +94,7 @@ Key source:
   - apply package-config operations
   - align stock notification behavior for focus, VoIP, SweetTag, grouping, click, and action intents
   - when no explicit `miui.focus.param` is supplied, generate HyperIsland ToolKit `param_v2` focus payloads for MiPush notifications
+  - read HyperIsland display flags from app settings before generating default focus payloads
   - publish, ignore, wake, or open based on resolved policy
 
 Supporting layers:
@@ -101,13 +102,17 @@ Supporting layers:
 - `NotificationController`
 - `NotificationManagerEx`
 - `NotificationIdentityBridge`
+- `IslandPreferenceProvider` in the xmsf process, which exposes HyperIsland display flags to hooked processes through a signature-protected provider.
 - `MiPushIslandHook` in the Xposed `com.android.systemui` process, which injects HyperIsland focus extras for MiPush notifications before MIUI builds its inner notification bean.
 - `UnlockFocusAuthHook` in the Xposed `com.xiaomi.xmsf` process, which relaxes XMSF focus authorization for generated focus payloads.
+- `IslandPreferences` in the Xposed module, which periodically reads the xmsf provider so SystemUI injection and XMSF authorization share the same runtime flags.
 
 Key sources:
 
 - `xmsf/src/main/java/io/github/magisk317/mipush/service/runtime/MyMIPushNotificationHelper.kt`
 - `xmsf/src/main/java/io/github/magisk317/mipush/notification/NotificationManagerEx.kt`
+- `xmsf/src/main/java/com/xiaomi/xmsf/provider/IslandPreferenceProvider.kt`
+- `xposed/src/main/java/io/github/magisk317/mipush/hook/island/IslandPreferences.kt`
 - `xposed/src/main/java/io/github/magisk317/mipush/hook/systemui/MiPushIslandHook.kt`
 - `xposed/src/main/java/io/github/magisk317/mipush/hook/xmsf/UnlockFocusAuthHook.kt`
 - `legacy/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt`

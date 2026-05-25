@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.hook.xmsf
 
 import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.mipush.xposed.callMethod
 import io.github.magisk317.mipush.xposed.findClass
 import io.github.magisk317.mipush.xposed.hook
@@ -8,6 +9,7 @@ import io.github.magisk317.mipush.xposed.setHookIntField
 
 class UnlockFocusAuthHook {
     fun hook(classLoader: ClassLoader) {
+        IslandPreferences.startRefreshLoop()
         runCatching {
             val authSessionClass = findClass(AUTH_SESSION_CLASS, classLoader)
             val method = authSessionClass.declaredMethods.firstOrNull {
@@ -19,6 +21,7 @@ class UnlockFocusAuthHook {
             }
             method.hook {
                 doBefore {
+                    if (!IslandPreferences.current().canInjectFocusPayload) return@doBefore
                     val error = args.firstOrNull() ?: return@doBefore
                     runCatching {
                         setHookIntField(error, "a", 0)

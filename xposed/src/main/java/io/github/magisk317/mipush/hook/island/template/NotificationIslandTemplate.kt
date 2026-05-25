@@ -3,10 +3,21 @@ package io.github.magisk317.mipush.hook.island.template
 import android.app.Notification
 import android.content.Context
 import io.github.magisk317.mipush.hook.island.IslandPayloadBuilder
+import io.github.magisk317.mipush.hook.island.IslandOptions
 
 object NotificationIslandTemplate : IslandTemplate {
     override fun inject(context: Context, notification: Notification, data: NotifData) {
-        val viewModel = data.toViewModel()
+        inject(context, notification, data, IslandOptions())
+    }
+
+    fun inject(
+        context: Context,
+        notification: Notification,
+        data: NotifData,
+        options: IslandOptions,
+    ) {
+        if (!options.canInjectFocusPayload) return
+        val viewModel = data.toViewModel(options)
         notification.extras.putAll(
             IslandPayloadBuilder.buildExtras(
                 context = context,
@@ -24,17 +35,15 @@ object NotificationIslandTemplate : IslandTemplate {
         )
     }
 
-    private fun NotifData.toViewModel(): IslandViewModel =
+    private fun NotifData.toViewModel(options: IslandOptions): IslandViewModel =
         IslandViewModel(
             title = title,
             content = content,
             icon = icon,
             actions = actions,
-            timeoutSecs = DEFAULT_TIMEOUT_SECS,
-            firstFloat = true,
-            enableFloat = true,
-            showNotification = true,
+            timeoutSecs = options.timeoutSecs,
+            firstFloat = options.firstFloat,
+            enableFloat = options.enableFloat,
+            showNotification = options.showNotification,
         )
-
-    private const val DEFAULT_TIMEOUT_SECS = 5
 }

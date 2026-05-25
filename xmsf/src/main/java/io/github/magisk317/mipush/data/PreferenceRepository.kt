@@ -12,6 +12,12 @@ import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
+import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLE_FLOAT
+import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLED
+import io.github.magisk317.mipush.common.ISLAND_PREF_FIRST_FLOAT
+import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
+import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
+import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.uikit.theme.UiKitStyle
 import kotlinx.coroutines.flow.Flow
@@ -39,6 +45,12 @@ class PreferenceRepository constructor(
     private val KEEPALIVE_ANTI_KILL = booleanPreferencesKey(KEEPALIVE_PREF_ANTI_KILL)
     private val KEEPALIVE_STANDBY_BYPASS = booleanPreferencesKey(KEEPALIVE_PREF_STANDBY_BYPASS)
     private val KEEPALIVE_DOZE_BYPASS = booleanPreferencesKey(KEEPALIVE_PREF_DOZE_BYPASS)
+    private val ISLAND_ENABLED = booleanPreferencesKey(ISLAND_PREF_ENABLED)
+    private val ISLAND_TIMEOUT = intPreferencesKey(ISLAND_PREF_TIMEOUT)
+    private val ISLAND_FIRST_FLOAT = booleanPreferencesKey(ISLAND_PREF_FIRST_FLOAT)
+    private val ISLAND_ENABLE_FLOAT = booleanPreferencesKey(ISLAND_PREF_ENABLE_FLOAT)
+    private val ISLAND_SHOW_NOTIFICATION = booleanPreferencesKey(ISLAND_PREF_SHOW_NOTIFICATION)
+    private val ISLAND_FOCUS_NOTIF = booleanPreferencesKey(ISLAND_PREF_FOCUS_NOTIF)
 
     private val HAZE_BLUR_RADIUS = intPreferencesKey("haze_blur_radius")
     private val HAZE_TINT_ALPHA = floatPreferencesKey("haze_tint_alpha")
@@ -68,6 +80,12 @@ class PreferenceRepository constructor(
     val keepAliveAntiKill: Flow<Boolean> = dataStore.data.map { it[KEEPALIVE_ANTI_KILL] ?: false }
     val keepAliveStandbyBypass: Flow<Boolean> = dataStore.data.map { it[KEEPALIVE_STANDBY_BYPASS] ?: false }
     val keepAliveDozeBypass: Flow<Boolean> = dataStore.data.map { it[KEEPALIVE_DOZE_BYPASS] ?: false }
+    val islandEnabled: Flow<Boolean> = dataStore.data.map { it[ISLAND_ENABLED] ?: true }
+    val islandTimeout: Flow<Int> = dataStore.data.map { (it[ISLAND_TIMEOUT] ?: 5).coerceAtLeast(1) }
+    val islandFirstFloat: Flow<Boolean> = dataStore.data.map { it[ISLAND_FIRST_FLOAT] ?: true }
+    val islandEnableFloat: Flow<Boolean> = dataStore.data.map { it[ISLAND_ENABLE_FLOAT] ?: true }
+    val islandShowNotification: Flow<Boolean> = dataStore.data.map { it[ISLAND_SHOW_NOTIFICATION] ?: true }
+    val islandFocusNotification: Flow<Boolean> = dataStore.data.map { it[ISLAND_FOCUS_NOTIF] ?: true }
 
     val hazeBlurRadius: Flow<Int> = dataStore.data.map { it[HAZE_BLUR_RADIUS] ?: 25 }
     val hazeTintAlpha: Flow<Float> = dataStore.data.map { it[HAZE_TINT_ALPHA] ?: 0.2f }
@@ -138,6 +156,30 @@ class PreferenceRepository constructor(
 
     suspend fun setKeepAliveDozeBypass(enable: Boolean) {
         dataStore.edit { it[KEEPALIVE_DOZE_BYPASS] = enable }
+    }
+
+    suspend fun setIslandEnabled(enable: Boolean) {
+        dataStore.edit { it[ISLAND_ENABLED] = enable }
+    }
+
+    suspend fun setIslandTimeout(timeoutSecs: Int) {
+        dataStore.edit { it[ISLAND_TIMEOUT] = timeoutSecs.coerceAtLeast(1) }
+    }
+
+    suspend fun setIslandFirstFloat(enable: Boolean) {
+        dataStore.edit { it[ISLAND_FIRST_FLOAT] = enable }
+    }
+
+    suspend fun setIslandEnableFloat(enable: Boolean) {
+        dataStore.edit { it[ISLAND_ENABLE_FLOAT] = enable }
+    }
+
+    suspend fun setIslandShowNotification(enable: Boolean) {
+        dataStore.edit { it[ISLAND_SHOW_NOTIFICATION] = enable }
+    }
+
+    suspend fun setIslandFocusNotification(enable: Boolean) {
+        dataStore.edit { it[ISLAND_FOCUS_NOTIF] = enable }
     }
 
     suspend fun setXmppServer(host: String) {

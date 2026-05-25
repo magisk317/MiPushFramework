@@ -405,7 +405,16 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
     val notificationOnRegister by viewModel.notificationOnRegister.collectAsStateWithLifecycle()
     val showAllEvents by viewModel.showAllEvents.collectAsStateWithLifecycle()
     val showConfigurationList by viewModel.showConfigurationList.collectAsStateWithLifecycle()
+    val islandEnabled by viewModel.islandEnabled.collectAsStateWithLifecycle()
+    val islandTimeout by viewModel.islandTimeout.collectAsStateWithLifecycle()
+    val islandFirstFloat by viewModel.islandFirstFloat.collectAsStateWithLifecycle()
+    val islandEnableFloat by viewModel.islandEnableFloat.collectAsStateWithLifecycle()
+    val islandShowNotification by viewModel.islandShowNotification.collectAsStateWithLifecycle()
+    val islandFocusNotification by viewModel.islandFocusNotification.collectAsStateWithLifecycle()
     val notificationOnRegisterDisabledMessage = stringResource(R.string.notification_on_register_global_disabled_hint)
+    var showIslandTimeoutDialog by remember { mutableStateOf(false) }
+    var islandTimeoutInput by remember(islandTimeout) { mutableStateOf(islandTimeout.toString()) }
+    val islandTimeoutError = stringResource(R.string.pref_island_timeout_error)
 
     SettingsSwitchItem(
         title = stringResource(R.string.settings_notify_on_register),
@@ -434,6 +443,88 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
         title = stringResource(R.string.settings_show_loaded_file_after_configurations_loaded),
         checked = showConfigurationList,
     ) { viewModel.setShowConfigurationList(it) }
+
+    SettingsSwitchItem(
+        title = stringResource(R.string.pref_island_enabled_title),
+        summary = stringResource(R.string.pref_island_enabled_summary),
+        checked = islandEnabled,
+    ) { viewModel.setIslandEnabled(it) }
+
+    SettingsItem(
+        title = stringResource(R.string.pref_island_timeout_title),
+        summary = stringResource(R.string.pref_island_timeout_summary, islandTimeout),
+        enabled = islandEnabled,
+    ) {
+        islandTimeoutInput = islandTimeout.toString()
+        showIslandTimeoutDialog = true
+    }
+
+    SettingsSwitchItem(
+        title = stringResource(R.string.pref_island_first_float_title),
+        summary = stringResource(R.string.pref_island_first_float_summary),
+        checked = islandFirstFloat,
+        enabled = islandEnabled,
+    ) { viewModel.setIslandFirstFloat(it) }
+
+    SettingsSwitchItem(
+        title = stringResource(R.string.pref_island_enable_float_title),
+        summary = stringResource(R.string.pref_island_enable_float_summary),
+        checked = islandEnableFloat,
+        enabled = islandEnabled,
+    ) { viewModel.setIslandEnableFloat(it) }
+
+    SettingsSwitchItem(
+        title = stringResource(R.string.pref_island_show_notification_title),
+        summary = stringResource(R.string.pref_island_show_notification_summary),
+        checked = islandShowNotification,
+        enabled = islandEnabled,
+    ) { viewModel.setIslandShowNotification(it) }
+
+    SettingsSwitchItem(
+        title = stringResource(R.string.pref_island_focus_notif_title),
+        summary = stringResource(R.string.pref_island_focus_notif_summary),
+        checked = islandFocusNotification,
+        enabled = islandEnabled,
+    ) { viewModel.setIslandFocusNotification(it) }
+
+    if (showIslandTimeoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showIslandTimeoutDialog = false },
+            title = { Text(stringResource(R.string.pref_island_timeout_title)) },
+            text = {
+                TextField(
+                    value = islandTimeoutInput,
+                    onValueChange = { value ->
+                        islandTimeoutInput = value.filter { it.isDigit() }
+                    },
+                    supportingText = { Text(stringResource(R.string.pref_island_timeout_hint)) },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val days = islandTimeoutInput.toIntOrNull()
+                        if (days == null || days < 1) {
+                            scope.launch {
+                                snackbarHostState.showSnackbar(islandTimeoutError)
+                            }
+                        } else {
+                            viewModel.setIslandTimeout(days)
+                            showIslandTimeoutDialog = false
+                        }
+                    },
+                ) {
+                    Text(stringResource(android.R.string.ok))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showIslandTimeoutDialog = false }) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            },
+        )
+    }
 }
 
 @Composable

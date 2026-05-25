@@ -56,6 +56,8 @@
     <string name="see_pass_though_msg">穿透消息，请打开应用查看</string>
     <string name="notification_registerAllowed">已允许 %1$s 注册推送</string>
     <string name="notification_registerRejected">已拒绝 %1$s 注册推送</string>
+    <string name="welcome_island_title">MiPush 已激活</string>
+    <string name="welcome_island_content">欢迎使用 MiPush</string>
 
     <string name="settings_clear">清理</string>
     <string name="title_activity_advance_setting">高级配置</string>
@@ -484,6 +486,20 @@
     <string name="pref_keepalive_dedicated_service_summary">打开系统无障碍设置，手动启用专属保活服务。</string>
     <string name="pref_keepalive_dedicated_service_enabled_summary">已在系统无障碍设置中启用。</string>
     <string name="pref_keepalive_dedicated_service_disabled_summary">尚未启用，点击打开系统无障碍设置。</string>
+    <string name="pref_island_enabled_title">HyperIsland 焦点展示</string>
+    <string name="pref_island_enabled_summary">为 MiPush 通知生成并注入 HyperIsland 焦点通知参数。</string>
+    <string name="pref_island_timeout_title">超级岛超时</string>
+    <string name="pref_island_timeout_summary">%1$d 秒后自动关闭</string>
+    <string name="pref_island_timeout_hint">单位：秒，最小值 1，默认 5。</string>
+    <string name="pref_island_timeout_error">请输入大于等于 1 的整数。</string>
+    <string name="pref_island_first_float_title">首次浮动</string>
+    <string name="pref_island_first_float_summary">通知首次出现时展示浮动超级岛。</string>
+    <string name="pref_island_enable_float_title">浮动模式</string>
+    <string name="pref_island_enable_float_summary">允许超级岛浮动显示在状态栏上方。</string>
+    <string name="pref_island_show_notification_title">保留通知栏通知</string>
+    <string name="pref_island_show_notification_summary">展示超级岛时仍保留原通知。</string>
+    <string name="pref_island_focus_notif_title">焦点认证绕过</string>
+    <string name="pref_island_focus_notif_summary">允许生成的焦点通知参数通过 XMSF 焦点认证。</string>
 
     <string name="mock_target_package">目标包名</string>
 
