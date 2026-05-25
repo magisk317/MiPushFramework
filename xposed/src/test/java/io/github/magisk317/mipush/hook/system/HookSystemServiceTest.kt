@@ -52,6 +52,47 @@ class HookSystemServiceTest {
     }
 
     @Test
+    fun `visibility log skips rejected decisions`() {
+        HookSystemService.resetVisibilityLogLimiterForTest()
+        val decision = HookSystemService.shouldAllowMiPushVisibility(
+            callingPackages = listOf("com.example.auto"),
+            targetPackageName = "com.xiaomi.xmsf",
+        )
+
+        val message = HookSystemService.visibilityDecisionLogMessage(
+            callingUid = 10042,
+            callingPackages = listOf("com.example.auto"),
+            targetPackageName = "com.xiaomi.xmsf",
+            decision = decision,
+        )
+
+        assertEquals(null, message)
+    }
+
+    @Test
+    fun `visibility log keeps allowed decisions with low cardinality limiter`() {
+        HookSystemService.resetVisibilityLogLimiterForTest()
+        val decision = HookSystemService.shouldAllowMiPushVisibility(
+            callingPackages = listOf("com.ss.android.ugc.aweme"),
+            targetPackageName = "com.xiaomi.xmsf",
+        )
+
+        val messages = (1..10).map {
+            HookSystemService.visibilityDecisionLogMessage(
+                callingUid = 10042 + it,
+                callingPackages = listOf("com.ss.android.ugc.aweme"),
+                targetPackageName = "com.xiaomi.xmsf",
+                decision = decision,
+            )
+        }
+
+        assertEquals(8, messages.count { it != null })
+        assertEquals(null, messages[8])
+        assertEquals(null, messages[9])
+        assertTrue(messages.filterNotNull().all { "target=com.xiaomi.xmsf" in it })
+    }
+
+    @Test
     fun `calling packages resolve from package setting`() {
         assertEquals(
             listOf("com.ss.android.ugc.aweme"),

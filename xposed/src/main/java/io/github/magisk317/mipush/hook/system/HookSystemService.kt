@@ -155,16 +155,45 @@ class HookSystemService {
             targetPackageName: String,
             decision: VisibilityDecision,
         ) {
-            val callers = callingPackages.joinToString(limit = 4)
-            val key = "$callingUid:$callers:$targetPackageName:${decision.reason}:${decision.allow}"
-            val count = visibilityLogCounts.getOrDefault(key, 0)
-            if (count >= MAX_VISIBILITY_LOGS_PER_KEY) return
-            visibilityLogCounts[key] = count + 1
+            val message = visibilityDecisionLogMessage(
+                callingUid = callingUid,
+                callingPackages = callingPackages,
+                targetPackageName = targetPackageName,
+                decision = decision,
+            ) ?: return
             XLog.i(
                 TAG,
-                "visibility decision uid=$callingUid callers=[$callers] target=$targetPackageName " +
-                    "allow=${decision.allow} reason=${decision.reason}"
+                message,
             )
+        }
+
+        internal fun visibilityDecisionLogMessage(
+            callingUid: Int,
+            callingPackages: Collection<String>,
+            targetPackageName: String,
+            decision: VisibilityDecision,
+        ): String? {
+            if (!decision.allow) return null
+            val callers = callingPackages.joinToString(limit = 4)
+            val caller = decision.caller ?: "unknown"
+            val key = "${decision.reason}:$caller:$targetPackageName"
+            if (!markVisibilityLogAllowed(key)) return null
+            return "visibility allow uid=$callingUid callers=[$callers] target=$targetPackageName reason=${decision.reason}"
+        }
+
+        internal fun resetVisibilityLogLimiterForTest() {
+            synchronized(visibilityLogCounts) {
+                visibilityLogCounts.clear()
+            }
+        }
+
+        private fun markVisibilityLogAllowed(key: String): Boolean {
+            synchronized(visibilityLogCounts) {
+                val count = visibilityLogCounts.getOrDefault(key, 0)
+                if (count >= MAX_VISIBILITY_LOGS_PER_KEY) return false
+                visibilityLogCounts[key] = count + 1
+                return true
+            }
         }
     }
 
