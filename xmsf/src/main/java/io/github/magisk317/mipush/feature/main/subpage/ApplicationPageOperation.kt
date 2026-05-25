@@ -150,7 +150,7 @@ object ApplicationPageOperation {
     ): Boolean {
         return isApplicationInstalled(info) &&
             isUserApplication(info) &&
-            (isPackageStoredInDB(registeredPkgs, info) || hasMiPushServices(checker, info))
+            hasMiPushServices(checker, info)
     }
 
     @JvmStatic
