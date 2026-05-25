@@ -6,7 +6,6 @@ import com.xiaomi.push.service.PushConstants
 import com.xiaomi.push.service.PushServiceConstants
 import com.xiaomi.push.service.XMPushServiceMessenger
 import com.xiaomi.smack.ConnectionConfiguration
-import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.common.utils.Singleton
 import io.github.magisk317.mipush.common.utils.Utils
@@ -16,13 +15,10 @@ import io.github.magisk317.mipush.platform.support.InternalMessenger
 import io.github.magisk317.mipush.platform.support.PermissionUtils
 import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
 import io.github.magisk317.mipush.utils.RegistrationHelper
-import javax.inject.Inject
-import javax.inject.Singleton as JavaxSingleton
 import kotlinx.coroutines.runBlocking
 
-@JavaxSingleton
-class RuntimeSettingsAdapter @Inject constructor(
-    @param:ApplicationContext private val appContext: Context,
+class RuntimeSettingsAdapter constructor(
+    private val appContext: Context,
     private val configCenter: ConfigCenter,
 ) {
     constructor() : this(

@@ -4,16 +4,12 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import io.github.magisk317.mipush.app.ConfigCenter
-import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
-import javax.inject.Singleton
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.feature.navigation.AppDestinations
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 
-@Singleton
-class ConfigNavigationHelper @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+class ConfigNavigationHelper constructor(
+    private val context: Context,
     private val configCenter: ConfigCenter,
     private val syncRepository: ConfigSyncRepository,
 ) {

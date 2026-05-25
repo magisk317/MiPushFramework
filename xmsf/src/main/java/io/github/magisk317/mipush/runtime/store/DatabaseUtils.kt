@@ -22,9 +22,11 @@ object DatabaseUtils {
 
     @JvmStatic
     fun init(context: Context) {
-        if (database != null) {
-            return
-        }
+        getDatabase(context)
+    }
+
+    fun getDatabase(context: Context): AppDatabase {
+        database?.let { return it }
         synchronized(this) {
             if (database == null) {
                 database = Room.databaseBuilder(
@@ -35,6 +37,7 @@ object DatabaseUtils {
                     .addMigrations(*AppDatabaseMigrations.ALL)
                     .build()
             }
+            return requireNotNull(database)
         }
     }
 }

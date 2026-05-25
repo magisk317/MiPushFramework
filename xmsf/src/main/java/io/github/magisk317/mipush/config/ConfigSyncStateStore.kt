@@ -1,18 +1,14 @@
 package io.github.magisk317.mipush.config
 
 import android.content.Context
-import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import io.github.magisk317.mipush.common.utils.Utils
 
-@Singleton
-class ConfigSyncStateStore @Inject constructor(
-    @param:ApplicationContext private val context: Context,
+class ConfigSyncStateStore constructor(
+    private val context: Context,
 ) {
     constructor() : this(Utils.getApplication()!!)
 

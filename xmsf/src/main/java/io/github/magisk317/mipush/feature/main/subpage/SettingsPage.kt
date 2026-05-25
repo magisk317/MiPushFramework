@@ -66,7 +66,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -103,6 +102,7 @@ import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.common.configurations.ConfigJson
 import io.github.magisk317.mipush.common.configurations.ConfigJsonArray
 import io.github.magisk317.mipush.common.configurations.ConfigJsonObject
+import org.koin.compose.viewmodel.koinViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -111,7 +111,7 @@ import java.util.Locale
 @Composable
 fun Settings(
     contentPadding: PaddingValues = PaddingValues(0.dp),
-    viewModel: SettingsViewModel = hiltViewModel(),
+    viewModel: SettingsViewModel = koinViewModel(),
     onShowAboutDialog: (String) -> Unit = {},
     onSectionChanged: (String?) -> Unit = {},
     sectionBackSignal: Int = 0,

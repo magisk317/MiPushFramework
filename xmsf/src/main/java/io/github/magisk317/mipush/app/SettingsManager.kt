@@ -24,16 +24,13 @@ import io.github.magisk317.mipush.service.runtime.RuntimeSettingsAdapter
 import io.github.magisk317.mipush.service.runtime.RuntimeSettingsAdapter.ForceRegisterStage
 
 import java.util.concurrent.atomic.AtomicBoolean
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
-@Singleton
-class SettingsManager @Inject constructor(
+class SettingsManager constructor(
     private val configCenter: ConfigCenter,
     private val runtimeSettingsAdapter: RuntimeSettingsAdapter,
 ) {

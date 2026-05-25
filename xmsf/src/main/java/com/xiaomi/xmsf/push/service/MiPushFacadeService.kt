@@ -22,17 +22,16 @@ import io.github.magisk317.mipush.runtime.PushRuntimeBridgeHost
 import io.github.magisk317.mipush.runtime.PushRuntimeComponents
 import io.github.magisk317.mipush.service.runtime.RegistrationIntentDeduper
 import io.github.magisk317.mipush.utils.ConvertUtils
-import dagger.hilt.android.AndroidEntryPoint
 import io.github.aakira.napier.Napier
-import javax.inject.Inject
 import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.app.ConfigCenter
+import io.github.magisk317.mipush.app.di.AppDependencies
 
-@AndroidEntryPoint
 open class MiPushFacadeService : Service() {
-    @Inject lateinit var configCenter: io.github.magisk317.mipush.app.ConfigCenter
-    @Inject lateinit var iconConfigurations: IconConfigurations
+    private val configCenter: ConfigCenter by lazy { AppDependencies.get(this) }
+    private val iconConfigurations: IconConfigurations by lazy { AppDependencies.get(this) }
 
     private val logger = object {
         fun d(msg: String) = Napier.d(msg, tag = TAG)

@@ -98,19 +98,16 @@ import io.github.magisk317.mipush.feature.main.subpage.Settings
 import io.github.magisk317.mipush.feature.main.subpage.SettingsPagePreview
 import io.github.magisk317.mipush.feature.ui.theme.*
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
-import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 import io.github.magisk317.mipush.app.ConfigCenter
+import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.runtime.data.EventRepository
 import kotlinx.coroutines.launch
-import androidx.activity.viewModels
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.androidx.viewmodel.ext.android.viewModel
 import kotlin.math.hypot
 
 private val mainActivityUtils = MainActivityUtils()
 private var placeholder by mutableStateOf("Search...")
 
-@AndroidEntryPoint
 open class MainActivity : ComponentActivity() {
     companion object {
         const val EXTRA_START_TAB = "extra_start_tab"
@@ -118,10 +115,10 @@ open class MainActivity : ComponentActivity() {
         const val EXTRA_START_ROUTE = "extra_start_route"
     }
 
-    @Inject lateinit var configCenter: ConfigCenter
-    @Inject lateinit var eventRepository: EventRepository
+    private val configCenter: ConfigCenter by lazy { AppDependencies.get(this) }
+    private val eventRepository: EventRepository by lazy { AppDependencies.get(this) }
 
-    private val settingsViewModel: SettingsViewModel by viewModels()
+    private val settingsViewModel: SettingsViewModel by viewModel()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

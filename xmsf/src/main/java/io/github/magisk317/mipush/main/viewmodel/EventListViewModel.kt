@@ -5,8 +5,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.platform.support.Global
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,16 +16,14 @@ import io.github.magisk317.mipush.runtime.store.entities.Event
 import io.github.magisk317.mipush.runtime.data.EventRepository
 import io.github.magisk317.mipush.feature.main.subpage.EventInfoForDisplay
 import java.util.Date
-import javax.inject.Inject
 import io.github.magisk317.mipush.runtime.store.event.type.TypeFactory
 import io.github.magisk317.mipush.utils.RegSecUtils
 import io.github.magisk317.mipush.app.SettingsManager
 
-@HiltViewModel
-class EventListViewModel @Inject constructor(
+class EventListViewModel constructor(
     private val eventRepository: EventRepository,
     private val settingsManager: SettingsManager,
-    @param:ApplicationContext private val context: Context
+    private val context: Context
 ) : ViewModel() {
     private val _events = MutableStateFlow<List<EventInfoForDisplay>>(emptyList())
     val events: StateFlow<List<EventInfoForDisplay>> = _events.asStateFlow()

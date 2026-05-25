@@ -9,18 +9,14 @@ import io.github.magisk317.mipush.common.configurations.ConfigJsonObject
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import java.lang.reflect.InvocationTargetException
 
-import javax.inject.Inject
-import javax.inject.Singleton as JavaxSingleton
-
-@JavaxSingleton
-class Configurations @Inject constructor(
+class Configurations constructor(
     internal var loader: ConfigurationsLoader
 ) {
     // No-arg fallback for legacy Singleton access.
     constructor() : this(ConfigurationsLoader(Singleton.instance<ConfigCenter>()))
 
     init {
-        hiltInstance = this
+        injectedInstance = this
     }
 
     fun init(context: android.content.Context?, treeUri: android.net.Uri?): Boolean =
@@ -218,14 +214,14 @@ class Configurations @Inject constructor(
         private val logger = object {
             fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
         }
-        @Volatile private var hiltInstance: Configurations? = null
+        @Volatile private var injectedInstance: Configurations? = null
 
         @JvmStatic
         fun getInstance(): Configurations {
-            val hilt = hiltInstance
-            if (hilt != null) {
-                hilt.loader.reInitIfDirectoryUpdated(hilt)
-                return hilt
+            val injected = injectedInstance
+            if (injected != null) {
+                injected.loader.reInitIfDirectoryUpdated(injected)
+                return injected
             }
             val instance = Singleton.instance<Configurations>()
             instance.loader.reInitIfDirectoryUpdated(instance)

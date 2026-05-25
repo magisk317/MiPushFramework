@@ -13,14 +13,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.common.Constants
 
-import javax.inject.Inject
-import javax.inject.Singleton
-
 /**
  * Push 配置
  */
-@Singleton
-class ConfigCenter @Inject constructor(
+class ConfigCenter constructor(
     private val preferenceRepository: PreferenceRepository
 ) {
     constructor() : this(PreferenceRepository())

@@ -7,16 +7,13 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import io.github.magisk317.mipush.common.utils.Utils
 
-@Singleton
-class ConfigCatalogService @Inject constructor(
+class ConfigCatalogService constructor(
     private val preferenceRepository: PreferenceRepository,
 ) {
     companion object {

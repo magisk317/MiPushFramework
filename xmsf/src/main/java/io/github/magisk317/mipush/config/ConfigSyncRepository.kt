@@ -3,12 +3,9 @@ package io.github.magisk317.mipush.config
 import android.net.Uri
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.dataStore
-import javax.inject.Inject
-import javax.inject.Singleton
 import io.github.magisk317.mipush.common.utils.Utils
 
-@Singleton
-class ConfigSyncRepository @Inject constructor(
+class ConfigSyncRepository constructor(
     private val catalogService: ConfigCatalogService,
     private val localConfigRepository: LocalConfigRepository,
     private val syncStateStore: ConfigSyncStateStore,

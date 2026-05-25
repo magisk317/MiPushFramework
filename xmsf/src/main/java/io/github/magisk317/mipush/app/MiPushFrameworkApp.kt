@@ -40,18 +40,15 @@ import io.github.magisk317.mipush.platform.service.PushServiceAccessibility
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.DatabaseUtils
 import com.xiaomi.xmsf.stock.StockSurfaceBootstrap
+import io.github.magisk317.mipush.app.di.AppDependencies
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
-import dagger.hilt.android.HiltAndroidApp
-import javax.inject.Inject
-
-@HiltAndroidApp
 class MiPushFrameworkApp : Application() {
-    @Inject lateinit var preferenceRepository: PreferenceRepository
+    private val preferenceRepository: PreferenceRepository by lazy { AppDependencies.get(this) }
 
     private val logger = object {
         fun i(msg: String) = Napier.i(msg, tag = "MiPushFrameworkApp")
@@ -65,6 +62,7 @@ class MiPushFrameworkApp : Application() {
         TelemetryDisabler.disableAll(this)
         PrivilegeElevator.tryToElevate()
         Utils.setApplicationContext(this)
+        AppDependencies.start(this)
         initBasicLogger()
         CrashHandler.installCrashLogger()
 
