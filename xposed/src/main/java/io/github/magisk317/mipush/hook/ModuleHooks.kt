@@ -76,15 +76,14 @@ class LibXposedEntry : XposedModule {
         }
 
         if (loadParam.packageName == "com.android.systemui") {
-            removeHyperOSFocusNotificationPackageLimit(loadParam)
-            MiPushIslandHook().hook(loadParam.classLoader)
+            hookSystemUiIsland(loadParam)
             return
         }
 
         if (loadParam.packageName == XMSF_PACKAGE_NAME) {
             if (loadParam.processName == XMSF_PROCESS_NAME) {
                 HookXmsf().hook(loadParam)
-                UnlockFocusAuthHook().hook(loadParam.classLoader)
+                hookXmsfFocusAuth(loadParam)
             } else if (loadParam.processName == XMSF_PACKAGE_NAME) {
                 HookSystemUI().hook(loadParam.classLoader)
             }
@@ -133,6 +132,23 @@ class LibXposedEntry : XposedModule {
                 XLog.e(tag, "hook failure: ${e.message}", e)
             }
         }.hook(loadParam.classLoader)
+    }
+
+    private fun hookSystemUiIsland(loadParam: LoadParam) {
+        if (isHyperIslandInstalled(loadParam.classLoader)) {
+            XLog.i(TAG, "skip systemui island hooks because HyperIsland is installed")
+            return
+        }
+        removeHyperOSFocusNotificationPackageLimit(loadParam)
+        MiPushIslandHook().hook(loadParam.classLoader)
+    }
+
+    private fun hookXmsfFocusAuth(loadParam: LoadParam) {
+        if (isHyperIslandInstalled(loadParam.classLoader)) {
+            XLog.i(TAG, "skip xmsf focus auth hook because HyperIsland is installed")
+            return
+        }
+        UnlockFocusAuthHook().hook(loadParam.classLoader)
     }
 
     private fun isHyperIslandInstalled(classLoader: ClassLoader): Boolean {

@@ -189,13 +189,7 @@ object NotificationController {
         } else {
             null
         }
-        val focusBundle = configuredFocusBundle ?: MiPushIslandPayloadBuilder.build(
-            context = context,
-            metaInfo = metaInfo,
-            packageName = packageName,
-            largeIcon = largeIcon,
-            options = islandOptions,
-        )
+        val focusBundle = configuredFocusBundle
         if (focusBundle != null) {
             notificationBuilder.addExtras(focusBundle)
             notificationBuilder.priority = NotificationCompat.PRIORITY_HIGH

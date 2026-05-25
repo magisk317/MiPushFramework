@@ -5,11 +5,12 @@
 ---
 
 ## [v0.4.1] - Unreleased
-- `[feat(notification)]` 接入 HyperIsland ToolKit，未显式配置 `miui.focus.param` 的 MiPush 通知会自动生成 `param_v2` 超级岛参数与图标资源，同时保留远程配置的焦点参数优先级。
-- `[feat(xposed)]` 接入 HyperIsland SystemUI 链路，新增 MiPush 专用 IslandDispatcher、通用通知模板、SystemUI `generateInnerNotifBean` 注入与 XMSF 焦点认证绕过，并在检测到独立 HyperIsland 模块时跳过重复焦点解锁 hook。
+- `[feat(notification)]` 接入 HyperIsland ToolKit，显式配置的 `miui.focus.param` 仍保留原通知焦点语义，未显式配置的 MiPush 通知改由 SystemUI 代理通知承载 `param_v2` 超级岛参数，避免普通通知本体被焦点化。
+- `[feat(xposed)]` 接入 HyperIsland SystemUI 链路，新增 MiPush 专用 IslandDispatcher、通用通知模板、SystemUI `generateInnerNotifBean` 代理投递与 XMSF 焦点认证绕过，并在检测到独立 HyperIsland 模块时跳过内置岛链路和重复焦点解锁 hook。
 - `[feat(settings)]` 新增 HyperIsland 焦点展示设置项，支持总开关、超时、浮动行为、通知保留与焦点认证开关，并通过 xmsf provider 同步给 Xposed/SystemUI 进程。
 - `[feat(notification)]` 对齐 stock 7.4.67 通知样式：新增 focus 删除过滤、VoIP 来电样式、SweetTag `<ft>` 富文本渲染、通知按钮与全屏来电入口。
 - `[fix(notification)]` 修复 focus 图片按 key 取图、focus 删除状态持久化、VoIP style type 6 `cust_btn_*` 按钮、`voip_type=0` 结束事件和 sequence 旧消息过滤。
+- `[fix(notification)]` 修复普通推送被默认超级岛参数误触发 focus 删除过滤的问题；SystemUI 代理通知按源通知 key 派生稳定 id，并在短窗口内去重，避免重放/通知建模重复刷岛。
 - `[feat(diagnostics)]` 运行日志改为 JSONL 格式，按天轮转并默认保留 7 天；设置页“获取日志”改为预览弹窗，支持文件列表、格式化预览、全屏查看、分享和清空。
 - `[fix(diagnostics)]` 导出日志时自动清理旧文本日志，并对 token 等敏感字段脱敏；root/logcat 采集增加超时保护，避免导出流程被外部命令卡住。
 - `[ui]` 隐藏主题选择入口，默认使用 Material 风格。

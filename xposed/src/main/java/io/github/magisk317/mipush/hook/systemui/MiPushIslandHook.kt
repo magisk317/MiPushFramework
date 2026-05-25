@@ -9,10 +9,10 @@ import android.os.Bundle
 import android.service.notification.StatusBarNotification
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.island.IslandDispatchContract
+import io.github.magisk317.mipush.hook.island.IslandDispatcher
 import io.github.magisk317.mipush.hook.island.IslandDispatcherHook
 import io.github.magisk317.mipush.hook.island.IslandPreferences
-import io.github.magisk317.mipush.hook.island.template.NotifData
-import io.github.magisk317.mipush.hook.island.template.NotificationIslandTemplate
+import io.github.magisk317.mipush.hook.island.IslandRequest
 import io.github.magisk317.mipush.xposed.currentApplication
 import io.github.magisk317.mipush.xposed.findClass
 import io.github.magisk317.mipush.xposed.hookMethod
@@ -67,23 +67,28 @@ class MiPushIslandHook {
         } else {
             null
         }
-        NotificationIslandTemplate.inject(
+        val proxyId = proxyNotificationId(sbn)
+        if (recentProxyPosts.shouldSkip(proxyId)) return
+        IslandDispatcher.post(
             context,
-            notification,
-            NotifData(
-                packageName = sourcePackage,
-                notificationId = sbn.id,
-                channelId = channelId,
+            IslandRequest(
                 title = title,
                 content = content,
                 icon = icon,
+                notificationId = proxyId,
+                timeoutSecs = options.timeoutSecs,
+                firstFloat = options.firstFloat,
+                enableFloat = options.enableFloat,
+                showNotification = false,
+                sourcePackage = sourcePackage,
+                sourceChannelId = channelId,
                 contentIntent = notification.contentIntent,
                 isOngoing = notification.flags and Notification.FLAG_ONGOING_EVENT != 0,
                 actions = notification.actions?.toList().orEmpty(),
+                clearBeforePost = true,
             ),
-            options,
         )
-        XLog.d(TAG, "injected island extras pkg=$sourcePackage id=${sbn.id}")
+        XLog.d(TAG, "posted island proxy pkg=$sourcePackage id=${sbn.id}")
     }
 
     private fun resolveSourcePackage(sbn: StatusBarNotification, extras: Bundle): String? {
@@ -142,8 +147,14 @@ class MiPushIslandHook {
         }
     }
 
+    private fun proxyNotificationId(sbn: StatusBarNotification): Int {
+        return IslandProxyNotificationIds.fromStatusBarKey(sbn.key, sbn.packageName, sbn.id, sbn.tag)
+    }
+
     private companion object {
         private const val TAG = "MiPushIslandHook"
         private const val EXTRA_LARGE_ICON_KEY = "android.largeIcon"
+        private const val PROXY_POST_DEDUPE_MS = 2_000L
+        private val recentProxyPosts = IslandProxyPostTracker(PROXY_POST_DEDUPE_MS)
     }
 }

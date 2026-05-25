@@ -27,8 +27,6 @@ import com.xiaomi.push.service.PushConstants
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.notification.NotificationController
 import io.github.magisk317.mipush.notification.LiveUpdateDetector
-import io.github.magisk317.mipush.notification.MiPushIslandPayloadBuilder
-import io.github.magisk317.mipush.notification.MiPushIslandPreferences
 import io.github.magisk317.mipush.notification.NotificationSortFilter
 import io.github.magisk317.mipush.notification.VoipNotificationHelper
 import io.github.magisk317.mipush.utils.Configurations
@@ -382,13 +380,7 @@ class MyMIPushNotificationHelper {
                 )
                 return
             }
-            val islandOptions = MiPushIslandPreferences.read(context, container.packageName)
-            val focusParam = if (islandOptions.canBuildFocusPayload) {
-                XMPushUtils.getConfiguration(metaInfo).focusParam(null)
-                    ?: MiPushIslandPayloadBuilder.buildFocusParam(context, metaInfo, islandOptions)
-            } else {
-                null
-            }
+            val focusParam = focusParamForSortFilter(metaInfo)
             if (NotificationSortFilter.shouldFilter(context, focusParam, container.packageName, notificationId)) {
                 logger.i("skip focus-filtered notification pkg=${container.packageName} action=${container.action} messageId=$messageId")
                 PushRuntime.observeNotificationEvent(
@@ -508,6 +500,10 @@ class MyMIPushNotificationHelper {
                 return true
             }
             return LiveUpdateDetector.isPotentialLiveUpdate(metaInfo)
+        }
+
+        internal fun focusParamForSortFilter(metaInfo: PushMetaInfo): String? {
+            return XMPushUtils.getConfiguration(metaInfo).focusParam(null)
         }
 
         @JvmStatic

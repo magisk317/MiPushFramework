@@ -178,6 +178,23 @@ class MyMIPushNotificationHelperTest {
         assertEquals(expected, MyMIPushNotificationHelper.getNotificationId(liveUpdate))
     }
 
+    @Test
+    fun `focus sort filter only uses explicit focus param`() {
+        val regular = PushMetaInfo().apply {
+            title = "regular title"
+            description = "regular body"
+        }
+        val focus = PushMetaInfo().apply {
+            putToExtra("miui.focus.param", """{"updatable":true,"reopen":"close"}""")
+        }
+
+        assertEquals(null, MyMIPushNotificationHelper.focusParamForSortFilter(regular))
+        assertEquals(
+            """{"updatable":true,"reopen":"close"}""",
+            MyMIPushNotificationHelper.focusParamForSortFilter(focus),
+        )
+    }
+
     private fun notificationContainer(jobKey: String): XmPushActionContainer {
         return XmPushActionContainer().apply {
             packageName = "com.ruanmei.ithome"
