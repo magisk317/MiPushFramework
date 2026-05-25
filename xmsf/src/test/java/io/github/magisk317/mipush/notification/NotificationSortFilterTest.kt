@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.notification
 
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -58,6 +59,24 @@ class NotificationSortFilterTest {
         NotificationSortFilter.onFocusDeleted("pkg", 42, nowMs = 1_000L)
 
         assertFalse(NotificationSortFilter.shouldFilter(metaInfo, "pkg", 42, nowMs = 2_000L))
+    }
+
+    @Test
+    fun `hyperisland param v2 false reopen is parsed as close`() {
+        val focusParam = """
+            {
+              "param_v2": {
+                "updatable": true,
+                "reopen": false
+              }
+            }
+        """.trimIndent()
+
+        assertEquals(true to "close", NotificationSortFilter.parseFocusParamForTest(focusParam))
+
+        NotificationSortFilter.onFocusDeleted("pkg", 42, nowMs = 1_000L)
+
+        assertTrue(NotificationSortFilter.shouldFilter(null, focusParam, "pkg", 42, nowMs = 2_000L))
     }
 
     private fun focusMeta(reopen: String): PushMetaInfo {

@@ -183,13 +183,24 @@ object NotificationController {
 
         val focusBundle = buildFocusBundle(configuration) { url ->
             getBitmapFromUri(context, url, 200 * KIB)
-        }
+        } ?: MiPushIslandPayloadBuilder.build(
+            context = context,
+            metaInfo = metaInfo,
+            packageName = packageName,
+            largeIcon = largeIcon,
+        )
         if (focusBundle != null) {
             notificationBuilder.addExtras(focusBundle)
             notificationBuilder.priority = NotificationCompat.PRIORITY_HIGH
         }
 
-        NotificationSortFilter.attachDeleteIntentIfNeeded(context, notificationBuilder, packageName, metaInfo, notificationId)
+        NotificationSortFilter.attachDeleteIntentIfNeeded(
+            context,
+            notificationBuilder,
+            packageName,
+            focusBundle?.getString("miui.focus.param"),
+            notificationId
+        )
         if (shouldAutoCancelNotification(metaInfo, notificationBuilder)) {
             notificationBuilder.setAutoCancel(true)
         }

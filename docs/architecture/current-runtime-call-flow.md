@@ -93,6 +93,7 @@ Key source:
   - unpack and dedupe payload
   - apply package-config operations
   - align stock notification behavior for focus, VoIP, SweetTag, grouping, click, and action intents
+  - when no explicit `miui.focus.param` is supplied, generate HyperIsland ToolKit `param_v2` focus payloads for MiPush notifications
   - publish, ignore, wake, or open based on resolved policy
 
 Supporting layers:

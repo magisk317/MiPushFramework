@@ -20,8 +20,8 @@ import kotlinx.serialization.json.jsonPrimitive
  *
  * Based on stock xmsf 7.4.67 `com.xiaomi.push.sort` package.
  * Handles `miui.focus.param` JSON in notification extras:
- * - `updatable`: whether the notification supports focus updates
- * - `reopen`: focus reopen state ("close" or other)
+ * - legacy root `updatable` / `reopen`
+ * - HyperIsland ToolKit `param_v2.updatable` / `param_v2.reopen`
  * - Deleted focus notifications are cached and filtered for 24h.
  */
 object NotificationSortFilter {
@@ -66,7 +66,19 @@ object NotificationSortFilter {
         notificationId: Int,
         nowMs: Long = System.currentTimeMillis()
     ): Boolean {
-        val focus = parseFocusParam(metaInfo) ?: return false
+        val focusParam = metaInfo?.extra?.get("miui.focus.param")
+        return shouldFilter(context, focusParam, packageName, notificationId, nowMs)
+    }
+
+    @JvmStatic
+    fun shouldFilter(
+        context: Context?,
+        focusParam: String?,
+        packageName: String,
+        notificationId: Int,
+        nowMs: Long = System.currentTimeMillis()
+    ): Boolean {
+        val focus = parseFocusParam(focusParam) ?: return false
         if (!focus.updatable) return false
 
         val key = cacheKey(packageName, notificationId)
@@ -119,10 +131,10 @@ object NotificationSortFilter {
         context: Context,
         builder: NotificationCompat.Builder,
         packageName: String,
-        metaInfo: PushMetaInfo,
+        focusParam: String?,
         notificationId: Int
     ) {
-        val focus = parseFocusParam(metaInfo) ?: return
+        val focus = parseFocusParam(focusParam) ?: return
         if (!focus.updatable) return
 
         val key = cacheKey(packageName, notificationId)
@@ -174,13 +186,23 @@ object NotificationSortFilter {
         }
     }
 
-    private fun parseFocusParam(metaInfo: PushMetaInfo?): FocusParam? {
-        val focusParam = metaInfo?.extra?.get("miui.focus.param") ?: return null
+    internal fun parseFocusParamForTest(focusParam: String?): Pair<Boolean, String>? {
+        return parseFocusParam(focusParam)?.let { it.updatable to it.reopen }
+    }
+
+    private fun parseFocusParam(focusParam: String?): FocusParam? {
+        focusParam ?: return null
         return try {
             val root = json.parseToJsonElement(focusParam).jsonObject
+            val payload = root["param_v2"]?.jsonObject ?: root
+            val reopenPrimitive = payload["reopen"]?.jsonPrimitive
             FocusParam(
-                updatable = root["updatable"]?.jsonPrimitive?.booleanOrNull ?: false,
-                reopen = root["reopen"]?.jsonPrimitive?.contentOrNull ?: "close"
+                updatable = payload["updatable"]?.jsonPrimitive?.booleanOrNull ?: false,
+                reopen = when (reopenPrimitive?.booleanOrNull) {
+                    true -> "reopen"
+                    false -> "close"
+                    null -> reopenPrimitive?.contentOrNull ?: "close"
+                }
             )
         } catch (_: Exception) {
             null

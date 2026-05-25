@@ -87,6 +87,7 @@ dependencies {
     implementation(project(":pinned"))
 
     implementation(libs.napier)
+    implementation(libs.hyperisland.kit)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.libsu.core)
 

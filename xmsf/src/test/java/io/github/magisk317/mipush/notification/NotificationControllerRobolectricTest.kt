@@ -112,6 +112,34 @@ class NotificationControllerRobolectricTest {
     }
 
     @Test
+    fun `default island payload uses hyperisland param v2 and icon bundle`() {
+        val context = RuntimeEnvironment.getApplication()
+        val metaInfo = PushMetaInfo().apply {
+            title = "Island title"
+            description = "Island body"
+        }
+        val icon = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+
+        val focusBundle = MiPushIslandPayloadBuilder.build(
+            context = context,
+            metaInfo = metaInfo,
+            packageName = context.packageName,
+            largeIcon = icon
+        )
+
+        assertNotNull(focusBundle)
+        val focusParam = focusBundle!!.getString("miui.focus.param")
+        assertNotNull(focusParam)
+        assertTrue(focusParam!!.contains(""""param_v2""""))
+        assertTrue(focusParam.contains(""""mipush_framework_push""""))
+        assertEquals(true to "close", NotificationSortFilter.parseFocusParamForTest(focusParam))
+        assertEquals("miui.focus.pic_mipush_icon", focusBundle.getString("miui.focus.pic_mipush_icon"))
+        val pics = focusBundle.getBundle("miui.focus.pics")
+        assertNotNull(pics)
+        assertNotNull(pics!!.parcelable<Icon>("miui.focus.pic_mipush_icon"))
+    }
+
+    @Test
     fun `live update notifications keep ongoing auto cancel semantics`() {
         val context = RuntimeEnvironment.getApplication()
         val builder = NotificationCompat.Builder(context, "progress")
