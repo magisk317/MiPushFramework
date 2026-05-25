@@ -60,29 +60,4 @@ object Global {
 
     @JvmStatic
     fun iconCache(): IconCache = IconCache
-
-    // --- Legacy PascalCase compatibility (Internal use only, marked for removal) ---
-    @Deprecated("Use camelCase version", ReplaceWith("hookHandler()"))
-    fun HookHandler() = hookHandler()
-
-    @Deprecated("Use camelCase version", ReplaceWith("miPushEventListener()"))
-    fun MiPushEventListener() = miPushEventListener()
-
-    @Deprecated("Use camelCase version", ReplaceWith("registrationRecorder()"))
-    fun RegistrationRecorder() = registrationRecorder()
-
-    @Deprecated("Use camelCase version", ReplaceWith("configValueConverter()"))
-    fun ConfigValueConverter() = configValueConverter()
-
-    @Deprecated("Use camelCase version", ReplaceWith("iconConfigurations()"))
-    fun IconConfigurations() = iconConfigurations()
-
-    @Deprecated("Use camelCase version", ReplaceWith("configCenter()"))
-    fun ConfigCenter() = configCenter()
-
-    @Deprecated("Use camelCase version", ReplaceWith("applicationNameCache()"))
-    fun ApplicationNameCache() = applicationNameCache()
-
-    @Deprecated("Use camelCase version", ReplaceWith("iconCache()"))
-    fun IconCache() = iconCache()
 }

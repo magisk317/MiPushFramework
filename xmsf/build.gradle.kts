@@ -17,7 +17,7 @@ android {
 
     sourceSets {
         getByName("main") {
-            assets.srcDir(rootProject.layout.projectDirectory.dir("xposed/src/main/compat"))
+            assets.directories.add(rootProject.layout.projectDirectory.dir("xposed/src/main/compat").asFile.path)
         }
     }
 
