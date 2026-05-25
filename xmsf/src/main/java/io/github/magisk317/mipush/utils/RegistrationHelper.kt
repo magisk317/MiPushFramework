@@ -187,7 +187,7 @@ class RegistrationHelper(
 
             return when {
                 matchedRuntimeServices -> "direct_sdk"
-                matchedBridges && (matchedHandlers || matchedReceivers) -> "bridge_wrapper"
+                matchedBridges -> "bridge_wrapper"
                 matchedHandlers || matchedReceivers -> "receiver_only"
                 else -> "unsupported_components"
             }
