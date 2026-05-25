@@ -23,6 +23,8 @@ data class IslandRequest(
     val actions: List<Notification.Action> = emptyList(),
     val showIslandIcon: Boolean = true,
     val clearBeforePost: Boolean = false,
+    val highlightColor: String? = null,
+    val islandOuterGlow: Boolean = false,
 ) {
     fun toBundle(): Bundle = Bundle().apply {
         putString(KEY_TITLE, title)
@@ -39,6 +41,8 @@ data class IslandRequest(
         putBoolean(KEY_ONGOING, isOngoing)
         putBoolean(KEY_SHOW_ISLAND_ICON, showIslandIcon)
         putBoolean(KEY_CLEAR_BEFORE_POST, clearBeforePost)
+        putString(KEY_HIGHLIGHT_COLOR, highlightColor)
+        putBoolean(KEY_ISLAND_OUTER_GLOW, islandOuterGlow)
         if (actions.isNotEmpty()) {
             putParcelableArray(KEY_ACTIONS, actions.toTypedArray())
         }
@@ -60,6 +64,8 @@ data class IslandRequest(
         private const val KEY_ACTIONS = "actions"
         private const val KEY_SHOW_ISLAND_ICON = "showIslandIcon"
         private const val KEY_CLEAR_BEFORE_POST = "clearBeforePost"
+        private const val KEY_HIGHLIGHT_COLOR = "highlightColor"
+        private const val KEY_ISLAND_OUTER_GLOW = "islandOuterGlow"
 
         fun fromIntent(intent: Intent): IslandRequest {
             return fromBundle(intent.extras ?: Bundle())
@@ -85,6 +91,8 @@ data class IslandRequest(
                 actions = bundle.actions(),
                 showIslandIcon = bundle.getBoolean(KEY_SHOW_ISLAND_ICON, true),
                 clearBeforePost = bundle.getBoolean(KEY_CLEAR_BEFORE_POST, false),
+                highlightColor = bundle.getString(KEY_HIGHLIGHT_COLOR),
+                islandOuterGlow = bundle.getBoolean(KEY_ISLAND_OUTER_GLOW, false),
             )
         }
 

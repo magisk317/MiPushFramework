@@ -15,6 +15,7 @@ internal object WelcomeIslandNotifier {
     private const val SYSTEM_UI_PACKAGE = "com.android.systemui"
     private const val ACTION_SHOW_ISLAND = "io.github.magisk317.mipush.action.SHOW_ISLAND"
     private const val NOTIFICATION_ID = 0x4d495057
+    private const val WELCOME_HIGHLIGHT_COLOR = "#E040FB"
 
     fun notifyAfterInstallOrUpdate(context: Context) {
         val appContext = context.applicationContext ?: context
@@ -59,6 +60,8 @@ internal object WelcomeIslandNotifier {
             putExtra("isOngoing", false)
             putExtra("showIslandIcon", true)
             putExtra("clearBeforePost", true)
+            putExtra("highlightColor", WELCOME_HIGHLIGHT_COLOR)
+            putExtra("islandOuterGlow", true)
         }
     }
 

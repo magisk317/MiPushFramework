@@ -57,6 +57,8 @@ internal object IslandDispatcherNotifier {
             sourceChannelId = sourceChannelId,
             actions = actions,
             showIslandIcon = showIslandIcon,
+            highlightColor = highlightColor,
+            islandOuterGlow = islandOuterGlow,
         )
 
     fun cancel(context: Context, notificationId: Int) {

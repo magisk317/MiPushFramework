@@ -156,4 +156,6 @@ Release 页面提供两个版本：`normal` 和 `vc105`，核心区别在于**�
 
 * @Rachel030219 提供文件
 * Android Open Source Project, MultiType, greenDao, SetupWizardLibCompat, Condom, MaterialPreference，GreenDaoUpgradeHelper, epic, Log4a，helplib，RxJava RxAndroid，RxActivityResult，RxPermissions, hiBeaver
+* [HyperIsland](https://github.com/1812z/HyperIsland) 提供超级岛实现参考
+* [HyperIsland-ToolKit](https://github.com/D4vidDf/HyperIsland-ToolKit) 提供 HyperIsland SDK 支持
 * 酷安 @PzHown @lmnm011223 @苏沐晨风丶（未采纳） 提供图标

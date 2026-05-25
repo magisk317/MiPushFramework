@@ -32,6 +32,8 @@ object IslandPayloadBuilder {
         enableFloat: Boolean = true,
         showNotification: Boolean = true,
         showIslandIcon: Boolean = true,
+        highlightColor: String? = null,
+        islandOuterGlow: Boolean = false,
         actions: List<Notification.Action> = emptyList(),
     ): String {
         return createNotification(
@@ -45,7 +47,10 @@ object IslandPayloadBuilder {
             showNotification = showNotification,
             showIslandIcon = showIslandIcon,
             actions = actions,
-        ).buildJsonParam().fixTextButtonJson()
+        )
+            .buildJsonParam()
+            .fixTextButtonJson()
+            .injectIslandAppearance(highlightColor, islandOuterGlow)
     }
 
     fun buildExtras(
@@ -61,6 +66,8 @@ object IslandPayloadBuilder {
         sourceChannelId: String? = null,
         actions: List<Notification.Action> = emptyList(),
         showIslandIcon: Boolean = true,
+        highlightColor: String? = null,
+        islandOuterGlow: Boolean = false,
     ): Bundle {
         val safeContent = content.ifBlank { title }
         val notification = createNotification(
@@ -88,10 +95,16 @@ object IslandPayloadBuilder {
             }
             putString(
                 IslandDispatchContract.FOCUS_PARAM,
-                notification.buildJsonParam().fixTextButtonJson(),
+                notification
+                    .buildJsonParam()
+                    .fixTextButtonJson()
+                    .injectIslandAppearance(highlightColor, islandOuterGlow),
             )
             putString(IslandDispatchContract.OWNER, IslandDispatchContract.OWNER_MARKER)
             putBoolean(IslandDispatchContract.PROCESSED, true)
+            if (islandOuterGlow) {
+                putString("miui.bigIsland.effect.src", "outer_glow")
+            }
             sourcePackage?.let { putString(IslandDispatchContract.SOURCE_PACKAGE, it) }
             sourceChannelId?.let { putString(IslandDispatchContract.SOURCE_CHANNEL, it) }
         }
@@ -206,6 +219,28 @@ object IslandPayloadBuilder {
                 button.remove("actionIntent")
                 button.remove("actionIntentType")
             }
+            json.toString()
+        } catch (_: Throwable) {
+            this
+        }
+    }
+
+    private fun String.injectIslandAppearance(
+        highlightColor: String?,
+        islandOuterGlow: Boolean,
+    ): String {
+        if (highlightColor.isNullOrBlank() && !islandOuterGlow) return this
+        return try {
+            val json = JSONObject(this)
+            val paramV2 = json.optJSONObject("param_v2") ?: return this
+            val paramIsland = paramV2.optJSONObject("param_island") ?: JSONObject()
+            if (!highlightColor.isNullOrBlank()) {
+                paramIsland.put("highlightColor", highlightColor)
+            }
+            if (islandOuterGlow) {
+                paramIsland.put("outEffectSrc", "outer_glow")
+            }
+            paramV2.put("param_island", paramIsland)
             json.toString()
         } catch (_: Throwable) {
             this
