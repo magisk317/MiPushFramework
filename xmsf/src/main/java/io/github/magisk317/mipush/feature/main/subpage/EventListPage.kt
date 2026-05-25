@@ -269,6 +269,9 @@ fun EventList(
                 }
             }
         )
+            val snackbarBottomPadding = contentPadding.calculateBottomPadding() +
+                WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
+                MaterialTheme.spacing.medium
             SnackbarHost(
                 hostState = snackbarHostState,
                 modifier = Modifier
@@ -276,9 +279,7 @@ fun EventList(
                     .padding(
                         start = MaterialTheme.spacing.medium,
                         end = MaterialTheme.spacing.medium,
-                        bottom = contentPadding.calculateBottomPadding() +
-                            WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
-                            MaterialTheme.spacing.medium,
+                        bottom = snackbarBottomPadding,
                     ),
             ) { data ->
                 val dismissState = rememberSwipeToDismissBoxState()
@@ -296,7 +297,10 @@ fun EventList(
                     DeleteCountdownSnackbar(data)
                 }
             }
-            ScrollToTopFAB(listState)
+            ScrollToTopFAB(
+                listState = listState,
+                visible = snackbarHostState.currentSnackbarData == null,
+            )
         }
     }
 }

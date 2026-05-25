@@ -11,6 +11,7 @@
 - `[feat(notification)]` 对齐 stock 7.4.67 通知样式：新增 focus 删除过滤、VoIP 来电样式、SweetTag `<ft>` 富文本渲染、通知按钮与全屏来电入口。
 - `[fix(notification)]` 修复 focus 图片按 key 取图、focus 删除状态持久化、VoIP style type 6 `cust_btn_*` 按钮、`voip_type=0` 结束事件和 sequence 旧消息过滤。
 - `[fix(notification)]` 修复普通推送被默认超级岛参数误触发 focus 删除过滤的问题；SystemUI 代理通知按源通知 key 派生稳定 id，并在短窗口内去重，避免重放/通知建模重复刷岛。
+- `[fix(ui)]` 事件列表撤回 Snackbar 显示时隐藏返回顶部 FAB，避免撤回按钮被遮挡。
 - `[feat(diagnostics)]` 运行日志改为 JSONL 格式，按天轮转并默认保留 7 天；设置页“获取日志”改为预览弹窗，支持文件列表、格式化预览、全屏查看、分享和清空。
 - `[fix(diagnostics)]` 导出日志时自动清理旧文本日志，并对 token 等敏感字段脱敏；root/logcat 采集增加超时保护，避免导出流程被外部命令卡住。
 - `[ui]` 隐藏主题选择入口，默认使用 Material 风格。

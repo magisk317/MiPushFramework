@@ -22,20 +22,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.xiaomi.xmsf.R
 import io.github.magisk317.uikit.R as UiKitR
 import kotlinx.coroutines.launch
 
 @Composable
-fun BoxScope.ScrollToTopFAB(listState: LazyListState) {
+fun BoxScope.ScrollToTopFAB(
+    listState: LazyListState,
+    visible: Boolean = true,
+    extraBottomPadding: Dp = 0.dp,
+) {
     val isAtTop by remember {
         derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0 }
     }
     val scope = rememberCoroutineScope()
     AnimatedVisibility(
-        visible = !isAtTop,
-        modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp),
+        visible = visible && !isAtTop,
+        modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp + extraBottomPadding),
         enter = fadeIn() + slideInVertically { it / 2 },
         exit = fadeOut() + slideOutVertically { it / 2 },
     ) {
@@ -53,12 +58,16 @@ fun BoxScope.ScrollToTopFAB(listState: LazyListState) {
 }
 
 @Composable
-fun BoxScope.ScrollToTopFAB(scrollState: ScrollState) {
+fun BoxScope.ScrollToTopFAB(
+    scrollState: ScrollState,
+    visible: Boolean = true,
+    extraBottomPadding: Dp = 0.dp,
+) {
     val isAtTop by remember { derivedStateOf { scrollState.value == 0 } }
     val scope = rememberCoroutineScope()
     AnimatedVisibility(
-        visible = !isAtTop,
-        modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp),
+        visible = visible && !isAtTop,
+        modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp + extraBottomPadding),
         enter = fadeIn() + slideInVertically { it / 2 },
         exit = fadeOut() + slideOutVertically { it / 2 },
     ) {
