@@ -40,6 +40,9 @@ object SystemNotificationManager {
                 XLog.w(TAG, "$operation: target package not installed, skip target system API for $packageName")
             }
             null
+        } catch (e: SecurityException) {
+            XLog.d(TAG, "$operation: system API blocked for $packageName, will use root fallback")
+            null
         }
     }
 
