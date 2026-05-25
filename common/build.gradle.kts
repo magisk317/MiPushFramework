@@ -9,8 +9,6 @@ import org.gradle.kotlin.dsl.configure
 
 plugins {
     id("mipush.android.library")
-    id("mipush.android.room")
-    alias(libs.plugins.kotlin.parcelize)
     alias(libs.plugins.kotlin.serialization)
 }
 
