@@ -5,6 +5,7 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.os.BadParcelableException
 import android.text.TextUtils
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
@@ -205,7 +206,12 @@ object ApplicationPageOperation {
         val flags = PackageManager.MATCH_DISABLED_COMPONENTS or
             PackageManager.GET_SERVICES or
             PackageManager.GET_RECEIVERS
-        return PackageManagerCompatBridge.getInstalledPackages(app.packageManager, flags).toMutableList()
+        return try {
+            PackageManagerCompatBridge.getInstalledPackages(app.packageManager, flags).toMutableList()
+        } catch (error: BadParcelableException) {
+            logger.e("Failed to load installed packages", error)
+            mutableListOf()
+        }
     }
 
     @JvmStatic
