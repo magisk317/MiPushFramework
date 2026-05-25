@@ -15,11 +15,7 @@ import kotlinx.serialization.Serializable
 import io.github.magisk317.mipush.common.utils.Utils
 import kotlinx.coroutines.runBlocking
 
-import javax.inject.Inject
-import javax.inject.Singleton as JavaxSingleton
-
-@JavaxSingleton
-class IconConfigurations @Inject constructor(
+class IconConfigurations constructor(
     private val configProvider: IConfigProvider
 ) {
     private val iconConfigs = hashMapOf<String, IconConfig>()

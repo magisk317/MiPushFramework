@@ -10,13 +10,10 @@ import java.io.BufferedReader
 import java.io.IOException
 import java.io.InputStreamReader
 import java.util.regex.Pattern
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.common.utils.Utils
 
-@Singleton
-class ConfigurationsLoader @Inject constructor(
+class ConfigurationsLoader constructor(
     private val configProvider: IConfigProvider
 ) {
     private var version: String? = null
