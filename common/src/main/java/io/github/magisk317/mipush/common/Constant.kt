@@ -27,6 +27,7 @@ const val ISLAND_PREF_READ_PERMISSION = "com.xiaomi.xmsf.permission.READ_ISLAND_
 const val ISLAND_PREF_PATH_FLAGS = "flags"
 const val ISLAND_PREF_COLUMN_KEY = "key"
 const val ISLAND_PREF_COLUMN_VALUE = "value"
+const val ISLAND_PREF_COLUMN_PACKAGE = "pkg"
 const val ISLAND_PREF_ENABLED = "pref_island_enabled"
 const val ISLAND_PREF_TIMEOUT = "pref_island_timeout"
 const val ISLAND_PREF_FIRST_FLOAT = "pref_island_first_float"

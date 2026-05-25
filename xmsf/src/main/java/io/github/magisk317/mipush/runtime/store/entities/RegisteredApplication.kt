@@ -84,6 +84,12 @@ class RegisteredApplication : Parcelable {
     @ColumnInfo(name = "blocked", defaultValue = "0")
     var blocked: Boolean = false
 
+    @ColumnInfo(name = "island_enabled", defaultValue = "1")
+    var islandEnabled: Boolean = true
+
+    @ColumnInfo(name = "island_focus_notification", defaultValue = "1")
+    var islandFocusNotification: Boolean = true
+
     @RegisteredType
     @ColumnInfo(name = "registered_type")
     var registeredType: Int = RegisteredType.NotRegistered
@@ -112,7 +118,9 @@ class RegisteredApplication : Parcelable {
         notificationOnRegister: Boolean,
         registeredType: Int,
         appName: String,
-        blocked: Boolean = false
+        blocked: Boolean = false,
+        islandEnabled: Boolean = true,
+        islandFocusNotification: Boolean = true,
     ) {
         this.id = id
         this.packageName = packageName
@@ -121,6 +129,8 @@ class RegisteredApplication : Parcelable {
         this.registeredType = registeredType
         this.appName = appName
         this.blocked = blocked
+        this.islandEnabled = islandEnabled
+        this.islandFocusNotification = islandFocusNotification
     }
 
     constructor()

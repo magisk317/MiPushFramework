@@ -373,9 +373,13 @@ class MyMIPushNotificationHelper {
                 )
                 return
             }
-            val islandOptions = MiPushIslandPreferences.read(context)
-            val focusParam = XMPushUtils.getConfiguration(metaInfo).focusParam(null)
-                ?: MiPushIslandPayloadBuilder.buildFocusParam(context, metaInfo, islandOptions)
+            val islandOptions = MiPushIslandPreferences.read(context, container.packageName)
+            val focusParam = if (islandOptions.canBuildFocusPayload) {
+                XMPushUtils.getConfiguration(metaInfo).focusParam(null)
+                    ?: MiPushIslandPayloadBuilder.buildFocusParam(context, metaInfo, islandOptions)
+            } else {
+                null
+            }
             if (NotificationSortFilter.shouldFilter(context, focusParam, container.packageName, notificationId)) {
                 logger.i("skip focus-filtered notification pkg=${container.packageName} action=${container.action} messageId=$messageId")
                 PushRuntime.observeNotificationEvent(

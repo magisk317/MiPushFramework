@@ -181,10 +181,15 @@ object NotificationController {
         val subText = configuration.subText(null)
         buildExtraSubText(context, packageName, notificationBuilder, subText, color)
 
-        val islandOptions = MiPushIslandPreferences.read(context)
-        val focusBundle = buildFocusBundle(configuration) { url ->
-            getBitmapFromUri(context, url, 200 * KIB)
-        } ?: MiPushIslandPayloadBuilder.build(
+        val islandOptions = MiPushIslandPreferences.read(context, packageName)
+        val configuredFocusBundle = if (islandOptions.canBuildFocusPayload) {
+            buildFocusBundle(configuration) { url ->
+                getBitmapFromUri(context, url, 200 * KIB)
+            }
+        } else {
+            null
+        }
+        val focusBundle = configuredFocusBundle ?: MiPushIslandPayloadBuilder.build(
             context = context,
             metaInfo = metaInfo,
             packageName = packageName,
@@ -559,21 +564,32 @@ object NotificationController {
                 builder.setContentText(description)
                 builder.priority = NotificationCompat.PRIORITY_HIGH
                 builder.setOngoing(true)
-                val focusBundle = Bundle()
-                focusBundle.putString("miui.focus.param", """{"updatable":true,"reopen":"close"}""")
-                builder.addExtras(focusBundle)
+                MiPushIslandPayloadBuilder.build(
+                    context = context,
+                    metaInfo = PushMetaInfo().apply {
+                        setTitle(title)
+                        setDescription(description)
+                    },
+                    packageName = packageName,
+                    largeIcon = null,
+                    options = MiPushIslandPreferences.read(context, packageName),
+                )?.let(builder::addExtras)
             }
             io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_WITH_PIC -> {
                 builder.setContentTitle(title)
                 builder.setContentText(description)
                 builder.priority = NotificationCompat.PRIORITY_HIGH
                 val pic = createDemoBitmap(400, 400, 0xFFFF6F00u.toInt())
-                val focusBundle = Bundle()
-                focusBundle.putString("miui.focus.param", """{"updatable":true,"reopen":"close"}""")
-                val picsBundle = Bundle()
-                picsBundle.putParcelable("miui.focus.pic_main", Icon.createWithBitmap(pic))
-                focusBundle.putBundle("miui.focus.pics", picsBundle)
-                builder.addExtras(focusBundle)
+                MiPushIslandPayloadBuilder.build(
+                    context = context,
+                    metaInfo = PushMetaInfo().apply {
+                        setTitle(title)
+                        setDescription(description)
+                    },
+                    packageName = packageName,
+                    largeIcon = pic,
+                    options = MiPushIslandPreferences.read(context, packageName),
+                )?.let(builder::addExtras)
                 builder.setLargeIcon(pic)
             }
             io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.VOIP_INCOMING -> {
@@ -649,9 +665,13 @@ object NotificationController {
             }
         }
 
-        nm.notify(tag, id, ProgressStyleBuilder.buildNotification(context, builder))
+        val notification = ProgressStyleBuilder.buildNotification(context, builder)
+        nm.notify(tag, id, notification)
         if (kind == io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_BASIC ||
             kind == io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_WITH_PIC) {
+            if (!notification.extras.containsKey("miui.focus.param")) {
+                return
+            }
             val actualPkg = context.packageName
             val key = focusNotificationKey(context, actualPkg, id, tag)
             FocusNotificationRegistry.registerReplacingUidVariants(context, key)

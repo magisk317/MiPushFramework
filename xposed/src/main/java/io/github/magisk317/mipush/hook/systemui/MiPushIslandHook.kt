@@ -40,13 +40,13 @@ class MiPushIslandHook {
 
     private fun handleStatusBarNotification(sbn: StatusBarNotification?) {
         val notification = sbn?.notification ?: return
-        val options = IslandPreferences.current()
-        if (!options.canInjectFocusPayload) return
         val extras = notification.extras ?: return
         if (extras.getBoolean(IslandDispatchContract.PROCESSED, false)) return
         if (extras.containsKey(IslandDispatchContract.FOCUS_PARAM)) return
 
         val sourcePackage = resolveSourcePackage(sbn, extras) ?: return
+        val options = IslandPreferences.current(sourcePackage)
+        if (!options.canInjectFocusPayload) return
         val title = firstText(
             extras,
             Notification.EXTRA_TITLE,

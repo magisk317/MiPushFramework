@@ -95,6 +95,20 @@ object RegisteredApplicationDb {
     }
 
     @JvmStatic
+    fun getIslandEnabled(pkg: String): Boolean? = runCatching {
+        runBlocking {
+            registeredApplicationDao.isIslandEnabled(pkg)
+        }
+    }.getOrNull()
+
+    @JvmStatic
+    fun getIslandFocusNotificationEnabled(pkg: String): Boolean? = runCatching {
+        runBlocking {
+            registeredApplicationDao.isIslandFocusNotificationEnabled(pkg)
+        }
+    }.getOrNull()
+
+    @JvmStatic
     fun markUnregistered(pkg: String): Boolean = runBlocking {
         val application = registeredApplicationDao.getByPackageName(pkg) ?: return@runBlocking false
         if (application.registeredType == RegisteredApplication.RegisteredType.Unregistered) {

@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.notification
 import android.content.Context
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.dataStore
+import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
@@ -19,18 +20,24 @@ internal data class MiPushIslandOptions(
 }
 
 internal object MiPushIslandPreferences {
-    fun read(context: Context): MiPushIslandOptions {
+    fun read(context: Context, packageName: String? = null): MiPushIslandOptions {
         return runCatching {
             val appContext = context.applicationContext ?: context
             val repository = PreferenceRepository(appContext.dataStore)
             runBlocking {
+                val globalEnabled = repository.islandEnabled.first()
+                val globalFocusNotification = repository.islandFocusNotification.first()
+                val appEnabled = packageName?.takeIf { it.isNotBlank() }
+                    ?.let(RegisteredApplicationDb::getIslandEnabled)
+                val appFocusNotification = packageName?.takeIf { it.isNotBlank() }
+                    ?.let(RegisteredApplicationDb::getIslandFocusNotificationEnabled)
                 MiPushIslandOptions(
-                    enabled = repository.islandEnabled.first(),
+                    enabled = globalEnabled && (appEnabled ?: true),
                     timeoutSecs = repository.islandTimeout.first().coerceAtLeast(1),
                     firstFloat = repository.islandFirstFloat.first(),
                     enableFloat = repository.islandEnableFloat.first(),
                     showNotification = repository.islandShowNotification.first(),
-                    focusNotification = repository.islandFocusNotification.first(),
+                    focusNotification = globalFocusNotification && (appFocusNotification ?: true),
                 )
             }
         }.getOrDefault(MiPushIslandOptions())

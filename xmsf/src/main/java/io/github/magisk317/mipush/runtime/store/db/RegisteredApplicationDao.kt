@@ -36,4 +36,10 @@ interface RegisteredApplicationDao {
 
     @Query("SELECT blocked FROM REGISTERED_APPLICATION WHERE pkg = :pkg LIMIT 1")
     suspend fun isBlocked(pkg: String): Boolean
+
+    @Query("SELECT island_enabled FROM REGISTERED_APPLICATION WHERE pkg = :pkg LIMIT 1")
+    suspend fun isIslandEnabled(pkg: String): Boolean?
+
+    @Query("SELECT island_focus_notification FROM REGISTERED_APPLICATION WHERE pkg = :pkg LIMIT 1")
+    suspend fun isIslandFocusNotificationEnabled(pkg: String): Boolean?
 }

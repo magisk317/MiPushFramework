@@ -243,6 +243,7 @@ open class ApplicationInfoPage : ComponentActivity() {
         ApplicationInfoHeader(snackbarHostState)
         TipsCard()
         ActivitySectionCard(snackbarHostState)
+        IslandDisplaySection()
         NotificationSection()
     }
 
@@ -668,6 +669,41 @@ open class ApplicationInfoPage : ComponentActivity() {
             ) {
                 checked = it
                 applicationInfo.notificationOnRegister = checked
+                RegisteredApplicationDb.update(applicationInfo)
+            }
+        }
+    }
+
+    @Composable
+    private fun IslandDisplaySection() {
+        var islandEnabled by remember { mutableStateOf(applicationInfo.islandEnabled) }
+        var islandFocusNotification by remember {
+            mutableStateOf(applicationInfo.islandFocusNotification)
+        }
+
+        DetailSectionCard(
+            title = stringResource(R.string.app_detail_island_controls),
+            summary = stringResource(R.string.app_detail_island_controls_summary),
+        ) {
+            SettingSwitchRow(
+                title = stringResource(R.string.app_detail_island_enabled),
+                summary = stringResource(R.string.app_detail_island_enabled_summary),
+                checked = islandEnabled,
+                showDivider = true,
+            ) {
+                islandEnabled = it
+                applicationInfo.islandEnabled = islandEnabled
+                RegisteredApplicationDb.update(applicationInfo)
+            }
+
+            SettingSwitchRow(
+                title = stringResource(R.string.app_detail_island_focus_notification),
+                summary = stringResource(R.string.app_detail_island_focus_notification_summary),
+                checked = islandFocusNotification,
+                enabled = islandEnabled,
+            ) {
+                islandFocusNotification = it
+                applicationInfo.islandFocusNotification = islandFocusNotification
                 RegisteredApplicationDb.update(applicationInfo)
             }
         }

@@ -431,6 +431,12 @@ This could be the application doing a reverse registration, or the registration 
     <string name="app_detail_notifications">Notifications &amp; channels</string>
     <string name="app_detail_block">Block this app</string>
     <string name="app_detail_block_summary">Block all push messages, registrations, and event records for this app.</string>
+    <string name="app_detail_island_controls">Island &amp; focus display</string>
+    <string name="app_detail_island_controls_summary">Configure HyperIsland and focus payload generation for this app.</string>
+    <string name="app_detail_island_enabled">Enable Super Island</string>
+    <string name="app_detail_island_enabled_summary">Allow MiPushFramework to generate Super Island payloads for this app.</string>
+    <string name="app_detail_island_focus_notification">Enable focus notification</string>
+    <string name="app_detail_island_focus_notification_summary">Allow generated focus parameters and SystemUI island injection for this app.</string>
     <string name="overview_app_stats_title">Application stats</string>
     <string name="overview_runtime_title">Runtime status</string>
     <string name="overview_project_title">Project actions</string>
@@ -535,9 +541,9 @@ This could be the application doing a reverse registration, or the registration 
     <string name="mock_kind_heads_up">Heads-up</string>
     <string name="mock_kind_heads_up_desc">High priority banner notification</string>
     <string name="mock_kind_focus_basic">Focus (Dynamic Island)</string>
-    <string name="mock_kind_focus_basic_desc">Focus notification with miui.focus.param (requires root)</string>
+    <string name="mock_kind_focus_basic_desc">Focus notification using generated HyperIsland payloads</string>
     <string name="mock_kind_focus_pic">Focus + Picture</string>
-    <string name="mock_kind_focus_pic_desc">Focus notification with image (requires root)</string>
+    <string name="mock_kind_focus_pic_desc">Focus notification with generated Super Island image payload</string>
     <string name="mock_kind_voip">VoIP Incoming Call</string>
     <string name="mock_kind_voip_desc">Full-screen call notification</string>
     <string name="mock_kind_live_update">Live Update</string>

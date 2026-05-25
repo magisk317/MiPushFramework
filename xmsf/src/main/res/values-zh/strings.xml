@@ -410,6 +410,12 @@
     <string name="app_detail_notifications">通知与渠道</string>
     <string name="app_detail_block">拉黑此应用</string>
     <string name="app_detail_block_summary">拉黑后，该应用的所有推送消息、注册请求和事件记录都将被忽略。</string>
+    <string name="app_detail_island_controls">超级岛与焦点展示</string>
+    <string name="app_detail_island_controls_summary">单独配置此应用是否生成 HyperIsland 超级岛与焦点通知参数。</string>
+    <string name="app_detail_island_enabled">启用超级岛</string>
+    <string name="app_detail_island_enabled_summary">允许 MiPushFramework 为此应用生成超级岛参数。</string>
+    <string name="app_detail_island_focus_notification">启用焦点通知</string>
+    <string name="app_detail_island_focus_notification_summary">允许此应用使用生成的焦点参数与 SystemUI 超级岛注入。</string>
     <string name="overview_app_stats_title">应用统计</string>
     <string name="overview_runtime_title">运行状态</string>
     <string name="overview_project_title">项目入口</string>
@@ -540,9 +546,9 @@
     <string name="mock_kind_heads_up">浮动通知</string>
     <string name="mock_kind_heads_up_desc">高优先级横幅通知</string>
     <string name="mock_kind_focus_basic">焦点通知（灵动岛）</string>
-    <string name="mock_kind_focus_basic_desc">带 miui.focus.param 的焦点通知（需要 root）</string>
+    <string name="mock_kind_focus_basic_desc">使用生成的 HyperIsland 参数模拟焦点通知</string>
     <string name="mock_kind_focus_pic">焦点 + 图片</string>
-    <string name="mock_kind_focus_pic_desc">带图片的焦点通知（需要 root）</string>
+    <string name="mock_kind_focus_pic_desc">使用生成的超级岛图片参数模拟焦点通知</string>
     <string name="mock_kind_voip">VoIP 来电</string>
     <string name="mock_kind_voip_desc">全屏来电通知</string>
     <string name="mock_kind_live_update">实时进度</string>
