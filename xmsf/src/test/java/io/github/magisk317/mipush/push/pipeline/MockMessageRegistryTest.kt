@@ -1,5 +1,7 @@
 package io.github.magisk317.mipush.push.pipeline
 
+import com.xiaomi.xmpush.thrift.ActionType
+import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -28,5 +30,18 @@ class MockMessageRegistryTest {
         MockMessageRegistry.markMessageId(" ")
         assertFalse(MockMessageRegistry.isMarked(""))
         assertFalse(MockMessageRegistry.isMarked(" "))
+    }
+
+    @Test
+    fun markContainerFallsBackToPayloadFingerprintWhenMessageIdIsMissing() {
+        val container = XmPushActionContainer().apply {
+            packageName = "com.example"
+            action = ActionType.SendMessage
+            isRequest = false
+        }
+
+        MockMessageRegistry.mark(container)
+
+        assertTrue(MockMessageRegistry.isMarked(container.deepCopy()))
     }
 }

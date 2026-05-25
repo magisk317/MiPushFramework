@@ -30,7 +30,7 @@ object MockMIPushMessage {
                 "isEncrypt=${container.isEncryptAction}"
         )
         if (SdkNotificationCompat.shouldUseModernHelper(payload)) {
-            MockMessageRegistry.markMessageId(messageId)
+            MockMessageRegistry.mark(container)
             logger.d(
                 "mockProcessMIPushMessage use modern helper pkg=${container.packageName} action=${container.action} " +
                     "messageId=$messageId"
@@ -60,7 +60,7 @@ object MockMIPushMessage {
         } catch (e: Exception) {
             if (shouldFallbackWithModernHelper(e)) {
                 logger.w("mock fallback to modern helper due to PendingIntent flag crash")
-                MockMessageRegistry.markMessageId(messageId)
+                MockMessageRegistry.mark(container)
                 runCatching { SdkNotificationCompat.notifyWithModernHelper(pushService, payload) }
                     .onSuccess {
                         logger.d(

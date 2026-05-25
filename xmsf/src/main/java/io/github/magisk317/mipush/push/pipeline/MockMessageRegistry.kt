@@ -3,6 +3,8 @@ package io.github.magisk317.mipush.push.pipeline
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
+import io.github.magisk317.mipush.platform.support.XMPushUtils
+import java.security.MessageDigest
 
 object MockMessageRegistry {
     private val logger = object {
@@ -14,7 +16,7 @@ object MockMessageRegistry {
 
     @JvmStatic
     fun mark(container: XmPushActionContainer?) {
-        val id = MessageIdentity.fromContainer(container) ?: return
+        val id = identityOf(container) ?: return
         markMessageId(id)
     }
 
@@ -31,7 +33,7 @@ object MockMessageRegistry {
 
     @JvmStatic
     fun isMarked(container: XmPushActionContainer?): Boolean {
-        val id = MessageIdentity.fromContainer(container) ?: return false
+        val id = identityOf(container) ?: return false
         return isMarked(id)
     }
 
@@ -73,5 +75,22 @@ object MockMessageRegistry {
                 iterator.remove()
             }
         }
+    }
+
+    private fun identityOf(container: XmPushActionContainer?): String? {
+        if (container == null) return null
+        MessageIdentity.fromContainer(container)?.let { return it }
+        return runCatching {
+            "payload:${sha256(XMPushUtils.packToBytes(container))}"
+        }.getOrElse {
+            "container:${container.packageName}|${container.action?.name}|${container.isRequest}|" +
+                "${container.isEncryptAction}|${container.metaInfo?.id.orEmpty()}|" +
+                "${container.metaInfo?.messageTs ?: 0L}|${container.metaInfo?.notifyId ?: 0}"
+        }
+    }
+
+    private fun sha256(bytes: ByteArray): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(bytes)
+        return digest.joinToString(separator = "") { "%02x".format(it) }
     }
 }
