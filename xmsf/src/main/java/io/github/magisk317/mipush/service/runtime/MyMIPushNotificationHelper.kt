@@ -34,6 +34,7 @@ import io.github.magisk317.mipush.utils.IconConfigurations
 import io.github.magisk317.mipush.utils.PackageConfig
 import io.github.magisk317.mipush.app.ConfigCenter
 import java.util.LinkedHashMap
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlinx.coroutines.runBlocking
@@ -67,6 +68,7 @@ class MyMIPushNotificationHelper {
         private val executorService: ExecutorService = Executors.newFixedThreadPool(3)
         private val nonDisplayDispatchLock = Any()
         private val recentNonDisplayDispatches = LinkedHashMap<String, Long>()
+        private val mockReplayNotificationSequence = AtomicLong()
 
         @JvmStatic
         fun markNotificationSessionStarted(source: String, nowMs: Long = System.currentTimeMillis()) {
@@ -475,8 +477,10 @@ class MyMIPushNotificationHelper {
             val packageName = MIPushNotificationHelper.getTargetPackage(container)
             val metaInfo = container.metaInfo ?: return "${packageName}_0".hashCode()
             val messageId = MessageIdentity.fromContainer(container)
+            val isMockReplay = MockMessageRegistry.isMarked(container)
             val stableId = shouldUseStableNotifyId(container)
             val id = when {
+                isMockReplay -> mockReplayNotificationIdentity(messageId, metaInfo)
                 stableId -> metaInfo.notifyId.toString()
                 !messageId.isNullOrEmpty() -> messageId
                 !metaInfo.id.isNullOrEmpty() -> metaInfo.id
@@ -484,8 +488,15 @@ class MyMIPushNotificationHelper {
                 else -> "0"
             }
             val result = "${packageName}_$id".hashCode()
-            logger.d("getNotificationId pkg=$packageName id=$id stableId=$stableId messageId=$messageId notifyId=${metaInfo.notifyId} metaInfoId=${metaInfo.id} result=$result")
+            logger.d("getNotificationId pkg=$packageName id=$id stableId=$stableId mockReplay=$isMockReplay messageId=$messageId notifyId=${metaInfo.notifyId} metaInfoId=${metaInfo.id} result=$result")
             return result
+        }
+
+        private fun mockReplayNotificationIdentity(messageId: String?, metaInfo: PushMetaInfo): String {
+            val sourceId = messageId?.takeIf { it.isNotBlank() }
+                ?: metaInfo.id?.takeIf { it.isNotBlank() }
+                ?: metaInfo.notifyId.toString()
+            return "mock_replay:${sourceId}:${System.currentTimeMillis()}:${mockReplayNotificationSequence.incrementAndGet()}"
         }
 
         private fun shouldUseStableNotifyId(container: XmPushActionContainer): Boolean {

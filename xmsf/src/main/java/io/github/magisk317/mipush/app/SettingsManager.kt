@@ -10,9 +10,11 @@ import android.os.Build
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import io.github.aakira.napier.Napier
 import com.xiaomi.xmsf.BuildConfig
 import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.notification.NotificationController
+import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.utils.LogUtils
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.utils.Utils
@@ -34,6 +36,11 @@ class SettingsManager constructor(
     private val configCenter: ConfigCenter,
     private val runtimeSettingsAdapter: RuntimeSettingsAdapter,
 ) {
+    companion object {
+        private const val TAG = "SettingsManager"
+        private const val MOCK_NOTIFICATION_SOURCE = "SettingsManager.notifyMockNotification"
+    }
+
     // No-arg fallback for legacy Singleton access.
     constructor() : this(
         io.github.magisk317.mipush.common.utils.Singleton.instance<ConfigCenter>(),
@@ -84,8 +91,12 @@ class SettingsManager constructor(
         kind: io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind,
         packageName: String
     ) {
+        Napier.i("mock test request kind=${kind.name} pkg=$packageName", tag = TAG)
+        PushRuntime.observeNotificationEvent(packageName, "mock_test_request", MOCK_NOTIFICATION_SOURCE)
         if (Build.VERSION.SDK_INT >= 33) {
             if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                Napier.w("mock test blocked by POST_NOTIFICATIONS permission kind=${kind.name} pkg=$packageName", tag = TAG)
+                PushRuntime.observeNotificationEvent(packageName, "mock_test_permission_missing", MOCK_NOTIFICATION_SOURCE)
                 if (context is Activity) {
                     ActivityCompat.requestPermissions(context, arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 0)
                 } else {
@@ -95,11 +106,26 @@ class SettingsManager constructor(
             }
         }
         NotificationController.testMock(context, kind, packageName)
+        Napier.i("mock test dispatched kind=${kind.name} pkg=$packageName", tag = TAG)
+        PushRuntime.observeNotificationEvent(packageName, "mock_test_dispatched", MOCK_NOTIFICATION_SOURCE)
         runCatching {
             val type = NotificationType("mock:${kind.name}", packageName, null).apply {
                 this.type = Event.Type.SendMessage
             }
             runBlocking { EventDb.insertEventAsync(Event.ResultType.OK, type) }
+        }.onSuccess { eventId ->
+            Napier.d(
+                "mock test record inserted id=$eventId kind=${kind.name} pkg=$packageName",
+                tag = TAG,
+            )
+            PushRuntime.observeNotificationEvent(packageName, "mock_test_record_saved", MOCK_NOTIFICATION_SOURCE)
+        }.onFailure { error ->
+            Napier.e(
+                "mock test record insert failed kind=${kind.name} pkg=$packageName",
+                error,
+                tag = TAG,
+            )
+            PushRuntime.observeNotificationEvent(packageName, "mock_test_record_save_failed", MOCK_NOTIFICATION_SOURCE)
         }
     }
 

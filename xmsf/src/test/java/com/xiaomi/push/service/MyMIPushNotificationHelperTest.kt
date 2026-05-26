@@ -3,13 +3,19 @@ package com.xiaomi.push.service
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
+import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class MyMIPushNotificationHelperTest {
+    @BeforeEach
+    fun resetMockMessageRegistry() {
+        MockMessageRegistry.clearAllForTests()
+    }
 
     @Test
     fun `shouldPublishNotification allows displayable push payloads`() {
@@ -142,6 +148,20 @@ class MyMIPushNotificationHelperTest {
         assertEquals("com.ruanmei.ithome_job-123".hashCode(), MyMIPushNotificationHelper.getNotificationId(first))
         assertEquals("com.ruanmei.ithome_job-456".hashCode(), MyMIPushNotificationHelper.getNotificationId(second))
         assertNotEquals(MyMIPushNotificationHelper.getNotificationId(first), MyMIPushNotificationHelper.getNotificationId(second))
+    }
+
+    @Test
+    fun `getNotificationId uses one-shot identity for mock replay notifications`() {
+        val container = notificationContainer("job-replay")
+        val regularId = MyMIPushNotificationHelper.getNotificationId(container)
+
+        MockMessageRegistry.mark(container)
+
+        val firstReplayId = MyMIPushNotificationHelper.getNotificationId(container)
+        val secondReplayId = MyMIPushNotificationHelper.getNotificationId(container)
+
+        assertNotEquals(regularId, firstReplayId)
+        assertNotEquals(firstReplayId, secondReplayId)
     }
 
     @Test
