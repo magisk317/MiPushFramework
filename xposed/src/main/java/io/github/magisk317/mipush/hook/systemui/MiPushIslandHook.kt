@@ -19,6 +19,7 @@ import io.github.magisk317.mipush.xposed.hookMethod
 
 class MiPushIslandHook {
     fun hook(classLoader: ClassLoader) {
+        XLog.i(TAG, "install systemui island hook implementation=focus-extras-first")
         IslandPreferences.startRefreshLoop()
         IslandDispatcherHook().hook()
         hookGenerateInnerNotifBean(classLoader)
@@ -45,6 +46,9 @@ class MiPushIslandHook {
         if (extras.containsKey(IslandDispatchContract.FOCUS_PARAM)) return
 
         val sourcePackage = resolveSourcePackage(sbn, extras) ?: return
+        if (!extras.getBoolean(EXTRA_ALLOW_PROXY, false)) {
+            return
+        }
         val options = IslandPreferences.current(sourcePackage)
         if (!options.canInjectFocusPayload) return
         val title = firstText(
@@ -113,7 +117,6 @@ class MiPushIslandHook {
         extras: Bundle,
     ): Icon {
         extractLargeIcon(notification, extras)?.let { return it }
-        notification.smallIcon?.let { return it }
         return runCatching {
             val drawable = context.packageManager.getApplicationIcon(packageName)
             Icon.createWithBitmap(
@@ -128,7 +131,7 @@ class MiPushIslandHook {
                 },
             )
         }.getOrElse {
-            Icon.createWithResource(context, android.R.drawable.sym_def_app_icon)
+            notification.smallIcon ?: Icon.createWithResource(context, android.R.drawable.sym_def_app_icon)
         }
     }
 
@@ -153,6 +156,7 @@ class MiPushIslandHook {
 
     private companion object {
         private const val TAG = "MiPushIslandHook"
+        private const val EXTRA_ALLOW_PROXY = "mipush_island_allow_proxy"
         private const val EXTRA_LARGE_ICON_KEY = "android.largeIcon"
         private const val PROXY_POST_DEDUPE_MS = 2_000L
         private val recentProxyPosts = IslandProxyPostTracker(PROXY_POST_DEDUPE_MS)

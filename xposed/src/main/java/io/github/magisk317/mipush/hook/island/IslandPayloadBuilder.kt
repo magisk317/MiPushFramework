@@ -89,6 +89,7 @@ object IslandPayloadBuilder {
                     putParcelable(PIC_ICON, icon ?: fallbackIcon(context))
                 },
             )
+            putString(PIC_ICON, PIC_ICON)
             buildActionsBundle(actions)?.let { actionsBundle ->
                 putBundle(FOCUS_ACTIONS, actionsBundle)
                 flattenActions(actionsBundle, this)
