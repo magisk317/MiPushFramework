@@ -540,10 +540,10 @@ This could be the application doing a reverse registration, or the registration 
     <string name="mock_kind_progress_desc">Ongoing progress bar notification</string>
     <string name="mock_kind_heads_up">Heads-up</string>
     <string name="mock_kind_heads_up_desc">High priority banner notification</string>
-    <string name="mock_kind_focus_basic">Focus (Dynamic Island)</string>
-    <string name="mock_kind_focus_basic_desc">Focus notification using generated HyperIsland payloads</string>
-    <string name="mock_kind_focus_pic">Focus + Picture</string>
-    <string name="mock_kind_focus_pic_desc">Focus notification with generated Super Island image payload</string>
+    <string name="mock_kind_dynamic_island">Dynamic Island</string>
+    <string name="mock_kind_dynamic_island_desc">Show only the floating island without posting a notification</string>
+    <string name="mock_kind_focus_notification">Focus Notification</string>
+    <string name="mock_kind_focus_notification_desc">Post a notification with generated focus payloads</string>
     <string name="mock_kind_voip">VoIP Incoming Call</string>
     <string name="mock_kind_voip_desc">Full-screen call notification</string>
     <string name="mock_kind_live_update">Live Update</string>

@@ -5,7 +5,7 @@
 ---
 
 ## [v0.4.1] - Unreleased
-- `[feat(notification)]` 接入 HyperIsland ToolKit，显式配置的 `miui.focus.param` 仍保留原通知焦点语义，未显式配置的 MiPush 通知改由 SystemUI 代理通知承载 `param_v2` 超级岛参数，避免普通通知本体被焦点化。
+- `[feat(notification)]` 接入 HyperIsland ToolKit，显式配置的 `miui.focus.param` 仍保留原通知焦点语义，未显式配置的 MiPush 通知保持普通通知栏展示，并由 SystemUI 代理通知生成悬浮/超级岛展示。
 - `[feat(xposed)]` 接入 HyperIsland SystemUI 链路，新增 MiPush 专用 IslandDispatcher、通用通知模板、SystemUI `generateInnerNotifBean` 代理投递与 XMSF 焦点认证绕过，并在检测到独立 HyperIsland 模块时跳过内置岛链路和重复焦点解锁 hook。
 - `[feat(settings)]` 新增 HyperIsland 焦点展示设置项，支持总开关、超时、浮动行为、通知保留与焦点认证开关，并通过 xmsf provider 同步给 Xposed/SystemUI 进程。
 - `[feat(notification)]` 对齐 stock 7.4.67 通知样式：新增 focus 删除过滤、VoIP 来电样式、SweetTag `<ft>` 富文本渲染、通知按钮与全屏来电入口。

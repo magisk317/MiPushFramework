@@ -545,10 +545,10 @@
     <string name="mock_kind_progress_desc">持续进度条通知</string>
     <string name="mock_kind_heads_up">浮动通知</string>
     <string name="mock_kind_heads_up_desc">高优先级横幅通知</string>
-    <string name="mock_kind_focus_basic">焦点通知（灵动岛）</string>
-    <string name="mock_kind_focus_basic_desc">使用生成的 HyperIsland 参数模拟焦点通知</string>
-    <string name="mock_kind_focus_pic">焦点 + 图片</string>
-    <string name="mock_kind_focus_pic_desc">使用生成的超级岛图片参数模拟焦点通知</string>
+    <string name="mock_kind_dynamic_island">灵动岛</string>
+    <string name="mock_kind_dynamic_island_desc">只显示浮岛，不发送通知栏通知</string>
+    <string name="mock_kind_focus_notification">焦点通知</string>
+    <string name="mock_kind_focus_notification_desc">发送带生成焦点参数的通知栏通知</string>
     <string name="mock_kind_voip">VoIP 来电</string>
     <string name="mock_kind_voip_desc">全屏来电通知</string>
     <string name="mock_kind_live_update">实时进度</string>

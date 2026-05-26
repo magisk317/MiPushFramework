@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.notification
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.drawable.Icon
@@ -12,6 +13,10 @@ import android.os.Parcelable
 import androidx.core.app.NotificationCompat
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import io.github.magisk317.mipush.common.utils.CustomConfiguration
+import io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind
+import io.github.magisk317.mipush.feature.main.MainActivity
+import io.github.magisk317.mipush.feature.navigation.AppDestinations
+import org.json.JSONObject
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -21,6 +26,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
@@ -32,6 +38,7 @@ class NotificationControllerRobolectricTest {
     fun tearDown() {
         val notificationManager = RuntimeEnvironment.getApplication()
             .getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.cancelAll()
         notificationManager.deleteNotificationChannel("target-default-implicit")
         notificationManager.deleteNotificationChannel("target-explicit")
     }
@@ -132,11 +139,227 @@ class NotificationControllerRobolectricTest {
         assertNotNull(focusParam)
         assertTrue(focusParam!!.contains(""""param_v2""""))
         assertTrue(focusParam.contains(""""mipush_framework_push""""))
+        assertFocusSequenceEnabled(focusParam)
         assertEquals(true to "close", NotificationSortFilter.parseFocusParamForTest(focusParam))
         assertEquals("miui.focus.pic_mipush_icon", focusBundle.getString("miui.focus.pic_mipush_icon"))
         val pics = focusBundle.getBundle("miui.focus.pics")
         assertNotNull(pics)
         assertNotNull(pics!!.parcelable<Icon>("miui.focus.pic_mipush_icon"))
+    }
+
+    @Test
+    fun `default island payload supports description only notifications`() {
+        val context = RuntimeEnvironment.getApplication()
+        val metaInfo = PushMetaInfo().apply {
+            description = "Body only"
+        }
+
+        val focusBundle = MiPushIslandPayloadBuilder.build(
+            context = context,
+            metaInfo = metaInfo,
+            packageName = context.packageName,
+            largeIcon = null,
+        )
+
+        assertNotNull(focusBundle)
+        val focusParam = focusBundle!!.getString("miui.focus.param")
+        assertNotNull(focusParam)
+        assertFocusSequenceEnabled(focusParam!!)
+    }
+
+    @Test
+    fun `island payload wires click action as activity action`() {
+        val context = RuntimeEnvironment.getApplication()
+        val clickIntent = android.content.Intent(context, MainActivity::class.java)
+            .putExtra(MainActivity.EXTRA_START_ROUTE, AppDestinations.EventsList.ROUTE)
+        val clickPendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            clickIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val metaInfo = PushMetaInfo().apply {
+            title = "Focus title"
+            description = "Focus body"
+        }
+
+        val focusBundle = MiPushIslandPayloadBuilder.build(
+            context = context,
+            metaInfo = metaInfo,
+            packageName = context.packageName,
+            largeIcon = null,
+            contentIntent = clickPendingIntent,
+            actionTitle = "Open events",
+        )
+
+        assertNotNull(focusBundle)
+        val focusParam = focusBundle!!.getString("miui.focus.param")
+        assertNotNull(focusParam)
+        val actionInfo = JSONObject(focusParam!!)
+            .getJSONObject("param_v2")
+            .getJSONObject("hintInfo")
+            .getJSONObject("actionInfo")
+        assertEquals(1, actionInfo.getInt("actionIntentType"))
+        val action = focusBundle
+            .getBundle("miui.focus.actions")
+            ?.parcelable<Notification.Action>("miui.focus.action_mipush_open")
+        assertNotNull(action)
+        assertTrue(shadowOf(action!!.actionIntent).isActivity)
+        assertEquals(
+            AppDestinations.EventsList.ROUTE,
+            shadowOf(action.actionIntent).savedIntent.getStringExtra(MainActivity.EXTRA_START_ROUTE),
+        )
+    }
+
+    @Test
+    fun `plain mock notification does not opt into island proxy`() {
+        val context = RuntimeEnvironment.getApplication()
+        val packageName = context.packageName
+
+        NotificationController.testMock(context, MockNotificationKind.PLAIN, packageName)
+
+        val posted = findMockNotification(context, MockNotificationKind.PLAIN)
+
+        assertNull(posted.extras.getString("miui.focus.param"))
+        assertNull(posted.extras.getBundle("miui.focus.pics"))
+        assertFalse(posted.extras.getBoolean("mipush_island_allow_proxy", false))
+        assertEquals(packageName, posted.extras.getString("target_package"))
+        assertTrue(shadowOf(posted.contentIntent).isActivity)
+        assertEquals(
+            AppDestinations.EventsList.ROUTE,
+            shadowOf(posted.contentIntent).savedIntent.getStringExtra(MainActivity.EXTRA_START_ROUTE),
+        )
+    }
+
+    @Test
+    fun `focus mock notification opens events and carries activity focus action`() {
+        val context = RuntimeEnvironment.getApplication()
+        val packageName = context.packageName
+
+        NotificationController.testMock(context, MockNotificationKind.FOCUS_NOTIFICATION, packageName)
+
+        val posted = findMockNotification(context, MockNotificationKind.FOCUS_NOTIFICATION)
+        val focusParam = posted.extras.getString("miui.focus.param")
+        assertNotNull(focusParam)
+        val actionInfo = JSONObject(focusParam!!)
+            .getJSONObject("param_v2")
+            .getJSONObject("hintInfo")
+            .getJSONObject("actionInfo")
+        assertEquals(1, actionInfo.getInt("actionIntentType"))
+        val action = posted.extras
+            .getBundle("miui.focus.actions")
+            ?.parcelable<Notification.Action>("miui.focus.action_mipush_open")
+        assertNotNull(action)
+        assertTrue(shadowOf(posted.contentIntent).isActivity)
+        assertTrue(shadowOf(action!!.actionIntent).isActivity)
+        assertEquals(
+            AppDestinations.EventsList.ROUTE,
+            shadowOf(posted.contentIntent).savedIntent.getStringExtra(MainActivity.EXTRA_START_ROUTE),
+        )
+        assertEquals(
+            AppDestinations.EventsList.ROUTE,
+            shadowOf(action.actionIntent).savedIntent.getStringExtra(MainActivity.EXTRA_START_ROUTE),
+        )
+    }
+
+    @Test
+    fun `publish keeps generated island payload off regular notification and enables proxy`() {
+        val context = RuntimeEnvironment.getApplication()
+        val packageName = context.packageName
+        val notificationId = 32017
+        val metaInfo = PushMetaInfo().apply {
+            title = "Island title"
+            description = "Island body"
+        }
+        val builder = NotificationCompat.Builder(context, "placeholder")
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(metaInfo.title)
+            .setContentText(metaInfo.description)
+
+        NotificationManagerEx.init(context)
+        NotificationController.publish(context, metaInfo, notificationId, packageName, builder)
+
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val posted = notificationManager.activeNotifications
+            .first { it.id == notificationId }
+            .notification
+
+        assertNull(posted.extras.getString("miui.focus.param"))
+        assertNull(posted.extras.getString("miui.focus.pic_mipush_icon"))
+        assertNull(posted.extras.getBundle("miui.focus.pics"))
+        assertNull(posted.extras.getString("hyperisland_source_pkg"))
+        assertTrue(posted.extras.getBoolean("mipush_island_allow_proxy", false))
+        assertEquals(packageName, posted.extras.getString("target_package"))
+    }
+
+    @Test
+    fun `publish supplements configured focus payload with app icon bundle`() {
+        val context = RuntimeEnvironment.getApplication()
+        val packageName = context.packageName
+        val notificationId = 32018
+        val focusParam = """{"updatable":true,"reopen":"close"}"""
+        val metaInfo = PushMetaInfo().apply {
+            title = "Configured focus"
+            description = "Configured body"
+            extra = mutableMapOf("miui.focus.param" to focusParam)
+        }
+        val builder = NotificationCompat.Builder(context, "placeholder")
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(metaInfo.title)
+            .setContentText(metaInfo.description)
+
+        NotificationManagerEx.init(context)
+        NotificationController.publish(context, metaInfo, notificationId, packageName, builder)
+
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val posted = notificationManager.activeNotifications
+            .first { it.id == notificationId }
+            .notification
+
+        assertEquals(focusParam, posted.extras.getString("miui.focus.param"))
+        assertEquals("miui.focus.pic_mipush_icon", posted.extras.getString("miui.focus.pic_mipush_icon"))
+        assertFalse(posted.extras.getBoolean("mipush_island_allow_proxy", false))
+        assertNotNull(
+            posted.extras
+                .getBundle("miui.focus.pics")
+                ?.parcelable<Icon>("miui.focus.pic_mipush_icon")
+        )
+    }
+
+    @Test
+    fun `grouped notifications use island proxy while summary stays plain`() {
+        val context = RuntimeEnvironment.getApplication()
+        val packageName = context.packageName
+        val groupId = "focus-group"
+
+        NotificationManagerEx.init(context)
+
+        repeat(2) { index ->
+            val metaInfo = PushMetaInfo().apply {
+                title = "Grouped $index"
+                description = "Grouped body $index"
+            }
+            val builder = NotificationCompat.Builder(context, "placeholder")
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle(metaInfo.title)
+                .setContentText(metaInfo.description)
+                .setGroup(groupId)
+
+            NotificationController.publish(context, metaInfo, 33000 + index, packageName, builder)
+        }
+
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val active = notificationManager.activeNotifications.associateBy { it.id }
+        val summary = active.getValue(groupId.hashCode()).notification
+
+        assertTrue(summary.extras.getCharSequence(Notification.EXTRA_TITLE).toString().isNotBlank())
+        assertNull(summary.extras.getString("miui.focus.param"))
+        assertNull(summary.extras.getBundle("miui.focus.pics"))
+        assertFalse(summary.extras.getBoolean("mipush_island_allow_proxy", false))
+        assertNull(active.getValue(33000).notification.extras.getString("miui.focus.param"))
+        assertNull(active.getValue(33001).notification.extras.getString("miui.focus.param"))
+        assertTrue(active.getValue(33000).notification.extras.getBoolean("mipush_island_allow_proxy", false))
+        assertTrue(active.getValue(33001).notification.extras.getBoolean("mipush_island_allow_proxy", false))
     }
 
     @Test
@@ -188,5 +411,27 @@ class NotificationControllerRobolectricTest {
             @Suppress("DEPRECATION")
             getParcelable(key)
         }
+    }
+
+    private fun assertFocusSequenceEnabled(focusParam: String) {
+        val paramV2 = JSONObject(focusParam).getJSONObject("param_v2")
+        assertTrue(paramV2.getBoolean("enableFloat"))
+        assertTrue(paramV2.getBoolean("islandFirstFloat"))
+        assertTrue(
+            paramV2.optBoolean(
+                "isShowNotification",
+                paramV2.optBoolean("showNotification", false),
+            )
+        )
+    }
+
+    private fun findMockNotification(
+        context: Context,
+        kind: MockNotificationKind,
+    ): Notification {
+        return (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+            .activeNotifications
+            .single { it.tag == "xmsf_mock_${kind.name}" }
+            .notification
     }
 }

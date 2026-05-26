@@ -14,7 +14,7 @@ import io.github.aakira.napier.Napier
 
 object NotificationIdentityBridge {
     private const val TAG = "NotificationIdentityBridge"
-    const val HOOK_API_VERSION = 1
+    const val HOOK_API_VERSION = 2
     private val logger = object {
         fun d(message: String) = Napier.d(message, tag = TAG)
         fun e(message: String, throwable: Throwable? = null) = Napier.e(message, throwable, tag = TAG)

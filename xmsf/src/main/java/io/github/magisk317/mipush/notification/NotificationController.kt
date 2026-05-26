@@ -34,14 +34,21 @@ import io.github.magisk317.mipush.utils.IconConfigurations
 import io.github.magisk317.mipush.utils.ColorUtil
 import io.github.magisk317.mipush.common.utils.CustomConfiguration
 import io.github.magisk317.mipush.common.utils.ImgUtils
-import io.github.magisk317.mipush.feature.main.MainActivity
+import io.github.magisk317.mipush.feature.navigation.AppDestinations
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
+import io.github.magisk317.mipush.runtime.PushRuntime
 
 object NotificationController {
     private const val TAG = "NotificationController"
     private val logger = object {
         fun d(msg: String) = Napier.d(msg, tag = TAG)
     }
+    private const val FOCUS_PARAM = "miui.focus.param"
+    private const val FOCUS_PICS = "miui.focus.pics"
+    private const val PIC_ICON = "miui.focus.pic_mipush_icon"
+    private const val SYSTEM_UI_PACKAGE = "com.android.systemui"
+    private const val ACTION_SHOW_ISLAND = "io.github.magisk317.mipush.action.SHOW_ISLAND"
+    private const val EXTRA_ALLOW_ISLAND_PROXY = "mipush_island_allow_proxy"
     private const val NOTIFICATION_LARGE_ICON = "mipush_notification"
     private const val NOTIFICATION_SMALL_ICON = "mipush_small_notification"
     private const val KIB = 1024
@@ -71,7 +78,13 @@ object NotificationController {
         builder.setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
         builder.setCategory(Notification.CATEGORY_EVENT).setGroupSummary(true).setGroup(groupId)
         builder.setContentTitle(context.getString(R.string.group_summary_title, groupCount))
-        notify(context, groupId.hashCode(), packageName, builder, metaInfo)
+        notify(
+            context,
+            groupId.hashCode(),
+            packageName,
+            builder,
+            metaInfo
+        )
     }
 
     @RequiresApi(Build.VERSION_CODES.M)
@@ -127,7 +140,7 @@ object NotificationController {
 
         val notification = notify(context, notificationId, packageName, notificationBuilder, metaInfo)
         if (notification == null) {
-            Napier.d("publish dropped pkg=$packageName id=$notificationId (contentless or channel issue)", tag = TAG)
+            Napier.d("publish dropped pkg=$packageName id=$notificationId (contentless, channel, or publish issue)", tag = TAG)
             return
         }
         Napier.d("publish posted pkg=$packageName id=$notificationId group=${notification.group} tag=${MyMIPushNotificationHelper.getNotificationTag(packageName)}", tag = TAG)
@@ -181,25 +194,36 @@ object NotificationController {
         val subText = configuration.subText(null)
         buildExtraSubText(context, packageName, notificationBuilder, subText, color)
 
+        val previewNotification = ProgressStyleBuilder.buildNotification(context, notificationBuilder)
         val islandOptions = MiPushIslandPreferences.read(context, packageName)
-        val configuredFocusBundle = if (islandOptions.canBuildFocusPayload) {
-            buildFocusBundle(configuration) { url ->
-                getBitmapFromUri(context, url, 200 * KIB)
-            }
+        val generatedFocusCandidate = islandOptions.canBuildFocusPayload && !previewNotification.isGroupSummary()
+        val configuredFocusBundle = if (generatedFocusCandidate) {
+            buildConfiguredFocusBundle(
+                context = context,
+                packageName = packageName,
+                largeIcon = largeIcon,
+                notificationIcon = previewNotification.getLargeIconCompat(),
+                configuration = configuration,
+            ) { url -> getBitmapFromUri(context, url, 200 * KIB) }
         } else {
             null
         }
-        val focusBundle = configuredFocusBundle
-        if (focusBundle != null) {
-            notificationBuilder.addExtras(focusBundle)
+        if (configuredFocusBundle != null) {
+            notificationBuilder.addExtras(configuredFocusBundle)
             notificationBuilder.priority = NotificationCompat.PRIORITY_HIGH
+        } else if (generatedFocusCandidate) {
+            notificationBuilder.addExtras(
+                Bundle().apply {
+                    putBoolean(EXTRA_ALLOW_ISLAND_PROXY, true)
+                }
+            )
         }
 
         NotificationSortFilter.attachDeleteIntentIfNeeded(
             context,
             notificationBuilder,
             packageName,
-            focusBundle?.getString("miui.focus.param"),
+            configuration.focusParam(null),
             notificationId
         )
         if (shouldAutoCancelNotification(metaInfo, notificationBuilder)) {
@@ -212,13 +236,21 @@ object NotificationController {
             return null
         }
         val tag = MyMIPushNotificationHelper.getNotificationTag(packageName)
-        getNotificationManagerEx().notify(packageName, tag, notificationId, notification)
-        if (focusBundle != null) {
+        if (configuredFocusBundle != null) {
             FocusNotificationRegistry.registerReplacingUidVariants(
                 context,
                 focusNotificationKey(context, packageName, notificationId, tag)
             )
         }
+        if (!getNotificationManagerEx().notify(packageName, tag, notificationId, notification)) {
+            Napier.w(
+                "publish failed pkg=$packageName id=$notificationId tag=$tag channel=${notification.channelId}",
+                tag = TAG
+            )
+            PushRuntime.observeNotificationEvent(packageName, "notification_publish_failed", "NotificationController.publish")
+            return null
+        }
+        PushRuntime.observeNotificationEvent(packageName, "notification_publish_posted", "NotificationController.publish")
         return notification
     }
 
@@ -280,7 +312,7 @@ object NotificationController {
     ): Bundle? {
         val focusParam = configuration.focusParam(null) ?: return null
         val focusBundle = Bundle()
-        focusBundle.putString("miui.focus.param", focusParam)
+        focusBundle.putString(FOCUS_PARAM, focusParam)
         val picsBundle = Bundle()
         for ((key, url) in collectFocusPicUris(configuration)) {
             focusBundle.putString(key, url)
@@ -290,9 +322,45 @@ object NotificationController {
             }
         }
         if (!picsBundle.isEmpty) {
-            focusBundle.putBundle("miui.focus.pics", picsBundle)
+            focusBundle.putBundle(FOCUS_PICS, picsBundle)
         }
         return focusBundle
+    }
+
+    internal fun buildConfiguredFocusBundle(
+        context: Context,
+        packageName: String,
+        largeIcon: Bitmap?,
+        notificationIcon: Icon?,
+        configuration: CustomConfiguration,
+        bitmapLoader: (String) -> Bitmap?,
+    ): Bundle? {
+        val icon = MiPushIslandPayloadBuilder.resolveNotificationIcon(
+            context,
+            packageName,
+            notificationIcon,
+            largeIcon,
+        )
+        val configured = buildFocusBundle(configuration, bitmapLoader)
+        if (configured != null) {
+            val pics = configured.getBundle(FOCUS_PICS) ?: Bundle().also {
+                configured.putBundle(FOCUS_PICS, it)
+            }
+            configured.putString(PIC_ICON, PIC_ICON)
+            if (!pics.containsKey(PIC_ICON)) {
+                pics.putParcelable(PIC_ICON, icon)
+            }
+            return configured
+        }
+        return null
+    }
+
+    private fun Notification.isGroupSummary(): Boolean {
+        return flags and Notification.FLAG_GROUP_SUMMARY != 0
+    }
+
+    private fun Notification.getLargeIconCompat(): Icon? {
+        return runCatching { getLargeIcon() }.getOrNull()
     }
 
     @JvmStatic
@@ -449,6 +517,7 @@ object NotificationController {
         kind: io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind,
         packageName: String
     ) {
+        PushRuntime.observeNotificationEvent(packageName, "mock_test_build_start", "NotificationController.testMock")
         val kindLabel = context.getString(kind.labelRes)
         val title = context.getString(R.string.debug_test_title, kindLabel)
         val description = context.getString(R.string.debug_test_content, kindLabel) + "\n" + java.util.Date()
@@ -470,11 +539,12 @@ object NotificationController {
         builder.setAutoCancel(true)
 
         val tag = "xmsf_mock_${kind.name}"
+        Napier.i("mock test build kind=${kind.name} pkg=$packageName id=$id tag=$tag", tag = TAG)
 
         val notifyIntent = LegacyUiEntryPoints.mainActivityIntent(
             context = context,
-            startTab = MainActivity.START_TAB_SETTINGS,
-        ).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK }
+            startRoute = AppDestinations.EventsList.ROUTE,
+        ).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP }
         val notifyPendingIntent = PendingIntent.getActivity(
             context, 0, notifyIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -484,6 +554,7 @@ object NotificationController {
         val targetExtras = Bundle().apply {
             putString("target_package", packageName)
             putString("miui.targetPkg", packageName)
+            putString("xmsf_target_package", packageName)
         }
         builder.addExtras(targetExtras)
 
@@ -553,28 +624,31 @@ object NotificationController {
                 builder.setCategory(Notification.CATEGORY_ALARM)
                 builder.setDefaults(NotificationCompat.DEFAULT_ALL)
             }
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_BASIC -> {
-                builder.setContentTitle(title)
-                builder.setContentText(description)
-                builder.priority = NotificationCompat.PRIORITY_HIGH
-                builder.setOngoing(true)
-                MiPushIslandPayloadBuilder.build(
-                    context = context,
-                    metaInfo = PushMetaInfo().apply {
-                        setTitle(title)
-                        setDescription(description)
-                    },
-                    packageName = packageName,
-                    largeIcon = null,
-                    options = MiPushIslandPreferences.read(context, packageName),
-                )?.let(builder::addExtras)
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.DYNAMIC_ISLAND -> {
+                Napier.i(
+                    "mock test island broadcast kind=${kind.name} pkg=$packageName id=$id tag=$tag",
+                    tag = TAG,
+                )
+                PushRuntime.observeNotificationEvent(
+                    packageName,
+                    "mock_test_island_broadcast",
+                    "NotificationController.testMock",
+                )
+                context.sendMockIslandBroadcast(
+                    title = title,
+                    description = description,
+                    sourcePackage = packageName,
+                    notificationId = id,
+                    contentIntent = notifyPendingIntent,
+                )
+                return
             }
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_WITH_PIC -> {
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_NOTIFICATION -> {
                 builder.setContentTitle(title)
                 builder.setContentText(description)
                 builder.priority = NotificationCompat.PRIORITY_HIGH
                 val pic = createDemoBitmap(400, 400, 0xFFFF6F00u.toInt())
-                MiPushIslandPayloadBuilder.build(
+                val focusExtras = MiPushIslandPayloadBuilder.build(
                     context = context,
                     metaInfo = PushMetaInfo().apply {
                         setTitle(title)
@@ -582,8 +656,30 @@ object NotificationController {
                     },
                     packageName = packageName,
                     largeIcon = pic,
+                    notificationId = id,
+                    contentIntent = notifyPendingIntent,
+                    actionTitle = title,
+                    keepNotificationVisible = true,
                     options = MiPushIslandPreferences.read(context, packageName),
-                )?.let(builder::addExtras)
+                )
+                if (focusExtras == null) {
+                    Napier.w(
+                        "mock test focus payload missing kind=${kind.name} pkg=$packageName id=$id",
+                        tag = TAG,
+                    )
+                    PushRuntime.observeNotificationEvent(
+                        packageName,
+                        "mock_test_focus_payload_missing",
+                        "NotificationController.testMock",
+                    )
+                } else {
+                    PushRuntime.observeNotificationEvent(
+                        packageName,
+                        "mock_test_focus_payload_built",
+                        "NotificationController.testMock",
+                    )
+                    focusExtras.let(builder::addExtras)
+                }
                 builder.setLargeIcon(pic)
             }
             io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.VOIP_INCOMING -> {
@@ -661,14 +757,30 @@ object NotificationController {
 
         val notification = ProgressStyleBuilder.buildNotification(context, builder)
         nm.notify(tag, id, notification)
-        if (kind == io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_BASIC ||
-            kind == io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_WITH_PIC) {
+        Napier.i(
+            "mock test posted kind=${kind.name} pkg=$packageName id=$id tag=$tag " +
+                "focus=${notification.extras.containsKey(FOCUS_PARAM)} " +
+                "contentIntent=${notification.contentIntent != null}",
+            tag = TAG,
+        )
+        PushRuntime.observeNotificationEvent(packageName, "mock_test_notification_posted", "NotificationController.testMock")
+        if (kind == io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_NOTIFICATION) {
             if (!notification.extras.containsKey("miui.focus.param")) {
+                PushRuntime.observeNotificationEvent(
+                    packageName,
+                    "mock_test_focus_notification_missing_param",
+                    "NotificationController.testMock",
+                )
                 return
             }
-            val actualPkg = context.packageName
-            val key = focusNotificationKey(context, actualPkg, id, tag)
+            val key = focusNotificationKey(context, packageName, id, tag)
             FocusNotificationRegistry.registerReplacingUidVariants(context, key)
+            Napier.i("mock test focus notification registered key=$key", tag = TAG)
+            PushRuntime.observeNotificationEvent(
+                packageName,
+                "mock_test_focus_notification_registered",
+                "NotificationController.testMock",
+            )
             // Simulate refresh effect: update notification every 2 seconds for 5 times
             Thread {
                 val steps = listOf(
@@ -686,6 +798,42 @@ object NotificationController {
                 }
             }.start()
         }
+    }
+
+    private fun Context.sendMockIslandBroadcast(
+        title: String,
+        description: String,
+        sourcePackage: String,
+        notificationId: Int,
+        contentIntent: PendingIntent,
+    ) {
+        val options = MiPushIslandPreferences.read(this, sourcePackage)
+        val icon = MiPushIslandPayloadBuilder.resolveNotificationIcon(this, sourcePackage, null)
+        Napier.i(
+            "mock island broadcast sourcePkg=$sourcePackage notificationId=$notificationId " +
+                "timeout=${options.timeoutSecs} firstFloat=${options.firstFloat} enableFloat=${options.enableFloat}",
+            tag = TAG,
+        )
+        sendBroadcast(
+            Intent(ACTION_SHOW_ISLAND).apply {
+                setPackage(SYSTEM_UI_PACKAGE)
+                putExtra("title", title)
+                putExtra("content", description)
+                putExtra("icon", icon)
+                putExtra("notificationId", notificationId)
+                putExtra("timeoutSecs", options.timeoutSecs)
+                putExtra("firstFloat", options.firstFloat)
+                putExtra("enableFloat", options.enableFloat)
+                putExtra("showNotification", false)
+                putExtra("sourcePackage", sourcePackage)
+                putExtra("sourceChannelId", "mipush_mock_island")
+                putExtra("contentIntent", contentIntent)
+                putExtra("isOngoing", false)
+                putExtra("showIslandIcon", true)
+                putExtra("clearBeforePost", true)
+                putExtra("islandOuterGlow", true)
+            },
+        )
     }
 
     private fun focusNotificationKey(context: Context, packageName: String, notificationId: Int, tag: String?): String {

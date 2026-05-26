@@ -18,7 +18,7 @@ object NotificationManagerEx {
     private const val TAG = "NotificationManagerEx"
     private const val MODERN_IDENTITY_FIRST_SDK = Build.VERSION_CODES.Q
     @JvmField
-    val HOOK_API_VERSION = 1
+    val HOOK_API_VERSION = 2
     private val logger = object {
         fun d(msg: String) = Napier.d(msg, tag = TAG)
         fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
@@ -281,19 +281,18 @@ object NotificationManagerEx {
     fun notify(
         packageName: String,
         tag: String?, id: Int, notification: Notification
-    ) {
+    ): Boolean {
         // Fully replaced by HookPushNC when the Xposed module is active.
         Napier.d("notify() called with: packageName = $packageName, tag = $tag, id = $id, channel = ${notification.channelId}, group = ${notification.group}", tag = TAG)
         markLocalTargetPackage(packageName, notification)
         if (shouldUseModernIdentityStrategy(packageName)) {
             if (shouldNotifyAsPackage(packageName, notification)) {
                 if (NotificationIdentityBridge.notifyAsTargetPackage(appContext, packageName, tag, id, notification)) {
-                    return
+                    return true
                 }
                 maybeLogDiagnosticsOnce("identity-notify-fallback", packageName, notification.channelId, notification.group)
             }
-            notificationManager.notify(tag, id, notification)
-            return
+            return notifyLocally(tag, id, notification)
         }
         if (shouldNotifyAsPackage(packageName, notification)) {
             try {
@@ -305,12 +304,21 @@ object NotificationManagerEx {
                     Notification::class.java
                 )
                 method.invoke(notificationManager, packageName, tag, id, notification)
-                return
+                return true
             } catch (e: Exception) {
                 logger.e("Failed to invoke notifyAsPackage", e)
             }
         }
-        notificationManager.notify(tag, id, notification)
+        return notifyLocally(tag, id, notification)
+    }
+
+    private fun notifyLocally(tag: String?, id: Int, notification: Notification): Boolean {
+        return runCatching {
+            notificationManager.notify(tag, id, notification)
+            true
+        }.onFailure {
+            logger.e("Failed to notify locally tag=$tag id=$id channel=${notification.channelId}", it)
+        }.getOrDefault(false)
     }
 
     fun cancel(

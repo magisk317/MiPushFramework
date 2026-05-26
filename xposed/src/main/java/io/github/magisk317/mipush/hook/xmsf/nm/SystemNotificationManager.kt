@@ -89,12 +89,13 @@ object SystemNotificationManager {
         }.getOrDefault(false)
     }
 
-    private fun notifyLocally(tag: String?, id: Int, notification: Notification) {
-        runCatching {
+    private fun notifyLocally(tag: String?, id: Int, notification: Notification): Boolean {
+        return runCatching {
             localNotificationManager()?.notify(tag, id, notification)
+            true
         }.onFailure {
             XLog.e(TAG, "notify: local fallback failed", it)
-        }
+        }.getOrDefault(false)
     }
 
     private fun cancelLocally(tag: String?, id: Int) {
@@ -124,14 +125,13 @@ object SystemNotificationManager {
     fun notify(
         packageName: String,
         tag: String?, id: Int, notification: Notification
-    ) {
+    ): Boolean {
         XLog.d(TAG, "notify() pkg=$packageName tag=$tag id=$id channel=${notification.channelId} group=${notification.group}")
         if (!isCurrentPackage(packageName) && resolveUid(packageName, "notify") == null) {
             XLog.d(TAG, "notify() package not installed, falling back to local: $packageName")
-            notifyLocally(tag, id, notification)
-            return
+            return notifyLocally(tag, id, notification)
         }
-        runSystemCall("notify", packageName, fallback = {
+        return runSystemCall("notify", packageName, fallback = {
             XLog.d(TAG, "notify() system call failed, falling back to local: $packageName id=$id")
             notifyLocally(tag, id, notification)
         }) {
@@ -139,6 +139,7 @@ object SystemNotificationManager {
             val opPkg = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ANDROID_PACKAGE_NAME else packageName
             methodEnqueueNotificationWithTag.invoke(notificationManager, packageName, opPkg, tag, id, notification, getUserId())
             XLog.d(TAG, "notify() enqueue OK pkg=$packageName id=$id")
+            true
         }
     }
 

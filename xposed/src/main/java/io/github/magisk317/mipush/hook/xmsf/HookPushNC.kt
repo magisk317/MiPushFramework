@@ -18,7 +18,7 @@ import java.lang.reflect.InvocationTargetException
 
 object HookPushNC {
     private const val TAG = "HookPushNC"
-    private const val ExpectedHookApiVersion = 1
+    private const val ExpectedHookApiVersion = 2
 
     private const val TargetClass = "io.github.magisk317.mipush.notification.NotificationManagerEx"
     private const val IdentityBridgeClass = "com.xiaomi.push.service.NotificationIdentityBridge"
@@ -61,7 +61,7 @@ object HookPushNC {
         //notify(
         //        packageName: String,
         //        tag: String?, id: Int, notification: Notification
-        //    )
+        //    ): Boolean
         classNotificationManager.hookMethod(
             "notify",
             String::class.java,
@@ -421,7 +421,6 @@ object HookPushNC {
                         args[3] as Int,
                         args[4] as Notification
                     )
-                    return@replace true
                 }
             }
         }
