@@ -9,26 +9,74 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlin.math.abs
+
+private const val CHROME_SCROLL_THRESHOLD_PX = 32
+private const val BOTTOM_REVEAL_SCROLL_THRESHOLD_PX = 96
 
 class MainScrollChromeState {
     var isChromeVisible by mutableStateOf(true)
         private set
 
+    private var accumulatedScrollDelta = 0
+    private var wasAtBottom = false
+    private var accumulatedBottomRevealDelta = 0
+
     fun show() {
         isChromeVisible = true
+        accumulatedScrollDelta = 0
+        wasAtBottom = false
+        accumulatedBottomRevealDelta = 0
     }
 
     fun hide() {
         isChromeVisible = false
+        accumulatedScrollDelta = 0
+        wasAtBottom = false
+        accumulatedBottomRevealDelta = 0
     }
 
-    fun onScrollDelta(delta: Int, atTop: Boolean = false) {
+    fun onScrollDelta(delta: Int, atTop: Boolean = false, atBottom: Boolean = false) {
+        if (delta == 0) return
         when {
             atTop -> show()
-            delta > 0 -> hide()
-            delta < 0 -> show()
+            atBottom -> {
+                wasAtBottom = true
+                accumulatedBottomRevealDelta = 0
+                if (delta < 0) accumulatedScrollDelta = 0 else handleDirectionalDelta(delta)
+            }
+            wasAtBottom && delta < 0 -> handleBottomExitDelta(delta)
+            else -> {
+                if (delta > 0) wasAtBottom = false
+                accumulatedBottomRevealDelta = 0
+                handleDirectionalDelta(delta)
+            }
         }
     }
+
+    private fun handleBottomExitDelta(delta: Int) {
+        accumulatedBottomRevealDelta = if (accumulatedBottomRevealDelta.signMatches(delta)) {
+            accumulatedBottomRevealDelta + delta
+        } else {
+            delta
+        }
+        if (abs(accumulatedBottomRevealDelta) < BOTTOM_REVEAL_SCROLL_THRESHOLD_PX) return
+        show()
+    }
+
+    private fun handleDirectionalDelta(delta: Int, thresholdPx: Int = CHROME_SCROLL_THRESHOLD_PX) {
+        accumulatedScrollDelta = if (accumulatedScrollDelta.signMatches(delta)) {
+            accumulatedScrollDelta + delta
+        } else {
+            delta
+        }
+        if (abs(accumulatedScrollDelta) < thresholdPx) return
+        if (accumulatedScrollDelta > 0) hide() else show()
+    }
+}
+
+private fun Int.signMatches(other: Int): Boolean {
+    return this == 0 || (this > 0 && other > 0) || (this < 0 && other < 0)
 }
 
 @Composable
@@ -47,11 +95,16 @@ fun ReportLazyListScrollToChrome(
             .distinctUntilChanged()
             .collect { (index, offset) ->
                 val delta = when {
-                    index > previousIndex -> 1
-                    index < previousIndex -> -1
-                    else -> offset.compareTo(previousOffset)
+                    index > previousIndex -> CHROME_SCROLL_THRESHOLD_PX
+                    index < previousIndex -> -CHROME_SCROLL_THRESHOLD_PX
+                    else -> offset - previousOffset
                 }
-                target.onScrollDelta(delta, atTop = index == 0 && offset == 0)
+                val layoutInfo = state.layoutInfo
+                val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()
+                val atBottom = lastVisible != null &&
+                    lastVisible.index >= layoutInfo.totalItemsCount - 1 &&
+                    lastVisible.offset + lastVisible.size <= layoutInfo.viewportEndOffset
+                target.onScrollDelta(delta, atTop = index == 0 && offset == 0, atBottom = atBottom)
                 previousIndex = index
                 previousOffset = offset
             }
@@ -69,7 +122,7 @@ fun ReportScrollStateToChrome(
         snapshotFlow { state.value }
             .distinctUntilChanged()
             .collect { value ->
-                target.onScrollDelta(value.compareTo(previousValue), atTop = value == 0)
+                target.onScrollDelta(value - previousValue, atTop = value == 0, atBottom = value >= state.maxValue)
                 previousValue = value
             }
     }

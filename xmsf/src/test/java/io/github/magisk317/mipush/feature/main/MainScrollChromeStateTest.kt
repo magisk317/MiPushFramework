@@ -13,7 +13,17 @@ class MainScrollChromeStateTest {
 
         assertTrue(state.isChromeVisible)
 
+        repeat(31) {
+            state.onScrollDelta(delta = 1)
+        }
+        assertTrue(state.isChromeVisible)
+
         state.onScrollDelta(delta = 1)
+        assertFalse(state.isChromeVisible)
+
+        repeat(31) {
+            state.onScrollDelta(delta = -1)
+        }
         assertFalse(state.isChromeVisible)
 
         state.onScrollDelta(delta = -1)
@@ -24,10 +34,40 @@ class MainScrollChromeStateTest {
     fun `top position always shows chrome`() {
         val state = MainScrollChromeState()
 
-        state.onScrollDelta(delta = 1)
+        state.onScrollDelta(delta = 32)
         assertFalse(state.isChromeVisible)
 
         state.onScrollDelta(delta = 1, atTop = true)
+        assertTrue(state.isChromeVisible)
+    }
+
+    @Test
+    fun `small bottom bounce does not reveal chrome`() {
+        val state = MainScrollChromeState()
+
+        state.onScrollDelta(delta = 32)
+        assertFalse(state.isChromeVisible)
+
+        state.onScrollDelta(delta = 20, atBottom = true)
+        assertFalse(state.isChromeVisible)
+
+        repeat(15) {
+            state.onScrollDelta(delta = -1)
+        }
+        assertFalse(state.isChromeVisible)
+    }
+
+    @Test
+    fun `intentional upward scroll after bottom reveals chrome`() {
+        val state = MainScrollChromeState()
+
+        state.onScrollDelta(delta = 32)
+        assertFalse(state.isChromeVisible)
+
+        state.onScrollDelta(delta = 20, atBottom = true)
+        repeat(96) {
+            state.onScrollDelta(delta = -1)
+        }
         assertTrue(state.isChromeVisible)
     }
 
