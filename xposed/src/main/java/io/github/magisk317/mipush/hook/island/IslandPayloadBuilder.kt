@@ -12,7 +12,14 @@ import io.github.d4viddf.hyperisland_kit.models.ImageTextInfoLeft
 import io.github.d4viddf.hyperisland_kit.models.ImageTextInfoRight
 import io.github.d4viddf.hyperisland_kit.models.PicInfo
 import io.github.d4viddf.hyperisland_kit.models.TextInfo
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 object IslandPayloadBuilder {
     private const val BUSINESS = "mipush_framework_push"
@@ -211,18 +218,32 @@ object IslandPayloadBuilder {
 
     private fun String.fixTextButtonJson(): String {
         return try {
-            val json = JSONObject(this)
-            val paramV2 = json.optJSONObject("param_v2") ?: return this
-            val buttons = paramV2.optJSONArray("textButton") ?: return this
-            for (index in 0 until buttons.length()) {
-                val button = buttons.getJSONObject(index)
-                val action = button.optString("actionIntent").takeIf { it.isNotBlank() }
-                    ?: continue
-                button.put("action", action)
-                button.remove("actionIntent")
-                button.remove("actionIntentType")
+            val root = Json.parseToJsonElement(this).jsonObject
+            val paramV2Element = root["param_v2"]?.jsonObject ?: return this
+            val buttonsElement = paramV2Element["textButton"]?.jsonArray ?: return this
+            
+            val newButtons = JsonArray(buttonsElement.map { buttonElement ->
+                val button = buttonElement.jsonObject
+                val action = button["actionIntent"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() }
+                if (action != null) {
+                    buildJsonObject {
+                        button.forEach { k, v -> if (k != "actionIntent" && k != "actionIntentType") put(k, v) }
+                        put("action", JsonPrimitive(action))
+                    }
+                } else {
+                    button
+                }
+            })
+            
+            val newParamV2 = buildJsonObject {
+                paramV2Element.forEach { k, v -> if (k != "textButton") put(k, v) }
+                put("textButton", newButtons)
             }
-            json.toString()
+            
+            buildJsonObject {
+                root.forEach { k, v -> if (k != "param_v2") put(k, v) }
+                put("param_v2", newParamV2)
+            }.toString()
         } catch (_: Throwable) {
             this
         }
@@ -230,12 +251,18 @@ object IslandPayloadBuilder {
 
     internal fun normalizeShowNotificationJson(raw: String, showNotification: Boolean): String {
         return try {
-            val json = JSONObject(raw)
-            json.put("isShowNotification", showNotification)
-            json.optJSONObject("param_v2")
-                ?.put("isShowNotification", showNotification)
-                ?.put("showNotification", showNotification)
-            json.toString()
+            val root = Json.parseToJsonElement(raw).jsonObject
+            buildJsonObject {
+                root.forEach { k, v -> if (k != "isShowNotification" && k != "param_v2") put(k, v) }
+                put("isShowNotification", JsonPrimitive(showNotification))
+                root["param_v2"]?.jsonObject?.let { paramV2 ->
+                    put("param_v2", buildJsonObject {
+                        paramV2.forEach { k, v -> if (k != "isShowNotification" && k != "showNotification") put(k, v) }
+                        put("isShowNotification", JsonPrimitive(showNotification))
+                        put("showNotification", JsonPrimitive(showNotification))
+                    })
+                }
+            }.toString()
         } catch (_: Throwable) {
             raw
         }
@@ -250,17 +277,25 @@ object IslandPayloadBuilder {
     ): String {
         if (highlightColor.isNullOrBlank() && !islandOuterGlow) return this
         return try {
-            val json = JSONObject(this)
-            val paramV2 = json.optJSONObject("param_v2") ?: return this
-            val paramIsland = paramV2.optJSONObject("param_island") ?: JSONObject()
-            if (!highlightColor.isNullOrBlank()) {
-                paramIsland.put("highlightColor", highlightColor)
+            val root = Json.parseToJsonElement(this).jsonObject
+            val paramV2Element = root["param_v2"]?.jsonObject ?: return this
+            val paramIslandElement = paramV2Element["param_island"]?.jsonObject ?: JsonObject(emptyMap())
+            
+            val newParamIsland = buildJsonObject {
+                paramIslandElement.forEach { k, v -> put(k, v) }
+                if (!highlightColor.isNullOrBlank()) put("highlightColor", JsonPrimitive(highlightColor))
+                if (islandOuterGlow) put("outEffectSrc", JsonPrimitive("outer_glow"))
             }
-            if (islandOuterGlow) {
-                paramIsland.put("outEffectSrc", "outer_glow")
+            
+            val newParamV2 = buildJsonObject {
+                paramV2Element.forEach { k, v -> if (k != "param_island") put(k, v) }
+                put("param_island", newParamIsland)
             }
-            paramV2.put("param_island", paramIsland)
-            json.toString()
+            
+            buildJsonObject {
+                root.forEach { k, v -> if (k != "param_v2") put(k, v) }
+                put("param_v2", newParamV2)
+            }.toString()
         } catch (_: Throwable) {
             this
         }

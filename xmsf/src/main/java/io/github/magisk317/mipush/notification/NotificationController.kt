@@ -535,7 +535,7 @@ object NotificationController {
         val pkgContext = XMPushUtils.getPackageContext(
             context,
             packageName,
-            Context.CONTEXT_INCLUDE_CODE or Context.CONTEXT_IGNORE_SECURITY
+            Context.CONTEXT_IGNORE_SECURITY
         )
         if (pkgContext === context) {
             // Means it failed or not hooked

@@ -3,7 +3,7 @@
 compileSdk = "37"
 minSdk = "28"
 targetSdk = "37"
-java = "26"
+java = "25"
 
 # App version
 versionCode = "7"
@@ -41,7 +41,6 @@ miuix = "0.8.8"
 mockk = "1.14.9"
 napier = "2.7.1"
 navigation = "2.9.8"
-org-json = "20240303"
 robolectric = "4.16.1"
 robolectric-junit5 = "0.9.0"
 room = "2.8.4"
@@ -55,7 +54,7 @@ androidx-collection = { module = "androidx.collection:collection", version.ref =
 androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }
 androidx-compose-foundation = { module = "androidx.compose.foundation:foundation" }
 androidx-compose-material-icons-core = { module = "androidx.compose.material:material-icons-core" }
-androidx-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
+androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
 androidx-compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "material3" }
 androidx-compose-ui = { module = "androidx.compose.ui:ui" }
 androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
@@ -89,7 +88,6 @@ markdown = { module = "org.jetbrains:markdown", version.ref = "markdown" }
 miuix = { module = "top.yukonga.miuix.kmp:miuix", version.ref = "miuix" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 napier = { module = "io.github.aakira:napier", version.ref = "napier" }
-org-json = { module = "org.json:json", version.ref = "org-json" }
 palette = { module = "androidx.palette:palette", version = "1.0.0" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 robolectric-junit5-extension = { module = "tech.apter.junit5.jupiter:robolectric-extension", version.ref = "robolectric-junit5" }

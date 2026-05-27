@@ -143,7 +143,6 @@ dependencies {
     implementation(libs.hiddenapibypass)
     testImplementation(libs.libxposed.api)
     testImplementation(libs.junit.jupiter)
-    testImplementation(libs.org.json)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 

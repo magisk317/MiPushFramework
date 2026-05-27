@@ -46,7 +46,7 @@ class MiPushManifestChecker private constructor(
             val appCtx = XMPushUtils.getPackageContext(
                 context,
                 packageName,
-                Context.CONTEXT_IGNORE_SECURITY or Context.CONTEXT_INCLUDE_CODE
+                Context.CONTEXT_IGNORE_SECURITY
             )
             ManifestChecker.checkReceivers(appCtx)
             true
