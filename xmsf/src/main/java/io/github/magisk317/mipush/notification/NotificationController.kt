@@ -48,7 +48,9 @@ object NotificationController {
     private const val PIC_ICON = "miui.focus.pic_mipush_icon"
     private const val SYSTEM_UI_PACKAGE = "com.android.systemui"
     private const val ACTION_SHOW_ISLAND = "io.github.magisk317.mipush.action.SHOW_ISLAND"
+    private const val ACTION_CANCEL_ISLAND = "io.github.magisk317.mipush.action.CANCEL_ISLAND"
     private const val EXTRA_ALLOW_ISLAND_PROXY = "mipush_island_allow_proxy"
+    private const val EXTRA_NOTIFICATION_ID = "notification_id"
     private const val NOTIFICATION_LARGE_ICON = "mipush_notification"
     private const val NOTIFICATION_SMALL_ICON = "mipush_small_notification"
     private const val KIB = 1024
@@ -140,7 +142,7 @@ object NotificationController {
 
         val notification = notify(context, notificationId, packageName, notificationBuilder, metaInfo)
         if (notification == null) {
-            Napier.d("publish dropped pkg=$packageName id=$notificationId (contentless, channel, or publish issue)", tag = TAG)
+            Napier.d("publish skipped pkg=$packageName id=$notificationId (contentless, channel, or publish issue)", tag = TAG)
             return
         }
         Napier.d("publish posted pkg=$packageName id=$notificationId group=${notification.group} tag=${MyMIPushNotificationHelper.getNotificationTag(packageName)}", tag = TAG)
@@ -208,10 +210,23 @@ object NotificationController {
         } else {
             null
         }
+        val generatedFocusBundle = if (configuredFocusBundle == null && generatedFocusCandidate) {
+            MiPushIslandPayloadBuilder.build(
+                context = context,
+                metaInfo = metaInfo,
+                packageName = packageName,
+                largeIcon = largeIcon,
+                notificationId = notificationId,
+                notificationIcon = previewNotification.getLargeIconCompat(),
+                options = islandOptions,
+            )
+        } else {
+            null
+        }
         if (configuredFocusBundle != null) {
             notificationBuilder.addExtras(configuredFocusBundle)
             notificationBuilder.priority = NotificationCompat.PRIORITY_HIGH
-        } else if (generatedFocusCandidate) {
+        } else if (generatedFocusCandidate && !NotificationManagerEx.isHooked) {
             notificationBuilder.addExtras(
                 Bundle().apply {
                     putBoolean(EXTRA_ALLOW_ISLAND_PROXY, true)
@@ -242,16 +257,109 @@ object NotificationController {
                 focusNotificationKey(context, packageName, notificationId, tag)
             )
         }
-        if (!getNotificationManagerEx().notify(packageName, tag, notificationId, notification)) {
+        val notificationToPost = if (generatedFocusBundle != null &&
+            sendGeneratedIslandProxy(
+                context = context,
+                metaInfo = metaInfo,
+                packageName = packageName,
+                notificationId = notificationId,
+                tag = tag,
+                notification = notification,
+                options = islandOptions,
+            )
+        ) {
+            quietGeneratedIslandStatusBarNotification(notificationBuilder)
+            ProgressStyleBuilder.buildNotification(context, notificationBuilder)
+        } else {
+            notification
+        }
+        if (!getNotificationManagerEx().notify(packageName, tag, notificationId, notificationToPost)) {
             Napier.w(
-                "publish failed pkg=$packageName id=$notificationId tag=$tag channel=${notification.channelId}",
+                "publish failed pkg=$packageName id=$notificationId tag=$tag channel=${notificationToPost.channelId}",
                 tag = TAG
             )
             PushRuntime.observeNotificationEvent(packageName, "notification_publish_failed", "NotificationController.publish")
             return null
         }
         PushRuntime.observeNotificationEvent(packageName, "notification_publish_posted", "NotificationController.publish")
-        return notification
+        return notificationToPost
+    }
+
+    private fun quietGeneratedIslandStatusBarNotification(notificationBuilder: NotificationCompat.Builder) {
+        notificationBuilder.setDefaults(0)
+        notificationBuilder.setOnlyAlertOnce(true)
+    }
+
+    private fun sendGeneratedIslandProxy(
+        context: Context,
+        metaInfo: PushMetaInfo,
+        packageName: String,
+        notificationId: Int,
+        tag: String?,
+        notification: Notification,
+        options: MiPushIslandOptions,
+    ): Boolean {
+        if (!NotificationManagerEx.isHooked) {
+            return false
+        }
+        val title = firstText(
+            notification.extras,
+            Notification.EXTRA_TITLE,
+            Notification.EXTRA_TITLE_BIG,
+        ) ?: notification.tickerText?.toString()
+            ?: metaInfo.title?.takeIf { it.isNotBlank() }
+            ?: metaInfo.description?.takeIf { it.isNotBlank() }
+            ?: return false
+        val content = firstText(
+            notification.extras,
+            Notification.EXTRA_TEXT,
+            Notification.EXTRA_BIG_TEXT,
+            Notification.EXTRA_SUB_TEXT,
+            Notification.EXTRA_INFO_TEXT,
+        ) ?: metaInfo.description?.takeIf { it.isNotBlank() }
+            ?: title
+        val appContext = context.applicationContext ?: context
+        val proxyId = islandProxyNotificationId(packageName, notificationId, tag)
+        return runCatching {
+            appContext.sendBroadcast(
+                Intent(ACTION_SHOW_ISLAND).apply {
+                    setPackage(SYSTEM_UI_PACKAGE)
+                    putExtra("title", title)
+                    putExtra("content", content)
+                    putExtra(
+                        "icon",
+                        MiPushIslandPayloadBuilder.resolveNotificationIcon(
+                            context = appContext,
+                            packageName = packageName,
+                            notificationIcon = notification.getLargeIconCompat(),
+                            largeIcon = null,
+                        ),
+                    )
+                    putExtra("notificationId", proxyId)
+                    putExtra("timeoutSecs", options.timeoutSecs)
+                    putExtra("firstFloat", options.firstFloat)
+                    putExtra("enableFloat", options.enableFloat)
+                    putExtra("showNotification", options.showNotification)
+                    putExtra("sourcePackage", packageName)
+                    putExtra("sourceChannelId", notification.channelId)
+                    putExtra("contentIntent", notification.contentIntent)
+                    putExtra("isOngoing", notification.flags and Notification.FLAG_ONGOING_EVENT != 0)
+                    putExtra("showIslandIcon", true)
+                    putExtra("clearBeforePost", true)
+                },
+            )
+        }.fold(
+            onSuccess = {
+                PushRuntime.observeNotificationEvent(packageName, "notification_island_proxy_posted", "NotificationController.publish")
+                Napier.d("posted island proxy pkg=$packageName id=$notificationId proxyId=$proxyId", tag = TAG)
+                true
+            },
+            onFailure = {
+                PushRuntime.observeNotificationEvent(packageName, "notification_island_proxy_failed", "NotificationController.publish")
+                Napier.w("island proxy failed pkg=$packageName id=$notificationId: ${it.message}", it, tag = TAG)
+                false
+            },
+        )
     }
 
     @JvmStatic
@@ -373,6 +481,7 @@ object NotificationController {
     ) {
         MyMIPushNotificationStyleSupport.clearConversationHistory(container.packageName, notificationId)
         val tag = MyMIPushNotificationHelper.getNotificationTag(container)
+        cancelGeneratedIslandProxy(context, container.packageName, notificationId, tag)
         getNotificationManagerEx().cancel(container.packageName, tag, notificationId)
         FocusNotificationRegistry.unregisterAllUidVariants(
             context,
@@ -430,6 +539,7 @@ object NotificationController {
         )
         if (pkgContext === context) {
             // Means it failed or not hooked
+            setAppIconSmallIcon(context, packageName, notificationBuilder)
             return color
         }
         val largeIconId = getIconId(context, packageName, NOTIFICATION_LARGE_ICON)
@@ -474,9 +584,54 @@ object NotificationController {
             )
             if (iconCache != null) {
                 notificationBuilder.setSmallIcon(iconCache)
+                return color
             }
+            setAppIconSmallIcon(context, packageName, notificationBuilder)
         }
         return color
+    }
+
+    private fun setAppIconSmallIcon(
+        context: Context,
+        packageName: String,
+        notificationBuilder: NotificationCompat.Builder,
+    ): Boolean {
+        val iconBitmap = Global.iconCache().getRawIconBitmap(context, packageName)
+            ?: return false
+        notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(iconBitmap))
+        return true
+    }
+
+    private fun cancelGeneratedIslandProxy(
+        context: Context,
+        packageName: String,
+        notificationId: Int,
+        tag: String?,
+    ) {
+        if (!NotificationManagerEx.isHooked) {
+            return
+        }
+        runCatching {
+            (context.applicationContext ?: context).sendBroadcast(
+                Intent(ACTION_CANCEL_ISLAND).apply {
+                    setPackage(SYSTEM_UI_PACKAGE)
+                    putExtra(EXTRA_NOTIFICATION_ID, islandProxyNotificationId(packageName, notificationId, tag))
+                },
+            )
+        }.onFailure {
+            Napier.w("cancel island proxy failed pkg=$packageName id=$notificationId: ${it.message}", it, tag = TAG)
+        }
+    }
+
+    private fun firstText(extras: Bundle?, vararg keys: String): String? {
+        if (extras == null) return null
+        return keys.firstNotNullOfOrNull { key ->
+            extras.getCharSequence(key)?.toString()?.takeIf { it.isNotBlank() }
+        }
+    }
+
+    private fun islandProxyNotificationId(packageName: String, notificationId: Int, tag: String?): Int {
+        return "mipush_island:$packageName:$notificationId:${tag.orEmpty()}".hashCode()
     }
 
     @JvmStatic

@@ -37,7 +37,3 @@ org.eclipse.buildship.core.prefs
 # Logs
 *.log
 /log
-
-# Local remote-device helpers
-/scripts/xmsf_remote_adb_exec.sh
-/scripts/xmsf_remote_device_regression.sh
