@@ -141,6 +141,7 @@ dependencies {
     compileOnly(libs.libxposed.api)
     implementation(libs.hyperisland.kit)
     implementation(libs.hiddenapibypass)
+    implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.libxposed.api)
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)

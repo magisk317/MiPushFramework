@@ -1,6 +1,9 @@
 package io.github.magisk317.mipush.hook.island
 
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -21,11 +24,11 @@ class IslandPayloadBuilderTest {
 
         val result = IslandPayloadBuilder.normalizeShowNotificationJson(raw, showNotification = false)
 
-        val root = JSONObject(result)
-        val paramV2 = root.getJSONObject("param_v2")
-        assertFalse(root.getBoolean("isShowNotification"))
-        assertFalse(paramV2.getBoolean("isShowNotification"))
-        assertFalse(paramV2.getBoolean("showNotification"))
+        val root = Json.parseToJsonElement(result).jsonObject
+        val paramV2 = root["param_v2"]!!.jsonObject
+        assertFalse(root["isShowNotification"]!!.jsonPrimitive.boolean)
+        assertFalse(paramV2["isShowNotification"]!!.jsonPrimitive.boolean)
+        assertFalse(paramV2["showNotification"]!!.jsonPrimitive.boolean)
     }
 
     @Test
@@ -43,10 +46,10 @@ class IslandPayloadBuilderTest {
 
         val result = IslandPayloadBuilder.normalizeShowNotificationJson(raw, showNotification = true)
 
-        val root = JSONObject(result)
-        val paramV2 = root.getJSONObject("param_v2")
-        assertTrue(root.getBoolean("isShowNotification"))
-        assertTrue(paramV2.getBoolean("isShowNotification"))
-        assertTrue(paramV2.getBoolean("showNotification"))
+        val root = Json.parseToJsonElement(result).jsonObject
+        val paramV2 = root["param_v2"]!!.jsonObject
+        assertTrue(root["isShowNotification"]!!.jsonPrimitive.boolean)
+        assertTrue(paramV2["isShowNotification"]!!.jsonPrimitive.boolean)
+        assertTrue(paramV2["showNotification"]!!.jsonPrimitive.boolean)
     }
 }
