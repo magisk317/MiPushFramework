@@ -106,10 +106,17 @@ internal object MIPushNotificationBuilderSupport {
                 if (onlineSmallIcon != null) {
                     builder.setSmallIcon(Icon.createWithBitmap(onlineSmallIcon))
                 } else {
-                    builder.setSmallIcon(Icon.createWithResource(packageName, NotificationUtils.getIdForSmallIconFromTargetPkg(context, packageName)))
+                    val targetIconId = NotificationUtils.getIdForSmallIconFromTargetPkg(context, packageName)
+                    if (targetIconId > 0) {
+                        builder.setSmallIcon(Icon.createWithResource(packageName, targetIconId))
+                    } else if (!setSmallIconFromTargetApp(context, builder, packageName)) {
+                        builder.setSmallIcon(MIPushNotificationViewSupport.getIdForSmallIcon(context, packageName))
+                    }
                 }
             } catch (_: Throwable) {
-                builder.setSmallIcon(MIPushNotificationViewSupport.getIdForSmallIcon(context, packageName))
+                if (!setSmallIconFromTargetApp(context, builder, packageName)) {
+                    builder.setSmallIcon(MIPushNotificationViewSupport.getIdForSmallIcon(context, packageName))
+                }
             }
         } else {
             builder.setSmallIcon(MIPushNotificationViewSupport.getIdForSmallIcon(context, packageName))
@@ -117,6 +124,20 @@ internal object MIPushNotificationBuilderSupport {
         extra?.get(NOTIFICATION_LARGE_ICON_URI)?.let {
             MIPushOnlineResourceSupport.getOnlinePictureResource(context, it, false)
         }?.let(builder::setLargeIcon)
+    }
+
+    private fun setSmallIconFromTargetApp(
+        context: Context,
+        builder: BuilderCompat,
+        packageName: String,
+    ): Boolean {
+        val bitmap = runCatching {
+            MIPushNotificationViewSupport.drawableToBitmap(
+                context.packageManager.getApplicationIcon(packageName),
+            )
+        }.getOrNull() ?: return false
+        builder.setSmallIcon(Icon.createWithBitmap(bitmap))
+        return true
     }
 
     @JvmStatic
