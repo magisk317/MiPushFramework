@@ -49,6 +49,7 @@ object IslandPayloadBuilder {
             actions = actions,
         )
             .buildJsonParam()
+            .normalizeShowNotification(showNotification)
             .fixTextButtonJson()
             .injectIslandAppearance(highlightColor, islandOuterGlow)
     }
@@ -98,6 +99,7 @@ object IslandPayloadBuilder {
                 IslandDispatchContract.FOCUS_PARAM,
                 notification
                     .buildJsonParam()
+                    .normalizeShowNotification(showNotification)
                     .fixTextButtonJson()
                     .injectIslandAppearance(highlightColor, islandOuterGlow),
             )
@@ -225,6 +227,22 @@ object IslandPayloadBuilder {
             this
         }
     }
+
+    internal fun normalizeShowNotificationJson(raw: String, showNotification: Boolean): String {
+        return try {
+            val json = JSONObject(raw)
+            json.put("isShowNotification", showNotification)
+            json.optJSONObject("param_v2")
+                ?.put("isShowNotification", showNotification)
+                ?.put("showNotification", showNotification)
+            json.toString()
+        } catch (_: Throwable) {
+            raw
+        }
+    }
+
+    private fun String.normalizeShowNotification(showNotification: Boolean): String =
+        normalizeShowNotificationJson(this, showNotification)
 
     private fun String.injectIslandAppearance(
         highlightColor: String?,

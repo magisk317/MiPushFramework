@@ -43,6 +43,7 @@ libsu = "6.0.0"
 mockk = "1.14.9"
 bytebuddy = "1.18.8"
 napier = "2.7.1"
+org-json = "20240303"
 robolectric = "4.16.1"
 robolectric-junit5 = "0.9.0"
 room = "2.8.4"
@@ -92,6 +93,7 @@ libxposed-api = { module = "io.github.libxposed:api", version.ref = "libxposed-a
 
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit5" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit-platform" }
+org-json = { module = "org.json:json", version.ref = "org-json" }
 androidx-test-ext = { module = "androidx.test.ext:junit", version.ref = "androidx-test-ext" }
 androidx-test-espresso = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
