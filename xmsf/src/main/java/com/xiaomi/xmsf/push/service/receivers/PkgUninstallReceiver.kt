@@ -38,7 +38,7 @@ class PkgUninstallReceiver : BroadcastReceiver() {
                     )
                     PushServiceStarter.start(context, serviceIntent)
                 } catch (e: Exception) {
-                    logE(e.message, e)
+                    logE(e.message ?: "error", e)
                 }
             }
         }

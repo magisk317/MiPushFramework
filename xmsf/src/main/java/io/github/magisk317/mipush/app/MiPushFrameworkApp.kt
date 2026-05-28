@@ -92,7 +92,7 @@ class MiPushFrameworkApp : Application() {
                 notifyDozeWhiteListRequest(NotificationManagerCompat.from(this))
             }
         } catch (e: RuntimeException) {
-            logE(e.message, e)
+            logE(e.message ?: "error", e)
         }
     }
 

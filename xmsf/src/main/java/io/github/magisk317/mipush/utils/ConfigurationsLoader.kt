@@ -64,7 +64,7 @@ class ConfigurationsLoader private constructor(
             if (exceptions.isNotEmpty()) {
                 for (pair in exceptions) {
                     val errmsg = getJsonExceptionMessage(context, pair)
-                    logE(errmsg)
+                    logE(errmsg.toString())
                     Utils.makeText(context, errmsg.toString(), Toast.LENGTH_LONG)
                 }
                 break
@@ -85,10 +85,10 @@ class ConfigurationsLoader private constructor(
         mContext = context
         mTreeUri = treeUri
         mDocumentFile = documentFile
-        logD("parseDirectory uri: [%s]", treeUri.path)
-        val files = DocumentFileCompat.listFiles(context, treeUri) ?: return false
+        logD("parseDirectory uri: [${treeUri.path}]")
+        val files = documentFile.listFiles()
         for (file in files) {
-            logD("file: [%s], type: [%s]", file.name, file.type)
+            logD("file: [${file.name}], type: [${file.type}]")
             val name = file.name ?: continue
             if (!name.lowercase().endsWith(".json")) {
                 continue

@@ -36,7 +36,7 @@ class KeepAliveReceiver : BroadcastReceiver() {
             localIntent.action = PushServiceConstants.ACTION_CHECK_ALIVE
             PushServiceStarter.start(context, localIntent)
         } catch (localException: Throwable) {
-            logE(localException.message, localException)
+            logE(localException.message ?: "error", localException)
         }
     }
 }

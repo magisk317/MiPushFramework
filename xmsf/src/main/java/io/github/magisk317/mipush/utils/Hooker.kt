@@ -73,7 +73,7 @@ object Hooker {
             hookMiPushServerHost()
             NetworkPolicyCompat.applyAll(context.applicationContext)
         } catch (e: Throwable) {
-            logE(e.message, e)
+            logE(e.message ?: "error", e)
         }
     }
 
@@ -121,7 +121,7 @@ object Hooker {
             target.isAccessible = true
             target.set(null, value)
         } catch (e: Throwable) {
-            logE(e.message, e)
+            logE(e.message ?: "error", e)
         }
     }
 

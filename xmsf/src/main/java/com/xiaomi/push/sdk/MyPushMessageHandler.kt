@@ -97,7 +97,7 @@ class MyPushMessageHandler : Service() {
                 }
             }
         } catch (e: Exception) {
-            logE(e.localizedMessage, e)
+            logE(e.localizedMessage ?: "error", e)
         }
     }
 

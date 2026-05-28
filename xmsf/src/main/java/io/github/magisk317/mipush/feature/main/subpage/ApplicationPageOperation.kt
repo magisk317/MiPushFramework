@@ -41,31 +41,31 @@ object ApplicationPageOperation {
         val timer = ElapsedTimer()
         
         val registeredPkgs = getRegisteredApplicationMap(miPushApplications)
-        logD("[loadApp] get registeredPkgs ms: %d", timer.restart())
+        logD("[loadApp] get registeredPkgs ms: ${timer.restart()}")
 
         val packageInfos = getPackagesOnDevice().filter(::isUserApplication).toMutableList()
         miPushApplications.totalPkg = packageInfos.size
-        logD("[loadApp] get package info ms: %d", timer.restart())
+        logD("[loadApp] get package info ms: ${timer.restart()}")
 
         // Batch fetch all last receive times to avoid N+1 queries
         val lastReceiveTimes = runBlocking { EventDb.getAllLastReceiveTimesAsync() }
-        logD("[loadApp] batch fetch lastReceiveTimes ms: %d", timer.restart())
+        logD("[loadApp] batch fetch lastReceiveTimes ms: ${timer.restart()}")
 
         removePackagesThatNotSupportMiPushServices(packageInfos, registeredPkgs)
-        logD("[loadApp] filter not service package ms: %d", timer.restart())
+        logD("[loadApp] filter not service package ms: ${timer.restart()}")
 
         val res = convertToRegisteredApplicationList(packageInfos, registeredPkgs)
         miPushApplications.res = res
-        logD("[loadApp] convert to application list ms: %d", timer.restart())
+        logD("[loadApp] convert to application list ms: ${timer.restart()}")
 
         addApplicationNameIfMissing(res)
-        logD("[loadApp] query name ms: %d", timer.restart())
+        logD("[loadApp] query name ms: ${timer.restart()}")
 
         addApplicationPinYinName(res)
-        logD("[loadApp] query pinyin ms: %d", timer.restart())
+        logD("[loadApp] query pinyin ms: ${timer.restart()}")
 
         addLastReceiveTimeInfo(res, lastReceiveTimes)
-        logD("[loadApp] query lastReceiveTime ms: %d", timer.restart())
+        logD("[loadApp] query lastReceiveTime ms: ${timer.restart()}")
         return miPushApplications
     }
 
@@ -330,14 +330,14 @@ object ApplicationPageOperation {
 
         val timer = ElapsedTimer()
         removeApplicationsThatQueryNotMatched(miPushApplications, query)
-        logD("[loadApp] filter app search ms: %d", timer.restart())
+        logD("[loadApp] filter app search ms: ${timer.restart()}")
 
         filterApplicationsByMode(miPushApplications, filterMode)
-        logD("[loadApp] filter app mode ms: %d", timer.restart())
+        logD("[loadApp] filter app mode ms: ${timer.restart()}")
 
         sortApplicationsForDisplay(miPushApplications)
-        logD("[loadApp] sort application list will show ms: %d", timer.restart())
-        logD("[loadApp] end load app list ms: %d", totalTimer.elapsed())
+        logD("[loadApp] sort application list will show ms: ${timer.restart()}")
+        logD("[loadApp] end load app list ms: ${totalTimer.elapsed()}")
         return miPushApplications
     }
 
@@ -353,10 +353,7 @@ object ApplicationPageOperation {
         
         val localRegisteredPkgs = RegistrationStateCompat.findPackagesWithValidLocalRegistration(notRegisteredPkgs)
         logD(
-            "[updateApp] local registration probe ms: %d, queried=%d, matched=%d",
-            timer.restart(),
-            notRegisteredPkgs.size,
-            localRegisteredPkgs.size
+            "[updateApp] local registration probe ms: ${timer.restart()}, queried=${notRegisteredPkgs.size}, matched=${localRegisteredPkgs.size}"
         )
 
         for (application in list) {
@@ -378,8 +375,8 @@ object ApplicationPageOperation {
                 RegisteredApplicationDb.update(application)
             }
         }
-        logD("[updateApp] update app ms: %d", timer.restart())
-        logD("[updateApp] updated ms: %d", totalTimer.elapsed())
+        logD("[updateApp] update app ms: ${timer.restart()}")
+        logD("[updateApp] updated ms: ${totalTimer.elapsed()}")
     }
 
     @JvmStatic
