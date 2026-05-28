@@ -14,8 +14,7 @@ import androidx.core.app.NotificationCompat
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import io.github.magisk317.mipush.common.utils.CustomConfiguration
 import io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind
-import io.github.magisk317.mipush.feature.main.MainActivity
-import io.github.magisk317.mipush.feature.navigation.AppDestinations
+import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 import org.json.JSONObject
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -33,6 +32,13 @@ import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 @ExtendWith(RobolectricExtension::class)
 @Config(sdk = [28])
 class NotificationControllerRobolectricTest {
+
+    companion object {
+        /** Mirrors [io.github.magisk317.mipush.feature.navigation.AppDestinations.EventsList.ROUTE] */
+        private const val EVENTS_ROUTE = "events"
+        /** Mirrors MainActivity.EXTRA_START_ROUTE */
+        private const val EXTRA_START_ROUTE = "extra_start_route"
+    }
 
     @AfterEach
     fun tearDown() {
@@ -170,8 +176,7 @@ class NotificationControllerRobolectricTest {
     @Test
     fun `island payload wires click action as activity action`() {
         val context = RuntimeEnvironment.getApplication()
-        val clickIntent = android.content.Intent(context, MainActivity::class.java)
-            .putExtra(MainActivity.EXTRA_START_ROUTE, AppDestinations.EventsList.ROUTE)
+        val clickIntent = LegacyUiEntryPoints.mainActivityIntent(context, startRoute = EVENTS_ROUTE)
         val clickPendingIntent = PendingIntent.getActivity(
             context,
             0,
@@ -206,8 +211,8 @@ class NotificationControllerRobolectricTest {
         assertNotNull(action)
         assertTrue(shadowOf(action!!.actionIntent).isActivity)
         assertEquals(
-            AppDestinations.EventsList.ROUTE,
-            shadowOf(action.actionIntent).savedIntent.getStringExtra(MainActivity.EXTRA_START_ROUTE),
+            EVENTS_ROUTE,
+            shadowOf(action.actionIntent).savedIntent.getStringExtra(EXTRA_START_ROUTE),
         )
     }
 
@@ -226,8 +231,8 @@ class NotificationControllerRobolectricTest {
         assertEquals(packageName, posted.extras.getString("target_package"))
         assertTrue(shadowOf(posted.contentIntent).isActivity)
         assertEquals(
-            AppDestinations.EventsList.ROUTE,
-            shadowOf(posted.contentIntent).savedIntent.getStringExtra(MainActivity.EXTRA_START_ROUTE),
+            EVENTS_ROUTE,
+            shadowOf(posted.contentIntent).savedIntent.getStringExtra(EXTRA_START_ROUTE),
         )
     }
 
@@ -253,12 +258,12 @@ class NotificationControllerRobolectricTest {
         assertTrue(shadowOf(posted.contentIntent).isActivity)
         assertTrue(shadowOf(action!!.actionIntent).isActivity)
         assertEquals(
-            AppDestinations.EventsList.ROUTE,
-            shadowOf(posted.contentIntent).savedIntent.getStringExtra(MainActivity.EXTRA_START_ROUTE),
+            EVENTS_ROUTE,
+            shadowOf(posted.contentIntent).savedIntent.getStringExtra(EXTRA_START_ROUTE),
         )
         assertEquals(
-            AppDestinations.EventsList.ROUTE,
-            shadowOf(action.actionIntent).savedIntent.getStringExtra(MainActivity.EXTRA_START_ROUTE),
+            EVENTS_ROUTE,
+            shadowOf(action.actionIntent).savedIntent.getStringExtra(EXTRA_START_ROUTE),
         )
     }
 
