@@ -246,6 +246,10 @@ object NotificationController {
         }
         val notification = ProgressStyleBuilder.buildNotification(context, notificationBuilder)
         val channel = getNotificationManagerEx().getNotificationChannel(packageName, notification.channelId)
+        if (!NotificationChannelManager.isNotificationChannelEnabled(channel)) {
+            logger.d("drop disabled channel notification pkg=$packageName id=$notificationId channel=${notification.channelId}")
+            return null
+        }
         if (!NotificationContentSupport.hasMeaningfulVisibleText(context, packageName, notification, channel)) {
             logger.d("drop contentless notification pkg=$packageName id=$notificationId channel=${notification.channelId}")
             return null
