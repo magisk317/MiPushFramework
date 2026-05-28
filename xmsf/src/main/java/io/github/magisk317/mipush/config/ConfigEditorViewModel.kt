@@ -152,13 +152,14 @@ class ConfigEditorViewModel constructor(
                 return@launch
             }
             val validation = ConfigJsonSupport.validateAndFormat(state.draft)
-            if (!validation.valid || validation.formatted == null) {
+            val formattedText = validation.formatted
+            if (!validation.valid || formattedText == null) {
                 _uiState.update { it.copy(validationError = validation.errorMessage ?: "JSON 无法解析") }
                 return@launch
             }
             _uiState.update { it.copy(isSaving = true) }
             runCatching {
-                syncRepository.saveLocal(treeUri, state.path, validation.formatted)
+                syncRepository.saveLocal(treeUri, state.path, formattedText)
             }.onSuccess {
                 configCenter.loadConfigurations(context)
                 _uiState.update { it.copy(isSaving = false, isEditing = false, draft = "", message = "配置已保存") }

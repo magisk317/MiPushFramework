@@ -1,50 +1,32 @@
 package io.github.magisk317.mipush.config
 
+import io.github.magisk317.mipush.utils.ConfigListItem as CoreConfigListItem
+import io.github.magisk317.mipush.utils.ConfigSyncRecord
+import io.github.magisk317.mipush.utils.RemoteConfigFile
+import io.github.magisk317.mipush.utils.mergeConfigEntries as coreMergeConfigEntries
+import io.github.magisk317.mipush.utils.guessPackageConfigPath as coreGuessPackageConfigPath
+
+/**
+ * xmsf wrapper for [coreMergeConfigEntries] that accepts [LocalConfigFile] (with Android Uri)
+ * and converts to [LocalConfigSummary][io.github.magisk317.mipush.utils.LocalConfigSummary]
+ * before delegating to the platform-independent core implementation.
+ */
 fun mergeConfigEntries(
     remoteFiles: List<RemoteConfigFile>,
     localFiles: List<LocalConfigFile>,
     syncRecords: Map<String, ConfigSyncRecord>,
-): List<ConfigListItem> {
-    val remoteByPath = remoteFiles.associateBy { it.path }
-    val localByPath = localFiles.associateBy { it.path }
-    return (remoteByPath.keys + localByPath.keys)
-        .sorted()
-        .map { path ->
-            val remote = remoteByPath[path]
-            val local = localByPath[path]
-            val record = syncRecords[path]
-            ConfigListItem(
-                path = path,
-                displayName = local?.name ?: remote?.name ?: path.removeSuffix(".json"),
-                status = determineStatus(local, remote, record),
-                local = local,
-                remote = remote,
-            )
-        }
+): List<CoreConfigListItem> {
+    return coreMergeConfigEntries(
+        remoteFiles = remoteFiles,
+        localFiles = localFiles.map { it.toSummary() },
+        syncRecords = syncRecords,
+    )
 }
 
-private fun determineStatus(
-    local: LocalConfigFile?,
-    remote: RemoteConfigFile?,
-    record: ConfigSyncRecord?,
-): ConfigSyncStatus {
-    return when {
-        local != null && !local.isValid -> ConfigSyncStatus.INVALID_LOCAL
-        local == null && remote != null -> ConfigSyncStatus.REMOTE_ONLY
-        local != null && remote == null -> ConfigSyncStatus.LOCAL_ONLY
-        local != null && remote != null && local.sha == remote.sha -> ConfigSyncStatus.IN_SYNC
-        local != null && remote != null && record != null && record.localSha != local.sha ->
-            ConfigSyncStatus.MODIFIED_LOCAL
-
-        local != null && remote != null -> ConfigSyncStatus.OUTDATED_LOCAL
-        else -> ConfigSyncStatus.LOCAL_ONLY
-    }
-}
-
+/**
+ * xmsf wrapper for [coreGuessPackageConfigPath] — delegates directly to core
+ * since the function signature is already platform-independent.
+ */
 fun guessPackageConfigPath(packageName: String, paths: Collection<String>): String? {
-    val direct = "$packageName.json"
-    val prefix = "${packageName}_"
-    return paths
-        .sorted()
-        .firstOrNull { path -> path == direct || path.startsWith(prefix) }
+    return coreGuessPackageConfigPath(packageName, paths)
 }

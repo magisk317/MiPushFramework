@@ -1,38 +1,12 @@
 package io.github.magisk317.mipush.config
 
 import android.net.Uri
-import kotlinx.serialization.Serializable
+import io.github.magisk317.mipush.utils.ConfigListItem as CoreConfigListItem
+import io.github.magisk317.mipush.utils.LocalConfigSummary
+import io.github.magisk317.mipush.utils.RemoteConfigCatalog as CoreRemoteConfigCatalog
+import io.github.magisk317.mipush.utils.RemoteConfigFile as CoreRemoteConfigFile
 
-@Serializable
-data class RemoteConfigCatalog(
-    val sourceRepo: String,
-    val branch: String,
-    val generatedAt: String,
-    val files: List<RemoteConfigFile>,
-)
-
-@Serializable
-data class RemoteConfigFile(
-    val path: String,
-    val name: String,
-    val sha: String,
-    val size: Int,
-    val updatedAt: String,
-)
-
-enum class ConfigSyncStatus {
-    IN_SYNC,
-    REMOTE_ONLY,
-    LOCAL_ONLY,
-    OUTDATED_LOCAL,
-    MODIFIED_LOCAL,
-    INVALID_LOCAL,
-}
-
-enum class ConfigContentSource {
-    LOCAL,
-    REMOTE,
-}
+// --- Types that stay in xmsf (depend on android.net.Uri or LocalConfigFile) ---
 
 data class LocalConfigFile(
     val path: String,
@@ -45,31 +19,34 @@ data class LocalConfigFile(
     val validationError: String? = null,
 )
 
-data class ConfigListItem(
-    val path: String,
-    val displayName: String,
-    val status: ConfigSyncStatus,
-    val local: LocalConfigFile? = null,
-    val remote: RemoteConfigFile? = null,
+/**
+ * Converts this platform-specific [LocalConfigFile] (with [Uri]) to a
+ * platform-independent [LocalConfigSummary] suitable for use in :core logic.
+ */
+fun LocalConfigFile.toSummary(): LocalConfigSummary = LocalConfigSummary(
+    path = path,
+    name = name,
+    sha = sha,
+    size = size,
+    lastModified = lastModified,
+    isValid = isValid,
+    validationError = validationError,
 )
 
-data class JsonValidationResult(
-    val valid: Boolean,
-    val formatted: String? = null,
-    val errorMessage: String? = null,
-    val line: Int? = null,
-    val column: Int? = null,
+/**
+ * [ConfigListItem] is now a typealias to the platform-independent version in :core.
+ * The core version uses [LocalConfigSummary] instead of [LocalConfigFile].
+ * Use [LocalConfigFile.toSummary] to convert when building list items.
+ */
+@Deprecated(
+    "Moved to :core module",
+    ReplaceWith("io.github.magisk317.mipush.utils.ConfigListItem")
 )
-
-data class ConfigDocumentContent(
-    val rawText: String,
-    val displayText: String,
-    val validation: JsonValidationResult,
-)
+typealias ConfigListItem = CoreConfigListItem
 
 data class ConfigListSnapshot(
-    val catalog: RemoteConfigCatalog? = null,
-    val items: List<ConfigListItem> = emptyList(),
+    val catalog: CoreRemoteConfigCatalog? = null,
+    val items: List<CoreConfigListItem> = emptyList(),
     val remoteError: String? = null,
 )
 
@@ -77,21 +54,57 @@ data class ConfigEditorSnapshot(
     val path: String,
     val local: ConfigDocumentContent? = null,
     val remote: ConfigDocumentContent? = null,
-    val remoteMeta: RemoteConfigFile? = null,
+    val remoteMeta: CoreRemoteConfigFile? = null,
     val localMeta: LocalConfigFile? = null,
     val remoteError: String? = null,
 )
 
-@Serializable
-data class ConfigSyncRecord(
-    val path: String,
-    val remoteSha: String? = null,
-    val localSha: String? = null,
-    val syncedAt: Long = 0L,
-)
+// --- Typealiases for types moved to :core (backward compatibility) ---
 
-@Serializable
-data class ConfigSyncState(
-    val directories: Map<String, Map<String, ConfigSyncRecord>> = emptyMap(),
-    val cachedCatalogs: Map<String, RemoteConfigCatalog> = emptyMap(),
+@Deprecated(
+    "Moved to :core module",
+    ReplaceWith("io.github.magisk317.mipush.utils.RemoteConfigCatalog")
 )
+typealias RemoteConfigCatalog = CoreRemoteConfigCatalog
+
+@Deprecated(
+    "Moved to :core module",
+    ReplaceWith("io.github.magisk317.mipush.utils.RemoteConfigFile")
+)
+typealias RemoteConfigFile = CoreRemoteConfigFile
+
+@Deprecated(
+    "Moved to :core module",
+    ReplaceWith("io.github.magisk317.mipush.utils.ConfigSyncStatus")
+)
+typealias ConfigSyncStatus = io.github.magisk317.mipush.utils.ConfigSyncStatus
+
+@Deprecated(
+    "Moved to :core module",
+    ReplaceWith("io.github.magisk317.mipush.utils.ConfigContentSource")
+)
+typealias ConfigContentSource = io.github.magisk317.mipush.utils.ConfigContentSource
+
+@Deprecated(
+    "Moved to :core module",
+    ReplaceWith("io.github.magisk317.mipush.utils.JsonValidationResult")
+)
+typealias JsonValidationResult = io.github.magisk317.mipush.utils.JsonValidationResult
+
+@Deprecated(
+    "Moved to :core module",
+    ReplaceWith("io.github.magisk317.mipush.utils.ConfigDocumentContent")
+)
+typealias ConfigDocumentContent = io.github.magisk317.mipush.utils.ConfigDocumentContent
+
+@Deprecated(
+    "Moved to :core module",
+    ReplaceWith("io.github.magisk317.mipush.utils.ConfigSyncRecord")
+)
+typealias ConfigSyncRecord = io.github.magisk317.mipush.utils.ConfigSyncRecord
+
+@Deprecated(
+    "Moved to :core module",
+    ReplaceWith("io.github.magisk317.mipush.utils.ConfigSyncState")
+)
+typealias ConfigSyncState = io.github.magisk317.mipush.utils.ConfigSyncState

@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.config
+package io.github.magisk317.mipush.utils
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -9,7 +9,7 @@ class ConfigSyncMergerTest {
     @Test
     fun `merge produces IN_SYNC when sha matches`() {
         val remote = listOf(remoteFile("app.json", sha = "abc123"))
-        val local = listOf(localFile("app.json", sha = "abc123"))
+        val local = listOf(localSummary("app.json", sha = "abc123"))
 
         val result = mergeConfigEntries(remote, local, emptyMap())
 
@@ -29,7 +29,7 @@ class ConfigSyncMergerTest {
 
     @Test
     fun `merge produces LOCAL_ONLY when no remote file`() {
-        val local = listOf(localFile("app.json", sha = "abc123"))
+        val local = listOf(localSummary("app.json", sha = "abc123"))
 
         val result = mergeConfigEntries(emptyList(), local, emptyMap())
 
@@ -40,7 +40,7 @@ class ConfigSyncMergerTest {
     @Test
     fun `merge produces OUTDATED_LOCAL when sha differs and no sync record`() {
         val remote = listOf(remoteFile("app.json", sha = "remote-sha"))
-        val local = listOf(localFile("app.json", sha = "local-sha"))
+        val local = listOf(localSummary("app.json", sha = "local-sha"))
 
         val result = mergeConfigEntries(remote, local, emptyMap())
 
@@ -51,7 +51,7 @@ class ConfigSyncMergerTest {
     @Test
     fun `merge produces MODIFIED_LOCAL when local sha differs from sync record`() {
         val remote = listOf(remoteFile("app.json", sha = "remote-sha"))
-        val local = listOf(localFile("app.json", sha = "edited-sha"))
+        val local = listOf(localSummary("app.json", sha = "edited-sha"))
         val records = mapOf("app.json" to ConfigSyncRecord("app.json", remoteSha = "remote-sha", localSha = "original-sha"))
 
         val result = mergeConfigEntries(remote, local, records)
@@ -63,7 +63,7 @@ class ConfigSyncMergerTest {
     @Test
     fun `merge produces INVALID_LOCAL when local file is invalid`() {
         val remote = listOf(remoteFile("app.json", sha = "abc123"))
-        val local = listOf(localFile("app.json", sha = "abc123", isValid = false))
+        val local = listOf(localSummary("app.json", sha = "abc123", isValid = false))
 
         val result = mergeConfigEntries(remote, local, emptyMap())
 
@@ -78,8 +78,8 @@ class ConfigSyncMergerTest {
             remoteFile("a_app.json", sha = "a"),
         )
         val local = listOf(
-            localFile("c_app.json", sha = "c"),
-            localFile("a_app.json", sha = "a"),
+            localSummary("c_app.json", sha = "c"),
+            localSummary("a_app.json", sha = "a"),
         )
 
         val result = mergeConfigEntries(remote, local, emptyMap())
@@ -119,10 +119,9 @@ class ConfigSyncMergerTest {
         updatedAt = "2026-01-01T00:00:00Z",
     )
 
-    private fun localFile(path: String, sha: String, isValid: Boolean = true) = LocalConfigFile(
+    private fun localSummary(path: String, sha: String, isValid: Boolean = true) = LocalConfigSummary(
         path = path,
         name = path.removeSuffix(".json"),
-        uri = null,
         sha = sha,
         size = 100L,
         lastModified = 0L,
