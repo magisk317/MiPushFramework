@@ -1,6 +1,6 @@
 package io.github.magisk317.mipush.platform.support
 
-import io.github.magisk317.mipush.runtime.PushRuntimeComponents
+import io.github.magisk317.mipush.runtime.core.PushRuntimeComponents
 
 object LegacyComponentNames {
     const val MAIN_ACTIVITY = "io.github.magisk317.mipush.feature.main.MainActivity"
