@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.feature.main.subpage
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.FlowRow
@@ -88,15 +94,6 @@ data class AppInfoForDisplay(
 private var g_itemsInfo by mutableStateOf(emptyMap<String, AppInfoForDisplay>())
 private var g_items by mutableStateOf(ApplicationPageOperation.MiPushApplications())
 private val TAG = "ApplicationListPage"
-private val logger = object {
-    fun d(msg: String, vararg args: Any?) {
-        if (args.isEmpty()) Napier.d(msg, tag = TAG)
-        else Napier.d(String.format(msg, *args), tag = TAG)
-    }
-    fun e(msg: String, t: Throwable? = null) {
-        Napier.e(msg, t, tag = TAG)
-    }
-}
 @Composable
 fun ApplicationList(
     query: String,
@@ -185,7 +182,7 @@ fun ApplicationList(
                 }
                 // iconCache removed, AppIcon handles caching
             } catch (e: Throwable) {
-                logger.e("failed to load app list: ${e.message}", e)
+                logE("failed to load app list: ${e.message}", e)
                 withContext(Dispatchers.Main) {
                     isNeedRefresh = false
                     onRefreshed()

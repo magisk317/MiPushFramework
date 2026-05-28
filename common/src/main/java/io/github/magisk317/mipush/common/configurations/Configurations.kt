@@ -204,9 +204,6 @@ class Configurations constructor(
 
     companion object {
         private val TAG = Configurations::class.java.simpleName
-        private val logger = object {
-            fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
-        }
         @Volatile private var injectedInstance: Configurations? = null
 
         @JvmStatic

@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.notification
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.annotation.TargetApi
 import android.app.Notification
 import android.app.PendingIntent
@@ -40,9 +46,6 @@ import io.github.magisk317.mipush.runtime.PushRuntime
 
 object NotificationController {
     private const val TAG = "NotificationController"
-    private val logger = object {
-        fun d(msg: String) = Napier.d(msg, tag = TAG)
-    }
     private const val FOCUS_PARAM = "miui.focus.param"
     private const val FOCUS_PICS = "miui.focus.pics"
     private const val PIC_ICON = "miui.focus.pic_mipush_icon"
@@ -102,7 +105,7 @@ object NotificationController {
             val n = safeNotification.notification
             val inGroup = groupId == n.group
             if (inGroup) notificationCntInGroup++
-            logger.d("getNotificationCountOfGroup pkg=$packageName id=${safeNotification.id} tag=${safeNotification.tag} group=${n.group} targetGroup=$groupId match=$inGroup")
+            logD("getNotificationCountOfGroup pkg=$packageName id=${safeNotification.id} tag=${safeNotification.tag} group=${n.group} targetGroup=$groupId match=$inGroup")
         }
         Napier.d("getNotificationCountOfGroup result pkg=$packageName groupId=$groupId total=${activeNotifications.size} inGroup=$notificationCntInGroup", tag = TAG)
         return notificationCntInGroup
@@ -156,20 +159,20 @@ object NotificationController {
         if (preferredBorrowed != null) {
             val borrowedChannel = getNotificationManagerEx().findPreferredTargetChannel(packageName, preferredBorrowed)
             if (borrowedChannel != null) {
-                logger.d("getExistsChannelId() explicit borrow channel pkg=$packageName channel=${borrowedChannel.id}")
+                logD("getExistsChannelId() explicit borrow channel pkg=$packageName channel=${borrowedChannel.id}")
                 return borrowedChannel.id
             }
-            logger.d("getExistsChannelId() requested borrow channel unavailable pkg=$packageName channel=$preferredBorrowed")
+            logD("getExistsChannelId() requested borrow channel unavailable pkg=$packageName channel=$preferredBorrowed")
         }
         val fallbackChannelId = NotificationChannelManager.getChannelId(metaInfo, packageName)
         val supportsTargetProvisioning = getNotificationManagerEx().supportsTargetChannelProvisioning(packageName)
         if (supportsTargetProvisioning) {
             NotificationChannelManager.registerChannelIfNeeded(context, metaInfo, packageName)
-            logger.d("getExistsChannelId() use managed target channel pkg=$packageName channel=$fallbackChannelId")
+            logD("getExistsChannelId() use managed target channel pkg=$packageName channel=$fallbackChannelId")
             return fallbackChannelId
         }
         NotificationChannelManager.registerChannelIfNeeded(context, metaInfo, packageName)
-        logger.d("getExistsChannelId() fallback to local managed channel pkg=$packageName channel=$fallbackChannelId")
+        logD("getExistsChannelId() fallback to local managed channel pkg=$packageName channel=$fallbackChannelId")
         return fallbackChannelId
     }
 
@@ -247,11 +250,11 @@ object NotificationController {
         val notification = ProgressStyleBuilder.buildNotification(context, notificationBuilder)
         val channel = getNotificationManagerEx().getNotificationChannel(packageName, notification.channelId)
         if (!NotificationChannelManager.isNotificationChannelEnabled(channel)) {
-            logger.d("drop disabled channel notification pkg=$packageName id=$notificationId channel=${notification.channelId}")
+            logD("drop disabled channel notification pkg=$packageName id=$notificationId channel=${notification.channelId}")
             return null
         }
         if (!NotificationContentSupport.hasMeaningfulVisibleText(context, packageName, notification, channel)) {
-            logger.d("drop contentless notification pkg=$packageName id=$notificationId channel=${notification.channelId}")
+            logD("drop contentless notification pkg=$packageName id=$notificationId channel=${notification.channelId}")
             return null
         }
         val tag = MyMIPushNotificationHelper.getNotificationTag(packageName)

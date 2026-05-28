@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.service
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
@@ -9,10 +15,6 @@ import io.github.magisk317.mipush.runtime.PushRuntimeComponents
 import kotlinx.coroutines.launch
 
 object PushServiceStarter {
-    private val logger = object {
-        fun d(msg: String) = Napier.d(msg, tag = "PushServiceStarter")
-        fun e(msg: String, t: Throwable) = Napier.e(msg, t, tag = "PushServiceStarter")
-    }
 
     /**
      * Cached foreground-start preference to avoid blocking the caller thread.
@@ -43,7 +45,7 @@ object PushServiceStarter {
             // Starting it with startForegroundService has caused repeated 5s contract ANRs on some ROMs.
             if (isXmPushServiceTarget) {
                 context.startService(intent)
-                logger.d("startService target=XMPushService component=${intent.component}")
+                logD("startService target=XMPushService component=${intent.component}")
                 return
             }
 
@@ -51,13 +53,13 @@ object PushServiceStarter {
                 XMPushServiceLifecycleBridge.canStartForegroundImmediately()
             if (shouldUseForegroundStart) {
                 ContextCompat.startForegroundService(context, intent)
-                logger.d("startForegroundService component=${intent.component}")
+                logD("startForegroundService component=${intent.component}")
             } else {
                 context.startService(intent)
-                logger.d("startService component=${intent.component}")
+                logD("startService component=${intent.component}")
             }
         } catch (t: Throwable) {
-            logger.e("failed to start service: ${intent.component}", t)
+            logE("failed to start service: ${intent.component}", t)
         }
     }
 

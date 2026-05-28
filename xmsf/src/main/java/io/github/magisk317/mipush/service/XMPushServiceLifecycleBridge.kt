@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.service
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.Intent
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
@@ -11,9 +17,6 @@ import com.xiaomi.push.service.XMPushService
  * Runtime replacement for old AOP lifecycle callbacks around XMPushService.
  */
 object XMPushServiceLifecycleBridge {
-    private val logger = object {
-        fun e(msg: String, t: Throwable) = Napier.e(msg, t, tag = "XMPushServiceLifecycle")
-    }
     private val registry = XMPushServiceLifecycleRegistry()
 
     data class LifecycleSnapshot(
@@ -29,7 +32,7 @@ object XMPushServiceLifecycleBridge {
         val immediateListener = registry.recordPendingStart(intent)
         if (immediateListener != null) {
             runCatching { immediateListener.start(Intent(intent)) }
-                .onFailure { logger.e("listener.start failed", it) }
+                .onFailure { logE("listener.start failed", it) }
         }
     }
 
@@ -41,7 +44,7 @@ object XMPushServiceLifecycleBridge {
         if (attachResult.createdNow) {
             com.xiaomi.push.service.PushHostManagerFactory.init(pushService)
             runCatching { attachResult.listener?.created() }
-                .onFailure { logger.e("listener.created failed", it) }
+                .onFailure { logE("listener.created failed", it) }
             flushPendingStarts(attachResult.listener)
         }
     }
@@ -52,14 +55,14 @@ object XMPushServiceLifecycleBridge {
         if (intent == null) return
         val activeListener = registry.currentListener() ?: return
         runCatching { activeListener.start(intent) }
-            .onFailure { logger.e("listener.start failed", it) }
+            .onFailure { logE("listener.start failed", it) }
     }
 
     @JvmStatic
     fun onDestroy(pushService: XMPushService?) {
         val oldListener = registry.detach(pushService) ?: return
         runCatching { oldListener.destroy() }
-            .onFailure { logger.e("listener.destroy failed", it) }
+            .onFailure { logE("listener.destroy failed", it) }
     }
 
     @JvmStatic
@@ -69,7 +72,7 @@ object XMPushServiceLifecycleBridge {
     fun onConnectionStatusChanged(connectionStatus: ConnectionStatus) {
         val activeListener = registry.currentListener() ?: return
         runCatching { activeListener.connectionStatusChanged(connectionStatus) }
-            .onFailure { logger.e("listener.connectionStatusChanged failed", it) }
+            .onFailure { logE("listener.connectionStatusChanged failed", it) }
     }
 
     @JvmStatic
@@ -91,7 +94,7 @@ object XMPushServiceLifecycleBridge {
         val starts = registry.drainPendingStarts()
         starts.forEach { intent ->
             runCatching { activeListener.start(intent) }
-                .onFailure { logger.e("flush start callback failed", it) }
+                .onFailure { logE("flush start callback failed", it) }
         }
     }
 }

@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.push.pipeline
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.Context
 import android.content.Intent
 import io.github.aakira.napier.Napier
@@ -26,11 +32,6 @@ import java.util.LinkedHashMap
 
 object MiPushRuntimeBridge {
     private val diagnosticPackages = setOf("com.ss.android.ugc.aweme")
-    private val logger = object {
-        fun d(msg: String) = Napier.d(msg, tag = "MiPushRuntimeBridge")
-        fun i(msg: String) = Napier.i(msg, tag = "MiPushRuntimeBridge")
-        fun e(msg: String, t: Throwable) = Napier.e(msg, t, tag = "MiPushRuntimeBridge")
-    }
     private const val RECENT_REGISTER_TOAST_WINDOW_MS = 5_000L
     private const val NOTIFICATION_DISPATCH_ALLOWANCE_TTL_MS = 30_000L
     private val recentRegisterToasts = LinkedHashMap<String, Long>()
@@ -65,7 +66,7 @@ object MiPushRuntimeBridge {
                     }
                 }
         }.onFailure {
-            logger.e("onApplicationIntentReceived failed", it)
+            logE("onApplicationIntentReceived failed", it)
         }
     }
 
@@ -75,7 +76,7 @@ object MiPushRuntimeBridge {
         runCatching {
             Global.miPushEventListener().transferToServer(intent)
         }.onFailure {
-            logger.e("onIntentForwardedToServer failed", it)
+            logE("onIntentForwardedToServer failed", it)
         }
     }
 
@@ -92,7 +93,7 @@ object MiPushRuntimeBridge {
                 "MiPushRuntimeBridge.onNotificationDispatch"
             )
         ) {
-            logger.i(
+            logI(
                 "drop notification dispatch for absent package pkg=${StalePackagePushGuard.resolveTargetPackage(resolvedContainer)} " +
                     "action=$actionName messageId=$messageId"
             )
@@ -105,7 +106,7 @@ object MiPushRuntimeBridge {
                 messageId = messageId
             )
             if (!allowed) {
-                logger.d(
+                logD(
                     "skip notification dispatch without allowance pkg=${resolvedContainer.packageName} " +
                         "action=$actionName messageId=$messageId source=MiPushRuntimeBridge.onNotificationDispatch"
                 )
@@ -113,7 +114,7 @@ object MiPushRuntimeBridge {
             }
         }
         if (resolvedContainer?.packageName in diagnosticPackages) {
-            logger.i(
+            logI(
                 "diagnostic notification dispatch pkg=${resolvedContainer?.packageName} action=$actionName " +
                     "messageId=$messageId mockReplay=$isMockReplay source=MiPushRuntimeBridge.onNotificationDispatch"
             )
@@ -136,14 +137,14 @@ object MiPushRuntimeBridge {
     ): Boolean {
         val container = XMPushUtils.packToContainer(payload) ?: return false
         if (StalePackagePushGuard.shouldDropInbound(context, container, source)) {
-            logger.i(
+            logD(
                 "drop payload for absent package source=$source pkg=${container.packageName} " +
                     "action=${container.action?.name} messageId=${MessageIdentity.fromContainer(container)}"
             )
             return false
         }
         if (container.packageName != null && RegisteredApplicationDb.isBlocked(container.packageName)) {
-            logger.d("skip blocked application payload source=$source pkg=${container.packageName}")
+            logD("skip blocked application payload source=$source pkg=${container.packageName}")
             return false
         }
         val isMockReplay = MockMessageRegistry.isMarked(container)
@@ -172,21 +173,21 @@ object MiPushRuntimeBridge {
             Global.registrationRecorder().initContext(context.applicationContext)
             Global.registrationRecorder().recordRegSec(container)
         }.onFailure {
-            logger.e("recordRegSec failed source=$source", it)
+            logE("recordRegSec failed source=$source", it)
         }
         runCatching {
             Global.miPushEventListener().receiveFromServer(container)
         }.onFailure {
-            logger.e("receiveFromServer callback failed source=$source", it)
+            logE("receiveFromServer callback failed source=$source", it)
         }
         runCatching {
             if (isMockReplay) {
-                logger.i("skip event record for mock replay source=$source pkg=${container.packageName}")
+                logD("skip event record for mock replay source=$source pkg=${container.packageName}")
             } else {
                 recordEvent(context, container)
             }
         }.onFailure {
-            logger.e("recordEvent failed source=$source packetBytesLen=$packetBytesLen", it)
+            logE("recordEvent failed source=$source packetBytesLen=$packetBytesLen", it)
         }
         return true
     }
@@ -201,7 +202,7 @@ object MiPushRuntimeBridge {
     fun onTransferToApplication(container: XmPushActionContainer?) {
         if (container == null) return
         if (container.packageName in diagnosticPackages) {
-            logger.i(
+            logI(
                 "diagnostic transfer pkg=${container.packageName} action=${container.action?.name} " +
                     "messageId=${MessageIdentity.fromContainer(container)} source=MiPushRuntimeBridge.onTransferToApplication"
             )
@@ -215,31 +216,31 @@ object MiPushRuntimeBridge {
         runCatching {
             Global.miPushEventListener().transferToApplication(container)
         }.onFailure {
-            logger.e("transferToApplication callback failed", it)
+            logE("transferToApplication callback failed", it)
         }
     }
 
     private fun recordEvent(context: Context, container: XmPushActionContainer) {
         val pkg = container.packageName
         if (pkg.isNullOrBlank()) {
-            logger.d("recordEvent skip: empty package")
+            logD("recordEvent skip: empty package")
             return
         }
         if (RegisteredApplicationDb.isBlocked(pkg)) {
-            logger.d("skip event record for blocked application pkg=$pkg")
+            logD("skip event record for blocked application pkg=$pkg")
             return
         }
         if (!Utils.isUserApplication(context.applicationContext, pkg)) {
-            logger.d("skip event record for system application pkg=$pkg")
+            logD("skip event record for system application pkg=$pkg")
             return
         }
         val eventType = TypeFactory.createForStore(container)
         val application = RegisteredApplicationDb.registerApplication(pkg)
         applyRegistrationStateFromContainer(container, application)
         val messageId = MessageIdentity.fromContainer(container)
-        logger.d("recordEvent start pkg=$pkg action=${container.action?.name} messageId=$messageId eventType=${eventType.type}")
+        logD("recordEvent start pkg=$pkg action=${container.action?.name} messageId=$messageId eventType=${eventType.type}")
         runBlocking { EventDb.insertEventAsync(Event.ResultType.OK, eventType) }
-        logger.d("recordEvent done pkg=$pkg action=${container.action?.name} messageId=$messageId")
+        logD("recordEvent done pkg=$pkg action=${container.action?.name} messageId=$messageId")
         if (eventType.type == Event.Type.Registration || eventType.type == Event.Type.RegistrationResult) {
             maybeShowRegisterToast(context, pkg, application)
         }
@@ -255,7 +256,7 @@ object MiPushRuntimeBridge {
         payloadSize: Int? = null,
     ): Boolean {
         if (packageName in diagnosticPackages) {
-            logger.i(
+            logI(
                 "diagnostic inbound pkg=$packageName action=$actionName messageId=$messageId " +
                     "source=$source mockReplay=$isMockReplay payloadSize=${payloadSize ?: -1}"
             )
@@ -269,11 +270,11 @@ object MiPushRuntimeBridge {
         )
         if (!shouldProcess) {
             if (packageName in diagnosticPackages) {
-                logger.i(
+                logI(
                     "diagnostic duplicate skip pkg=$packageName action=$actionName messageId=$messageId source=$source"
                 )
             }
-            logger.d("skip duplicate payload event source=$source pkg=$packageName action=$actionName")
+            logD("skip duplicate payload event source=$source pkg=$packageName action=$actionName")
         }
         return shouldProcess
     }
@@ -319,7 +320,7 @@ object MiPushRuntimeBridge {
                 allowance.updatedAtMs = nowMs
             }
         }
-        logger.d(
+        logD(
             "mark notification dispatch allowance pkg=$packageName action=$actionName " +
                 "messageId=$messageId remaining=$NOTIFICATION_DISPATCH_ALLOWANCE_COUNT " +
                 "ttlMs=$NOTIFICATION_DISPATCH_ALLOWANCE_TTL_MS"
@@ -343,7 +344,7 @@ object MiPushRuntimeBridge {
             allowance.remaining -= 1
             allowance.updatedAtMs = nowMs
             val accepted = allowance.remaining >= 0
-            logger.d(
+            logD(
                 "consume notification dispatch allowance pkg=$packageName action=$actionName " +
                     "messageId=$messageId remaining=${allowance.remaining}"
             )
@@ -441,7 +442,7 @@ object MiPushRuntimeBridge {
 
     @JvmStatic
     fun triggerRegistration(context: Context, packageName: String) {
-        logger.i("force triggering registration for $packageName")
+        logI("force triggering registration for $packageName")
         
         // 1. Send wake-up intent (com.xiaomi.mipush.RECEIVE_MESSAGE)
         // Many MiPush SDK versions check registration status on any incoming message

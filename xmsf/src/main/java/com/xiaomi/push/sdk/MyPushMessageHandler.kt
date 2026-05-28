@@ -1,5 +1,11 @@
 package com.xiaomi.push.sdk
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.app.Service
 import android.content.ComponentName
 import android.content.Context
@@ -57,7 +63,7 @@ class MyPushMessageHandler : Service() {
     private fun handleIntent(intent: Intent) {
         val payload = intent.getByteArrayExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD)
         if (payload == null) {
-            logger.e("mipush_payload is null")
+            logE("mipush_payload is null")
             return
         }
         val container = XMPushUtils.packToContainer(payload) ?: return
@@ -91,7 +97,7 @@ class MyPushMessageHandler : Service() {
                 }
             }
         } catch (e: Exception) {
-            logger.e(e.localizedMessage, e)
+            logE(e.localizedMessage, e)
         }
     }
 
@@ -129,11 +135,6 @@ class MyPushMessageHandler : Service() {
     }
 
     companion object {
-        private val logger = object {
-            fun i(msg: String) = Napier.i(msg, tag = "MyPushMessageHandler")
-            fun e(msg: String) = Napier.e(msg, tag = "MyPushMessageHandler")
-            fun e(msg: String?, t: Throwable) = Napier.e(msg ?: "Error", t, tag = "MyPushMessageHandler")
-        }
 
         private fun getProcessor(context: Context): PushMessageProcessor {
             return AppDependencies.get<PushMessageProcessor>(context.applicationContext)

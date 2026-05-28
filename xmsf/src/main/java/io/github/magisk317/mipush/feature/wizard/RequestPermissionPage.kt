@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.feature.wizard
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -84,9 +90,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 
 private val TAG = "WizardPermission"
-private val logger = object {
-    fun d(msg: String) = Napier.d(msg, tag = TAG)
-}
 
 private const val FOREGROUND_DETECTION_GROUP = "foreground_detection"
 
@@ -171,7 +174,7 @@ fun PermissionMainActivity(
                         return@forEachIndexed
                     }
                     if (!isPermissionRequirementSatisfied(index, permissionInfos, refreshedStates) && index !in autoRequestedSet.value) {
-                        logger.d("Auto-requesting permission: ${it.permissionTitle}")
+                        logD("Auto-requesting permission: ${it.permissionTitle}")
                         autoRequestedSet.value += index
 
                         val grantedSilently = it.permissionOperator.requestPermissionSilently()

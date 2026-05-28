@@ -1,14 +1,17 @@
 package io.github.magisk317.mipush.compat
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
 
 object RegistrationStateStore {
-    private val logger = object {
-        fun i(msg: String) = Napier.i(msg, tag = "RegistrationStateStore")
-    }
 
     enum class Source {
         SERVER_RESULT,
@@ -27,7 +30,7 @@ object RegistrationStateStore {
         }
         application.registeredType = nextType
         RegisteredApplicationDb.update(application)
-        logger.i(
+        logI(
             "registration state changed pkg=${application.packageName}, ${labelOf(oldType)} -> ${labelOf(nextType)}, source=$source"
         )
         return true

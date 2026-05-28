@@ -9,9 +9,6 @@ import java.util.concurrent.Callable
 
 object Lisp {
     private val TAG = Lisp::class.java.simpleName
-    private val logger = object {
-        fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
-    }
 
     fun interface Evaluable {
         fun evaluate(expr: Any?): Any?

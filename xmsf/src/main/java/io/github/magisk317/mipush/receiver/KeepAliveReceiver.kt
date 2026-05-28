@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.receiver
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -14,10 +20,6 @@ import io.github.magisk317.mipush.runtime.PushRuntimeComponents
  */
 class KeepAliveReceiver : BroadcastReceiver() {
     private val TAG = KeepAliveReceiver::class.java.simpleName
-    private val logger = object {
-        fun d(msg: String) = Napier.d(msg, tag = TAG)
-        fun e(msg: String?, t: Throwable? = null) = Napier.e(msg ?: "", t, tag = TAG)
-    }
     private var lastActive: Long = System.currentTimeMillis()
 
     override fun onReceive(context: Context, intent: Intent?) {
@@ -28,13 +30,13 @@ class KeepAliveReceiver : BroadcastReceiver() {
             }
 
             lastActive = now
-            logger.d("start service when ${intent?.action}")
+            logD("start service when ${intent?.action}")
             val localIntent = PushRuntimeComponents.newLegacyMainServiceIntent(context)
             localIntent.putExtra(PushServiceConstants.EXTRA_TIME_STAMP, now)
             localIntent.action = PushServiceConstants.ACTION_CHECK_ALIVE
             PushServiceStarter.start(context, localIntent)
         } catch (localException: Throwable) {
-            logger.e(localException.message, localException)
+            logE(localException.message, localException)
         }
     }
 }

@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.control
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.annotation.SuppressLint
 import android.app.ActivityManager
 import android.app.job.JobScheduler
@@ -32,13 +38,6 @@ import io.github.magisk317.mipush.common.Constants
 @SuppressLint("WrongConstant")
 object PushControllerUtils {
     private val TAG = "PushControllerUtils"
-    private val logger = object {
-        fun d(msg: String) = Napier.d(msg, tag = TAG)
-        fun w(msg: String) = Napier.w(msg, tag = TAG)
-        fun e(msg: String) = Napier.e(msg, tag = TAG)
-        fun e(msg: String, t: Throwable) = Napier.e(msg, t, tag = TAG)
-        fun e(t: Throwable) = Napier.e(t.message ?: "Unknown error", t, tag = TAG)
-    }
     private val liveReceiver: BroadcastReceiver = KeepAliveReceiver()
     private val retryInterval = intArrayOf(3600000, 7200000, 14400000, 28800000, 86400000)
 
@@ -86,14 +85,14 @@ object PushControllerUtils {
     @JvmStatic
     fun setServiceEnable(enable: Boolean, context: Context) {
         if (enable) {
-            logger.d("Starting...")
+            logD("Starting...")
             if (isAppMainProc(context)) {
                 runCatching {
                     val wrappedContext = wrapContext(context)
                     ScheduledJobManager.getInstance(wrappedContext)
                         .addOneShootJob(FirstRegister(wrappedContext))
                 }.onFailure {
-                    logger.e("ScheduledJobManager unavailable, skip FirstRegister scheduling", it)
+                    logE("ScheduledJobManager unavailable, skip FirstRegister scheduling", it)
                 }
             }
             try {
@@ -102,23 +101,23 @@ object PushControllerUtils {
                     serviceIntent.putExtra(PushServiceConstants.EXTRA_TIME_STAMP, System.currentTimeMillis())
                     serviceIntent.action = PushServiceConstants.ACTION_TIMER
                     PushServiceStarter.start(context, serviceIntent)
-                } ?: logger.w("XMPushService class is unavailable, skip startForegroundService")
+                } ?: logW("XMPushService class is unavailable, skip startForegroundService")
             } catch (e: Throwable) {
-                logger.e(e)
+                logE(e)
             }
             try {
                 val filter = IntentFilter()
                 filter.addAction(Intent.ACTION_SCREEN_ON)
                 context.registerReceiver(liveReceiver, filter)
             } catch (e: Throwable) {
-                logger.e(e)
+                logE(e)
             }
         } else {
-            logger.d("Stopping...")
+            logD("Stopping...")
             try {
                 context.unregisterReceiver(liveReceiver)
             } catch (e: Throwable) {
-                logger.e(e)
+                logE(e)
             }
             MiPushClient.unregisterPush(wrapContext(context))
             run {
@@ -150,7 +149,7 @@ object PushControllerUtils {
         } catch (e: IllegalArgumentException) {
             // Component may not exist in the host package (e.g. when injected via LSPosed
             // into com.xiaomi.xmsf which has a different manifest).
-            logger.w("setBootReceiverEnable failed: ${e.message}")
+            logW("setBootReceiverEnable failed: ${e.message}")
         }
     }
 

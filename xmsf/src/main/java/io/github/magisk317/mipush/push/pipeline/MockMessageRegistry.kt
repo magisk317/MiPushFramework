@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.push.pipeline
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
@@ -7,9 +13,6 @@ import io.github.magisk317.mipush.platform.support.XMPushUtils
 import java.security.MessageDigest
 
 object MockMessageRegistry {
-    private val logger = object {
-        fun d(msg: String) = Napier.d(msg, tag = "MockMessageRegistry")
-    }
     private const val MARK_TTL_MS = 30_000L
     private val lock = Any()
     private val markedMessageIds = LinkedHashMap<String, Long>()
@@ -28,7 +31,7 @@ object MockMessageRegistry {
             pruneExpiredLocked(now)
             markedMessageIds[messageId] = now
         }
-        logger.d("marked mock message id=$messageId ttlMs=$MARK_TTL_MS")
+        logD("marked mock message id=$messageId ttlMs=$MARK_TTL_MS")
     }
 
     @JvmStatic

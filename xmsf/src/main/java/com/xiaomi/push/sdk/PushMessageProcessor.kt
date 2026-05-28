@@ -1,5 +1,11 @@
 package com.xiaomi.push.sdk
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -35,13 +41,6 @@ class PushMessageProcessor constructor(
     }
 
     private val TAG = "PushMessageProcessor"
-    private val logger = object {
-        fun d(msg: String) = Napier.d(msg, tag = TAG)
-        fun i(msg: String) = Napier.i(msg, tag = TAG)
-        fun w(msg: String) = Napier.w(msg, tag = TAG)
-        fun e(msg: String) = Napier.e(msg, tag = TAG)
-        fun e(msg: String, t: Throwable) = Napier.e(msg, t, tag = TAG)
-    }
     
 
     private val APP_CHECK_FRONT_MAX_RETRY = 8
@@ -79,7 +78,7 @@ class PushMessageProcessor constructor(
         val accessibility = TopActivityFactory.newInstance(AccessMode.ACCESSIBILITY)
         if (accessibility.isEnabled(context)) {
             if (topActivityMode != AccessMode.ACCESSIBILITY) {
-                logger.w("UsageStats unavailable, fallback to Accessibility mode.")
+                logW("UsageStats unavailable, fallback to Accessibility mode.")
             }
             iTopActivity = accessibility
             topActivityMode = AccessMode.ACCESSIBILITY
@@ -94,7 +93,7 @@ class PushMessageProcessor constructor(
     fun cancelNotification(context: Context, bundle: Bundle) {
         val payload = bundle.getByteArray(PushConstants.MIPUSH_EXTRA_PAYLOAD)
         if (payload == null) {
-            logger.e("mipush_payload is null")
+            logE("mipush_payload is null")
             return
         }
         val container = XMPushUtils.packToContainer(payload) ?: return
@@ -107,7 +106,7 @@ class PushMessageProcessor constructor(
         try {
             configurations.handle(container.packageName, container)
         } catch (e: Exception) {
-            logger.e("cancelNotification", e)
+            logE("cancelNotification", e)
         }
         val custom = XMPushUtils.getConfiguration(container)
         NotificationController.cancel(
@@ -122,7 +121,7 @@ class PushMessageProcessor constructor(
     fun launchApp(context: Context, container: XmPushActionContainer) {
         val targetPackage = container.packageName
         if (targetPackage.isBlank()) {
-            logger.w("skip launch app because target package is blank")
+            logW("skip launch app because target package is blank")
             return
         }
         activeApp(targetPackage)
@@ -194,7 +193,7 @@ class PushMessageProcessor constructor(
         runCatching {
             AppRootAccessFacade.runRootCommand("pm enable $targetPackage")
         }.onFailure {
-            logger.w(packageInfo(targetPackage, "pm enable failed: ${it.localizedMessage}"))
+            logW(packageInfo(targetPackage, "pm enable failed: ${it.localizedMessage}"))
         }
     }
 
@@ -207,9 +206,9 @@ class PushMessageProcessor constructor(
         return runCatching {
             context.packageManager.getLaunchIntentForPackage(targetPackage)
         }.onFailure {
-            logger.e(packageInfo(targetPackage, "get launch intent failed"), it)
+            logE(packageInfo(targetPackage, "get launch intent failed"), it)
         }.getOrNull()?.also {
-            logger.d(packageInfo(targetPackage, "resolved launch intent=$it"))
+            logD(packageInfo(targetPackage, "resolved launch intent=$it"))
         }
     }
 
@@ -218,13 +217,13 @@ class PushMessageProcessor constructor(
         try {
             val topActivity = resolveTopActivity(context)
             if (!topActivity.isEnabled(context)) {
-                logger.w(packageInfo(targetPackage, "top activity detector disabled, launch without foreground verification"))
+                logW(packageInfo(targetPackage, "top activity detector disabled, launch without foreground verification"))
                 startJumpIntent(context, targetPackage, getJumpIntent(context, container))
                 return System.currentTimeMillis() - start
             }
 
             if (!topActivity.isAppForeground(context, targetPackage)) {
-                logger.d(packageInfo(targetPackage, "app is not at front, pull up"))
+                logD(packageInfo(targetPackage, "app is not at front, pull up"))
                 startJumpIntent(context, targetPackage, getJumpIntent(context, container))
                 for (i in 0 until APP_CHECK_FRONT_MAX_RETRY) {
                     if (topActivity.isAppForeground(context, targetPackage)) {
@@ -236,31 +235,31 @@ class PushMessageProcessor constructor(
                     }
                 }
                 if ((System.currentTimeMillis() - start) >= APP_CHECK_SLEEP_MAX_TIMEOUT_MS) {
-                    logger.w(packageInfo(targetPackage, "pull up app timeout"))
+                    logW(packageInfo(targetPackage, "pull up app timeout"))
                 }
             } else {
-                logger.d(packageInfo(targetPackage, "app is at foreground"))
+                logD(packageInfo(targetPackage, "app is at foreground"))
             }
         } catch (e: InterruptedException) {
             Thread.currentThread().interrupt()
-            logger.e(packageInfo(targetPackage, "pullUpApp interrupted"), e)
+            logE(packageInfo(targetPackage, "pullUpApp interrupted"), e)
         } catch (e: RuntimeException) {
-            logger.e(packageInfo(targetPackage, "pullUpApp failed ${e.localizedMessage}"), e)
+            logE(packageInfo(targetPackage, "pullUpApp failed ${e.localizedMessage}"), e)
         }
         return System.currentTimeMillis() - start
     }
 
     private fun startJumpIntent(context: Context, targetPackage: String, intent: Intent?) {
         if (intent == null) {
-            logger.w(packageInfo(targetPackage, "can not resolve launch intent"))
+            logW(packageInfo(targetPackage, "can not resolve launch intent"))
             return
         }
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         runCatching {
             context.startActivity(intent)
-            logger.d(packageInfo(targetPackage, "start activity intent=$intent"))
+            logD(packageInfo(targetPackage, "start activity intent=$intent"))
         }.onFailure {
-            logger.e(packageInfo(targetPackage, "start activity failed"), it)
+            logE(packageInfo(targetPackage, "start activity failed"), it)
         }
     }
 

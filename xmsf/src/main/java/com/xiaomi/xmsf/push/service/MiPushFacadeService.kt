@@ -1,5 +1,11 @@
 package com.xiaomi.xmsf.push.service
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
@@ -33,19 +39,15 @@ open class MiPushFacadeService : Service() {
     private val configCenter: ConfigCenter by lazy { AppDependencies.get(this) }
     private val iconConfigurations: IconConfigurations by lazy { AppDependencies.get(this) }
 
-    private val logger = object {
-        fun d(msg: String) = Napier.d(msg, tag = TAG)
-        fun e(msg: String, t: Throwable) = Napier.e(msg, t, tag = TAG)
-    }
     private val runtimeHost = object : PushRuntimeBridgeHost {
         override val context = this@MiPushFacadeService
 
         override fun onRuntimeStarted() {
-            logger.d("PushRuntime bridge host attached")
+            logD("PushRuntime bridge host attached")
         }
 
         override fun onRuntimeStopped() {
-            logger.d("PushRuntime bridge host detached")
+            logD("PushRuntime bridge host detached")
         }
 
         override fun processBridgeIntent(intent: Intent) {
@@ -91,7 +93,7 @@ open class MiPushFacadeService : Service() {
     private fun handleRuntimeIntent(intent: Intent) {
         if (RegistrationIntentDeduper.shouldDrop("facade_forward", intent)) {
             val packageName = RegistrationIntentDeduper.packageName(intent).orEmpty()
-            logger.d("drop duplicate register intent before legacy forward pkg=$packageName")
+            logD("drop duplicate register intent before legacy forward pkg=$packageName")
             return
         }
         if (intent.component?.className == PushRuntimeComponents.LEGACY_MAIN_SERVICE_CLASS) {
@@ -136,7 +138,7 @@ open class MiPushFacadeService : Service() {
                 message = "forward failed: action=${intent.action}",
                 throwable = e
             )
-            logger.e("XMPushService::onHandleIntent: ", e)
+            logE("XMPushService::onHandleIntent: ", e)
             if (e is RuntimeException) {
                 Utils.makeText(this, getString(R.string.common_err, e.message), Toast.LENGTH_LONG)
             }
@@ -217,7 +219,7 @@ open class MiPushFacadeService : Service() {
             putExtras(intent)
         }
         PushServiceStarter.start(this, intent2)
-        logger.d("forward intent ${ConvertUtils.toJson(intent)}")
+        logD("forward intent ${ConvertUtils.toJson(intent)}")
     }
 
     companion object {

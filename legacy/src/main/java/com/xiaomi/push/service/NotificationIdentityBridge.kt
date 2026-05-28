@@ -1,5 +1,11 @@
 package com.xiaomi.push.service
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
@@ -15,10 +21,6 @@ import io.github.aakira.napier.Napier
 object NotificationIdentityBridge {
     private const val TAG = "NotificationIdentityBridge"
     const val HOOK_API_VERSION = 2
-    private val logger = object {
-        fun d(message: String) = Napier.d(message, tag = TAG)
-        fun e(message: String, throwable: Throwable? = null) = Napier.e(message, throwable, tag = TAG)
-    }
 
     @JvmField
     var isHooked = false
@@ -223,17 +225,17 @@ object NotificationIdentityBridge {
         val strategy = resolveStrategy(context, packageName)
         val channelId = notification.channelId
         val compatEligible = isMiuiXmsfCompatEligible(context, packageName)
-        logger.d(
+        logD(
             "notifyAsTargetPackage attempt strategy=$strategy compatEligible=$compatEligible " +
                 "pkg=$packageName tag=$tag id=$id channelId=$channelId"
         )
         return when (strategy) {
             Strategy.FRAMEWORK -> runCatching {
                 NotificationManagerPlatformSupport.notify(packageName, id, notification)
-                logger.d("notifyAsTargetPackage success strategy=$strategy pkg=$packageName id=$id channelId=$channelId")
+                logD("notifyAsTargetPackage success strategy=$strategy pkg=$packageName id=$id channelId=$channelId")
                 true
             }.onFailure {
-                logger.e("notifyAsTargetPackage failed strategy=$strategy pkg=$packageName id=$id channelId=$channelId", it)
+                logE("notifyAsTargetPackage failed strategy=$strategy pkg=$packageName id=$id channelId=$channelId", it)
             }.getOrDefault(false)
 
             Strategy.DELEGATED -> runCatching {
@@ -244,15 +246,15 @@ object NotificationIdentityBridge {
                     Int::class.javaPrimitiveType,
                     Notification::class.java
                 ).invoke(notificationManager(context), packageName, tag, id, notification)
-                logger.d("notifyAsTargetPackage success strategy=$strategy pkg=$packageName id=$id channelId=$channelId")
+                logD("notifyAsTargetPackage success strategy=$strategy pkg=$packageName id=$id channelId=$channelId")
                 true
             }.onFailure {
-                logger.e("notifyAsTargetPackage failed strategy=$strategy pkg=$packageName id=$id channelId=$channelId", it)
+                logE("notifyAsTargetPackage failed strategy=$strategy pkg=$packageName id=$id channelId=$channelId", it)
             }.getOrDefault(false)
 
             Strategy.UNSUPPORTED -> {
                 if (!compatEligible) {
-                    logger.d(
+                    logD(
                         "notifyAsTargetPackage skipped strategy=$strategy compatEligible=$compatEligible " +
                             "pkg=$packageName id=$id channelId=$channelId"
                     )
@@ -266,10 +268,10 @@ object NotificationIdentityBridge {
                             Int::class.javaPrimitiveType,
                             Notification::class.java
                         ).invoke(notificationManager(context), packageName, tag, id, notification)
-                        logger.d("notifyAsTargetPackage success strategy=COMPAT pkg=$packageName id=$id channelId=$channelId")
+                        logD("notifyAsTargetPackage success strategy=COMPAT pkg=$packageName id=$id channelId=$channelId")
                         true
                     }.onFailure {
-                        logger.e("notifyAsTargetPackage failed strategy=COMPAT pkg=$packageName id=$id channelId=$channelId", it)
+                        logE("notifyAsTargetPackage failed strategy=COMPAT pkg=$packageName id=$id channelId=$channelId", it)
                     }.getOrDefault(false)
                 }
             }
@@ -331,17 +333,17 @@ object NotificationIdentityBridge {
     ): Boolean {
         val strategy = resolveStrategy(context, packageName)
         val compatEligible = isMiuiXmsfCompatEligible(context, packageName)
-        logger.d(
+        logD(
             "cancelAsTargetPackage attempt strategy=$strategy compatEligible=$compatEligible " +
                 "pkg=$packageName tag=$tag id=$id"
         )
         return when (strategy) {
             Strategy.FRAMEWORK -> runCatching {
                 NotificationManagerPlatformSupport.cancel(packageName, id)
-                logger.d("cancelAsTargetPackage success strategy=$strategy pkg=$packageName id=$id")
+                logD("cancelAsTargetPackage success strategy=$strategy pkg=$packageName id=$id")
                 true
             }.onFailure {
-                logger.e("cancelAsTargetPackage failed strategy=$strategy pkg=$packageName id=$id", it)
+                logE("cancelAsTargetPackage failed strategy=$strategy pkg=$packageName id=$id", it)
             }.getOrDefault(false)
 
             Strategy.DELEGATED -> runCatching {
@@ -351,15 +353,15 @@ object NotificationIdentityBridge {
                     String::class.java,
                     Int::class.javaPrimitiveType
                 ).invoke(notificationManager(context), packageName, tag, id)
-                logger.d("cancelAsTargetPackage success strategy=$strategy pkg=$packageName id=$id")
+                logD("cancelAsTargetPackage success strategy=$strategy pkg=$packageName id=$id")
                 true
             }.onFailure {
-                logger.e("cancelAsTargetPackage failed strategy=$strategy pkg=$packageName id=$id", it)
+                logE("cancelAsTargetPackage failed strategy=$strategy pkg=$packageName id=$id", it)
             }.getOrDefault(false)
 
             Strategy.UNSUPPORTED -> {
                 if (!compatEligible) {
-                    logger.d(
+                    logD(
                         "cancelAsTargetPackage skipped strategy=$strategy compatEligible=$compatEligible " +
                             "pkg=$packageName id=$id"
                     )
@@ -372,10 +374,10 @@ object NotificationIdentityBridge {
                             String::class.java,
                             Int::class.javaPrimitiveType
                         ).invoke(notificationManager(context), packageName, tag, id)
-                        logger.d("cancelAsTargetPackage success strategy=COMPAT pkg=$packageName id=$id")
+                        logD("cancelAsTargetPackage success strategy=COMPAT pkg=$packageName id=$id")
                         true
                     }.onFailure {
-                        logger.e("cancelAsTargetPackage failed strategy=COMPAT pkg=$packageName id=$id", it)
+                        logE("cancelAsTargetPackage failed strategy=COMPAT pkg=$packageName id=$id", it)
                     }.getOrDefault(false)
                 }
             }

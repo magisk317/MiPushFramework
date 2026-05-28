@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.runtime.core
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.Context
 import android.content.Intent
 import io.github.aakira.napier.Napier
@@ -52,10 +58,6 @@ object PushRuntime {
     private const val REGISTRATION_REPLAY_WINDOW_MS = 30_000L
     private const val MAX_REGISTRATION_RECORDS = 512
     private const val MAX_CHANNEL_RECORDS = 256
-    private val logger = object {
-        fun d(message: String) = Napier.d(message, tag = "PushRuntime")
-        fun e(message: String, throwable: Throwable) = Napier.e(message, throwable, tag = "PushRuntime")
-    }
 
     private val lock = Any()
     private val pendingBridgeIntents = PendingRuntimeQueue<Intent>(MAX_PENDING_BRIDGE_INTENTS)
@@ -95,7 +97,7 @@ object PushRuntime {
             pendingBridgeIntents.drain()
         }
         runCatching { host.onRuntimeStarted() }
-            .onFailure { logger.e("bridge host start failed", it) }
+            .onFailure { logE("bridge host start failed", it) }
         pending.forEach { dispatchToHost(host, it) }
     }
 
@@ -104,7 +106,7 @@ object PushRuntime {
         synchronized(lock) {
             executionHost = host
         }
-        logger.d("execution host attached")
+        logD("execution host attached")
     }
 
     @JvmStatic
@@ -114,7 +116,7 @@ object PushRuntime {
                 executionHost = null
             }
         }
-        logger.d("execution host detached")
+        logD("execution host detached")
     }
 
     @JvmStatic
@@ -126,7 +128,7 @@ object PushRuntime {
         }
         if (shouldStop) {
             runCatching { host.onRuntimeStopped() }
-                .onFailure { logger.e("bridge host stop failed", it) }
+                .onFailure { logE("bridge host stop failed", it) }
         }
     }
 
@@ -184,7 +186,7 @@ object PushRuntime {
         return runCatching {
             host.requestFrameworkRegistration(reason = buildReason(source, reason))
         }.getOrElse {
-            logger.e("framework registration dispatch failed", it)
+            logE("framework registration dispatch failed", it)
             false
         }
     }
@@ -219,7 +221,7 @@ object PushRuntime {
         } else {
             runCatching { host.processPendingRegisterTasks(buildReason(source, "network_available")) }
                 .getOrElse {
-                    logger.e("processPendingRegisterTasks failed", it)
+                    logE("processPendingRegisterTasks failed", it)
                     false
                 }
         }
@@ -242,7 +244,7 @@ object PushRuntime {
         } else {
             runCatching { host.syncAccountAlias(buildReason(source, "account_changed")) }
                 .getOrElse {
-                    logger.e("syncAccountAlias failed", it)
+                    logE("syncAccountAlias failed", it)
                     false
                 }
         }
@@ -259,7 +261,7 @@ object PushRuntime {
         return runCatching {
             host.ensureConnection(reason = buildReason(source, reason))
         }.getOrElse {
-            logger.e("ensureConnection failed", it)
+            logE("ensureConnection failed", it)
             false
         }
     }
@@ -270,7 +272,7 @@ object PushRuntime {
         return runCatching {
             host.resetConnection(reason = buildReason(source, reason))
         }.getOrElse {
-            logger.e("resetConnection failed", it)
+            logE("resetConnection failed", it)
             false
         }
     }
@@ -292,7 +294,7 @@ object PushRuntime {
                 launchApp = launchApp
             )
         }.getOrElse {
-            logger.e("dispatchDownstreamPayload failed", it)
+            logE("dispatchDownstreamPayload failed", it)
             PushRuntimeApplicationDispatchResult()
         }
         if (result.dispatched) {
@@ -328,7 +330,7 @@ object PushRuntime {
                 source = source
             )
         }.getOrElse {
-            logger.e("cancelNotificationForPayload failed", it)
+            logE("cancelNotificationForPayload failed", it)
             false
         }
         if (cancelled) {
@@ -446,7 +448,7 @@ object PushRuntime {
             }
             updateLastObservationLocked(packageName, action)
             if (duplicated) {
-                logger.d(
+                logD(
                     "drop duplicate inbound message pkg=$packageName action=$action source=$source " +
                         "messageId=$messageId ack=$isAck"
                 )
@@ -625,7 +627,7 @@ object PushRuntime {
     fun forceTriggerRegistration(packageName: String, source: String, reason: String? = null): Boolean {
         synchronized(lock) {
             if (activeRegistrationDispatches.contains(packageName)) {
-                logger.d("skip reentrant application registration package=$packageName source=$source reason=$reason")
+                logD("skip reentrant application registration package=$packageName source=$source reason=$reason")
                 return false
             }
             recentRegistrationReplays.remove(packageName)
@@ -673,7 +675,7 @@ object PushRuntime {
         runCatching {
             host.processBridgeIntent(intent)
         }.onFailure {
-            logger.e("bridge intent processing failed: action=${intent.action}", it)
+            logE("bridge intent processing failed: action=${intent.action}", it)
         }
     }
 
@@ -784,7 +786,7 @@ object PushRuntime {
             }
         }
         if (dispatched > 0) {
-            logger.d("replayed pending application registrations count=$dispatched source=$source reason=$reason")
+            logD("replayed pending application registrations count=$dispatched source=$source reason=$reason")
         }
         return dispatched
     }
@@ -796,7 +798,7 @@ object PushRuntime {
     private fun dispatchApplicationRegistration(packageName: String, source: String, reason: String?): Boolean {
         val host = synchronized(lock) {
             if (activeRegistrationDispatches.contains(packageName)) {
-                logger.d("skip active application registration package=$packageName source=$source reason=$reason")
+                logD("skip active application registration package=$packageName source=$source reason=$reason")
                 return false
             }
             val activeHost = executionHost ?: return false
@@ -807,7 +809,7 @@ object PushRuntime {
         return runCatching {
             host.requestApplicationRegistration(packageName, buildReason(source, reason))
         }.getOrElse {
-            logger.e("requestApplicationRegistration failed package=$packageName", it)
+            logE("requestApplicationRegistration failed package=$packageName", it)
             false
         }.also {
             synchronized(lock) {

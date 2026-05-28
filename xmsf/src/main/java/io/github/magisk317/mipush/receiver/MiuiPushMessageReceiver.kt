@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.receiver
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.Context
 import android.content.Intent
 import io.github.magisk317.mipush.diagnostics.RateLimitedWarnLogger
@@ -13,15 +19,10 @@ import com.xiaomi.xmsf.push.service.XMAccountManager
 
 class MiuiPushMessageReceiver : PushMessageReceiver() {
     private val TAG = MiuiPushMessageReceiver::class.java.simpleName
-    private val logger = object {
-        fun d(msg: String) = Napier.d(msg, tag = TAG)
-        fun i(msg: String) = Napier.i(msg, tag = TAG)
-        fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
-    }
 
     override fun onCommandResult(context: Context, miPushCommandMessage: MiPushCommandMessage) {
-        logger.d("onCommandResult")
-        logger.d(miPushCommandMessage.toString())
+        logD("onCommandResult")
+        logD(miPushCommandMessage.toString())
         if (miPushCommandMessage.resultCode.toInt() == 0) {
             val command = miPushCommandMessage.command
             if (miPushCommandMessage.commandArguments?.isNotEmpty() == true && "register" == command) {
@@ -33,7 +34,7 @@ class MiuiPushMessageReceiver : PushMessageReceiver() {
             }
             return
         }
-        logger.e(miPushCommandMessage.toString())
+        logE(miPushCommandMessage.toString())
     }
 
     override fun onReceivePassThroughMessage(context: Context, miPushMessage: MiPushMessage) {
@@ -45,7 +46,7 @@ class MiuiPushMessageReceiver : PushMessageReceiver() {
     }
 
     private fun routeIncomingMessage(context: Context, miPushMessage: MiPushMessage, isNotified: Boolean) {
-        logger.i("onReceiveMessage -> $miPushMessage")
+        logI("onReceiveMessage -> $miPushMessage")
         val pkg = miPushMessage.extra?.get("miui_package_name")
         if (!pkg.isNullOrBlank()) {
             PushRuntime.observeNotificationEvent(
@@ -53,12 +54,12 @@ class MiuiPushMessageReceiver : PushMessageReceiver() {
                 action = if (isNotified) "miui_click_message" else "miui_receive_message",
                 source = "MiuiPushMessageReceiver.routeIncomingMessage"
             )
-            logger.d("not empty")
+            logD("not empty")
             val intent = Intent()
             intent.setPackage(pkg)
             intent.putExtras(miPushMessage.toBundle())
                 if (isNotified) {
-                    logger.d("isNotified -> true")
+                    logD("isNotified -> true")
                     intent.action = "com.xiaomi.mipush.miui.CLICK_MESSAGE"
                     runCatching { context.startService(intent) }
                         .onFailure {
@@ -70,7 +71,7 @@ class MiuiPushMessageReceiver : PushMessageReceiver() {
                             )
                         }
                 } else {
-                    logger.d("send broadcast")
+                    logD("send broadcast")
                     intent.action = "com.xiaomi.mipush.miui.RECEIVE_MESSAGE"
                     runCatching { context.sendBroadcast(intent) }
                         .onFailure {

@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.service.runtime
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
@@ -25,10 +31,6 @@ import java.util.LinkedHashMap
 
 internal object MyMIPushNotificationStyleSupport {
     private const val TAG = "MyNotificationStyle"
-    private val logger = object {
-        fun d(msg: String) = Napier.d(msg, tag = TAG)
-        fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
-    }
     
     private const val NOTIFICATION_BIG_STYLE_MIN_LEN = 25
     private const val MAX_CACHED_CONVERSATIONS = 128
@@ -157,7 +159,7 @@ internal object MyMIPushNotificationStyleSupport {
                 }
             }
             if (removed > 0) {
-                logger.d("clear conversation history pkg=$packageName id=$notificationId removed=$removed")
+                logD("clear conversation history pkg=$packageName id=$notificationId removed=$removed")
             }
         }
     }
@@ -200,7 +202,7 @@ internal object MyMIPushNotificationStyleSupport {
             history.updatedElapsedMs = now
             history.messages.map { it.message }
         }
-        logger.d(
+        logD(
             "conversation history pkg=$packageName id=$notificationId conversation=${key.conversationId} " +
                 "messages=${messages.size} seeded=$seededCount appended=$appended messageKey=$messageKey"
         )
@@ -244,7 +246,7 @@ internal object MyMIPushNotificationStyleSupport {
                 }
             }
         } catch (e: Exception) {
-            logger.e("Failed to read active messaging notification", e)
+            logE("Failed to read active messaging notification", e)
         }
         return emptyList()
     }
@@ -384,7 +386,7 @@ internal object MyMIPushNotificationStyleSupport {
                 arrayOf(values.getOrNull(0).orEmpty(), values.getOrNull(1).orEmpty())
             }
         } catch (e: Exception) {
-            logger.e("Error in determineTitleAndDespByDIP", e)
+            logE("Error in determineTitleAndDespByDIP", e)
             arrayOf(pushMetaInfo.title.orEmpty(), pushMetaInfo.description.orEmpty())
         }
     }

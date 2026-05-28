@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.service.runtime
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Context
@@ -23,9 +29,6 @@ import java.net.URL
 
 internal object MyMIPushNotificationIntentSupport {
     private const val TAG = "MyNotificationIntent"
-    private val logger = object {
-        fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
-    }
 
     private const val KEY_NOTIFICATION_STYLE_TYPE = "notification_style_type"
     private const val STYLE_TYPE_VOIP = "6"
@@ -136,7 +139,7 @@ internal object MyMIPushNotificationIntentSupport {
         return PendingIntent.getActivity(context, notificationId, activityIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
     }
 
-    internal fun shouldUseSdkActivityClick(sdkIntentAvailable: Boolean): Boolean = sdkIntentAvailable
+    internal fun shouldUseSdkActivityClick(sdkIntentAvailable: Boolean): Boolean = false
 
     fun getSdkIntent(context: Context, container: XmPushActionContainer): Intent? {
         val pkgName = container.packageName
@@ -241,7 +244,7 @@ internal object MyMIPushNotificationIntentSupport {
                 return intent
             }
         } catch (e: Exception) {
-            logger.e("Failed to resolve activity: ${e.message}", e)
+            logE("Failed to resolve activity: ${e.message}", e)
         }
         return null
     }
@@ -263,7 +266,7 @@ internal object MyMIPushNotificationIntentSupport {
         return try {
             context.packageManager.getLaunchIntentForPackage(pkgName)
         } catch (e: Exception) {
-            logger.e("Failed to get launch intent: ${e.message}", e)
+            logE("Failed to get launch intent: ${e.message}", e)
             null
         }
     }
@@ -276,7 +279,7 @@ internal object MyMIPushNotificationIntentSupport {
                     `package` = pkgName
                 }
             } catch (e: URISyntaxException) {
-                logger.e("Failed to parse intent URI: ${e.message}", e)
+                logE("Failed to parse intent URI: ${e.message}", e)
                 null
             }
         }
@@ -291,7 +294,7 @@ internal object MyMIPushNotificationIntentSupport {
                     flags = extra[PushConstants.EXTRA_PARAM_INTENT_FLAG]!!.toInt()
                 }
             } catch (e: NumberFormatException) {
-                logger.e("Cause by intent_flag: ${e.message}", e)
+                logE("Cause by intent_flag: ${e.message}", e)
             }
         }
     }
@@ -317,7 +320,7 @@ internal object MyMIPushNotificationIntentSupport {
                     `package` = pkgName
                 }
             } catch (e: URISyntaxException) {
-                logger.e("Failed to parse button intent URI: ${e.message}", e)
+                logE("Failed to parse button intent URI: ${e.message}", e)
                 null
             }
         }
@@ -389,7 +392,7 @@ internal object MyMIPushNotificationIntentSupport {
             val protocol = URL(candidate).protocol
             if (protocol == "http" || protocol == "https") candidate else null
         } catch (e: MalformedURLException) {
-            logger.e("Malformed web URI: ${e.message}", e)
+            logE("Malformed web URI: ${e.message}", e)
             null
         }
     }

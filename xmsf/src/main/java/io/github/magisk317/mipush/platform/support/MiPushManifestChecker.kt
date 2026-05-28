@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.platform.support
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.Context
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
@@ -22,10 +28,6 @@ class MiPushManifestChecker private constructor(
     private val context: Context
 ) {
     private val TAG2 = "MiPushManifestChecker"
-    private val logger = object {
-        fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG2)
-        fun w(msg: String) = Napier.w(msg, tag = TAG2)
-    }
 
     fun checkPermissions(packageInfo: PackageInfo): Boolean {
         return try {
@@ -33,9 +35,9 @@ class MiPushManifestChecker private constructor(
             true
         } catch (e: Throwable) {
             if (!isIllegalManifestException(e)) {
-                logger.e("checkPermissions", e)
+                logE("checkPermissions", e)
             } else {
-                logger.e("checkPermissions: " + packageInfo.packageName + "," + (e as? InvocationTargetException)?.cause?.message)
+                logE("checkPermissions: " + packageInfo.packageName + "," + (e as? InvocationTargetException)?.cause?.message)
             }
             false
         }
@@ -52,7 +54,7 @@ class MiPushManifestChecker private constructor(
             true
         } catch (e: Throwable) {
             if (!isIllegalManifestException(e)) {
-                logger.e("checkReceivers", e)
+                logE("checkReceivers", e)
             }
             false
         }
@@ -73,7 +75,7 @@ class MiPushManifestChecker private constructor(
             if (e is IllegalStateException) {
                 warnServiceIssueOnce(cacheKey, "checkServices: " + pkgInfo.packageName + "," + e.message)
             } else if (!isIllegalManifestException(e)) {
-                logger.e("checkServices", e)
+                logE("checkServices", e)
             } else {
                 warnServiceIssueOnce(cacheKey, "checkServices: " + pkgInfo.packageName + "," + e.message)
             }

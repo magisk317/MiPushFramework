@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.common.configurations
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import io.github.aakira.napier.Napier
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import org.apache.thrift.TException
@@ -11,10 +17,10 @@ class ConfigValueConverter {
                 val container = root as XmPushActionContainer
                 ConvertUtils.getResponseMessageBodyFromContainer(container, RegSecUtils.getRegSec(container))
             } catch (e: ClassCastException) {
-                logger.e("parse pushAction failed", e)
+                logE("parse pushAction failed", e)
                 null
             } catch (e: TException) {
-                logger.e("parse pushAction failed", e)
+                logE("parse pushAction failed", e)
                 null
             }
         }
@@ -23,8 +29,5 @@ class ConfigValueConverter {
 
     companion object {
         private val TAG = ConfigValueConverter::class.java.simpleName
-        private val logger = object {
-            fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
-        }
     }
 }

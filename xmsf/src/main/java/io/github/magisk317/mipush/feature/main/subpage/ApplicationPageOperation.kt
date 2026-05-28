@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.feature.main.subpage
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
@@ -27,48 +33,39 @@ import io.github.magisk317.mipush.platform.support.MiPushManifestChecker
 
 object ApplicationPageOperation {
     private val TAG = ApplicationPageOperation::class.java.simpleName
-    private val logger = object {
-        fun d(msg: String, vararg args: Any?) {
-            if (args.isEmpty()) Napier.d(msg, tag = TAG)
-            else Napier.d(String.format(msg, *args), tag = TAG)
-        }
-        fun e(msg: String, t: Throwable? = null) {
-            Napier.e(msg, t, tag = TAG)
-        }
-    }
 
     @JvmStatic
     fun getMiPushApplications(): MiPushApplications {
         val miPushApplications = MiPushApplications()
-        logger.d("[loadApp] start load app list")
+        logD("[loadApp] start load app list")
         val timer = ElapsedTimer()
         
         val registeredPkgs = getRegisteredApplicationMap(miPushApplications)
-        logger.d("[loadApp] get registeredPkgs ms: %d", timer.restart())
+        logD("[loadApp] get registeredPkgs ms: %d", timer.restart())
 
         val packageInfos = getPackagesOnDevice().filter(::isUserApplication).toMutableList()
         miPushApplications.totalPkg = packageInfos.size
-        logger.d("[loadApp] get package info ms: %d", timer.restart())
+        logD("[loadApp] get package info ms: %d", timer.restart())
 
         // Batch fetch all last receive times to avoid N+1 queries
         val lastReceiveTimes = runBlocking { EventDb.getAllLastReceiveTimesAsync() }
-        logger.d("[loadApp] batch fetch lastReceiveTimes ms: %d", timer.restart())
+        logD("[loadApp] batch fetch lastReceiveTimes ms: %d", timer.restart())
 
         removePackagesThatNotSupportMiPushServices(packageInfos, registeredPkgs)
-        logger.d("[loadApp] filter not service package ms: %d", timer.restart())
+        logD("[loadApp] filter not service package ms: %d", timer.restart())
 
         val res = convertToRegisteredApplicationList(packageInfos, registeredPkgs)
         miPushApplications.res = res
-        logger.d("[loadApp] convert to application list ms: %d", timer.restart())
+        logD("[loadApp] convert to application list ms: %d", timer.restart())
 
         addApplicationNameIfMissing(res)
-        logger.d("[loadApp] query name ms: %d", timer.restart())
+        logD("[loadApp] query name ms: %d", timer.restart())
 
         addApplicationPinYinName(res)
-        logger.d("[loadApp] query pinyin ms: %d", timer.restart())
+        logD("[loadApp] query pinyin ms: %d", timer.restart())
 
         addLastReceiveTimeInfo(res, lastReceiveTimes)
-        logger.d("[loadApp] query lastReceiveTime ms: %d", timer.restart())
+        logD("[loadApp] query lastReceiveTime ms: %d", timer.restart())
         return miPushApplications
     }
 
@@ -216,7 +213,7 @@ object ApplicationPageOperation {
         val lightweightPackages = try {
             PackageManagerCompatBridge.getInstalledPackages(packageManager, 0)
         } catch (error: RuntimeException) {
-            logger.e("Failed to load lightweight installed packages", error)
+            logE("Failed to load lightweight installed packages", error)
             return mutableListOf()
         }
         val packages = mutableListOf<PackageInfo>()
@@ -227,7 +224,7 @@ object ApplicationPageOperation {
             } catch (_: PackageManager.NameNotFoundException) {
                 null
             } catch (error: RuntimeException) {
-                logger.e("Failed to load package details for $packageName", error)
+                logE("Failed to load package details for $packageName", error)
                 null
             }
             packages += detailedInfo ?: info
@@ -240,13 +237,13 @@ object ApplicationPageOperation {
         return try {
             MiPushManifestChecker.create(Utils.getApplication() ?: return null)
         } catch (e: PackageManager.NameNotFoundException) {
-            logger.e("Create mi push checker", e)
+            logE("Create mi push checker", e)
             null
         } catch (e: ClassNotFoundException) {
-            logger.e("Create mi push checker", e)
+            logE("Create mi push checker", e)
             null
         } catch (e: NoSuchMethodException) {
-            logger.e("Create mi push checker", e)
+            logE("Create mi push checker", e)
             null
         }
     }
@@ -333,14 +330,14 @@ object ApplicationPageOperation {
 
         val timer = ElapsedTimer()
         removeApplicationsThatQueryNotMatched(miPushApplications, query)
-        logger.d("[loadApp] filter app search ms: %d", timer.restart())
+        logD("[loadApp] filter app search ms: %d", timer.restart())
 
         filterApplicationsByMode(miPushApplications, filterMode)
-        logger.d("[loadApp] filter app mode ms: %d", timer.restart())
+        logD("[loadApp] filter app mode ms: %d", timer.restart())
 
         sortApplicationsForDisplay(miPushApplications)
-        logger.d("[loadApp] sort application list will show ms: %d", timer.restart())
-        logger.d("[loadApp] end load app list ms: %d", totalTimer.elapsed())
+        logD("[loadApp] sort application list will show ms: %d", timer.restart())
+        logD("[loadApp] end load app list ms: %d", totalTimer.elapsed())
         return miPushApplications
     }
 
@@ -355,7 +352,7 @@ object ApplicationPageOperation {
             .toSet()
         
         val localRegisteredPkgs = RegistrationStateCompat.findPackagesWithValidLocalRegistration(notRegisteredPkgs)
-        logger.d(
+        logD(
             "[updateApp] local registration probe ms: %d, queried=%d, matched=%d",
             timer.restart(),
             notRegisteredPkgs.size,
@@ -381,8 +378,8 @@ object ApplicationPageOperation {
                 RegisteredApplicationDb.update(application)
             }
         }
-        logger.d("[updateApp] update app ms: %d", timer.restart())
-        logger.d("[updateApp] updated ms: %d", totalTimer.elapsed())
+        logD("[updateApp] update app ms: %d", timer.restart())
+        logD("[updateApp] updated ms: %d", totalTimer.elapsed())
     }
 
     @JvmStatic

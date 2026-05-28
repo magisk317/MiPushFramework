@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.runtime.data
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
@@ -156,13 +162,13 @@ class EventRepository constructor(
             "mock_replay_request",
             "EventRepository.mockMessage",
         )
-        logger.i(
+        logI(
             "EventRepository",
             "mock replay request pkg=${containerWithRegSec.packageName} action=${containerWithRegSec.action} " +
                 "pushServiceReady=${pushService != null}"
         )
-        logger.d("EventRepository", "mockMessage called. pushService exists: ${pushService != null}")
-        logger.d(
+        logD("EventRepository", "mockMessage called. pushService exists: ${pushService != null}")
+        logD(
             "EventRepository",
             "mockMessage request pkg=${containerWithRegSec.packageName} action=${containerWithRegSec.action} " +
                 "messageId=${io.github.magisk317.mipush.push.pipeline.MessageIdentity.fromContainer(containerWithRegSec)} " +
@@ -193,12 +199,12 @@ class EventRepository constructor(
                     "mock_replay_preflight_no_intent",
                     "EventRepository.mockMessage",
                 )
-                logger.w("EventRepository", "mock preflight: buildIntent returned null")
+                logW("EventRepository", "mock preflight: buildIntent returned null")
             } else {
                 // Use 0 to match framework dispatch behavior in MIPushEventProcessor.isIntentAvailable.
                 val receivers = context.packageManager.queryBroadcastReceivers(candidateIntent, 0)
                 val receiverNames = receivers.mapNotNull { it.activityInfo?.name }.take(3)
-                logger.d(
+                logD(
                     "EventRepository",
                     "mock preflight: action=${candidateIntent.action} pkg=${candidateIntent.`package`} " +
                         "receivers=${receivers.size} names=$receiverNames"
@@ -228,7 +234,7 @@ class EventRepository constructor(
                 "mock_replay_preflight_failed",
                 "EventRepository.mockMessage",
             )
-            logger.e("EventRepository", "mock preflight check failed", it)
+            logE("EventRepository", "mock preflight check failed", it)
         }
 
         if (pushService == null) {
@@ -237,11 +243,11 @@ class EventRepository constructor(
                 "mock_replay_wait_service",
                 "EventRepository.mockMessage",
             )
-            logger.d("EventRepository", "pushService is null, ensuring observer and starting service")
+            logD("EventRepository", "pushService is null, ensuring observer and starting service")
             // Ensure the runtime observer is initialized before starting the push service.
             // Normally BootReceiver does this, but it may not have run.
             if (com.xiaomi.push.service.XMPushService.observer == null) {
-                logger.d("EventRepository", "XMPushService.observer is null, initializing MiPushRuntimeObserverBridge")
+                logD("EventRepository", "XMPushService.observer is null, initializing MiPushRuntimeObserverBridge")
                 io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge(context)
             }
             PushServiceStarter.start(context, Intent(context, AppXMPushService::class.java))
@@ -263,7 +269,7 @@ class EventRepository constructor(
             if (handled) "mock_replay_handled" else "mock_replay_failed",
             "EventRepository.mockMessage",
         )
-        logger.d(
+        logD(
             "EventRepository",
             "mockMessage finished pkg=${replayContainer.packageName} action=${replayContainer.action} " +
                 "messageId=${io.github.magisk317.mipush.push.pipeline.MessageIdentity.fromContainer(replayContainer)} handled=$handled"
@@ -306,7 +312,7 @@ class EventRepository constructor(
         Thread {
             try {
                 val waitedMs = waitForPushService { service, waited ->
-                    logger.d("EventRepository", "pushService became ready after ${waited}ms, replaying mock")
+                    logD("EventRepository", "pushService became ready after ${waited}ms, replaying mock")
                     val replayContainer = containerWithRegSec.deepCopy()
                     PushRuntime.observeNotificationEvent(
                         replayContainer.packageName,
@@ -319,7 +325,7 @@ class EventRepository constructor(
                         if (handled) "mock_replay_handled" else "mock_replay_failed",
                         "EventRepository.waitForPushServiceAndReplay",
                     )
-                    logger.d("EventRepository", "deferred mockMessage handled=$handled")
+                    logD("EventRepository", "deferred mockMessage handled=$handled")
                     if (!handled) {
                         showMockFailedToast()
                     }
@@ -330,7 +336,7 @@ class EventRepository constructor(
                         "mock_replay_service_timeout",
                         "EventRepository.waitForPushServiceAndReplay",
                     )
-                    logger.w("EventRepository", "pushService did not become ready within ${MOCK_REPLAY_MAX_WAIT_MS}ms")
+                    logW("EventRepository", "pushService did not become ready within ${MOCK_REPLAY_MAX_WAIT_MS}ms")
                     showMockFailedToast()
                 }
             } catch (t: InterruptedException) {
@@ -340,14 +346,14 @@ class EventRepository constructor(
                     "mock_replay_wait_interrupted",
                     "EventRepository.waitForPushServiceAndReplay",
                 )
-                logger.w("EventRepository", "mock replay wait interrupted", t)
+                logW("EventRepository", "mock replay wait interrupted", t)
             } catch (t: Throwable) {
                 PushRuntime.observeNotificationEvent(
                     containerWithRegSec.packageName,
                     "mock_replay_wait_failed",
                     "EventRepository.waitForPushServiceAndReplay",
                 )
-                logger.e("EventRepository", "deferred mock replay failed", t)
+                logE("EventRepository", "deferred mock replay failed", t)
                 showMockFailedToast()
             }
         }.apply {
@@ -422,11 +428,5 @@ class EventRepository constructor(
     companion object {
         private const val MOCK_REPLAY_MAX_WAIT_MS = 5_000L
         private const val MOCK_REPLAY_POLL_MS = 100L
-        private val logger = object {
-            fun d(tag: String, msg: String) = io.github.aakira.napier.Napier.d(msg, tag = tag)
-            fun i(tag: String, msg: String) = io.github.aakira.napier.Napier.i(msg, tag = tag)
-            fun w(tag: String, msg: String, t: Throwable? = null) = io.github.aakira.napier.Napier.w(msg, t, tag = tag)
-            fun e(tag: String, msg: String, t: Throwable? = null) = io.github.aakira.napier.Napier.e(msg, t, tag = tag)
-        }
     }
 }

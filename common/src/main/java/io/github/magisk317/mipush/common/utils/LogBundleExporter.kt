@@ -24,11 +24,6 @@ object LogBundleExporter {
     private val crashFilePattern = Regex("^Crash_\\d{4}-\\d{2}-\\d{2}\\.txt$")
     private val legacyTextLogFilePattern = Regex("^logs_\\d{4}-\\d{2}-\\d{2}\\.txt$")
     private val opLock = Any()
-    private val logger = object {
-        fun i(message: String) = Napier.i(message, tag = "LogBundleExporter")
-        fun w(message: String) = Napier.w(message, tag = "LogBundleExporter")
-        fun e(message: String, throwable: Throwable? = null) = Napier.e(message, throwable, tag = "LogBundleExporter")
-    }
 
     data class ExportResult(
         val file: File?,
@@ -48,7 +43,7 @@ object LogBundleExporter {
             val exportDir = getPrivateExportDir(context)
             if (!ensureDirectory(exportDir, recreateWhenFile = true)) {
                 val details = "export root unavailable: ${exportDir.absolutePath}"
-                logger.e(details)
+                logE(details)
                 return ExportResult(null, details)
             }
             val stagingDir = File(exportDir, "${STAGING_DIR_PREFIX}$timestamp").apply {
@@ -58,7 +53,7 @@ object LogBundleExporter {
             }
             if (!ensureDirectory(stagingDir, recreateWhenFile = true)) {
                 val details = "staging dir unavailable: ${stagingDir.absolutePath}"
-                logger.e(details)
+                logE(details)
                 return ExportResult(null, details)
             }
             val details = mutableListOf<String>()
@@ -70,7 +65,7 @@ object LogBundleExporter {
                     .count { it.isFile }
                 if (payloadCount == 0) {
                     val noDataDetails = details.joinToString("; ").ifBlank { "no log sources available" }
-                    logger.w("buildLogBundle skipped: $noDataDetails")
+                    logW("buildLogBundle skipped: $noDataDetails")
                     return ExportResult(null, noDataDetails)
                 }
 
@@ -86,15 +81,15 @@ object LogBundleExporter {
                 zipDirectory(stagingDir, zipFile)
                 setFileWorldReadable(zipFile, 2)
                 val detailSummary = details.joinToString("; ")
-                logger.i("buildLogBundle success: file=${zipFile.absolutePath} size=${zipFile.length()} details=$detailSummary")
+                logI("buildLogBundle success: file=${zipFile.absolutePath} size=${zipFile.length()} details=$detailSummary")
                 return ExportResult(zipFile, detailSummary)
             } catch (t: Throwable) {
-                logger.e("buildLogBundle failed", t)
+                logE("buildLogBundle failed", t)
                 return ExportResult(null, t.message ?: t.javaClass.simpleName)
             } finally {
                 runCatching {
                     if (!deleteRecursivelyBestEffort(stagingDir)) {
-                        logger.w("Failed to cleanup staging dir: ${stagingDir.absolutePath}")
+                        logW("Failed to cleanup staging dir: ${stagingDir.absolutePath}")
                     }
                 }
             }
@@ -123,12 +118,12 @@ object LogBundleExporter {
             runCatching {
                 context.grantUriPermission(packageName, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }.onFailure {
-                logger.w(
+                logW(
                     "grantUriPermission failed: pkg=$packageName uri=$uri err=${it.message ?: it.javaClass.simpleName}",
                 )
             }
         }
-        logger.i("buildShareIntent: file=${file.absolutePath} size=${file.length()} uri=$uri targets=${resolvedTargets.size}")
+        logI("buildShareIntent: file=${file.absolutePath} size=${file.length()} uri=$uri targets=${resolvedTargets.size}")
         return intent
     }
 
@@ -207,13 +202,13 @@ object LogBundleExporter {
             }
             val parent = dest.parentFile ?: return@forEach
             if (!ensureDirectory(parent, recreateWhenFile = true)) {
-                logger.w("Skip copy due to invalid parent dir: ${dest.absolutePath}")
+                logW("Skip copy due to invalid parent dir: ${dest.absolutePath}")
                 return@forEach
             }
             runCatching {
                 file.copyTo(dest, overwrite = true)
             }.onFailure {
-                logger.w(
+                logW(
                     "Skip copy file failed: src=${file.absolutePath} dst=${dest.absolutePath} err=${it.message ?: it.javaClass.simpleName}",
                 )
             }
@@ -236,7 +231,7 @@ object LogBundleExporter {
                             file.inputStream().use { input -> input.copyTo(zos) }
                             zos.closeEntry()
                         }.onFailure {
-                            logger.w(
+                            logW(
                                 "Skip zipping unreadable file: ${file.absolutePath} err=${it.message ?: it.javaClass.simpleName}",
                             )
                         }
@@ -254,7 +249,7 @@ object LogBundleExporter {
             dir.listFiles().orEmpty().forEach { child ->
                 if (!deleteRecursivelyBestEffort(child)) {
                     deletedAll = false
-                    logger.w("Failed to delete log child: ${child.absolutePath}")
+                    logW("Failed to delete log child: ${child.absolutePath}")
                 }
             }
             deletedAll && ensureDirectory(dir, recreateWhenFile = true)
@@ -270,12 +265,12 @@ object LogBundleExporter {
             if (dir.isDirectory) return true
             if (!recreateWhenFile) return false
             if (!dir.delete()) {
-                logger.w("Failed to delete non-directory path: ${dir.absolutePath}")
+                logW("Failed to delete non-directory path: ${dir.absolutePath}")
                 return false
             }
         }
         if (!dir.mkdirs() && !dir.exists()) {
-            logger.w("Failed to mkdirs for path: ${dir.absolutePath}")
+            logW("Failed to mkdirs for path: ${dir.absolutePath}")
             return false
         }
         return dir.isDirectory
@@ -284,7 +279,7 @@ object LogBundleExporter {
     private fun deleteRecursivelyBestEffort(target: File): Boolean {
         if (!target.exists()) return true
         if (target.deleteRecursively()) return true
-        logger.w("Failed to delete path without root fallback: ${target.absolutePath}")
+        logW("Failed to delete path without root fallback: ${target.absolutePath}")
         return !target.exists()
     }
 
@@ -303,7 +298,7 @@ object LogBundleExporter {
             LogUtils.pruneAppLogsForToday(getLogDir(context), now)
             LogUtils.pruneDailyFiles(getCrashDir(context), LogUtils.currentDateString(now), crashFilePattern)
         }.onFailure {
-            logger.w("Failed to prune local logs before export: ${it.message ?: it.javaClass.simpleName}")
+            logW("Failed to prune local logs before export: ${it.message ?: it.javaClass.simpleName}")
         }
     }
 }

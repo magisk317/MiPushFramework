@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.app
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.app.Application
 import android.app.Notification
 import android.app.NotificationManager
@@ -50,10 +56,6 @@ import kotlinx.coroutines.runBlocking
 class MiPushFrameworkApp : Application() {
     private val preferenceRepository: PreferenceRepository by lazy { AppDependencies.get(this) }
 
-    private val logger = object {
-        fun i(msg: String) = Napier.i(msg, tag = "MiPushFrameworkApp")
-        fun e(msg: String?, t: Throwable? = null) = Napier.e(msg ?: "", t, tag = "MiPushFrameworkApp")
-    }
 
     override fun onCreate() {
         applicationScope = MainScope()
@@ -90,7 +92,7 @@ class MiPushFrameworkApp : Application() {
                 notifyDozeWhiteListRequest(NotificationManagerCompat.from(this))
             }
         } catch (e: RuntimeException) {
-            logger.e(e.message, e)
+            logE(e.message, e)
         }
     }
 
@@ -121,7 +123,7 @@ class MiPushFrameworkApp : Application() {
                 LogUtils.setMinLogLevel(if (enabled) LogLevel.VERBOSE else LogLevel.INFO)
             }
         }
-        logger.i("App starts: ${BuildConfig.VERSION_NAME}, debugMode=$initialDebugMode")
+        logI("App starts: ${BuildConfig.VERSION_NAME}, debugMode=$initialDebugMode")
     }
 
     private fun notifyDozeWhiteListRequest(manager: NotificationManagerCompat) {

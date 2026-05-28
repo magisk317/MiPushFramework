@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.runtime.store.db
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.text.TextUtils
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
@@ -15,15 +21,11 @@ import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
  */
 object RegisteredApplicationDb {
     private val TAG = "RegisteredApplicationDb"
-    private val logger = object {
-        fun i(msg: String) = Napier.i(msg, tag = TAG)
-        fun d(msg: String) = Napier.d(msg, tag = TAG)
-    }
 
 
     @JvmStatic
     fun registerApplication(pkg: String): RegisteredApplication {
-        logger.i("registerApplication() called for: $pkg")
+        logD("registerApplication() called for: $pkg")
         val registeredApplication = getRegisteredApplication(pkg)
         return registeredApplication ?: create(pkg)
     }
@@ -32,7 +34,7 @@ object RegisteredApplicationDb {
     fun getRegisteredApplication(pkg: String): RegisteredApplication? {
         val list = getList(pkg)
         if (DEBUG) {
-            logger.d("register -> existing list = $list")
+            logD("register -> existing list = $list")
         }
         return list.firstOrNull()
     }

@@ -1,5 +1,11 @@
 package com.xiaomi.xmsf.push.service.receivers
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -11,9 +17,6 @@ import io.github.magisk317.mipush.service.PushServiceStarter
 
 class PkgUninstallReceiver : BroadcastReceiver() {
     private val TAG = "PkgUninstallReceiver"
-    private val logger = object {
-        fun e(msg: String?, t: Throwable? = null) = Napier.e(msg ?: "", t, tag = TAG)
-    }
 
     override fun onReceive(context: Context, intent: Intent?) {
         if (intent != null && intent.extras != null && "android.intent.action.PACKAGE_REMOVED" == intent.action) {
@@ -35,7 +38,7 @@ class PkgUninstallReceiver : BroadcastReceiver() {
                     )
                     PushServiceStarter.start(context, serviceIntent)
                 } catch (e: Exception) {
-                    logger.e(e.message, e)
+                    logE(e.message, e)
                 }
             }
         }

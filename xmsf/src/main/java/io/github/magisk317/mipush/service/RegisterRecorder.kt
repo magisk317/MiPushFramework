@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.service
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
@@ -19,46 +25,41 @@ import io.github.magisk317.mipush.service.runtime.RegistrationIntentDeduper
 import kotlinx.coroutines.runBlocking
 
 class RegisterRecorder(private val context: Context) {
-    private val logger = object {
-        fun d(msg: String) = Napier.d(msg, tag = TAG)
-        fun e(msg: String) = Napier.e(msg, tag = TAG)
-        fun e(msg: String, t: Throwable) = Napier.e(msg, t, tag = TAG)
-    }
 
     fun recordRegisterRequest(intent: Intent?) {
-        logger.d("recordRegisterRequest() called with intent: $intent")
+        logD("recordRegisterRequest() called with intent: $intent")
         try {
             if (!isRegisterAppRequest(intent)) {
-                logger.d("Not a register app request")
+                logD("Not a register app request")
                 return
             }
 
             val pkg = intent?.getStringExtra(Constants.EXTRA_MI_PUSH_PACKAGE)
             if (pkg == null) {
-                logger.e("Package name is NULL!")
+                logE("Package name is NULL!")
                 return
             }
 
             if (!Utils.isUserApplication(context.applicationContext, pkg)) {
-                logger.d("skip system application registration pkg=$pkg")
+                logD("skip system application registration pkg=$pkg")
                 return
             }
 
             if (RegistrationIntentDeduper.shouldDrop("register_recorder", intent)) {
-                logger.d("skip duplicate register record pkg=$pkg")
+                logD("skip duplicate register record pkg=$pkg")
                 return
             }
 
             if (RegisteredApplicationDb.isBlocked(pkg)) {
-                logger.d("skip blocked application registration pkg=$pkg")
+                logD("skip blocked application registration pkg=$pkg")
                 return
             }
 
-            logger.d("onHandleIntent -> A application want to register push")
+            logD("onHandleIntent -> A application want to register push")
             showRegisterToastIfUserAllow(RegisteredApplicationDb.registerApplication(pkg))
             saveRegisterAppRecord(pkg)
         } catch (e: RuntimeException) {
-            logger.e("XMPushService::onHandleIntent: ", e)
+            logE("XMPushService::onHandleIntent: ", e)
             toastErrorMessage(e)
         }
     }
@@ -79,7 +80,7 @@ class RegisterRecorder(private val context: Context) {
         if (canShowRegisterNotification(application)) {
             showRegisterNotification(application)
         } else {
-            logger.e("Notification disabled")
+            logE("Notification disabled")
         }
     }
 

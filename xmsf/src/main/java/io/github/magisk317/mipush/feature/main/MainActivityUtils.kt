@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.feature.main
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -12,9 +18,6 @@ import com.xiaomi.push.service.XMPushServiceMessenger
 
 class MainActivityUtils {
     private val TAG = "MainActivityUtils"
-    private val logger = object {
-        fun i(msg: String) = Napier.i(msg, tag = TAG)
-    }
     private var messenger: InternalMessenger? = null
 
     fun interface ConnectionStatusChanged {
@@ -37,10 +40,10 @@ class MainActivityUtils {
     }
 
     fun printHookResultForCheck() {
-        logger.i(String.format("[hook_res] MIUIUtils.getIsMIUI() -> [%s]", invokeStatic("com.xiaomi.channel.commonutils.android.MIUIUtils", "getIsMIUI")))
-        logger.i(String.format("[hook_res] DeviceInfo.quicklyGetIMEI() -> [%s]", invokeStatic("com.xiaomi.channel.commonutils.android.DeviceInfo", "quicklyGetIMEI", null)))
-        logger.i(String.format("[hook_res] DeviceInfo.getMacAddress() -> [%s]", invokeStatic("com.xiaomi.channel.commonutils.android.DeviceInfo", "getMacAddress", null)))
-        logger.i(
+        logI(String.format("[hook_res] MIUIUtils.getIsMIUI() -> [%s]", invokeStatic("com.xiaomi.channel.commonutils.android.MIUIUtils", "getIsMIUI")))
+        logI(String.format("[hook_res] DeviceInfo.quicklyGetIMEI() -> [%s]", invokeStatic("com.xiaomi.channel.commonutils.android.DeviceInfo", "quicklyGetIMEI", null)))
+        logI(String.format("[hook_res] DeviceInfo.getMacAddress() -> [%s]", invokeStatic("com.xiaomi.channel.commonutils.android.DeviceInfo", "getMacAddress", null)))
+        logI(
             String.format(
                 "[hook_res] ConnectionConfiguration.getXmppServerHost() -> [%s]",
                 invokeStatic("com.xiaomi.smack.ConnectionConfiguration", "getXmppServerHost")

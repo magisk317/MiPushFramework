@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.utils
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.SdkNotificationCompat
@@ -20,11 +26,6 @@ object MockMIPushMessage {
     private const val EXTRA_MOCK_REPLAY = "mipush_mock_replay"
     private const val EXTRA_MOCK_REPLAY_SOURCE_ID = "mipush_mock_replay_source_id"
     private val replaySequence = AtomicLong()
-    private val logger = object {
-        fun d(msg: String) = Napier.d(msg, tag = TAG)
-        fun w(msg: String) = Napier.w(msg, tag = TAG)
-        fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
-    }
 
     @JvmStatic
     fun mockProcessMIPushMessage(pushService: XMPushService, container: XmPushActionContainer): Boolean {
@@ -32,7 +33,7 @@ object MockMIPushMessage {
         val payload = XMPushUtils.packToBytes(replayContainer)
         val messageId = MessageIdentity.fromContainer(replayContainer)
         observeReplayEvent(replayContainer, "mock_replay_prepare", "MockMIPushMessage.mockProcessMIPushMessage")
-        logger.d(
+        logD(
             "mockProcessMIPushMessage start pkg=${replayContainer.packageName} action=${replayContainer.action} " +
                 "messageId=$messageId payloadSize=${payload.size} isRequest=${replayContainer.isRequest} " +
                 "isEncrypt=${replayContainer.isEncryptAction}"
@@ -44,7 +45,7 @@ object MockMIPushMessage {
                 "mock_replay_modern_helper_start",
                 "MockMIPushMessage.mockProcessMIPushMessage",
             )
-            logger.d(
+            logD(
                 "mockProcessMIPushMessage use modern helper pkg=${replayContainer.packageName} action=${replayContainer.action} " +
                     "messageId=$messageId"
             )
@@ -55,7 +56,7 @@ object MockMIPushMessage {
                     "mock_replay_modern_helper_success",
                     "MockMIPushMessage.mockProcessMIPushMessage",
                 )
-                logger.d(
+                logD(
                     "mockProcessMIPushMessage modern helper completed pkg=${replayContainer.packageName} " +
                         "action=${replayContainer.action} messageId=$messageId"
                 )
@@ -66,7 +67,7 @@ object MockMIPushMessage {
                     "mock_replay_modern_helper_failure",
                     "MockMIPushMessage.mockProcessMIPushMessage",
                 )
-                logger.e(
+                logE(
                     "mock modern helper notify failure pkg=${replayContainer.packageName} " +
                         "action=${replayContainer.action} messageId=$messageId payloadSize=${payload.size}",
                     it
@@ -80,14 +81,14 @@ object MockMIPushMessage {
                 "mock_replay_legacy_success",
                 "MockMIPushMessage.mockProcessMIPushMessage",
             )
-            logger.d(
+            logD(
                 "mockProcessMIPushMessage legacy invoke completed pkg=${replayContainer.packageName} " +
                     "action=${replayContainer.action} messageId=$messageId"
             )
             return true
         } catch (e: Exception) {
             if (shouldFallbackWithModernHelper(e)) {
-                logger.w("mock fallback to modern helper due to PendingIntent flag crash")
+                logW("mock fallback to modern helper due to PendingIntent flag crash")
                 MockMessageRegistry.mark(replayContainer)
                 observeReplayEvent(
                     replayContainer,
@@ -101,7 +102,7 @@ object MockMIPushMessage {
                             "mock_replay_modern_helper_fallback_success",
                             "MockMIPushMessage.mockProcessMIPushMessage",
                         )
-                        logger.d(
+                        logD(
                             "mockProcessMIPushMessage fallback modern helper completed pkg=${replayContainer.packageName} " +
                                 "action=${replayContainer.action} messageId=$messageId"
                         )
@@ -113,7 +114,7 @@ object MockMIPushMessage {
                             "mock_replay_modern_helper_fallback_failure",
                             "MockMIPushMessage.mockProcessMIPushMessage",
                         )
-                        logger.e(
+                        logE(
                             "mock fallback notify failure pkg=${replayContainer.packageName} " +
                                 "action=${replayContainer.action} messageId=$messageId payloadSize=${payload.size}",
                             fallbackError
@@ -121,7 +122,7 @@ object MockMIPushMessage {
                     }
             }
             observeReplayEvent(replayContainer, "mock_replay_failure", "MockMIPushMessage.mockProcessMIPushMessage")
-            logger.e(
+            logE(
                 "mock notification failure pkg=${replayContainer.packageName} action=${replayContainer.action} " +
                     "messageId=$messageId payloadSize=${payload.size}",
                 e
@@ -145,7 +146,7 @@ object MockMIPushMessage {
         metaInfo.putToExtra(PushConstants.EXTRA_JOB_KEY, replayId)
         metaInfo.putToExtra(EXTRA_MOCK_REPLAY, "true")
         metaInfo.putToExtra(EXTRA_MOCK_REPLAY_SOURCE_ID, sourceId)
-        logger.d("prepared mock replay sourceId=$sourceId replayId=$replayId")
+        logD("prepared mock replay sourceId=$sourceId replayId=$replayId")
         return container
     }
 
@@ -162,7 +163,7 @@ object MockMIPushMessage {
         payload: ByteArray = XMPushUtils.packToBytes(container)
     ) {
         MockMessageRegistry.mark(container)
-        logger.d(
+        logD(
             "invokeProcessMiPushMessage pkg=${container.packageName} action=${container.action} " +
                 "isRequest=${container.isRequest} isEncrypt=${container.isEncryptAction}"
         )
@@ -184,7 +185,7 @@ object MockMIPushMessage {
             mockDecryptedContent,
             mockDecryptedContent.size.toLong()
         )
-        logger.d(
+        logD(
             "processMIPushMessage invoked payloadSize=${mockDecryptedContent.size} " +
                 "resultType=${result.javaClass.name ?: "void"} result=$result"
         )

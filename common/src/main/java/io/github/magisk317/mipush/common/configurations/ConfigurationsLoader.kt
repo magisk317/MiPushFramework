@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.common.configurations
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.Context
 import android.net.Uri
 import android.util.Pair
@@ -48,7 +54,7 @@ class ConfigurationsLoader constructor(
             if (exceptions.isNotEmpty()) {
                 for (pair in exceptions) {
                     val errmsg = getJsonExceptionMessage(context, pair)
-                    logger.e(errmsg)
+                    logE(errmsg.toString())
                     Utils.makeText(context, errmsg.toString(), Toast.LENGTH_LONG)
                 }
                 break
@@ -69,10 +75,10 @@ class ConfigurationsLoader constructor(
         mContext = context
         mTreeUri = treeUri
         mDocumentFile = documentFile
-        logger.i("parseDirectory uri: [%s]", treeUri.path)
+        logI(String.format("parseDirectory uri: [%s]", treeUri.path))
         val files = documentFile.listFiles()
         for (file in files) {
-            logger.i("file: [%s], type: [%s]", file.name, file.type)
+            logI(String.format("file: [%s], type: [%s]", file.name, file.type))
             val name = file.name ?: continue
             if (!name.lowercase().endsWith(".json")) {
                 continue
@@ -160,13 +166,6 @@ class ConfigurationsLoader constructor(
 
     companion object {
         private val TAG = ConfigurationsLoader::class.java.simpleName
-        private val logger = object {
-            fun i(msg: String, vararg args: Any?) {
-                if (args.isEmpty()) Napier.i(msg, tag = TAG)
-                else Napier.i(String.format(msg, *args), tag = TAG)
-            }
-            fun e(msg: CharSequence) = Napier.e(msg.toString(), tag = TAG)
-        }
 
         @JvmStatic
         fun getJsonExceptionMessage(

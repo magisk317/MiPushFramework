@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.Intent
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
@@ -8,25 +14,22 @@ import io.github.magisk317.mipush.utils.ConvertUtils
 
 class MiPushEventListener {
     fun receiveFromServer(container: XmPushActionContainer) {
-        logger.i("From Server     : " + ConvertUtils.toJson(container))
+        logD("From Server     : " + ConvertUtils.toJson(container))
     }
 
     fun transferToApplication(container: XmPushActionContainer) {
-        logger.i("To   Application: " + ConvertUtils.toJson(container))
+        logD("To   Application: " + ConvertUtils.toJson(container))
     }
 
     fun receiveFromApplication(intent: Intent) {
-        logger.i("From Application: " + ConvertUtils.toJson(intent))
+        logD("From Application: " + ConvertUtils.toJson(intent))
     }
 
     fun transferToServer(intent: Intent) {
-        logger.i("To   Server     : " + ConvertUtils.toJson(intent))
+        logD("To   Server     : " + ConvertUtils.toJson(intent))
     }
 
     companion object {
         private val TAG: String = MiPushEventListener::class.java.simpleName
-        private val logger = object {
-            fun i(msg: String) = Napier.i(msg, tag = TAG)
-        }
     }
 }

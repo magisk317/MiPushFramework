@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.network
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.Context
 import android.net.Uri
 import io.github.aakira.napier.Napier
@@ -17,9 +23,6 @@ import kotlinx.coroutines.runBlocking
  * Runtime compatibility for behaviors that were previously provided via AspectJ.
  */
 object NetworkPolicyCompat {
-    private val logger = object {
-        fun w(msg: String) = Napier.w(msg, tag = "NetworkPolicyCompat")
-    }
 
     @JvmStatic
     fun applyAll(context: Context) {
@@ -38,7 +41,7 @@ object NetworkPolicyCompat {
             // Best-effort fallback for code paths reading system properties directly.
             forceSystemCountryCode("CN")
         }.onFailure {
-            logger.w("enforce CN region failed: ${it.message}")
+            logW("enforce CN region failed: ${it.message}")
         }
     }
 
@@ -62,7 +65,7 @@ object NetworkPolicyCompat {
             HostManager.addReservedHost(host, withPort)
             HostManager.addReservedHost(ConnectionConfiguration.getXmppServerHost(), withPort)
         }.onFailure {
-            logger.w("add reserved host failed: ${it.message}")
+            logW("add reserved host failed: ${it.message}")
         }
     }
 

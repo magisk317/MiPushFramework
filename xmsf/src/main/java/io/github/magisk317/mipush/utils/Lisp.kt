@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.utils
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.os.Build
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.common.configurations.ConfigJson
@@ -12,9 +18,6 @@ import java.util.concurrent.Callable
 
 object Lisp {
     private val TAG = Lisp::class.java.simpleName
-    private val logger = object {
-        fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
-    }
 
     fun interface Evaluable {
         fun evaluate(expr: Any?): Any?
@@ -87,7 +90,7 @@ object Lisp {
         return try {
             ret.call()
         } catch (e: Exception) {
-            logger.e(method, e)
+            logE(method, e)
             null
         }
     }

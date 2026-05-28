@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.utils
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.Context
 import android.content.Intent
 import io.github.aakira.napier.Napier
@@ -57,7 +63,7 @@ class RegistrationHelper(
                 packageName
             )
         )
-        logger.i("remove mipush data for $packageName success=${result.isSuccess}")
+        logI("remove mipush data for $packageName success=${result.isSuccess}")
         return result.isSuccess
     }
 
@@ -105,10 +111,6 @@ class RegistrationHelper(
             }
         }
 
-        private val logger = object {
-            fun i(msg: String) = Napier.i(msg, tag = "RegistrationHelper")
-            fun w(msg: String) = Napier.w(msg, tag = "RegistrationHelper")
-        }
 
         private val directServiceCandidates = linkedSetOf(
             PUSH_MESSAGE_HANDLER_CLASS,
@@ -326,7 +328,7 @@ class RegistrationHelper(
         fun tryForceRegisterFallback(packageName: String): Boolean {
             val plan = inspectForceRegisterPlan(packageName)
             if (!plan.supportsReceiverFallback && !plan.supportsServiceDispatch && plan.bridgeCandidates.isEmpty()) {
-                logger.w("skip force register fallback for $packageName: ${plan.summary()}")
+                logW("skip force register fallback for $packageName: ${plan.summary()}")
                 return false
             }
             val msgBytes = runCatching {
@@ -343,9 +345,9 @@ class RegistrationHelper(
                 runBlocking {
                     EventDb.insertEventAsync(Event.ResultType.OK, RegistrationType("force_trigger_fallback", packageName, null))
                 }
-                logger.i("force register fallback for $packageName dispatched")
+                logI("force register fallback for $packageName dispatched")
             } else {
-                logger.w("force register fallback for $packageName failed")
+                logW("force register fallback for $packageName failed")
             }
             return dispatched
         }
@@ -371,9 +373,9 @@ class RegistrationHelper(
                 runBlocking {
                     EventDb.insertEventAsync(Event.ResultType.OK, RegistrationType("force_trigger", packageName, null))
                 }
-                logger.i("force register for $packageName dispatched")
+                logI("force register for $packageName dispatched")
             } else {
-                logger.w("force register for $packageName failed to dispatch")
+                logW("force register for $packageName failed to dispatch")
             }
             return dispatched
         }

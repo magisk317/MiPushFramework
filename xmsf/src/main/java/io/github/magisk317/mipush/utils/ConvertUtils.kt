@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.utils
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.Intent
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
@@ -18,11 +24,6 @@ import io.github.magisk317.mipush.common.utils.Utils
 
 object ConvertUtils {
     private val TAG = ConvertUtils::class.java.simpleName
-    private val logger = object {
-        fun e(msg: String?, t: Throwable? = null) = Napier.e(msg ?: "", t, tag = TAG)
-        fun w(msg: String?) = Napier.w(msg ?: "", tag = TAG)
-        fun d(msg: String?) = Napier.d(msg ?: "", tag = TAG)
-    }
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -76,7 +77,7 @@ object ConvertUtils {
                 } else {
                     e.message ?: "Unknown error"
                 }
-                logger.e("toJson error for ${container.packageName}: $detail", e)
+                logE("toJson error for ${container.packageName}: $detail", e)
                 put("pushActionError", detail)
             }
         }
@@ -155,10 +156,10 @@ object ConvertUtils {
             }
             packet
         } catch (e: InvocationTargetException) {
-            logger.e("InvocationTargetException decoding push action: ${e.targetException.message}", e.targetException)
+            logE("InvocationTargetException decoding push action: ${e.targetException.message}", e.targetException)
             throw e
         } catch (e: Exception) {
-            logger.e("Exception decoding push action: ${e.message}", e)
+            logE("Exception decoding push action: ${e.message}", e)
             throw e
         }
     }
@@ -190,7 +191,7 @@ object ConvertUtils {
             return PushActionResolution(container.getPushAction(), null)
         }
         val candidateRegSecs = RegSecUtils.getCandidateRegSecs(container, regSec)
-        logger.d("resolvePushActionBytes: pkg=${container.packageName} candidateCount=${candidateRegSecs.size} candidates=${candidateRegSecs.map { it.take(8) + "..." }}")
+        logD("resolvePushActionBytes: pkg=${container.packageName} candidateCount=${candidateRegSecs.size} candidates=${candidateRegSecs.map { it.take(8) + "..." }}")
         if (candidateRegSecs.isEmpty()) {
             Napier.w("resolvePushActionBytes: no regSec candidates for pkg=${container.packageName}", tag = TAG)
             return null
@@ -200,13 +201,13 @@ object ConvertUtils {
                 val keyBytes = Base64Coder.decode(candidateRegSec)
                 val payload = DataCryptUtils.mipushDecrypt(keyBytes, container.getPushAction())
                 persistResolvedRegSec(container.packageName, candidateRegSec)
-                logger.d("resolvePushActionBytes: decrypt success for pkg=${container.packageName}")
+                logD("resolvePushActionBytes: decrypt success for pkg=${container.packageName}")
                 return PushActionResolution(payload, candidateRegSec)
             } catch (e: Exception) {
-                logger.d("resolvePushActionBytes: decrypt failed for pkg=${container.packageName}, trying next candidate")
+                logD("resolvePushActionBytes: decrypt failed for pkg=${container.packageName}, trying next candidate")
             }
         }
-        logger.w("resolvePushActionBytes: all regSec candidates failed for pkg=${container.packageName}")
+        logW("resolvePushActionBytes: all regSec candidates failed for pkg=${container.packageName}")
         return null
     }
 

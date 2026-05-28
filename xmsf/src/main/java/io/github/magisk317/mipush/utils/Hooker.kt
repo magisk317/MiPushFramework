@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.utils
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.Context
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
@@ -20,22 +26,18 @@ import com.xiaomi.smack.SmackConfiguration
 import kotlinx.coroutines.runBlocking
 
 object Hooker {
-    private val logger = object {
-        fun i(msg: String) = Napier.i(msg, tag = "Hooker")
-        fun e(msg: String?, t: Throwable? = null) = Napier.e(msg ?: "Error", t, tag = "Hooker")
-    }
 
     @JvmStatic
     fun hook(context: Context) {
-        logger.i("Hooker.hook() called")
+        logD("Hooker.hook() called")
         runCatching {
-            logger.i("Initializing MiPushHookLib...")
+            logD("Initializing MiPushHookLib...")
             initMiPushHookLib(context)
-            logger.i("Hooking MiPushSDK...")
+            logD("Hooking MiPushSDK...")
             hookMiPushSDK(context)
-            logger.i("Hooker.hook() finished successfully")
+            logD("Hooker.hook() finished successfully")
         }.onFailure {
-            logger.e("Hook init skipped/failed: ${it.message}", it)
+            logE("Hook init skipped/failed: ${it.message}", it)
         }
     }
 
@@ -46,7 +48,7 @@ object Hooker {
             initMiSdkLogger(logger)
             initPushLogger(context, logger)
         }.onFailure {
-            logger.e("Push logger init skipped: ${it.message}", it)
+            logE("Push logger init skipped: ${it.message}", it)
         }
     }
 
@@ -71,7 +73,7 @@ object Hooker {
             hookMiPushServerHost()
             NetworkPolicyCompat.applyAll(context.applicationContext)
         } catch (e: Throwable) {
-            logger.e(e.message, e)
+            logE(e.message, e)
         }
     }
 
@@ -119,7 +121,7 @@ object Hooker {
             target.isAccessible = true
             target.set(null, value)
         } catch (e: Throwable) {
-            logger.e(e.message, e)
+            logE(e.message, e)
         }
     }
 
@@ -132,11 +134,11 @@ object Hooker {
             private var innerTag = TAG
 
             override fun log(str: String, th: Throwable) {
-                Napier.i(str, th, tag = innerTag)
+                Napier.d(str, th, tag = innerTag)
             }
 
             override fun log(str: String) {
-                Napier.i(str, tag = innerTag)
+                Napier.d(str, tag = innerTag)
             }
         }
     }

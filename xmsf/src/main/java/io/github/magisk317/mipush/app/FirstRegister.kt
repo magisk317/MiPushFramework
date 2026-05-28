@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.app
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.Context
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.runtime.PushRuntime
@@ -16,10 +22,6 @@ class FirstRegister(
     private val scheduleRetry: (Context, Int) -> Unit = PushControllerUtils::registerPush,
 ) : Runnable {
     private val TAG = "FirstRegister"
-    private val logger = object {
-        fun i(msg: String) = Napier.i(msg, tag = TAG)
-        fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
-    }
 
     override fun run() {
         Objects.requireNonNull(context)
@@ -30,19 +32,19 @@ class FirstRegister(
                 source = "FirstRegister.run",
                 reason = "reg_id_present"
             )
-            logger.i("register successed")
+            logI("register successed")
             return
         }
         requestRegistration("FirstRegister.run", "initial_register")
         if (isRegistered(context)) {
-            logger.i("register successed")
+            logI("register successed")
         } else {
             scheduleRetry(context, 0)
         }
         try {
             Thread.sleep(100L)
         } catch (e: InterruptedException) {
-            logger.e("register push interrupted error", e)
+            logE("register push interrupted error", e)
         }
     }
 }

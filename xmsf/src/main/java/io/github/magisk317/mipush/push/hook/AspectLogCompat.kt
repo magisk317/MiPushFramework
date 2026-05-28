@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.push.hook
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.Intent
 import android.os.SystemClock
 import io.github.aakira.napier.Napier
@@ -14,9 +20,6 @@ import io.github.magisk317.mipush.platform.support.Global
 import kotlinx.coroutines.runBlocking
 
 internal object AspectLogCompat {
-    private val logger = object {
-        fun d(msg: String) = Napier.d(msg, tag = "AspectLogCompat")
-    }
     private val indentLevel = ThreadLocal.withInitial { 0 }
     @Volatile
     private var cachedEnabled = false
@@ -36,7 +39,7 @@ internal object AspectLogCompat {
         if (!enabled()) return
         val level = indentLevel.get() ?: 0
         val prefix = List(level) { "|\t" }.joinToString("")
-        logger.d(prefix + signature)
+        logD(prefix + signature)
         indentLevel.set(level + 1)
         try {
             block()
@@ -48,19 +51,19 @@ internal object AspectLogCompat {
 
     fun logBuildContainer(payloadSize: Int, container: XmPushActionContainer?) {
         trace("MIPushEventProcessor.buildContainer(payloadSize=$payloadSize)") {
-            logger.d("container=${ConvertUtils.toJson(container)}")
+            logD("container=${ConvertUtils.toJson(container)}")
         }
     }
 
     fun logBuildIntent(intent: Intent?, source: String) {
         trace("MIPushEventProcessor.buildIntent(source=$source)") {
-            logger.d("intent=${ConvertUtils.toJson(intent)}")
+            logD("intent=${ConvertUtils.toJson(intent)}")
         }
     }
 
     fun logIntentAvailability(intent: Intent?, available: Boolean, source: String) {
         trace("MIPushEventProcessor.isIntentAvailable(source=$source, available=$available)") {
-            logger.d("intent=${ConvertUtils.toJson(intent)}")
+            logD("intent=${ConvertUtils.toJson(intent)}")
         }
     }
 
@@ -71,7 +74,7 @@ internal object AspectLogCompat {
         decision: Boolean
     ) {
         trace("MIPushEventProcessor.shouldSendBroadcast(package=$packageName)") {
-            logger.d(
+            logD(
                 "decision=$decision, service=${pushService.javaClass.simpleName}, metaInfoHasExtra=${metaInfo?.extra?.isNotEmpty() == true}"
             )
         }
@@ -83,16 +86,16 @@ internal object AspectLogCompat {
         newMessageIntent: Intent
     ) {
         trace("MIPushEventProcessor.postProcessMIPushMessage(pkg=$pkgName, payloadSize=$payloadSize)") {
-            logger.d("newMessageIntent=${ConvertUtils.toJson(newMessageIntent)}")
+            logD("newMessageIntent=${ConvertUtils.toJson(newMessageIntent)}")
         }
     }
 
     fun logPacketArrival(chid: String, data: Any) {
         trace("ClientEventDispatcher.notifyPacketArrival(chid=$chid)") {
             when (data) {
-                is Blob -> logger.d("blob arrival: $chid; $data")
-                is Packet -> logger.d("packet arrival: $chid; ${data.toXML()}")
-                else -> logger.d("arrival: $chid; type=${data.javaClass.name}")
+                is Blob -> logD("blob arrival: $chid; $data")
+                is Packet -> logD("packet arrival: $chid; ${data.toXML()}")
+                else -> logD("arrival: $chid; type=${data.javaClass.name}")
             }
         }
     }
@@ -101,48 +104,48 @@ internal object AspectLogCompat {
         trace("Fallback.getHosts(usePort=$usePort)") {
             val hosts = runCatching { fallback.getHosts(usePort) }.getOrElse { arrayListOf<String>() }
             val isp = runCatching { fallback.getISP() }.getOrNull()
-            logger.d("fallback host=${fallback.host}, isp=$isp, hosts=$hosts")
+            logD("fallback host=${fallback.host}, isp=$isp, hosts=$hosts")
         }
     }
 
     fun logProcessIntent(intent: Intent) {
         trace("PushMessageProcessor.processIntent") {
-            logger.d("intent=${ConvertUtils.toJson(intent)}")
+            logD("intent=${ConvertUtils.toJson(intent)}")
         }
     }
 
     fun logServiceMethod(signature: String, intent: Intent? = null, details: String? = null) {
         trace(signature) {
             if (!details.isNullOrEmpty()) {
-                logger.d(details)
+                logD(details)
             }
             if (intent != null) {
-                logger.d("intent=${ConvertUtils.toJson(intent)}")
+                logD("intent=${ConvertUtils.toJson(intent)}")
             }
         }
     }
 
     fun logManifestCheck(packageName: String) {
         trace("ManifestChecker.checkServices(package=$packageName)") {
-            logger.d("manifest check requested")
+            logD("manifest check requested")
         }
     }
 
     fun logProcessMIPushMessage(packetBytesLen: Long, source: String) {
         trace("MIPushEventProcessor.processMIPushMessage(source=$source)") {
-            logger.d("packetBytesLen=$packetBytesLen")
+            logD("packetBytesLen=$packetBytesLen")
         }
     }
 
     fun logDuplicateCheck(packageName: String, messageId: String, duplicated: Boolean) {
         trace("MiPushMessageDuplicate.isDuplicateMessage(package=$packageName)") {
-            logger.d("messageId=$messageId duplicated=$duplicated")
+            logD("messageId=$messageId duplicated=$duplicated")
         }
     }
 
     fun logNotifyPushMessage(container: XmPushActionContainer, payloadSize: Int) {
         trace("MIPushNotificationHelper.notifyPushMessage(payloadSize=$payloadSize)") {
-            logger.d("container=${ConvertUtils.toJson(container)}")
+            logD("container=${ConvertUtils.toJson(container)}")
         }
     }
 }

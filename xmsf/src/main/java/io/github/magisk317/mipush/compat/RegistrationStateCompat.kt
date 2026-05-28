@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.compat
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.os.SystemClock
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
@@ -8,11 +14,6 @@ import io.github.magisk317.mipush.platform.support.PermissionUtils
 
 object RegistrationStateCompat {
     private val diagnosticPackages = setOf("com.ss.android.ugc.aweme")
-    private val logger = object {
-        fun d(msg: String) = Napier.d(msg, tag = "RegistrationStateCompat")
-        fun i(msg: String) = Napier.i(msg, tag = "RegistrationStateCompat")
-        fun w(msg: String) = Napier.w(msg, tag = "RegistrationStateCompat")
-    }
     private const val VALID_PATTERN = "name=\"valid\" value=\"true\""
     private const val REG_ID_TAG_PATTERN = "name=\"regId\">"
     private const val REG_ID_VALUE_PATTERN = "name=\"regId\" value=\""
@@ -78,25 +79,25 @@ object RegistrationStateCompat {
     fun hasValidLocalRegistration(packageName: String): Boolean {
         val paths = registrationArtifactPaths(packageName)
         val uid = if (PermissionUtils.hasCachedRootAccess()) "cached_root" else null
-        logger.d("check local registration, pkg=$packageName, shell uid=$uid")
+        logD("check local registration, pkg=$packageName, shell uid=$uid")
         for (path in paths) {
             if (probe(path, useSu = true)) {
-                logger.i("local registration found via su: $path")
+                logI("local registration found via su: $path")
                 logRegistrationMarkers(packageName, path, useSu = true)
                 return true
             }
             if (probe(path, useSu = false)) {
-                logger.i("local registration found via shell: $path")
+                logI("local registration found via shell: $path")
                 logRegistrationMarkers(packageName, path, useSu = false)
                 return true
             }
             if (probeByRead(path, useSu = true)) {
-                logger.i("local registration found via su read: $path")
+                logI("local registration found via su read: $path")
                 logRegistrationMarkers(packageName, path, useSu = true)
                 return true
             }
             if (probeByRead(path, useSu = false)) {
-                logger.i("local registration found via shell read: $path")
+                logI("local registration found via shell read: $path")
                 logRegistrationMarkers(packageName, path, useSu = false)
                 return true
             }
@@ -107,7 +108,7 @@ object RegistrationStateCompat {
     @JvmStatic
     fun hasLocalRegistrationArtifacts(packageName: String): Boolean {
         val uid = if (PermissionUtils.hasCachedRootAccess()) "cached_root" else null
-        logger.d("check local registration artifacts, pkg=$packageName, shell uid=$uid")
+        logD("check local registration artifacts, pkg=$packageName, shell uid=$uid")
         return registrationArtifactPaths(packageName).any { path ->
             fileExists(path, useSu = true) || fileExists(path, useSu = false)
         }
@@ -176,14 +177,14 @@ object RegistrationStateCompat {
 
     @JvmStatic
     fun findPackagesWithValidLocalRegistration(packages: Collection<String>): Set<String> {
-        logger.d("find local registration start: queried=${packages.size}")
+        logD("find local registration start: queried=${packages.size}")
         if (packages.isEmpty()) return emptySet()
         val result = linkedSetOf<String>()
         val uid = if (PermissionUtils.hasCachedRootAccess()) "cached_root" else null
-        logger.d("find local registration shell uid=$uid")
+        logD("find local registration shell uid=$uid")
         val capability = getRootCapability()
         if (!capability.available && !hasRootProbeAccess(uid)) {
-            logger.i("skip local registration probe: root access unavailable")
+            logI("skip local registration probe: root access unavailable")
             return emptySet()
         }
         val startElapsed = SystemClock.elapsedRealtime()
@@ -194,11 +195,11 @@ object RegistrationStateCompat {
         for (chunk in chunks) {
             if (SystemClock.elapsedRealtime() - startElapsed > PROBE_TIME_BUDGET_MS) {
                 hitTimeBudget = true
-                logger.w("find local registration stop by time budget: ${PROBE_TIME_BUDGET_MS}ms")
+                logW("find local registration stop by time budget: ${PROBE_TIME_BUDGET_MS}ms")
                 break
             }
             chunkIdx++
-            logger.d("find local registration processing chunk=$chunkIdx")
+            logD("find local registration processing chunk=$chunkIdx")
             val safePackages = chunk.filter { it.matches(Regex("[A-Za-z0-9._]+")) }
             if (safePackages.isEmpty()) continue
             val script = buildString {
@@ -233,10 +234,10 @@ object RegistrationStateCompat {
             hasBatchExecutionFailure = true
         }
         if (result.isEmpty() && hasBatchExecutionFailure && !hitTimeBudget) {
-            logger.w("find local registration fallback to sequential probe")
+            logW("find local registration fallback to sequential probe")
             for (pkg in packages) {
                 if (SystemClock.elapsedRealtime() - startElapsed > PROBE_TIME_BUDGET_MS) {
-                    logger.w("sequential local registration probe stopped by time budget")
+                    logW("sequential local registration probe stopped by time budget")
                     break
                 }
                 if (hasValidLocalRegistration(pkg)) {
@@ -244,7 +245,7 @@ object RegistrationStateCompat {
                 }
             }
         }
-        logger.d("find local registration done: queried=${packages.size}, matched=${result.size}")
+        logD("find local registration done: queried=${packages.size}, matched=${result.size}")
         return result
     }
 
@@ -262,7 +263,7 @@ object RegistrationStateCompat {
         val content = out.joinToString("\n")
         if (content.isBlank()) return
         val markers = parseRegistrationMarkers(content)
-        logger.i(
+        logI(
             "local registration details pkg=$packageName mode=${if (useSu) "su" else "shell"} path=$path " +
                 "xmlValid=${markers.hasXmlValid} xmlRegId=${markers.hasXmlRegId} " +
                 "kevaValid=${markers.hasKevaValid} kevaRegId=${markers.hasKevaRegId} kevaAppToken=${markers.hasKevaAppToken} " +

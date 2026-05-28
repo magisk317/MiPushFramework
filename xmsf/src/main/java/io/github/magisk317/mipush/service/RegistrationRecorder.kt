@@ -9,9 +9,6 @@ import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
 import io.github.magisk317.mipush.common.utils.Utils
 
 class RegistrationRecorder {
-    private val logger = object {
-        fun e(msg: String, t: Throwable) = Napier.e(msg, t, tag = TAG)
-    }
     private lateinit var context: Context
 
     fun initContext(context: Context) {

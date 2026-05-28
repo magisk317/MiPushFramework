@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.runtime
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.Context
 import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
 import com.xiaomi.push.service.PushClientsManager
@@ -9,10 +15,6 @@ import com.xiaomi.smack.Connection
 import io.github.aakira.napier.Napier
 
 object PushRuntimeChannelTracker {
-    private val logger = object {
-        fun d(message: String) = Napier.d(message, tag = "PushRuntimeChannels")
-        fun e(message: String, throwable: Throwable) = Napier.e(message, throwable, tag = "PushRuntimeChannels")
-    }
     private val lock = Any()
     private var attached = false
     private val clientChangeListener = PushClientsManager.ClientChangeListener {
@@ -30,7 +32,7 @@ object PushRuntimeChannelTracker {
             attached = true
         }
         syncNow("PushRuntimeChannelTracker.attach")
-        logger.d("channel tracker attached pkg=${context.packageName}")
+        logD("channel tracker attached pkg=${context.packageName}")
     }
 
     @JvmStatic
@@ -64,7 +66,7 @@ object PushRuntimeChannelTracker {
                 nowMs = nowMs
             )
         }.onFailure {
-            logger.e("syncNow failed source=$source", it)
+            logE("syncNow failed source=$source", it)
         }
     }
 

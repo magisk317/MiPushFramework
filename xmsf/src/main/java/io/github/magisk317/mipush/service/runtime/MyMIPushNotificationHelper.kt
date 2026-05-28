@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.service.runtime
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -50,12 +56,6 @@ class MyMIPushNotificationHelper {
 
     companion object {
         private const val TAG = "MyNotificationHelper"
-        private val logger = object {
-            fun d(msg: String) = Napier.d(msg, tag = TAG)
-            fun i(msg: String) = Napier.i(msg, tag = TAG)
-            fun w(msg: String) = Napier.w(msg, tag = TAG)
-            fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
-        }
 
         const val CLASS_NAME_PUSH_MESSAGE_HANDLER = Constants.PUSH_MESSAGE_HANDLER_CLASS
         private const val GROUP_TYPE_MIPUSH_GROUP = "#group#"
@@ -73,7 +73,7 @@ class MyMIPushNotificationHelper {
         @JvmStatic
         fun markNotificationSessionStarted(source: String, nowMs: Long = System.currentTimeMillis()) {
             notificationSessionStartedAtMs = nowMs
-            logger.d("notification session started at=$nowMs source=$source")
+            logD("notification session started at=$nowMs source=$source")
         }
 
         @JvmStatic
@@ -81,13 +81,13 @@ class MyMIPushNotificationHelper {
             val container = XMPushUtils.packToContainer(decryptedContent) ?: return
             val messageId = MessageIdentity.fromContainer(container)
             val isMockReplay = MockMessageRegistry.isMarked(container)
-            logger.d(
+            logD(
                 "notifyPushMessage start pkg=${container.packageName} action=${container.action} " +
                     "messageId=$messageId payloadSize=${decryptedContent.size} mockReplay=$isMockReplay " +
                     "moduleEnhanced=${io.github.magisk317.mipush.notification.NotificationManagerEx.isHooked}"
             )
             if (StalePackagePushGuard.shouldDropNotification(context, container, "MyMIPushNotificationHelper.notifyPushMessage")) {
-                logger.i(
+                logI(
                     "skip absent package notification pkg=${container.packageName} action=${container.action} " +
                         "messageId=$messageId"
                 )
@@ -95,17 +95,17 @@ class MyMIPushNotificationHelper {
             }
             if (!shouldPublishNotification(container)) {
                 dispatchNonDisplayPayloadToApplication(context, container, decryptedContent, messageId)
-                logger.d("skip non-display notification publish action=${container.action} pkg=${container.packageName}")
+                logD("skip non-display notification publish action=${container.action} pkg=${container.packageName}")
                 return
             }
             if (RegisteredApplicationDb.isBlocked(container.packageName)) {
-                logger.i("skip blocked application pkg=${container.packageName} action=${container.action}")
+                logD("skip blocked application pkg=${container.packageName} action=${container.action}")
                 return
             }
             if (!isMockReplay && shouldDropReplayNotification(container)) {
                 val messageTs = container.metaInfo?.messageTs ?: 0L
                 val sessionStartedAtMs = notificationSessionStartedAtMs
-                logger.i(
+                logI(
                     "skip replay notification publish pkg=${container.packageName} action=${container.action} " +
                         "messageId=$messageId messageTs=$messageTs " +
                         "sessionStartedAtMs=$sessionStartedAtMs"
@@ -119,7 +119,7 @@ class MyMIPushNotificationHelper {
             }
             HookTraceCompat.notifyPushMessage(container, decryptedContent)
             if (!MiPushRuntimeBridge.onNotificationDispatch(context, container, decryptedContent)) {
-                logger.d(
+                logD(
                     "skip duplicate notification publish action=${container.action} pkg=${container.packageName} " +
                         "messageId=$messageId mockReplay=$isMockReplay"
                 )
@@ -131,7 +131,7 @@ class MyMIPushNotificationHelper {
                 true
             )
             if (notificationOp == AppInfoUtils.AppNotificationOp.NOT_ALLOWED) {
-                logger.w(
+                logW(
                     "Do not notify because user block " +
                         MIPushNotificationHelper.getTargetPackage(container) +
                         "'s notification messageId=$messageId mockReplay=$isMockReplay"
@@ -151,7 +151,7 @@ class MyMIPushNotificationHelper {
             try {
                 val messageId = MessageIdentity.fromContainer(container)
                 val operations = Configurations.getInstance().handle(packageName, container)
-                logger.d(
+                logD(
                     "handleNotificationByConfigurations pkg=$packageName action=${container.action} " +
                         "messageId=$messageId operations=$operations"
                 )
@@ -171,13 +171,13 @@ class MyMIPushNotificationHelper {
                     )
                     executorService.execute {
                         try {
-                            logger.d(
+                            logD(
                                 "policy_notify dispatch start pkg=$packageName action=${container.action} " +
                                     "messageId=$messageId"
                             )
                             doNotifyPushMessage(context, container, decryptedContent)
                         } catch (e: Exception) {
-                            logger.e(
+                            logE(
                                 "policy_notify dispatch failed pkg=$packageName action=${container.action} " +
                                     "messageId=$messageId",
                                 e
@@ -208,12 +208,12 @@ class MyMIPushNotificationHelper {
                                 launchApp = true
                             )
                         } catch (e: Exception) {
-                            logger.e("Failed to dispatch downstream payload", e)
+                            logE("Failed to dispatch downstream payload", e)
                         }
                     }
                 }
             } catch (e: Exception) {
-                logger.e("handleNotificationByConfigurations encountered error", e)
+                logE("handleNotificationByConfigurations encountered error", e)
             }
         }
 
@@ -266,12 +266,12 @@ class MyMIPushNotificationHelper {
             }
             val packageName = container.packageName
             if (packageName.isNullOrBlank()) {
-                logger.w("skip non-display payload dispatch because package is blank action=${container.action}")
+                logW("skip non-display payload dispatch because package is blank action=${container.action}")
                 return
             }
             val action = container.action?.name ?: "Unknown"
             if (!claimNonDisplayDispatch(packageName, action, messageId)) {
-                logger.d("skip duplicate non-display payload dispatch pkg=$packageName action=$action messageId=$messageId")
+                logD("skip duplicate non-display payload dispatch pkg=$packageName action=$action messageId=$messageId")
                 return
             }
             HookTraceCompat.notifyPushMessage(container, decryptedContent)
@@ -289,7 +289,7 @@ class MyMIPushNotificationHelper {
                     source = "MyMIPushNotificationHelper.nonDisplayPayload"
                 )
             } else {
-                logger.w("non-display payload dispatch failed pkg=$packageName action=$action messageId=$messageId")
+                logW("non-display payload dispatch failed pkg=$packageName action=$action messageId=$messageId")
             }
         }
 
@@ -358,13 +358,13 @@ class MyMIPushNotificationHelper {
             val messageId = MessageIdentity.fromContainer(container)
             val isMockReplay = MockMessageRegistry.isMarked(container)
             if (metaInfo == null) {
-                logger.w("doNotifyPushMessage: metaInfo is null, skip notification pkg=${container.packageName} messageId=$messageId")
+                logW("doNotifyPushMessage: metaInfo is null, skip notification pkg=${container.packageName} messageId=$messageId")
                 return
             }
             val notificationId = getNotificationId(container)
-            logger.d("doNotifyPushMessage pkg=${container.packageName} messageId=$messageId notificationId=$notificationId mockReplay=$isMockReplay messageTs=${metaInfo.messageTs} notifyId=${metaInfo.notifyId}")
+            logD("doNotifyPushMessage pkg=${container.packageName} messageId=$messageId notificationId=$notificationId mockReplay=$isMockReplay messageTs=${metaInfo.messageTs} notifyId=${metaInfo.notifyId}")
             if (VoipNotificationHelper.shouldDropStale(metaInfo, container.packageName)) {
-                logger.i("skip stale voip notification pkg=${container.packageName} messageId=$messageId")
+                logD("skip stale voip notification pkg=${container.packageName} messageId=$messageId")
                 PushRuntime.observeNotificationEvent(
                     packageName = container.packageName,
                     action = "voip_sequence_drop",
@@ -373,7 +373,7 @@ class MyMIPushNotificationHelper {
                 return
             }
             if (VoipNotificationHelper.isVoipEndEvent(metaInfo)) {
-                logger.i("cancel voip notification pkg=${container.packageName} messageId=$messageId notificationId=$notificationId")
+                logD("cancel voip notification pkg=${container.packageName} messageId=$messageId notificationId=$notificationId")
                 NotificationController.cancel(context, container, notificationId, null, clearGroup = false)
                 PushRuntime.observeNotificationEvent(
                     packageName = container.packageName,
@@ -384,7 +384,7 @@ class MyMIPushNotificationHelper {
             }
             val focusParam = focusParamForSortFilter(metaInfo)
             if (NotificationSortFilter.shouldFilter(context, focusParam, container.packageName, notificationId)) {
-                logger.i("skip focus-filtered notification pkg=${container.packageName} action=${container.action} messageId=$messageId")
+                logD("skip focus-filtered notification pkg=${container.packageName} action=${container.action} messageId=$messageId")
                 PushRuntime.observeNotificationEvent(
                     packageName = container.packageName,
                     action = "focus_filter_drop",
@@ -393,7 +393,7 @@ class MyMIPushNotificationHelper {
                 return
             }
             val result = getNotificationFor(context, container, decryptedContent, notificationId)
-            logger.d(
+            logD(
                 "doNotifyPushMessage publish start pkg=${container.packageName} action=${container.action} " +
                     "messageId=$messageId notificationId=${result.notificationId}"
             )
@@ -455,7 +455,6 @@ class MyMIPushNotificationHelper {
             if (metaInfo.extra != null) {
                 MyMIPushNotificationIntentSupport.addStyleActions(notificationBuilder, context, packageName, metaInfo.extra)
             }
-            addDebugAction(context, container, decryptedContent, metaInfo, packageName, notificationBuilder)
 
             notificationBuilder.setWhen(metaInfo.messageTs)
             notificationBuilder.setShowWhen(true)
@@ -488,7 +487,7 @@ class MyMIPushNotificationHelper {
                 else -> "0"
             }
             val result = "${packageName}_$id".hashCode()
-            logger.d("getNotificationId pkg=$packageName id=$id stableId=$stableId mockReplay=$isMockReplay messageId=$messageId notifyId=${metaInfo.notifyId} metaInfoId=${metaInfo.id} result=$result")
+            logD("getNotificationId pkg=$packageName id=$id stableId=$stableId mockReplay=$isMockReplay messageId=$messageId notifyId=${metaInfo.notifyId} metaInfoId=${metaInfo.id} result=$result")
             return result
         }
 
@@ -540,40 +539,6 @@ class MyMIPushNotificationHelper {
                 packageName
             }
             return group
-        }
-
-        private fun addDebugAction(
-            xmPushService: Context,
-            buildContainer: XmPushActionContainer,
-            payload: ByteArray,
-            metaInfo: PushMetaInfo,
-            packageName: String,
-            localBuilder: NotificationCompat.Builder
-        ) {
-            if (runBlocking { Global.configCenter().isDebugModeAsync() }) {
-                val icon = R.drawable.ic_notifications_black_24dp
-                val pendingIntentJump =
-                    MyMIPushNotificationIntentSupport.startServicePendingIntent(
-                        xmPushService,
-                        buildContainer,
-                        metaInfo,
-                        payload
-                    )
-                if (pendingIntentJump != null) {
-                    localBuilder.addAction(NotificationCompat.Action(icon, "Jump", pendingIntentJump))
-                }
-
-                val sdkIntentJump = MyMIPushNotificationIntentSupport.getSdkIntent(xmPushService, buildContainer)
-                if (sdkIntentJump != null) {
-                    val pendingIntent = android.app.PendingIntent.getActivity(
-                        xmPushService,
-                        0,
-                        sdkIntentJump,
-                        android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
-                    )
-                    localBuilder.addAction(NotificationCompat.Action(icon, "SDK Intent", pendingIntent))
-                }
-            }
         }
 
         @JvmStatic

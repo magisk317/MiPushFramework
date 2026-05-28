@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.common.configurations
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.Intent
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
@@ -19,10 +25,6 @@ import io.github.magisk317.mipush.common.configurations.XMPushUtils
 
 object ConvertUtils {
     private val TAG = ConvertUtils::class.java.simpleName
-    private val logger = object {
-        fun e(msg: String?, t: Throwable? = null) = Napier.e(msg ?: "", t, tag = TAG)
-        fun w(msg: String?) = Napier.w(msg ?: "", tag = TAG)
-    }
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -76,10 +78,10 @@ object ConvertUtils {
                 } else {
                     e.message ?: "Unknown error"
                 }
-                logger.e("toJson error for ${container.packageName}: $detail", e)
+                logE("toJson error for ${container.packageName}: $detail", e)
                 put("pushActionError", detail)
             } catch (e: ClassCastException) {
-                logger.e("toJson error for ${container.packageName}: ${e.message}", e)
+                logE("toJson error for ${container.packageName}: ${e.message}", e)
                 put("pushActionError", e.message ?: "Unknown error")
             }
         }
@@ -158,13 +160,13 @@ object ConvertUtils {
             }
             packet
         } catch (e: InvocationTargetException) {
-            logger.e("InvocationTargetException decoding push action: ${e.targetException.message}", e.targetException)
+            logE("InvocationTargetException decoding push action: ${e.targetException.message}", e.targetException)
             throw e
         } catch (e: TException) {
-            logger.e("Exception decoding push action: ${e.message}", e)
+            logE("Exception decoding push action: ${e.message}", e)
             throw e
         } catch (e: ClassCastException) {
-            logger.e("Exception decoding push action: ${e.message}", e)
+            logE("Exception decoding push action: ${e.message}", e)
             throw e
         }
     }
@@ -208,7 +210,7 @@ object ConvertUtils {
             } catch (_: Exception) {
             }
         }
-        logger.w("the aes decrypt failed for ${container.packageName}.")
+        logW("the aes decrypt failed for ${container.packageName}.")
         return null
     }
 

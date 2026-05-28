@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.runtime
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.content.Context
 import android.os.Bundle
 import io.github.magisk317.mipush.diagnostics.PushHealthSnapshotLogger
@@ -17,10 +23,6 @@ import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.app.di.AppDependencies
 
 object PushRuntimeExecutionBridge : PushRuntimeExecutionHost {
-    private val logger = object {
-        fun d(message: String) = Napier.d(message, tag = "PushRuntimeExec")
-        fun e(message: String, throwable: Throwable) = Napier.e(message, throwable, tag = "PushRuntimeExec")
-    }
 
     @Volatile
     private var appContext: Context? = null
@@ -56,13 +58,13 @@ object PushRuntimeExecutionBridge : PushRuntimeExecutionHost {
                     reason = "reg_id_present"
                 )
             }
-            logger.d(
+            logD(
                 "requestFrameworkRegistration reason=$reason regIdPresent=$regIdPresent " +
                     appInfoHolder.registrationStateSummary(Constants.APP_ID, Constants.APP_KEY)
             )
             true
         }.getOrElse {
-            logger.e("requestFrameworkRegistration failed reason=$reason", it)
+            logE("requestFrameworkRegistration failed reason=$reason", it)
             false
         }
     }
@@ -76,10 +78,10 @@ object PushRuntimeExecutionBridge : PushRuntimeExecutionHost {
                 "pkg=$packageName reason=$reason"
             )
             val dispatched = RegistrationHelper.tryForceRegister(packageName)
-            logger.d("requestApplicationRegistration pkg=$packageName reason=$reason dispatched=$dispatched")
+            logD("requestApplicationRegistration pkg=$packageName reason=$reason dispatched=$dispatched")
             dispatched
         }.getOrElse {
-            logger.e("requestApplicationRegistration failed pkg=$packageName reason=$reason", it)
+            logE("requestApplicationRegistration failed pkg=$packageName reason=$reason", it)
             false
         }
     }
@@ -93,10 +95,10 @@ object PushRuntimeExecutionBridge : PushRuntimeExecutionHost {
                 "reason=$reason"
             )
             PushServiceClient.getInstance(context).processRegisterTask()
-            logger.d("processPendingRegisterTasks reason=$reason")
+            logD("processPendingRegisterTasks reason=$reason")
             true
         }.getOrElse {
-            logger.e("processPendingRegisterTasks failed reason=$reason", it)
+            logE("processPendingRegisterTasks failed reason=$reason", it)
             false
         }
     }
@@ -110,10 +112,10 @@ object PushRuntimeExecutionBridge : PushRuntimeExecutionHost {
                 "reason=$reason"
             )
             XMAccountManager.getInstance(context).setAccountAsAlias()
-            logger.d("syncAccountAlias reason=$reason")
+            logD("syncAccountAlias reason=$reason")
             true
         }.getOrElse {
-            logger.e("syncAccountAlias failed reason=$reason", it)
+            logE("syncAccountAlias failed reason=$reason", it)
             false
         }
     }
@@ -144,7 +146,7 @@ object PushRuntimeExecutionBridge : PushRuntimeExecutionHost {
                 deliveredByBroadcastFallback = result.deliveredByBroadcastFallback
             )
         }.getOrElse {
-            logger.e("dispatchDownstreamPayload failed source=$source", it)
+            logE("dispatchDownstreamPayload failed source=$source", it)
             PushRuntimeApplicationDispatchResult()
         }
     }
@@ -171,7 +173,7 @@ object PushRuntimeExecutionBridge : PushRuntimeExecutionHost {
             getProcessor(context).cancelNotification(context, bundle, container)
             true
         }.getOrElse {
-            logger.e("cancelNotificationForPayload failed source=$source", it)
+            logE("cancelNotificationForPayload failed source=$source", it)
             false
         }
     }
@@ -193,7 +195,7 @@ object PushRuntimeExecutionBridge : PushRuntimeExecutionHost {
                 true
             }
         }.getOrElse {
-            logger.e("ensureConnection failed reason=$reason", it)
+            logE("ensureConnection failed reason=$reason", it)
             false
         }
     }
@@ -215,7 +217,7 @@ object PushRuntimeExecutionBridge : PushRuntimeExecutionHost {
             )
             true
         }.getOrElse {
-            logger.e("resetConnection failed reason=$reason", it)
+            logE("resetConnection failed reason=$reason", it)
             false
         }
     }

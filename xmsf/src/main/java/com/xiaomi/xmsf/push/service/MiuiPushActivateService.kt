@@ -1,5 +1,11 @@
 package com.xiaomi.xmsf.push.service
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -96,7 +102,7 @@ class MiuiPushActivateService : Service() {
                                 message = "unable to start scan service",
                                 throwable = th
                             )
-                            logger.e("unable to start service" + th.message)
+                            logE("unable to start service" + th.message)
                         }
                     }, delay)
                 }
@@ -115,7 +121,7 @@ class MiuiPushActivateService : Service() {
                             message = "unable to start account-change service",
                             throwable = th
                         )
-                        logger.e("unable to start service" + th.message)
+                        logE("unable to start service" + th.message)
                     }
                 }
             }
@@ -130,9 +136,6 @@ class MiuiPushActivateService : Service() {
 
     companion object {
         private val TAG = MiuiPushActivateService::class.java.simpleName
-        private val logger = object {
-            fun e(msg: String) = Napier.e(msg, tag = TAG)
-        }
 
         @JvmField
         val MIUI_PLATFORM_SIGNATURES = arrayOf(
@@ -155,7 +158,7 @@ class MiuiPushActivateService : Service() {
                     message = "unable to awake MiuiPushActivateService",
                     throwable = th
                 )
-                logger.e("unable to start service" + th.message)
+                logE("unable to start service" + th.message)
             }
         }
     }

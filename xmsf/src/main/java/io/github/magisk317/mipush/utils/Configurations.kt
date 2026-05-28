@@ -1,5 +1,11 @@
 package io.github.magisk317.mipush.utils
 
+import io.github.magisk317.mipush.common.utils.logD
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
+
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.common.utils.Singleton
 import io.github.magisk317.mipush.app.ConfigCenter
@@ -176,7 +182,7 @@ class Configurations constructor(
                 return try {
                     ret()
                 } catch (e: Exception) {
-                    logger.e(method, e)
+                    logE(method, e)
                     null
                 }
             }
@@ -203,7 +209,7 @@ class Configurations constructor(
                     }
                 }
             } catch (e: Exception) {
-                logger.e("evaluateCond", e)
+                logE("evaluateCond", e)
             }
             return null
         }
@@ -211,9 +217,6 @@ class Configurations constructor(
 
     companion object {
         private val TAG = Configurations::class.java.simpleName
-        private val logger = object {
-            fun e(msg: String, t: Throwable? = null) = Napier.e(msg, t, tag = TAG)
-        }
         @Volatile private var injectedInstance: Configurations? = null
 
         @JvmStatic
