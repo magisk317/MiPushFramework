@@ -4,6 +4,12 @@
 
 ---
 
+## [v0.5.1] - Unreleased
+
+> Full Changelog: https://github.com/magisk317/MiPushFramework/compare/v0.5.0...HEAD
+
+---
+
 ## [v0.5.0] - 2026-05-28
 - `[feat(xposed)]` 模块入口全面迁移至 libxposed；新增 content provider 解析 hook、收紧系统组件可见性、增强伪装 MIUI 构建信息；并支持对兼容应用自动下发进阶 MiPush 策略。
 - `[feat(xmsf)]` 支持将带有进度条的推送消息渲染为实况通知 (Live Updates)；主界面 Chrome 支持滚动折叠。
@@ -22,6 +28,8 @@
 - `[ui]` 隐藏主题选择入口，默认使用 Material 风格。
 - `[refactor(test)]` Robolectric 测试全面迁移至 JUnit5，并将 Mock 框架从 Mokkery 迁移至 MockK。
 - `[docs/architecture]` 更新模块边界和运行时调用链文档，当前模块以 `xmsf/core/legacy/pinned/protocol` 为准，device dump 参考路径为 `device_dumps`。
+
+> Full Changelog: https://github.com/magisk317/MiPushFramework/compare/v0.4.0...v0.5.0
 
 ---
 
@@ -47,7 +55,7 @@
 - `[build/ci]` 迁移至自动化依赖安全覆盖机制；CI debug 构建启用 minify；修复 artifact 上传与 Telegram 通知；更新 Gradle 至 9.5.0-rc-3、AGP 至 9.3.0-alpha04。
 - `[perf(config)]` 本地快照优先加载，远端刷新后置。
 
-> Full Changelog: https://github.io/github/magisk317/MiPushFramework/compare/v0.3.17...v0.4.0
+> Full Changelog: https://github.com/magisk317/MiPushFramework/compare/v0.3.17...v0.4.0
 
 ---
 
@@ -63,7 +71,7 @@
 - `[config/runtime]` 修复配置替换中的包名占位符处理问题，改进 `${name}` 与 `$$` 转义替换，减少配置命中后的错替换。
 - `[build/ci]` GitHub Release、tag 校验、Telegram 通知、Android SDK 平台别名和共享子模块检查继续收敛，发版链路更稳定一致。
 
-> Full Changelog: https://github.io/github/magisk317/MiPushFramework/compare/v0.3.16...v0.3.17
+> Full Changelog: https://github.com/magisk317/MiPushFramework/compare/v0.3.16...v0.3.17
 
 ---
 
@@ -73,4 +81,4 @@
 - `[runtime]` 继续维护系统级推送、配置同步与运行时兼容链路，优先保证 GitHub 渠道版本的稳定性与可回溯性。
 - `[build/ci]` 构建链路对齐 Android 37 / JDK 25，并继续收敛发布前校验与 GitHub Release 体验。
 
-> Full Changelog: https://github.io/github/magisk317/MiPushFramework/compare/v0.3.15...v0.3.16
+> Full Changelog: https://github.com/magisk317/MiPushFramework/compare/v0.3.15...v0.3.16
