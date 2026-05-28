@@ -5,7 +5,6 @@ import android.content.Intent
 import android.net.Uri
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.common.utils.Utils
-import io.github.magisk317.mipush.feature.navigation.AppDestinations
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 
 class ConfigNavigationHelper constructor(
@@ -23,9 +22,9 @@ class ConfigNavigationHelper constructor(
         val treeUri: Uri? = configCenter.getConfigurationDirectoryAsync()
         val matchedPath = syncRepository.resolvePackageConfigPath(packageName, treeUri)
         val route = if (matchedPath != null) {
-            AppDestinations.ConfigEditor.route(matchedPath)
+            "config_editor/${java.net.URLEncoder.encode(matchedPath, java.nio.charset.StandardCharsets.UTF_8.name())}"
         } else {
-            AppDestinations.ConfigsSearch.route(packageName)
+            "configs_search/${java.net.URLEncoder.encode(packageName, java.nio.charset.StandardCharsets.UTF_8.name())}"
         }
         return LegacyUiEntryPoints.mainActivityIntent(
             context = context,

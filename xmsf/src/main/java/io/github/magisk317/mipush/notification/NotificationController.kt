@@ -40,7 +40,6 @@ import io.github.magisk317.mipush.utils.IconConfigurations
 import io.github.magisk317.mipush.utils.ColorUtil
 import io.github.magisk317.mipush.common.utils.CustomConfiguration
 import io.github.magisk317.mipush.common.utils.ImgUtils
-import io.github.magisk317.mipush.feature.navigation.AppDestinations
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 import io.github.magisk317.mipush.runtime.PushRuntime
 
@@ -680,7 +679,7 @@ object NotificationController {
         packageName: String
     ) {
         PushRuntime.observeNotificationEvent(packageName, "mock_test_build_start", "NotificationController.testMock")
-        val kindLabel = context.getString(kind.labelRes)
+        val kindLabel = context.getString(kind.getLabelRes(context))
         val title = context.getString(R.string.debug_test_title, kindLabel)
         val description = context.getString(R.string.debug_test_content, kindLabel) + "\n" + java.util.Date()
 
@@ -705,7 +704,7 @@ object NotificationController {
 
         val notifyIntent = LegacyUiEntryPoints.mainActivityIntent(
             context = context,
-            startRoute = AppDestinations.EventsList.ROUTE,
+            startRoute = "events",
         ).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP }
         val notifyPendingIntent = PendingIntent.getActivity(
             context, 0, notifyIntent,

@@ -94,6 +94,7 @@ object XMPushUtils {
     @JvmStatic
     fun <T : TBase<T, *>> packToBytes(container: T): ByteArray =
         XmPushThriftSerializeUtils.convertThriftObjectToBytes(container)
+            ?: throw IllegalArgumentException("Unable to serialize: ${container.javaClass.name}")
 
     @JvmStatic
     fun dispatchToApplication(

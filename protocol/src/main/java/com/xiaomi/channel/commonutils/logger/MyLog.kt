@@ -20,7 +20,10 @@ object MyLog {
     const val WARN = 2
 
     private var sContext: Context? = null
+    @Volatile
     private var LOG_LEVEL = 2
+    @Volatile
+    private var debugLoggingEnabled = false
     private var isXMSF = false
     private var DEFAULT_TAG = "XMPush-${Process.myPid()}"
     private var logger: LoggerInterface = DefaultAndroidLogger()
@@ -91,28 +94,28 @@ object MyLog {
 
     @JvmStatic
     fun log(level: Int, str: String) {
-        if (level >= LOG_LEVEL) {
+        if (shouldLog(level)) {
             logger.log(str)
         }
     }
 
     @JvmStatic
     fun log(level: Int, str: String, th: Throwable) {
-        if (level >= LOG_LEVEL) {
+        if (shouldLog(level)) {
             logger.log(str, th)
         }
     }
 
     @JvmStatic
     fun log(level: Int, th: Throwable) {
-        if (level >= LOG_LEVEL) {
+        if (shouldLog(level)) {
             logger.log("", th)
         }
     }
 
     @JvmStatic
     fun pe(code: Int?) {
-        if (LOG_LEVEL <= 1 && code != null && mStartTimes.containsKey(code)) {
+        if (debugLoggingEnabled && LOG_LEVEL <= 1 && code != null && mStartTimes.containsKey(code)) {
             val jLongValue = mStartTimes.remove(code)!!
             val strRemove = mActionNames.remove(code)
             val jCurrentTimeMillis = System.currentTimeMillis()
@@ -147,7 +150,7 @@ object MyLog {
 
     @JvmStatic
     fun ps(str: String): Int {
-        if (LOG_LEVEL > 1) {
+        if (!debugLoggingEnabled || LOG_LEVEL > 1) {
             return NEGATIVE_CODE
         }
         val numValueOf = mCodeGenerator.incrementAndGet()
@@ -168,6 +171,16 @@ object MyLog {
     @JvmStatic
     fun setLogger(loggerInterface: LoggerInterface) {
         logger = loggerInterface
+    }
+
+    @JvmStatic
+    fun setDebugLoggingEnabled(enabled: Boolean) {
+        debugLoggingEnabled = enabled
+    }
+
+    private fun shouldLog(level: Int): Boolean {
+        if (level == DEBUG && !debugLoggingEnabled) return false
+        return level >= LOG_LEVEL
     }
 
     @JvmStatic
