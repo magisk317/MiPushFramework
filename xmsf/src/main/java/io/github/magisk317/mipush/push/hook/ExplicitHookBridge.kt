@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.push.hook
 
 import android.content.Intent
 import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry
+import io.github.magisk317.mipush.utils.DuplicateMessagePolicy
 import com.xiaomi.push.service.XMPushService
 import com.xiaomi.push.service.clientReport.ReportConstants
 import com.xiaomi.xmpush.thrift.PushMetaInfo

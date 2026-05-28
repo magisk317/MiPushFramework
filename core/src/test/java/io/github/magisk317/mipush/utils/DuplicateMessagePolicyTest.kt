@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.push.hook
+package io.github.magisk317.mipush.utils
 
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
