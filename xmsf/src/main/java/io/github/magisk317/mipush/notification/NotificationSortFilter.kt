@@ -8,12 +8,6 @@ import android.content.SharedPreferences
 import android.net.Uri
 import androidx.core.app.NotificationCompat
 import com.xiaomi.xmpush.thrift.PushMetaInfo
-import io.github.aakira.napier.Napier
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Filters notifications based on MIUI focus parameters.
@@ -23,28 +17,26 @@ import kotlinx.serialization.json.jsonPrimitive
  * - legacy root `updatable` / `reopen`
  * - HyperIsland ToolKit `param_v2.updatable` / `param_v2.reopen`
  * - Deleted focus notifications are cached and filtered for 24h.
+ *
+ * Delegates pure cache logic to [FocusNotificationCache] in `:core`.
+ * Keeps Android-specific code (SharedPreferences persistence, PendingIntent wiring,
+ * BroadcastReceiver) in this module.
  */
 object NotificationSortFilter {
 
     private const val TAG = "NotificationSortFilter"
-    private const val MAX_CACHE_SIZE = 50
-    private const val CACHE_TTL_MS = 24 * 60 * 60 * 1000L
     private const val PREFS_NAME = "mipush_focus_deleted_notifications"
     private const val EXTRA_PACKAGE_NAME = "package_name"
     private const val EXTRA_NOTIFICATION_ID = "notification_id"
     private const val ACTION_FOCUS_DELETED = "io.github.magisk317.mipush.notification.FOCUS_DELETED"
-    private val json = Json { ignoreUnknownKeys = true }
 
-    private val deletedFocusCache = LinkedHashMap<String, Long>(MAX_CACHE_SIZE, 0.75f, true)
-    private var persistentStore: DeletedFocusStore? = null
-    private var loadedFromStore = false
+    private var storeInstalled = false
 
-    internal interface DeletedFocusStore {
-        fun readAll(): Map<String, Long>
-        fun put(key: String, expiresAtMs: Long)
-        fun remove(key: String)
-        fun clear()
-    }
+    /**
+     * Typealias bridging the core [FocusNotificationCache.DeletedFocusStore] interface
+     * so that existing test code referencing `NotificationSortFilter.DeletedFocusStore` still compiles.
+     */
+    interface DeletedFocusStore : FocusNotificationCache.DeletedFocusStore
 
     /**
      * Check if this notification should be filtered out based on focus parameters.
@@ -78,24 +70,8 @@ object NotificationSortFilter {
         notificationId: Int,
         nowMs: Long = System.currentTimeMillis()
     ): Boolean {
-        val focus = parseFocusParam(focusParam) ?: return false
-        if (!focus.updatable) return false
-
-        val key = cacheKey(packageName, notificationId)
-        synchronized(deletedFocusCache) {
-            ensureLoadedLocked(context)
-            pruneExpiredLocked(nowMs)
-            if (focus.reopen != "close") {
-                deletedFocusCache.remove(key)
-                persistentStore?.remove(key)
-                return false
-            }
-            val cached = deletedFocusCache.containsKey(key)
-            if (cached) {
-                Napier.d("filtering deleted focus notification key=$key", tag = TAG)
-            }
-            return cached
-        }
+        ensureStoreInstalled(context)
+        return FocusNotificationCache.shouldFilter(focusParam, packageName, notificationId, nowMs)
     }
 
     /**
@@ -114,16 +90,8 @@ object NotificationSortFilter {
         notificationId: Int,
         nowMs: Long = System.currentTimeMillis()
     ) {
-        val key = cacheKey(packageName, notificationId)
-        synchronized(deletedFocusCache) {
-            ensureLoadedLocked(context)
-            pruneExpiredLocked(nowMs)
-            val expiresAtMs = nowMs + CACHE_TTL_MS
-            deletedFocusCache[key] = expiresAtMs
-            persistentStore?.put(key, expiresAtMs)
-            enforceMaxSizeLocked()
-            Napier.d("recorded focus deletion key=$key cacheSize=${deletedFocusCache.size}", tag = TAG)
-        }
+        ensureStoreInstalled(context)
+        FocusNotificationCache.onFocusDeleted(packageName, notificationId, nowMs)
     }
 
     @JvmStatic
@@ -134,10 +102,10 @@ object NotificationSortFilter {
         focusParam: String?,
         notificationId: Int
     ) {
-        val focus = parseFocusParam(focusParam) ?: return
+        val focus = FocusNotificationCache.parseFocusParam(focusParam) ?: return
         if (!focus.updatable) return
 
-        val key = cacheKey(packageName, notificationId)
+        val key = FocusNotificationCache.cacheKey(packageName, notificationId)
         val intent = Intent(context, NotificationFocusDeleteReceiver::class.java).apply {
             action = ACTION_FOCUS_DELETED
             data = Uri.parse("mipush-focus-delete://$key")
@@ -163,93 +131,37 @@ object NotificationSortFilter {
     }
 
     internal fun resetForTest() {
-        synchronized(deletedFocusCache) {
-            deletedFocusCache.clear()
-            persistentStore?.clear()
-            persistentStore = null
-            loadedFromStore = false
-        }
+        FocusNotificationCache.resetForTest()
+        storeInstalled = false
     }
 
     internal fun clearMemoryCacheForTest() {
-        synchronized(deletedFocusCache) {
-            deletedFocusCache.clear()
-            loadedFromStore = false
-        }
+        FocusNotificationCache.clearMemoryCacheForTest()
     }
 
-    internal fun installPersistentStoreForTest(store: DeletedFocusStore) {
-        synchronized(deletedFocusCache) {
-            deletedFocusCache.clear()
-            persistentStore = store
-            loadedFromStore = false
-        }
+    internal fun installPersistentStoreForTest(store: FocusNotificationCache.DeletedFocusStore) {
+        FocusNotificationCache.installPersistentStoreForTest(store)
+        storeInstalled = true
     }
 
     internal fun parseFocusParamForTest(focusParam: String?): Pair<Boolean, String>? {
-        return parseFocusParam(focusParam)?.let { it.updatable to it.reopen }
+        return FocusNotificationCache.parseFocusParam(focusParam)?.let { it.updatable to it.reopen }
     }
 
-    private fun parseFocusParam(focusParam: String?): FocusParam? {
-        focusParam ?: return null
-        return try {
-            val root = json.parseToJsonElement(focusParam).jsonObject
-            val payload = root["param_v2"]?.jsonObject ?: root
-            val reopenPrimitive = payload["reopen"]?.jsonPrimitive
-            FocusParam(
-                updatable = payload["updatable"]?.jsonPrimitive?.booleanOrNull ?: false,
-                reopen = when (reopenPrimitive?.booleanOrNull) {
-                    true -> "reopen"
-                    false -> "close"
-                    null -> reopenPrimitive?.contentOrNull ?: "close"
-                }
+    private fun ensureStoreInstalled(context: Context?) {
+        if (storeInstalled) return
+        if (context != null) {
+            FocusNotificationCache.installPersistentStore(
+                SharedPreferencesDeletedFocusStore(context.applicationContext ?: context)
             )
-        } catch (_: Exception) {
-            null
+            storeInstalled = true
         }
     }
 
-    private fun cacheKey(packageName: String, notificationId: Int): String = "$packageName:$notificationId"
-
-    private fun ensureLoadedLocked(context: Context?) {
-        if (persistentStore == null && context != null) {
-            persistentStore = SharedPreferencesDeletedFocusStore(
-                context.applicationContext ?: context
-            )
-        }
-        if (loadedFromStore) return
-        persistentStore?.let { store ->
-            deletedFocusCache.putAll(store.readAll())
-            enforceMaxSizeLocked()
-            loadedFromStore = true
-        }
-    }
-
-    private fun pruneExpiredLocked(nowMs: Long) {
-        val iterator = deletedFocusCache.entries.iterator()
-        val expiredKeys = mutableListOf<String>()
-        while (iterator.hasNext()) {
-            val entry = iterator.next()
-            if (entry.value <= nowMs) {
-                expiredKeys.add(entry.key)
-                iterator.remove()
-            }
-        }
-        expiredKeys.forEach { persistentStore?.remove(it) }
-    }
-
-    private fun enforceMaxSizeLocked() {
-        val iterator = deletedFocusCache.entries.iterator()
-        while (deletedFocusCache.size > MAX_CACHE_SIZE && iterator.hasNext()) {
-            val key = iterator.next().key
-            iterator.remove()
-            persistentStore?.remove(key)
-        }
-    }
-
-    private data class FocusParam(val updatable: Boolean, val reopen: String)
-
-    private class SharedPreferencesDeletedFocusStore(context: Context) : DeletedFocusStore {
+    /**
+     * Android SharedPreferences-backed implementation of [FocusNotificationCache.DeletedFocusStore].
+     */
+    private class SharedPreferencesDeletedFocusStore(context: Context) : FocusNotificationCache.DeletedFocusStore {
         private val prefs: SharedPreferences =
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
