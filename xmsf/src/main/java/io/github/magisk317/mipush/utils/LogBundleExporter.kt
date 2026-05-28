@@ -24,7 +24,7 @@ import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.platform.support.BoundedShellResult
 import io.github.magisk317.mipush.platform.support.BoundedShellRunner
 
-internal object LogBundleExporter {
+object LogBundleExporter {
     private const val ZIP_MIME_TYPE = "application/zip"
     private const val EXPORT_FILE_PREFIX = "mipush_logs_"
     private const val STAGING_DIR_PREFIX = ".tmp_mipush_logs_"

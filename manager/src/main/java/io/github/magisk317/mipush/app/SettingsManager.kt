@@ -11,7 +11,6 @@ import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.github.aakira.napier.Napier
-import com.xiaomi.xmsf.BuildConfig
 import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.notification.NotificationController
 import io.github.magisk317.mipush.runtime.PushRuntime
@@ -83,7 +82,7 @@ class SettingsManager constructor(
     }
 
     fun notifyMockNotification(context: Context) {
-        notifyMockNotification(context, io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.BIG_TEXT, BuildConfig.APPLICATION_ID)
+        notifyMockNotification(context, io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.BIG_TEXT, Constants.SERVICE_APP_NAME)
     }
 
     fun notifyMockNotification(

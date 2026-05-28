@@ -4,7 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import java.util.Locale
-import com.xiaomi.xmsf.BuildConfig
+import io.github.magisk317.mipush.common.BuildConfig
+import io.github.magisk317.mipush.common.VERSION_CODE
 import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 

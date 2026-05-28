@@ -3,11 +3,15 @@ package io.github.magisk317.mipush.platform.support
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import io.github.magisk317.mipush.feature.main.ApplicationInfoPage
-import io.github.magisk317.mipush.feature.main.MainActivity
-import io.github.magisk317.mipush.feature.wizard.RequestPermissionPage
 
-internal object LegacyUiEntryPoints {
+object LegacyUiEntryPoints {
+    // Intent extra keys — mirrored from Activity companions to avoid cross-module class references.
+    private const val EXTRA_START_ROUTE = "extra_start_route"
+    private const val EXTRA_START_TAB = "extra_start_tab"
+    private const val EXTRA_PACKAGE_NAME = "EXTRA_PACKAGE_NAME"
+    private const val EXTRA_IGNORE_NOT_REGISTERED = "EXTRA_IGNORE_NOT_REGISTERED"
+    private const val EXTRA_RECHECK_ONLY = "extra_recheck_only"
+
     fun mainActivityIntent(
         context: Context,
         startRoute: String? = null,
@@ -15,10 +19,10 @@ internal object LegacyUiEntryPoints {
     ): Intent {
         return Intent().setClassName(context, LegacyComponentNames.MAIN_ACTIVITY).apply {
             if (!startRoute.isNullOrBlank()) {
-                putExtra(MainActivity.EXTRA_START_ROUTE, startRoute)
+                putExtra(EXTRA_START_ROUTE, startRoute)
             }
             if (!startTab.isNullOrBlank()) {
-                putExtra(MainActivity.EXTRA_START_TAB, startTab)
+                putExtra(EXTRA_START_TAB, startTab)
             }
         }
     }
@@ -29,8 +33,8 @@ internal object LegacyUiEntryPoints {
         ignoreNotRegistered: Boolean = false,
     ): Intent {
         return Intent().setClassName(context, LegacyComponentNames.APPLICATION_INFO_PAGE)
-            .putExtra(ApplicationInfoPage.EXTRA_PACKAGE_NAME, packageName)
-            .putExtra(ApplicationInfoPage.EXTRA_IGNORE_NOT_REGISTERED, ignoreNotRegistered)
+            .putExtra(EXTRA_PACKAGE_NAME, packageName)
+            .putExtra(EXTRA_IGNORE_NOT_REGISTERED, ignoreNotRegistered)
     }
 
     fun helpPageIntent(context: Context): Intent {
@@ -50,6 +54,6 @@ internal object LegacyUiEntryPoints {
         recheckOnly: Boolean = false,
     ): Intent {
         return Intent().setClassName(context, LegacyComponentNames.REQUEST_PERMISSION_PAGE)
-            .putExtra(RequestPermissionPage.EXTRA_RECHECK_ONLY, recheckOnly)
+            .putExtra(EXTRA_RECHECK_ONLY, recheckOnly)
     }
 }

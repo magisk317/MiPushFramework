@@ -103,21 +103,21 @@ object PushControllerUtils {
                     PushServiceStarter.start(context, serviceIntent)
                 } ?: logW("XMPushService class is unavailable, skip startForegroundService")
             } catch (e: Throwable) {
-                logE(e.message ?: "error", e)
+                logE("Unexpected error", e)
             }
             try {
                 val filter = IntentFilter()
                 filter.addAction(Intent.ACTION_SCREEN_ON)
                 context.registerReceiver(liveReceiver, filter)
             } catch (e: Throwable) {
-                logE(e.message ?: "error", e)
+                logE("Unexpected error", e)
             }
         } else {
             logD("Stopping...")
             try {
                 context.unregisterReceiver(liveReceiver)
             } catch (e: Throwable) {
-                logE(e.message ?: "error", e)
+                logE("Unexpected error", e)
             }
             MiPushClient.unregisterPush(wrapContext(context))
             run {

@@ -1,8 +1,7 @@
 plugins {
-    id("mipush.android.application")
+    id("mipush.android.library")
     id("mipush.android.room")
     id("mipush.android.compose")
-    id("mipush.app.packaging")
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.robolectric.junit5)
 }
@@ -34,20 +33,16 @@ android {
         }
         create("vc105") {
             dimension = "version"
-            versionCode = 105
         }
     }
 
     defaultConfig {
-        applicationId = "com.xiaomi.xmsf"
-        versionCode = pushVersionCode
-        versionName = versionNameStr
-
         ndk {
             abiFilters.addAll(listOf("armeabi-v7a", "x86", "arm64-v8a", "x86_64"))
         }
 
         buildConfigField("String", "GIT_TAG", "\"$versionNameStr\"")
+        buildConfigField("String", "VERSION_NAME", "\"$versionNameStr\"")
     }
 
     buildTypes {
@@ -64,7 +59,6 @@ android {
         }
         release {
             isMinifyEnabled = true
-            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -79,12 +73,8 @@ dependencies {
     implementation(project(":common"))
     implementation(project(":uikit"))
     implementation(project(":legacy"))
-    // push IS the MiPush SDK — 88 files in com.xiaomi.mipush.sdk.* directly import
-    // com.xiaomi.xmpush.thrift.* (ActionType, ConfigKey, XmPushThriftSerializeUtils, etc.).
-    // These are not transitively available through legacy-runtime (uses implementation,
-    // not api), so push must depend on protocol-frozen directly. This is a pragmatic
-    // boundary: the SDK implementation necessarily touches the protocol layer.
     implementation(project(":pinned"))
+    compileOnly(project(":protocol"))
 
     implementation(libs.napier)
     implementation(libs.hyperisland.kit)

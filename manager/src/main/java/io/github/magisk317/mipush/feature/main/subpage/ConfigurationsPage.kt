@@ -469,12 +469,13 @@ private fun LazyListScope.configListHeader(
                 value = stringResource(R.string.config_remote_source_label, uiState.remoteSource.displayName),
                 onClick = onClickRemoteSource,
             )
+            val directoryUri = uiState.directoryUri
             SettingLinkCard(
                 title = stringResource(R.string.config_directory_title),
-                value = if (uiState.directoryUri.isNullOrBlank()) {
+                value = if (directoryUri.isNullOrBlank()) {
                     stringResource(R.string.config_directory_not_selected)
                 } else {
-                    stringResource(R.string.config_directory_label, uiState.directoryUri)
+                    stringResource(R.string.config_directory_label, directoryUri)
                 },
                 onClick = onChooseDirectory,
             )
@@ -729,12 +730,14 @@ private fun CodePreview(
 
 @Composable
 private fun currentEditorStatus(uiState: ConfigEditorViewModel.UiState): ConfigSyncStatus {
+    val localMeta = uiState.localMeta
+    val remoteMeta = uiState.remoteMeta
     return when {
-        uiState.localMeta?.isValid == false -> ConfigSyncStatus.INVALID_LOCAL
-        uiState.remoteMeta != null && uiState.localMeta != null && uiState.localMeta.sha == uiState.remoteMeta.sha ->
+        localMeta?.isValid == false -> ConfigSyncStatus.INVALID_LOCAL
+        remoteMeta != null && localMeta != null && localMeta.sha == remoteMeta.sha ->
             ConfigSyncStatus.IN_SYNC
-        uiState.remoteMeta != null && uiState.localMeta == null -> ConfigSyncStatus.REMOTE_ONLY
-        uiState.remoteMeta == null && uiState.localMeta != null -> ConfigSyncStatus.LOCAL_ONLY
+        remoteMeta != null && localMeta == null -> ConfigSyncStatus.REMOTE_ONLY
+        remoteMeta == null && localMeta != null -> ConfigSyncStatus.LOCAL_ONLY
         else -> ConfigSyncStatus.MODIFIED_LOCAL
     }
 }

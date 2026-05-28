@@ -24,15 +24,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.xiaomi.xmsf.BuildConfig
 import com.xiaomi.xmsf.R
+import io.github.magisk317.mipush.common.Constants
 
 @Composable
 fun MockNotificationPanel(
     onDismiss: () -> Unit,
     onFire: (MockNotificationKind, String) -> Unit,
 ) {
-    var targetPackage by remember { mutableStateOf(BuildConfig.APPLICATION_ID) }
+    var targetPackage by remember { mutableStateOf(Constants.SERVICE_APP_NAME) }
     var showPackagePicker by remember { mutableStateOf(false) }
 
     AlertDialog(
@@ -92,6 +92,7 @@ private fun MockNotificationItem(
     kind: MockNotificationKind,
     onClick: () -> Unit,
 ) {
+    val context = LocalContext.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -99,11 +100,11 @@ private fun MockNotificationItem(
             .padding(vertical = 10.dp, horizontal = 4.dp),
     ) {
         Text(
-            text = stringResource(kind.labelRes),
+            text = stringResource(kind.getLabelRes(context)),
             style = MaterialTheme.typography.bodyMedium,
         )
         Text(
-            text = stringResource(kind.descRes),
+            text = stringResource(kind.getDescRes(context)),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -119,7 +120,7 @@ private fun PackagePickerDialog(
     val context = LocalContext.current
     val packages = remember {
         buildList {
-            add(BuildConfig.APPLICATION_ID)
+            add(Constants.SERVICE_APP_NAME)
             add("com.jingdong.app.mall")
             add("com.sankuai.meituan")
             add("com.ss.android.ugc.aweme")

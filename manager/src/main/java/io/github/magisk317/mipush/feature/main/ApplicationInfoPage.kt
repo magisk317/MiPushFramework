@@ -87,6 +87,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.common.utils.Utils
 import kotlinx.coroutines.runBlocking
+import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
 import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication.RegisteredType
@@ -996,7 +997,7 @@ private fun SettingsPreview() {
     Utils.context = context
 
     val app = RegisteredApplication()
-    app.packageName = BuildConfig.APPLICATION_ID
+    app.packageName = Constants.SERVICE_APP_NAME
     app.appName = "test app"
     val page = ApplicationInfoPage()
     page.init(app)

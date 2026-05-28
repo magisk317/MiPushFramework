@@ -4,7 +4,6 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import com.xiaomi.push.sdk.PushMessageProcessor
 import io.github.magisk317.mipush.app.ConfigCenter
-import io.github.magisk317.mipush.app.SettingsManager
 import io.github.magisk317.mipush.config.ConfigCatalogService
 import io.github.magisk317.mipush.config.ConfigEditorViewModel
 import io.github.magisk317.mipush.config.ConfigManagerViewModel
@@ -14,10 +13,6 @@ import io.github.magisk317.mipush.config.ConfigSyncStateStore
 import io.github.magisk317.mipush.config.LocalConfigRepository
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.dataStore
-import io.github.magisk317.mipush.feature.main.ApplicationIconCache
-import io.github.magisk317.mipush.main.viewmodel.AdvancedSettingsViewModel
-import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
-import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.runtime.data.EventRepository
 import io.github.magisk317.mipush.runtime.store.DatabaseUtils
 import io.github.magisk317.mipush.runtime.store.db.AppDatabase
@@ -32,7 +27,7 @@ import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 import kotlin.reflect.KClass
 
-val xmsfKoinModule = module {
+val xmsfCoreKoinModule = module {
     single<DataStore<Preferences>> { androidContext().dataStore }
     single<AppDatabase> { DatabaseUtils.getDatabase(androidContext()) }
     single { get<AppDatabase>().eventDao() }
@@ -44,9 +39,7 @@ val xmsfKoinModule = module {
     single { Configurations(get()) }
     single { IconConfigurations(get()) }
     single { RuntimeSettingsAdapter(androidContext(), get()) }
-    single { SettingsManager(get(), get()) }
     single { PushMessageProcessor(get()) }
-    single { ApplicationIconCache(androidContext()) }
     single { ConfigSyncStateStore(androidContext()) }
     single { LocalConfigRepository(androidContext()) }
     single { ConfigCatalogService(get()) }
@@ -54,9 +47,6 @@ val xmsfKoinModule = module {
     single { ConfigNavigationHelper(androidContext(), get(), get()) }
     single { EventRepository(androidContext(), get(), get(), get()) }
 
-    viewModelOf(::SettingsViewModel)
-    viewModelOf(::AdvancedSettingsViewModel)
-    viewModelOf(::EventListViewModel)
     viewModelOf(::ConfigManagerViewModel)
     viewModelOf(::ConfigEditorViewModel)
 }
@@ -70,7 +60,7 @@ object AppDependencies {
         val appContext = context.applicationContext ?: context
         startKoin {
             androidContext(appContext)
-            modules(xmsfKoinModule)
+            modules(xmsfCoreKoinModule)
         }
     }
 
