@@ -1,5 +1,6 @@
 plugins {
     id("mipush.android.library")
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -24,6 +25,7 @@ dependencies {
     implementation(project(":common"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.napier)
+    implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.mockk)

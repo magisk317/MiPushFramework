@@ -25,6 +25,9 @@ dependencies {
     compileOnly(project(":core"))
     compileOnly(project(":legacy"))
 
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
+
     implementation(libs.napier)
     implementation(libs.hyperisland.kit)
     implementation(libs.kotlinx.serialization.json)

@@ -70,6 +70,7 @@ tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
 }
 
 dependencies {
+    implementation(project(":core"))
     implementation(project(":common"))
     implementation(project(":uikit"))
     implementation(project(":legacy"))
