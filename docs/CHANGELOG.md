@@ -4,17 +4,23 @@
 
 ---
 
-## [v0.4.1] - Unreleased
+## [v0.5.0] - 2026-05-28
+- `[feat(xposed)]` 模块入口全面迁移至 libxposed；新增 content provider 解析 hook、收紧系统组件可见性、增强伪装 MIUI 构建信息；并支持对兼容应用自动下发进阶 MiPush 策略。
+- `[feat(xmsf)]` 支持将带有进度条的推送消息渲染为实况通知 (Live Updates)；主界面 Chrome 支持滚动折叠。
+- `[feat(events)]` 增强事件列表，支持滑动删除与撤回机制。
+- `[feat(notification)]` 升级默认通知渠道优先级至 High，优先使用 SDK 预设点击行为，优化普通通知的去重身份标识，并修复通知降级和信道丢失等问题。
 - `[feat(notification)]` 接入 HyperIsland ToolKit，显式配置的 `miui.focus.param` 仍保留原通知焦点语义，未显式配置的 MiPush 通知保持普通通知栏展示，并由 SystemUI 代理通知生成悬浮/超级岛展示。
 - `[feat(xposed)]` 接入 HyperIsland SystemUI 链路，新增 MiPush 专用 IslandDispatcher、通用通知模板、SystemUI `generateInnerNotifBean` 代理投递与 XMSF 焦点认证绕过，并在检测到独立 HyperIsland 模块时跳过内置岛链路和重复焦点解锁 hook。
 - `[feat(settings)]` 新增 HyperIsland 焦点展示设置项，支持总开关、超时、浮动行为、通知保留与焦点认证开关，并通过 xmsf provider 同步给 Xposed/SystemUI 进程。
 - `[feat(notification)]` 对齐 stock 7.4.67 通知样式：新增 focus 删除过滤、VoIP 来电样式、SweetTag `<ft>` 富文本渲染、通知按钮与全屏来电入口。
+- `[fix(push)]` 修复死信队列（应用缺失确认）、处理过期的目标派发以及重复 payload 问题。
 - `[fix(notification)]` 修复 focus 图片按 key 取图、focus 删除状态持久化、VoIP style type 6 `cust_btn_*` 按钮、`voip_type=0` 结束事件和 sequence 旧消息过滤。
 - `[fix(notification)]` 修复普通推送被默认超级岛参数误触发 focus 删除过滤的问题；SystemUI 代理通知按源通知 key 派生稳定 id，并在短窗口内去重，避免重放/通知建模重复刷岛。
 - `[fix(ui)]` 事件列表撤回 Snackbar 显示时隐藏返回顶部 FAB，避免撤回按钮被遮挡。
 - `[feat(diagnostics)]` 运行日志改为 JSONL 格式，按天轮转并默认保留 7 天；设置页“获取日志”改为预览弹窗，支持文件列表、格式化预览、全屏查看、分享和清空。
 - `[fix(diagnostics)]` 导出日志时自动清理旧文本日志，并对 token 等敏感字段脱敏；root/logcat 采集增加超时保护，避免导出流程被外部命令卡住。
 - `[ui]` 隐藏主题选择入口，默认使用 Material 风格。
+- `[refactor(test)]` Robolectric 测试全面迁移至 JUnit5，并将 Mock 框架从 Mokkery 迁移至 MockK。
 - `[docs/architecture]` 更新模块边界和运行时调用链文档，当前模块以 `xmsf/core/legacy/pinned/protocol` 为准，device dump 参考路径为 `device_dumps`。
 
 ---
