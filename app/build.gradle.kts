@@ -3,6 +3,8 @@ plugins {
     id("mipush.app.packaging")
 }
 
+extra["mipushArtifactBaseName"] = "xmsf"
+
 val versionNameStr = rootProject.version.toString().ifBlank { libs.versions.versionName.get() }
 val pushVersionCode = libs.versions.pushVersionCode.get().toInt()
 
@@ -24,6 +26,17 @@ android {
         create("vc105") {
             dimension = "version"
             versionCode = 105
+        }
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 

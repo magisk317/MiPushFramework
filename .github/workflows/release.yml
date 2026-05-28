@@ -69,8 +69,8 @@ jobs:
         with:
           name: apks-xmsf
           path: |
-            xmsf/build/outputs/apk/normal/release/**/*.apk
-            xmsf/build/outputs/apk/vc105/release/**/*.apk
+            app/build/outputs/apk/normal/release/**/*.apk
+            app/build/outputs/apk/vc105/release/**/*.apk
 
   build-mipush-apk:
     name: Build MiPush Release APK
