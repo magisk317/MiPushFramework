@@ -3,8 +3,6 @@ package io.github.magisk317.mipush.main.viewmodel
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import io.github.magisk317.mipush.platform.support.Global
-import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,16 +10,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.common.Constants
-import io.github.magisk317.mipush.runtime.store.entities.Event
-import io.github.magisk317.mipush.runtime.data.EventRepository
+import io.github.magisk317.mipush.common.manager.ManagerEvent
+import io.github.magisk317.mipush.common.manager.ManagerEventGateway
 import io.github.magisk317.mipush.feature.main.subpage.EventInfoForDisplay
 import java.util.Date
-import io.github.magisk317.mipush.runtime.store.event.type.TypeFactory
-import io.github.magisk317.mipush.utils.RegSecUtils
 import io.github.magisk317.mipush.app.SettingsManager
 
 class EventListViewModel constructor(
-    private val eventRepository: EventRepository,
+    private val eventGateway: ManagerEventGateway,
     private val settingsManager: SettingsManager,
     private val context: Context
 ) : ViewModel() {
@@ -31,7 +27,7 @@ class EventListViewModel constructor(
     fun loadEvents(query: String, packageName: String, isRefresh: Boolean, lastId: Long?) {
         viewModelScope.launch {
             val loadedEvents = withContext(Dispatchers.IO) {
-                eventRepository.getEventsById(if (isRefresh) null else lastId, Constants.PAGE_SIZE, packageName, query)
+                eventGateway.getEventsById(if (isRefresh) null else lastId, Constants.PAGE_SIZE, packageName, query)
                     .map { 
                         toEventInfoForDisplay(it)
                     }
@@ -44,60 +40,49 @@ class EventListViewModel constructor(
         }
     }
 
-    private fun toEventInfoForDisplay(it: Event): EventInfoForDisplay {
-        val type = TypeFactory.createForDisplay(it)
-        val container = RegSecUtils.getContainerWithRegSec(it)
-        
-        val summary = type.getSummary(context).toString()
-        val content = if (container != null)
-            eventRepository.getDecoratedSummary(
-                summary,
-                container
-            )
-        else summary
-        
+    private fun toEventInfoForDisplay(it: ManagerEvent): EventInfoForDisplay {
         return EventInfoForDisplay(
-            id = it.id ?: 0L,
-            packageName = it.pkg,
-            configOptions = eventRepository.getStatus(container),
-            channel = eventRepository.getStatusDescription(it),
-            receiveDate = Date(it.date),
-            title = type.getTitle(context).toString(),
-            content = content,
-            appName = Global.applicationNameCache().getAppName(context, it.pkg).toString(),
+            id = it.id,
+            packageName = it.packageName,
+            configOptions = it.configOptions,
+            channel = it.channel,
+            receiveDate = Date(it.receiveDateMs),
+            title = it.title,
+            content = it.content,
+            appName = it.appName,
             event = it,
         )
     }
 
     fun startManagePermissions(packageName: String) {
-        eventRepository.startManagePermissions(packageName)
+        eventGateway.startManagePermissions(packageName)
     }
 
     fun startConfigPreview(packageName: String) {
         viewModelScope.launch {
-            eventRepository.startConfigPreview(packageName)
+            eventGateway.startConfigPreview(packageName)
         }
     }
     
     fun copyToClipboard(content: String) {
-        eventRepository.copyToClipboard(content)
+        eventGateway.copyToClipboard(content)
     }
     
-    fun mockMessage(container: XmPushActionContainer) {
-        eventRepository.mockMessage(container)
+    fun mockMessage(event: ManagerEvent): Boolean {
+        return eventGateway.mockMessage(event)
     }
     
-    fun getContent(event: Event, container: XmPushActionContainer): String {
-        return eventRepository.getContent(event, container)
+    fun getContent(event: ManagerEvent): String {
+        return eventGateway.getContent(event)
     }
 
-    fun getJson(event: Event): String? {
-        return eventRepository.getJson(event)?.toString()
+    fun getJson(event: ManagerEvent): String? {
+        return eventGateway.getJson(event)
     }
     
     suspend fun fetchEventsSuspend(isRefresh: Boolean, lastId: Long?, packageName: String, query: String): List<EventInfoForDisplay> {
         return withContext(Dispatchers.IO) {
-            eventRepository.getEventsById(if (isRefresh) null else lastId, Constants.PAGE_SIZE, packageName, query)
+            eventGateway.getEventsById(if (isRefresh) null else lastId, Constants.PAGE_SIZE, packageName, query)
                 .map { 
                     toEventInfoForDisplay(it)
                 }
@@ -106,14 +91,13 @@ class EventListViewModel constructor(
 
     suspend fun deleteEvent(item: EventInfoForDisplay): Boolean {
         return withContext(Dispatchers.IO) {
-            eventRepository.deleteEvent(item.event)
+            eventGateway.deleteEvent(item.event)
         }
     }
 
     suspend fun restoreEvent(item: EventInfoForDisplay): EventInfoForDisplay? {
         return withContext(Dispatchers.IO) {
-            val restoredId = eventRepository.restoreEvent(item.event)
-            toEventInfoForDisplay(item.event.apply { id = restoredId })
+            eventGateway.restoreEvent(item.event)?.let { toEventInfoForDisplay(it) }
         }
     }
 

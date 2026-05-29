@@ -5,13 +5,16 @@ import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
-import com.xiaomi.xmsf.R
+import io.github.magisk317.mipush.app.di.ManagerGatewayAccess
+import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
+import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.platform.activity.impl.ActivityAccessibilityImpl
 import io.github.magisk317.mipush.platform.override.AppOpsManagerOverride
-import io.github.magisk317.mipush.platform.support.PermissionUtils
-import io.github.magisk317.mipush.platform.support.ShellUtils
 
 class UsageStatsPermissionOperator(private val context: Context) : PermissionOperator {
+    private val permissionGateway: ManagerPermissionGateway
+        get() = ManagerGatewayAccess.get()
+
     override fun isPermissionGranted(): Boolean {
         val uid = context.applicationInfo.uid
         val packageName = context.packageName
@@ -43,22 +46,7 @@ class UsageStatsPermissionOperator(private val context: Context) : PermissionOpe
     }
 
     private fun isGrantedByShell(packageName: String): Boolean {
-        if (!PermissionUtils.hasCachedRootAccess()) return false
-        val commands = listOf(
-            "appops get $packageName GET_USAGE_STATS",
-            "appops get $packageName android:get_usage_stats",
-            "cmd appops get $packageName GET_USAGE_STATS"
-        )
-        return commands.any { command ->
-            val result = ShellUtils.execCmd(command, true, true)
-            val output = buildString {
-                append(result.successMsg.orEmpty())
-                append('\n')
-                append(result.errorMsg.orEmpty())
-            }
-            output.contains("GET_USAGE_STATS: allow", ignoreCase = true) ||
-                output.contains("android:get_usage_stats: allow", ignoreCase = true)
-        }
+        return permissionGateway.isUsageStatsAllowedByRoot(packageName)
     }
 
     private fun isAllowedMode(mode: Int?): Boolean {
@@ -68,7 +56,7 @@ class UsageStatsPermissionOperator(private val context: Context) : PermissionOpe
     }
 
     override fun requestPermissionSilently(): Boolean {
-        return PermissionUtils.lunchAppOps(
+        return permissionGateway.launchAppOps(
             context,
             AppOpsManagerOverride.OPSTR_GET_USAGE_STATS,
             context.getString(R.string.wizard_title_stats_permission_text)

@@ -11,19 +11,20 @@ import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.github.aakira.napier.Napier
-import com.xiaomi.xmsf.R
-import io.github.magisk317.mipush.notification.NotificationController
-import io.github.magisk317.mipush.runtime.PushRuntime
-import io.github.magisk317.mipush.utils.LogUtils
+import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.common.manager.ForceRegisterStage
+import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
+import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
+import io.github.magisk317.mipush.common.manager.ManagerLogClearResult
+import io.github.magisk317.mipush.common.manager.ManagerLogExportResult
+import io.github.magisk317.mipush.common.manager.ManagerLogGateway
+import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
+import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileContent
+import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileSummary
 import io.github.magisk317.mipush.common.utils.Utils
-import io.github.magisk317.mipush.runtime.store.db.EventDb
-import io.github.magisk317.mipush.runtime.store.entities.Event
-import io.github.magisk317.mipush.runtime.store.event.type.NotificationType
-import io.github.magisk317.mipush.feature.main.subpage.ApplicationPageOperation
-import io.github.magisk317.mipush.service.runtime.RuntimeSettingsAdapter
-import io.github.magisk317.mipush.service.runtime.RuntimeSettingsAdapter.ForceRegisterStage
 
+import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,8 +33,10 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
 class SettingsManager constructor(
-    private val configCenter: ConfigCenter,
-    private val runtimeSettingsAdapter: RuntimeSettingsAdapter,
+    private val configGateway: ManagerConfigGateway,
+    private val runtimeActions: ManagerRuntimeActions,
+    private val applicationGateway: ManagerApplicationGateway,
+    private val logGateway: ManagerLogGateway,
 ) {
     companion object {
         private const val TAG = "SettingsManager"
@@ -42,8 +45,10 @@ class SettingsManager constructor(
 
     // No-arg fallback for legacy Singleton access.
     constructor() : this(
-        io.github.magisk317.mipush.common.utils.Singleton.instance<ConfigCenter>(),
-        io.github.magisk317.mipush.common.utils.Singleton.instance<RuntimeSettingsAdapter>(),
+        io.github.magisk317.mipush.common.utils.Singleton.instance<ManagerConfigGateway>(),
+        io.github.magisk317.mipush.common.utils.Singleton.instance<ManagerRuntimeActions>(),
+        io.github.magisk317.mipush.common.utils.Singleton.instance<ManagerApplicationGateway>(),
+        io.github.magisk317.mipush.common.utils.Singleton.instance<ManagerLogGateway>(),
     )
 
     init {
@@ -58,7 +63,7 @@ class SettingsManager constructor(
 
     fun clearLog(context: Context) {
         Toast.makeText(context, context.getString(R.string.settings_clear_log) + " " + context.getString(R.string.start), Toast.LENGTH_SHORT).show()
-        LogUtils.clearLog(context)
+        runtimeActions.clearLog(context)
         Toast.makeText(context, context.getString(R.string.settings_clear_log) + " " + context.getString(R.string.end), Toast.LENGTH_SHORT).show()
     }
 
@@ -68,7 +73,7 @@ class SettingsManager constructor(
                 withContext(Dispatchers.Main) {
                     Utils.makeText(context, context.getString(R.string.settings_clear_history) + " " + context.getString(R.string.start), Toast.LENGTH_SHORT)
                 }
-                EventDb.deleteHistoryAsync()
+                runtimeActions.clearHistory()
                 withContext(Dispatchers.Main) {
                     Utils.makeText(context, context.getString(R.string.settings_clear_history) + " " + context.getString(R.string.end), Toast.LENGTH_SHORT)
                 }
@@ -78,7 +83,7 @@ class SettingsManager constructor(
     }
 
     fun startMiPushServiceAsForegroundService(context: Context) {
-        runtimeSettingsAdapter.startMiPushServiceAsForegroundService(context)
+        runtimeActions.startMiPushServiceAsForegroundService(context)
     }
 
     fun notifyMockNotification(context: Context) {
@@ -91,11 +96,11 @@ class SettingsManager constructor(
         packageName: String
     ) {
         Napier.i("mock test request kind=${kind.name} pkg=$packageName", tag = TAG)
-        PushRuntime.observeNotificationEvent(packageName, "mock_test_request", MOCK_NOTIFICATION_SOURCE)
+        runtimeActions.observeNotificationEvent(packageName, "mock_test_request", MOCK_NOTIFICATION_SOURCE)
         if (Build.VERSION.SDK_INT >= 33) {
             if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 Napier.w("mock test blocked by POST_NOTIFICATIONS permission kind=${kind.name} pkg=$packageName", tag = TAG)
-                PushRuntime.observeNotificationEvent(packageName, "mock_test_permission_missing", MOCK_NOTIFICATION_SOURCE)
+                runtimeActions.observeNotificationEvent(packageName, "mock_test_permission_missing", MOCK_NOTIFICATION_SOURCE)
                 if (context is Activity) {
                     ActivityCompat.requestPermissions(context, arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 0)
                 } else {
@@ -104,34 +109,15 @@ class SettingsManager constructor(
                 return
             }
         }
-        NotificationController.testMock(context, kind, packageName)
+        runtimeActions.notifyMockNotification(context, kind, packageName)
         Napier.i("mock test dispatched kind=${kind.name} pkg=$packageName", tag = TAG)
-        PushRuntime.observeNotificationEvent(packageName, "mock_test_dispatched", MOCK_NOTIFICATION_SOURCE)
-        runCatching {
-            val type = NotificationType("mock:${kind.name}", packageName, null).apply {
-                this.type = Event.Type.SendMessage
-            }
-            runBlocking { EventDb.insertEventAsync(Event.ResultType.OK, type) }
-        }.onSuccess { eventId ->
-            Napier.d(
-                "mock test record inserted id=$eventId kind=${kind.name} pkg=$packageName",
-                tag = TAG,
-            )
-            PushRuntime.observeNotificationEvent(packageName, "mock_test_record_saved", MOCK_NOTIFICATION_SOURCE)
-        }.onFailure { error ->
-            Napier.e(
-                "mock test record insert failed kind=${kind.name} pkg=$packageName",
-                error,
-                tag = TAG,
-            )
-            PushRuntime.observeNotificationEvent(packageName, "mock_test_record_save_failed", MOCK_NOTIFICATION_SOURCE)
-        }
+        runtimeActions.observeNotificationEvent(packageName, "mock_test_dispatched", MOCK_NOTIFICATION_SOURCE)
     }
 
     fun tryForceRegisterAllApplications(context: Context): String {
-        val outcome = runtimeSettingsAdapter.tryForceRegisterAllApplications(
+        val outcome = runtimeActions.tryForceRegisterAllApplications(
             context = context,
-            applications = ApplicationPageOperation.getMiPushApplications().res,
+            packageNames = applicationGateway.loadApplications(context).items.map { it.packageName },
         )
         if (outcome.stage == ForceRegisterStage.ROOT_MISSING) {
             return context.getString(R.string.force_register_requires_root)
@@ -146,21 +132,58 @@ class SettingsManager constructor(
         }
     }
 
+    fun updateAllNotificationOnRegister(enabled: Boolean): Int {
+        return applicationGateway.updateAllNotificationOnRegister(enabled)
+    }
+
+    fun setRuntimeLogRetentionDays(days: Int) {
+        runtimeActions.setRuntimeLogRetentionDays(days)
+        logGateway.setRetentionDays(days)
+    }
+
+    fun summarizeRuntimeLogFiles(context: Context): ManagerRuntimeLogFileSummary {
+        return logGateway.summarizeFiles(context)
+    }
+
+    fun readRuntimeLogFile(context: Context, fileName: String): ManagerRuntimeLogFileContent? {
+        return logGateway.readLogFile(context, fileName)
+    }
+
+    fun deleteRuntimeLogFile(context: Context, fileName: String): Boolean {
+        return logGateway.deleteRuntimeLogFile(context, fileName)
+    }
+
+    fun buildRuntimeLogBundle(context: Context): ManagerLogExportResult {
+        return logGateway.buildLogBundle(context)
+    }
+
+    fun buildRuntimeLogShareIntent(context: Context, file: File): Intent {
+        return logGateway.buildShareIntent(context, file)
+    }
+
+    fun clearRuntimeLogFolders(context: Context): ManagerLogClearResult {
+        return logGateway.clearLogFolders(context)
+    }
+
     fun sendXMPPReconnectRequest(context: Context) {
-        runtimeSettingsAdapter.sendXmppReconnectRequest(context)
+        runtimeActions.sendXmppReconnectRequest(context)
     }
 
     fun setXMPPServer(context: Context, newHost: String) {
-        runtimeSettingsAdapter.setXmppServer(context, newHost)
+        runtimeActions.setXmppServer(context, newHost)
     }
 
     fun getXMPPServerHint(): String {
-        return runtimeSettingsAdapter.getXmppServerHint()
+        return runtimeActions.getXmppServerHint()
     }
 
-    fun getXMPPServer(context: Context): String? = runBlocking { configCenter.getXMPPServerAsync() }
+    fun resetTopActivityCache() {
+        runtimeActions.resetTopActivityCache()
+    }
 
-    fun getConfigurationDirectory(context: Context): Uri? = runBlocking { configCenter.getConfigurationDirectoryAsync() }
+    fun getXMPPServer(context: Context): String? = runBlocking { configGateway.getXmppServer() }
+
+    fun getConfigurationDirectory(context: Context): Uri? = runBlocking { configGateway.getConfigurationDirectory() }
 
     fun shareLogs(context: Context) {
         context.startActivity(
@@ -181,7 +204,7 @@ class SettingsManager constructor(
             uri,
             Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         )
-        runBlocking { configCenter.setConfigurationDirectoryAsync(uri) }
-        configCenter.loadConfigurations(context)
+        runBlocking { configGateway.setConfigurationDirectory(uri) }
+        configGateway.loadConfigurations(context)
     }
 }

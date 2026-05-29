@@ -36,7 +36,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.xiaomi.xmsf.R
+import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.feature.ui.theme.spacing
 
 @Composable

@@ -5,15 +5,19 @@ import android.content.Context
 import androidx.core.app.ActivityCompat
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import io.github.magisk317.mipush.app.MiPushFrameworkApp
+import kotlinx.coroutines.SupervisorJob
 
 /**
  * Compatibility helper around wizard completion state.
  */
 internal object WizardSPUtils {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     private val preferenceRepository by lazy(LazyThreadSafetyMode.NONE) {
         PreferenceRepository()
     }
@@ -24,7 +28,7 @@ internal object WizardSPUtils {
 
     @JvmStatic
     fun setShouldShowWizard(value: Boolean, context: Context) {
-        MiPushFrameworkApp.applicationScope.launch {
+        scope.launch {
             preferenceRepository.setShowWizard(value)
         }
     }

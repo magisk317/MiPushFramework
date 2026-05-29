@@ -9,9 +9,6 @@ import io.github.magisk317.mipush.common.utils.logW
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import io.github.aakira.napier.Napier
-import io.github.aakira.napier.DebugAntilog
-import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.runtime.core.ConnectionStatus
 import io.github.magisk317.mipush.platform.support.InternalMessenger
 import com.xiaomi.push.service.XMPushServiceMessenger
@@ -24,7 +21,11 @@ class MainActivityUtils {
         fun onChange(status: ConnectionStatus)
     }
 
-    fun initOnCreate(context: Context, configCenter: io.github.magisk317.mipush.app.ConfigCenter, connectionStatusChanged: ConnectionStatusChanged) {
+    fun initOnCreate(
+        context: Context,
+        loadConfigurations: (Context) -> Unit,
+        connectionStatusChanged: ConnectionStatusChanged,
+    ) {
         val appContext = context.applicationContext
         messenger = InternalMessenger(appContext).apply {
             register(IntentFilter(XMPushServiceMessenger.IntentSetConnectionStatus))
@@ -35,7 +36,7 @@ class MainActivityUtils {
         }
 
         printHookResultForCheck()
-        configCenter.loadConfigurations(appContext)
+        loadConfigurations(appContext)
         messenger?.send(Intent(XMPushServiceMessenger.IntentGetConnectionStatus))
     }
 

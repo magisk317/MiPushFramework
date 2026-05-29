@@ -62,9 +62,9 @@ import io.github.magisk317.mipush.feature.wizard.permission.NotificationPermissi
 import io.github.magisk317.mipush.feature.wizard.permission.RootPermissionInfo
 import io.github.magisk317.mipush.feature.wizard.permission.UsageStatsPermissionInfo
 import io.github.magisk317.mipush.feature.ui.theme.Theme
-import io.github.magisk317.mipush.platform.support.PermissionUtils
+import io.github.magisk317.mipush.app.di.ManagerGatewayAccess
+import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 import io.github.magisk317.mipush.data.PreferenceRepository
-import io.github.magisk317.mipush.app.MiPushFrameworkApp
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -83,7 +83,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import com.xiaomi.xmsf.R
+import io.github.magisk317.mipush.manager.R
 import androidx.compose.foundation.clickable
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.mutableIntStateOf
@@ -164,7 +164,7 @@ fun PermissionMainActivity(
 
         LaunchedEffect(checkTrigger) {
             val refreshedStates = withContext(Dispatchers.IO) {
-                PermissionUtils.refreshRootAccessIfGranted()
+                ManagerGatewayAccess.get<ManagerPermissionGateway>().refreshRootAccessIfGranted()
                 evaluatePermissionStates(permissionInfos)
             }
             permissionStates = refreshedStates

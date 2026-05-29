@@ -5,8 +5,6 @@ import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.content.pm.ServiceInfo
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
@@ -73,24 +71,18 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
-import io.github.magisk317.mipush.compat.RegistrationStateCompat
-import io.github.magisk317.mipush.compat.RegistrationStateStore
-import io.github.magisk317.mipush.utils.RegistrationHelper
-import io.github.magisk317.mipush.config.ConfigNavigationHelper
-import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
-import io.github.magisk317.mipush.platform.support.PermissionUtils
-import com.xiaomi.xmsf.BuildConfig
-import com.xiaomi.xmsf.R
+import io.github.magisk317.mipush.app.di.ManagerGatewayAccess
+import io.github.magisk317.mipush.common.manager.ManagerApplication
+import io.github.magisk317.mipush.common.manager.ManagerApplicationDiagnostics
+import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
+import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
+import io.github.magisk317.mipush.manager.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.common.utils.Utils
 import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.common.Constants
-import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
-import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
-import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication.RegisteredType
 import io.github.magisk317.mipush.feature.ui.component.AppIcon
 import io.github.magisk317.mipush.feature.ui.component.DetailDivider
 import io.github.magisk317.mipush.feature.ui.component.DetailSectionCard
@@ -99,11 +91,6 @@ import io.github.magisk317.mipush.feature.ui.component.DialogActionRow
 import io.github.magisk317.mipush.feature.ui.component.MarkdownView
 import io.github.magisk317.mipush.feature.ui.component.SectionColumn
 import io.github.magisk317.mipush.feature.ui.component.SettingsItem
-import io.github.magisk317.mipush.feature.main.AppConfigurationUtils
-import io.github.magisk317.mipush.feature.main.AppRegistrationDiagnostics
-import io.github.magisk317.mipush.feature.main.AppRegistrationDiagnosticsHelper
-import io.github.magisk317.mipush.feature.main.RegistrationStateStyle
-import io.github.magisk317.mipush.feature.main.subpage.ApplicationPageOperation
 import io.github.magisk317.mipush.feature.wizard.support.WizardSPUtils
 import io.github.magisk317.mipush.feature.ui.theme.Theme
 import io.github.magisk317.mipush.feature.ui.theme.spacing
@@ -117,10 +104,15 @@ open class ApplicationInfoPage : ComponentActivity() {
         const val EXTRA_IGNORE_NOT_REGISTERED: String = "EXTRA_IGNORE_NOT_REGISTERED"
     }
 
-    private lateinit var applicationInfo: RegisteredApplication
+    private val applicationGateway: ManagerApplicationGateway
+        get() = ManagerGatewayAccess.get()
+    private val configSyncGateway: ManagerConfigSyncGateway
+        get() = ManagerGatewayAccess.get()
+
+    private lateinit var applicationInfo: ManagerApplication
     private lateinit var appConfigurationUtils: AppConfigurationUtils
 
-    fun init(applicationInfo: RegisteredApplication) {
+    fun init(applicationInfo: ManagerApplication) {
         this.applicationInfo = applicationInfo
     }
 
@@ -140,61 +132,14 @@ open class ApplicationInfoPage : ComponentActivity() {
         }
     }
 
-    private fun getRegisteredApplication(): RegisteredApplication? {
-        if (intent.hasExtra(EXTRA_PACKAGE_NAME)) {
-            val pkg = intent.getStringExtra(EXTRA_PACKAGE_NAME) ?: return null
-            var application = RegisteredApplicationDb.getRegisteredApplication(pkg)
-
-            if (application == null &&
-                intent.getBooleanExtra(EXTRA_IGNORE_NOT_REGISTERED, false)
-            ) {
-                application = RegisteredApplication()
-                application.packageName = pkg
-                application.registeredType = RegisteredType.NotRegistered
-                application.appName = io.github.magisk317.mipush.platform.support.Global.applicationNameCache()
-                    .getAppName(this, pkg).toString()
-            }
-            if (
-                application != null &&
-                application.registeredType == RegisteredType.NotRegistered &&
-                RegistrationStateCompat.hasValidLocalRegistration(pkg)
-            ) {
-                RegistrationStateStore.updateIfChanged(
-                    application = application,
-                    nextType = RegisteredType.Registered,
-                    source = RegistrationStateStore.Source.LOCAL_PROBE,
-                )
-            }
-            if (application != null) {
-                refreshTransientAppState(application)
-            }
-            return application
-        }
-        return null
-    }
-
-    private fun refreshTransientAppState(application: RegisteredApplication) {
-        application.lastReceiveTime = Date(Utils.getLastReceiveTime(application.packageName) ?: 0L)
-
-        val packageInfo = runCatching {
-            PackageManagerCompatBridge.getPackageInfo(
-                packageManager,
-                application.packageName,
-                PackageManager.GET_SERVICES or PackageManager.GET_RECEIVERS,
-            )
-        }.getOrNull()
-
-        if (packageInfo == null) {
-            application.existServices = false
-            return
-        }
-
-        val checker = ApplicationPageOperation.getMiPushManifestChecker()
-        application.existServices = ApplicationPageOperation.hasMiPushServices(
-            checker = checker,
-            info = packageInfo,
+    private fun getRegisteredApplication(): ManagerApplication? {
+        if (!intent.hasExtra(EXTRA_PACKAGE_NAME)) return null
+        val pkg = intent.getStringExtra(EXTRA_PACKAGE_NAME) ?: return null
+        return applicationGateway.getApplication(
+            context = this,
+            packageName = pkg,
+            ignoreNotRegistered = intent.getBooleanExtra(EXTRA_IGNORE_NOT_REGISTERED, false),
         )
-
     }
 
     @Composable
@@ -252,9 +197,8 @@ open class ApplicationInfoPage : ComponentActivity() {
     private fun ApplicationInfoHeader(snackbarHostState: SnackbarHostState) {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
-        val configNavigationHelper = remember { ConfigNavigationHelper() }
         val integrationType = remember(applicationInfo.packageName) {
-            loadIntegrationTypeReason(applicationInfo.packageName)
+            applicationGateway.loadIntegrationTypeReason(context, applicationInfo.packageName)
         }
         val integrationTypeLabel = registrationTypeShortLabel(integrationType)
         val serviceState = if (applicationInfo.existServices) {
@@ -263,7 +207,7 @@ open class ApplicationInfoPage : ComponentActivity() {
             stringResource(R.string.mipush_services_not_found)
         }
         val registrationValue = stringResource(RegistrationStateStyle.registrationLabelResOf(applicationInfo))
-        val lastPush = formatTime(applicationInfo.lastReceiveTime.time)
+        val lastPush = formatTime(applicationInfo.lastReceiveTimeMs)
 
         ElevatedCard(
             colors = CardDefaults.elevatedCardColors(
@@ -417,7 +361,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                         OutlinedButton(
                             onClick = {
                                 scope.launch {
-                                    configNavigationHelper.openForPackage(applicationInfo.packageName)
+                                    configSyncGateway.openForPackage(applicationInfo.packageName)
                                 }
                             },
                         ) {
@@ -432,28 +376,6 @@ open class ApplicationInfoPage : ComponentActivity() {
                 }
             }
         }
-    }
-
-    private fun loadIntegrationTypeReason(packageName: String): String {
-        val packageInfo = runCatching {
-            PackageManagerCompatBridge.getPackageInfo(
-                packageManager,
-                packageName,
-                PackageManager.GET_SERVICES or PackageManager.GET_RECEIVERS,
-            )
-        }.getOrNull() ?: return "package_not_found"
-        val serviceNames = packageInfo.services
-            ?.mapNotNull(ServiceInfo::name)
-            ?.toSet()
-            ?: emptySet()
-        val receiverNames = packageInfo.receivers
-            ?.mapNotNull { it.name }
-            ?.toSet()
-            ?: emptySet()
-        return RegistrationHelper.classifyDisplayTypeReason(
-            serviceNames = serviceNames,
-            receiverNames = receiverNames,
-        )
     }
 
     private fun openSystemAppInfo(context: Context) {
@@ -471,96 +393,18 @@ open class ApplicationInfoPage : ComponentActivity() {
         snackbarHostState: SnackbarHostState,
     ) {
         lifecycleScope.launch {
-            val hasRoot = withContext(Dispatchers.IO) {
-                PermissionUtils.refreshRootAccessIfGranted()
-            }
-            if (!hasRoot) {
-                snackbarHostState.showSnackbar(
-                    message = context.getString(R.string.force_register_requires_root),
-                    duration = SnackbarDuration.Short,
+            val message = withContext(Dispatchers.IO) {
+                applicationGateway.launchTargetAppAndForceRegister(
+                    context = context,
+                    packageName = packageName,
+                    registeredType = applicationInfo.registeredType,
                 )
-                return@launch
             }
-
-            val plan = withContext(Dispatchers.IO) {
-                RegistrationHelper.inspectForceRegisterPlan(packageName)
-            }
-            if (!plan.supportsServiceDispatch && !plan.supportsReceiverFallback && plan.bridgeCandidates.isEmpty()) {
-                snackbarHostState.showSnackbar(
-                    message = context.getString(R.string.force_register_unavailable),
-                    duration = SnackbarDuration.Short,
-                )
-                return@launch
-            }
-
-            withContext(Dispatchers.IO) {
-                stopTargetAppBestEffort(packageName)
-            }
-            val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
-            if (launchIntent == null) {
-                snackbarHostState.showSnackbar(
-                    message = context.getString(R.string.force_register_failed),
-                    duration = SnackbarDuration.Short,
-                )
-                return@launch
-            }
-            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            if (runCatching { context.startActivity(launchIntent) }.isFailure) {
-                snackbarHostState.showSnackbar(
-                    message = context.getString(R.string.force_register_failed),
-                    duration = SnackbarDuration.Short,
-                )
-                return@launch
-            }
-
-            kotlinx.coroutines.delay(500)
-            forceRegisterWithFeedback(context, packageName, snackbarHostState)
+            snackbarHostState.showSnackbar(
+                message = message,
+                duration = SnackbarDuration.Short,
+            )
         }
-    }
-
-    private fun stopTargetAppBestEffort(packageName: String) {
-        runCatching {
-            AppRootAccessFacade.runRootCommand("am force-stop $packageName")
-        }
-    }
-
-    private suspend fun forceRegisterWithFeedback(
-        context: Context,
-        packageName: String,
-        snackbarHostState: SnackbarHostState,
-    ) {
-        val message = withContext(Dispatchers.IO) {
-            if (!PermissionUtils.refreshRootAccessIfGranted()) {
-                return@withContext context.getString(R.string.force_register_requires_root)
-            }
-            if (
-                applicationInfo.registeredType != RegisteredType.Registered &&
-                RegistrationStateCompat.hasLocalRegistrationArtifacts(packageName)
-            ) {
-                runCatching {
-                    RegistrationHelper(context, packageName).removeMiPushData()
-                }
-            }
-            val result = runCatching {
-                RegistrationHelper.tryForceRegister(packageName)
-            }
-            if (result.getOrDefault(false)) {
-                return@withContext context.getString(R.string.force_register_sent)
-            }
-            val cause = result.exceptionOrNull()
-            if (cause is NoClassDefFoundError || cause is ClassNotFoundException) {
-                return@withContext context.getString(R.string.force_register_unavailable)
-            }
-            if (runCatching { RegistrationHelper.tryForceRegisterFallback(packageName) }.getOrDefault(false)) {
-                context.getString(R.string.force_register_sent)
-            } else {
-                context.getString(R.string.force_register_failed)
-            }
-        }
-        snackbarHostState.showSnackbar(
-            message = message,
-            duration = SnackbarDuration.Short,
-        )
     }
 
     @Composable
@@ -568,11 +412,14 @@ open class ApplicationInfoPage : ComponentActivity() {
         val context = LocalContext.current
         val shouldSuggestFakeApp = appConfigurationUtils.shouldSuggestFakeApp(applicationInfo.packageName)
         val registeredType = applicationInfo.registeredType
-        if (registeredType != RegisteredType.NotRegistered && registeredType != RegisteredType.Unregistered) {
+        if (
+            registeredType != ManagerApplication.RegisteredType.NOT_REGISTERED &&
+            registeredType != ManagerApplication.RegisteredType.UNREGISTERED
+        ) {
             return
         }
         var diagnostics by remember(applicationInfo.packageName, registeredType) {
-            mutableStateOf<AppRegistrationDiagnostics?>(null)
+            mutableStateOf<ManagerApplicationDiagnostics?>(null)
         }
         LaunchedEffect(applicationInfo.packageName, registeredType) {
             diagnostics = withContext(Dispatchers.IO) {
@@ -591,7 +438,7 @@ open class ApplicationInfoPage : ComponentActivity() {
 
         val title: String
         val description: String
-        if (registeredType == RegisteredType.NotRegistered) {
+        if (registeredType == ManagerApplication.RegisteredType.NOT_REGISTERED) {
             title = stringResource(R.string.status_app_not_registered_title)
             description = stringResource(
                 if (shouldSuggestResetprop) {
@@ -622,8 +469,7 @@ open class ApplicationInfoPage : ComponentActivity() {
         )
         val globalEnabled = remember {
             runBlocking {
-                io.github.magisk317.mipush.platform.support.Global.configCenter()
-                    .isNotificationOnRegisterAsync()
+                applicationGateway.isNotificationOnRegisterEnabled()
             }
         }
         var checked by remember { mutableStateOf(applicationInfo.notificationOnRegister) }
@@ -639,8 +485,8 @@ open class ApplicationInfoPage : ComponentActivity() {
                 showDivider = true,
             ) {
                 blocked = it
-                applicationInfo.blocked = blocked
-                RegisteredApplicationDb.update(applicationInfo)
+                applicationInfo = applicationInfo.copy(blocked = blocked)
+                applicationGateway.updateApplication(applicationInfo)
             }
 
             ActionSummaryRow(
@@ -669,8 +515,8 @@ open class ApplicationInfoPage : ComponentActivity() {
                 },
             ) {
                 checked = it
-                applicationInfo.notificationOnRegister = checked
-                RegisteredApplicationDb.update(applicationInfo)
+                applicationInfo = applicationInfo.copy(notificationOnRegister = checked)
+                applicationGateway.updateApplication(applicationInfo)
             }
         }
     }
@@ -693,8 +539,8 @@ open class ApplicationInfoPage : ComponentActivity() {
                 showDivider = true,
             ) {
                 islandEnabled = it
-                applicationInfo.islandEnabled = islandEnabled
-                RegisteredApplicationDb.update(applicationInfo)
+                applicationInfo = applicationInfo.copy(islandEnabled = islandEnabled)
+                applicationGateway.updateApplication(applicationInfo)
             }
 
             SettingSwitchRow(
@@ -704,8 +550,8 @@ open class ApplicationInfoPage : ComponentActivity() {
                 enabled = islandEnabled,
             ) {
                 islandFocusNotification = it
-                applicationInfo.islandFocusNotification = islandFocusNotification
-                RegisteredApplicationDb.update(applicationInfo)
+                applicationInfo = applicationInfo.copy(islandFocusNotification = islandFocusNotification)
+                applicationGateway.updateApplication(applicationInfo)
             }
         }
     }
@@ -752,7 +598,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                 title = stringResource(R.string.settings_manage_app_notifications),
                 summary = stringResource(R.string.settings_manage_app_notifications_summary),
                 actionLabel = stringResource(R.string.settings_manage_app_notifications),
-                enabled = applicationInfo.registeredType == RegisteredType.NotRegistered,
+                enabled = applicationInfo.registeredType == ManagerApplication.RegisteredType.NOT_REGISTERED,
             ) {
                 appConfigurationUtils.gotoNotificationSettingPage()
             }
@@ -996,9 +842,10 @@ private fun SettingsPreview() {
     val context = LocalContext.current
     Utils.context = context
 
-    val app = RegisteredApplication()
-    app.packageName = Constants.SERVICE_APP_NAME
-    app.appName = "test app"
+    val app = ManagerApplication(
+        packageName = Constants.SERVICE_APP_NAME,
+        appName = "test app",
+    )
     val page = ApplicationInfoPage()
     page.init(app)
     page.SettingsApp()

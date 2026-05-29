@@ -19,8 +19,8 @@ android {
 
 dependencies {
     implementation(project(":common"))
+    implementation(project(":settings"))
     implementation(project(":uikit"))
-    implementation(project(":xmsf"))
     compileOnly(project(":protocol"))
     compileOnly(project(":core"))
     compileOnly(project(":legacy"))

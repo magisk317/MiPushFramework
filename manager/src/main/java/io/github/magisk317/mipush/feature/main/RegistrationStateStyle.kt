@@ -3,8 +3,8 @@ package io.github.magisk317.mipush.feature.main
 import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.Color
-import com.xiaomi.xmsf.R
-import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
+import io.github.magisk317.mipush.common.manager.ManagerApplication
+import io.github.magisk317.mipush.manager.R
 
 object RegistrationStateStyle {
 
@@ -12,26 +12,26 @@ object RegistrationStateStyle {
     val GreenColor = Color(0xff4caf50)
     val YellowColor = Color(0xffff9800)
 
-    fun isConfirmedRegistered(app: RegisteredApplication): Boolean {
-        return app.registeredType == RegisteredApplication.RegisteredType.Registered
+    fun isConfirmedRegistered(app: ManagerApplication): Boolean {
+        return app.registeredType == ManagerApplication.RegisteredType.REGISTERED
     }
 
-    fun hasObservedActivity(app: RegisteredApplication): Boolean {
-        return app.lastReceiveTime.time > 0L
+    fun hasObservedActivity(app: ManagerApplication): Boolean {
+        return app.lastReceiveTimeMs > 0L
     }
 
-    fun contentOf(app: RegisteredApplication): Pair<Int, Color> {
+    fun contentOf(app: ManagerApplication): Pair<Int, Color> {
         return Pair(registrationLabelResOf(app), colorOf(app))
     }
 
     @StringRes
-    fun registrationLabelResOf(app: RegisteredApplication): Int {
+    fun registrationLabelResOf(app: ManagerApplication): Int {
         return when (app.registeredType) {
-            RegisteredApplication.RegisteredType.Registered -> R.string.app_registered
+            ManagerApplication.RegisteredType.REGISTERED -> R.string.app_registered
             else -> {
                 if (hasObservedActivity(app)) {
                     R.string.app_registration_observed
-                } else if (app.registeredType == RegisteredApplication.RegisteredType.Unregistered) {
+                } else if (app.registeredType == ManagerApplication.RegisteredType.UNREGISTERED) {
                     R.string.app_registered_error
                 } else {
                     R.string.status_app_not_registered
@@ -40,16 +40,16 @@ object RegistrationStateStyle {
         }
     }
 
-    fun registrationColorOf(app: RegisteredApplication): Color {
+    fun registrationColorOf(app: ManagerApplication): Color {
         return if (hasObservedActivity(app) && !isConfirmedRegistered(app)) YellowColor
         else when (app.registeredType) {
-            RegisteredApplication.RegisteredType.Registered -> GreenColor
-            RegisteredApplication.RegisteredType.Unregistered -> YellowColor
+            ManagerApplication.RegisteredType.REGISTERED -> GreenColor
+            ManagerApplication.RegisteredType.UNREGISTERED -> YellowColor
             else -> Color.Unspecified
         }
     }
 
-    fun colorOf(app: RegisteredApplication): Color {
+    fun colorOf(app: ManagerApplication): Color {
         return if (!app.existServices) ErrorColor
         else registrationColorOf(app)
     }

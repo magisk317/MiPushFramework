@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Icon
 import androidx.core.content.edit
-import com.xiaomi.xmsf.R
+import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 
 internal object WelcomeIslandNotifier {

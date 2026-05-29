@@ -15,7 +15,6 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.feature.main.ApplicationIconCache
 
 @Composable
@@ -24,7 +23,7 @@ fun AppIcon(packageName: String, appName: String?, modifier: Modifier = Modifier
     val isPreview = LocalInspectionMode.current
     val iconCache = remember(context) {
         if (isPreview) null
-        else AppDependencies.get<ApplicationIconCache>(context)
+        else ApplicationIconCache(context.applicationContext ?: context)
     }
 
     var icon by remember(packageName) {

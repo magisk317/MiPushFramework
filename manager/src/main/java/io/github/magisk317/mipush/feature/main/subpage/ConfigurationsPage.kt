@@ -64,7 +64,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.xiaomi.xmsf.R
+import io.github.magisk317.mipush.manager.R
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.hazeSource
@@ -78,16 +78,16 @@ import io.github.magisk317.mipush.feature.ui.component.OverlayHeaderScaffold
 import io.github.magisk317.mipush.feature.ui.component.ScrollToTopFAB
 import io.github.magisk317.mipush.feature.ui.component.SearchBar
 import io.github.magisk317.mipush.feature.ui.component.WorkspaceListItem
-import io.github.magisk317.mipush.config.ConfigCatalogService
-import io.github.magisk317.mipush.config.ConfigContentSource
-import io.github.magisk317.mipush.config.ConfigEditorViewModel
-import io.github.magisk317.mipush.config.ConfigListItem
-import io.github.magisk317.mipush.config.ConfigManagerViewModel
-import io.github.magisk317.mipush.config.ConfigRemoteSource
-import io.github.magisk317.mipush.config.ConfigSyncStatus
 import io.github.magisk317.mipush.feature.main.MainScrollChromeState
 import io.github.magisk317.mipush.feature.main.ReportLazyListScrollToChrome
 import io.github.magisk317.mipush.feature.ui.theme.spacing
+import io.github.magisk317.mipush.main.viewmodel.ConfigEditorViewModel
+import io.github.magisk317.mipush.main.viewmodel.ConfigManagerViewModel
+import io.github.magisk317.mipush.utils.ConfigContentSource
+import io.github.magisk317.mipush.utils.ConfigDefaults
+import io.github.magisk317.mipush.utils.ConfigListItem
+import io.github.magisk317.mipush.utils.ConfigRemoteSource
+import io.github.magisk317.mipush.utils.ConfigSyncStatus
 import org.koin.compose.viewmodel.koinViewModel
 
 
@@ -171,8 +171,8 @@ fun Configurations(
                 onBranchChange = { remoteBranchDraft = it },
                 onDismiss = { showRemoteSourceDialog = false },
                 onResetDefault = {
-                    remoteRepositoryDraft = ConfigCatalogService.REMOTE_REPOSITORY
-                    remoteBranchDraft = ConfigCatalogService.REMOTE_BRANCH
+                    remoteRepositoryDraft = ConfigDefaults.REMOTE_REPOSITORY
+                    remoteBranchDraft = ConfigDefaults.REMOTE_BRANCH
                 },
                 onConfirm = {
                     viewModel.updateRemoteSource(remoteRepositoryDraft, remoteBranchDraft)
@@ -673,7 +673,7 @@ private fun RemoteSourceDialog(
                 Text(
                     text = stringResource(
                         R.string.config_remote_source_default_hint,
-                        "${ConfigCatalogService.REMOTE_REPOSITORY}@${ConfigCatalogService.REMOTE_BRANCH}",
+                        "${ConfigDefaults.REMOTE_REPOSITORY}@${ConfigDefaults.REMOTE_BRANCH}",
                     ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -41,7 +41,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.xiaomi.xmsf.R
+import io.github.magisk317.mipush.manager.R
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.hazeEffect
@@ -339,7 +339,7 @@ private fun ContactUsGroup() {
             title = stringResource(R.string.helplib_action_telegram_group),
             summary = stringResource(R.string.help_page_contact_telegram_summary),
         ) {
-            openUrl(context, "https://t.me/+Gf5x3Lqw1tdiZDNl")
+            openUrl(context, "https://t.me/+NR2QaQ4dlEgxYmNl")
         }
         HelpEntryCard(
             title = stringResource(R.string.helplib_action_issue),

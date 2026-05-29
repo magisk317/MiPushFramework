@@ -58,19 +58,18 @@ import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import io.github.aakira.napier.DebugAntilog
-import com.xiaomi.xmsf.R
+import io.github.magisk317.mipush.manager.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import io.github.magisk317.mipush.common.manager.ManagerApplication
 import io.github.magisk317.mipush.common.utils.Utils
-import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
 import androidx.compose.ui.res.stringResource
 import io.github.magisk317.mipush.feature.main.MainScrollChromeState
 import io.github.magisk317.mipush.feature.main.RegistrationStateStyle
-import io.github.magisk317.mipush.platform.support.ParseUtils
 import androidx.compose.material3.ExperimentalMaterial3Api
 import io.github.magisk317.mipush.feature.ui.component.SearchBar
 import io.github.magisk317.mipush.feature.ui.component.AppIcon
@@ -381,9 +380,9 @@ private fun updateInfos(
     applications.res.forEach {
         infoMap[it.packageName] = AppInfoForDisplay(
             registrationState = RegistrationStateStyle.contentOf(it),
-            lastReceiveTime = if (it.lastReceiveTime.time == 0L) ""
-            else context.getString(R.string.last_receive) + ParseUtils.getFriendlyDateString(
-                it.lastReceiveTime,
+            lastReceiveTime = if (it.lastReceiveTimeMs == 0L) ""
+            else context.getString(R.string.last_receive) + friendlyDateString(
+                java.util.Date(it.lastReceiveTimeMs),
                 Utils.getUTC(),
                 context
             ),
@@ -393,18 +392,18 @@ private fun updateInfos(
 }
 
 @Composable
-private fun ApplicationItem(item: RegisteredApplication, onAppClick: (String) -> Unit) {
+private fun ApplicationItem(item: ManagerApplication, onAppClick: (String) -> Unit) {
     val info = g_itemsInfo[item.packageName] ?: return
     val statusColor =
         if (info.registrationState.second == Color.Unspecified) MaterialTheme.colorScheme.onSurface
         else info.registrationState.second
-    val isRecentlyActive = item.lastReceiveTime.time > 0L
+    val isRecentlyActive = item.lastReceiveTimeMs > 0L
     val containerColor = when {
         isRecentlyActive -> statusColor.copy(alpha = 0.10f)
-        item.registeredType == RegisteredApplication.RegisteredType.Registered -> {
+        item.registeredType == ManagerApplication.RegisteredType.REGISTERED -> {
             MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
         }
-        item.registeredType == RegisteredApplication.RegisteredType.Unregistered -> {
+        item.registeredType == ManagerApplication.RegisteredType.UNREGISTERED -> {
             MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.18f)
         }
 
@@ -501,7 +500,7 @@ private fun AppListBadge(
 }
 
 @Composable
-private fun LastReceive(item: RegisteredApplication) {
+private fun LastReceive(item: ManagerApplication) {
     val info = g_itemsInfo[item.packageName] ?: return
     if (info.lastReceiveTime.isBlank()) return
     Text(
@@ -529,29 +528,29 @@ fun ApplicationListPreview() {
             miPushApplications.res = (
                 mutableListOf(
                     registeredApplication(
-                        RegisteredApplication.RegisteredType.NotRegistered,
+                        ManagerApplication.RegisteredType.NOT_REGISTERED,
                         "123"
                     ),
                     registeredApplication(
-                        RegisteredApplication.RegisteredType.Registered,
+                        ManagerApplication.RegisteredType.REGISTERED,
                         "qwe"
                     ),
                     registeredApplication(
-                        RegisteredApplication.RegisteredType.Registered,
+                        ManagerApplication.RegisteredType.REGISTERED,
                         "asd"
                     ),
                     registeredApplication(
-                        RegisteredApplication.RegisteredType.Unregistered,
+                        ManagerApplication.RegisteredType.UNREGISTERED,
                         "zxc"
                     ),
                     registeredApplication(
-                        RegisteredApplication.RegisteredType.Unregistered,
+                        ManagerApplication.RegisteredType.UNREGISTERED,
                         "456",
                         false
                     ),
                 ) + ('a'..'z').map {
                     registeredApplication(
-                        RegisteredApplication.RegisteredType.NotRegistered,
+                        ManagerApplication.RegisteredType.NOT_REGISTERED,
                         it.toString()
                     )
                 }
@@ -577,7 +576,7 @@ fun OneApplicationWithNonMiPushAppPreview() {
             val miPushApplications = ApplicationPageOperation.MiPushApplications()
             miPushApplications.res = mutableListOf(
                 registeredApplication(
-                    RegisteredApplication.RegisteredType.NotRegistered,
+                    ManagerApplication.RegisteredType.NOT_REGISTERED,
                     "123"
                 )
             )
@@ -591,16 +590,13 @@ private fun registeredApplication(
     registeredType: Int,
     appName: String,
     existServices: Boolean = true
-): RegisteredApplication {
-    val registeredApplication =
-        RegisteredApplication(
-            null,
-            appName,
-            RegisteredApplication.Type.ASK,
-            true,
-            registeredType,
-            appName
-        )
-    registeredApplication.existServices = existServices
-    return registeredApplication
+): ManagerApplication {
+    return ManagerApplication(
+        packageName = appName,
+        type = ManagerApplication.Type.ASK,
+        notificationOnRegister = true,
+        registeredType = registeredType,
+        appName = appName,
+        existServices = existServices,
+    )
 }

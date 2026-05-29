@@ -26,7 +26,7 @@ import androidx.navigation.NavController
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.hazeEffect
-import com.xiaomi.xmsf.R
+import io.github.magisk317.mipush.manager.R
 
 /**
  * 底部导航栏组件（现代化版本）

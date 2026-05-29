@@ -1,11 +1,15 @@
-package io.github.magisk317.mipush.config
+package io.github.magisk317.mipush.main.viewmodel
 
 import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
+import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
 import io.github.magisk317.mipush.data.PreferenceRepository
-import io.github.magisk317.mipush.app.ConfigCenter
+import io.github.magisk317.mipush.utils.ConfigDefaults
+import io.github.magisk317.mipush.utils.ConfigListItem
+import io.github.magisk317.mipush.utils.ConfigRemoteSource
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
@@ -16,8 +20,8 @@ import kotlinx.coroutines.launch
 
 class ConfigManagerViewModel constructor(
     private val preferenceRepository: PreferenceRepository,
-    private val syncRepository: ConfigSyncRepository,
-    private val configCenter: ConfigCenter,
+    private val syncGateway: ManagerConfigSyncGateway,
+    private val configGateway: ManagerConfigGateway,
     private val context: Context,
 ) : ViewModel() {
     data class UiState(
@@ -78,7 +82,7 @@ class ConfigManagerViewModel constructor(
     fun updateConfigurationDirectory(uri: Uri) {
         viewModelScope.launch {
             preferenceRepository.setConfigDirectory(uri.toString())
-            configCenter.loadConfigurations(context)
+            configGateway.loadConfigurations(context)
             _uiState.update { it.copy(message = "配置目录已更新") }
         }
     }
@@ -86,10 +90,10 @@ class ConfigManagerViewModel constructor(
     fun updateRemoteSource(repository: String, branch: String) {
         viewModelScope.launch {
             preferenceRepository.setConfigRemoteRepository(
-                repository.ifBlank { ConfigCatalogService.REMOTE_REPOSITORY },
+                repository.ifBlank { ConfigDefaults.REMOTE_REPOSITORY },
             )
             preferenceRepository.setConfigRemoteBranch(
-                branch.ifBlank { ConfigCatalogService.REMOTE_BRANCH },
+                branch.ifBlank { ConfigDefaults.REMOTE_BRANCH },
             )
             _uiState.update { it.copy(message = "远端源已更新") }
         }
@@ -105,9 +109,9 @@ class ConfigManagerViewModel constructor(
             }
             _uiState.update { it.copy(isSyncing = true) }
             runCatching {
-                syncRepository.importDocuments(treeUri, uris)
+                syncGateway.importDocuments(treeUri, uris)
             }.onSuccess { imported ->
-                configCenter.loadConfigurations(context)
+                configGateway.loadConfigurations(context)
                 _uiState.update {
                     it.copy(
                         isSyncing = false,
@@ -135,7 +139,7 @@ class ConfigManagerViewModel constructor(
             }
             _uiState.update { it.copy(isSyncing = true, syncCurrent = 0, syncTotal = 0, syncPath = null) }
             runCatching {
-                syncRepository.pullAll(treeUri) { current, total, path ->
+                syncGateway.pullAll(treeUri) { current, total, path ->
                     _uiState.update {
                         it.copy(
                             isSyncing = true,
@@ -146,7 +150,7 @@ class ConfigManagerViewModel constructor(
                     }
                 }
             }.onSuccess { count ->
-                configCenter.loadConfigurations(context)
+                configGateway.loadConfigurations(context)
                 _uiState.update {
                     it.copy(
                         isSyncing = false,
@@ -173,7 +177,7 @@ class ConfigManagerViewModel constructor(
 
     fun reloadConfigurations() {
         viewModelScope.launch {
-            configCenter.loadConfigurations(context)
+            configGateway.loadConfigurations(context)
             _uiState.update { it.copy(message = "已重新加载配置") }
             refresh()
         }
@@ -192,7 +196,7 @@ class ConfigManagerViewModel constructor(
         val treeUri = currentTreeUri()
         _uiState.update { it.copy(isLoading = true, remoteError = null) }
 
-        val localSnapshot = syncRepository.loadLocalSnapshot(treeUri)
+        val localSnapshot = syncGateway.loadLocalSnapshot(treeUri)
         if (generation != refreshGeneration) return
         _uiState.update {
             it.copy(
@@ -202,7 +206,7 @@ class ConfigManagerViewModel constructor(
             )
         }
 
-        runCatching { syncRepository.loadRemoteSnapshot(treeUri) }
+        runCatching { syncGateway.loadRemoteSnapshot(treeUri) }
             .onSuccess { snapshot ->
                 if (generation != refreshGeneration) return
                 _uiState.update {

@@ -3,7 +3,6 @@ package io.github.magisk317.mipush.main.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.data.PreferenceRepository
-import com.xiaomi.push.sdk.PushMessageProcessor
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -13,7 +12,6 @@ import io.github.magisk317.mipush.app.SettingsManager
 class AdvancedSettingsViewModel constructor(
     private val preferenceRepository: PreferenceRepository,
     private val settingsManager: SettingsManager,
-    private val pushMessageProcessor: PushMessageProcessor
 ) : ViewModel() {
     val notificationOnRegister: StateFlow<Boolean> = preferenceRepository.notificationOnRegister
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
@@ -83,7 +81,7 @@ class AdvancedSettingsViewModel constructor(
 
     fun setAccessMode(index: Int) = viewModelScope.launch {
         preferenceRepository.setAccessMode(index.toString())
-        pushMessageProcessor.resetTopActivityCache()
+        settingsManager.resetTopActivityCache()
     }
 
     fun startMiPushServiceAsForegroundService(context: android.content.Context) {

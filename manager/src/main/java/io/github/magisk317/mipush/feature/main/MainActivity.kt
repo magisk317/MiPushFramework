@@ -74,7 +74,7 @@ import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
-import com.xiaomi.xmsf.R
+import io.github.magisk317.mipush.manager.R
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.hazeEffect
@@ -98,10 +98,10 @@ import io.github.magisk317.mipush.feature.main.subpage.Settings
 import io.github.magisk317.mipush.feature.main.subpage.SettingsPagePreview
 import io.github.magisk317.mipush.feature.ui.theme.*
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
-import io.github.magisk317.mipush.app.ConfigCenter
-import io.github.magisk317.mipush.app.di.AppDependencies
-import io.github.magisk317.mipush.runtime.data.EventRepository
+import io.github.magisk317.mipush.app.di.ManagerDependencies
+import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
 import kotlinx.coroutines.launch
+import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import kotlin.math.hypot
 
@@ -115,16 +115,16 @@ open class MainActivity : ComponentActivity() {
         const val EXTRA_START_ROUTE = "extra_start_route"
     }
 
-    private val configCenter: ConfigCenter by lazy { AppDependencies.get(this) }
-    private val eventRepository: EventRepository by lazy { AppDependencies.get(this) }
+    private val configGateway: ManagerConfigGateway by inject()
 
     private val settingsViewModel: SettingsViewModel by viewModel()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ManagerDependencies.start(this)
         WelcomeIslandNotifier.notifyAfterInstallOrUpdate(this)
         enableEdgeToEdge()
-        mainActivityUtils.initOnCreate(applicationContext, configCenter) { placeholder = it.toString() }
+        mainActivityUtils.initOnCreate(applicationContext, configGateway::loadConfigurations) { placeholder = it.toString() }
         val explicitRoute = intent?.getStringExtra(EXTRA_START_ROUTE)
         val startDestination = when {
             explicitRoute?.startsWith(AppDestinations.Configs.ROUTE) == true ||
@@ -203,7 +203,6 @@ open class MainActivity : ComponentActivity() {
                         initialRouteOverride = explicitRoute,
                         hazeState = hazeState,
                         hazeStyle = hazeStyle,
-                        eventRepository = eventRepository,
                     )
 
                     if (isAnimating && screenshotBitmap != null) {

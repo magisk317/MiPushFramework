@@ -6,7 +6,7 @@ import android.net.Uri
 import java.util.Locale
 import io.github.magisk317.mipush.common.BuildConfig
 import io.github.magisk317.mipush.common.VERSION_CODE
-import com.xiaomi.xmsf.R
+import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 
 class MainActivityOperation(private val context: Context) {
@@ -38,7 +38,7 @@ class MainActivityOperation(private val context: Context) {
     }
 
     fun gotoTelegramGroup() {
-        openUrl("https://t.me/+Gf5x3Lqw1tdiZDNl")
+        openUrl("https://t.me/+NR2QaQ4dlEgxYmNl")
     }
 
     fun gotoQQGroup() {

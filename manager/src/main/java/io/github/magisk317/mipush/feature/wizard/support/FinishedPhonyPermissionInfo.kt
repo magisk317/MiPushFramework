@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.feature.wizard.support
 
 import android.content.Context
-import com.xiaomi.xmsf.R
+import io.github.magisk317.mipush.manager.R
 
 class FinishedPhonyPermissionInfo(context: Context) : DisplayOnlyPhonyPermissionInfo(context) {
     override val permissionTitle: String

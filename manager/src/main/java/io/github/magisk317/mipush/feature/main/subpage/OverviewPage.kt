@@ -72,7 +72,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.layout.onSizeChanged
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
-import com.xiaomi.xmsf.R
+import io.github.magisk317.mipush.manager.R
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.hazeEffect

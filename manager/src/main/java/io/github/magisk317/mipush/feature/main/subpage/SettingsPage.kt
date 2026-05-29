@@ -71,13 +71,16 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
-import com.xiaomi.xmsf.BuildConfig
-import com.xiaomi.xmsf.R
+import io.github.magisk317.mipush.manager.R
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import io.github.magisk317.uikit.preference.SectionCard
+import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileContent
+import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileInfo
+import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileSummary
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.feature.main.MainActivityOperation
 import io.github.magisk317.mipush.feature.main.MainScrollChromeState
@@ -92,10 +95,6 @@ import io.github.magisk317.mipush.feature.ui.component.SettingsSwitchItem
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 import io.github.magisk317.mipush.feature.ui.theme.Theme
 import io.github.magisk317.mipush.feature.ui.theme.spacing
-import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
-import io.github.magisk317.mipush.service.KeepAliveAccessibilityService
-import io.github.magisk317.mipush.utils.LogBundleExporter
-import io.github.magisk317.mipush.utils.LogUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -423,7 +422,7 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
         viewModel.setNotificationOnRegister(newValue)
         if (!newValue) {
             scope.launch(Dispatchers.IO) {
-                RegisteredApplicationDb.updateAllNotificationOnRegister(false)
+                viewModel.updateAllNotificationOnRegister(false)
             }
             scope.launch {
                 snackbarHostState.showSnackbar(
@@ -556,7 +555,7 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
     fun shareRuntimeLogBundle() {
         scope.launch {
             val result = withContext(Dispatchers.IO) {
-                LogBundleExporter.buildLogBundle(context)
+                viewModel.buildRuntimeLogBundle(context)
             }
             val file = result.file
             if (file == null) {
@@ -564,7 +563,7 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
                 return@launch
             }
             runCatching {
-                val intent = LogBundleExporter.buildShareIntent(context, file)
+                val intent = viewModel.buildRuntimeLogShareIntent(context, file)
                 context.startActivity(Intent.createChooser(intent, logShareTitle))
             }.onFailure {
                 snackbarHostState.showSnackbar(
@@ -580,7 +579,7 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
     fun loadRuntimeLogDialog(selectedFileName: String? = null) {
         scope.launch {
             runtimeLogDialogData = withContext(Dispatchers.IO) {
-                loadRuntimeLogDialogData(context, selectedFileName)
+                loadRuntimeLogDialogData(context, viewModel, selectedFileName)
             }
         }
     }
@@ -631,7 +630,7 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
     if (showRuntimeLogInfoDialog) {
         LaunchedEffect(showRuntimeLogInfoDialog) {
             runtimeLogDialogData = withContext(Dispatchers.IO) {
-                loadRuntimeLogDialogData(context, runtimeLogDialogData?.selectedFileName)
+                loadRuntimeLogDialogData(context, viewModel, runtimeLogDialogData?.selectedFileName)
             }
         }
         val dialogData = runtimeLogDialogData
@@ -654,11 +653,11 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
                         null
                     }
                     val deleted = withContext(Dispatchers.IO) {
-                        LogUtils.deleteRuntimeLogFile(context, fileName)
+                        viewModel.deleteRuntimeLogFile(context, fileName)
                     }
                     showRuntimeLogFullScreenPreview = false
                     runtimeLogDialogData = withContext(Dispatchers.IO) {
-                        loadRuntimeLogDialogData(context, nextSelection)
+                        loadRuntimeLogDialogData(context, viewModel, nextSelection)
                     }
                     if (!deleted) {
                         snackbarHostState.showSnackbar(
@@ -670,10 +669,10 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
             onClear = {
                 scope.launch {
                     val result = withContext(Dispatchers.IO) {
-                        LogBundleExporter.clearLogFolders(context)
+                        viewModel.clearRuntimeLogFolders(context)
                     }
                     runtimeLogDialogData = withContext(Dispatchers.IO) {
-                        loadRuntimeLogDialogData(context)
+                        loadRuntimeLogDialogData(context, viewModel)
                     }
                     snackbarHostState.showSnackbar(
                         if (result.success) {
@@ -741,9 +740,9 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
 }
 
 private data class RuntimeLogDialogData(
-    val summary: LogUtils.RuntimeLogFileSummary,
+    val summary: ManagerRuntimeLogFileSummary,
     val selectedFileName: String?,
-    val content: LogUtils.RuntimeLogFileContent?,
+    val content: ManagerRuntimeLogFileContent?,
     val compactPreview: String,
     val formattedPreview: String,
 )
@@ -935,11 +934,15 @@ private fun RuntimeLogFullScreenPreviewDialog(
     }
 }
 
-private fun loadRuntimeLogDialogData(context: Context, selectedFileName: String? = null): RuntimeLogDialogData {
+private fun loadRuntimeLogDialogData(
+    context: Context,
+    viewModel: SettingsViewModel,
+    selectedFileName: String? = null,
+): RuntimeLogDialogData {
     val summary = runCatching {
-        LogUtils.summarizeFiles(context)
+        viewModel.summarizeRuntimeLogFiles(context)
     }.getOrElse {
-        LogUtils.RuntimeLogFileSummary(
+        ManagerRuntimeLogFileSummary(
             fileCount = 0,
             totalBytes = 0L,
             entryCount = 0,
@@ -950,7 +953,7 @@ private fun loadRuntimeLogDialogData(context: Context, selectedFileName: String?
     }
     val selected = selectRuntimeLogFile(summary, selectedFileName)
     val content = selected?.let { fileName ->
-        runCatching { LogUtils.readLogFile(context, fileName) }.getOrNull()
+        runCatching { viewModel.readRuntimeLogFile(context, fileName) }.getOrNull()
     }
     val compactPreview = content?.let { formatRuntimeLogContent(it.name, it.text, expanded = false) }.orEmpty()
     val formattedPreview = content?.let { formatRuntimeLogContent(it.name, it.text, expanded = true) }.orEmpty()
@@ -963,14 +966,14 @@ private fun loadRuntimeLogDialogData(context: Context, selectedFileName: String?
     )
 }
 
-private fun selectRuntimeLogFile(summary: LogUtils.RuntimeLogFileSummary, selectedFileName: String?): String? {
+private fun selectRuntimeLogFile(summary: ManagerRuntimeLogFileSummary, selectedFileName: String?): String? {
     val files = summary.files
     if (files.any { it.name == selectedFileName }) return selectedFileName
     return files.lastOrNull { it.name.matches(Regex("""runtime\.\d{4}-\d{2}-\d{2}\.jsonl""")) }?.name
         ?: files.lastOrNull()?.name
 }
 
-private fun formatRuntimeLogFileListLine(file: LogUtils.RuntimeLogFileInfo, selected: Boolean): String {
+private fun formatRuntimeLogFileListLine(file: ManagerRuntimeLogFileInfo, selected: Boolean): String {
     val marker = if (selected) "*" else " "
     val lines = file.lineCount.toString().padStart(5)
     val size = formatLogSize(file.sizeBytes).padStart(8)
@@ -1069,10 +1072,10 @@ private fun isKeepAliveAccessibilityServiceEnabled(context: Context): Boolean {
         context.contentResolver,
         Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
     ) ?: return false
-    val expected = ComponentName(context, KeepAliveAccessibilityService::class.java)
     return enabledServices.split(':').any { service ->
         val component = ComponentName.unflattenFromString(service) ?: return@any false
-        component.packageName == expected.packageName && component.className == expected.className
+        component.packageName == Constants.SERVICE_APP_NAME &&
+            component.className == Constants.KEEPALIVE_ACCESSIBILITY_SERVICE_CLASS
     }
 }
 

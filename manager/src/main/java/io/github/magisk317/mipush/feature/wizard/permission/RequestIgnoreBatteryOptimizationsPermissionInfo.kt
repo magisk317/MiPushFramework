@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.feature.wizard.permission
 import android.content.Context
 import android.os.Build
 import androidx.annotation.RequiresApi
-import com.xiaomi.xmsf.R
+import io.github.magisk317.mipush.manager.R
 
 class RequestIgnoreBatteryOptimizationsPermissionInfo(
     private val context: Context

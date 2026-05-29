@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.app.SettingsManager
 import io.github.magisk317.uikit.theme.UiKitStyle
+import java.io.File
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,7 +14,6 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import io.github.magisk317.mipush.common.utils.Utils
-import io.github.magisk317.mipush.utils.LogUtils
 
 class SettingsViewModel constructor(
     private val preferenceRepository: PreferenceRepository,
@@ -108,7 +108,7 @@ class SettingsViewModel constructor(
         }
         viewModelScope.launch {
             preferenceRepository.runtimeLogRetentionDays.collect { days ->
-                LogUtils.setRetentionDays(days)
+                settingsManager.setRuntimeLogRetentionDays(days)
             }
         }
     }
@@ -129,8 +129,7 @@ class SettingsViewModel constructor(
         viewModelScope.launch {
             preferenceRepository.setXmppServer(host)
             Utils.getApplication()?.let { app ->
-                io.github.magisk317.mipush.network.NetworkPolicyCompat.applyXmppHostOverride(app)
-                settingsManager.sendXMPPReconnectRequest(app)
+                settingsManager.setXMPPServer(app, host)
             }
         }
     }
@@ -218,7 +217,7 @@ class SettingsViewModel constructor(
     fun setRuntimeLogRetentionDays(days: Int) {
         viewModelScope.launch {
             preferenceRepository.setRuntimeLogRetentionDays(days)
-            LogUtils.setRetentionDays(days)
+            settingsManager.setRuntimeLogRetentionDays(days)
         }
     }
 
@@ -245,6 +244,29 @@ class SettingsViewModel constructor(
     fun clearLog(context: android.content.Context) {
         settingsManager.clearLog(context)
     }
+
+    fun updateAllNotificationOnRegister(enabled: Boolean): Int {
+        return settingsManager.updateAllNotificationOnRegister(enabled)
+    }
+
+    fun summarizeRuntimeLogFiles(context: android.content.Context) =
+        settingsManager.summarizeRuntimeLogFiles(context)
+
+    fun readRuntimeLogFile(context: android.content.Context, fileName: String) =
+        settingsManager.readRuntimeLogFile(context, fileName)
+
+    fun deleteRuntimeLogFile(context: android.content.Context, fileName: String): Boolean {
+        return settingsManager.deleteRuntimeLogFile(context, fileName)
+    }
+
+    fun buildRuntimeLogBundle(context: android.content.Context) =
+        settingsManager.buildRuntimeLogBundle(context)
+
+    fun buildRuntimeLogShareIntent(context: android.content.Context, file: File) =
+        settingsManager.buildRuntimeLogShareIntent(context, file)
+
+    fun clearRuntimeLogFolders(context: android.content.Context) =
+        settingsManager.clearRuntimeLogFolders(context)
 
     fun shareLogs(context: android.content.Context) {
         settingsManager.shareLogs(context)

@@ -84,6 +84,9 @@ object Constants {
 
     const val REMOVE_DOZE_COMPONENT_NAME = "$SERVICE_APP_NAME.RemoveDozeActivity"
 
+    const val KEEPALIVE_ACCESSIBILITY_SERVICE_CLASS =
+        "io.github.magisk317.mipush.service.KeepAliveAccessibilityService"
+
     const val INTENT_NOTIFICATION_ID = "mipush_notification_id"
     const val INTENT_NOTIFICATION_GROUP = "mipush_notification_group"
 

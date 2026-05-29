@@ -4,9 +4,15 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import com.xiaomi.push.sdk.PushMessageProcessor
 import io.github.magisk317.mipush.app.ConfigCenter
+import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
+import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
+import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
+import io.github.magisk317.mipush.common.manager.ManagerEventGateway
+import io.github.magisk317.mipush.common.manager.ManagerLogGateway
+import io.github.magisk317.mipush.common.manager.ManagerNotificationGateway
+import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
+import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
 import io.github.magisk317.mipush.config.ConfigCatalogService
-import io.github.magisk317.mipush.config.ConfigEditorViewModel
-import io.github.magisk317.mipush.config.ConfigManagerViewModel
 import io.github.magisk317.mipush.config.ConfigNavigationHelper
 import io.github.magisk317.mipush.config.ConfigSyncRepository
 import io.github.magisk317.mipush.config.ConfigSyncStateStore
@@ -23,7 +29,6 @@ import io.github.magisk317.mipush.utils.IconConfigurations
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 import kotlin.reflect.KClass
 
@@ -35,10 +40,18 @@ val xmsfCoreKoinModule = module {
 
     single { PreferenceRepository(get()) }
     single { ConfigCenter(get()) }
+    single<ManagerConfigGateway> { XmsfManagerConfigGateway(get()) }
+    single<ManagerConfigSyncGateway> { XmsfManagerConfigSyncGateway(get(), get()) }
+    single<ManagerApplicationGateway> { XmsfManagerApplicationGateway(get()) }
+    single<ManagerNotificationGateway> { XmsfManagerNotificationGateway() }
+    single<ManagerEventGateway> { XmsfManagerEventGateway(androidContext(), get()) }
+    single<ManagerLogGateway> { XmsfManagerLogGateway() }
+    single<ManagerPermissionGateway> { XmsfManagerPermissionGateway() }
     single { ConfigurationsLoader(get()) }
     single { Configurations(get()) }
     single { IconConfigurations(get()) }
     single { RuntimeSettingsAdapter(androidContext(), get()) }
+    single<ManagerRuntimeActions> { XmsfManagerRuntimeActions(get(), get()) }
     single { PushMessageProcessor(get()) }
     single { ConfigSyncStateStore(androidContext()) }
     single { LocalConfigRepository(androidContext()) }
@@ -46,9 +59,6 @@ val xmsfCoreKoinModule = module {
     single { ConfigSyncRepository(get(), get(), get(), get()) }
     single { ConfigNavigationHelper(androidContext(), get(), get()) }
     single { EventRepository(androidContext(), get(), get(), get()) }
-
-    viewModelOf(::ConfigManagerViewModel)
-    viewModelOf(::ConfigEditorViewModel)
 }
 
 object AppDependencies {

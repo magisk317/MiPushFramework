@@ -1,11 +1,17 @@
-package io.github.magisk317.mipush.config
+package io.github.magisk317.mipush.main.viewmodel
 
 import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
+import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
 import io.github.magisk317.mipush.data.PreferenceRepository
-import io.github.magisk317.mipush.app.ConfigCenter
+import io.github.magisk317.mipush.utils.ConfigContentSource
+import io.github.magisk317.mipush.utils.ConfigDocumentContent
+import io.github.magisk317.mipush.utils.ConfigJsonSupport
+import io.github.magisk317.mipush.utils.LocalConfigSummary
+import io.github.magisk317.mipush.utils.RemoteConfigFile
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
@@ -14,8 +20,8 @@ import kotlinx.coroutines.launch
 
 class ConfigEditorViewModel constructor(
     private val preferenceRepository: PreferenceRepository,
-    private val syncRepository: ConfigSyncRepository,
-    private val configCenter: ConfigCenter,
+    private val syncGateway: ManagerConfigSyncGateway,
+    private val configGateway: ManagerConfigGateway,
     private val context: Context,
 ) : ViewModel() {
     data class UiState(
@@ -23,7 +29,7 @@ class ConfigEditorViewModel constructor(
         val directoryUri: String? = null,
         val localContent: ConfigDocumentContent? = null,
         val remoteContent: ConfigDocumentContent? = null,
-        val localMeta: LocalConfigFile? = null,
+        val localMeta: LocalConfigSummary? = null,
         val remoteMeta: RemoteConfigFile? = null,
         val selectedSource: ConfigContentSource = ConfigContentSource.LOCAL,
         val isEditing: Boolean = false,
@@ -59,7 +65,7 @@ class ConfigEditorViewModel constructor(
                 )
             }
             val treeUri = directoryUri?.takeIf { it.isNotBlank() }?.let(Uri::parse)
-            val localSnapshot = syncRepository.readLocalEditorSnapshot(
+            val localSnapshot = syncGateway.readLocalEditorSnapshot(
                 treeUri = treeUri,
                 path = path,
             )
@@ -84,7 +90,7 @@ class ConfigEditorViewModel constructor(
             }
 
             runCatching {
-                syncRepository.readRemoteEditorSnapshot(
+                syncGateway.readRemoteEditorSnapshot(
                     treeUri = treeUri,
                     path = path,
                 )
@@ -159,9 +165,9 @@ class ConfigEditorViewModel constructor(
             }
             _uiState.update { it.copy(isSaving = true) }
             runCatching {
-                syncRepository.saveLocal(treeUri, state.path, formattedText)
+                syncGateway.saveLocal(treeUri, state.path, formattedText)
             }.onSuccess {
-                configCenter.loadConfigurations(context)
+                configGateway.loadConfigurations(context)
                 _uiState.update { it.copy(isSaving = false, isEditing = false, draft = "", message = "配置已保存") }
                 load(state.path, force = true)
             }.onFailure { error ->
@@ -189,9 +195,9 @@ class ConfigEditorViewModel constructor(
             }
             _uiState.update { it.copy(isSaving = true) }
             runCatching {
-                syncRepository.resetToRemote(treeUri, state.path)
+                syncGateway.resetToRemote(treeUri, state.path)
             }.onSuccess {
-                configCenter.loadConfigurations(context)
+                configGateway.loadConfigurations(context)
                 _uiState.update {
                     it.copy(
                         isSaving = false,

@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.feature.wizard.permission
 
 import android.content.Context
-import com.xiaomi.xmsf.R
+import io.github.magisk317.mipush.manager.R
 
 class NotificationPermissionInfo(context: Context) : PermissionInfo {
     override val permissionOperator = NotificationPermissionOperator(context)

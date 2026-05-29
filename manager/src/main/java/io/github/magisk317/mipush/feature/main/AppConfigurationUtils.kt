@@ -8,18 +8,19 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import android.text.TextUtils
-import io.github.magisk317.mipush.notification.NotificationManagerEx
-import com.xiaomi.xmsf.R
-import io.github.magisk317.mipush.notification.NotificationChannelManager
 import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.common.manager.ManagerApplication
+import io.github.magisk317.mipush.common.manager.ManagerNotificationGateway
 import io.github.magisk317.mipush.common.utils.NotificationUtils
 import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.manager.R
+import io.github.magisk317.mipush.app.di.ManagerGatewayAccess
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
-import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
 
 class AppConfigurationUtils(
     private val context: Context,
-    private val application: RegisteredApplication
+    private val application: ManagerApplication,
+    private val notificationGateway: ManagerNotificationGateway = ManagerGatewayAccess.get(),
 ) {
     fun shouldSuggestFakeApp(pkg: String): Boolean {
         return !isBlacklistApp(pkg) && Utils.isUserApplication(pkg)
@@ -74,14 +75,14 @@ class AppConfigurationUtils(
     }
 
     fun deleteNotificationChannel(channel: NotificationChannel) {
-        NotificationManagerEx.deleteNotificationChannel(application.packageName, channel.id)
+        notificationGateway.deleteNotificationChannel(application.packageName, channel.id)
     }
 
     val notificationChannels: List<NotificationChannel>?
-        get() = NotificationManagerEx.getNotificationChannels(application.packageName)?.filterNotNull()
+        get() = notificationGateway.getNotificationChannels(application.packageName)
 
     val configApp: String
-        get() = if (NotificationManagerEx.isHooked) application.packageName else Constants.SERVICE_APP_NAME
+        get() = if (notificationGateway.isHooked) application.packageName else Constants.SERVICE_APP_NAME
 
     fun getNotificationCategoryName(group: NotificationChannelGroup): String {
         val suffix = if (group.id == null) "" else String.format(": %s (%s)", group.name, group.id)
@@ -91,8 +92,8 @@ class AppConfigurationUtils(
     val notificationChannelGroups: List<NotificationChannelGroup>
         get() {
         val mipushGroup = NotificationUtils.getGroupIdByPkg(application.packageName)
-        val groups = NotificationManagerEx.getNotificationChannelGroups(application.packageName)?.filterNotNull()?.toMutableList() ?: mutableListOf()
-        if (NotificationManagerEx.isHooked) {
+        val groups = notificationGateway.getNotificationChannelGroups(application.packageName).toMutableList()
+        if (notificationGateway.isHooked) {
             makeMIPushGroupToTopPositions(groups, mipushGroup)
         } else {
             removeAllNonMIPushGroup(groups, mipushGroup)
@@ -120,9 +121,12 @@ class AppConfigurationUtils(
         }
 
         @JvmStatic
-        fun getNotificationTitle(channel: NotificationChannel): CharSequence {
+        fun getNotificationTitle(
+            channel: NotificationChannel,
+            notificationGateway: ManagerNotificationGateway = ManagerGatewayAccess.get(),
+        ): CharSequence {
             var title: CharSequence = channel.name
-            if (!NotificationChannelManager.isNotificationChannelEnabled(channel)) {
+            if (!notificationGateway.isNotificationChannelEnabled(channel)) {
                 title = "[disable]$title"
             }
             return title

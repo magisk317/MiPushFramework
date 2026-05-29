@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.feature.main
 
+import android.content.Intent
 import android.os.SystemClock
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
@@ -48,6 +49,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -55,7 +57,7 @@ import androidx.navigation.NavDestination
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.xiaomi.xmsf.R
+import io.github.magisk317.mipush.manager.R
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.hazeEffect
@@ -64,7 +66,6 @@ import io.github.magisk317.uikit.surface.AppNavigationItemSpec
 import io.github.magisk317.uikit.surface.AppNavigationRail
 import io.github.magisk317.mipush.feature.ui.component.DialogAction
 import io.github.magisk317.mipush.feature.ui.component.DialogActionRow
-import io.github.magisk317.mipush.runtime.data.EventRepository
 import io.github.magisk317.mipush.feature.main.subpage.ApplicationList
 import io.github.magisk317.mipush.feature.main.subpage.ConfigurationEditor
 import io.github.magisk317.mipush.feature.main.subpage.Configurations
@@ -104,8 +105,8 @@ fun MainScreen(
     initialRouteOverride: String? = null,
     hazeState: HazeState,
     hazeStyle: HazeStyle,
-    eventRepository: EventRepository,
 ) {
+    val context = LocalContext.current
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val configuration = LocalConfiguration.current
@@ -259,7 +260,13 @@ fun MainScreen(
                     contentPadding = padding,
                     refreshSignal = appRefreshTrigger,
                     filterMode = filterMode,
-                    onAppClick = { pkg -> eventRepository.startManagePermissions(pkg, true) },
+                    onAppClick = { pkg ->
+                        context.startActivity(
+                            Intent(context, ApplicationInfoPage::class.java)
+                                .putExtra(ApplicationInfoPage.EXTRA_PACKAGE_NAME, pkg)
+                                .putExtra(ApplicationInfoPage.EXTRA_IGNORE_NOT_REGISTERED, true),
+                        )
+                    },
                     hazeState = hState,
                     hazeStyle = hStyle,
                     scrollChromeState = scrollChromeState,

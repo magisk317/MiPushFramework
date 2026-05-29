@@ -75,18 +75,18 @@ import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
-import io.github.magisk317.mipush.platform.support.Global
-import com.xiaomi.xmsf.R
-import io.github.magisk317.mipush.utils.RegSecUtils
+import io.github.magisk317.mipush.manager.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import io.github.magisk317.mipush.common.cache.ApplicationNameCache
 import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.common.manager.ManagerEvent
+import io.github.magisk317.mipush.common.manager.ManagerEventResult
+import io.github.magisk317.mipush.common.manager.ManagerEventType
 import io.github.magisk317.mipush.common.utils.Utils
-import io.github.magisk317.mipush.runtime.store.entities.Event
-import io.github.magisk317.mipush.runtime.store.event.type.TypeFactory
 import io.github.magisk317.mipush.feature.ui.component.AppIcon
 import io.github.magisk317.mipush.feature.ui.component.DialogAction
 import io.github.magisk317.mipush.feature.ui.component.DialogActionRow
@@ -99,7 +99,6 @@ import io.github.magisk317.mipush.feature.ui.component.TextView
 import io.github.magisk317.mipush.feature.ui.component.WorkspaceEmptyState
 import io.github.magisk317.mipush.feature.ui.component.WorkspaceListItem
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
-import io.github.magisk317.mipush.platform.support.ParseUtils
 import io.github.magisk317.mipush.feature.main.MainScrollChromeState
 import io.github.magisk317.mipush.feature.ui.theme.spacing
 import java.text.SimpleDateFormat
@@ -139,7 +138,7 @@ fun EventList(
             if (packageName.isBlank()) {
                 null
             } else {
-                Global.applicationNameCache().getAppName(context, packageName).toString()
+                ApplicationNameCache.getAppName(context, packageName).toString()
                     .takeIf { it.isNotBlank() }
                     ?.takeUnless { it == packageName }
                     ?: packageName
@@ -471,26 +470,26 @@ private fun EventInfoForDisplay.matchesFilters(
 ): Boolean {
     val matchesType = selectedTypeFilters.isEmpty() || selectedTypeFilters.any { filter ->
         when (filter) {
-            EventTypeFilter.Notification -> event.type == Event.Type.SendMessage && !isPassThroughMessage()
-            EventTypeFilter.PassThrough -> event.type == Event.Type.SendMessage && isPassThroughMessage()
+            EventTypeFilter.Notification -> event.type == ManagerEventType.SEND_MESSAGE && !isPassThroughMessage()
+            EventTypeFilter.PassThrough -> event.type == ManagerEventType.SEND_MESSAGE && isPassThroughMessage()
             EventTypeFilter.Registration -> event.type in setOf(
-                Event.Type.Registration,
-                Event.Type.RegistrationResult,
-                Event.Type.UnRegistration,
+                ManagerEventType.REGISTRATION,
+                ManagerEventType.REGISTRATION_RESULT,
+                ManagerEventType.UN_REGISTRATION,
             )
             EventTypeFilter.Other -> event.type !in setOf(
-                Event.Type.SendMessage,
-                Event.Type.Registration,
-                Event.Type.RegistrationResult,
-                Event.Type.UnRegistration,
+                ManagerEventType.SEND_MESSAGE,
+                ManagerEventType.REGISTRATION,
+                ManagerEventType.REGISTRATION_RESULT,
+                ManagerEventType.UN_REGISTRATION,
             )
         }
     }
     val matchesStatus = selectedStatusFilters.isEmpty() || selectedStatusFilters.any { filter ->
         when (filter) {
-            EventStatusFilter.Normal -> !isDisabled() && event.result == Event.ResultType.OK
+            EventStatusFilter.Normal -> !isDisabled() && event.result == ManagerEventResult.OK
             EventStatusFilter.Disabled -> isDisabled()
-            EventStatusFilter.Denied -> event.result != Event.ResultType.OK
+            EventStatusFilter.Denied -> event.result != ManagerEventResult.OK
         }
     }
     return matchesType && matchesStatus
@@ -613,7 +612,7 @@ private fun EventGroupList(
             }
         } else {
             items(groupedItems, key = { it.packageName }) { group ->
-                val updatedAt = ParseUtils.getFriendlyDateString(
+                val updatedAt = friendlyDateString(
                     group.latestDate,
                     Utils.getUTC(),
                     context
@@ -704,9 +703,8 @@ private fun EventDetailsDialog(
                     DialogAction(
                         label = stringResource(R.string.action_notify),
                         onClick = {
-                            val container = RegSecUtils.getContainerWithRegSec(clickedEvent.event)
-                            if (container != null) {
-                                viewModel.mockMessage(container)
+                            if (viewModel.mockMessage(clickedEvent.event)) {
+                                Unit
                             } else {
                                 Napier.w(
                                     "Cannot replay event id=${clickedEvent.id} pkg=${clickedEvent.packageName}: container unavailable",
@@ -960,7 +958,7 @@ private fun EventItem(
     onClick: (EventInfoForDisplay) -> Unit,
 ) {
     val disabled = item.isDisabled()
-    val denied = item.event.result != Event.ResultType.OK
+    val denied = item.event.result != ManagerEventResult.OK
     val appName = item.appName?.takeIf { it.isNotBlank() } ?: item.packageName
     val titleText = if (disabled) "[disable] ${item.title}" else item.title
     val metaLine = if (item.channel.isNotBlank()) {
@@ -1167,5 +1165,14 @@ data class EventInfoForDisplay(
     val title: String,
     val content: String,
     val appName: String? = null,
-    val event: Event = Event(),
+    val event: ManagerEvent = ManagerEvent(
+        id = id,
+        packageName = packageName,
+        configOptions = configOptions,
+        channel = channel,
+        receiveDateMs = receiveDate.time,
+        title = title,
+        content = content,
+        appName = appName,
+    ),
 )

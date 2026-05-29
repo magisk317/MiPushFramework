@@ -24,7 +24,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.xiaomi.xmsf.R
+import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.R as UiKitR
 import kotlinx.coroutines.launch
 
