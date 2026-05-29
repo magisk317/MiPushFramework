@@ -344,7 +344,7 @@ class XmsfManagerApplicationGateway(
         val total = packageInfos.size
         val lastReceiveTimes = runBlocking { EventDb.getAllLastReceiveTimesAsync() }
         val checker = createManifestChecker(context)
-        val apps = packageInfos
+        val displayApplications = packageInfos
             .asSequence()
             .filter { shouldShowInList(it, checker) }
             .map { info ->
@@ -354,8 +354,13 @@ class XmsfManagerApplicationGateway(
                     ?: Global.applicationNameCache().getAppName(context, app.packageName).toString()
                 app.appNamePinYin = app.appName.lowercase(Locale.ROOT)
                 app.lastReceiveTime = Date(maxOf(lastReceiveTimes[app.packageName] ?: 0L, Utils.getLastReceiveTime(app.packageName) ?: 0L))
-                app.toManagerApplication()
+                app
             }
+            .toList()
+        reconcileLocalRegistrationState(displayApplications)
+        val apps = displayApplications
+            .asSequence()
+            .map { it.toManagerApplication() }
             .filter { isQueryMatched(it, query) }
             .filter { matchesFilter(it, filterMode) }
             .sortedWith(::compareForDisplay)
@@ -366,6 +371,26 @@ class XmsfManagerApplicationGateway(
             items = apps,
             totalPkg = total,
         )
+    }
+
+    private fun reconcileLocalRegistrationState(applications: List<RegisteredApplication>) {
+        val candidates = applications
+            .asSequence()
+            .filter { it.registeredType == RegisteredApplication.RegisteredType.NotRegistered }
+            .map { it.packageName }
+            .toList()
+        if (candidates.isEmpty()) return
+        val locallyRegistered = RegistrationStateCompat.findPackagesWithValidLocalRegistration(candidates)
+        if (locallyRegistered.isEmpty()) return
+        applications.forEach { application ->
+            if (application.packageName in locallyRegistered) {
+                RegistrationStateStore.updateIfChanged(
+                    application = application,
+                    nextType = RegisteredApplication.RegisteredType.Registered,
+                    source = RegistrationStateStore.Source.LOCAL_PROBE,
+                )
+            }
+        }
     }
 
     override fun getApplication(context: Context, packageName: String, ignoreNotRegistered: Boolean): ManagerApplication? {
