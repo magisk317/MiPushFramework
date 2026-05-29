@@ -1,7 +1,6 @@
 plugins {
     id("mipush.android.library")
     id("mipush.android.room")
-    id("mipush.android.compose")
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.robolectric.junit5)
 }
@@ -21,7 +20,6 @@ android {
     }
 
     buildFeatures {
-        compose = true
         buildConfig = true
     }
 
@@ -71,8 +69,9 @@ tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
 
 dependencies {
     implementation(project(":core"))
+    implementation(project(":runtime-android-core"))
+    implementation(project(":settings"))
     implementation(project(":common"))
-    implementation(project(":uikit"))
     implementation(project(":legacy"))
     implementation(project(":pinned"))
     compileOnly(project(":protocol"))
@@ -81,10 +80,6 @@ dependencies {
     implementation(libs.hyperisland.kit)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.libsu.core)
-
-    implementation(libs.androidx.compose.foundation)
-    implementation(libs.androidx.compose.material.icons.core)
-    implementation(libs.androidx.compose.material.icons.extended)
 
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.mockk)
@@ -95,11 +90,5 @@ dependencies {
     implementation(libs.palette)
     implementation(libs.androidx.startup.runtime)
 
-    implementation(libs.markdown)
-    implementation(libs.haze.android)
-    implementation(libs.androidx.datastore.preferences)
-
     implementation(libs.koin.android)
-    implementation(libs.koin.androidx.compose)
-    implementation(libs.koin.compose.viewmodel)
 }

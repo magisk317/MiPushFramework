@@ -19,7 +19,7 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import io.github.magisk317.mipush.common.utils.Utils
-import io.github.magisk317.uikit.theme.UiKitStyle
+import io.github.magisk317.mipush.utils.ConfigDefaults
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -94,16 +94,16 @@ class PreferenceRepository constructor(
     val eventGroupByApp: Flow<Boolean> = dataStore.data.map { it[EVENT_GROUP_BY_APP] ?: false }
     val appFilterMode: Flow<Int> = dataStore.data.map { it[APP_FILTER_MODE] ?: 0 }
     val themeMode: Flow<Int> = dataStore.data.map { it[THEME_MODE] ?: 0 }
-    val uiKitStyle: Flow<Int> = dataStore.data.map { UiKitStyle.Expressive.value }
+    val uiKitStyle: Flow<Int> = dataStore.data.map { it[UI_KIT_STYLE] ?: DEFAULT_UI_KIT_STYLE }
     val runtimeLogRetentionDays: Flow<Int> = dataStore.data.map {
         (it[RUNTIME_LOG_RETENTION_DAYS] ?: 7).coerceAtLeast(1)
     }
     val lastConfigSyncTime: Flow<Long> = dataStore.data.map { it[LAST_CONFIG_SYNC_TIME] ?: 0L }
     val configRemoteRepository: Flow<String> = dataStore.data.map {
-        it[CONFIG_REMOTE_REPOSITORY] ?: "magisk317/MiPushConfigurations"
+        it[CONFIG_REMOTE_REPOSITORY] ?: ConfigDefaults.REMOTE_REPOSITORY
     }
     val configRemoteBranch: Flow<String> = dataStore.data.map {
-        it[CONFIG_REMOTE_BRANCH] ?: "dev"
+        it[CONFIG_REMOTE_BRANCH] ?: ConfigDefaults.REMOTE_BRANCH
     }
 
     val debugMode: Flow<Boolean> = isDebugMode
@@ -219,7 +219,7 @@ class PreferenceRepository constructor(
     }
 
     suspend fun setUiKitStyle(style: Int) {
-        dataStore.edit { it[UI_KIT_STYLE] = UiKitStyle.Expressive.value }
+        dataStore.edit { it[UI_KIT_STYLE] = style }
     }
 
     suspend fun setRuntimeLogRetentionDays(days: Int) {
@@ -236,5 +236,9 @@ class PreferenceRepository constructor(
 
     suspend fun setConfigRemoteBranch(branch: String) {
         dataStore.edit { it[CONFIG_REMOTE_BRANCH] = branch }
+    }
+
+    private companion object {
+        const val DEFAULT_UI_KIT_STYLE = 0
     }
 }

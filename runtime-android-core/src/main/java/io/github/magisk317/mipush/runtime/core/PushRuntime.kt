@@ -9,6 +9,7 @@ import io.github.magisk317.mipush.common.utils.logW
 import android.content.Context
 import android.content.Intent
 import io.github.aakira.napier.Napier
+import io.github.magisk317.mipush.runtime.android.BuildConfig
 
 data class PushRuntimeSnapshot(
     val bridgeReady: Boolean,

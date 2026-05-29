@@ -85,7 +85,7 @@ import io.github.magisk317.mipush.service.runtime.PushServiceIntentRuntime
 import io.github.magisk317.mipush.service.runtime.PushSlimConnectionRuntime
 import io.github.magisk317.mipush.service.runtime.PushSlimStreamRuntime
 import io.github.magisk317.mipush.service.runtime.PushSocketConnectionRuntime
-import io.github.magisk317.mipush.service.runtime.RegistrationThrottle
+import io.github.magisk317.mipush.runtime.core.RegistrationThrottle
 import io.github.magisk317.mipush.service.runtime.RegistrationPayloadRepair
 import io.github.magisk317.mipush.service.runtime.NetworkCheckupRuntime
 import io.github.magisk317.mipush.platform.support.XMPushUtils
