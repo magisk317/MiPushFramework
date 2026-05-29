@@ -11,9 +11,14 @@ MiPushFramework is a system-package-compatible app split into explicit Gradle mo
      stock XMSF names.
 
 2. **core**
-   - Product-owned runtime models and facades such as `PushRuntime`.
-   - This module is the shared spine for routing, registration, notification accounting, and
-     runtime state that should not depend on app UI code.
+   - Product-owned, platform-neutral runtime contracts and models (e.g. `PushRuntimeContract`,
+     `PushRuntimeComponents`, `RegistrationThrottle`). It must stay free of Android framework
+     dependencies so it can hold the shared routing/registration/notification-accounting types
+     without depending on app UI code.
+   - The Android-coupled runtime spine (`PushRuntime` and its stores) lives in
+     `runtime-android-core`, which depends on `core` and uses `android.*` APIs. `core` and
+     `runtime-android-core` use distinct packages (`...runtime.core` vs `...runtime.android`); do
+     not reintroduce a shared package across the two modules.
 
 3. **legacy**
    - Vendored Xiaomi push/runtime/network/telemetry stacks that are packaged into the app but are

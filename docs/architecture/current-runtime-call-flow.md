@@ -35,7 +35,7 @@ Key source:
 
 ## 3. Runtime Spine
 
-- Entry point: `core` `PushRuntime`
+- Entry point: `runtime-android-core` `PushRuntime`
 - Main work:
   - queue and drain bridge intents
   - track registration, connection, and channel state
@@ -44,7 +44,7 @@ Key source:
 
 Key source:
 
-- `core/src/main/java/io/github/magisk317/mipush/runtime/core/PushRuntime.kt`
+- `runtime-android-core/src/main/java/io/github/magisk317/mipush/runtime/android/PushRuntime.kt`
 
 ## 4. Execution Host
 

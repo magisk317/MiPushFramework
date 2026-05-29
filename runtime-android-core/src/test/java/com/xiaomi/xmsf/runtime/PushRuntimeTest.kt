@@ -1,7 +1,14 @@
-package io.github.magisk317.mipush.runtime.core
+package io.github.magisk317.mipush.runtime.android
 
 import android.content.Context
 import android.content.Intent
+import io.github.magisk317.mipush.runtime.core.PushChannelRecord
+import io.github.magisk317.mipush.runtime.core.PushChannelState
+import io.github.magisk317.mipush.runtime.core.PushConnectionState
+import io.github.magisk317.mipush.runtime.core.PushRegistrationState
+import io.github.magisk317.mipush.runtime.core.PushRuntimeApplicationDispatchResult
+import io.github.magisk317.mipush.runtime.core.PushRuntimeCapability
+import io.github.magisk317.mipush.runtime.core.PushRuntimeExecutionHost
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
