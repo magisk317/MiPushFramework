@@ -6,6 +6,7 @@
 [![Dependency Submission](https://github.com/magisk317/MiPushFramework/actions/workflows/dependency-submission.yml/badge.svg?branch=dev)](https://github.com/magisk317/MiPushFramework/actions/workflows/dependency-submission.yml)
 [![Latest Release](https://img.shields.io/github/v/release/magisk317/MiPushFramework)](https://github.com/magisk317/MiPushFramework/releases)
 [![License GPL-3.0](https://img.shields.io/badge/license-GPLv3.0-blue.svg)](LICENSE)
+[![Telegram](https://img.shields.io/badge/Telegram-Group-2CA5E0?logo=telegram&logoColor=white)](https://t.me/+NR2QaQ4dlEgxYmNl)
 ![Android 9.0+](https://img.shields.io/badge/Android-9.0%2B-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.x-7F52FF?logo=kotlin&logoColor=white)
 ![Java](https://img.shields.io/badge/Java-25%2B-E76F00?logo=openjdk&logoColor=white)

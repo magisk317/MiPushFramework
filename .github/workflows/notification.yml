@@ -107,7 +107,7 @@ jobs:
               exit 0
             fi
 
-            CI_MSG=$(printf '✅ Workflow: %s\n📋 %s\n🔗 Run: %s' \
+            CI_MSG=$(printf '✅ Workflow: %s\n#mipush\n📋 %s\n🔗 Run: %s' \
               "$WF_RUN_NAME" "$CI_COMMIT_TITLE" "$WF_RUN_URL")
             
             CI_THREAD=""
@@ -150,7 +150,7 @@ jobs:
             RELEASE_CONTENT="Release notes unavailable. See: https://github.com/${{ github.repository }}/releases/tag/${RELEASE_TAG}"
           fi
 
-          CAPTION=$(printf '📦 MiPushFramework Release: %s\n\n%s' "$RELEASE_TAG" "$RELEASE_CONTENT")
+          CAPTION=$(printf '📦 MiPushFramework Release: %s\n#mipush\n\n%s' "$RELEASE_TAG" "$RELEASE_CONTENT")
           
           RELEASE_THREAD=""
           if [ -n "$TG_THREAD_ID" ]; then RELEASE_THREAD="$TG_THREAD_ID"; fi
