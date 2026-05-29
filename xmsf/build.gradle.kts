@@ -77,7 +77,10 @@ dependencies {
     compileOnly(project(":protocol"))
 
     implementation(libs.napier)
-    implementation(libs.hyperisland.kit)
+    implementation(libs.hyperisland.kit) {
+        exclude(group = "androidx.appcompat", module = "appcompat")
+        exclude(group = "com.google.android.material", module = "material")
+    }
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.libsu.core)
 

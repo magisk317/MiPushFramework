@@ -139,7 +139,10 @@ android {
 dependencies {
     implementation(project(":common"))
     compileOnly(libs.libxposed.api)
-    implementation(libs.hyperisland.kit)
+    implementation(libs.hyperisland.kit) {
+        exclude(group = "androidx.appcompat", module = "appcompat")
+        exclude(group = "com.google.android.material", module = "material")
+    }
     implementation(libs.hiddenapibypass)
     implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.libxposed.api)

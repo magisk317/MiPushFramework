@@ -29,7 +29,6 @@ dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
 
     implementation(libs.napier)
-    implementation(libs.hyperisland.kit)
     implementation(libs.kotlinx.serialization.json)
 
     implementation(libs.androidx.compose.foundation)
