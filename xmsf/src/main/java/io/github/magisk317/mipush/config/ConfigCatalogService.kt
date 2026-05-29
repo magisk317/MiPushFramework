@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.config
 
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.dataStore
+import io.github.magisk317.mipush.utils.ConfigDefaults
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -17,8 +18,8 @@ class ConfigCatalogService constructor(
     private val preferenceRepository: PreferenceRepository,
 ) {
     companion object {
-        const val REMOTE_REPOSITORY = "magisk317/MiPushConfigurations"
-        const val REMOTE_BRANCH = "dev"
+        const val REMOTE_REPOSITORY = ConfigDefaults.REMOTE_REPOSITORY
+        const val REMOTE_BRANCH = ConfigDefaults.REMOTE_BRANCH
         private const val USER_AGENT = "MiPushFramework/ConfigSync"
         private const val INDEX_PATH = "_meta/config-index.json"
     }

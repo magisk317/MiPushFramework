@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.config
 import android.net.Uri
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.dataStore
+import io.github.magisk317.mipush.utils.ConfigJsonSupport
 import io.github.magisk317.mipush.common.utils.Utils
 
 class ConfigSyncRepository constructor(

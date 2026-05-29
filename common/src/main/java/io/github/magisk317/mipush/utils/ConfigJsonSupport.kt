@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.config
+package io.github.magisk317.mipush.utils
 
 import java.security.MessageDigest
 import java.util.regex.Pattern

@@ -1,6 +1,5 @@
 package com.xiaomi.xmsf
 
-import io.github.magisk317.mipush.runtime.core.PushRuntimeComponents
 import io.github.magisk317.mipush.platform.support.LegacyComponentNames
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -37,7 +36,7 @@ class LegacyCompatContractTest {
         // top.trumeet compat shims have been deleted — all manifest entries now point directly
         // to io.github.magisk317.mipush.feature canonical classes.
         assertSourceContains(
-            "src/main/java/io/github/magisk317/mipush/platform/support/LegacyUiEntryPoints.kt",
+            "common/src/main/java/io/github/magisk317/mipush/platform/support/LegacyUiEntryPoints.kt",
             "LegacyComponentNames.MAIN_ACTIVITY",
         )
     }
@@ -59,7 +58,7 @@ class LegacyCompatContractTest {
     }
 
     private fun assertSourceContains(relativePath: String, expectedSnippet: String) {
-        val source = resolveFile(relativePath, "xmsf/$relativePath").readText()
+        val source = resolveFile(relativePath, "../$relativePath").readText()
         assertTrue(
             source.contains(expectedSnippet),
             "Expected snippet not found in $relativePath: $expectedSnippet",
@@ -68,13 +67,13 @@ class LegacyCompatContractTest {
 
     private fun normalizeManifestClassName(name: String): String {
         return if (name.startsWith(".")) {
-            PushRuntimeComponents.SERVICE_PACKAGE + name
+            SERVICE_PACKAGE + name
         } else {
             name
         }
     }
 
-    private fun resolveFile(direct: String, nested: String): File {
+    private fun resolveFile(direct: String, nested: String = direct): File {
         val directFile = File(direct)
         if (directFile.isFile) return directFile
         val nestedFile = File(nested)
@@ -84,5 +83,6 @@ class LegacyCompatContractTest {
 
     private companion object {
         const val ANDROID_NS = "http://schemas.android.com/apk/res/android"
+        const val SERVICE_PACKAGE = LegacyComponentNames.SERVICE_PACKAGE
     }
 }

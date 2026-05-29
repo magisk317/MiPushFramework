@@ -1,8 +1,10 @@
 package io.github.magisk317.mipush.platform.support
 
-import io.github.magisk317.mipush.runtime.core.PushRuntimeComponents
-
 object LegacyComponentNames {
+    const val SERVICE_PACKAGE = "com.xiaomi.xmsf"
+    const val BRIDGE_SERVICE_CLASS = "com.xiaomi.xmsf.push.service.XMPushService"
+    const val LEGACY_MAIN_SERVICE_CLASS = "com.xiaomi.push.service.XMPushService"
+
     const val MAIN_ACTIVITY = "io.github.magisk317.mipush.feature.main.MainActivity"
     const val APPLICATION_INFO_PAGE = "io.github.magisk317.mipush.feature.main.ApplicationInfoPage"
     const val HELP_PAGE = "io.github.magisk317.mipush.feature.main.HelpPage"
@@ -21,8 +23,8 @@ object LegacyComponentNames {
     )
 
     val manifestServices = setOf(
-        PushRuntimeComponents.BRIDGE_SERVICE_CLASS,
-        PushRuntimeComponents.LEGACY_MAIN_SERVICE_CLASS,
+        BRIDGE_SERVICE_CLASS,
+        LEGACY_MAIN_SERVICE_CLASS,
         DETECTION_SERVICE,
     )
 }

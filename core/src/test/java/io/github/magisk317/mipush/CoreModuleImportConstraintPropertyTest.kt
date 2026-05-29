@@ -7,11 +7,12 @@ import java.io.File
 /**
  * Property-based test for core module import constraints.
  *
- * **Validates: Requirements 1.2, 7.7**
+ * **Validates: Requirements 1.2, 7.7, 8.1, 9.4**
  *
  * Property 1: Core module import constraints —
  * For any `.kt` source file in `core/src/main/`, all import statements SHALL reference
- * only classes from the allowed set.
+ * only classes from the allowed set. No forbidden imports exist (no `io.github.magisk317.mipush.push.*`,
+ * `hook.*`, `service.*`, `receiver.*`, `app.*`, `config.*`, `bridge.*`, `data.*`).
  */
 class CoreModuleImportConstraintPropertyTest {
 
@@ -21,14 +22,15 @@ class CoreModuleImportConstraintPropertyTest {
          * These represent xmsf-specific packages, Xiaomi SDK, Xposed API, etc.
          */
         private val FORBIDDEN_IMPORT_PREFIXES = listOf(
-            // xmsf-specific packages
-            "io.github.magisk317.mipush.push.hook",
-            "io.github.magisk317.mipush.push.pipeline",
-            "io.github.magisk317.mipush.config",
-            "io.github.magisk317.mipush.hook",
-            "io.github.magisk317.mipush.service",
-            "io.github.magisk317.mipush.receiver",
-            "io.github.magisk317.mipush.app",
+            // xmsf-specific packages (Requirements 8.1, 9.4)
+            "io.github.magisk317.mipush.push.",
+            "io.github.magisk317.mipush.config.",
+            "io.github.magisk317.mipush.hook.",
+            "io.github.magisk317.mipush.service.",
+            "io.github.magisk317.mipush.receiver.",
+            "io.github.magisk317.mipush.app.",
+            "io.github.magisk317.mipush.bridge.",
+            "io.github.magisk317.mipush.data.",
             // Xiaomi push SDK
             "com.xiaomi.xmpush",
             "com.xiaomi.push",
@@ -54,18 +56,9 @@ class CoreModuleImportConstraintPropertyTest {
             // Core module's own packages
             "io.github.magisk317.mipush.runtime.core",
             "io.github.magisk317.mipush.diagnostics",
-            "io.github.magisk317.mipush.utils",
             "io.github.magisk317.mipush.notification",
-            "io.github.magisk317.mipush.platform.support",
-            // :common module
-            "io.github.magisk317.mipush.common",
             // Libraries declared in core/build.gradle.kts
             "io.github.aakira.napier",
-            "androidx.core",
-            "androidx.annotation",
-            // Android framework classes allowed via androidx.core.ktx dependency
-            "android.content.",
-            "android.os.",
         )
 
         private val IMPORT_REGEX = Regex("""^\s*import\s+(.+)\s*$""")
@@ -74,7 +67,7 @@ class CoreModuleImportConstraintPropertyTest {
     /**
      * Property 1: Scan all `.kt` files in `core/src/main/` and assert no forbidden imports exist.
      *
-     * **Validates: Requirements 1.2**
+     * **Validates: Requirements 1.2, 8.1, 9.4**
      */
     @Test
     fun `core module source files contain no forbidden imports`() {
@@ -115,7 +108,7 @@ class CoreModuleImportConstraintPropertyTest {
      * Property 1 (extended): All imports in core module resolve to allowed packages.
      * This is a stricter check that verifies imports are from the known-good set.
      *
-     * **Validates: Requirements 1.2, 7.7**
+     * **Validates: Requirements 1.2, 7.7, 8.1, 9.4**
      */
     @Test
     fun `core module source files only contain allowed imports`() {

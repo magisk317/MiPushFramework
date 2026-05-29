@@ -5,7 +5,6 @@ import android.content.Intent
 import android.net.Uri
 
 object LegacyUiEntryPoints {
-    // Intent extra keys — mirrored from Activity companions to avoid cross-module class references.
     private const val EXTRA_START_ROUTE = "extra_start_route"
     private const val EXTRA_START_TAB = "extra_start_tab"
     private const val EXTRA_PACKAGE_NAME = "EXTRA_PACKAGE_NAME"

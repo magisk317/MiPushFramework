@@ -137,14 +137,9 @@ class FocusNotificationCacheCircularDependencyPropertyTest {
             // Core module's own packages
             "io.github.magisk317.mipush.runtime.core",
             "io.github.magisk317.mipush.diagnostics",
-            "io.github.magisk317.mipush.utils",
             "io.github.magisk317.mipush.notification",
-            "io.github.magisk317.mipush.platform.support",
-            "io.github.magisk317.mipush.common",
             // Libraries declared in core/build.gradle.kts
             "io.github.aakira.napier",
-            "androidx.core",
-            "androidx.annotation",
         )
 
         val cacheFile = findFocusNotificationCacheFile()

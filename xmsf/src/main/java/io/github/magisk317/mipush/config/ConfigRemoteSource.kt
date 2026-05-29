@@ -1,10 +1,7 @@
 package io.github.magisk317.mipush.config
 
-data class ConfigRemoteSource(
-    val repository: String = ConfigCatalogService.REMOTE_REPOSITORY,
-    val branch: String = ConfigCatalogService.REMOTE_BRANCH,
-) {
-    val displayName: String get() = "$repository@$branch"
-    val cacheKey: String get() = displayName
-    val baseRawUrl: String get() = "https://raw.githubusercontent.com/$repository/$branch"
-}
+@Deprecated(
+    message = "Moved to core module",
+    replaceWith = ReplaceWith("io.github.magisk317.mipush.utils.ConfigRemoteSource")
+)
+typealias ConfigRemoteSource = io.github.magisk317.mipush.utils.ConfigRemoteSource

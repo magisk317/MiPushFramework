@@ -1,12 +1,9 @@
 package io.github.magisk317.mipush.platform.support
 
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
-
-
+import io.github.magisk317.mipush.MessageListener
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -24,9 +21,9 @@ object InternalEventBus {
 }
 
 open class InternalMessenger(private val context: Context) {
-    private val listeners: ArrayList<io.github.magisk317.mipush.MessageListener> = ArrayList()
+    private val listeners = ArrayList<MessageListener>()
     private var job: Job? = null
-    private val filters: ArrayList<IntentFilter> = ArrayList()
+    private val filters = ArrayList<IntentFilter>()
 
     fun send(intent: Intent) {
         InternalEventBus.emit(intent)
@@ -58,7 +55,7 @@ open class InternalMessenger(private val context: Context) {
         filters.clear()
     }
 
-    fun addListener(listener: io.github.magisk317.mipush.MessageListener) {
+    fun addListener(listener: MessageListener) {
         listeners.add(listener)
     }
 
