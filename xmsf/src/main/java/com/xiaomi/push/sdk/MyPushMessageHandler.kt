@@ -30,6 +30,7 @@ import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import com.xiaomi.push.service.MIPushNotificationHelper
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
+import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationIntentSupport
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.notification.NotificationController
@@ -61,6 +62,22 @@ class MyPushMessageHandler : Service() {
     }
 
     private fun handleIntent(intent: Intent) {
+        val styleTargetIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(
+                MyMIPushNotificationIntentSupport.EXTRA_STYLE_TARGET_INTENT,
+                Intent::class.java
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getParcelableExtra(MyMIPushNotificationIntentSupport.EXTRA_STYLE_TARGET_INTENT) as? Intent
+        }
+        if (styleTargetIntent != null) {
+            styleTargetIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            runCatching { startActivity(styleTargetIntent) }
+                .onFailure { logE("failed to start style target intent", it) }
+            return
+        }
+
         val payload = intent.getByteArrayExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD)
         if (payload == null) {
             logE("mipush_payload is null")

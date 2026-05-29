@@ -51,13 +51,13 @@ class MyMIPushNotificationIntentSupportTest {
     }
 
     @Test
-    fun `notification click uses sdk activity whenever sdk intent is available`() {
-        assertEquals(true, MyMIPushNotificationIntentSupport.shouldUseSdkActivityClick(sdkIntentAvailable = true))
+    fun `notification click uses service even when sdk intent is available`() {
+        assertEquals(false, MyMIPushNotificationIntentSupport.shouldUseSdkActivityClick(sdkIntentAvailable = true))
         assertEquals(false, MyMIPushNotificationIntentSupport.shouldUseSdkActivityClick(sdkIntentAvailable = false))
     }
 
     @Test
-    fun `clicked notification prefers sdk activity over service callback when sdk intent resolves`() {
+    fun `clicked notification keeps service callback when sdk intent resolves`() {
         val context = RuntimeEnvironment.getApplication()
         val targetPackage = "com.example.target"
         val targetClass = "com.example.target.ChatActivity"
@@ -86,8 +86,11 @@ class MyMIPushNotificationIntentSupportTest {
 
         assertNotNull(pendingIntent)
         val shadow = shadowOf(pendingIntent!!)
-        assertTrue(shadow.isActivity)
-        assertFalse(shadow.isService)
-        assertEquals(targetComponent, shadow.savedIntent.component)
+        assertTrue(shadow.isService)
+        assertFalse(shadow.isActivity)
+        assertEquals(
+            ComponentName("com.xiaomi.xmsf", "com.xiaomi.push.sdk.MyPushMessageHandler"),
+            shadow.savedIntent.component
+        )
     }
 }

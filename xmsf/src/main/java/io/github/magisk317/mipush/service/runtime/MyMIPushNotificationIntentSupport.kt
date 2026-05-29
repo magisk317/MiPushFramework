@@ -29,6 +29,7 @@ import java.net.URL
 
 internal object MyMIPushNotificationIntentSupport {
     private const val TAG = "MyNotificationIntent"
+    internal const val EXTRA_STYLE_TARGET_INTENT = "mipush_style_target_intent"
 
     private const val KEY_NOTIFICATION_STYLE_TYPE = "notification_style_type"
     private const val STYLE_TYPE_VOIP = "6"
@@ -203,13 +204,29 @@ internal object MyMIPushNotificationIntentSupport {
         place: Int,
         metaExtra: Map<String, String>?
     ): PendingIntent? {
-        val intent = if (metaExtra == null) null else getPendingIntentFromExtra(context, pkgName, place, metaExtra)
-        return if (intent == null) null else PendingIntent.getActivity(
-            context,
-            place,
-            intent,
-            FLAG_IMMUTABLE_UPDATE_CURRENT
-        )
+        if (metaExtra == null) return null
+        val keys = styleActionKeys(place, metaExtra)
+        val typeId = metaExtra[keys.notifyEffect]
+        val intent = getPendingIntentFromExtra(context, pkgName, place, metaExtra) ?: return null
+        return when (typeId) {
+            PushConstants.NOTIFICATION_CLICK_WEB_PAGE -> PendingIntent.getActivity(
+                context,
+                place,
+                intent,
+                FLAG_IMMUTABLE_UPDATE_CURRENT
+            )
+            PushConstants.NOTIFICATION_CLICK_DEFAULT,
+            PushConstants.NOTIFICATION_CLICK_INTENT -> PendingIntent.getService(
+                context,
+                place,
+                Intent().apply {
+                    component = ComponentName("com.xiaomi.xmsf", "com.xiaomi.push.sdk.MyPushMessageHandler")
+                    putExtra(EXTRA_STYLE_TARGET_INTENT, intent)
+                },
+                FLAG_IMMUTABLE_UPDATE_CURRENT
+            )
+            else -> null
+        }
     }
 
     private fun getPendingIntentFromExtra(
