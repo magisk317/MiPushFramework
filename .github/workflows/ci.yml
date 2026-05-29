@@ -30,8 +30,11 @@ jobs:
           validate-wrappers: false
           allow-snapshot-wrappers: true
 
-      - name: Build & Test
-        run: bash scripts/with_workspace_gradle_lock.sh --warning-mode all :checkReadmeBuildRequirements :common:check :xmsf:testNormalDebugUnitTest :xmsf:testVc105DebugUnitTest :app:assembleDebug :mipush:assembleDebug testDebugUnitTest -PbuildSplits -PminifyDebug -Pkotlin.incremental=false
+      - name: Test
+        run: bash scripts/with_workspace_gradle_lock.sh --warning-mode all :checkReadmeBuildRequirements :common:check :xmsf:testNormalDebugUnitTest :xmsf:testVc105DebugUnitTest testDebugUnitTest -PminifyDebug -Pkotlin.incremental=false
+      - name: Build
+        if: always()
+        run: bash scripts/with_workspace_gradle_lock.sh --warning-mode all :app:assembleDebug :mipush:assembleDebug -PbuildSplits -PminifyDebug -Pkotlin.incremental=false
       - name: Write build summary
         if: always()
         run: |
