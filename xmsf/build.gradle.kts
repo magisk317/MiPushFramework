@@ -71,7 +71,7 @@ dependencies {
     implementation(project(":core"))
     implementation(project(":settings"))
     implementation(project(":common"))
-    implementation(project(":legacy"))
+    implementation(project(":vendor"))
     implementation(project(":pinned"))
 
     implementation(libs.napier)

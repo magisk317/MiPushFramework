@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "com.xiaomi.xmsf.legacy.runtime"
+    namespace = "com.xiaomi.xmsf.vendor.runtime"
 
     buildTypes {
         release {

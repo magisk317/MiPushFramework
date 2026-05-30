@@ -30,9 +30,9 @@ Collected outside the repo as reference samples:
   - treat as AOSP/system service boundary
 - `miui-services.jar` is dominated by `com.miui.server` and vendor namespaces
   - treat as MIUI/OEM extension boundary
-- `xmsf.apk` includes both product code and embedded legacy runtime
+- `xmsf.apk` includes both product code and embedded vendored runtime
   - product-owned examples: `com.xiaomi.xmsf`, `io.github.magisk317`, `io.github.magisk317.mipush`
-  - embedded legacy/runtime examples: `com.xiaomi.push`, `com.xiaomi.mipush`,
+  - embedded vendor/runtime examples: `com.xiaomi.push`, `com.xiaomi.mipush`,
     `com.xiaomi.channel`, `com.xiaomi.smack`, `com.xiaomi.slim`, `org.apache.thrift`
 
 ## Practical Consequence
