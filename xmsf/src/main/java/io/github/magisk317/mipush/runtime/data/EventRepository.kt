@@ -46,23 +46,6 @@ class EventRepository constructor(
     private val configurations: Configurations,
     private val configNavigationHelper: ConfigNavigationHelper,
 ) {
-    // No-arg fallback for legacy Singleton access.
-    constructor() : this(
-        io.github.magisk317.mipush.common.utils.Utils.getApplication()!!,
-        io.github.magisk317.mipush.common.utils.Singleton.instance<ConfigCenter>(),
-        Configurations.getInstance()
-        ,
-        ConfigNavigationHelper(),
-    )
-
-    init {
-        try {
-            io.github.magisk317.mipush.common.utils.Singleton.reset(this)
-        } catch (t: Throwable) {
-            io.github.aakira.napier.Napier.w("Singleton.reset failed for EventRepository", t, tag = "EventRepository")
-        }
-    }
-
     fun getStatus(container: XmPushActionContainer?): MutableSet<String> {
         if (container == null) {
             return HashSet()

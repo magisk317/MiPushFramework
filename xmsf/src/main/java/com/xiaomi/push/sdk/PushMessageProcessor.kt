@@ -27,19 +27,6 @@ import io.github.magisk317.mipush.platform.activity.TopActivityFactory
 class PushMessageProcessor constructor(
     private val configurations: Configurations
 ) {
-    // No-arg fallback for legacy Singleton access.
-    constructor() : this(
-        Configurations.getInstance()
-    )
-
-    init {
-        try {
-            io.github.magisk317.mipush.common.utils.Singleton.reset(this)
-        } catch (t: Throwable) {
-            io.github.aakira.napier.Napier.w("Singleton.reset failed for PushMessageProcessor", t, tag = "PushMessageProcessor")
-        }
-    }
-
     private val TAG = "PushMessageProcessor"
     
 

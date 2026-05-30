@@ -39,7 +39,6 @@ import io.github.magisk317.mipush.config.ConfigNavigationHelper
 import io.github.magisk317.mipush.config.ConfigSyncRepository
 import io.github.magisk317.mipush.config.toSummary
 import io.github.magisk317.mipush.common.utils.ElapsedTimer
-import io.github.magisk317.mipush.common.utils.Singleton
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.compat.RegistrationStateCompat
 import io.github.magisk317.mipush.compat.RegistrationStateStore
@@ -330,9 +329,6 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
 class XmsfManagerApplicationGateway(
     private val configCenter: ConfigCenter,
 ) : ManagerApplicationGateway {
-    init {
-        runCatching { Singleton.reset<ManagerApplicationGateway>(this) }
-    }
 
     override fun loadApplications(context: Context, query: String, filterMode: Int): ManagerApplications {
         val timer = ElapsedTimer()

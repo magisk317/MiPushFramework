@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import io.github.magisk317.mipush.app.ConfigCenter
-import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 
 class ConfigNavigationHelper constructor(
@@ -12,12 +11,6 @@ class ConfigNavigationHelper constructor(
     private val configCenter: ConfigCenter,
     private val syncRepository: ConfigSyncRepository,
 ) {
-    constructor() : this(
-        Utils.getApplication()!!,
-        io.github.magisk317.mipush.common.utils.Singleton.instance<ConfigCenter>(),
-        ConfigSyncRepository(),
-    )
-
     suspend fun createIntentForPackage(packageName: String): Intent {
         val treeUri: Uri? = configCenter.getConfigurationDirectoryAsync()
         val matchedPath = syncRepository.resolvePackageConfigPath(packageName, treeUri)

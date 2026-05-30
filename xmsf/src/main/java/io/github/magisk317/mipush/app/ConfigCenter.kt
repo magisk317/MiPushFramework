@@ -21,13 +21,6 @@ class ConfigCenter constructor(
 ) {
     constructor() : this(PreferenceRepository())
 
-    init {
-        try {
-            io.github.magisk317.mipush.common.utils.Singleton.reset(this)
-        } catch (t: Throwable) {
-            io.github.aakira.napier.Napier.w("Singleton.reset failed for ConfigCenter", t, tag = "ConfigCenter")
-        }
-    }
     suspend fun isNotificationOnRegisterAsync(): Boolean =
         preferenceRepository.notificationOnRegister.first()
 

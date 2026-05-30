@@ -43,7 +43,6 @@ import io.github.magisk317.mipush.platform.activity.ITopActivity
 import io.github.magisk317.mipush.platform.activity.TopActivityFactory
 import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.common.utils.Utils
-import io.github.magisk317.mipush.common.utils.Singleton
 
 class MyPushMessageHandler : Service() {
     private val job = SupervisorJob()

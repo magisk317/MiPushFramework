@@ -7,7 +7,7 @@ import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
 
 import io.github.aakira.napier.Napier
-import io.github.magisk317.mipush.common.utils.Singleton
+import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.common.configurations.ConfigJsonArray
 import io.github.magisk317.mipush.common.configurations.ConfigJsonException
@@ -19,9 +19,6 @@ import java.lang.reflect.InvocationTargetException
 class Configurations constructor(
     internal var loader: ConfigurationsLoader
 ) {
-    // No-arg fallback for legacy Singleton access.
-    constructor() : this(ConfigurationsLoader(Singleton.instance<ConfigCenter>()))
-
     init {
         injectedInstance = this
     }
@@ -227,7 +224,7 @@ class Configurations constructor(
                 injected.loader.reInitIfDirectoryUpdated(injected)
                 return injected
             }
-            val instance = Singleton.instance<Configurations>()
+            val instance = AppDependencies.get(Configurations::class)
             instance.loader.reInitIfDirectoryUpdated(instance)
             return instance
         }
