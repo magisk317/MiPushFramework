@@ -39,5 +39,5 @@ rootProject.name = "MiPushFramework"
 requireExistingProjectDir("uikit")
 requireExistingProjectDir("legacy")
 requireExistingProjectDir("pinned")
-include(":xmsf", ":mipush", ":xposed", ":common", ":core", ":runtime-android-core", ":settings", ":uikit", ":legacy", ":pinned", ":manager", ":app")
+include(":xmsf", ":mipush", ":xposed", ":common", ":core", ":settings", ":uikit", ":legacy", ":pinned", ":manager", ":app")
 project(":uikit").projectDir = file("uikit")
