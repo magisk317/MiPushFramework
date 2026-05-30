@@ -11,3 +11,5 @@ xmsf/src/main/java/io/github/magisk317/mipush/main/viewmodel/AdvancedSettingsVie
 xmsf/src/main/java/io/github/magisk317/mipush/main/viewmodel/EventListViewModel.kt|import com.xiaomi.xmpush.thrift.XmPushActionContainer
 xmsf/src/main/java/io/github/magisk317/mipush/viewmodel/AdvancedSettingsViewModel.kt|import com.xiaomi.push.sdk.PushMessageProcessor
 xmsf/src/main/java/io/github/magisk317/mipush/viewmodel/EventListViewModel.kt|import com.xiaomi.xmpush.thrift.XmPushActionContainer
+xmsf/src/main/java/io/github/magisk317/mipush/app/di/KoinModules.kt|import com.xiaomi.push.sdk.PushMessageProcessor
+xmsf/src/main/java/io/github/magisk317/mipush/app/di/ManagerRuntimeAdapters.kt|import com.xiaomi.push.sdk.PushMessageProcessor
