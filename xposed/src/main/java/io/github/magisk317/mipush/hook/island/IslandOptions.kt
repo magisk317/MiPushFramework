@@ -9,5 +9,5 @@ data class IslandOptions(
     val focusNotification: Boolean = true,
 ) {
     val canInjectFocusPayload: Boolean
-        get() = enabled && focusNotification
+        get() = enabled && focusNotification && enableFloat
 }

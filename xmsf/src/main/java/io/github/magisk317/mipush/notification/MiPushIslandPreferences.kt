@@ -16,7 +16,7 @@ internal data class MiPushIslandOptions(
     val focusNotification: Boolean = true,
 ) {
     val canBuildFocusPayload: Boolean
-        get() = enabled && focusNotification
+        get() = enabled && focusNotification && enableFloat
 }
 
 internal object MiPushIslandPreferences {
