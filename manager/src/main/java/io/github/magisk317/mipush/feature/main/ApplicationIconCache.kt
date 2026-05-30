@@ -11,16 +11,8 @@ import androidx.core.graphics.drawable.toBitmap
 import java.util.concurrent.ConcurrentHashMap
 
 class ApplicationIconCache constructor(val context: Context) {
-    // No-arg fallback for legacy Singleton access.
+    // No-arg fallback for legacy reflective access.
     constructor() : this(io.github.magisk317.mipush.common.utils.Utils.getApplication()!!)
-
-    init {
-        try {
-            io.github.magisk317.mipush.common.utils.Singleton.reset(this)
-        } catch (t: Throwable) {
-            io.github.aakira.napier.Napier.w("Singleton.reset failed for ApplicationIconCache", t, tag = "ApplicationIconCache")
-        }
-    }
 
     val defaultAppIcon by lazy {
         BitmapPainter(
