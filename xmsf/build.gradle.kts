@@ -74,7 +74,6 @@ dependencies {
     implementation(project(":common"))
     implementation(project(":legacy"))
     implementation(project(":pinned"))
-    compileOnly(project(":protocol"))
 
     implementation(libs.napier)
     implementation(libs.hyperisland.kit) {

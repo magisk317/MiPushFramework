@@ -28,10 +28,11 @@ MiPushFramework is a system-package-compatible app split into explicit Gradle mo
      `com.xiaomi.stats.*`, `com.xiaomi.tinyData.*`, and retained
      `com.xiaomi.push.service.*` runtime code.
 
-4. **pinned / protocol**
-   - Protocol and serialization layers that should be treated like generated or frozen source.
-   - `pinned` is the dependency used by runtime modules for the currently packaged frozen protocol
-     surface; `protocol` remains a parallel protocol module and should not grow business behavior.
+4. **pinned**
+   - Protocol and serialization layer that should be treated like generated or frozen source.
+   - `pinned` is the single packaged frozen protocol surface consumed by runtime modules; it must
+     not grow business behavior. (The previously parallel `protocol` module was removed once it was
+     confirmed to be runtime-redundant with `pinned` and `legacy`.)
    - Typical prefixes include `org.apache.thrift.*`, `com.google.protobuf.micro.*`,
      `com.xiaomi.xmpush.thrift.*`, `com.xiaomi.push.protobuf.*`, and
      `com.xiaomi.push.thrift.*`.
@@ -57,17 +58,17 @@ graph.
 ## Layering Rules
 
 - Product UI/settings code should depend on `core`, `common`, and explicit xmsf adapters, not deep
-  legacy/protocol packages.
+  legacy/pinned packages.
 - `xmsf/src/main/java/io/github/magisk317/mipush/service/runtime` and
   `xmsf/src/main/java/io/github/magisk317/mipush/bridge` are the allowed adapter areas for direct
-  legacy/protocol interaction.
+  legacy/pinned interaction.
 - `verifyModuleBoundaries` is wired into `check` and scans UI/settings/viewmodel source roots for
   new deep Xiaomi imports. Existing debt is listed in `scripts/module_boundary_baseline.txt`; new
   entries should be moved behind a runtime/bridge adapter unless the baseline update is a deliberate
   compatibility exception.
-- `legacy` may depend on frozen protocol types, but new product behavior should not be added there
-  unless it is preserving a stock runtime contract.
-- `pinned` and `protocol` changes must be compatibility-preserving and non-creative.
+- `legacy` may depend on frozen protocol types from `pinned`, but new product behavior should not be
+  added there unless it is preserving a stock runtime contract.
+- `pinned` changes must be compatibility-preserving and non-creative.
 - Platform/system reference artifacts remain outside the build graph.
 
 ## Root, Shell, And Logs
@@ -104,8 +105,9 @@ graph.
   and then apply it to an `XmPushActionContainer`.
 - `ConfigCenter.loadConfigurations()` remains asynchronous for UI callers. Code paths that need a
   deterministic reload can use `loadConfigurationsNow(...)`.
-- `pinned` and `protocol` have overlapping packages. Keep using existing module dependencies unless
-  a dedicated protocol consolidation is planned.
+- The previously parallel `protocol` module (a compile-only superset that duplicated `pinned`'s
+  thrift/protobuf types and `legacy`'s `com.xiaomi.channel.commonutils.*`) was removed. Runtime
+  modules now compile against `pinned` for wire types and `legacy` for retained runtime utilities.
 - `uikit` remains source-owned outside this repository. When embedded in a parent build, the desired
   next step is parent-version-catalog first with standalone fallback, but this repo does not change
   the `uikit` source checkout as part of the architecture boundary work.

@@ -1,6 +1,6 @@
 # Current Runtime Call Flow
 
-This document captures the current product-owned runtime chain after the `core`, `legacy`, `pinned`, and `protocol` module split.
+This document captures the current product-owned runtime chain after the `core`, `legacy`, and `pinned` module split.
 
 It is the reference for future stock-XMSF ports: new compatibility features should attach to one of these stages instead of bypassing the runtime spine.
 

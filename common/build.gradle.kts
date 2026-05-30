@@ -105,7 +105,6 @@ android {
 
 dependencies {
     implementation(project(":pinned"))
-    compileOnly(project(":protocol"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.collection)
     implementation(libs.androidx.annotation)
