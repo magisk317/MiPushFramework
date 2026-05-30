@@ -4,7 +4,7 @@ import com.xiaomi.push.service.MIPushNotificationHelper
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import io.github.magisk317.mipush.runtime.android.PushRuntime
+import io.github.magisk317.mipush.runtime.android.AndroidPushRuntime
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -14,7 +14,7 @@ class MiPushRuntimeBridgeTest {
 
     @Test
     fun `shouldProcessPayloadIdentity blocks duplicate notification payload within extended window`() {
-        PushRuntime.clearStateForTests()
+        AndroidPushRuntime.clearStateForTests()
 
         assertTrue(
             MiPushRuntimeBridge.shouldProcessPayloadIdentity(

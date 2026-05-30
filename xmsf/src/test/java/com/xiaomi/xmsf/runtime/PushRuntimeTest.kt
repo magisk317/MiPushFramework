@@ -17,13 +17,13 @@ import org.junit.jupiter.api.Test
 class PushRuntimeTest {
     @Test
     fun `network available dispatches register task and pending app replays`() {
-        PushRuntime.clearStateForTests()
+        AndroidPushRuntime.clearStateForTests()
         val host = TestExecutionHost()
-        PushRuntime.attachExecutionHost(host)
+        AndroidPushRuntime.attachExecutionHost(host)
         try {
-            PushRuntime.observeRegistrationRequest("com.example.pending", "test")
+            AndroidPushRuntime.observeRegistrationRequest("com.example.pending", "test")
 
-            val result = PushRuntime.handleNetworkAvailable("test")
+            val result = AndroidPushRuntime.handleNetworkAvailable("test")
 
             assertTrue(result.processRegisterTaskTriggered)
             assertTrue(result.frameworkRegistrationTriggered)
@@ -34,32 +34,32 @@ class PushRuntimeTest {
             assertEquals(1, host.connectionEnsureReasons.size)
             assertEquals(listOf("com.example.pending"), host.replayedPackages)
         } finally {
-            PushRuntime.detachExecutionHost(host)
+            AndroidPushRuntime.detachExecutionHost(host)
         }
     }
 
     @Test
     fun `account changed dispatches alias sync and pending app replays`() {
-        PushRuntime.clearStateForTests()
+        AndroidPushRuntime.clearStateForTests()
         val host = TestExecutionHost()
-        PushRuntime.attachExecutionHost(host)
+        AndroidPushRuntime.attachExecutionHost(host)
         try {
-            PushRuntime.observeRegistrationRequest("com.example.pending", "test")
+            AndroidPushRuntime.observeRegistrationRequest("com.example.pending", "test")
 
-            val result = PushRuntime.handleAccountChanged("test")
+            val result = AndroidPushRuntime.handleAccountChanged("test")
 
             assertTrue(result.accountSyncTriggered)
             assertEquals(1, result.pendingAppReplayCount)
             assertEquals(1, host.accountSyncReasons.size)
             assertEquals(listOf("com.example.pending"), host.replayedPackages)
         } finally {
-            PushRuntime.detachExecutionHost(host)
+            AndroidPushRuntime.detachExecutionHost(host)
         }
     }
 
     @Test
     fun `downstream dispatch and notification cancel update runtime counters`() {
-        PushRuntime.clearStateForTests()
+        AndroidPushRuntime.clearStateForTests()
         val host = TestExecutionHost(
             downstreamDispatchResult = PushRuntimeApplicationDispatchResult(
                 dispatched = true,
@@ -68,9 +68,9 @@ class PushRuntimeTest {
             ),
             cancelNotificationResult = true
         )
-        PushRuntime.attachExecutionHost(host)
+        AndroidPushRuntime.attachExecutionHost(host)
         try {
-            val dispatch = PushRuntime.dispatchDownstreamPayload(
+            val dispatch = AndroidPushRuntime.dispatchDownstreamPayload(
                 packageName = "com.example.app",
                 action = "SendMessage",
                 messageId = "msg-1",
@@ -78,7 +78,7 @@ class PushRuntimeTest {
                 source = "test",
                 launchApp = true
             )
-            val cancelled = PushRuntime.cancelNotificationForPayload(
+            val cancelled = AndroidPushRuntime.cancelNotificationForPayload(
                 packageName = "com.example.app",
                 payload = byteArrayOf(1, 2, 3),
                 notificationId = 7,
@@ -86,22 +86,22 @@ class PushRuntimeTest {
                 source = "test"
             )
 
-            val snapshot = PushRuntime.snapshot()
+            val snapshot = AndroidPushRuntime.snapshot()
             assertTrue(dispatch.dispatched)
             assertTrue(cancelled)
             assertEquals(1, snapshot.deliveredToAppCount)
             assertEquals(1, snapshot.broadcastFallbackDeliveryCount)
             assertEquals(1, snapshot.notificationCancelCount)
         } finally {
-            PushRuntime.detachExecutionHost(host)
+            AndroidPushRuntime.detachExecutionHost(host)
         }
     }
 
     @Test
     fun `channel synchronization tracks bound channels and connection state`() {
-        PushRuntime.clearStateForTests()
+        AndroidPushRuntime.clearStateForTests()
 
-        PushRuntime.observeChannelState(
+        AndroidPushRuntime.observeChannelState(
             packageName = "com.example.app",
             channelId = "5",
             userId = "u@example.com",
@@ -109,7 +109,7 @@ class PushRuntimeTest {
             state = PushChannelState.OpenFailed,
             source = "test"
         )
-        PushRuntime.synchronizeChannels(
+        AndroidPushRuntime.synchronizeChannels(
             connectionState = PushConnectionState.Connected,
             host = "resolver.msg.xiaomi.net",
             channels = listOf(
@@ -135,8 +135,8 @@ class PushRuntimeTest {
             source = "test"
         )
 
-        val snapshot = PushRuntime.snapshot()
-        val records = PushRuntime.getChannelRecords()
+        val snapshot = AndroidPushRuntime.snapshot()
+        val records = AndroidPushRuntime.getChannelRecords()
 
         assertEquals(PushConnectionState.Connected, snapshot.connectionState)
         assertEquals(2, snapshot.trackedChannelCount)
@@ -147,13 +147,13 @@ class PushRuntimeTest {
 
     @Test
     fun `registration state transitions are tracked in snapshot`() {
-        PushRuntime.clearStateForTests()
+        AndroidPushRuntime.clearStateForTests()
 
-        PushRuntime.observeRegistrationRequest("com.example.app", "test")
-        PushRuntime.observeRegistrationResult("com.example.app", success = true, source = "test")
+        AndroidPushRuntime.observeRegistrationRequest("com.example.app", "test")
+        AndroidPushRuntime.observeRegistrationResult("com.example.app", success = true, source = "test")
 
-        val snapshot = PushRuntime.snapshot()
-        val record = PushRuntime.getRegistrationRecord("com.example.app")
+        val snapshot = AndroidPushRuntime.snapshot()
+        val record = AndroidPushRuntime.getRegistrationRecord("com.example.app")
 
         assertEquals(1, snapshot.trackedRegistrationCount)
         assertEquals(1, snapshot.registeredPackageCount)
@@ -164,61 +164,61 @@ class PushRuntimeTest {
 
     @Test
     fun `attachBridgeHost drains queued bridge intents`() {
-        PushRuntime.clearStateForTests()
+        AndroidPushRuntime.clearStateForTests()
         val processedIntents = mutableListOf<Intent>()
         val host = testHost(processedIntents)
 
-        PushRuntime.submitBridgeIntent(Intent("queued.first"))
-        PushRuntime.submitBridgeIntent(Intent("queued.second"))
+        AndroidPushRuntime.submitBridgeIntent(Intent("queued.first"))
+        AndroidPushRuntime.submitBridgeIntent(Intent("queued.second"))
 
-        val beforeAttach = PushRuntime.snapshot()
+        val beforeAttach = AndroidPushRuntime.snapshot()
         assertFalse(beforeAttach.bridgeReady)
         assertFalse(beforeAttach.executionReady)
         assertEquals(PushConnectionState.Idle, beforeAttach.connectionState)
         assertEquals(2, beforeAttach.pendingBridgeIntentCount)
 
-        PushRuntime.attachBridgeHost(host)
+        AndroidPushRuntime.attachBridgeHost(host)
         try {
-            val afterAttach = PushRuntime.snapshot()
+            val afterAttach = AndroidPushRuntime.snapshot()
             assertTrue(afterAttach.bridgeReady)
             assertEquals(0, afterAttach.pendingBridgeIntentCount)
             assertEquals(2, processedIntents.size)
         } finally {
-            PushRuntime.detachBridgeHost(host)
+            AndroidPushRuntime.detachBridgeHost(host)
         }
     }
 
     @Test
     fun `detachBridgeHost causes later bridge intents to be queued again`() {
-        PushRuntime.clearStateForTests()
+        AndroidPushRuntime.clearStateForTests()
         val processedIntents = mutableListOf<Intent>()
         val host = testHost(processedIntents)
 
-        PushRuntime.attachBridgeHost(host)
-        PushRuntime.submitBridgeIntent(Intent("live.intent"))
-        PushRuntime.detachBridgeHost(host)
-        PushRuntime.submitBridgeIntent(Intent("queued.after.detach"))
+        AndroidPushRuntime.attachBridgeHost(host)
+        AndroidPushRuntime.submitBridgeIntent(Intent("live.intent"))
+        AndroidPushRuntime.detachBridgeHost(host)
+        AndroidPushRuntime.submitBridgeIntent(Intent("queued.after.detach"))
 
         assertEquals(1, processedIntents.size)
 
-        val detachedSnapshot = PushRuntime.snapshot()
+        val detachedSnapshot = AndroidPushRuntime.snapshot()
         assertFalse(detachedSnapshot.bridgeReady)
         assertEquals(1, detachedSnapshot.pendingBridgeIntentCount)
 
-        PushRuntime.attachBridgeHost(host)
+        AndroidPushRuntime.attachBridgeHost(host)
         try {
             assertEquals(2, processedIntents.size)
         } finally {
-            PushRuntime.detachBridgeHost(host)
+            AndroidPushRuntime.detachBridgeHost(host)
         }
     }
 
     @Test
     fun `inbound dedupe increments duplicate and ack counters`() {
-        PushRuntime.clearStateForTests()
+        AndroidPushRuntime.clearStateForTests()
 
         assertTrue(
-            PushRuntime.observeInboundMessage(
+            AndroidPushRuntime.observeInboundMessage(
                 packageName = "com.example.app",
                 action = "SendMessage",
                 messageId = "id-1",
@@ -226,7 +226,7 @@ class PushRuntimeTest {
             )
         )
         assertFalse(
-            PushRuntime.observeInboundMessage(
+            AndroidPushRuntime.observeInboundMessage(
                 packageName = "com.example.app",
                 action = "SendMessage",
                 messageId = "id-1",
@@ -234,7 +234,7 @@ class PushRuntimeTest {
             )
         )
         assertTrue(
-            PushRuntime.observeInboundMessage(
+            AndroidPushRuntime.observeInboundMessage(
                 packageName = "com.example.app",
                 action = "AckMessage",
                 messageId = "ack-1",
@@ -243,7 +243,7 @@ class PushRuntimeTest {
             )
         )
 
-        val snapshot = PushRuntime.snapshot()
+        val snapshot = AndroidPushRuntime.snapshot()
         assertEquals(2, snapshot.downstreamMessageCount)
         assertEquals(1, snapshot.duplicateMessageCount)
         assertEquals(1, snapshot.ackMessageCount)
@@ -251,10 +251,10 @@ class PushRuntimeTest {
 
     @Test
     fun `message id dedupe window remains active for sixty seconds`() {
-        PushRuntime.clearStateForTests()
+        AndroidPushRuntime.clearStateForTests()
 
         assertTrue(
-            PushRuntime.observeInboundMessage(
+            AndroidPushRuntime.observeInboundMessage(
                 packageName = "com.example.app",
                 action = "SendMessage",
                 messageId = "id-window",
@@ -263,7 +263,7 @@ class PushRuntimeTest {
             )
         )
         assertFalse(
-            PushRuntime.observeInboundMessage(
+            AndroidPushRuntime.observeInboundMessage(
                 packageName = "com.example.app",
                 action = "SendMessage",
                 messageId = "id-window",
@@ -272,7 +272,7 @@ class PushRuntimeTest {
             )
         )
         assertTrue(
-            PushRuntime.observeInboundMessage(
+            AndroidPushRuntime.observeInboundMessage(
                 packageName = "com.example.app",
                 action = "SendMessage",
                 messageId = "id-window",
@@ -284,11 +284,11 @@ class PushRuntimeTest {
 
     @Test
     fun `force trigger ignores reentrant application registration dispatch`() {
-        PushRuntime.clearStateForTests()
+        AndroidPushRuntime.clearStateForTests()
         var nestedDispatchResult = true
         val host = TestExecutionHost(
             onApplicationRegistration = { packageName, _ ->
-                nestedDispatchResult = PushRuntime.forceTriggerRegistration(
+                nestedDispatchResult = AndroidPushRuntime.forceTriggerRegistration(
                     packageName,
                     "test:nested",
                     "reentrant"
@@ -296,22 +296,22 @@ class PushRuntimeTest {
                 true
             }
         )
-        PushRuntime.attachExecutionHost(host)
+        AndroidPushRuntime.attachExecutionHost(host)
         try {
-            val dispatched = PushRuntime.forceTriggerRegistration("com.example.app", "test", "manual")
+            val dispatched = AndroidPushRuntime.forceTriggerRegistration("com.example.app", "test", "manual")
 
             assertTrue(dispatched)
             assertFalse(nestedDispatchResult)
             assertEquals(listOf("com.example.app"), host.replayedPackages)
         } finally {
-            PushRuntime.detachExecutionHost(host)
+            AndroidPushRuntime.detachExecutionHost(host)
         }
     }
 
     @Test
     fun `capabilities expose runtime spine contract`() {
-        PushRuntime.clearStateForTests()
-        val capabilities = PushRuntime.capabilities()
+        AndroidPushRuntime.clearStateForTests()
+        val capabilities = AndroidPushRuntime.capabilities()
 
         assertEquals(3, capabilities.runtimeApiVersion)
         assertTrue(capabilities.capabilities.contains(PushRuntimeCapability.BRIDGE_RUNTIME_SPINE))
@@ -329,7 +329,7 @@ class PushRuntimeTest {
     private fun testHost(processedIntents: MutableList<Intent>): PushRuntimeBridgeHost {
         return object : PushRuntimeBridgeHost {
             override val context: Context
-                get() = throw UnsupportedOperationException("Context is not used in PushRuntime unit tests")
+                get() = throw UnsupportedOperationException("Context is not used in AndroidPushRuntime unit tests")
 
             override fun processBridgeIntent(intent: Intent) {
                 processedIntents += intent

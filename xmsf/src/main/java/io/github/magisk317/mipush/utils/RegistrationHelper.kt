@@ -28,7 +28,7 @@ import android.content.pm.PackageManager
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.common.utils.Utils
-import io.github.magisk317.mipush.runtime.android.PushRuntime
+import io.github.magisk317.mipush.runtime.android.AndroidPushRuntime
 import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.entities.Event
 import io.github.magisk317.mipush.runtime.store.event.type.RegistrationType
@@ -337,7 +337,7 @@ class RegistrationHelper(
             
             val dispatched = XMPushUtils.dispatchToApplication(Utils.getApplication() ?: return false, packageName, msgBytes)
             if (dispatched) {
-                PushRuntime.observeRegistrationRequest(
+                AndroidPushRuntime.observeRegistrationRequest(
                     packageName,
                     "RegistrationHelper.tryForceRegisterFallback",
                     "force_trigger_fallback"
@@ -365,7 +365,7 @@ class RegistrationHelper(
             
             val dispatched = XMPushUtils.dispatchToApplication(app, packageName, msgBytes)
             if (dispatched) {
-                PushRuntime.observeRegistrationRequest(
+                AndroidPushRuntime.observeRegistrationRequest(
                     packageName,
                     "RegistrationHelper.tryForceRegister",
                     "force_trigger"

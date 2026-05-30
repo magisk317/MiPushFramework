@@ -36,7 +36,7 @@ object PushRuntimeDuplicateStore {
             }
             val duplicated = checkAndMark(entries, messageId, nowMs)
             if (duplicated) {
-                PushRuntime.observeChannelEvent(
+                AndroidPushRuntime.observeChannelEvent(
                     packageName = packageName,
                     action = "duplicate_message_drop",
                     source = "PushRuntimeDuplicateStore.isDuplicateMessage"

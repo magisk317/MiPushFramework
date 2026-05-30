@@ -11,19 +11,19 @@ class PushRuntimeEvictionTest {
 
     @Test
     fun `registration records are capped and oldest evicted`() {
-        PushRuntime.clearStateForTests()
+        AndroidPushRuntime.clearStateForTests()
 
         // Register more packages than MAX_REGISTRATION_RECORDS (512)
         val count = 600
         for (i in 1..count) {
-            PushRuntime.observeRegistrationResult(
+            AndroidPushRuntime.observeRegistrationResult(
                 packageName = "com.example.pkg$i",
                 success = true,
                 source = "test"
             )
         }
 
-        val snapshot = PushRuntime.snapshot()
+        val snapshot = AndroidPushRuntime.snapshot()
         assertTrue(
             snapshot.trackedRegistrationCount <= 512,
             "Expected at most 512 registration records, got ${snapshot.trackedRegistrationCount}"
@@ -31,25 +31,25 @@ class PushRuntimeEvictionTest {
 
         // Oldest packages should have been evicted
         assertNull(
-            PushRuntime.getRegistrationRecord("com.example.pkg1"),
+            AndroidPushRuntime.getRegistrationRecord("com.example.pkg1"),
             "Oldest registration record should have been evicted"
         )
 
         // Most recent packages should still be present
         assertNotNull(
-            PushRuntime.getRegistrationRecord("com.example.pkg$count"),
+            AndroidPushRuntime.getRegistrationRecord("com.example.pkg$count"),
             "Most recent registration record should still be present"
         )
     }
 
     @Test
     fun `channel records are capped and oldest evicted`() {
-        PushRuntime.clearStateForTests()
+        AndroidPushRuntime.clearStateForTests()
 
         // Create more channel records than MAX_CHANNEL_RECORDS (256)
         val count = 300
         for (i in 1..count) {
-            PushRuntime.observeChannelState(
+            AndroidPushRuntime.observeChannelState(
                 packageName = "com.example.ch$i",
                 channelId = "$i",
                 userId = "user$i",
@@ -59,7 +59,7 @@ class PushRuntimeEvictionTest {
             )
         }
 
-        val records = PushRuntime.getChannelRecords()
+        val records = AndroidPushRuntime.getChannelRecords()
         assertTrue(
             records.size <= 256,
             "Expected at most 256 channel records, got ${records.size}"
@@ -76,10 +76,10 @@ class PushRuntimeEvictionTest {
 
     @Test
     fun `eviction preserves most recent entries`() {
-        PushRuntime.clearStateForTests()
+        AndroidPushRuntime.clearStateForTests()
 
         for (i in 1..520) {
-            PushRuntime.observeRegistrationResult(
+            AndroidPushRuntime.observeRegistrationResult(
                 packageName = "com.example.pkg$i",
                 success = true,
                 source = "test"
@@ -89,13 +89,13 @@ class PushRuntimeEvictionTest {
         // Packages 9..520 should survive (512 entries), packages 1..8 evicted
         for (i in 9..520) {
             assertNotNull(
-                PushRuntime.getRegistrationRecord("com.example.pkg$i"),
+                AndroidPushRuntime.getRegistrationRecord("com.example.pkg$i"),
                 "Package com.example.pkg$i should still be present"
             )
         }
         for (i in 1..8) {
             assertNull(
-                PushRuntime.getRegistrationRecord("com.example.pkg$i"),
+                AndroidPushRuntime.getRegistrationRecord("com.example.pkg$i"),
                 "Package com.example.pkg$i should have been evicted"
             )
         }

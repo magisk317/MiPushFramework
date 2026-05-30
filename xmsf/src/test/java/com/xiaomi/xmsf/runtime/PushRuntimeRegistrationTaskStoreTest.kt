@@ -10,7 +10,7 @@ class PushRuntimeRegistrationTaskStoreTest {
 
     @Test
     fun `cache keeps latest task per package and updates runtime state`() {
-        PushRuntime.clearStateForTests()
+        AndroidPushRuntime.clearStateForTests()
         PushRuntimeRegistrationTaskStore.clear()
 
         PushRuntimeRegistrationTaskStore.cache(
@@ -27,7 +27,7 @@ class PushRuntimeRegistrationTaskStoreTest {
         )
 
         val pending = PushRuntimeRegistrationTaskStore.pendingTasks()
-        val snapshot = PushRuntime.snapshot()
+        val snapshot = AndroidPushRuntime.snapshot()
 
         assertEquals(1, pending.size)
         assertEquals("com.example.app", pending.single().packageName)
@@ -38,7 +38,7 @@ class PushRuntimeRegistrationTaskStoreTest {
 
     @Test
     fun `failed dispatch is requeued and successful dispatch clears queue`() {
-        PushRuntime.clearStateForTests()
+        AndroidPushRuntime.clearStateForTests()
         PushRuntimeRegistrationTaskStore.clear()
         val dispatched = mutableListOf<String>()
 
@@ -68,7 +68,7 @@ class PushRuntimeRegistrationTaskStoreTest {
 
         assertEquals(1, secondPass)
         assertEquals(0, PushRuntimeRegistrationTaskStore.pendingCount())
-        assertEquals(PushRegistrationState.Registering, PushRuntime.getRegistrationRecord("com.example.one")?.state)
+        assertEquals(PushRegistrationState.Registering, AndroidPushRuntime.getRegistrationRecord("com.example.one")?.state)
         assertTrue(dispatched.contains("com.example.one"))
         assertTrue(dispatched.contains("com.example.two"))
     }

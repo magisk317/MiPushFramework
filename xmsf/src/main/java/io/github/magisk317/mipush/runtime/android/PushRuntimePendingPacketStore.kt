@@ -34,7 +34,7 @@ object PushRuntimePendingPacketStore {
         synchronized(lock) {
             pendingRegistrationRequests[packageName] = payload.copyOf()
         }
-        PushRuntime.observeRegistrationRequest(
+        AndroidPushRuntime.observeRegistrationRequest(
             packageName = packageName,
             source = "PushRuntimePendingPacketStore.cacheRegistrationRequest",
             reason = "awaiting_connection"
@@ -63,7 +63,7 @@ object PushRuntimePendingPacketStore {
             throw t
         }
         if (sent > 0) {
-            PushRuntime.observeChannelEvent(
+            AndroidPushRuntime.observeChannelEvent(
                 packageName = null,
                 action = "pending_messages_flushed",
                 source = source
@@ -95,7 +95,7 @@ object PushRuntimePendingPacketStore {
             throw t
         }
         if (sent > 0) {
-            PushRuntime.observeChannelEvent(
+            AndroidPushRuntime.observeChannelEvent(
                 packageName = null,
                 action = "pending_registrations_flushed",
                 source = source
@@ -116,7 +116,7 @@ object PushRuntimePendingPacketStore {
         }
         queued.forEach { entry ->
             notifier.notify(entry.packageName, entry.payload.copyOf(), errorCode, errorMessage)
-            PushRuntime.observeRegistrationResult(
+            AndroidPushRuntime.observeRegistrationResult(
                 packageName = entry.packageName,
                 success = false,
                 source = "PushRuntimePendingPacketStore.notifyRegisterError",

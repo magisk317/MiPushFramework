@@ -11,7 +11,7 @@ class PushRuntimePendingPacketStoreTest {
 
     @Test
     fun `cached registration errors update runtime state and invoke notifier`() {
-        PushRuntime.clearStateForTests()
+        AndroidPushRuntime.clearStateForTests()
         PushRuntimePendingPacketStore.clearForTests()
         val notifications = mutableListOf<String>()
 
@@ -27,14 +27,14 @@ class PushRuntimePendingPacketStoreTest {
 
         assertEquals(2, notified)
         assertEquals(2, notifications.size)
-        assertEquals(PushRegistrationState.Failed, PushRuntime.getRegistrationRecord("com.example.one")?.state)
-        assertEquals(PushRegistrationState.Failed, PushRuntime.getRegistrationRecord("com.example.two")?.state)
+        assertEquals(PushRegistrationState.Failed, AndroidPushRuntime.getRegistrationRecord("com.example.one")?.state)
+        assertEquals(PushRegistrationState.Failed, AndroidPushRuntime.getRegistrationRecord("com.example.two")?.state)
         assertEquals(0, PushRuntimePendingPacketStore.pendingRegistrationCount())
     }
 
     @Test
     fun `pending messages preserve order and requeue unsent tail on failure`() {
-        PushRuntime.clearStateForTests()
+        AndroidPushRuntime.clearStateForTests()
         PushRuntimePendingPacketStore.clearForTests()
         val first = byteArrayOf(1)
         val second = byteArrayOf(2)

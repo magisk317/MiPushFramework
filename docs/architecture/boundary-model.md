@@ -73,6 +73,10 @@ graph.
 - `vendor` may depend on frozen protocol types from `pinned`, but new product behavior should not be
   added there unless it is preserving a stock runtime contract.
 - `pinned` changes must be compatibility-preserving and non-creative.
+- `manager` consumes `core` (`ConnectionStatus`) and `vendor` (the `XMPushServiceMessenger`
+  IPC action constants) at runtime, so both are declared as `implementation` rather than
+  `compileOnly`. Using `compileOnly` would compile but leave those classes off the runtime
+  classpath of any consumer that does not also embed `xmsf`, causing `NoClassDefFoundError`.
 - Platform/system reference artifacts remain outside the build graph.
 
 ## Root, Shell, And Logs

@@ -45,7 +45,7 @@ object PushRuntimeRegistrationTaskStore {
             }
             pendingTasks[packageName] = task
         }
-        PushRuntime.observeRegistrationRequest(
+        AndroidPushRuntime.observeRegistrationRequest(
             packageName = packageName,
             source = source,
             reason = reason ?: "queued_register_task",
@@ -76,7 +76,7 @@ object PushRuntimeRegistrationTaskStore {
             }.getOrDefault(false)
             if (success) {
                 dispatched += 1
-                PushRuntime.observeRegistrationState(
+                AndroidPushRuntime.observeRegistrationState(
                     packageName = task.packageName,
                     state = PushRegistrationState.Registering,
                     source = source,

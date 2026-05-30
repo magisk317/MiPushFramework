@@ -17,7 +17,7 @@ import com.xiaomi.push.log.LogUploader
 import com.xiaomi.smack.util.TrafficUtils
 import com.xiaomi.stats.StatsHandler
 import io.github.magisk317.mipush.runtime.core.PushConnectionState
-import io.github.magisk317.mipush.runtime.android.PushRuntime
+import io.github.magisk317.mipush.runtime.android.AndroidPushRuntime
 
 // removed PushAccountRuntime
 
@@ -108,7 +108,7 @@ class XMPushServiceLifecycleRuntime(
         StatsHandler.getContext()?.connectionClosed(connection, reason, error)
         XMPushServiceLifecycleBridge.onConnectionStatusChanged(XMPushServiceListener.ConnectionStatus.disconnected)
         val plan = PushServiceConnectionRuntime.planConnectionClosed(service.shouldFalldown())
-        PushRuntime.observeChannelEvent(null, plan.eventAction, "XMPushServiceLifecycleRuntime.connectionClosed")
+        AndroidPushRuntime.observeChannelEvent(null, plan.eventAction, "XMPushServiceLifecycleRuntime.connectionClosed")
         if (plan.shouldScheduleReconnect) {
             service.scheduleConnect(false)
         }
@@ -117,7 +117,7 @@ class XMPushServiceLifecycleRuntime(
     fun connectionStarted(connection: Connection) {
         MyLog.v("begin to connect...")
         XMPushServiceLifecycleBridge.onConnectionStatusChanged(XMPushServiceListener.ConnectionStatus.connecting)
-        PushRuntime.observeConnectionState(PushConnectionState.Connecting, "XMPushServiceLifecycleRuntime.connectionStarted", connection.host, "listener_started")
+        AndroidPushRuntime.observeConnectionState(PushConnectionState.Connecting, "XMPushServiceLifecycleRuntime.connectionStarted", connection.host, "listener_started")
         StatsHandler.getContext()?.connectionStarted(connection)
     }
 
@@ -125,7 +125,7 @@ class XMPushServiceLifecycleRuntime(
         StatsHandler.getContext()?.reconnectionFailed(connection, error)
         XMPushServiceLifecycleBridge.onConnectionStatusChanged(XMPushServiceListener.ConnectionStatus.disconnected)
         val plan = PushServiceConnectionRuntime.planReconnectionFailure(service.shouldFalldown())
-        PushRuntime.observeChannelEvent(null, plan.eventAction, "XMPushServiceLifecycleRuntime.reconnectionFailed")
+        AndroidPushRuntime.observeChannelEvent(null, plan.eventAction, "XMPushServiceLifecycleRuntime.reconnectionFailed")
         if (plan.shouldBroadcastUnavailable) {
             service.broadcastNetworkAvailable(false)
         }
@@ -138,8 +138,8 @@ class XMPushServiceLifecycleRuntime(
         StatsHandler.getContext()?.reconnectionSuccessful(connection)
         XMPushServiceLifecycleBridge.onConnectionStatusChanged(XMPushServiceListener.ConnectionStatus.connected)
         val plan = PushServiceConnectionRuntime.planReconnectionSuccess(Alarm.isAlive(), service.shouldFalldown())
-        PushRuntime.observeChannelEvent(null, plan.eventAction, "XMPushServiceLifecycleRuntime.reconnectionSuccessful")
-        PushRuntime.observeConnectionState(PushConnectionState.Connected, "XMPushServiceLifecycleRuntime.reconnectionSuccessful", connection.host, "listener_connected")
+        AndroidPushRuntime.observeChannelEvent(null, plan.eventAction, "XMPushServiceLifecycleRuntime.reconnectionSuccessful")
+        AndroidPushRuntime.observeConnectionState(PushConnectionState.Connected, "XMPushServiceLifecycleRuntime.reconnectionSuccessful", connection.host, "listener_connected")
         if (plan.shouldBroadcastAvailable) {
             service.broadcastNetworkAvailable(true)
         }

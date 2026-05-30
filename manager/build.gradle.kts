@@ -21,8 +21,8 @@ dependencies {
     implementation(project(":common"))
     implementation(project(":settings"))
     implementation(project(":uikit"))
-    compileOnly(project(":core"))
-    compileOnly(project(":vendor"))
+    implementation(project(":core"))
+    implementation(project(":vendor"))
 
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
