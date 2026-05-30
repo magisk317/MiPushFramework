@@ -101,7 +101,7 @@ graph.
   keeps only the genuinely shared primitives consumed across modules (`ConfigJson*`, `Lisp`,
   `RegSecUtils`, `XMPushUtils`); do not reintroduce a second copy of the runtime config stack there.
   Runtime behavior must be covered by contract tests that load JSON through the active xmsf parser
-  and then apply it to a `XmPushActionContainer`.
+  and then apply it to an `XmPushActionContainer`.
 - `ConfigCenter.loadConfigurations()` remains asynchronous for UI callers. Code paths that need a
   deterministic reload can use `loadConfigurationsNow(...)`.
 - `pinned` and `protocol` have overlapping packages. Keep using existing module dependencies unless
