@@ -95,11 +95,13 @@ graph.
 
 ## Current Architecture Debts
 
-- The configuration stack still exists in both `common/.../configurations` and `xmsf/.../utils`.
-  Treat the xmsf stack as the active notification/runtime path for now; do not change one side
-  without checking whether the other side needs an equivalent fix. Runtime behavior must be covered
-  by contract tests that load JSON through the active xmsf parser and then apply it to a
-  `XmPushActionContainer`.
+- The configuration stack lives only in `xmsf/.../utils` (`Configurations`, `ConfigurationsLoader`,
+  `ConfigValueConverter`, `IconConfigurations`, `PackageConfig`). The duplicate, unused copies that
+  previously sat under `common/.../configurations` were removed. `common/.../configurations` now
+  keeps only the genuinely shared primitives consumed across modules (`ConfigJson*`, `Lisp`,
+  `RegSecUtils`, `XMPushUtils`); do not reintroduce a second copy of the runtime config stack there.
+  Runtime behavior must be covered by contract tests that load JSON through the active xmsf parser
+  and then apply it to a `XmPushActionContainer`.
 - `ConfigCenter.loadConfigurations()` remains asynchronous for UI callers. Code paths that need a
   deterministic reload can use `loadConfigurationsNow(...)`.
 - `pinned` and `protocol` have overlapping packages. Keep using existing module dependencies unless
