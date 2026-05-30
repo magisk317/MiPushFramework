@@ -7,7 +7,7 @@ import com.xiaomi.slim.*
 import com.xiaomi.push.service.timers.*
 import com.xiaomi.push.service.*
 
-import io.github.magisk317.mipush.runtime.android.PushRuntime
+import io.github.magisk317.mipush.runtime.android.AndroidPushRuntime
 import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
 
 
@@ -80,7 +80,7 @@ object PushChannelInfoRuntime {
             result.updatedClientExtra || result.updatedCloudExtra -> "channel_info_updated"
             else -> "channel_info_noop"
         }
-        PushRuntime.observeChannelEvent(client?.pkgName, action, source)
+        AndroidPushRuntime.observeChannelEvent(client?.pkgName, action, source)
         if (client != null && (result.updatedClientExtra || result.updatedCloudExtra)) {
             PushRuntimeChannelTracker.syncNow("$source:sync")
         }

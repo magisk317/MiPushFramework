@@ -5,55 +5,55 @@ import android.content.Intent
 object PushRuntime {
     @JvmStatic
     fun attachBridgeHost(host: PushRuntimeBridgeHost) =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.attachBridgeHost(host)
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.attachBridgeHost(host)
 
     @JvmStatic
     fun attachExecutionHost(host: PushRuntimeExecutionHost) =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.attachExecutionHost(host)
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.attachExecutionHost(host)
 
     @JvmStatic
     fun detachExecutionHost(host: PushRuntimeExecutionHost) =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.detachExecutionHost(host)
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.detachExecutionHost(host)
 
     @JvmStatic
     fun detachBridgeHost(host: PushRuntimeBridgeHost) =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.detachBridgeHost(host)
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.detachBridgeHost(host)
 
     @JvmStatic
     fun submitBridgeIntent(intent: Intent) =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.submitBridgeIntent(intent)
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.submitBridgeIntent(intent)
 
     @JvmStatic
     fun snapshot(): PushRuntimeSnapshot =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.snapshot()
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.snapshot()
 
     @JvmStatic
     fun requestFrameworkRegistration(source: String, reason: String? = null): Boolean =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.requestFrameworkRegistration(source, reason)
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.requestFrameworkRegistration(source, reason)
 
     @JvmStatic
     fun requestApplicationRegistration(packageName: String, source: String, reason: String? = null): Boolean =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.requestApplicationRegistration(packageName, source, reason)
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.requestApplicationRegistration(packageName, source, reason)
 
     @JvmStatic
     fun handleBootCompleted(source: String): PushRuntimeRegistrationDispatchResult =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.handleBootCompleted(source)
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.handleBootCompleted(source)
 
     @JvmStatic
     fun handleNetworkAvailable(source: String): PushRuntimeRegistrationDispatchResult =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.handleNetworkAvailable(source)
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.handleNetworkAvailable(source)
 
     @JvmStatic
     fun handleAccountChanged(source: String): PushRuntimeRegistrationDispatchResult =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.handleAccountChanged(source)
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.handleAccountChanged(source)
 
     @JvmStatic
     fun requestConnection(source: String, reason: String? = null): Boolean =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.requestConnection(source, reason)
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.requestConnection(source, reason)
 
     @JvmStatic
     fun requestConnectionReset(source: String, reason: String? = null): Boolean =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.requestConnectionReset(source, reason)
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.requestConnectionReset(source, reason)
 
     @JvmStatic
     fun dispatchDownstreamPayload(
@@ -64,7 +64,7 @@ object PushRuntime {
         source: String,
         launchApp: Boolean
     ): PushRuntimeApplicationDispatchResult =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.dispatchDownstreamPayload(
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.dispatchDownstreamPayload(
             packageName,
             action,
             messageId,
@@ -81,7 +81,7 @@ object PushRuntime {
         notificationGroup: String?,
         source: String
     ): Boolean =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.cancelNotificationForPayload(
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.cancelNotificationForPayload(
             packageName,
             payload,
             notificationId,
@@ -96,7 +96,7 @@ object PushRuntime {
         reason: String? = null,
         nowMs: Long = System.currentTimeMillis()
     ): PushRegistrationRecord =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.observeRegistrationRequest(packageName, source, reason, nowMs)
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.observeRegistrationRequest(packageName, source, reason, nowMs)
 
     @JvmStatic
     fun observeRegistrationResult(
@@ -106,7 +106,7 @@ object PushRuntime {
         reason: String? = null,
         nowMs: Long = System.currentTimeMillis()
     ): PushRegistrationRecord =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.observeRegistrationResult(packageName, success, source, reason, nowMs)
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.observeRegistrationResult(packageName, success, source, reason, nowMs)
 
     @JvmStatic
     fun observeUnregistration(
@@ -115,7 +115,7 @@ object PushRuntime {
         reason: String? = null,
         nowMs: Long = System.currentTimeMillis()
     ): PushRegistrationRecord =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.observeUnregistration(packageName, source, reason, nowMs)
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.observeUnregistration(packageName, source, reason, nowMs)
 
     @JvmStatic
     fun observeRegistrationState(
@@ -125,7 +125,7 @@ object PushRuntime {
         reason: String? = null,
         nowMs: Long = System.currentTimeMillis()
     ): PushRegistrationRecord =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.observeRegistrationState(packageName, state, source, reason, nowMs)
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.observeRegistrationState(packageName, state, source, reason, nowMs)
 
     @JvmStatic
     fun observeInboundMessage(
@@ -136,7 +136,7 @@ object PushRuntime {
         isAck: Boolean = false,
         nowMs: Long = System.currentTimeMillis()
     ): Boolean =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.observeInboundMessage(packageName, action, messageId, source, isAck, nowMs)
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.observeInboundMessage(packageName, action, messageId, source, isAck, nowMs)
 
     @JvmStatic
     fun observeTransferToApplication(
@@ -145,15 +145,15 @@ object PushRuntime {
         messageId: String?,
         source: String,
         nowMs: Long = System.currentTimeMillis()
-    ) = io.github.magisk317.mipush.runtime.android.PushRuntime.observeTransferToApplication(packageName, action, messageId, source, nowMs)
+    ) = io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.observeTransferToApplication(packageName, action, messageId, source, nowMs)
 
     @JvmStatic
     fun observeNotificationEvent(packageName: String?, action: String, source: String) =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.observeNotificationEvent(packageName, action, source)
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.observeNotificationEvent(packageName, action, source)
 
     @JvmStatic
     fun observeChannelEvent(packageName: String?, action: String, source: String) =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.observeChannelEvent(packageName, action, source)
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.observeChannelEvent(packageName, action, source)
 
     @JvmStatic
     @JvmOverloads
@@ -164,7 +164,7 @@ object PushRuntime {
         reason: String? = null,
         nowMs: Long = System.currentTimeMillis()
     ): PushConnectionRecord =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.observeConnectionState(state, source, host, reason, nowMs)
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.observeConnectionState(state, source, host, reason, nowMs)
 
     @JvmStatic
     fun observeChannelState(
@@ -178,7 +178,7 @@ object PushRuntime {
         reasonMessage: String? = null,
         nowMs: Long = System.currentTimeMillis()
     ): PushChannelRecord =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.observeChannelState(
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.observeChannelState(
             packageName,
             channelId,
             userId,
@@ -197,21 +197,21 @@ object PushRuntime {
         channels: List<PushChannelRecord>,
         source: String,
         nowMs: Long = System.currentTimeMillis()
-    ) = io.github.magisk317.mipush.runtime.android.PushRuntime.synchronizeChannels(connectionState, host, channels, source, nowMs)
+    ) = io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.synchronizeChannels(connectionState, host, channels, source, nowMs)
 
     @JvmStatic
     fun observeAccountEvent(action: String, source: String) =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.observeAccountEvent(action, source)
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.observeAccountEvent(action, source)
 
     @JvmStatic
     fun capabilities(): PushRuntimeCapabilities =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.capabilities()
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.capabilities()
 
     @JvmStatic
     fun forceTriggerRegistration(packageName: String, source: String, reason: String? = null): Boolean =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.forceTriggerRegistration(packageName, source, reason)
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.forceTriggerRegistration(packageName, source, reason)
 
     @JvmStatic
     fun clearStateForTests() =
-        io.github.magisk317.mipush.runtime.android.PushRuntime.clearStateForTests()
+        io.github.magisk317.mipush.runtime.android.AndroidPushRuntime.clearStateForTests()
 }

@@ -63,7 +63,7 @@ interface PushRuntimeBridgeHost {
     fun processBridgeIntent(intent: Intent)
 }
 
-object PushRuntime {
+object AndroidPushRuntime {
     private const val MAX_PENDING_BRIDGE_INTENTS = 32
     private const val MESSAGE_DEDUP_WINDOW_MS = 60_000L
     private const val APP_ACTION_BURST_WINDOW_MS = 2_000L
