@@ -10,16 +10,9 @@ import io.github.magisk317.mipush.common.utils.ImgUtils
  * Author: TimothyZhang023
  * Icon Cache
  */
-import io.github.magisk317.mipush.common.utils.Singleton as SingletonUtils
 
 // 转为 Kotlin 对象单例，移除依赖注入注解
 object IconCache {
-    init {
-        try {
-            SingletonUtils.reset(this)
-        } catch (_: Throwable) {}
-    }
-
     private val bitmapLruCache = LruCache<String, Bitmap>(100)
     private val mIconMemoryCaches = LruCache<String, IconCompat>(100)
     private val appColorCache = LruCache<String, Int>(100)

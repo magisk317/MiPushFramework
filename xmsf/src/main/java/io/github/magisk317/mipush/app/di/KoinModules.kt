@@ -23,6 +23,10 @@ import io.github.magisk317.mipush.runtime.data.EventRepository
 import io.github.magisk317.mipush.runtime.store.DatabaseUtils
 import io.github.magisk317.mipush.runtime.store.db.AppDatabase
 import io.github.magisk317.mipush.service.runtime.RuntimeSettingsAdapter
+import io.github.magisk317.mipush.MiPushEventListener
+import io.github.magisk317.mipush.push.hook.ModernHookHandler
+import io.github.magisk317.mipush.service.RegistrationRecorder
+import io.github.magisk317.mipush.utils.ConfigValueConverter
 import io.github.magisk317.mipush.utils.Configurations
 import io.github.magisk317.mipush.utils.ConfigurationsLoader
 import io.github.magisk317.mipush.utils.IconConfigurations
@@ -50,6 +54,10 @@ val xmsfCoreKoinModule = module {
     single { ConfigurationsLoader(get()) }
     single { Configurations(get()) }
     single { IconConfigurations(get()) }
+    single { ConfigValueConverter() }
+    single { ModernHookHandler() }
+    single { MiPushEventListener() }
+    single { RegistrationRecorder() }
     single { RuntimeSettingsAdapter(androidContext(), get()) }
     single<ManagerRuntimeActions> { XmsfManagerRuntimeActions(get(), get()) }
     single { PushMessageProcessor(get()) }

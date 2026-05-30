@@ -43,12 +43,12 @@ class SettingsManager constructor(
         private const val MOCK_NOTIFICATION_SOURCE = "SettingsManager.notifyMockNotification"
     }
 
-    // No-arg fallback for legacy Singleton access.
+    // No-arg fallback resolving gateways through Koin first (Singleton fallback inside ManagerGatewayAccess).
     constructor() : this(
-        io.github.magisk317.mipush.common.utils.Singleton.instance<ManagerConfigGateway>(),
-        io.github.magisk317.mipush.common.utils.Singleton.instance<ManagerRuntimeActions>(),
-        io.github.magisk317.mipush.common.utils.Singleton.instance<ManagerApplicationGateway>(),
-        io.github.magisk317.mipush.common.utils.Singleton.instance<ManagerLogGateway>(),
+        io.github.magisk317.mipush.app.di.ManagerGatewayAccess.get<ManagerConfigGateway>(),
+        io.github.magisk317.mipush.app.di.ManagerGatewayAccess.get<ManagerRuntimeActions>(),
+        io.github.magisk317.mipush.app.di.ManagerGatewayAccess.get<ManagerApplicationGateway>(),
+        io.github.magisk317.mipush.app.di.ManagerGatewayAccess.get<ManagerLogGateway>(),
     )
 
     init {
