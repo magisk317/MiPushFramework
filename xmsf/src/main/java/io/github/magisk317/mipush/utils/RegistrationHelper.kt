@@ -28,7 +28,7 @@ import android.content.pm.PackageManager
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.common.utils.Utils
-import io.github.magisk317.mipush.runtime.core.PushRuntime
+import io.github.magisk317.mipush.runtime.android.PushRuntime
 import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.entities.Event
 import io.github.magisk317.mipush.runtime.store.event.type.RegistrationType

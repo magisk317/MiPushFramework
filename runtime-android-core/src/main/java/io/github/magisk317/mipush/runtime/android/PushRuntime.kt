@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.runtime.core
+package io.github.magisk317.mipush.runtime.android
 
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
@@ -10,6 +10,17 @@ import android.content.Context
 import android.content.Intent
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.runtime.android.BuildConfig
+import io.github.magisk317.mipush.runtime.core.PushChannelRecord
+import io.github.magisk317.mipush.runtime.core.PushChannelState
+import io.github.magisk317.mipush.runtime.core.PushConnectionRecord
+import io.github.magisk317.mipush.runtime.core.PushConnectionState
+import io.github.magisk317.mipush.runtime.core.PushRegistrationRecord
+import io.github.magisk317.mipush.runtime.core.PushRegistrationState
+import io.github.magisk317.mipush.runtime.core.PushRuntimeApplicationDispatchResult
+import io.github.magisk317.mipush.runtime.core.PushRuntimeCapability
+import io.github.magisk317.mipush.runtime.core.PushRuntimeComponents
+import io.github.magisk317.mipush.runtime.core.PushRuntimeExecutionHost
+import io.github.magisk317.mipush.runtime.core.PushRuntimeRegistrationDispatchResult
 
 data class PushRuntimeSnapshot(
     val bridgeReady: Boolean,

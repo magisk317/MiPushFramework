@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.runtime.core
+package io.github.magisk317.mipush.runtime.android
 
 data class PendingPacketEntry(
     val packageName: String,

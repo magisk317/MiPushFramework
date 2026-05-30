@@ -17,7 +17,7 @@ import com.xiaomi.push.log.LogUploader
 import com.xiaomi.smack.util.TrafficUtils
 import com.xiaomi.stats.StatsHandler
 import io.github.magisk317.mipush.runtime.core.PushConnectionState
-import io.github.magisk317.mipush.runtime.core.PushRuntime
+import io.github.magisk317.mipush.runtime.android.PushRuntime
 
 // removed PushAccountRuntime
 

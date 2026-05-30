@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.runtime.core
+package io.github.magisk317.mipush.runtime.android
 
 import android.content.Context
 import java.util.LinkedHashMap

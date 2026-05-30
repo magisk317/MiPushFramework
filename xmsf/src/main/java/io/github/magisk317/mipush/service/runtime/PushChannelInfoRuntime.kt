@@ -7,7 +7,7 @@ import com.xiaomi.slim.*
 import com.xiaomi.push.service.timers.*
 import com.xiaomi.push.service.*
 
-import io.github.magisk317.mipush.runtime.core.PushRuntime
+import io.github.magisk317.mipush.runtime.android.PushRuntime
 import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
 
 

@@ -9,7 +9,7 @@ object PushRuntimeComponents {
     const val LEGACY_MAIN_SERVICE_CLASS = io.github.magisk317.mipush.runtime.core.PushRuntimeComponents.LEGACY_MAIN_SERVICE_CLASS
 
     fun newLegacyMainServiceIntent(context: Context, action: String? = null): Intent {
-        return io.github.magisk317.mipush.runtime.core.PushRuntimeAndroidComponents
+        return io.github.magisk317.mipush.runtime.android.PushRuntimeAndroidComponents
             .newLegacyMainServiceIntent(context, action)
     }
 }

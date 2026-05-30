@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.runtime.core
+package io.github.magisk317.mipush.runtime.android
 
 internal class PendingRuntimeQueue<T>(private val capacity: Int) {
     private val items = ArrayDeque<T>()

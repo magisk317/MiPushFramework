@@ -1,6 +1,7 @@
-package io.github.magisk317.mipush.runtime.core
+package io.github.magisk317.mipush.runtime.android
 
 import android.content.Intent
+import io.github.magisk317.mipush.runtime.core.PushRegistrationState
 
 fun interface RegistrationIntentDispatcher {
     fun dispatch(packageName: String, intent: Intent): Boolean
