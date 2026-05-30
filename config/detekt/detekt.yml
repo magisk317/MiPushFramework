@@ -108,7 +108,6 @@ exceptions:
     allowedExceptionNameRegex: '_|(ignore|expected).*'
     excludes:
       - '**/legacy/**'
-      - '**/protocol/**'
       - '**/xposed/**'
       - '**/service/runtime/**'
       - '**/platform/support/**'

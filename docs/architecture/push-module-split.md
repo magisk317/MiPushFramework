@@ -47,7 +47,7 @@ temporaries; those remain reference signals, not source-ready code.
 
 1. Keep `xmsf/` as the product/app/system-entry module.
 2. Keep retained `com.xiaomi.*` runtime code in `legacy` unless there is a clear product-owned reason to move it.
-3. Keep packaged protocol and generated-like wire types in `pinned`; keep `protocol` non-creative.
+3. Keep packaged protocol and generated-like wire types in `pinned`, treated as frozen/non-creative source.
 4. Keep `com.xiaomi.*` package names for compatibility-sensitive surfaces.
 5. Device dump sources remain references only; they do not enter the Gradle source graph.
 
@@ -57,7 +57,7 @@ Classify each package before moving or rewriting it:
 
 - Product-owned code remains in `xmsf/` unless it is reusable across modules.
 - Long-connection runtime code moves toward `legacy` when it is still required but not product-owned.
-- Protocol and generated-like wire types stay in `pinned` or `protocol`.
+- Protocol and generated-like wire types stay in `pinned`.
 - Platform/system references from device dumps never enter the Gradle source graph directly.
 
 ## Kotlin Maintenance Notes
