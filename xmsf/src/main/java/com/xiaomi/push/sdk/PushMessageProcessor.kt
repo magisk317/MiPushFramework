@@ -211,18 +211,32 @@ class PushMessageProcessor constructor(
 
             if (!topActivity.isAppForeground(context, targetPackage)) {
                 logD(packageInfo(targetPackage, "app is not at front, pull up"))
-                startJumpIntent(context, targetPackage, getJumpIntent(context, container))
+                val sdkIntent = getJumpIntent(context, container)
+                startJumpIntent(context, targetPackage, sdkIntent)
                 for (i in 0 until APP_CHECK_FRONT_MAX_RETRY) {
                     if (topActivity.isAppForeground(context, targetPackage)) {
+                        // App reached foreground — re-send the SDK intent so the now-initialized
+                        // app router can handle the deep link properly (fixes white screen on cold start).
+                        if (i > 0 && sdkIntent != null) {
+                            logD(packageInfo(targetPackage, "app reached foreground after ${i * APP_CHECK_SLEEP_DURATION_MS}ms, re-sending SDK intent"))
+                            startJumpIntent(context, targetPackage, sdkIntent)
+                        }
                         break
                     }
                     Thread.sleep(APP_CHECK_SLEEP_DURATION_MS)
                     if (i == (APP_CHECK_FRONT_MAX_RETRY / 2)) {
+                        // Halfway fallback: try launcher intent in case SDK intent failed to start the app
                         startJumpIntent(context, targetPackage, getJumpIntentFromPkg(context, targetPackage))
                     }
                 }
                 if ((System.currentTimeMillis() - start) >= APP_CHECK_SLEEP_MAX_TIMEOUT_MS) {
                     logW(packageInfo(targetPackage, "pull up app timeout"))
+                    // Last resort: re-send SDK intent even on timeout — the app process is likely
+                    // alive by now even if not yet detected as foreground.
+                    if (sdkIntent != null) {
+                        logD(packageInfo(targetPackage, "timeout fallback: re-sending SDK intent"))
+                        startJumpIntent(context, targetPackage, sdkIntent)
+                    }
                 }
             } else {
                 logD(packageInfo(targetPackage, "app is at foreground"))

@@ -40,7 +40,9 @@ android {
         }
 
         buildConfigField("String", "GIT_TAG", "\"$versionNameStr\"")
-        buildConfigField("String", "VERSION_NAME", "\"$versionNameStr\"")
+        val buildTs = project.findProperty("buildTs")?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+        val fullVersionName = if (buildTs != null) "$versionNameStr-$buildTs" else versionNameStr
+        buildConfigField("String", "VERSION_NAME", "\"$fullVersionName\"")
     }
 
     buildTypes {
