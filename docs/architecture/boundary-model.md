@@ -15,14 +15,18 @@ MiPushFramework is a system-package-compatible app split into explicit Gradle mo
      `PushRuntimeComponents`, `RegistrationThrottle`). It must stay free of Android framework
      dependencies so it can hold the shared routing/registration/notification-accounting types
      without depending on app UI code.
-   - The Android-coupled runtime spine (`PushRuntime` and its stores) lives in
-     `runtime-android-core`, which depends on `core` and uses `android.*` APIs. `core` and
-     `runtime-android-core` use distinct packages (`...runtime.core` vs `...runtime.android`); do
-     not reintroduce a shared package across the two modules.
+   - The Android-coupled runtime spine (`PushRuntime` and its stores) lives in `xmsf` under the
+     `io.github.magisk317.mipush.runtime.android` package, depends on `core`, and uses `android.*`
+     APIs. (It previously lived in a dedicated `runtime-android-core` module; that module had a
+     single consumer — `xmsf` — and was folded back into `xmsf`. `core` keeps the
+     `...runtime.core` package and the spine keeps `...runtime.android`; do not reintroduce a
+     shared package between them.)
 
-3. **legacy**
+3. **vendor**
    - Vendored Xiaomi push/runtime/network/telemetry stacks that are packaged into the app but are
-     not the desired long-term feature layer.
+     not the desired long-term feature layer. The module is named `vendor` (not `legacy`) because
+     this is active, load-bearing runtime (it carries the long-connection `XMPushService`); the
+     name describes its provenance and frozen edit policy, not that it is dead.
    - Typical prefixes include `com.xiaomi.channel.*`, `com.xiaomi.network.*`,
      `com.xiaomi.smack.*`, `com.xiaomi.slim.*`, `com.xiaomi.clientreport.*`,
      `com.xiaomi.stats.*`, `com.xiaomi.tinyData.*`, and retained
@@ -32,7 +36,7 @@ MiPushFramework is a system-package-compatible app split into explicit Gradle mo
    - Protocol and serialization layer that should be treated like generated or frozen source.
    - `pinned` is the single packaged frozen protocol surface consumed by runtime modules; it must
      not grow business behavior. (The previously parallel `protocol` module was removed once it was
-     confirmed to be runtime-redundant with `pinned` and `legacy`.)
+     confirmed to be runtime-redundant with `pinned` and `vendor`.)
    - Typical prefixes include `org.apache.thrift.*`, `com.google.protobuf.micro.*`,
      `com.xiaomi.xmpush.thrift.*`, `com.xiaomi.push.protobuf.*`, and
      `com.xiaomi.push.thrift.*`.
@@ -58,15 +62,15 @@ graph.
 ## Layering Rules
 
 - Product UI/settings code should depend on `core`, `common`, and explicit xmsf adapters, not deep
-  legacy/pinned packages.
+  vendor/pinned packages.
 - `xmsf/src/main/java/io/github/magisk317/mipush/service/runtime` and
   `xmsf/src/main/java/io/github/magisk317/mipush/bridge` are the allowed adapter areas for direct
-  legacy/pinned interaction.
+  vendor/pinned interaction.
 - `verifyModuleBoundaries` is wired into `check` and scans UI/settings/viewmodel source roots for
   new deep Xiaomi imports. Existing debt is listed in `scripts/module_boundary_baseline.txt`; new
   entries should be moved behind a runtime/bridge adapter unless the baseline update is a deliberate
   compatibility exception.
-- `legacy` may depend on frozen protocol types from `pinned`, but new product behavior should not be
+- `vendor` may depend on frozen protocol types from `pinned`, but new product behavior should not be
   added there unless it is preserving a stock runtime contract.
 - `pinned` changes must be compatibility-preserving and non-creative.
 - Platform/system reference artifacts remain outside the build graph.
@@ -91,7 +95,7 @@ graph.
   `xmsf/src/main/java/io/github/magisk317/mipush/platform/support/RootAccessFacade.kt`.
 - **`BoundedShellRunner`**: Execute ordinary or root shell with unified timeout and result structure.
 - **`RuntimeSettingsAdapter`**: Route UI/settings operations for XMPP host, forced registration,
-  service foregrounding, and similar runtime actions through an adapter instead of calling legacy
+  service foregrounding, and similar runtime actions through an adapter instead of calling vendor
   runtime directly.
 
 ## Current Architecture Debts
@@ -106,8 +110,8 @@ graph.
 - `ConfigCenter.loadConfigurations()` remains asynchronous for UI callers. Code paths that need a
   deterministic reload can use `loadConfigurationsNow(...)`.
 - The previously parallel `protocol` module (a compile-only superset that duplicated `pinned`'s
-  thrift/protobuf types and `legacy`'s `com.xiaomi.channel.commonutils.*`) was removed. Runtime
-  modules now compile against `pinned` for wire types and `legacy` for retained runtime utilities.
+  thrift/protobuf types and `vendor`'s `com.xiaomi.channel.commonutils.*`) was removed. Runtime
+  modules now compile against `pinned` for wire types and `vendor` for retained runtime utilities.
 - `uikit` remains source-owned outside this repository. When embedded in a parent build, the desired
   next step is parent-version-catalog first with standalone fallback, but this repo does not change
   the `uikit` source checkout as part of the architecture boundary work.

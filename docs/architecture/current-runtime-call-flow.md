@@ -1,6 +1,6 @@
 # Current Runtime Call Flow
 
-This document captures the current product-owned runtime chain after the `core`, `legacy`, and `pinned` module split.
+This document captures the current product-owned runtime chain after the `core`, `vendor`, and `pinned` module split.
 
 It is the reference for future stock-XMSF ports: new compatibility features should attach to one of these stages instead of bypassing the runtime spine.
 
@@ -27,7 +27,7 @@ Key source:
   - receive XMSF-facing intents
   - record routing state into `PushRuntime`
   - refresh config state when required
-  - forward business intents into legacy `com.xiaomi.push.service.XMPushService`
+  - forward business intents into vendored `com.xiaomi.push.service.XMPushService`
 
 Key source:
 
@@ -35,7 +35,7 @@ Key source:
 
 ## 3. Runtime Spine
 
-- Entry point: `runtime-android-core` `PushRuntime`
+- Entry point: `xmsf` `PushRuntime` (package `io.github.magisk317.mipush.runtime.android`)
 - Main work:
   - queue and drain bridge intents
   - track registration, connection, and channel state
@@ -44,7 +44,7 @@ Key source:
 
 Key source:
 
-- `runtime-android-core/src/main/java/io/github/magisk317/mipush/runtime/android/PushRuntime.kt`
+- `xmsf/src/main/java/io/github/magisk317/mipush/runtime/android/PushRuntime.kt`
 
 ## 4. Execution Host
 
@@ -62,9 +62,9 @@ Key source:
 
 - `xmsf/src/main/java/io/github/magisk317/mipush/runtime/PushRuntimeExecutionBridge.kt`
 
-## 5. Legacy Long Connection
+## 5. Vendored Long Connection
 
-- Entry point: legacy `com.xiaomi.push.service.XMPushService`
+- Entry point: vendored `com.xiaomi.push.service.XMPushService`
 - Main work:
   - own the long-lived connection stack
   - run reconnect, packet sync, and intent delegates
@@ -72,7 +72,7 @@ Key source:
 
 Key source:
 
-- `legacy/src/main/java/com/xiaomi/push/service/XMPushService.kt`
+- `vendor/src/main/java/com/xiaomi/push/service/XMPushService.kt`
 
 ## 6. Downstream Delivery
 
@@ -115,7 +115,7 @@ Key sources:
 - `xposed/src/main/java/io/github/magisk317/mipush/hook/island/IslandPreferences.kt`
 - `xposed/src/main/java/io/github/magisk317/mipush/hook/systemui/MiPushIslandHook.kt`
 - `xposed/src/main/java/io/github/magisk317/mipush/hook/xmsf/UnlockFocusAuthHook.kt`
-- `legacy/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt`
+- `vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt`
 
 ## 8. Stock Compatibility Surfaces
 
@@ -135,7 +135,7 @@ Key sources:
 - Main work:
   - expose stock provider authorities and service names expected by callers
   - bridge stock-facing calls into `PushRuntime`, notification helpers, online config, and app DB state
-  - keep subprocess and keepalive coordination inside product-owned glue instead of pushing it down into `legacy`
+  - keep subprocess and keepalive coordination inside product-owned glue instead of pushing it down into `vendor`
 
 Key source:
 
@@ -162,7 +162,7 @@ When porting stock XMSF behavior, first classify the feature into one of these s
 - bridge entry
 - runtime spine
 - execution host
-- legacy long connection
+- vendored long connection
 - downstream delivery
 - notification publish
 - stock compatibility surfaces
@@ -174,7 +174,7 @@ Only bypass `PushRuntime` when the stock feature is strictly self-contained and 
 
 `xmsf/src/main/java/io/github/magisk317/mipush/service/runtime` and
 `xmsf/src/main/java/io/github/magisk317/mipush/bridge` are the allowed product-owned adapters
-that may touch legacy/runtime and protocol types directly. UI, settings, and feature code should
+that may touch vendor/runtime and protocol types directly. UI, settings, and feature code should
 go through these adapters or through `core` facades instead of importing deep `com.xiaomi.*`
 transport/protocol classes.
 

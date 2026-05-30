@@ -107,7 +107,7 @@ exceptions:
       - 'Throwable'
     allowedExceptionNameRegex: '_|(ignore|expected).*'
     excludes:
-      - '**/legacy/**'
+      - '**/vendor/**'
       - '**/xposed/**'
       - '**/service/runtime/**'
       - '**/platform/support/**'

@@ -9,7 +9,7 @@ import io.github.magisk317.mipush.common.utils.logW
 import android.content.Context
 import android.content.Intent
 import io.github.aakira.napier.Napier
-import io.github.magisk317.mipush.runtime.android.BuildConfig
+import io.github.magisk317.mipush.runtime.core.BuildConfig
 import io.github.magisk317.mipush.runtime.core.PushChannelRecord
 import io.github.magisk317.mipush.runtime.core.PushChannelState
 import io.github.magisk317.mipush.runtime.core.PushConnectionRecord

@@ -14,7 +14,7 @@ As of 2026-05-10, after the runtime, timer, service receiver, client-report, rem
 
 The remaining legacy app-facing compatibility surface now lives primarily under:
 
-- `legacy/src/main/java/com/xiaomi/mipush/sdk`
+- `vendor/src/main/java/com/xiaomi/mipush/sdk`
 
 The HyperOS 3 / Android 16 reference dump is:
 
@@ -39,14 +39,14 @@ Use these two source trees differently:
   - APK SHA-256 `f3d72b6f5e1427ceecd3147a051d58e4dc95bb528397d486658e01cad9f7e590`
   - useful for identifying current shipped behavior, but not a stock 7.x source.
 
-There are no remaining Java sources under `xmsf/src/main/java` or `legacy/src/main/java`.
+There are no remaining Java sources under `xmsf/src/main/java` or `vendor/src/main/java`.
 Stock 7.x files often contain JADX artifacts such as obfuscated names, synthetic switch maps, or invalid `??`
 temporaries; those remain reference signals, not source-ready code.
 
 ## Current Rules
 
 1. Keep `xmsf/` as the product/app/system-entry module.
-2. Keep retained `com.xiaomi.*` runtime code in `legacy` unless there is a clear product-owned reason to move it.
+2. Keep retained `com.xiaomi.*` runtime code in `vendor` unless there is a clear product-owned reason to move it.
 3. Keep packaged protocol and generated-like wire types in `pinned`, treated as frozen/non-creative source.
 4. Keep `com.xiaomi.*` package names for compatibility-sensitive surfaces.
 5. Device dump sources remain references only; they do not enter the Gradle source graph.
@@ -56,7 +56,7 @@ temporaries; those remain reference signals, not source-ready code.
 Classify each package before moving or rewriting it:
 
 - Product-owned code remains in `xmsf/` unless it is reusable across modules.
-- Long-connection runtime code moves toward `legacy` when it is still required but not product-owned.
+- Long-connection runtime code moves toward `vendor` when it is still required but not product-owned.
 - Protocol and generated-like wire types stay in `pinned`.
 - Platform/system references from device dumps never enter the Gradle source graph directly.
 
@@ -69,59 +69,59 @@ Classify each package before moving or rewriting it:
 
 ## Completed Slices
 
-`com.xiaomi.slim.*` is now owned by `legacy`:
+`com.xiaomi.slim.*` is now owned by `vendor`:
 
 - removed the duplicate `xmsf/src/main/java/com/xiaomi/slim` Java/Kotlin sources
-- kept the Kotlin implementation in `legacy/src/main/java/com/xiaomi/slim`
-- moved source notes to the retained `legacy` files
+- kept the Kotlin implementation in `vendor/src/main/java/com/xiaomi/slim`
+- moved source notes to the retained `vendor` files
 - `Ping` was checked against stock `com.xiaomi.xmsf` `7.4.67-C` / versionCode `70004067`
 - stock equivalents are `pa/a.java` through `pa/i.java`; retained Kotlin keeps the deobfuscated `com.xiaomi.slim.*` APIs
 
-`com.xiaomi.tinyData.*` is now owned by `legacy`:
+`com.xiaomi.tinyData.*` is now owned by `vendor`:
 
 - removed the duplicate `xmsf/src/main/java/com/xiaomi/tinyData` Java sources
-- kept the Kotlin implementation in `legacy/src/main/java/com/xiaomi/tinyData`
-- moved source notes to the retained `legacy` files
+- kept the Kotlin implementation in `vendor/src/main/java/com/xiaomi/tinyData`
+- moved source notes to the retained `vendor` files
 - stock equivalents are `wa/a.java` through `wa/e.java`; retained Kotlin keeps the deobfuscated `com.xiaomi.tinyData.*` APIs
 - `HttpUploader` has no stock `7.4.67-C` counterpart in the split source; it remains a local compatibility shim
 
-`com.xiaomi.stats.*` is now owned by `legacy`:
+`com.xiaomi.stats.*` is now owned by `vendor`:
 
 - removed the duplicate `xmsf/src/main/java/com/xiaomi/stats` Java sources
-- kept the Kotlin implementation in `legacy/src/main/java/com/xiaomi/stats`
-- moved source notes to the retained `legacy` files
+- kept the Kotlin implementation in `vendor/src/main/java/com/xiaomi/stats`
+- moved source notes to the retained `vendor` files
 - stock equivalents are `oa/a.java` through `oa/e.java`; retained Kotlin keeps the deobfuscated `com.xiaomi.stats.*` APIs
-- aligned `legacy` smack error constants with the stock values used by stats error classification
+- aligned `vendor` smack error constants with the stock values used by stats error classification
 
-`com.xiaomi.smack.*` transport core is now owned by `legacy`:
+`com.xiaomi.smack.*` transport core is now owned by `vendor`:
 
 - removed the duplicate `xmsf/src/main/java/com/xiaomi/smack` Java sources
-- kept the Kotlin implementation in `legacy/src/main/java/com/xiaomi/smack`
-- moved source notes to the retained `legacy` files
+- kept the Kotlin implementation in `vendor/src/main/java/com/xiaomi/smack`
+- moved source notes to the retained `vendor` files
 - stock equivalents are `qa/b.java`, `qa/c.java`, `qa/d.java`, `qa/g.java`, `qa/h.java`, and `qa/j.java`
 - `HttpRequestProxy` has no stock `7.4.67-C` `qa.*` counterpart; the current override keeps an empty same-path interface, while this runtime retains the compatibility methods
 
-`com.xiaomi.push.service.timers.*` and `com.xiaomi.push.service.receivers.*` are now owned by `legacy`:
+`com.xiaomi.push.service.timers.*` and `com.xiaomi.push.service.receivers.*` are now owned by `vendor`:
 
 - removed duplicate Java sources from `xmsf/src/main/java/com/xiaomi/push/service/timers`
 - removed duplicate Java sources from `xmsf/src/main/java/com/xiaomi/push/service/receivers`
-- kept the Kotlin implementations in `legacy`
+- kept the Kotlin implementations in `vendor`
 - moved source notes to the retained Kotlin files
 - timer stock equivalents are in `ia/*`; receiver stock references stay under `com.xiaomi.push.service.receivers` or the stock package action receiver
 - aligned `PkgUninstallReceiver` with stock/current `PACKAGE_REMOVED` -> `ACTION_UNINSTALL` handling
 
-`com.xiaomi.push.service.clientReport.*` is now owned by `legacy`:
+`com.xiaomi.push.service.clientReport.*` is now owned by `vendor`:
 
 - removed duplicate Java sources from `xmsf/src/main/java/com/xiaomi/push/service/clientReport`
-- kept the Kotlin implementation in `legacy/src/main/java/com/xiaomi/push/service/clientReport`
+- kept the Kotlin implementation in `vendor/src/main/java/com/xiaomi/push/service/clientReport`
 - moved source notes to the retained Kotlin files
 - stock equivalents are obfuscated as `ea/a.java`, `ea/b.java`, and `ea/c.java`; current override keeps same-path processor/helper shells
 - `ReportConstants` has no current same-path source in the 2026-04-13 override; stock 7.4.67 inlines many report ids across the `ea.*` report helper and downstream report builders
 
-The rest of `com.xiaomi.push.*` is now owned by `legacy`:
+The rest of `com.xiaomi.push.*` is now owned by `vendor`:
 
 - removed duplicate Java sources from `xmsf/src/main/java/com/xiaomi/push/log`, `mpcd`, `providers`, `service/awake`, `service/notification`, `service/profile`, and `service/xmpush`
-- kept the Kotlin implementations in `legacy`
+- kept the Kotlin implementations in `vendor`
 - moved source notes to the retained Kotlin files
 - converted `com.xiaomi.push.clientreport.PerfMessageHelper` from Java to Kotlin and updated it to the current override source comment
 - stock references include `t9/c.java`, `aa/a.java`, `ja/a.java`, `ha/*`, `u9/*`, `v9/*`, and `vb/*`; current-only awake sources are marked with their exact override version and path
@@ -129,7 +129,7 @@ The rest of `com.xiaomi.push.*` is now owned by `legacy`:
 The duplicate `com.xiaomi.mipush.sdk.*` surface in `xmsf/` is now removed:
 
 - removed the duplicate Java sources from `xmsf/src/main/java/com/xiaomi/mipush/sdk`
-- kept shared SDK compatibility types in `legacy`
+- kept shared SDK compatibility types in `vendor`
 - converted the final in-place processor `xmsf/src/main/java/com/xiaomi/mipush/sdk/PushMessageProcessor.java` to Kotlin as `PushMessageProcessor.kt`
 - updated the new Kotlin file to reference stock `d0.java` and current same-path `PushMessageProcessor.java`
 - `xmsf/src/main/java` is now fully Kotlin

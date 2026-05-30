@@ -69,10 +69,9 @@ tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
 
 dependencies {
     implementation(project(":core"))
-    implementation(project(":runtime-android-core"))
     implementation(project(":settings"))
     implementation(project(":common"))
-    implementation(project(":legacy"))
+    implementation(project(":vendor"))
     implementation(project(":pinned"))
 
     implementation(libs.napier)

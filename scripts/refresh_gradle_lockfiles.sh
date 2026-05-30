@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cleanup_submodule_lockfiles() {
   local submodule
-  for submodule in uikit legacy pinned; do
+  for submodule in uikit vendor pinned; do
     [ -e "${ROOT_DIR}/${submodule}/.git" ] || continue
 
     while IFS= read -r lockfile; do

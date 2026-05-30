@@ -22,7 +22,7 @@ dependencies {
     implementation(project(":settings"))
     implementation(project(":uikit"))
     compileOnly(project(":core"))
-    compileOnly(project(":legacy"))
+    compileOnly(project(":vendor"))
 
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
