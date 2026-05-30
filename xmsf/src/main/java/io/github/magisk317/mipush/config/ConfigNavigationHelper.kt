@@ -14,7 +14,7 @@ class ConfigNavigationHelper constructor(
 ) {
     constructor() : this(
         Utils.getApplication()!!,
-        io.github.magisk317.mipush.common.utils.Singleton.instance<ConfigCenter>(),
+        io.github.magisk317.mipush.app.di.AppDependencies.get(ConfigCenter::class),
         ConfigSyncRepository(),
     )
 

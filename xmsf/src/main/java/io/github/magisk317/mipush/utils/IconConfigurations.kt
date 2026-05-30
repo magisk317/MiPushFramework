@@ -13,24 +13,16 @@ import androidx.documentfile.provider.DocumentFile
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.Serializable
 import io.github.magisk317.mipush.common.configurations.ConfigJsonException
-import io.github.magisk317.mipush.platform.support.Global
-import io.github.magisk317.mipush.common.utils.Singleton
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.app.ConfigCenter
+import io.github.magisk317.mipush.app.di.AppDependencies
 import kotlinx.coroutines.runBlocking
 
 class IconConfigurations constructor(
     private val configCenter: ConfigCenter
 ) {
-    constructor() : this(Singleton.instance<ConfigCenter>())
+    constructor() : this(AppDependencies.get(ConfigCenter::class))
 
-    init {
-        try {
-            Singleton.reset(this)
-        } catch (t: Throwable) {
-            io.github.aakira.napier.Napier.w("Singleton.reset failed for IconConfigurations", t, tag = "IconConfigurations")
-        }
-    }
     private val iconConfigs = hashMapOf<String, IconConfig>()
 
     @Serializable

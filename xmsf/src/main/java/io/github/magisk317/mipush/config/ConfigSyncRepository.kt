@@ -19,14 +19,6 @@ class ConfigSyncRepository constructor(
         PreferenceRepository(Utils.getApplication()!!.dataStore),
     )
 
-    init {
-        try {
-            io.github.magisk317.mipush.common.utils.Singleton.reset(this)
-        } catch (t: Throwable) {
-            io.github.aakira.napier.Napier.w("Singleton.reset failed for ConfigSyncRepository", t, tag = "ConfigSyncRepository")
-        }
-    }
-
     suspend fun loadLocalSnapshot(treeUri: Uri?): ConfigListSnapshot {
         val localFiles = localConfigRepository.listLocalFiles(treeUri)
         val remoteSource = catalogService.getRemoteSource()
