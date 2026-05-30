@@ -1,6 +1,6 @@
-package io.github.magisk317.mipush.runtime.android
+package io.github.magisk317.mipush.runtime
 
-import io.github.magisk317.mipush.runtime.PushRuntime
+import io.github.magisk317.mipush.runtime.android.AndroidPushRuntime
 import io.github.magisk317.mipush.runtime.core.PushRegistrationState
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
