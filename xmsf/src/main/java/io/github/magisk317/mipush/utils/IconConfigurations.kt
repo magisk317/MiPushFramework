@@ -15,14 +15,11 @@ import kotlinx.serialization.Serializable
 import io.github.magisk317.mipush.common.configurations.ConfigJsonException
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.app.ConfigCenter
-import io.github.magisk317.mipush.app.di.AppDependencies
 import kotlinx.coroutines.runBlocking
 
 class IconConfigurations constructor(
     private val configCenter: ConfigCenter
 ) {
-    constructor() : this(AppDependencies.get(ConfigCenter::class))
-
     private val iconConfigs = hashMapOf<String, IconConfig>()
 
     @Serializable

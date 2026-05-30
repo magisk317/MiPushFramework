@@ -19,9 +19,6 @@ import java.lang.reflect.InvocationTargetException
 class Configurations constructor(
     internal var loader: ConfigurationsLoader
 ) {
-    // No-arg fallback for legacy reflective access.
-    constructor() : this(ConfigurationsLoader(AppDependencies.get(ConfigCenter::class)))
-
     init {
         injectedInstance = this
     }

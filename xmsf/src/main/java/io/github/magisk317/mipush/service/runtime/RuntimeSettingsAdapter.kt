@@ -7,8 +7,6 @@ import com.xiaomi.push.service.PushServiceConstants
 import com.xiaomi.push.service.XMPushServiceMessenger
 import com.xiaomi.smack.ConnectionConfiguration
 import io.github.magisk317.mipush.app.ConfigCenter
-import io.github.magisk317.mipush.app.di.AppDependencies
-import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.diagnostics.PushHealthSnapshotLogger
 import io.github.magisk317.mipush.network.NetworkPolicyCompat
 import io.github.magisk317.mipush.platform.support.InternalMessenger
@@ -21,11 +19,6 @@ class RuntimeSettingsAdapter constructor(
     private val appContext: Context,
     private val configCenter: ConfigCenter,
 ) {
-    constructor() : this(
-        Utils.getApplication()!!,
-        AppDependencies.get(ConfigCenter::class),
-    )
-
     enum class ForceRegisterStage {
         ROOT_MISSING,
         ALL_FAILED,

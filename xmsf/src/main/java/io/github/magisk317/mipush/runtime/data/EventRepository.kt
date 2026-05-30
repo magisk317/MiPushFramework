@@ -46,15 +46,6 @@ class EventRepository constructor(
     private val configurations: Configurations,
     private val configNavigationHelper: ConfigNavigationHelper,
 ) {
-    // No-arg fallback for legacy reflective access.
-    constructor() : this(
-        io.github.magisk317.mipush.common.utils.Utils.getApplication()!!,
-        io.github.magisk317.mipush.app.di.AppDependencies.get(ConfigCenter::class),
-        Configurations.getInstance()
-        ,
-        ConfigNavigationHelper(),
-    )
-
     fun getStatus(container: XmPushActionContainer?): MutableSet<String> {
         if (container == null) {
             return HashSet()

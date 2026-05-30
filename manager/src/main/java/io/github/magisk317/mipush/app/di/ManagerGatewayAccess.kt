@@ -1,5 +1,7 @@
 package io.github.magisk317.mipush.app.di
 
+import android.app.Application
+import android.os.Process
 import org.koin.core.context.GlobalContext
 
 /**
@@ -12,7 +14,16 @@ import org.koin.core.context.GlobalContext
 object ManagerGatewayAccess {
     inline fun <reified T : Any> get(): T {
         val koin = GlobalContext.getOrNull()
-            ?: error("Koin is not started; cannot resolve ${T::class.simpleName}")
+            ?: error(koinNotStartedMessage(T::class.simpleName))
         return koin.get<T>()
+    }
+
+    @PublishedApi
+    internal fun koinNotStartedMessage(typeName: String?): String {
+        val process = runCatching { Application.getProcessName() }.getOrNull() ?: "unknown"
+        return "Koin is not started; cannot resolve $typeName " +
+            "(process=$process, pid=${Process.myPid()}). " +
+            "Koin must be started in MiPushFrameworkApp.onCreate via AppDependencies.start() " +
+            "before any gateway access."
     }
 }
