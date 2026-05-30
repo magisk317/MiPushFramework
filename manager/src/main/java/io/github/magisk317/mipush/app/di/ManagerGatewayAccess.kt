@@ -14,7 +14,7 @@ import org.koin.core.context.GlobalContext
 object ManagerGatewayAccess {
     inline fun <reified T : Any> get(): T {
         val koin = GlobalContext.getOrNull()
-            ?: error(koinNotStartedMessage(T::class.simpleName))
+            ?: error(koinNotStartedMessage(T::class.qualifiedName ?: T::class.simpleName))
         return koin.get<T>()
     }
 

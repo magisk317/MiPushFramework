@@ -27,11 +27,6 @@ import io.github.magisk317.mipush.platform.activity.TopActivityFactory
 class PushMessageProcessor constructor(
     private val configurations: Configurations
 ) {
-    // No-arg fallback for legacy reflective access.
-    constructor() : this(
-        Configurations.getInstance()
-    )
-
     private val TAG = "PushMessageProcessor"
     
 

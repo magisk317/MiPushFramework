@@ -11,9 +11,6 @@ import androidx.core.graphics.drawable.toBitmap
 import java.util.concurrent.ConcurrentHashMap
 
 class ApplicationIconCache constructor(val context: Context) {
-    // No-arg fallback for legacy reflective access.
-    constructor() : this(io.github.magisk317.mipush.common.utils.Utils.getApplication()!!)
-
     val defaultAppIcon by lazy {
         BitmapPainter(
             ImageBitmap.imageResource(
