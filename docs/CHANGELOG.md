@@ -4,6 +4,12 @@
 
 ---
 
+## [v0.5.2] - Unreleased
+
+> Full Changelog: https://github.com/magisk317/MiPushFramework/compare/v0.5.1...HEAD
+
+---
+
 ## [v0.5.1] - 2026-05-31
 
 - `[feat(island)]` 深度集成 HyperIsland ToolKit：新增统一通知分类器，可根据通知渠道、关键字与包名自动映射 7 大灵动岛模板；新增渲染大岛正计时（外卖/打车追踪）、大岛倒计时与环形进度条组件；修复支付宝等应用通知进度更新时重复刷屏的问题（同一订单强制合入相同 notifyId 覆盖）。
