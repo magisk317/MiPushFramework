@@ -703,9 +703,7 @@ private fun EventDetailsDialog(
                     DialogAction(
                         label = stringResource(R.string.action_notify),
                         onClick = {
-                            if (viewModel.mockMessage(clickedEvent.event)) {
-                                Unit
-                            } else {
+                            if (!viewModel.mockMessage(clickedEvent.event)) {
                                 Napier.w(
                                     "Cannot replay event id=${clickedEvent.id} pkg=${clickedEvent.packageName}: container unavailable",
                                     tag = "EventListPage",
