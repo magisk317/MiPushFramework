@@ -142,7 +142,7 @@ object NotificationController {
             ProgressStyleBuilder.applyProgressStyle(context, notificationBuilder, metaInfo, liveUpdateResult)
         }
 
-        val notification = notify(context, notificationId, packageName, notificationBuilder, metaInfo)
+        val notification = notify(context, notificationId, packageName, notificationBuilder, metaInfo, liveUpdateResult)
         if (notification == null) {
             Napier.d("publish skipped pkg=$packageName id=$notificationId (contentless, channel, or publish issue)", tag = TAG)
             return
@@ -180,7 +180,8 @@ object NotificationController {
         notificationId: Int,
         packageName: String,
         notificationBuilder: NotificationCompat.Builder,
-        metaInfo: PushMetaInfo
+        metaInfo: PushMetaInfo,
+        liveUpdateResult: LiveUpdateDetector.DetectionResult? = null,
     ): Notification? {
         val extras = Bundle()
         extras.putString("target_package", packageName)
@@ -221,6 +222,7 @@ object NotificationController {
                 notificationId = notificationId,
                 notificationIcon = previewNotification.getLargeIconCompat(),
                 options = islandOptions,
+                liveUpdateResult = liveUpdateResult,
             )
         } else {
             null
