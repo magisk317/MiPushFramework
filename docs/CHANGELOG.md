@@ -4,9 +4,15 @@
 
 ---
 
-## [v0.5.1] - Unreleased
+## [v0.5.1] - 2026-05-31
 
-> Full Changelog: https://github.com/magisk317/MiPushFramework/compare/v0.5.0...HEAD
+- `[feat(island)]` 深度集成 HyperIsland ToolKit：新增统一通知分类器，可根据通知渠道、关键字与包名自动映射 7 大灵动岛模板；新增渲染大岛正计时（外卖/打车追踪）、大岛倒计时与环形进度条组件；修复支付宝等应用通知进度更新时重复刷屏的问题（同一订单强制合入相同 notifyId 覆盖）。
+- `[refactor(architecture)]` 模块深度重构与解耦：全面引入 Koin 作为依赖注入框架并移除旧有 Singleton；剥离出基础 `:core` 模块集中管理无状态通知逻辑与配置模型；将 UI 层解耦至独立 `:manager` 控制中心和 `:app` 壳模块；重命名与合并了 `vendor` 和 `runtime` 相关模块。
+- `[fix(xmsf)]` 修复禁用通知渠道后仍能被提取生成灵动岛悬浮的绕过漏洞；限制配置重载 Toast 仅在主进程中提示。
+- `[fix(manager)]` 修复应用列表（AppList）中本地注册应用状态未正确同步核对的问题。
+- `[build&test]` 项目构建环境升级至 Java 26，重构了部分单元测试结构并增加了大量基于属性的测试（Property Tests）；拆分调试包依赖以缩短构建时间；更新项目全部非大版本依赖项。
+
+> Full Changelog: https://github.com/magisk317/MiPushFramework/compare/v0.5.0...v0.5.1
 
 ---
 
