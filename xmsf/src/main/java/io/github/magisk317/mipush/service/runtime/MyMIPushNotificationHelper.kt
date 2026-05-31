@@ -478,8 +478,13 @@ class MyMIPushNotificationHelper {
             val messageId = MessageIdentity.fromContainer(container)
             val isMockReplay = MockMessageRegistry.isMarked(container)
             val stableId = shouldUseStableNotifyId(container)
+            
+            val focusParam = XMPushUtils.getConfiguration(metaInfo).focusParam(null)
+            val orderId = extractOrderId(focusParam)
+
             val id = when {
                 isMockReplay -> mockReplayNotificationIdentity(messageId, metaInfo)
+                orderId != null -> orderId
                 stableId -> metaInfo.notifyId.toString()
                 !messageId.isNullOrEmpty() -> messageId
                 !metaInfo.id.isNullOrEmpty() -> metaInfo.id
@@ -487,8 +492,13 @@ class MyMIPushNotificationHelper {
                 else -> "0"
             }
             val result = "${packageName}_$id".hashCode()
-            logD("getNotificationId pkg=$packageName id=$id stableId=$stableId mockReplay=$isMockReplay messageId=$messageId notifyId=${metaInfo.notifyId} metaInfoId=${metaInfo.id} result=$result")
+            logD("getNotificationId pkg=$packageName id=$id stableId=$stableId mockReplay=$isMockReplay messageId=$messageId notifyId=${metaInfo.notifyId} metaInfoId=${metaInfo.id} orderId=$orderId result=$result")
             return result
+        }
+
+        private fun extractOrderId(focusParam: String?): String? {
+            if (focusParam == null) return null
+            return Regex(""""orderId"\s*:\s*"([^"]+)"""").find(focusParam)?.groupValues?.get(1)
         }
 
         private fun mockReplayNotificationIdentity(messageId: String?, metaInfo: PushMetaInfo): String {
