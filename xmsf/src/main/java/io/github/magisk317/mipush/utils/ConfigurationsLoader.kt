@@ -23,6 +23,7 @@ import java.io.InputStreamReader
 import java.util.regex.Pattern
 import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.control.PushControllerUtils
 
 class ConfigurationsLoader private constructor(
     private val configCenter: ConfigCenter?,
@@ -53,7 +54,7 @@ class ConfigurationsLoader private constructor(
             val loadedFiles = mutableListOf<DocumentFile>()
             parseDirectory(context, treeUri, exceptions, loadedFiles, configurations)
 
-            if (loadedFiles.isNotEmpty() && runBlocking { configCenter?.isShowConfigurationListOnLoadedAsync() ?: false }) {
+            if (loadedFiles.isNotEmpty() && PushControllerUtils.isAppMainProc(context) && runBlocking { configCenter?.isShowConfigurationListOnLoadedAsync() ?: false }) {
                 val loadedList = StringBuilder("loaded configuration list:")
                 for (file in loadedFiles) {
                     loadedList.append('\n')

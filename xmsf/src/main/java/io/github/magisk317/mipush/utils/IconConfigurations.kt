@@ -16,6 +16,7 @@ import io.github.magisk317.mipush.common.configurations.ConfigJsonException
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.app.ConfigCenter
 import kotlinx.coroutines.runBlocking
+import io.github.magisk317.mipush.control.PushControllerUtils
 
 class IconConfigurations constructor(
     private val configCenter: ConfigCenter
@@ -59,7 +60,7 @@ class IconConfigurations constructor(
             val loadedFiles = mutableListOf<DocumentFile>()
             parseDirectory(context, treeUri, exceptions, loadedFiles)
 
-            if (loadedFiles.isNotEmpty() && runBlocking { configCenter.isShowConfigurationListOnLoadedAsync() }) {
+            if (loadedFiles.isNotEmpty() && PushControllerUtils.isAppMainProc(context) && runBlocking { configCenter.isShowConfigurationListOnLoadedAsync() }) {
                 val loadedList = StringBuilder("loaded icon configuration list:")
                 for (file in loadedFiles) {
                     loadedList.append('\n')
