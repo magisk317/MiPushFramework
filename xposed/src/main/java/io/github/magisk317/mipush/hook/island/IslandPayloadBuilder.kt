@@ -12,6 +12,7 @@ import io.github.d4viddf.hyperisland_kit.models.ImageTextInfoLeft
 import io.github.d4viddf.hyperisland_kit.models.ImageTextInfoRight
 import io.github.d4viddf.hyperisland_kit.models.PicInfo
 import io.github.d4viddf.hyperisland_kit.models.TextInfo
+import io.github.magisk317.mipush.common.NotificationStyle
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -42,6 +43,7 @@ object IslandPayloadBuilder {
         highlightColor: String? = null,
         islandOuterGlow: Boolean = false,
         actions: List<Notification.Action> = emptyList(),
+        style: NotificationStyle = NotificationStyle.GENERAL,
     ): String {
         return createNotification(
             context = context,
@@ -54,6 +56,7 @@ object IslandPayloadBuilder {
             showNotification = showNotification,
             showIslandIcon = showIslandIcon,
             actions = actions,
+            style = style,
         )
             .buildJsonParam()
             .normalizeShowNotification(showNotification)
@@ -76,6 +79,7 @@ object IslandPayloadBuilder {
         showIslandIcon: Boolean = true,
         highlightColor: String? = null,
         islandOuterGlow: Boolean = false,
+        style: NotificationStyle = NotificationStyle.GENERAL,
     ): Bundle {
         val safeContent = content.ifBlank { title }
         val notification = createNotification(
@@ -89,6 +93,7 @@ object IslandPayloadBuilder {
             showNotification = showNotification,
             showIslandIcon = showIslandIcon,
             actions = actions,
+            style = style,
         )
         return Bundle().apply {
             putBundle(
@@ -131,6 +136,7 @@ object IslandPayloadBuilder {
         showNotification: Boolean,
         showIslandIcon: Boolean,
         actions: List<Notification.Action>,
+        style: NotificationStyle = NotificationStyle.GENERAL,
     ): HyperIslandNotification {
         val builder = HyperIslandNotification.Builder(
             context = context,
@@ -138,7 +144,6 @@ object IslandPayloadBuilder {
             ticker = title,
         )
             .addPicture(HyperPicture(PIC_ICON_KEY, icon))
-            .setIconTextInfo(PIC_ICON_KEY, title, content)
             .setIslandConfig(timeout = timeoutSecs)
             .setIslandFirstFloat(firstFloat)
             .setEnableFloat(enableFloat)
@@ -147,6 +152,50 @@ object IslandPayloadBuilder {
             .setAodConfig(title = content)
 
         builder.setSmallIsland(PIC_ICON_KEY)
+
+        // 根据分类选择模板
+        when (style) {
+            NotificationStyle.MESSAGE -> {
+                builder.setChatInfo(title = title, content = content, pictureKey = PIC_ICON_KEY)
+            }
+            NotificationStyle.BANNER -> {
+                builder.setBaseInfo(title = title, content = content, pictureKey = PIC_ICON_KEY, type = 2)
+            }
+            NotificationStyle.ALERT -> {
+                builder.setHighlightInfo(title = title, content = content, picKey = PIC_ICON_KEY)
+                // 尝试提取倒计时并设置岛倒计时
+                val countdownMs = extractCountdownMs(title, content)
+                if (countdownMs > 0) {
+                    builder.setBigIslandCountdown(countdownMs, PIC_ICON_KEY)
+                }
+            }
+            NotificationStyle.PROMO -> {
+                builder.setHighlightInfoV3(primaryText = title, secondaryText = content)
+            }
+            NotificationStyle.MEDIA -> {
+                builder.setCoverInfo(picKey = PIC_ICON_KEY, title = title, content = content)
+            }
+            NotificationStyle.PROGRESS -> {
+                builder.setIconTextInfo(picKey = PIC_ICON_KEY, title = title, content = content)
+                // 尝试提取进度并设置岛环形进度
+                val progress = extractProgress(content)
+                if (progress in 0..100) {
+                    builder.setSmallIslandCircularProgress(
+                        pictureKey = PIC_ICON_KEY,
+                        progress = progress,
+                    )
+                    builder.setBigIslandProgressCircle(
+                        pictureKey = PIC_ICON_KEY,
+                        title = title,
+                        progress = progress,
+                    )
+                }
+            }
+            NotificationStyle.GENERAL -> {
+                builder.setBaseInfo(title = title, content = content, pictureKey = PIC_ICON_KEY, type = 1)
+            }
+        }
+
         builder.setBigIslandInfo(
             left = if (showIslandIcon) {
                 ImageTextInfoLeft(
@@ -214,6 +263,40 @@ object IslandPayloadBuilder {
 
     private fun fallbackIcon(context: Context): Icon {
         return Icon.createWithResource(context, android.R.drawable.sym_def_app_icon)
+    }
+
+    /** 从文本中提取进度百分比，返回 -1 表示未找到 */
+    private fun extractProgress(text: String): Int {
+        Regex("(\\d{1,3})%").find(text)?.let {
+            val value = it.groupValues[1].toIntOrNull()
+            if (value != null && value in 0..100) return value
+        }
+        return -1
+    }
+
+    /** 从标题/内容中提取倒计时毫秒数 */
+    private fun extractCountdownMs(title: String, content: String): Long {
+        val text = "$title $content"
+        Regex("(\\d+)\\s*(?:分钟|min|mins|minute|minutes)").find(text)?.let {
+            val mins = it.groupValues[1].toLongOrNull()
+            if (mins != null && mins in 1..1440) return mins * 60 * 1000
+        }
+        Regex("(\\d+)\\s*(?:小时|hour|hours|hr|hrs)").find(text)?.let {
+            val hours = it.groupValues[1].toLongOrNull()
+            if (hours != null && hours in 1..72) return hours * 3600 * 1000
+        }
+        Regex("(\\d+)\\s*(?:秒|sec|second|seconds)").find(text)?.let {
+            val secs = it.groupValues[1].toLongOrNull()
+            if (secs != null && secs in 1..3600) return secs * 1000
+        }
+        Regex("(\\d{1,2}):(\\d{2})(?::(\\d{2}))?").find(text)?.let {
+            val h = it.groupValues[1].toLongOrNull() ?: 0
+            val m = it.groupValues[2].toLongOrNull() ?: 0
+            val s = it.groupValues[3].toLongOrNull() ?: 0
+            val totalMs = (h * 3600 + m * 60 + s) * 1000
+            if (totalMs in 1000..86400000) return totalMs
+        }
+        return 0
     }
 
     private fun String.fixTextButtonJson(): String {

@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
+import io.github.magisk317.mipush.common.NotificationClassifier
 import io.github.magisk317.mipush.hook.XLog
 
 internal object IslandDispatcherNotifier {
@@ -43,8 +44,9 @@ internal object IslandDispatcherNotifier {
         }
     }
 
-    private fun IslandRequest.toIslandExtras(context: Context) =
-        IslandPayloadBuilder.buildExtras(
+    private fun IslandRequest.toIslandExtras(context: Context): android.os.Bundle {
+        val style = NotificationClassifier.classify(title, content, sourcePackage)
+        return IslandPayloadBuilder.buildExtras(
             context = context,
             title = title,
             content = content,
@@ -59,7 +61,9 @@ internal object IslandDispatcherNotifier {
             showIslandIcon = showIslandIcon,
             highlightColor = highlightColor,
             islandOuterGlow = islandOuterGlow,
+            style = style,
         )
+    }
 
     fun cancel(context: Context, notificationId: Int) {
         runCatching {

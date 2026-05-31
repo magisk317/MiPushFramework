@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.hook.island.template
 
 import android.app.Notification
 import android.content.Context
+import io.github.magisk317.mipush.common.NotificationClassifier
 import io.github.magisk317.mipush.hook.island.IslandPayloadBuilder
 import io.github.magisk317.mipush.hook.island.IslandOptions
 
@@ -18,6 +19,7 @@ object NotificationIslandTemplate : IslandTemplate {
     ) {
         if (!options.canInjectFocusPayload) return
         val viewModel = data.toViewModel(options)
+        val style = NotificationClassifier.classify(viewModel.title, viewModel.content, data.packageName)
         notification.extras.putAll(
             IslandPayloadBuilder.buildExtras(
                 context = context,
@@ -31,6 +33,7 @@ object NotificationIslandTemplate : IslandTemplate {
                 sourcePackage = data.packageName,
                 sourceChannelId = data.channelId,
                 actions = viewModel.actions,
+                style = style,
             ),
         )
     }
