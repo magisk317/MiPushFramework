@@ -52,8 +52,8 @@ data class ConfigListSnapshot(
 
 data class ConfigEditorSnapshot(
     val path: String,
-    val local: ConfigDocumentContent? = null,
-    val remote: ConfigDocumentContent? = null,
+    val local: io.github.magisk317.mipush.utils.ConfigDocumentContent? = null,
+    val remote: io.github.magisk317.mipush.utils.ConfigDocumentContent? = null,
     val remoteMeta: CoreRemoteConfigFile? = null,
     val localMeta: LocalConfigFile? = null,
     val remoteError: String? = null,

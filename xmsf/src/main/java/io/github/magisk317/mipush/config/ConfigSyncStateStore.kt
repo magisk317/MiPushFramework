@@ -5,6 +5,12 @@ import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromStream
+import kotlinx.serialization.json.encodeToStream
+import io.github.magisk317.mipush.utils.ConfigSyncRecord
+import io.github.magisk317.mipush.utils.ConfigRemoteSource
+import io.github.magisk317.mipush.utils.RemoteConfigCatalog
+import io.github.magisk317.mipush.utils.ConfigSyncState
 import io.github.magisk317.mipush.common.utils.Utils
 
 class ConfigSyncStateStore constructor(

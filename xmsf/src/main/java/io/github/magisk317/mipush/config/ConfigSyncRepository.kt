@@ -5,6 +5,9 @@ import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.dataStore
 import io.github.magisk317.mipush.utils.ConfigJsonSupport
 import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.utils.ConfigDocumentContent
+import io.github.magisk317.mipush.utils.JsonValidationResult
+import io.github.magisk317.mipush.utils.ConfigSyncRecord
 
 class ConfigSyncRepository constructor(
     private val catalogService: ConfigCatalogService,

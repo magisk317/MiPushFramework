@@ -9,6 +9,7 @@ import io.github.magisk317.mipush.utils.ConfigJsonSupport
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import io.github.magisk317.mipush.utils.ConfigDocumentContent
 import io.github.magisk317.mipush.common.utils.Utils
 
 class LocalConfigRepository constructor(
