@@ -195,12 +195,12 @@ internal object MiPushIslandPayloadBuilder {
         // 根据分类选择模板
         when (style) {
             NotificationStyle.MESSAGE -> applyChatTemplate(builder, title, content, clickAction)
-            NotificationStyle.BANNER -> applyBaseTemplate(builder, title, content, type = 2, clickAction)
+            NotificationStyle.BANNER -> applyIconTextTemplate(builder, title, content, clickAction)
             NotificationStyle.ALERT -> applyHighlightTemplate(builder, title, content, clickAction)
             NotificationStyle.PROMO -> applyHighlightV3Template(builder, title, content, clickAction)
             NotificationStyle.MEDIA -> applyCoverTemplate(builder, title, content, clickAction)
             NotificationStyle.PROGRESS -> applyProgressTemplate(builder, title, content, clickAction, liveUpdateResult)
-            NotificationStyle.GENERAL -> applyBaseTemplate(builder, title, content, type = 1, clickAction)
+            NotificationStyle.GENERAL -> applyIconTextTemplate(builder, title, content, clickAction)
         }
 
         return builder
@@ -235,19 +235,17 @@ internal object MiPushIslandPayloadBuilder {
         }
     }
 
-    /** BaseInfo 模板 - 通用/横幅通知 */
-    private fun applyBaseTemplate(
+    /** IconTextInfo 模板 - 通用/横幅通知，保持头像/应用图标在焦点横幅左侧 */
+    private fun applyIconTextTemplate(
         builder: HyperIslandNotification,
         title: String,
         content: String,
-        type: Int = 1,
         clickAction: HyperAction?,
     ) {
-        builder.setBaseInfo(
+        builder.setIconTextInfo(
+            picKey = PIC_ICON_KEY,
             title = title,
             content = content,
-            pictureKey = PIC_ICON_KEY,
-            type = type,
         )
         builder.setBigIslandInfo(
             left = ImageTextInfoLeft(

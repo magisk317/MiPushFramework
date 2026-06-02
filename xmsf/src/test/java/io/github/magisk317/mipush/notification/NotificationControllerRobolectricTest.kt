@@ -174,6 +174,36 @@ class NotificationControllerRobolectricTest {
     }
 
     @Test
+    fun `general island payload uses icon text template to keep icon leading`() {
+        val context = RuntimeEnvironment.getApplication()
+        val metaInfo = PushMetaInfo().apply {
+            title = "芝麻分成长锦囊可领！"
+            description = "点滴信用 重在积累"
+        }
+
+        val focusBundle = MiPushIslandPayloadBuilder.build(
+            context = context,
+            metaInfo = metaInfo,
+            packageName = "com.eg.android.AlipayGphone",
+            largeIcon = null,
+        )
+
+        assertNotNull(focusBundle)
+        val focusParam = focusBundle!!.getString("miui.focus.param")
+        assertNotNull(focusParam)
+        val paramV2 = JSONObject(focusParam!!).getJSONObject("param_v2")
+        assertFalse(paramV2.has("baseInfo"))
+        assertTrue(paramV2.has("iconTextInfo"))
+        assertEquals(
+            "miui.focus.pic_mipush_icon",
+            paramV2
+                .getJSONObject("iconTextInfo")
+                .getJSONObject("animIconInfo")
+                .getString("src"),
+        )
+    }
+
+    @Test
     fun `island payload wires click action as activity action`() {
         val context = RuntimeEnvironment.getApplication()
         val clickIntent = LegacyUiEntryPoints.mainActivityIntent(context, startRoute = EVENTS_ROUTE)

@@ -6,9 +6,9 @@ package io.github.magisk317.mipush.common
 enum class NotificationStyle {
     /** IM/聊天消息 - 使用 ChatInfo 模板 */
     MESSAGE,
-    /** 通用通知（新闻/系统） - 使用 BaseInfo type=1 */
+    /** 通用通知（新闻/系统） - 使用 IconTextInfo */
     GENERAL,
-    /** 横幅通知（广告/推广） - 使用 BaseInfo type=2 */
+    /** 横幅通知（广告/推广） - 使用 IconTextInfo */
     BANNER,
     /** 提醒类（倒计时/闹钟） - 使用 HighlightInfo */
     ALERT,

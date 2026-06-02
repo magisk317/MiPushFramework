@@ -159,7 +159,7 @@ object IslandPayloadBuilder {
                 builder.setChatInfo(title = title, content = content, pictureKey = PIC_ICON_KEY)
             }
             NotificationStyle.BANNER -> {
-                builder.setBaseInfo(title = title, content = content, pictureKey = PIC_ICON_KEY, type = 2)
+                builder.setIconTextInfo(picKey = PIC_ICON_KEY, title = title, content = content)
             }
             NotificationStyle.ALERT -> {
                 builder.setHighlightInfo(title = title, content = content, picKey = PIC_ICON_KEY)
@@ -192,7 +192,7 @@ object IslandPayloadBuilder {
                 }
             }
             NotificationStyle.GENERAL -> {
-                builder.setBaseInfo(title = title, content = content, pictureKey = PIC_ICON_KEY, type = 1)
+                builder.setIconTextInfo(picKey = PIC_ICON_KEY, title = title, content = content)
             }
         }
 
