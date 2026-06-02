@@ -508,6 +508,9 @@
     <string name="pref_island_focus_notif_summary">允许生成的焦点通知参数通过 XMSF 焦点认证。</string>
 
     <string name="mock_target_package">目标包名</string>
+    <string name="mock_group_notification_shade">通知栏</string>
+    <string name="mock_group_dynamic_island">灵动岛</string>
+    <string name="mock_group_focus_templates">焦点模板</string>
 
     <!-- Mock notification content strings -->
     <string name="mock_channel_name">模拟通知测试</string>
@@ -546,9 +549,21 @@
     <string name="mock_kind_heads_up">浮动通知</string>
     <string name="mock_kind_heads_up_desc">高优先级横幅通知</string>
     <string name="mock_kind_dynamic_island">灵动岛</string>
-    <string name="mock_kind_dynamic_island_desc">只显示浮岛，不发送通知栏通知</string>
+    <string name="mock_kind_dynamic_island_desc">只显示小岛，不发送通知栏通知</string>
     <string name="mock_kind_focus_notification">焦点通知</string>
-    <string name="mock_kind_focus_notification_desc">发送带生成焦点参数的通知栏通知</string>
+    <string name="mock_kind_focus_notification_desc">通过 SystemUI 发送通用焦点岛模板</string>
+    <string name="mock_kind_focus_message">焦点聊天</string>
+    <string name="mock_kind_focus_message_desc">通过 SystemUI 发送聊天焦点岛模板</string>
+    <string name="mock_kind_focus_banner">焦点横幅</string>
+    <string name="mock_kind_focus_banner_desc">通过 SystemUI 发送横幅焦点岛模板</string>
+    <string name="mock_kind_focus_alert">焦点提醒</string>
+    <string name="mock_kind_focus_alert_desc">通过 SystemUI 发送提醒焦点岛模板</string>
+    <string name="mock_kind_focus_promo">焦点促销</string>
+    <string name="mock_kind_focus_promo_desc">通过 SystemUI 发送促销焦点岛模板</string>
+    <string name="mock_kind_focus_media">焦点媒体</string>
+    <string name="mock_kind_focus_media_desc">通过 SystemUI 发送媒体封面焦点岛模板</string>
+    <string name="mock_kind_focus_progress">焦点进度</string>
+    <string name="mock_kind_focus_progress_desc">通过 SystemUI 发送进度焦点岛模板</string>
     <string name="mock_kind_voip">VoIP 来电</string>
     <string name="mock_kind_voip_desc">全屏来电通知</string>
     <string name="mock_kind_live_update">实时进度</string>

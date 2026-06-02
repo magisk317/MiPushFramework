@@ -45,7 +45,7 @@ internal object IslandDispatcherNotifier {
     }
 
     private fun IslandRequest.toIslandExtras(context: Context): android.os.Bundle {
-        val style = NotificationClassifier.classify(title, content, sourcePackage)
+        val resolvedStyle = style ?: NotificationClassifier.classify(title, content, sourcePackage)
         return IslandPayloadBuilder.buildExtras(
             context = context,
             title = title,
@@ -61,7 +61,8 @@ internal object IslandDispatcherNotifier {
             showIslandIcon = showIslandIcon,
             highlightColor = highlightColor,
             islandOuterGlow = islandOuterGlow,
-            style = style,
+            style = resolvedStyle,
+            smallOnly = smallOnly,
         )
     }
 

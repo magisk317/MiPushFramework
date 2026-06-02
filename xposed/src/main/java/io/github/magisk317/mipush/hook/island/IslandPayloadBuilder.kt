@@ -44,6 +44,7 @@ object IslandPayloadBuilder {
         islandOuterGlow: Boolean = false,
         actions: List<Notification.Action> = emptyList(),
         style: NotificationStyle = NotificationStyle.GENERAL,
+        smallOnly: Boolean = false,
     ): String {
         return createNotification(
             context = context,
@@ -62,6 +63,7 @@ object IslandPayloadBuilder {
             .normalizeShowNotification(showNotification)
             .fixTextButtonJson()
             .injectIslandAppearance(highlightColor, islandOuterGlow)
+            .preserveTriggerAreas(smallOnly)
     }
 
     fun buildExtras(
@@ -80,6 +82,7 @@ object IslandPayloadBuilder {
         highlightColor: String? = null,
         islandOuterGlow: Boolean = false,
         style: NotificationStyle = NotificationStyle.GENERAL,
+        smallOnly: Boolean = false,
     ): Bundle {
         val safeContent = content.ifBlank { title }
         val notification = createNotification(
@@ -113,7 +116,8 @@ object IslandPayloadBuilder {
                     .buildJsonParam()
                     .normalizeShowNotification(showNotification)
                     .fixTextButtonJson()
-                    .injectIslandAppearance(highlightColor, islandOuterGlow),
+                    .injectIslandAppearance(highlightColor, islandOuterGlow)
+                    .preserveTriggerAreas(smallOnly),
             )
             putString(IslandDispatchContract.OWNER, IslandDispatchContract.OWNER_MARKER)
             putBoolean(IslandDispatchContract.PROCESSED, true)
@@ -138,6 +142,16 @@ object IslandPayloadBuilder {
         actions: List<Notification.Action>,
         style: NotificationStyle = NotificationStyle.GENERAL,
     ): HyperIslandNotification {
+        val hyperActions = actions.take(2).mapIndexedNotNull { index, action ->
+            val pendingIntent = action.actionIntent ?: return@mapIndexedNotNull null
+            HyperAction(
+                key = actionKey(index),
+                title = action.title?.toString().orEmpty(),
+                pendingIntent = pendingIntent,
+                actionIntentType = 2,
+            )
+        }
+        val primaryAction = hyperActions.firstOrNull()
         val builder = HyperIslandNotification.Builder(
             context = context,
             businessName = BUSINESS,
@@ -153,50 +167,135 @@ object IslandPayloadBuilder {
 
         builder.setSmallIsland(PIC_ICON_KEY)
 
-        // 根据分类选择模板
         when (style) {
-            NotificationStyle.MESSAGE -> {
-                builder.setChatInfo(title = title, content = content, pictureKey = PIC_ICON_KEY)
-            }
-            NotificationStyle.BANNER -> {
-                builder.setIconTextInfo(picKey = PIC_ICON_KEY, title = title, content = content)
-            }
-            NotificationStyle.ALERT -> {
-                builder.setHighlightInfo(title = title, content = content, picKey = PIC_ICON_KEY)
-                // 尝试提取倒计时并设置岛倒计时
-                val countdownMs = extractCountdownMs(title, content)
-                if (countdownMs > 0) {
-                    builder.setBigIslandCountdown(countdownMs, PIC_ICON_KEY)
-                }
-            }
-            NotificationStyle.PROMO -> {
-                builder.setHighlightInfoV3(primaryText = title, secondaryText = content)
-            }
-            NotificationStyle.MEDIA -> {
-                builder.setCoverInfo(picKey = PIC_ICON_KEY, title = title, content = content)
-            }
-            NotificationStyle.PROGRESS -> {
-                builder.setIconTextInfo(picKey = PIC_ICON_KEY, title = title, content = content)
-                // 尝试提取进度并设置岛环形进度
-                val progress = extractProgress(content)
-                if (progress in 0..100) {
-                    builder.setSmallIslandCircularProgress(
-                        pictureKey = PIC_ICON_KEY,
-                        progress = progress,
-                    )
-                    builder.setBigIslandProgressCircle(
-                        pictureKey = PIC_ICON_KEY,
-                        title = title,
-                        progress = progress,
-                    )
-                }
-            }
-            NotificationStyle.GENERAL -> {
-                builder.setIconTextInfo(picKey = PIC_ICON_KEY, title = title, content = content)
-            }
+            NotificationStyle.MESSAGE -> applyChatTemplate(builder, title, content, showIslandIcon, primaryAction)
+            NotificationStyle.BANNER -> applyIconTextTemplate(builder, title, content, showIslandIcon, primaryAction)
+            NotificationStyle.ALERT -> applyAlertTemplate(builder, title, content, showIslandIcon, primaryAction)
+            NotificationStyle.PROMO -> applyPromoTemplate(builder, title, content, showIslandIcon, primaryAction)
+            NotificationStyle.MEDIA -> applyMediaTemplate(builder, title, content, showIslandIcon)
+            NotificationStyle.PROGRESS -> applyProgressTemplate(builder, title, content, showIslandIcon, primaryAction)
+            NotificationStyle.GENERAL -> applyIconTextTemplate(builder, title, content, showIslandIcon, primaryAction)
         }
 
-        builder.setBigIslandInfo(
+        if (hyperActions.isNotEmpty()) {
+            hyperActions.forEach { builder.addHiddenAction(it) }
+            builder.setTextButtons(*hyperActions.toTypedArray())
+        }
+
+        return builder
+    }
+
+    private fun applyChatTemplate(
+        builder: HyperIslandNotification,
+        title: String,
+        content: String,
+        showIslandIcon: Boolean,
+        action: HyperAction?,
+    ) {
+        builder.setChatInfo(title = title, content = content, pictureKey = PIC_ICON_KEY)
+        builder.setStandardBigIslandInfo(title, content, showIslandIcon)
+        action?.let { builder.setHintAction(title, content, it) }
+    }
+
+    private fun applyIconTextTemplate(
+        builder: HyperIslandNotification,
+        title: String,
+        content: String,
+        showIslandIcon: Boolean,
+        action: HyperAction?,
+    ) {
+        builder.setIconTextInfo(picKey = PIC_ICON_KEY, title = title, content = content)
+        builder.setStandardBigIslandInfo(title, content, showIslandIcon)
+        action?.let { builder.setHintAction(title, content, it) }
+    }
+
+    private fun applyAlertTemplate(
+        builder: HyperIslandNotification,
+        title: String,
+        content: String,
+        showIslandIcon: Boolean,
+        action: HyperAction?,
+    ) {
+        val countdownMs = extractCountdownMs(title, content)
+        if (countdownMs > 0) {
+            builder.setHighlightInfo(title = title, content = content, picKey = PIC_ICON_KEY)
+            builder.setBigIslandCountdown(countdownMs, PIC_ICON_KEY)
+            if (action != null) {
+                builder.setHintAction(resolveAlertHint(title, content) ?: title, null, action)
+            }
+            return
+        }
+
+        builder.setIconTextInfo(picKey = PIC_ICON_KEY, title = title, content = content)
+        builder.setTwoLineBigIslandInfo(title, content, showIslandIcon)
+        action?.let { builder.addHiddenAction(it) }
+    }
+
+    private fun applyPromoTemplate(
+        builder: HyperIslandNotification,
+        title: String,
+        content: String,
+        showIslandIcon: Boolean,
+        action: HyperAction?,
+    ) {
+        builder.setHighlightInfoV3(
+            primaryText = title,
+            secondaryText = content,
+            action = action,
+        )
+        builder.setStandardBigIslandInfo(title, content, showIslandIcon)
+    }
+
+    private fun applyMediaTemplate(
+        builder: HyperIslandNotification,
+        title: String,
+        content: String,
+        showIslandIcon: Boolean,
+    ) {
+        builder.setCoverInfo(picKey = PIC_ICON_KEY, title = title, content = content)
+        builder.setStandardBigIslandInfo(title, content, showIslandIcon)
+    }
+
+    private fun applyProgressTemplate(
+        builder: HyperIslandNotification,
+        title: String,
+        content: String,
+        showIslandIcon: Boolean,
+        action: HyperAction?,
+    ) {
+        builder.setIconTextInfo(picKey = PIC_ICON_KEY, title = title, content = content)
+        val progress = extractProgress(content)
+        if (progress in 0..100) {
+            builder.setProgressBar(progress = progress)
+            builder.setSmallIslandCircularProgress(
+                pictureKey = PIC_ICON_KEY,
+                progress = progress,
+            )
+            builder.setBigIslandProgressCircle(
+                pictureKey = PIC_ICON_KEY,
+                title = title,
+                progress = progress,
+            )
+        } else {
+            builder.setProgressBar(progress = 0)
+            builder.setStandardBigIslandInfo(title, content, showIslandIcon)
+        }
+        val hintLabel = resolveProgressHint(title, content)
+        if (hintLabel != null) {
+            if (action != null) {
+                builder.setHintAction(hintLabel, null, action)
+            } else {
+                builder.setHintInfo(hintLabel)
+            }
+        }
+    }
+
+    private fun HyperIslandNotification.setStandardBigIslandInfo(
+        title: String,
+        content: String,
+        showIslandIcon: Boolean,
+    ) {
+        setBigIslandInfo(
             left = if (showIslandIcon) {
                 ImageTextInfoLeft(
                     type = 1,
@@ -217,22 +316,51 @@ object IslandPayloadBuilder {
                 ),
             ),
         )
+    }
 
-        val hyperActions = actions.take(2).mapIndexedNotNull { index, action ->
-            val pendingIntent = action.actionIntent ?: return@mapIndexedNotNull null
-            HyperAction(
-                key = "mipush_island_action_$index",
-                title = action.title?.toString().orEmpty(),
-                pendingIntent = pendingIntent,
-                actionIntentType = 2,
-            )
-        }
-        if (hyperActions.isNotEmpty()) {
-            hyperActions.forEach { builder.addHiddenAction(it) }
-            builder.setTextButtons(*hyperActions.toTypedArray())
-        }
+    private fun HyperIslandNotification.setTwoLineBigIslandInfo(
+        title: String,
+        content: String,
+        showIslandIcon: Boolean,
+    ) {
+        setBigIslandInfo(
+            left = if (showIslandIcon) {
+                ImageTextInfoLeft(
+                    type = 1,
+                    picInfo = PicInfo(type = 1, pic = PIC_ICON_KEY),
+                    textInfo = TextInfo(title = title, content = content),
+                )
+            } else {
+                ImageTextInfoLeft(
+                    type = 1,
+                    textInfo = TextInfo(title = title, content = content),
+                )
+            },
+        )
+    }
 
-        return builder
+    private fun resolveAlertHint(title: String, content: String): String? {
+        val text = "$title $content"
+        return when {
+            text.contains("闹钟") || text.contains("alarm") -> "闹钟"
+            text.contains("提醒") || text.contains("reminder") -> "提醒"
+            text.contains("待办") || text.contains("todo") -> "待办"
+            text.contains("会议") || text.contains("meeting") -> "会议"
+            text.contains("倒计时") || text.contains("countdown") -> "倒计时"
+            else -> null
+        }
+    }
+
+    private fun resolveProgressHint(title: String, content: String): String? {
+        val text = "$title $content"
+        return when {
+            text.contains("下载") || text.contains("download") -> "下载中"
+            text.contains("上传") || text.contains("upload") -> "上传中"
+            text.contains("安装") || text.contains("install") -> "安装中"
+            text.contains("更新") || text.contains("update") -> "更新中"
+            text.contains("同步") || text.contains("sync") -> "同步中"
+            else -> null
+        }
     }
 
     private fun buildActionsBundle(actions: List<Notification.Action>): Bundle? {
@@ -383,4 +511,9 @@ object IslandPayloadBuilder {
             this
         }
     }
+
+    internal fun preserveTriggerAreasJson(raw: String): String = raw
+
+    private fun String.preserveTriggerAreas(smallOnly: Boolean): String =
+        if (smallOnly) preserveTriggerAreasJson(this) else this
 }

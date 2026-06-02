@@ -524,6 +524,9 @@ This could be the application doing a reverse registration, or the registration 
     <string name="pref_island_focus_notif_summary">Allow generated focus payloads to pass XMSF focus authorization.</string>
 
     <string name="mock_target_package">Target Package</string>
+    <string name="mock_group_notification_shade">Notification shade</string>
+    <string name="mock_group_dynamic_island">Dynamic island</string>
+    <string name="mock_group_focus_templates">Focus templates</string>
     <string name="mock_kind_plain">Plain</string>
     <string name="mock_kind_plain_desc">Basic notification with title and text</string>
     <string name="mock_kind_big_text">BigText</string>
@@ -541,9 +544,21 @@ This could be the application doing a reverse registration, or the registration 
     <string name="mock_kind_heads_up">Heads-up</string>
     <string name="mock_kind_heads_up_desc">High priority banner notification</string>
     <string name="mock_kind_dynamic_island">Dynamic Island</string>
-    <string name="mock_kind_dynamic_island_desc">Show only the floating island without posting a notification</string>
+    <string name="mock_kind_dynamic_island_desc">Show only the small floating island without posting a notification</string>
     <string name="mock_kind_focus_notification">Focus Notification</string>
-    <string name="mock_kind_focus_notification_desc">Post a notification with generated focus payloads</string>
+    <string name="mock_kind_focus_notification_desc">Send the general focus island template through SystemUI</string>
+    <string name="mock_kind_focus_message">Focus Chat</string>
+    <string name="mock_kind_focus_message_desc">Send the chat focus island template through SystemUI</string>
+    <string name="mock_kind_focus_banner">Focus Banner</string>
+    <string name="mock_kind_focus_banner_desc">Send the banner focus island template through SystemUI</string>
+    <string name="mock_kind_focus_alert">Focus Alert</string>
+    <string name="mock_kind_focus_alert_desc">Send the reminder focus island template through SystemUI</string>
+    <string name="mock_kind_focus_promo">Focus Promo</string>
+    <string name="mock_kind_focus_promo_desc">Send the promo focus island template through SystemUI</string>
+    <string name="mock_kind_focus_media">Focus Media</string>
+    <string name="mock_kind_focus_media_desc">Send the media cover focus island template through SystemUI</string>
+    <string name="mock_kind_focus_progress">Focus Progress</string>
+    <string name="mock_kind_focus_progress_desc">Send the progress focus island template through SystemUI</string>
     <string name="mock_kind_voip">VoIP Incoming Call</string>
     <string name="mock_kind_voip_desc">Full-screen call notification</string>
     <string name="mock_kind_live_update">Live Update</string>

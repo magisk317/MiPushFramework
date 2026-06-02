@@ -6,6 +6,7 @@ import android.content.Intent
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
+import io.github.magisk317.mipush.common.NotificationStyle
 
 data class IslandRequest(
     val title: String,
@@ -25,6 +26,8 @@ data class IslandRequest(
     val clearBeforePost: Boolean = false,
     val highlightColor: String? = null,
     val islandOuterGlow: Boolean = false,
+    val style: NotificationStyle? = null,
+    val smallOnly: Boolean = false,
 ) {
     fun toBundle(): Bundle = Bundle().apply {
         putString(KEY_TITLE, title)
@@ -43,6 +46,8 @@ data class IslandRequest(
         putBoolean(KEY_CLEAR_BEFORE_POST, clearBeforePost)
         putString(KEY_HIGHLIGHT_COLOR, highlightColor)
         putBoolean(KEY_ISLAND_OUTER_GLOW, islandOuterGlow)
+        putString(KEY_STYLE, style?.name)
+        putBoolean(KEY_SMALL_ONLY, smallOnly)
         if (actions.isNotEmpty()) {
             putParcelableArray(KEY_ACTIONS, actions.toTypedArray())
         }
@@ -66,6 +71,8 @@ data class IslandRequest(
         private const val KEY_CLEAR_BEFORE_POST = "clearBeforePost"
         private const val KEY_HIGHLIGHT_COLOR = "highlightColor"
         private const val KEY_ISLAND_OUTER_GLOW = "islandOuterGlow"
+        private const val KEY_STYLE = "style"
+        private const val KEY_SMALL_ONLY = "smallOnly"
 
         fun fromIntent(intent: Intent): IslandRequest {
             return fromBundle(intent.extras ?: Bundle())
@@ -93,6 +100,10 @@ data class IslandRequest(
                 clearBeforePost = bundle.getBoolean(KEY_CLEAR_BEFORE_POST, false),
                 highlightColor = bundle.getString(KEY_HIGHLIGHT_COLOR),
                 islandOuterGlow = bundle.getBoolean(KEY_ISLAND_OUTER_GLOW, false),
+                style = bundle.getString(KEY_STYLE)?.let { styleName ->
+                    runCatching { NotificationStyle.valueOf(styleName) }.getOrNull()
+                },
+                smallOnly = bundle.getBoolean(KEY_SMALL_ONLY, false),
             )
         }
 

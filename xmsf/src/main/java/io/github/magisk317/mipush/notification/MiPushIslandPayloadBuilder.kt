@@ -45,11 +45,12 @@ internal object MiPushIslandPayloadBuilder {
         channelId: String? = null,
         channelName: String? = null,
         liveUpdateResult: LiveUpdateDetector.DetectionResult? = null,
+        styleOverride: NotificationStyle? = null,
     ): String? {
         if (!options.canBuildFocusPayload) return null
         val (title, content) = resolveDisplayText(metaInfo) ?: return null
         val icon = resolveNotificationIcon(context, packageName, notificationIcon, largeIcon)
-        val style = resolveStyle(metaInfo, packageName, channelId, channelName, liveUpdateResult)
+        val style = styleOverride ?: resolveStyle(metaInfo, packageName, channelId, channelName, liveUpdateResult)
         return createBuilder(context, title, content, icon, options, style, liveUpdateResult = liveUpdateResult).buildJsonParam()
     }
 
@@ -69,12 +70,13 @@ internal object MiPushIslandPayloadBuilder {
         channelId: String? = null,
         channelName: String? = null,
         liveUpdateResult: LiveUpdateDetector.DetectionResult? = null,
+        styleOverride: NotificationStyle? = null,
     ): Bundle? {
         if (!options.canBuildFocusPayload) return null
         val (title, content) = resolveDisplayText(metaInfo, displayTitle, displayContent) ?: return null
         val appLabel = resolveAppLabel(context, packageName)
         val icon = resolveNotificationIcon(context, packageName, notificationIcon, largeIcon)
-        val style = resolveStyle(metaInfo, packageName, channelId, channelName, liveUpdateResult)
+        val style = styleOverride ?: resolveStyle(metaInfo, packageName, channelId, channelName, liveUpdateResult)
         val payloadOptions = if (keepNotificationVisible) {
             options.copy(showNotification = true)
         } else {
@@ -196,7 +198,7 @@ internal object MiPushIslandPayloadBuilder {
         when (style) {
             NotificationStyle.MESSAGE -> applyChatTemplate(builder, title, content, clickAction)
             NotificationStyle.BANNER -> applyIconTextTemplate(builder, title, content, clickAction)
-            NotificationStyle.ALERT -> applyHighlightTemplate(builder, title, content, clickAction)
+            NotificationStyle.ALERT -> applyAlertTemplate(builder, title, content, clickAction)
             NotificationStyle.PROMO -> applyHighlightV3Template(builder, title, content, clickAction)
             NotificationStyle.MEDIA -> applyCoverTemplate(builder, title, content, clickAction)
             NotificationStyle.PROGRESS -> applyProgressTemplate(builder, title, content, clickAction, liveUpdateResult)
@@ -264,47 +266,40 @@ internal object MiPushIslandPayloadBuilder {
         }
     }
 
-    /** HighlightInfo 模板 - 提醒/倒计时 */
-    private fun applyHighlightTemplate(
+    /** 提醒类：普通提醒用两行图文；明确倒计时才使用 HighlightInfo/倒计时组件。 */
+    private fun applyAlertTemplate(
         builder: HyperIslandNotification,
         title: String,
         content: String,
         clickAction: HyperAction?,
     ) {
-        builder.setHighlightInfo(
-            title = title,
-            content = content,
-            picKey = PIC_ICON_KEY,
-        )
-
-        // 尝试从内容中提取倒计时时间，设置岛倒计时
         val countdownMs = extractCountdownMs(title, content)
         if (countdownMs > 0) {
-            builder.setBigIslandCountdown(countdownMs, PIC_ICON_KEY)
-        } else {
-            builder.setBigIslandInfo(
-                left = ImageTextInfoLeft(
-                    type = 1,
-                    picInfo = PicInfo(type = 1, pic = PIC_ICON_KEY),
-                    textInfo = TextInfo(title = title),
-                ),
-                right = ImageTextInfoRight(
-                    type = 2,
-                    textInfo = TextInfo(title = content, narrowFont = true),
-                ),
+            builder.setHighlightInfo(
+                title = title,
+                content = content,
+                picKey = PIC_ICON_KEY,
             )
-        }
-
-        // 设置 HintInfo 提示标签
-        val hintLabel = resolveAlertHint(title, content)
-        if (hintLabel != null) {
+            builder.setBigIslandCountdown(countdownMs, PIC_ICON_KEY)
             if (clickAction != null) {
-                builder.setHintAction(hintLabel, null, clickAction)
-            } else {
-                builder.setHintInfo(hintLabel)
+                builder.setHintAction(resolveAlertHint(title, content) ?: title, null, clickAction)
+                builder.addHiddenAction(clickAction)
             }
+            return
         }
 
+        builder.setIconTextInfo(
+            picKey = PIC_ICON_KEY,
+            title = title,
+            content = content,
+        )
+        builder.setBigIslandInfo(
+            left = ImageTextInfoLeft(
+                type = 1,
+                picInfo = PicInfo(type = 1, pic = PIC_ICON_KEY),
+                textInfo = TextInfo(title = title, content = content),
+            ),
+        )
         if (clickAction != null) {
             builder.addHiddenAction(clickAction)
         }

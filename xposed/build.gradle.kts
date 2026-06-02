@@ -9,6 +9,7 @@ import org.gradle.kotlin.dsl.configure
 
 plugins {
     id("mipush.android.library")
+    alias(libs.plugins.robolectric.junit5)
 }
 
 abstract class GenerateCompatProfilesTask : DefaultTask() {
@@ -147,7 +148,14 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.libxposed.api)
     testImplementation(libs.junit.jupiter)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.robolectric.junit5.extension)
     testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    jvmArgs("-Xshare:off", "--enable-native-access=ALL-UNNAMED")
+    useJUnitPlatform()
 }
 
 extensions.configure<LibraryAndroidComponentsExtension> {

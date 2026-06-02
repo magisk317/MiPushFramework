@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.drawable.Icon
 import android.os.Build
@@ -12,6 +13,7 @@ import android.os.Bundle
 import android.os.Parcelable
 import androidx.core.app.NotificationCompat
 import com.xiaomi.xmpush.thrift.PushMetaInfo
+import io.github.magisk317.mipush.common.NotificationStyle
 import io.github.magisk317.mipush.common.utils.CustomConfiguration
 import io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
@@ -38,6 +40,8 @@ class NotificationControllerRobolectricTest {
         private const val EVENTS_ROUTE = "events"
         /** Mirrors MainActivity.EXTRA_START_ROUTE */
         private const val EXTRA_START_ROUTE = "extra_start_route"
+        private const val ACTION_SHOW_ISLAND = "io.github.magisk317.mipush.action.SHOW_ISLAND"
+        private const val SYSTEM_UI_PACKAGE = "com.android.systemui"
     }
 
     @AfterEach
@@ -47,6 +51,7 @@ class NotificationControllerRobolectricTest {
         notificationManager.cancelAll()
         notificationManager.deleteNotificationChannel("target-default-implicit")
         notificationManager.deleteNotificationChannel("target-explicit")
+        shadowOf(RuntimeEnvironment.getApplication()).clearBroadcastIntents()
     }
 
     @Test
@@ -200,7 +205,51 @@ class NotificationControllerRobolectricTest {
                 .getJSONObject("iconTextInfo")
                 .getJSONObject("animIconInfo")
                 .getString("src"),
+            )
+    }
+
+    @Test
+    fun `reminder island payload uses two-line icon text layout instead of highlight hint`() {
+        val context = RuntimeEnvironment.getApplication()
+        val metaInfo = PushMetaInfo().apply {
+            title = "芝麻粒消失提醒"
+            description = "可攒30粒，产生后7天消失，请及时处理"
+        }
+
+        val focusBundle = MiPushIslandPayloadBuilder.build(
+            context = context,
+            metaInfo = metaInfo,
+            packageName = "com.eg.android.AlipayGphone",
+            largeIcon = null,
         )
+
+        assertNotNull(focusBundle)
+        val paramV2 = JSONObject(focusBundle!!.getString("miui.focus.param")!!)
+            .getJSONObject("param_v2")
+        assertFalse(paramV2.has("highlightInfo"))
+        assertFalse(paramV2.has("hintInfo"))
+        assertTrue(paramV2.has("iconTextInfo"))
+        assertEquals(
+            metaInfo.title,
+            paramV2.getJSONObject("iconTextInfo").getString("title"),
+        )
+        assertEquals(
+            metaInfo.description,
+            paramV2.getJSONObject("iconTextInfo").getString("content"),
+        )
+
+        val bigIslandArea = paramV2
+            .getJSONObject("param_island")
+            .getJSONObject("bigIslandArea")
+        assertFalse(bigIslandArea.has("imageTextInfoRight"))
+        val left = bigIslandArea.getJSONObject("imageTextInfoLeft")
+        assertEquals(
+            "miui.focus.pic_mipush_icon",
+            left.getJSONObject("picInfo").getString("pic"),
+        )
+        val textInfo = left.getJSONObject("textInfo")
+        assertEquals(metaInfo.title, textInfo.getString("title"))
+        assertEquals(metaInfo.description, textInfo.getString("content"))
     }
 
     @Test
@@ -267,34 +316,75 @@ class NotificationControllerRobolectricTest {
     }
 
     @Test
-    fun `focus mock notification opens events and carries activity focus action`() {
+    fun `dynamic island mock broadcasts promo SystemUI island request`() {
+        val context = RuntimeEnvironment.getApplication()
+        val packageName = context.packageName
+
+        NotificationController.testMock(context, MockNotificationKind.DYNAMIC_ISLAND, packageName)
+
+        val intent = singleIslandBroadcast()
+
+        assertEquals(SYSTEM_UI_PACKAGE, intent.`package`)
+        assertEquals(packageName, intent.getStringExtra("sourcePackage"))
+        assertEquals("mipush_mock_island", intent.getStringExtra("sourceChannelId"))
+        assertEquals(NotificationStyle.PROMO.name, intent.getStringExtra("style"))
+        assertFalse(intent.getBooleanExtra("smallOnly", true))
+        assertFalse(intent.getBooleanExtra("showNotification", true))
+        assertTrue(intent.getBooleanExtra("islandOuterGlow", false))
+        assertTrue(intent.getBooleanExtra("clearBeforePost", false))
+    }
+
+    @Test
+    fun `focus mock notification broadcasts SystemUI island request with activity action`() {
         val context = RuntimeEnvironment.getApplication()
         val packageName = context.packageName
 
         NotificationController.testMock(context, MockNotificationKind.FOCUS_NOTIFICATION, packageName)
 
-        val posted = findMockNotification(context, MockNotificationKind.FOCUS_NOTIFICATION)
-        val focusParam = posted.extras.getString("miui.focus.param")
-        assertNotNull(focusParam)
-        val actionInfo = JSONObject(focusParam!!)
-            .getJSONObject("param_v2")
-            .getJSONObject("hintInfo")
-            .getJSONObject("actionInfo")
-        assertEquals(1, actionInfo.getInt("actionIntentType"))
-        val action = posted.extras
-            .getBundle("miui.focus.actions")
-            ?.parcelable<Notification.Action>("miui.focus.action_mipush_open")
-        assertNotNull(action)
-        assertTrue(shadowOf(posted.contentIntent).isActivity)
-        assertTrue(shadowOf(action!!.actionIntent).isActivity)
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        assertFalse(notificationManager.activeNotifications.any { it.tag == "xmsf_mock_${MockNotificationKind.FOCUS_NOTIFICATION.name}" })
+
+        val intent = singleIslandBroadcast()
+        val contentIntent = intent.parcelableExtra<PendingIntent>("contentIntent")
+
+        assertEquals(SYSTEM_UI_PACKAGE, intent.`package`)
+        assertEquals(packageName, intent.getStringExtra("sourcePackage"))
+        assertEquals(NotificationStyle.GENERAL.name, intent.getStringExtra("style"))
+        assertFalse(intent.getBooleanExtra("smallOnly", true))
+        assertFalse(intent.getBooleanExtra("showNotification", true))
+        assertTrue(intent.getBooleanExtra("islandOuterGlow", false))
+        assertNotNull(contentIntent)
+        assertTrue(shadowOf(contentIntent!!).isActivity)
         assertEquals(
             EVENTS_ROUTE,
-            shadowOf(posted.contentIntent).savedIntent.getStringExtra(EXTRA_START_ROUTE),
+            shadowOf(contentIntent).savedIntent.getStringExtra(EXTRA_START_ROUTE),
         )
-        assertEquals(
-            EVENTS_ROUTE,
-            shadowOf(action.actionIntent).savedIntent.getStringExtra(EXTRA_START_ROUTE),
+    }
+
+    @Test
+    fun `focus mock notifications broadcast every hyperisland template style`() {
+        val context = RuntimeEnvironment.getApplication()
+        val packageName = context.packageName
+        val expectedStyles = mapOf(
+            MockNotificationKind.FOCUS_NOTIFICATION to NotificationStyle.GENERAL,
+            MockNotificationKind.FOCUS_MESSAGE to NotificationStyle.MESSAGE,
+            MockNotificationKind.FOCUS_BANNER to NotificationStyle.BANNER,
+            MockNotificationKind.FOCUS_ALERT to NotificationStyle.ALERT,
+            MockNotificationKind.FOCUS_PROMO to NotificationStyle.PROMO,
+            MockNotificationKind.FOCUS_MEDIA to NotificationStyle.MEDIA,
+            MockNotificationKind.FOCUS_PROGRESS to NotificationStyle.PROGRESS,
         )
+
+        expectedStyles.forEach { (kind, expectedStyle) ->
+            shadowOf(RuntimeEnvironment.getApplication()).clearBroadcastIntents()
+            NotificationController.testMock(context, kind, packageName)
+
+            val intent = singleIslandBroadcast()
+            assertEquals(expectedStyle.name, intent.getStringExtra("style"))
+            assertEquals(expectedStyle, kind.focusTemplateStyle)
+            assertFalse(intent.getBooleanExtra("smallOnly", true))
+            assertEquals(expectedStyle == NotificationStyle.MEDIA || expectedStyle == NotificationStyle.PROGRESS, intent.getBooleanExtra("isOngoing", false))
+        }
     }
 
     @Test
@@ -448,6 +538,15 @@ class NotificationControllerRobolectricTest {
         }
     }
 
+    private inline fun <reified T : Parcelable> Intent.parcelableExtra(key: String): T? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            getParcelableExtra(key, T::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            getParcelableExtra(key)
+        }
+    }
+
     private fun assertFocusSequenceEnabled(focusParam: String) {
         val paramV2 = JSONObject(focusParam).getJSONObject("param_v2")
         assertTrue(paramV2.getBoolean("enableFloat"))
@@ -458,6 +557,12 @@ class NotificationControllerRobolectricTest {
                 paramV2.optBoolean("showNotification", false),
             )
         )
+    }
+
+    private fun singleIslandBroadcast(): Intent {
+        return shadowOf(RuntimeEnvironment.getApplication())
+            .broadcastIntents
+            .single { it.action == ACTION_SHOW_ISLAND }
     }
 
     private fun findMockNotification(

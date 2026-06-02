@@ -33,6 +33,7 @@ import com.xiaomi.push.service.MyNotificationIconHelper
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmsf.R
+import io.github.magisk317.mipush.common.NotificationStyle
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.utils.Configurations
@@ -803,47 +804,41 @@ object NotificationController {
                     sourcePackage = packageName,
                     notificationId = id,
                     contentIntent = notifyPendingIntent,
+                    style = NotificationStyle.PROMO,
+                    smallOnly = false,
+                    islandOuterGlow = true,
                 )
                 return
             }
-            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_NOTIFICATION -> {
-                builder.setContentTitle(title)
-                builder.setContentText(description)
-                builder.priority = NotificationCompat.PRIORITY_HIGH
-                val pic = createDemoBitmap(400, 400, 0xFFFF6F00u.toInt())
-                val focusExtras = MiPushIslandPayloadBuilder.build(
-                    context = context,
-                    metaInfo = PushMetaInfo().apply {
-                        setTitle(title)
-                        setDescription(description)
-                    },
-                    packageName = packageName,
-                    largeIcon = pic,
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_NOTIFICATION,
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_MESSAGE,
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_BANNER,
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_ALERT,
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_PROMO,
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_MEDIA,
+            io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_PROGRESS -> {
+                val focusStyle = kind.focusTemplateStyle ?: NotificationStyle.GENERAL
+                val focusSpec = mockFocusSpec(kind, title, description)
+                Napier.i(
+                    "mock test focus island broadcast kind=${kind.name} style=$focusStyle pkg=$packageName id=$id tag=$tag",
+                    tag = TAG,
+                )
+                PushRuntime.observeNotificationEvent(
+                    packageName,
+                    "mock_test_focus_island_broadcast",
+                    "NotificationController.testMock",
+                )
+                context.sendMockIslandBroadcast(
+                    title = focusSpec.title,
+                    description = focusSpec.content,
+                    sourcePackage = packageName,
                     notificationId = id,
                     contentIntent = notifyPendingIntent,
-                    actionTitle = title,
-                    keepNotificationVisible = true,
-                    options = MiPushIslandPreferences.read(context, packageName),
+                    style = focusStyle,
+                    smallOnly = false,
+                    isOngoing = focusStyle == NotificationStyle.MEDIA || focusStyle == NotificationStyle.PROGRESS,
                 )
-                if (focusExtras == null) {
-                    Napier.w(
-                        "mock test focus payload missing kind=${kind.name} pkg=$packageName id=$id",
-                        tag = TAG,
-                    )
-                    PushRuntime.observeNotificationEvent(
-                        packageName,
-                        "mock_test_focus_payload_missing",
-                        "NotificationController.testMock",
-                    )
-                } else {
-                    PushRuntime.observeNotificationEvent(
-                        packageName,
-                        "mock_test_focus_payload_built",
-                        "NotificationController.testMock",
-                    )
-                    focusExtras.let(builder::addExtras)
-                }
-                builder.setLargeIcon(pic)
+                return
             }
             io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.VOIP_INCOMING -> {
                 builder.setContentTitle(context.getString(R.string.mock_voip_title))
@@ -927,39 +922,47 @@ object NotificationController {
             tag = TAG,
         )
         PushRuntime.observeNotificationEvent(packageName, "mock_test_notification_posted", "NotificationController.testMock")
-        if (kind == io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_NOTIFICATION) {
-            if (!notification.extras.containsKey("miui.focus.param")) {
-                PushRuntime.observeNotificationEvent(
-                    packageName,
-                    "mock_test_focus_notification_missing_param",
-                    "NotificationController.testMock",
-                )
-                return
-            }
-            val key = focusNotificationKey(context, packageName, id, tag)
-            FocusNotificationRegistry.registerReplacingUidVariants(context, key)
-            Napier.i("mock test focus notification registered key=$key", tag = TAG)
-            PushRuntime.observeNotificationEvent(
-                packageName,
-                "mock_test_focus_notification_registered",
-                "NotificationController.testMock",
+    }
+
+    private data class MockFocusSpec(
+        val title: String,
+        val content: String,
+    )
+
+    private fun mockFocusSpec(
+        kind: io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind,
+        fallbackTitle: String,
+        fallbackContent: String,
+    ): MockFocusSpec {
+        return when (kind.focusTemplateStyle) {
+            NotificationStyle.MESSAGE -> MockFocusSpec(
+                title = "Alice",
+                content = "focus chat message: $fallbackContent",
             )
-            // Simulate refresh effect: update notification every 2 seconds for 5 times
-            Thread {
-                val steps = listOf(
-                    "已接单，骑手正在赶往商家",
-                    "骑手已到店，等待取餐",
-                    "骑手已取餐，正在配送中",
-                    "骑手距您约500米",
-                    "骑手已到达，请取餐",
-                )
-                for (i in steps.indices) {
-                    Thread.sleep(2000)
-                    builder.setContentText(steps[i])
-                    builder.setWhen(System.currentTimeMillis())
-                    nm.notify(tag, id, builder.build())
-                }
-            }.start()
+            NotificationStyle.BANNER -> MockFocusSpec(
+                title = fallbackTitle,
+                content = "featured banner update: $fallbackContent",
+            )
+            NotificationStyle.ALERT -> MockFocusSpec(
+                title = "focus countdown reminder",
+                content = "countdown 15 minutes before the meeting",
+            )
+            NotificationStyle.PROMO -> MockFocusSpec(
+                title = "focus coupon sale",
+                content = "coupon discount 65% off for template testing",
+            )
+            NotificationStyle.MEDIA -> MockFocusSpec(
+                title = "focus now playing",
+                content = "media cover template: $fallbackContent",
+            )
+            NotificationStyle.PROGRESS -> MockFocusSpec(
+                title = "focus download progress",
+                content = "download progress 65%",
+            )
+            else -> MockFocusSpec(
+                title = fallbackTitle,
+                content = fallbackContent,
+            )
         }
     }
 
@@ -969,6 +972,10 @@ object NotificationController {
         sourcePackage: String,
         notificationId: Int,
         contentIntent: PendingIntent,
+        style: NotificationStyle = NotificationStyle.GENERAL,
+        smallOnly: Boolean = false,
+        isOngoing: Boolean = false,
+        islandOuterGlow: Boolean = true,
     ) {
         val options = MiPushIslandPreferences.read(this, sourcePackage)
         val icon = MiPushIslandPayloadBuilder.resolveNotificationIcon(this, sourcePackage, null)
@@ -991,10 +998,12 @@ object NotificationController {
                 putExtra("sourcePackage", sourcePackage)
                 putExtra("sourceChannelId", "mipush_mock_island")
                 putExtra("contentIntent", contentIntent)
-                putExtra("isOngoing", false)
+                putExtra("isOngoing", isOngoing)
                 putExtra("showIslandIcon", true)
                 putExtra("clearBeforePost", true)
-                putExtra("islandOuterGlow", true)
+                putExtra("islandOuterGlow", islandOuterGlow)
+                putExtra("style", style.name)
+                putExtra("smallOnly", smallOnly)
             },
         )
     }
