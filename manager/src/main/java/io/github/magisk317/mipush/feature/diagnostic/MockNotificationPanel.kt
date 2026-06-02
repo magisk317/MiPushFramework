@@ -213,7 +213,6 @@ private fun MockNotificationItem(
     kind: MockNotificationKind,
     onClick: () -> Unit,
 ) {
-    val context = LocalContext.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -221,11 +220,11 @@ private fun MockNotificationItem(
             .padding(vertical = 10.dp, horizontal = 4.dp),
     ) {
         Text(
-            text = stringResource(kind.getLabelRes(context)),
+            text = stringResource(kind.labelRes),
             style = MaterialTheme.typography.bodyMedium,
         )
         Text(
-            text = stringResource(kind.getDescRes(context)),
+            text = stringResource(kind.descRes),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

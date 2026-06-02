@@ -682,7 +682,7 @@ object NotificationController {
         packageName: String
     ) {
         PushRuntime.observeNotificationEvent(packageName, "mock_test_build_start", "NotificationController.testMock")
-        val kindLabel = context.getString(kind.getLabelRes(context))
+        val kindLabel = context.getString(kind.labelRes)
         val title = context.getString(R.string.debug_test_title, kindLabel)
         val description = context.getString(R.string.debug_test_content, kindLabel) + "\n" + java.util.Date()
 
