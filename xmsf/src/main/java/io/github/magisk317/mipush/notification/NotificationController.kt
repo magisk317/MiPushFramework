@@ -132,18 +132,7 @@ object NotificationController {
             notificationBuilder.setContentText(SweetTagHandler.renderFtHtmlIfNeeded(description))
         }
 
-        // Framework-side Live Update detection and styling
-        val liveUpdateResult = LiveUpdateDetector.detect(context, metaInfo, packageName)
-        if (liveUpdateResult.isProgress) {
-            Napier.i(
-                "Applying Live Update style pkg=$packageName category=${liveUpdateResult.category} " +
-                    "progress=${liveUpdateResult.progressPercent}",
-                tag = TAG
-            )
-            ProgressStyleBuilder.applyProgressStyle(context, notificationBuilder, metaInfo, liveUpdateResult)
-        }
-
-        val notification = notify(context, notificationId, packageName, notificationBuilder, metaInfo, liveUpdateResult)
+        val notification = notify(context, notificationId, packageName, notificationBuilder, metaInfo)
         if (notification == null) {
             Napier.d("publish skipped pkg=$packageName id=$notificationId (contentless, channel, or publish issue)", tag = TAG)
             return
@@ -182,7 +171,6 @@ object NotificationController {
         packageName: String,
         notificationBuilder: NotificationCompat.Builder,
         metaInfo: PushMetaInfo,
-        liveUpdateResult: LiveUpdateDetector.DetectionResult? = null,
     ): Notification? {
         val extras = Bundle()
         extras.putString("target_package", packageName)
@@ -203,7 +191,19 @@ object NotificationController {
         val previewNotification = ProgressStyleBuilder.buildNotification(context, notificationBuilder)
         val islandOptions = MiPushIslandPreferences.read(context, packageName)
         val generatedFocusCandidate = islandOptions.canBuildFocusPayload && !previewNotification.isGroupSummary()
-        val configuredFocusBundle = if (generatedFocusCandidate) {
+        val rawConfiguredFocusParam = configuration.focusParam(null)
+        val preliminaryFocusPlan = FocusSemanticTranslator.plan(
+            context = context,
+            metaInfo = metaInfo,
+            packageName = packageName,
+            configuredFocusParam = rawConfiguredFocusParam,
+            generatedFocusParam = null,
+            generatedFocusCandidate = generatedFocusCandidate,
+        )
+        val configuredFocusBundle = if (
+            generatedFocusCandidate &&
+            preliminaryFocusPlan.attachMiuiFocusExtras
+        ) {
             buildConfiguredFocusBundle(
                 context = context,
                 packageName = packageName,
@@ -214,7 +214,11 @@ object NotificationController {
         } else {
             null
         }
-        val generatedFocusBundle = if (configuredFocusBundle == null && generatedFocusCandidate) {
+        val generatedFocusBundle = if (
+            rawConfiguredFocusParam.isNullOrBlank() &&
+            configuredFocusBundle == null &&
+            generatedFocusCandidate
+        ) {
             MiPushIslandPayloadBuilder.build(
                 context = context,
                 metaInfo = metaInfo,
@@ -223,15 +227,47 @@ object NotificationController {
                 notificationId = notificationId,
                 notificationIcon = previewNotification.getLargeIconCompat(),
                 options = islandOptions,
-                liveUpdateResult = liveUpdateResult,
+                liveUpdateResult = preliminaryFocusPlan.semantic?.toDetectionResult()
+                    ?: preliminaryFocusPlan.nativeDetection,
             )
         } else {
             null
         }
-        if (configuredFocusBundle != null) {
+        val focusPlan = generatedFocusBundle
+            ?.getString(FOCUS_PARAM)
+            ?.let { generatedFocusParam ->
+                FocusSemanticTranslator.plan(
+                    context = context,
+                    metaInfo = metaInfo,
+                    packageName = packageName,
+                    configuredFocusParam = rawConfiguredFocusParam,
+                    generatedFocusParam = generatedFocusParam,
+                    generatedFocusCandidate = generatedFocusCandidate,
+                )
+            }
+            ?: preliminaryFocusPlan
+
+        if (focusPlan.useNativeProgress && focusPlan.nativeDetection != null) {
+            Napier.i(
+                "Applying translated Live Update style pkg=$packageName " +
+                    "source=${focusPlan.semantic?.source} category=${focusPlan.nativeDetection.category} " +
+                    "progress=${focusPlan.nativeDetection.progressPercent} reason=${focusPlan.reason}",
+                tag = TAG,
+            )
+            ProgressStyleBuilder.applyProgressStyle(
+                context = context,
+                builder = notificationBuilder,
+                metaInfo = metaInfo,
+                detectionResult = focusPlan.nativeDetection,
+                semanticStyle = focusPlan.semantic?.semanticStyle
+                    ?: FocusSemanticTranslator.semanticStyleForCategory(focusPlan.nativeDetection.category),
+            )
+        }
+
+        if (configuredFocusBundle != null && focusPlan.attachMiuiFocusExtras) {
             notificationBuilder.addExtras(configuredFocusBundle)
             notificationBuilder.priority = NotificationCompat.PRIORITY_HIGH
-        } else if (generatedFocusCandidate && !NotificationManagerEx.isHooked) {
+        } else if (focusPlan.allowIslandProxy && !NotificationManagerEx.isHooked) {
             notificationBuilder.addExtras(
                 Bundle().apply {
                     putBoolean(EXTRA_ALLOW_ISLAND_PROXY, true)
@@ -243,7 +279,7 @@ object NotificationController {
             context,
             notificationBuilder,
             packageName,
-            configuration.focusParam(null),
+            rawConfiguredFocusParam.takeIf { focusPlan.attachMiuiFocusExtras },
             notificationId
         )
         if (shouldAutoCancelNotification(metaInfo, notificationBuilder)) {
@@ -260,13 +296,14 @@ object NotificationController {
             return null
         }
         val tag = MyMIPushNotificationHelper.getNotificationTag(packageName)
-        if (configuredFocusBundle != null) {
+        if (configuredFocusBundle != null && focusPlan.attachMiuiFocusExtras) {
             FocusNotificationRegistry.registerReplacingUidVariants(
                 context,
                 focusNotificationKey(context, packageName, notificationId, tag)
             )
         }
-        val notificationToPost = if (generatedFocusBundle != null &&
+        val notificationToPost = if (focusPlan.allowIslandProxy &&
+            generatedFocusBundle != null &&
             sendGeneratedIslandProxy(
                 context = context,
                 metaInfo = metaInfo,

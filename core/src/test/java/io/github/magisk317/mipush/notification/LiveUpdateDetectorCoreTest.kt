@@ -98,6 +98,42 @@ class LiveUpdateDetectorCoreTest {
         }
 
         @Test
+        fun `detects navigation category`() {
+            val input = DetectionInput(
+                title = "导航中",
+                description = "路线剩余3公里，预计10分钟到达目的地",
+                packageName = "com.example.navigation"
+            )
+            val result = LiveUpdateDetectorCore.detect(input)
+            assertTrue(result.isProgress)
+            assertEquals(ProgressCategory.NAVIGATION, result.category)
+        }
+
+        @Test
+        fun `detects timer category`() {
+            val input = DetectionInput(
+                title = "倒计时进行中",
+                description = "番茄钟还剩5分钟",
+                packageName = "com.example.timer"
+            )
+            val result = LiveUpdateDetectorCore.detect(input)
+            assertTrue(result.isProgress)
+            assertEquals(ProgressCategory.TIMER, result.category)
+        }
+
+        @Test
+        fun `detects call category`() {
+            val input = DetectionInput(
+                title = "语音通话",
+                description = "会议通话正在进行中",
+                packageName = "com.example.call"
+            )
+            val result = LiveUpdateDetectorCore.detect(input)
+            assertTrue(result.isProgress)
+            assertEquals(ProgressCategory.CALL, result.category)
+        }
+
+        @Test
         fun `returns NONE when no active progress indicator`() {
             // Has category keywords but no progress indicator
             val input = DetectionInput(
@@ -349,6 +385,7 @@ class LiveUpdateDetectorCoreTest {
             assertTrue(ProgressCategory.DELIVERY.isTransportRelated())
             assertTrue(ProgressCategory.RIDE_HAILING.isTransportRelated())
             assertTrue(ProgressCategory.LOGISTICS.isTransportRelated())
+            assertTrue(ProgressCategory.NAVIGATION.isTransportRelated())
         }
 
         @Test

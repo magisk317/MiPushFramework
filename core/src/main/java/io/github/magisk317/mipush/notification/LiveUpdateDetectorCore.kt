@@ -27,9 +27,14 @@ object LiveUpdateDetectorCore {
         LOGISTICS("logistics"),
         DOWNLOAD("download"),
         TRAVEL("travel"),
+        NAVIGATION("navigation"),
+        TIMER("timer"),
+        CALL("call"),
+        GENERIC_PROGRESS("progress"),
         UNKNOWN("unknown");
 
-        fun isTransportRelated(): Boolean = this == DELIVERY || this == RIDE_HAILING || this == LOGISTICS
+        fun isTransportRelated(): Boolean =
+            this == DELIVERY || this == RIDE_HAILING || this == LOGISTICS || this == NAVIGATION
     }
 
     /**
@@ -88,6 +93,19 @@ object LiveUpdateDetectorCore {
             "航班", "登机", "起飞", "到达", "延误", "值机",
             "火车", "高铁", "动车", "检票", "进站",
             "flight", "boarding", "departure", "arrival", "check-in"
+        ),
+        ProgressCategory.NAVIGATION to listOf(
+            "导航", "路线", "路口", "目的地", "剩余路程", "预计到达",
+            "直行", "左转", "右转", "掉头", "限速",
+            "navigation", "route", "turn", "eta", "destination"
+        ),
+        ProgressCategory.TIMER to listOf(
+            "计时", "倒计时", "还剩", "剩余时间", "秒表", "番茄钟",
+            "timer", "countdown", "stopwatch", "remaining"
+        ),
+        ProgressCategory.CALL to listOf(
+            "通话", "来电", "呼叫", "语音通话", "视频通话", "会议通话",
+            "call", "calling", "voice call", "video call", "meeting call"
         )
     )
 
@@ -263,6 +281,26 @@ object LiveUpdateDetectorCore {
                 "出发",
                 "到达",
                 extractTrackerFromDescription(description) ?: "行程中"
+            )
+            ProgressCategory.NAVIGATION -> Triple(
+                "当前位置",
+                "目的地",
+                extractTrackerFromDescription(description) ?: "导航中"
+            )
+            ProgressCategory.TIMER -> Triple(
+                "开始",
+                "结束",
+                extractTrackerFromDescription(description) ?: "计时中"
+            )
+            ProgressCategory.CALL -> Triple(
+                "通话",
+                "结束",
+                extractTrackerFromDescription(description) ?: "通话中"
+            )
+            ProgressCategory.GENERIC_PROGRESS -> Triple(
+                "开始",
+                "完成",
+                extractTrackerFromDescription(description) ?: "进行中"
             )
             else -> Triple(null, null, null)
         }

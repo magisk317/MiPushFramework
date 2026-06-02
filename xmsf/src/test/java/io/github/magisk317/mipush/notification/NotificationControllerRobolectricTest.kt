@@ -388,7 +388,7 @@ class NotificationControllerRobolectricTest {
     }
 
     @Test
-    fun `publish keeps generated island payload off regular notification and enables proxy`() {
+    fun `publish keeps generated island payload off non MIUI notification`() {
         val context = RuntimeEnvironment.getApplication()
         val packageName = context.packageName
         val notificationId = 32017
@@ -413,12 +413,12 @@ class NotificationControllerRobolectricTest {
         assertNull(posted.extras.getString("miui.focus.pic_mipush_icon"))
         assertNull(posted.extras.getBundle("miui.focus.pics"))
         assertNull(posted.extras.getString("hyperisland_source_pkg"))
-        assertTrue(posted.extras.getBoolean("mipush_island_allow_proxy", false))
+        assertFalse(posted.extras.getBoolean("mipush_island_allow_proxy", false))
         assertEquals(packageName, posted.extras.getString("target_package"))
     }
 
     @Test
-    fun `publish supplements configured focus payload with app icon bundle`() {
+    fun `publish keeps configured focus payload off non MIUI notification`() {
         val context = RuntimeEnvironment.getApplication()
         val packageName = context.packageName
         val notificationId = 32018
@@ -441,18 +441,62 @@ class NotificationControllerRobolectricTest {
             .first { it.id == notificationId }
             .notification
 
-        assertEquals(focusParam, posted.extras.getString("miui.focus.param"))
-        assertEquals("miui.focus.pic_mipush_icon", posted.extras.getString("miui.focus.pic_mipush_icon"))
+        assertNull(posted.extras.getString("miui.focus.param"))
+        assertNull(posted.extras.getString("miui.focus.pic_mipush_icon"))
         assertFalse(posted.extras.getBoolean("mipush_island_allow_proxy", false))
-        assertNotNull(
-            posted.extras
-                .getBundle("miui.focus.pics")
-                ?.parcelable<Icon>("miui.focus.pic_mipush_icon")
-        )
+        assertNull(posted.extras.getBundle("miui.focus.pics"))
     }
 
     @Test
-    fun `grouped notifications use island proxy while summary stays plain`() {
+    fun `publish translates configured progress focus to native progress surface on non MIUI`() {
+        val context = RuntimeEnvironment.getApplication()
+        val packageName = context.packageName
+        val notificationId = 32019
+        val focusParam = """
+            {
+              "param_v2": {
+                "iconTextInfo": {
+                  "title": "下载更新",
+                  "content": "下载中 65%"
+                },
+                "hintInfo": {
+                  "title": "下载中"
+                },
+                "progressBar": {
+                  "progress": 65
+                }
+              }
+            }
+        """.trimIndent()
+        val metaInfo = PushMetaInfo().apply {
+            title = "Configured progress"
+            description = "Downloading update"
+            extra = mutableMapOf("miui.focus.param" to focusParam)
+        }
+        val builder = NotificationCompat.Builder(context, "placeholder")
+            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setContentTitle(metaInfo.title)
+            .setContentText(metaInfo.description)
+
+        NotificationManagerEx.init(context)
+        NotificationController.publish(context, metaInfo, notificationId, packageName, builder)
+
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val posted = notificationManager.activeNotifications
+            .first { it.id == notificationId }
+            .notification
+
+        assertNull(posted.extras.getString("miui.focus.param"))
+        assertFalse(posted.extras.getBoolean("mipush_island_allow_proxy", false))
+        assertTrue(posted.extras.getBoolean("xmsf.live_update", false))
+        assertEquals("download", posted.extras.getString("xmsf.live_update.category"))
+        assertEquals(65, posted.extras.getInt("xmsf.live_update.progress"))
+        assertEquals("INFO", posted.extras.getString("xmsf.live_update.semantic_style"))
+        assertTrue(posted.flags and Notification.FLAG_ONGOING_EVENT != 0)
+    }
+
+    @Test
+    fun `grouped notifications stay off island proxy on non MIUI while summary stays plain`() {
         val context = RuntimeEnvironment.getApplication()
         val packageName = context.packageName
         val groupId = "focus-group"
@@ -483,8 +527,8 @@ class NotificationControllerRobolectricTest {
         assertFalse(summary.extras.getBoolean("mipush_island_allow_proxy", false))
         assertNull(active.getValue(33000).notification.extras.getString("miui.focus.param"))
         assertNull(active.getValue(33001).notification.extras.getString("miui.focus.param"))
-        assertTrue(active.getValue(33000).notification.extras.getBoolean("mipush_island_allow_proxy", false))
-        assertTrue(active.getValue(33001).notification.extras.getBoolean("mipush_island_allow_proxy", false))
+        assertFalse(active.getValue(33000).notification.extras.getBoolean("mipush_island_allow_proxy", false))
+        assertFalse(active.getValue(33001).notification.extras.getBoolean("mipush_island_allow_proxy", false))
     }
 
     @Test

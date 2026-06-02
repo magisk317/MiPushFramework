@@ -3,6 +3,8 @@ package io.github.magisk317.mipush.notification
 import android.app.Notification
 import android.content.Context
 import android.os.Build
+import android.text.SpannableString
+import android.text.Spanned
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import com.xiaomi.xmpush.thrift.PushMetaInfo
@@ -34,13 +36,15 @@ object ProgressStyleBuilder {
         context: Context,
         builder: NotificationCompat.Builder,
         metaInfo: PushMetaInfo,
-        detectionResult: LiveUpdateDetector.DetectionResult
+        detectionResult: LiveUpdateDetector.DetectionResult,
+        semanticStyle: FocusSemanticTranslator.SemanticStyle =
+            FocusSemanticTranslator.semanticStyleForCategory(detectionResult.category),
     ): NotificationCompat.Builder {
         if (!detectionResult.isProgress) {
             return builder
         }
 
-        markLiveUpdate(builder, detectionResult)
+        markLiveUpdate(builder, detectionResult, semanticStyle)
         return applyFallbackProgressStyle(builder, detectionResult)
     }
 
@@ -60,6 +64,10 @@ object ProgressStyleBuilder {
             return notification
         }
         if (!notification.extras.getBoolean(EXTRA_LIVE_UPDATE, false)) {
+            return notification
+        }
+        if (notification.hasCustomRemoteViews()) {
+            Napier.d("Skip native ProgressStyle because notification uses custom RemoteViews", tag = TAG)
             return notification
         }
         return try {
@@ -84,8 +92,17 @@ object ProgressStyleBuilder {
         } else {
             val safeProgress = progress.coerceIn(0, 100)
             style.setProgress(safeProgress)
-            style.addProgressSegment(Notification.ProgressStyle.Segment(100))
-            style.addProgressPoint(Notification.ProgressStyle.Point(safeProgress))
+            val segment = Notification.ProgressStyle.Segment(100)
+            val point = Notification.ProgressStyle.Point(safeProgress)
+            if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) {
+                val semanticStyle = extras.getString(EXTRA_LIVE_UPDATE_SEMANTIC_STYLE)
+                    ?.let { runCatching { FocusSemanticTranslator.SemanticStyle.valueOf(it) }.getOrNull() }
+                    ?: FocusSemanticTranslator.SemanticStyle.INFO
+                applySemanticStyle(segment, point, semanticStyle)
+                annotateContentText(platformBuilder, notification, semanticStyle)
+            }
+            style.addProgressSegment(segment)
+            style.addProgressPoint(point)
         }
         val shortText = extras.getString(EXTRA_LIVE_UPDATE_SHORT_TEXT)?.take(MAX_SHORT_CRITICAL_TEXT)
         if (!shortText.isNullOrBlank()) {
@@ -105,6 +122,39 @@ object ProgressStyleBuilder {
     @RequiresApi(Build.VERSION_CODES_FULL.BAKLAVA_1)
     private fun requestPromotedOngoing(builder: Notification.Builder) {
         builder.setRequestPromotedOngoing(true)
+    }
+
+    @RequiresApi(Build.VERSION_CODES_FULL.BAKLAVA_1)
+    private fun applySemanticStyle(
+        segment: Notification.ProgressStyle.Segment,
+        point: Notification.ProgressStyle.Point,
+        semanticStyle: FocusSemanticTranslator.SemanticStyle,
+    ) {
+        val platformStyle = FocusSemanticTranslator.toPlatformSemanticStyle(semanticStyle)
+        segment.setSemanticStyle(platformStyle)
+        point.setSemanticStyle(platformStyle)
+    }
+
+    @RequiresApi(Build.VERSION_CODES_FULL.BAKLAVA_1)
+    private fun annotateContentText(
+        builder: Notification.Builder,
+        notification: Notification,
+        semanticStyle: FocusSemanticTranslator.SemanticStyle,
+    ) {
+        val text = notification.extras.getCharSequence(Notification.EXTRA_TEXT)
+            ?.takeIf { it.isNotBlank() }
+            ?: return
+        val annotated = SpannableString(text).apply {
+            setSpan(
+                Notification.createSemanticStyleAnnotation(
+                    FocusSemanticTranslator.toPlatformSemanticStyle(semanticStyle)
+                ),
+                0,
+                length,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+        }
+        builder.setContentText(annotated)
     }
 
     private fun applyFallbackProgressStyle(
@@ -142,7 +192,8 @@ object ProgressStyleBuilder {
 
     private fun markLiveUpdate(
         builder: NotificationCompat.Builder,
-        result: LiveUpdateDetector.DetectionResult
+        result: LiveUpdateDetector.DetectionResult,
+        semanticStyle: FocusSemanticTranslator.SemanticStyle,
     ) {
         val extras = builder.extras
         extras.putBoolean(EXTRA_LIVE_UPDATE, true)
@@ -152,13 +203,20 @@ object ProgressStyleBuilder {
             result.trackerLabel ?: result.progressText?.take(MAX_SHORT_CRITICAL_TEXT)
         )
         extras.putInt(EXTRA_LIVE_UPDATE_PROGRESS, result.progressPercent ?: NO_PROGRESS)
+        extras.putString(EXTRA_LIVE_UPDATE_SEMANTIC_STYLE, semanticStyle.name)
         builder.addExtras(extras)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun Notification.hasCustomRemoteViews(): Boolean {
+        return contentView != null || bigContentView != null || headsUpContentView != null
     }
 
     internal const val EXTRA_LIVE_UPDATE = "xmsf.live_update"
     internal const val EXTRA_LIVE_UPDATE_CATEGORY = "xmsf.live_update.category"
     internal const val EXTRA_LIVE_UPDATE_SHORT_TEXT = "xmsf.live_update.short_text"
     internal const val EXTRA_LIVE_UPDATE_PROGRESS = "xmsf.live_update.progress"
+    internal const val EXTRA_LIVE_UPDATE_SEMANTIC_STYLE = "xmsf.live_update.semantic_style"
     private const val NO_PROGRESS = -1
     private const val MAX_SHORT_CRITICAL_TEXT = 15
 }
