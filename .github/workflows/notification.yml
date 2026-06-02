@@ -21,7 +21,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download artifacts
-        if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+        if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'dev'
         uses: actions/download-artifact@v8
         with:
           run-id: ${{ github.event.workflow_run.id }}
@@ -117,17 +117,16 @@ jobs:
             curl "${curl_args[@]}"
           }
 
-          # CI workflow-run notification
+          # CI workflow run notification
           if [ -n "${WF_RUN_ID:-}" ]; then
+            # Only send for dev branch success
+            if [ "${WF_RUN_BRANCH:-}" != "dev" ]; then
+              exit 0
+            fi
             if [ "${WF_RUN_CONCLUSION:-}" != "success" ]; then
               exit 0
             fi
 
-            if [ "${WF_RUN_NAME:-}" != "CI" ] || [ "${WF_RUN_BRANCH:-}" != "dev" ]; then
-              exit 0
-            fi
-
-            # Skip CI notification if commit is tagged (Release workflow handles it)
             if [ -n "${WF_RUN_SHA:-}" ] && git tag --points-at "$WF_RUN_SHA" 2>/dev/null | grep -q .; then
               echo "Commit $WF_RUN_SHA has tags, skipping CI notification (Release will notify)."
               exit 0
@@ -141,25 +140,32 @@ jobs:
 
             send_message "$CI_THREAD" "$CI_MSG"
 
-            # Upload arm64-v8a artifacts only for both xmsf and mipush
             if [ -d "artifacts" ]; then
-              find artifacts -type f \( -name "*xmsf*arm64-v8a*.apk" -o -name "*MiPush*arm64-v8a*.apk" -o -name "*vc105*arm64-v8a*.apk" -o -name "*arm64-v8a*.apk" \) | sort -u | while read -r apk; do
-                apk_caption=$(printf '📦 %s\n%s' "$(basename "$apk")" "$PROJECT_TAG")
-                send_document "$apk" "$CI_THREAD" "$apk_caption"
-              done
+              mapfile -d '' ci_apks < <(
+                find artifacts -type f -name '*arm64-v8a*.apk' -print0 | sort -z
+              )
+              if [ "${#ci_apks[@]}" -eq 0 ]; then
+                echo "No arm64-v8a APK artifacts found."
+              else
+                for apk in "${ci_apks[@]}"; do
+                  apk_caption=$(printf '📦 %s\n%s' "$(basename "$apk")" "$PROJECT_TAG")
+                  send_document "$apk" "$CI_THREAD" "$apk_caption"
+                done
+              fi
+            else
+              echo "No downloaded artifacts directory found."
             fi
             exit 0
           fi
 
-          # Release notification
-          if [ -z "${RELEASE_TAG:-}" ]; then
-            RELEASE_TAG="$(git tag --points-at HEAD | sort -V | tail -n 1)"
-          fi
           if [ -z "${RELEASE_TAG:-}" ]; then
             RELEASE_TAG="${GITHUB_REF_NAME:-manual}"
           fi
 
-          if [ -f "docs/CHANGELOG.md" ]; then
+          WHATSNEW_FILE="distribution/whatsnew/whatsnew-zh-CN"
+          if [ -f "$WHATSNEW_FILE" ]; then
+            RELEASE_CONTENT="$(cat "$WHATSNEW_FILE")"
+          elif [ -f "docs/CHANGELOG.md" ]; then
             RELEASE_CONTENT="$(awk -v tag="$RELEASE_TAG" '
               index($0, "## [" tag "]") == 1 {capture=1; next}
               capture && /^## \[/ {exit}
@@ -186,7 +192,7 @@ jobs:
             echo "$ASSETS_JSON" | jq -c '.[]' | while read -r asset; do
               name=$(echo "$asset" | jq -r '.name')
               url=$(echo "$asset" | jq -r '.browser_download_url')
-              if [[ "$name" == *arm64-v8a*.apk ]] && [[ "$name" == *MiPushFramework* || "$name" == *MiPush* || "$name" == *xmsf* ]]; then
+              if [[ "$name" == *arm64-v8a*.apk ]]; then
                 echo "Downloading $name..."
                 curl --fail-with-body -L -sS -o "downloads/$name" "$url"
                 asset_caption=$(printf '📦 %s\n%s' "$name" "$PROJECT_TAG")
