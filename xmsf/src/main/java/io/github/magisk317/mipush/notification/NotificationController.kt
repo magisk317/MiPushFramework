@@ -403,11 +403,16 @@ object NotificationController {
     fun getBitmapFromUri(context: Context, iconUri: String?, maxDownloadBytes: Int): Bitmap? {
         var bitmap: Bitmap? = null
         if (iconUri != null) {
-            if (iconUri.startsWith("http")) {
-                val result = MyNotificationIconHelper.getIconFromUrl(context, iconUri, maxDownloadBytes)
+            val safeUri = if (iconUri.startsWith("http://")) {
+                iconUri.replaceFirst("http://", "https://")
+            } else {
+                iconUri
+            }
+            if (safeUri.startsWith("http")) {
+                val result = MyNotificationIconHelper.getIconFromUrl(context, safeUri, maxDownloadBytes)
                 bitmap = result.bitmap
             } else {
-                bitmap = MyNotificationIconHelper.getIconFromUri(context, iconUri)
+                bitmap = MyNotificationIconHelper.getIconFromUri(context, safeUri)
             }
         }
         return bitmap

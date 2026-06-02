@@ -15,6 +15,7 @@
 
     <!-- Allow cleartext only for Xiaomi push infrastructure domains -->
     <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">qlogo.cn</domain>
         <domain includeSubdomains="true">xiaomi.com</domain>
         <domain includeSubdomains="true">mi.com</domain>
         <domain includeSubdomains="true">miui.com</domain>
