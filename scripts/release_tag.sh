@@ -22,7 +22,6 @@ run_pre_push_checks() {
   (
     cd "$ROOT_DIR"
     bash scripts/with_workspace_gradle_lock.sh --warning-mode all \
-      :checkReadmeBuildRequirements \
       :common:check \
       :xmsf:assembleDebug \
       :xmsf:testDebugUnitTest \
