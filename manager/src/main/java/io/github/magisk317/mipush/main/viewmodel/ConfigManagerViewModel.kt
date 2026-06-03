@@ -42,6 +42,7 @@ class ConfigManagerViewModel constructor(
     private val _uiState = MutableStateFlow(UiState())
     val uiState = _uiState.asStateFlow()
     private var refreshGeneration = 0L
+    private var failedRemoteSourceKey: String? = null
 
     init {
         viewModelScope.launch {
@@ -49,19 +50,24 @@ class ConfigManagerViewModel constructor(
                 preferenceRepository.configDirectory,
                 preferenceRepository.configRemoteRepository,
                 preferenceRepository.configRemoteBranch,
-            ) { directory, repository, branch ->
-                Triple(directory, repository, branch)
-            }.collectLatest { (directory, repository, branch) ->
+                preferenceRepository.configRemoteAccelerator,
+            ) { directory, repository, branch, accelerator ->
+                RemoteSettings(
+                    directoryUri = directory,
+                    remoteSource = ConfigRemoteSource(
+                        repository = repository,
+                        branch = branch,
+                        accelerator = accelerator,
+                    ),
+                )
+            }.collectLatest { settings ->
                 _uiState.update {
                     it.copy(
-                        directoryUri = directory,
-                        remoteSource = ConfigRemoteSource(
-                            repository = repository,
-                            branch = branch,
-                        ),
+                        directoryUri = settings.directoryUri,
+                        remoteSource = settings.remoteSource,
                     )
                 }
-                refreshInternal()
+                refreshInternal(forceRemote = false)
             }
         }
         viewModelScope.launch {
@@ -76,7 +82,7 @@ class ConfigManagerViewModel constructor(
     }
 
     fun refresh() {
-        viewModelScope.launch { refreshInternal() }
+        viewModelScope.launch { refreshInternal(forceRemote = false) }
     }
 
     fun updateConfigurationDirectory(uri: Uri) {
@@ -87,13 +93,15 @@ class ConfigManagerViewModel constructor(
         }
     }
 
-    fun updateRemoteSource(repository: String, branch: String) {
+    fun updateRemoteSource(repository: String, branch: String, accelerator: String) {
         viewModelScope.launch {
-            preferenceRepository.setConfigRemoteRepository(
-                repository.ifBlank { ConfigDefaults.REMOTE_REPOSITORY },
-            )
-            preferenceRepository.setConfigRemoteBranch(
-                branch.ifBlank { ConfigDefaults.REMOTE_BRANCH },
+            failedRemoteSourceKey = null
+            val normalizedRepository = repository.trim()
+            val normalizedBranch = branch.trim()
+            preferenceRepository.setConfigRemoteSource(
+                normalizedRepository.ifBlank { ConfigDefaults.REMOTE_REPOSITORY },
+                normalizedBranch.ifBlank { ConfigDefaults.REMOTE_BRANCH },
+                accelerator.trim().ifBlank { ConfigDefaults.REMOTE_ACCELERATOR },
             )
             _uiState.update { it.copy(message = "远端源已更新") }
         }
@@ -150,6 +158,7 @@ class ConfigManagerViewModel constructor(
                     }
                 }
             }.onSuccess { count ->
+                failedRemoteSourceKey = null
                 configGateway.loadConfigurations(context)
                 _uiState.update {
                     it.copy(
@@ -162,12 +171,14 @@ class ConfigManagerViewModel constructor(
                 }
                 refresh()
             }.onFailure { error ->
+                failedRemoteSourceKey = remoteSourceKey(_uiState.value.remoteSource)
                 _uiState.update {
                     it.copy(
                         isSyncing = false,
                         syncCurrent = 0,
                         syncTotal = 0,
                         syncPath = null,
+                        remoteError = error.message ?: error.toString(),
                         message = error.message ?: error.toString(),
                     )
                 }
@@ -177,9 +188,10 @@ class ConfigManagerViewModel constructor(
 
     fun reloadConfigurations() {
         viewModelScope.launch {
+            failedRemoteSourceKey = null
             configGateway.loadConfigurations(context)
             _uiState.update { it.copy(message = "已重新加载配置") }
-            refresh()
+            refreshInternal(forceRemote = true)
         }
     }
 
@@ -191,24 +203,34 @@ class ConfigManagerViewModel constructor(
         return preferenceRepository.configDirectory.first()?.takeIf { it.isNotBlank() }?.let(Uri::parse)
     }
 
-    private suspend fun refreshInternal() {
+    private suspend fun refreshInternal(forceRemote: Boolean) {
         val generation = ++refreshGeneration
         val treeUri = currentTreeUri()
-        _uiState.update { it.copy(isLoading = true, remoteError = null) }
+        val remoteSource = _uiState.value.remoteSource
+        val remoteSourceKey = remoteSourceKey(remoteSource)
+        val skipRemote = !forceRemote && failedRemoteSourceKey == remoteSourceKey
+        _uiState.update {
+            it.copy(
+                isLoading = true,
+                remoteError = if (skipRemote) it.remoteError else null,
+            )
+        }
 
         val localSnapshot = syncGateway.loadLocalSnapshot(treeUri)
         if (generation != refreshGeneration) return
         _uiState.update {
             it.copy(
                 items = localSnapshot.items,
-                remoteError = null,
+                remoteError = if (skipRemote) it.remoteError else null,
                 isLoading = false,
             )
         }
+        if (skipRemote) return
 
         runCatching { syncGateway.loadRemoteSnapshot(treeUri) }
             .onSuccess { snapshot ->
                 if (generation != refreshGeneration) return
+                failedRemoteSourceKey = null
                 _uiState.update {
                     it.copy(
                         items = snapshot.items,
@@ -218,7 +240,17 @@ class ConfigManagerViewModel constructor(
             }
             .onFailure { error ->
                 if (generation != refreshGeneration) return
+                failedRemoteSourceKey = remoteSourceKey
                 _uiState.update { it.copy(remoteError = error.message ?: error.toString()) }
             }
     }
+
+    private fun remoteSourceKey(remoteSource: ConfigRemoteSource): String {
+        return "${remoteSource.cacheKey}|${remoteSource.accelerator.trim()}"
+    }
+
+    private data class RemoteSettings(
+        val directoryUri: String?,
+        val remoteSource: ConfigRemoteSource,
+    )
 }

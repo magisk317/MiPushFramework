@@ -64,6 +64,7 @@ class PreferenceRepository constructor(
     private val LAST_CONFIG_SYNC_TIME = longPreferencesKey("last_config_sync_time")
     private val CONFIG_REMOTE_REPOSITORY = stringPreferencesKey("config_remote_repository")
     private val CONFIG_REMOTE_BRANCH = stringPreferencesKey("config_remote_branch")
+    private val CONFIG_REMOTE_ACCELERATOR = stringPreferencesKey("config_remote_accelerator")
 
     // Getters
     val lastStartupTime: Flow<Long> = dataStore.data.map { it[LAST_STARTUP_TIME] ?: 0L }
@@ -104,6 +105,9 @@ class PreferenceRepository constructor(
     }
     val configRemoteBranch: Flow<String> = dataStore.data.map {
         it[CONFIG_REMOTE_BRANCH] ?: ConfigDefaults.REMOTE_BRANCH
+    }
+    val configRemoteAccelerator: Flow<String> = dataStore.data.map {
+        it[CONFIG_REMOTE_ACCELERATOR] ?: ConfigDefaults.REMOTE_ACCELERATOR
     }
 
     val debugMode: Flow<Boolean> = isDebugMode
@@ -236,6 +240,18 @@ class PreferenceRepository constructor(
 
     suspend fun setConfigRemoteBranch(branch: String) {
         dataStore.edit { it[CONFIG_REMOTE_BRANCH] = branch }
+    }
+
+    suspend fun setConfigRemoteAccelerator(accelerator: String) {
+        dataStore.edit { it[CONFIG_REMOTE_ACCELERATOR] = accelerator }
+    }
+
+    suspend fun setConfigRemoteSource(repository: String, branch: String, accelerator: String) {
+        dataStore.edit {
+            it[CONFIG_REMOTE_REPOSITORY] = repository
+            it[CONFIG_REMOTE_BRANCH] = branch
+            it[CONFIG_REMOTE_ACCELERATOR] = accelerator
+        }
     }
 
     private companion object {

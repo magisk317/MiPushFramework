@@ -7,4 +7,5 @@ package io.github.magisk317.mipush.utils
 object ConfigDefaults {
     const val REMOTE_REPOSITORY = "magisk317/MiPushConfigurations"
     const val REMOTE_BRANCH = "dev"
+    const val REMOTE_ACCELERATOR = ""
 }

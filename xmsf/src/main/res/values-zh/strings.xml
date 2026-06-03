@@ -106,9 +106,11 @@
     <string name="main_configs">配置</string>
     <string name="main_settings">设置</string>
     <string name="config_remote_source_label">远端源：%1$s</string>
+    <string name="config_remote_source_with_accelerator_label">远端源：%1$s\n加速源：%2$s</string>
     <string name="config_remote_source_title">远端源</string>
     <string name="config_remote_repository_label">仓库</string>
     <string name="config_remote_branch_label">分支</string>
+    <string name="config_remote_accelerator_label">GitHub 加速源</string>
     <string name="config_remote_source_default_hint">内置默认：%1$s</string>
     <string name="config_directory_title">本地目录</string>
     <string name="config_directory_not_selected">还没有选择本地配置目录。</string>
@@ -127,8 +129,7 @@
     <string name="config_status_in_sync">已同步</string>
     <string name="config_status_remote_only">仅远端</string>
     <string name="config_status_local_only">仅本地</string>
-    <string name="config_status_outdated">本地过旧</string>
-    <string name="config_status_modified">本地已修改</string>
+    <string name="config_status_local_override">本地优先</string>
     <string name="config_status_invalid">JSON 无效</string>
     <string name="config_source_local">导入本地</string>
     <string name="config_source_remote">远端</string>

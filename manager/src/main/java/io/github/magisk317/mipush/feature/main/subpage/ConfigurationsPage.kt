@@ -109,6 +109,7 @@ fun Configurations(
         var showRemoteSourceDialog by rememberSaveable { mutableStateOf(false) }
         var remoteRepositoryDraft by rememberSaveable { mutableStateOf("") }
         var remoteBranchDraft by rememberSaveable { mutableStateOf("") }
+        var remoteAcceleratorDraft by rememberSaveable { mutableStateOf("") }
         val openDirectoryLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.OpenDocumentTree(),
         ) { uri ->
@@ -145,6 +146,7 @@ fun Configurations(
             if (showRemoteSourceDialog) {
                 remoteRepositoryDraft = uiState.remoteSource.repository
                 remoteBranchDraft = uiState.remoteSource.branch
+                remoteAcceleratorDraft = uiState.remoteSource.accelerator
             }
         }
 
@@ -168,15 +170,22 @@ fun Configurations(
             RemoteSourceDialog(
                 repository = remoteRepositoryDraft,
                 branch = remoteBranchDraft,
+                accelerator = remoteAcceleratorDraft,
                 onRepositoryChange = { remoteRepositoryDraft = it },
                 onBranchChange = { remoteBranchDraft = it },
+                onAcceleratorChange = { remoteAcceleratorDraft = it },
                 onDismiss = { showRemoteSourceDialog = false },
                 onResetDefault = {
                     remoteRepositoryDraft = ConfigDefaults.REMOTE_REPOSITORY
                     remoteBranchDraft = ConfigDefaults.REMOTE_BRANCH
+                    remoteAcceleratorDraft = ConfigDefaults.REMOTE_ACCELERATOR
                 },
                 onConfirm = {
-                    viewModel.updateRemoteSource(remoteRepositoryDraft, remoteBranchDraft)
+                    viewModel.updateRemoteSource(
+                        remoteRepositoryDraft,
+                        remoteBranchDraft,
+                        remoteAcceleratorDraft,
+                    )
                     showRemoteSourceDialog = false
                 },
             )
@@ -468,7 +477,15 @@ private fun LazyListScope.configListHeader(
         ) {
             SettingLinkCard(
                 title = stringResource(R.string.config_remote_source_title),
-                value = stringResource(R.string.config_remote_source_label, uiState.remoteSource.displayName),
+                value = if (uiState.remoteSource.accelerator.isBlank()) {
+                    stringResource(R.string.config_remote_source_label, uiState.remoteSource.displayName)
+                } else {
+                    stringResource(
+                        R.string.config_remote_source_with_accelerator_label,
+                        uiState.remoteSource.displayName,
+                        uiState.remoteSource.accelerator,
+                    )
+                },
                 onClick = onClickRemoteSource,
             )
             val directoryUri = uiState.directoryUri
@@ -649,8 +666,10 @@ private fun SettingLinkCard(
 private fun RemoteSourceDialog(
     repository: String,
     branch: String,
+    accelerator: String,
     onRepositoryChange: (String) -> Unit,
     onBranchChange: (String) -> Unit,
+    onAcceleratorChange: (String) -> Unit,
     onDismiss: () -> Unit,
     onResetDefault: () -> Unit,
     onConfirm: () -> Unit,
@@ -664,12 +683,21 @@ private fun RemoteSourceDialog(
                     value = repository,
                     onValueChange = onRepositoryChange,
                     label = { Text(stringResource(R.string.config_remote_repository_label)) },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
                     singleLine = true,
                 )
                 TextField(
                     value = branch,
                     onValueChange = onBranchChange,
                     label = { Text(stringResource(R.string.config_remote_branch_label)) },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
+                    singleLine = true,
+                )
+                TextField(
+                    value = accelerator,
+                    onValueChange = onAcceleratorChange,
+                    label = { Text(stringResource(R.string.config_remote_accelerator_label)) },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None),
                     singleLine = true,
                 )
                 Text(
@@ -740,7 +768,7 @@ private fun currentEditorStatus(uiState: ConfigEditorViewModel.UiState): ConfigS
             ConfigSyncStatus.IN_SYNC
         remoteMeta != null && localMeta == null -> ConfigSyncStatus.REMOTE_ONLY
         remoteMeta == null && localMeta != null -> ConfigSyncStatus.LOCAL_ONLY
-        else -> ConfigSyncStatus.MODIFIED_LOCAL
+        else -> ConfigSyncStatus.LOCAL_OVERRIDE
     }
 }
 
@@ -750,8 +778,7 @@ private fun statusLabel(status: ConfigSyncStatus): String {
         ConfigSyncStatus.IN_SYNC -> stringResource(R.string.config_status_in_sync)
         ConfigSyncStatus.REMOTE_ONLY -> stringResource(R.string.config_status_remote_only)
         ConfigSyncStatus.LOCAL_ONLY -> stringResource(R.string.config_status_local_only)
-        ConfigSyncStatus.OUTDATED_LOCAL -> stringResource(R.string.config_status_outdated)
-        ConfigSyncStatus.MODIFIED_LOCAL -> stringResource(R.string.config_status_modified)
+        ConfigSyncStatus.LOCAL_OVERRIDE -> stringResource(R.string.config_status_local_override)
         ConfigSyncStatus.INVALID_LOCAL -> stringResource(R.string.config_status_invalid)
     }
 }
@@ -762,8 +789,7 @@ private fun statusColor(status: ConfigSyncStatus): Color {
         ConfigSyncStatus.IN_SYNC -> MaterialTheme.colorScheme.primary
         ConfigSyncStatus.REMOTE_ONLY -> MaterialTheme.colorScheme.secondary
         ConfigSyncStatus.LOCAL_ONLY -> MaterialTheme.colorScheme.tertiary
-        ConfigSyncStatus.OUTDATED_LOCAL -> MaterialTheme.colorScheme.secondary
-        ConfigSyncStatus.MODIFIED_LOCAL -> MaterialTheme.colorScheme.tertiary
+        ConfigSyncStatus.LOCAL_OVERRIDE -> MaterialTheme.colorScheme.tertiary
         ConfigSyncStatus.INVALID_LOCAL -> MaterialTheme.colorScheme.error
     }
 }

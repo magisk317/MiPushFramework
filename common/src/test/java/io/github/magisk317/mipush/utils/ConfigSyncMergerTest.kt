@@ -38,18 +38,18 @@ class ConfigSyncMergerTest {
     }
 
     @Test
-    fun `merge produces OUTDATED_LOCAL when sha differs and no sync record`() {
+    fun `merge produces LOCAL_OVERRIDE when local and remote differ without sync record`() {
         val remote = listOf(remoteFile("app.json", sha = "remote-sha"))
         val local = listOf(localSummary("app.json", sha = "local-sha"))
 
         val result = mergeConfigEntries(remote, local, emptyMap())
 
         assertEquals(1, result.size)
-        assertEquals(ConfigSyncStatus.OUTDATED_LOCAL, result[0].status)
+        assertEquals(ConfigSyncStatus.LOCAL_OVERRIDE, result[0].status)
     }
 
     @Test
-    fun `merge produces MODIFIED_LOCAL when local sha differs from sync record`() {
+    fun `merge produces LOCAL_OVERRIDE when local sha differs from sync record`() {
         val remote = listOf(remoteFile("app.json", sha = "remote-sha"))
         val local = listOf(localSummary("app.json", sha = "edited-sha"))
         val records = mapOf("app.json" to ConfigSyncRecord("app.json", remoteSha = "remote-sha", localSha = "original-sha"))
@@ -57,7 +57,7 @@ class ConfigSyncMergerTest {
         val result = mergeConfigEntries(remote, local, records)
 
         assertEquals(1, result.size)
-        assertEquals(ConfigSyncStatus.MODIFIED_LOCAL, result[0].status)
+        assertEquals(ConfigSyncStatus.LOCAL_OVERRIDE, result[0].status)
     }
 
     @Test

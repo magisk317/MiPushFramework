@@ -23,8 +23,7 @@ enum class ConfigSyncStatus {
     IN_SYNC,
     REMOTE_ONLY,
     LOCAL_ONLY,
-    OUTDATED_LOCAL,
-    MODIFIED_LOCAL,
+    LOCAL_OVERRIDE,
     INVALID_LOCAL,
 }
 

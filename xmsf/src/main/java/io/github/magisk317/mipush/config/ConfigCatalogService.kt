@@ -32,18 +32,19 @@ class ConfigCatalogService constructor(
 
     suspend fun fetchCatalog(): RemoteConfigCatalog = withContext(Dispatchers.IO) {
         val source = getRemoteSource()
-        val text = fetchText("${source.baseRawUrl}/$INDEX_PATH")
+        val text = fetchText(source.rawUrl(INDEX_PATH))
         json.decodeFromString(RemoteConfigCatalog.serializer(), text)
     }
 
     suspend fun fetchRemoteFile(path: String): String = withContext(Dispatchers.IO) {
         val source = getRemoteSource()
-        fetchText("${source.baseRawUrl}/${encodePath(path)}")
+        fetchText(source.rawUrl(encodePath(path)))
     }
 
     suspend fun getRemoteSource(): ConfigRemoteSource = ConfigRemoteSource(
         repository = preferenceRepository.configRemoteRepository.first(),
         branch = preferenceRepository.configRemoteBranch.first(),
+        accelerator = preferenceRepository.configRemoteAccelerator.first(),
     )
 
     private fun fetchText(urlString: String): String {

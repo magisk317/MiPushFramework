@@ -7,13 +7,14 @@ package io.github.magisk317.mipush.utils
 
 /**
  * Merges remote and local config file lists into a unified list of [ConfigListItem] entries,
- * determining the sync status of each entry based on SHA comparison and sync records.
+ * determining the sync status of each entry based on local and remote SHA comparison.
  *
  * @param remoteFiles list of remote config files from the catalog
  * @param localFiles list of local config file summaries (platform-independent)
- * @param syncRecords map of path → sync record for tracking previous sync state
+ * @param syncRecords kept for call-site compatibility; local files are treated as authoritative
  * @return sorted list of merged config list items with computed sync status
  */
+@Suppress("UNUSED_PARAMETER")
 fun mergeConfigEntries(
     remoteFiles: List<RemoteConfigFile>,
     localFiles: List<LocalConfigSummary>,
@@ -26,11 +27,10 @@ fun mergeConfigEntries(
         .map { path ->
             val remote = remoteByPath[path]
             val local = localByPath[path]
-            val record = syncRecords[path]
             ConfigListItem(
                 path = path,
                 displayName = local?.name ?: remote?.name ?: path.removeSuffix(".json"),
-                status = determineStatus(local, remote, record),
+                status = determineStatus(local, remote),
                 local = local,
                 remote = remote,
             )
@@ -40,17 +40,13 @@ fun mergeConfigEntries(
 private fun determineStatus(
     local: LocalConfigSummary?,
     remote: RemoteConfigFile?,
-    record: ConfigSyncRecord?,
 ): ConfigSyncStatus {
     return when {
         local != null && !local.isValid -> ConfigSyncStatus.INVALID_LOCAL
         local == null && remote != null -> ConfigSyncStatus.REMOTE_ONLY
         local != null && remote == null -> ConfigSyncStatus.LOCAL_ONLY
         local != null && remote != null && local.sha == remote.sha -> ConfigSyncStatus.IN_SYNC
-        local != null && remote != null && record != null && record.localSha != local.sha ->
-            ConfigSyncStatus.MODIFIED_LOCAL
-
-        local != null && remote != null -> ConfigSyncStatus.OUTDATED_LOCAL
+        local != null && remote != null -> ConfigSyncStatus.LOCAL_OVERRIDE
         else -> ConfigSyncStatus.LOCAL_ONLY
     }
 }
