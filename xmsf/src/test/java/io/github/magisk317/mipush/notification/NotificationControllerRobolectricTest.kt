@@ -5,7 +5,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.drawable.Icon
 import android.os.Build
@@ -41,7 +40,6 @@ class NotificationControllerRobolectricTest {
         /** Mirrors MainActivity.EXTRA_START_ROUTE */
         private const val EXTRA_START_ROUTE = "extra_start_route"
         private const val ACTION_SHOW_ISLAND = "io.github.magisk317.mipush.action.SHOW_ISLAND"
-        private const val SYSTEM_UI_PACKAGE = "com.android.systemui"
     }
 
     @AfterEach
@@ -316,53 +314,47 @@ class NotificationControllerRobolectricTest {
     }
 
     @Test
-    fun `dynamic island mock broadcasts promo SystemUI island request`() {
+    fun `dynamic island mock posts notification instead of SystemUI island request on non MIUI`() {
         val context = RuntimeEnvironment.getApplication()
         val packageName = context.packageName
 
         NotificationController.testMock(context, MockNotificationKind.DYNAMIC_ISLAND, packageName)
 
-        val intent = singleIslandBroadcast()
+        val posted = findMockNotification(context, MockNotificationKind.DYNAMIC_ISLAND)
 
-        assertEquals(SYSTEM_UI_PACKAGE, intent.`package`)
-        assertEquals(packageName, intent.getStringExtra("sourcePackage"))
-        assertEquals("mipush_mock_island", intent.getStringExtra("sourceChannelId"))
-        assertEquals(NotificationStyle.PROMO.name, intent.getStringExtra("style"))
-        assertFalse(intent.getBooleanExtra("smallOnly", true))
-        assertFalse(intent.getBooleanExtra("showNotification", true))
-        assertTrue(intent.getBooleanExtra("islandOuterGlow", false))
-        assertTrue(intent.getBooleanExtra("clearBeforePost", false))
+        assertNoIslandBroadcasts()
+        assertNull(posted.extras.getString("miui.focus.param"))
+        assertNull(posted.extras.getBundle("miui.focus.pics"))
+        assertFalse(posted.extras.getBoolean("mipush_island_allow_proxy", false))
+        assertEquals(packageName, posted.extras.getString("target_package"))
+        assertTrue(shadowOf(posted.contentIntent).isActivity)
+        assertEquals(
+            EVENTS_ROUTE,
+            shadowOf(posted.contentIntent).savedIntent.getStringExtra(EXTRA_START_ROUTE),
+        )
     }
 
     @Test
-    fun `focus mock notification broadcasts SystemUI island request with activity action`() {
+    fun `focus mock notification posts native notification with activity action on non MIUI`() {
         val context = RuntimeEnvironment.getApplication()
         val packageName = context.packageName
 
         NotificationController.testMock(context, MockNotificationKind.FOCUS_NOTIFICATION, packageName)
 
-        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        assertFalse(notificationManager.activeNotifications.any { it.tag == "xmsf_mock_${MockNotificationKind.FOCUS_NOTIFICATION.name}" })
+        val posted = findMockNotification(context, MockNotificationKind.FOCUS_NOTIFICATION)
 
-        val intent = singleIslandBroadcast()
-        val contentIntent = intent.parcelableExtra<PendingIntent>("contentIntent")
-
-        assertEquals(SYSTEM_UI_PACKAGE, intent.`package`)
-        assertEquals(packageName, intent.getStringExtra("sourcePackage"))
-        assertEquals(NotificationStyle.GENERAL.name, intent.getStringExtra("style"))
-        assertFalse(intent.getBooleanExtra("smallOnly", true))
-        assertFalse(intent.getBooleanExtra("showNotification", true))
-        assertTrue(intent.getBooleanExtra("islandOuterGlow", false))
-        assertNotNull(contentIntent)
-        assertTrue(shadowOf(contentIntent!!).isActivity)
+        assertNoIslandBroadcasts()
+        assertNull(posted.extras.getString("miui.focus.param"))
+        assertFalse(posted.extras.getBoolean("mipush_island_allow_proxy", false))
+        assertTrue(shadowOf(posted.contentIntent).isActivity)
         assertEquals(
             EVENTS_ROUTE,
-            shadowOf(contentIntent).savedIntent.getStringExtra(EXTRA_START_ROUTE),
+            shadowOf(posted.contentIntent).savedIntent.getStringExtra(EXTRA_START_ROUTE),
         )
     }
 
     @Test
-    fun `focus mock notifications broadcast every hyperisland template style`() {
+    fun `focus mock notifications translate progress-like styles on non MIUI`() {
         val context = RuntimeEnvironment.getApplication()
         val packageName = context.packageName
         val expectedStyles = mapOf(
@@ -379,11 +371,32 @@ class NotificationControllerRobolectricTest {
             shadowOf(RuntimeEnvironment.getApplication()).clearBroadcastIntents()
             NotificationController.testMock(context, kind, packageName)
 
-            val intent = singleIslandBroadcast()
-            assertEquals(expectedStyle.name, intent.getStringExtra("style"))
+            val posted = findMockNotification(context, kind)
+            val expectedLiveUpdate = expectedStyle == NotificationStyle.PROGRESS
+
+            assertNoIslandBroadcasts()
             assertEquals(expectedStyle, kind.focusTemplateStyle)
-            assertFalse(intent.getBooleanExtra("smallOnly", true))
-            assertEquals(expectedStyle == NotificationStyle.MEDIA || expectedStyle == NotificationStyle.PROGRESS, intent.getBooleanExtra("isOngoing", false))
+            assertNull(posted.extras.getString("miui.focus.param"))
+            assertFalse(posted.extras.getBoolean("mipush_island_allow_proxy", false))
+            assertEquals(expectedLiveUpdate, posted.extras.getBoolean("xmsf.live_update", false))
+            if (expectedStyle == NotificationStyle.PROGRESS) {
+                assertEquals("download", posted.extras.getString("xmsf.live_update.category"))
+                assertEquals(65, posted.extras.getInt("xmsf.live_update.progress"))
+            }
+            if (expectedStyle == NotificationStyle.ALERT) {
+                assertEquals(Notification.CATEGORY_ALARM, posted.category)
+                assertEquals("CATEGORY", posted.extras.getString("xmsf.native_feature"))
+                assertEquals("ALERT", posted.extras.getString("xmsf.native_feature.style"))
+                assertTrue(posted.flags and Notification.FLAG_ONGOING_EVENT != 0)
+                assertEquals(0, posted.flags and Notification.FLAG_AUTO_CANCEL)
+            }
+            if (expectedStyle == NotificationStyle.MEDIA) {
+                assertEquals(Notification.CATEGORY_TRANSPORT, posted.category)
+                assertEquals("MEDIA", posted.extras.getString("xmsf.native_feature"))
+                assertEquals("MEDIA", posted.extras.getString("xmsf.native_feature.style"))
+                assertTrue(posted.flags and Notification.FLAG_ONGOING_EVENT != 0)
+                assertEquals(0, posted.flags and Notification.FLAG_AUTO_CANCEL)
+            }
         }
     }
 
@@ -582,15 +595,6 @@ class NotificationControllerRobolectricTest {
         }
     }
 
-    private inline fun <reified T : Parcelable> Intent.parcelableExtra(key: String): T? {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            getParcelableExtra(key, T::class.java)
-        } else {
-            @Suppress("DEPRECATION")
-            getParcelableExtra(key)
-        }
-    }
-
     private fun assertFocusSequenceEnabled(focusParam: String) {
         val paramV2 = JSONObject(focusParam).getJSONObject("param_v2")
         assertTrue(paramV2.getBoolean("enableFloat"))
@@ -603,10 +607,12 @@ class NotificationControllerRobolectricTest {
         )
     }
 
-    private fun singleIslandBroadcast(): Intent {
-        return shadowOf(RuntimeEnvironment.getApplication())
-            .broadcastIntents
-            .single { it.action == ACTION_SHOW_ISLAND }
+    private fun assertNoIslandBroadcasts() {
+        assertTrue(
+            shadowOf(RuntimeEnvironment.getApplication())
+                .broadcastIntents
+                .none { it.action == ACTION_SHOW_ISLAND },
+        )
     }
 
     private fun findMockNotification(

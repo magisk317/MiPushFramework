@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.notification
 import android.app.Notification
 import android.content.Context
 import android.os.Build
+import android.os.Bundle
 import android.text.SpannableString
 import android.text.Spanned
 import androidx.annotation.RequiresApi
@@ -85,6 +86,7 @@ object ProgressStyleBuilder {
     ): Notification {
         val extras = notification.extras
         val platformBuilder = Notification.Builder.recoverBuilder(context, notification)
+        platformBuilder.addExtras(liveUpdateExtras(extras))
         val style = Notification.ProgressStyle().setStyledByProgress(true)
         val progress = extras.getInt(EXTRA_LIVE_UPDATE_PROGRESS, NO_PROGRESS)
         if (progress == NO_PROGRESS) {
@@ -112,11 +114,21 @@ object ProgressStyleBuilder {
             .setStyle(style)
             .setOngoing(true)
             .setAutoCancel(false)
-        if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) {
-            requestPromotedOngoing(platformBuilder)
-        }
+        requestPromotedOngoingIfAvailable(platformBuilder)
         return platformBuilder
             .build()
+    }
+
+    @RequiresApi(Build.VERSION_CODES.BAKLAVA)
+    private fun requestPromotedOngoingIfAvailable(builder: Notification.Builder) {
+        if (Build.VERSION.SDK_INT_FULL < Build.VERSION_CODES_FULL.BAKLAVA_1) {
+            return
+        }
+        try {
+            requestPromotedOngoing(builder)
+        } catch (e: LinkageError) {
+            Napier.d("Notification.Builder#setRequestPromotedOngoing unavailable on this runtime", e, tag = TAG)
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES_FULL.BAKLAVA_1)
@@ -166,6 +178,7 @@ object ProgressStyleBuilder {
         // Set as ongoing for progress notifications
         builder.setOngoing(true)
         builder.setAutoCancel(false)
+        builder.setRequestPromotedOngoing(true)
 
         // Apply standard progress bar
         result.progressPercent?.let { percent ->
@@ -197,6 +210,7 @@ object ProgressStyleBuilder {
     ) {
         val extras = builder.extras
         extras.putBoolean(EXTRA_LIVE_UPDATE, true)
+        extras.putBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING, true)
         extras.putString(EXTRA_LIVE_UPDATE_CATEGORY, result.category.label)
         extras.putString(
             EXTRA_LIVE_UPDATE_SHORT_TEXT,
@@ -205,6 +219,25 @@ object ProgressStyleBuilder {
         extras.putInt(EXTRA_LIVE_UPDATE_PROGRESS, result.progressPercent ?: NO_PROGRESS)
         extras.putString(EXTRA_LIVE_UPDATE_SEMANTIC_STYLE, semanticStyle.name)
         builder.addExtras(extras)
+    }
+
+    private fun liveUpdateExtras(source: Bundle): Bundle {
+        return Bundle().apply {
+            putBoolean(EXTRA_LIVE_UPDATE, true)
+            putBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING, true)
+            source.getString(EXTRA_LIVE_UPDATE_CATEGORY)?.let {
+                putString(EXTRA_LIVE_UPDATE_CATEGORY, it)
+            }
+            source.getString(EXTRA_LIVE_UPDATE_SHORT_TEXT)?.let {
+                putString(EXTRA_LIVE_UPDATE_SHORT_TEXT, it)
+            }
+            if (source.containsKey(EXTRA_LIVE_UPDATE_PROGRESS)) {
+                putInt(EXTRA_LIVE_UPDATE_PROGRESS, source.getInt(EXTRA_LIVE_UPDATE_PROGRESS, NO_PROGRESS))
+            }
+            source.getString(EXTRA_LIVE_UPDATE_SEMANTIC_STYLE)?.let {
+                putString(EXTRA_LIVE_UPDATE_SEMANTIC_STYLE, it)
+            }
+        }
     }
 
     @Suppress("DEPRECATION")

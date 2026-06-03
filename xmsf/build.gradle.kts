@@ -82,6 +82,7 @@ dependencies {
         exclude(group = "com.google.android.material", module = "material")
     }
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.androidx.core.ktx)
     implementation(libs.libsu.core)
 
     testImplementation(libs.junit.jupiter)

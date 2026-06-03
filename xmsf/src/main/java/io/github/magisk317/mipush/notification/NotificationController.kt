@@ -247,22 +247,16 @@ object NotificationController {
             }
             ?: preliminaryFocusPlan
 
-        if (focusPlan.useNativeProgress && focusPlan.nativeDetection != null) {
-            Napier.i(
-                "Applying translated Live Update style pkg=$packageName " +
-                    "source=${focusPlan.semantic?.source} category=${focusPlan.nativeDetection.category} " +
-                    "progress=${focusPlan.nativeDetection.progressPercent} reason=${focusPlan.reason}",
-                tag = TAG,
-            )
-            ProgressStyleBuilder.applyProgressStyle(
-                context = context,
-                builder = notificationBuilder,
-                metaInfo = metaInfo,
-                detectionResult = focusPlan.nativeDetection,
-                semanticStyle = focusPlan.semantic?.semanticStyle
-                    ?: FocusSemanticTranslator.semanticStyleForCategory(focusPlan.nativeDetection.category),
-            )
-        }
+        val tag = MyMIPushNotificationHelper.getNotificationTag(packageName)
+        val nativeFeature = NativeNotificationFeatureBuilder.apply(
+            context = context,
+            builder = notificationBuilder,
+            metaInfo = metaInfo,
+            packageName = packageName,
+            focusPlan = focusPlan,
+            contentIntent = previewNotification.contentIntent,
+            notificationKey = NativeNotificationFeatureBuilder.notificationKey(packageName, notificationId, tag),
+        )
 
         if (configuredFocusBundle != null && focusPlan.attachMiuiFocusExtras) {
             notificationBuilder.addExtras(configuredFocusBundle)
@@ -282,20 +276,21 @@ object NotificationController {
             rawConfiguredFocusParam.takeIf { focusPlan.attachMiuiFocusExtras },
             notificationId
         )
-        if (shouldAutoCancelNotification(metaInfo, notificationBuilder)) {
+        if (shouldAutoCancelNotification(metaInfo, notificationBuilder, nativeFeature)) {
             notificationBuilder.setAutoCancel(true)
         }
-        val notification = ProgressStyleBuilder.buildNotification(context, notificationBuilder)
+        val notification = NativeNotificationFeatureBuilder.buildNotification(context, notificationBuilder, nativeFeature)
         val channel = getNotificationManagerEx().getNotificationChannel(packageName, notification.channelId)
         if (!NotificationChannelManager.isNotificationChannelEnabled(channel)) {
             logD("drop disabled channel notification pkg=$packageName id=$notificationId channel=${notification.channelId}")
+            NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag)
             return null
         }
         if (!NotificationContentSupport.hasMeaningfulVisibleText(context, packageName, notification, channel)) {
             logD("drop contentless notification pkg=$packageName id=$notificationId channel=${notification.channelId}")
+            NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag)
             return null
         }
-        val tag = MyMIPushNotificationHelper.getNotificationTag(packageName)
         if (configuredFocusBundle != null && focusPlan.attachMiuiFocusExtras) {
             FocusNotificationRegistry.registerReplacingUidVariants(
                 context,
@@ -315,7 +310,11 @@ object NotificationController {
             )
         ) {
             quietGeneratedIslandStatusBarNotification(notificationBuilder)
-            ProgressStyleBuilder.buildNotification(context, notificationBuilder)
+            NativeNotificationFeatureBuilder.buildNotification(
+                context,
+                notificationBuilder,
+                NativeNotificationFeatureBuilder.Result.NONE,
+            )
         } else {
             notification
         }
@@ -325,6 +324,7 @@ object NotificationController {
                 tag = TAG
             )
             PushRuntime.observeNotificationEvent(packageName, "notification_publish_failed", "NotificationController.publish")
+            NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag)
             return null
         }
         PushRuntime.observeNotificationEvent(packageName, "notification_publish_posted", "NotificationController.publish")
@@ -411,9 +411,11 @@ object NotificationController {
     @JvmStatic
     internal fun shouldAutoCancelNotification(
         metaInfo: PushMetaInfo,
-        notificationBuilder: NotificationCompat.Builder
+        notificationBuilder: NotificationCompat.Builder,
+        nativeFeature: NativeNotificationFeatureBuilder.Result = NativeNotificationFeatureBuilder.Result.NONE,
     ): Boolean {
         return !VoipNotificationHelper.isVoipNotification(metaInfo) &&
+            !nativeFeature.preventsAutoCancel &&
             !ProgressStyleBuilder.isLiveUpdate(notificationBuilder)
     }
 
@@ -532,6 +534,7 @@ object NotificationController {
     ) {
         MyMIPushNotificationStyleSupport.clearConversationHistory(container.packageName, notificationId)
         val tag = MyMIPushNotificationHelper.getNotificationTag(container)
+        NativeNotificationFeatureBuilder.releaseMediaSession(container.packageName, notificationId, tag)
         cancelGeneratedIslandProxy(context, container.packageName, notificationId, tag)
         getNotificationManagerEx().cancel(container.packageName, tag, notificationId)
         FocusNotificationRegistry.unregisterAllUidVariants(
@@ -745,7 +748,8 @@ object NotificationController {
         builder.setAutoCancel(true)
 
         val tag = "xmsf_mock_${kind.name}"
-        Napier.i("mock test build kind=${kind.name} pkg=$packageName id=$id tag=$tag", tag = TAG)
+        NativeNotificationFeatureBuilder.releaseMediaSessionsForTag(packageName, tag)
+        Napier.d("mock test build kind=${kind.name} pkg=$packageName id=$id tag=$tag", tag = TAG)
 
         val notifyIntent = LegacyUiEntryPoints.mainActivityIntent(
             context = context,
@@ -764,6 +768,7 @@ object NotificationController {
         }
         builder.addExtras(targetExtras)
 
+        var nativeFeature = NativeNotificationFeatureBuilder.Result.NONE
         when (kind) {
             io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.PLAIN -> {
                 builder.setContentTitle(title)
@@ -831,26 +836,23 @@ object NotificationController {
                 builder.setDefaults(NotificationCompat.DEFAULT_ALL)
             }
             io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.DYNAMIC_ISLAND -> {
-                Napier.i(
-                    "mock test island broadcast kind=${kind.name} pkg=$packageName id=$id tag=$tag",
-                    tag = TAG,
-                )
-                PushRuntime.observeNotificationEvent(
-                    packageName,
-                    "mock_test_island_broadcast",
-                    "NotificationController.testMock",
-                )
-                context.sendMockIslandBroadcast(
+                val mockFocusResult = handleMockFocusSemantic(
+                    context = context,
+                    builder = builder,
+                    kind = kind,
+                    packageName = packageName,
+                    notificationId = id,
+                    notificationTag = tag,
                     title = title,
                     description = description,
-                    sourcePackage = packageName,
-                    notificationId = id,
                     contentIntent = notifyPendingIntent,
                     style = NotificationStyle.PROMO,
-                    smallOnly = false,
                     islandOuterGlow = true,
                 )
-                return
+                if (mockFocusResult.handled) {
+                    return
+                }
+                nativeFeature = mockFocusResult.nativeFeature
             }
             io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_NOTIFICATION,
             io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_MESSAGE,
@@ -861,26 +863,23 @@ object NotificationController {
             io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.FOCUS_PROGRESS -> {
                 val focusStyle = kind.focusTemplateStyle ?: NotificationStyle.GENERAL
                 val focusSpec = mockFocusSpec(kind, title, description)
-                Napier.i(
-                    "mock test focus island broadcast kind=${kind.name} style=$focusStyle pkg=$packageName id=$id tag=$tag",
-                    tag = TAG,
-                )
-                PushRuntime.observeNotificationEvent(
-                    packageName,
-                    "mock_test_focus_island_broadcast",
-                    "NotificationController.testMock",
-                )
-                context.sendMockIslandBroadcast(
+                val mockFocusResult = handleMockFocusSemantic(
+                    context = context,
+                    builder = builder,
+                    kind = kind,
+                    packageName = packageName,
+                    notificationId = id,
+                    notificationTag = tag,
                     title = focusSpec.title,
                     description = focusSpec.content,
-                    sourcePackage = packageName,
-                    notificationId = id,
                     contentIntent = notifyPendingIntent,
                     style = focusStyle,
-                    smallOnly = false,
                     isOngoing = focusStyle == NotificationStyle.MEDIA || focusStyle == NotificationStyle.PROGRESS,
                 )
-                return
+                if (mockFocusResult.handled) {
+                    return
+                }
+                nativeFeature = mockFocusResult.nativeFeature
             }
             io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.VOIP_INCOMING -> {
                 builder.setContentTitle(context.getString(R.string.mock_voip_title))
@@ -955,15 +954,120 @@ object NotificationController {
             }
         }
 
-        val notification = ProgressStyleBuilder.buildNotification(context, builder)
+        val notification = NativeNotificationFeatureBuilder.buildNotification(context, builder, nativeFeature)
         nm.notify(tag, id, notification)
-        Napier.i(
+        Napier.d(
             "mock test posted kind=${kind.name} pkg=$packageName id=$id tag=$tag " +
                 "focus=${notification.extras.containsKey(FOCUS_PARAM)} " +
-                "contentIntent=${notification.contentIntent != null}",
+                "contentIntent=${notification.contentIntent != null} nativeFeature=${nativeFeature.feature}",
             tag = TAG,
         )
         PushRuntime.observeNotificationEvent(packageName, "mock_test_notification_posted", "NotificationController.testMock")
+    }
+
+    private data class MockFocusSemanticResult(
+        val handled: Boolean = false,
+        val nativeFeature: NativeNotificationFeatureBuilder.Result = NativeNotificationFeatureBuilder.Result.NONE,
+    )
+
+    private fun handleMockFocusSemantic(
+        context: Context,
+        builder: NotificationCompat.Builder,
+        kind: io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind,
+        packageName: String,
+        notificationId: Int,
+        notificationTag: String,
+        title: String,
+        description: String,
+        contentIntent: PendingIntent,
+        style: NotificationStyle,
+        isOngoing: Boolean = false,
+        islandOuterGlow: Boolean = false,
+    ): MockFocusSemanticResult {
+        builder.setContentTitle(title)
+        builder.setContentText(description)
+        if (isOngoing) {
+            builder.setOngoing(true)
+            builder.setAutoCancel(false)
+        }
+
+        val metaInfo = PushMetaInfo().apply {
+            setTitle(title)
+            setDescription(description)
+        }
+        val options = MiPushIslandPreferences.read(context, packageName)
+        val generatedFocusParam = MiPushIslandPayloadBuilder.buildFocusParam(
+            context = context,
+            metaInfo = metaInfo,
+            packageName = packageName,
+            largeIcon = null,
+            options = options,
+            styleOverride = style,
+        )
+        val focusPlan = FocusSemanticTranslator.plan(
+            context = context,
+            metaInfo = metaInfo,
+            packageName = packageName,
+            configuredFocusParam = null,
+            generatedFocusParam = generatedFocusParam,
+            generatedFocusCandidate = generatedFocusParam != null,
+        )
+
+        if (focusPlan.allowIslandProxy && NotificationManagerEx.isHooked) {
+            Napier.d(
+                "mock test island broadcast kind=${kind.name} style=$style pkg=$packageName " +
+                    "id=$notificationId reason=${focusPlan.reason}",
+                tag = TAG,
+            )
+            PushRuntime.observeNotificationEvent(
+                packageName,
+                "mock_test_island_broadcast",
+                "NotificationController.testMock",
+            )
+            context.sendMockIslandBroadcast(
+                title = title,
+                description = description,
+                sourcePackage = packageName,
+                notificationId = notificationId,
+                contentIntent = contentIntent,
+                style = style,
+                smallOnly = false,
+                isOngoing = isOngoing,
+                islandOuterGlow = islandOuterGlow,
+            )
+            return MockFocusSemanticResult(handled = true)
+        }
+
+        if (focusPlan.allowIslandProxy) {
+            builder.addExtras(
+                Bundle().apply {
+                    putBoolean(EXTRA_ALLOW_ISLAND_PROXY, true)
+                },
+            )
+            return MockFocusSemanticResult()
+        }
+
+        val nativeFeature = NativeNotificationFeatureBuilder.apply(
+            context = context,
+            builder = builder,
+            metaInfo = metaInfo,
+            packageName = packageName,
+            focusPlan = focusPlan,
+            styleOverride = style,
+            contentIntent = contentIntent,
+            notificationKey = NativeNotificationFeatureBuilder.notificationKey(
+                packageName,
+                notificationId,
+                notificationTag,
+            ),
+        )
+
+        Napier.d(
+            "mock test focus semantic kind=${kind.name} style=$style pkg=$packageName " +
+                "id=$notificationId reason=${focusPlan.reason} nativeFeature=${nativeFeature.feature}",
+            tag = TAG,
+        )
+        return MockFocusSemanticResult(nativeFeature = nativeFeature)
     }
 
     private data class MockFocusSpec(
@@ -1021,7 +1125,7 @@ object NotificationController {
     ) {
         val options = MiPushIslandPreferences.read(this, sourcePackage)
         val icon = MiPushIslandPayloadBuilder.resolveNotificationIcon(this, sourcePackage, null)
-        Napier.i(
+        Napier.d(
             "mock island broadcast sourcePkg=$sourcePackage notificationId=$notificationId " +
                 "timeout=${options.timeoutSecs} firstFloat=${options.firstFloat} enableFloat=${options.enableFloat}",
             tag = TAG,
