@@ -8,6 +8,12 @@
 /local.properties
 .DS_Store
 
+# Local agent guidance
+AGENTS.md
+AGENTS.override.md
+agents.md
+agents.override.md
+
 # Build outputs
 **/build/
 .gradle/
