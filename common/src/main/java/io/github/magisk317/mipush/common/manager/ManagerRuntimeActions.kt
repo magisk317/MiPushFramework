@@ -13,7 +13,6 @@ interface ManagerConfigGateway {
 
 interface ManagerRuntimeActions {
     suspend fun clearHistory()
-    fun clearLog(context: Context)
     fun startMiPushServiceAsForegroundService(context: Context)
     fun notifyMockNotification(context: Context, kind: MockNotificationKind, packageName: String)
     fun tryForceRegisterAllApplications(context: Context, packageNames: Collection<String>): ForceRegisterOutcome

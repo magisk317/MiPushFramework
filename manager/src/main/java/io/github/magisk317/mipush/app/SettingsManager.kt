@@ -53,12 +53,6 @@ class SettingsManager constructor(
 
     val mClearingHistory: AtomicBoolean = AtomicBoolean(false)
 
-    fun clearLog(context: Context) {
-        Toast.makeText(context, context.getString(R.string.settings_clear_log) + " " + context.getString(R.string.start), Toast.LENGTH_SHORT).show()
-        runtimeActions.clearLog(context)
-        Toast.makeText(context, context.getString(R.string.settings_clear_log) + " " + context.getString(R.string.end), Toast.LENGTH_SHORT).show()
-    }
-
     fun clearHistory(context: Context, scope: CoroutineScope) {
         if (mClearingHistory.compareAndSet(false, true)) {
             scope.launch(Dispatchers.IO) {

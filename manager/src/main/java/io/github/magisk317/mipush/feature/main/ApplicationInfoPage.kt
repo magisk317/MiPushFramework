@@ -189,8 +189,27 @@ open class ApplicationInfoPage : ComponentActivity() {
         ApplicationInfoHeader(snackbarHostState)
         TipsCard()
         ActivitySectionCard(snackbarHostState)
-        IslandDisplaySection()
+        IslandDisplaySection(snackbarHostState)
         NotificationSection()
+    }
+
+    @Composable
+    private fun rememberSwitchFeedback(snackbarHostState: SnackbarHostState): (String, Boolean) -> Unit {
+        val scope = rememberCoroutineScope()
+        val enabledTemplate = stringResource(R.string.settings_switch_enabled_feedback)
+        val disabledTemplate = stringResource(R.string.settings_switch_disabled_feedback)
+        return remember(snackbarHostState, scope, enabledTemplate, disabledTemplate) {
+            { title, enabled ->
+                val template = if (enabled) enabledTemplate else disabledTemplate
+                scope.launch {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(
+                        message = String.format(Locale.getDefault(), template, title),
+                        duration = SnackbarDuration.Short,
+                    )
+                }
+            }
+        }
     }
 
     @Composable
@@ -464,6 +483,7 @@ open class ApplicationInfoPage : ComponentActivity() {
     private fun ActivitySectionCard(snackbarHostState: SnackbarHostState) {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
+        val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
         val notificationOnRegisterDisabledMessage = stringResource(
             R.string.notification_on_register_global_disabled_hint,
         )
@@ -478,15 +498,17 @@ open class ApplicationInfoPage : ComponentActivity() {
         DetailSectionCard(
             title = stringResource(R.string.app_detail_activity_and_behavior),
         ) {
+            val blockTitle = stringResource(R.string.app_detail_block)
             SettingSwitchRow(
-                title = stringResource(R.string.app_detail_block),
+                title = blockTitle,
                 summary = stringResource(R.string.app_detail_block_summary),
                 checked = blocked,
                 showDivider = true,
-            ) {
-                blocked = it
+            ) { enabled ->
+                blocked = enabled
                 applicationInfo = applicationInfo.copy(blocked = blocked)
                 applicationGateway.updateApplication(applicationInfo)
+                showSwitchFeedback(blockTitle, enabled)
             }
 
             ActionSummaryRow(
@@ -499,8 +521,9 @@ open class ApplicationInfoPage : ComponentActivity() {
                 appConfigurationUtils.gotoRecentEventsPage()
             }
 
+            val notificationOnRegisterTitle = stringResource(R.string.permission_notification_on_register)
             SettingSwitchRow(
-                title = stringResource(R.string.permission_notification_on_register),
+                title = notificationOnRegisterTitle,
                 summary = stringResource(R.string.permission_summary_notification_on_register),
                 checked = checked,
                 enabled = globalEnabled && !blocked,
@@ -513,16 +536,18 @@ open class ApplicationInfoPage : ComponentActivity() {
                         )
                     }
                 },
-            ) {
-                checked = it
+            ) { enabled ->
+                checked = enabled
                 applicationInfo = applicationInfo.copy(notificationOnRegister = checked)
                 applicationGateway.updateApplication(applicationInfo)
+                showSwitchFeedback(notificationOnRegisterTitle, enabled)
             }
         }
     }
 
     @Composable
-    private fun IslandDisplaySection() {
+    private fun IslandDisplaySection(snackbarHostState: SnackbarHostState) {
+        val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
         var islandEnabled by remember { mutableStateOf(applicationInfo.islandEnabled) }
         var islandFocusNotification by remember {
             mutableStateOf(applicationInfo.islandFocusNotification)
@@ -532,26 +557,30 @@ open class ApplicationInfoPage : ComponentActivity() {
             title = stringResource(R.string.app_detail_island_controls),
             summary = stringResource(R.string.app_detail_island_controls_summary),
         ) {
+            val islandEnabledTitle = stringResource(R.string.app_detail_island_enabled)
             SettingSwitchRow(
-                title = stringResource(R.string.app_detail_island_enabled),
+                title = islandEnabledTitle,
                 summary = stringResource(R.string.app_detail_island_enabled_summary),
                 checked = islandEnabled,
                 showDivider = true,
-            ) {
-                islandEnabled = it
+            ) { enabled ->
+                islandEnabled = enabled
                 applicationInfo = applicationInfo.copy(islandEnabled = islandEnabled)
                 applicationGateway.updateApplication(applicationInfo)
+                showSwitchFeedback(islandEnabledTitle, enabled)
             }
 
+            val islandFocusNotificationTitle = stringResource(R.string.app_detail_island_focus_notification)
             SettingSwitchRow(
-                title = stringResource(R.string.app_detail_island_focus_notification),
+                title = islandFocusNotificationTitle,
                 summary = stringResource(R.string.app_detail_island_focus_notification_summary),
                 checked = islandFocusNotification,
                 enabled = islandEnabled,
-            ) {
-                islandFocusNotification = it
+            ) { enabled ->
+                islandFocusNotification = enabled
                 applicationInfo = applicationInfo.copy(islandFocusNotification = islandFocusNotification)
                 applicationGateway.updateApplication(applicationInfo)
+                showSwitchFeedback(islandFocusNotificationTitle, enabled)
             }
         }
     }

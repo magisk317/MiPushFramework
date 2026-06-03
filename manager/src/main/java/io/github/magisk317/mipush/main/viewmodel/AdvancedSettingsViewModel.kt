@@ -16,9 +16,6 @@ class AdvancedSettingsViewModel constructor(
     val notificationOnRegister: StateFlow<Boolean> = preferenceRepository.notificationOnRegister
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    val showConfigurationList: StateFlow<Boolean> = preferenceRepository.showConfigurationList
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-
     val debugMode: StateFlow<Boolean> = preferenceRepository.debugMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
@@ -45,10 +42,6 @@ class AdvancedSettingsViewModel constructor(
 
     fun setNotificationOnRegister(value: Boolean) = viewModelScope.launch {
         preferenceRepository.setNotificationOnRegister(value)
-    }
-
-    fun setShowConfigurationList(value: Boolean) = viewModelScope.launch {
-        preferenceRepository.setShowConfigurationList(value)
     }
 
     fun setDebugMode(value: Boolean) = viewModelScope.launch {
@@ -102,9 +95,5 @@ class AdvancedSettingsViewModel constructor(
     
     fun clearHistory(context: android.content.Context) {
         settingsManager.clearHistory(context, viewModelScope)
-    }
-    
-    fun clearLog(context: android.content.Context) {
-        settingsManager.clearLog(context)
     }
 }

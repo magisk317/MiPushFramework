@@ -622,10 +622,6 @@ class XmsfManagerRuntimeActions(
         EventDb.deleteHistoryAsync()
     }
 
-    override fun clearLog(context: Context) {
-        LogUtils.clearLog(context)
-    }
-
     override fun startMiPushServiceAsForegroundService(context: Context) {
         runtimeSettingsAdapter.startMiPushServiceAsForegroundService(context)
     }

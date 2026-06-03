@@ -7,19 +7,16 @@ import android.graphics.Color
 import android.net.Uri
 import android.util.Base64
 import android.util.Pair
-import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.documentfile.provider.DocumentFile
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.Serializable
 import io.github.magisk317.mipush.common.configurations.ConfigJsonException
-import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.app.ConfigCenter
-import kotlinx.coroutines.runBlocking
-import io.github.magisk317.mipush.control.PushControllerUtils
 
 class IconConfigurations constructor(
-    private val configCenter: ConfigCenter
+    @Suppress("unused") configCenter: ConfigCenter
 ) {
     private val iconConfigs = hashMapOf<String, IconConfig>()
 
@@ -57,21 +54,12 @@ class IconConfigurations constructor(
                 break
             }
             val exceptions = mutableListOf<Pair<DocumentFile, ConfigJsonException>>()
-            val loadedFiles = mutableListOf<DocumentFile>()
-            parseDirectory(context, treeUri, exceptions, loadedFiles)
+            parseDirectory(context, treeUri, exceptions)
 
-            if (loadedFiles.isNotEmpty() && PushControllerUtils.isAppMainProc(context) && runBlocking { configCenter.isShowConfigurationListOnLoadedAsync() }) {
-                val loadedList = StringBuilder("loaded icon configuration list:")
-                for (file in loadedFiles) {
-                    loadedList.append('\n')
-                    loadedList.append(file.name)
-                }
-                Utils.makeText(context, loadedList, Toast.LENGTH_SHORT)
-            }
             if (exceptions.isNotEmpty()) {
                 for (pair in exceptions) {
                     val errmsg = ConfigurationsLoader.getJsonExceptionMessage(context, pair)
-                    Utils.makeText(context, errmsg.toString(), Toast.LENGTH_LONG)
+                    logE(errmsg.toString())
                 }
                 break
             }
@@ -85,8 +73,7 @@ class IconConfigurations constructor(
     private fun parseDirectory(
         context: Context,
         treeUri: Uri,
-        exceptions: MutableList<Pair<DocumentFile, ConfigJsonException>>,
-        loadedFiles: MutableList<DocumentFile>
+        exceptions: MutableList<Pair<DocumentFile, ConfigJsonException>>
     ): Boolean {
         var documentFile = DocumentFile.fromTreeUri(context, treeUri) ?: return true
         documentFile = documentFile.findFile("icon") ?: return true
@@ -99,7 +86,6 @@ class IconConfigurations constructor(
             val json = ConfigurationsLoader.readTextFromUri(context, file.uri)
             try {
                 parse(json)
-                loadedFiles.add(file)
             } catch (e: ConfigJsonException) {
                 exceptions.add(Pair(file, e))
             }

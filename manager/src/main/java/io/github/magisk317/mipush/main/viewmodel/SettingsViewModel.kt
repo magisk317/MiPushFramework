@@ -44,9 +44,6 @@ class SettingsViewModel constructor(
     val notificationOnRegister: StateFlow<Boolean> = preferenceRepository.notificationOnRegister
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
-    val showConfigurationList: StateFlow<Boolean> = preferenceRepository.showConfigurationList
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
-
     val debugMode: StateFlow<Boolean> = preferenceRepository.debugMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
@@ -144,10 +141,6 @@ class SettingsViewModel constructor(
         viewModelScope.launch { preferenceRepository.setNotificationOnRegister(enabled) }
     }
 
-    fun setShowConfigurationList(enabled: Boolean) {
-        viewModelScope.launch { preferenceRepository.setShowConfigurationList(enabled) }
-    }
-
     fun setDebugMode(enabled: Boolean) {
         viewModelScope.launch { preferenceRepository.setDebugMode(enabled) }
     }
@@ -239,10 +232,6 @@ class SettingsViewModel constructor(
 
     fun clearHistory(context: android.content.Context) {
         settingsManager.clearHistory(context, viewModelScope)
-    }
-
-    fun clearLog(context: android.content.Context) {
-        settingsManager.clearLog(context)
     }
 
     fun updateAllNotificationOnRegister(enabled: Boolean): Int {

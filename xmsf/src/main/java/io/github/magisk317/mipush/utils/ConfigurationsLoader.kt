@@ -9,7 +9,6 @@ import io.github.magisk317.mipush.common.utils.logW
 import android.content.Context
 import android.net.Uri
 import android.util.Pair
-import android.widget.Toast
 import androidx.documentfile.provider.DocumentFile
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.platform.support.Global
@@ -21,12 +20,9 @@ import io.github.magisk317.mipush.common.configurations.ConfigJsonObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.regex.Pattern
-import kotlinx.coroutines.runBlocking
-import io.github.magisk317.mipush.common.utils.Utils
-import io.github.magisk317.mipush.control.PushControllerUtils
 
 class ConfigurationsLoader private constructor(
-    private val configCenter: ConfigCenter?,
+    @Suppress("unused") configCenter: ConfigCenter?,
     @Suppress("unused") private val jsonOnly: Boolean,
 ) {
     constructor(configCenter: ConfigCenter) : this(configCenter, false)
@@ -51,22 +47,12 @@ class ConfigurationsLoader private constructor(
                 break
             }
             val exceptions = mutableListOf<Pair<DocumentFile, ConfigJsonException>>()
-            val loadedFiles = mutableListOf<DocumentFile>()
-            parseDirectory(context, treeUri, exceptions, loadedFiles, configurations)
+            parseDirectory(context, treeUri, exceptions, configurations)
 
-            if (loadedFiles.isNotEmpty() && PushControllerUtils.isAppMainProc(context) && runBlocking { configCenter?.isShowConfigurationListOnLoadedAsync() ?: false }) {
-                val loadedList = StringBuilder("loaded configuration list:")
-                for (file in loadedFiles) {
-                    loadedList.append('\n')
-                    loadedList.append(file.name)
-                }
-                Utils.makeText(context, loadedList, Toast.LENGTH_SHORT)
-            }
             if (exceptions.isNotEmpty()) {
                 for (pair in exceptions) {
                     val errmsg = getJsonExceptionMessage(context, pair)
                     logE(errmsg.toString())
-                    Utils.makeText(context, errmsg.toString(), Toast.LENGTH_LONG)
                 }
                 break
             }
@@ -79,7 +65,6 @@ class ConfigurationsLoader private constructor(
         context: Context,
         treeUri: Uri,
         exceptions: MutableList<Pair<DocumentFile, ConfigJsonException>>,
-        loadedFiles: MutableList<DocumentFile>,
         configurations: Configurations
     ): Boolean {
         val documentFile = DocumentFile.fromTreeUri(context, treeUri) ?: return true
@@ -97,7 +82,6 @@ class ConfigurationsLoader private constructor(
             val json = readTextFromUri(context, file.uri)
             try {
                 parse(json, configurations)
-                loadedFiles.add(file)
             } catch (e: ConfigJsonException) {
                 exceptions.add(Pair(file, e))
             }
@@ -236,7 +220,6 @@ class ConfigurationsLoader private constructor(
                 }
             } catch (e: Exception) {
                 Napier.e("readTextFromUri failed", e, tag = TAG)
-                Utils.makeText(context, e.toString(), Toast.LENGTH_LONG)
             }
             return stringBuilder.toString()
         }

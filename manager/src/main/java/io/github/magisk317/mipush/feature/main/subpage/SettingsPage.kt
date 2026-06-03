@@ -223,7 +223,7 @@ private fun SettingsScreen(
                     expanded = serviceExpanded,
                     onExpandedChange = { serviceExpanded = !serviceExpanded },
                 ) {
-                    ConnectionServiceBlock(viewModel)
+                    ConnectionServiceBlock(viewModel, snackbarHostState)
                 }
 
                 SettingsSectionCard(
@@ -295,19 +295,41 @@ private fun SettingsSectionCard(
 }
 
 @Composable
-private fun ConnectionServiceBlock(viewModel: SettingsViewModel) {
+private fun rememberSwitchFeedback(snackbarHostState: SnackbarHostState): (String, Boolean) -> Unit {
+    val scope = rememberCoroutineScope()
+    val enabledTemplate = stringResource(R.string.settings_switch_enabled_feedback)
+    val disabledTemplate = stringResource(R.string.settings_switch_disabled_feedback)
+    return remember(snackbarHostState, scope, enabledTemplate, disabledTemplate) {
+        { title, enabled ->
+            val template = if (enabled) enabledTemplate else disabledTemplate
+            scope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(
+                    message = String.format(Locale.getDefault(), template, title),
+                    duration = SnackbarDuration.Short,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConnectionServiceBlock(viewModel: SettingsViewModel, snackbarHostState: SnackbarHostState) {
     val context = LocalContext.current
     val isStartForeground by viewModel.isStartForeground.collectAsStateWithLifecycle()
+    val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
 
     SetXMPPServer(viewModel)
 
+    val startForegroundTitle = stringResource(R.string.settings_start_foreground_service)
     SettingsSwitchItem(
-        title = stringResource(R.string.settings_start_foreground_service),
+        title = startForegroundTitle,
         summary = stringResource(R.string.settings_start_foreground_service_summary),
         checked = isStartForeground,
-    ) {
-        viewModel.setStartForeground(it)
+    ) { enabled ->
+        viewModel.setStartForeground(enabled)
         viewModel.startMiPushServiceAsForegroundService(context)
+        showSwitchFeedback(startForegroundTitle, enabled)
     }
 
     SettingsItem(
@@ -326,6 +348,7 @@ private fun KeepAliveBlock(viewModel: SettingsViewModel, snackbarHostState: Snac
     val keepAliveAntiKill by viewModel.keepAliveAntiKill.collectAsStateWithLifecycle()
     val keepAliveStandbyBypass by viewModel.keepAliveStandbyBypass.collectAsStateWithLifecycle()
     val keepAliveDozeBypass by viewModel.keepAliveDozeBypass.collectAsStateWithLifecycle()
+    val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
     val lifecycleOwner = LocalLifecycleOwner.current
     var accessibilityStatusRefresh by remember { mutableIntStateOf(0) }
     DisposableEffect(lifecycleOwner) {
@@ -344,36 +367,44 @@ private fun KeepAliveBlock(viewModel: SettingsViewModel, snackbarHostState: Snac
     }
     val activityIntentNotFoundMessage = stringResource(R.string.activity_intent_not_found)
 
+    val keepAliveOomAdjTitle = stringResource(R.string.pref_keepalive_oom_adj_title)
     SettingsSwitchItem(
-        title = stringResource(R.string.pref_keepalive_oom_adj_title),
+        title = keepAliveOomAdjTitle,
         summary = stringResource(R.string.pref_keepalive_oom_adj_summary),
         checked = keepAliveOomAdj,
-    ) {
-        viewModel.setKeepAliveOomAdj(it)
+    ) { enabled ->
+        viewModel.setKeepAliveOomAdj(enabled)
+        showSwitchFeedback(keepAliveOomAdjTitle, enabled)
     }
 
+    val keepAliveAntiKillTitle = stringResource(R.string.pref_keepalive_anti_kill_title)
     SettingsSwitchItem(
-        title = stringResource(R.string.pref_keepalive_anti_kill_title),
+        title = keepAliveAntiKillTitle,
         summary = stringResource(R.string.pref_keepalive_anti_kill_summary),
         checked = keepAliveAntiKill,
-    ) {
-        viewModel.setKeepAliveAntiKill(it)
+    ) { enabled ->
+        viewModel.setKeepAliveAntiKill(enabled)
+        showSwitchFeedback(keepAliveAntiKillTitle, enabled)
     }
 
+    val keepAliveStandbyBypassTitle = stringResource(R.string.pref_keepalive_standby_bypass_title)
     SettingsSwitchItem(
-        title = stringResource(R.string.pref_keepalive_standby_bypass_title),
+        title = keepAliveStandbyBypassTitle,
         summary = stringResource(R.string.pref_keepalive_standby_bypass_summary),
         checked = keepAliveStandbyBypass,
-    ) {
-        viewModel.setKeepAliveStandbyBypass(it)
+    ) { enabled ->
+        viewModel.setKeepAliveStandbyBypass(enabled)
+        showSwitchFeedback(keepAliveStandbyBypassTitle, enabled)
     }
 
+    val keepAliveDozeBypassTitle = stringResource(R.string.pref_keepalive_doze_bypass_title)
     SettingsSwitchItem(
-        title = stringResource(R.string.pref_keepalive_doze_bypass_title),
+        title = keepAliveDozeBypassTitle,
         summary = stringResource(R.string.pref_keepalive_doze_bypass_summary),
         checked = keepAliveDozeBypass,
-    ) {
-        viewModel.setKeepAliveDozeBypass(it)
+    ) { enabled ->
+        viewModel.setKeepAliveDozeBypass(enabled)
+        showSwitchFeedback(keepAliveDozeBypassTitle, enabled)
     }
 
     SettingsItem(
@@ -405,51 +436,49 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
     val scope = rememberCoroutineScope()
     val notificationOnRegister by viewModel.notificationOnRegister.collectAsStateWithLifecycle()
     val showAllEvents by viewModel.showAllEvents.collectAsStateWithLifecycle()
-    val showConfigurationList by viewModel.showConfigurationList.collectAsStateWithLifecycle()
     val islandEnabled by viewModel.islandEnabled.collectAsStateWithLifecycle()
     val islandTimeout by viewModel.islandTimeout.collectAsStateWithLifecycle()
     val islandFirstFloat by viewModel.islandFirstFloat.collectAsStateWithLifecycle()
     val islandEnableFloat by viewModel.islandEnableFloat.collectAsStateWithLifecycle()
     val islandShowNotification by viewModel.islandShowNotification.collectAsStateWithLifecycle()
     val islandFocusNotification by viewModel.islandFocusNotification.collectAsStateWithLifecycle()
-    val notificationOnRegisterDisabledMessage = stringResource(R.string.notification_on_register_global_disabled_hint)
+    val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
     var showIslandTimeoutDialog by remember { mutableStateOf(false) }
     var islandTimeoutInput by remember(islandTimeout) { mutableStateOf(islandTimeout.toString()) }
     val islandTimeoutError = stringResource(R.string.pref_island_timeout_error)
 
+    val notificationOnRegisterTitle = stringResource(R.string.settings_notify_on_register)
     SettingsSwitchItem(
-        title = stringResource(R.string.settings_notify_on_register),
+        title = notificationOnRegisterTitle,
         checked = notificationOnRegister,
     ) { newValue ->
         viewModel.setNotificationOnRegister(newValue)
+        showSwitchFeedback(notificationOnRegisterTitle, newValue)
         if (!newValue) {
             scope.launch(Dispatchers.IO) {
                 viewModel.updateAllNotificationOnRegister(false)
             }
-            scope.launch {
-                snackbarHostState.showSnackbar(
-                    message = notificationOnRegisterDisabledMessage,
-                    duration = SnackbarDuration.Short,
-                )
-            }
         }
     }
 
+    val showAllEventsTitle = stringResource(R.string.settings_show_all_events)
     SettingsSwitchItem(
-        title = stringResource(R.string.settings_show_all_events),
+        title = showAllEventsTitle,
         checked = showAllEvents,
-    ) { viewModel.setShowAllEvents(it) }
+    ) { enabled ->
+        viewModel.setShowAllEvents(enabled)
+        showSwitchFeedback(showAllEventsTitle, enabled)
+    }
 
+    val islandEnabledTitle = stringResource(R.string.pref_island_enabled_title)
     SettingsSwitchItem(
-        title = stringResource(R.string.settings_show_loaded_file_after_configurations_loaded),
-        checked = showConfigurationList,
-    ) { viewModel.setShowConfigurationList(it) }
-
-    SettingsSwitchItem(
-        title = stringResource(R.string.pref_island_enabled_title),
+        title = islandEnabledTitle,
         summary = stringResource(R.string.pref_island_enabled_summary),
         checked = islandEnabled,
-    ) { viewModel.setIslandEnabled(it) }
+    ) { enabled ->
+        viewModel.setIslandEnabled(enabled)
+        showSwitchFeedback(islandEnabledTitle, enabled)
+    }
 
     SettingsItem(
         title = stringResource(R.string.pref_island_timeout_title),
@@ -460,33 +489,49 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
         showIslandTimeoutDialog = true
     }
 
+    val islandFirstFloatTitle = stringResource(R.string.pref_island_first_float_title)
     SettingsSwitchItem(
-        title = stringResource(R.string.pref_island_first_float_title),
+        title = islandFirstFloatTitle,
         summary = stringResource(R.string.pref_island_first_float_summary),
         checked = islandFirstFloat,
         enabled = islandEnabled,
-    ) { viewModel.setIslandFirstFloat(it) }
+    ) { enabled ->
+        viewModel.setIslandFirstFloat(enabled)
+        showSwitchFeedback(islandFirstFloatTitle, enabled)
+    }
 
+    val islandEnableFloatTitle = stringResource(R.string.pref_island_enable_float_title)
     SettingsSwitchItem(
-        title = stringResource(R.string.pref_island_enable_float_title),
+        title = islandEnableFloatTitle,
         summary = stringResource(R.string.pref_island_enable_float_summary),
         checked = islandEnableFloat,
         enabled = islandEnabled,
-    ) { viewModel.setIslandEnableFloat(it) }
+    ) { enabled ->
+        viewModel.setIslandEnableFloat(enabled)
+        showSwitchFeedback(islandEnableFloatTitle, enabled)
+    }
 
+    val islandShowNotificationTitle = stringResource(R.string.pref_island_show_notification_title)
     SettingsSwitchItem(
-        title = stringResource(R.string.pref_island_show_notification_title),
+        title = islandShowNotificationTitle,
         summary = stringResource(R.string.pref_island_show_notification_summary),
         checked = islandShowNotification,
         enabled = islandEnabled,
-    ) { viewModel.setIslandShowNotification(it) }
+    ) { enabled ->
+        viewModel.setIslandShowNotification(enabled)
+        showSwitchFeedback(islandShowNotificationTitle, enabled)
+    }
 
+    val islandFocusNotificationTitle = stringResource(R.string.pref_island_focus_notif_title)
     SettingsSwitchItem(
-        title = stringResource(R.string.pref_island_focus_notif_title),
+        title = islandFocusNotificationTitle,
         summary = stringResource(R.string.pref_island_focus_notif_summary),
         checked = islandFocusNotification,
         enabled = islandEnabled,
-    ) { viewModel.setIslandFocusNotification(it) }
+    ) { enabled ->
+        viewModel.setIslandFocusNotification(enabled)
+        showSwitchFeedback(islandFocusNotificationTitle, enabled)
+    }
 
     if (showIslandTimeoutDialog) {
         AlertDialog(
@@ -534,6 +579,7 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
     val scope = rememberCoroutineScope()
     val debugMode by viewModel.debugMode.collectAsStateWithLifecycle()
     val runtimeLogRetentionDays by viewModel.runtimeLogRetentionDays.collectAsStateWithLifecycle()
+    val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
     var showRuntimeLogInfoDialog by remember { mutableStateOf(false) }
     var runtimeLogDialogData by remember { mutableStateOf<RuntimeLogDialogData?>(null) }
     var showRuntimeLogFullScreenPreview by remember { mutableStateOf(false) }
@@ -602,18 +648,15 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
         showRuntimeLogRetentionDialog = true
     }
 
-    SettingsItem(
-        title = stringResource(R.string.settings_clear_log),
-        summary = stringResource(R.string.settings_clear_log_summary),
-    ) {
-        viewModel.clearLog(context)
-    }
-
+    val debugModeTitle = stringResource(R.string.settings_debug_mode)
     SettingsSwitchItem(
-        title = stringResource(R.string.settings_debug_mode),
+        title = debugModeTitle,
         summary = stringResource(R.string.settings_debug_mode_summary),
         checked = debugMode,
-    ) { viewModel.setDebugMode(it) }
+    ) { enabled ->
+        viewModel.setDebugMode(enabled)
+        showSwitchFeedback(debugModeTitle, enabled)
+    }
 
     var showMockPanel by remember { mutableStateOf(false) }
     SettingsItem(

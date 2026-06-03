@@ -67,9 +67,6 @@
     <string name="settings_clear_history">清理记录</string>
 
 
-    <string name="settings_clear_log">清空日志</string>
-
-    <string name="settings_clear_log_summary">清空日志文件</string>
     <string name="accessibility_desc">当使用情况统计不可用时，用于前台应用检测的辅助兜底能力。</string>
     <string name="settings_auto_register">自动注册应用</string>
     <string name="settings_options">配置</string>
@@ -82,10 +79,11 @@
 
     <string name="debug_test_content">这是%1$s测试内容</string>
     <string name="settings_notify_on_register">应用注册时显示通知</string>
-    <string name="settings_show_loaded_file_after_configurations_loaded">在配置加载完成后显示加载成功的配置文件</string>
     <string name="settings_debug_mode">启用调试模式</string>
     <string name="settings_debug_mode_summary">通知中展示调试动作，打印完整日志</string>
     <string name="settings_show_all_events">事件列表中展示所有事件</string>
+    <string name="settings_switch_enabled_feedback">%1$s：已开启</string>
+    <string name="settings_switch_disabled_feedback">%1$s：已关闭</string>
     <string name="settings_start_foreground_service">推送服务保活</string>
     <string name="settings_start_foreground_service_summary">控制是否持续显示保活前台通知；服务启动阶段仍会先完成前台化以保证系统兼容性</string>
 
@@ -363,7 +361,7 @@
     <string name="settings_home_keepalive_title">保活与系统限制</string>
     <string name="settings_home_keepalive_summary">OOM Adj、防杀、待机/Doze 绕过与专用保活服务。</string>
     <string name="settings_home_notifications_title">通知与展示</string>
-    <string name="settings_home_notifications_summary">注册通知、事件列表展示与已加载配置文件显示。</string>
+    <string name="settings_home_notifications_summary">注册通知、事件列表展示与灵动岛显示控制。</string>
     <string name="pref_choose_theme_title">主题</string>
     <string name="pref_choose_theme_summary">跟随系统、浅色、深色或纯黑</string>
     <string name="pref_ui_kit_style_title">界面风格</string>

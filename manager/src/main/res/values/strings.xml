@@ -47,10 +47,6 @@
     <string name="settings_clear_history_summary">Cleanup event records older than 7 days.</string>
     <string name="settings_clear_history">Cleanup event records</string>
 
-    <string name="settings_clear_log">Clear logs</string>
-    <string name="settings_clear_log_summary">Delete logs file.</string>
-
-
     <string name="settings_auto_register">Automatic registers</string>
 
 
@@ -64,10 +60,11 @@
     <string name="debug_test_content">%1$s test content</string>
     <string name="accessibility_desc">Used for foreground app detection when UsageStats is unavailable.</string>
     <string name="settings_notify_on_register">Notify On App Register</string>
-    <string name="settings_show_loaded_file_after_configurations_loaded">Show Loaded File After Configurations Loaded</string>
     <string name="settings_debug_mode">Enable debug mode</string>
     <string name="settings_debug_mode_summary">Display debug actions in notifications, print full log</string>
     <string name="settings_show_all_events">Display all events</string>
+    <string name="settings_switch_enabled_feedback">%1$s enabled</string>
+    <string name="settings_switch_disabled_feedback">%1$s disabled</string>
     <string name="settings_start_foreground_service">Keep MiPush alive</string>
     <string name="settings_start_foreground_service_summary">Controls whether to keep showing the keep-alive foreground notification; startup still performs foreground promotion for system compatibility.</string>
 
@@ -384,7 +381,7 @@ This could be the application doing a reverse registration, or the registration 
     <string name="settings_home_keepalive_title">Keep-alive &amp; system limits</string>
     <string name="settings_home_keepalive_summary">OOM adj, anti-kill, standby/Doze bypass, and dedicated keep-alive service.</string>
     <string name="settings_home_notifications_title">Notifications &amp; display</string>
-    <string name="settings_home_notifications_summary">Registration notifications, event list visibility, and configuration list display.</string>
+    <string name="settings_home_notifications_summary">Registration notifications, event list visibility, and island display controls.</string>
     <string name="pref_choose_theme_title">Theme</string>
     <string name="pref_choose_theme_summary">Follow System, Light, Dark or Pure Black</string>
     <string name="pref_ui_kit_style_title">UI style</string>

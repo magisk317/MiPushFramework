@@ -34,7 +34,6 @@ class PreferenceRepository constructor(
     private val LAST_STARTUP_TIME = longPreferencesKey("last_startup_time")
     private val NOTIFICATION_ON_REGISTER = booleanPreferencesKey("notification_on_register")
     private val ACCESS_MODE = stringPreferencesKey("access_mode")
-    private val SHOW_CONFIGURATION_LIST = booleanPreferencesKey("show_configuration_list")
     private val XMPP_SERVER = stringPreferencesKey("xmpp_server")
     private val CONFIG_DIRECTORY = stringPreferencesKey("config_directory")
     private val DEBUG_MODE = booleanPreferencesKey("debug_mode")
@@ -70,7 +69,6 @@ class PreferenceRepository constructor(
     val lastStartupTime: Flow<Long> = dataStore.data.map { it[LAST_STARTUP_TIME] ?: 0L }
     val notificationOnRegister: Flow<Boolean> = dataStore.data.map { it[NOTIFICATION_ON_REGISTER] ?: false }
     val accessMode: Flow<String> = dataStore.data.map { it[ACCESS_MODE] ?: "0" }
-    val showConfigurationList: Flow<Boolean> = dataStore.data.map { it[SHOW_CONFIGURATION_LIST] ?: false }
     val xmppServer: Flow<String?> = dataStore.data.map { it[XMPP_SERVER] }
     val configDirectory: Flow<String?> = dataStore.data.map { it[CONFIG_DIRECTORY] }
     val isDebugMode: Flow<Boolean> = dataStore.data.map { it[DEBUG_MODE] ?: false }
@@ -124,10 +122,6 @@ class PreferenceRepository constructor(
 
     suspend fun setAccessMode(mode: String) {
         dataStore.edit { it[ACCESS_MODE] = mode }
-    }
-
-    suspend fun setShowConfigurationList(show: Boolean) {
-        dataStore.edit { it[SHOW_CONFIGURATION_LIST] = show }
     }
 
     suspend fun setDebugMode(debug: Boolean) {
