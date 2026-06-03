@@ -509,6 +509,38 @@ class NotificationControllerRobolectricTest {
     }
 
     @Test
+    fun `notification manager does not publish local fallback for absent target package`() {
+        val context = RuntimeEnvironment.getApplication()
+        val channelId = "missing-target"
+        val tag = "missing-target"
+        val notificationId = 32020
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(
+            NotificationChannel(
+                channelId,
+                "Missing Target",
+                NotificationManager.IMPORTANCE_DEFAULT
+            )
+        )
+        val notification = NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("Missing target")
+            .setContentText("Should not be posted")
+            .build()
+
+        NotificationManagerEx.init(context)
+        val posted = NotificationManagerEx.notify(
+            packageName = "com.example.absent.target",
+            tag = tag,
+            id = notificationId,
+            notification = notification,
+        )
+
+        assertFalse(posted)
+        assertFalse(notificationManager.activeNotifications.any { it.tag == tag && it.id == notificationId })
+    }
+
+    @Test
     fun `grouped notifications stay off island proxy on non MIUI while summary stays plain`() {
         val context = RuntimeEnvironment.getApplication()
         val packageName = context.packageName

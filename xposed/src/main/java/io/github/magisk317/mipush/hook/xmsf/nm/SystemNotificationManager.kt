@@ -20,6 +20,12 @@ object SystemNotificationManager {
     private const val TAG = "SystemNotificationManager"
     private val missingPackageWarnings = mutableSetOf<String>()
 
+    private sealed class UidResolution {
+        data class Found(val uid: Int) : UidResolution()
+        object MissingPackage : UidResolution()
+        object Unavailable : UidResolution()
+    }
+
     init {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             HiddenApiBypass.addHiddenApiExemptions("")
@@ -32,18 +38,22 @@ object SystemNotificationManager {
         return currentApplication()!!.packageManager.getPackageUid(packageName, 0)
     }
 
-    private fun resolveUid(packageName: String, operation: String): Int? {
+    private fun resolveUidState(packageName: String, operation: String): UidResolution {
         return try {
-            getUid(packageName)
+            UidResolution.Found(getUid(packageName))
         } catch (e: PackageManager.NameNotFoundException) {
             if (missingPackageWarnings.add("$operation|$packageName")) {
                 XLog.w(TAG, "$operation: target package not installed, skip target system API for $packageName")
             }
-            null
+            UidResolution.MissingPackage
         } catch (e: SecurityException) {
             XLog.d(TAG, "$operation: system API blocked for $packageName, will use root fallback")
-            null
+            UidResolution.Unavailable
         }
+    }
+
+    private fun resolveUid(packageName: String, operation: String): Int? {
+        return (resolveUidState(packageName, operation) as? UidResolution.Found)?.uid
     }
 
     private fun getUserId(): Int {
@@ -127,9 +137,15 @@ object SystemNotificationManager {
         tag: String?, id: Int, notification: Notification
     ): Boolean {
         XLog.d(TAG, "notify() pkg=$packageName tag=$tag id=$id channel=${notification.channelId} group=${notification.group}")
-        if (!isCurrentPackage(packageName) && resolveUid(packageName, "notify") == null) {
-            XLog.d(TAG, "notify() package not installed, falling back to local: $packageName")
-            return notifyLocally(tag, id, notification)
+        if (!isCurrentPackage(packageName)) {
+            when (resolveUidState(packageName, "notify")) {
+                is UidResolution.Found -> Unit
+                UidResolution.MissingPackage -> {
+                    XLog.d(TAG, "notify() package not installed, drop: $packageName")
+                    return false
+                }
+                UidResolution.Unavailable -> Unit
+            }
         }
         return runSystemCall("notify", packageName, fallback = {
             XLog.d(TAG, "notify() system call failed, falling back to local: $packageName id=$id")
@@ -167,10 +183,16 @@ object SystemNotificationManager {
         channels: List<NotificationChannel>
     ) {
         XLog.d(TAG, "createNotificationChannels() called with: packageName = $packageName, channels = $channels")
-        val uid = resolveUid(packageName, "createNotificationChannels")
-        if (uid == null) {
-            createChannelsLocally(channels)
-            return
+        val uid = when (val resolution = resolveUidState(packageName, "createNotificationChannels")) {
+            is UidResolution.Found -> resolution.uid
+            UidResolution.MissingPackage -> {
+                XLog.d(TAG, "createNotificationChannels() package not installed, drop: $packageName")
+                return
+            }
+            UidResolution.Unavailable -> {
+                createChannelsLocally(channels)
+                return
+            }
         }
         runSystemCall("createNotificationChannels", packageName, fallback = {
             createChannelsLocally(channels)
@@ -282,10 +304,16 @@ object SystemNotificationManager {
         groups: List<NotificationChannelGroup>
     ) {
         XLog.d(TAG, "createNotificationChannelGroups() called with: packageName = $packageName, groups = $groups")
-        val uid = resolveUid(packageName, "createNotificationChannelGroups")
-        if (uid == null) {
-            createGroupsLocally(groups)
-            return
+        val uid = when (val resolution = resolveUidState(packageName, "createNotificationChannelGroups")) {
+            is UidResolution.Found -> resolution.uid
+            UidResolution.MissingPackage -> {
+                XLog.d(TAG, "createNotificationChannelGroups() package not installed, drop: $packageName")
+                return
+            }
+            UidResolution.Unavailable -> {
+                createGroupsLocally(groups)
+                return
+            }
         }
 
         // 无法指定 uid，调用成功也不会生效

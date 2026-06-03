@@ -5,6 +5,7 @@ import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
+import io.github.magisk317.mipush.common.utils.Utils
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -51,6 +52,13 @@ object NotificationManagerEx {
 
     private fun shouldUseModernIdentityStrategy(packageName: String): Boolean {
         return packageName != appContext.packageName && Build.VERSION.SDK_INT >= MODERN_IDENTITY_FIRST_SDK
+    }
+
+    private fun isTargetPackageAvailable(packageName: String): Boolean {
+        if (!::appContext.isInitialized) {
+            return false
+        }
+        return packageName == appContext.packageName || Utils.isAppInstalled(appContext, packageName)
     }
 
     private fun isModuleEnhancedModeActive(packageName: String): Boolean {
@@ -286,6 +294,10 @@ object NotificationManagerEx {
     ): Boolean {
         // Fully replaced by HookPushNC when the Xposed module is active.
         Napier.d("notify() called with: packageName = $packageName, tag = $tag, id = $id, channel = ${notification.channelId}, group = ${notification.group}", tag = TAG)
+        if (!isTargetPackageAvailable(packageName)) {
+            logD("drop notification for absent target package pkg=$packageName tag=$tag id=$id channel=${notification.channelId}")
+            return false
+        }
         markLocalTargetPackage(packageName, notification)
         if (shouldUseModernIdentityStrategy(packageName)) {
             if (shouldNotifyAsPackage(packageName, notification)) {
@@ -367,6 +379,10 @@ object NotificationManagerEx {
     ) {
         logD("createNotificationChannels() called with: packageName = $packageName, channels = $channels")
         val nonNullChannels = channels.filterNotNull()
+        if (!isTargetPackageAvailable(packageName)) {
+            logD("skip createNotificationChannels for absent target package pkg=$packageName")
+            return
+        }
         if (shouldUseModernIdentityStrategy(packageName)) {
             if (NotificationIdentityBridge.createTargetNotificationChannels(appContext, packageName, nonNullChannels)) {
                 createLocalNotificationChannels(nonNullChannels)
@@ -495,6 +511,10 @@ object NotificationManagerEx {
     ) {
         logD("createNotificationChannelGroups() called with: packageName = $packageName, groups = $groups")
         val nonNullGroups = groups.filterNotNull()
+        if (!isTargetPackageAvailable(packageName)) {
+            logD("skip createNotificationChannelGroups for absent target package pkg=$packageName")
+            return
+        }
         if (shouldUseModernIdentityStrategy(packageName)) {
             if (NotificationIdentityBridge.createTargetNotificationChannelGroups(appContext, packageName, nonNullGroups)) {
                 createLocalNotificationChannelGroups(nonNullGroups)
