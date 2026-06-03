@@ -30,6 +30,8 @@ jobs:
         with:
           dependency-graph: generate-and-upload
           dependency-graph-exclude-configurations: "^classpath$"
+          additional-arguments: "--no-configuration-cache --stacktrace"
+          cache-disabled: true
 
       - name: Validate generated dependency graph
         env:
