@@ -74,7 +74,8 @@ import androidx.compose.ui.layout.onSizeChanged
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import io.github.magisk317.mipush.manager.R
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.blur.HazeBlurStyle
+import dev.chrisbanes.haze.blur.blurEffect
 import dev.chrisbanes.haze.hazeEffect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -97,7 +98,7 @@ fun Overview(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     onShowAboutDialog: (String) -> Unit = {},
     hazeState: HazeState? = null,
-    hazeStyle: HazeStyle? = null,
+    hazeStyle: HazeBlurStyle? = null,
 ) {
     Page {
         OverviewScreen(
@@ -114,7 +115,7 @@ private fun OverviewScreen(
     contentPadding: PaddingValues,
     onShowAboutDialog: (String) -> Unit,
     hazeState: HazeState?,
-    hazeStyle: HazeStyle?,
+    hazeStyle: HazeBlurStyle?,
 ) {
     val context = LocalContext.current
     val mainActivityOperation = MainActivityOperation(context)
@@ -177,7 +178,8 @@ private fun OverviewScreen(
                 .align(Alignment.TopCenter)
                 .then(
                     if (hazeState != null && hazeStyle != null) {
-                        Modifier.hazeEffect(hazeState, hazeStyle) {
+                        Modifier.hazeEffect(hazeState) {
+                            blurEffect { style = hazeStyle }
                             forceInvalidateOnPreDraw = true
                         }
                     } else {

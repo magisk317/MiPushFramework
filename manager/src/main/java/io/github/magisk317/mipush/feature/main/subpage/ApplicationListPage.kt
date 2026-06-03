@@ -54,7 +54,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.aakira.napier.Napier
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.blur.HazeBlurStyle
+import dev.chrisbanes.haze.blur.blurEffect
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import io.github.aakira.napier.DebugAntilog
@@ -101,7 +102,7 @@ fun ApplicationList(
     filterMode: Int = 0,
     onAppClick: (String) -> Unit,
     hazeState: HazeState? = null,
-    hazeStyle: HazeStyle? = null,
+    hazeStyle: HazeBlurStyle? = null,
     scrollChromeState: MainScrollChromeState? = null,
 ) {
     val context = LocalContext.current
@@ -136,7 +137,7 @@ fun ApplicationList(
     onAppClick: (String) -> Unit,
     getMiPushApplications: (query: String, filterMode: Int) -> ApplicationPageOperation.MiPushApplications,
     hazeState: HazeState? = null,
-    hazeStyle: HazeStyle? = null,
+    hazeStyle: HazeBlurStyle? = null,
     scrollChromeState: MainScrollChromeState? = null,
 ) {
     val context = LocalContext.current
@@ -223,7 +224,8 @@ fun ApplicationList(
                 .fillMaxWidth()
                 .then(
                     if (hazeState != null && hazeStyle != null) {
-                        Modifier.hazeEffect(hazeState, hazeStyle) {
+                        Modifier.hazeEffect(hazeState) {
+                            blurEffect { style = hazeStyle }
                             forceInvalidateOnPreDraw = true
                         }
                     } else {

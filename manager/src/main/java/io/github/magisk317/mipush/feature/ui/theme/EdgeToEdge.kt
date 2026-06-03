@@ -23,8 +23,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.blur.HazeBlurStyle
+import dev.chrisbanes.haze.blur.blurEffect
+import dev.chrisbanes.haze.blur.HazeColorEffect
 import dev.chrisbanes.haze.hazeEffect
 
 fun applyEdgeToEdge(window: Window) {
@@ -34,7 +35,7 @@ fun applyEdgeToEdge(window: Window) {
 @Composable
 fun SystemBarsScrim(
     hazeState: HazeState,
-    hazeStyle: HazeStyle,
+    hazeStyle: HazeBlurStyle,
     showTop: Boolean = true,
     showBottom: Boolean = true,
     topBackgroundAlpha: Float = 0.35f,
@@ -46,7 +47,8 @@ fun SystemBarsScrim(
                 modifier = Modifier
                     .fillMaxWidth()
                     .windowInsetsTopHeight(WindowInsets.statusBars)
-                    .hazeEffect(hazeState, hazeStyle) {
+                    .hazeEffect(hazeState) {
+                        blurEffect { style = hazeStyle }
                         forceInvalidateOnPreDraw = true
                     }
                     .background(MaterialTheme.colorScheme.surface.copy(alpha = topBackgroundAlpha)),
@@ -58,7 +60,8 @@ fun SystemBarsScrim(
                     .fillMaxWidth()
                     .windowInsetsBottomHeight(WindowInsets.navigationBars)
                     .align(Alignment.BottomStart)
-                    .hazeEffect(hazeState, hazeStyle) {
+                    .hazeEffect(hazeState) {
+                        blurEffect { style = hazeStyle }
                         forceInvalidateOnPreDraw = true
                     }
                     .background(MaterialTheme.colorScheme.surface.copy(alpha = bottomBackgroundAlpha)),
@@ -71,10 +74,10 @@ fun SystemBarsScrim(
 fun rememberHazeStyle(
     blurRadius: androidx.compose.ui.unit.Dp = 25.dp,
     tintAlpha: Float = 0.2f
-): HazeStyle {
-    return HazeStyle(
+): HazeBlurStyle {
+    return HazeBlurStyle(
         backgroundColor = MaterialTheme.colorScheme.surface,
-        tint = HazeTint(MaterialTheme.colorScheme.surface.copy(alpha = tintAlpha)),
+        colorEffect = HazeColorEffect.tint(MaterialTheme.colorScheme.surface.copy(alpha = tintAlpha)),
         blurRadius = blurRadius,
         noiseFactor = 0.1f,
     )

@@ -24,7 +24,8 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.NavController
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.blur.HazeBlurStyle
+import dev.chrisbanes.haze.blur.blurEffect
 import dev.chrisbanes.haze.hazeEffect
 import io.github.magisk317.mipush.manager.R
 
@@ -54,7 +55,7 @@ import io.github.magisk317.mipush.manager.R
 fun BottomNavigationBarV2(
     navController: NavController,
     hazeState: HazeState,
-    hazeStyle: HazeStyle,
+    hazeStyle: HazeBlurStyle,
     onTabDoubleTap: (Int) -> Unit = {}
 ) {
     // 追踪当前路由
@@ -112,7 +113,8 @@ fun BottomNavigationBarV2(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f))
-            .hazeEffect(hazeState, hazeStyle) {
+            .hazeEffect(hazeState) {
+                blurEffect { style = hazeStyle }
                 forceInvalidateOnPreDraw = true
             }
             .navigationBarsPadding()

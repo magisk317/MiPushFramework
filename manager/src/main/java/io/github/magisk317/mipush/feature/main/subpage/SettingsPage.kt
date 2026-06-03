@@ -73,7 +73,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.manager.R
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.blur.HazeBlurStyle
+import dev.chrisbanes.haze.blur.blurEffect
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import io.github.magisk317.uikit.preference.SectionCard
@@ -115,7 +116,7 @@ fun Settings(
     onSectionChanged: (String?) -> Unit = {},
     sectionBackSignal: Int = 0,
     hazeState: HazeState? = null,
-    hazeStyle: HazeStyle? = null,
+    hazeStyle: HazeBlurStyle? = null,
     scrollChromeState: MainScrollChromeState? = null,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -153,7 +154,7 @@ private fun SettingsScreen(
     scrollState: androidx.compose.foundation.ScrollState = androidx.compose.foundation.rememberScrollState(),
     sectionBackSignal: Int,
     hazeState: HazeState?,
-    hazeStyle: HazeStyle?,
+    hazeStyle: HazeBlurStyle?,
     snackbarHostState: SnackbarHostState,
     scrollChromeState: MainScrollChromeState?,
 ) {
@@ -179,7 +180,8 @@ private fun SettingsScreen(
             .fillMaxWidth()
             .then(
                 if (hazeState != null && hazeStyle != null) {
-                    Modifier.hazeEffect(hazeState, hazeStyle) {
+                    Modifier.hazeEffect(hazeState) {
+                        blurEffect { style = hazeStyle }
                         forceInvalidateOnPreDraw = true
                     }
                 } else {

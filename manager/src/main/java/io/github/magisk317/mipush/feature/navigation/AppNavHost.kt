@@ -12,7 +12,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.compose.foundation.layout.PaddingValues
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.blur.HazeBlurStyle
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
@@ -41,14 +41,14 @@ fun AppNavHostContent(
     startDestination: String = AppDestinations.Overview.ROUTE,
     contentPadding: PaddingValues,
     hazeState: HazeState? = null,
-    hazeStyle: HazeStyle? = null,
-    overviewPage: @Composable (PaddingValues, HazeState?, HazeStyle?) -> Unit,
-    eventsPage: @Composable (String, PaddingValues, Int, Boolean, HazeState?, HazeStyle?) -> Unit,
-    appsPage: @Composable (String, PaddingValues, Int, Int, HazeState?, HazeStyle?) -> Unit,
-    configsPage: @Composable (String, PaddingValues, Int, (String) -> Unit, HazeState?, HazeStyle?) -> Unit,
-    configEditorPage: @Composable (String, PaddingValues, () -> Unit, HazeState?, HazeStyle?) -> Unit,
-    settingsPage: @Composable (PaddingValues, (String?) -> Unit, (String?) -> Unit, Int, HazeState?, HazeStyle?) -> Unit,
-    helpPage: @Composable (PaddingValues, HazeState?, HazeStyle?) -> Unit,
+    hazeStyle: HazeBlurStyle? = null,
+    overviewPage: @Composable (PaddingValues, HazeState?, HazeBlurStyle?) -> Unit,
+    eventsPage: @Composable (String, PaddingValues, Int, Boolean, HazeState?, HazeBlurStyle?) -> Unit,
+    appsPage: @Composable (String, PaddingValues, Int, Int, HazeState?, HazeBlurStyle?) -> Unit,
+    configsPage: @Composable (String, PaddingValues, Int, (String) -> Unit, HazeState?, HazeBlurStyle?) -> Unit,
+    configEditorPage: @Composable (String, PaddingValues, () -> Unit, HazeState?, HazeBlurStyle?) -> Unit,
+    settingsPage: @Composable (PaddingValues, (String?) -> Unit, (String?) -> Unit, Int, HazeState?, HazeBlurStyle?) -> Unit,
+    helpPage: @Composable (PaddingValues, HazeState?, HazeBlurStyle?) -> Unit,
     onAbout: (String?) -> Unit = {},
     onSectionChanged: (String?) -> Unit = {},
 ) {

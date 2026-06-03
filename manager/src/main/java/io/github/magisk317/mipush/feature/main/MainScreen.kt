@@ -59,7 +59,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import io.github.magisk317.mipush.manager.R
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.blur.HazeBlurStyle
+import dev.chrisbanes.haze.blur.blurEffect
 import dev.chrisbanes.haze.hazeEffect
 import io.github.magisk317.uikit.surface.AppBottomNavigationBar
 import io.github.magisk317.uikit.surface.AppNavigationItemSpec
@@ -104,7 +105,7 @@ fun MainScreen(
     startDestination: String,
     initialRouteOverride: String? = null,
     hazeState: HazeState,
-    hazeStyle: HazeStyle,
+    hazeStyle: HazeBlurStyle,
 ) {
     val context = LocalContext.current
     val navController = rememberNavController()
@@ -355,7 +356,8 @@ fun MainScreen(
                             .fillMaxWidth()
                             .padding(top = 8.dp)
                             .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                            .hazeEffect(hazeState, hazeStyle) {
+                            .hazeEffect(hazeState) {
+                                blurEffect { style = hazeStyle }
                                 forceInvalidateOnPreDraw = true
                             },
                     ) {
@@ -382,7 +384,8 @@ fun MainScreen(
                         .fillMaxHeight()
                         .padding(start = 12.dp, top = 12.dp, bottom = 12.dp)
                         .clip(RoundedCornerShape(28.dp))
-                        .hazeEffect(hazeState, hazeStyle) {
+                        .hazeEffect(hazeState) {
+                            blurEffect { style = hazeStyle }
                             forceInvalidateOnPreDraw = true
                         },
                 ) {

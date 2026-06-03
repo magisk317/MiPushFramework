@@ -43,7 +43,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import io.github.magisk317.mipush.manager.R
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.blur.HazeBlurStyle
+import dev.chrisbanes.haze.blur.blurEffect
 import dev.chrisbanes.haze.hazeEffect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -82,7 +83,7 @@ fun HelpPage(modifier: Modifier = Modifier) {
 fun HelpScreen(
     modifier: Modifier = Modifier,
     hazeState: HazeState? = null,
-    hazeStyle: HazeStyle? = null,
+    hazeStyle: HazeBlurStyle? = null,
 ) {
     val navController = rememberNavController()
 
@@ -129,7 +130,7 @@ private sealed class HelpRoute(val route: String) {
 private fun HelpHubRoute(
     navController: NavHostController,
     hazeState: HazeState?,
-    hazeStyle: HazeStyle?,
+    hazeStyle: HazeBlurStyle?,
 ) {
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -141,7 +142,8 @@ private fun HelpHubRoute(
             .statusBarsPadding()
             .then(
                 if (hazeState != null && hazeStyle != null) {
-                    Modifier.hazeEffect(hazeState, hazeStyle) {
+                    Modifier.hazeEffect(hazeState) {
+                        blurEffect { style = hazeStyle }
                         forceInvalidateOnPreDraw = true
                     }
                 } else {
@@ -196,7 +198,7 @@ private fun HelpArticleRoute(
     markdownResId: Int?,
     onBack: () -> Unit,
     hazeState: HazeState?,
-    hazeStyle: HazeStyle?,
+    hazeStyle: HazeBlurStyle?,
 ) {
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -208,7 +210,8 @@ private fun HelpArticleRoute(
             .statusBarsPadding()
             .then(
                 if (hazeState != null && hazeStyle != null) {
-                    Modifier.hazeEffect(hazeState, hazeStyle) {
+                    Modifier.hazeEffect(hazeState) {
+                        blurEffect { style = hazeStyle }
                         forceInvalidateOnPreDraw = true
                     }
                 } else {

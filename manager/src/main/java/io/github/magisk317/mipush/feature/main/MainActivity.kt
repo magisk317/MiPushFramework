@@ -76,7 +76,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import io.github.magisk317.mipush.manager.R
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.blur.HazeBlurStyle
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import io.github.magisk317.uikit.theme.UiKitStyle

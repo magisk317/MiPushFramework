@@ -66,7 +66,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.magisk317.mipush.manager.R
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.blur.HazeBlurStyle
+import dev.chrisbanes.haze.blur.blurEffect
 import dev.chrisbanes.haze.hazeSource
 import io.github.magisk317.uikit.surface.WorkspaceEmptyState
 import java.text.SimpleDateFormat
@@ -99,7 +100,7 @@ fun Configurations(
     onOpenEditor: (String) -> Unit,
     viewModel: ConfigManagerViewModel = koinViewModel(),
     hazeState: HazeState? = null,
-    hazeStyle: HazeStyle? = null,
+    hazeStyle: HazeBlurStyle? = null,
     scrollChromeState: MainScrollChromeState? = null,
 ) {
     Page {
@@ -189,7 +190,8 @@ fun Configurations(
                 .fillMaxWidth()
                 .then(
                     if (hazeState != null && hazeStyle != null) {
-                        Modifier.hazeEffect(hazeState, hazeStyle) {
+                        Modifier.hazeEffect(hazeState) {
+                            blurEffect { style = hazeStyle }
                             forceInvalidateOnPreDraw = true
                         }
                     } else {
