@@ -13,150 +13,153 @@
 ![Gradle](https://img.shields.io/badge/Gradle-9.x-02303A?logo=gradle&logoColor=white)
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material3-4285F4?logo=jetpackcompose&logoColor=white)
 
-在非 MIUI 系统上体验小米系统级推送。
+在非 MIUI 系统上使用接近 MIUI 的小米系统级推送。
 
-当前开发分支的最低支持版本已经提升到 Android 9.0（API 28），构建环境也已经对齐到 Java 25+（JDK 25）/ Gradle 9.x。如果你是从旧文档或历史 release 了解这个项目，请以 `gradle/libs.versions.toml` 中的构建参数为准。
+MiPushFramework 会以 `com.xiaomi.xmsf` 的形式提供系统推送服务，让接入小米推送的应用尽量把推送委托给统一的框架进程，而不是各自常驻后台运行 `XMPushService`。项目同时保留通知改写、事件观测、配置规则、焦点通知、HyperIsland 超级岛和 Android 实况通知等兼容能力。
 
-当前 `dev` 使用较激进的 Android Gradle Plugin、Kotlin 和 JDK 版本以便尽早暴露兼容问题；release 或紧急修复如果需要稳定通道，应单独开任务降风险，而不是在常规架构收口里回退工具链。
+当前开发分支最低支持 Android 9.0（API 28）。构建环境以 `gradle/libs.versions.toml` 为准，目前使用 Java 25+ / Gradle 9.x，并保持较激进的 Android Gradle Plugin、Kotlin 和 JDK 版本，用来尽早暴露兼容问题。release 或紧急修复如需稳定通道，应单独处理，不在常规架构收口中回退工具链。
 
-## 什么是小米系统级推送，为什么会有这个项目
+## 与原仓库的区别
 
-小米推送是小米公司提供的推送服务，许多 App 都在使用（如酷安）。
+本 fork 仍以非 MIUI 设备上的系统级小米推送为核心目标，但从代码形态看，已经不是在原仓库上做少量补丁的维护分支，而是把早期单体推送代理改造成分层的 XMSF 兼容运行时：
 
-它非常轻量，会在 MIUI 设备上自动启用系统推送，而非 MIUI 设备则在后台保持长连接。
+- **XMSF 外部契约由产品代码托管**：`xmsf/` 继续发布为 `com.xiaomi.xmsf`，保留外部应用会访问的包名、组件名、Provider、Service、Intent 和桥接入口；stock-facing 行为通过 `xmsf` 自有适配层承接，而不是把新业务直接堆进 Xiaomi runtime。
+- **长连接、协议和业务层分离**：`vendor/` 保留仍在工作的 Xiaomi 长连接、网络和运行时栈，`pinned/` 固定 thrift/protobuf 等协议序列化表面，`core/` 放平台无关的运行时契约与统计模型；新增业务优先走 `xmsf` 适配器或 `core` facade。
+- **运行时管线重建**：推送入口从 `MiPushFacadeService` 进入 `PushRuntime` 和 `PushRuntimeExecutionBridge`，再衔接 vendored `XMPushService`、下游 `PushMessageProcessor` 与通知发布层；这里已经包含注册重放、待处理队列、连接状态、下游投递、通知计数和兼容降级等状态管理。
+- **管理端和配置代码现代化**：`app/` 只作为外壳，`manager/` 承担 Compose 管理界面和设置入口，运行时依赖 Koin、Room、DataStore 等组件；应用注册、事件、通知记录、配置加载和运行时操作都有明确的 UI/adapter 边界。
+- **通知发布不再只是简单转发**：`MyMIPushNotificationHelper`、`NotificationController`、`NotificationManagerEx` 等代码对齐 stock XMSF 的分组、点击、按钮、VoIP、SweetTag、focus 删除和渠道兼容行为，并把普通通知、配置显式焦点通知、生成式超级岛代理区分为不同路径。
+- **Hook 与超级岛是独立运行面**：`xposed/` 维护 libxposed/LSPosed 入口、SystemUI `MiPushIslandHook`、XMSF `UnlockFocusAuthHook` 和 provider 同步的 `IslandPreferences`；生成的 HyperIsland 代理通知不会和原始通知栏通知混成同一分支，也会避让独立 HyperIsland 模块。
+- **面向新平台通知语义**：进度类推送会通过 `ProgressStyleBuilder` 在 Android 16+ 使用 `Notification.ProgressStyle` 和 promoted ongoing，低版本保留常规进度通知；非 MIUI/AOSP 路径会避免泄漏 `miui.focus.param`、`miui.focus.pics` 等 MIUI 私有 extras。
+- **诊断和可观测性落在代码里**：`LogBundleExporter` 负责 JSONL 日志选择、旧文本日志清理、敏感字段脱敏、可选 LSPosed 日志采集和分享流程；root/shell 行为通过 `RootAccessFacade`、`BoundedShellRunner` 等受控入口执行。
 
+## 项目定位
 
+小米推送在 MIUI 上由系统服务集中处理，应用通常不需要为推送单独保活；在非 MIUI 系统上，接入小米推送的应用往往会启动自己的 `XMPushService` 长连接。MiPushFramework 的目标是把这部分能力集中到一个系统级服务里：
 
-### 系统级推送
+- 保留小米推送基础收发能力。
+- 尽量减少多个应用各自维护后台长连接的成本。
+- 给用户提供注册、推送、通知和日志的可观测入口。
+- 通过配置规则控制通知标题、内容、动作和展示策略。
+- 在兼容范围内补齐 stock XMSF 的通知、Provider、Service 和桥接行为。
 
-类似 GCM，小米推送的系统级推送是在 MIUI 完成的。
+这不是小米官方项目，也不保证所有 ROM 或所有应用都能获得相同行为。涉及厂商 ROM、目标应用策略、系统权限和 Xposed/LSPosed 环境时，实际效果需要以设备验证为准。
 
-接入小米推送的应用在启动时，会根据系统是否为 MIUI ROM 来决定如何向用户推送消息。
-- 对于 MIUI ROM，推送工作都由系统完成，应用**无需后台**，更省电。
-- 对于非 MIUI ROM，每个应用都会**在后台启动**一个 `XMPushService` 服务，该服务会创建一个用于接收推送消息的连接。相比于 MIUI ROM 由系统实现的推送能力，多个应用启动的多个服务与连接，会更加的耗电、内存和流量。
+## 核心能力
 
+- **集中推送服务**：以 `com.xiaomi.xmsf` 提供系统推送入口，承接应用注册、长连接、下游派发和基础 ACK/错误反馈。
+- **应用注册与事件观测**：在管理界面查看已接入应用、注册状态、连接状态、推送事件和通知记录。
+- **配置规则引擎**：通过配置文件改写消息标题、内容和行为，支持忽略、亮屏、正常通知和拉起应用等操作。
+- **通知兼容**：对齐部分 stock XMSF 行为，支持通知分组、点击行为、按钮、VoIP 来电样式、SweetTag 富文本、空内容过滤等。
+- **焦点通知与超级岛**：支持显式 `miui.focus.param`，并集成 HyperIsland ToolKit、SystemUI 代理投递、焦点认证开关和多模板样式路由。
+- **实况通知**：对进度类消息提供 Android 16+ `Notification.ProgressStyle` / promoted ongoing 支持，低版本回退为常规进度通知。
+- **日志导出**：运行日志使用 JSONL，按天轮转，并在导出时清理旧文本日志、脱敏 token 等敏感字段。
 
+## 安装与使用
 
-### 本项目的意义
+1. 从 [Releases](https://github.com/magisk317/MiPushFramework/releases) 或 [CI](https://github.com/magisk317/MiPushFramework/actions/workflows/ci.yml) 下载 APK。
+2. 安装后跟随向导完成基础设置。
+3. 建议将框架安装为系统应用。部分应用没有完整应用列表权限，只有在系统应用列表中看到 `com.xiaomi.xmsf` 时才会注册系统推送。
+4. 可选开启“推送服务保活”等高级选项。
+5. 如果目标应用仍不向框架注册，通常需要配合伪装增强模块，让应用识别当前设备具备 MIUI/XMSF 推送环境。
 
-本项目起源于这样一个想法：让任何非 MIUI ROM 的用户都能用上类似 MIUI ROM 的系统级推送能力，在应用没有常驻后台的情况下也能向用户推送消息。
+请尽量不要用黑域、绿色守护或其他限制工具压制 `com.xiaomi.xmsf`。这类限制会直接影响长连接、注册重放、通知发布和日志采集。
 
+## normal 与 vc105
 
-## 功能
+Release 页面通常提供 `normal` 和 `vc105` 两类构建，核心区别是目标应用向 XMSF 传递消息的方式。
 
-- 基本的推送能力。基本与 MIUI ROM 中的推送服务（`com.xiaomi.xmsf`）一致，不过默认禁止拉起应用
-- 对通知的改写。可以通过配置文件，修改消息的标题、内容及样式等，控制收到消息时忽略、亮屏或自动弹出等
-- 通知样式兼容。对齐部分 stock XMSF 行为，支持 focus 通知、HyperIsland ToolKit 超级岛参数、SystemUI 超级岛代理投递与设置页开关、VoIP 来电样式和 SweetTag 富文本
-- 观测。可以在本项目的应用界面中，查看都有什么应用接入了小米推送服务及其推送的消息内容
+| 版本 | versionCode | 传递方式 | 建议 |
+|------|-------------|----------|------|
+| `normal` | `1003003000` | `bindService` | 默认首选，稳定性更好 |
+| `vc105` | `105` | `startService` | 兼容旧路径或部分 bind 异常 ROM |
 
-### 注意
+小米推送 SDK 会根据 XMSF 的 `versionCode` 选择传递方式：
 
-* 给予 `com.xiaomi.xmsf` 最大的权限，请勿使用 黑域、绿色守护、Xposed 等模块对其做限制，这可能会导致推送不稳定
-* 在 MIUI ROM 上，部分依靠推送的功能不可用，如 网络短信，目前明确可用的有 查找手机
-* 服务本身不需要 Root、Xposed 支持，但是为了伪装为 MIUI ROM，使应用自动向 `com.xiaomi.xmsf` 注册信息，建议使用伪装增强模块
+- `versionCode >= 106`：使用 `bindService`。
+- `versionCode == 105`：使用 `startService`。
 
+优先尝试 `normal`。如果某些 ROM 或应用无法通过 bind 路径传递消息，再切换到 `vc105`。在 MIUI 上使用 `normal` 还有一个额外好处：重启后更不容易被系统还原成官方 XMSF。
 
+## 常见问题
 
-## 优点
+### 是否支持分身或 999 用户应用？
 
-* 简单，安装非常简单
-* 使用后，其他应用的 `XMPushService` 会自动禁用，就像在 MIUI，同时还能保证推送
-* 完整事件记录，可以监控每个应用的 注册和推送
-* 保留小米推送基础推送能力，默认禁用遥测/数据上报功能
-* 自定义能力，定制你的消息内容与行为
+目前没有这方面的计划，也没有完整测试，不接受相关反馈。
 
+### 配置文件有什么用？
 
+配置文件可以控制特定应用或特定内容的通知行为，例如改标题、改内容、忽略、亮屏、打开应用或正常通知。大多数官方配置可以直接使用；是否启用某个配置，请参考 [MiPushConfigurations](https://github.com/magisk317/MiPushConfigurations) 中的说明、配置名和 `description` 字段。
 
+### 必须安装为系统应用吗？
 
-## 开始使用
+不绝对必须，但推荐。某些应用只能看到系统应用列表，若框架不是系统应用，它们可能无法发现 `com.xiaomi.xmsf`，从而不会注册系统推送。
 
-安装步骤非常简单 ：
+### `com.xiaomi.push.service.XMPushService` 被禁用正常吗？
 
-* 前往 [Releases](https://github.com/magisk317/MiPushFramework/releases) 或 [CI](https://github.com/magisk317/MiPushFramework/actions/workflows/ci.yml)，下载最新的 APK 并安装。
-* 跟着向导进行设置
-* 可选：开启高级配置中的 推送服务保活 选项
+正常。目标应用在发现系统推送服务后，自己的 `XMPushService` 通常就不应该继续承担长连接工作，相关能力会委托给系统推送服务。
 
-### normal 与 vc105 版本的区别
+### Root 或 Xposed 是必须的吗？
 
-Release 页面提供两个版本：`normal` 和 `vc105`，核心区别在于**消息传递方式**：
+基础推送服务不强制要求 Root 或 Xposed。为了让更多应用自动识别系统推送环境、启用伪装增强、补齐焦点通知或 SystemUI 超级岛链路，实际使用中可能需要系统应用安装、Root、Xposed/LSPosed 或对应模块支持。
 
-| 版本 | versionCode | 传递方式 | 说明 |
-|------|------------|---------|------|
-| normal | 1003003000 | bindService | 默认版本，推荐优先使用 |
-| vc105 | 105 | startService | 兼容版本 |
+### 哪些通知会变成焦点通知、超级岛或实况通知？
 
-小米推送 SDK 根据 xmsf 的 versionCode 决定传递方式：
-- `versionCode >= 106`：使用 `bindService` 传递消息
-- `versionCode == 105`：使用 `startService` 传递消息
+- 服务端显式携带 `miui.focus.param` 的推送会走 MIUI/HyperOS 焦点通知语义。
+- 未显式配置但符合条件的 MiPush 通知，可在 MIUI/HyperOS 上通过 SystemUI 代理生成超级岛展示。
+- 非 MIUI/AOSP 上不会保留 MIUI 私有 focus extras；进度类语义会尽量翻译成 Android 实况通知或普通进度通知。
 
-**选择建议**：
-- 优先使用 **normal** 版本，稳定性更好
-- 部分 ROM（如 ColorOS）无法使用 bind 方式时，切换为 **vc105**
-- MIUI 使用 normal 版本的额外好处：重启后不会被系统还原成官方版本
-
-### 常见问题
-
-- 是否支持分身（999）应用？
-    - 目前没有这方面的计划，也没有测试过，不接受相关反馈
-
-
-- 配置文件都有什么作用？我应该使用配置文件吗？
-    - 配置文件可以修改消息的标题、内容及样式等，控制收到消息时忽略、亮屏或自动弹出等
-    - 目前大部分“官方”配置都可以无脑使用，部分配置是否要使用，参见[仓库说明](https://github.com/magisk317/MiPushConfigurations)、配置名或配置中的 description 字段
-
-
-- 是否应该安装为系统应用？
-    - 推荐安装为系统应用。某些应用没有查看设备应用列表的权限，在获取应用列表时，**只能获取到系统应用列表**
-    - 将推送服务安装为系统应用，可以让这些应用发现推送服务，从而进行服务注册
-
-
-- 应用用上推送服务后，`com.xiaomi.push.service.XMPushService` 服务被禁用，是否正常？
-    - 这是正常的，`XMPushService` 服务只应在没有系统推送服务的情况下启用
-    - 当存在系统推送服务时，该服务上的相关功能直接由应用委托给系统推送服务处理
-
-
+如果要验证真实展示，不要只看应用日志中的“已发布”记录，还要结合 `dumpsys notification --noredact`、logcat 和真实推送 payload。
 
 ## 反馈问题
 
-遇到任何问题，请先看看 Issues 里面有没有人提过。（常见问题：无法收到推送）
-如果没有找到答案，请为每个问题提交一份 Issue，并务必带上如下内容，以便开发者解决：
+遇到问题请先搜索 Issues。提交新 Issue 时，请尽量带上：
 
-* 你的 ROM 是什么，Android 版本是什么
-* 有没有使用框架等工具
+- ROM 名称和 Android 版本。
+- 使用的构建类型：`normal` 或 `vc105`。
+- 是否安装为系统应用。
+- 是否使用 Root、Xposed/LSPosed、伪装增强或其他限制类工具。
+- 问题涉及的目标应用和大致复现步骤。
+- 设置页“获取日志”导出的日志包。
 
-同时，请使用 设置-获取日志 打开日志预览，确认内容后分享日志文件并写进 Issue。
+日志会自动按天轮转，默认保留 7 天，最低可设置为 1 天。导出包会清理旧文本日志，并对 token 等敏感字段脱敏。分享前仍建议在预览弹窗中确认内容。
 
-## 日志
+## 开发入口
 
-框架会自动记录 JSONL 运行日志，按天轮转，默认保留 7 天，最低可设置为 1 天。您可以前往 设置-高级配置-获取日志 预览、分享或清空日志；导出包会清理旧文本日志并对 token 等敏感字段脱敏。
+项目当前使用多模块 Gradle 结构。模块边界、运行时链路和重构记录见：
 
-## UI 与主题约定
+- [模块边界](docs/architecture/boundary-model.md)
+- [运行时调用链](docs/architecture/current-runtime-call-flow.md)
+- [重构与通知集成计划](docs/architecture/refactor-plan.md)
+- [旧 push 拆分与 Kotlin 迁移记录](docs/architecture/push-module-split.md)
 
-- UI 统一采用 Compose Material 3 Expressive 方案（含动态色与纯黑模式）。
-- 对话框动作区统一使用 `DialogActionRow`，避免在 `AlertDialog` 按钮槽内手写按钮行。
-- 列表页统一使用 `RefreshableLazyColumn`，加载体验统一使用最短可见时长策略。
-- 动态路由统一使用 `AppDestinations.*.route(...)` 构造，避免手写字符串拼接。
-- 运行时主链梳理见 `docs/architecture/current-runtime-call-flow.md`。
-- 模块边界以 `docs/architecture/boundary-model.md` 为准，stock dump 只作为行为参考，不进入源码图。
-- `./gradlew verifyModuleBoundaries` 会阻止 UI/settings/viewmodel 继续新增 deep `com.xiaomi.*` 依赖；确需例外时先放到 runtime/bridge adapter，再评估 baseline。
+常用验证命令建议通过工作区 Gradle 锁脚本运行，避免并发构建踩坏生成目录：
 
+```bash
+scripts/with_workspace_gradle_lock.sh :core:testDebugUnitTest
+scripts/with_workspace_gradle_lock.sh :xmsf:testNormalDebugUnitTest
+scripts/with_workspace_gradle_lock.sh :xposed:compileDebugKotlin
+scripts/with_workspace_gradle_lock.sh :xmsf:assembleNormalDebug
+scripts/with_workspace_gradle_lock.sh :mipush:assembleDebug
+scripts/with_workspace_gradle_lock.sh verifyModuleBoundaries
+```
 
+打正式包时优先使用：
 
-## 参与项目
+```bash
+scripts/build_release.sh
+```
 
-请参考 [Contribution Guide](docs/CONTRIBUTION.md)
+## 已知限制
 
-## 已知问题
+- 小众 ROM 的特殊适配只会在不破坏推送主链路的前提下处理。
+- 部分应用或 ROM 可能不会自动停用自身 `XMPushService`，可尝试系统应用安装和伪装增强。
+- 某些通知特性依赖 ROM、系统权限、SystemUI 行为或目标应用 payload，无法保证跨设备一致。
+- 部分通知可能仍显示为推送框架发出，而不是完全表现为目标应用自身发出。
 
-* 对于部分小众的ROM （如 360OS）导致无法正常工作的情况，我们只会竭尽全力保证推送的运行，其它不妨碍推送的「特殊适配」会被忽略。对于这些情况，建议您更换更好的 ROM 以获得最佳体验。
-* 努比亚ROM应用（第三方使用 MiPush 的应用）可能不会自动禁用其 XMPushService 并启动服务，请尝试将框架设为系统应用
-* 锤子 ROM 下，Push 可以正确收到通知，但是通知栏没有提示 #143
-* 一些通知 Feature 可能无法使用（如通知都会显示为推送框架发出，而不是目标应用）
+## 致谢
 
-## 感谢
-
-* @Rachel030219 提供文件
-* Android Open Source Project, MultiType, greenDao, SetupWizardLibCompat, Condom, MaterialPreference，GreenDaoUpgradeHelper, epic, Log4a，helplib，RxJava RxAndroid，RxActivityResult，RxPermissions, hiBeaver
-* [HyperIsland](https://github.com/1812z/HyperIsland) 提供超级岛实现参考
-* [HyperIsland-ToolKit](https://github.com/D4vidDf/HyperIsland-ToolKit) 提供 HyperIsland SDK 支持
-* 酷安 @PzHown @lmnm011223 @苏沐晨风丶（未采纳） 提供图标
+- @Rachel030219 提供文件。
+- Android Open Source Project, AndroidX, Jetpack Compose, Material 3, Kotlin, kotlinx.coroutines, kotlinx.serialization, Koin, Room, DataStore, Navigation, Lifecycle, AppCompat, libxposed API, LSPosed HiddenApiBypass, libsu, Napier, Haze, Miuix, JetBrains Markdown, JUnit, MockK, Robolectric, Detekt, Kover, KSP。
+- [HyperIsland](https://github.com/1812z/HyperIsland) 提供超级岛实现参考。
+- [HyperIsland-ToolKit](https://github.com/D4vidDf/HyperIsland-ToolKit) 提供 HyperIsland SDK 支持。
+- 酷安 @PzHown @lmnm011223 @苏沐晨风丶（未采纳）提供图标。
