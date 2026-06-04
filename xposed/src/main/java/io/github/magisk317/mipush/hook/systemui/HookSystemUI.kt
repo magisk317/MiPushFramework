@@ -28,13 +28,17 @@ class HookSystemUI {
 
     fun hook(classLoader: ClassLoader) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            classLoader.findClass("com.android.systemui.statusbar.notification.icon.IconManager")
-                .hookAllMethods("setIcon") {
-                    doAfter {
-                        val iconView = args[2] as View
-                        iconView.setTag(ID_ICON_IS_PRE_L, true)
+            try {
+                classLoader.findClass("com.android.systemui.statusbar.notification.icon.IconManager")
+                    .hookAllMethods("setIcon") {
+                        doAfter {
+                            val iconView = args[2] as View
+                            iconView.setTag(ID_ICON_IS_PRE_L, true)
+                        }
                     }
-                }
+            } catch (e: Exception) {
+                XLog.e(TAG, "Failed to hook IconManager", e)
+            }
         } else {
             classLoader.findClass("com.android.systemui.statusbar.notification.collection.NotificationEntry")
                 .hookMethod("setIconTag", Int::class.java, Any::class.java) {
