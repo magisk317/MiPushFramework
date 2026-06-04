@@ -76,6 +76,7 @@ class LibXposedEntry : XposedModule {
         }
 
         if (loadParam.packageName == "com.android.systemui") {
+            HookSystemUI().hook(loadParam.classLoader)
             hookSystemUiIsland(loadParam)
             return
         }
@@ -85,7 +86,7 @@ class LibXposedEntry : XposedModule {
                 HookXmsf().hook(loadParam)
                 hookXmsfFocusAuth(loadParam)
             } else if (loadParam.processName == XMSF_PACKAGE_NAME) {
-                HookSystemUI().hook(loadParam.classLoader)
+                // HookSystemUI should NOT be called here
             }
             return
         }
