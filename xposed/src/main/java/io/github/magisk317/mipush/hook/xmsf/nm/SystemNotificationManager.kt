@@ -137,6 +137,57 @@ object SystemNotificationManager {
         tag: String?, id: Int, notification: Notification
     ): Boolean {
         XLog.d(TAG, "notify() pkg=$packageName tag=$tag id=$id channel=${notification.channelId} group=${notification.group}")
+
+        runCatching {
+            if (notification.extras == null) {
+                try {
+                    val field = Notification::class.java.getDeclaredField("extras")
+                    field.isAccessible = true
+                    field.set(notification, android.os.Bundle())
+                } catch (e: Exception) {
+                    XLog.e(TAG, "Failed to create extras bundle", e)
+                }
+            }
+
+            val field = notification.javaClass.getDeclaredField("extraNotification")
+            field.isAccessible = true
+            val extraNotification = field.get(notification)
+            if (extraNotification != null) {
+                val methodSetCustomizedIcon = extraNotification.javaClass.getDeclaredMethod("setCustomizedIcon", Boolean::class.javaPrimitiveType)
+                methodSetCustomizedIcon.isAccessible = true
+                methodSetCustomizedIcon.invoke(extraNotification, true)
+                XLog.w(TAG, "Successfully set miui customized icon")
+
+                try {
+                    val methodSetTargetPkg = extraNotification.javaClass.getDeclaredMethod("setTargetPkg", CharSequence::class.java)
+                    methodSetTargetPkg.isAccessible = true
+                    methodSetTargetPkg.invoke(extraNotification, packageName as CharSequence)
+                    XLog.w(TAG, "Successfully set miui targetPkg to $packageName")
+                } catch (e: Exception) {
+                    XLog.e(TAG, "Failed to set targetPkg", e)
+                }
+            } else {
+                XLog.w(TAG, "extraNotification is null!")
+            }
+        }.onFailure {
+            XLog.e(TAG, "Failed to set miui customized icon", it)
+        }
+
+        try {
+            val pm = currentApplication()!!.packageManager
+            val appInfo = pm.getApplicationInfo(packageName, 0)
+            if (appInfo.icon != 0) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    val fieldSmallIcon = Notification::class.java.getDeclaredField("mSmallIcon")
+                    fieldSmallIcon.isAccessible = true
+                    fieldSmallIcon.set(notification, android.graphics.drawable.Icon.createWithResource(packageName, appInfo.icon))
+                    XLog.w(TAG, "Successfully injected mSmallIcon with app launcher icon")
+                }
+            }
+        } catch (e: Exception) {
+            XLog.e(TAG, "Failed to inject small icon", e)
+        }
+
         if (!isCurrentPackage(packageName)) {
             when (resolveUidState(packageName, "notify")) {
                 is UidResolution.Found -> Unit
