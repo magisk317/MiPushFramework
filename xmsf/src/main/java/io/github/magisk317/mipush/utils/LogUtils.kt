@@ -27,6 +27,18 @@ object LogUtils {
     private val legacyTextLogPattern = Regex("""^(logs_\d{4}-\d{2}-\d{2}|runtime(?:\.[A-Za-z0-9_.-]+)?)\.(txt|log)$""")
     private val legacyModuleTextLogPattern = Regex("""^[A-Za-z0-9_.-]+_\d{4}-\d{2}-\d{2}\.txt$""")
 
+    // Unified single-letter level mapping aligned with android.util.Log priorities.
+    // Module-side XLog.d/.i/.w/.e writes D/I/W/E through the same content provider,
+    // so normalizing here keeps runtime.*.jsonl consistent across both producers.
+    private fun LogLevel.toShortLetter(): String = when (this) {
+        LogLevel.VERBOSE -> "V"
+        LogLevel.DEBUG -> "D"
+        LogLevel.INFO -> "I"
+        LogLevel.WARNING -> "W"
+        LogLevel.ERROR -> "E"
+        LogLevel.ASSERT -> "A"
+    }
+
     private val writeLock = Any()
 
     @Volatile
@@ -125,7 +137,7 @@ object LogUtils {
             if (priority < minLogLevel) return
             LogUtils.appendRuntimeLog(
                 context = context,
-                level = priority.name,
+                level = priority.toShortLetter(),
                 tag = tag.orEmpty(),
                 message = message.orEmpty(),
                 throwable = throwable?.stackTraceToString().orEmpty(),
