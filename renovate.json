@@ -48,7 +48,8 @@
                 "int:pushVersionCode",
                 "int:MODULE_VERSION",
                 "int:VERSION_CODE",
-                "int:PUSH_VERSION_CODE"
+                "int:PUSH_VERSION_CODE",
+                "int:RUNTIME_API_VERSION"
             ],
             "enabled": false
         }
