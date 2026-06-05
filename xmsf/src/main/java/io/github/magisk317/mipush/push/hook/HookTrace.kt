@@ -12,9 +12,14 @@ import io.github.magisk317.mipush.hook.Hooked
 
 internal object HookTrace {
 
+    @Volatile
+    var enabled: Boolean = false
+
     @JvmStatic
     fun mark(point: String) {
         Hooked.mark(point)
-        logD("hook=$point")
+        if (enabled) {
+            logD("hook=$point")
+        }
     }
 }

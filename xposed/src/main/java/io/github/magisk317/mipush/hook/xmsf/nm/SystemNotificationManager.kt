@@ -156,13 +156,13 @@ object SystemNotificationManager {
                 val methodSetCustomizedIcon = extraNotification.javaClass.getDeclaredMethod("setCustomizedIcon", Boolean::class.javaPrimitiveType)
                 methodSetCustomizedIcon.isAccessible = true
                 methodSetCustomizedIcon.invoke(extraNotification, true)
-                XLog.w(TAG, "Successfully set miui customized icon")
+                XLog.d(TAG, "Successfully set miui customized icon")
 
                 try {
                     val methodSetTargetPkg = extraNotification.javaClass.getDeclaredMethod("setTargetPkg", CharSequence::class.java)
                     methodSetTargetPkg.isAccessible = true
                     methodSetTargetPkg.invoke(extraNotification, packageName as CharSequence)
-                    XLog.w(TAG, "Successfully set miui targetPkg to $packageName")
+                    XLog.d(TAG, "Successfully set miui targetPkg to $packageName")
                 } catch (e: Exception) {
                     XLog.e(TAG, "Failed to set targetPkg", e)
                 }
@@ -181,7 +181,7 @@ object SystemNotificationManager {
                     val fieldSmallIcon = Notification::class.java.getDeclaredField("mSmallIcon")
                     fieldSmallIcon.isAccessible = true
                     fieldSmallIcon.set(notification, android.graphics.drawable.Icon.createWithResource(packageName, appInfo.icon))
-                    XLog.w(TAG, "Successfully injected mSmallIcon with app launcher icon")
+                    XLog.d(TAG, "Successfully injected mSmallIcon with app launcher icon")
                 }
             }
         } catch (e: Exception) {

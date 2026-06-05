@@ -193,7 +193,7 @@ object ConvertUtils {
         val candidateRegSecs = RegSecUtils.getCandidateRegSecs(container, regSec)
         logD("resolvePushActionBytes: pkg=${container.packageName} candidateCount=${candidateRegSecs.size} candidates=${candidateRegSecs.map { it.take(8) + "..." }}")
         if (candidateRegSecs.isEmpty()) {
-            Napier.w("resolvePushActionBytes: no regSec candidates for pkg=${container.packageName}", tag = TAG)
+            Napier.d("resolvePushActionBytes: no regSec candidates for pkg=${container.packageName}", tag = TAG)
             return null
         }
         for (candidateRegSec in candidateRegSecs) {
@@ -207,7 +207,7 @@ object ConvertUtils {
                 logD("resolvePushActionBytes: decrypt failed for pkg=${container.packageName}, trying next candidate")
             }
         }
-        logW("resolvePushActionBytes: all regSec candidates failed for pkg=${container.packageName}")
+        logD("resolvePushActionBytes: all regSec candidates failed for pkg=${container.packageName}")
         return null
     }
 

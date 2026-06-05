@@ -200,7 +200,7 @@ object Utils {
                     secrets += regSec
                     Napier.d("getRegSecs: found regSec via fallback pkg=$packageName", tag = "Utils")
                 } else {
-                    Napier.w("getRegSecs: fallback found no regSec pkg=$packageName", tag = "Utils")
+                    Napier.d("getRegSecs: fallback found no regSec pkg=$packageName", tag = "Utils")
                 }
             } catch (_: PackageManager.NameNotFoundException) {
                 targetPackageMissing = true
@@ -212,7 +212,7 @@ object Utils {
             }
         }
         if (secrets.isEmpty() && !targetPackageMissing) {
-            Napier.w("getRegSecs: no regSec found for pkg=$packageName", tag = "Utils")
+            Napier.d("getRegSecs: no regSec found for pkg=$packageName", tag = "Utils")
         }
         return secrets.toList()
     }
