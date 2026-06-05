@@ -135,9 +135,6 @@ class SettingsManager constructor(
         return logGateway.readLogFile(context, fileName)
     }
 
-    fun deleteRuntimeLogFile(context: Context, fileName: String): Boolean {
-        return logGateway.deleteRuntimeLogFile(context, fileName)
-    }
 
     fun buildRuntimeLogBundle(context: Context): ManagerLogExportResult {
         return logGateway.buildLogBundle(context)

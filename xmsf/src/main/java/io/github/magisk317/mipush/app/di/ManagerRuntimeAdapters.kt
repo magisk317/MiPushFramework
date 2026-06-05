@@ -273,9 +273,6 @@ class XmsfManagerLogGateway : ManagerLogGateway {
         return ManagerRuntimeLogFileContent(name = content.name, text = content.text)
     }
 
-    override fun deleteRuntimeLogFile(context: Context, fileName: String): Boolean =
-        LogUtils.deleteRuntimeLogFile(context, fileName)
-
     override fun buildLogBundle(context: Context): ManagerLogExportResult {
         val result = LogBundleExporter.buildLogBundle(context)
         return ManagerLogExportResult(file = result.file, details = result.details)

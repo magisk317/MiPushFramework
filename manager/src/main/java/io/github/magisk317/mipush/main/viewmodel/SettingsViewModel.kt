@@ -244,10 +244,6 @@ class SettingsViewModel constructor(
     fun readRuntimeLogFile(context: android.content.Context, fileName: String) =
         settingsManager.readRuntimeLogFile(context, fileName)
 
-    fun deleteRuntimeLogFile(context: android.content.Context, fileName: String): Boolean {
-        return settingsManager.deleteRuntimeLogFile(context, fileName)
-    }
-
     fun buildRuntimeLogBundle(context: android.content.Context) =
         settingsManager.buildRuntimeLogBundle(context)
 

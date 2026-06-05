@@ -72,7 +72,6 @@ interface ManagerLogGateway {
     fun setRetentionDays(days: Int)
     fun summarizeFiles(context: Context): ManagerRuntimeLogFileSummary
     fun readLogFile(context: Context, fileName: String): ManagerRuntimeLogFileContent?
-    fun deleteRuntimeLogFile(context: Context, fileName: String): Boolean
     fun buildLogBundle(context: Context): ManagerLogExportResult
     fun buildShareIntent(context: Context, file: File): Intent
     fun clearLogFolders(context: Context): ManagerLogClearResult
