@@ -580,10 +580,7 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
     val debugMode by viewModel.debugMode.collectAsStateWithLifecycle()
     val runtimeLogRetentionDays by viewModel.runtimeLogRetentionDays.collectAsStateWithLifecycle()
     val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
-    var showRuntimeLogInfoDialog by remember { mutableStateOf(false) }
-    var runtimeLogDialogData by remember { mutableStateOf<RuntimeLogDialogData?>(null) }
-    var showRuntimeLogFullScreenPreview by remember { mutableStateOf(false) }
-    var runtimeLogExpandedFormat by rememberSaveable { mutableStateOf(false) }
+    var showClearConfirmDialog by remember { mutableStateOf(false) }
     var showRuntimeLogRetentionDialog by remember { mutableStateOf(false) }
     var runtimeLogRetentionInput by remember(runtimeLogRetentionDays) {
         mutableStateOf(runtimeLogRetentionDays.toString())
@@ -591,7 +588,6 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
     val runtimeLogExportFailedTemplate = stringResource(R.string.runtime_log_export_failed)
     val logShareTitle = stringResource(R.string.log_share_title)
     val runtimeLogShareFailedTemplate = stringResource(R.string.runtime_log_share_failed)
-    val runtimeLogDeleteFailedTemplate = stringResource(R.string.runtime_log_delete_failed)
     val runtimeLogClearedMessage = stringResource(R.string.runtime_log_cleared)
     val runtimeLogClearPartialFailedTemplate = stringResource(R.string.runtime_log_clear_partial_failed)
     val runtimeLogRetentionDaysError = stringResource(R.string.settings_runtime_log_retention_days_error)
@@ -624,11 +620,18 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
         }
     }
 
-    fun loadRuntimeLogDialog(selectedFileName: String? = null) {
+    fun clearRuntimeLogFolders() {
         scope.launch {
-            runtimeLogDialogData = withContext(Dispatchers.IO) {
-                loadRuntimeLogDialogData(context, viewModel, selectedFileName)
+            val result = withContext(Dispatchers.IO) {
+                viewModel.clearRuntimeLogFolders(context)
             }
+            snackbarHostState.showSnackbar(
+                if (result.success) {
+                    runtimeLogClearedMessage
+                } else {
+                    formatMessage(runtimeLogClearPartialFailedTemplate, result.details)
+                },
+            )
         }
     }
 
@@ -636,8 +639,14 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
         title = stringResource(R.string.settings_get_log),
         summary = stringResource(R.string.settings_get_log_summary),
     ) {
-        runtimeLogDialogData = null
-        showRuntimeLogInfoDialog = true
+        shareRuntimeLogBundle()
+    }
+
+    SettingsItem(
+        title = stringResource(R.string.runtime_log_clear_confirm_title),
+        summary = stringResource(R.string.runtime_log_clear_summary),
+    ) {
+        showClearConfirmDialog = true
     }
 
     SettingsItem(
@@ -672,74 +681,25 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
         )
     }
 
-    if (showRuntimeLogInfoDialog) {
-        LaunchedEffect(showRuntimeLogInfoDialog) {
-            runtimeLogDialogData = withContext(Dispatchers.IO) {
-                loadRuntimeLogDialogData(context, viewModel, runtimeLogDialogData?.selectedFileName)
-            }
-        }
-        val dialogData = runtimeLogDialogData
-        RuntimeLogInfoDialog(
-            data = dialogData,
-            onDismiss = { showRuntimeLogInfoDialog = false },
-            onShare = { shareRuntimeLogBundle() },
-            onSelectFile = { fileName -> loadRuntimeLogDialog(fileName) },
-            onOpenPreview = {
-                runtimeLogExpandedFormat = false
-                showRuntimeLogFullScreenPreview = true
-            },
-            onDeleteFile = { fileName ->
-                scope.launch {
-                    val files = dialogData?.summary?.files.orEmpty()
-                    val selectedIndex = files.indexOfFirst { it.name == fileName }
-                    val nextSelection = if (selectedIndex >= 0) {
-                        files.getOrNull(selectedIndex + 1)?.name ?: files.getOrNull(selectedIndex - 1)?.name
-                    } else {
-                        null
-                    }
-                    val deleted = withContext(Dispatchers.IO) {
-                        viewModel.deleteRuntimeLogFile(context, fileName)
-                    }
-                    showRuntimeLogFullScreenPreview = false
-                    runtimeLogDialogData = withContext(Dispatchers.IO) {
-                        loadRuntimeLogDialogData(context, viewModel, nextSelection)
-                    }
-                    if (!deleted) {
-                        snackbarHostState.showSnackbar(
-                            formatMessage(runtimeLogDeleteFailedTemplate, fileName),
-                        )
-                    }
+    if (showClearConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirmDialog = false },
+            title = { Text(stringResource(R.string.runtime_log_clear_confirm_title)) },
+            text = { Text(stringResource(R.string.runtime_log_clear_confirm_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showClearConfirmDialog = false
+                    clearRuntimeLogFolders()
+                }) {
+                    Text(stringResource(R.string.action_clear))
                 }
             },
-            onClear = {
-                scope.launch {
-                    val result = withContext(Dispatchers.IO) {
-                        viewModel.clearRuntimeLogFolders(context)
-                    }
-                    runtimeLogDialogData = withContext(Dispatchers.IO) {
-                        loadRuntimeLogDialogData(context, viewModel)
-                    }
-                    snackbarHostState.showSnackbar(
-                        if (result.success) {
-                            runtimeLogClearedMessage
-                        } else {
-                            formatMessage(runtimeLogClearPartialFailedTemplate, result.details)
-                        },
-                    )
+            dismissButton = {
+                TextButton(onClick = { showClearConfirmDialog = false }) {
+                    Text(stringResource(android.R.string.cancel))
                 }
             },
         )
-        val content = dialogData?.content
-        if (showRuntimeLogFullScreenPreview && content != null) {
-            RuntimeLogFullScreenPreviewDialog(
-                fileName = content.name,
-                compactText = dialogData.compactPreview,
-                formattedText = dialogData.formattedPreview,
-                expandedFormat = runtimeLogExpandedFormat,
-                onExpandedFormatChange = { runtimeLogExpandedFormat = it },
-                onDismiss = { showRuntimeLogFullScreenPreview = false },
-            )
-        }
     }
 
     if (showRuntimeLogRetentionDialog) {
@@ -782,284 +742,6 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
             },
         )
     }
-}
-
-private data class RuntimeLogDialogData(
-    val summary: ManagerRuntimeLogFileSummary,
-    val selectedFileName: String?,
-    val content: ManagerRuntimeLogFileContent?,
-    val compactPreview: String,
-    val formattedPreview: String,
-)
-
-@Composable
-private fun RuntimeLogInfoDialog(
-    data: RuntimeLogDialogData?,
-    onDismiss: () -> Unit,
-    onShare: () -> Unit,
-    onSelectFile: (String) -> Unit,
-    onOpenPreview: () -> Unit,
-    onDeleteFile: (String) -> Unit,
-    onClear: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(text = stringResource(id = R.string.runtime_log_viewer_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (data == null) {
-                    Text(text = stringResource(id = R.string.runtime_log_info_loading))
-                    return@Column
-                }
-                val summary = data.summary
-                if (summary.fileCount == 0) {
-                    Text(text = stringResource(id = R.string.runtime_log_info_empty))
-                } else {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                    ) {
-                        Text(
-                            text = stringResource(
-                                id = R.string.runtime_log_info_summary,
-                                summary.fileCount,
-                                summary.entryCount,
-                            ),
-                            maxLines = 1,
-                            softWrap = false,
-                        )
-                        val first = summary.firstTimestamp
-                        val last = summary.lastTimestamp
-                        if (first != null && last != null) {
-                            Text(
-                                text = stringResource(
-                                    id = R.string.runtime_log_info_range,
-                                    formatLogTimestamp(first),
-                                    formatLogTimestamp(last),
-                                ),
-                                maxLines = 1,
-                                softWrap = false,
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-                    }
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 150.dp)
-                            .verticalScroll(rememberScrollState())
-                            .horizontalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        summary.files.forEach { file ->
-                            val selected = file.name == data.selectedFileName
-                            Row(
-                                modifier = Modifier
-                                    .clickable { onSelectFile(file.name) }
-                                    .padding(vertical = 1.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    text = formatRuntimeLogFileListLine(file, selected),
-                                    modifier = Modifier
-                                        .padding(vertical = 2.dp),
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                                    color = if (selected) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurface
-                                    },
-                                )
-                                if (!selected) {
-                                    IconButton(onClick = { onDeleteFile(file.name) }) {
-                                        Icon(
-                                            imageVector = Icons.Filled.Delete,
-                                            contentDescription = stringResource(id = R.string.action_delete),
-                                            tint = MaterialTheme.colorScheme.error,
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                Text(
-                    text = stringResource(id = R.string.runtime_log_info_preview_title),
-                    style = MaterialTheme.typography.titleSmall,
-                )
-                val previewVerticalScroll = rememberScrollState()
-                val previewHorizontalScroll = rememberScrollState()
-                Text(
-                    text = data.compactPreview.ifBlank { stringResource(id = R.string.runtime_log_info_empty) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 280.dp)
-                        .verticalScroll(previewVerticalScroll)
-                        .horizontalScroll(previewHorizontalScroll)
-                        .clickable(enabled = data.content != null, onClick = onOpenPreview),
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                    softWrap = false,
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onShare, enabled = data != null) {
-                Text(text = stringResource(id = R.string.action_share))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onClear, enabled = data != null) {
-                Text(text = stringResource(id = R.string.action_clear))
-            }
-        },
-    )
-}
-
-@Composable
-private fun RuntimeLogFullScreenPreviewDialog(
-    fileName: String,
-    compactText: String,
-    formattedText: String,
-    expandedFormat: Boolean,
-    onExpandedFormatChange: (Boolean) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        Surface(modifier = Modifier.fillMaxSize()) {
-            Scaffold(
-                topBar = {
-                    TopAppBar(
-                        title = { Text(text = fileName, maxLines = 1, softWrap = false) },
-                        navigationIcon = {
-                            IconButton(onClick = onDismiss) {
-                                Icon(
-                                    imageVector = Icons.Filled.Close,
-                                    contentDescription = stringResource(id = android.R.string.cancel),
-                                )
-                            }
-                        },
-                        actions = {
-                            TextButton(onClick = { onExpandedFormatChange(!expandedFormat) }) {
-                                Text(
-                                    text = stringResource(
-                                        id = if (expandedFormat) {
-                                            R.string.runtime_log_action_compact
-                                        } else {
-                                            R.string.runtime_log_action_format
-                                        },
-                                    ),
-                                )
-                            }
-                        },
-                    )
-                },
-            ) { padding ->
-                val vertical = rememberScrollState()
-                val horizontal = rememberScrollState()
-                val text = if (expandedFormat) formattedText else compactText
-                Text(
-                    text = text.ifBlank { stringResource(id = R.string.runtime_log_info_empty) },
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding)
-                        .padding(12.dp)
-                        .verticalScroll(vertical)
-                        .horizontalScroll(horizontal),
-                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                    softWrap = false,
-                )
-            }
-        }
-    }
-}
-
-private fun loadRuntimeLogDialogData(
-    context: Context,
-    viewModel: SettingsViewModel,
-    selectedFileName: String? = null,
-): RuntimeLogDialogData {
-    val summary = runCatching {
-        viewModel.summarizeRuntimeLogFiles(context)
-    }.getOrElse {
-        ManagerRuntimeLogFileSummary(
-            fileCount = 0,
-            totalBytes = 0L,
-            entryCount = 0,
-            firstTimestamp = null,
-            lastTimestamp = null,
-            files = emptyList(),
-        )
-    }
-    val selected = selectRuntimeLogFile(summary, selectedFileName)
-    val content = selected?.let { fileName ->
-        runCatching { viewModel.readRuntimeLogFile(context, fileName) }.getOrNull()
-    }
-    val compactPreview = content?.let { formatRuntimeLogContent(it.name, it.text, expanded = false) }.orEmpty()
-    val formattedPreview = content?.let { formatRuntimeLogContent(it.name, it.text, expanded = true) }.orEmpty()
-    return RuntimeLogDialogData(
-        summary = summary,
-        selectedFileName = selected,
-        content = content,
-        compactPreview = compactPreview,
-        formattedPreview = formattedPreview,
-    )
-}
-
-private fun selectRuntimeLogFile(summary: ManagerRuntimeLogFileSummary, selectedFileName: String?): String? {
-    val files = summary.files
-    if (files.any { it.name == selectedFileName }) return selectedFileName
-    return files.lastOrNull { it.name.matches(Regex("""runtime\.\d{4}-\d{2}-\d{2}\.jsonl""")) }?.name
-        ?: files.lastOrNull()?.name
-}
-
-private fun formatRuntimeLogFileListLine(file: ManagerRuntimeLogFileInfo, selected: Boolean): String {
-    val marker = if (selected) "*" else " "
-    val lines = file.lineCount.toString().padStart(5)
-    val size = formatLogSize(file.sizeBytes).padStart(8)
-    val modified = file.lastTimestamp?.let(::formatLogTimestamp).orEmpty().padEnd(19)
-    return "$marker -rw------- $lines $size $modified ${file.name}"
-}
-
-private fun formatRuntimeLogContent(fileName: String, text: String, expanded: Boolean): String {
-    if (!fileName.endsWith(".jsonl")) return text
-    val separator = if (expanded) "\n\n" else "\n"
-    return text.lineSequence()
-        .filter { it.isNotBlank() }
-        .joinToString(separator = separator) { line ->
-            formatJsonLine(line, expanded)
-        }
-}
-
-private fun formatJsonLine(line: String, expanded: Boolean): String {
-    return runCatching {
-        when (val value = ConfigJson.parse(line)) {
-            is ConfigJsonObject -> if (expanded) value.toString(2) else value.toString()
-            is ConfigJsonArray -> if (expanded) value.toString(2) else value.toString()
-            else -> line
-        }
-    }.getOrDefault(line)
-}
-
-private fun formatLogTimestamp(timestamp: Long): String {
-    return SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(timestamp))
-}
-
-private fun formatLogSize(bytes: Long): String {
-    if (bytes < 1024L) return "$bytes B"
-    val units = listOf("KB", "MB", "GB")
-    var value = bytes.toDouble() / 1024.0
-    var unitIndex = 0
-    while (value >= 1024.0 && unitIndex < units.lastIndex) {
-        value /= 1024.0
-        unitIndex += 1
-    }
-    return String.format(Locale.getDefault(), "%.1f %s", value, units[unitIndex])
 }
 
 @Composable

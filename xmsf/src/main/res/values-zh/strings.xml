@@ -220,8 +220,8 @@
     <string name="settings_permission_check">权限检查</string>
     <string name="settings_permission_check_summary">重新打开权限引导页，补齐未授权权限。</string>
 
-    <string name="settings_get_log">获取日志</string>
-    <string name="settings_get_log_summary">点击查看、分享或清空日志。</string>
+    <string name="settings_get_log">分享日志</string>
+    <string name="settings_get_log_summary">构建并分享日志包用于调试。</string>
     <string name="settings_runtime_log_retention_days">日志保留天数</string>
     <string name="settings_runtime_log_retention_days_summary">按天轮转，保留最近 %1$d 天日志</string>
     <string name="settings_runtime_log_retention_days_hint">单位：天，最小值 1，默认 7。</string>

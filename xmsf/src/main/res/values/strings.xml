@@ -239,8 +239,8 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="settings_permission_check_summary">Re-open the permission guide and grant missing permissions.</string>
 
     <string name="settings_debug">Debug</string>
-    <string name="settings_get_log">Get debugging logs</string>
-    <string name="settings_get_log_summary">Tap to view, share, or clear logs.</string>
+    <string name="settings_get_log">Share logs</string>
+    <string name="settings_get_log_summary">Build and share a log bundle for debugging.</string>
     <string name="settings_runtime_log_retention_days">Runtime log retention</string>
     <string name="settings_runtime_log_retention_days_summary">Daily rotation, keep the last %1$d days</string>
     <string name="settings_runtime_log_retention_days_hint">Retention in days, minimum 1. Default is 7.</string>
