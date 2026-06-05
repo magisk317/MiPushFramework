@@ -4,9 +4,23 @@
 
 ---
 
-## [v0.5.2] - Unreleased
+## [v0.5.3] - Unreleased
 
-> Full Changelog: https://github.com/magisk317/MiPushFramework/compare/v0.5.1...HEAD
+> Full Changelog: https://github.com/magisk317/MiPushFramework/compare/v0.5.2...HEAD
+
+---
+
+## [v0.5.2] - 2026-06-05
+
+- `[feat(notification)]` 新增彩色图标渲染注入与目标包名设置；应用原生语义化通知表面并将其转换为实况更新（Live Updates）；支持 alert 与 progress 通知样式；并保持焦点图标前置展示。
+- `[feat(config)]` 远端配置支持 GitHub 加速器并优化同步状态展示。
+- `[feat(ui)]` 管理中心（Manager）Chrome 适配 Haze 2；移除已废弃偏好设置并优化部分 UI 细节。
+- `[fix(systemui)]` 为 IconManager hook 增加 try-catch 异常捕获以防止在不支持的版本上崩溃；修复 HookSystemUI 分发目标错误，将其正确分发至 SystemUI 进程而非 XMSF 进程。
+- `[fix(notification)]` 移除缺失目标的通知回退（fallback）机制；修复外部图标明文 HTTP 流量被拦截问题；修复 MockNotificationPanel 字符串资源找不到的异常。
+- `[fix(deps)]` 修复 Renovate 对 `int:RUNTIME_API_VERSION` 的依赖误报；更新大量非大版本依赖项以及 AndroidX preview 目录。
+- `[build&ci]` 统一共享构建逻辑（shared build logic）；稳定依赖提交图（dependency submission graph）；移除 README 的强制构建要求门槛；对齐 Telegram 等渠道的 workflow 消息通知格式。
+
+> Full Changelog: https://github.com/magisk317/MiPushFramework/compare/v0.5.1...v0.5.2
 
 ---
 
