@@ -318,6 +318,23 @@ object NotificationController {
         } else {
             notification
         }
+        if (!islandOptions.showOriginalNotification &&
+            focusPlan.allowIslandProxy &&
+            generatedFocusBundle != null
+        ) {
+            Napier.d(
+                "skip original notification post pkg=$packageName id=$notificationId " +
+                    "tag=$tag showOriginalNotification=false",
+                tag = TAG,
+            )
+            PushRuntime.observeNotificationEvent(
+                packageName,
+                "notification_original_skipped",
+                "NotificationController.publish",
+            )
+            NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag)
+            return null
+        }
         if (!getNotificationManagerEx().notify(packageName, tag, notificationId, notificationToPost)) {
             Napier.w(
                 "publish failed pkg=$packageName id=$notificationId tag=$tag channel=${notificationToPost.channelId}",

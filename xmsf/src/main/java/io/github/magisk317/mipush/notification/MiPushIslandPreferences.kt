@@ -13,6 +13,7 @@ internal data class MiPushIslandOptions(
     val firstFloat: Boolean = true,
     val enableFloat: Boolean = true,
     val showNotification: Boolean = true,
+    val showOriginalNotification: Boolean = true,
     val focusNotification: Boolean = true,
 ) {
     val canBuildFocusPayload: Boolean
@@ -37,6 +38,7 @@ internal object MiPushIslandPreferences {
                     firstFloat = repository.islandFirstFloat.first(),
                     enableFloat = repository.islandEnableFloat.first(),
                     showNotification = repository.islandShowNotification.first(),
+                    showOriginalNotification = repository.islandShowOriginalNotification.first(),
                     focusNotification = globalFocusNotification && (appFocusNotification ?: true),
                 )
             }
