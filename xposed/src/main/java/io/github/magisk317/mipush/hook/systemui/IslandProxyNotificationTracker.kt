@@ -1,17 +1,22 @@
 package io.github.magisk317.mipush.hook.systemui
 
+import io.github.magisk317.mipush.hook.island.IslandDispatchContract
 import java.util.LinkedHashMap
 
 internal object IslandProxyNotificationIds {
+    fun fromPackage(packageName: String?): Int {
+        val key = packageName?.takeIf { it.isNotBlank() }
+            ?: IslandDispatchContract.SYSTEM_UI_PACKAGE
+        return "mipush_island:$key".hashCode()
+    }
+
+    @Suppress("UNUSED_PARAMETER")
     fun fromStatusBarKey(
         key: String?,
         packageName: String,
         notificationId: Int,
         tag: String?,
-    ): Int {
-        val sourceKey = key ?: "$packageName:$notificationId:${tag.orEmpty()}"
-        return "mipush_island:$sourceKey".hashCode()
-    }
+    ): Int = fromPackage(packageName)
 }
 
 internal class IslandProxyPostTracker(

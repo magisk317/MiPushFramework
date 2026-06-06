@@ -72,7 +72,7 @@ class MiPushIslandHook {
             null
         }
         val proxyId = proxyNotificationId(sbn)
-        if (recentProxyPosts.shouldSkip(proxyId)) return
+        if (recentProxyPosts.shouldSkip(dedupKeyFor(sbn))) return
         IslandDispatcher.post(
             context,
             IslandRequest(
@@ -151,7 +151,13 @@ class MiPushIslandHook {
     }
 
     private fun proxyNotificationId(sbn: StatusBarNotification): Int {
-        return IslandProxyNotificationIds.fromStatusBarKey(sbn.key, sbn.packageName, sbn.id, sbn.tag)
+        return IslandProxyNotificationIds.fromPackage(sbn.packageName)
+    }
+
+    private fun dedupKeyFor(sbn: StatusBarNotification): Int {
+        val key = sbn.key
+        if (!key.isNullOrBlank()) return key.hashCode()
+        return (sbn.packageName.hashCode() xor sbn.id)
     }
 
     private companion object {
