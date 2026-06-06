@@ -365,7 +365,7 @@ object NotificationController {
         ) ?: metaInfo.description?.takeIf { it.isNotBlank() }
             ?: title
         val appContext = context.applicationContext ?: context
-        val proxyId = islandProxyNotificationId(packageName, notificationId, tag)
+        val proxyId = IslandProxyNotificationId.fromPackage(packageName, notificationId, tag)
         return runCatching {
             appContext.sendBroadcast(
                 Intent(ACTION_SHOW_ISLAND).apply {
@@ -669,7 +669,7 @@ object NotificationController {
             (context.applicationContext ?: context).sendBroadcast(
                 Intent(ACTION_CANCEL_ISLAND).apply {
                     setPackage(SYSTEM_UI_PACKAGE)
-                    putExtra(EXTRA_NOTIFICATION_ID, islandProxyNotificationId(packageName, notificationId, tag))
+                    putExtra(EXTRA_NOTIFICATION_ID, IslandProxyNotificationId.fromPackage(packageName, notificationId, tag))
                 },
             )
         }.onFailure {
@@ -682,11 +682,6 @@ object NotificationController {
         return keys.firstNotNullOfOrNull { key ->
             extras.getCharSequence(key)?.toString()?.takeIf { it.isNotBlank() }
         }
-    }
-
-    @Suppress("UNUSED_PARAMETER")
-    private fun islandProxyNotificationId(packageName: String, notificationId: Int, tag: String?): Int {
-        return "mipush_island:$packageName".hashCode()
     }
 
     @JvmStatic
