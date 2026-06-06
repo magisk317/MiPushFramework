@@ -43,3 +43,7 @@ org.eclipse.buildship.core.prefs
 # Logs
 *.log
 /log
+
+# Local build artifacts
+build-artifacts/
+/build-artifacts/
