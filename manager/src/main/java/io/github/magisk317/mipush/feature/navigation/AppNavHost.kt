@@ -83,9 +83,33 @@ fun AppNavHostContent(
         return if (routeRank(targetRoute) >= routeRank(initialRoute)) 1 else -1
     }
 
+    fun predictivePopDirection(initialRoute: String?, targetRoute: String?): Int {
+        val initialRank = routeRank(initialRoute)
+        val targetRank = routeRank(targetRoute)
+        return when {
+            targetRank > initialRank -> 1
+            targetRank < initialRank -> -1
+            else -> -1
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = startDestination,
+        predictivePopEnterTransition = { _ ->
+            val direction = predictivePopDirection(initialState.destination.route, targetState.destination.route)
+            slideInHorizontally(
+                initialOffsetX = { direction * it },
+                animationSpec = tween(300, easing = EaseInOut),
+            ) + fadeIn(animationSpec = tween(300))
+        },
+        predictivePopExitTransition = { _ ->
+            val direction = predictivePopDirection(initialState.destination.route, targetState.destination.route)
+            slideOutHorizontally(
+                targetOffsetX = { -direction * it },
+                animationSpec = tween(300, easing = EaseInOut),
+            ) + fadeOut(animationSpec = tween(300))
+        },
     ) {
         composable(
             route = AppDestinations.Overview.ROUTE,
