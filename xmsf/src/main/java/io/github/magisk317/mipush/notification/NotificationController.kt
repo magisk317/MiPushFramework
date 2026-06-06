@@ -684,8 +684,9 @@ object NotificationController {
         }
     }
 
+    @Suppress("UNUSED_PARAMETER")
     private fun islandProxyNotificationId(packageName: String, notificationId: Int, tag: String?): Int {
-        return "mipush_island:$packageName:$notificationId:${tag.orEmpty()}".hashCode()
+        return "mipush_island:$packageName".hashCode()
     }
 
     @JvmStatic
