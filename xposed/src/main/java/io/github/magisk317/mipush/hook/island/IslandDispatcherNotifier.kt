@@ -10,16 +10,20 @@ import io.github.magisk317.mipush.hook.XLog
 
 internal object IslandDispatcherNotifier {
     private const val TAG = "IslandDispatcherNotifier"
+    private const val GROUP_KEY_PREFIX = "mipush_island"
 
     fun post(context: Context, request: IslandRequest) {
         runCatching {
             ensureChannel(context)
+            val groupKey = request.sourcePackage?.takeIf { it.isNotBlank() }
+                ?.let { "$GROUP_KEY_PREFIX:$it" }
             val notification = Notification.Builder(context, IslandDispatchContract.CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setContentTitle(request.title)
                 .setContentText(request.content)
                 .setAutoCancel(!request.isOngoing)
                 .setOngoing(request.isOngoing)
+                .setGroup(groupKey)
                 .setVisibility(
                     if (request.showNotification) {
                         Notification.VISIBILITY_PRIVATE
