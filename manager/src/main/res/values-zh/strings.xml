@@ -505,7 +505,9 @@
     <string name="pref_island_enable_float_title">浮动模式</string>
     <string name="pref_island_enable_float_summary">允许超级岛浮动显示在状态栏上方。</string>
     <string name="pref_island_show_notification_title">保留通知栏通知</string>
-    <string name="pref_island_show_notification_summary">展示超级岛时仍保留原通知。</string>
+    <string name="pref_island_show_notification_summary">展示超级岛时仍保留焦点通知。</string>
+    <string name="pref_island_show_original_notification_title">显示原通知</string>
+    <string name="pref_island_show_original_notification_summary">展示超级岛时仍保留源应用通知。</string>
     <string name="pref_island_focus_notif_title">焦点认证绕过</string>
     <string name="pref_island_focus_notif_summary">允许生成的焦点通知参数通过 XMSF 焦点认证。</string>
 

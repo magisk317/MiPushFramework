@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
+import android.app.NotificationManager
 import android.service.notification.StatusBarNotification
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.island.IslandDispatchContract
@@ -65,6 +66,15 @@ class MiPushIslandHook {
         ) ?: title
 
         val context = currentApplication()?.applicationContext ?: return
+        if (!options.showOriginalNotification) {
+            runCatching {
+                val manager = context.getSystemService(NotificationManager::class.java) ?: return@runCatching
+                manager.cancel(sbn.tag, sbn.id)
+                XLog.d(TAG, "dropped original notification pkg=$sourcePackage key=${sbn.key}")
+            }.onFailure {
+                XLog.w(TAG, "failed to cancel original notification: ${it.message}")
+            }
+        }
         val icon = resolveIcon(context, sourcePackage, notification, extras)
         val channelId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             notification.channelId

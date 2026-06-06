@@ -19,6 +19,7 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
 import io.github.magisk317.mipush.common.ISLAND_PREF_PATH_FLAGS
 import io.github.magisk317.mipush.common.ISLAND_PREF_READ_PERMISSION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
+import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.dataStore
@@ -37,6 +38,7 @@ class IslandPreferenceProvider : ContentProvider() {
         ISLAND_PREF_FIRST_FLOAT,
         ISLAND_PREF_ENABLE_FLOAT,
         ISLAND_PREF_SHOW_NOTIFICATION,
+        ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION,
         ISLAND_PREF_FOCUS_NOTIF,
     )
 
@@ -78,6 +80,7 @@ class IslandPreferenceProvider : ContentProvider() {
                         ISLAND_PREF_FIRST_FLOAT to repository.islandFirstFloat.first().toFlagValue(),
                         ISLAND_PREF_ENABLE_FLOAT to repository.islandEnableFloat.first().toFlagValue(),
                         ISLAND_PREF_SHOW_NOTIFICATION to repository.islandShowNotification.first().toFlagValue(),
+                        ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION to repository.islandShowOriginalNotification.first().toFlagValue(),
                         ISLAND_PREF_FOCUS_NOTIF to (
                             globalFocusNotification &&
                                 (appFocusNotification ?: true)
@@ -120,6 +123,7 @@ class IslandPreferenceProvider : ContentProvider() {
         ISLAND_PREF_FIRST_FLOAT to true.toFlagValue(),
         ISLAND_PREF_ENABLE_FLOAT to true.toFlagValue(),
         ISLAND_PREF_SHOW_NOTIFICATION to true.toFlagValue(),
+            ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION to true.toFlagValue(),
         ISLAND_PREF_FOCUS_NOTIF to true.toFlagValue(),
     )
 }

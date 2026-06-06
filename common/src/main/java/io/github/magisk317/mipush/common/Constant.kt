@@ -33,6 +33,7 @@ const val ISLAND_PREF_TIMEOUT = "pref_island_timeout"
 const val ISLAND_PREF_FIRST_FLOAT = "pref_island_first_float"
 const val ISLAND_PREF_ENABLE_FLOAT = "pref_island_enable_float"
 const val ISLAND_PREF_SHOW_NOTIFICATION = "pref_island_show_notification"
+const val ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION = "pref_island_show_original_notification"
 const val ISLAND_PREF_FOCUS_NOTIF = "pref_island_focus_notif"
 
 @Suppress("MaxLineLength")

@@ -441,6 +441,7 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
     val islandFirstFloat by viewModel.islandFirstFloat.collectAsStateWithLifecycle()
     val islandEnableFloat by viewModel.islandEnableFloat.collectAsStateWithLifecycle()
     val islandShowNotification by viewModel.islandShowNotification.collectAsStateWithLifecycle()
+    val islandShowOriginalNotification by viewModel.islandShowOriginalNotification.collectAsStateWithLifecycle()
     val islandFocusNotification by viewModel.islandFocusNotification.collectAsStateWithLifecycle()
     val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
     var showIslandTimeoutDialog by remember { mutableStateOf(false) }
@@ -520,6 +521,17 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
     ) { enabled ->
         viewModel.setIslandShowNotification(enabled)
         showSwitchFeedback(islandShowNotificationTitle, enabled)
+    }
+
+    val islandShowOriginalNotificationTitle = stringResource(R.string.pref_island_show_original_notification_title)
+    SettingsSwitchItem(
+        title = islandShowOriginalNotificationTitle,
+        summary = stringResource(R.string.pref_island_show_original_notification_summary),
+        checked = islandShowOriginalNotification,
+        enabled = islandEnabled,
+    ) { enabled ->
+        viewModel.setIslandShowOriginalNotification(enabled)
+        showSwitchFeedback(islandShowOriginalNotificationTitle, enabled)
     }
 
     val islandFocusNotificationTitle = stringResource(R.string.pref_island_focus_notif_title)

@@ -83,6 +83,9 @@ class SettingsViewModel constructor(
     val islandShowNotification: StateFlow<Boolean> = preferenceRepository.islandShowNotification
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
+    val islandShowOriginalNotification: StateFlow<Boolean> = preferenceRepository.islandShowOriginalNotification
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
     val islandFocusNotification: StateFlow<Boolean> = preferenceRepository.islandFocusNotification
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
@@ -187,6 +190,10 @@ class SettingsViewModel constructor(
 
     fun setIslandShowNotification(value: Boolean) = viewModelScope.launch {
         preferenceRepository.setIslandShowNotification(value)
+    }
+
+    fun setIslandShowOriginalNotification(value: Boolean) = viewModelScope.launch {
+        preferenceRepository.setIslandShowOriginalNotification(value)
     }
 
     fun setIslandFocusNotification(value: Boolean) = viewModelScope.launch {

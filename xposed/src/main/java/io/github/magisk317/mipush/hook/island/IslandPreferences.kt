@@ -11,6 +11,7 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_FIRST_FLOAT
 import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
 import io.github.magisk317.mipush.common.ISLAND_PREF_PATH_FLAGS
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
+import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.xposed.currentApplication
@@ -24,6 +25,7 @@ object IslandPreferences {
         ISLAND_PREF_FIRST_FLOAT,
         ISLAND_PREF_ENABLE_FLOAT,
         ISLAND_PREF_SHOW_NOTIFICATION,
+        ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION,
         ISLAND_PREF_FOCUS_NOTIF,
     )
 
@@ -107,6 +109,7 @@ object IslandPreferences {
             firstFloat = values.booleanValue(ISLAND_PREF_FIRST_FLOAT, true),
             enableFloat = values.booleanValue(ISLAND_PREF_ENABLE_FLOAT, true),
             showNotification = values.booleanValue(ISLAND_PREF_SHOW_NOTIFICATION, true),
+            showOriginalNotification = values.booleanValue(ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION, true),
             focusNotification = values.booleanValue(ISLAND_PREF_FOCUS_NOTIF, true),
         )
     }
