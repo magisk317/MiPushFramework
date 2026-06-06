@@ -318,10 +318,7 @@ object NotificationController {
         } else {
             notification
         }
-        if (!islandOptions.showOriginalNotification &&
-            focusPlan.allowIslandProxy &&
-            generatedFocusBundle != null
-        ) {
+        if (!islandOptions.showOriginalNotification) {
             Napier.d(
                 "skip original notification post pkg=$packageName id=$notificationId " +
                     "tag=$tag showOriginalNotification=false",
