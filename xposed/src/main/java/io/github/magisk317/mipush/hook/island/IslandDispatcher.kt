@@ -20,6 +20,10 @@ object IslandDispatcher {
     }
 
     fun post(context: Context, request: IslandRequest) {
+        if (!request.showNotification) {
+            XLog.i(TAG, "skip island post notificationId=${request.notificationId} showNotification=false")
+            return
+        }
         IslandDispatcherNotifier.post(context.applicationContext ?: context, request)
         IslandDispatchState.markPosted(request.notificationId)
     }

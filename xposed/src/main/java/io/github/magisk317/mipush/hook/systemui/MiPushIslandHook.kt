@@ -83,7 +83,7 @@ class MiPushIslandHook {
                 timeoutSecs = options.timeoutSecs,
                 firstFloat = options.firstFloat,
                 enableFloat = options.enableFloat,
-                showNotification = false,
+                showNotification = options.showNotification,
                 sourcePackage = sourcePackage,
                 sourceChannelId = channelId,
                 contentIntent = notification.contentIntent,
