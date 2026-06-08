@@ -18,17 +18,15 @@
             "automerge": true,
             "automergeType": "pr",
             "groupName": "other non-major dependencies",
+            "groupSingleUpdates": false,
             "groupSlug": "all-minor-patch",
             "commitMessageExtra": "",
             "matchPackageNames": [
-                "*"
-            ],
-            "excludePackagePatterns": [
-                "^androidx\\.",
-                "^org\\.jetbrains\\.kotlin",
-                "^io\\.insert-koin\\.",
-                "^org\\.junit\\.",
-                "^dev\\.chrisbanes\\.haze"
+                "!/^androidx\\./",
+                "!/^org\\.jetbrains\\.kotlin/",
+                "!/^io\\.insert-koin\\./",
+                "!/^org\\.junit\\./",
+                "!/^dev\\.chrisbanes\\.haze/"
             ]
         },
         {
