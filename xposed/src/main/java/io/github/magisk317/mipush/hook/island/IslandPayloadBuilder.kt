@@ -29,6 +29,8 @@ object IslandPayloadBuilder {
     private const val FOCUS_PICS = "miui.focus.pics"
     private const val FOCUS_ACTIONS = "miui.focus.actions"
     private const val FOCUS_ACTION_PREFIX = "miui.focus.action_"
+    private const val MAX_COUNTDOWN_HOURS = 72L
+    private const val MILLIS_PER_HOUR = 3_600_000L
 
     fun buildFocusParam(
         context: Context,
@@ -411,7 +413,7 @@ object IslandPayloadBuilder {
         }
         Regex("(\\d+)\\s*(?:小时|hour|hours|hr|hrs)").find(text)?.let {
             val hours = it.groupValues[1].toLongOrNull()
-            if (hours != null && hours in 1..72) return hours * 3600 * 1000
+            if (hours != null && hours in 1..MAX_COUNTDOWN_HOURS) return hours * MILLIS_PER_HOUR
         }
         Regex("(\\d+)\\s*(?:秒|sec|second|seconds)").find(text)?.let {
             val secs = it.groupValues[1].toLongOrNull()

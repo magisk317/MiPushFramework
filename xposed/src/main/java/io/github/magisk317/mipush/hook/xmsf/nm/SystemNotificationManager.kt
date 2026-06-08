@@ -47,7 +47,7 @@ object SystemNotificationManager {
             }
             UidResolution.MissingPackage
         } catch (e: SecurityException) {
-            XLog.d(TAG, "$operation: system API blocked for $packageName, will use root fallback")
+            XLog.e(TAG, "$operation: system API blocked for $packageName, will use root fallback", e)
             UidResolution.Unavailable
         }
     }
