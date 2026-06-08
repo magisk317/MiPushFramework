@@ -32,16 +32,13 @@ import java.util.LinkedHashMap
 
 object MiPushRuntimeBridge {
     private val diagnosticPackages = setOf("com.ss.android.ugc.aweme")
-    private const val RECENT_REGISTER_TOAST_WINDOW_MS = 5_000L
     private const val NOTIFICATION_DISPATCH_ALLOWANCE_TTL_MS = 30_000L
-    private val recentRegisterToasts = LinkedHashMap<String, Long>()
     private const val NOTIFICATION_DISPATCH_ALLOWANCE_COUNT = 3
     private data class NotificationDispatchAllowance(
         var remaining: Int,
         var updatedAtMs: Long
     )
     private val notificationDispatchAllowances = LinkedHashMap<String, NotificationDispatchAllowance>()
-    private val registerToastLock = Any()
     private val notificationDispatchLock = Any()
 
     @JvmStatic
@@ -241,9 +238,6 @@ object MiPushRuntimeBridge {
         logD("recordEvent start pkg=$pkg action=${container.action?.name} messageId=$messageId eventType=${eventType.type}")
         runBlocking { EventDb.insertEventAsync(Event.ResultType.OK, eventType) }
         logD("recordEvent done pkg=$pkg action=${container.action?.name} messageId=$messageId")
-        if (eventType.type == Event.Type.Registration || eventType.type == Event.Type.RegistrationResult) {
-            maybeShowRegisterToast(context, pkg, application)
-        }
     }
 
     internal fun shouldProcessPayloadIdentity(
@@ -415,29 +409,6 @@ object MiPushRuntimeBridge {
             result.errorCode.toInt() == 0 -> RegisteredApplication.RegisteredType.Registered
             else -> RegisteredApplication.RegisteredType.Unregistered
         }
-    }
-
-    private fun maybeShowRegisterToast(
-        context: Context,
-        pkg: String,
-        application: io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
-    ) {
-        val now = System.currentTimeMillis()
-        synchronized(registerToastLock) {
-            val iterator = recentRegisterToasts.entries.iterator()
-            while (iterator.hasNext()) {
-                val entry = iterator.next()
-                if ((now - entry.value) > RECENT_REGISTER_TOAST_WINDOW_MS) {
-                    iterator.remove()
-                }
-            }
-            val previous = recentRegisterToasts[pkg]
-            if (previous != null && now - previous <= RECENT_REGISTER_TOAST_WINDOW_MS) {
-                return
-            }
-            recentRegisterToasts[pkg] = now
-        }
-        RegisterRecorder(context.applicationContext).showRegisterToastIfUserAllow(application)
     }
 
     @JvmStatic

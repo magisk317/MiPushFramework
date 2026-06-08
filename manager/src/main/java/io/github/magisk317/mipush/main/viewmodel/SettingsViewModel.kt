@@ -41,9 +41,6 @@ class SettingsViewModel constructor(
     val configDirectory: StateFlow<String?> = preferenceRepository.configDirectory
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    val notificationOnRegister: StateFlow<Boolean> = preferenceRepository.notificationOnRegister
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
-
     val debugMode: StateFlow<Boolean> = preferenceRepository.debugMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
@@ -138,10 +135,6 @@ class SettingsViewModel constructor(
         viewModelScope.launch {
             preferenceRepository.setConfigDirectory(uri)
         }
-    }
-
-    fun setNotificationOnRegister(enabled: Boolean) {
-        viewModelScope.launch { preferenceRepository.setNotificationOnRegister(enabled) }
     }
 
     fun setDebugMode(enabled: Boolean) {
@@ -241,10 +234,6 @@ class SettingsViewModel constructor(
         settingsManager.clearHistory(context, viewModelScope)
     }
 
-    fun updateAllNotificationOnRegister(enabled: Boolean): Int {
-        return settingsManager.updateAllNotificationOnRegister(enabled)
-    }
-
     fun summarizeRuntimeLogFiles(context: android.content.Context) =
         settingsManager.summarizeRuntimeLogFiles(context)
 
@@ -262,10 +251,6 @@ class SettingsViewModel constructor(
 
     fun shareLogs(context: android.content.Context) {
         settingsManager.shareLogs(context)
-    }
-
-    fun tryForceRegisterAllApplications(context: android.content.Context): String {
-        return settingsManager.tryForceRegisterAllApplications(context)
     }
 
     fun getXMPPServerHint(): String = settingsManager.getXMPPServerHint()

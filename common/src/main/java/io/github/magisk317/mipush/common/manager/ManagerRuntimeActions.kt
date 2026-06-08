@@ -15,27 +15,10 @@ interface ManagerRuntimeActions {
     suspend fun clearHistory()
     fun startMiPushServiceAsForegroundService(context: Context)
     fun notifyMockNotification(context: Context, kind: MockNotificationKind, packageName: String)
-    fun tryForceRegisterAllApplications(context: Context, packageNames: Collection<String>): ForceRegisterOutcome
     fun resetTopActivityCache()
     fun sendXmppReconnectRequest(context: Context)
     fun setXmppServer(context: Context, newHost: String)
     fun getXmppServerHint(): String
     fun observeNotificationEvent(packageName: String, action: String, source: String)
     fun setRuntimeLogRetentionDays(days: Int)
-}
-
-enum class ForceRegisterStage {
-    ROOT_MISSING,
-    ALL_FAILED,
-    COMPLETED,
-}
-
-data class ForceRegisterOutcome(
-    val stage: ForceRegisterStage,
-    val successCount: Int,
-    val failedCount: Int,
-    val unsupportedCount: Int,
-) {
-    val nonSuccessCount: Int
-        get() = failedCount + unsupportedCount
 }

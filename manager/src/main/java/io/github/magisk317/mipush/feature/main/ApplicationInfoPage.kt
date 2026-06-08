@@ -81,7 +81,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.common.utils.Utils
-import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.feature.ui.component.AppIcon
 import io.github.magisk317.mipush.feature.ui.component.DetailDivider
@@ -481,18 +480,7 @@ open class ApplicationInfoPage : ComponentActivity() {
 
     @Composable
     private fun ActivitySectionCard(snackbarHostState: SnackbarHostState) {
-        val context = LocalContext.current
-        val scope = rememberCoroutineScope()
         val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
-        val notificationOnRegisterDisabledMessage = stringResource(
-            R.string.notification_on_register_global_disabled_hint,
-        )
-        val globalEnabled = remember {
-            runBlocking {
-                applicationGateway.isNotificationOnRegisterEnabled()
-            }
-        }
-        var checked by remember { mutableStateOf(applicationInfo.notificationOnRegister) }
         var blocked by remember { mutableStateOf(applicationInfo.blocked) }
 
         DetailSectionCard(
@@ -519,28 +507,6 @@ open class ApplicationInfoPage : ComponentActivity() {
                 enabled = !blocked,
             ) {
                 appConfigurationUtils.gotoRecentEventsPage()
-            }
-
-            val notificationOnRegisterTitle = stringResource(R.string.permission_notification_on_register)
-            SettingSwitchRow(
-                title = notificationOnRegisterTitle,
-                summary = stringResource(R.string.permission_summary_notification_on_register),
-                checked = checked,
-                enabled = globalEnabled && !blocked,
-                showDivider = false,
-                onClickWhenDisabled = {
-                    scope.launch {
-                        snackbarHostState.showSnackbar(
-                            message = notificationOnRegisterDisabledMessage,
-                            duration = SnackbarDuration.Short,
-                        )
-                    }
-                },
-            ) { enabled ->
-                checked = enabled
-                applicationInfo = applicationInfo.copy(notificationOnRegister = checked)
-                applicationGateway.updateApplication(applicationInfo)
-                showSwitchFeedback(notificationOnRegisterTitle, enabled)
             }
         }
     }

@@ -13,7 +13,6 @@ import androidx.core.content.ContextCompat
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.common.Constants
-import io.github.magisk317.mipush.common.manager.ForceRegisterStage
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
 import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
 import io.github.magisk317.mipush.common.manager.ManagerLogClearResult
@@ -98,28 +97,6 @@ class SettingsManager constructor(
         runtimeActions.notifyMockNotification(context, kind, packageName)
         Napier.i("mock test dispatched kind=${kind.name} pkg=$packageName", tag = TAG)
         runtimeActions.observeNotificationEvent(packageName, "mock_test_dispatched", MOCK_NOTIFICATION_SOURCE)
-    }
-
-    fun tryForceRegisterAllApplications(context: Context): String {
-        val outcome = runtimeActions.tryForceRegisterAllApplications(
-            context = context,
-            packageNames = applicationGateway.loadApplications(context).items.map { it.packageName },
-        )
-        if (outcome.stage == ForceRegisterStage.ROOT_MISSING) {
-            return context.getString(R.string.force_register_requires_root)
-        }
-        if (outcome.stage == ForceRegisterStage.ALL_FAILED) {
-            return context.getString(R.string.force_register_unavailable)
-        }
-        return if (outcome.nonSuccessCount == 0) {
-            context.getString(R.string.force_register_done, outcome.successCount)
-        } else {
-            context.getString(R.string.force_register_partial, outcome.successCount, outcome.nonSuccessCount)
-        }
-    }
-
-    fun updateAllNotificationOnRegister(enabled: Boolean): Int {
-        return applicationGateway.updateAllNotificationOnRegister(enabled)
     }
 
     fun setRuntimeLogRetentionDays(days: Int) {

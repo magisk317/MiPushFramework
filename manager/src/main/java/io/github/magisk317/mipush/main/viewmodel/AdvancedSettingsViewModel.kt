@@ -13,9 +13,6 @@ class AdvancedSettingsViewModel constructor(
     private val preferenceRepository: PreferenceRepository,
     private val settingsManager: SettingsManager,
 ) : ViewModel() {
-    val notificationOnRegister: StateFlow<Boolean> = preferenceRepository.notificationOnRegister
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-
     val debugMode: StateFlow<Boolean> = preferenceRepository.debugMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
@@ -39,10 +36,6 @@ class AdvancedSettingsViewModel constructor(
 
     val accessMode: StateFlow<String> = preferenceRepository.accessMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "0")
-
-    fun setNotificationOnRegister(value: Boolean) = viewModelScope.launch {
-        preferenceRepository.setNotificationOnRegister(value)
-    }
 
     fun setDebugMode(value: Boolean) = viewModelScope.launch {
         preferenceRepository.setDebugMode(value)

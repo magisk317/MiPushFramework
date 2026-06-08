@@ -82,11 +82,6 @@ object RegisteredApplicationDb {
     }
 
     @JvmStatic
-    fun updateAllNotificationOnRegister(enabled: Boolean): Int = runBlocking {
-        registeredApplicationDao.updateAllNotificationOnRegister(enabled)
-    }
-
-    @JvmStatic
     fun updateBlocked(id: Long, blocked: Boolean): Int = runBlocking {
         registeredApplicationDao.updateBlocked(id, blocked)
     }

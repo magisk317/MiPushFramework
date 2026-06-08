@@ -21,9 +21,6 @@ class ConfigCenter constructor(
 ) {
     constructor() : this(PreferenceRepository())
 
-    suspend fun isNotificationOnRegisterAsync(): Boolean =
-        preferenceRepository.notificationOnRegister.first()
-
     suspend fun getConfigurationDirectoryAsync(): Uri? {
         val uri = preferenceRepository.configDirectory.first()
         return if (uri.isNullOrBlank()) null else Uri.parse(uri)

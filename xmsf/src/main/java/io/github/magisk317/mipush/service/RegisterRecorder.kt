@@ -11,7 +11,6 @@ import android.content.Intent
 import android.widget.Toast
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
-import io.github.magisk317.mipush.platform.support.Global
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.common.Constants
@@ -19,7 +18,6 @@ import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import io.github.magisk317.mipush.runtime.store.entities.Event
-import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
 import io.github.magisk317.mipush.runtime.store.event.type.RegistrationType
 import io.github.magisk317.mipush.service.runtime.RegistrationIntentDeduper
 import kotlinx.coroutines.runBlocking
@@ -56,7 +54,7 @@ class RegisterRecorder(private val context: Context) {
             }
 
             logD("onHandleIntent -> A application want to register push")
-            showRegisterToastIfUserAllow(RegisteredApplicationDb.registerApplication(pkg))
+            RegisteredApplicationDb.registerApplication(pkg)
             saveRegisterAppRecord(pkg)
         } catch (e: RuntimeException) {
             logE("XMPushService::onHandleIntent: ", e)
@@ -74,26 +72,6 @@ class RegisterRecorder(private val context: Context) {
 
     fun isRegisterAppRequest(intent: Intent?): Boolean {
         return intent != null && PushConstants.MIPUSH_ACTION_REGISTER_APP == intent.action
-    }
-
-    fun showRegisterToastIfUserAllow(application: RegisteredApplication) {
-        if (canShowRegisterNotification(application)) {
-            showRegisterNotification(application)
-        } else {
-            logE("Notification disabled")
-        }
-    }
-
-    fun showRegisterNotification(application: RegisteredApplication) {
-        val appName = Global.applicationNameCache().getAppName(context, application.packageName)
-        val usedString = context.getString(R.string.notification_registerAllowed, appName)
-        Utils.makeText(context, usedString, Toast.LENGTH_SHORT)
-    }
-
-    fun canShowRegisterNotification(application: RegisteredApplication): Boolean {
-        var notificationOnRegister = runBlocking { Global.configCenter().isNotificationOnRegisterAsync() }
-        notificationOnRegister = notificationOnRegister && application.notificationOnRegister
-        return notificationOnRegister
     }
 
     companion object {

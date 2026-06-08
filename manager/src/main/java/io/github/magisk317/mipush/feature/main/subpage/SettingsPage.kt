@@ -163,7 +163,6 @@ private fun SettingsScreen(
     var keepAliveExpanded by rememberSaveable { mutableStateOf(false) }
     var notificationsExpanded by rememberSaveable { mutableStateOf(false) }
     var diagnosticsExpanded by rememberSaveable { mutableStateOf(false) }
-    var registrationExpanded by rememberSaveable { mutableStateOf(false) }
     var aboutExpanded by rememberSaveable { mutableStateOf(false) }
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val headerVisible = scrollChromeState?.isChromeVisible ?: true
@@ -248,14 +247,6 @@ private fun SettingsScreen(
                     onExpandedChange = { diagnosticsExpanded = !diagnosticsExpanded },
                 ) {
                     DiagnosticsBlock(viewModel, snackbarHostState)
-                }
-
-                SettingsSectionCard(
-                    title = stringResource(R.string.settings_home_registration_title),
-                    expanded = registrationExpanded,
-                    onExpandedChange = { registrationExpanded = !registrationExpanded },
-                ) {
-                    DataRegistrationBlock(viewModel, snackbarHostState)
                 }
 
                 SettingsSectionCard(
@@ -434,7 +425,6 @@ private fun KeepAliveBlock(viewModel: SettingsViewModel, snackbarHostState: Snac
 @Composable
 private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: SnackbarHostState) {
     val scope = rememberCoroutineScope()
-    val notificationOnRegister by viewModel.notificationOnRegister.collectAsStateWithLifecycle()
     val showAllEvents by viewModel.showAllEvents.collectAsStateWithLifecycle()
     val islandEnabled by viewModel.islandEnabled.collectAsStateWithLifecycle()
     val islandTimeout by viewModel.islandTimeout.collectAsStateWithLifecycle()
@@ -447,20 +437,6 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
     var showIslandTimeoutDialog by remember { mutableStateOf(false) }
     var islandTimeoutInput by remember(islandTimeout) { mutableStateOf(islandTimeout.toString()) }
     val islandTimeoutError = stringResource(R.string.pref_island_timeout_error)
-
-    val notificationOnRegisterTitle = stringResource(R.string.settings_notify_on_register)
-    SettingsSwitchItem(
-        title = notificationOnRegisterTitle,
-        checked = notificationOnRegister,
-    ) { newValue ->
-        viewModel.setNotificationOnRegister(newValue)
-        showSwitchFeedback(notificationOnRegisterTitle, newValue)
-        if (!newValue) {
-            scope.launch(Dispatchers.IO) {
-                viewModel.updateAllNotificationOnRegister(false)
-            }
-        }
-    }
 
     val showAllEventsTitle = stringResource(R.string.settings_show_all_events)
     SettingsSwitchItem(
@@ -662,6 +638,13 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
     }
 
     SettingsItem(
+        title = stringResource(R.string.settings_clear_history),
+        summary = stringResource(R.string.settings_clear_history_summary),
+    ) {
+        viewModel.clearHistory(context)
+    }
+
+    SettingsItem(
         title = stringResource(R.string.settings_runtime_log_retention_days),
         summary = stringResource(R.string.settings_runtime_log_retention_days_summary, runtimeLogRetentionDays),
     ) {
@@ -753,30 +736,6 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
                 }
             },
         )
-    }
-}
-
-@Composable
-private fun DataRegistrationBlock(viewModel: SettingsViewModel, snackbarHostState: SnackbarHostState) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-
-    SettingsItem(
-        title = stringResource(R.string.settings_clear_history),
-        summary = stringResource(R.string.settings_clear_history_summary),
-    ) {
-        viewModel.clearHistory(context)
-    }
-
-    SettingsItem(
-        title = stringResource(R.string.try_to_force_register_all_applications),
-    ) {
-        scope.launch {
-            val message = withContext(Dispatchers.IO) {
-                viewModel.tryForceRegisterAllApplications(context)
-            }
-            snackbarHostState.showSnackbar(message)
-        }
     }
 }
 

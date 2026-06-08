@@ -54,8 +54,6 @@
     <string name="activity_rom_keepalive">您的 ROM 可能拦截推送服务的正常运行，请在您的 ROM 的有关设置中将 Push 应用加入白名单（如电池优化、唤醒拦截等功能）。\n您也可尝试打开系统的“最近任务”界面，将本界面“锁定”以保持服务的后台运行。</string>
 
     <string name="see_pass_though_msg">穿透消息，请打开应用查看</string>
-    <string name="notification_registerAllowed">已允许 %1$s 注册推送</string>
-    <string name="notification_registerRejected">已拒绝 %1$s 注册推送</string>
     <string name="welcome_island_title">MiPush 已激活</string>
     <string name="welcome_island_content">欢迎使用 MiPush</string>
 
@@ -68,7 +66,6 @@
 
 
     <string name="accessibility_desc">当使用情况统计不可用时，用于前台应用检测的辅助兜底能力。</string>
-    <string name="settings_auto_register">自动注册应用</string>
     <string name="settings_options">配置</string>
     <string name="settings_mock_notification">模拟通知消息</string>
 
@@ -78,7 +75,6 @@
 
 
     <string name="debug_test_content">这是%1$s测试内容</string>
-    <string name="settings_notify_on_register">应用注册时显示通知</string>
     <string name="settings_debug_mode">启用调试模式</string>
     <string name="settings_debug_mode_summary">通知中展示调试动作，打印完整日志</string>
     <string name="settings_show_all_events">事件列表中展示所有事件</string>
@@ -201,9 +197,6 @@
     <string name="permission_allow_receive">接收通知栏消息</string>
     <string name="permission_allow_receive_command">接收命令消息（无通知栏提醒）</string>
     <string name="permission_allow_receive_register_result">接收注册结果（暂时无效）</string>
-    <string name="permission_notification_on_register">注册时显示通知</string>
-    <string name="permission_summary_notification_on_register">需要在设置-高级配置中打开全局注册通知开关</string>
-    <string name="notification_on_register_global_disabled_hint">请先到设置中打开「应用注册时显示通知」总开关</string>
     <string name="register_type_allow">允许并自动注册</string>
 
     <string name="register_type_deny">阻止注册</string>
@@ -349,11 +342,8 @@
     <string name="action_collapse">收起</string>
     <string name="last_receive">最近推送：</string>
     <string name="mipush_services_not_found">找不到服务</string>
-    <string name="try_to_force_register_all_applications">尝试强制注册所有应用</string>
     <string name="force_register_requires_root">强制注册需要 Root 权限</string>
     <string name="force_register_unavailable">当前构建缺少强制注册所需组件，已跳过</string>
-    <string name="force_register_done">强制注册已发送：成功 %1$d 个</string>
-    <string name="force_register_partial">强制注册部分完成：成功 %1$d 个，失败 %2$d 个</string>
     <string name="force_register_sent">已发送强制注册请求</string>
     <string name="force_register_failed">强制注册失败，请查看日志</string>
     <string name="mock_notification_missing_regsec">无法重放这条加密推送：缺少注册密钥（regSec）。请先让应用重新注册后再试。</string>
@@ -364,7 +354,7 @@
     <string name="settings_home_keepalive_title">保活与系统限制</string>
     <string name="settings_home_keepalive_summary">OOM Adj、防杀、待机/Doze 绕过与专用保活服务。</string>
     <string name="settings_home_notifications_title">通知与展示</string>
-    <string name="settings_home_notifications_summary">注册通知、事件列表展示与灵动岛显示控制。</string>
+    <string name="settings_home_notifications_summary">事件列表展示与灵动岛显示控制。</string>
     <string name="pref_choose_theme_title">主题</string>
     <string name="pref_choose_theme_summary">跟随系统、浅色、深色或纯黑</string>
     <string name="pref_ui_kit_style_title">界面风格</string>
@@ -376,8 +366,6 @@
     <string name="theme_black">纯黑</string>
     <string name="settings_home_diagnostics_title">诊断与日志</string>
     <string name="settings_home_diagnostics_summary">查看/分享运行日志、保留天数、调试等级与消息重放。</string>
-    <string name="settings_home_registration_title">数据与注册</string>
-    <string name="settings_home_registration_summary">清理事件历史与强制重新注册应用。</string>
     <string name="settings_home_about_summary">更新入口与项目信息。</string>
     <string name="settings_version_label">版本</string>
     <string name="relay_mode_foreground">前台</string>

@@ -13,8 +13,6 @@ import com.xiaomi.push.sdk.PushMessageProcessor
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
-import io.github.magisk317.mipush.common.manager.ForceRegisterOutcome
-import io.github.magisk317.mipush.common.manager.ForceRegisterStage
 import io.github.magisk317.mipush.common.manager.ManagerApplication
 import io.github.magisk317.mipush.common.manager.ManagerApplicationDiagnostics
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
@@ -409,9 +407,7 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
         }
 }
 
-class XmsfManagerApplicationGateway(
-    private val configCenter: ConfigCenter,
-) : ManagerApplicationGateway {
+class XmsfManagerApplicationGateway : ManagerApplicationGateway {
 
     override fun loadApplications(context: Context, query: String, filterMode: Int): ManagerApplications {
         val timer = ElapsedTimer()
@@ -500,9 +496,6 @@ class XmsfManagerApplicationGateway(
         RegisteredApplicationDb.update(application.toRegisteredApplication())
     }
 
-    override fun updateAllNotificationOnRegister(enabled: Boolean): Int =
-        RegisteredApplicationDb.updateAllNotificationOnRegister(enabled)
-
     override fun getDiagnostics(packageName: String, registeredType: Int): ManagerApplicationDiagnostics {
         val latestRegistrationEvent = runBlocking {
             EventDb.queryAsync(
@@ -566,9 +559,6 @@ class XmsfManagerApplicationGateway(
         kotlinx.coroutines.delay(500)
         return forceRegisterWithFeedback(context, packageName, registeredType)
     }
-
-    override suspend fun isNotificationOnRegisterEnabled(): Boolean =
-        configCenter.isNotificationOnRegisterAsync()
 
     private fun forceRegisterWithFeedback(context: Context, packageName: String, registeredType: Int): String {
         if (!PermissionUtils.refreshRootAccessIfGranted()) {
@@ -730,26 +720,6 @@ class XmsfManagerRuntimeActions(
             )
             observeNotificationEvent(packageName, "mock_test_record_save_failed", "XmsfManagerRuntimeActions.notifyMockNotification")
         }
-    }
-
-    override fun tryForceRegisterAllApplications(
-        context: Context,
-        packageNames: Collection<String>,
-    ): ForceRegisterOutcome {
-        val applications = packageNames.map { packageName ->
-            RegisteredApplication().apply { this.packageName = packageName }
-        }
-        val outcome = runtimeSettingsAdapter.tryForceRegisterAllApplications(context, applications)
-        return ForceRegisterOutcome(
-            stage = when (outcome.stage) {
-                RuntimeSettingsAdapter.ForceRegisterStage.ROOT_MISSING -> ForceRegisterStage.ROOT_MISSING
-                RuntimeSettingsAdapter.ForceRegisterStage.ALL_FAILED -> ForceRegisterStage.ALL_FAILED
-                RuntimeSettingsAdapter.ForceRegisterStage.COMPLETED -> ForceRegisterStage.COMPLETED
-            },
-            successCount = outcome.successCount,
-            failedCount = outcome.failedCount,
-            unsupportedCount = outcome.unsupportedCount,
-        )
     }
 
     override fun resetTopActivityCache() {

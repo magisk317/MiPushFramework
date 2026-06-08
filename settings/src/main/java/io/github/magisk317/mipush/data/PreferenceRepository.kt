@@ -33,7 +33,6 @@ class PreferenceRepository constructor(
 
     // Keys
     private val LAST_STARTUP_TIME = longPreferencesKey("last_startup_time")
-    private val NOTIFICATION_ON_REGISTER = booleanPreferencesKey("notification_on_register")
     private val ACCESS_MODE = stringPreferencesKey("access_mode")
     private val XMPP_SERVER = stringPreferencesKey("xmpp_server")
     private val CONFIG_DIRECTORY = stringPreferencesKey("config_directory")
@@ -69,7 +68,6 @@ class PreferenceRepository constructor(
 
     // Getters
     val lastStartupTime: Flow<Long> = dataStore.data.map { it[LAST_STARTUP_TIME] ?: 0L }
-    val notificationOnRegister: Flow<Boolean> = dataStore.data.map { it[NOTIFICATION_ON_REGISTER] ?: false }
     val accessMode: Flow<String> = dataStore.data.map { it[ACCESS_MODE] ?: "0" }
     val xmppServer: Flow<String?> = dataStore.data.map { it[XMPP_SERVER] }
     val configDirectory: Flow<String?> = dataStore.data.map { it[CONFIG_DIRECTORY] }
@@ -117,10 +115,6 @@ class PreferenceRepository constructor(
     // Setters
     suspend fun setLastStartupTime(time: Long) {
         dataStore.edit { it[LAST_STARTUP_TIME] = time }
-    }
-
-    suspend fun setNotificationOnRegister(enable: Boolean) {
-        dataStore.edit { it[NOTIFICATION_ON_REGISTER] = enable }
     }
 
     suspend fun setAccessMode(mode: String) {

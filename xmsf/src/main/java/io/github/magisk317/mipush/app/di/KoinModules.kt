@@ -46,7 +46,7 @@ val xmsfCoreKoinModule = module {
     single { ConfigCenter(get()) }
     single<ManagerConfigGateway> { XmsfManagerConfigGateway(get()) }
     single<ManagerConfigSyncGateway> { XmsfManagerConfigSyncGateway(get(), get()) }
-    single<ManagerApplicationGateway> { XmsfManagerApplicationGateway(get()) }
+    single<ManagerApplicationGateway> { XmsfManagerApplicationGateway() }
     single<ManagerNotificationGateway> { XmsfManagerNotificationGateway() }
     single<ManagerEventGateway> { XmsfManagerEventGateway(androidContext(), get()) }
     single<ManagerLogGateway> { XmsfManagerLogGateway() }

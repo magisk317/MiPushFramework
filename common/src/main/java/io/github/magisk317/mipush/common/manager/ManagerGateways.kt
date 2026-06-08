@@ -15,11 +15,9 @@ interface ManagerApplicationGateway {
     fun loadApplications(context: Context, query: String = "", filterMode: Int = 0): ManagerApplications
     fun getApplication(context: Context, packageName: String, ignoreNotRegistered: Boolean = false): ManagerApplication?
     fun updateApplication(application: ManagerApplication)
-    fun updateAllNotificationOnRegister(enabled: Boolean): Int
     fun getDiagnostics(packageName: String, registeredType: Int): ManagerApplicationDiagnostics
     fun loadIntegrationTypeReason(context: Context, packageName: String): String
     suspend fun launchTargetAppAndForceRegister(context: Context, packageName: String, registeredType: Int): String
-    suspend fun isNotificationOnRegisterEnabled(): Boolean
 }
 
 interface ManagerNotificationGateway {
