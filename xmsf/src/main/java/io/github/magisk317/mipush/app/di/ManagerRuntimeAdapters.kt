@@ -11,6 +11,7 @@ import android.net.Uri
 import io.github.aakira.napier.Napier
 import com.xiaomi.push.sdk.PushMessageProcessor
 import io.github.magisk317.mipush.app.ConfigCenter
+import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import io.github.magisk317.mipush.common.manager.ForceRegisterOutcome
 import io.github.magisk317.mipush.common.manager.ForceRegisterStage
@@ -35,6 +36,8 @@ import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileContent
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileInfo
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileSummary
+import io.github.magisk317.mipush.common.manager.ManagerXSpaceRepairResult
+import io.github.magisk317.mipush.common.manager.ManagerXSpaceRepairStage
 import io.github.magisk317.mipush.config.ConfigNavigationHelper
 import io.github.magisk317.mipush.config.ConfigSyncRepository
 import io.github.magisk317.mipush.config.toSummary
@@ -288,11 +291,58 @@ class XmsfManagerLogGateway : ManagerLogGateway {
 }
 
 class XmsfManagerPermissionGateway : ManagerPermissionGateway {
+    companion object {
+        private const val XSPACE_USER_ID = 999
+        private val XSPACE_SUPPORT_PACKAGES = listOf(
+            "com.google.android.documentsui",
+            "com.android.documentsui",
+            "com.android.externalstorage",
+            "com.android.providers.downloads",
+            "com.android.providers.media.module",
+            "com.android.providers.media",
+            "com.android.mtp",
+        )
+    }
+
     override fun hasCachedRootAccess(): Boolean = PermissionUtils.hasCachedRootAccess()
 
     override fun refreshRootAccessIfGranted(): Boolean = PermissionUtils.refreshRootAccessIfGranted()
 
     override fun requestRootAccess(): Boolean = PermissionUtils.requestRootAccess()
+
+    override fun repairXSpaceUserSupport(): ManagerXSpaceRepairResult {
+        if (!PermissionUtils.refreshRootAccessIfGranted()) {
+            return ManagerXSpaceRepairResult(stage = ManagerXSpaceRepairStage.ROOT_MISSING)
+        }
+        val users = runRootCommand("cmd user list", timeoutMs = 5_000L)
+        if (!users.isSuccess || !users.output.contains("{${XSPACE_USER_ID}:")) {
+            return ManagerXSpaceRepairResult(
+                stage = ManagerXSpaceRepairStage.XSPACE_USER_NOT_FOUND,
+                details = users.output.ifBlank { users.stderrText },
+            )
+        }
+
+        installExistingForUser(Constants.SERVICE_APP_NAME)
+        XSPACE_SUPPORT_PACKAGES.forEach(::installExistingForUser)
+        val xmsfInstalled = isPackageInstalledForUser(Constants.SERVICE_APP_NAME)
+        val documentsUiAvailable = canResolveDocumentTreePicker()
+        val details = buildString {
+            append("xmsfInstalled=")
+            append(xmsfInstalled)
+            append(", documentsUiAvailable=")
+            append(documentsUiAvailable)
+        }
+        return ManagerXSpaceRepairResult(
+            stage = if (xmsfInstalled && documentsUiAvailable) {
+                ManagerXSpaceRepairStage.COMPLETED
+            } else {
+                ManagerXSpaceRepairStage.PARTIAL_FAILED
+            },
+            xmsfInstalled = xmsfInstalled,
+            documentsUiAvailable = documentsUiAvailable,
+            details = details,
+        )
+    }
 
     override fun launchAppOps(context: Context, permission: String, tips: CharSequence): Boolean =
         PermissionUtils.lunchAppOps(context, permission, tips)
@@ -321,6 +371,42 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
 
     override fun grantNotificationPermission(context: Context): Boolean =
         PermissionUtils.grantNotificationPermission(context)
+
+    private fun installExistingForUser(packageName: String) {
+        runRootCommand(
+            command = "cmd package install-existing --user $XSPACE_USER_ID --wait $packageName",
+            timeoutMs = 15_000L,
+        )
+    }
+
+    private fun isPackageInstalledForUser(packageName: String): Boolean {
+        val result = runRootCommand("pm path --user $XSPACE_USER_ID $packageName", timeoutMs = 5_000L)
+        return result.isSuccess && result.stdoutText.contains("package:")
+    }
+
+    private fun canResolveDocumentTreePicker(): Boolean {
+        val result = runRootCommand(
+            command = "cmd package resolve-activity --brief --user $XSPACE_USER_ID -a android.intent.action.OPEN_DOCUMENT_TREE",
+            timeoutMs = 5_000L,
+        )
+        return result.isSuccess && result.stdout.none { it.contains("No activity found", ignoreCase = true) } &&
+            result.stdoutText.contains("/")
+    }
+
+    private fun runRootCommand(command: String, timeoutMs: Long) =
+        io.github.magisk317.mipush.platform.support.AppRootAccessFacade.runRootCommand(
+            command,
+            timeoutMs = timeoutMs,
+        )
+
+    private val io.github.magisk317.mipush.platform.support.BoundedShellResult.output: String
+        get() = buildString {
+            append(stdoutText)
+            if (stderrText.isNotBlank()) {
+                if (isNotEmpty()) append('\n')
+                append(stderrText)
+            }
+        }
 }
 
 class XmsfManagerApplicationGateway(

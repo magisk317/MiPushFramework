@@ -81,8 +81,23 @@ interface ManagerPermissionGateway {
     fun hasCachedRootAccess(): Boolean
     fun refreshRootAccessIfGranted(): Boolean
     fun requestRootAccess(): Boolean
+    fun repairXSpaceUserSupport(): ManagerXSpaceRepairResult
     fun launchAppOps(context: Context, permission: String, tips: CharSequence): Boolean
     fun isUsageStatsAllowedByRoot(packageName: String): Boolean
     fun requestIgnoreBatteryOptimizations(context: Context): Boolean
     fun grantNotificationPermission(context: Context): Boolean
 }
+
+enum class ManagerXSpaceRepairStage {
+    ROOT_MISSING,
+    XSPACE_USER_NOT_FOUND,
+    COMPLETED,
+    PARTIAL_FAILED,
+}
+
+data class ManagerXSpaceRepairResult(
+    val stage: ManagerXSpaceRepairStage,
+    val xmsfInstalled: Boolean = false,
+    val documentsUiAvailable: Boolean = false,
+    val details: String = "",
+)
