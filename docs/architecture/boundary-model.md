@@ -69,7 +69,8 @@ graph.
 - `verifyModuleBoundaries` is wired into `check` and scans UI/settings/viewmodel source roots for
   new deep Xiaomi imports. Existing debt is listed in `scripts/module_boundary_baseline.txt`; new
   entries should be moved behind a runtime/bridge adapter unless the baseline update is a deliberate
-  compatibility exception.
+  compatibility exception. The check also fails stale baseline entries, so resolved debt must be
+  removed from the baseline in the same change.
 - `vendor` may depend on frozen protocol types from `pinned`, but new product behavior should not be
   added there unless it is preserving a stock runtime contract.
 - `pinned` changes must be compatibility-preserving and non-creative.
@@ -123,14 +124,20 @@ graph.
 ## Build And Verification
 
 ```bash
-./gradlew verifyModuleBoundaries   # Check import boundaries
-./gradlew :xmsf:testNormalDebugUnitTest
-./gradlew :common:check :core:testDebugUnitTest :mipush:testDebugUnitTest
-./gradlew assembleDebug -PbuildSplits=true -PbuildTs=$(date +%Y%m%d%H%M%S)
+scripts/with_workspace_gradle_lock.sh verifyModuleBoundaries   # Check import boundaries
+scripts/with_workspace_gradle_lock.sh check --warning-mode=all
+scripts/with_workspace_gradle_lock.sh :xposed:detekt --console=plain
+scripts/with_workspace_gradle_lock.sh assembleDebug -PbuildSplits=true -PbuildTs=$(date +%Y%m%d%H%M%S)
+scripts/with_workspace_gradle_lock.sh qualityGateKoverVerify   # Explicit coverage gate
 ```
 
 Boundary baseline is maintained at `scripts/module_boundary_baseline.txt` and validated by
 `scripts/verify_module_boundaries.sh`.
+
+Kover is intentionally loaded only for explicit `qualityGateKover*` tasks, direct Kover tasks, or
+when `-PenableKover=true` is supplied. The ordinary `check` path stays on Detekt, unit tests, Android
+checks, and `verifyModuleBoundaries`; this keeps Kover's current Gradle 10 deprecation warning out of
+the default verification path while still preserving an opt-in coverage gate.
 
 ## Refactor Record
 
