@@ -13,7 +13,8 @@ fi
 tmp_current="$(mktemp)"
 tmp_baseline="$(mktemp)"
 tmp_new="$(mktemp)"
-trap 'rm -f "$tmp_current" "$tmp_baseline" "$tmp_new"' EXIT
+tmp_stale="$(mktemp)"
+trap 'rm -f "$tmp_current" "$tmp_baseline" "$tmp_new" "$tmp_stale"' EXIT
 
 pattern='^import com\.xiaomi\.(channel|mipush|network|push|smack|slim|stats|tinyData|xmpush)'
 scan_roots=(
@@ -34,12 +35,21 @@ done | sort -u > "$tmp_current"
 sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$BASELINE" | sort -u > "$tmp_baseline"
 
 comm -13 "$tmp_baseline" "$tmp_current" > "$tmp_new"
+comm -23 "$tmp_baseline" "$tmp_current" > "$tmp_stale"
 
 if [ -s "$tmp_new" ]; then
   echo "New deep Xiaomi imports were added outside runtime adapters." >&2
   echo "Move the dependency behind an xmsf runtime/bridge adapter, or update the baseline only for deliberate legacy debt." >&2
   echo >&2
   cat "$tmp_new" >&2
+  exit 1
+fi
+
+if [ -s "$tmp_stale" ]; then
+  echo "Module boundary baseline contains stale entries." >&2
+  echo "Remove entries that no longer appear in the scanned source roots." >&2
+  echo >&2
+  cat "$tmp_stale" >&2
   exit 1
 fi
 
