@@ -31,8 +31,30 @@ object NmsPermissionHooker {
         return xmsfUid
     }
 
+    internal fun isXmsfCallingIdentity(
+        callingUid: Int,
+        primaryXmsfUid: Int,
+        callingPackages: Collection<String>,
+    ): Boolean {
+        if (primaryXmsfUid > 0 && callingUid == primaryXmsfUid) {
+            return true
+        }
+        return XMSF_PACKAGE_NAME in callingPackages
+    }
+
+    private fun getCallingPackages(callingUid: Int): List<String> {
+        return runCatching {
+            getContext().packageManager.getPackagesForUid(callingUid)?.toList().orEmpty()
+        }.getOrDefault(emptyList())
+    }
+
     private fun fromXmsf() = try {
-        Binder.getCallingUid() == getXmsfUid()
+        val callingUid = Binder.getCallingUid()
+        isXmsfCallingIdentity(
+            callingUid = callingUid,
+            primaryXmsfUid = getXmsfUid(),
+            callingPackages = getCallingPackages(callingUid),
+        )
     } catch (e: Throwable) {
         false
     }

@@ -10,6 +10,12 @@ import io.github.magisk317.mipush.hook.util.BoundedRootRunner
 
 object RootNotificationHelper {
     private const val TAG = "RootNotificationHelper"
+    private val POLICY_MARKERS = listOf(
+        "zenMode=",
+        "condition://",
+        "ConditionProvider",
+        "EVERY_NIGHT_DEFAULT_RULE",
+    )
 
     private var rootAvailable: Boolean? = null
 
@@ -62,7 +68,7 @@ object RootNotificationHelper {
         return result.stdout
     }
 
-    private fun parseChannels(output: String, packageName: String): List<NotificationChannel?> {
+    internal fun parseChannels(output: String, packageName: String): List<NotificationChannel?> {
         val channels = mutableListOf<NotificationChannel?>()
         val channelPattern = Regex(
             """NotificationChannel\{.*?id=([^\s,}]+).*?importance=(\d+).*?name=([^}]*)\}""",
@@ -74,6 +80,10 @@ object RootNotificationHelper {
             val channelId = match.groupValues[1]
             val importance = match.groupValues[2].toIntOrNull() ?: NotificationManager.IMPORTANCE_DEFAULT
             val name = match.groupValues[3].trim()
+            if (isPolicyChannel(match.value, channelId, name)) {
+                XLog.d(TAG, "skip policy channel while parsing $packageName: $channelId")
+                return@forEach
+            }
             try {
                 val channel = NotificationChannel(channelId, name.ifEmpty { channelId }, importance)
                 channels.add(channel)
@@ -86,6 +96,11 @@ object RootNotificationHelper {
             simplePattern.findAll(output).forEach { match ->
                 val channelId = match.groupValues[1]
                 val importance = match.groupValues[2].toIntOrNull() ?: NotificationManager.IMPORTANCE_DEFAULT
+                val raw = surroundingText(output, match.range)
+                if (isPolicyChannel(raw, channelId, channelId)) {
+                    XLog.d(TAG, "skip simple policy channel while parsing $packageName: $channelId")
+                    return@forEach
+                }
                 try {
                     val channel = NotificationChannel(channelId, channelId, importance)
                     channels.add(channel)
@@ -99,7 +114,7 @@ object RootNotificationHelper {
         return channels
     }
 
-    private fun parseGroups(output: String, packageName: String): List<NotificationChannelGroup?> {
+    internal fun parseGroups(output: String, packageName: String): List<NotificationChannelGroup?> {
         val groups = mutableListOf<NotificationChannelGroup?>()
         val groupPattern = Regex(
             """NotificationChannelGroup\{.*?id=([^\s,}]+).*?name=([^}]*)\}""",
@@ -109,6 +124,10 @@ object RootNotificationHelper {
         groupPattern.findAll(output).forEach { match ->
             val groupId = match.groupValues[1]
             val name = match.groupValues[2].trim()
+            if (isPolicyChannel(match.value, groupId, name)) {
+                XLog.d(TAG, "skip policy channel group while parsing $packageName: $groupId")
+                return@forEach
+            }
             try {
                 val group = NotificationChannelGroup(groupId, name.ifEmpty { groupId })
                 groups.add(group)
@@ -119,5 +138,17 @@ object RootNotificationHelper {
 
         XLog.d(TAG, "parsed ${groups.size} groups for $packageName")
         return groups
+    }
+
+    private fun surroundingText(output: String, range: IntRange): String {
+        val start = (range.first - 200).coerceAtLeast(0)
+        val end = (range.last + 200).coerceAtMost(output.lastIndex)
+        if (start > end) return ""
+        return output.substring(start, end + 1)
+    }
+
+    private fun isPolicyChannel(raw: String, id: String, name: String): Boolean {
+        val text = "$raw $id $name"
+        return POLICY_MARKERS.any { marker -> text.contains(marker, ignoreCase = true) }
     }
 }
