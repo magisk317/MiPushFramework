@@ -43,7 +43,7 @@ class MipushManifestContractTest {
     }
 
     @Test
-    fun `libxposed entrypoint and scope metadata remain declared`() {
+    fun `libxposed entrypoint and user-selectable system scope remain declared`() {
         assertEquals(
             "io.github.magisk317.mipush.hook.LibXposedEntry",
             resolveProjectFile("xposed/src/main/resources/META-INF/xposed/java_init.list").readText().trim(),
@@ -51,17 +51,21 @@ class MipushManifestContractTest {
         val moduleProps = resolveProjectFile("xposed/src/main/resources/META-INF/xposed/module.prop").readText()
         assertTrue("minApiVersion=101" in moduleProps)
         assertTrue("targetApiVersion=101" in moduleProps)
-        assertTrue("staticScope=true" in moduleProps)
+        assertFalse(moduleProps.lineSequence().map(String::trim).any { it.startsWith("staticScope=") })
 
         val scope = resolveProjectFile("xposed/src/main/resources/META-INF/xposed/scope.list")
             .readLines()
             .filter { it.isNotBlank() }
-            .toSet()
-        assertTrue("system" in scope)
-        assertTrue("android" in scope)
-        assertTrue("com.xiaomi.xmsf" in scope)
-        assertTrue("com.coolapk.market" in scope)
-        assertTrue("cn.gov.tax.its" in scope)
+        assertEquals(
+            listOf(
+                "android",
+                "system",
+                "com.android.systemui",
+                "com.google.android.documentsui",
+                "com.xiaomi.xmsf",
+            ),
+            scope,
+        )
     }
 
     private fun parseManifest() = DocumentBuilderFactory.newInstance()

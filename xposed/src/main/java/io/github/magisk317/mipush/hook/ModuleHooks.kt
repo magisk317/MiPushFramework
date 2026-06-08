@@ -6,6 +6,7 @@ import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.common.XMSF_PROCESS_NAME
 import io.github.magisk317.mipush.common.doOnce
+import io.github.magisk317.mipush.hook.documentsui.DocumentsUiXSpaceHook
 import io.github.magisk317.mipush.hook.fakedevice.FakeDevice
 import io.github.magisk317.mipush.hook.fakedevice.ForceMiPushRegister
 import io.github.magisk317.mipush.hook.fakedevice.fakeAllBuildInProperties
@@ -78,6 +79,15 @@ class LibXposedEntry : XposedModule {
         if (loadParam.packageName == "com.android.systemui") {
             HookSystemUI().hook(loadParam.classLoader)
             hookSystemUiIsland(loadParam)
+            return
+        }
+
+        if (loadParam.processName == DOCUMENTS_UI_PACKAGE_NAME) {
+            if (loadParam.packageName == DOCUMENTS_UI_PACKAGE_NAME) {
+                DocumentsUiXSpaceHook().hook(loadParam.classLoader)
+            } else {
+                XLog.d(TAG, "skip non-documents package in DocumentsUI process pkg=${loadParam.packageName}")
+            }
             return
         }
 
@@ -294,6 +304,7 @@ class LibXposedEntry : XposedModule {
         private const val TAG = "LibXposedEntry"
         private const val TAX_PACKAGE_NAME = "cn.gov.tax.its"
         private const val HYPERISLAND_PACKAGE_NAME = "io.github.hyperisland"
+        private const val DOCUMENTS_UI_PACKAGE_NAME = "com.google.android.documentsui"
 
         @Volatile
         private var taxAttachFallbackInstalled = false
