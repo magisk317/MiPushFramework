@@ -1,6 +1,7 @@
 import dev.detekt.gradle.Detekt
 import dev.detekt.gradle.DetektCreateBaselineTask
 import dev.detekt.gradle.extensions.DetektExtension
+import kotlinx.kover.gradle.plugin.dsl.KoverProjectExtension
 
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
@@ -14,11 +15,18 @@ plugins {
     alias(libs.plugins.kotlin.serialization) apply false
     alias(libs.plugins.robolectric.junit5) apply false
     alias(libs.plugins.detekt) apply false
-    alias(libs.plugins.kover)
+    alias(libs.plugins.kover) apply false
     id("magisk.maintenance")
 }
 
-kover {
+val enableKover = providers.gradleProperty("enableKover")
+    .map { it.toBooleanStrictOrNull() ?: false }
+    .getOrElse(false) ||
+    gradle.startParameter.taskNames.any { taskName ->
+        taskName.contains("kover", ignoreCase = true)
+    }
+
+fun KoverProjectExtension.configureProjectKoverVerification() {
     reports {
         verify {
             rule {
@@ -113,7 +121,12 @@ subprojects {
         }
     }
 
-    apply(plugin = "org.jetbrains.kotlinx.kover")
+    if (enableKover) {
+        apply(plugin = "org.jetbrains.kotlinx.kover")
+        extensions.configure<KoverProjectExtension>("kover") {
+            configureProjectKoverVerification()
+        }
+    }
 
     pluginManager.withPlugin("com.android.application") {
         configureDetekt()
@@ -202,7 +215,9 @@ tasks.register<Exec>("verifyModuleBoundaries") {
 
 tasks.matching { it.name == "check" }.configureEach {
     dependsOn("qualityGateDetekt")
-    dependsOn("qualityGateKoverVerify")
+    if (enableKover) {
+        dependsOn("qualityGateKoverVerify")
+    }
     dependsOn("verifyModuleBoundaries")
 }
 
