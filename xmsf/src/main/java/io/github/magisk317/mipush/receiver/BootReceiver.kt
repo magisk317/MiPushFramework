@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.xiaomi.push.service.ClientEventDispatcher
+import io.github.magisk317.mipush.app.XSpaceXmsfInstallKeeper
 import io.github.magisk317.mipush.runtime.PushRuntime
 
 /**
@@ -19,6 +20,7 @@ class BootReceiver : BroadcastReceiver() {
                 source = "BootReceiver.onReceive"
             )
             runCatching {
+                XSpaceXmsfInstallKeeper.schedule(context, "BootReceiver.onReceive")
                 ClientEventDispatcher().notifyServiceStarted(context, io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge(context))
                 PushRuntime.handleBootCompleted("BootReceiver.onReceive")
             }
