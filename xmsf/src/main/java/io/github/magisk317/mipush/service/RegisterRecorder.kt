@@ -43,18 +43,18 @@ class RegisterRecorder(private val context: Context) {
                 return
             }
 
-            if (RegistrationIntentDeduper.shouldDrop("register_recorder", intent)) {
-                logD("skip duplicate register record pkg=$pkg")
-                return
-            }
-
             if (RegisteredApplicationDb.isBlocked(pkg)) {
                 logD("skip blocked application registration pkg=$pkg")
                 return
             }
 
-            logD("onHandleIntent -> A application want to register push")
             RegisteredApplicationDb.registerApplication(pkg)
+            if (RegistrationIntentDeduper.shouldDrop("register_recorder", intent)) {
+                logD("skip duplicate register record pkg=$pkg")
+                return
+            }
+
+            logD("onHandleIntent -> A application want to register push")
             saveRegisterAppRecord(pkg)
         } catch (e: RuntimeException) {
             logE("XMPushService::onHandleIntent: ", e)

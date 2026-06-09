@@ -1,16 +1,15 @@
 package io.github.magisk317.mipush.service.runtime
 
 import com.xiaomi.push.service.PushConstants
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class RegistrationIntentDeduperTest {
-
-    @BeforeEach
-    fun setUp() {
+    @AfterEach
+    fun tearDown() {
         RegistrationIntentDeduper.reset()
     }
 
@@ -90,5 +89,59 @@ class RegistrationIntentDeduperTest {
                 intentPackage = "com.example.tertiary"
             )
         )
+    }
+
+    @Test
+    fun `force register marker drops following register recorder event inside window`() {
+        RegistrationIntentDeduper.markRegister("register_recorder", PACKAGE_NAME, nowMs = 1_000L)
+
+        val shouldDrop = RegistrationIntentDeduper.shouldDrop(
+            scope = "register_recorder",
+            action = PushConstants.MIPUSH_ACTION_REGISTER_APP,
+            packageName = PACKAGE_NAME,
+            nowMs = 1_500L,
+        )
+
+        assertTrue(shouldDrop)
+    }
+
+    @Test
+    fun `force register marker does not drop unrelated scope or package`() {
+        RegistrationIntentDeduper.markRegister("register_recorder", PACKAGE_NAME, nowMs = 1_000L)
+
+        assertFalse(
+            RegistrationIntentDeduper.shouldDrop(
+                scope = "other",
+                action = PushConstants.MIPUSH_ACTION_REGISTER_APP,
+                packageName = PACKAGE_NAME,
+                nowMs = 1_500L,
+            )
+        )
+        assertFalse(
+            RegistrationIntentDeduper.shouldDrop(
+                scope = "register_recorder",
+                action = PushConstants.MIPUSH_ACTION_REGISTER_APP,
+                packageName = "com.example.other",
+                nowMs = 1_500L,
+            )
+        )
+    }
+
+    @Test
+    fun `force register marker expires after dedup window`() {
+        RegistrationIntentDeduper.markRegister("register_recorder", PACKAGE_NAME, nowMs = 1_000L)
+
+        val shouldDrop = RegistrationIntentDeduper.shouldDrop(
+            scope = "register_recorder",
+            action = PushConstants.MIPUSH_ACTION_REGISTER_APP,
+            packageName = PACKAGE_NAME,
+            nowMs = 1_000L + RegistrationIntentDeduper.DEDUP_WINDOW_MS,
+        )
+
+        assertFalse(shouldDrop)
+    }
+
+    private companion object {
+        const val PACKAGE_NAME = "com.taobao.idlefish"
     }
 }

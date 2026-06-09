@@ -42,6 +42,16 @@ object RegistrationIntentDeduper {
     }
 
     @JvmStatic
+    fun markRegister(
+        scope: String,
+        packageName: String?,
+        nowMs: Long = System.currentTimeMillis()
+    ) {
+        if (packageName.isNullOrBlank()) return
+        lastSeenAtMs["$scope:$packageName"] = nowMs
+    }
+
+    @JvmStatic
     fun shouldDrop(intent: Intent?, nowMs: Long = System.currentTimeMillis()): Boolean {
         return shouldDrop("default", intent, nowMs)
     }
