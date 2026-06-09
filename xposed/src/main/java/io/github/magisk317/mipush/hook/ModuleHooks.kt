@@ -11,6 +11,7 @@ import io.github.magisk317.mipush.hook.fakedevice.FakeDevice
 import io.github.magisk317.mipush.hook.fakedevice.ForceMiPushRegister
 import io.github.magisk317.mipush.hook.fakedevice.fakeAllBuildInProperties
 import io.github.magisk317.mipush.hook.keepalive.KeepAliveHook
+import io.github.magisk317.mipush.hook.securitycore.SecurityCoreXSpaceMiPushHook
 import io.github.magisk317.mipush.hook.system.HookSystemService
 import io.github.magisk317.mipush.hook.systemui.HookNotificationSettingsManager
 import io.github.magisk317.mipush.hook.systemui.MiPushIslandHook
@@ -79,6 +80,11 @@ class LibXposedEntry : XposedModule {
         if (loadParam.packageName == "com.android.systemui") {
             HookSystemUI().hook(loadParam.classLoader)
             hookSystemUiIsland(loadParam)
+            return
+        }
+
+        if (loadParam.packageName == SECURITY_CORE_PACKAGE_NAME) {
+            SecurityCoreXSpaceMiPushHook().hook(loadParam.classLoader)
             return
         }
 
@@ -304,6 +310,7 @@ class LibXposedEntry : XposedModule {
         private const val TAG = "LibXposedEntry"
         private const val TAX_PACKAGE_NAME = "cn.gov.tax.its"
         private const val HYPERISLAND_PACKAGE_NAME = "io.github.hyperisland"
+        private const val SECURITY_CORE_PACKAGE_NAME = "com.miui.securitycore"
         private const val DOCUMENTS_UI_PACKAGE_NAME = "com.google.android.documentsui"
 
         @Volatile

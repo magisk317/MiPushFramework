@@ -61,6 +61,7 @@ class MipushManifestContractTest {
                 "android",
                 "system",
                 "com.android.systemui",
+                "com.miui.securitycore",
                 "com.google.android.documentsui",
                 "com.xiaomi.xmsf",
             ),
