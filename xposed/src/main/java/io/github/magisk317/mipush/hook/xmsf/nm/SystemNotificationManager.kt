@@ -1,10 +1,16 @@
 package io.github.magisk317.mipush.hook.xmsf.nm
 
 import android.app.*
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.drawable.Icon
 import android.os.Build
+import android.os.UserHandle
 import android.service.notification.StatusBarNotification
 import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
+import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
+import io.github.magisk317.mipush.common.utils.ImgUtils
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.xposed.callMethod
 import io.github.magisk317.mipush.xposed.callStaticMethod
@@ -18,6 +24,9 @@ import java.lang.reflect.InvocationTargetException
 
 object SystemNotificationManager {
     private const val TAG = "SystemNotificationManager"
+    private const val EXTRA_LARGE_ICON = "android.largeIcon"
+    private const val EXTRA_MIUI_APP_ICON = "miui.appIcon"
+    private const val EXTRA_MIUI_OP_PKG = "miui.opPkg"
     private val missingPackageWarnings = mutableSetOf<String>()
 
     private sealed class UidResolution {
@@ -99,6 +108,88 @@ object SystemNotificationManager {
         }.getOrDefault(false)
     }
 
+    private fun createAppIconBitmap(
+        packageManager: PackageManager,
+        appInfo: ApplicationInfo,
+    ): Bitmap? {
+        return runCatching {
+            ImgUtils.drawableToBitmap(appInfo.loadIcon(packageManager))
+        }.onFailure {
+            XLog.e(TAG, "Failed to create app icon bitmap", it)
+        }.getOrNull()
+    }
+
+    private fun createUserBadgedAppIconBitmap(
+        packageManager: PackageManager,
+        appInfo: ApplicationInfo,
+    ): Bitmap? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return null
+        return runCatching {
+            val rawIcon = appInfo.loadIcon(packageManager)
+            val userHandle = resolveUserHandle(getUserId())
+            val iconForUser = if (userHandle != null) {
+                packageManager.getUserBadgedIcon(rawIcon, userHandle)
+            } else {
+                rawIcon
+            }
+            ImgUtils.drawableToBitmap(iconForUser)
+        }.onFailure {
+            XLog.e(TAG, "Failed to create user-badged app icon", it)
+        }.getOrNull()
+    }
+
+    private fun resolveUserHandle(userId: Int): UserHandle? {
+        return runCatching {
+            val method = UserHandle::class.java.getDeclaredMethod("of", Integer.TYPE)
+            method.isAccessible = true
+            method.invoke(null, userId) as UserHandle
+        }.onFailure {
+            XLog.e(TAG, "Failed to resolve UserHandle for userId=$userId", it)
+        }.getOrNull()
+    }
+
+    private fun hasLargeIcon(notification: Notification): Boolean {
+        val reflectedLargeIcon = runCatching { notification.getLargeIcon() }.getOrNull()
+        if (reflectedLargeIcon != null) return true
+        return notification.extras?.containsKey(EXTRA_LARGE_ICON) == true
+    }
+
+    private fun injectAppIcons(packageName: String, notification: Notification) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+        try {
+            val pm = currentApplication()!!.packageManager
+            val appInfo = pm.getApplicationInfo(packageName, 0)
+            if (appInfo.icon == 0) return
+
+            val fieldSmallIcon = Notification::class.java.getDeclaredField("mSmallIcon")
+            fieldSmallIcon.isAccessible = true
+
+            val appIconBitmap = createAppIconBitmap(pm, appInfo)
+            if (appIconBitmap != null) {
+                notification.extras?.putParcelable(EXTRA_MIUI_APP_ICON, Icon.createWithBitmap(appIconBitmap))
+                notification.extras?.putString(EXTRA_MIUI_OP_PKG, XMSF_PACKAGE_NAME)
+                XLog.d(TAG, "Successfully injected MIUI custom app icon extras userId=${getUserId()}")
+            }
+
+            val badgedBitmap = createUserBadgedAppIconBitmap(pm, appInfo)
+            if (badgedBitmap != null) {
+                fieldSmallIcon.set(notification, Icon.createWithBitmap(badgedBitmap))
+                XLog.d(TAG, "Successfully injected mSmallIcon with user-badged app icon userId=${getUserId()}")
+                if (!hasLargeIcon(notification)) {
+                    @Suppress("DEPRECATION")
+                    notification.largeIcon = badgedBitmap
+                    notification.extras?.putParcelable(EXTRA_LARGE_ICON, badgedBitmap)
+                    XLog.d(TAG, "Successfully injected fallback largeIcon with user-badged app icon userId=${getUserId()}")
+                }
+            } else {
+                fieldSmallIcon.set(notification, Icon.createWithResource(packageName, appInfo.icon))
+                XLog.d(TAG, "Successfully injected mSmallIcon with app launcher icon")
+            }
+        } catch (e: Exception) {
+            XLog.e(TAG, "Failed to inject app icons", e)
+        }
+    }
+
     private fun notifyLocally(tag: String?, id: Int, notification: Notification): Boolean {
         return runCatching {
             localNotificationManager()?.notify(tag, id, notification)
@@ -173,20 +264,7 @@ object SystemNotificationManager {
             XLog.e(TAG, "Failed to set miui customized icon", it)
         }
 
-        try {
-            val pm = currentApplication()!!.packageManager
-            val appInfo = pm.getApplicationInfo(packageName, 0)
-            if (appInfo.icon != 0) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    val fieldSmallIcon = Notification::class.java.getDeclaredField("mSmallIcon")
-                    fieldSmallIcon.isAccessible = true
-                    fieldSmallIcon.set(notification, android.graphics.drawable.Icon.createWithResource(packageName, appInfo.icon))
-                    XLog.d(TAG, "Successfully injected mSmallIcon with app launcher icon")
-                }
-            }
-        } catch (e: Exception) {
-            XLog.e(TAG, "Failed to inject small icon", e)
-        }
+        injectAppIcons(packageName, notification)
 
         if (!isCurrentPackage(packageName)) {
             when (resolveUidState(packageName, "notify")) {

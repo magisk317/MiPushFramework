@@ -17,7 +17,6 @@ object XLog {
     private val logExecutor = Executors.newSingleThreadExecutor()
     private val FRAMEWORK_LOG_URI: Uri = Uri.parse("content://com.xiaomi.xmsf.module.log/entry")
     private val suppressedDebugTags = setOf(
-        "SystemNotificationManager",
         "HookPushNC",
     )
     private const val TRACE_ENABLED = false
