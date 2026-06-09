@@ -93,8 +93,8 @@ jobs:
                 link="https://github.com/${WF_RUN_REPO}/releases"
               fi
               local msg
-              msg=$(printf '📦 %s (%sMB) exceeds Telegram upload limit.\n%s\n🔗 Download: %s' \
-                "$name" "$((size / 1024 / 1024))" "$PROJECT_TAG" "$link")
+              msg=$(printf '📦 %s (%sMB) exceeds Telegram upload limit.\n🔗 Download: %s' \
+                "$name" "$((size / 1024 / 1024))" "$link")
               send_message "$thread" "$msg"
               return 0
             fi
@@ -148,7 +148,7 @@ jobs:
                 echo "No arm64-v8a APK artifacts found."
               else
                 for apk in "${ci_apks[@]}"; do
-                  apk_caption=$(printf '📦 %s\n%s' "$(basename "$apk")" "$PROJECT_TAG")
+                  apk_caption=$(printf '📦 %s' "$(basename "$apk")")
                   send_document "$apk" "$CI_THREAD" "$apk_caption"
                 done
               fi
@@ -179,7 +179,7 @@ jobs:
             RELEASE_CONTENT="Release notes unavailable. See: https://github.com/${{ github.repository }}/releases/tag/${RELEASE_TAG}"
           fi
 
-          CAPTION=$(printf '📦 MiPushFramework：Release %s\n%s\n\n%s' "$RELEASE_TAG" "$PROJECT_TAG" "$RELEASE_CONTENT")
+          CAPTION=$(printf '📦 MiPushFramework：Release %s\n\n%s' "$RELEASE_TAG" "$RELEASE_CONTENT")
           
           RELEASE_THREAD=""
           if [ -n "${TG_THREAD_ID:-}" ]; then RELEASE_THREAD="$TG_THREAD_ID"; fi
@@ -195,7 +195,7 @@ jobs:
               if [[ "$name" == *arm64-v8a*.apk ]]; then
                 echo "Downloading $name..."
                 curl --fail-with-body -L -sS -o "downloads/$name" "$url"
-                asset_caption=$(printf '📦 %s\n%s' "$name" "$PROJECT_TAG")
+                asset_caption=$(printf '📦 %s' "$name")
                 send_document "downloads/$name" "$RELEASE_THREAD" "$asset_caption"
               fi
             done
