@@ -48,7 +48,7 @@ interface ManagerConfigSyncGateway {
     suspend fun readLocalEditorSnapshot(treeUri: Uri?, path: String): ManagerConfigEditorSnapshot
     suspend fun readRemoteEditorSnapshot(treeUri: Uri?, path: String): ManagerConfigEditorSnapshot
     suspend fun pullAll(treeUri: Uri, onProgress: ((current: Int, total: Int, path: String) -> Unit)? = null): Int
-    suspend fun importDocuments(treeUri: Uri, uris: List<Uri>): Int
+    suspend fun importDocuments(treeUri: Uri, uris: List<Uri>, isIcon: Boolean = false): Int
     suspend fun saveLocal(treeUri: Uri, path: String, content: String): LocalConfigSummary
     suspend fun resetToRemote(treeUri: Uri, path: String): LocalConfigSummary
     suspend fun openForPackage(packageName: String)

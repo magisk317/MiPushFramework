@@ -27,6 +27,7 @@ class ConfigManagerViewModel constructor(
     data class UiState(
         val directoryUri: String? = null,
         val remoteSource: ConfigRemoteSource = ConfigRemoteSource(),
+        val iconRemoteSource: ConfigRemoteSource = ConfigRemoteSource(),
         val lastSyncTime: Long = 0L,
         val items: List<ConfigListItem> = emptyList(),
         val query: String = "",
@@ -51,7 +52,17 @@ class ConfigManagerViewModel constructor(
                 preferenceRepository.configRemoteRepository,
                 preferenceRepository.configRemoteBranch,
                 preferenceRepository.configRemoteAccelerator,
-            ) { directory, repository, branch, accelerator ->
+                preferenceRepository.iconRemoteRepository,
+                preferenceRepository.iconRemoteBranch,
+                preferenceRepository.iconRemoteAccelerator,
+            ) { args ->
+                val directory = args[0]
+                val repository = args[1] as String
+                val branch = args[2] as String
+                val accelerator = args[3] as String
+                val iconRepository = args[4] as String
+                val iconBranch = args[5] as String
+                val iconAccelerator = args[6] as String
                 RemoteSettings(
                     directoryUri = directory,
                     remoteSource = ConfigRemoteSource(
@@ -59,12 +70,18 @@ class ConfigManagerViewModel constructor(
                         branch = branch,
                         accelerator = accelerator,
                     ),
+                    iconRemoteSource = ConfigRemoteSource(
+                        repository = iconRepository,
+                        branch = iconBranch,
+                        accelerator = iconAccelerator,
+                    ),
                 )
             }.collectLatest { settings ->
                 _uiState.update {
                     it.copy(
                         directoryUri = settings.directoryUri,
                         remoteSource = settings.remoteSource,
+                        iconRemoteSource = settings.iconRemoteSource,
                     )
                 }
                 refreshInternal(forceRemote = false)
@@ -103,11 +120,25 @@ class ConfigManagerViewModel constructor(
                 normalizedBranch.ifBlank { ConfigDefaults.REMOTE_BRANCH },
                 accelerator.trim().ifBlank { ConfigDefaults.REMOTE_ACCELERATOR },
             )
-            _uiState.update { it.copy(message = "远端源已更新") }
+            _uiState.update { it.copy(message = "配置源已更新") }
         }
     }
 
-    fun importDocuments(uris: List<Uri>) {
+    fun updateIconRemoteSource(repository: String, branch: String, accelerator: String) {
+        viewModelScope.launch {
+            failedRemoteSourceKey = null
+            val normalizedRepository = repository.trim()
+            val normalizedBranch = branch.trim()
+            preferenceRepository.setIconRemoteSource(
+                normalizedRepository.ifBlank { ConfigDefaults.REMOTE_REPOSITORY },
+                normalizedBranch.ifBlank { ConfigDefaults.REMOTE_BRANCH },
+                accelerator.trim().ifBlank { ConfigDefaults.REMOTE_ACCELERATOR },
+            )
+            _uiState.update { it.copy(message = "图标源已更新") }
+        }
+    }
+
+    fun importDocuments(uris: List<Uri>, isIcon: Boolean = false) {
         if (uris.isEmpty()) return
         viewModelScope.launch {
             val treeUri = currentTreeUri()
@@ -117,7 +148,7 @@ class ConfigManagerViewModel constructor(
             }
             _uiState.update { it.copy(isSyncing = true) }
             runCatching {
-                syncGateway.importDocuments(treeUri, uris)
+                syncGateway.importDocuments(treeUri, uris, isIcon)
             }.onSuccess { imported ->
                 configGateway.loadConfigurations(context)
                 _uiState.update {
@@ -252,5 +283,6 @@ class ConfigManagerViewModel constructor(
     private data class RemoteSettings(
         val directoryUri: String?,
         val remoteSource: ConfigRemoteSource,
+        val iconRemoteSource: ConfigRemoteSource,
     )
 }

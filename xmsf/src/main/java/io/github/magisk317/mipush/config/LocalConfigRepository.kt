@@ -20,11 +20,24 @@ class LocalConfigRepository constructor(
     suspend fun listLocalFiles(treeUri: Uri?): List<LocalConfigFile> = withContext(Dispatchers.IO) {
         if (treeUri == null) return@withContext emptyList()
         val directory = DocumentFile.fromTreeUri(context, treeUri) ?: return@withContext emptyList()
-        directory.listFiles()
-            .filter { it.isFile }
-            .filter { it.name.orEmpty().lowercase().endsWith(".json") }
-            .sortedBy { it.name.orEmpty() }
-            .mapNotNull { inspectFile(it) }
+        val rootFiles = directory.listFiles()
+            .mapNotNull { file ->
+                val name = file.name ?: return@mapNotNull null
+                val path = ConfigLocalPathSupport.parseOrNull(name)?.path ?: return@mapNotNull null
+                inspectFile(file, path)
+            }
+        val iconFiles = directory.findFile(ConfigLocalPathSupport.ICON_DIRECTORY)
+            ?.takeIf { it.isDirectory }
+            ?.listFiles()
+            ?.mapNotNull { file ->
+                val name = file.name ?: return@mapNotNull null
+                val path = ConfigLocalPathSupport.parseOrNull(
+                    "${ConfigLocalPathSupport.ICON_DIRECTORY}/$name",
+                )?.path ?: return@mapNotNull null
+                inspectFile(file, path)
+            }
+            .orEmpty()
+        (rootFiles + iconFiles).sortedBy { it.path }
     }
 
     suspend fun readLocalFile(treeUri: Uri?, path: String): ConfigDocumentContent? = withContext(Dispatchers.IO) {
@@ -42,46 +55,69 @@ class LocalConfigRepository constructor(
         val directory = requireNotNull(DocumentFile.fromTreeUri(context, treeUri)) {
             "Configuration directory is unavailable"
         }
-        val target = directory.findFile(path) ?: requireNotNull(directory.createFile("application/json", path)) {
-            "Unable to create configuration file: $path"
+        val configPath = ConfigLocalPathSupport.parse(path)
+        val parentDirectory = requireNotNull(resolveParentDirectory(directory, configPath, create = true)) {
+            "Unable to create configuration directory: ${configPath.parentSegments.joinToString("/")}"
         }
-        backupExisting(path, target)
+        val existing = parentDirectory.findFile(configPath.fileName)
+        val target = when {
+            existing == null -> requireNotNull(parentDirectory.createFile("application/json", configPath.fileName)) {
+                "Unable to create configuration file: ${configPath.path}"
+            }
+            existing.isFile -> existing
+            else -> error("Configuration path is not a file: ${configPath.path}")
+        }
+        backupExisting(configPath.path, target)
         writeText(target.uri, content)
-        requireNotNull(inspectFile(target)) { "Unable to inspect saved configuration: $path" }
+        requireNotNull(inspectFile(target, configPath.path)) { "Unable to inspect saved configuration: ${configPath.path}" }
     }
 
-    suspend fun importDocuments(treeUri: Uri, uris: List<Uri>): List<LocalConfigFile> = withContext(Dispatchers.IO) {
+    suspend fun importDocuments(treeUri: Uri, uris: List<Uri>, isIcon: Boolean = false): List<LocalConfigFile> = withContext(Dispatchers.IO) {
         val directory = requireNotNull(DocumentFile.fromTreeUri(context, treeUri)) {
             "Configuration directory is unavailable"
         }
+        val targetDirectory = if (isIcon) {
+            directory.findFile(ConfigLocalPathSupport.ICON_DIRECTORY)
+                ?: requireNotNull(directory.createDirectory(ConfigLocalPathSupport.ICON_DIRECTORY)) {
+                    "Unable to create icon directory"
+                }
+        } else {
+            directory
+        }
+        val prefix = if (isIcon) "${ConfigLocalPathSupport.ICON_DIRECTORY}/" else ""
         uris.mapNotNull { sourceUri ->
             val fileName = queryDisplayName(sourceUri)
                 ?.takeIf { it.lowercase().endsWith(".json") }
                 ?: return@mapNotNull null
-            val target = directory.findFile(fileName) ?: requireNotNull(
-                directory.createFile("application/json", fileName),
+            val target = targetDirectory.findFile(fileName) ?: requireNotNull(
+                targetDirectory.createFile("application/json", fileName),
             ) {
                 "Unable to create imported configuration: $fileName"
             }
-            backupExisting(fileName, target)
+            val relativePath = prefix + fileName
+            backupExisting(relativePath, target)
             writeText(target.uri, readText(sourceUri))
-            inspectFile(target)
+            inspectFile(target, relativePath)
         }
     }
 
     private fun findFile(treeUri: Uri?, path: String): DocumentFile? {
+        val configPath = ConfigLocalPathSupport.parseOrNull(path) ?: return null
         if (treeUri == null) return null
         val directory = DocumentFile.fromTreeUri(context, treeUri) ?: return null
-        return directory.findFile(path)
+        return resolveParentDirectory(directory, configPath, create = false)
+            ?.findFile(configPath.fileName)
+            ?.takeIf { it.isFile }
     }
 
-    private fun inspectFile(file: DocumentFile): LocalConfigFile? {
-        val name = file.name ?: return null
+    private fun inspectFile(file: DocumentFile, path: String): LocalConfigFile? {
+        if (!file.isFile) return null
+        val configPath = ConfigLocalPathSupport.parseOrNull(path) ?: return null
         val rawText = readText(file.uri)
         val validation = ConfigJsonSupport.validateAndFormat(rawText)
         return LocalConfigFile(
-            path = name,
-            name = name.removeSuffix(".json"),
+            path = configPath.path,
+            name = configPath.name,
             uri = file.uri,
             sha = ConfigJsonSupport.stableSha(rawText),
             size = file.length(),
@@ -89,6 +125,23 @@ class LocalConfigRepository constructor(
             isValid = validation.valid,
             validationError = validation.errorMessage,
         )
+    }
+
+    private fun resolveParentDirectory(
+        directory: DocumentFile,
+        configPath: ConfigLocalPath,
+        create: Boolean,
+    ): DocumentFile? {
+        var current = directory
+        for (segment in configPath.parentSegments) {
+            val existing = current.findFile(segment)
+            current = when {
+                existing == null && create -> current.createDirectory(segment) ?: return null
+                existing?.isDirectory == true -> existing
+                else -> return null
+            }
+        }
+        return current
     }
 
     private fun writeText(uri: Uri, content: String) {
@@ -119,9 +172,12 @@ class LocalConfigRepository constructor(
 
     private fun backupExisting(path: String, file: DocumentFile) {
         if (!file.exists() || file.length() <= 0L) return
+        val configPath = ConfigLocalPathSupport.parseOrNull(path) ?: return
         val content = readText(file.uri)
         val timestamp = System.currentTimeMillis()
         val backupDir = File(context.filesDir, "config-backups/$timestamp").apply { mkdirs() }
-        File(backupDir, path).writeText(content, Charsets.UTF_8)
+        val backupFile = File(backupDir, configPath.path)
+        backupFile.parentFile?.mkdirs()
+        backupFile.writeText(content, Charsets.UTF_8)
     }
 }

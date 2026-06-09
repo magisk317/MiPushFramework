@@ -30,14 +30,43 @@ class ConfigCatalogService constructor(
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    suspend fun fetchCatalog(): RemoteConfigCatalog = withContext(Dispatchers.IO) {
-        val source = getRemoteSource()
-        val text = fetchText(source.rawUrl(INDEX_PATH))
-        json.decodeFromString(RemoteConfigCatalog.serializer(), text)
+    suspend fun fetchCatalog(source: ConfigRemoteSource): RemoteConfigCatalog = withContext(Dispatchers.IO) {
+        try {
+            val text = fetchText(source.rawUrl(INDEX_PATH))
+            json.decodeFromString(RemoteConfigCatalog.serializer(), text)
+        } catch (e: IOException) {
+            // Fallback for AndroidNotifyIconAdapt which does not use catalog.json
+            val fallbackPaths = listOf(
+                "APP/NotifyIconsSupportConfig.json",
+                "OS/ColorOS/NotifyIconsSupportConfig.json",
+                "OS/MIUI/NotifyIconsSupportConfig.json"
+            )
+            val isAndroidNotifyIconAdapt = try {
+                fetchText(source.rawUrl(fallbackPaths.first())).isNotEmpty()
+            } catch (_: Exception) { false }
+            
+            if (isAndroidNotifyIconAdapt) {
+                RemoteConfigCatalog(
+                    sourceRepo = source.repository,
+                    branch = source.branch,
+                    generatedAt = "1970-01-01T00:00:00Z",
+                    files = fallbackPaths.map {
+                        io.github.magisk317.mipush.utils.RemoteConfigFile(
+                            path = it,
+                            name = it.substringAfterLast("/"),
+                            sha = "virtual_fankes_repo",
+                            size = 1000,
+                            updatedAt = "1970-01-01T00:00:00Z"
+                        )
+                    }
+                )
+            } else {
+                throw e
+            }
+        }
     }
 
-    suspend fun fetchRemoteFile(path: String): String = withContext(Dispatchers.IO) {
-        val source = getRemoteSource()
+    suspend fun fetchRemoteFile(source: ConfigRemoteSource, path: String): String = withContext(Dispatchers.IO) {
         fetchText(source.rawUrl(encodePath(path)))
     }
 
@@ -45,6 +74,12 @@ class ConfigCatalogService constructor(
         repository = preferenceRepository.configRemoteRepository.first(),
         branch = preferenceRepository.configRemoteBranch.first(),
         accelerator = preferenceRepository.configRemoteAccelerator.first(),
+    )
+
+    suspend fun getIconRemoteSource(): ConfigRemoteSource = ConfigRemoteSource(
+        repository = preferenceRepository.iconRemoteRepository.first(),
+        branch = preferenceRepository.iconRemoteBranch.first(),
+        accelerator = preferenceRepository.iconRemoteAccelerator.first(),
     )
 
     private fun fetchText(urlString: String): String {

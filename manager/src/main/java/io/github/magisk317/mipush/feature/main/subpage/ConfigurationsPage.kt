@@ -106,10 +106,14 @@ fun Configurations(
     Page {
         val context = androidx.compose.ui.platform.LocalContext.current
         val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-        var showRemoteSourceDialog by rememberSaveable { mutableStateOf(false) }
+        var editingRemoteSourceType by rememberSaveable { mutableStateOf<String?>(null) }
         var remoteRepositoryDraft by rememberSaveable { mutableStateOf("") }
         var remoteBranchDraft by rememberSaveable { mutableStateOf("") }
         var remoteAcceleratorDraft by rememberSaveable { mutableStateOf("") }
+        
+        var showImportDialog by rememberSaveable { mutableStateOf(false) }
+        var pendingImportIsIcon by rememberSaveable { mutableStateOf(false) }
+        var expandedCategory by rememberSaveable { mutableStateOf<String?>(null) }
         val openDirectoryLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.OpenDocumentTree(),
         ) { uri ->
@@ -125,7 +129,7 @@ fun Configurations(
             contract = ActivityResultContracts.OpenMultipleDocuments(),
         ) { uris ->
             if (uris.isNotEmpty()) {
-                viewModel.importDocuments(uris)
+                viewModel.importDocuments(uris, pendingImportIsIcon)
             }
         }
 
@@ -142,11 +146,15 @@ fun Configurations(
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             viewModel.clearMessage()
         }
-        LaunchedEffect(showRemoteSourceDialog, uiState.remoteSource) {
-            if (showRemoteSourceDialog) {
+        LaunchedEffect(editingRemoteSourceType, uiState.remoteSource, uiState.iconRemoteSource) {
+            if (editingRemoteSourceType == "config") {
                 remoteRepositoryDraft = uiState.remoteSource.repository
                 remoteBranchDraft = uiState.remoteSource.branch
                 remoteAcceleratorDraft = uiState.remoteSource.accelerator
+            } else if (editingRemoteSourceType == "icon") {
+                remoteRepositoryDraft = uiState.iconRemoteSource.repository
+                remoteBranchDraft = uiState.iconRemoteSource.branch
+                remoteAcceleratorDraft = uiState.iconRemoteSource.accelerator
             }
         }
 
@@ -166,28 +174,70 @@ fun Configurations(
         ReportLazyListScrollToChrome(listState, scrollChromeState)
         val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
-        if (showRemoteSourceDialog) {
+        if (editingRemoteSourceType != null) {
             RemoteSourceDialog(
                 repository = remoteRepositoryDraft,
                 branch = remoteBranchDraft,
                 accelerator = remoteAcceleratorDraft,
+                defaultRepository = if (editingRemoteSourceType == "icon") ConfigDefaults.ICON_REMOTE_REPOSITORY else ConfigDefaults.REMOTE_REPOSITORY,
+                defaultBranch = if (editingRemoteSourceType == "icon") ConfigDefaults.ICON_REMOTE_BRANCH else ConfigDefaults.REMOTE_BRANCH,
                 onRepositoryChange = { remoteRepositoryDraft = it },
                 onBranchChange = { remoteBranchDraft = it },
                 onAcceleratorChange = { remoteAcceleratorDraft = it },
-                onDismiss = { showRemoteSourceDialog = false },
+                onDismiss = { editingRemoteSourceType = null },
                 onResetDefault = {
-                    remoteRepositoryDraft = ConfigDefaults.REMOTE_REPOSITORY
-                    remoteBranchDraft = ConfigDefaults.REMOTE_BRANCH
-                    remoteAcceleratorDraft = ConfigDefaults.REMOTE_ACCELERATOR
+                    if (editingRemoteSourceType == "icon") {
+                        remoteRepositoryDraft = ConfigDefaults.ICON_REMOTE_REPOSITORY
+                        remoteBranchDraft = ConfigDefaults.ICON_REMOTE_BRANCH
+                        remoteAcceleratorDraft = ConfigDefaults.ICON_REMOTE_ACCELERATOR
+                    } else {
+                        remoteRepositoryDraft = ConfigDefaults.REMOTE_REPOSITORY
+                        remoteBranchDraft = ConfigDefaults.REMOTE_BRANCH
+                        remoteAcceleratorDraft = ConfigDefaults.REMOTE_ACCELERATOR
+                    }
                 },
                 onConfirm = {
-                    viewModel.updateRemoteSource(
-                        remoteRepositoryDraft,
-                        remoteBranchDraft,
-                        remoteAcceleratorDraft,
-                    )
-                    showRemoteSourceDialog = false
+                    if (editingRemoteSourceType == "config") {
+                        viewModel.updateRemoteSource(
+                            remoteRepositoryDraft,
+                            remoteBranchDraft,
+                            remoteAcceleratorDraft,
+                        )
+                    } else if (editingRemoteSourceType == "icon") {
+                        viewModel.updateIconRemoteSource(
+                            remoteRepositoryDraft,
+                            remoteBranchDraft,
+                            remoteAcceleratorDraft,
+                        )
+                    }
+                    editingRemoteSourceType = null
                 },
+            )
+        }
+
+        if (showImportDialog) {
+            AlertDialog(
+                onDismissRequest = { showImportDialog = false },
+                title = { Text("本地导入") },
+                text = { Text("请选择要导入的文件类型：图标还是配置？") },
+                confirmButton = {
+                    FilledTonalButton(onClick = {
+                        showImportDialog = false
+                        pendingImportIsIcon = false
+                        importLauncher.launch(arrayOf("application/json", "*/*"))
+                    }) {
+                        Text("导入配置")
+                    }
+                },
+                dismissButton = {
+                    FilledTonalButton(onClick = {
+                        showImportDialog = false
+                        pendingImportIsIcon = true
+                        importLauncher.launch(arrayOf("application/json", "*/*"))
+                    }) {
+                        Text("导入图标")
+                    }
+                }
             )
         }
 
@@ -233,9 +283,10 @@ fun Configurations(
                 ) {
                     configListHeader(
                         uiState = uiState,
-                        onClickRemoteSource = { showRemoteSourceDialog = true },
+                        onClickRemoteSource = { editingRemoteSourceType = "config" },
+                        onClickIconRemoteSource = { editingRemoteSourceType = "icon" },
                         onChooseDirectory = { openDirectoryLauncher.launch(null) },
-                        onImportLocal = { importLauncher.launch(arrayOf("application/json", "*/*")) },
+                        onImportLocal = { showImportDialog = true },
                         onPullRemote = viewModel::pullRemote,
                         onReload = viewModel::reloadConfigurations,
                         onQueryChange = viewModel::setQuery,
@@ -251,12 +302,65 @@ fun Configurations(
                                     .heightIn(min = 280.dp),
                             )
                         }
+                    } else if (expandedCategory == null) {
+                        item {
+                            WorkspaceListItem(
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = { expandedCategory = "config" },
+                            ) {
+                                Text("配置预览", style = MaterialTheme.typography.titleMedium)
+                            }
+                        }
+                        item {
+                            WorkspaceListItem(
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = { expandedCategory = "icon" },
+                            ) {
+                                Text("图标预览", style = MaterialTheme.typography.titleMedium)
+                            }
+                        }
                     } else {
-                        items(filteredItems, key = { it.path }) { item ->
-                            ConfigListEntry(
-                                item = item,
-                                onClick = { onOpenEditor(item.path) },
-                            )
+                        item {
+                            WorkspaceListItem(
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = { expandedCategory = null },
+                                leadingContent = {
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_arrow_back_black_24dp),
+                                        contentDescription = "返回"
+                                    )
+                                }
+                            ) {
+                                Text(
+                                    if (expandedCategory == "config") "返回 / 配置预览" else "返回 / 图标预览",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                            }
+                        }
+                        
+                        val categoryItems = if (expandedCategory == "config") {
+                            filteredItems.filter { !it.path.startsWith("icon/") }
+                        } else {
+                            filteredItems.filter { it.path.startsWith("icon/") }
+                        }
+                        
+                        if (categoryItems.isEmpty()) {
+                            item {
+                                WorkspaceEmptyState(
+                                    title = stringResource(R.string.config_empty_title),
+                                    summary = stringResource(R.string.config_empty_summary),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 280.dp),
+                                )
+                            }
+                        } else {
+                            items(categoryItems, key = { it.path }) { item ->
+                                ConfigListEntry(
+                                    item = item,
+                                    onClick = { onOpenEditor(item.path) },
+                                )
+                            }
                         }
                     }
                 }
@@ -464,6 +568,7 @@ fun ConfigurationEditor(
 private fun LazyListScope.configListHeader(
     uiState: ConfigManagerViewModel.UiState,
     onClickRemoteSource: () -> Unit,
+    onClickIconRemoteSource: () -> Unit,
     onChooseDirectory: () -> Unit,
     onImportLocal: () -> Unit,
     onPullRemote: () -> Unit,
@@ -476,7 +581,7 @@ private fun LazyListScope.configListHeader(
             verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
         ) {
             SettingLinkCard(
-                title = stringResource(R.string.config_remote_source_title),
+                title = stringResource(R.string.config_remote_source_title) + " (配置源)",
                 value = if (uiState.remoteSource.accelerator.isBlank()) {
                     stringResource(R.string.config_remote_source_label, uiState.remoteSource.displayName)
                 } else {
@@ -487,6 +592,19 @@ private fun LazyListScope.configListHeader(
                     )
                 },
                 onClick = onClickRemoteSource,
+            )
+            SettingLinkCard(
+                title = stringResource(R.string.config_remote_source_title) + " (图标源)",
+                value = if (uiState.iconRemoteSource.accelerator.isBlank()) {
+                    stringResource(R.string.config_remote_source_label, uiState.iconRemoteSource.displayName)
+                } else {
+                    stringResource(
+                        R.string.config_remote_source_with_accelerator_label,
+                        uiState.iconRemoteSource.displayName,
+                        uiState.iconRemoteSource.accelerator,
+                    )
+                },
+                onClick = onClickIconRemoteSource,
             )
             val directoryUri = uiState.directoryUri
             SettingLinkCard(
@@ -667,6 +785,8 @@ private fun RemoteSourceDialog(
     repository: String,
     branch: String,
     accelerator: String,
+    defaultRepository: String,
+    defaultBranch: String,
     onRepositoryChange: (String) -> Unit,
     onBranchChange: (String) -> Unit,
     onAcceleratorChange: (String) -> Unit,
@@ -703,7 +823,7 @@ private fun RemoteSourceDialog(
                 Text(
                     text = stringResource(
                         R.string.config_remote_source_default_hint,
-                        "${ConfigDefaults.REMOTE_REPOSITORY}@${ConfigDefaults.REMOTE_BRANCH}",
+                        "${defaultRepository}@${defaultBranch}",
                     ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

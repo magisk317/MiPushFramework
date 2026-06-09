@@ -119,8 +119,8 @@ class XmsfManagerConfigSyncGateway(
         onProgress: ((current: Int, total: Int, path: String) -> Unit)?,
     ): Int = syncRepository.pullAll(treeUri, onProgress)
 
-    override suspend fun importDocuments(treeUri: Uri, uris: List<Uri>): Int =
-        syncRepository.importDocuments(treeUri, uris)
+    override suspend fun importDocuments(treeUri: Uri, uris: List<Uri>, isIcon: Boolean): Int =
+        syncRepository.importDocuments(treeUri, uris, isIcon)
 
     override suspend fun saveLocal(treeUri: Uri, path: String, content: String) =
         syncRepository.saveLocal(treeUri, path, content).toSummary()

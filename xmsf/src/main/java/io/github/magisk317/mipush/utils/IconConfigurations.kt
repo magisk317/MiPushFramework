@@ -13,6 +13,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.Serializable
 import io.github.magisk317.mipush.common.configurations.ConfigJsonException
 import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.app.ConfigCenter
 
 class IconConfigurations constructor(
@@ -86,6 +87,7 @@ class IconConfigurations constructor(
             val json = ConfigurationsLoader.readTextFromUri(context, file.uri)
             try {
                 parse(json)
+                logI("Successfully loaded icon configuration: ${file.name}")
             } catch (e: ConfigJsonException) {
                 exceptions.add(Pair(file, e))
             }

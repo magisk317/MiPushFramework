@@ -25,12 +25,18 @@ class ConfigSyncRepository constructor(
     suspend fun loadLocalSnapshot(treeUri: Uri?): ConfigListSnapshot {
         val localFiles = localConfigRepository.listLocalFiles(treeUri)
         val remoteSource = catalogService.getRemoteSource()
+        val iconRemoteSource = catalogService.getIconRemoteSource()
         val cachedCatalog = syncStateStore.getCachedCatalog(remoteSource)
+        val cachedIconCatalog = syncStateStore.getCachedCatalog(iconRemoteSource)
         val records = syncStateStore.getDirectoryRecords(treeUri?.toString())
+
+        val mappedIconFiles = cachedIconCatalog?.files?.map { it.copy(path = "icon/${it.path.replace('/', '_')}") }.orEmpty()
+        val combinedRemoteFiles = cachedCatalog?.files.orEmpty() + mappedIconFiles
+
         return ConfigListSnapshot(
             catalog = cachedCatalog,
             items = mergeConfigEntries(
-                remoteFiles = cachedCatalog?.files.orEmpty(),
+                remoteFiles = combinedRemoteFiles,
                 localFiles = localFiles,
                 syncRecords = records,
             ),
@@ -40,13 +46,20 @@ class ConfigSyncRepository constructor(
     suspend fun loadRemoteSnapshot(treeUri: Uri?): ConfigListSnapshot {
         val localFiles = localConfigRepository.listLocalFiles(treeUri)
         val remoteSource = catalogService.getRemoteSource()
-        val catalog = catalogService.fetchCatalog()
+        val iconRemoteSource = catalogService.getIconRemoteSource()
+        val catalog = catalogService.fetchCatalog(remoteSource)
+        val iconCatalog = catalogService.fetchCatalog(iconRemoteSource)
         syncStateStore.cacheCatalog(remoteSource, catalog)
+        syncStateStore.cacheCatalog(iconRemoteSource, iconCatalog)
         val records = syncStateStore.getDirectoryRecords(treeUri?.toString())
+
+        val mappedIconFiles = iconCatalog.files.map { it.copy(path = "icon/${it.path.replace('/', '_')}") }
+        val combinedRemoteFiles = catalog.files + mappedIconFiles
+
         return ConfigListSnapshot(
             catalog = catalog,
             items = mergeConfigEntries(
-                remoteFiles = catalog.files,
+                remoteFiles = combinedRemoteFiles,
                 localFiles = localFiles,
                 syncRecords = records,
             ),
@@ -56,8 +69,11 @@ class ConfigSyncRepository constructor(
     suspend fun readLocalEditorSnapshot(treeUri: Uri?, path: String): ConfigEditorSnapshot {
         val localMeta = localConfigRepository.listLocalFiles(treeUri).firstOrNull { it.path == path }
         val localContent = localConfigRepository.readLocalFile(treeUri, path)
-        val remoteCatalog = syncStateStore.getCachedCatalog(catalogService.getRemoteSource())
-        val remoteMeta = remoteCatalog?.files?.firstOrNull { it.path == path }
+        val isIcon = path.startsWith("icon/")
+        val remoteSource = if (isIcon) catalogService.getIconRemoteSource() else catalogService.getRemoteSource()
+        val remoteCatalog = syncStateStore.getCachedCatalog(remoteSource)
+        val remotePath = if (isIcon) remoteCatalog?.files?.firstOrNull { "icon/${it.path.replace('/', '_')}" == path }?.path ?: path.removePrefix("icon/") else path
+        val remoteMeta = remoteCatalog?.files?.firstOrNull { it.path == remotePath }?.let { if (isIcon) it.copy(path = path) else it }
         return ConfigEditorSnapshot(
             path = path,
             local = localContent,
@@ -70,11 +86,13 @@ class ConfigSyncRepository constructor(
     suspend fun readRemoteEditorSnapshot(treeUri: Uri?, path: String): ConfigEditorSnapshot {
         val localMeta = localConfigRepository.listLocalFiles(treeUri).firstOrNull { it.path == path }
         val localContent = localConfigRepository.readLocalFile(treeUri, path)
-        val remoteSource = catalogService.getRemoteSource()
-        val remoteCatalog = catalogService.fetchCatalog()
+        val isIcon = path.startsWith("icon/")
+        val remoteSource = if (isIcon) catalogService.getIconRemoteSource() else catalogService.getRemoteSource()
+        val remoteCatalog = catalogService.fetchCatalog(remoteSource)
         syncStateStore.cacheCatalog(remoteSource, remoteCatalog)
-        val remoteMeta = remoteCatalog.files.firstOrNull { it.path == path }
-        val remoteTextResult = if (remoteMeta != null) runCatching { catalogService.fetchRemoteFile(path) } else null
+        val remotePath = if (isIcon) remoteCatalog.files.firstOrNull { "icon/${it.path.replace('/', '_')}" == path }?.path ?: path.removePrefix("icon/") else path
+        val remoteMeta = remoteCatalog.files.firstOrNull { it.path == remotePath }?.let { if (isIcon) it.copy(path = path) else it }
+        val remoteTextResult = if (remoteMeta != null) runCatching { catalogService.fetchRemoteFile(remoteSource, remotePath) } else null
         val remoteRaw = remoteTextResult?.getOrNull()
         val remoteValidation = remoteRaw?.let { ConfigJsonSupport.validateAndFormat(it) }
         return ConfigEditorSnapshot(
@@ -97,30 +115,77 @@ class ConfigSyncRepository constructor(
         treeUri: Uri,
         onProgress: ((current: Int, total: Int, path: String) -> Unit)? = null,
     ): Int {
+        val localFiles = localConfigRepository.listLocalFiles(treeUri)
+        val existingRecords = syncStateStore.getDirectoryRecords(treeUri.toString())
         val remoteSource = catalogService.getRemoteSource()
-        val catalog = catalogService.fetchCatalog()
+        val iconRemoteSource = catalogService.getIconRemoteSource()
+        val catalog = catalogService.fetchCatalog(remoteSource)
+        val iconCatalog = catalogService.fetchCatalog(iconRemoteSource)
         syncStateStore.cacheCatalog(remoteSource, catalog)
+        syncStateStore.cacheCatalog(iconRemoteSource, iconCatalog)
+        
         val written = mutableListOf<ConfigSyncRecord>()
         val now = System.currentTimeMillis()
-        val total = catalog.files.size
-        for ((index, remote) in catalog.files.withIndex()) {
-            val content = ConfigJsonSupport.formatOrOriginal(catalogService.fetchRemoteFile(remote.path))
-            val local = localConfigRepository.writeLocalFile(treeUri, remote.path, content)
-            onProgress?.invoke(index + 1, total, remote.path)
+        val total = catalog.files.size + iconCatalog.files.size
+        var current = 0
+
+        for (remote in catalog.files) {
+            val path = remote.path
+            val record = existingRecords[path]
+            val localFile = localFiles.find { it.path == path }
+            
+            // Skip if perfectly in sync
+            if (record != null && record.remoteSha == remote.sha && localFile != null && localFile.sha == record.localSha) {
+                current++
+                onProgress?.invoke(current, total, path)
+                written += record
+                continue
+            }
+
+            val content = ConfigJsonSupport.formatOrOriginal(catalogService.fetchRemoteFile(remoteSource, path))
+            val local = localConfigRepository.writeLocalFile(treeUri, path, content)
+            current++
+            onProgress?.invoke(current, total, path)
             written += ConfigSyncRecord(
-                path = remote.path,
+                path = path,
                 remoteSha = remote.sha,
                 localSha = local.sha,
                 syncedAt = now,
             )
         }
+
+        for (remote in iconCatalog.files) {
+            val localPath = "icon/${remote.path.replace('/', '_')}"
+            val record = existingRecords[localPath]
+            val localFile = localFiles.find { it.path == localPath }
+            
+            // Skip if perfectly in sync
+            if (record != null && record.remoteSha == remote.sha && localFile != null && localFile.sha == record.localSha) {
+                current++
+                onProgress?.invoke(current, total, localPath)
+                written += record
+                continue
+            }
+
+            val content = ConfigJsonSupport.formatOrOriginal(catalogService.fetchRemoteFile(iconRemoteSource, remote.path))
+            val local = localConfigRepository.writeLocalFile(treeUri, localPath, content)
+            current++
+            onProgress?.invoke(current, total, localPath)
+            written += ConfigSyncRecord(
+                path = localPath,
+                remoteSha = remote.sha,
+                localSha = local.sha,
+                syncedAt = now,
+            )
+        }
+
         syncStateStore.upsertAll(treeUri.toString(), written)
         preferenceRepository.setLastConfigSyncTime(now)
         return written.size
     }
 
-    suspend fun importDocuments(treeUri: Uri, uris: List<Uri>): Int {
-        val imported = localConfigRepository.importDocuments(treeUri, uris)
+    suspend fun importDocuments(treeUri: Uri, uris: List<Uri>, isIcon: Boolean = false): Int {
+        val imported = localConfigRepository.importDocuments(treeUri, uris, isIcon)
         val existingRecords = syncStateStore.getDirectoryRecords(treeUri.toString())
         syncStateStore.upsertAll(
             treeUri.toString(),
@@ -153,13 +218,15 @@ class ConfigSyncRepository constructor(
     }
 
     suspend fun resetToRemote(treeUri: Uri, path: String): LocalConfigFile {
-        val remoteSource = catalogService.getRemoteSource()
-        val catalog = catalogService.fetchCatalog()
+        val isIcon = path.startsWith("icon/")
+        val remoteSource = if (isIcon) catalogService.getIconRemoteSource() else catalogService.getRemoteSource()
+        val catalog = catalogService.fetchCatalog(remoteSource)
         syncStateStore.cacheCatalog(remoteSource, catalog)
-        val remote = requireNotNull(catalog.files.firstOrNull { it.path == path }) {
+        val remotePath = if (isIcon) catalog.files.firstOrNull { "icon/${it.path.replace('/', '_')}" == path }?.path ?: path.removePrefix("icon/") else path
+        val remote = requireNotNull(catalog.files.firstOrNull { it.path == remotePath }) {
             "Remote configuration not found: $path"
         }
-        val content = ConfigJsonSupport.formatOrOriginal(catalogService.fetchRemoteFile(path))
+        val content = ConfigJsonSupport.formatOrOriginal(catalogService.fetchRemoteFile(remoteSource, remotePath))
         val local = localConfigRepository.writeLocalFile(treeUri, path, content)
         val now = System.currentTimeMillis()
         syncStateStore.upsert(
@@ -178,12 +245,19 @@ class ConfigSyncRepository constructor(
     suspend fun resolvePackageConfigPath(packageName: String, treeUri: Uri?): String? {
         val localPaths = localConfigRepository.listLocalFiles(treeUri).map { it.path }
         val remoteSource = catalogService.getRemoteSource()
-        val cachedPaths = syncStateStore.getCachedCatalog(remoteSource)?.files?.map { it.path }.orEmpty()
+        val iconRemoteSource = catalogService.getIconRemoteSource()
+        
+        val cachedConfigPaths = syncStateStore.getCachedCatalog(remoteSource)?.files?.map { it.path }.orEmpty()
+        val cachedIconPaths = syncStateStore.getCachedCatalog(iconRemoteSource)?.files?.map { "icon/${it.path.replace('/', '_')}" }.orEmpty()
+        
         val remotePaths = runCatching {
-            val catalog = catalogService.fetchCatalog()
+            val catalog = catalogService.fetchCatalog(remoteSource)
+            val iconCatalog = catalogService.fetchCatalog(iconRemoteSource)
             syncStateStore.cacheCatalog(remoteSource, catalog)
-            catalog.files.map { it.path }
-        }.getOrDefault(cachedPaths)
+            syncStateStore.cacheCatalog(iconRemoteSource, iconCatalog)
+            catalog.files.map { it.path } + iconCatalog.files.map { "icon/${it.path.replace('/', '_')}" }
+        }.getOrDefault(cachedConfigPaths + cachedIconPaths)
+        
         return guessPackageConfigPath(packageName, localPaths + remotePaths)
     }
 }
