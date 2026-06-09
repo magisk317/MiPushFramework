@@ -9,6 +9,7 @@ import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.common.XMSF_FAKE_CONDITION_PROVIDER_PATH
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.fakedevice.compat.ModuleCompatRegistry
+import io.github.magisk317.mipush.hook.securitycore.SecurityCoreXSpacePackageInfoHook
 import io.github.magisk317.mipush.xposed.callMethod
 import io.github.magisk317.mipush.xposed.currentApplication
 import io.github.magisk317.mipush.xposed.findHookClass
@@ -232,6 +233,7 @@ class HookSystemService {
         val classShortcutService = findHookClass("com.android.server.pm.ShortcutService", classLoader)
         ShortcutPermissionHooker.hook(classShortcutService)
         hookGlobalVisibility(classLoader)
+        SecurityCoreXSpacePackageInfoHook.hook(classLoader)
     }
 
     private fun hookSystemReadyFlag(stubClass: Class<Any>) {
