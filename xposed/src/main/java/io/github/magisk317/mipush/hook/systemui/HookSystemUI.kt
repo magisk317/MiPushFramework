@@ -27,6 +27,8 @@ class HookSystemUI {
     }
 
     fun hook(classLoader: ClassLoader) {
+        MiuiHeaderAppIconHook().hook(classLoader)
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             try {
                 classLoader.findClass("com.android.systemui.statusbar.notification.icon.IconManager")
