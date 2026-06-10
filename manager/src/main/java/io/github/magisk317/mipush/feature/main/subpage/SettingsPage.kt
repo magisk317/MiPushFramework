@@ -398,7 +398,7 @@ private fun KeepAliveBlock(viewModel: SettingsViewModel, snackbarHostState: Snac
         showSwitchFeedback(keepAliveDozeBypassTitle, enabled)
     }
 
-    SettingsItem(
+    SettingsSwitchItem(
         title = stringResource(R.string.pref_keepalive_dedicated_service_title),
         summary = stringResource(
             if (keepAliveAccessibilityServiceEnabled) {
@@ -407,16 +407,22 @@ private fun KeepAliveBlock(viewModel: SettingsViewModel, snackbarHostState: Snac
                 R.string.pref_keepalive_dedicated_service_disabled_summary
             }
         ),
-    ) {
-        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-        runCatching {
-            context.startActivity(intent)
-        }.onFailure {
-            scope.launch {
-                snackbarHostState.showSnackbar(
-                    message = activityIntentNotFoundMessage,
-                    duration = SnackbarDuration.Short,
-                )
+        checked = keepAliveAccessibilityServiceEnabled,
+    ) { enabled ->
+        scope.launch {
+            val success = toggleAccessibilityServiceViaRoot(context, enabled)
+            if (success) {
+                accessibilityStatusRefresh += 1
+            } else {
+                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                runCatching {
+                    context.startActivity(intent)
+                }.onFailure {
+                    snackbarHostState.showSnackbar(
+                        message = activityIntentNotFoundMessage,
+                        duration = SnackbarDuration.Short,
+                    )
+                }
             }
         }
     }
@@ -837,5 +843,44 @@ fun SettingsPagePreview() {
     Utils.context = LocalContext.current
     Theme {
         Settings(PaddingValues(0.dp), onShowAboutDialog = {})
+    }
+}
+
+private suspend fun toggleAccessibilityServiceViaRoot(context: android.content.Context, enable: Boolean): Boolean {
+    return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            val component = ComponentName(
+                Constants.SERVICE_APP_NAME,
+                Constants.KEEPALIVE_ACCESSIBILITY_SERVICE_CLASS,
+            ).flattenToString()
+            val currentServices = Settings.Secure.getString(
+                context.contentResolver,
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+            ).orEmpty()
+            val newServices = if (enable) {
+                if (currentServices.contains(component)) return@withContext true
+                if (currentServices.isEmpty()) component else "$currentServices:$component"
+            } else {
+                if (!currentServices.contains(component)) return@withContext true
+                currentServices.split(":").filter { it.isNotEmpty() && it != component }.joinToString(":")
+            }
+
+            val process = Runtime.getRuntime().exec("su")
+            val os = java.io.DataOutputStream(process.outputStream)
+            os.writeBytes("settings put secure enabled_accessibility_services $newServices\n")
+            if (enable) {
+                os.writeBytes("settings put secure accessibility_enabled 1\n")
+            }
+            os.writeBytes("exit\n")
+            os.flush()
+            process.waitFor() == 0
+        } catch (e: java.io.IOException) {
+            false
+        } catch (e: SecurityException) {
+            false
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+            false
+        }
     }
 }

@@ -491,7 +491,7 @@ This could be the application doing a reverse registration, or the registration 
     <string name="pref_keepalive_standby_bypass_summary">Force app into active standby bucket.</string>
     <string name="pref_keepalive_doze_bypass_title">Bypass Doze</string>
     <string name="pref_keepalive_doze_bypass_summary">Prevent the app from entering Doze mode.</string>
-    <string name="pref_keepalive_dedicated_service_title">Dedicated Keep-Alive Service</string>
+    <string name="pref_keepalive_dedicated_service_title">Push Service - Keep-Alive</string>
     <string name="pref_keepalive_dedicated_service_summary">Enable an empty accessibility service that system will auto-restart when app dies.</string>
     <string name="pref_keepalive_dedicated_service_enabled_summary">Enabled in system Accessibility settings.</string>
     <string name="pref_keepalive_dedicated_service_disabled_summary">Not enabled. Tap to open system Accessibility settings.</string>

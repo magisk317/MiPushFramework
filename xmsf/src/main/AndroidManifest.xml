@@ -231,7 +231,7 @@
                 android:exported="true" />
 
         <receiver
-                android:name=".push.service.receivers.BootReceiver"
+                android:name="io.github.magisk317.mipush.receiver.BootReceiver"
                 android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
@@ -239,7 +239,7 @@
         </receiver>
 
         <receiver
-                android:name=".push.service.receivers.NetworkStatusReceiver"
+                android:name="io.github.magisk317.mipush.receiver.NetworkStatusReceiver"
                 android:exported="true">
             <intent-filter>
                 <action android:name="android.net.conn.CONNECTIVITY_CHANGE" />
@@ -247,7 +247,7 @@
         </receiver>
 
         <receiver
-                android:name=".push.service.receivers.MiPushPingReceiver"
+                android:name="io.github.magisk317.mipush.receiver.MiPushPingReceiver"
                 android:exported="false">
             <intent-filter>
                 <action android:name="com.xiaomi.push.PING_TIMER" />
@@ -266,7 +266,7 @@
         </receiver>
 
         <receiver
-                android:name=".push.service.receivers.PkgUninstallReceiver"
+                android:name="io.github.magisk317.mipush.receiver.PkgUninstallReceiver"
                 android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.PACKAGE_REMOVED" />
@@ -291,7 +291,7 @@
         </receiver>
 
         <receiver
-                android:name=".push.service.receivers.MiuiPushMessageReceiver"
+                android:name="io.github.magisk317.mipush.receiver.MiuiPushMessageReceiver"
                 tools:ignore="ExportedReceiver"
                 android:exported="true">
             <intent-filter>
@@ -306,7 +306,7 @@
         </receiver>
 
         <receiver
-                android:name=".push.service.receivers.AccountChangedReceiver"
+                android:name="io.github.magisk317.mipush.receiver.AccountChangedReceiver"
                 android:exported="true">
             <intent-filter>
                 <action android:name="android.accounts.LOGIN_ACCOUNTS_CHANGED" />
@@ -314,7 +314,7 @@
         </receiver>
 
         <receiver
-                android:name=".push.service.receivers.NotificationEventReceiver"
+                android:name="io.github.magisk317.mipush.receiver.NotificationEventReceiver"
                 android:exported="true"
                 android:permission="com.xiaomi.xmsf.permission.NOTIFICATION_ACTIVE">
             <intent-filter>
@@ -434,18 +434,7 @@
                 android:exported="false" />
 
         <!-- Push API -->
-        <service
-                android:name="io.github.magisk317.mipush.platform.activity.DetectionService"
-                android:exported="true"
-                android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
 
-            <meta-data
-                    android:name="android.accessibilityservice"
-                    android:resource="@xml/detection_service_config" />
-        </service>
     </application>
 
 
