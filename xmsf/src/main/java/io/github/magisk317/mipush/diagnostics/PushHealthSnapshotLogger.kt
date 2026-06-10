@@ -6,7 +6,7 @@ import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
 import com.xiaomi.mipush.sdk.MiPushClient
 import io.github.magisk317.mipush.runtime.PushRuntime
-import com.xiaomi.xmsf.push.control.PushControllerUtils
+import io.github.magisk317.mipush.control.PushControllerUtils
 import io.github.aakira.napier.Napier
 import kotlinx.coroutines.runBlocking
 

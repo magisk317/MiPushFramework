@@ -17,7 +17,7 @@ import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
 import io.github.magisk317.mipush.service.PushServiceStarter
 import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
 import com.xiaomi.push.service.PushConstants
-import com.xiaomi.xmsf.push.control.PushControllerUtils
+import io.github.magisk317.mipush.control.PushControllerUtils
 import io.github.magisk317.mipush.utils.Configurations
 import io.github.magisk317.mipush.utils.IconConfigurations
 import com.xiaomi.xmsf.R
