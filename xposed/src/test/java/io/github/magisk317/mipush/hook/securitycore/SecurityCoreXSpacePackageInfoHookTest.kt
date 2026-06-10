@@ -15,7 +15,7 @@ class SecurityCoreXSpacePackageInfoHookTest {
                 callerProcessName = "com.miui.securitycore",
                 queryPackage = "com.example.app",
                 flags = GET_SERVICES or GET_PERMISSIONS,
-                userId = 0,
+                userId = 999,
                 alreadyRequired = false,
             ).forceRequired
         )
@@ -25,7 +25,7 @@ class SecurityCoreXSpacePackageInfoHookTest {
                 callerProcessName = "com.android.settings",
                 queryPackage = "com.example.app",
                 flags = GET_SERVICES or GET_PERMISSIONS,
-                userId = 0,
+                userId = 999,
                 alreadyRequired = false,
             ).forceRequired
         )
@@ -34,7 +34,7 @@ class SecurityCoreXSpacePackageInfoHookTest {
                 callerProcessName = "com.miui.securitycore",
                 queryPackage = "com.example.app",
                 flags = GET_SERVICES,
-                userId = 0,
+                userId = 999,
                 alreadyRequired = false,
             ).forceRequired
         )
@@ -43,7 +43,7 @@ class SecurityCoreXSpacePackageInfoHookTest {
                 callerProcessName = "com.miui.securitycore",
                 queryPackage = "com.xiaomi.xmsf",
                 flags = GET_SERVICES or GET_PERMISSIONS,
-                userId = 0,
+                userId = 999,
                 alreadyRequired = false,
             ).forceRequired
         )

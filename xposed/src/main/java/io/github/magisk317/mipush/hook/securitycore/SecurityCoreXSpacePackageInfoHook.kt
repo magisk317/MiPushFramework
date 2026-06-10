@@ -90,7 +90,7 @@ object SecurityCoreXSpacePackageInfoHook {
         if (!requestsMiPushRequiredSignals(flags)) {
             return SecurityCoreXSpaceMiPushDecision(forceRequired = false, reason = "flags_without_mipush_signals")
         }
-        if (userId != null && userId !in setOf(OWNER_USER_ID, XSPACE_USER_ID)) {
+        if (userId != null && userId != XSPACE_USER_ID) {
             return SecurityCoreXSpaceMiPushDecision(forceRequired = false, reason = "unsupported_user")
         }
         return SecurityCoreXSpaceMiPushPolicy.decide(queryPackage, originalRequired = alreadyRequired)
