@@ -1,5 +1,7 @@
 package io.github.magisk317.mipush.platform.support
 
+import io.github.magisk317.mipush.common.Constants
+
 object LegacyComponentNames {
     const val SERVICE_PACKAGE = "com.xiaomi.xmsf"
     const val BRIDGE_SERVICE_CLASS = "com.xiaomi.xmsf.push.service.XMPushService"
@@ -11,7 +13,6 @@ object LegacyComponentNames {
     const val RECENT_EVENT_LIST_PAGE = "io.github.magisk317.mipush.feature.main.RecentEventListPage"
     const val REQUEST_PERMISSION_PAGE = "io.github.magisk317.mipush.feature.wizard.RequestPermissionPage"
     const val WELCOME_ACTIVITY = "io.github.magisk317.mipush.feature.wizard.WelcomeActivity"
-    const val DETECTION_SERVICE = "io.github.magisk317.mipush.platform.activity.DetectionService"
 
     val manifestActivities = setOf(
         MAIN_ACTIVITY,
@@ -25,6 +26,6 @@ object LegacyComponentNames {
     val manifestServices = setOf(
         BRIDGE_SERVICE_CLASS,
         LEGACY_MAIN_SERVICE_CLASS,
-        DETECTION_SERVICE,
+        Constants.KEEPALIVE_ACCESSIBILITY_SERVICE_CLASS,
     )
 }
