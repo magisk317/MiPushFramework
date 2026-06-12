@@ -179,7 +179,7 @@ jobs:
             RELEASE_CONTENT="Release notes unavailable. See: https://github.com/${{ github.repository }}/releases/tag/${RELEASE_TAG}"
           fi
 
-          CAPTION=$(printf '📦 MiPushFramework：Release %s\n\n%s' "$RELEASE_TAG" "$RELEASE_CONTENT")
+          CAPTION=$(printf '📦 MiPushFramework：Release %s\n%s\n\n%s' "$RELEASE_TAG" "$PROJECT_TAG" "$RELEASE_CONTENT")
           
           RELEASE_THREAD=""
           if [ -n "${TG_THREAD_ID:-}" ]; then RELEASE_THREAD="$TG_THREAD_ID"; fi
