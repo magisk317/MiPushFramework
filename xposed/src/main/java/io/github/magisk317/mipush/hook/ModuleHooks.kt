@@ -41,19 +41,35 @@ class LibXposedEntry : XposedModule {
     constructor() : super()
 
     private var processName: String = "unknown"
+    private var moduleActive: Boolean = false
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
-        XposedRuntime.install(this)
+        val api = apiVersion
+        if (api < MIN_LIBXPOSED_API_VERSION) {
+            XLog.w(TAG, "skipped: apiVersion=$api < $MIN_LIBXPOSED_API_VERSION")
+            moduleActive = false
+            return
+        }
+        if (api < PREFERRED_LIBXPOSED_API_VERSION) {
+            XLog.w(TAG, "running API 101 fallback: apiVersion=$api")
+        } else {
+            XLog.i(TAG, "running API 102 path: apiVersion=$api")
+        }
+
+        XposedRuntime.install(this, apiVersion = api)
+        moduleActive = true
         processName = if (param.isSystemServer) "android" else param.processName
         XLog.i(TAG, "onModuleLoaded api=$apiVersion process=$processName framework=$frameworkName($frameworkVersionCode)")
         installTaxAttachFallbackHook()
     }
 
     override fun onSystemServerStarting(param: SystemServerStartingParam) {
+        if (!moduleActive) return
         dispatchLoadOnce(LoadParam("android", "android", param.classLoader))
     }
 
     override fun onPackageReady(param: PackageReadyParam) {
+        if (!moduleActive) return
         dispatchLoadOnce(LoadParam(param.packageName, processName, param.classLoader))
     }
 
@@ -308,6 +324,8 @@ class LibXposedEntry : XposedModule {
 
     private companion object {
         private const val TAG = "LibXposedEntry"
+        private const val MIN_LIBXPOSED_API_VERSION = 101
+        private const val PREFERRED_LIBXPOSED_API_VERSION = 102
         private const val TAX_PACKAGE_NAME = "cn.gov.tax.its"
         private const val HYPERISLAND_PACKAGE_NAME = "io.github.hyperisland"
         private const val SECURITY_CORE_PACKAGE_NAME = "com.miui.securitycore"

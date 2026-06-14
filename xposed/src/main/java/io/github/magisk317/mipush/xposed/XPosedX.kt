@@ -21,21 +21,30 @@ object XposedRuntime {
     @Volatile
     private var module: XposedModule? = null
 
-    fun install(module: XposedModule) {
+    @Volatile
+    private var hookApi: LibXposedHookApi? = null
+
+    fun install(module: XposedModule, apiVersion: Int = module.apiVersion) {
         this.module = module
+        hookApi = LibXposedHookApiFactory.create(module, apiVersion)
     }
 
     internal fun hook(executable: Executable, methodHook: MethodHook): HookHandle {
         if (executable is Method && (Modifier.isAbstract(executable.modifiers) || Modifier.isNative(executable.modifiers))) {
             return HookHandle(null)
         }
-        val activeModule = module ?: throw IllegalStateException("libxposed runtime is not installed")
+        val activeHookApi = hookApi ?: throw IllegalStateException("libxposed runtime is not installed")
         executable.isAccessible = true
         val handleRef = AtomicReference<XposedInterface.HookHandle?>()
         val hooker = MethodHookerImpl(methodHook, handleRef)
-        val handle = activeModule.hook(executable).intercept(hooker)
+        val handle = activeHookApi.hookExecutable(executable, methodHook, hooker)
         handleRef.set(handle)
         return HookHandle(handle)
+    }
+
+    internal fun resetForTest() {
+        module = null
+        hookApi = null
     }
 
     internal fun invokeOriginal(member: Member, thisObject: Any?, args: Array<out Any?>): Any? {
@@ -75,6 +84,68 @@ object XposedRuntime {
         override fun intercept(chain: XposedInterface.Chain): Any? {
             return methodHook.intercept(chain, handleRef)
         }
+    }
+}
+
+internal interface LibXposedHookApi {
+    fun hookExecutable(
+        executable: Executable,
+        callback: MethodHook,
+        hooker: XposedInterface.Hooker,
+    ): XposedInterface.HookHandle
+}
+
+internal object LibXposedHookApiFactory {
+    fun create(module: XposedModule, apiVersion: Int): LibXposedHookApi {
+        return if (apiVersion >= LIBXPOSED_API_102) {
+            createApi102(module)
+        } else {
+            LibXposedHookApi101(module)
+        }
+    }
+
+    private fun createApi102(module: XposedModule): LibXposedHookApi {
+        return try {
+            Class.forName("$HOOK_API_PACKAGE.LibXposedHookApi102")
+                .getConstructor(XposedModule::class.java)
+                .newInstance(module) as LibXposedHookApi
+        } catch (_: ReflectiveOperationException) {
+            LibXposedHookApi101(module)
+        } catch (_: LinkageError) {
+            LibXposedHookApi101(module)
+        }
+    }
+
+    private const val LIBXPOSED_API_102 = 102
+    private const val HOOK_API_PACKAGE = "io.github.magisk317.mipush.xposed"
+}
+
+internal open class LibXposedHookApi101(
+    protected val module: XposedModule,
+) : LibXposedHookApi {
+    override fun hookExecutable(
+        executable: Executable,
+        callback: MethodHook,
+        hooker: XposedInterface.Hooker,
+    ): XposedInterface.HookHandle {
+        return module.hook(executable).intercept(hooker)
+    }
+}
+
+internal class LibXposedHookApi102(module: XposedModule) : LibXposedHookApi101(module) {
+    override fun hookExecutable(
+        executable: Executable,
+        callback: MethodHook,
+        hooker: XposedInterface.Hooker,
+    ): XposedInterface.HookHandle {
+        return module.hook(executable)
+            .setId(buildHookId(executable, callback))
+            .intercept(hooker)
+    }
+
+    private fun buildHookId(executable: Executable, callback: MethodHook): String {
+        val params = executable.parameterTypes.joinToString(",") { it.name }
+        return "mipush:${callback.hookIdentity}@${executable.declaringClass.name}#${executable.name}($params)"
     }
 }
 
@@ -124,6 +195,7 @@ typealias ReplaceAction = MethodHookParam.() -> Any?
 typealias HookCallback = HookContext.() -> Unit
 
 class MethodHook(callback: HookCallback) {
+    internal val hookIdentity: String = callback.javaClass.name
     private val context = HookContext(this).apply(callback)
 
     fun intercept(
