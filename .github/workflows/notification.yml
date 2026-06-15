@@ -1,11 +1,9 @@
 name: Telegram Notification
 
 on:
-  release:
-    types: [published]
   workflow_run:
     types: [completed]
-    workflows: [CI]
+    workflows: [CI, Release]
   workflow_dispatch:
 
 jobs:
@@ -21,7 +19,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download artifacts
-        if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'dev'
+        if: github.event_name == 'workflow_run' && github.event.workflow_run.name == 'CI' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'dev'
         uses: actions/download-artifact@v8
         with:
           run-id: ${{ github.event.workflow_run.id }}
@@ -30,8 +28,6 @@ jobs:
 
       - name: Send Notification
         env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-          ASSETS_JSON: ${{ toJson(github.event.release.assets) }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
           TG_THREAD_ID: ${{ secrets.TG_THREAD_ID }}
           TG_CI_THREAD_ID: ${{ secrets.TG_CI_THREAD_ID }}
@@ -42,8 +38,10 @@ jobs:
           WF_RUN_NAME: ${{ github.event.workflow_run.name }}
           WF_RUN_SHA: ${{ github.event.workflow_run.head_sha }}
           WF_RUN_REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
           WF_RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
           CI_COMMIT_TITLE: ${{ github.event.workflow_run.display_title }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
@@ -117,45 +115,59 @@ jobs:
             curl "${curl_args[@]}"
           }
 
-          # CI workflow run notification
           if [ -n "${WF_RUN_ID:-}" ]; then
-            # Only send for dev branch success
-            if [ "${WF_RUN_BRANCH:-}" != "dev" ]; then
-              exit 0
-            fi
             if [ "${WF_RUN_CONCLUSION:-}" != "success" ]; then
               exit 0
             fi
 
-            if [ -n "${WF_RUN_SHA:-}" ] && git tag --points-at "$WF_RUN_SHA" 2>/dev/null | grep -q .; then
-              echo "Commit $WF_RUN_SHA has tags, skipping CI notification (Release will notify)."
+            if [ "${WF_RUN_NAME:-}" = "Release" ]; then
+              if [[ "${WF_RUN_BRANCH:-}" != v* ]]; then
+                exit 0
+              fi
+
+              RELEASE_TAG="${WF_RUN_BRANCH}"
+              if ! ASSETS_JSON="$(gh release view "$RELEASE_TAG" --repo "$WF_RUN_REPO" --json assets --jq '.assets')"; then
+                echo "Release $RELEASE_TAG not found, skip Telegram release notification."
+                exit 0
+              fi
+            elif [ "${WF_RUN_NAME:-}" = "CI" ]; then
+              # Only send for dev branch success
+              if [ "${WF_RUN_BRANCH:-}" != "dev" ]; then
+                exit 0
+              fi
+
+              if [ -n "${WF_RUN_SHA:-}" ] && git tag --points-at "$WF_RUN_SHA" 2>/dev/null | grep -q .; then
+                echo "Commit $WF_RUN_SHA has tags, skipping CI notification (Release will notify)."
+                exit 0
+              fi
+
+              CI_MSG=$(printf '✅ MiPushFramework：%s\n%s\n📋 %s\n🔗 Run: %s' \
+                "${WF_RUN_NAME:-CI}" "$PROJECT_TAG" "${CI_COMMIT_TITLE:-}" "${WF_RUN_URL:-}")
+              
+              CI_THREAD=""
+              if [ -n "${TG_CI_THREAD_ID:-}" ]; then CI_THREAD="$TG_CI_THREAD_ID"; fi
+
+              send_message "$CI_THREAD" "$CI_MSG"
+
+              if [ -d "artifacts" ]; then
+                mapfile -d '' ci_apks < <(
+                  find artifacts -type f -name '*arm64-v8a*.apk' -print0 | sort -z
+                )
+                if [ "${#ci_apks[@]}" -eq 0 ]; then
+                  echo "No arm64-v8a APK artifacts found."
+                else
+                  for apk in "${ci_apks[@]}"; do
+                    apk_caption=$(printf '📦 %s' "$(basename "$apk")")
+                    send_document "$apk" "$CI_THREAD" "$apk_caption"
+                  done
+                fi
+              else
+                echo "No downloaded artifacts directory found."
+              fi
+              exit 0
+            else
               exit 0
             fi
-
-            CI_MSG=$(printf '✅ MiPushFramework：%s\n%s\n📋 %s\n🔗 Run: %s' \
-              "${WF_RUN_NAME:-CI}" "$PROJECT_TAG" "${CI_COMMIT_TITLE:-}" "${WF_RUN_URL:-}")
-            
-            CI_THREAD=""
-            if [ -n "${TG_CI_THREAD_ID:-}" ]; then CI_THREAD="$TG_CI_THREAD_ID"; fi
-
-            send_message "$CI_THREAD" "$CI_MSG"
-
-            if [ -d "artifacts" ]; then
-              mapfile -d '' ci_apks < <(
-                find artifacts -type f -name '*arm64-v8a*.apk' -print0 | sort -z
-              )
-              if [ "${#ci_apks[@]}" -eq 0 ]; then
-                echo "No arm64-v8a APK artifacts found."
-              else
-                for apk in "${ci_apks[@]}"; do
-                  apk_caption=$(printf '📦 %s' "$(basename "$apk")")
-                  send_document "$apk" "$CI_THREAD" "$apk_caption"
-                done
-              fi
-            else
-              echo "No downloaded artifacts directory found."
-            fi
-            exit 0
           fi
 
           if [ -z "${RELEASE_TAG:-}" ]; then

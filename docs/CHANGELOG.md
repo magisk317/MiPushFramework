@@ -4,6 +4,12 @@
 
 ---
 
+## [v0.5.4] - 开发中
+
+- 开发中
+
+---
+
 ## [v0.5.3] - 2026-06-15
 
 - `[feat(island)]` 拆分焦点通知与原通知保留开关：XMSF 主发布链路与 SystemUI 代理链路现在分别遵守 `showNotification` / `showOriginalNotification`，并按来源包名生成稳定代理通知 ID 与原生分组 key，减少岛通知互相覆盖或重复刷新的情况。

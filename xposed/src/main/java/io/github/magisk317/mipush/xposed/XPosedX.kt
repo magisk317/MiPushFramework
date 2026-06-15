@@ -22,11 +22,11 @@ object XposedRuntime {
     private var module: XposedModule? = null
 
     @Volatile
-    private var hookApi: LibXposedHookApi? = null
+    internal var hookApi: LibXposedHookApi? = null
 
     fun install(module: XposedModule, apiVersion: Int = module.apiVersion) {
         this.module = module
-        hookApi = LibXposedHookApiFactory.create(module, apiVersion)
+        hookApi = LibXposedHookApiImpl(module)
     }
 
     internal fun hook(executable: Executable, methodHook: MethodHook): HookHandle {
@@ -93,54 +93,53 @@ internal interface LibXposedHookApi {
         callback: MethodHook,
         hooker: XposedInterface.Hooker,
     ): XposedInterface.HookHandle
+
+    fun beginHotReload(oldHandles: Iterable<XposedInterface.HookHandle>) {}
+    fun finishHotReload(): Int = 0
 }
 
-internal object LibXposedHookApiFactory {
-    fun create(module: XposedModule, apiVersion: Int): LibXposedHookApi {
-        return if (apiVersion >= LIBXPOSED_API_102) {
-            createApi102(module)
-        } else {
-            LibXposedHookApi101(module)
+internal class LibXposedHookApiImpl(private val module: XposedModule) : LibXposedHookApi {
+    private val pendingOldHooksById = linkedMapOf<String, ArrayDeque<XposedInterface.HookHandle>>()
+    private val pendingOldHooksWithoutId = mutableListOf<XposedInterface.HookHandle>()
+    private var replacingOldHooks = false
+
+    override fun beginHotReload(oldHandles: Iterable<XposedInterface.HookHandle>) {
+        replacingOldHooks = true
+        pendingOldHooksById.clear()
+        pendingOldHooksWithoutId.clear()
+        oldHandles.forEach { handle ->
+            val id = handle.id
+            if (id.isNullOrBlank()) {
+                pendingOldHooksWithoutId += handle
+            } else {
+                pendingOldHooksById.getOrPut(id) { ArrayDeque() }.addLast(handle)
+            }
         }
     }
 
-    private fun createApi102(module: XposedModule): LibXposedHookApi {
-        return try {
-            Class.forName("$HOOK_API_PACKAGE.LibXposedHookApi102")
-                .getConstructor(XposedModule::class.java)
-                .newInstance(module) as LibXposedHookApi
-        } catch (_: ReflectiveOperationException) {
-            LibXposedHookApi101(module)
-        } catch (_: LinkageError) {
-            LibXposedHookApi101(module)
+    override fun finishHotReload(): Int {
+        val staleHandles = pendingOldHooksById.values.flatten() + pendingOldHooksWithoutId
+        staleHandles.forEach { handle ->
+            runCatching { handle.unhook() }
+                .onFailure { XposedRuntime.log(Log.WARN, "MiPush", "Failed to unhook stale hot reload handle", it) }
         }
+        val removed = staleHandles.size
+        pendingOldHooksById.clear()
+        pendingOldHooksWithoutId.clear()
+        replacingOldHooks = false
+        return removed
     }
 
-    private const val LIBXPOSED_API_102 = 102
-    private const val HOOK_API_PACKAGE = "io.github.magisk317.mipush.xposed"
-}
-
-internal open class LibXposedHookApi101(
-    protected val module: XposedModule,
-) : LibXposedHookApi {
     override fun hookExecutable(
         executable: Executable,
         callback: MethodHook,
         hooker: XposedInterface.Hooker,
     ): XposedInterface.HookHandle {
-        return module.hook(executable).intercept(hooker)
-    }
-}
-
-internal class LibXposedHookApi102(module: XposedModule) : LibXposedHookApi101(module) {
-    override fun hookExecutable(
-        executable: Executable,
-        callback: MethodHook,
-        hooker: XposedInterface.Hooker,
-    ): XposedInterface.HookHandle {
-        return module.hook(executable)
-            .setId(buildHookId(executable, callback))
-            .intercept(hooker)
+        val hookId = buildHookId(executable, callback)
+        return pendingOldHooksById[hookId]?.removeFirstOrNull()?.takeIf { replacingOldHooks }?.replaceHook(hooker)
+            ?: module.hook(executable)
+                .setId(hookId)
+                .intercept(hooker)
     }
 
     private fun buildHookId(executable: Executable, callback: MethodHook): String {

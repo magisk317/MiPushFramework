@@ -127,31 +127,11 @@ class XposedHelpersCompatTest {
         assertNull(chain.proceededArgs)
     }
 
-    @Test
-    fun `api101 runtime installs hook without hook id`() {
-        val framework = RecordingFramework()
-        XposedRuntime.install(testModule(framework), apiVersion = 101)
-        try {
-            val method = HelperTarget::class.java.getDeclaredMethod(
-                "overloaded",
-                Int::class.javaPrimitiveType,
-            )
-
-            val handle = method.hook { doAfter { result = result } }
-
-            assertNotNull(handle)
-            assertEquals(1, framework.hookCalls)
-            assertEquals(0, framework.builders.single().setIdCalls)
-            assertEquals(1, framework.builders.single().interceptCalls)
-        } finally {
-            XposedRuntime.resetForTest()
-        }
-    }
 
     @Test
-    fun `api102 runtime installs hook with stable hook id`() {
+    fun `runtime installs hook with stable hook id`() {
         val framework = RecordingFramework()
-        XposedRuntime.install(testModule(framework), apiVersion = 102)
+        XposedRuntime.install(testModule(framework))
         try {
             val method = HelperTarget::class.java.getDeclaredMethod(
                 "overloaded",

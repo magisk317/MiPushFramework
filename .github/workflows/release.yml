@@ -134,7 +134,7 @@ jobs:
           path: artifacts/apks
           merge-multiple: true
 
-      - name: Create Draft Release
+      - name: Publish Release
         if: startsWith(github.ref, 'refs/tags/') && env.HAS_RELEASE_KEYSTORE == 'true'
         shell: bash
         run: |
@@ -165,10 +165,12 @@ jobs:
 
           if gh release view "$tag_name" >/dev/null 2>&1; then
             gh release upload "$tag_name" "${release_assets[@]}" --clobber
-            gh release edit "$tag_name" --title "$release_name" --notes "$release_notes"
+            gh release edit "$tag_name" \
+              --title "$release_name" \
+              --draft=false \
+              --notes "$release_notes"
           else
             gh release create "$tag_name" "${release_assets[@]}" \
-              --draft \
               --title "$release_name" \
               --verify-tag \
               --generate-notes \
