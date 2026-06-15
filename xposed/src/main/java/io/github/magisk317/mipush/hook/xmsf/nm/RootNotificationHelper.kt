@@ -70,17 +70,26 @@ object RootNotificationHelper {
 
     internal fun parseChannels(output: String, packageName: String): List<NotificationChannel?> {
         val channels = mutableListOf<NotificationChannel?>()
-        val channelPattern = Regex(
-            """NotificationChannel\{.*?id=([^\s,}]+).*?importance=(\d+).*?name=([^}]*)\}""",
-            RegexOption.DOT_MATCHES_ALL
-        )
         val simplePattern = Regex("""channelId=([^\s,]+).*?importance=(\d+)""")
 
-        channelPattern.findAll(output).forEach { match ->
-            val channelId = match.groupValues[1]
-            val importance = match.groupValues[2].toIntOrNull() ?: NotificationManager.IMPORTANCE_DEFAULT
-            val name = match.groupValues[3].trim()
-            if (isPolicyChannel(match.value, channelId, name)) {
+        notificationBlockPattern("NotificationChannel").findAll(output).forEach { match ->
+            val raw = match.value
+            val channelId = firstFieldValue(
+                raw,
+                Regex("""\bmId='([^']*)'"""),
+                Regex("""\bid=([^\s,}]+)""")
+            ) ?: return@forEach
+            val importance = firstFieldValue(
+                raw,
+                Regex("""\bmImportance=(\d+)"""),
+                Regex("""\bimportance=(\d+)""")
+            )?.toIntOrNull() ?: NotificationManager.IMPORTANCE_DEFAULT
+            val name = firstFieldValue(
+                raw,
+                Regex("""\bmName=([^,}]*)"""),
+                Regex("""\bname=([^,}]*)""")
+            ).orEmpty()
+            if (isPolicyChannel(raw, channelId, name)) {
                 XLog.d(TAG, "skip policy channel while parsing $packageName: $channelId")
                 return@forEach
             }
@@ -116,15 +125,20 @@ object RootNotificationHelper {
 
     internal fun parseGroups(output: String, packageName: String): List<NotificationChannelGroup?> {
         val groups = mutableListOf<NotificationChannelGroup?>()
-        val groupPattern = Regex(
-            """NotificationChannelGroup\{.*?id=([^\s,}]+).*?name=([^}]*)\}""",
-            RegexOption.DOT_MATCHES_ALL
-        )
 
-        groupPattern.findAll(output).forEach { match ->
-            val groupId = match.groupValues[1]
-            val name = match.groupValues[2].trim()
-            if (isPolicyChannel(match.value, groupId, name)) {
+        notificationBlockPattern("NotificationChannelGroup").findAll(output).forEach { match ->
+            val raw = match.value
+            val groupId = firstFieldValue(
+                raw,
+                Regex("""\bmId='([^']*)'"""),
+                Regex("""\bid=([^\s,}]+)""")
+            ) ?: return@forEach
+            val name = firstFieldValue(
+                raw,
+                Regex("""\bmName=([^,}]*)"""),
+                Regex("""\bname=([^,}]*)""")
+            ).orEmpty()
+            if (isPolicyChannel(raw, groupId, name)) {
                 XLog.d(TAG, "skip policy channel group while parsing $packageName: $groupId")
                 return@forEach
             }
@@ -138,6 +152,20 @@ object RootNotificationHelper {
 
         XLog.d(TAG, "parsed ${groups.size} groups for $packageName")
         return groups
+    }
+
+    private fun notificationBlockPattern(type: String): Regex =
+        Regex("""$type\{[^}]*\}""", RegexOption.DOT_MATCHES_ALL)
+
+    private fun firstFieldValue(raw: String, vararg patterns: Regex): String? {
+        for (pattern in patterns) {
+            val value = pattern.find(raw)?.groupValues?.getOrNull(1)
+                ?.trim()
+                ?.trim('\'', '"')
+                ?.takeIf { it.isNotEmpty() }
+            if (value != null) return value
+        }
+        return null
     }
 
     private fun surroundingText(output: String, range: IntRange): String {

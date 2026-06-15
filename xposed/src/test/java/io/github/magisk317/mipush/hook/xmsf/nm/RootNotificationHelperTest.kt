@@ -25,6 +25,22 @@ class RootNotificationHelperTest {
     }
 
     @Test
+    fun `parse channels supports mId dumpsys format without crossing into notification records`() {
+        val output = """
+            NotificationChannel{mId='ch_com.ss.android.lark_group_chat', mName=群聊消息, mDescription=, mImportance=3, mBypassDnd=false, mGroup='gp_com.ss.android.lark'}
+            NotificationRecord(0x123: pkg=com.ss.android.lark user=UserHandle{0} id=11890 tag=mipush_com.ss.android.lark)
+            NotificationChannel{mId='normal_v2', mName=普通消息, mDescription=hasDescription , mImportance=4, mBypassDnd=false, mGroup='null'}
+        """.trimIndent()
+
+        val channels = RootNotificationHelper.parseChannels(output, "com.ss.android.lark")
+            .filterNotNull()
+
+        assertEquals(listOf("ch_com.ss.android.lark_group_chat", "normal_v2"), channels.map { it.id })
+        assertEquals(listOf(3, 4), channels.map { it.importance })
+        assertEquals(listOf("群聊消息", "普通消息"), channels.map { it.name.toString() })
+    }
+
+    @Test
     fun `parse channel groups skips zen mode policy records`() {
         val output = """
             NotificationChannelGroup{id=sleep name=睡眠,conditionId=condition://android/schedule?component=ConditionProvider}
@@ -36,6 +52,20 @@ class RootNotificationHelperTest {
 
         assertEquals(1, groups.size)
         assertEquals("social", groups.single().id)
+    }
+
+    @Test
+    fun `parse channel groups supports mId dumpsys format`() {
+        val output = """
+            NotificationChannelGroup{mId='gp_com.ss.android.lark', mName=飞书, mDescription=, mBlocked=false, mChannels=[], mUserLockedFields=0}
+        """.trimIndent()
+
+        val groups = RootNotificationHelper.parseGroups(output, "com.ss.android.lark")
+            .filterNotNull()
+
+        assertEquals(1, groups.size)
+        assertEquals("gp_com.ss.android.lark", groups.single().id)
+        assertEquals("飞书", groups.single().name.toString())
     }
 
     @Test
