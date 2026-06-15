@@ -102,7 +102,7 @@ jobs:
         run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > .yuuta.jks
 
       - name: Build MiPush release APK
-        run: bash scripts/with_workspace_gradle_lock.sh :mipush:assembleRelease -PbuildSplits=true -Pkotlin.incremental=false
+        run: ./gradlew :mipush:assembleRelease -PbuildSplits=true -Pkotlin.incremental=false
         env:
           KEYSTORE_PASS: ${{ secrets.STORE_PASSWORD }}
           ALIAS_NAME: ${{ secrets.KEY_ALIAS }}

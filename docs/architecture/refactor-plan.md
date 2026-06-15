@@ -39,7 +39,7 @@ The notification side now includes three related tracks:
 - `vendor/` - retained Xiaomi runtime and network stacks that remain load-bearing.
 - `pinned/` - frozen protocol and serialization surface.
 - `mipush/` - client-facing MiPush SDK compatibility code.
-- `uikit/` - reusable Compose UI components.
+- `magisk-ui-kit/` - reusable Compose UI components.
 - `build-logic/` - Gradle convention plugins.
 
 Device dumps and platform jars are reference inputs only. They must not enter the Gradle source

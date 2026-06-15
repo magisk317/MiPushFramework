@@ -3,4 +3,6 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-bash "${ROOT_DIR}/scripts/with_workspace_gradle_lock.sh" :app:assembleRelease -PbuildSplits=true "$@"
+cd "${ROOT_DIR}"
+
+./gradlew :app:assembleRelease -PbuildSplits=true "$@"

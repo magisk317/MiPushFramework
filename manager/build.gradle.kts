@@ -20,7 +20,7 @@ android {
 dependencies {
     implementation(project(":common"))
     implementation(project(":settings"))
-    implementation(project(":uikit"))
+    implementation(project(":magisk-ui-kit"))
     implementation(project(":core"))
     implementation(project(":vendor"))
 

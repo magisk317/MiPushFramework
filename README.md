@@ -135,15 +135,15 @@ Xposed 模块不再固定三方应用作用域。需要伪装增强的主应用�
 - [重构与通知集成计划](docs/architecture/refactor-plan.md)
 - [旧 push 拆分与 Kotlin 迁移记录](docs/architecture/push-module-split.md)
 
-常用验证命令建议通过工作区 Gradle 锁脚本运行，避免并发构建踩坏生成目录：
+常用验证命令直接通过 Gradle wrapper 运行：
 
 ```bash
-scripts/with_workspace_gradle_lock.sh :core:testDebugUnitTest
-scripts/with_workspace_gradle_lock.sh :xmsf:testNormalDebugUnitTest
-scripts/with_workspace_gradle_lock.sh :xposed:compileDebugKotlin
-scripts/with_workspace_gradle_lock.sh :xmsf:assembleNormalDebug
-scripts/with_workspace_gradle_lock.sh :mipush:assembleDebug
-scripts/with_workspace_gradle_lock.sh verifyModuleBoundaries
+./gradlew :core:testDebugUnitTest
+./gradlew :xmsf:testNormalDebugUnitTest
+./gradlew :xposed:compileDebugKotlin
+./gradlew :xmsf:assembleNormalDebug
+./gradlew :mipush:assembleDebug
+./gradlew verifyModuleBoundaries
 ```
 
 打正式包时优先使用：

@@ -33,7 +33,7 @@ if git diff --quiet -- build.gradle.kts; then
 fi
 
 echo "Force entries changed. Running build/test validation before opening PR..."
-bash scripts/with_workspace_gradle_lock.sh --no-daemon \
+./gradlew --no-daemon \
   --warning-mode all \
   :xmsf:assembleDebug \
   :xmsf:testDebugUnitTest \

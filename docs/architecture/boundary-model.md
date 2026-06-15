@@ -41,11 +41,11 @@ MiPushFramework is a system-package-compatible app split into explicit Gradle mo
      `com.xiaomi.xmpush.thrift.*`, `com.xiaomi.push.protobuf.*`, and
      `com.xiaomi.push.thrift.*`.
 
-5. **common / mipush / xposed / uikit**
+5. **common / mipush / xposed / magisk-ui-kit**
    - `common` holds shared app/runtime utilities and persistence models.
    - `mipush` holds client-facing SDK compatibility code.
    - `xposed` holds hook-side integration and must avoid depending on app-process-only state.
-   - `uikit` holds reusable Compose UI building blocks.
+   - `magisk-ui-kit` holds reusable Compose UI building blocks.
 
 Device dumps and platform jars are reference inputs only. They must not enter the Gradle source
 graph.
@@ -117,18 +117,18 @@ graph.
 - The previously parallel `protocol` module (a compile-only superset that duplicated `pinned`'s
   thrift/protobuf types and `vendor`'s `com.xiaomi.channel.commonutils.*`) was removed. Runtime
   modules now compile against `pinned` for wire types and `vendor` for retained runtime utilities.
-- `uikit` remains source-owned outside this repository. When embedded in a parent build, the desired
+- `magisk-ui-kit` remains source-owned outside this repository. When embedded in a parent build, the desired
   next step is parent-version-catalog first with standalone fallback, but this repo does not change
-  the `uikit` source checkout as part of the architecture boundary work.
+  the `magisk-ui-kit` source checkout as part of the architecture boundary work.
 
 ## Build And Verification
 
 ```bash
-scripts/with_workspace_gradle_lock.sh verifyModuleBoundaries   # Check import boundaries
-scripts/with_workspace_gradle_lock.sh check --warning-mode=all
-scripts/with_workspace_gradle_lock.sh :xposed:detekt --console=plain
-scripts/with_workspace_gradle_lock.sh assembleDebug -PbuildSplits=true -PbuildTs=$(date +%Y%m%d%H%M%S)
-scripts/with_workspace_gradle_lock.sh qualityGateKoverVerify   # Explicit coverage gate
+./gradlew verifyModuleBoundaries   # Check import boundaries
+./gradlew check --warning-mode=all
+./gradlew :xposed:detekt --console=plain
+./gradlew assembleDebug -PbuildSplits=true -PbuildTs=$(date +%Y%m%d%H%M%S)
+./gradlew qualityGateKoverVerify   # Explicit coverage gate
 ```
 
 Boundary baseline is maintained at `scripts/module_boundary_baseline.txt` and validated by

@@ -128,19 +128,6 @@ jobs:
             --alerts-json /tmp/dependabot-alerts.json \
             --natural-json /tmp/security-natural.json
 
-      - name: Check whether dependency inputs changed
-        id: changes
-        run: |
-          if git diff --quiet -- build.gradle.kts gradle/libs.versions.toml; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Refresh Gradle lockfiles
-        if: steps.changes.outputs.changed == 'true'
-        run: bash scripts/refresh_gradle_lockfiles.sh
-
       - name: Create PR with dependency force updates
         id: cpr
         uses: peter-evans/create-pull-request@v8
@@ -158,7 +145,6 @@ jobs:
             Automated dependency force maintenance:
             - Removed force rules when natural resolution already matches forced versions.
             - Added or updated force rules for dependencies with open security alerts (Dependabot).
-            - Refreshed committed Gradle dependency lockfiles after dependency graph changes.
 
       - name: Write remediation summary
         if: always()

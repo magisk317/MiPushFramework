@@ -18,17 +18,43 @@ extract_toml_value() {
 }
 
 run_pre_push_checks() {
+  local gradle_args=(
+    --warning-mode all
+    :common:check
+    :xmsf:assembleDebug
+    :xmsf:testDebugUnitTest
+    -PbuildSplits
+    -Pkotlin.incremental=false
+  )
+
+  if release_skip_detekt; then
+    echo "WARN: RELEASE_TAG_SKIP_DETEKT is enabled; detekt tasks will be skipped."
+    gradle_args+=(-x detekt -x qualityGateDetekt)
+  else
+    echo "Detekt checks are blocking. Set RELEASE_TAG_SKIP_DETEKT=1 to bypass them."
+  fi
+
   echo "Running pre-push CI command..."
   (
     cd "$ROOT_DIR"
-    bash scripts/with_workspace_gradle_lock.sh --warning-mode all \
-      :common:check \
-      :xmsf:assembleDebug \
-      :xmsf:testDebugUnitTest \
-      -PbuildSplits \
-      -Pkotlin.incremental=false
+    ./gradlew "${gradle_args[@]}"
   )
   echo "Pre-push checks passed."
+}
+
+release_skip_detekt() {
+  case "${RELEASE_TAG_SKIP_DETEKT:-}" in
+    1|true|TRUE|yes|YES|on|ON)
+      return 0
+      ;;
+    ""|0|false|FALSE|no|NO|off|OFF)
+      return 1
+      ;;
+    *)
+      echo "ERROR: RELEASE_TAG_SKIP_DETEKT must be 1/true/yes/on or 0/false/no/off." >&2
+      exit 2
+      ;;
+  esac
 }
 
 VERSION_NAME="$(extract_toml_value "versionName" "$VERSION_FILE")"
