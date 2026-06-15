@@ -33,6 +33,9 @@ import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
+import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
+import io.github.libxposed.api.XposedModuleInterface.HotReloadedParam
+import java.util.concurrent.ConcurrentHashMap
 
 class LibXposedEntry : XposedModule {
     @Suppress("unused", "UnusedParameter")
@@ -42,6 +45,7 @@ class LibXposedEntry : XposedModule {
 
     private var processName: String = "unknown"
     private var moduleActive: Boolean = false
+    private val loadedPackages = ConcurrentHashMap<String, ClassLoader>()
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
         val api = apiVersion
@@ -65,11 +69,13 @@ class LibXposedEntry : XposedModule {
 
     override fun onSystemServerStarting(param: SystemServerStartingParam) {
         if (!moduleActive) return
+        loadedPackages["android"] = param.classLoader
         dispatchLoadOnce(LoadParam("android", "android", param.classLoader))
     }
 
     override fun onPackageReady(param: PackageReadyParam) {
         if (!moduleActive) return
+        loadedPackages[param.packageName] = param.classLoader
         dispatchLoadOnce(LoadParam(param.packageName, processName, param.classLoader))
     }
 
@@ -322,9 +328,33 @@ class LibXposedEntry : XposedModule {
         }
     }
 
+    override fun onHotReloading(param: HotReloadingParam): Boolean {
+        param.setSavedInstanceState(Pair(processName, HashMap(loadedPackages)))
+        return true
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    override fun onHotReloaded(param: HotReloadedParam) {
+        val api = apiVersion
+        XposedRuntime.install(this, apiVersion = api)
+        val hookApi = XposedRuntime.hookApi ?: return
+        hookApi.beginHotReload(param.oldHookHandles)
+
+        val state = param.savedInstanceState as? Pair<String, Map<String, ClassLoader>>
+        if (state != null) {
+            processName = state.first
+            state.second.forEach { (pkg, cl) ->
+                dispatchLoadOnce(LoadParam(pkg, processName, cl))
+            }
+        }
+
+        val removed = hookApi.finishHotReload()
+        XLog.i(TAG, "onHotReloaded: replaced hooks, removed $removed stale hooks")
+    }
+
     private companion object {
         private const val TAG = "LibXposedEntry"
-        private const val MIN_LIBXPOSED_API_VERSION = 101
+        private const val MIN_LIBXPOSED_API_VERSION = 102
         private const val PREFERRED_LIBXPOSED_API_VERSION = 102
         private const val TAX_PACKAGE_NAME = "cn.gov.tax.its"
         private const val HYPERISLAND_PACKAGE_NAME = "io.github.hyperisland"
