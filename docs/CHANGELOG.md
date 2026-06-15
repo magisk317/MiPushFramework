@@ -4,9 +4,21 @@
 
 ---
 
-## [v0.5.3] - Unreleased
+## [v0.5.3] - 2026-06-15
 
-> Full Changelog: https://github.com/magisk317/MiPushFramework/compare/v0.5.2...HEAD
+- `[feat(island)]` 拆分焦点通知与原通知保留开关：XMSF 主发布链路与 SystemUI 代理链路现在分别遵守 `showNotification` / `showOriginalNotification`，并按来源包名生成稳定代理通知 ID 与原生分组 key，减少岛通知互相覆盖或重复刷新的情况。
+- `[feat(xspace)]` 新增实验性 999 用户 / XSpace 支持：支持 DocumentsUI、SecurityCore、XMSF 安装态修复与 PackageInfo 信号补全，并为 XSpace 通知注入目标应用图标信息，让双开应用的通知头图标和 MiPush 包识别更接近系统行为。
+- `[feat(keepalive)]` 合并保活无障碍服务，新增 root 保活开关，并对齐 legacy manifest service contract，减少旧接收器与服务声明漂移。
+- `[feat(ui/config)]` 管理端配置页增强本地路径配置与远端图标配置同步；关于弹窗显示已安装版本；导航增加预测返回手势过渡；设置页移除过时的注册通知控制项。
+- `[feat(diagnostics)]` 运行日志改为直接分享与清空流程，统一日志等级为单字母格式，并降低 regSec 候选和通知链路噪声；移除已经孤立的运行日志删除接口。
+- `[fix(notification)]` 修复 group summary 携带 payload 的问题；MessagingStyle 头像缺失时回退到应用图标；移除 SDK intent 冷启动重试循环以避免白屏；并补充相关 Robolectric 覆盖。
+- `[fix(xposed/systemui)]` 升级 libxposed API 102 hook id 接入；支持 cloned XMSF 通知身份；增强 MIUI 通知 channel dumpsys 解析；限制 SecurityCore PackageInfo hook 到 XSpace 用户，避免影响主用户包信息。
+- `[fix(xmsf)]` 修复 XSpace 系统包安装态、强制注册记录去重、缺失 receiver import 与旧文件残留；补齐 XMSF 安装态守护、注册去重和配置路径测试。
+- `[build&ci]` 发版 tag 改为签名 tag 并在 release 标签中包含项目名；移除遗留 workspace Gradle lock wrapper 与 lockfile 刷新自动化，CI/release 脚本直接使用 `./gradlew`；Kover 仅在覆盖率任务加载；Renovate 自动合并更好地容忍陈旧 PR。
+- `[deps]` 更新共享 build-logic、magisk-ui-kit、Gradle/AGP、Haze、libxposed API 102、Detekt ktlint wrapper 以及多组非大版本依赖。
+- `[docs/test]` 新增 999 用户实验支持说明，更新模块边界验证文档和 README badge 同步流程，并为 XSpace、SystemUI island proxy、通知样式、manifest contract、RootNotificationHelper 等路径补充回归测试。
+
+> Full Changelog: https://github.com/magisk317/MiPushFramework/compare/v0.5.2...v0.5.3
 
 ---
 
