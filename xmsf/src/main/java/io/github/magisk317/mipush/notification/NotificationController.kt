@@ -88,7 +88,8 @@ object NotificationController {
             groupId.hashCode(),
             packageName,
             builder,
-            metaInfo
+            metaInfo,
+            applyPayloadDecorations = false,
         )
     }
 
@@ -171,6 +172,7 @@ object NotificationController {
         packageName: String,
         notificationBuilder: NotificationCompat.Builder,
         metaInfo: PushMetaInfo,
+        applyPayloadDecorations: Boolean = true,
     ): Notification? {
         val extras = Bundle()
         extras.putString("target_package", packageName)
@@ -179,14 +181,20 @@ object NotificationController {
         val color = processIcon(context, packageName, notificationBuilder)
 
         val configuration = XMPushUtils.getConfiguration(metaInfo)
-        val iconUri = configuration.notificationLargeIconUri(null)
-        val largeIcon = getLargeIcon(context, metaInfo, iconUri)
-        if (largeIcon != null) {
-            notificationBuilder.setLargeIcon(largeIcon)
+        val largeIcon = if (applyPayloadDecorations) {
+            val iconUri = configuration.notificationLargeIconUri(null)
+            getLargeIcon(context, metaInfo, iconUri)
+        } else {
+            null
         }
+        if (applyPayloadDecorations) {
+            if (largeIcon != null) {
+                notificationBuilder.setLargeIcon(largeIcon)
+            }
 
-        val subText = configuration.subText(null)
-        buildExtraSubText(context, packageName, notificationBuilder, subText, color)
+            val subText = configuration.subText(null)
+            buildExtraSubText(context, packageName, notificationBuilder, subText, color)
+        }
 
         val previewNotification = ProgressStyleBuilder.buildNotification(context, notificationBuilder)
         val islandOptions = MiPushIslandPreferences.read(context, packageName)

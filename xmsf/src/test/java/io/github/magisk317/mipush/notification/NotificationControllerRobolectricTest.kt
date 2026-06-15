@@ -40,6 +40,7 @@ class NotificationControllerRobolectricTest {
         /** Mirrors MainActivity.EXTRA_START_ROUTE */
         private const val EXTRA_START_ROUTE = "extra_start_route"
         private const val ACTION_SHOW_ISLAND = "io.github.magisk317.mipush.action.SHOW_ISLAND"
+        private const val EXTRA_LARGE_ICON = "android.largeIcon"
     }
 
     @AfterEach
@@ -545,6 +546,7 @@ class NotificationControllerRobolectricTest {
         val context = RuntimeEnvironment.getApplication()
         val packageName = context.packageName
         val groupId = "focus-group"
+        val largeIconUri = writeLargeIconForTest(context)
 
         NotificationManagerEx.init(context)
 
@@ -552,6 +554,10 @@ class NotificationControllerRobolectricTest {
             val metaInfo = PushMetaInfo().apply {
                 title = "Grouped $index"
                 description = "Grouped body $index"
+                extra = mutableMapOf(
+                    "notification_large_icon_uri" to largeIconUri,
+                    "__mi_push_sub_text" to "通知汇总",
+                )
             }
             val builder = NotificationCompat.Builder(context, "placeholder")
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
@@ -567,9 +573,15 @@ class NotificationControllerRobolectricTest {
         val summary = active.getValue(groupId.hashCode()).notification
 
         assertTrue(summary.extras.getCharSequence(Notification.EXTRA_TITLE).toString().isNotBlank())
+        assertNull(summary.extras.getCharSequence(Notification.EXTRA_SUB_TEXT))
+        assertNull(summary.extras.parcelable<Icon>(EXTRA_LARGE_ICON))
         assertNull(summary.extras.getString("miui.focus.param"))
         assertNull(summary.extras.getBundle("miui.focus.pics"))
         assertFalse(summary.extras.getBoolean("mipush_island_allow_proxy", false))
+        assertEquals("通知汇总", active.getValue(33000).notification.extras.getCharSequence(Notification.EXTRA_SUB_TEXT).toString())
+        assertEquals("通知汇总", active.getValue(33001).notification.extras.getCharSequence(Notification.EXTRA_SUB_TEXT).toString())
+        assertNotNull(active.getValue(33000).notification.extras.parcelable<Icon>(EXTRA_LARGE_ICON))
+        assertNotNull(active.getValue(33001).notification.extras.parcelable<Icon>(EXTRA_LARGE_ICON))
         assertNull(active.getValue(33000).notification.extras.getString("miui.focus.param"))
         assertNull(active.getValue(33001).notification.extras.getString("miui.focus.param"))
         assertFalse(active.getValue(33000).notification.extras.getBoolean("mipush_island_allow_proxy", false))
@@ -645,6 +657,15 @@ class NotificationControllerRobolectricTest {
                 .broadcastIntents
                 .none { it.action == ACTION_SHOW_ISLAND },
         )
+    }
+
+    private fun writeLargeIconForTest(context: Context): String {
+        val icon = Bitmap.createBitmap(48, 48, Bitmap.Config.ARGB_8888)
+        val iconFile = context.cacheDir.resolve("notification-large-icon.png")
+        iconFile.outputStream().use { output ->
+            icon.compress(Bitmap.CompressFormat.PNG, 100, output)
+        }
+        return iconFile.toURI().toString()
     }
 
     private fun findMockNotification(

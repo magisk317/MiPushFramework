@@ -8,7 +8,6 @@ import io.github.magisk317.mipush.common.utils.logW
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.Color
 import android.os.Build
 import android.os.SystemClock
 import androidx.core.app.NotificationCompat
@@ -16,7 +15,6 @@ import androidx.core.app.Person
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
-import com.xiaomi.push.service.ImageUtils
 import com.xiaomi.push.service.MIPushNotificationViewSupport
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.notification.SweetTagHandler
@@ -51,6 +49,11 @@ internal object MyMIPushNotificationStyleSupport {
     private data class ConversationHistory(
         val messages: MutableList<CachedMessage>,
         var updatedElapsedMs: Long
+    )
+
+    private data class PersonWithAvatar(
+        val person: Person,
+        val avatar: Bitmap?
     )
 
     private val conversationHistories =
@@ -103,7 +106,8 @@ internal object MyMIPushNotificationStyleSupport {
     ): NotificationCompat.Builder {
         val packageName = container.packageName
         val metaInfo = container.metaInfo
-        val group = getGroupFor(context, metaInfo).build()
+        val conversation = getConversationFor(context, metaInfo, packageName)
+        val groupConversation = isGroupConversation(metaInfo)
         val messages = collectConversationMessages(packageName, notificationId, metaInfo, message)
         return createMessageStyleNotificationBuilder(
             context,
@@ -111,7 +115,9 @@ internal object MyMIPushNotificationStyleSupport {
             messages,
             pkgCtx,
             packageName,
-            group
+            conversation,
+            getMessagingUser(pkgCtx, packageName),
+            groupConversation
         )
     }
 
@@ -123,7 +129,7 @@ internal object MyMIPushNotificationStyleSupport {
         val metaInfo = container.metaInfo
         val custom = XMPushUtils.getConfiguration(metaInfo)
         val senderMessage = custom.conversationMessage(null) ?: return null
-        return createMessage(context, pkgCtx, metaInfo, senderMessage)
+        return createMessage(context, pkgCtx, container.packageName, metaInfo, senderMessage)
     }
 
     fun getSdkIntentForMessagingStyle(
@@ -263,24 +269,29 @@ internal object MyMIPushNotificationStyleSupport {
         messages: List<NotificationCompat.MessagingStyle.Message>,
         pkgCtx: Context,
         packageName: String,
-        group: Person
+        conversation: PersonWithAvatar,
+        messagingUser: Person,
+        groupConversation: Boolean
     ): NotificationCompat.Builder {
-        val metaInfo = container.metaInfo
         return NotificationCompat.Builder(context, "xmsf.default").apply {
-            attachMessagingStyle(messages, group, metaInfo, this)
-            addShortcutToEnableMessagingStyle(context, container, pkgCtx, packageName, group, this)
+            attachMessagingStyle(messages, conversation.person, messagingUser, groupConversation, this)
+            conversation.avatar?.let { setLargeIcon(it) }
+            addShortcutToEnableMessagingStyle(context, container, pkgCtx, packageName, conversation.person, this)
         }
     }
 
     private fun attachMessagingStyle(
         messages: List<NotificationCompat.MessagingStyle.Message>,
-        group: Person,
-        metaInfo: PushMetaInfo,
+        conversation: Person,
+        messagingUser: Person,
+        groupConversation: Boolean,
         notificationBuilder: NotificationCompat.Builder
     ) {
-        val style = NotificationCompat.MessagingStyle(group)
-        style.setConversationTitle(group.name)
-        style.setGroupConversation(isGroupConversation(metaInfo))
+        val style = NotificationCompat.MessagingStyle(messagingUser)
+        if (groupConversation) {
+            style.setConversationTitle(conversation.name)
+        }
+        style.setGroupConversation(groupConversation)
         messages.forEach { style.addMessage(it) }
         notificationBuilder.setStyle(style)
     }
@@ -311,12 +322,13 @@ internal object MyMIPushNotificationStyleSupport {
     private fun createMessage(
         context: Context,
         pkgCtx: Context,
+        packageName: String,
         metaInfo: PushMetaInfo,
         senderMessage: String
     ): NotificationCompat.MessagingStyle.Message {
         val atLeastP = pkgCtx.applicationInfo.targetSdkVersion >= Build.VERSION_CODES.P
         val person = if (isGroupConversation(metaInfo) || atLeastP) {
-            getPerson(context, metaInfo).build()
+            getPerson(context, metaInfo, packageName).person
         } else {
             null
         }
@@ -327,13 +339,22 @@ internal object MyMIPushNotificationStyleSupport {
         return XMPushUtils.getConfiguration(metaInfo).conversationTitle(null) != null
     }
 
-    private fun getGroupFor(context: Context, metaInfo: PushMetaInfo): Person.Builder {
+    private fun getConversationFor(
+        context: Context,
+        metaInfo: PushMetaInfo,
+        packageName: String
+    ): PersonWithAvatar {
         val custom = XMPushUtils.getConfiguration(metaInfo)
         val conversation = custom.conversationTitle(null)
         val conversationId = custom.conversationId(null)
         val conversationIcon = custom.conversationIcon(null)
+        val groupConversation = isGroupConversation(metaInfo)
 
-        val personBuilder = if (isGroupConversation(metaInfo)) Person.Builder() else getPerson(context, metaInfo)
+        if (!groupConversation) {
+            return getPerson(context, metaInfo, packageName)
+        }
+
+        val personBuilder = Person.Builder()
         if (conversation != null) {
             personBuilder.setName(conversation)
         } else if (personBuilder.build().name == null) {
@@ -343,18 +364,22 @@ internal object MyMIPushNotificationStyleSupport {
             personBuilder.setKey(conversationId)
         }
         val largeIcon = getLargeIcon(context, metaInfo, conversationIcon)
+            ?: getAppLogo(context, metaInfo, packageName)
         if (largeIcon != null) {
             personBuilder.setIcon(IconCompat.createWithBitmap(largeIcon))
         }
-        return personBuilder
+        return PersonWithAvatar(personBuilder.build(), largeIcon)
     }
 
-    private fun getPerson(context: Context, metaInfo: PushMetaInfo): Person.Builder {
+    private fun getPerson(
+        context: Context,
+        metaInfo: PushMetaInfo,
+        packageName: String
+    ): PersonWithAvatar {
         val custom = XMPushUtils.getConfiguration(metaInfo)
         val sender = custom.conversationSender(null)
         val senderId = custom.conversationSenderId(null)
         val senderIcon = custom.conversationSenderIcon(null)
-        val textIcon = custom.textIcon(null)
 
         val personBuilder = Person.Builder().setName(sender)
         personBuilder.setImportant(custom.conversationImportant(false))
@@ -362,19 +387,23 @@ internal object MyMIPushNotificationStyleSupport {
             personBuilder.setKey(senderId)
         }
         val largeIcon = getLargeIcon(context, metaInfo, senderIcon)
+            ?: getAppLogo(context, metaInfo, packageName)
         if (largeIcon != null) {
             personBuilder.setIcon(IconCompat.createWithBitmap(largeIcon))
-        } else if (textIcon != null) {
-            personBuilder.setIcon(
-                IconCompat.createWithBitmap(
-                    roundLargeIconIfConfigured(
-                        metaInfo,
-                        ImageUtils.textToBitmap(textIcon, 72f, 0xFF003E6F.toInt(), Color.WHITE)
-                    )
-                )
-            )
         }
-        return personBuilder
+        return PersonWithAvatar(personBuilder.build(), largeIcon)
+    }
+
+    private fun getAppLogo(context: Context, metaInfo: PushMetaInfo, packageName: String): Bitmap? {
+        val logo = Global.iconCache().getRawIconBitmap(context, packageName) ?: return null
+        return roundLargeIconIfConfigured(metaInfo, logo)
+    }
+
+    private fun getMessagingUser(pkgCtx: Context, packageName: String): Person {
+        val label = runCatching {
+            pkgCtx.packageManager.getApplicationLabel(pkgCtx.applicationInfo).toString()
+        }.getOrNull()?.takeIf { it.isNotBlank() } ?: packageName
+        return Person.Builder().setName(label).build()
     }
 
     private fun determineTitleAndDespByDIP(
