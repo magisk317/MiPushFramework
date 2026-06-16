@@ -203,7 +203,7 @@ jobs:
             mkdir -p downloads
             echo "$ASSETS_JSON" | jq -c '.[]' | while read -r asset; do
               name=$(echo "$asset" | jq -r '.name')
-              url=$(echo "$asset" | jq -r '.browser_download_url')
+              url=$(echo "$asset" | jq -r '.browser_download_url // .url')
               if [[ "$name" == *arm64-v8a*.apk ]]; then
                 echo "Downloading $name..."
                 curl --fail-with-body -L -sS -o "downloads/$name" "$url"
