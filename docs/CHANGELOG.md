@@ -4,11 +4,18 @@
 
 ---
 
+## [v0.6.1] - 开发中
+- 开发中
+
+---
+
 ## [v0.6.0] - 2026-06-16
 - ⚠️ **重要提示**：本版本仅支持 LibXposed API 102，低于此版本的用户请务必升级框架（[点击下载最新框架](https://lsposed.zip)）。
 
 - `[build]` 移植 LibXposed API 102 热重载 (Hot Reload) 能力，并修复 Detekt 在 CI 中的构建问题。
 - `[deps]` 升级非大版本依赖库。
+
+> Full Changelog: https://github.com/magisk317/MiPushFramework/compare/v0.5.3...v0.6.0
 
 ---
 
