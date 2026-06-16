@@ -178,10 +178,10 @@ jobs:
           if [ -f "$WHATSNEW_FILE" ]; then
             RELEASE_CONTENT="$(cat "$WHATSNEW_FILE")"
           elif [ -f "docs/CHANGELOG.md" ]; then
-            RELEASE_CONTENT="$(awk -v tag="$RELEASE_TAG" '
-              index($0, "## [" tag "]") == 1 {capture=1; next}
-              capture && /^## \[/ {exit}
-              capture {print}
+            RELEASE_CONTENT="$(awk -v version="$RELEASE_TAG" '
+              $0 == "---" && found { exit }
+              found { print; next }
+              index($0, "## [" version "]") == 1 { found = 1; next }
             ' docs/CHANGELOG.md)"
           else
             RELEASE_CONTENT=""

@@ -144,10 +144,10 @@ jobs:
           release_name="$tag_name"
           release_notes="MiPushFramework Release ${tag_name}"
           if [[ -f "docs/CHANGELOG.md" ]]; then
-            extracted_notes="$(awk -v tag="$tag_name" '
-              $0 == "## [" tag "]" {capture=1; next}
-              capture && /^## \[/ {exit}
-              capture {print}
+            extracted_notes="$(awk -v version="$tag_name" '
+              $0 == "---" && found { exit }
+              found { print; next }
+              index($0, "## [" version "]") == 1 { found = 1; next }
             ' docs/CHANGELOG.md)"
             if [[ -n "$extracted_notes" ]]; then
               release_notes="$extracted_notes"
