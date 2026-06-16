@@ -7,6 +7,8 @@
 ## [v0.6.1] - 开发中
 - 开发中
 
+> Full Changelog: https://github.com/magisk317/MiPushFramework/compare/v0.6.0...HEAD
+
 ---
 
 ## [v0.6.0] - 2026-06-16
