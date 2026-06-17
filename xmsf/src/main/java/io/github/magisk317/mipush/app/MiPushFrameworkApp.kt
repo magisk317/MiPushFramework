@@ -87,6 +87,8 @@ class MiPushFrameworkApp : Application() {
         awakePushActivateServiceOnMainProc(PushControllerUtils.wrapContext(this))
         StockSurfaceBootstrap.bootstrap(this)
         requestDozeWhiteList()
+        // Android 17: Check for memory limit warnings
+        checkMemoryLimit()
         PushHealthSnapshotLogger.log(this, "MiPushFrameworkApp.onCreate")
     }
 
@@ -97,6 +99,30 @@ class MiPushFrameworkApp : Application() {
             }
         } catch (e: RuntimeException) {
             logE(e.message ?: "error", e)
+        }
+    }
+
+    /**
+     * Android 17 (API 37) memory limit check.
+     * Detect if the app is affected by the new memory limit feature.
+     */
+    private fun checkMemoryLimit() {
+        if (Build.VERSION.SDK_INT < 35) return // Android 15+
+        try {
+            val runtime = Runtime.getRuntime()
+            val maxMemory = runtime.maxMemory()
+            val totalMemory = runtime.totalMemory()
+            val freeMemory = runtime.freeMemory()
+            val usedMemory = totalMemory - freeMemory
+
+            logI("Memory usage: ${usedMemory / 1024 / 1024}MB / ${maxMemory / 1024 / 1024}MB")
+
+            // Warn if using more than 80% of available memory
+            if (usedMemory > maxMemory * 0.8) {
+                logW("High memory usage detected: ${usedMemory * 100 / maxMemory}%")
+            }
+        } catch (e: Exception) {
+            logD("Memory check failed: ${e.message}")
         }
     }
 

@@ -482,6 +482,8 @@ object XposedHelpers {
 
     fun setStaticBooleanField(clazz: Class<*>?, fieldName: String, value: Boolean) {
         val target = clazz ?: throw NullPointerException("setStaticBooleanField class is null for $fieldName")
+        // Android 17+ restricts static final field modification
+        // This will throw IllegalAccessException for static final fields
         findField(target, fieldName).setBoolean(null, value)
     }
 

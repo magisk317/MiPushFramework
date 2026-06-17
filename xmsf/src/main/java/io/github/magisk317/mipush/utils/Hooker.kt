@@ -119,7 +119,11 @@ object Hooker {
         try {
             val target = klass.getDeclaredField(field)
             target.isAccessible = true
+            // Android 17+ restricts static final field modification
+            // This will throw IllegalAccessException for static final fields
             target.set(null, value)
+        } catch (e: IllegalAccessException) {
+            logE("Android 17+ restriction: Cannot modify static final field $field in ${klass.name}", e)
         } catch (e: Throwable) {
             logE(e.message ?: "error", e)
         }

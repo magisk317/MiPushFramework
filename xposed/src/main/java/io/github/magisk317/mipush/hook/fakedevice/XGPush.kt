@@ -307,7 +307,15 @@ open class XGPush : IFakeDevice {
 
     private fun fakeXGPushConfig(classXGPushConfig: Class<*>) {
         XLog.d(TAG, "fakeXGPushConfig() called")
-        setHookStaticBooleanField(classXGPushConfig, "isForcedIsMiui", true)
+        // Android 17+ restricts static final field modification via reflection
+        // Try reflection first, fallback to method hooking if it fails
+        try {
+            setHookStaticBooleanField(classXGPushConfig, "isForcedIsMiui", true)
+        } catch (e: Exception) {
+            XLog.w(TAG, "Failed to set isForcedIsMiui via reflection, trying method hook: ${e.message}")
+            // Fallback: hook the getter method to return true
+            classXGPushConfig.hookMethod("isForcedIsMiui") { replace { true } }
+        }
         // Some versions might have these methods
         classXGPushConfig.hookMethod("isSamsungDevice") { replace { false } }
         classXGPushConfig.hookMethod("isOppoDevice") { replace { false } }
