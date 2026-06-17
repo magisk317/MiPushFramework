@@ -8,7 +8,7 @@ import org.gradle.api.tasks.TaskAction
 import org.gradle.kotlin.dsl.configure
 
 plugins {
-    id("mipush.android.library")
+    id("magisk.android.library")
     alias(libs.plugins.kotlin.serialization)
 }
 

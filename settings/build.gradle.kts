@@ -1,5 +1,5 @@
 plugins {
-    id("mipush.android.library")
+    id("magisk.android.library")
 }
 
 android {

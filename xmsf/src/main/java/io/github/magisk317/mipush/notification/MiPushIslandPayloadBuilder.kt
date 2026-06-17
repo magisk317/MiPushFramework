@@ -22,6 +22,7 @@ import com.xiaomi.xmsf.R
 import org.json.JSONObject
 
 internal object MiPushIslandPayloadBuilder {
+    private const val TAG = "MiPushIslandPayloadBuilder"
     private const val FOCUS_PARAM = "miui.focus.param"
     private const val FOCUS_PICS = "miui.focus.pics"
     private const val FOCUS_ACTIONS = "miui.focus.actions"
@@ -180,6 +181,10 @@ internal object MiPushIslandPayloadBuilder {
                 actionIntentType = 1,
             )
         }
+        io.github.aakira.napier.Napier.i(
+            "createBuilder options: showNotification=${options.showNotification} enableFloat=${options.enableFloat} enabled=${options.enabled} focusNotification=${options.focusNotification} style=$style title=$title",
+            tag = TAG
+        )
         val builder = HyperIslandNotification.Builder(
             context = context,
             businessName = BUSINESS,

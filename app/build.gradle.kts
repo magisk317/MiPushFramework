@@ -1,5 +1,6 @@
 plugins {
     id("mipush.android.application")
+    id("mipush.app.signing")
     id("mipush.app.packaging")
 }
 

@@ -1,6 +1,6 @@
 plugins {
-    id("mipush.android.library")
-    id("mipush.android.compose")
+    id("magisk.android.library")
+    id("magisk.android.compose")
     alias(libs.plugins.kotlin.serialization)
 }
 
