@@ -1,6 +1,6 @@
 plugins {
-    id("mipush.android.library")
-    id("mipush.android.room")
+    id("magisk.android.library")
+    id("magisk.android.room")
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.robolectric.junit5)
 }
