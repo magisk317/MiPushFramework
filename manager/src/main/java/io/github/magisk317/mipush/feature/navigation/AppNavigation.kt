@@ -132,15 +132,6 @@ object AppDestinations {
     }
 
     /**
-     * 帮助页面 (顶级路由)
-     * 展示帮助与支持内容
-     */
-    @Serializable
-    data object Help {
-        const val ROUTE = "help"
-    }
-
-    /**
      * 设置子页面
      *
      * @param section 设置的分类 (e.g., "about", "advance", "ui")

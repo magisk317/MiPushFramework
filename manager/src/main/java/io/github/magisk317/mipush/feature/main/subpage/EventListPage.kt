@@ -88,19 +88,18 @@ import io.github.magisk317.mipush.common.manager.ManagerEvent
 import io.github.magisk317.mipush.common.manager.ManagerEventResult
 import io.github.magisk317.mipush.common.manager.ManagerEventType
 import io.github.magisk317.mipush.common.utils.Utils
-import io.github.magisk317.mipush.feature.ui.component.AppIcon
-import io.github.magisk317.mipush.feature.ui.component.DialogAction
-import io.github.magisk317.mipush.feature.ui.component.DialogActionRow
-import io.github.magisk317.mipush.feature.ui.component.InfoPill
-import io.github.magisk317.mipush.feature.ui.component.OverlayHeaderScaffold
+import io.github.magisk317.uikit.surface.AppIconImage
 import io.github.magisk317.mipush.feature.ui.component.RefreshableLazyColumn
-import io.github.magisk317.mipush.feature.ui.component.ScrollToTopFAB
-import io.github.magisk317.mipush.feature.ui.component.SearchBar
-import io.github.magisk317.mipush.feature.ui.component.TextView
-import io.github.magisk317.mipush.feature.ui.component.WorkspaceEmptyState
-import io.github.magisk317.mipush.feature.ui.component.WorkspaceListItem
+import io.github.magisk317.uikit.surface.DialogAction
+import io.github.magisk317.uikit.surface.DialogActionRow
+import io.github.magisk317.uikit.surface.ScrollToTopFAB
+import io.github.magisk317.uikit.surface.InfoPill
+import io.github.magisk317.uikit.surface.OverlayHeaderScaffold
+import io.github.magisk317.uikit.surface.WorkspaceSearchField
+import io.github.magisk317.uikit.surface.WorkspaceEmptyState
+import io.github.magisk317.uikit.surface.WorkspaceListItem
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
-import io.github.magisk317.mipush.feature.main.MainScrollChromeState
+import io.github.magisk317.uikit.scroll.ScrollChromeState
 import io.github.magisk317.mipush.feature.ui.theme.spacing
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -121,7 +120,7 @@ fun EventList(
     viewModel: EventListViewModel = koinViewModel(),
     hazeState: HazeState? = null,
     hazeStyle: HazeBlurStyle? = null,
-    scrollChromeState: MainScrollChromeState? = null,
+    scrollChromeState: ScrollChromeState? = null,
 ) {
     Page {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -156,7 +155,8 @@ fun EventList(
         OverlayHeaderScaffold(
             fallbackTopPadding = topOverlayHeight,
             bottomPadding = contentPadding.calculateBottomPadding() + 28.dp,
-            headerVisible = scrollChromeState?.isChromeVisible ?: true,
+            headerOffsetY = scrollChromeState?.animatedHeaderOffsetY ?: 0f,
+            onHeaderHeightChanged = { scrollChromeState?.headerHeightPx = it.toFloat() },
             overlayModifier = Modifier
                 .fillMaxWidth()
                 .then(
@@ -259,9 +259,9 @@ fun EventList(
                     ),
                 )
                 if (searchExpanded || currentQuery.isNotBlank()) {
-                    SearchBar(
-                        placeholder = stringResource(android.R.string.search_go),
+                    WorkspaceSearchField(
                         query = currentQuery,
+                        placeholder = stringResource(android.R.string.search_go),
                         onValueChange = { currentQuery = it },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -300,7 +300,8 @@ fun EventList(
             }
             ScrollToTopFAB(
                 listState = listState,
-                visible = snackbarHostState.currentSnackbarData == null,
+                visible = snackbarHostState.currentSnackbarData == null && scrollChromeState?.isChromeVisible != true,
+                extraBottomPadding = 80.dp,
             )
         }
     }
@@ -516,7 +517,7 @@ private fun EventGroupList(
     selectedTypeFilters: Set<EventTypeFilter>,
     selectedStatusFilters: Set<EventStatusFilter>,
     hazeState: HazeState? = null,
-    scrollChromeState: MainScrollChromeState? = null,
+    scrollChromeState: ScrollChromeState? = null,
     listState: androidx.compose.foundation.lazy.LazyListState? = null,
 ) {
     val context = LocalContext.current
@@ -633,7 +634,7 @@ private fun EventGroupList(
                         )
                     },
                     leadingContent = {
-                        AppIcon(group.packageName, group.appName, modifier = Modifier.size(48.dp))
+                        AppIconImage(group.packageName, group.appName, modifier = Modifier.size(48.dp))
                     },
                     trailingContent = {
                         Icon(
@@ -743,7 +744,11 @@ private fun EventDetailsDialog(
             }
         },
         text = {
-            TextView(json)
+            Text(
+                text = json,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         },
         modifier = Modifier.heightIn(Dp.Unspecified, targetHeight)
     )
@@ -797,7 +802,7 @@ private fun EventList(
     hazeStyle: HazeBlurStyle? = null,
     snackbarHostState: SnackbarHostState,
     viewModel: EventListViewModel,
-    scrollChromeState: MainScrollChromeState? = null,
+    scrollChromeState: ScrollChromeState? = null,
     listState: androidx.compose.foundation.lazy.LazyListState? = null,
 ) {
     val isPreview = LocalInspectionMode.current
@@ -980,7 +985,7 @@ private fun EventItem(
         containerColor = containerColor,
         onClick = { onClick(item) },
         leadingContent = {
-            AppIcon(item.packageName, item.appName, modifier = Modifier.size(40.dp))
+            AppIconImage(item.packageName, item.appName, modifier = Modifier.size(40.dp))
         },
         trailingContent = null,
     ) {

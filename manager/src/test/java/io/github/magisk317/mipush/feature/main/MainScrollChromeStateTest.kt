@@ -1,15 +1,16 @@
 package io.github.magisk317.mipush.feature.main
 
 import io.github.magisk317.mipush.feature.navigation.AppDestinations
+import io.github.magisk317.uikit.scroll.ScrollChromeState
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-class MainScrollChromeStateTest {
+class ScrollChromeStateTest {
 
     @Test
     fun `down scroll hides and up scroll shows chrome`() {
-        val state = MainScrollChromeState()
+        val state = ScrollChromeState()
 
         assertTrue(state.isChromeVisible)
 
@@ -32,7 +33,7 @@ class MainScrollChromeStateTest {
 
     @Test
     fun `top position always shows chrome`() {
-        val state = MainScrollChromeState()
+        val state = ScrollChromeState()
 
         state.onScrollDelta(delta = 32)
         assertFalse(state.isChromeVisible)
@@ -43,7 +44,7 @@ class MainScrollChromeStateTest {
 
     @Test
     fun `small bottom bounce does not reveal chrome`() {
-        val state = MainScrollChromeState()
+        val state = ScrollChromeState()
 
         state.onScrollDelta(delta = 32)
         assertFalse(state.isChromeVisible)
@@ -59,7 +60,7 @@ class MainScrollChromeStateTest {
 
     @Test
     fun `intentional upward scroll after bottom reveals chrome`() {
-        val state = MainScrollChromeState()
+        val state = ScrollChromeState()
 
         state.onScrollDelta(delta = 32)
         assertFalse(state.isChromeVisible)

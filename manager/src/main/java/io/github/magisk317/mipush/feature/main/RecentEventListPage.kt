@@ -15,8 +15,8 @@ import androidx.core.view.WindowCompat
 import dev.chrisbanes.haze.HazeState
 import io.github.magisk317.mipush.feature.main.subpage.EventList
 import io.github.magisk317.mipush.feature.ui.theme.Theme
-import io.github.magisk317.mipush.feature.ui.theme.SystemBarsScrim
-import io.github.magisk317.mipush.feature.ui.theme.rememberHazeStyle
+import io.github.magisk317.uikit.theme.SystemBarsScrim
+import io.github.magisk317.uikit.theme.rememberHazeStyle
 
 open class RecentEventListPage : ComponentActivity() {
 
@@ -49,9 +49,6 @@ private fun RecentEventPage(packageName: String) {
         SystemBarsScrim(
             hazeState = hazeState,
             hazeStyle = hazeStyle,
-            showTop = false,
-            showBottom = true,
-            bottomBackgroundAlpha = 0f,
         )
     }
 }

@@ -75,12 +75,12 @@ import java.util.Date
 import java.util.Locale
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
-import io.github.magisk317.mipush.feature.ui.component.OverlayHeaderScaffold
-import io.github.magisk317.mipush.feature.ui.component.ScrollToTopFAB
-import io.github.magisk317.mipush.feature.ui.component.SearchBar
-import io.github.magisk317.mipush.feature.ui.component.WorkspaceListItem
-import io.github.magisk317.mipush.feature.main.MainScrollChromeState
-import io.github.magisk317.mipush.feature.main.ReportLazyListScrollToChrome
+import io.github.magisk317.uikit.surface.OverlayHeaderScaffold
+import io.github.magisk317.uikit.surface.ScrollToTopFAB
+import io.github.magisk317.uikit.surface.WorkspaceSearchField
+import io.github.magisk317.uikit.surface.WorkspaceListItem
+import io.github.magisk317.uikit.scroll.ScrollChromeState
+import io.github.magisk317.uikit.scroll.ReportLazyListScrollToChrome
 import io.github.magisk317.mipush.feature.ui.theme.spacing
 import io.github.magisk317.mipush.main.viewmodel.ConfigEditorViewModel
 import io.github.magisk317.mipush.main.viewmodel.ConfigManagerViewModel
@@ -101,7 +101,7 @@ fun Configurations(
     viewModel: ConfigManagerViewModel = koinViewModel(),
     hazeState: HazeState? = null,
     hazeStyle: HazeBlurStyle? = null,
-    scrollChromeState: MainScrollChromeState? = null,
+    scrollChromeState: ScrollChromeState? = null,
 ) {
     Page {
         val context = androidx.compose.ui.platform.LocalContext.current
@@ -170,7 +170,6 @@ fun Configurations(
             }
         }
         val listState = rememberLazyListState()
-        val headerVisible = scrollChromeState?.isChromeVisible ?: true
         ReportLazyListScrollToChrome(listState, scrollChromeState)
         val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
@@ -244,7 +243,8 @@ fun Configurations(
         Box(modifier = Modifier.fillMaxSize()) {
         OverlayHeaderScaffold(
             fallbackTopPadding = topInset + 64.dp,
-            headerVisible = headerVisible,
+            headerOffsetY = scrollChromeState?.animatedHeaderOffsetY ?: 0f,
+            onHeaderHeightChanged = { scrollChromeState?.headerHeightPx = it.toFloat() },
             overlayModifier = Modifier
                 .fillMaxWidth()
                 .then(
@@ -366,7 +366,7 @@ fun Configurations(
                 }
             },
         )
-        ScrollToTopFAB(listState)
+        ScrollToTopFAB(listState, visible = scrollChromeState?.isChromeVisible != true, extraBottomPadding = 80.dp)
         }
     }
 }
@@ -625,9 +625,9 @@ private fun LazyListScope.configListHeader(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            SearchBar(
-                placeholder = stringResource(R.string.config_search_placeholder),
+            WorkspaceSearchField(
                 query = uiState.query,
+                placeholder = stringResource(R.string.config_search_placeholder),
                 onValueChange = onQueryChange,
             )
 

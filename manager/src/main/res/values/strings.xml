@@ -505,8 +505,8 @@ This could be the application doing a reverse registration, or the registration 
     <string name="pref_island_first_float_summary">Show the floating island when the notification first appears.</string>
     <string name="pref_island_enable_float_title">Floating mode</string>
     <string name="pref_island_enable_float_summary">Allow the island to float above the status bar.</string>
-    <string name="pref_island_show_notification_title">Keep notification visible</string>
-    <string name="pref_island_show_notification_summary">Keep the focus notification visible in the shade.</string>
+    <string name="pref_island_show_notification_title">Show island notification</string>
+    <string name="pref_island_show_notification_summary">Show the island proxy notification in the shade.</string>
     <string name="pref_island_show_original_notification_title">Show original notification</string>
     <string name="pref_island_show_original_notification_summary">Keep the source app\'s notification in the shade alongside the focus notification.</string>
     <string name="pref_island_focus_notif_title">Focus authorization bypass</string>
