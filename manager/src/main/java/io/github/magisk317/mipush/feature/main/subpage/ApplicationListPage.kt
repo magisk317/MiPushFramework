@@ -69,22 +69,22 @@ import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.common.manager.ManagerApplication
 import io.github.magisk317.mipush.common.utils.Utils
 import androidx.compose.ui.res.stringResource
-import io.github.magisk317.mipush.feature.main.MainScrollChromeState
+import io.github.magisk317.uikit.scroll.ScrollChromeState
 import io.github.magisk317.mipush.feature.main.RegistrationStateStyle
 import androidx.compose.material3.ExperimentalMaterial3Api
-import io.github.magisk317.mipush.feature.ui.component.SearchBar
-import io.github.magisk317.mipush.feature.ui.component.AppIcon
-import io.github.magisk317.mipush.feature.ui.component.DetailSectionCard
-import io.github.magisk317.mipush.feature.ui.component.InfoPill
-import io.github.magisk317.mipush.feature.ui.component.MetricCard
-import io.github.magisk317.mipush.feature.ui.component.MetricGrid
-import io.github.magisk317.mipush.feature.ui.component.MetricSpec
-import io.github.magisk317.mipush.feature.ui.theme.spacing
-import io.github.magisk317.mipush.feature.ui.component.OverlayHeaderScaffold
+import io.github.magisk317.uikit.surface.AppIconImage
 import io.github.magisk317.mipush.feature.ui.component.RefreshableLazyColumn
-import io.github.magisk317.mipush.feature.ui.component.ScrollToTopFAB
-import io.github.magisk317.mipush.feature.ui.component.WorkspaceTopBarSearchOverlay
-import io.github.magisk317.mipush.feature.ui.component.WorkspaceListItem
+import io.github.magisk317.uikit.surface.ScrollToTopFAB
+import io.github.magisk317.uikit.surface.InfoPill
+import io.github.magisk317.mipush.feature.ui.theme.spacing
+import io.github.magisk317.uikit.surface.DetailSectionCard
+import io.github.magisk317.uikit.surface.MetricCard
+import io.github.magisk317.uikit.surface.MetricGrid
+import io.github.magisk317.uikit.surface.MetricSpec
+import io.github.magisk317.uikit.surface.OverlayHeaderScaffold
+import io.github.magisk317.uikit.surface.WorkspaceSearchField
+import io.github.magisk317.uikit.surface.WorkspaceTopBarSearchOverlay
+import io.github.magisk317.uikit.surface.WorkspaceListItem
 
 data class AppInfoForDisplay(
     val registrationState: Pair<Int, Color>,
@@ -103,7 +103,7 @@ fun ApplicationList(
     onAppClick: (String) -> Unit,
     hazeState: HazeState? = null,
     hazeStyle: HazeBlurStyle? = null,
-    scrollChromeState: MainScrollChromeState? = null,
+    scrollChromeState: ScrollChromeState? = null,
 ) {
     val context = LocalContext.current
     ApplicationList(
@@ -138,7 +138,7 @@ fun ApplicationList(
     getMiPushApplications: (query: String, filterMode: Int) -> ApplicationPageOperation.MiPushApplications,
     hazeState: HazeState? = null,
     hazeStyle: HazeBlurStyle? = null,
-    scrollChromeState: MainScrollChromeState? = null,
+    scrollChromeState: ScrollChromeState? = null,
 ) {
     val context = LocalContext.current
     val isPreview = LocalInspectionMode.current
@@ -219,7 +219,8 @@ fun ApplicationList(
         OverlayHeaderScaffold(
             fallbackTopPadding = topOverlayHeight,
             bottomPadding = contentPadding.calculateBottomPadding() + 28.dp,
-            headerVisible = (scrollChromeState?.isChromeVisible ?: true) || searchExpanded,
+            headerOffsetY = if (searchExpanded) 0f else (scrollChromeState?.animatedHeaderOffsetY ?: 0f),
+            onHeaderHeightChanged = { scrollChromeState?.headerHeightPx = it.toFloat() },
             overlayModifier = Modifier
                 .fillMaxWidth()
                 .then(
@@ -296,9 +297,9 @@ fun ApplicationList(
                         ),
                     )
                     if (searchExpanded || currentQuery.isNotBlank()) {
-                        SearchBar(
-                            placeholder = stringResource(android.R.string.search_go),
+                        WorkspaceSearchField(
                             query = currentQuery,
+                            placeholder = stringResource(android.R.string.search_go),
                             onValueChange = { currentQuery = it },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -322,7 +323,7 @@ fun ApplicationList(
                 }
             },
         )
-        ScrollToTopFAB(listState)
+        ScrollToTopFAB(listState, visible = scrollChromeState?.isChromeVisible != true, extraBottomPadding = 80.dp)
         }
     }
 }
@@ -426,7 +427,7 @@ private fun ApplicationItem(item: ManagerApplication, onAppClick: (String) -> Un
         containerColor = containerColor,
         onClick = { onAppClick(item.packageName) },
         leadingContent = {
-            AppIcon(item.packageName, item.appName, Modifier.size(44.dp))
+            AppIconImage(item.packageName, item.appName, Modifier.size(44.dp))
         },
         trailingContent = {
             Icon(

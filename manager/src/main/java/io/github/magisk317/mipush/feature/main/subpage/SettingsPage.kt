@@ -84,15 +84,16 @@ import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileInfo
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileSummary
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.feature.main.MainActivityOperation
-import io.github.magisk317.mipush.feature.main.MainScrollChromeState
-import io.github.magisk317.mipush.feature.main.ReportScrollStateToChrome
-import io.github.magisk317.mipush.feature.ui.component.DialogAction
-import io.github.magisk317.mipush.feature.ui.component.OverlayHeaderScaffold
-import io.github.magisk317.mipush.feature.ui.component.ScrollToTopFAB
-import io.github.magisk317.mipush.feature.ui.component.SectionColumn
-import io.github.magisk317.mipush.feature.ui.component.SettingsDialogItem
-import io.github.magisk317.mipush.feature.ui.component.SettingsItem
-import io.github.magisk317.mipush.feature.ui.component.SettingsSwitchItem
+import io.github.magisk317.uikit.scroll.ScrollChromeState
+import io.github.magisk317.uikit.scroll.ReportScrollStateToChrome
+import io.github.magisk317.uikit.preference.DialogItem as SettingsDialogItem
+import io.github.magisk317.uikit.surface.DialogAction
+import io.github.magisk317.uikit.surface.DialogActionRow
+import io.github.magisk317.uikit.surface.ScrollToTopFAB
+import io.github.magisk317.uikit.preference.Item as SettingsItem
+import io.github.magisk317.uikit.preference.StateSwitchItem as SettingsSwitchItem
+import io.github.magisk317.uikit.surface.OverlayHeaderScaffold
+import io.github.magisk317.uikit.surface.SectionColumn
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 import io.github.magisk317.mipush.feature.ui.theme.Theme
 import io.github.magisk317.mipush.feature.ui.theme.spacing
@@ -117,7 +118,7 @@ fun Settings(
     sectionBackSignal: Int = 0,
     hazeState: HazeState? = null,
     hazeStyle: HazeBlurStyle? = null,
-    scrollChromeState: MainScrollChromeState? = null,
+    scrollChromeState: ScrollChromeState? = null,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -140,7 +141,7 @@ fun Settings(
                 hostState = snackbarHostState,
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
-            ScrollToTopFAB(scrollState)
+            ScrollToTopFAB(scrollState, visible = scrollChromeState?.isChromeVisible != true, extraBottomPadding = 80.dp)
         }
     }
 }
@@ -156,7 +157,7 @@ private fun SettingsScreen(
     hazeState: HazeState?,
     hazeStyle: HazeBlurStyle?,
     snackbarHostState: SnackbarHostState,
-    scrollChromeState: MainScrollChromeState?,
+    scrollChromeState: ScrollChromeState?,
 ) {
     val title = stringResource(R.string.main_settings)
     var serviceExpanded by rememberSaveable { mutableStateOf(false) }
@@ -165,7 +166,6 @@ private fun SettingsScreen(
     var diagnosticsExpanded by rememberSaveable { mutableStateOf(false) }
     var aboutExpanded by rememberSaveable { mutableStateOf(false) }
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val headerVisible = scrollChromeState?.isChromeVisible ?: true
     ReportScrollStateToChrome(scrollState, scrollChromeState)
 
     LaunchedEffect(title) {
@@ -174,7 +174,8 @@ private fun SettingsScreen(
 
     OverlayHeaderScaffold(
         fallbackTopPadding = topInset + 64.dp,
-        headerVisible = headerVisible,
+        headerOffsetY = scrollChromeState?.animatedHeaderOffsetY ?: 0f,
+        onHeaderHeightChanged = { scrollChromeState?.headerHeightPx = it.toFloat() },
         overlayModifier = Modifier
             .fillMaxWidth()
             .then(
@@ -447,11 +448,13 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
     val showAllEventsTitle = stringResource(R.string.settings_show_all_events)
     SettingsSwitchItem(
         title = showAllEventsTitle,
+        summary = "",
         checked = showAllEvents,
-    ) { enabled ->
-        viewModel.setShowAllEvents(enabled)
-        showSwitchFeedback(showAllEventsTitle, enabled)
-    }
+        onCheckedChange = { enabled ->
+            viewModel.setShowAllEvents(enabled)
+            showSwitchFeedback(showAllEventsTitle, enabled)
+        }
+    )
 
     val islandEnabledTitle = stringResource(R.string.pref_island_enabled_title)
     SettingsSwitchItem(
@@ -810,22 +813,26 @@ private fun SetXMPPServer(viewModel: SettingsViewModel) {
         },
         onClick = { shouldShowDialog = true },
         confirmButton = {},
-        actions = listOf(
-            DialogAction(
-                label = stringResource(android.R.string.cancel),
-                onClick = {
-                    shouldShowDialog = false
-                    text = ""
-                },
-            ),
-            DialogAction(
-                label = stringResource(android.R.string.ok),
-                onClick = {
-                    viewModel.updateXmppServer(text)
-                    shouldShowDialog = false
-                },
-            ),
-        ),
+        dismissButton = {
+            DialogActionRow(
+                actions = listOf(
+                    DialogAction(
+                        label = stringResource(android.R.string.cancel),
+                        onClick = {
+                            shouldShowDialog = false
+                            text = ""
+                        },
+                    ),
+                    DialogAction(
+                        label = stringResource(android.R.string.ok),
+                        onClick = {
+                            viewModel.updateXmppServer(text)
+                            shouldShowDialog = false
+                        },
+                    ),
+                )
+            )
+        },
         content = {
             TextField(
                 value = text,

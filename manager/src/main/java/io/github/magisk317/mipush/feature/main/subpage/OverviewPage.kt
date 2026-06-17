@@ -80,9 +80,9 @@ import dev.chrisbanes.haze.hazeEffect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.feature.main.MainActivityOperation
-import io.github.magisk317.mipush.feature.ui.component.DialogAction
-import io.github.magisk317.mipush.feature.ui.component.DialogActionRow
-import io.github.magisk317.mipush.feature.ui.component.SectionColumn
+import io.github.magisk317.uikit.surface.DialogAction
+import io.github.magisk317.uikit.surface.DialogActionRow
+import io.github.magisk317.uikit.surface.SectionColumn
 import io.github.magisk317.mipush.feature.ui.theme.spacing
 import kotlin.math.atan2
 import kotlin.math.hypot

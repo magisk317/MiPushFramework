@@ -48,7 +48,6 @@ fun AppNavHostContent(
     configsPage: @Composable (String, PaddingValues, Int, (String) -> Unit, HazeState?, HazeBlurStyle?) -> Unit,
     configEditorPage: @Composable (String, PaddingValues, () -> Unit, HazeState?, HazeBlurStyle?) -> Unit,
     settingsPage: @Composable (PaddingValues, (String?) -> Unit, (String?) -> Unit, Int, HazeState?, HazeBlurStyle?) -> Unit,
-    helpPage: @Composable (PaddingValues, HazeState?, HazeBlurStyle?) -> Unit,
     onAbout: (String?) -> Unit = {},
     onSectionChanged: (String?) -> Unit = {},
 ) {
@@ -69,7 +68,6 @@ fun AppNavHostContent(
             route.startsWith(AppDestinations.Settings.ROUTE) ||
                 route.startsWith(AppDestinations.SettingsSection.ROUTE) -> 4
 
-            route.startsWith(AppDestinations.Help.ROUTE) -> 5
             else -> 0
         }
     }
@@ -443,41 +441,6 @@ fun AppNavHostContent(
             },
         ) {
             settingsPage(contentPadding, onAbout, onSectionChanged, 0, hazeState, hazeStyle)
-        }
-
-        // ==================== Help 分支 ====================
-        composable(
-            route = AppDestinations.Help.ROUTE,
-            enterTransition = {
-                val direction = forwardDirection(initialState.destination.route, targetState.destination.route)
-                slideInHorizontally(
-                    initialOffsetX = { direction * it },
-                    animationSpec = tween(300, easing = EaseInOut),
-                ) + fadeIn(animationSpec = tween(300))
-            },
-            exitTransition = {
-                val direction = forwardDirection(initialState.destination.route, targetState.destination.route)
-                slideOutHorizontally(
-                    targetOffsetX = { -direction * it },
-                    animationSpec = tween(300, easing = EaseInOut),
-                ) + fadeOut(animationSpec = tween(300))
-            },
-            popEnterTransition = {
-                val direction = forwardDirection(initialState.destination.route, targetState.destination.route)
-                slideInHorizontally(
-                    initialOffsetX = { -direction * it },
-                    animationSpec = tween(300, easing = EaseInOut),
-                ) + fadeIn(animationSpec = tween(300))
-            },
-            popExitTransition = {
-                val direction = forwardDirection(initialState.destination.route, targetState.destination.route)
-                slideOutHorizontally(
-                    targetOffsetX = { direction * it },
-                    animationSpec = tween(300, easing = EaseInOut),
-                ) + fadeOut(animationSpec = tween(300))
-            },
-        ) {
-            helpPage(contentPadding, hazeState, hazeStyle)
         }
 
         composable(

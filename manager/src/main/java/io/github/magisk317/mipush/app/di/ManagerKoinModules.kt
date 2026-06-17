@@ -9,7 +9,6 @@ import io.github.magisk317.mipush.common.manager.ManagerEventGateway
 import io.github.magisk317.mipush.common.manager.ManagerLogGateway
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
 import io.github.magisk317.mipush.data.PreferenceRepository
-import io.github.magisk317.mipush.feature.main.ApplicationIconCache
 import io.github.magisk317.mipush.main.viewmodel.AdvancedSettingsViewModel
 import io.github.magisk317.mipush.main.viewmodel.ConfigEditorViewModel
 import io.github.magisk317.mipush.main.viewmodel.ConfigManagerViewModel
@@ -24,7 +23,6 @@ import org.koin.dsl.module
 
 val managerKoinModule = module {
     single { SettingsManager(get<ManagerConfigGateway>(), get<ManagerRuntimeActions>(), get<ManagerApplicationGateway>(), get<ManagerLogGateway>()) }
-    single { ApplicationIconCache(androidContext()) }
 
     viewModel { SettingsViewModel(get<PreferenceRepository>(), get<SettingsManager>()) }
     viewModel { AdvancedSettingsViewModel(get<PreferenceRepository>(), get<SettingsManager>()) }

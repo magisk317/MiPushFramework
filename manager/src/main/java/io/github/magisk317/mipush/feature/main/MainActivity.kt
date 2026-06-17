@@ -45,7 +45,8 @@ import androidx.navigation.NavController
 
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
-import io.github.magisk317.mipush.feature.navigation.NavigationSuiteScaffold
+import io.github.magisk317.uikit.surface.NavigationSuiteScaffold
+import io.github.magisk317.uikit.theme.rememberHazeStyle
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -84,9 +85,9 @@ import androidx.navigation.NavHostController
 import io.github.magisk317.mipush.feature.navigation.*
 
 import io.github.magisk317.mipush.feature.main.MainActivityUtils
-import io.github.magisk317.mipush.feature.ui.component.SearchBar
-import io.github.magisk317.mipush.feature.ui.component.DialogAction
-import io.github.magisk317.mipush.feature.ui.component.DialogActionRow
+import io.github.magisk317.uikit.surface.WorkspaceSearchField
+import io.github.magisk317.uikit.surface.DialogAction
+import io.github.magisk317.uikit.surface.DialogActionRow
 import io.github.magisk317.mipush.feature.main.subpage.ApplicationList
 import io.github.magisk317.mipush.feature.main.subpage.ConfigurationEditor
 import io.github.magisk317.mipush.feature.main.subpage.Configurations

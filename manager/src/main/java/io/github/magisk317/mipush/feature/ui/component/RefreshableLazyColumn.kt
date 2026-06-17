@@ -28,8 +28,9 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import io.github.magisk317.mipush.feature.main.MainScrollChromeState
-import io.github.magisk317.mipush.feature.main.ReportLazyListScrollToChrome
+import io.github.magisk317.uikit.scroll.ScrollChromeState
+import io.github.magisk317.uikit.scroll.ReportLazyListScrollToChrome
+import io.github.magisk317.uikit.foundation.LoadingIndicatorTokens
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -41,7 +42,7 @@ fun RefreshableLazyColumn(
     doLoadMore: (onRefreshed: () -> Unit) -> Unit,
     isNeedRefresh: Boolean = false,
     scrollToTopSignal: Int = 0,
-    scrollChromeState: MainScrollChromeState? = null,
+    scrollChromeState: ScrollChromeState? = null,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     modifier: Modifier = Modifier,
     listState: LazyListState? = null,

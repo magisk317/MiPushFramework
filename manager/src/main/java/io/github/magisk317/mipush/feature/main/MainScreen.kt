@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.SystemClock
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -65,8 +66,8 @@ import dev.chrisbanes.haze.hazeEffect
 import io.github.magisk317.uikit.surface.AppBottomNavigationBar
 import io.github.magisk317.uikit.surface.AppNavigationItemSpec
 import io.github.magisk317.uikit.surface.AppNavigationRail
-import io.github.magisk317.mipush.feature.ui.component.DialogAction
-import io.github.magisk317.mipush.feature.ui.component.DialogActionRow
+import io.github.magisk317.uikit.surface.DialogAction
+import io.github.magisk317.uikit.surface.DialogActionRow
 import io.github.magisk317.mipush.feature.main.subpage.ApplicationList
 import io.github.magisk317.mipush.feature.main.subpage.ConfigurationEditor
 import io.github.magisk317.mipush.feature.main.subpage.Configurations
@@ -75,7 +76,8 @@ import io.github.magisk317.mipush.feature.main.subpage.Overview
 import io.github.magisk317.mipush.feature.main.subpage.Settings
 import io.github.magisk317.mipush.feature.navigation.AppDestinations
 import io.github.magisk317.mipush.feature.navigation.AppNavHostContent
-import io.github.magisk317.mipush.feature.ui.theme.SystemBarsScrim
+import io.github.magisk317.uikit.theme.SystemBarsScrim
+import io.github.magisk317.uikit.scroll.rememberScrollChromeState
 
 private const val TAB_DOUBLE_TAP_REFRESH_WINDOW_MS = 350L
 private const val MAIN_CHROME_ANIMATION_MILLIS = 160
@@ -119,7 +121,7 @@ fun MainScreen(
     var appRefreshTrigger by rememberSaveable { mutableIntStateOf(0) }
     var configRefreshTrigger by rememberSaveable { mutableIntStateOf(0) }
     val tabLastTapAt = remember { mutableStateMapOf<String, Long>() }
-    val scrollChromeState = rememberMainScrollChromeState()
+    val scrollChromeState = rememberScrollChromeState()
 
     val tabs = listOf(
         MainTabItem(
@@ -228,6 +230,23 @@ fun MainScreen(
     val mainChromeVisible = shouldKeepMainChromeVisible(currentRoute, scrollChromeState.isChromeVisible)
     val compactBottomBarVisible = compactBottomBarAvailable && mainChromeVisible
 
+    val animatedHeaderOffsetY by animateFloatAsState(
+        targetValue = scrollChromeState.headerOffsetY,
+        animationSpec = if (scrollChromeState.headerOffsetY >= 0f) {
+            tween(MAIN_CHROME_ANIMATION_MILLIS)
+        } else {
+            tween(0)
+        },
+        label = "headerOffsetY",
+    )
+    scrollChromeState.animatedHeaderOffsetY = animatedHeaderOffsetY
+
+    val systemBarAlpha by animateFloatAsState(
+        targetValue = if (mainChromeVisible) 1f else 0f,
+        animationSpec = tween(MAIN_CHROME_ANIMATION_MILLIS),
+        label = "systemBarAlpha",
+    )
+
     @Composable
     fun MainContent(contentPadding: androidx.compose.foundation.layout.PaddingValues) {
         AppNavHostContent(
@@ -300,13 +319,6 @@ fun MainScreen(
                     hazeState = hState,
                     hazeStyle = hStyle,
                     scrollChromeState = scrollChromeState,
-                )
-            },
-            helpPage = { padding, hState, hStyle ->
-                HelpScreen(
-                    modifier = Modifier.padding(padding),
-                    hazeState = hState,
-                    hazeStyle = hStyle,
                 )
             },
             onAbout = { content -> aboutDialogContent = content },
@@ -433,17 +445,18 @@ fun MainScreen(
             }
         }
 
-        SystemBarsScrim(
-            hazeState = hazeState,
-            hazeStyle = hazeStyle,
-            showTop = false,
-            showBottom = shouldShowBottomGestureScrim(
-                isCompact = isCompact,
-                compactBottomBarAvailable = compactBottomBarAvailable,
-                compactBottomBarVisible = compactBottomBarVisible,
-            ),
-            bottomBackgroundAlpha = 0f,
-        )
+        AnimatedVisibility(
+            visible = mainChromeVisible,
+            enter = fadeIn(animationSpec = tween(MAIN_CHROME_ANIMATION_MILLIS)),
+            exit = fadeOut(animationSpec = tween(MAIN_CHROME_ANIMATION_MILLIS)),
+        ) {
+            SystemBarsScrim(
+                hazeState = hazeState,
+                hazeStyle = hazeStyle,
+                statusBarAlpha = systemBarAlpha,
+                navBarAlpha = systemBarAlpha,
+            )
+        }
 
         if (aboutDialogContent != null) {
             androidx.compose.material3.AlertDialog(

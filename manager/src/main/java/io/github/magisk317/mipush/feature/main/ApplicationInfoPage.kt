@@ -82,14 +82,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.common.Constants
-import io.github.magisk317.mipush.feature.ui.component.AppIcon
-import io.github.magisk317.mipush.feature.ui.component.DetailDivider
-import io.github.magisk317.mipush.feature.ui.component.DetailSectionCard
-import io.github.magisk317.mipush.feature.ui.component.DialogAction
-import io.github.magisk317.mipush.feature.ui.component.DialogActionRow
-import io.github.magisk317.mipush.feature.ui.component.MarkdownView
-import io.github.magisk317.mipush.feature.ui.component.SectionColumn
-import io.github.magisk317.mipush.feature.ui.component.SettingsItem
+import io.github.magisk317.uikit.surface.AppIconImage
+import io.github.magisk317.uikit.preference.Item as SettingsItem
+import io.github.magisk317.uikit.surface.DialogAction
+import io.github.magisk317.uikit.surface.DialogActionRow
+import io.github.magisk317.uikit.surface.DetailDivider
+import io.github.magisk317.uikit.surface.DetailSectionCard
+import io.github.magisk317.uikit.surface.SectionColumn
 import io.github.magisk317.mipush.feature.wizard.support.WizardSPUtils
 import io.github.magisk317.mipush.feature.ui.theme.Theme
 import io.github.magisk317.mipush.feature.ui.theme.spacing
@@ -253,9 +252,9 @@ open class ApplicationInfoPage : ComponentActivity() {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
                     ) {
-                        AppIcon(
+                        AppIconImage(
                             packageName = applicationInfo.packageName,
-                            appName = applicationInfo.appName,
+                            label = applicationInfo.appName,
                             modifier = Modifier.size(52.dp),
                         )
                         Column(modifier = Modifier.weight(1f)) {
@@ -657,7 +656,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                                             appConfigurationUtils.deleteNotificationChannel(channel)
                                             shouldShowDialog = false
                                         },
-                                        style = io.github.magisk317.mipush.feature.ui.component.DialogActionStyle.Danger,
+                                        style = io.github.magisk317.uikit.surface.DialogActionStyle.Danger,
                                     ),
                                 ),
                             )
@@ -824,9 +823,10 @@ private fun Tips(description: String) {
                 ),
         )
         Spacer(Modifier.width(MaterialTheme.spacing.medium))
-        MarkdownView(
-            description,
-            textSize = MaterialTheme.typography.bodyMedium.fontSize.value,
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
