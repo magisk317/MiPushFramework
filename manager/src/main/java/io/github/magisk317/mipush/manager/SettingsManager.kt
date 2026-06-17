@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.app
+package io.github.magisk317.mipush.manager
 
 import android.app.Activity
 import android.content.ComponentName
@@ -19,6 +19,7 @@ import io.github.magisk317.mipush.common.manager.ManagerLogClearResult
 import io.github.magisk317.mipush.common.manager.ManagerLogExportResult
 import io.github.magisk317.mipush.common.manager.ManagerLogGateway
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
+import io.github.magisk317.mipush.common.manager.ManagerRuntimeEnvironmentSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileContent
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileSummary
 import io.github.magisk317.mipush.common.utils.Utils
@@ -41,14 +42,6 @@ class SettingsManager constructor(
         private const val TAG = "SettingsManager"
         private const val MOCK_NOTIFICATION_SOURCE = "SettingsManager.notifyMockNotification"
     }
-
-    // No-arg fallback resolving gateways through Koin (ManagerGatewayAccess).
-    constructor() : this(
-        io.github.magisk317.mipush.app.di.ManagerGatewayAccess.get<ManagerConfigGateway>(),
-        io.github.magisk317.mipush.app.di.ManagerGatewayAccess.get<ManagerRuntimeActions>(),
-        io.github.magisk317.mipush.app.di.ManagerGatewayAccess.get<ManagerApplicationGateway>(),
-        io.github.magisk317.mipush.app.di.ManagerGatewayAccess.get<ManagerLogGateway>(),
-    )
 
     val mClearingHistory: AtomicBoolean = AtomicBoolean(false)
 
@@ -135,6 +128,10 @@ class SettingsManager constructor(
 
     fun getXMPPServerHint(): String {
         return runtimeActions.getXmppServerHint()
+    }
+
+    fun getRuntimeEnvironmentSnapshot(context: Context): ManagerRuntimeEnvironmentSnapshot {
+        return runtimeActions.getRuntimeEnvironmentSnapshot(context)
     }
 
     fun resetTopActivityCache() {

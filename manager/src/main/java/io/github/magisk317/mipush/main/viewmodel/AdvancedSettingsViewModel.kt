@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import io.github.magisk317.mipush.app.SettingsManager
+import io.github.magisk317.mipush.manager.SettingsManager
 
 class AdvancedSettingsViewModel constructor(
     private val preferenceRepository: PreferenceRepository,

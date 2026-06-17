@@ -6,7 +6,7 @@ It is the reference for future stock-XMSF ports: new compatibility features shou
 
 ## 1. App Init
 
-- Entry point: `MiPushFrameworkApp`
+- Entry point: packaged host `MiPushHostApp`, which extends `MiPushFrameworkApp`
 - Main work:
   - initialize DB and app context
   - install logger and crash logger
@@ -15,10 +15,25 @@ It is the reference for future stock-XMSF ports: new compatibility features shou
   - attach runtime execution bridge
   - attach channel tracker
   - enable push controller and wake activation service
+  - register manager Koin modules from the app shell after xmsf app dependencies are ready
+  - keep manager bootstrap owned by the packaged host app instead of the manager UI itself
+  - avoid duplicating `MiPushFrameworkApp.onCreate()` in the app shell; host-specific work should
+    use the dedicated post-dependency hook instead
+
+Cold-start trap:
+
+- `MainActivity` injects `SettingsManager` during launch, so `MiPushHostApp` must register
+  `ManagerDependencies` as soon as the xmsf root Koin container is ready.
+- A June 18 2026 regression showed that guarding this registration with a fragile early-process
+  heuristic can skip the manager module during cold start and crash launch with Koin
+  `NoDefinitionFoundException` for `SettingsManager`.
+- Process-sensitive runtime work can still use `PushControllerUtils.isAppMainProc(...)`, but that
+  helper itself now needs stable current-process-name APIs rather than `runningAppProcesses`.
 
 Key source:
 
 - `xmsf/src/main/java/io/github/magisk317/mipush/app/MiPushFrameworkApp.kt`
+- `app/src/main/java/com/xiaomi/xmsf/app/MiPushHostApp.kt`
 
 ## 2. Bridge Entry
 

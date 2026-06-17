@@ -1,17 +1,15 @@
 package io.github.magisk317.mipush.feature.wizard.permission
 
-import io.github.magisk317.mipush.app.di.ManagerGatewayAccess
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 
 class RootPermissionOperator : PermissionOperator {
-    private val permissionGateway: ManagerPermissionGateway
-        get() = ManagerGatewayAccess.get()
+    override fun isPermissionGranted(permissionGateway: ManagerPermissionGateway?): Boolean {
+        return permissionGateway?.hasCachedRootAccess() == true
+    }
 
-    override fun isPermissionGranted(): Boolean = permissionGateway.hasCachedRootAccess()
+    override fun requestPermissionSilently(permissionGateway: ManagerPermissionGateway?): Boolean = false
 
-    override fun requestPermissionSilently(): Boolean = false
-
-    override fun requestPermission() {
-        permissionGateway.requestRootAccess()
+    override fun requestPermission(permissionGateway: ManagerPermissionGateway?) {
+        permissionGateway?.requestRootAccess()
     }
 }

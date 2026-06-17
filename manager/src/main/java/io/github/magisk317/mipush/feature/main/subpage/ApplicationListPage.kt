@@ -67,6 +67,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.common.manager.ManagerApplication
+import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
 import io.github.magisk317.mipush.common.utils.Utils
 import androidx.compose.ui.res.stringResource
 import io.github.magisk317.uikit.scroll.ScrollChromeState
@@ -85,6 +86,7 @@ import io.github.magisk317.uikit.surface.OverlayHeaderScaffold
 import io.github.magisk317.uikit.surface.WorkspaceSearchField
 import io.github.magisk317.uikit.surface.WorkspaceTopBarSearchOverlay
 import io.github.magisk317.uikit.surface.WorkspaceListItem
+import org.koin.compose.koinInject
 
 data class AppInfoForDisplay(
     val registrationState: Pair<Int, Color>,
@@ -106,6 +108,8 @@ fun ApplicationList(
     scrollChromeState: ScrollChromeState? = null,
 ) {
     val context = LocalContext.current
+    val applicationGateway: ManagerApplicationGateway = koinInject()
+    val applicationPageOperation = remember(applicationGateway) { ApplicationPageOperation(applicationGateway) }
     ApplicationList(
         query = query,
         contentPadding = contentPadding,
@@ -114,8 +118,8 @@ fun ApplicationList(
         onAppClick = onAppClick,
         getMiPushApplications = { q, mode ->
             val miPushApplications =
-                ApplicationPageOperation.getMiPushApplicationsThatQueryMatched(q, mode)
-            ApplicationPageOperation.updateRegisteredApplicationDb(
+                applicationPageOperation.getMiPushApplicationsThatQueryMatched(q, mode)
+            applicationPageOperation.updateRegisteredApplicationDb(
                 context,
                 miPushApplications.res
             )

@@ -14,7 +14,7 @@ import io.github.magisk317.mipush.common.manager.ManagerEvent
 import io.github.magisk317.mipush.common.manager.ManagerEventGateway
 import io.github.magisk317.mipush.feature.main.subpage.EventInfoForDisplay
 import java.util.Date
-import io.github.magisk317.mipush.app.SettingsManager
+import io.github.magisk317.mipush.manager.SettingsManager
 
 class EventListViewModel constructor(
     private val eventGateway: ManagerEventGateway,

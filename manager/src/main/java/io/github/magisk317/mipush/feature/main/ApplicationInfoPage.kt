@@ -66,16 +66,17 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.magisk317.mipush.app.di.ManagerGatewayAccess
 import io.github.magisk317.mipush.common.manager.ManagerApplication
 import io.github.magisk317.mipush.common.manager.ManagerApplicationDiagnostics
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
 import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
+import io.github.magisk317.mipush.common.manager.ManagerNotificationGateway
 import io.github.magisk317.mipush.manager.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -95,6 +96,7 @@ import io.github.magisk317.mipush.feature.ui.theme.spacing
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import org.koin.android.ext.android.inject
 
 open class ApplicationInfoPage : ComponentActivity() {
     companion object {
@@ -102,10 +104,9 @@ open class ApplicationInfoPage : ComponentActivity() {
         const val EXTRA_IGNORE_NOT_REGISTERED: String = "EXTRA_IGNORE_NOT_REGISTERED"
     }
 
-    private val applicationGateway: ManagerApplicationGateway
-        get() = ManagerGatewayAccess.get()
-    private val configSyncGateway: ManagerConfigSyncGateway
-        get() = ManagerGatewayAccess.get()
+    private val applicationGateway: ManagerApplicationGateway by inject()
+    private val configSyncGateway: ManagerConfigSyncGateway by inject()
+    private val notificationGateway: ManagerNotificationGateway by inject()
 
     private lateinit var applicationInfo: ManagerApplication
     private lateinit var appConfigurationUtils: AppConfigurationUtils
@@ -146,6 +147,7 @@ open class ApplicationInfoPage : ComponentActivity() {
             appConfigurationUtils = AppConfigurationUtils(
                 LocalContext.current,
                 applicationInfo,
+                notificationGateway,
             )
         }
 
@@ -443,6 +445,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                 AppRegistrationDiagnosticsHelper.load(
                     packageName = applicationInfo.packageName,
                     registeredType = registeredType,
+                    applicationGateway = applicationGateway,
                 )
             }
         }
@@ -578,6 +581,7 @@ open class ApplicationInfoPage : ComponentActivity() {
         val isPreview = LocalInspectionMode.current
         val groups: List<NotificationChannelGroup>
         val notificationChannels: List<NotificationChannel>
+        val currentNotificationGateway by rememberUpdatedState(notificationGateway)
 
         if (isPreview) {
             groups = emptyList()
@@ -610,6 +614,7 @@ open class ApplicationInfoPage : ComponentActivity() {
 
     @Composable
     private fun NotificationCategoryCard(categoryName: String, channels: List<NotificationChannel>) {
+        val currentNotificationGateway by rememberUpdatedState(notificationGateway)
         DetailSectionCard(
             title = categoryName,
             summary = stringResource(R.string.notification_channels_group_summary),
@@ -617,7 +622,7 @@ open class ApplicationInfoPage : ComponentActivity() {
             channels.forEach { channel ->
                 var shouldShowDialog by remember { mutableStateOf(false) }
                 SettingsItem(
-                    title = AppConfigurationUtils.getNotificationTitle(channel).toString(),
+                    title = AppConfigurationUtils.getNotificationTitle(channel, currentNotificationGateway).toString(),
                     summary = AppConfigurationUtils.getNotificationSummary(channel),
                     onClick = { shouldShowDialog = true },
                 )
@@ -625,7 +630,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                     AlertDialog(
                         onDismissRequest = { shouldShowDialog = false },
                         title = {
-                            Text(AppConfigurationUtils.getNotificationTitle(channel).toString())
+                            Text(AppConfigurationUtils.getNotificationTitle(channel, currentNotificationGateway).toString())
                         },
                         text = {
                             Text(AppConfigurationUtils.getNotificationSummary(channel))

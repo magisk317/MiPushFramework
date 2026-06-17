@@ -1,6 +1,7 @@
 import dev.detekt.gradle.Detekt
 import dev.detekt.gradle.DetektCreateBaselineTask
 import dev.detekt.gradle.extensions.DetektExtension
+import org.gradle.api.artifacts.VersionCatalogsExtension
 import kotlinx.kover.gradle.plugin.dsl.KoverProjectExtension
 
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
@@ -79,7 +80,12 @@ extra["gitVersionName"] = versionNameProvider
 extra["APPLICATION_ID"] = "io.github.magisk317.mipush"
 
 val catalog = libs
-val forcedKotlinVersion = libs.versions.kotlin.get()
+val forcedKotlinVersion = extensions
+    .getByType<VersionCatalogsExtension>()
+    .named("libs")
+    .findVersion("kotlin")
+    .get()
+    .requiredVersion
 val forcedByteBuddyVersion = libs.versions.bytebuddy.get()
 val detektBlockingProjects = setOf(":xposed")
 val qualityGateKoverModules = listOf("common", "core", "xposed", "xmsf")

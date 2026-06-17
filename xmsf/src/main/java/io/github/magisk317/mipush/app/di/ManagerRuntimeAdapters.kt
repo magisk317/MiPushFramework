@@ -31,6 +31,7 @@ import io.github.magisk317.mipush.common.manager.ManagerLogGateway
 import io.github.magisk317.mipush.common.manager.ManagerNotificationGateway
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
+import io.github.magisk317.mipush.common.manager.ManagerRuntimeEnvironmentSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileContent
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileInfo
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileSummary
@@ -735,6 +736,10 @@ class XmsfManagerRuntimeActions(
     }
 
     override fun getXmppServerHint(): String = runtimeSettingsAdapter.getXmppServerHint()
+
+    override fun getRuntimeEnvironmentSnapshot(context: Context): ManagerRuntimeEnvironmentSnapshot {
+        return runtimeSettingsAdapter.getRuntimeEnvironmentSnapshot(context)
+    }
 
     override fun observeNotificationEvent(packageName: String, action: String, source: String) {
         PushRuntime.observeNotificationEvent(packageName, action, source)

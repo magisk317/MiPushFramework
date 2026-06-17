@@ -11,6 +11,13 @@ interface ManagerConfigGateway {
     fun loadConfigurations(context: Context)
 }
 
+data class ManagerRuntimeEnvironmentSnapshot(
+    val isMiui: Int,
+    val imei: String?,
+    val macAddress: String?,
+    val xmppServerHost: String,
+)
+
 interface ManagerRuntimeActions {
     suspend fun clearHistory()
     fun startMiPushServiceAsForegroundService(context: Context)
@@ -19,6 +26,7 @@ interface ManagerRuntimeActions {
     fun sendXmppReconnectRequest(context: Context)
     fun setXmppServer(context: Context, newHost: String)
     fun getXmppServerHint(): String
+    fun getRuntimeEnvironmentSnapshot(context: Context): ManagerRuntimeEnvironmentSnapshot
     fun observeNotificationEvent(packageName: String, action: String, source: String)
     fun setRuntimeLogRetentionDays(days: Int)
 }

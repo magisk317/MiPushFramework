@@ -46,6 +46,9 @@ MiPushFramework is a system-package-compatible app split into explicit Gradle mo
    - `mipush` holds client-facing SDK compatibility code.
    - `xposed` holds hook-side integration and must avoid depending on app-process-only state.
    - `magisk-ui-kit` holds reusable Compose UI building blocks.
+   - The manager main-screen scroll chrome state is shared across several routes, but that shared
+     state belongs to manager-level navigation behavior rather than ui-kit. Keep route-reset policy
+     in `manager/MainScreen` and keep ui-kit scaffolds defensive against transient negative offsets.
 
 Device dumps and platform jars are reference inputs only. They must not enter the Gradle source
 graph.
@@ -66,18 +69,25 @@ graph.
 - `xmsf/src/main/java/io/github/magisk317/mipush/service/runtime` and
   `xmsf/src/main/java/io/github/magisk317/mipush/bridge` are the allowed adapter areas for direct
   vendor/pinned interaction.
-- `verifyModuleBoundaries` is wired into `check` and scans UI/settings/viewmodel source roots for
-  new deep Xiaomi imports. Existing debt is listed in `scripts/module_boundary_baseline.txt`; new
-  entries should be moved behind a runtime/bridge adapter unless the baseline update is a deliberate
-  compatibility exception. The check also fails stale baseline entries, so resolved debt must be
-  removed from the baseline in the same change.
+- `verifyModuleBoundaries` is wired into `check` and now scans `manager`, `settings`, and the
+  xmsf app-facing roots for new deep Xiaomi imports. In `manager` and `settings` it also flags
+  direct imports from `io.github.magisk317.mipush.app.*`, because that namespace belongs to xmsf
+  runtime ownership rather than the manager UI surface. The same scan also rejects string-literal
+  references to deep `com.xiaomi.*` classes under `manager`/`settings`, so reflection cannot be
+  used there to tunnel around the import boundary for runtime probes or compatibility checks.
+  Existing debt is listed in
+  `scripts/module_boundary_baseline.txt`; new entries should be moved behind a runtime/bridge
+  adapter or explicit shared contract unless the baseline update is a deliberate compatibility
+  exception. The check also fails stale baseline entries, so resolved debt must be removed from the
+  baseline in the same change. The same task also rejects direct `manager` Gradle dependencies on
+  `vendor`, `xmsf`, or `pinned`; those relationships must be expressed through shared contracts
+  instead.
 - `vendor` may depend on frozen protocol types from `pinned`, but new product behavior should not be
   added there unless it is preserving a stock runtime contract.
 - `pinned` changes must be compatibility-preserving and non-creative.
-- `manager` consumes `core` (`ConnectionStatus`) and `vendor` (the `XMPushServiceMessenger`
-  IPC action constants) at runtime, so both are declared as `implementation` rather than
-  `compileOnly`. Using `compileOnly` would compile but leave those classes off the runtime
-  classpath of any consumer that does not also embed `xmsf`, causing `NoClassDefFoundError`.
+- `manager` consumes `core` (`ConnectionStatus`) at runtime. Broadcast action strings that used to
+  leak in through `vendor` are now exposed through `common` (`PushServiceBroadcastActions`) so the
+  UI layer no longer needs a direct `vendor` import just to talk to the runtime messenger.
 - Platform/system reference artifacts remain outside the build graph.
 
 ## Root, Shell, And Logs
@@ -100,8 +110,8 @@ graph.
   `xmsf/src/main/java/io/github/magisk317/mipush/platform/support/RootAccessFacade.kt`.
 - **`BoundedShellRunner`**: Execute ordinary or root shell with unified timeout and result structure.
 - **`RuntimeSettingsAdapter`**: Route UI/settings operations for XMPP host, forced registration,
-  service foregrounding, and similar runtime actions through an adapter instead of calling vendor
-  runtime directly.
+  service foregrounding, manager environment snapshots, and similar runtime actions through an
+  adapter instead of calling vendor runtime directly.
 
 ## Current Architecture Debts
 
@@ -114,6 +124,35 @@ graph.
   and then apply it to an `XmPushActionContainer`.
 - `ConfigCenter.loadConfigurations()` remains asynchronous for UI callers. Code paths that need a
   deterministic reload can use `loadConfigurationsNow(...)`.
+- `manager` is still runtime-hosted by `xmsf`: the gateway implementations live in xmsf Koin
+  modules, while manager-side code now consumes them through explicit injection or helper
+  construction rather than a manager-local global lookup shim. The recent package cleanup moved
+  manager-local helpers from
+  `io.github.magisk317.mipush.app.*` into `io.github.magisk317.mipush.manager.*`, but the remaining
+  cross-module DI startup path is still a real architecture debt until the shared gateway contract
+  is made more explicit. Runtime environment diagnostics in the manager UI now flow through
+  `ManagerRuntimeEnvironmentSnapshot` from xmsf instead of reflective `com.xiaomi.*` lookups, which
+  closes one common path for boundary drift but does not remove the larger host-container coupling.
+  The current packaged host is `app`'s `MiPushHostApp`, which subclasses `MiPushFrameworkApp` and
+  loads `ManagerDependencies` only after `AppDependencies.start(...)` has completed in the main app
+  process.
+- `MainActivity` injects `SettingsManager` on first launch, so the host app must register manager
+  Koin eagerly once the xmsf root container exists. Do not move that registration behind a
+  cold-start process-name heuristic.
+- Manager main chrome collapse/expand is intentionally shared across `EventList`, `ApplicationList`,
+  `Configurations`, and `Settings`, while `Overview` keeps its own always-visible treatment. A June
+  2026 regression showed that route switches during half-expanded animation can leak a negative
+  `headerOffsetY` into the next page: if the shared state is only shown and not reset to the top,
+  short pages such as Settings can render with clipped top content, and `OverlayHeaderScaffold`
+  can even crash Compose with `Padding must be non-negative`. Future refactors must preserve both
+  route-time state reset (`animateToTop()`) and non-negative padding guards in the scaffold.
+- The following routes are treated as resolved traps and should not be reintroduced:
+  - do not copy manager bindings (`SettingsManager`, manager ViewModels, manager Koin module
+    contents) into `xmsfCoreKoinModule`; `xmsf` must not depend on `manager`
+  - do not restart manager bootstrap from `MainActivity` or other manager UI entrypoints
+  - do not load manager UI modules from the `:services` subprocess
+  - do not use reflective `com.xiaomi.*` lookups in manager/settings as a substitute for runtime
+    adapter contracts
 - The previously parallel `protocol` module (a compile-only superset that duplicated `pinned`'s
   thrift/protobuf types and `vendor`'s `com.xiaomi.channel.commonutils.*`) was removed. Runtime
   modules now compile against `pinned` for wire types and `vendor` for retained runtime utilities.

@@ -1,7 +1,6 @@
-package io.github.magisk317.mipush.app.di
+package io.github.magisk317.mipush.manager.di
 
 import android.content.Context
-import io.github.magisk317.mipush.app.SettingsManager
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
 import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
 import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
@@ -14,11 +13,11 @@ import io.github.magisk317.mipush.main.viewmodel.ConfigEditorViewModel
 import io.github.magisk317.mipush.main.viewmodel.ConfigManagerViewModel
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
+import io.github.magisk317.mipush.manager.SettingsManager
 import org.koin.android.ext.koin.androidContext
-import org.koin.core.module.dsl.viewModel
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.loadKoinModules
-import org.koin.core.context.startKoin
+import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val managerKoinModule = module {
@@ -40,15 +39,20 @@ object ManagerDependencies {
         if (modulesLoaded) {
             return
         }
-        val appContext = context.applicationContext ?: context
-        if (GlobalContext.getOrNull() == null) {
-            startKoin {
-                androidContext(appContext)
-                modules(managerKoinModule)
-            }
-        } else {
-            loadKoinModules(managerKoinModule)
-        }
+        requireHostKoin(context)
+        loadKoinModules(managerKoinModule)
         modulesLoaded = true
+    }
+
+    private fun requireHostKoin(context: Context) {
+        if (GlobalContext.getOrNull() != null) {
+            return
+        }
+        val process = runCatching { android.app.Application.getProcessName() }.getOrNull() ?: "unknown"
+        error(
+            "Koin host container is not started for manager dependencies " +
+                "(process=$process, package=${context.packageName}). " +
+                "MiPushFrameworkApp must call AppDependencies.start() before ManagerDependencies.start()."
+        )
     }
 }
