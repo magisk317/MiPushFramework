@@ -99,14 +99,13 @@ import io.github.magisk317.mipush.feature.main.subpage.Settings
 import io.github.magisk317.mipush.feature.main.subpage.SettingsPagePreview
 import io.github.magisk317.mipush.feature.ui.theme.*
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
-import io.github.magisk317.mipush.app.di.ManagerDependencies
+import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import kotlin.math.hypot
 
-private val mainActivityUtils = MainActivityUtils()
 private var placeholder by mutableStateOf("Search...")
 
 open class MainActivity : ComponentActivity() {
@@ -119,10 +118,11 @@ open class MainActivity : ComponentActivity() {
     private val configGateway: ManagerConfigGateway by inject()
 
     private val settingsViewModel: SettingsViewModel by viewModel()
+    private val settingsManager: SettingsManager by inject()
+    private val mainActivityUtils by lazy { MainActivityUtils(settingsManager) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        ManagerDependencies.start(this)
         WelcomeIslandNotifier.notifyAfterInstallOrUpdate(this)
         enableEdgeToEdge()
         mainActivityUtils.initOnCreate(applicationContext, configGateway::loadConfigurations) { placeholder = it.toString() }

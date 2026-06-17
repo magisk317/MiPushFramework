@@ -4,25 +4,22 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
-import io.github.magisk317.mipush.app.di.ManagerGatewayAccess
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 import io.github.magisk317.mipush.platform.service.PushServiceAccessibility
 
 class RequestIgnoreBatteryOptimizationsPermissionOperator(
     private val context: Context
 ) : PermissionOperator {
-    private val permissionGateway: ManagerPermissionGateway
-        get() = ManagerGatewayAccess.get()
-
-    override fun isPermissionGranted(): Boolean {
+    override fun isPermissionGranted(permissionGateway: ManagerPermissionGateway?): Boolean {
         return PushServiceAccessibility.isInDozeWhiteList(context)
     }
 
-    override fun requestPermissionSilently(): Boolean {
-        return permissionGateway.requestIgnoreBatteryOptimizations(context)
+    override fun requestPermissionSilently(permissionGateway: ManagerPermissionGateway?): Boolean {
+        val gateway = permissionGateway ?: return false
+        return gateway.requestIgnoreBatteryOptimizations(context)
     }
 
-    override fun requestPermission() {
+    override fun requestPermission(permissionGateway: ManagerPermissionGateway?) {
         val intent = Intent()
         intent.action = Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
         intent.data = Uri.parse("package:${context.packageName}")

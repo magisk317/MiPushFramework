@@ -7,7 +7,7 @@ import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
 
 import android.annotation.SuppressLint
-import android.app.ActivityManager
+import android.app.Application
 import android.app.job.JobScheduler
 import android.content.BroadcastReceiver
 import android.content.ComponentName
@@ -19,7 +19,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.os.Process
 import android.text.TextUtils
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
@@ -69,17 +68,8 @@ object PushControllerUtils {
 
     @JvmStatic
     fun isAppMainProc(context: Context): Boolean {
-        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
-            ?: return false
-        val runningProcesses = activityManager.runningAppProcesses ?: return false
-        for (runningAppProcessInfo in runningProcesses) {
-            if (runningAppProcessInfo.pid == Process.myPid() &&
-                runningAppProcessInfo.processName == context.packageName
-            ) {
-                return true
-            }
-        }
-        return false
+        val processName = currentProcessName()
+        return processName == context.packageName
     }
 
     @JvmStatic
@@ -158,4 +148,19 @@ object PushControllerUtils {
 
     private fun resolveClass(className: String): Class<*>? =
         runCatching { Class.forName(className) }.getOrNull()
+
+    private fun currentProcessName(): String? {
+        runCatching { Application.getProcessName() }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?.let { return it }
+
+        return runCatching {
+            val activityThreadClass = Class.forName("android.app.ActivityThread")
+            val method = activityThreadClass.getDeclaredMethod("currentProcessName")
+            method.isAccessible = true
+            method.invoke(null) as? String
+        }.getOrNull()?.takeIf { it.isNotBlank() }
+    }
+
 }

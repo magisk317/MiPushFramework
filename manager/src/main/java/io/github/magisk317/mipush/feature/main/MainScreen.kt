@@ -200,7 +200,7 @@ fun MainScreen(
     }
 
     LaunchedEffect(navBackStackEntry?.destination?.route) {
-        scrollChromeState.show()
+        scrollChromeState.animateToTop()
     }
 
     fun handleTabClick(tab: MainTabItem, selected: Boolean) {
@@ -215,6 +215,7 @@ fun MainScreen(
             return
         }
 
+        scrollChromeState.animateToTop()
         navController.navigate(tab.route) {
             popUpTo(navController.graph.findStartDestination().id) {
                 saveState = true

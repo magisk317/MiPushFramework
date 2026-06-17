@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.feature.wizard.support
 
 import android.content.Context
+import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 import io.github.magisk317.mipush.feature.wizard.permission.PermissionInfo
 import io.github.magisk317.mipush.feature.wizard.permission.PermissionOperator
 
@@ -10,14 +11,14 @@ abstract class DisplayOnlyPhonyPermissionInfo(
     override val permissionOperator: PermissionOperator
         get() = this
 
-    override fun isPermissionGranted(): Boolean {
+    override fun isPermissionGranted(permissionGateway: ManagerPermissionGateway?): Boolean {
         return true
     }
 
-    override fun requestPermissionSilently(): Boolean {
+    override fun requestPermissionSilently(permissionGateway: ManagerPermissionGateway?): Boolean {
         return false
     }
 
-    override fun requestPermission() {
+    override fun requestPermission(permissionGateway: ManagerPermissionGateway?) {
     }
 }

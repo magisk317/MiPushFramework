@@ -113,6 +113,13 @@ Xposed 模块不再固定三方应用作用域。需要伪装增强的主应用�
 
 如果要验证真实展示，不要只看应用日志中的“已发布”记录，还要结合 `dumpsys notification --noredact`、logcat 和真实推送 payload。
 
+管理端主界面的顶栏/底栏支持随滚动折叠。若后续调整该交互，注意切页时要把共享的
+`ScrollChromeState` 复位到顶部，而不是只切换显隐；否则半收起状态可能串到设置页、
+事件页等短页面，表现为顶部被削掉，严重时还会因为负 padding 导致 Compose 直接崩溃。
+
+另外，`com.xiaomi.xmsf` 的首屏启动不要再把 `SettingsManager` 注册卡在冷启动进程判断上，
+否则主界面会在 `MainActivity` 里直接因为 Koin 缺定义崩掉。
+
 ## 反馈问题
 
 遇到问题请先搜索 Issues。提交新 Issue 时，请尽量带上：

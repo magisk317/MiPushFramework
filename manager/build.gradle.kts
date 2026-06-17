@@ -22,7 +22,6 @@ dependencies {
     implementation(project(":settings"))
     implementation(project(":magisk-ui-kit"))
     implementation(project(":core"))
-    implementation(project(":vendor"))
 
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)

@@ -48,6 +48,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -72,6 +73,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.layout.onSizeChanged
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
+import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
 import io.github.magisk317.mipush.manager.R
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.blur.HazeBlurStyle
@@ -87,6 +89,7 @@ import io.github.magisk317.mipush.feature.ui.theme.spacing
 import kotlin.math.atan2
 import kotlin.math.hypot
 import kotlin.math.max
+import org.koin.compose.koinInject
 
 private val OverviewCardShape = RoundedCornerShape(28.dp)
 private const val ALIPAY_PACKAGE_NAME = "com.eg.android.AlipayGphone"
@@ -118,6 +121,7 @@ private fun OverviewScreen(
     hazeStyle: HazeBlurStyle?,
 ) {
     val context = LocalContext.current
+    val applicationGateway: ManagerApplicationGateway = koinInject()
     val mainActivityOperation = MainActivityOperation(context)
     var showDonateDialog by remember { mutableStateOf(false) }
     var showAlipayChoiceDialog by remember { mutableStateOf(false) }
@@ -126,7 +130,7 @@ private fun OverviewScreen(
         initialValue = ApplicationStats(),
     ) {
         value = withContext(Dispatchers.IO) {
-            loadApplicationStats(context)
+            loadApplicationStats(context, applicationGateway)
         }
     }
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()

@@ -14,13 +14,12 @@ import io.github.magisk317.mipush.common.manager.ManagerNotificationGateway
 import io.github.magisk317.mipush.common.utils.NotificationUtils
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.manager.R
-import io.github.magisk317.mipush.app.di.ManagerGatewayAccess
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 
 class AppConfigurationUtils(
     private val context: Context,
     private val application: ManagerApplication,
-    private val notificationGateway: ManagerNotificationGateway = ManagerGatewayAccess.get(),
+    private val notificationGateway: ManagerNotificationGateway,
 ) {
     fun shouldSuggestFakeApp(pkg: String): Boolean {
         return !isBlacklistApp(pkg) && Utils.isUserApplication(pkg)
@@ -123,7 +122,7 @@ class AppConfigurationUtils(
         @JvmStatic
         fun getNotificationTitle(
             channel: NotificationChannel,
-            notificationGateway: ManagerNotificationGateway = ManagerGatewayAccess.get(),
+            notificationGateway: ManagerNotificationGateway,
         ): CharSequence {
             var title: CharSequence = channel.name
             if (!notificationGateway.isNotificationChannelEnabled(channel)) {

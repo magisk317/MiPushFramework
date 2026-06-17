@@ -1,8 +1,8 @@
 import org.gradle.api.provider.Provider
 
 plugins {
-    id("mipush.android.application")
-    id("mipush.app.packaging")
+    id("magisk.android.application")
+    id("magisk.app.packaging")
     alias(libs.plugins.kotlin.parcelize)
 }
 

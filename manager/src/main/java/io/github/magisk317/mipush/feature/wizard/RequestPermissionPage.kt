@@ -61,7 +61,6 @@ import io.github.magisk317.mipush.feature.wizard.permission.NotificationPermissi
 import io.github.magisk317.mipush.feature.wizard.permission.RootPermissionInfo
 import io.github.magisk317.mipush.feature.wizard.permission.UsageStatsPermissionInfo
 import io.github.magisk317.mipush.feature.ui.theme.Theme
-import io.github.magisk317.mipush.app.di.ManagerGatewayAccess
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 import io.github.magisk317.mipush.data.PreferenceRepository
 import kotlinx.coroutines.flow.first
@@ -87,6 +86,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.mutableIntStateOf
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
+import org.koin.compose.koinInject
 
 private val TAG = "WizardPermission"
 
@@ -118,6 +118,7 @@ fun PermissionMainActivity(
     recheckOnly: Boolean = false
 ) {
     val context = LocalContext.current
+    val permissionGateway: ManagerPermissionGateway = koinInject()
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -163,8 +164,8 @@ fun PermissionMainActivity(
 
         LaunchedEffect(checkTrigger) {
             val refreshedStates = withContext(Dispatchers.IO) {
-                ManagerGatewayAccess.get<ManagerPermissionGateway>().refreshRootAccessIfGranted()
-                evaluatePermissionStates(permissionInfos)
+                permissionGateway.refreshRootAccessIfGranted()
+                evaluatePermissionStates(permissionInfos, permissionGateway)
             }
             permissionStates = refreshedStates
             if (!areAllPermissionRequirementsSatisfied(permissionInfos, refreshedStates)) {
@@ -176,10 +177,10 @@ fun PermissionMainActivity(
                         logD("Auto-requesting permission: ${it.permissionTitle}")
                         autoRequestedSet.value += index
 
-                        val grantedSilently = it.permissionOperator.requestPermissionSilently()
+                        val grantedSilently = it.permissionOperator.requestPermissionSilently(permissionGateway)
                         if (grantedSilently) {
                             val updatedStates = withContext(Dispatchers.IO) {
-                                evaluatePermissionStates(permissionInfos)
+                                evaluatePermissionStates(permissionInfos, permissionGateway)
                             }
                             permissionStates = updatedStates
                             if (isPermissionRequirementSatisfied(index, permissionInfos, updatedStates)) {
@@ -193,10 +194,10 @@ fun PermissionMainActivity(
                             val requestedBefore = preferenceRepository.usageStatsRequested.first()
                             if (!requestedBefore) {
                                 preferenceRepository.setUsageStatsRequested(true)
-                                it.permissionOperator.requestPermission()
+                                it.permissionOperator.requestPermission(permissionGateway)
                             }
                         } else {
-                            it.permissionOperator.requestPermission()
+                            it.permissionOperator.requestPermission(permissionGateway)
                         }
                         return@LaunchedEffect // Only one at a time
                     }
@@ -231,18 +232,18 @@ fun PermissionMainActivity(
                         isGranted = isPermissionRequirementSatisfied(index, permissionInfos, permissionStates),
                     ) {
                         scope.launch {
-                            val handledSilently = info.permissionOperator.requestPermissionSilently()
+                            val handledSilently = info.permissionOperator.requestPermissionSilently(permissionGateway)
                             if (!handledSilently) {
                                 if (info is RootPermissionInfo) {
                                     withContext(Dispatchers.IO) {
-                                        info.permissionOperator.requestPermission()
+                                        info.permissionOperator.requestPermission(permissionGateway)
                                     }
                                 } else {
-                                    info.permissionOperator.requestPermission()
+                                    info.permissionOperator.requestPermission(permissionGateway)
                                 }
                             }
                             permissionStates = withContext(Dispatchers.IO) {
-                                evaluatePermissionStates(permissionInfos)
+                                evaluatePermissionStates(permissionInfos, permissionGateway)
                             }
                             checkTrigger++
                         }
@@ -354,10 +355,13 @@ private fun PermissionInfo.requirementGroupKey(): String? {
     }
 }
 
-private fun evaluatePermissionStates(permissionInfos: List<PermissionInfo>): Map<Int, Boolean> {
+private fun evaluatePermissionStates(
+    permissionInfos: List<PermissionInfo>,
+    permissionGateway: ManagerPermissionGateway,
+): Map<Int, Boolean> {
     return permissionInfos.mapIndexed { index, info ->
         index to runCatching {
-            info.permissionOperator.isPermissionGranted()
+            info.permissionOperator.isPermissionGranted(permissionGateway)
         }.getOrDefault(false)
     }.toMap()
 }

@@ -5,17 +5,13 @@ import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
-import io.github.magisk317.mipush.app.di.ManagerGatewayAccess
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.platform.activity.impl.ActivityAccessibilityImpl
 import io.github.magisk317.mipush.platform.override.AppOpsManagerOverride
 
 class UsageStatsPermissionOperator(private val context: Context) : PermissionOperator {
-    private val permissionGateway: ManagerPermissionGateway
-        get() = ManagerGatewayAccess.get()
-
-    override fun isPermissionGranted(): Boolean {
+    override fun isPermissionGranted(permissionGateway: ManagerPermissionGateway?): Boolean {
         val uid = context.applicationInfo.uid
         val packageName = context.packageName
         val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager ?: return false
@@ -42,11 +38,11 @@ class UsageStatsPermissionOperator(private val context: Context) : PermissionOpe
             UsageStatsManager.INTERVAL_DAILY,
             now - 24L * 60L * 60L * 1000L,
             now
-        ).isNotEmpty() || isGrantedByShell(packageName)
+        ).isNotEmpty() || isGrantedByShell(packageName, permissionGateway)
     }
 
-    private fun isGrantedByShell(packageName: String): Boolean {
-        return permissionGateway.isUsageStatsAllowedByRoot(packageName)
+    private fun isGrantedByShell(packageName: String, permissionGateway: ManagerPermissionGateway?): Boolean {
+        return permissionGateway?.isUsageStatsAllowedByRoot(packageName) == true
     }
 
     private fun isAllowedMode(mode: Int?): Boolean {
@@ -55,15 +51,16 @@ class UsageStatsPermissionOperator(private val context: Context) : PermissionOpe
             mode == AppOpsManagerOverride.MODE_DEFAULT
     }
 
-    override fun requestPermissionSilently(): Boolean {
-        return permissionGateway.launchAppOps(
+    override fun requestPermissionSilently(permissionGateway: ManagerPermissionGateway?): Boolean {
+        val gateway = permissionGateway ?: return false
+        return gateway.launchAppOps(
             context,
             AppOpsManagerOverride.OPSTR_GET_USAGE_STATS,
             context.getString(R.string.wizard_title_stats_permission_text)
         )
     }
 
-    override fun requestPermission() {
+    override fun requestPermission(permissionGateway: ManagerPermissionGateway?) {
         context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
     }
 }

@@ -20,6 +20,12 @@ object InternalEventBus {
     }
 }
 
+object PushServiceBroadcastActions {
+    const val GET_CONNECTION_STATUS = "getConnectionStatus"
+    const val SET_CONNECTION_STATUS = "setConnectionStatus"
+    const val START_FOREGROUND = "startForeground"
+}
+
 open class InternalMessenger(private val context: Context) {
     private val listeners = ArrayList<MessageListener>()
     private var job: Job? = null

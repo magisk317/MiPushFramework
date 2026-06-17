@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.main.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.data.PreferenceRepository
-import io.github.magisk317.mipush.app.SettingsManager
+import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.uikit.theme.UiKitStyle
 import java.io.File
 import kotlinx.coroutines.flow.SharingStarted

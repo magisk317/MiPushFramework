@@ -9,6 +9,7 @@ import android.os.Looper
 import android.os.Message
 import android.text.TextUtils
 import com.xiaomi.smack.Connection
+import io.github.magisk317.mipush.platform.support.PushServiceBroadcastActions
 
 class XMPushServiceMessenger(
     private val xmPushService: XMPushService
@@ -24,9 +25,9 @@ class XMPushServiceMessenger(
 
     init {
         val filter = IntentFilter().apply {
-            addAction(IntentGetConnectionStatus)
+            addAction(PushServiceBroadcastActions.GET_CONNECTION_STATUS)
             addAction(PushConstants.ACTION_RESET_CONNECTION)
-            addAction(IntentStartForeground)
+            addAction(PushServiceBroadcastActions.START_FOREGROUND)
         }
         if (android.os.Build.VERSION.SDK_INT >= 34) {
             xmPushService.registerReceiver(this, filter, Context.RECEIVER_NOT_EXPORTED)
@@ -55,7 +56,7 @@ class XMPushServiceMessenger(
     }
 
     private fun setConnectionStatusIntent(connectionStatus: String): Intent {
-        val intent = Intent(IntentSetConnectionStatus)
+        val intent = Intent(PushServiceBroadcastActions.SET_CONNECTION_STATUS)
         intent.putExtra("status", connectionStatus)
         val currentConnection: Connection? = xmPushService.currentConnection
         if (currentConnection != null) {
@@ -70,7 +71,7 @@ class XMPushServiceMessenger(
                 resetConnection()
             }
 
-            TextUtils.equals(intent.action, IntentStartForeground) -> {
+            TextUtils.equals(intent.action, PushServiceBroadcastActions.START_FOREGROUND) -> {
                 observer.startForegroundService()
             }
         }
@@ -90,8 +91,8 @@ class XMPushServiceMessenger(
     }
 
     companion object {
-        const val IntentGetConnectionStatus = "getConnectionStatus"
-        const val IntentSetConnectionStatus = "setConnectionStatus"
-        const val IntentStartForeground = "startForeground"
+        const val IntentGetConnectionStatus = PushServiceBroadcastActions.GET_CONNECTION_STATUS
+        const val IntentSetConnectionStatus = PushServiceBroadcastActions.SET_CONNECTION_STATUS
+        const val IntentStartForeground = PushServiceBroadcastActions.START_FOREGROUND
     }
 }

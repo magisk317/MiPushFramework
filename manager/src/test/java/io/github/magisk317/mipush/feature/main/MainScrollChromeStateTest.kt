@@ -3,10 +3,11 @@ package io.github.magisk317.mipush.feature.main
 import io.github.magisk317.mipush.feature.navigation.AppDestinations
 import io.github.magisk317.uikit.scroll.ScrollChromeState
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-class ScrollChromeStateTest {
+class MainScrollChromeStateTest {
 
     @Test
     fun `down scroll hides and up scroll shows chrome`() {
@@ -37,9 +38,26 @@ class ScrollChromeStateTest {
 
         state.onScrollDelta(delta = 32)
         assertFalse(state.isChromeVisible)
+        state.animatedHeaderOffsetY = -18f
 
-        state.onScrollDelta(delta = 1, atTop = true)
+        state.onScrollDelta(delta = 0, atTop = true)
         assertTrue(state.isChromeVisible)
+        assertEquals(0f, state.headerOffsetY)
+        assertEquals(0f, state.animatedHeaderOffsetY)
+    }
+
+    @Test
+    fun `animate to top resets offset and visibility`() {
+        val state = ScrollChromeState()
+
+        state.onScrollDelta(delta = 32)
+        assertFalse(state.isChromeVisible)
+        state.animatedHeaderOffsetY = -24f
+
+        state.animateToTop()
+        assertTrue(state.isChromeVisible)
+        assertEquals(0f, state.headerOffsetY)
+        assertEquals(0f, state.animatedHeaderOffsetY)
     }
 
     @Test

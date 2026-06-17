@@ -10,10 +10,14 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import io.github.magisk317.mipush.runtime.core.ConnectionStatus
+import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.platform.support.InternalMessenger
-import com.xiaomi.push.service.XMPushServiceMessenger
+import io.github.magisk317.mipush.platform.support.PushServiceBroadcastActions
 
-class MainActivityUtils {
+class MainActivityUtils(
+    private val settingsManager: SettingsManager,
+) {
     private val TAG = "MainActivityUtils"
     private var messenger: InternalMessenger? = null
 
@@ -28,7 +32,7 @@ class MainActivityUtils {
     ) {
         val appContext = context.applicationContext
         messenger = InternalMessenger(appContext).apply {
-            register(IntentFilter(XMPushServiceMessenger.IntentSetConnectionStatus))
+            register(IntentFilter(PushServiceBroadcastActions.SET_CONNECTION_STATUS))
             addListener { intent ->
                 val status = intent.getStringExtra("status") ?: return@addListener
                 connectionStatusChanged.onChange(ConnectionStatus.valueOf(status))
@@ -37,29 +41,15 @@ class MainActivityUtils {
 
         printHookResultForCheck()
         loadConfigurations(appContext)
-        messenger?.send(Intent(XMPushServiceMessenger.IntentGetConnectionStatus))
+        messenger?.send(Intent(PushServiceBroadcastActions.GET_CONNECTION_STATUS))
     }
 
     fun printHookResultForCheck() {
-        logI(String.format("[hook_res] MIUIUtils.getIsMIUI() -> [%s]", invokeStatic("com.xiaomi.channel.commonutils.android.MIUIUtils", "getIsMIUI")))
-        logI(String.format("[hook_res] DeviceInfo.quicklyGetIMEI() -> [%s]", invokeStatic("com.xiaomi.channel.commonutils.android.DeviceInfo", "quicklyGetIMEI", null)))
-        logI(String.format("[hook_res] DeviceInfo.getMacAddress() -> [%s]", invokeStatic("com.xiaomi.channel.commonutils.android.DeviceInfo", "getMacAddress", null)))
-        logI(
-            String.format(
-                "[hook_res] ConnectionConfiguration.getXmppServerHost() -> [%s]",
-                invokeStatic("com.xiaomi.smack.ConnectionConfiguration", "getXmppServerHost")
-            )
-        )
-    }
-
-    private fun invokeStatic(className: String, methodName: String, vararg args: Any?): Any? {
-        return runCatching {
-            val clazz = Class.forName(className)
-            val method = clazz.methods.firstOrNull {
-                it.name == methodName && it.parameterTypes.size == args.size
-            } ?: return "<method_missing>"
-            method.invoke(null, *args)
-        }.getOrElse { "<unavailable>" }
+        val snapshot = settingsManager.getRuntimeEnvironmentSnapshot(Utils.getApplication() ?: return)
+        logI(String.format("[hook_res] MIUIUtils.getIsMIUI() -> [%s]", snapshot.isMiui))
+        logI(String.format("[hook_res] DeviceInfo.quicklyGetIMEI() -> [%s]", snapshot.imei))
+        logI(String.format("[hook_res] DeviceInfo.getMacAddress() -> [%s]", snapshot.macAddress))
+        logI(String.format("[hook_res] ConnectionConfiguration.getXmppServerHost() -> [%s]", snapshot.xmppServerHost))
     }
 
     companion object {

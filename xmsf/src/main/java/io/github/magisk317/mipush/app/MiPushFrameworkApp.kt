@@ -54,7 +54,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
-class MiPushFrameworkApp : Application() {
+open class MiPushFrameworkApp : Application() {
     private val preferenceRepository: PreferenceRepository by lazy { AppDependencies.get(this) }
 
 
@@ -66,6 +66,7 @@ class MiPushFrameworkApp : Application() {
         PrivilegeElevator.tryToElevate()
         Utils.setApplicationContext(this)
         AppDependencies.start(this)
+        onAppDependenciesStarted()
         initBasicLogger()
         CrashHandler.installCrashLogger()
         if (isAppMainProc(this)) {
@@ -91,6 +92,8 @@ class MiPushFrameworkApp : Application() {
         checkMemoryLimit()
         PushHealthSnapshotLogger.log(this, "MiPushFrameworkApp.onCreate")
     }
+
+    protected open fun onAppDependenciesStarted() = Unit
 
     private fun requestDozeWhiteList() {
         try {

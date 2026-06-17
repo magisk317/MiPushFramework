@@ -1,7 +1,7 @@
 plugins {
-    id("mipush.android.application")
-    id("mipush.app.signing")
-    id("mipush.app.packaging")
+    id("magisk.android.application")
+    id("magisk.app.signing")
+    id("magisk.app.packaging")
 }
 
 extra["mipushArtifactBaseName"] = "xmsf"
@@ -18,7 +18,7 @@ android {
         versionName = versionNameStr
     }
 
-    flavorDimensions += "version"
+    flavorDimensions.add("version")
 
     productFlavors {
         create("normal") {
