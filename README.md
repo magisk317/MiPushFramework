@@ -12,7 +12,7 @@
 ![Java](https://img.shields.io/badge/Java-25%2B-E76F00?logo=openjdk&logoColor=white)
 ![Gradle](https://img.shields.io/badge/Gradle-9.6.0--rc--3-02303A?logo=gradle&logoColor=white)
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM_2026.05.02-4285F4?logo=jetpackcompose&logoColor=white)
-![AGP](https://img.shields.io/badge/AGP-9.3.0--alpha12-3DDC84?logo=gradle&logoColor=white)
+![AGP](https://img.shields.io/badge/AGP-9.3.0--rc01-3DDC84?logo=gradle&logoColor=white)
 
 在非 MIUI 系统上使用接近 MIUI 的小米系统级推送。
 
