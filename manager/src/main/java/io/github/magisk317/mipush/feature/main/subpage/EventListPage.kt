@@ -810,16 +810,8 @@ private fun EventList(
     val context = LocalContext.current
     val recentActivityDeletedMessage = stringResource(R.string.recent_activity_deleted)
     val actionUndoLabel = stringResource(R.string.action_undo)
-    val globalItems by viewModel.globalItems.collectAsState()
     val items = remember {
-        if (packageName.isEmpty() && !isPreview) mutableStateListOf<EventInfoForDisplay>().apply { addAll(globalItems) }
-        else mutableStateListOf()
-    }
-    LaunchedEffect(globalItems) {
-        if (packageName.isEmpty() && !isPreview) {
-            items.clear()
-            items.addAll(globalItems)
-        }
+        mutableStateListOf<EventInfoForDisplay>()
     }
 
     val refreshScope = rememberCoroutineScope()
@@ -839,9 +831,6 @@ private fun EventList(
                 hasMore = loaded.size >= Constants.PAGE_SIZE
                 isLoading = false
                 onRefreshed()
-            }
-            if (packageName.isEmpty() && !isPreview) {
-                viewModel.setGlobalItems(items.toList())
             }
         }
     }
@@ -863,9 +852,6 @@ private fun EventList(
                 isNeedRefresh = false
                 onRefreshed()
             }
-            if (packageName.isEmpty() && !isPreview) {
-                viewModel.setGlobalItems(items.toList())
-            }
         }
     }
 
@@ -876,9 +862,6 @@ private fun EventList(
         val key = item.composeKey()
         val insertAt = items.indexOfFirst { it.composeKey() == key }.coerceAtLeast(0)
         items.removeAll { it.composeKey() == key }
-        if (packageName.isEmpty() && !isPreview) {
-            viewModel.removeGlobalItem(item)
-        }
 
         actionScope.launch {
             viewModel.deleteEvent(item)
@@ -892,9 +875,6 @@ private fun EventList(
                 viewModel.restoreEvent(item)?.let { restored ->
                     val idx = insertAt.coerceIn(0, items.size)
                     items.add(idx, restored)
-                    if (packageName.isEmpty() && !isPreview) {
-                        viewModel.insertGlobalItemAt(idx, restored)
-                    }
                 }
             }
         }

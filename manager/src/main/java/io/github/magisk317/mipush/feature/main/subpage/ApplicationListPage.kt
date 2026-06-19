@@ -98,8 +98,6 @@ data class AppInfoForDisplay(
     val lastReceiveTime: String,
 )
 
-private var g_itemsInfo by mutableStateOf(emptyMap<String, AppInfoForDisplay>())
-private var g_items by mutableStateOf(ApplicationPageOperation.MiPushApplications())
 private val TAG = "ApplicationListPage"
 @Composable
 fun ApplicationList(
@@ -433,17 +431,6 @@ private fun AppListBadge(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
         )
     }
-}
-
-@Composable
-private fun LastReceive(item: ManagerApplication) {
-    val info = g_itemsInfo[item.packageName] ?: return
-    if (info.lastReceiveTime.isBlank()) return
-    Text(
-        info.lastReceiveTime,
-        style = MaterialTheme.typography.bodyLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
