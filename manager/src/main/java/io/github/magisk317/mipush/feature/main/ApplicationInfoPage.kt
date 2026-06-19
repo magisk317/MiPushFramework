@@ -53,7 +53,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -129,6 +129,7 @@ open class ApplicationInfoPage : ComponentActivity() {
         }
         init(app)
         infoViewModel.setApplicationInfo(app)
+        appConfigurationUtils = AppConfigurationUtils(this, app, notificationGateway)
         setContent {
             Theme {
                 SettingsApp()
@@ -148,14 +149,6 @@ open class ApplicationInfoPage : ComponentActivity() {
 
     @Composable
     fun SettingsApp() {
-        if (!::appConfigurationUtils.isInitialized) {
-            appConfigurationUtils = AppConfigurationUtils(
-                LocalContext.current,
-                applicationInfo,
-                notificationGateway,
-            )
-        }
-
         val snackbarHostState = remember { SnackbarHostState() }
 
         Theme {
@@ -221,7 +214,7 @@ open class ApplicationInfoPage : ComponentActivity() {
     private fun ApplicationInfoHeader(snackbarHostState: SnackbarHostState) {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
-        val integrationType by infoViewModel.integrationTypeReason.collectAsState()
+        val integrationType by infoViewModel.integrationTypeReason.collectAsStateWithLifecycle()
         val integrationTypeLabel = registrationTypeShortLabel(integrationType ?: "")
         val serviceState = if (applicationInfo.existServices) {
             stringResource(R.string.app_detail_service_ready)
@@ -423,7 +416,7 @@ open class ApplicationInfoPage : ComponentActivity() {
         ) {
             return
         }
-        val diagnostics by infoViewModel.diagnostics.collectAsState()
+        val diagnostics by infoViewModel.diagnostics.collectAsStateWithLifecycle()
         val shouldSuggestResetprop = shouldSuggestFakeApp && diagnostics?.inferenceReason in setOf(
             "unregistered_after_attempt",
             "registration_result_failed",
@@ -458,7 +451,7 @@ open class ApplicationInfoPage : ComponentActivity() {
     @Composable
     private fun ActivitySectionCard(snackbarHostState: SnackbarHostState) {
         val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
-        val currentInfo by infoViewModel.applicationInfo.collectAsState()
+        val currentInfo by infoViewModel.applicationInfo.collectAsStateWithLifecycle()
         val blocked = currentInfo?.blocked ?: applicationInfo.blocked
 
         DetailSectionCard(
@@ -471,7 +464,6 @@ open class ApplicationInfoPage : ComponentActivity() {
                 checked = blocked,
                 showDivider = true,
             ) { enabled ->
-                applicationInfo = applicationInfo.copy(blocked = enabled)
                 infoViewModel.updateBlocked(enabled)
                 showSwitchFeedback(blockTitle, enabled)
             }
@@ -491,7 +483,7 @@ open class ApplicationInfoPage : ComponentActivity() {
     @Composable
     private fun IslandDisplaySection(snackbarHostState: SnackbarHostState) {
         val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
-        val currentInfo by infoViewModel.applicationInfo.collectAsState()
+        val currentInfo by infoViewModel.applicationInfo.collectAsStateWithLifecycle()
         val islandEnabled = currentInfo?.islandEnabled ?: applicationInfo.islandEnabled
         val islandFocusNotification = currentInfo?.islandFocusNotification ?: applicationInfo.islandFocusNotification
 
@@ -506,7 +498,6 @@ open class ApplicationInfoPage : ComponentActivity() {
                 checked = islandEnabled,
                 showDivider = true,
             ) { enabled ->
-                applicationInfo = applicationInfo.copy(islandEnabled = enabled)
                 infoViewModel.updateIslandEnabled(enabled)
                 showSwitchFeedback(islandEnabledTitle, enabled)
             }
@@ -518,7 +509,6 @@ open class ApplicationInfoPage : ComponentActivity() {
                 checked = islandFocusNotification,
                 enabled = islandEnabled,
             ) { enabled ->
-                applicationInfo = applicationInfo.copy(islandFocusNotification = enabled)
                 infoViewModel.updateIslandFocusEnabled(enabled)
                 showSwitchFeedback(islandFocusNotificationTitle, enabled)
             }
