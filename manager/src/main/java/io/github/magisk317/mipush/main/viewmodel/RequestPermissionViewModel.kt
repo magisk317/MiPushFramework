@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.feature.wizard.permission.PermissionInfo
+import io.github.magisk317.mipush.feature.wizard.permission.UsageStatsPermissionInfo
+import io.github.magisk317.mipush.feature.wizard.permission.requirementGroupKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +24,9 @@ class RequestPermissionViewModel constructor(
 
     private val _permissionStates = MutableStateFlow<Map<Int, Boolean>>(emptyMap())
     val permissionStates: StateFlow<Map<Int, Boolean>> = _permissionStates.asStateFlow()
+
+    private val _autoRequestCompleted = MutableStateFlow(false)
+    val autoRequestCompleted: StateFlow<Boolean> = _autoRequestCompleted.asStateFlow()
 
     fun evaluatePermissions(permissionInfos: List<PermissionInfo>) {
         viewModelScope.launch {
@@ -43,6 +48,62 @@ class RequestPermissionViewModel constructor(
         }
     }
 
+    fun autoRequestPermissions(
+        permissionInfos: List<PermissionInfo>,
+        alreadyRequested: Set<Int>,
+    ) {
+        viewModelScope.launch {
+            val refreshedStates = withContext(Dispatchers.IO) {
+                permissionGateway.refreshRootAccessIfGranted()
+                evaluatePermissionStates(permissionInfos)
+            }
+            _permissionStates.value = refreshedStates
+
+            val allSatisfied = areAllSatisfied(permissionInfos, refreshedStates)
+            if (allSatisfied) {
+                _autoRequestCompleted.value = true
+                return@launch
+            }
+
+            for ((index, info) in permissionInfos.withIndex()) {
+                if (!info.isRequired) continue
+                if (index in alreadyRequested) continue
+                if (isSatisfied(index, permissionInfos, refreshedStates)) continue
+
+                val grantedSilently = info.permissionOperator.requestPermissionSilently(permissionGateway)
+                if (grantedSilently) {
+                    val updatedStates = withContext(Dispatchers.IO) {
+                        evaluatePermissionStates(permissionInfos)
+                    }
+                    _permissionStates.value = updatedStates
+                    break
+                }
+
+                if (info is UsageStatsPermissionInfo) {
+                    requestUsageStats(info)
+                } else {
+                    info.permissionOperator.requestPermission(permissionGateway)
+                }
+                break
+            }
+        }
+    }
+
+    fun requestPermission(
+        info: PermissionInfo,
+        onDone: () -> Unit,
+    ) {
+        viewModelScope.launch {
+            val handledSilently = info.permissionOperator.requestPermissionSilently(permissionGateway)
+            if (!handledSilently) {
+                withContext(Dispatchers.IO) {
+                    info.permissionOperator.requestPermission(permissionGateway)
+                }
+            }
+            onDone()
+        }
+    }
+
     fun requestUsageStats(permissionInfo: PermissionInfo) {
         viewModelScope.launch {
             val requestedBefore = preferenceRepository.usageStatsRequested.first()
@@ -51,5 +112,36 @@ class RequestPermissionViewModel constructor(
                 permissionInfo.permissionOperator.requestPermission(permissionGateway)
             }
         }
+    }
+
+    private fun isSatisfied(index: Int, permissionInfos: List<PermissionInfo>, states: Map<Int, Boolean>): Boolean {
+        val info = permissionInfos[index]
+        val groupKey = info.requirementGroupKey()
+        return if (groupKey != null) {
+            permissionInfos.withIndex().any { (i, p) ->
+                p.requirementGroupKey() == groupKey && states[i] == true
+            }
+        } else {
+            states[index] == true
+        }
+    }
+
+    private fun areAllSatisfied(permissionInfos: List<PermissionInfo>, states: Map<Int, Boolean>): Boolean {
+        val requiredGroups = mutableSetOf<String?>()
+        for ((index, info) in permissionInfos.withIndex()) {
+            if (!info.isRequired) continue
+            val groupKey = info.requirementGroupKey()
+            if (groupKey != null) {
+                if (requiredGroups.add(groupKey)) {
+                    val groupSatisfied = permissionInfos.withIndex().any { (i, p) ->
+                        p.requirementGroupKey() == groupKey && states[i] == true
+                    }
+                    if (!groupSatisfied) return false
+                }
+            } else {
+                if (states[index] != true) return false
+            }
+        }
+        return true
     }
 }
