@@ -63,6 +63,7 @@ import io.github.magisk317.mipush.feature.wizard.permission.UsageStatsPermission
 import io.github.magisk317.mipush.feature.ui.theme.Theme
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 import io.github.magisk317.mipush.data.PreferenceRepository
+import io.github.magisk317.mipush.main.viewmodel.RequestPermissionViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -75,6 +76,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -87,6 +89,7 @@ import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.mutableIntStateOf
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 private val TAG = "WizardPermission"
 
@@ -119,6 +122,7 @@ fun PermissionMainActivity(
 ) {
     val context = LocalContext.current
     val permissionGateway: ManagerPermissionGateway = koinInject()
+    val permissionViewModel: RequestPermissionViewModel = koinViewModel()
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -138,7 +142,7 @@ fun PermissionMainActivity(
         }
         val preferenceRepository = remember { PreferenceRepository() }
         val scope = rememberCoroutineScope()
-        var permissionStates by remember { mutableStateOf<Map<Int, Boolean>>(emptyMap()) }
+        val permissionStates by permissionViewModel.permissionStates.collectAsState()
 
         // Use a key to trigger recomposition when we return from settings
         var checkTrigger by remember { mutableIntStateOf(0) }
@@ -165,9 +169,9 @@ fun PermissionMainActivity(
         LaunchedEffect(checkTrigger) {
             val refreshedStates = withContext(Dispatchers.IO) {
                 permissionGateway.refreshRootAccessIfGranted()
-                evaluatePermissionStates(permissionInfos, permissionGateway)
+                permissionViewModel.evaluatePermissionStates(permissionInfos)
             }
-            permissionStates = refreshedStates
+            permissionViewModel.evaluatePermissions(permissionInfos)
             if (!areAllPermissionRequirementsSatisfied(permissionInfos, refreshedStates)) {
                 permissionInfos.forEachIndexed { index, it ->
                     if (!it.isRequired) {
@@ -180,9 +184,9 @@ fun PermissionMainActivity(
                         val grantedSilently = it.permissionOperator.requestPermissionSilently(permissionGateway)
                         if (grantedSilently) {
                             val updatedStates = withContext(Dispatchers.IO) {
-                                evaluatePermissionStates(permissionInfos, permissionGateway)
+                                permissionViewModel.evaluatePermissionStates(permissionInfos)
                             }
-                            permissionStates = updatedStates
+                            permissionViewModel.evaluatePermissions(permissionInfos)
                             if (isPermissionRequirementSatisfied(index, permissionInfos, updatedStates)) {
                                 checkTrigger++
                             }
@@ -191,11 +195,7 @@ fun PermissionMainActivity(
 
                         // Special handling for usage stats
                         if (it is UsageStatsPermissionInfo) {
-                            val requestedBefore = preferenceRepository.usageStatsRequested.first()
-                            if (!requestedBefore) {
-                                preferenceRepository.setUsageStatsRequested(true)
-                                it.permissionOperator.requestPermission(permissionGateway)
-                            }
+                            permissionViewModel.requestUsageStats(it)
                         } else {
                             it.permissionOperator.requestPermission(permissionGateway)
                         }
@@ -242,9 +242,7 @@ fun PermissionMainActivity(
                                     info.permissionOperator.requestPermission(permissionGateway)
                                 }
                             }
-                            permissionStates = withContext(Dispatchers.IO) {
-                                evaluatePermissionStates(permissionInfos, permissionGateway)
-                            }
+                            permissionViewModel.evaluatePermissions(permissionInfos)
                             checkTrigger++
                         }
                     }

@@ -32,6 +32,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,6 +63,7 @@ import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.manager.R
+import io.github.magisk317.mipush.main.viewmodel.ApplicationListViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -87,6 +91,7 @@ import io.github.magisk317.uikit.surface.WorkspaceSearchField
 import io.github.magisk317.uikit.surface.WorkspaceTopBarSearchOverlay
 import io.github.magisk317.uikit.surface.WorkspaceListItem
 import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 data class AppInfoForDisplay(
     val registrationState: Pair<Int, Color>,
@@ -107,107 +112,50 @@ fun ApplicationList(
     hazeStyle: HazeBlurStyle? = null,
     scrollChromeState: ScrollChromeState? = null,
 ) {
+    val listViewModel: ApplicationListViewModel = koinViewModel()
+    val items by listViewModel.items.collectAsState()
+    val itemsInfo by listViewModel.itemsInfo.collectAsState()
+    val stats by listViewModel.stats.collectAsState()
     val context = LocalContext.current
-    val applicationGateway: ManagerApplicationGateway = koinInject()
-    val applicationPageOperation = remember(applicationGateway) { ApplicationPageOperation(applicationGateway) }
-    ApplicationList(
-        query = query,
-        contentPadding = contentPadding,
-        refreshSignal = refreshSignal,
-        filterMode = filterMode,
-        onAppClick = onAppClick,
-        getMiPushApplications = { q, mode ->
-            val miPushApplications =
-                applicationPageOperation.getMiPushApplicationsThatQueryMatched(q, mode)
-            applicationPageOperation.updateRegisteredApplicationDb(
-                context,
-                miPushApplications.res
-            )
-            miPushApplications
-        },
-        hazeState = hazeState,
-        hazeStyle = hazeStyle,
-        scrollChromeState = scrollChromeState,
-    )
-}
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ApplicationList(
-    query: String = "",
-    contentPadding: PaddingValues = PaddingValues(0.dp),
-    refreshSignal: Int = 0,
-    filterMode: Int = 0,
-    onAppClick: (String) -> Unit,
-    getMiPushApplications: (query: String, filterMode: Int) -> ApplicationPageOperation.MiPushApplications,
-    hazeState: HazeState? = null,
-    hazeStyle: HazeBlurStyle? = null,
-    scrollChromeState: ScrollChromeState? = null,
-) {
-    val context = LocalContext.current
-    val isPreview = LocalInspectionMode.current
-    val lifecycleOwner = LocalLifecycleOwner.current
-    
     var currentQuery by rememberSaveable(query) { mutableStateOf(query) }
     var searchExpanded by rememberSaveable(query) { mutableStateOf(query.isNotBlank()) }
 
-    if (isPreview) g_items = getMiPushApplications(currentQuery, filterMode)
-    val shouldRefresh = g_items.res.isEmpty() || currentQuery.isNotEmpty() || refreshSignal > 0
+    val shouldRefresh = items.res.isEmpty() || currentQuery.isNotEmpty() || refreshSignal > 0
     var isNeedRefresh by rememberSaveable(currentQuery, refreshSignal, filterMode) { mutableStateOf(shouldRefresh) }
 
-    androidx.compose.runtime.LaunchedEffect(currentQuery, refreshSignal, filterMode) {
+    LaunchedEffect(currentQuery, refreshSignal, filterMode) {
         if (!shouldRefresh) {
             isNeedRefresh = true
         }
     }
 
     val refreshScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
-    androidx.compose.runtime.DisposableEffect(Unit) {
+    DisposableEffect(Unit) {
         onDispose {
             refreshScope.cancel()
         }
     }
-    val stats by remember {
-        derivedStateOf {
-            g_items.toApplicationStats()
+
+    LaunchedEffect(Unit) {
+        if (items.res.isEmpty()) {
+            listViewModel.loadApplications(currentQuery, filterMode)
+            isNeedRefresh = false
         }
     }
 
     val onRefresh: (onRefreshed: () -> Unit) -> Unit = { onRefreshed ->
-        refreshScope.launch(Dispatchers.IO) {
-            try {
-                val applications = getMiPushApplications(currentQuery, filterMode)
-                updateInfos(applications, context)
-
-                withContext(Dispatchers.Main) {
-                    g_items = applications
-                    isNeedRefresh = false
-                    onRefreshed()
-                }
-                // iconCache removed, AppIcon handles caching
-            } catch (e: Throwable) {
-                logE("failed to load app list: ${e.message}", e)
-                withContext(Dispatchers.Main) {
-                    isNeedRefresh = false
-                    onRefreshed()
-                }
-            }
+        listViewModel.loadApplications(currentQuery, filterMode) {
+            isNeedRefresh = false
+            onRefreshed()
         }
     }
 
-    androidx.compose.runtime.DisposableEffect(lifecycleOwner, currentQuery, isPreview, isNeedRefresh) {
-        if (isPreview || currentQuery.isNotEmpty()) {
-            return@DisposableEffect onDispose { }
-        }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, currentQuery, isNeedRefresh) {
         val observer = LifecycleEventObserver { _, event ->
             if (event != Lifecycle.Event.ON_RESUME || isNeedRefresh) return@LifecycleEventObserver
-            refreshScope.launch(Dispatchers.IO) {
-                val applications = getMiPushApplications(currentQuery, filterMode)
-                updateInfos(applications, context)
-                withContext(Dispatchers.Main) {
-                    g_items = applications
-                }
-            }
+            listViewModel.refreshApplications(currentQuery, filterMode)
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
@@ -258,8 +206,8 @@ fun ApplicationList(
                     },
                     listState = listState,
                 ) {
-                    items(g_items.res, { it.packageName }) {
-                        ApplicationItem(it, onAppClick)
+                    items(items.res, { it.packageName }) {
+                        ApplicationItem(it, onAppClick, itemsInfo)
                     }
                 }
             },
@@ -379,28 +327,9 @@ private fun applicationFilterLabel(filterMode: Int): String? {
     }
 }
 
-private fun updateInfos(
-    applications: ApplicationPageOperation.MiPushApplications,
-    context: Context
-) {
-    val infoMap = emptyMap<String, AppInfoForDisplay>().toMutableMap()
-    applications.res.forEach {
-        infoMap[it.packageName] = AppInfoForDisplay(
-            registrationState = RegistrationStateStyle.contentOf(it),
-            lastReceiveTime = if (it.lastReceiveTimeMs == 0L) ""
-            else context.getString(R.string.last_receive) + friendlyDateString(
-                java.util.Date(it.lastReceiveTimeMs),
-                Utils.getUTC(),
-                context
-            ),
-        )
-    }
-    g_itemsInfo = infoMap
-}
-
 @Composable
-private fun ApplicationItem(item: ManagerApplication, onAppClick: (String) -> Unit) {
-    val info = g_itemsInfo[item.packageName] ?: return
+private fun ApplicationItem(item: ManagerApplication, onAppClick: (String) -> Unit, itemsInfo: Map<String, AppInfoForDisplay>) {
+    val info = itemsInfo[item.packageName] ?: return
     val statusColor =
         if (info.registrationState.second == Color.Unspecified) MaterialTheme.colorScheme.onSurface
         else info.registrationState.second
@@ -517,6 +446,72 @@ private fun LastReceive(item: ManagerApplication) {
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ApplicationListPreview(
+    query: String = "",
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    refreshSignal: Int = 0,
+    filterMode: Int = 0,
+    onAppClick: (String) -> Unit,
+    items: ApplicationPageOperation.MiPushApplications,
+    itemsInfo: Map<String, AppInfoForDisplay>,
+    hazeState: HazeState? = null,
+    hazeStyle: HazeBlurStyle? = null,
+    scrollChromeState: ScrollChromeState? = null,
+) {
+    val isPreview = LocalInspectionMode.current
+    var currentQuery by rememberSaveable(query) { mutableStateOf(query) }
+    var searchExpanded by rememberSaveable(query) { mutableStateOf(query.isNotBlank()) }
+    val stats = items.toApplicationStats()
+
+    Page {
+        val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        val topOverlayHeight = topInset + if (searchExpanded) 152.dp else 96.dp
+        val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+        Box(modifier = Modifier.fillMaxSize()) {
+            OverlayHeaderScaffold(
+                fallbackTopPadding = topOverlayHeight,
+                bottomPadding = contentPadding.calculateBottomPadding() + 28.dp,
+                headerOffsetY = 0f,
+                onHeaderHeightChanged = {},
+                overlayModifier = Modifier.fillMaxWidth(),
+                content = { listPadding ->
+                    RefreshableLazyColumn(
+                        doRefresh = {},
+                        isNeedMore = { false },
+                        doLoadMore = {},
+                        isNeedRefresh = false,
+                        scrollToTopSignal = refreshSignal,
+                        scrollChromeState = scrollChromeState,
+                        contentPadding = PaddingValues(
+                            top = listPadding.calculateTopPadding() + 8.dp,
+                            bottom = listPadding.calculateBottomPadding(),
+                        ),
+                        listState = listState,
+                    ) {
+                        items(items.res, { it.packageName }) {
+                            ApplicationItem(it, onAppClick, itemsInfo)
+                        }
+                    }
+                },
+                overlay = {
+                    Column {
+                        TopAppBar(
+                            title = { Text(stringResource(R.string.app_list_hero_title)) },
+                            windowInsets = WindowInsets.statusBars,
+                            colors = TopAppBarDefaults.topAppBarColors(
+                                containerColor = Color.Transparent,
+                                scrolledContainerColor = Color.Transparent,
+                            ),
+                        )
+                    }
+                },
+            )
+        }
+    }
+}
+
 @Preview(
     showBackground = true,
     device = Devices.PIXEL_3,
@@ -524,47 +519,47 @@ private fun LastReceive(item: ManagerApplication) {
 )
 @Composable
 fun ApplicationListPreview() {
-    // Napier.init()
-
-
-    ApplicationList(
-        contentPadding = PaddingValues(0.dp),
-        onAppClick = {},
-        getMiPushApplications = { _, _ ->
-            val miPushApplications = ApplicationPageOperation.MiPushApplications()
-            miPushApplications.res = (
-                mutableListOf(
-                    registeredApplication(
-                        ManagerApplication.RegisteredType.NOT_REGISTERED,
-                        "123"
-                    ),
-                    registeredApplication(
-                        ManagerApplication.RegisteredType.REGISTERED,
-                        "qwe"
-                    ),
-                    registeredApplication(
-                        ManagerApplication.RegisteredType.REGISTERED,
-                        "asd"
-                    ),
-                    registeredApplication(
-                        ManagerApplication.RegisteredType.UNREGISTERED,
-                        "zxc"
-                    ),
-                    registeredApplication(
-                        ManagerApplication.RegisteredType.UNREGISTERED,
-                        "456",
-                        false
-                    ),
-                ) + ('a'..'z').map {
-                    registeredApplication(
-                        ManagerApplication.RegisteredType.NOT_REGISTERED,
-                        it.toString()
-                    )
-                }
-            ).toMutableList()
-
-            miPushApplications
+    val miPushApplications = ApplicationPageOperation.MiPushApplications()
+    miPushApplications.res = (
+        mutableListOf(
+            registeredApplication(
+                ManagerApplication.RegisteredType.NOT_REGISTERED,
+                "123"
+            ),
+            registeredApplication(
+                ManagerApplication.RegisteredType.REGISTERED,
+                "qwe"
+            ),
+            registeredApplication(
+                ManagerApplication.RegisteredType.REGISTERED,
+                "asd"
+            ),
+            registeredApplication(
+                ManagerApplication.RegisteredType.UNREGISTERED,
+                "zxc"
+            ),
+            registeredApplication(
+                ManagerApplication.RegisteredType.UNREGISTERED,
+                "456",
+                false
+            ),
+        ) + ('a'..'z').map {
+            registeredApplication(
+                ManagerApplication.RegisteredType.NOT_REGISTERED,
+                it.toString()
+            )
         }
+    ).toMutableList()
+    val infoMap = miPushApplications.res.associate { app ->
+        app.packageName to AppInfoForDisplay(
+            registrationState = RegistrationStateStyle.contentOf(app),
+            lastReceiveTime = "",
+        )
+    }
+    ApplicationListPreview(
+        onAppClick = {},
+        items = miPushApplications,
+        itemsInfo = infoMap,
     )
 }
 
@@ -575,21 +570,24 @@ fun ApplicationListPreview() {
 )
 @Composable
 fun OneApplicationWithNonMiPushAppPreview() {
-    // Napier.init()
-
-    ApplicationList(
+    val miPushApplications = ApplicationPageOperation.MiPushApplications()
+    miPushApplications.res = mutableListOf(
+        registeredApplication(
+            ManagerApplication.RegisteredType.NOT_REGISTERED,
+            "123"
+        )
+    )
+    miPushApplications.totalPkg = 100
+    val infoMap = miPushApplications.res.associate { app ->
+        app.packageName to AppInfoForDisplay(
+            registrationState = RegistrationStateStyle.contentOf(app),
+            lastReceiveTime = "",
+        )
+    }
+    ApplicationListPreview(
         onAppClick = {},
-        getMiPushApplications = { _, _ ->
-            val miPushApplications = ApplicationPageOperation.MiPushApplications()
-            miPushApplications.res = mutableListOf(
-                registeredApplication(
-                    ManagerApplication.RegisteredType.NOT_REGISTERED,
-                    "123"
-                )
-            )
-            miPushApplications.totalPkg = 100
-            miPushApplications
-        }
+        items = miPushApplications,
+        itemsInfo = infoMap,
     )
 }
 
