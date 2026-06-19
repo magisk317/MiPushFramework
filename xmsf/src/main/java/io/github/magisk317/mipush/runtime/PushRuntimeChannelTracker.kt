@@ -20,7 +20,7 @@ object PushRuntimeChannelTracker {
     private val clientChangeListener = PushClientsManager.ClientChangeListener {
         syncNow("PushClientsManager.ClientChangeListener")
     }
-    private val statusField by lazy(LazyThreadSafetyMode.NONE) {
+    private val statusField by lazy {
         ClientLoginInfo::class.java.getDeclaredField("status").apply { isAccessible = true }
     }
 
