@@ -93,7 +93,6 @@ class XMPushServiceLifecycleRuntime(
                 }
             }
             service.executeJob(prepareAccountJob)
-            service.executeJob(prepareAccountJob)
         }
         try {
             if (SystemUtils.isBootCompleted()) {
