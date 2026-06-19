@@ -9,7 +9,6 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
-import androidx.lifecycle.lifecycleScope
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
@@ -82,9 +81,7 @@ import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
 import io.github.magisk317.mipush.common.manager.ManagerNotificationGateway
 import io.github.magisk317.mipush.main.viewmodel.ApplicationInfoViewModel
 import io.github.magisk317.mipush.manager.R
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.uikit.surface.AppIconImage
@@ -359,11 +356,16 @@ open class ApplicationInfoPage : ComponentActivity() {
                     ) {
                         FilledTonalButton(
                             onClick = {
-                                launchTargetAppAndForceRegister(
-                                    context,
-                                    applicationInfo.packageName,
-                                    snackbarHostState,
-                                )
+                                scope.launch {
+                                    val message = infoViewModel.launchTargetAppAndForceRegister(
+                                        applicationInfo.packageName,
+                                        applicationInfo.registeredType,
+                                    )
+                                    snackbarHostState.showSnackbar(
+                                        message = message,
+                                        duration = SnackbarDuration.Short,
+                                    )
+                                }
                             },
                         ) {
                             Text(
@@ -408,26 +410,6 @@ open class ApplicationInfoPage : ComponentActivity() {
                 .setData(uri)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )
-    }
-
-    private fun launchTargetAppAndForceRegister(
-        context: Context,
-        packageName: String,
-        snackbarHostState: SnackbarHostState,
-    ) {
-        lifecycleScope.launch {
-            val message = withContext(Dispatchers.IO) {
-                applicationGateway.launchTargetAppAndForceRegister(
-                    context = context,
-                    packageName = packageName,
-                    registeredType = applicationInfo.registeredType,
-                )
-            }
-            snackbarHostState.showSnackbar(
-                message = message,
-                duration = SnackbarDuration.Short,
-            )
-        }
     }
 
     @Composable

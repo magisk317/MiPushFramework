@@ -46,6 +46,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -570,7 +571,7 @@ private fun EventGroupList(
         }
     }
 
-    val refreshScope = rememberCoroutineScope { Dispatchers.IO }
+    val refreshScope = rememberCoroutineScope()
     val doRefresh: (onRefreshed: () -> Unit) -> Unit = { onRefreshed ->
         refreshScope.launch {
             loadNextPage(isRefresh = true)
@@ -772,9 +773,7 @@ private fun buildEventDebugInfo(event: EventInfoForDisplay): String {
     }
 }
 
-private val g_items = mutableStateListOf<EventInfoForDisplay>()
-
-private fun EventInfoForDisplay.composeKey(): String {
+fun EventInfoForDisplay.composeKey(): String {
     if (id > 0L) return "id:$id"
     return "legacy:${packageName}:${receiveDate.time}:${title.hashCode()}:${content.hashCode()}"
 }
@@ -811,12 +810,19 @@ private fun EventList(
     val context = LocalContext.current
     val recentActivityDeletedMessage = stringResource(R.string.recent_activity_deleted)
     val actionUndoLabel = stringResource(R.string.action_undo)
+    val globalItems by viewModel.globalItems.collectAsState()
     val items = remember {
-        if (packageName.isEmpty() && !isPreview) g_items
+        if (packageName.isEmpty() && !isPreview) mutableStateListOf<EventInfoForDisplay>().apply { addAll(globalItems) }
         else mutableStateListOf()
     }
+    LaunchedEffect(globalItems) {
+        if (packageName.isEmpty() && !isPreview) {
+            items.clear()
+            items.addAll(globalItems)
+        }
+    }
 
-    val refreshScope = rememberCoroutineScope { Dispatchers.IO }
+    val refreshScope = rememberCoroutineScope()
     val actionScope = rememberCoroutineScope()
     var isLoading by remember { mutableStateOf(false) }
     var hasMore by rememberSaveable(query, packageName) { mutableStateOf(true) }
@@ -833,6 +839,9 @@ private fun EventList(
                 hasMore = loaded.size >= Constants.PAGE_SIZE
                 isLoading = false
                 onRefreshed()
+            }
+            if (packageName.isEmpty() && !isPreview) {
+                viewModel.setGlobalItems(items.toList())
             }
         }
     }
@@ -854,6 +863,9 @@ private fun EventList(
                 isNeedRefresh = false
                 onRefreshed()
             }
+            if (packageName.isEmpty() && !isPreview) {
+                viewModel.setGlobalItems(items.toList())
+            }
         }
     }
 
@@ -864,6 +876,9 @@ private fun EventList(
         val key = item.composeKey()
         val insertAt = items.indexOfFirst { it.composeKey() == key }.coerceAtLeast(0)
         items.removeAll { it.composeKey() == key }
+        if (packageName.isEmpty() && !isPreview) {
+            viewModel.removeGlobalItem(item)
+        }
 
         actionScope.launch {
             viewModel.deleteEvent(item)
@@ -877,6 +892,9 @@ private fun EventList(
                 viewModel.restoreEvent(item)?.let { restored ->
                     val idx = insertAt.coerceIn(0, items.size)
                     items.add(idx, restored)
+                    if (packageName.isEmpty() && !isPreview) {
+                        viewModel.insertGlobalItemAt(idx, restored)
+                    }
                 }
             }
         }

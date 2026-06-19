@@ -13,6 +13,7 @@ import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.manager.ManagerEvent
 import io.github.magisk317.mipush.common.manager.ManagerEventGateway
 import io.github.magisk317.mipush.feature.main.subpage.EventInfoForDisplay
+import io.github.magisk317.mipush.feature.main.subpage.composeKey
 import java.util.Date
 import io.github.magisk317.mipush.manager.SettingsManager
 
@@ -23,6 +24,34 @@ class EventListViewModel constructor(
 ) : ViewModel() {
     private val _events = MutableStateFlow<List<EventInfoForDisplay>>(emptyList())
     val events: StateFlow<List<EventInfoForDisplay>> = _events.asStateFlow()
+
+    private val _globalItems = MutableStateFlow<List<EventInfoForDisplay>>(emptyList())
+    val globalItems: StateFlow<List<EventInfoForDisplay>> = _globalItems.asStateFlow()
+
+    fun setGlobalItems(items: List<EventInfoForDisplay>) {
+        _globalItems.value = items
+    }
+
+    fun appendGlobalItemsDistinct(newItems: List<EventInfoForDisplay>) {
+        if (newItems.isEmpty()) return
+        val current = _globalItems.value
+        val existingKeys = current.map { it.composeKey() }.toHashSet()
+        val unique = newItems.filter { existingKeys.add(it.composeKey()) }
+        if (unique.isNotEmpty()) {
+            _globalItems.value = current + unique
+        }
+    }
+
+    fun removeGlobalItem(item: EventInfoForDisplay) {
+        val key = item.composeKey()
+        _globalItems.value = _globalItems.value.filter { it.composeKey() != key }
+    }
+
+    fun insertGlobalItemAt(index: Int, item: EventInfoForDisplay) {
+        val mutable = _globalItems.value.toMutableList()
+        mutable.add(index.coerceIn(0, mutable.size), item)
+        _globalItems.value = mutable
+    }
 
     fun loadEvents(query: String, packageName: String, isRefresh: Boolean, lastId: Long?) {
         viewModelScope.launch {
