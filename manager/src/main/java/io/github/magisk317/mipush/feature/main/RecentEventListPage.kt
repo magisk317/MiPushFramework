@@ -24,7 +24,11 @@ open class RecentEventListPage : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        val packageName = intent.dataString!!
+        val packageName = intent?.dataString
+        if (packageName.isNullOrBlank()) {
+            finish()
+            return
+        }
         setContent {
             Theme {
                 RecentEventPage(packageName = packageName)

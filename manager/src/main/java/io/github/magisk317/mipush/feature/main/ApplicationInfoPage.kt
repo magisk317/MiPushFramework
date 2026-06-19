@@ -68,6 +68,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.text.style.TextOverflow
@@ -828,8 +830,14 @@ private fun Tips(description: String) {
                 ),
         )
         Spacer(Modifier.width(MaterialTheme.spacing.medium))
+        
+        val annotatedText = remember(description) {
+            AnnotatedString.fromHtml(
+                htmlString = description,
+            )
+        }
         Text(
-            text = description,
+            text = annotatedText,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

@@ -855,6 +855,7 @@ fun SettingsPagePreview() {
 
 private suspend fun toggleAccessibilityServiceViaRoot(context: android.content.Context, enable: Boolean): Boolean {
     return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        var process: Process? = null
         try {
             val component = ComponentName(
                 Constants.SERVICE_APP_NAME,
@@ -872,14 +873,15 @@ private suspend fun toggleAccessibilityServiceViaRoot(context: android.content.C
                 currentServices.split(":").filter { it.isNotEmpty() && it != component }.joinToString(":")
             }
 
-            val process = Runtime.getRuntime().exec("su")
-            val os = java.io.DataOutputStream(process.outputStream)
-            os.writeBytes("settings put secure enabled_accessibility_services $newServices\n")
-            if (enable) {
-                os.writeBytes("settings put secure accessibility_enabled 1\n")
+            process = Runtime.getRuntime().exec("su")
+            java.io.DataOutputStream(process.outputStream).use { os ->
+                os.writeBytes("settings put secure enabled_accessibility_services $newServices\n")
+                if (enable) {
+                    os.writeBytes("settings put secure accessibility_enabled 1\n")
+                }
+                os.writeBytes("exit\n")
+                os.flush()
             }
-            os.writeBytes("exit\n")
-            os.flush()
             process.waitFor() == 0
         } catch (e: java.io.IOException) {
             false
@@ -888,6 +890,10 @@ private suspend fun toggleAccessibilityServiceViaRoot(context: android.content.C
         } catch (e: InterruptedException) {
             Thread.currentThread().interrupt()
             false
+        } finally {
+            runCatching { process?.inputStream?.close() }
+            runCatching { process?.errorStream?.close() }
+            runCatching { process?.destroy() }
         }
     }
 }
