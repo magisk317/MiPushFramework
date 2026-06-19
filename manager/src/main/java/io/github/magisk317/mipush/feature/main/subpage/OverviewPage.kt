@@ -841,7 +841,12 @@ private fun saveImageToGallery(context: Context, resId: Int, fileName: String): 
     }
 
     try {
-        resolver.openOutputStream(imageUri)?.use {
+        val outputStream = resolver.openOutputStream(imageUri)
+        if (outputStream == null) {
+            messages += context.getString(R.string.save_to_gallery_failed)
+            return messages
+        }
+        outputStream.use {
             bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

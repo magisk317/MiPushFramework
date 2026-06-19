@@ -113,7 +113,7 @@ fun fakeProperty(vararg properties: Property) {
     fakeProperty(*properties.map { it.entry }.toTypedArray())
 }
 
-private val propertyMap: MutableMap<String, String> = HashMap()
+private val propertyMap: MutableMap<String, String> = java.util.concurrent.ConcurrentHashMap()
 private val hooked = AtomicBoolean(false)
 
 private val buildStringFieldMappings = listOf(

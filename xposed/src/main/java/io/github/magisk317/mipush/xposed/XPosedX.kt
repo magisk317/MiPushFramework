@@ -495,7 +495,7 @@ private val extraFields: MutableMap<MethodHookParam, MutableMap<String, Any?>> =
     Collections.synchronizedMap(WeakHashMap())
 
 private fun extrasFor(param: MethodHookParam): MutableMap<String, Any?> =
-    synchronized(extraFields) { extraFields.getOrPut(param) { HashMap() } }
+    synchronized(extraFields) { extraFields.getOrPut(param) { Collections.synchronizedMap(HashMap()) } }
 
 private fun invokeMember(member: Member, thisObject: Any?, args: Array<out Any?>): Any? {
     return when (member) {

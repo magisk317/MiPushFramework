@@ -288,7 +288,7 @@ class PushMessageProcessor private constructor(context: Context) {
         val extra = miPushMessage.extra ?: return
         val notifyEffect = extra[PushConstants.EXTRA_PARAM_NOTIFY_EFFECT]
         if (MIPushNotificationHelper.isBusinessMessage(container)) {
-            val notificationIntent = getNotificationMessageIntent(sAppContext, container.packageName, extra)!!
+            val notificationIntent = getNotificationMessageIntent(sAppContext, container.packageName, extra) ?: return
             notificationIntent.putExtra(ReportConstants.EVENT_MESSAGE_TYPE, eventMessageType)
             notificationIntent.putExtra("messageId", messageId)
             notificationIntent.putExtra(PushConstants.EXTRA_JOB_KEY, jobKey)
@@ -377,7 +377,7 @@ class PushMessageProcessor private constructor(context: Context) {
                 sAppContext.packageName,
                 PushClientReportHelper.getInterfaceIdByType(eventMessageType),
                 messageId ?: "",
-                ReportConstants.REGISTER_TYPE_APP_SUCCESS,
+                ReportConstants.REGISTER_TYPE,
                 ReportConstants.REGISTER_FAIL
             )
         }
@@ -1068,10 +1068,9 @@ class PushMessageProcessor private constructor(context: Context) {
 
         @JvmStatic
         fun getInstance(context: Context): PushMessageProcessor {
-            if (sInstance == null) {
-                sInstance = PushMessageProcessor(context)
+            return sInstance ?: synchronized(lock) {
+                sInstance ?: PushMessageProcessor(context).also { sInstance = it }
             }
-            return sInstance!!
         }
 
         @JvmStatic
@@ -1177,7 +1176,7 @@ class PushMessageProcessor private constructor(context: Context) {
         @JvmStatic
         fun removeCachedDupKey(context: Context, messageId: String?) {
             synchronized(lock) {
-                mCachedMsgIds!!.remove(messageId)
+                mCachedMsgIds?.remove(messageId) ?: return
                 AppInfoHolder.getInstance(context)
                 val sharedPreferences: SharedPreferences = AppInfoHolder.getSharedPreferences(context)
                 val joined = XMStringUtils.join(mCachedMsgIds, ",")

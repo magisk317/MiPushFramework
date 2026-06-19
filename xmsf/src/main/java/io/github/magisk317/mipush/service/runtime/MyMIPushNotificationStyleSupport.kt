@@ -147,7 +147,8 @@ internal object MyMIPushNotificationStyleSupport {
             bigPicUri,
             object : io.github.magisk317.mipush.common.cache.IconCache.Converter<String, Bitmap> {
                 override fun convert(ctx: Context, b: String): Bitmap {
-                    return getBitmapFromUri(ctx, b, 1024 * 1024)!! // 1 MiB
+                    return getBitmapFromUri(ctx, b, 1024 * 1024)
+                        ?: throw IllegalArgumentException("Failed to load bitmap from $b")
                 }
             }
         )
