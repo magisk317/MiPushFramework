@@ -104,7 +104,7 @@ object Lisp {
                 if (evaluate(test, extension) == true) {
                     var ret: Any? = null
                     for (j in 1 until clause.length()) {
-                        ret = evaluate(expr.opt(j), extension)
+                        ret = evaluate(clause.opt(j), extension)
                     }
                     return ret
                 }

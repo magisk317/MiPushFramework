@@ -109,10 +109,21 @@ class Event {
     @ColumnInfo(name = "reg_sec")
     var regSec: String? = null
         get() = if (TextUtils.isEmpty(field)) {
-            Utils.getRegSec(pkg)
+            if (!regSecLoaded) {
+                field = Utils.getRegSec(pkg)
+                regSecLoaded = true
+            }
+            field
         } else {
             field
         }
+        set(value) {
+            field = value
+            regSecLoaded = !TextUtils.isEmpty(value)
+        }
+
+    @Ignore
+    private var regSecLoaded: Boolean = false
 
     @Ignore
     constructor(
