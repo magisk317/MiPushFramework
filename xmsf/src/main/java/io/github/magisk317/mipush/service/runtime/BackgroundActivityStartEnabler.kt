@@ -24,24 +24,27 @@ import com.xiaomi.xmsf.R
 @RequiresApi(29)
 object BackgroundActivityStartEnabler {
 
+    private val notificationLock = Any()
     private var whitelistedNotification: Notification? = null
     private const val TAG = "MPF.BAFE"
 
     @JvmStatic
     fun clonePendingIntentForBackgroundActivityStart(pi: PendingIntent): PendingIntent? {
-        val source = whitelistedNotification ?: return null
-        source.contentIntent = pi
-        val parcel = Parcel.obtain()
-        try {
-            source.writeToParcel(parcel, 0)
-            parcel.setDataPosition(0)
-            val copied = Notification.CREATOR.createFromParcel(parcel)
-            val whitelisted = copied.contentIntent
-            copied.contentIntent = null
-            return whitelisted
-        } finally {
-            parcel.recycle()
-            source.contentIntent = null
+        synchronized(notificationLock) {
+            val source = whitelistedNotification ?: return null
+            source.contentIntent = pi
+            val parcel = Parcel.obtain()
+            try {
+                source.writeToParcel(parcel, 0)
+                parcel.setDataPosition(0)
+                val copied = Notification.CREATOR.createFromParcel(parcel)
+                val whitelisted = copied.contentIntent
+                copied.contentIntent = null
+                return whitelisted
+            } finally {
+                parcel.recycle()
+                source.contentIntent = null
+            }
         }
     }
 
@@ -118,13 +121,17 @@ object BackgroundActivityStartEnabler {
     }
 
     private fun deleteTemporaryChannel(nm: NotificationManager) {
-        val channelId = whitelistedNotification?.channelId ?: return
+        val channelId = synchronized(notificationLock) {
+            whitelistedNotification?.channelId
+        } ?: return
         if (CHANNEL_STATUS != channelId) {
             nm.deleteNotificationChannel(channelId)
         }
     }
 
-    private fun pushStatusInitializingNotificationExists(): Boolean = whitelistedNotification != null
+    private fun pushStatusInitializingNotificationExists(): Boolean = synchronized(notificationLock) {
+        whitelistedNotification != null
+    }
 
     private fun findPushStatusInitializingNotification(
         nm: NotificationManager,
@@ -132,7 +139,9 @@ object BackgroundActivityStartEnabler {
     ) {
         for (notification in notifications) {
             if (notification.id == 0 && TAG == notification.tag) {
-                whitelistedNotification = notification.notification
+                synchronized(notificationLock) {
+                    whitelistedNotification = notification.notification
+                }
                 nm.cancel(TAG, 0)
                 break
             }
