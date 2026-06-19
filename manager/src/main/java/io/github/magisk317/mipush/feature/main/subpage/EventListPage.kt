@@ -101,14 +101,16 @@ import io.github.magisk317.uikit.surface.WorkspaceListItem
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 import io.github.magisk317.uikit.scroll.ScrollChromeState
 import io.github.magisk317.mipush.feature.ui.theme.spacing
-import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Calendar
 import java.util.Date
 
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
 import org.koin.compose.viewmodel.koinViewModel
 
-private val receiveDateFormat: SimpleDateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+private val receiveDateTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
 
 @Composable
 fun EventList(
@@ -761,7 +763,7 @@ private fun buildEventDebugInfo(event: EventInfoForDisplay): String {
         appendLine("title=${event.title}")
         appendLine("channel=${event.channel.ifBlank { "<none>" }}")
         appendLine("configOptions=${event.configOptions.joinToString(",").ifBlank { "<none>" }}")
-        appendLine("receiveDate=${receiveDateFormat.format(event.receiveDate)}")
+        appendLine("receiveDate=${Instant.ofEpochMilli(event.receiveDate.time).atZone(ZoneId.systemDefault()).format(receiveDateTimeFormatter)}")
         appendLine("type=${event.event.type}")
         appendLine("result=${event.event.result}")
         appendLine("info=${event.event.info ?: "<none>"}")
@@ -1003,7 +1005,7 @@ private fun EventItem(
             )
             Spacer(modifier = Modifier.size(MaterialTheme.spacing.small))
             Text(
-                text = receiveDateFormat.format(item.receiveDate),
+                text = Instant.ofEpochMilli(item.receiveDate.time).atZone(ZoneId.systemDefault()).format(receiveDateTimeFormatter),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

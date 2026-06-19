@@ -9,7 +9,10 @@ import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.LogLevel
 import io.github.aakira.napier.Napier
 import java.io.File
-import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
@@ -19,8 +22,8 @@ object LogUtils {
     private const val MIN_RETENTION_DAYS = 1
     private const val MAX_READ_LINES = 2000
     private const val DEFAULT_ROUTE = "app"
-    private val dailyDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-    private val logTimestampFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
+    private val dailyDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.US)
+    private val logTimestampFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
     private val dailyRuntimeLogPattern = Regex("""^runtime(?:\.[A-Za-z0-9_.-]+)?\.\d{4}-\d{2}-\d{2}\.jsonl$""")
     private val dailyLogDateRegex = Regex("""^runtime(?:\.[^.]+)*\.(\d{4}-\d{2}-\d{2})\.jsonl$""")
     private val redundantAppRouteRuntimeLogPattern = Regex("""^runtime\.app\.\d{4}-\d{2}-\d{2}\.jsonl$""")
@@ -313,12 +316,11 @@ object LogUtils {
 
     @JvmStatic
     fun dateInfo(date: Date): String {
-        return SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(date)
+        return Instant.ofEpochMilli(date.time).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss", Locale.US))
     }
 
-    internal fun currentDateString(now: Date = Date()): String = synchronized(dailyDateFormat) {
-        dailyDateFormat.format(now)
-    }
+    internal fun currentDateString(now: Date = Date()): String =
+        Instant.ofEpochMilli(now.time).atZone(ZoneId.systemDefault()).format(dailyDateFormatter)
 
     internal fun pruneAppLogsForToday(logDir: File, now: Date = Date()) {
         pruneExpiredRuntimeLogs(logDir, now)
@@ -398,9 +400,10 @@ object LogUtils {
     private fun dailyLogDateStartMs(name: String): Long? {
         val date = dailyLogDate(name) ?: return null
         return runCatching {
-            synchronized(dailyDateFormat) {
-                dailyDateFormat.parse(date)?.time
-            }
+            LocalDate.parse(date, dailyDateFormatter)
+                .atStartOfDay(ZoneId.systemDefault())
+                .toInstant()
+                .toEpochMilli()
         }.getOrNull()
     }
 
@@ -425,9 +428,10 @@ object LogUtils {
         val valueEnd = line.indexOf('"', valueStart)
         if (valueEnd < 0) return null
         return runCatching {
-            synchronized(logTimestampFormat) {
-                logTimestampFormat.parse(line.substring(valueStart, valueEnd))?.time
-            }
+            java.time.LocalDateTime.parse(line.substring(valueStart, valueEnd), logTimestampFormatter)
+                .atZone(ZoneId.systemDefault())
+                .toInstant()
+                .toEpochMilli()
         }.getOrNull()
     }
 
@@ -435,9 +439,7 @@ object LogUtils {
         return buildString {
             append('{')
             append("\"time\":").appendJsonString(
-                synchronized(logTimestampFormat) {
-                    logTimestampFormat.format(Date(entry.timestamp))
-                },
+                Instant.ofEpochMilli(entry.timestamp).atZone(ZoneId.systemDefault()).format(logTimestampFormatter),
             )
             append(",\"level\":").appendJsonString(entry.level)
             append(",\"tag\":").appendJsonString(entry.tag)

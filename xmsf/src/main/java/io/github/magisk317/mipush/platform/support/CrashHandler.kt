@@ -2,7 +2,9 @@ package io.github.magisk317.mipush.platform.support
 
 import android.widget.Toast
 import java.io.File
-import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
 import io.github.aakira.napier.Napier
@@ -40,13 +42,13 @@ object CrashHandler {
     private fun writeCrashToFile(logDir: File, throwable: Throwable) {
         try {
             if (!logDir.exists()) logDir.mkdirs()
-            val timeFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
-            val now = Date()
-            val currentDate = LogUtils.currentDateString(now)
+            val timeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.US)
+            val now = Instant.now()
+            val currentDate = LogUtils.currentDateString(Date.from(now))
             LogUtils.pruneDailyFiles(logDir, currentDate, crashFilePattern)
             val fileName = "Crash_${currentDate}.txt"
             val file = File(logDir, fileName)
-            val time = timeFormat.format(now)
+            val time = now.atZone(ZoneId.systemDefault()).format(timeFormatter)
             val line = "$time [ERROR] CrashHandler: Mi Push Crash ${throwable.stackTraceToString()}\n"
             file.appendText(line)
         } catch (_: Exception) {}

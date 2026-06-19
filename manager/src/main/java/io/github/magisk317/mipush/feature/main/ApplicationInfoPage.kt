@@ -95,8 +95,9 @@ import io.github.magisk317.uikit.surface.SectionColumn
 import io.github.magisk317.mipush.feature.wizard.support.WizardSPUtils
 import io.github.magisk317.mipush.feature.ui.theme.Theme
 import io.github.magisk317.mipush.feature.ui.theme.spacing
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import org.koin.android.ext.android.inject
 
@@ -808,7 +809,7 @@ private fun HeaderMetricCard(
 
 private fun formatTime(time: Long?): String {
     if (time == null || time <= 0L) return "-"
-    return SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(time))
+    return Instant.ofEpochMilli(time).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.getDefault()))
 }
 
 private fun registrationTypeShortLabel(reason: String): String {
