@@ -109,13 +109,28 @@ class AppConfigurationUtils(
         @JvmStatic
         fun makeMIPushGroupToTopPositions(groups: MutableList<NotificationChannelGroup>, mipushGroup: String) {
             groups.sortWith { lhs, rhs ->
-                if (TextUtils.equals(lhs.id, mipushGroup) || rhs.id == null) {
-                    return@sortWith -1
-                }
-                if (TextUtils.equals(rhs.id, mipushGroup) || lhs.id == null) {
-                    return@sortWith 1
-                }
-                lhs.id.compareTo(rhs.id)
+                compareNotificationChannelGroupIds(lhs.id, rhs.id, mipushGroup)
+            }
+        }
+
+        internal fun compareNotificationChannelGroupIds(
+            lhsId: String?,
+            rhsId: String?,
+            mipushGroup: String,
+        ): Int {
+            val priorityCompare = compareValues(
+                notificationChannelGroupPriority(lhsId, mipushGroup),
+                notificationChannelGroupPriority(rhsId, mipushGroup),
+            )
+            if (priorityCompare != 0) return priorityCompare
+            return compareValues(lhsId.orEmpty(), rhsId.orEmpty())
+        }
+
+        private fun notificationChannelGroupPriority(id: String?, mipushGroup: String): Int {
+            return when {
+                id == mipushGroup -> 0
+                id == null -> 2
+                else -> 1
             }
         }
 
