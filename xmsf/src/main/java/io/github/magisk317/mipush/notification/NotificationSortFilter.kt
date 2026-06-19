@@ -178,15 +178,15 @@ object NotificationSortFilter {
         }
 
         override fun put(key: String, expiresAtMs: Long) {
-            prefs.edit().putLong(key, expiresAtMs).commit()
+            prefs.edit().putLong(key, expiresAtMs).apply()
         }
 
         override fun remove(key: String) {
-            prefs.edit().remove(key).commit()
+            prefs.edit().remove(key).apply()
         }
 
         override fun clear() {
-            prefs.edit().clear().commit()
+            prefs.edit().clear().apply()
         }
     }
 }

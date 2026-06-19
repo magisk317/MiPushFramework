@@ -226,7 +226,7 @@ object Utils {
         for (prefName in listOf(PREF_REGISTERED_PKG_NAMES_SEC, PREF_MIPUSH_APPS_SECRET)) {
             val secEditor = app.getSharedPreferences(prefName, 0)?.edit()
             secEditor?.putString(pkgName, regSec)
-            secEditor?.commit()
+            secEditor?.apply()
         }
     }
 
@@ -237,7 +237,7 @@ object Utils {
             app.getSharedPreferences(prefName, 0)
                 ?.edit()
                 ?.remove(pkgName)
-                ?.commit()
+                ?.apply()
         }
     }
 
@@ -255,12 +255,12 @@ object Utils {
         val secSp = getApplication()?.getSharedPreferences("last_receive_time", 0)
         val secEditor = secSp?.edit()
         secEditor?.putLong(pkgName, time)
-        secEditor?.commit()
+        secEditor?.apply()
     }
 
     @JvmStatic
     fun removeLastReceiveTime(pkgName: String) {
         val secSp = getApplication()?.getSharedPreferences("last_receive_time", 0)
-        secSp?.edit()?.remove(pkgName)?.commit()
+        secSp?.edit()?.remove(pkgName)?.apply()
     }
 }

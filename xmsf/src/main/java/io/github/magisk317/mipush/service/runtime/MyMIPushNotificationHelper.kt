@@ -41,12 +41,17 @@ import io.github.magisk317.mipush.utils.PackageConfig
 import io.github.magisk317.mipush.app.ConfigCenter
 import java.util.LinkedHashMap
 import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
-import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.ExecutorCoroutineDispatcher
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.runBlocking
+import java.util.concurrent.Executors
+
 
 class MyMIPushNotificationHelper {
     private class NotificationInfo(
@@ -66,7 +71,10 @@ class MyMIPushNotificationHelper {
         private var notificationSessionStartedAtMs: Long = System.currentTimeMillis()
         @Volatile
         private var tryLoadConfigurations = false
-        private val executorService: ExecutorService = Executors.newFixedThreadPool(3)
+        private val notificationDispatcher: ExecutorCoroutineDispatcher =
+            Executors.newFixedThreadPool(3).asCoroutineDispatcher()
+        private val notificationScope: CoroutineScope =
+            CoroutineScope(SupervisorJob() + notificationDispatcher)
         private val nonDisplayDispatchLock = Any()
         private val recentNonDisplayDispatches = LinkedHashMap<String, Long>()
         private val mockReplayNotificationSequence = AtomicLong()
@@ -170,7 +178,7 @@ class MyMIPushNotificationHelper {
                         action = "policy_notify",
                         source = "MyMIPushNotificationHelper.handleNotificationByConfigurations"
                     )
-                    executorService.execute {
+                    notificationScope.launch {
                         try {
                             logD(
                                 "policy_notify dispatch start pkg=$packageName action=${container.action} " +
@@ -198,7 +206,7 @@ class MyMIPushNotificationHelper {
                         action = "policy_open",
                         source = "MyMIPushNotificationHelper.handleNotificationByConfigurations"
                     )
-                    executorService.execute {
+                    notificationScope.launch {
                         try {
                             PushRuntime.dispatchDownstreamPayload(
                                 packageName = packageName,
