@@ -70,10 +70,10 @@ import dev.chrisbanes.haze.blur.HazeBlurStyle
 import dev.chrisbanes.haze.blur.blurEffect
 import dev.chrisbanes.haze.hazeSource
 import io.github.magisk317.uikit.surface.WorkspaceEmptyState
-import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
+import java.time.Instant
 import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import io.github.magisk317.uikit.surface.OverlayHeaderScaffold
 import io.github.magisk317.uikit.surface.ScrollToTopFAB
@@ -924,7 +924,7 @@ private fun statusIcon(status: ConfigSyncStatus): Int {
 
 private fun Long?.asReadableTime(): String {
     if (this == null || this <= 0L) return "未记录"
-    return SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(this))
+    return Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.getDefault()))
 }
 
 private fun String?.asReadableRemoteTime(): String? {

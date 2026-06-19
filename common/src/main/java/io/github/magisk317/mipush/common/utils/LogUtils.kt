@@ -9,12 +9,14 @@ import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.Antilog
 import io.github.aakira.napier.LogLevel
 import java.io.File
-import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
 
 object LogUtils {
-    private val dailyDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    private val dailyDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.US)
     private val dailyLogPattern = Regex("^logs_\\d{4}-\\d{2}-\\d{2}\\.txt$")
     private val dailyModuleLogPattern = Regex("^.+_\\d{4}-\\d{2}-\\d{2}\\.txt$")
 
@@ -35,7 +37,7 @@ object LogUtils {
     }
 
     private class FileAntilog(private val logDir: File) : Antilog() {
-        private val logDateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+        private val logTimestampFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.US)
 
         override fun performLog(priority: LogLevel, tag: String?, throwable: Throwable?, message: String?) {
             try {
@@ -44,7 +46,7 @@ object LogUtils {
                 pruneDailyFiles(logDir, currentDate, dailyLogPattern)
                 val fileName = "logs_${currentDate}.txt"
                 val file = File(logDir, fileName)
-                val time = logDateFormat.format(Date())
+                val time = Instant.now().atZone(ZoneId.systemDefault()).format(logTimestampFormatter)
                 val errorMsg = throwable?.stackTraceToString() ?: ""
                 val line = "$time [${priority.name}] ${tag ?: ""}: ${message ?: ""} $errorMsg\n"
                 file.appendText(line)
@@ -97,11 +99,12 @@ object LogUtils {
 
     @JvmStatic
     fun dateInfo(date: Date): String {
-        return SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(date)
+        return Instant.ofEpochMilli(date.time).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss", Locale.US))
     }
 
     @JvmStatic
-    fun currentDateString(now: Date = Date()): String = dailyDateFormat.format(now)
+    fun currentDateString(now: Date = Date()): String =
+        Instant.ofEpochMilli(now.time).atZone(ZoneId.systemDefault()).format(dailyDateFormatter)
 
     @JvmStatic
     fun pruneAppLogsForToday(logDir: File, now: Date = Date()) {

@@ -3,19 +3,20 @@ package io.github.magisk317.mipush.platform.support
 import android.content.Context
 import com.xiaomi.xmsf.R
 import java.text.DateFormat
-import java.text.SimpleDateFormat
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-import java.util.TimeZone
 
 object ParseUtils {
     @JvmStatic
     fun parseDate(dateString: String): Date {
-        val format = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
-        format.timeZone = TimeZone.getTimeZone("GMT")
         return try {
-            format.parse(dateString)!!
+            val localDateTime = LocalDateTime.parse(dateString, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            Date.from(localDateTime.toInstant(ZoneOffset.UTC))
         } catch (e: Exception) {
             throw RuntimeException(e)
         }
