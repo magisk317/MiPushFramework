@@ -85,4 +85,17 @@ class ApplicationInfoViewModel constructor(
             configSyncGateway.openForPackage(packageName)
         }
     }
+
+    suspend fun launchTargetAppAndForceRegister(
+        packageName: String,
+        registeredType: Int,
+    ): String {
+        return withContext(Dispatchers.IO) {
+            applicationGateway.launchTargetAppAndForceRegister(
+                context = context,
+                packageName = packageName,
+                registeredType = registeredType,
+            )
+        }
+    }
 }
