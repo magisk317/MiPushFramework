@@ -64,6 +64,7 @@ class MyMIPushNotificationHelper {
 
         @Volatile
         private var notificationSessionStartedAtMs: Long = System.currentTimeMillis()
+        @Volatile
         private var tryLoadConfigurations = false
         private val executorService: ExecutorService = Executors.newFixedThreadPool(3)
         private val nonDisplayDispatchLock = Any()
