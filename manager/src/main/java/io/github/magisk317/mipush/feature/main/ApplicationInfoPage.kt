@@ -54,6 +54,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -79,6 +80,7 @@ import io.github.magisk317.mipush.common.manager.ManagerApplicationDiagnostics
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
 import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
 import io.github.magisk317.mipush.common.manager.ManagerNotificationGateway
+import io.github.magisk317.mipush.main.viewmodel.ApplicationInfoViewModel
 import io.github.magisk317.mipush.manager.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -100,6 +102,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import org.koin.android.ext.android.inject
+import org.koin.androidx.viewmodel.ext.android.viewModel
 
 open class ApplicationInfoPage : ComponentActivity() {
     companion object {
@@ -110,6 +113,7 @@ open class ApplicationInfoPage : ComponentActivity() {
     private val applicationGateway: ManagerApplicationGateway by inject()
     private val configSyncGateway: ManagerConfigSyncGateway by inject()
     private val notificationGateway: ManagerNotificationGateway by inject()
+    private val infoViewModel: ApplicationInfoViewModel by viewModel()
 
     private lateinit var applicationInfo: ManagerApplication
     private lateinit var appConfigurationUtils: AppConfigurationUtils
@@ -127,6 +131,7 @@ open class ApplicationInfoPage : ComponentActivity() {
             return
         }
         init(app)
+        infoViewModel.setApplicationInfo(app)
         setContent {
             Theme {
                 SettingsApp()
@@ -219,10 +224,8 @@ open class ApplicationInfoPage : ComponentActivity() {
     private fun ApplicationInfoHeader(snackbarHostState: SnackbarHostState) {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
-        val integrationType = remember(applicationInfo.packageName) {
-            applicationGateway.loadIntegrationTypeReason(context, applicationInfo.packageName)
-        }
-        val integrationTypeLabel = registrationTypeShortLabel(integrationType)
+        val integrationType by infoViewModel.integrationTypeReason.collectAsState()
+        val integrationTypeLabel = registrationTypeShortLabel(integrationType ?: "")
         val serviceState = if (applicationInfo.existServices) {
             stringResource(R.string.app_detail_service_ready)
         } else {
@@ -382,9 +385,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                         }
                         OutlinedButton(
                             onClick = {
-                                scope.launch {
-                                    configSyncGateway.openForPackage(applicationInfo.packageName)
-                                }
+                                infoViewModel.openConfigSync(applicationInfo.packageName)
                             },
                         ) {
                             Text(
@@ -440,18 +441,7 @@ open class ApplicationInfoPage : ComponentActivity() {
         ) {
             return
         }
-        var diagnostics by remember(applicationInfo.packageName, registeredType) {
-            mutableStateOf<ManagerApplicationDiagnostics?>(null)
-        }
-        LaunchedEffect(applicationInfo.packageName, registeredType) {
-            diagnostics = withContext(Dispatchers.IO) {
-                AppRegistrationDiagnosticsHelper.load(
-                    packageName = applicationInfo.packageName,
-                    registeredType = registeredType,
-                    applicationGateway = applicationGateway,
-                )
-            }
-        }
+        val diagnostics by infoViewModel.diagnostics.collectAsState()
         val shouldSuggestResetprop = shouldSuggestFakeApp && diagnostics?.inferenceReason in setOf(
             "unregistered_after_attempt",
             "registration_result_failed",
@@ -486,7 +476,8 @@ open class ApplicationInfoPage : ComponentActivity() {
     @Composable
     private fun ActivitySectionCard(snackbarHostState: SnackbarHostState) {
         val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
-        var blocked by remember { mutableStateOf(applicationInfo.blocked) }
+        val currentInfo by infoViewModel.applicationInfo.collectAsState()
+        val blocked = currentInfo?.blocked ?: applicationInfo.blocked
 
         DetailSectionCard(
             title = stringResource(R.string.app_detail_activity_and_behavior),
@@ -498,9 +489,8 @@ open class ApplicationInfoPage : ComponentActivity() {
                 checked = blocked,
                 showDivider = true,
             ) { enabled ->
-                blocked = enabled
-                applicationInfo = applicationInfo.copy(blocked = blocked)
-                applicationGateway.updateApplication(applicationInfo)
+                applicationInfo = applicationInfo.copy(blocked = enabled)
+                infoViewModel.updateBlocked(enabled)
                 showSwitchFeedback(blockTitle, enabled)
             }
 
@@ -519,10 +509,9 @@ open class ApplicationInfoPage : ComponentActivity() {
     @Composable
     private fun IslandDisplaySection(snackbarHostState: SnackbarHostState) {
         val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
-        var islandEnabled by remember { mutableStateOf(applicationInfo.islandEnabled) }
-        var islandFocusNotification by remember {
-            mutableStateOf(applicationInfo.islandFocusNotification)
-        }
+        val currentInfo by infoViewModel.applicationInfo.collectAsState()
+        val islandEnabled = currentInfo?.islandEnabled ?: applicationInfo.islandEnabled
+        val islandFocusNotification = currentInfo?.islandFocusNotification ?: applicationInfo.islandFocusNotification
 
         DetailSectionCard(
             title = stringResource(R.string.app_detail_island_controls),
@@ -535,9 +524,8 @@ open class ApplicationInfoPage : ComponentActivity() {
                 checked = islandEnabled,
                 showDivider = true,
             ) { enabled ->
-                islandEnabled = enabled
-                applicationInfo = applicationInfo.copy(islandEnabled = islandEnabled)
-                applicationGateway.updateApplication(applicationInfo)
+                applicationInfo = applicationInfo.copy(islandEnabled = enabled)
+                infoViewModel.updateIslandEnabled(enabled)
                 showSwitchFeedback(islandEnabledTitle, enabled)
             }
 
@@ -548,9 +536,8 @@ open class ApplicationInfoPage : ComponentActivity() {
                 checked = islandFocusNotification,
                 enabled = islandEnabled,
             ) { enabled ->
-                islandFocusNotification = enabled
-                applicationInfo = applicationInfo.copy(islandFocusNotification = islandFocusNotification)
-                applicationGateway.updateApplication(applicationInfo)
+                applicationInfo = applicationInfo.copy(islandFocusNotification = enabled)
+                infoViewModel.updateIslandFocusEnabled(enabled)
                 showSwitchFeedback(islandFocusNotificationTitle, enabled)
             }
         }

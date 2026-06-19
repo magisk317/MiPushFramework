@@ -8,10 +8,15 @@ import io.github.magisk317.mipush.common.manager.ManagerEventGateway
 import io.github.magisk317.mipush.common.manager.ManagerLogGateway
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
 import io.github.magisk317.mipush.data.PreferenceRepository
+import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 import io.github.magisk317.mipush.main.viewmodel.AdvancedSettingsViewModel
+import io.github.magisk317.mipush.main.viewmodel.ApplicationInfoViewModel
+import io.github.magisk317.mipush.main.viewmodel.ApplicationListViewModel
 import io.github.magisk317.mipush.main.viewmodel.ConfigEditorViewModel
 import io.github.magisk317.mipush.main.viewmodel.ConfigManagerViewModel
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
+import io.github.magisk317.mipush.main.viewmodel.OverviewViewModel
+import io.github.magisk317.mipush.main.viewmodel.RequestPermissionViewModel
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.manager.SettingsManager
 import org.koin.android.ext.koin.androidContext
@@ -28,6 +33,10 @@ val managerKoinModule = module {
     viewModel { EventListViewModel(get<ManagerEventGateway>(), get<SettingsManager>(), androidContext()) }
     viewModel { ConfigManagerViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidContext()) }
     viewModel { ConfigEditorViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidContext()) }
+    viewModel { ApplicationInfoViewModel(get<ManagerApplicationGateway>(), get<ManagerConfigSyncGateway>(), androidContext()) }
+    viewModel { OverviewViewModel(get<ManagerApplicationGateway>(), androidContext()) }
+    viewModel { ApplicationListViewModel(get<ManagerApplicationGateway>(), androidContext()) }
+    viewModel { RequestPermissionViewModel(get<ManagerPermissionGateway>(), get<PreferenceRepository>(), androidContext()) }
 }
 
 object ManagerDependencies {
