@@ -44,7 +44,7 @@ object PushRuntimeDuplicateStore {
             }
             sharedPreferences.edit()
                 .putString(packageName, serializeStoredEntries(entries))
-                .commit()
+                .apply()
             return duplicated
         }
     }

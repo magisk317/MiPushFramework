@@ -88,7 +88,7 @@ object RegisteredApplicationDb {
 
     @JvmStatic
     fun isBlocked(pkg: String): Boolean = runBlocking {
-        registeredApplicationDao.isBlocked(pkg)
+        registeredApplicationDao.isBlocked(pkg) ?: false
     }
 
     @JvmStatic
