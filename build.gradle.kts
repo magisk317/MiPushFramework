@@ -75,8 +75,14 @@ val gitVersionCode = providers.exec {
     isIgnoreExitValue = true
 }.standardOutput.asText.map { it.trim().toIntOrNull() ?: -1 }.orElse(-1)
 
+val gitCommit = providers.exec {
+    commandLine("git", "rev-parse", "--short", "HEAD")
+    isIgnoreExitValue = true
+}.standardOutput.asText.map { it.trim() }.orElse("unknown")
+
 extra["gitVersionCode"] = gitVersionCode
 extra["gitVersionName"] = versionNameProvider
+extra["gitCommit"] = gitCommit
 extra["APPLICATION_ID"] = "io.github.magisk317.mipush"
 
 val catalog = libs

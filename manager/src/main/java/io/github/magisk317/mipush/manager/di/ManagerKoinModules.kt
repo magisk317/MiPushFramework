@@ -18,6 +18,7 @@ import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
 import io.github.magisk317.mipush.main.viewmodel.OverviewViewModel
 import io.github.magisk317.mipush.main.viewmodel.RequestPermissionViewModel
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
+import io.github.magisk317.mipush.main.viewmodel.ZygiskConfigViewModel
 import io.github.magisk317.mipush.manager.SettingsManager
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.GlobalContext
@@ -26,16 +27,17 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val managerKoinModule = module {
-    single { SettingsManager(get<ManagerConfigGateway>(), get<ManagerRuntimeActions>(), get<ManagerApplicationGateway>(), get<ManagerLogGateway>()) }
+    single { SettingsManager(get<ManagerConfigGateway>(), get<ManagerRuntimeActions>(), get<ManagerApplicationGateway>(), get<ManagerLogGateway>(), get<io.github.magisk317.mipush.common.manager.ZygiskConfigGateway>()) }
 
     viewModel { SettingsViewModel(get<PreferenceRepository>(), get<SettingsManager>()) }
     viewModel { AdvancedSettingsViewModel(get<PreferenceRepository>(), get<SettingsManager>()) }
     viewModel { EventListViewModel(get<ManagerEventGateway>(), get<SettingsManager>(), androidContext()) }
+    viewModel { ZygiskConfigViewModel(get(), get(), androidContext()) }
     viewModel { ConfigManagerViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidContext()) }
     viewModel { ConfigEditorViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidContext()) }
-    viewModel { ApplicationInfoViewModel(get<ManagerApplicationGateway>(), get<ManagerConfigSyncGateway>(), androidContext()) }
+    viewModel { ApplicationInfoViewModel(get<ManagerApplicationGateway>(), get<ManagerConfigSyncGateway>(), get<SettingsManager>(), androidContext()) }
     viewModel { OverviewViewModel(get<ManagerApplicationGateway>(), androidContext()) }
-    viewModel { ApplicationListViewModel(get<ManagerApplicationGateway>(), androidContext()) }
+    viewModel { ApplicationListViewModel(get<ManagerApplicationGateway>(), get<SettingsManager>(), androidContext()) }
     viewModel { RequestPermissionViewModel(get<ManagerPermissionGateway>(), get<PreferenceRepository>(), androidContext()) }
 }
 

@@ -150,6 +150,9 @@
                 android:name="io.github.magisk317.mipush.feature.main.ApplicationInfoPage"
                 android:configChanges="screenLayout|screenSize|orientation"
                 android:exported="false" />
+        <activity
+                android:name="io.github.magisk317.mipush.feature.main.ZygiskConfigPage"
+                android:exported="false" />
 
         <activity
                 android:name="io.github.magisk317.mipush.feature.main.RecentEventListPage"

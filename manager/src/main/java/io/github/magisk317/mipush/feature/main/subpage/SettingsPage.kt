@@ -162,6 +162,7 @@ private fun SettingsScreen(
     var serviceExpanded by rememberSaveable { mutableStateOf(false) }
     var keepAliveExpanded by rememberSaveable { mutableStateOf(false) }
     var notificationsExpanded by rememberSaveable { mutableStateOf(false) }
+    var zygiskExpanded by rememberSaveable { mutableStateOf(false) }
     var diagnosticsExpanded by rememberSaveable { mutableStateOf(false) }
     var aboutExpanded by rememberSaveable { mutableStateOf(false) }
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -239,6 +240,22 @@ private fun SettingsScreen(
                     onExpandedChange = { notificationsExpanded = !notificationsExpanded },
                 ) {
                     NotificationsBlock(viewModel, snackbarHostState)
+                }
+
+                SettingsSectionCard(
+                    title = stringResource(R.string.zygisk_status),
+                    expanded = zygiskExpanded,
+                    onExpandedChange = { zygiskExpanded = !zygiskExpanded },
+                ) {
+                    val context = LocalContext.current
+                    SettingsItem(
+                        title = stringResource(R.string.zygisk_status),
+                        summary = stringResource(R.string.zygisk_status_summary),
+                    ) {
+                        context.startActivity(
+                            android.content.Intent(context, io.github.magisk317.mipush.feature.main.ZygiskConfigPage::class.java)
+                        )
+                    }
                 }
 
                 SettingsSectionCard(

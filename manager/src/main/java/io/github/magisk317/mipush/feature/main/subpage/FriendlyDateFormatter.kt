@@ -40,6 +40,10 @@ internal fun friendlyDateString(fromServer: Date, current: Date, context: Contex
             context.resources.getQuantityString(R.plurals.date_days, day.toInt()),
         )
     } else {
-        context.getString(R.string.date_format_long, DateFormat.getDateTimeInstance().format(calendarServer.time))
+        context.getString(
+            R.string.date_format_normal,
+            "1",
+            context.getString(R.string.date_month)
+        )
     }
 }

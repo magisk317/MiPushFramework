@@ -16,7 +16,6 @@ interface ManagerApplicationGateway {
     fun getApplication(context: Context, packageName: String, ignoreNotRegistered: Boolean = false): ManagerApplication?
     fun updateApplication(application: ManagerApplication)
     fun getDiagnostics(packageName: String, registeredType: Int): ManagerApplicationDiagnostics
-    fun loadIntegrationTypeReason(context: Context, packageName: String): String
     suspend fun launchTargetAppAndForceRegister(context: Context, packageName: String, registeredType: Int): String
 }
 
@@ -99,3 +98,10 @@ data class ManagerXSpaceRepairResult(
     val documentsUiAvailable: Boolean = false,
     val details: String = "",
 )
+
+interface ZygiskConfigGateway {
+    fun isZygiskModuleEnabled(): Boolean
+    fun getZygiskConfigPath(): String
+    fun getZygiskSpoofPackages(): List<String>
+    fun saveZygiskSpoofPackages(packages: List<String>): Boolean
+}

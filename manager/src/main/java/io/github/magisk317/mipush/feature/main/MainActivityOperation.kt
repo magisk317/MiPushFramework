@@ -38,12 +38,12 @@ class MainActivityOperation(private val context: Context) {
         } ?: VERSION_CODE.toLong()
         val versionInfo = String.format(
             Locale.US,
-            "name: %s\ncode: %d\nbuildConfigName: %s\nbuildConfigCode: %d\nchannel: %s\ntype: %s",
+            "name: %s\ncode: %d\nbuildConfigName: %s\nbuildConfigCode: %d\ngitCommit: %s\ntype: %s",
             versionName,
             versionCode,
             BuildConfig.VERSION_NAME,
             VERSION_CODE,
-            "single",
+            BuildConfig.GIT_COMMIT,
             BuildConfig.BUILD_TYPE
         )
         onShow(versionInfo)

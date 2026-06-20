@@ -466,8 +466,13 @@ fun MainScreen(
                     DialogActionRow(
                         actions = listOf(
                             DialogAction(
-                                label = stringResource(android.R.string.ok),
-                                onClick = { aboutDialogContent = null },
+                                label = stringResource(android.R.string.copy),
+                                onClick = {
+                                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("mipush", aboutDialogContent))
+                                    android.widget.Toast.makeText(context, android.R.string.copy, android.widget.Toast.LENGTH_SHORT).show()
+                                    aboutDialogContent = null
+                                },
                             ),
                         ),
                     )

@@ -96,6 +96,7 @@ import org.koin.compose.viewmodel.koinViewModel
 data class AppInfoForDisplay(
     val registrationState: Pair<Int, Color>,
     val lastReceiveTime: String,
+    val isZygiskEnabled: Boolean = false,
 )
 
 private val TAG = "ApplicationListPage"
@@ -343,13 +344,15 @@ private fun ApplicationItem(item: ManagerApplication, onAppClick: (String) -> Un
 
         else -> Color.Transparent
     }
-    val activityLabel = stringResource(
-        if (isRecentlyActive) {
-            R.string.app_list_item_delivery_active
-        } else {
-            R.string.app_list_item_delivery_idle
-        }
-    )
+    val activityLabel = if (isRecentlyActive) {
+        io.github.magisk317.mipush.feature.main.subpage.friendlyDateString(
+            java.util.Date(item.lastReceiveTimeMs),
+            io.github.magisk317.mipush.common.utils.Utils.getUTC(),
+            LocalContext.current
+        )
+    } else {
+        stringResource(R.string.app_list_item_delivery_idle)
+    }
 
     WorkspaceListItem(
         modifier = Modifier
@@ -395,6 +398,13 @@ private fun ApplicationItem(item: ManagerApplication, onAppClick: (String) -> Un
                 containerColor = statusColor.copy(alpha = 0.14f),
                 contentColor = statusColor,
             )
+            if (info.isZygiskEnabled) {
+                AppListBadge(
+                    text = "Zygisk",
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+            }
             AppListBadge(
                 text = activityLabel,
                 containerColor = if (isRecentlyActive) {

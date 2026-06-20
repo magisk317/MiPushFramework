@@ -170,6 +170,7 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <!-- Date format -->
     <!-- Just, < 1 min -->
     <string name="date_just">Just Now</string>
+    <string name="date_month">Month</string>
     <!-- 1 Minute ago, >= 1 Minute, < 60 Minutes -->
     <plurals name="date_minutes">
         <item quantity="one">Minute</item>
@@ -216,7 +217,14 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="notification_channels">Notification Channels</string>
     <string name="notification_channels_delete">Delete</string>
     <string name="notification_channels_setting">Setting</string>
-    <string name="notification_channels_copy_id">Copy ID</string>
+    <string name="notification_channels_copy_id">Copy channel ID</string>
+
+    <string name="zygisk_status">Zygisk Configuration</string>
+    <string name="zygisk_status_summary">Manage module status and app spoofing</string>
+    <string name="zygisk_enabled">Enabled</string>
+    <string name="zygisk_disabled">Disabled</string>
+    <string name="zygisk_spoof_switch">Zygisk device spoofing</string>
+    <string name="zygisk_spoof_switch_summary">When enabled, the app will think it is running on a Xiaomi device, prompting it to register with MiPush.</string>
 
     <!-- Settings -->
     <string name="settings_enhance">Enhances</string>
@@ -289,8 +297,6 @@ Please grant the <b>Run in the background or wake up</b> permissions.
 
     <!-- Update -->
     <string name="action_help">Help</string>
-    <string name="action_update">Check for update</string>
-    <string name="update_toast">You can downloads the latest APKs from the Releases page.</string>
 
     <!-- Manage applications, individual application info screen title. For example, if they click on "Browser" in "Manage applications", the title of the next screen will be this -->
     <string name="application_info_label">App info</string>
@@ -408,7 +414,6 @@ This could be the application doing a reverse registration, or the registration 
     <string name="app_detail_open_system_settings">System app info</string>
     <string name="app_detail_service_status">Service status</string>
     <string name="app_detail_service_ready">Services ready</string>
-    <string name="app_detail_integration_type">Integration type</string>
     <string name="app_detail_registration_status">Registration status</string>
     <string name="app_detail_last_push">Last push</string>
     <string name="app_detail_registered_state">Current activity state</string>
@@ -442,24 +447,8 @@ This could be the application doing a reverse registration, or the registration 
     <string name="overview_project_github_summary">Browse source code, releases, and ongoing progress.</string>
     <string name="overview_project_update_summary">Open the releases page for the latest builds.</string>
     <string name="overview_project_about_summary">Show the current version, build type, and package info.</string>
-    <string name="pref_donate_by_alipay_title">Donation appreciation</string>
-    <string name="alipay_install_prompt">Please install Alipay</string>
-    <string name="alipay_enable_prompt">Please enable Alipay</string>
-    <string name="wechat_install_prompt">Please install WeChat</string>
-    <string name="wechat_enable_prompt">Please enable WeChat</string>
-    <string name="alipay_red_packet_code_copied">Red packet token copied, go get it: %1$s</string>
-    <string name="dialog_donate_title">Buy me a coffee T_T</string>
-    <string name="dialog_donate_summary">Thanks to the developer</string>
-    <string name="dialog_donate_wechat">Coffee (WeChat)</string>
-    <string name="dialog_donate_alipay">Coffee (Alipay)</string>
-    <string name="dialog_donate_alipay_choice_title">Choose support method</string>
-    <string name="dialog_donate_alipay_choice_content">You can copy the red packet token to support me for free, or save the QR code to donate directly. Saving the image will also try to open Alipay for you.</string>
-    <string name="dialog_donate_alipay_token">Copy token</string>
-    <string name="dialog_donate_alipay_qrcode">Save QR code</string>
-    <string name="dialog_donate_cancel">Next time</string>
-    <string name="save_to_gallery_success">Image saved to gallery, opening %1$s...</string>
-    <string name="save_to_gallery_failed">Save failed, please check file permissions</string>
-    <string name="save_to_gallery">Save to gallery</string>
+    <string name="action_update">Check for update</string>
+    <string name="update_toast">You can download the latest version of the APK file from the Releases page for installation.</string>
     <string name="event_detail_developer_info">Developer info</string>
     <string name="event_empty_title">No activity yet</string>
     <string name="event_empty_summary">Wait for a push event to arrive or trigger a test message manually.</string>
