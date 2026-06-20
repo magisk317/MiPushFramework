@@ -7,6 +7,7 @@ import io.github.magisk317.mipush.common.manager.ManagerApplication
 import io.github.magisk317.mipush.common.manager.ManagerApplicationDiagnostics
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
 import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
+import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.feature.main.AppRegistrationDiagnosticsHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,30 +20,47 @@ import kotlinx.coroutines.withContext
 class ApplicationInfoViewModel constructor(
     private val applicationGateway: ManagerApplicationGateway,
     private val configSyncGateway: ManagerConfigSyncGateway,
+    private val settingsManager: SettingsManager,
     private val context: Context,
 ) : ViewModel() {
 
     private val _applicationInfo = MutableStateFlow<ManagerApplication?>(null)
     val applicationInfo: StateFlow<ManagerApplication?> = _applicationInfo.asStateFlow()
 
-    private val _integrationTypeReason = MutableStateFlow<String?>(null)
-    val integrationTypeReason: StateFlow<String?> = _integrationTypeReason.asStateFlow()
+    private val _isZygiskEnabledForApp = MutableStateFlow(false)
+    val isZygiskEnabledForApp: StateFlow<Boolean> = _isZygiskEnabledForApp.asStateFlow()
 
     private val _diagnostics = MutableStateFlow<ManagerApplicationDiagnostics?>(null)
     val diagnostics: StateFlow<ManagerApplicationDiagnostics?> = _diagnostics.asStateFlow()
 
     fun setApplicationInfo(info: ManagerApplication) {
         _applicationInfo.value = info
-        loadIntegrationTypeReason(info.packageName)
+        loadZygiskState(info.packageName)
         loadDiagnostics(info.packageName, info.registeredType)
     }
 
-    private fun loadIntegrationTypeReason(packageName: String) {
+    private fun loadZygiskState(packageName: String) {
         viewModelScope.launch {
-            val reason = withContext(Dispatchers.IO) {
-                applicationGateway.loadIntegrationTypeReason(context, packageName)
+            val enabled = withContext(Dispatchers.IO) {
+                settingsManager.getZygiskSpoofPackages().contains(packageName)
             }
-            _integrationTypeReason.value = reason
+            _isZygiskEnabledForApp.value = enabled
+        }
+    }
+
+    fun updateZygiskEnabledForApp(enabled: Boolean) {
+        val packageName = _applicationInfo.value?.packageName ?: return
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                val packages = settingsManager.getZygiskSpoofPackages().toMutableSet()
+                if (enabled) {
+                    packages.add(packageName)
+                } else {
+                    packages.remove(packageName)
+                }
+                settingsManager.saveZygiskSpoofPackages(packages.toList())
+            }
+            _isZygiskEnabledForApp.value = enabled
         }
     }
 

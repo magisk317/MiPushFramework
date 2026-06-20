@@ -527,19 +527,6 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
         )
     }
 
-    override fun loadIntegrationTypeReason(context: Context, packageName: String): String {
-        val packageInfo = runCatching {
-            PackageManagerCompatBridge.getPackageInfo(
-                context.packageManager,
-                packageName,
-                PackageManager.GET_SERVICES or PackageManager.GET_RECEIVERS,
-            )
-        }.getOrNull() ?: return "package_not_found"
-        val serviceNames = packageInfo.services?.mapNotNull(ServiceInfo::name)?.toSet().orEmpty()
-        val receiverNames = packageInfo.receivers?.mapNotNull { it.name }?.toSet().orEmpty()
-        return RegistrationHelper.classifyDisplayTypeReason(serviceNames, receiverNames)
-    }
-
     override suspend fun launchTargetAppAndForceRegister(context: Context, packageName: String, registeredType: Int): String {
         if (!PermissionUtils.refreshRootAccessIfGranted()) {
             return context.getString(com.xiaomi.xmsf.R.string.force_register_requires_root)
@@ -790,3 +777,41 @@ private fun ManagerApplication.toRegisteredApplication(): RegisteredApplication 
         it.appNamePinYin = appNamePinYin
         it.lastReceiveTime = Date(lastReceiveTimeMs)
     }
+
+class XmsfZygiskConfigGateway : io.github.magisk317.mipush.common.manager.ZygiskConfigGateway {
+    companion object {
+        private const val ZYGISK_CONFIG_PATH = "/data/adb/mipush_zygisk/app.conf"
+    }
+
+    override fun isZygiskModuleEnabled(): Boolean {
+        return try {
+            val getPropMethod = Class.forName("android.os.SystemProperties").getMethod("get", String::class.java, String::class.java)
+            val result = getPropMethod.invoke(null, "mipush.zygisk.enabled", "false") as String
+            result == "true"
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    override fun getZygiskConfigPath(): String = ZYGISK_CONFIG_PATH
+
+    override fun getZygiskSpoofPackages(): List<String> {
+        if (!io.github.magisk317.mipush.platform.support.PermissionUtils.refreshRootAccessIfGranted()) return emptyList()
+        val result = io.github.magisk317.mipush.platform.support.AppRootAccessFacade.runRootCommand(
+            "cat $ZYGISK_CONFIG_PATH",
+            timeoutMs = 5_000L
+        )
+        if (!result.isSuccess) return emptyList()
+        return result.stdout.map { it.trim() }.filter { it.isNotEmpty() }
+    }
+
+    override fun saveZygiskSpoofPackages(packages: List<String>): Boolean {
+        if (!io.github.magisk317.mipush.platform.support.PermissionUtils.refreshRootAccessIfGranted()) return false
+        val content = packages.joinToString("\n")
+        val result = io.github.magisk317.mipush.platform.support.AppRootAccessFacade.runRootCommand(
+            "echo '$content' > $ZYGISK_CONFIG_PATH",
+            timeoutMs = 5_000L
+        )
+        return result.isSuccess
+    }
+}

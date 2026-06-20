@@ -8,6 +8,7 @@ import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.feature.main.RegistrationStateStyle
 import io.github.magisk317.mipush.feature.main.subpage.AppInfoForDisplay
+import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.feature.main.subpage.ApplicationPageOperation
 import io.github.magisk317.mipush.feature.main.subpage.ApplicationStats
 import io.github.magisk317.mipush.feature.main.subpage.friendlyDateString
@@ -22,6 +23,7 @@ import kotlinx.coroutines.withContext
 
 class ApplicationListViewModel constructor(
     private val applicationGateway: ManagerApplicationGateway,
+    private val settingsManager: SettingsManager,
     private val context: Context,
 ) : ViewModel() {
 
@@ -72,7 +74,10 @@ class ApplicationListViewModel constructor(
         }
     }
 
-    private fun updateInfos(applications: ApplicationPageOperation.MiPushApplications) {
+    private suspend fun updateInfos(applications: ApplicationPageOperation.MiPushApplications) {
+        val zygiskPackages = withContext(Dispatchers.IO) {
+            settingsManager.getZygiskSpoofPackages()
+        }
         val infoMap = emptyMap<String, AppInfoForDisplay>().toMutableMap()
         applications.res.forEach {
             infoMap[it.packageName] = AppInfoForDisplay(
@@ -83,6 +88,7 @@ class ApplicationListViewModel constructor(
                     Utils.getUTC(),
                     context
                 ),
+                isZygiskEnabled = zygiskPackages.contains(it.packageName),
             )
         }
         _itemsInfo.value = infoMap

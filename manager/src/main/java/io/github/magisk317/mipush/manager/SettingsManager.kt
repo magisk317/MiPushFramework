@@ -37,6 +37,7 @@ class SettingsManager constructor(
     private val runtimeActions: ManagerRuntimeActions,
     private val applicationGateway: ManagerApplicationGateway,
     private val logGateway: ManagerLogGateway,
+    private val zygiskConfigGateway: io.github.magisk317.mipush.common.manager.ZygiskConfigGateway,
 ) {
     companion object {
         private const val TAG = "SettingsManager"
@@ -164,4 +165,12 @@ class SettingsManager constructor(
         runBlocking { configGateway.setConfigurationDirectory(uri) }
         configGateway.loadConfigurations(context)
     }
+
+    fun isZygiskModuleEnabled(): Boolean = zygiskConfigGateway.isZygiskModuleEnabled()
+
+    fun getZygiskConfigPath(): String = zygiskConfigGateway.getZygiskConfigPath()
+
+    fun getZygiskSpoofPackages(): List<String> = zygiskConfigGateway.getZygiskSpoofPackages()
+
+    fun saveZygiskSpoofPackages(packages: List<String>): Boolean = zygiskConfigGateway.saveZygiskSpoofPackages(packages)
 }

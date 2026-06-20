@@ -214,8 +214,8 @@ open class ApplicationInfoPage : ComponentActivity() {
     private fun ApplicationInfoHeader(snackbarHostState: SnackbarHostState) {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
-        val integrationType by infoViewModel.integrationTypeReason.collectAsStateWithLifecycle()
-        val integrationTypeLabel = registrationTypeShortLabel(integrationType ?: "")
+        val isZygiskEnabledForApp by infoViewModel.isZygiskEnabledForApp.collectAsStateWithLifecycle()
+        val zygiskStateLabel = if (isZygiskEnabledForApp) stringResource(R.string.zygisk_enabled) else stringResource(R.string.zygisk_disabled)
         val serviceState = if (applicationInfo.existServices) {
             stringResource(R.string.app_detail_service_ready)
         } else {
@@ -300,16 +300,19 @@ open class ApplicationInfoPage : ComponentActivity() {
                             },
                         )
                         HeaderMetricCard(
-                            label = stringResource(R.string.app_detail_integration_type),
-                            value = integrationTypeLabel,
+                            label = stringResource(R.string.zygisk_status),
+                            value = zygiskStateLabel,
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight(),
-                            accent = if (applicationInfo.existServices) {
-                                MaterialTheme.colorScheme.secondary
+                            accent = if (isZygiskEnabledForApp) {
+                                RegistrationStateStyle.GreenColor
                             } else {
-                                RegistrationStateStyle.ErrorColor
+                                MaterialTheme.colorScheme.secondary
                             },
+                            onClick = {
+                                context.startActivity(android.content.Intent(context, ZygiskConfigPage::class.java))
+                            }
                         )
                     }
 
@@ -453,10 +456,22 @@ open class ApplicationInfoPage : ComponentActivity() {
         val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
         val currentInfo by infoViewModel.applicationInfo.collectAsStateWithLifecycle()
         val blocked = currentInfo?.blocked ?: applicationInfo.blocked
+        val isZygiskEnabledForApp by infoViewModel.isZygiskEnabledForApp.collectAsStateWithLifecycle()
 
         DetailSectionCard(
             title = stringResource(R.string.app_detail_activity_and_behavior),
         ) {
+            val zygiskTitle = stringResource(R.string.zygisk_spoof_switch)
+            SettingSwitchRow(
+                title = zygiskTitle,
+                summary = stringResource(R.string.zygisk_spoof_switch_summary),
+                checked = isZygiskEnabledForApp,
+                showDivider = true,
+            ) { enabled ->
+                infoViewModel.updateZygiskEnabledForApp(enabled)
+                showSwitchFeedback(zygiskTitle, enabled)
+            }
+
             val blockTitle = stringResource(R.string.app_detail_block)
             SettingSwitchRow(
                 title = blockTitle,
@@ -727,9 +742,10 @@ private fun HeaderMetricCard(
     value: String,
     accent: Color,
     modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
 ) {
     Card(
-        modifier = modifier,
+        modifier = if (onClick != null) modifier.clickable(onClick = onClick) else modifier,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
         ),
@@ -769,10 +785,6 @@ private fun HeaderMetricCard(
 private fun formatTime(time: Long?): String {
     if (time == null || time <= 0L) return "-"
     return Instant.ofEpochMilli(time).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.getDefault()))
-}
-
-private fun registrationTypeShortLabel(reason: String): String {
-    return reason.replace('_', '-')
 }
 
 @Composable

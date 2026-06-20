@@ -93,11 +93,12 @@ import kotlin.math.hypot
 import kotlin.math.max
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+import io.github.magisk317.uikit.surface.DonateDialog
+import io.github.magisk317.uikit.surface.QRCodeDialog
+import io.github.magisk317.uikit.surface.saveImageToGallery
+import io.github.magisk317.uikit.R as UiKitR
 
 private val OverviewCardShape = RoundedCornerShape(28.dp)
-private const val ALIPAY_PACKAGE_NAME = "com.eg.android.AlipayGphone"
-private const val WECHAT_PACKAGE_NAME = "com.tencent.mm"
-private const val ALIPAY_POCKET_TOKEN = "J:/wkSIPXL689C 或📸復 zhi📸此消息打开🔍吱.f`u宝🔎，得幸福宏饱，天天等着你  s:/r HU6311 $801"
 
 @Composable
 fun Overview(
@@ -127,7 +128,6 @@ private fun OverviewScreen(
     val overviewViewModel: OverviewViewModel = koinViewModel()
     val mainActivityOperation = MainActivityOperation(context)
     var showDonateDialog by remember { mutableStateOf(false) }
-    var showAlipayChoiceDialog by remember { mutableStateOf(false) }
     var showQRCodeDialog by remember { mutableStateOf<Pair<Int, String>?>(null) }
     val appStats by overviewViewModel.stats.collectAsState()
     LaunchedEffect(Unit) {
@@ -136,6 +136,10 @@ private fun OverviewScreen(
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val scrollState = rememberScrollState()
+
+    val packageInfo = remember { context.packageManager.getPackageInfo(context.packageName, 0) }
+    val appVersionName = packageInfo.versionName ?: context.getString(io.github.magisk317.uikit.R.string.unknown)
+    val appVersionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) packageInfo.longVersionCode.toString() else packageInfo.versionCode.toString()
 
     Box(modifier = Modifier.fillMaxSize()) {
         SectionColumn(
@@ -167,10 +171,19 @@ private fun OverviewScreen(
                 AppStatsDonutSection(appStats = appStats)
             }
 
-            OverviewProjectCard(
-                mainActivityOperation = mainActivityOperation,
-                onShowDonate = { showDonateDialog = true },
-                onShowAboutDialog = onShowAboutDialog,
+            io.github.magisk317.uikit.surface.OverviewAppInfoCard(
+                appVersionName = appVersionName,
+                appVersionCode = appVersionCode,
+            )
+
+            io.github.magisk317.uikit.surface.OverviewDeviceInfoCard()
+
+            io.github.magisk317.uikit.surface.OverviewLinksCard(
+                onCheckUpdate = { mainActivityOperation.gotoGitHubReleasePage() },
+                onJoinQQ = { mainActivityOperation.gotoQQGroup() },
+                onJoinTelegram = { mainActivityOperation.gotoTelegramGroup() },
+                onSourceCode = { mainActivityOperation.gotoGitHubProjectPage() },
+                onDonate = { showDonateDialog = true },
             )
         }
 
@@ -202,29 +215,13 @@ private fun OverviewScreen(
             onDismiss = { showDonateDialog = false },
             onAlipay = {
                 showDonateDialog = false
-                showAlipayChoiceDialog = true
+                showQRCodeDialog = UiKitR.drawable.alipay to "alipay"
             },
             onWechat = {
                 showDonateDialog = false
-                showQRCodeDialog = R.drawable.wx to "wechat"
+                showQRCodeDialog = UiKitR.drawable.wx to "wechat"
             },
-        )
-    }
-
-    if (showAlipayChoiceDialog) {
-        AlipayChoiceDialog(
-            onDismiss = { showAlipayChoiceDialog = false },
-            onQRCode = {
-                showAlipayChoiceDialog = false
-                showQRCodeDialog = R.drawable.alipay to "alipay"
-            },
-            onToken = {
-                showAlipayChoiceDialog = false
-                Toast.makeText(context, copyAlipayPocketToken(context), Toast.LENGTH_LONG).show()
-                startAlipayActivity(context)?.let {
-                    Toast.makeText(context, it, Toast.LENGTH_LONG).show()
-                }
-            },
+            showPlayDonations = false,
         )
     }
 
@@ -544,329 +541,4 @@ private fun DonutSlice.percent(): Int {
     val safeTotal = max(total, 0)
     if (safeTotal == 0) return 0
     return value * 100 / safeTotal
-}
-
-@Composable
-private fun OverviewProjectCard(
-    mainActivityOperation: MainActivityOperation,
-    onShowDonate: () -> Unit,
-    onShowAboutDialog: (String) -> Unit,
-) {
-    OverviewListCard(title = stringResource(R.string.overview_project_title)) {
-        OverviewListItem(
-            iconRes = R.drawable.ic_home_black_24dp,
-            label = stringResource(R.string.overview_project_github_title),
-            value = stringResource(R.string.overview_project_github_summary),
-            onClick = { mainActivityOperation.gotoGitHubProjectPage() },
-        )
-        OverviewListItem(
-            iconRes = R.drawable.ic_notifications_black_24dp,
-            label = stringResource(R.string.action_update),
-            value = stringResource(R.string.overview_project_update_summary),
-            onClick = { mainActivityOperation.gotoGitHubReleasePage() },
-        )
-        OverviewListItem(
-            iconRes = R.drawable.ic_info_outline_black_24dp,
-            label = stringResource(R.string.pref_donate_by_alipay_title),
-            value = stringResource(R.string.dialog_donate_summary),
-            onClick = onShowDonate,
-        )
-        OverviewListItem(
-            iconRes = R.drawable.ic_help_outline_24,
-            label = stringResource(R.string.helplib_action_telegram_group),
-            value = stringResource(R.string.help_page_contact_telegram_summary),
-            onClick = { mainActivityOperation.gotoTelegramGroup() },
-        )
-        OverviewListItem(
-            iconRes = R.drawable.ic_help_outline_24,
-            label = stringResource(R.string.helplib_action_qq_group),
-            value = stringResource(R.string.help_page_contact_qq_summary),
-            onClick = { mainActivityOperation.gotoQQGroup() },
-        )
-        OverviewListItem(
-            iconRes = R.drawable.ic_info_outline_black_24dp,
-            label = stringResource(R.string.action_about),
-            value = stringResource(R.string.overview_project_about_summary),
-            onClick = { mainActivityOperation.showAboutDialog(onShowAboutDialog) },
-        )
-    }
-}
-
-@Composable
-private fun OverviewListCard(
-    title: String,
-    content: @Composable () -> Unit,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = OverviewCardShape,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ),
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(
-                    start = MaterialTheme.spacing.large,
-                    top = MaterialTheme.spacing.large,
-                    end = MaterialTheme.spacing.large,
-                    bottom = MaterialTheme.spacing.medium,
-                ),
-            )
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-            )
-            Column(
-                modifier = Modifier.padding(vertical = MaterialTheme.spacing.small),
-            ) {
-                content()
-            }
-        }
-    }
-}
-
-@Composable
-private fun OverviewListItem(
-    iconRes: Int,
-    label: String,
-    value: String,
-    onClick: (() -> Unit)? = null,
-) {
-    ListItem(
-        leadingContent = {
-            Icon(
-                painter = painterResource(iconRes),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-        },
-        headlineContent = {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-        },
-        supportingContent = {
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        },
-        modifier = if (onClick != null) {
-            Modifier.clickable(onClick = onClick)
-        } else {
-            Modifier
-        },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-    )
-}
-
-@Composable
-private fun DonateDialog(
-    onDismiss: () -> Unit,
-    onAlipay: () -> Unit,
-    onWechat: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(text = stringResource(R.string.dialog_donate_title)) },
-        text = { Text(text = stringResource(R.string.dialog_donate_summary)) },
-        confirmButton = {
-            DialogActionRow(
-                actions = listOf(
-                    DialogAction(
-                        label = stringResource(R.string.dialog_donate_alipay),
-                        onClick = onAlipay,
-                    ),
-                    DialogAction(
-                        label = stringResource(R.string.dialog_donate_wechat),
-                        onClick = onWechat,
-                    ),
-                    DialogAction(
-                        label = stringResource(R.string.dialog_donate_cancel),
-                        onClick = onDismiss,
-                    ),
-                ),
-            )
-        },
-    )
-}
-
-@Composable
-private fun AlipayChoiceDialog(
-    onDismiss: () -> Unit,
-    onQRCode: () -> Unit,
-    onToken: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(text = stringResource(R.string.dialog_donate_alipay_choice_title)) },
-        text = { Text(text = stringResource(R.string.dialog_donate_alipay_choice_content)) },
-        confirmButton = {
-            DialogActionRow(
-                actions = listOf(
-                    DialogAction(
-                        label = stringResource(R.string.dialog_donate_alipay_qrcode),
-                        onClick = onQRCode,
-                    ),
-                    DialogAction(
-                        label = stringResource(R.string.dialog_donate_alipay_token),
-                        onClick = onToken,
-                    ),
-                    DialogAction(
-                        label = stringResource(R.string.dialog_donate_cancel),
-                        onClick = onDismiss,
-                    ),
-                ),
-            )
-        },
-    )
-}
-
-@Composable
-private fun QRCodeDialog(
-    resId: Int,
-    type: String,
-    onDismiss: () -> Unit,
-    onSave: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = if (type == "alipay") {
-                    stringResource(R.string.dialog_donate_alipay)
-                } else {
-                    stringResource(R.string.dialog_donate_wechat)
-                },
-            )
-        },
-        text = {
-            androidx.compose.foundation.Image(
-                painter = painterResource(id = resId),
-                contentDescription = type,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        },
-        confirmButton = {
-            DialogActionRow(
-                actions = listOf(
-                    DialogAction(
-                        label = stringResource(R.string.save_to_gallery),
-                        onClick = onSave,
-                    ),
-                    DialogAction(
-                        label = stringResource(R.string.dialog_donate_cancel),
-                        onClick = onDismiss,
-                    ),
-                ),
-            )
-        },
-    )
-}
-
-private fun copyToClipboard(context: Context, text: String) {
-    val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    clipboardManager.setPrimaryClip(ClipData.newPlainText("mipush", text))
-}
-
-private fun copyAlipayPocketToken(context: Context): String {
-    copyToClipboard(context, ALIPAY_POCKET_TOKEN)
-    return context.getString(R.string.alipay_red_packet_code_copied, ALIPAY_POCKET_TOKEN)
-}
-
-private fun startAlipayActivity(context: Context): String? {
-    val message = checkPackageStateMessage(
-        context = context,
-        packageName = ALIPAY_PACKAGE_NAME,
-        installPromptRes = R.string.alipay_install_prompt,
-        enablePromptRes = R.string.alipay_enable_prompt,
-    )
-    if (message != null) return message
-    val intent = context.packageManager.getLaunchIntentForPackage(ALIPAY_PACKAGE_NAME)
-    context.startActivity(intent)
-    return null
-}
-
-private fun startWechatActivity(context: Context): String? {
-    val message = checkPackageStateMessage(
-        context = context,
-        packageName = WECHAT_PACKAGE_NAME,
-        installPromptRes = R.string.wechat_install_prompt,
-        enablePromptRes = R.string.wechat_enable_prompt,
-    )
-    if (message != null) return message
-    val intent = context.packageManager.getLaunchIntentForPackage(WECHAT_PACKAGE_NAME)
-    context.startActivity(intent)
-    return null
-}
-
-private fun checkPackageStateMessage(
-    context: Context,
-    packageName: String,
-    installPromptRes: Int,
-    enablePromptRes: Int,
-): String? {
-    val pm = context.packageManager
-    return try {
-        val appInfo = PackageManagerCompatBridge.getApplicationInfo(pm, packageName, 0)
-        if (appInfo.enabled) null else context.getString(enablePromptRes)
-    } catch (_: Exception) {
-        context.getString(installPromptRes)
-    }
-}
-
-private fun saveImageToGallery(context: Context, resId: Int, fileName: String): List<String> {
-    val bitmap = BitmapFactory.decodeResource(context.resources, resId)
-    val resolver = context.contentResolver
-    val messages = mutableListOf<String>()
-    val contentValues = android.content.ContentValues().apply {
-        put(MediaStore.MediaColumns.DISPLAY_NAME, "$fileName.png")
-        put(MediaStore.MediaColumns.MIME_TYPE, "image/png")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES)
-            put(MediaStore.MediaColumns.IS_PENDING, 1)
-        }
-    }
-
-    val imageUri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
-    if (imageUri == null) {
-        messages += context.getString(R.string.save_to_gallery_failed)
-        return messages
-    }
-
-    try {
-        val outputStream = resolver.openOutputStream(imageUri)
-        if (outputStream == null) {
-            messages += context.getString(R.string.save_to_gallery_failed)
-            return messages
-        }
-        outputStream.use {
-            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            contentValues.clear()
-            contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
-            resolver.update(imageUri, contentValues, null, null)
-        }
-        val appName = if (fileName.contains("alipay")) {
-            context.getString(R.string.dialog_donate_alipay).substringBefore(" (")
-        } else {
-            context.getString(R.string.dialog_donate_wechat).substringBefore(" (")
-        }
-        messages += context.getString(R.string.save_to_gallery_success, appName)
-        if (fileName.contains("alipay")) {
-            startAlipayActivity(context)?.let(messages::add)
-        } else if (fileName.contains("wechat")) {
-            startWechatActivity(context)?.let(messages::add)
-        }
-    } catch (_: Exception) {
-        messages += context.getString(R.string.save_to_gallery_failed)
-    }
-    return messages
 }

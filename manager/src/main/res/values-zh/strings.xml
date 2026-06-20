@@ -181,6 +181,7 @@
     <string name="status_deny_user">您已拒绝</string>
     <!-- 1 Minute ago, >= 1 Minute, < 60 Minutes -->
     <string name="date_just">刚刚</string>
+    <string name="date_month">个月</string>
     <!-- 1 Hours ago, >= 1 hour, < 24 hours -->
     <string name="date_format_normal">%1$s %2$s前</string>
     <!-- 1 Day ago, >= 1 day, < days -->
@@ -279,8 +280,6 @@
 
 
     <!-- Recent Activity -->
-    <string name="action_update">检查更新</string>
-    <string name="update_toast">您可以从 Releases 页面下载最新版本的 APK 文件用以安装。</string>
 
     <!-- Update -->
     <string name="application_info_label">应用信息</string>
@@ -330,7 +329,14 @@
     <string name="notification_channels">通知渠道</string>
     <string name="notification_channels_delete">删除</string>
     <string name="notification_channels_setting">设置</string>
-    <string name="notification_channels_copy_id">复制 ID</string>
+    <string name="notification_channels_copy_id">复制通知渠道ID</string>
+
+    <string name="zygisk_status">Zygisk 机型伪装</string>
+    <string name="zygisk_status_summary">管理模块状态与应用伪装</string>
+    <string name="zygisk_enabled">已开启</string>
+    <string name="zygisk_disabled">未开启或未授权 Root</string>
+    <string name="zygisk_spoof_switch">启用 Zygisk 机型伪装</string>
+    <string name="zygisk_spoof_switch_summary">开启后，Zygisk 模块将在该应用内伪装设备属性，促使其主动注册 MiPush。</string>
 
     <string name="message_type_notification">通知消息</string>
     <string name="message_type_pass_through">透传消息</string>
@@ -390,7 +396,6 @@
     <string name="app_detail_open_system_settings">系统应用信息</string>
     <string name="app_detail_service_status">服务状态</string>
     <string name="app_detail_service_ready">已找到服务</string>
-    <string name="app_detail_integration_type">接入类型</string>
     <string name="app_detail_registration_status">注册状态</string>
     <string name="app_detail_last_push">最近推送</string>
     <string name="app_detail_registered_state">当前活跃状态</string>
@@ -424,24 +429,8 @@
     <string name="overview_project_github_summary">查看源码、发布页和后续迭代进展。</string>
     <string name="overview_project_update_summary">直接前往 Releases 查看最新构建。</string>
     <string name="overview_project_about_summary">查看当前版本、构建类型和基本信息。</string>
-    <string name="pref_donate_by_alipay_title">打赏感谢</string>
-    <string name="alipay_install_prompt">请先安装支付宝</string>
-    <string name="alipay_enable_prompt">请先启用支付宝</string>
-    <string name="wechat_install_prompt">请先安装微信</string>
-    <string name="wechat_enable_prompt">请先启用微信</string>
-    <string name="alipay_red_packet_code_copied">红包口令已复制，快去白嫖吧: %1$s</string>
-    <string name="dialog_donate_title">买杯咖啡吧 T_T</string>
-    <string name="dialog_donate_summary">感谢开发者</string>
-    <string name="dialog_donate_wechat">咖啡 (微信)</string>
-    <string name="dialog_donate_alipay">咖啡 (支付宝)</string>
-    <string name="dialog_donate_alipay_choice_title">请选择支持方式</string>
-    <string name="dialog_donate_alipay_choice_content">您可以复制红包口令免费支持我，或者保存收款码直接捐赠。保存图片后会自动帮您打开支付宝。</string>
-    <string name="dialog_donate_alipay_token">复制口令</string>
-    <string name="dialog_donate_alipay_qrcode">保存收款码</string>
-    <string name="dialog_donate_cancel">下次一定</string>
-    <string name="save_to_gallery_success">图片已保存到相册，正在打开 %1$s...</string>
-    <string name="save_to_gallery_failed">保存失败，请检查文件权限</string>
-    <string name="save_to_gallery">保存到相册</string>
+    <string name="action_update">检查更新</string>
+    <string name="update_toast">您可以从 Releases 页面下载最新版本的 APK 文件用以安装。</string>
     <string name="event_detail_developer_info">调试信息</string>
     <string name="event_empty_title">暂时还没有活动</string>
     <string name="event_empty_summary">等待应用收到推送事件，或者手动触发一次测试消息。</string>
