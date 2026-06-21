@@ -13,7 +13,7 @@ class SecurityCoreXSpacePackageInfoHookTest {
         assertTrue(
             SecurityCoreXSpacePackageInfoHook.decidePackageInfoPatch(
                 callerProcessName = "com.miui.securitycore",
-                queryPackage = "com.example.app",
+                queryPackage = "io.github.magisk317.mipush",
                 flags = GET_SERVICES or GET_PERMISSIONS,
                 userId = 999,
                 alreadyRequired = false,
@@ -22,7 +22,7 @@ class SecurityCoreXSpacePackageInfoHookTest {
 
         assertFalse(
             SecurityCoreXSpacePackageInfoHook.decidePackageInfoPatch(
-                callerProcessName = "com.android.settings",
+                callerProcessName = "com.miui.securitycore",
                 queryPackage = "com.example.app",
                 flags = GET_SERVICES or GET_PERMISSIONS,
                 userId = 999,
@@ -31,8 +31,17 @@ class SecurityCoreXSpacePackageInfoHookTest {
         )
         assertFalse(
             SecurityCoreXSpacePackageInfoHook.decidePackageInfoPatch(
+                callerProcessName = "com.android.settings",
+                queryPackage = "io.github.magisk317.mipush",
+                flags = GET_SERVICES or GET_PERMISSIONS,
+                userId = 999,
+                alreadyRequired = false,
+            ).forceRequired
+        )
+        assertFalse(
+            SecurityCoreXSpacePackageInfoHook.decidePackageInfoPatch(
                 callerProcessName = "com.miui.securitycore",
-                queryPackage = "com.example.app",
+                queryPackage = "io.github.magisk317.mipush",
                 flags = GET_SERVICES,
                 userId = 999,
                 alreadyRequired = false,

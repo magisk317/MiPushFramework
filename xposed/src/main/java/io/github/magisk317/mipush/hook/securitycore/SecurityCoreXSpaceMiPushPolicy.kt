@@ -1,6 +1,8 @@
 package io.github.magisk317.mipush.hook.securitycore
 
 object SecurityCoreXSpaceMiPushPolicy {
+    internal const val MIPUSH_MODULE_PACKAGE = "io.github.magisk317.mipush"
+
     private val ignoredPackages = setOf(
         "android",
         "com.miui.securitycore",
@@ -17,6 +19,9 @@ object SecurityCoreXSpaceMiPushPolicy {
         }
         if (normalizedPackageName in ignoredPackages) {
             return SecurityCoreXSpaceMiPushDecision(forceRequired = false, reason = "ignored_package")
+        }
+        if (normalizedPackageName != MIPUSH_MODULE_PACKAGE) {
+            return SecurityCoreXSpaceMiPushDecision(forceRequired = false, reason = "not_mipush_module")
         }
         return SecurityCoreXSpaceMiPushDecision(forceRequired = true, reason = "force_xspace_xmsf_retention")
     }

@@ -16,11 +16,19 @@ class SecurityCoreXSpaceMiPushPolicyTest {
     }
 
     @Test
-    fun `forces non system packages to retain xmsf in xspace`() {
-        val decision = SecurityCoreXSpaceMiPushPolicy.decide("com.example.app", originalRequired = false)
+    fun `forces mipush module package to retain xmsf in xspace`() {
+        val decision = SecurityCoreXSpaceMiPushPolicy.decide("io.github.magisk317.mipush", originalRequired = false)
 
         assertTrue(decision.forceRequired)
         assertEquals("force_xspace_xmsf_retention", decision.reason)
+    }
+
+    @Test
+    fun `does not force unrelated xspace packages`() {
+        val decision = SecurityCoreXSpaceMiPushPolicy.decide("com.example.app", originalRequired = false)
+
+        assertFalse(decision.forceRequired)
+        assertEquals("not_mipush_module", decision.reason)
     }
 
     @Test
