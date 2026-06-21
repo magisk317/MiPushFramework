@@ -321,11 +321,32 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
             )
         }
 
+        val managerInstalled = isPackageInstalledForUser(Constants.MANAGER_APP_NAME)
+        if (!managerInstalled) {
+            if (isPackageInstalledForUser(Constants.SERVICE_APP_NAME)) {
+                uninstallForUser(Constants.SERVICE_APP_NAME)
+            }
+            val xmsfInstalled = isPackageInstalledForUser(Constants.SERVICE_APP_NAME)
+            return ManagerXSpaceRepairResult(
+                stage = if (!xmsfInstalled) {
+                    ManagerXSpaceRepairStage.COMPLETED
+                } else {
+                    ManagerXSpaceRepairStage.PARTIAL_FAILED
+                },
+                xmsfInstalled = xmsfInstalled,
+                documentsUiAvailable = false,
+                details = "managerInstalled=false, xmsfInstalled=$xmsfInstalled",
+            )
+        }
+
         installExistingForUser(Constants.SERVICE_APP_NAME)
         XSPACE_SUPPORT_PACKAGES.forEach(::installExistingForUser)
         val xmsfInstalled = isPackageInstalledForUser(Constants.SERVICE_APP_NAME)
         val documentsUiAvailable = canResolveDocumentTreePicker()
         val details = buildString {
+            append("managerInstalled=")
+            append(managerInstalled)
+            append(", ")
             append("xmsfInstalled=")
             append(xmsfInstalled)
             append(", documentsUiAvailable=")
@@ -378,9 +399,19 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
         )
     }
 
+    private fun uninstallForUser(packageName: String) {
+        runRootCommand(
+            command = "cmd package uninstall --user $XSPACE_USER_ID $packageName",
+            timeoutMs = 15_000L,
+        )
+    }
+
     private fun isPackageInstalledForUser(packageName: String): Boolean {
-        val result = runRootCommand("pm path --user $XSPACE_USER_ID $packageName", timeoutMs = 5_000L)
-        return result.isSuccess && result.stdoutText.contains("package:")
+        val result = runRootCommand(
+            "cmd package list packages --user $XSPACE_USER_ID $packageName",
+            timeoutMs = 5_000L,
+        )
+        return result.isSuccess && result.stdoutText.lineSequence().any { it.trim() == "package:$packageName" }
     }
 
     private fun canResolveDocumentTreePicker(): Boolean {

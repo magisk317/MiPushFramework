@@ -12,6 +12,8 @@ import android.content.Intent
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import com.xiaomi.push.service.PushServiceConstants
+import io.github.magisk317.mipush.app.XSpaceXmsfInstallKeeper
+import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.push.pipeline.StalePackagePushGuard
 import io.github.magisk317.mipush.service.PushServiceStarter
 
@@ -19,12 +21,17 @@ class PkgUninstallReceiver : BroadcastReceiver() {
     private val TAG = "PkgUninstallReceiver"
 
     override fun onReceive(context: Context, intent: Intent?) {
-        if (intent != null && intent.extras != null && "android.intent.action.PACKAGE_REMOVED" == intent.action) {
+        if (intent != null && intent.extras != null && isPackageChangeAction(intent.action)) {
             val replacing = intent.extras?.getBoolean("android.intent.extra.REPLACING") ?: false
             val data = intent.data
             if (data != null && !replacing) {
                 try {
                     val packageName = data.encodedSchemeSpecificPart
+                    if (packageName == Constants.MANAGER_APP_NAME) {
+                        XSpaceXmsfInstallKeeper.schedule(context, "PkgUninstallReceiver.${intent.action}")
+                    }
+                    if (intent.action != Intent.ACTION_PACKAGE_REMOVED) return
+
                     StalePackagePushGuard.onPackageRemoved(
                         context,
                         packageName,
@@ -43,4 +50,7 @@ class PkgUninstallReceiver : BroadcastReceiver() {
             }
         }
     }
+
+    private fun isPackageChangeAction(action: String?): Boolean =
+        action == Intent.ACTION_PACKAGE_ADDED || action == Intent.ACTION_PACKAGE_REMOVED
 }
