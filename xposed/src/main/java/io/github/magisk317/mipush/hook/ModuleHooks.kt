@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.hook
 
 import android.app.Application
 import android.content.Context
+import android.os.Bundle
 import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.common.XMSF_PROCESS_NAME
@@ -35,6 +36,8 @@ import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.HotReloadedParam
+import java.lang.ref.WeakReference
+import java.util.ArrayList
 import java.util.concurrent.ConcurrentHashMap
 
 class LibXposedEntry : XposedModule {
@@ -329,37 +332,173 @@ class LibXposedEntry : XposedModule {
     }
 
     override fun onHotReloading(param: HotReloadingParam): Boolean {
-        param.setSavedInstanceState(Pair(processName, HashMap(loadedPackages)))
-        return true
+        return runCatching {
+            val state = createHotReloadState()
+            param.setSavedInstanceState(state)
+            XLog.i(TAG, "onHotReloading accepted process=$processName packages=${state.getStringArrayList(STATE_LOADED_PACKAGES).orEmpty()}")
+            true
+        }.getOrElse { t ->
+            XLog.e(TAG, "hot reload rejected: ${t.message}", t)
+            false
+        }
     }
 
-    @Suppress("UNCHECKED_CAST")
     override fun onHotReloaded(param: HotReloadedParam) {
         val api = apiVersion
         XposedRuntime.install(this, apiVersion = api)
         val hookApi = XposedRuntime.hookApi ?: return
-        hookApi.beginHotReload(param.oldHookHandles)
-
-        val state = param.savedInstanceState as? Pair<String, Map<String, ClassLoader>>
-        if (state != null) {
-            processName = state.first
-            state.second.forEach { (pkg, cl) ->
+        moduleActive = true
+        val oldHookHandles = param.oldHookHandles.toList()
+        hookApi.beginHotReload(oldHookHandles)
+        val removed = try {
+            restoreHotReloadState(param.savedInstanceState, oldHookHandles)
+            val currentTargets = resolveCurrentProcessTargets(param, oldHookHandles)
+            XLog.i(TAG, "onHotReloaded replay process=$processName oldHooks=${oldHookHandles.size} currentTargets=${currentTargets.keys} packages=${loadedPackages.keys}")
+            currentTargets.forEach { (pkg, cl) ->
+                loadedPackages.putIfAbsent(pkg, cl)
+            }
+            loadedPackages.forEach { (pkg, cl) ->
                 dispatchLoadOnce(LoadParam(pkg, processName, cl))
             }
+            hookApi.finishHotReload()
+        } catch (t: Throwable) {
+            hookApi.abortHotReload()
+            XLog.e(TAG, "hot reload failed", t)
+            throw t
         }
-
-        val removed = hookApi.finishHotReload()
         XLog.i(TAG, "onHotReloaded: replaced hooks, removed $removed stale hooks")
+    }
+
+    private fun createHotReloadState(): Bundle {
+        return Bundle().apply {
+            putString(STATE_PROCESS_NAME, processName)
+            putStringArrayList(STATE_LOADED_PACKAGES, ArrayList(loadedPackages.keys.sorted()))
+        }
+    }
+
+    private fun restoreHotReloadState(
+        savedState: Any?,
+        oldHookHandles: Iterable<XposedInterface.HookHandle>,
+    ) {
+        val state = savedState as? Bundle ?: return
+        processName = state.getString(STATE_PROCESS_NAME) ?: processName
+        val packages = state.getStringArrayList(STATE_LOADED_PACKAGES) ?: return
+        loadedPackages.clear()
+        packages.forEach { pkg ->
+            val classLoader = resolveLoadedPackageClassLoader(pkg, oldHookHandles)
+            if (classLoader == null) {
+                XLog.w(TAG, "hot reload skipped package without classloader: $pkg")
+            } else {
+                loadedPackages[pkg] = classLoader
+            }
+        }
+    }
+
+    private fun resolveCurrentProcessTargets(
+        param: ModuleLoadedParam,
+        oldHookHandles: Iterable<XposedInterface.HookHandle>,
+    ): Map<String, ClassLoader> {
+        val process = if (param.isSystemServer) ANDROID_PACKAGE_NAME else param.processName
+        return when (process) {
+            ANDROID_PACKAGE_NAME, "system", "system_server" -> {
+                resolveSystemServerClassLoader(oldHookHandles)
+                    ?.let { mapOf(ANDROID_PACKAGE_NAME to it) }
+                    ?: emptyMap()
+            }
+            "com.android.systemui" -> {
+                val classLoader = resolveLoadedPackageClassLoader("com.android.systemui") ?: resolveContextClassLoader()
+                mapOf("com.android.systemui" to classLoader)
+            }
+            XMSF_PACKAGE_NAME, XMSF_PROCESS_NAME -> {
+                val classLoader = resolveLoadedPackageClassLoader(XMSF_PACKAGE_NAME) ?: resolveContextClassLoader()
+                mapOf(XMSF_PACKAGE_NAME to classLoader)
+            }
+            DOCUMENTS_UI_PACKAGE_NAME -> {
+                val classLoader = resolveLoadedPackageClassLoader(DOCUMENTS_UI_PACKAGE_NAME) ?: resolveContextClassLoader()
+                mapOf(DOCUMENTS_UI_PACKAGE_NAME to classLoader)
+            }
+            SECURITY_CORE_PACKAGE_NAME -> {
+                val classLoader = resolveLoadedPackageClassLoader(SECURITY_CORE_PACKAGE_NAME) ?: resolveContextClassLoader()
+                mapOf(SECURITY_CORE_PACKAGE_NAME to classLoader)
+            }
+            else -> emptyMap()
+        }
+    }
+
+    private fun resolveLoadedPackageClassLoader(
+        packageName: String,
+        oldHookHandles: Iterable<XposedInterface.HookHandle> = emptyList(),
+    ): ClassLoader? {
+        if (packageName == ANDROID_PACKAGE_NAME || packageName == "system") {
+            return resolveSystemServerClassLoader(oldHookHandles)
+        }
+        return runCatching {
+            val activityThreadClass = Class.forName("android.app.ActivityThread")
+            val activityThread = activityThreadClass.getDeclaredMethod("currentActivityThread").invoke(null) ?: return null
+            listOf("mPackages", "mResourcePackages").firstNotNullOfOrNull { fieldName ->
+                val field = activityThreadClass.getDeclaredField(fieldName).apply { isAccessible = true }
+                val packages = field.get(activityThread) as? Map<*, *> ?: return@firstNotNullOfOrNull null
+                val loadedApkRef = packages[packageName] ?: return@firstNotNullOfOrNull null
+                val loadedApk = if (loadedApkRef is WeakReference<*>) {
+                    loadedApkRef.get() ?: return@firstNotNullOfOrNull null
+                } else {
+                    loadedApkRef
+                }
+                loadedApk.javaClass
+                    .getDeclaredMethod("getClassLoader")
+                    .apply { isAccessible = true }
+                    .invoke(loadedApk) as? ClassLoader
+            }
+        }.getOrElse { t ->
+            XLog.w(TAG, "hot reload classloader resolve failed for $packageName: ${t.message}")
+            null
+        }
+    }
+
+    private fun resolveSystemServerClassLoader(
+        oldHookHandles: Iterable<XposedInterface.HookHandle> = emptyList(),
+    ): ClassLoader? {
+        val handleLoader = oldHookHandles.asSequence()
+            .mapNotNull { handle ->
+                runCatching { handle.executable.declaringClass.classLoader }.getOrNull()
+            }
+            .firstOrNull(::canLoadSystemServerHooks)
+        if (handleLoader != null) return handleLoader
+
+        val contextLoader = resolveContextClassLoader()
+        if (canLoadSystemServerHooks(contextLoader)) return contextLoader
+
+        XLog.w(TAG, "hot reload skipped system_server without a valid system classloader")
+        return null
+    }
+
+    private fun canLoadSystemServerHooks(classLoader: ClassLoader): Boolean {
+        return SYSTEM_SERVER_SENTINEL_CLASSES.any { className ->
+            runCatching {
+                Class.forName(className, false, classLoader)
+            }.isSuccess
+        }
+    }
+
+    private fun resolveContextClassLoader(): ClassLoader {
+        return Thread.currentThread().contextClassLoader ?: ClassLoader.getSystemClassLoader()
     }
 
     private companion object {
         private const val TAG = "LibXposedEntry"
         private const val MIN_LIBXPOSED_API_VERSION = 102
         private const val PREFERRED_LIBXPOSED_API_VERSION = 102
+        private const val STATE_PROCESS_NAME = "processName"
+        private const val STATE_LOADED_PACKAGES = "loadedPackages"
         private const val TAX_PACKAGE_NAME = "cn.gov.tax.its"
         private const val HYPERISLAND_PACKAGE_NAME = "io.github.hyperisland"
         private const val SECURITY_CORE_PACKAGE_NAME = "com.miui.securitycore"
         private const val DOCUMENTS_UI_PACKAGE_NAME = "com.google.android.documentsui"
+        private val SYSTEM_SERVER_SENTINEL_CLASSES = arrayOf(
+            "com.android.server.notification.NotificationManagerService",
+            "com.android.server.am.ActivityManagerService",
+            "com.android.server.SystemServer",
+        )
 
         @Volatile
         private var taxAttachFallbackInstalled = false

@@ -35,20 +35,20 @@ class LibXposedHotReloadTest {
     @Test
     fun `hot reload replaces hooks and unhooks stale ones`() {
         val method = String::class.java.getMethod("length")
-        
+
         val oldHandle1 = RecordingHookHandle(method, "handle_1")
         val oldHandle2 = RecordingHookHandle(method, "handle_2")
         val oldHandle3 = RecordingHookHandle(method, "handle_3")
-        
+
         val callback = MethodHook { replace { 0 } }
         val methodHookId = "mipush:${callback.hookIdentity}@java.lang.String#length()"
-        
+
         oldHandle1.testId = methodHookId
-        
+
         api.beginHotReload(listOf(oldHandle1, oldHandle2, oldHandle3))
 
         val newHandle = api.hookExecutable(method, callback, XposedInterface.Hooker { null })
-        
+
         assertEquals(oldHandle1, newHandle)
         assertTrue(oldHandle1.replaced)
 
@@ -57,6 +57,55 @@ class LibXposedHotReloadTest {
         assertTrue(oldHandle2.unhooked)
         assertTrue(oldHandle3.unhooked)
         assertFalse(oldHandle1.unhooked)
+    }
+
+    @Test
+    fun `hot reload replaces hook by executable signature when callback id changed`() {
+        val method = String::class.java.getMethod("length")
+        val oldHandle = RecordingHookHandle(
+            executable = method,
+            testId = "mipush:old.callback@java.lang.String#length()",
+        )
+
+        api.beginHotReload(listOf(oldHandle))
+        val newHandle = api.hookExecutable(method, MethodHook { replace { 0 } }, XposedInterface.Hooker { null })
+
+        assertEquals(oldHandle, newHandle)
+        assertTrue(oldHandle.replaced)
+        assertEquals(0, api.finishHotReload())
+    }
+
+    @Test
+    fun `hot reload does not replace by executable signature when ambiguous`() {
+        val method = String::class.java.getMethod("length")
+        val oldHandle1 = RecordingHookHandle(method, "mipush:old.one@java.lang.String#length()")
+        val oldHandle2 = RecordingHookHandle(method, "mipush:old.two@java.lang.String#length()")
+
+        api.beginHotReload(listOf(oldHandle1, oldHandle2))
+        val newHandle = api.hookExecutable(method, MethodHook { replace { 0 } }, XposedInterface.Hooker { null })
+
+        assertFalse(oldHandle1.replaced)
+        assertFalse(oldHandle2.replaced)
+        assertEquals(1, framework.hookCalls)
+        assertTrue(framework.builders.single().id.orEmpty().startsWith("mipush:"))
+        assertEquals(2, api.finishHotReload())
+        assertTrue(oldHandle1.unhooked)
+        assertTrue(oldHandle2.unhooked)
+        assertTrue(newHandle !== oldHandle1)
+        assertTrue(newHandle !== oldHandle2)
+    }
+
+    @Test
+    fun `aborted hot reload keeps pending old hooks installed`() {
+        val method = String::class.java.getMethod("length")
+        val oldHandle = RecordingHookHandle(method, "mipush:old.callback@java.lang.String#length()")
+
+        api.beginHotReload(listOf(oldHandle))
+        api.abortHotReload()
+
+        assertFalse(oldHandle.unhooked)
+        assertFalse(oldHandle.replaced)
+        assertEquals(0, api.finishHotReload())
     }
 
     private fun testModule(framework: RecordingFramework): TestModule {
