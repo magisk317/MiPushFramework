@@ -11,6 +11,7 @@ import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.fakedevice.compat.ModuleCompatRegistry
 import io.github.magisk317.mipush.hook.securitycore.SecurityCoreXSpacePackageInfoHook
 import io.github.magisk317.mipush.xposed.callMethod
+import io.github.magisk317.mipush.xposed.callStaticMethod
 import io.github.magisk317.mipush.xposed.currentApplication
 import io.github.magisk317.mipush.xposed.findHookClass
 import io.github.magisk317.mipush.xposed.get
@@ -201,12 +202,14 @@ class HookSystemService {
     fun hook(classLoader: ClassLoader) {
         val classNotificationManagerService = findHookClass("com.android.server.notification.NotificationManagerService", classLoader)
         XLog.i(TAG, "installing system notification hooks")
+        installXSpacePackageSyncReceiver(classLoader)
 
         classNotificationManagerService.hookMethod("onStart") {
             doAfter {
                 XLog.d(TAG, "onStart invoked")
                 val owner = thisObject ?: return@doAfter
                 val context = owner.callMethod("getContext") as Context
+                XSpacePackageSyncHook.install(context)
                 val service = owner.get<Any?>("mService")
                 if (service == null) {
                     XLog.w(TAG, "skip system notification hook install because mService is null")
@@ -234,6 +237,17 @@ class HookSystemService {
         ShortcutPermissionHooker.hook(classShortcutService)
         hookGlobalVisibility(classLoader)
         SecurityCoreXSpacePackageInfoHook.hook(classLoader)
+    }
+
+    private fun installXSpacePackageSyncReceiver(classLoader: ClassLoader) {
+        runCatching {
+            val activityThreadClass = findHookClass("android.app.ActivityThread", classLoader)
+            val activityThread = activityThreadClass.callStaticMethod("currentActivityThread") ?: return
+            val systemContext = activityThread.callMethod("getSystemContext") as? Context ?: return
+            XSpacePackageSyncHook.install(systemContext)
+        }.onFailure {
+            XLog.d(TAG, "skip immediate XSpace package sync receiver install: ${it.message}")
+        }
     }
 
     private fun hookSystemReadyFlag(stubClass: Class<Any>) {
