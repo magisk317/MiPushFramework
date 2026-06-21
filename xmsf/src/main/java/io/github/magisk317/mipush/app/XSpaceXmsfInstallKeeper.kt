@@ -17,8 +17,9 @@ object XSpaceXmsfInstallKeeper {
     private const val XSPACE_USER_ID = 999
     private const val MIN_CHECK_INTERVAL_MS = 60_000L
     private const val USER_LIST_TIMEOUT_MS = 5_000L
-    private const val PM_PATH_TIMEOUT_MS = 5_000L
+    private const val PACKAGE_LIST_TIMEOUT_MS = 5_000L
     private const val INSTALL_TIMEOUT_MS = 15_000L
+    private const val UNINSTALL_TIMEOUT_MS = 15_000L
 
     private val running = AtomicBoolean(false)
     private val lastCheckAtMs = AtomicLong(0L)
@@ -66,9 +67,28 @@ object XSpaceXmsfInstallKeeper {
             return RepairResult(Stage.XSPACE_USER_NOT_FOUND)
         }
 
-        val beforePath = runRootCommand(pmPathCommand(), PM_PATH_TIMEOUT_MS)
-        if (beforePath.isSuccess && isDataAppPath(beforePath.stdoutText)) {
-            return RepairResult(Stage.ALREADY_DATA_APP)
+        val moduleList = runRootCommand(listPackageCommand(Constants.MANAGER_APP_NAME), PACKAGE_LIST_TIMEOUT_MS)
+        val moduleInstalled = isPackageListed(moduleList, Constants.MANAGER_APP_NAME)
+        val beforeList = runRootCommand(listPackageCommand(Constants.SERVICE_APP_NAME), PACKAGE_LIST_TIMEOUT_MS)
+
+        if (!moduleInstalled) {
+            if (!isPackageListed(beforeList, Constants.SERVICE_APP_NAME)) {
+                return RepairResult(Stage.MODULE_ABSENT_XMSF_ABSENT)
+            }
+            val uninstall = runRootCommand(uninstallCommand(), UNINSTALL_TIMEOUT_MS)
+            if (!uninstall.isSuccess) {
+                return RepairResult(Stage.UNINSTALL_FAILED, exitCode = uninstall.exitCode)
+            }
+            val afterList = runRootCommand(listPackageCommand(Constants.SERVICE_APP_NAME), PACKAGE_LIST_TIMEOUT_MS)
+            return if (!isPackageListed(afterList, Constants.SERVICE_APP_NAME)) {
+                RepairResult(Stage.UNINSTALL_SUCCEEDED)
+            } else {
+                RepairResult(Stage.UNINSTALL_VERIFY_FAILED, exitCode = afterList.exitCode)
+            }
+        }
+
+        if (isPackageListed(beforeList, Constants.SERVICE_APP_NAME)) {
+            return RepairResult(Stage.ALREADY_SYNCHRONIZED)
         }
 
         val install = runRootCommand(installExistingCommand(), INSTALL_TIMEOUT_MS)
@@ -76,27 +96,28 @@ object XSpaceXmsfInstallKeeper {
             return RepairResult(Stage.INSTALL_EXISTING_FAILED, exitCode = install.exitCode)
         }
 
-        val afterPath = runRootCommand(pmPathCommand(), PM_PATH_TIMEOUT_MS)
-        return if (afterPath.isSuccess && isDataAppPath(afterPath.stdoutText)) {
+        val afterList = runRootCommand(listPackageCommand(Constants.SERVICE_APP_NAME), PACKAGE_LIST_TIMEOUT_MS)
+        return if (isPackageListed(afterList, Constants.SERVICE_APP_NAME)) {
             RepairResult(Stage.INSTALL_EXISTING_SUCCEEDED)
         } else {
-            RepairResult(Stage.VERIFY_FAILED, exitCode = afterPath.exitCode)
+            RepairResult(Stage.VERIFY_FAILED, exitCode = afterList.exitCode)
         }
     }
 
     internal fun hasXSpaceUser(output: String): Boolean =
         output.lineSequence().any { it.contains("UserInfo{$XSPACE_USER_ID:") }
 
-    internal fun isDataAppPath(output: String): Boolean =
-        output.lineSequence()
-            .map { it.trim() }
-            .any { it.startsWith("package:/data/app/") }
+    internal fun isPackageListed(result: BoundedShellResult, packageName: String): Boolean =
+        result.isSuccess && result.stdoutText.lineSequence().any { it.trim() == "package:$packageName" }
 
     internal fun installExistingCommand(): String =
         "cmd package install-existing --user $XSPACE_USER_ID --wait ${Constants.SERVICE_APP_NAME}"
 
-    internal fun pmPathCommand(): String =
-        "pm path --user $XSPACE_USER_ID ${Constants.SERVICE_APP_NAME}"
+    internal fun uninstallCommand(): String =
+        "cmd package uninstall --user $XSPACE_USER_ID ${Constants.SERVICE_APP_NAME}"
+
+    internal fun listPackageCommand(packageName: String = Constants.SERVICE_APP_NAME): String =
+        "cmd package list packages --user $XSPACE_USER_ID $packageName"
 
     private fun markCheckAllowed(nowMs: Long): Boolean {
         val previous = lastCheckAtMs.get()
@@ -111,13 +132,17 @@ object XSpaceXmsfInstallKeeper {
             "XSpace xmsf install keeper source=$source pkg=${context.packageName} " +
                 "stage=${result.stage} exitCode=${result.exitCode}"
         when (result.stage) {
-            Stage.ALREADY_DATA_APP,
+            Stage.ALREADY_SYNCHRONIZED,
             Stage.XSPACE_USER_NOT_FOUND,
+            Stage.MODULE_ABSENT_XMSF_ABSENT,
             Stage.ROOT_MISSING -> logD(message)
-            Stage.INSTALL_EXISTING_SUCCEEDED -> logI(message)
+            Stage.INSTALL_EXISTING_SUCCEEDED,
+            Stage.UNINSTALL_SUCCEEDED -> logI(message)
             Stage.USER_LIST_FAILED,
             Stage.INSTALL_EXISTING_FAILED,
-            Stage.VERIFY_FAILED -> logW(message)
+            Stage.VERIFY_FAILED,
+            Stage.UNINSTALL_FAILED,
+            Stage.UNINSTALL_VERIFY_FAILED -> logW(message)
         }
     }
 
@@ -130,9 +155,13 @@ object XSpaceXmsfInstallKeeper {
         ROOT_MISSING,
         USER_LIST_FAILED,
         XSPACE_USER_NOT_FOUND,
-        ALREADY_DATA_APP,
+        MODULE_ABSENT_XMSF_ABSENT,
+        ALREADY_SYNCHRONIZED,
         INSTALL_EXISTING_SUCCEEDED,
         INSTALL_EXISTING_FAILED,
         VERIFY_FAILED,
+        UNINSTALL_SUCCEEDED,
+        UNINSTALL_FAILED,
+        UNINSTALL_VERIFY_FAILED,
     }
 }

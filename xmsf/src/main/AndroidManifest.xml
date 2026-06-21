@@ -272,6 +272,7 @@
                 android:name="io.github.magisk317.mipush.receiver.PkgUninstallReceiver"
                 android:exported="true">
             <intent-filter>
+                <action android:name="android.intent.action.PACKAGE_ADDED" />
                 <action android:name="android.intent.action.PACKAGE_REMOVED" />
 
                 <data android:scheme="package" />
