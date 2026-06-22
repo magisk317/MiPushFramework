@@ -179,9 +179,37 @@ jobs:
           cd MiPushZygisk
           ./build.sh
 
-      - name: Upload Zygisk artifact
+      - name: Upload Zygisk artifact (arm64-v8a)
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: mipush-zygisk
-          path: MiPushZygisk/build/*.zip
+          name: mipush-zygisk-arm64-v8a
+          path: MiPushZygisk/build/arm64-v8a_*.zip
+
+      - name: Upload Zygisk artifact (armeabi-v7a)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mipush-zygisk-armeabi-v7a
+          path: MiPushZygisk/build/armeabi-v7a_*.zip
+
+      - name: Upload Zygisk artifact (x86)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mipush-zygisk-x86
+          path: MiPushZygisk/build/x86_*.zip
+
+      - name: Upload Zygisk artifact (x86_64)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mipush-zygisk-x86_64
+          path: MiPushZygisk/build/x86_64_*.zip
+
+      - name: Upload Zygisk artifact (universal)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mipush-zygisk-universal
+          path: MiPushZygisk/build/universal_*.zip
