@@ -150,15 +150,15 @@ jobs:
               send_message "$CI_THREAD" "$CI_MSG"
 
               if [ -d "artifacts" ]; then
-                mapfile -d '' ci_apks < <(
-                  find artifacts -type f -name '*arm64-v8a*.apk' -print0 | sort -z
+                mapfile -d '' ci_artifacts < <(
+                  find artifacts -type f \( -name '*arm64-v8a*.apk' -o -name '*.zip' \) -print0 | sort -z
                 )
-                if [ "${#ci_apks[@]}" -eq 0 ]; then
-                  echo "No arm64-v8a APK artifacts found."
+                if [ "${#ci_artifacts[@]}" -eq 0 ]; then
+                  echo "No arm64-v8a APK or ZIP artifacts found."
                 else
-                  for apk in "${ci_apks[@]}"; do
-                    apk_caption=$(printf '📦 %s' "$(basename "$apk")")
-                    send_document "$apk" "$CI_THREAD" "$apk_caption"
+                  for artifact in "${ci_artifacts[@]}"; do
+                    artifact_caption=$(printf '📦 %s' "$(basename "$artifact")")
+                    send_document "$artifact" "$CI_THREAD" "$artifact_caption"
                   done
                 fi
               else
