@@ -150,3 +150,38 @@ jobs:
         with:
           name: MiPush-debug-universal
           path: mipush/build/outputs/apk/debug/**/*universal*.apk
+
+  build-zygisk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout MiPushZygisk
+        uses: actions/checkout@v7
+        with:
+          repository: magisk317/MiPushZygisk
+          path: MiPushZygisk
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - name: Install Android NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r27d
+
+      - name: Build Zygisk module
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: |
+          cd MiPushZygisk
+          ./build.sh
+
+      - name: Upload Zygisk artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mipush-zygisk
+          path: MiPushZygisk/build/*.zip
