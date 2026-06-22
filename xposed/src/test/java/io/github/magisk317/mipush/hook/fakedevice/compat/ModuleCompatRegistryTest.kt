@@ -125,6 +125,12 @@ class ModuleCompatRegistryTest {
     }
 
     @Test
+    fun `registry excludes Xiaomi family packages from current capability model`() {
+        assertNull(ModuleCompatRegistry.getProfile("com.xiaomi.smarthome"))
+        assertEquals(emptyList<HookPipelineId>(), ModuleCompatRegistry.resolveHookPipelines("com.xiaomi.smarthome"))
+    }
+
+    @Test
     fun `registry builds auto force register profile when mipush classes are present`() {
         val loader = object : ClassLoader() {
             override fun loadClass(name: String?): Class<*> {
@@ -208,18 +214,10 @@ class ModuleCompatRegistryTest {
     }
 
     @Test
-    fun `registry keeps explicit Xiaomi package profile`() {
+    fun `registry filters explicit Xiaomi package profile from current capability model`() {
         val profile = ModuleCompatRegistry.getProfile("com.xiaomi.smarthome")
 
-        assertNotNull(profile)
-        assertEquals(
-            listOf(
-                HookPipelineId.JPUSH,
-                HookPipelineId.VIVO_PUSH,
-                HookPipelineId.OPPO_HEYTAP,
-            ),
-            profile!!.hookPipelines,
-        )
+        assertNull(profile)
     }
 
     @Test

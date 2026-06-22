@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.main.viewmodel
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.magisk317.mipush.common.fakedevice.ZygiskPackagePolicy
 import io.github.magisk317.mipush.common.manager.ManagerApplication
 import io.github.magisk317.mipush.common.manager.ManagerApplicationDiagnostics
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
@@ -30,19 +31,27 @@ class ApplicationInfoViewModel constructor(
     private val _isZygiskEnabledForApp = MutableStateFlow(false)
     val isZygiskEnabledForApp: StateFlow<Boolean> = _isZygiskEnabledForApp.asStateFlow()
 
+    private val _isZygiskConfigurableForApp = MutableStateFlow(false)
+    val isZygiskConfigurableForApp: StateFlow<Boolean> = _isZygiskConfigurableForApp.asStateFlow()
+
     private val _diagnostics = MutableStateFlow<ManagerApplicationDiagnostics?>(null)
     val diagnostics: StateFlow<ManagerApplicationDiagnostics?> = _diagnostics.asStateFlow()
 
     fun setApplicationInfo(info: ManagerApplication) {
         _applicationInfo.value = info
+        _isZygiskConfigurableForApp.value = ZygiskPackagePolicy.isManagedPackage(info.packageName)
         loadZygiskState(info.packageName)
         loadDiagnostics(info.packageName, info.registeredType)
     }
 
     private fun loadZygiskState(packageName: String) {
         viewModelScope.launch {
+            if (!ZygiskPackagePolicy.isManagedPackage(packageName)) {
+                _isZygiskEnabledForApp.value = false
+                return@launch
+            }
             val enabled = withContext(Dispatchers.IO) {
-                settingsManager.getZygiskSpoofPackages().contains(packageName)
+                settingsManager.isZygiskSpoofEnabled(packageName)
             }
             _isZygiskEnabledForApp.value = enabled
         }
@@ -50,17 +59,14 @@ class ApplicationInfoViewModel constructor(
 
     fun updateZygiskEnabledForApp(enabled: Boolean) {
         val packageName = _applicationInfo.value?.packageName ?: return
+        if (!ZygiskPackagePolicy.isManagedPackage(packageName)) return
         viewModelScope.launch {
-            withContext(Dispatchers.IO) {
-                val packages = settingsManager.getZygiskSpoofPackages().toMutableSet()
-                if (enabled) {
-                    packages.add(packageName)
-                } else {
-                    packages.remove(packageName)
-                }
-                settingsManager.saveZygiskSpoofPackages(packages.toList())
+            val success = withContext(Dispatchers.IO) {
+                settingsManager.setZygiskSpoofEnabled(packageName, enabled)
             }
-            _isZygiskEnabledForApp.value = enabled
+            if (success) {
+                _isZygiskEnabledForApp.value = enabled
+            }
         }
     }
 

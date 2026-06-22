@@ -1,15 +1,8 @@
 package io.github.magisk317.mipush.hook.fakedevice.compat
 
-object ModuleCompatRegistry {
-    private val autoDeniedPackagePrefixes = listOf(
-        "android.",
-        "com.android.",
-        "com.google.android.",
-        "com.miui.",
-        "com.xiaomi.",
-        "miui.",
-    )
+import io.github.magisk317.mipush.common.fakedevice.ZygiskPackagePolicy
 
+object ModuleCompatRegistry {
     private val autoAggressivePipelines = listOf(
         HookPipelineId.COMMON,
         HookPipelineId.HUAWEI_HMS,
@@ -40,9 +33,11 @@ object ModuleCompatRegistry {
     )
 
     private val profilesByPackage: Map<String, ModuleCompatProfile> =
-        GeneratedCompatProfiles.profiles.associateBy(ModuleCompatProfile::packageName)
+        GeneratedCompatProfiles.profiles
+            .filter { ZygiskPackagePolicy.isManagedPackage(it.packageName) }
+            .associateBy(ModuleCompatProfile::packageName)
 
-    fun allProfiles(): List<ModuleCompatProfile> = GeneratedCompatProfiles.profiles
+    fun allProfiles(): List<ModuleCompatProfile> = profilesByPackage.values.toList()
 
     fun getProfile(packageName: String): ModuleCompatProfile? = profilesByPackage[packageName]
 
@@ -70,7 +65,7 @@ object ModuleCompatRegistry {
     ): ModuleCompatProfile? {
         if (classLoader == null) return null
         if (processName.isBlank()) return null
-        if (isAutoDeniedPackage(packageName)) return null
+        if (!ZygiskPackagePolicy.isManagedPackage(packageName)) return null
         val hasMiPushSdk = autoForceRegisterCandidates.any { className ->
             runCatching { classLoader.loadClass(className) }.isSuccess
         }
@@ -82,8 +77,4 @@ object ModuleCompatRegistry {
         )
     }
 
-    private fun isAutoDeniedPackage(packageName: String): Boolean {
-        if (packageName == "android") return true
-        return autoDeniedPackagePrefixes.any { prefix -> packageName.startsWith(prefix) }
-    }
 }

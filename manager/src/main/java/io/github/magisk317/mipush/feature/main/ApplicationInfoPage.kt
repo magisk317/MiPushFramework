@@ -457,6 +457,7 @@ open class ApplicationInfoPage : ComponentActivity() {
         val currentInfo by infoViewModel.applicationInfo.collectAsStateWithLifecycle()
         val blocked = currentInfo?.blocked ?: applicationInfo.blocked
         val isZygiskEnabledForApp by infoViewModel.isZygiskEnabledForApp.collectAsStateWithLifecycle()
+        val isZygiskConfigurableForApp by infoViewModel.isZygiskConfigurableForApp.collectAsStateWithLifecycle()
 
         DetailSectionCard(
             title = stringResource(R.string.app_detail_activity_and_behavior),
@@ -466,6 +467,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                 title = zygiskTitle,
                 summary = stringResource(R.string.zygisk_spoof_switch_summary),
                 checked = isZygiskEnabledForApp,
+                enabled = isZygiskConfigurableForApp,
                 showDivider = true,
             ) { enabled ->
                 infoViewModel.updateZygiskEnabledForApp(enabled)

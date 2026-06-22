@@ -2,6 +2,8 @@ package io.github.magisk317.mipush.main.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.magisk317.mipush.common.fakedevice.ZygiskConfig
+import io.github.magisk317.mipush.common.fakedevice.ZygiskPackagePolicy
 import io.github.magisk317.mipush.common.manager.ManagerApplication
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
 import io.github.magisk317.mipush.manager.SettingsManager
@@ -36,16 +38,17 @@ class ZygiskConfigViewModel(
             
             val appsList = withContext(Dispatchers.IO) {
                 applicationGateway.loadApplications(context).items
+                    .filter { ZygiskPackagePolicy.isManagedPackage(it.packageName) }
             }
 
-            val spoofList = withContext(Dispatchers.IO) {
-                settingsManager.getZygiskSpoofPackages()
+            val zygiskConfig = withContext(Dispatchers.IO) {
+                settingsManager.getZygiskConfig()
             }
 
             _state.value = _state.value.copy(
                 isLoading = false,
                 isZygiskEnabled = isZygiskEnabled,
-                spoofPackages = spoofList.toSet(),
+                spoofPackages = zygiskConfig.enabledPackages(),
                 installedApps = appsList
             )
         }
@@ -64,7 +67,7 @@ class ZygiskConfigViewModel(
     fun saveConfig(onSuccess: () -> Unit, onError: () -> Unit) {
         viewModelScope.launch {
             val success = withContext(Dispatchers.IO) {
-                settingsManager.saveZygiskSpoofPackages(_state.value.spoofPackages.toList())
+                settingsManager.saveZygiskConfig(ZygiskConfig.fromPackages(_state.value.spoofPackages))
             }
             if (success) {
                 onSuccess()

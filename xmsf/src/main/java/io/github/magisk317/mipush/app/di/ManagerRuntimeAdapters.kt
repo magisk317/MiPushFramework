@@ -13,6 +13,7 @@ import com.xiaomi.push.sdk.PushMessageProcessor
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
+import io.github.magisk317.mipush.common.fakedevice.ZygiskConfig
 import io.github.magisk317.mipush.common.manager.ManagerApplication
 import io.github.magisk317.mipush.common.manager.ManagerApplicationDiagnostics
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
@@ -826,23 +827,31 @@ class XmsfZygiskConfigGateway : io.github.magisk317.mipush.common.manager.Zygisk
 
     override fun getZygiskConfigPath(): String = ZYGISK_CONFIG_PATH
 
-    override fun getZygiskSpoofPackages(): List<String> {
-        if (!io.github.magisk317.mipush.platform.support.PermissionUtils.refreshRootAccessIfGranted()) return emptyList()
+    override fun getZygiskConfig(): ZygiskConfig {
+        if (!io.github.magisk317.mipush.platform.support.PermissionUtils.refreshRootAccessIfGranted()) return ZygiskConfig()
         val result = io.github.magisk317.mipush.platform.support.AppRootAccessFacade.runRootCommand(
             "cat $ZYGISK_CONFIG_PATH",
             timeoutMs = 5_000L
         )
-        if (!result.isSuccess) return emptyList()
-        return result.stdout.map { it.trim() }.filter { it.isNotEmpty() }
+        if (!result.isSuccess) return ZygiskConfig()
+        return ZygiskConfig.parse(result.stdout.joinToString("\n"))
     }
 
-    override fun saveZygiskSpoofPackages(packages: List<String>): Boolean {
+    override fun saveZygiskConfig(config: ZygiskConfig): Boolean {
         if (!io.github.magisk317.mipush.platform.support.PermissionUtils.refreshRootAccessIfGranted()) return false
-        val content = packages.joinToString("\n")
+        val content = config.toFileContent()
+        val command = listOf(
+            "mkdir -p /data/adb/mipush_zygisk",
+            "chmod 700 /data/adb/mipush_zygisk",
+            "printf %s ${shellQuote(content)} > $ZYGISK_CONFIG_PATH",
+            "chmod 600 $ZYGISK_CONFIG_PATH",
+        ).joinToString(" && ")
         val result = io.github.magisk317.mipush.platform.support.AppRootAccessFacade.runRootCommand(
-            "echo '$content' > $ZYGISK_CONFIG_PATH",
+            command,
             timeoutMs = 5_000L
         )
         return result.isSuccess
     }
+
+    private fun shellQuote(value: String): String = "'" + value.replace("'", "'\"'\"'") + "'"
 }

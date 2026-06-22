@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.common.fakedevice.ZygiskConfig
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
 import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
 import io.github.magisk317.mipush.common.manager.ManagerLogClearResult
@@ -170,7 +171,16 @@ class SettingsManager constructor(
 
     fun getZygiskConfigPath(): String = zygiskConfigGateway.getZygiskConfigPath()
 
-    fun getZygiskSpoofPackages(): List<String> = zygiskConfigGateway.getZygiskSpoofPackages()
+    fun getZygiskConfig(): ZygiskConfig = zygiskConfigGateway.getZygiskConfig()
 
-    fun saveZygiskSpoofPackages(packages: List<String>): Boolean = zygiskConfigGateway.saveZygiskSpoofPackages(packages)
+    fun getZygiskSpoofPackages(): Set<String> = getZygiskConfig().enabledPackages()
+
+    fun isZygiskSpoofEnabled(packageName: String): Boolean = getZygiskConfig().isEnabledForPackage(packageName)
+
+    fun saveZygiskConfig(config: ZygiskConfig): Boolean = zygiskConfigGateway.saveZygiskConfig(config)
+
+    fun setZygiskSpoofEnabled(packageName: String, enabled: Boolean): Boolean {
+        val updated = getZygiskConfig().withPackageEnabled(packageName, enabled)
+        return saveZygiskConfig(updated)
+    }
 }
