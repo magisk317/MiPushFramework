@@ -105,4 +105,5 @@ interface ZygiskConfigGateway {
     fun getZygiskConfigPath(): String
     fun getZygiskConfig(): ZygiskConfig
     fun saveZygiskConfig(config: ZygiskConfig): Boolean
+    fun forceStopApp(packageName: String)
 }
