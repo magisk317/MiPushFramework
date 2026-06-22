@@ -65,6 +65,11 @@ object FakeDevice {
             return
         }
 
+        if (android.os.Build.BRAND.equals("Xiaomi", ignoreCase = true) || android.os.Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true)) {
+            XLog.i(TAG, "Zygisk spoofing detected (or native Xiaomi device) for $packageName, skipping FakeDevice pipelines")
+            return
+        }
+
         LegacyHuaweiSignatureCompat.hook(lpparam)
         pipelines.distinct().forEach { pipelineId ->
             createPipelineHook(pipelineId).fake(lpparam)
