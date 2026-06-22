@@ -10,6 +10,6 @@ class SettingsManagerContractTest {
         val constructors = SettingsManager::class.java.declaredConstructors
         assertEquals(1, constructors.size)
         val ctor = constructors.single()
-        assertTrue(ctor.parameterCount == 4)
+        assertTrue(ctor.parameterCount == 5)
     }
 }
