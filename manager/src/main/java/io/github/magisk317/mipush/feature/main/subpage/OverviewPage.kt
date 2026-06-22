@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.widget.Toast
+import androidx.core.content.pm.PackageInfoCompat
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -139,7 +140,7 @@ private fun OverviewScreen(
 
     val packageInfo = remember { context.packageManager.getPackageInfo(context.packageName, 0) }
     val appVersionName = packageInfo.versionName ?: context.getString(io.github.magisk317.uikit.R.string.unknown)
-    val appVersionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) packageInfo.longVersionCode.toString() else packageInfo.versionCode.toString()
+    val appVersionCode = PackageInfoCompat.getLongVersionCode(packageInfo).toString()
 
     Box(modifier = Modifier.fillMaxSize()) {
         SectionColumn(
