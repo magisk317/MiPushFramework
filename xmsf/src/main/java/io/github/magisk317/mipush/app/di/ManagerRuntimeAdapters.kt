@@ -816,6 +816,11 @@ class XmsfZygiskConfigGateway : io.github.magisk317.mipush.common.manager.Zygisk
     }
 
     override fun isZygiskModuleEnabled(): Boolean {
+        if (!io.github.magisk317.mipush.platform.support.PermissionUtils.hasCachedRootAccess() &&
+            !io.github.magisk317.mipush.platform.support.PermissionUtils.refreshRootAccessIfGranted()
+        ) {
+            return false
+        }
         return try {
             val getPropMethod = Class.forName("android.os.SystemProperties").getMethod("get", String::class.java, String::class.java)
             val result = getPropMethod.invoke(null, "mipush.zygisk.enabled", "false") as String
@@ -851,6 +856,11 @@ class XmsfZygiskConfigGateway : io.github.magisk317.mipush.common.manager.Zygisk
             timeoutMs = 5_000L
         )
         return result.isSuccess
+    }
+
+    override fun forceStopApp(packageName: String) {
+        if (!io.github.magisk317.mipush.platform.support.PermissionUtils.refreshRootAccessIfGranted()) return
+        io.github.magisk317.mipush.platform.support.AppRootAccessFacade.runRootCommand("am force-stop $packageName", timeoutMs = 5_000L)
     }
 
     private fun shellQuote(value: String): String = "'" + value.replace("'", "'\"'\"'") + "'"

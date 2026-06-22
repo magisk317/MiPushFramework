@@ -181,6 +181,10 @@ class SettingsManager constructor(
 
     fun setZygiskSpoofEnabled(packageName: String, enabled: Boolean): Boolean {
         val updated = getZygiskConfig().withPackageEnabled(packageName, enabled)
-        return saveZygiskConfig(updated)
+        val saved = saveZygiskConfig(updated)
+        if (saved) {
+            zygiskConfigGateway.forceStopApp(packageName)
+        }
+        return saved
     }
 }
