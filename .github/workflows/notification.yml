@@ -151,7 +151,7 @@ jobs:
 
               if [ -d "artifacts" ]; then
                 mapfile -d '' ci_artifacts < <(
-                  find artifacts -type f \( -name '*arm64-v8a*.apk' -o -name '*.zip' \) -print0 | sort -z
+                  find artifacts -type f \( -name '*arm64-v8a*.apk' -o -name '*arm64-v8a*.zip' \) -print0 | sort -z
                 )
                 if [ "${#ci_artifacts[@]}" -eq 0 ]; then
                   echo "No arm64-v8a APK or ZIP artifacts found."
