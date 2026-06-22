@@ -22,6 +22,10 @@ concurrency:
 
 jobs:
   renovate:
+    permissions:
+      contents: write
+      issues: read
+      pull-requests: read
     uses: magisk317/magisk-ci-toolkit/.github/workflows/run-renovate.yml@master
     if: |
       (
