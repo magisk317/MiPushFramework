@@ -9,6 +9,7 @@ import io.github.magisk317.mipush.utils.ConfigDocumentContent
 import io.github.magisk317.mipush.utils.ConfigListItem
 import io.github.magisk317.mipush.utils.LocalConfigSummary
 import io.github.magisk317.mipush.utils.RemoteConfigFile
+import io.github.magisk317.mipush.common.fakedevice.ZygiskConfig
 import java.io.File
 
 interface ManagerApplicationGateway {
@@ -102,6 +103,6 @@ data class ManagerXSpaceRepairResult(
 interface ZygiskConfigGateway {
     fun isZygiskModuleEnabled(): Boolean
     fun getZygiskConfigPath(): String
-    fun getZygiskSpoofPackages(): List<String>
-    fun saveZygiskSpoofPackages(packages: List<String>): Boolean
+    fun getZygiskConfig(): ZygiskConfig
+    fun saveZygiskConfig(config: ZygiskConfig): Boolean
 }

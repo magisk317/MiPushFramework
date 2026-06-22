@@ -12,6 +12,8 @@ enum class Property(val entry: Pair<String, String>) {
     // 清空其他厂商特征，避免与小米身份冲突
     EMUI_API("ro.build.hw_emui_api_level" to ""),
     EMUI_VERSION("ro.build.version.emui" to ""),
+    EMUI_VENDOR_VERSION("ro.vendor.build.emui" to ""),
+    HUAWEI_DISPLAY_ID("ro.huawei.build.display.id" to ""),
     
     // 小米设备身份（仅非小米设备需要）
     BRAND("ro.product.brand" to "Xiaomi"),
@@ -33,8 +35,17 @@ enum class Property(val entry: Pair<String, String>) {
     // 清空其他厂商特征
     FLYME_VERSION_NAME("ro.build.flyme.version" to ""),
     FLYME_VERSION_CODE("ro.flyme.version.id" to ""),
+    FLYME_ROM("ro.build.meizu.rom" to ""),
     COLOROS_BUILD_VERSION_OLD("ro.build.version.opporom" to ""),
     COLOROS_BUILD_VERSION("ro.build.version.oplusrom" to ""),
+    COLOROS_VERSION("ro.coloros.version" to ""),
+    VIVO_OS_NAME("ro.vivo.os.name" to ""),
+    VIVO_OS_VERSION("ro.vivo.os.version" to ""),
+    FUNTOUCH_VERSION("ro.funtouch.version" to ""),
+    ONEPLUS_VERSION("ro.oneplus.version" to ""),
+    OXYGEN_VERSION("ro.oxygen.version" to ""),
+    SAMSUNG_SMD_VERSION("ro.samsung.smd.version" to ""),
+    SAMSUNG_SCAFE_VERSION("ro.build.scafe.version" to ""),
 
     REGION_MIUI("ro.miui.region" to "CN"),
     REGION_PRODUCT_LOCALE("ro.product.locale.region" to "CN"),
@@ -69,10 +80,21 @@ private val XIAOMI_IDENTITY_PROPS = setOf(
 private val VENDOR_CLEAR_PROPS = setOf(
     Property.EMUI_API.key,
     Property.EMUI_VERSION.key,
+    Property.EMUI_VENDOR_VERSION.key,
+    Property.HUAWEI_DISPLAY_ID.key,
     Property.FLYME_VERSION_NAME.key,
     Property.FLYME_VERSION_CODE.key,
+    Property.FLYME_ROM.key,
     Property.COLOROS_BUILD_VERSION_OLD.key,
-    Property.COLOROS_BUILD_VERSION.key
+    Property.COLOROS_BUILD_VERSION.key,
+    Property.COLOROS_VERSION.key,
+    Property.VIVO_OS_NAME.key,
+    Property.VIVO_OS_VERSION.key,
+    Property.FUNTOUCH_VERSION.key,
+    Property.ONEPLUS_VERSION.key,
+    Property.OXYGEN_VERSION.key,
+    Property.SAMSUNG_SMD_VERSION.key,
+    Property.SAMSUNG_SCAFE_VERSION.key,
 )
 
 fun fakeProperty(property: Property, overrideValue: String) = fakeProperty(Pair(property.key, overrideValue))
@@ -113,6 +135,10 @@ fun fakeProperty(vararg properties: Property) {
     fakeProperty(*properties.map { it.entry }.toTypedArray())
 }
 
+fun fakeVendorFeatureProperties() {
+    fakeProperty(*Property.values().filter { VENDOR_CLEAR_PROPS.contains(it.key) }.toTypedArray())
+}
+
 private val propertyMap: MutableMap<String, String> = java.util.concurrent.ConcurrentHashMap()
 private val hooked = AtomicBoolean(false)
 
@@ -134,6 +160,7 @@ private val buildStringFieldMappings = listOf(
     BuildStringFieldMapping("ro.build.type", Build::class.java, "TYPE"),
     BuildStringFieldMapping("ro.build.version.incremental", Build.VERSION::class.java, "INCREMENTAL"),
     BuildStringFieldMapping("ro.build.version.release", Build.VERSION::class.java, "RELEASE"),
+    BuildStringFieldMapping("ro.build.version.security_patch", Build.VERSION::class.java, "SECURITY_PATCH"),
 )
 
 fun fakeProperty(vararg properties: Pair<String, String>) {

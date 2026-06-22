@@ -4,3 +4,6 @@
 [submodule "build-logic"]
 	path = build-logic
 	url = https://github.com/magisk317/magisk-build-logic
+[submodule "scripts/_toolkit"]
+	path = scripts/_toolkit
+	url = https://github.com/magisk317/magisk-ci-toolkit.git

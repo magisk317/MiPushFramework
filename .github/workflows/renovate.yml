@@ -2,7 +2,7 @@ name: Renovate
 
 on:
   schedule:
-    - cron: "0 0 * * *"
+    - cron: "0 0 * * 1"  # Weekly on Monday at midnight
   push:
     branches:
       - dev
@@ -16,18 +16,13 @@ on:
     branches:
       - dev
 
-permissions:
-  contents: read
-  issues: read
-  pull-requests: read
-
 concurrency:
   group: renovate
   cancel-in-progress: false
 
 jobs:
   renovate:
-    runs-on: ubuntu-latest
+    uses: magisk317/magisk-ci-toolkit/.github/workflows/run-renovate.yml@master
     if: |
       (
         github.event_name != 'pull_request_target' &&
@@ -68,14 +63,8 @@ jobs:
           )
         )
       )
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Self-hosted Renovate
-        uses: renovatebot/github-action@v46.1.16
-        with:
-          configurationFile: .github/renovate-config.js
-          token: ${{ secrets.GH_PAT }}
+    with:
+      base_branch: dev
+      config_file: .github/renovate-config.js
+    secrets:
+      GH_PAT: ${{ secrets.GH_PAT }}
