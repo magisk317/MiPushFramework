@@ -16,6 +16,7 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLE_FLOAT
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLED
 import io.github.magisk317.mipush.common.ISLAND_PREF_FIRST_FLOAT
 import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
+import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_PATH_FLAGS
 import io.github.magisk317.mipush.common.ISLAND_PREF_READ_PERMISSION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
@@ -40,6 +41,7 @@ class IslandPreferenceProvider : ContentProvider() {
         ISLAND_PREF_SHOW_NOTIFICATION,
         ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION,
         ISLAND_PREF_FOCUS_NOTIF,
+        COLOR_STATUS_BAR_ICON_KEY,
     )
 
     override fun onCreate(): Boolean = true
@@ -85,6 +87,7 @@ class IslandPreferenceProvider : ContentProvider() {
                             globalFocusNotification &&
                                 (appFocusNotification ?: true)
                             ).toFlagValue(),
+                        COLOR_STATUS_BAR_ICON_KEY to repository.colorStatusBarIcon.first().toFlagValue(),
                     )
                 }
             }.getOrDefault(defaultFlags())
@@ -123,7 +126,8 @@ class IslandPreferenceProvider : ContentProvider() {
         ISLAND_PREF_FIRST_FLOAT to true.toFlagValue(),
         ISLAND_PREF_ENABLE_FLOAT to true.toFlagValue(),
         ISLAND_PREF_SHOW_NOTIFICATION to true.toFlagValue(),
-            ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION to true.toFlagValue(),
+        ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION to true.toFlagValue(),
         ISLAND_PREF_FOCUS_NOTIF to true.toFlagValue(),
+        COLOR_STATUS_BAR_ICON_KEY to false.toFlagValue(),
     )
 }

@@ -681,4 +681,29 @@ object NotificationManagerEx {
         return notificationManager.getActiveNotifications()
     }
 
+    /**
+     * Triggers SystemUI to re-render notification icons by posting and immediately
+     * cancelling a dummy notification. This forces the status bar to refresh without
+     * needing to re-post existing notifications (which fails because the system strips
+     * MIUI-specific fields from notification objects read via getActiveNotifications).
+     */
+    fun triggerStatusBarRefresh() {
+        runCatching {
+            val dummyId = Int.MIN_VALUE + 1
+            val builder = android.app.Notification.Builder(appContext, "xmsf_trigger")
+                .setSmallIcon(android.R.drawable.ic_popup_sync)
+                .setContentTitle("")
+                .setWhen(0)
+            val channel = android.app.NotificationChannel(
+                "xmsf_trigger", "trigger", NotificationManager.IMPORTANCE_MIN
+            )
+            notificationManager.createNotificationChannels(listOf(channel))
+            notificationManager.notify(null, dummyId, builder.build())
+            notificationManager.cancel(null, dummyId)
+            notificationManager.deleteNotificationChannel("xmsf_trigger")
+        }.onFailure {
+            logE("triggerStatusBarRefresh failed", it)
+        }
+    }
+
 }

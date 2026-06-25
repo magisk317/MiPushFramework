@@ -18,6 +18,7 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_FIRST_FLOAT
 import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
+import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.utils.ConfigDefaults
@@ -68,6 +69,7 @@ class PreferenceRepository constructor(
     private val ICON_REMOTE_REPOSITORY = stringPreferencesKey("icon_remote_repository")
     private val ICON_REMOTE_BRANCH = stringPreferencesKey("icon_remote_branch")
     private val ICON_REMOTE_ACCELERATOR = stringPreferencesKey("icon_remote_accelerator")
+    private val COLOR_STATUS_BAR_ICON = booleanPreferencesKey(COLOR_STATUS_BAR_ICON_KEY)
 
     // Getters
     val lastStartupTime: Flow<Long> = dataStore.data.map { it[LAST_STARTUP_TIME] ?: 0L }
@@ -89,6 +91,7 @@ class PreferenceRepository constructor(
     val islandShowNotification: Flow<Boolean> = dataStore.data.map { it[ISLAND_SHOW_NOTIFICATION] ?: true }
     val islandShowOriginalNotification: Flow<Boolean> = dataStore.data.map { it[ISLAND_SHOW_ORIGINAL_NOTIFICATION] ?: true }
     val islandFocusNotification: Flow<Boolean> = dataStore.data.map { it[ISLAND_FOCUS_NOTIF] ?: true }
+    val colorStatusBarIcon: Flow<Boolean> = dataStore.data.map { it[COLOR_STATUS_BAR_ICON] ?: false }
 
     val hazeBlurRadius: Flow<Int> = dataStore.data.map { it[HAZE_BLUR_RADIUS] ?: 25 }
     val hazeTintAlpha: Flow<Float> = dataStore.data.map { it[HAZE_TINT_ALPHA] ?: 0.2f }
@@ -191,6 +194,10 @@ class PreferenceRepository constructor(
 
     suspend fun setIslandFocusNotification(enable: Boolean) {
         dataStore.edit { it[ISLAND_FOCUS_NOTIF] = enable }
+    }
+
+    suspend fun setColorStatusBarIcon(enable: Boolean) {
+        dataStore.edit { it[COLOR_STATUS_BAR_ICON] = enable }
     }
 
     suspend fun setXmppServer(host: String) {

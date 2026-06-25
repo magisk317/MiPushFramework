@@ -86,6 +86,9 @@ class SettingsViewModel constructor(
     val islandFocusNotification: StateFlow<Boolean> = preferenceRepository.islandFocusNotification
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
+    val colorStatusBarIcon: StateFlow<Boolean> = preferenceRepository.colorStatusBarIcon
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
     init {
         viewModelScope.launch {
             preferenceRepository.themeMode.collect { mode ->
@@ -191,6 +194,10 @@ class SettingsViewModel constructor(
 
     fun setIslandFocusNotification(value: Boolean) = viewModelScope.launch {
         preferenceRepository.setIslandFocusNotification(value)
+    }
+
+    fun setColorStatusBarIcon(value: Boolean) = viewModelScope.launch {
+        preferenceRepository.setColorStatusBarIcon(value)
     }
 
     fun setThemeMode(mode: Int, x: Float = -1f, y: Float = -1f) {

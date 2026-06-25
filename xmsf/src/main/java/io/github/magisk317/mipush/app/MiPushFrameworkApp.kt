@@ -76,6 +76,7 @@ open class MiPushFrameworkApp : Application() {
         Hooker.setLogger(PushControllerUtils.wrapContext(this))
         Hooker.hook(this)
         NotificationManagerEx.init(applicationContext)
+        registerPrefChangeReceiver()
         // Initialize the runtime observer early so XMPushService.observer is set
         // before any service start. BootReceiver normally does this, but it may
         // not exist in the manifest or may not have fired yet.
@@ -94,6 +95,22 @@ open class MiPushFrameworkApp : Application() {
     }
 
     protected open fun onAppDependenciesStarted() = Unit
+
+    private fun registerPrefChangeReceiver() {
+        runCatching {
+            registerReceiver(
+                object : android.content.BroadcastReceiver() {
+                    override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
+                        io.github.magisk317.mipush.notification.NotificationManagerEx.triggerStatusBarRefresh()
+                    }
+                },
+                android.content.IntentFilter(io.github.magisk317.mipush.common.ACTION_PREF_CHANGED),
+                android.content.Context.RECEIVER_EXPORTED,
+            )
+        }.onFailure {
+            logE("failed to register pref change receiver", it)
+        }
+    }
 
     private fun requestDozeWhiteList() {
         try {

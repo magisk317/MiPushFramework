@@ -1,6 +1,11 @@
 package io.github.magisk317.mipush.hook.island
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
+import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
 import io.github.magisk317.mipush.common.ISLAND_PREF_AUTHORITY
 import io.github.magisk317.mipush.common.ISLAND_PREF_COLUMN_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_COLUMN_PACKAGE
@@ -13,6 +18,7 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_PATH_FLAGS
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
+import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.xposed.currentApplication
 
@@ -27,6 +33,7 @@ object IslandPreferences {
         ISLAND_PREF_SHOW_NOTIFICATION,
         ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION,
         ISLAND_PREF_FOCUS_NOTIF,
+        COLOR_STATUS_BAR_ICON_KEY,
     )
 
     @Volatile
@@ -57,6 +64,36 @@ object IslandPreferences {
             if (refreshLoopStarted) return
             refreshLoopStarted = true
             refreshNow()
+            // Listen for immediate preference change broadcasts
+            // Delay registration until Application is available
+            Thread({
+                var registered = false
+                while (!registered) {
+                    runCatching {
+                        val app = currentApplication() ?: return@runCatching
+                        app.registerReceiver(
+                            object : BroadcastReceiver() {
+                                override fun onReceive(context: Context?, intent: Intent?) {
+                                    refreshNow()
+                                }
+                            },
+                            IntentFilter(ACTION_PREF_CHANGED),
+                            Context.RECEIVER_EXPORTED,
+                        )
+                        registered = true
+                    }
+                    if (!registered) {
+                        try {
+                            Thread.sleep(1000)
+                        } catch (_: InterruptedException) {
+                            return@Thread
+                        }
+                    }
+                }
+            }, "MiPushPrefReceiver").apply {
+                isDaemon = true
+                start()
+            }
             Thread({
                 while (true) {
                     try {
@@ -112,6 +149,7 @@ object IslandPreferences {
             showNotification = values.booleanValue(ISLAND_PREF_SHOW_NOTIFICATION, true),
             showOriginalNotification = values.booleanValue(ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION, true),
             focusNotification = values.booleanValue(ISLAND_PREF_FOCUS_NOTIF, true),
+            colorStatusBarIcon = values.booleanValue(COLOR_STATUS_BAR_ICON_KEY, true),
         )
     }
 
