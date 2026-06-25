@@ -2,7 +2,6 @@ package io.github.magisk317.mipush.common.manager
 
 import android.content.Context
 import android.net.Uri
-import io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind
 
 interface ManagerConfigGateway {
     suspend fun getXmppServer(): String?
@@ -21,7 +20,6 @@ data class ManagerRuntimeEnvironmentSnapshot(
 interface ManagerRuntimeActions {
     suspend fun clearHistory()
     fun startMiPushServiceAsForegroundService(context: Context)
-    fun notifyMockNotification(context: Context, kind: MockNotificationKind, packageName: String)
     fun resetTopActivityCache()
     fun sendXmppReconnectRequest(context: Context)
     fun setXmppServer(context: Context, newHost: String)

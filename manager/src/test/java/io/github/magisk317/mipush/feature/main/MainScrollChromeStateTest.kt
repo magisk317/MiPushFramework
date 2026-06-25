@@ -91,10 +91,22 @@ class MainScrollChromeStateTest {
     }
 
     @Test
-    fun `overview route keeps main chrome visible`() {
+    fun `overview and settings routes keep main chrome visible`() {
         assertTrue(
             shouldKeepMainChromeVisible(
                 route = AppDestinations.Overview.ROUTE,
+                chromeVisible = false,
+            ),
+        )
+        assertTrue(
+            shouldKeepMainChromeVisible(
+                route = AppDestinations.Settings.ROUTE,
+                chromeVisible = false,
+            ),
+        )
+        assertTrue(
+            shouldKeepMainChromeVisible(
+                route = AppDestinations.SettingsSection.ROUTE,
                 chromeVisible = false,
             ),
         )

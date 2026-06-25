@@ -1,20 +1,13 @@
 package io.github.magisk317.mipush.manager
 
-import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.widget.Toast
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
-import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.fakedevice.ZygiskConfig
-import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
 import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
 import io.github.magisk317.mipush.common.manager.ManagerLogClearResult
 import io.github.magisk317.mipush.common.manager.ManagerLogExportResult
@@ -36,15 +29,9 @@ import kotlinx.coroutines.withContext
 class SettingsManager constructor(
     private val configGateway: ManagerConfigGateway,
     private val runtimeActions: ManagerRuntimeActions,
-    private val applicationGateway: ManagerApplicationGateway,
     private val logGateway: ManagerLogGateway,
     private val zygiskConfigGateway: io.github.magisk317.mipush.common.manager.ZygiskConfigGateway,
 ) {
-    companion object {
-        private const val TAG = "SettingsManager"
-        private const val MOCK_NOTIFICATION_SOURCE = "SettingsManager.notifyMockNotification"
-    }
-
     val mClearingHistory: AtomicBoolean = AtomicBoolean(false)
 
     fun clearHistory(context: Context, scope: CoroutineScope) {
@@ -64,34 +51,6 @@ class SettingsManager constructor(
 
     fun startMiPushServiceAsForegroundService(context: Context) {
         runtimeActions.startMiPushServiceAsForegroundService(context)
-    }
-
-    fun notifyMockNotification(context: Context) {
-        notifyMockNotification(context, io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.BIG_TEXT, Constants.SERVICE_APP_NAME)
-    }
-
-    fun notifyMockNotification(
-        context: Context,
-        kind: io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind,
-        packageName: String
-    ) {
-        Napier.i("mock test request kind=${kind.name} pkg=$packageName", tag = TAG)
-        runtimeActions.observeNotificationEvent(packageName, "mock_test_request", MOCK_NOTIFICATION_SOURCE)
-        if (Build.VERSION.SDK_INT >= 33) {
-            if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                Napier.w("mock test blocked by POST_NOTIFICATIONS permission kind=${kind.name} pkg=$packageName", tag = TAG)
-                runtimeActions.observeNotificationEvent(packageName, "mock_test_permission_missing", MOCK_NOTIFICATION_SOURCE)
-                if (context is Activity) {
-                    ActivityCompat.requestPermissions(context, arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 0)
-                } else {
-                    Toast.makeText(context, context.getString(R.string.permission_notifications_denied), Toast.LENGTH_SHORT).show()
-                }
-                return
-            }
-        }
-        runtimeActions.notifyMockNotification(context, kind, packageName)
-        Napier.i("mock test dispatched kind=${kind.name} pkg=$packageName", tag = TAG)
-        runtimeActions.observeNotificationEvent(packageName, "mock_test_dispatched", MOCK_NOTIFICATION_SOURCE)
     }
 
     fun setRuntimeLogRetentionDays(days: Int) {

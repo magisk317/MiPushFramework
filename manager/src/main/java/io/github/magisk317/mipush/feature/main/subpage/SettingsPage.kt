@@ -85,7 +85,6 @@ import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileSummary
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.feature.main.MainActivityOperation
 import io.github.magisk317.uikit.scroll.ScrollChromeState
-import io.github.magisk317.uikit.scroll.ReportScrollStateToChrome
 import io.github.magisk317.uikit.preference.DialogItem as SettingsDialogItem
 import io.github.magisk317.uikit.surface.DialogAction
 import io.github.magisk317.uikit.surface.DialogActionRow
@@ -166,7 +165,6 @@ private fun SettingsScreen(
     var diagnosticsExpanded by rememberSaveable { mutableStateOf(false) }
     var aboutExpanded by rememberSaveable { mutableStateOf(false) }
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    ReportScrollStateToChrome(scrollState, scrollChromeState)
 
     LaunchedEffect(title) {
         onSectionChanged(title)
@@ -243,7 +241,7 @@ private fun SettingsScreen(
                 }
 
                 SettingsSectionCard(
-                    title = "Misc",
+                    title = stringResource(R.string.settings_home_misc_title),
                     expanded = zygiskExpanded,
                     onExpandedChange = { zygiskExpanded = !zygiskExpanded },
                 ) {
@@ -700,20 +698,6 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
     ) { enabled ->
         viewModel.setDebugMode(enabled)
         showSwitchFeedback(debugModeTitle, enabled)
-    }
-
-    var showMockPanel by remember { mutableStateOf(false) }
-    SettingsItem(
-        title = stringResource(R.string.settings_mock_notification),
-        summary = stringResource(R.string.settings_mock_notification_summary),
-    ) {
-        showMockPanel = true
-    }
-    if (showMockPanel) {
-        io.github.magisk317.mipush.feature.diagnostic.MockNotificationPanel(
-            onDismiss = { showMockPanel = false },
-            onFire = { kind, pkg -> viewModel.notifyMockNotification(context, kind, pkg) },
-        )
     }
 
     if (showClearConfirmDialog) {
