@@ -5,9 +5,9 @@ import android.net.Uri
 import android.os.Process
 import android.util.Log
 import io.github.magisk317.mipush.xposed.BuildConfig
-import io.github.magisk317.mipush.xposed.MethodHookParam
-import io.github.magisk317.mipush.xposed.XposedRuntime
-import io.github.magisk317.mipush.xposed.currentApplication
+import io.github.magisk317.xposed.MethodHookParam
+import io.github.magisk317.xposed.XposedRuntime
+import io.github.magisk317.xposed.currentApplication
 import java.lang.reflect.Method
 
 import java.util.concurrent.LinkedBlockingQueue

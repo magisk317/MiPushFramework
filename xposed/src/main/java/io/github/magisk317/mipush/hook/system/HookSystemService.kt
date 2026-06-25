@@ -1,26 +1,29 @@
 package io.github.magisk317.mipush.hook.system
+import io.github.magisk317.xposed.BaseHook
+import io.github.magisk317.xposed.LoadParam
 
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Binder
 import android.os.Process
+import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
 import io.github.magisk317.mipush.common.IS_SYSTEM_HOOK_READY
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.common.XMSF_FAKE_CONDITION_PROVIDER_PATH
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.fakedevice.compat.ModuleCompatRegistry
 import io.github.magisk317.mipush.hook.securitycore.SecurityCoreXSpacePackageInfoHook
-import io.github.magisk317.mipush.xposed.callMethod
-import io.github.magisk317.mipush.xposed.callStaticMethod
-import io.github.magisk317.mipush.xposed.currentApplication
-import io.github.magisk317.mipush.xposed.findHookClass
-import io.github.magisk317.mipush.xposed.get
-import io.github.magisk317.mipush.xposed.hookAllMethods
-import io.github.magisk317.mipush.xposed.hookMethod
+import io.github.magisk317.xposed.callMethod
+import io.github.magisk317.xposed.callStaticMethod
+import io.github.magisk317.xposed.currentApplication
+import io.github.magisk317.xposed.findHookClass
+import io.github.magisk317.xposed.get
+import io.github.magisk317.xposed.hookAllMethods
+import io.github.magisk317.xposed.hookMethod
 import java.lang.reflect.Method
 import java.util.Collections
 
-class HookSystemService {
+class HookSystemService : BaseHook() {
     companion object {
         private const val TAG = "HookSystemService"
         private const val MAX_VISIBILITY_LOGS_PER_KEY = 8
@@ -199,7 +202,10 @@ class HookSystemService {
         }
     }
 
-    fun hook(classLoader: ClassLoader) {
+    override fun onLoadPackage(param: LoadParam) {
+        if (param.packageName != ANDROID_PACKAGE_NAME) return
+        if (param.processName != ANDROID_PACKAGE_NAME) return // only run in system_server
+        val classLoader = param.classLoader
         val classNotificationManagerService = findHookClass("com.android.server.notification.NotificationManagerService", classLoader)
         XLog.i(TAG, "installing system notification hooks")
         installXSpacePackageSyncReceiver(classLoader)

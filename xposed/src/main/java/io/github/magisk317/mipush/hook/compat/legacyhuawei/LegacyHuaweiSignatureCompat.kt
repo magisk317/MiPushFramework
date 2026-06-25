@@ -7,7 +7,7 @@ import dalvik.system.DexClassLoader
 import io.github.magisk317.mipush.common.LEGACY_HUAWEI_CORE_SIGNATURE
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.hook.XLog
-import io.github.magisk317.mipush.xposed.*
+import io.github.magisk317.xposed.*
 
 object LegacyHuaweiSignatureCompat {
     private const val TAG = "LegacyHuaweiSignatureCompat"

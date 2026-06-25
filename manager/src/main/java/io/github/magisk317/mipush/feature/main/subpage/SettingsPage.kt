@@ -243,7 +243,7 @@ private fun SettingsScreen(
                 }
 
                 SettingsSectionCard(
-                    title = stringResource(R.string.settings_home_misc_title),
+                    title = "Misc",
                     expanded = zygiskExpanded,
                     onExpandedChange = { zygiskExpanded = !zygiskExpanded },
                 ) {

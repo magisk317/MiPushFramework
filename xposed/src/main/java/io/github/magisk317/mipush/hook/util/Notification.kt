@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.hook.util
 import android.app.Notification
 import android.content.Context
 import android.content.pm.PackageManager
-import io.github.magisk317.mipush.xposed.newInstance
+import io.github.magisk317.xposed.newInstance
 
 fun Notification.newBuilder(context: Context): Notification.Builder {
     return Notification.Builder::class.java.newInstance(context, this) as Notification.Builder

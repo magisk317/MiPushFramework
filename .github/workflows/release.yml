@@ -114,9 +114,42 @@ jobs:
           name: apks-mipush
           path: mipush/build/outputs/apk/release/**/*.apk
 
+  build-zygisk-module:
+    name: Build Zygisk Module
+    needs: [validate-release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout MiPushZygisk
+        uses: actions/checkout@v7
+        with:
+          repository: 'magisk317/MiPushZygisk'
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - name: Install Android NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r27d
+
+      - name: Build Zygisk module
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: ./build.sh
+
+      - name: Upload Zygisk release artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: apks-zygisk
+          path: build/*.zip
+
   create-release:
     name: Create Release
-    needs: [build-xmsf-apk, build-mipush-apk]
+    needs: [build-xmsf-apk, build-mipush-apk, build-zygisk-module]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -155,7 +188,7 @@ jobs:
           fi
 
           mapfile -d '' release_assets < <(
-            find artifacts/apks -type f -name '*.apk' -print0 | sort -z
+            find artifacts/apks -type f \( -name '*.apk' -o -name '*.zip' \) -print0 | sort -z
           )
           if [[ ${#release_assets[@]} == 0 ]]; then
             echo "ERROR: no release assets found under artifacts/apks" >&2
@@ -176,5 +209,71 @@ jobs:
               --generate-notes \
               --notes "$release_notes"
           fi
-        env:
           GH_TOKEN: ${{ secrets.GH_PAT != '' && secrets.GH_PAT || github.token }}
+
+  publish-to-modules-repo:
+    name: Publish to Xposed-Modules-Repo
+    needs: [create-release]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    env:
+      HAS_MODULES_REPO_TOKEN: ${{ secrets.XPOSED_MODULES_REPO_TOKEN != '' }}
+      HAS_RELEASE_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE != '' }}
+      MODULES_REPO: Xposed-Modules-Repo/io.github.magisk317.mipush
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: apks-*
+          path: artifacts/apks
+          merge-multiple: true
+
+      - name: Publish Release in Xposed-Modules-Repo
+        if: env.HAS_MODULES_REPO_TOKEN == 'true' && env.HAS_RELEASE_KEYSTORE == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag_name="${GITHUB_REF_NAME}"
+          release_name="$tag_name"
+          release_notes="MiPushFramework Release ${tag_name}"
+          if [[ -f "docs/CHANGELOG.md" ]]; then
+            extracted_notes="$(awk -v version="$tag_name" '
+              $0 == "---" && found { exit }
+              found { print; next }
+              index($0, "## [" version "]") == 1 { found = 1; next }
+            ' docs/CHANGELOG.md)"
+            if [[ -n "$extracted_notes" ]]; then
+              release_notes="$extracted_notes"
+            fi
+          fi
+
+          mapfile -d '' release_assets < <(find artifacts/apks -type f \( -name '*.apk' -o -name '*.zip' \) -print0 | sort -z)
+          if [[ ${#release_assets[@]} -eq 0 ]]; then
+            echo "ERROR: no release assets found under artifacts/apks" >&2
+            find artifacts/apks -maxdepth 6 -type f | sort >&2 || true
+            exit 1
+          fi
+
+          if gh release view "$tag_name" --repo "${{ env.MODULES_REPO }}" >/dev/null 2>&1; then
+            gh release upload "$tag_name" "${release_assets[@]}" \
+              --repo "${{ env.MODULES_REPO }}" \
+              --clobber
+            gh release edit "$tag_name" \
+              --repo "${{ env.MODULES_REPO }}" \
+              --title "$release_name" \
+              --draft=false \
+              --notes "$release_notes"
+          else
+            gh release create "$tag_name" \
+              "${release_assets[@]}" \
+              --repo "${{ env.MODULES_REPO }}" \
+              --title "$release_name" \
+              --notes "$release_notes"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.XPOSED_MODULES_REPO_TOKEN }}

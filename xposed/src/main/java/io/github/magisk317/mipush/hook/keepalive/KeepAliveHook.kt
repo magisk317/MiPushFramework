@@ -1,6 +1,9 @@
 package io.github.magisk317.mipush.hook.keepalive
+import io.github.magisk317.xposed.BaseHook
+import io.github.magisk317.xposed.LoadParam
 
 import android.net.Uri
+import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_AUTHORITY
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_COLUMN_ENABLED
@@ -11,16 +14,16 @@ import io.github.magisk317.mipush.common.KEEPALIVE_PREF_PATH_FLAGS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.hook.XLog
-import io.github.magisk317.mipush.xposed.MethodHookParam
-import io.github.magisk317.mipush.xposed.currentApplication
-import io.github.magisk317.mipush.xposed.findHookClass
-import io.github.magisk317.mipush.xposed.getHookIntField
-import io.github.magisk317.mipush.xposed.getHookObjectField
-import io.github.magisk317.mipush.xposed.hookAllMethods
-import io.github.magisk317.mipush.xposed.setHookIntField
+import io.github.magisk317.xposed.MethodHookParam
+import io.github.magisk317.xposed.currentApplication
+import io.github.magisk317.xposed.findHookClass
+import io.github.magisk317.xposed.getHookIntField
+import io.github.magisk317.xposed.getHookObjectField
+import io.github.magisk317.xposed.hookAllMethods
+import io.github.magisk317.xposed.setHookIntField
 import java.lang.reflect.Method
 
-class KeepAliveHook {
+class KeepAliveHook : BaseHook() {
     companion object {
         private const val TAG = "KeepAliveHook"
         private const val FOREGROUND_APP_ADJ = 0
@@ -40,9 +43,15 @@ class KeepAliveHook {
 
         @Volatile
         private var refreshLoopStarted = false
+
+        @Volatile
+        private var refreshDisabledDueToPermission = false
     }
 
-    fun hook(classLoader: ClassLoader) {
+    override fun onLoadPackage(param: LoadParam) {
+        if (param.packageName != ANDROID_PACKAGE_NAME) return
+        if (param.processName != ANDROID_PACKAGE_NAME) return // only run in system_server
+        val classLoader = param.classLoader
         XLog.i(TAG, "loading in system_server")
         refreshFlags()
         startPreferenceRefreshLoop()
@@ -74,6 +83,7 @@ class KeepAliveHook {
     }
 
     private fun refreshFlags() {
+        if (refreshDisabledDueToPermission) return
         runCatching {
             val app = currentApplication() ?: return
             val values = app.contentResolver.query(PREF_URI, null, null, PREF_KEYS, null)?.use { cursor ->
@@ -97,7 +107,12 @@ class KeepAliveHook {
                 dozeBypass = values[KEEPALIVE_PREF_DOZE_BYPASS] == true,
             )
         }.onFailure {
-            XLog.w(TAG, "failed to refresh keepalive prefs: ${it.message}")
+            if (it is SecurityException) {
+                refreshDisabledDueToPermission = true
+                XLog.w(TAG, "keepalive prefs not accessible (permission denied), disabling refresh")
+            } else {
+                XLog.w(TAG, "failed to refresh keepalive prefs: ${it.message}")
+            }
         }
     }
 
