@@ -225,18 +225,6 @@ class SettingsViewModel constructor(
         settingsManager.startMiPushServiceAsForegroundService(context)
     }
 
-    fun notifyMockNotification(context: android.content.Context) {
-        settingsManager.notifyMockNotification(context)
-    }
-
-    fun notifyMockNotification(
-        context: android.content.Context,
-        kind: io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind,
-        packageName: String
-    ) {
-        settingsManager.notifyMockNotification(context, kind, packageName)
-    }
-
     fun clearHistory(context: android.content.Context) {
         settingsManager.clearHistory(context, viewModelScope)
     }

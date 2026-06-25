@@ -84,7 +84,10 @@ private const val MAIN_CHROME_ANIMATION_MILLIS = 160
 private val COMPACT_BOTTOM_BAR_CONTENT_PADDING = 80.dp
 
 internal fun shouldKeepMainChromeVisible(route: String?, chromeVisible: Boolean): Boolean {
-    return route?.startsWith(AppDestinations.Overview.ROUTE) == true || chromeVisible
+    return route?.startsWith(AppDestinations.Overview.ROUTE) == true ||
+        route?.startsWith(AppDestinations.Settings.ROUTE) == true ||
+        route?.startsWith(AppDestinations.SettingsSection.ROUTE) == true ||
+        chromeVisible
 }
 
 internal fun shouldShowBottomGestureScrim(

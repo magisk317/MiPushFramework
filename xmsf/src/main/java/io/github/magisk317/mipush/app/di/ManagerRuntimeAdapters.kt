@@ -45,9 +45,7 @@ import io.github.magisk317.mipush.common.utils.ElapsedTimer
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.compat.RegistrationStateCompat
 import io.github.magisk317.mipush.compat.RegistrationStateStore
-import io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind
 import io.github.magisk317.mipush.notification.NotificationChannelManager
-import io.github.magisk317.mipush.notification.NotificationController
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.MiPushManifestChecker
@@ -717,29 +715,6 @@ class XmsfManagerRuntimeActions(
 
     override fun startMiPushServiceAsForegroundService(context: Context) {
         runtimeSettingsAdapter.startMiPushServiceAsForegroundService(context)
-    }
-
-    override fun notifyMockNotification(context: Context, kind: MockNotificationKind, packageName: String) {
-        NotificationController.testMock(context, kind, packageName)
-        runCatching {
-            val type = NotificationType("mock:${kind.name}", packageName, null).apply {
-                this.type = Event.Type.SendMessage
-            }
-            runBlocking { EventDb.insertEventAsync(Event.ResultType.OK, type) }
-        }.onSuccess { eventId ->
-            Napier.d(
-                "mock test record inserted id=$eventId kind=${kind.name} pkg=$packageName",
-                tag = "XmsfManagerRuntimeActions",
-            )
-            observeNotificationEvent(packageName, "mock_test_record_saved", "XmsfManagerRuntimeActions.notifyMockNotification")
-        }.onFailure { error ->
-            Napier.e(
-                "mock test record insert failed kind=${kind.name} pkg=$packageName",
-                error,
-                tag = "XmsfManagerRuntimeActions",
-            )
-            observeNotificationEvent(packageName, "mock_test_record_save_failed", "XmsfManagerRuntimeActions.notifyMockNotification")
-        }
     }
 
     override fun resetTopActivityCache() {

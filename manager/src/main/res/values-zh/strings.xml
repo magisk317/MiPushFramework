@@ -67,9 +67,6 @@
 
     <string name="accessibility_desc">当使用情况统计不可用时，用于前台应用检测的辅助兜底能力。</string>
     <string name="settings_options">配置</string>
-    <string name="settings_mock_notification">模拟通知消息</string>
-
-    <string name="settings_mock_notification_summary">点击模拟通知到达消息</string>
 
     <string name="debug_test_title">这是一条%1$s测试</string>
 
@@ -333,7 +330,7 @@
     <string name="notification_channels_setting">设置</string>
     <string name="notification_channels_copy_id">复制通知渠道ID</string>
 
-    <string name="zygisk_status">其他杂项</string>
+    <string name="zygisk_status">Zygisk配置</string>
     <string name="zygisk_status_summary">管理模块状态与应用伪装</string>
     <string name="zygisk_enabled">已开启</string>
     <string name="zygisk_disabled">未开启或未授权 Root</string>
@@ -361,8 +358,9 @@
     <string name="settings_home_service_summary">XMPP 服务器、前台服务与权限检查。</string>
     <string name="settings_home_keepalive_title">保活与系统限制</string>
     <string name="settings_home_keepalive_summary">OOM Adj、防杀、待机/Doze 绕过与专用保活服务。</string>
-    <string name="settings_home_notifications_title">灵动岛设置</string>
+    <string name="settings_home_notifications_title">灵动岛与焦点通知</string>
     <string name="settings_home_notifications_summary">灵动岛显示控制与参数调整。</string>
+    <string name="settings_home_misc_title">其他杂项</string>
     <string name="pref_choose_theme_title">主题</string>
     <string name="pref_choose_theme_summary">跟随系统、浅色、深色或纯黑</string>
     <string name="pref_ui_kit_style_title">界面风格</string>
