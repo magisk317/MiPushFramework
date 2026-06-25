@@ -152,7 +152,7 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.robolectric.junit5.extension)
     testImplementation(libs.mockk)
-    testImplementation("net.jqwik:jqwik:1.9.2")
+    testImplementation("net.jqwik:jqwik:1.10.1")
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
