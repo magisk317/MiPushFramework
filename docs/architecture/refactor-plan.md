@@ -49,8 +49,8 @@ graph.
 
 | Area | Current Direction | Status |
 |------|-------------------|--------|
-| Xposed API | libxposed `101.0.1` | Entry, metadata, and old-name business hook cleanup complete |
-| DI | Koin `4.2.1` | Hilt and `javax.inject` removed from main source/build scripts |
+| Xposed API | libxposed `102.0.0` | Entry, metadata, and old-name business hook cleanup complete |
+| DI | Koin `4.2.2` | Hilt and `javax.inject` removed from main source/build scripts |
 | Gradle | 9.x line | Aligned with sibling projects where practical |
 | Kotlin | RC/aggressive line | Kept aggressive with rollback awareness |
 | AGP | Alpha line | Kept aggressive with rollback awareness |
@@ -61,7 +61,7 @@ graph.
 
 ### P1: Xposed API Migration Closeout
 
-`xposed/` uses `io.github.libxposed:api:101.0.1`.
+`xposed/` uses `io.github.libxposed:api:102.0.0`.
 
 Completed state:
 

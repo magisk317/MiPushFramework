@@ -15,7 +15,10 @@ internal data class XposedShellResult(
 }
 
 internal object BoundedRootRunner {
-    private val executor = Executors.newCachedThreadPool { runnable ->
+    private val executor = java.util.concurrent.ThreadPoolExecutor(
+        0, 2, 60L, java.util.concurrent.TimeUnit.SECONDS,
+        java.util.concurrent.LinkedBlockingQueue(16)
+    ) { runnable ->
         Thread(runnable, "mipush-xposed-root-runner").apply { isDaemon = true }
     }
 

@@ -77,7 +77,6 @@ import androidx.compose.ui.unit.dp
 import io.github.magisk317.mipush.common.manager.ManagerApplication
 import io.github.magisk317.mipush.common.manager.ManagerApplicationDiagnostics
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
-import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
 import io.github.magisk317.mipush.common.manager.ManagerNotificationGateway
 import io.github.magisk317.mipush.main.viewmodel.ApplicationInfoViewModel
 import io.github.magisk317.mipush.manager.R
@@ -108,7 +107,6 @@ open class ApplicationInfoPage : ComponentActivity() {
     }
 
     private val applicationGateway: ManagerApplicationGateway by inject()
-    private val configSyncGateway: ManagerConfigSyncGateway by inject()
     private val notificationGateway: ManagerNotificationGateway by inject()
     private val infoViewModel: ApplicationInfoViewModel by viewModel()
 
@@ -353,13 +351,9 @@ open class ApplicationInfoPage : ComponentActivity() {
                         FilledTonalButton(
                             onClick = {
                                 scope.launch {
-                                    val message = infoViewModel.launchTargetAppAndForceRegister(
+                                    infoViewModel.launchTargetAppAndForceRegister(
                                         applicationInfo.packageName,
                                         applicationInfo.registeredType,
-                                    )
-                                    snackbarHostState.showSnackbar(
-                                        message = message,
-                                        duration = SnackbarDuration.Short,
                                     )
                                 }
                             },
@@ -376,18 +370,6 @@ open class ApplicationInfoPage : ComponentActivity() {
                         ) {
                             Text(
                                 text = stringResource(R.string.app_detail_open_system_settings),
-                                maxLines = 1,
-                                softWrap = false,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                        OutlinedButton(
-                            onClick = {
-                                infoViewModel.openConfigSync(applicationInfo.packageName)
-                            },
-                        ) {
-                            Text(
-                                text = stringResource(R.string.main_configs),
                                 maxLines = 1,
                                 softWrap = false,
                                 overflow = TextOverflow.Ellipsis,

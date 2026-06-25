@@ -13,7 +13,10 @@ import java.util.concurrent.TimeoutException
 
 object MIPushOnlineResourceSupport {
     private const val MAX_DOWNLOAD_ONLINE_PICTURE_WAIT_SECONDS = 180L
-    private val threadPool: ExecutorService = Executors.newCachedThreadPool()
+    private val threadPool: ExecutorService = java.util.concurrent.ThreadPoolExecutor(
+        0, 4, 60L, java.util.concurrent.TimeUnit.SECONDS,
+        java.util.concurrent.LinkedBlockingQueue(32)
+    )
 
     @JvmStatic
     fun getOnlinePictureResource(context: Context, picUrl: String, isSizeLimited: Boolean): Bitmap? {

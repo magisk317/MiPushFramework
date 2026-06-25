@@ -23,7 +23,7 @@ object NetworkCheckup {
     private const val GET_GATEWAY = "ip route"
     private const val PING_TEMPLATE = "ping -W 500 -i 0.2 -c 3 %s"
 
-    private var lastCheckTime = 0L
+    @Volatile private var lastCheckTime = 0L
     private val executor = ThreadPoolExecutor(
         1,
         1,

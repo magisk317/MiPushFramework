@@ -10,11 +10,17 @@ import io.github.magisk317.mipush.xposed.XposedRuntime
 import io.github.magisk317.mipush.xposed.currentApplication
 import java.lang.reflect.Method
 
-import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 
 object XLog {
     private const val SOURCE = "MiPush"
-    private val logExecutor = Executors.newSingleThreadExecutor()
+    private val logExecutor = ThreadPoolExecutor(
+        0, 1, 60L, TimeUnit.SECONDS,
+        LinkedBlockingQueue(256),
+        ThreadPoolExecutor.DiscardPolicy()
+    )
     private val FRAMEWORK_LOG_URI: Uri = Uri.parse("content://com.xiaomi.xmsf.module.log/entry")
     private val suppressedDebugTags = setOf(
         "HookPushNC",

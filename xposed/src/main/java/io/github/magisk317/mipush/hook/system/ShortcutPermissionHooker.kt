@@ -10,7 +10,7 @@ import io.github.magisk317.mipush.xposed.findMethodExact
 import io.github.magisk317.mipush.xposed.hook
 
 object ShortcutPermissionHooker {
-    private var xmsfUid = -1
+    @Volatile private var xmsfUid = -1
     private fun getXmsfUid(): Int {
         if (xmsfUid == -1) {
             val context = currentApplication()

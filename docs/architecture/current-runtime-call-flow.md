@@ -50,7 +50,7 @@ Key source:
 
 ## 3. Runtime Spine
 
-- Entry point: `xmsf` `PushRuntime` (package `io.github.magisk317.mipush.runtime.android`)
+- Entry point: `xmsf` `PushRuntime` (package `io.github.magisk317.mipush.runtime`)
 - Main work:
   - queue and drain bridge intents
   - track registration, connection, and channel state

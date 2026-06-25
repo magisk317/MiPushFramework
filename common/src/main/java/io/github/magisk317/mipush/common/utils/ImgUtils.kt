@@ -97,7 +97,6 @@ object ImgUtils {
         invertColorIfWhitePredominate(width, height, pixels)
         trimImgToCircle(Color.TRANSPARENT, width, height, pixels, 0)
 
-        //todo use bwareaopen
         denoiseWhitePoint(width, height, pixels, 3)
 
         return cropTransparent(width, height, pixels)

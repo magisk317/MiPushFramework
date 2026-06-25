@@ -41,14 +41,14 @@ object DeviceInfo {
     const val VIRTUAL_DEVICE_DIR = "/.vdevdir/"
     private const val VIRTUAL_DEVICE_FILE = ".vdevid"
     private const val VIRTUAL_DEVICE_LOCAL_FILE = ".vdevidlocal"
-    private var sCachedIMEI: String? = null
-    private var sCachedSubIMEIS = ""
-    private var sCachedDeviceId: String? = null
-    private var sCachedSimpleDeviceId: String? = null
+    @Volatile private var sCachedIMEI: String? = null
+    @Volatile private var sCachedSubIMEIS = ""
+    @Volatile private var sCachedDeviceId: String? = null
+    @Volatile private var sCachedSimpleDeviceId: String? = null
     private val SPLIT_CHAR = (2.toChar()).toString()
     const val OLD_DEVICE_PREFIX = "a-"
     private val DEV_PREFIX_ARRAY = arrayOf("--", OLD_DEVICE_PREFIX, "u-", "v-", "o-", "g-")
-    private var sVirtDevId: String? = null
+    @Volatile private var sVirtDevId: String? = null
     @Volatile
     private var sVirtDevIDChecked = false
 

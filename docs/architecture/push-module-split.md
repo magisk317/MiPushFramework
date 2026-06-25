@@ -10,7 +10,7 @@ As of 2026-05-10, after the runtime, timer, service receiver, client-report, rem
 `xmsf/src/main/java` contains:
 
 - 0 Java files
-- 273 Kotlin files
+- 205 Kotlin files
 
 The remaining legacy app-facing compatibility surface now lives primarily under:
 

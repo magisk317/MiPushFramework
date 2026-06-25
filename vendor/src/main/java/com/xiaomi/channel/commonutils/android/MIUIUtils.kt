@@ -28,7 +28,7 @@ object MIUIUtils {
 
     @Volatile
     private var isInXMS = -1
-    private var locale2RegionMap: Map<String, Region>? = null
+    @Volatile private var locale2RegionMap: Map<String, Region>? = null
 
     private fun findServerRegionByLocale(value: String?): Region? {
         initLocale2RegionMap()

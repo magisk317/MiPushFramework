@@ -30,13 +30,11 @@ detekt-rules-ktlint = "2.0.0-alpha.5"
 documentfile = "1.1.0"
 haze = "2.0.0-alpha03"
 hiddenapibypass = "6.1"
-hilt = "2.59.2"
-httpclient = "4.5.14"
 hyperisland-kit = "0.4.4"
 jdom2 = "2.0.6.1"
 jose4j = "0.9.6"
+junit-jupiter = "6.1.0"
 junit-platform = "6.1.0"
-junit5 = "6.1.0"
 koin = "4.2.2"
 kotlin = "2.4.0"
 kotlinx-serialization = "1.11.0"
@@ -90,7 +88,7 @@ haze-android = { module = "dev.chrisbanes.haze:haze-android", version.ref = "haz
 haze-blur-android = { module = "dev.chrisbanes.haze:haze-blur-android", version.ref = "haze" }
 hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypass", version.ref = "hiddenapibypass" }
 hyperisland-kit = { module = "io.github.d4viddf:hyperisland_kit", version.ref = "hyperisland-kit" }
-junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit5" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit-platform" }
 koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
 koin-androidx-compose = { module = "io.insert-koin:koin-androidx-compose", version.ref = "koin" }

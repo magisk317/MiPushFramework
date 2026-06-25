@@ -107,10 +107,11 @@ open class Blob {
 
     fun getDecryptedPayload(security: String?): ByteArray {
         return when (mHeader.cipher) {
-            CIPHER_RC4 -> RC4Cryption.encrypt(
-                RC4Cryption.generateKeyForRC4(security!!, packetID!!),
-                mPayload,
-            )
+            CIPHER_RC4 -> {
+                val s = security ?: return mPayload.also { MyLog.w("RC4 decrypt skipped: null security") }
+                val id = packetID ?: return mPayload.also { MyLog.w("RC4 decrypt skipped: null packetID") }
+                RC4Cryption.encrypt(RC4Cryption.generateKeyForRC4(s, id), mPayload)
+            }
             CIPHER_NONE -> mPayload
             else -> {
                 MyLog.w("unknow cipher = ${mHeader.cipher}")
@@ -155,11 +156,18 @@ open class Blob {
             mHeader.cipher = CIPHER_NONE
             mPayload = payload
         } else {
-            mHeader.cipher = CIPHER_RC4
-            mPayload = RC4Cryption.encrypt(
-                RC4Cryption.generateKeyForRC4(security, packetID!!),
-                payload,
-            )
+            val id = packetID
+            if (id == null) {
+                mHeader.cipher = CIPHER_NONE
+                mPayload = payload
+                MyLog.w("setPayload: null packetID, falling back to CIPHER_NONE")
+            } else {
+                mHeader.cipher = CIPHER_RC4
+                mPayload = RC4Cryption.encrypt(
+                    RC4Cryption.generateKeyForRC4(security, id),
+                    payload,
+                )
+            }
         }
     }
 

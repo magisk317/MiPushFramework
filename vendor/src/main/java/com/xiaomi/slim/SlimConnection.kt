@@ -103,7 +103,8 @@ class SlimConnection(
                 if (mDerivedKey == null && !challenge.isNullOrEmpty()) {
                     val deviceUuid = ServiceConfig.getDeviceUUID()
                     if (!deviceUuid.isNullOrEmpty()) {
-                        val challengeTail = challenge!!.substring(challenge!!.length / 2)
+                        val c = challenge!!
+                        val challengeTail = c.substring(c.length / 2)
                         val deviceUuidTail = deviceUuid.substring(deviceUuid.length / 2)
                         mDerivedKey = RC4Cryption.encrypt(
                             challenge!!.toByteArray(),

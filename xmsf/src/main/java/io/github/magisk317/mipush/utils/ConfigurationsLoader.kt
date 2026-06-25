@@ -29,43 +29,49 @@ class ConfigurationsLoader private constructor(
 
     internal constructor() : this(null, true)
 
+    private val lock = Any()
     private var version: String? = null
-    private var packageConfigs: MutableMap<String, MutableList<Any>> = hashMapOf()
+    @Volatile private var packageConfigs: MutableMap<String, MutableList<Any>> = hashMapOf()
 
-    private var mContext: Context? = null
-    private var mTreeUri: Uri? = null
-    private var mDocumentFile: DocumentFile? = null
-    private var mLastLoadTime: Long = 0
+    @Volatile private var mContext: Context? = null
+    @Volatile private var mTreeUri: Uri? = null
+    @Volatile private var mDocumentFile: DocumentFile? = null
+    @Volatile private var mLastLoadTime: Long = 0
 
     fun getConfigs(): MutableMap<String, MutableList<Any>> = packageConfigs
 
     fun init(context: Context?, treeUri: Uri?, configurations: Configurations): Boolean {
-        mLastLoadTime = System.currentTimeMillis()
-        packageConfigs.clear()
-        do {
-            if (context == null || treeUri == null) {
-                break
-            }
-            val exceptions = mutableListOf<Pair<DocumentFile, ConfigJsonException>>()
-            parseDirectory(context, treeUri, exceptions, configurations)
-
-            if (exceptions.isNotEmpty()) {
-                for (pair in exceptions) {
-                    val errmsg = getJsonExceptionMessage(context, pair)
-                    logE(errmsg.toString())
+        synchronized(lock) {
+            mLastLoadTime = System.currentTimeMillis()
+            val newConfigs = hashMapOf<String, MutableList<Any>>()
+            do {
+                if (context == null || treeUri == null) {
+                    break
                 }
-                break
-            }
-            return true
-        } while (false)
-        return false
+                val exceptions = mutableListOf<Pair<DocumentFile, ConfigJsonException>>()
+                parseDirectory(context, treeUri, exceptions, configurations, newConfigs)
+
+                if (exceptions.isNotEmpty()) {
+                    for (pair in exceptions) {
+                        val errmsg = getJsonExceptionMessage(context, pair)
+                        logE(errmsg.toString())
+                    }
+                    break
+                }
+                packageConfigs = newConfigs
+                return true
+            } while (false)
+            packageConfigs = newConfigs
+            return false
+        }
     }
 
     private fun parseDirectory(
         context: Context,
         treeUri: Uri,
         exceptions: MutableList<Pair<DocumentFile, ConfigJsonException>>,
-        configurations: Configurations
+        configurations: Configurations,
+        target: MutableMap<String, MutableList<Any>> = packageConfigs
     ): Boolean {
         val documentFile = DocumentFile.fromTreeUri(context, treeUri) ?: return true
         mContext = context
@@ -81,7 +87,7 @@ class ConfigurationsLoader private constructor(
             }
             val json = readTextFromUri(context, file.uri)
             try {
-                parse(json, configurations)
+                parse(json, configurations, target)
             } catch (e: ConfigJsonException) {
                 exceptions.add(Pair(file, e))
             }
@@ -91,11 +97,15 @@ class ConfigurationsLoader private constructor(
 
     @Throws(ConfigJsonException::class)
     fun load(json: String, configurations: Configurations) {
-        parse(json, configurations)
+        synchronized(lock) {
+            val newConfigs = HashMap(packageConfigs)
+            parse(json, configurations, newConfigs)
+            packageConfigs = newConfigs
+        }
     }
 
     @Throws(ConfigJsonException::class)
-    private fun parse(json: String, configurations: Configurations) {
+    private fun parse(json: String, configurations: Configurations, target: MutableMap<String, MutableList<Any>>) {
         val jsonObject = ConfigJson.parseObject(json)
         version = jsonObject.getString("version")
         val packageConfigsObj = jsonObject.getConfigJsonObject("configs")
@@ -103,7 +113,7 @@ class ConfigurationsLoader private constructor(
         while (packageNames.hasNext()) {
             val packageName = packageNames.next()
             val configsObj = packageConfigsObj.getConfigJsonArray(packageName)
-            packageConfigs[packageName] = parseConfigs(configsObj, configurations)
+            target[packageName] = parseConfigs(configsObj, configurations)
         }
     }
 
@@ -155,7 +165,12 @@ class ConfigurationsLoader private constructor(
         val treeUri = mTreeUri ?: return
         val documentFile = mDocumentFile ?: return
         if (documentFile.lastModified() > mLastLoadTime) {
-            init(context, treeUri, configurations)
+            synchronized(lock) {
+                // Double-check after acquiring lock
+                if (documentFile.lastModified() > mLastLoadTime) {
+                    init(context, treeUri, configurations)
+                }
+            }
         }
     }
 

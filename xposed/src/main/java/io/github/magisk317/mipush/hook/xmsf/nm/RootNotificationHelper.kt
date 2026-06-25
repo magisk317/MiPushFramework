@@ -34,12 +34,20 @@ object RootNotificationHelper {
     fun getNotificationChannel(packageName: String, channelId: String?): NotificationChannel? {
         if (channelId.isNullOrEmpty()) return null
         val channels = getNotificationChannels(packageName) ?: return null
-        return channels.filterNotNull().firstOrNull { it.id == channelId }
+        // 同一 channelId 可能存在于多个命名空间（xmsf / 目标 App），取最低 importance（最严格优先）
+        return channels.filterNotNull()
+            .filter { it.id == channelId }
+            .minByOrNull { it.importance }
     }
 
     fun getNotificationChannels(packageName: String): List<NotificationChannel?>? {
         val output = execDumpsys("dumpsys notification channels $packageName") ?: return null
-        return parseChannels(output, packageName)
+        val channels = parseChannels(output, packageName)
+        // 去重：同一 channelId 保留最低 importance（用户在 App 命名空间禁用的通道优先于 xmsf 命名空间的副本）
+        return channels.filterNotNull()
+            .groupBy { it.id }
+            .map { (_, group) -> group.minByOrNull { it.importance } }
+            .sortedBy { it?.id }
     }
 
     fun getNotificationChannelGroup(packageName: String, groupId: String): NotificationChannelGroup? {

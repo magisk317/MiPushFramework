@@ -21,7 +21,7 @@ import io.github.magisk317.mipush.xposed.hookMethod
 object NmsPermissionHooker {
     private const val TAG = "NmsPermissionHooker"
 
-    private var xmsfUid = -1
+    @Volatile private var xmsfUid = -1
     private fun getXmsfUid(): Int {
         if (xmsfUid == -1) {
             runCatching {
@@ -146,10 +146,6 @@ object NmsPermissionHooker {
 
         //ParceledListSlice getAppActiveNotifications(String callingPkg, int userId);
         findMethodExact(classINotificationManager, "getAppActiveNotifications", String::class.java, Int::class.java)
-            .hook(hookPermission(0))
-
-        //ParceledListSlice getNotificationChannelsForPackage(String pkg, int uid, boolean includeDeleted);
-        findMethodExact(classINotificationManager, "getNotificationChannelsForPackage", String::class.java, Int::class.java, Boolean::class.java)
             .hook(hookPermission(0))
 
         val deleteNotificationChannelHook: HookContext.() -> Unit = {
