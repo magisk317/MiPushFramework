@@ -4,10 +4,18 @@
 
 ---
 
-## [v0.6.1] - 开发中
-- 开发中
+## [v0.6.1] - 2026-06-26
 
-> Full Changelog: https://github.com/magisk317/MiPushFramework/compare/v0.6.0...HEAD
+- `[feat(ui)]` 管理界面更新为统一样式，页面状态管理更清晰。
+- `[feat(settings)]` 新增状态与图标相关设置，默认保持单色状态栏图标。
+- `[fix(notification)]` 优化通知重放、图标显示和通知参数处理。
+- `[fix(xposed)]` 优化模块加载、热重载和异常日志处理。
+- `[fix(runtime)]` 修复线程安全、资源释放和运行时边界问题。
+- `[build/release]` 改进签名、构建产物和发布流程。
+- `[ci]` 优化依赖治理、自动化任务和通知流程。
+- `[deps/docs]` 更新依赖与文档，补充平台兼容说明。
+
+> Full Changelog: https://github.com/magisk317/MiPushFramework/compare/v0.6.0...v0.6.1
 
 ---
 
