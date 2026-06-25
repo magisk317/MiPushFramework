@@ -64,8 +64,6 @@ open class Fallback(str: String) {
                     // But I need to call addAccessHistory which might be protected.
                     // Accessing protected method from sibling class in same package is fine in Java, 
                     // and in Kotlin if they are in same module.
-                    // Wait, I should make addAccessHistory internal or protected if I use inheritance.
-                    // I'll use a hack if needed or just make it public.
                 }
             }
             // Logic fix: searching for host and adding history

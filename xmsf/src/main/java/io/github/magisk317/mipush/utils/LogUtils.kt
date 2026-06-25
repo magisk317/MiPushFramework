@@ -107,7 +107,10 @@ object LogUtils {
             pruneExpiredRuntimeLogs(logDir, Date())
             Napier.base(FileAntilog(resolved))
         }.onFailure {
-            Napier.base(DebugAntilog())
+            // Do NOT fall back to DebugAntilog in production -- it leaks logs to logcat.
+            // FileAntilog failure means logs are silently discarded; the init error itself
+            // is reported via android.util.Log so it's still visible in bugreport/logcat.
+            android.util.Log.e("MiPushFramework", "FileAntilog init failed, logs will be discarded", it)
         }
     }
 

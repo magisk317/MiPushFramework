@@ -63,7 +63,10 @@ object Network {
     @JvmField
     val ContentTypePattern_XmlEncoding: Pattern = Pattern.compile("(\\<\\?xml\\s+.*?encoding\\s*=[^a-zA-Z0-9]*)([-a-zA-Z0-9]+)(.*)", Pattern.CASE_INSENSITIVE)
 
-    private val DOWNLOAD_EXECUTOR = Executors.newCachedThreadPool()
+    private val DOWNLOAD_EXECUTOR = java.util.concurrent.ThreadPoolExecutor(
+        0, 4, 60L, java.util.concurrent.TimeUnit.SECONDS,
+        java.util.concurrent.LinkedBlockingQueue(32)
+    )
 
     class DoneHandlerInputStream(inputStream: InputStream) : FilterInputStream(inputStream) {
         private var done = false

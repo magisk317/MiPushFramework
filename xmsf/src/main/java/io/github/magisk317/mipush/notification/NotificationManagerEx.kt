@@ -32,6 +32,7 @@ object NotificationManagerEx {
     private lateinit var notificationManager: NotificationManager
 
     @JvmField
+    @Volatile
     var isHooked: Boolean = false
 
     /**
@@ -385,7 +386,9 @@ object NotificationManagerEx {
         }
         if (shouldUseModernIdentityStrategy(packageName)) {
             if (NotificationIdentityBridge.createTargetNotificationChannels(appContext, packageName, nonNullChannels)) {
-                createLocalNotificationChannels(nonNullChannels)
+                if (!isHooked) {
+                    createLocalNotificationChannels(nonNullChannels)
+                }
                 return
             }
             maybeLogDiagnosticsOnce(
@@ -394,7 +397,9 @@ object NotificationManagerEx {
                 nonNullChannels.firstOrNull()?.id,
                 nonNullChannels.firstOrNull()?.group
             )
-            createLocalNotificationChannels(nonNullChannels)
+            if (!isHooked) {
+                createLocalNotificationChannels(nonNullChannels)
+            }
             return
         }
         if (!canUseLegacyPackageScopedApis()) {
@@ -421,7 +426,9 @@ object NotificationManagerEx {
                 logE("Failed to invoke createNotificationChannelsForPackage", e)
             }
         }
-        notificationManager.createNotificationChannels(nonNullChannels)
+        if (!isHooked) {
+            notificationManager.createNotificationChannels(nonNullChannels)
+        }
     }
 
     fun getNotificationChannel(
@@ -660,7 +667,7 @@ object NotificationManagerEx {
     ): Array<StatusBarNotification?>? {
         logD("getActiveNotifications() called with: packageName = $packageName")
         if (shouldUseModernIdentityStrategy(packageName)) {
-            filterLocalActiveNotifications(packageName, notificationManager.getActiveNotifications())
+            return filterLocalActiveNotifications(packageName, notificationManager.getActiveNotifications())
         } else if (!canUseLegacyPackageScopedApis()) {
             val packageNotificationManager = getNotificationManagerForPackage(packageName)
             if (packageNotificationManager != null && packageNotificationManager !== notificationManager) {

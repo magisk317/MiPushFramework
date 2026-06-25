@@ -34,8 +34,10 @@ class HookSystemUI {
                 classLoader.findClass("com.android.systemui.statusbar.notification.icon.IconManager")
                     .hookAllMethods("setIcon") {
                         doAfter {
-                            val iconView = args[2] as View
-                            iconView.setTag(ID_ICON_IS_PRE_L, true)
+                            runCatching {
+                                val iconView = args[2] as? View ?: return@doAfter
+                                iconView.setTag(ID_ICON_IS_PRE_L, true)
+                            }
                         }
                     }
             } catch (e: Exception) {
@@ -54,23 +56,28 @@ class HookSystemUI {
 
         Notification.Builder::class.java.hookAllMethods("processSmallIconColor") {
             doBefore {
-                val builder = thisObject ?: return@doBefore
-                val context: Context = builder["mContext"]
-                val smallIcon = args[0] as Icon
-                val contentView = args[1] as RemoteViews
-                val p = args[2]
+                runCatching {
+                    val builder = thisObject ?: return@doBefore
+                    val context: Context = builder["mContext"] ?: return@doBefore
+                    val smallIcon = args[0] as? Icon ?: return@doBefore
+                    val contentView = args[1] as? RemoteViews ?: return@doBefore
+                    val p = args[2]
 
-                val isGrayscaleIcon = builder.callMethod("getColorUtil")!!
-                    .callMethod("isGrayscaleIcon", context, smallIcon) as Boolean
+                    val colorUtil = builder.callMethod("getColorUtil") ?: return@doBefore
+                    val isGrayscaleIcon = colorUtil.callMethod("isGrayscaleIcon", context, smallIcon) as? Boolean ?: return@doBefore
 
-                if (!isGrayscaleIcon) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        contentView.setInt(android.R.id.icon, "setBackgroundColor", builder.callMethod("getBackgroundColor", p) as Int)
+                    if (!isGrayscaleIcon) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            val bgColor = builder.callMethod("getBackgroundColor", p) as? Int ?: 0
+                            contentView.setInt(android.R.id.icon, "setBackgroundColor", bgColor)
+                        }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            contentView.setInt(android.R.id.icon, "setOriginalIconColor", 1)
+                        }
+                        result = true
                     }
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        contentView.setInt(android.R.id.icon, "setOriginalIconColor", 1)
-                    }
-                    result = true
+                }.onFailure {
+                    XLog.e(TAG, "processSmallIconColor hook failed", it)
                 }
             }
         }

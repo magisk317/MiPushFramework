@@ -53,7 +53,10 @@ interface BoundedShellRunner {
 }
 
 object DefaultBoundedShellRunner : BoundedShellRunner {
-    private val executor = Executors.newCachedThreadPool { runnable ->
+    private val executor = java.util.concurrent.ThreadPoolExecutor(
+        0, 2, 60L, java.util.concurrent.TimeUnit.SECONDS,
+        java.util.concurrent.LinkedBlockingQueue(16)
+    ) { runnable ->
         Thread(runnable, "mipush-shell-runner").apply { isDaemon = true }
     }
 

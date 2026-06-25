@@ -283,6 +283,7 @@ internal object NativeNotificationFeatureBuilder {
         metaInfo: PushMetaInfo,
         contentIntent: PendingIntent?,
     ): MediaSession.Token {
+        evictOldestMediaSessionsIfNeeded()
         val session = mediaSessions.compute(key) { _, existing ->
             existing ?: MediaSession(context.applicationContext, "MiPushFramework:$packageName").apply {
                 @Suppress("DEPRECATION")
@@ -337,5 +338,18 @@ internal object NativeNotificationFeatureBuilder {
         builder.addExtras(extras)
     }
 
+    private const val MAX_MEDIA_SESSIONS = 50
     private val mediaSessions = ConcurrentHashMap<String, MediaSession>()
+
+    private fun evictOldestMediaSessionsIfNeeded() {
+        if (mediaSessions.size > MAX_MEDIA_SESSIONS) {
+            val keysToEvict = mediaSessions.keys.take(mediaSessions.size - MAX_MEDIA_SESSIONS)
+            keysToEvict.forEach { key ->
+                mediaSessions.remove(key)?.runCatching {
+                    isActive = false
+                    release()
+                }
+            }
+        }
+    }
 }

@@ -17,7 +17,7 @@ import org.json.JSONObject
 object HWPushHelper {
     private const val LAST_CONNECT_TIME = "last_connect_time"
     private const val LAST_GET_TOKEN_TIME = "last_get_token_time"
-    private var isFailed = false
+    @Volatile private var isFailed = false
 
     fun convertMessage(intent: Intent) {
         AssemblePushHelper.convertMessage(intent)

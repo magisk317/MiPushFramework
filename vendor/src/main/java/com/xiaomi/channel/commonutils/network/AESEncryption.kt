@@ -106,13 +106,15 @@ object AESEncryption {
     @JvmStatic
     @Throws(AESDecodeException::class, java.io.UnsupportedEncodingException::class)
     fun hexDecrypt(str: String, str2: String): String {
-        return String(decrypt(UrlBase64Coder.decode(str), hex2byte(str2))!!)
+        return String(decrypt(UrlBase64Coder.decode(str), hex2byte(str2))
+            ?: throw AESDecodeException("decrypt returned null"))
     }
 
     @JvmStatic
     @Throws(AESEncodeException::class, java.io.UnsupportedEncodingException::class)
     fun hexEncrypt(str: String, str2: String): String {
-        return String(UrlBase64Coder.encode(encrypt(str, hex2byte(str2))!!))
+        return String(UrlBase64Coder.encode(encrypt(str, hex2byte(str2))
+            ?: throw AESEncodeException("encrypt returned null")))
     }
 
     @JvmStatic

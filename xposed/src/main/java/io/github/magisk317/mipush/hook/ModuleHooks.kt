@@ -313,11 +313,11 @@ class LibXposedEntry : XposedModule {
         runCatching {
             classLoader.findClass("com.alipay.pushsdk.thirdparty.xiaomi.XiaoMIPushWorker")
                 .hookMethod("isSupport") { replace { true } }
-        }
+        }.onFailure { XLog.d(TAG, "XiaoMIPushWorker hook skipped: ${it.message}") }
         runCatching {
             classLoader.findClass("com.alibaba.sdk.android.push.channel.XiaomiPushUtils")
                 .hookMethod("isMiui") { replace { true } }
-        }
+        }.onFailure { XLog.d(TAG, "XiaomiPushUtils hook skipped: ${it.message}") }
 
         runCatching {
             ForceMiPushRegister.hookFromRuntime(

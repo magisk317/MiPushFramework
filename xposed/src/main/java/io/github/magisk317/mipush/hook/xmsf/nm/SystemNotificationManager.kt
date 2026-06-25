@@ -27,7 +27,7 @@ object SystemNotificationManager {
     private const val EXTRA_LARGE_ICON = "android.largeIcon"
     private const val EXTRA_MIUI_APP_ICON = "miui.appIcon"
     private const val EXTRA_MIUI_OP_PKG = "miui.opPkg"
-    private val missingPackageWarnings = mutableSetOf<String>()
+    private val missingPackageWarnings = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
 
     private sealed class UidResolution {
         data class Found(val uid: Int) : UidResolution()
@@ -41,10 +41,17 @@ object SystemNotificationManager {
         }
     }
 
-    private val notificationManager: Any = NotificationManager::class.java.callStaticMethod("getService")!!
+    private val notificationManager: Any? by lazy {
+        runCatching { NotificationManager::class.java.callStaticMethod("getService") }.getOrNull()
+    }
+
+    private fun requireNotificationManager(): Any {
+        return notificationManager ?: throw IllegalStateException("NotificationManager service not available")
+    }
 
     private fun getUid(packageName: String): Int {
-        return currentApplication()!!.packageManager.getPackageUid(packageName, 0)
+        val app = currentApplication() ?: throw PackageManager.NameNotFoundException("application not available")
+        return app.packageManager.getPackageUid(packageName, 0)
     }
 
     private fun resolveUidState(packageName: String, operation: String): UidResolution {
@@ -157,7 +164,7 @@ object SystemNotificationManager {
     private fun injectAppIcons(packageName: String, notification: Notification) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
         try {
-            val pm = currentApplication()!!.packageManager
+            val pm = currentApplication()?.packageManager ?: return
             val appInfo = pm.getApplicationInfo(packageName, 0)
             if (appInfo.icon == 0) return
 
@@ -280,9 +287,9 @@ object SystemNotificationManager {
             XLog.d(TAG, "notify() system call failed, falling back to local: $packageName id=$id")
             notifyLocally(tag, id, notification)
         }) {
-            val methodEnqueueNotificationWithTag = findHookMethodExact(notificationManager.javaClass, "enqueueNotificationWithTag", String::class.java, String::class.java, String::class.java, Int::class.java, Notification::class.java, Int::class.java)
+            val methodEnqueueNotificationWithTag = findHookMethodExact(requireNotificationManager().javaClass, "enqueueNotificationWithTag", String::class.java, String::class.java, String::class.java, Int::class.java, Notification::class.java, Int::class.java)
             val opPkg = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ANDROID_PACKAGE_NAME else packageName
-            methodEnqueueNotificationWithTag.invoke(notificationManager, packageName, opPkg, tag, id, notification, getUserId())
+            methodEnqueueNotificationWithTag.invoke(requireNotificationManager(), packageName, opPkg, tag, id, notification, getUserId())
             XLog.d(TAG, "notify() enqueue OK pkg=$packageName id=$id")
             true
         }
@@ -298,11 +305,11 @@ object SystemNotificationManager {
             cancelLocally(tag, id)
         }) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val methodCancelNotificationWithTag = findHookMethodExact(notificationManager.javaClass, "cancelNotificationWithTag", String::class.java, String::class.java, String::class.java, Int::class.java, Int::class.java)
-                methodCancelNotificationWithTag.invoke(notificationManager, packageName, ANDROID_PACKAGE_NAME, tag, id, getUserId())
+                val methodCancelNotificationWithTag = findHookMethodExact(requireNotificationManager().javaClass, "cancelNotificationWithTag", String::class.java, String::class.java, String::class.java, Int::class.java, Int::class.java)
+                methodCancelNotificationWithTag.invoke(requireNotificationManager(), packageName, ANDROID_PACKAGE_NAME, tag, id, getUserId())
             } else {
-                val methodCancelNotificationWithTag = findHookMethodExact(notificationManager.javaClass, "cancelNotificationWithTag", String::class.java, String::class.java, Int::class.java, Int::class.java)
-                methodCancelNotificationWithTag.invoke(notificationManager, packageName, tag, id, getUserId())
+                val methodCancelNotificationWithTag = findHookMethodExact(requireNotificationManager().javaClass, "cancelNotificationWithTag", String::class.java, String::class.java, Int::class.java, Int::class.java)
+                methodCancelNotificationWithTag.invoke(requireNotificationManager(), packageName, tag, id, getUserId())
             }
         }
     }
@@ -328,7 +335,7 @@ object SystemNotificationManager {
         }) {
             val channelsList = findHookConstructorExact("android.content.pm.ParceledListSlice", null, List::class.java)
                 .newInstance(channels)
-            notificationManager.callMethod("createNotificationChannelsForPackage", packageName, uid, channelsList)
+            requireNotificationManager().callMethod("createNotificationChannelsForPackage", packageName, uid, channelsList)
         }
     }
 
@@ -355,11 +362,11 @@ object SystemNotificationManager {
                 }
         }) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                findHookMethodExact(notificationManager.javaClass, "getNotificationChannelForPackage", String::class.java, Int::class.java, String::class.java, String::class.java, Boolean::class.java)
-                    .invoke(notificationManager, packageName, uid, channelId, null, false) as NotificationChannel?
+                findHookMethodExact(requireNotificationManager().javaClass, "getNotificationChannelForPackage", String::class.java, Int::class.java, String::class.java, String::class.java, Boolean::class.java)
+                    .invoke(requireNotificationManager(), packageName, uid, channelId, null, false) as NotificationChannel?
             } else {
-                findHookMethodExact(notificationManager.javaClass, "getNotificationChannelForPackage", String::class.java, Int::class.java, String::class.java, Boolean::class.java)
-                    .invoke(notificationManager, packageName, uid, channelId, false) as NotificationChannel?
+                findHookMethodExact(requireNotificationManager().javaClass, "getNotificationChannelForPackage", String::class.java, Int::class.java, String::class.java, Boolean::class.java)
+                    .invoke(requireNotificationManager(), packageName, uid, channelId, false) as NotificationChannel?
             }
         }
     }
@@ -385,8 +392,8 @@ object SystemNotificationManager {
                     null
                 }
         }) {
-            val parceledListSlice = findHookMethodExact(notificationManager.javaClass, "getNotificationChannelsForPackage", String::class.java, Int::class.java, Boolean::class.java)
-                .invoke(notificationManager, packageName, uid, false)
+            val parceledListSlice = findHookMethodExact(requireNotificationManager().javaClass, "getNotificationChannelsForPackage", String::class.java, Int::class.java, Boolean::class.java)
+                .invoke(requireNotificationManager(), packageName, uid, false)
             @Suppress("UNCHECKED_CAST")
             parceledListSlice?.callMethod("getList") as List<NotificationChannel?>?
         }
@@ -423,7 +430,7 @@ object SystemNotificationManager {
                 XLog.e(TAG, "deleteNotificationChannel: local fallback failed", it)
             }
         }) {
-            notificationManager.callMethod("deleteNotificationChannel", packageName, channelId)
+            requireNotificationManager().callMethod("deleteNotificationChannel", packageName, channelId)
         }
     }
 
@@ -449,7 +456,7 @@ object SystemNotificationManager {
         // void createNotificationChannelGroups(String pkg, in ParceledListSlice channelGroupList);
         // val list = findHookConstructorExact("android.content.pm.ParceledListSlice", null, List::class.java)
         //     .newInstance(groups)
-        // notificationManager.callMethod("createNotificationChannelGroups", packageName, list)
+        // requireNotificationManager().callMethod("createNotificationChannelGroups", packageName, list)
 
         runSystemCall("createNotificationChannelGroups", packageName, fallback = {
             createGroupsLocally(groups)
@@ -459,11 +466,11 @@ object SystemNotificationManager {
 
                 // 无法 hook
                 // void createNotificationChannelGroup(String pkg, int uid, NotificationChannelGroup group, boolean fromApp, boolean fromListener)
-                // notificationManager.callMethod("createNotificationChannelGroup", packageName, getUid(packageName), it, true, false)
+                // requireNotificationManager().callMethod("createNotificationChannelGroup", packageName, getUid(packageName), it, true, false)
                 try {
                     // void updateNotificationChannelGroupForPackage(String pkg, int uid, in NotificationChannelGroup group);
                     // 因 createNotificationChannelGroup 的 fromApp 为 false，首次创建会产生 NullPointerException
-                    notificationManager.callMethod(
+                    requireNotificationManager().callMethod(
                         "updateNotificationChannelGroupForPackage",
                         packageName,
                         uid,
@@ -503,7 +510,7 @@ object SystemNotificationManager {
                     null
                 }
         }) {
-            notificationManager.callMethod("getNotificationChannelGroupForPackage", groupId, packageName, uid) as NotificationChannelGroup?
+            requireNotificationManager().callMethod("getNotificationChannelGroupForPackage", groupId, packageName, uid) as NotificationChannelGroup?
         }
     }
 
@@ -528,8 +535,8 @@ object SystemNotificationManager {
                     null
                 }
         }) {
-            val parceledListSlice = findHookMethodExact(notificationManager.javaClass, "getNotificationChannelGroupsForPackage", String::class.java, Int::class.java, Boolean::class.java)
-                .invoke(notificationManager, packageName, uid, false)
+            val parceledListSlice = findHookMethodExact(requireNotificationManager().javaClass, "getNotificationChannelGroupsForPackage", String::class.java, Int::class.java, Boolean::class.java)
+                .invoke(requireNotificationManager(), packageName, uid, false)
             @Suppress("UNCHECKED_CAST")
             parceledListSlice?.callMethod("getList") as List<NotificationChannelGroup?>?
         }
@@ -549,7 +556,7 @@ object SystemNotificationManager {
                 XLog.e(TAG, "deleteNotificationChannelGroup: local fallback failed", it)
             }
         }) {
-            notificationManager.callMethod("deleteNotificationChannelGroup", packageName, groupId)
+            requireNotificationManager().callMethod("deleteNotificationChannelGroup", packageName, groupId)
         }
     }
 
@@ -574,7 +581,7 @@ object SystemNotificationManager {
                     true
                 }
         }) {
-            notificationManager.callMethod("areNotificationsEnabledForPackage", packageName, uid) as Boolean
+            requireNotificationManager().callMethod("areNotificationsEnabledForPackage", packageName, uid) as Boolean
         }
     }
 
@@ -585,7 +592,7 @@ object SystemNotificationManager {
             XLog.d(TAG, "getActiveNotifications() system call failed for $packageName, returning null")
             null
         }) {
-            val parceledListSlice = notificationManager.callMethod("getAppActiveNotifications", packageName, getUserId())
+            val parceledListSlice = requireNotificationManager().callMethod("getAppActiveNotifications", packageName, getUserId())
             @Suppress("UNCHECKED_CAST")
             val list = parceledListSlice?.callMethod("getList") as List<StatusBarNotification>
             val ids = list.map { "${it.id}" }.joinToString(",")

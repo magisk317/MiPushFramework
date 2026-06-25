@@ -7,7 +7,6 @@ import io.github.magisk317.mipush.common.fakedevice.ZygiskPackagePolicy
 import io.github.magisk317.mipush.common.manager.ManagerApplication
 import io.github.magisk317.mipush.common.manager.ManagerApplicationDiagnostics
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
-import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.feature.main.AppRegistrationDiagnosticsHelper
 import kotlinx.coroutines.Dispatchers
@@ -20,7 +19,6 @@ import kotlinx.coroutines.withContext
 
 class ApplicationInfoViewModel constructor(
     private val applicationGateway: ManagerApplicationGateway,
-    private val configSyncGateway: ManagerConfigSyncGateway,
     private val settingsManager: SettingsManager,
     private val context: Context,
 ) : ViewModel() {
@@ -104,11 +102,6 @@ class ApplicationInfoViewModel constructor(
         applicationGateway.updateApplication(updated)
     }
 
-    fun openConfigSync(packageName: String) {
-        viewModelScope.launch {
-            configSyncGateway.openForPackage(packageName)
-        }
-    }
 
     suspend fun launchTargetAppAndForceRegister(
         packageName: String,

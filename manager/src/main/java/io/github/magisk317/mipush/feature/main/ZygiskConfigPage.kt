@@ -38,6 +38,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -108,7 +110,7 @@ class ZygiskConfigPage : ComponentActivity() {
                         )
                     }
                 ) {
-                    Icon(painterResource(R.drawable.ic_settings_black_24dp), contentDescription = "Save")
+                    Icon(Icons.Filled.Save, contentDescription = "Save")
                 }
             },
             snackbarHost = {

@@ -6,23 +6,6 @@
 # ProGuard/R8 rules for the engine are included below since minification
 # runs at the application level.
 
-### greenDAO 3
--keepclassmembers class * extends org.greenrobot.greendao.AbstractDao {
-public static java.lang.String TABLENAME;
-}
--keep class **$Properties
-
-# If you do not use SQLCipher:
--dontwarn org.greenrobot.greendao.database.**
-# If you do not use RxJava:
--dontwarn rx.**
-
-# Logback for Android
--keep class ch.qos.** { *; }
--keep class org.slf4j.** { *; }
--keepattributes *Annotation*
--dontwarn ch.qos.logback.core.net.*
-
 # MiPush
 -keepclasseswithmembernames class com.xiaomi.**{*;}
 -keep public class * extends com.xiaomi.mipush.sdk.PushMessageReceiver

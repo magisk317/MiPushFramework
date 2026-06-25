@@ -54,8 +54,8 @@ object HookPushNC {
         try {
             classNotificationManager["isHooked"] = true
             XLog.i(TAG, "marked NotificationManagerEx.isHooked = true")
-        } catch (_: Throwable) {
-
+        } catch (e: Throwable) {
+            XLog.e(TAG, "failed to mark NotificationManagerEx.isHooked", e)
         }
 
         //notify(
@@ -131,7 +131,7 @@ object HookPushNC {
             String::class.java,
             String::class.java
         ) {
-            replace() {
+            replace(hookCheck) {
                 tryInvoke {
                     return@replace SystemNotificationManager.getNotificationChannel(
                         args[0] as String,
@@ -311,7 +311,8 @@ object HookPushNC {
         try {
             identityBridgeClass["isHooked"] = true
             XLog.i(TAG, "marked NotificationIdentityBridge.isHooked = true")
-        } catch (_: Throwable) {
+        } catch (e: Throwable) {
+            XLog.e(TAG, "failed to mark NotificationIdentityBridge.isHooked", e)
         }
         val identityStrategyClass = runCatching { classLoader.findClass(IdentityStrategyClass) }
             .getOrElse {

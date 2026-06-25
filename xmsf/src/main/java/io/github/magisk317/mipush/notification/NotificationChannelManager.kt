@@ -68,8 +68,8 @@ object NotificationChannelManager {
                 val channel = NotificationManagerEx.getNotificationChannel(packageName, channelId)
                 isNotificationChannelEnabled(channel)
             } catch (_: Exception) {
-                // 查询失败时降级为"已启用"，避免阻塞列表/渲染链路
-                true
+                // 查询失败时降级为"禁用"，避免绕过用户通道设置
+                false
             }
         }
         return false
