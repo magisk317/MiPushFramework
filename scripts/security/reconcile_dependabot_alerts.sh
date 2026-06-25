@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TOOLKIT_SCRIPT="${SCRIPT_DIR}/../_toolkit/security/reconcile_dependabot_alerts.sh"
+
+# MiPushFramework configuration
+export MAGISK_ROOT_DEPTH=3
+export MAGISK_PYTHON_SCRIPT="scripts/security/manage_dependency_forces.py"
+
+exec bash "${TOOLKIT_SCRIPT}" "$@"
