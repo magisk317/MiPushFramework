@@ -1,14 +1,18 @@
 package io.github.magisk317.mipush.hook.securitycore
+import io.github.magisk317.xposed.BaseHook
+import io.github.magisk317.xposed.LoadParam
 
 import io.github.magisk317.mipush.hook.XLog
-import io.github.magisk317.mipush.xposed.findClass
-import io.github.magisk317.mipush.xposed.hook
+import io.github.magisk317.xposed.findClass
+import io.github.magisk317.xposed.hook
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.util.Collections
 
-class SecurityCoreXSpaceMiPushHook {
-    fun hook(classLoader: ClassLoader) {
+class SecurityCoreXSpaceMiPushHook : BaseHook() {
+    override fun onLoadPackage(param: LoadParam) {
+        if (param.packageName != SECURITY_CORE_PACKAGE_NAME) return
+        val classLoader = param.classLoader
         runCatching {
             val xspaceUtilClass = classLoader.findClass(XSPACE_UTIL_CLASS)
             val targetMethod = findMiPushRequiredMethod(xspaceUtilClass)
@@ -46,6 +50,7 @@ class SecurityCoreXSpaceMiPushHook {
 
     companion object {
         private const val TAG = "SecurityCoreXSpaceMiPushHook"
+        private const val SECURITY_CORE_PACKAGE_NAME = "com.miui.securitycore"
         private const val XSPACE_UTIL_CLASS = "x6.f"
         private const val DUMPED_METHOD_NAME = "h"
         private const val PACKAGE_NAME_ARG_INDEX = 1

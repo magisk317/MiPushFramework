@@ -1,9 +1,9 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
-import io.github.magisk317.mipush.xposed.LoadParam
+import io.github.magisk317.xposed.LoadParam
 import io.github.magisk317.mipush.hook.XLog
-import io.github.magisk317.mipush.xposed.findClass
-import io.github.magisk317.mipush.xposed.hookMethod
+import io.github.magisk317.xposed.findClass
+import io.github.magisk317.xposed.hookMethod
 import miui.os.Build
 import miui.external.SdkHelper
 

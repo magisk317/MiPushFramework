@@ -1,20 +1,26 @@
 package io.github.magisk317.mipush.hook.xmsf
+import io.github.magisk317.xposed.BaseHook
+import io.github.magisk317.xposed.LoadParam
 
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.island.IslandPreferences
-import io.github.magisk317.mipush.xposed.HookClassNotFoundError
-import io.github.magisk317.mipush.xposed.callMethod
-import io.github.magisk317.mipush.xposed.findClass
-import io.github.magisk317.mipush.xposed.hook
-import io.github.magisk317.mipush.xposed.setHookIntField
+import io.github.magisk317.xposed.HookClassNotFoundError
+import io.github.magisk317.xposed.callMethod
+import io.github.magisk317.xposed.findClass
+import io.github.magisk317.xposed.hook
+import io.github.magisk317.xposed.setHookIntField
 
-class UnlockFocusAuthHook {
-    fun hook(classLoader: ClassLoader) {
+class UnlockFocusAuthHook : BaseHook() {
+    override fun onLoadPackage(param: LoadParam) {
+        val classLoader = param.classLoader
         IslandPreferences.startRefreshLoop()
         runCatching {
             val authSessionClass = try {
                 findClass(AUTH_SESSION_CLASS, classLoader)
             } catch (_: HookClassNotFoundError) {
+                XLog.d(TAG, "AuthSession class not found; focus auth hook skipped")
+                return
+            } catch (_: ClassNotFoundException) {
                 XLog.d(TAG, "AuthSession class not found; focus auth hook skipped")
                 return
             }

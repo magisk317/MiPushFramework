@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
-import io.github.magisk317.mipush.xposed.LoadParam
+import io.github.magisk317.xposed.BaseHook
+import io.github.magisk317.xposed.LoadParam
 import io.github.magisk317.mipush.hook.compat.legacyhuawei.LegacyHuaweiSignatureCompat
 import io.github.magisk317.mipush.hook.fakedevice.compat.HookPipelineId
 import io.github.magisk317.mipush.hook.fakedevice.compat.ModuleCompatRegistry
@@ -74,5 +75,14 @@ object FakeDevice {
         pipelines.distinct().forEach { pipelineId ->
             createPipelineHook(pipelineId).fake(lpparam)
         }
+    }
+}
+
+/** [BaseHook] adapter for [FakeDevice] to participate in the hook dispatch list. */
+class FakeDeviceHook : BaseHook() {
+    override fun onLoadPackage(param: LoadParam) {
+        if (param.processName.isBlank()) return
+        if (param.packageName == "android" || param.packageName == "system") return
+        FakeDevice.fake(param)
     }
 }

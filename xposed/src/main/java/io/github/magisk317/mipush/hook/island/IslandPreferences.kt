@@ -20,7 +20,7 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.hook.XLog
-import io.github.magisk317.mipush.xposed.currentApplication
+import io.github.magisk317.xposed.currentApplication
 
 object IslandPreferences {
     private const val TAG = "IslandPreferences"
@@ -52,7 +52,7 @@ object IslandPreferences {
     fun refreshNow() {
         readOptions(packageName = null).onSuccess {
             options = it
-            XLog.i(TAG, "refreshed options: showNotification=${it.showNotification} enableFloat=${it.enableFloat} enabled=${it.enabled} focusNotification=${it.focusNotification}")
+            XLog.i(TAG, "refreshed options: showNotification=${it.showNotification} enableFloat=${it.enableFloat} enabled=${it.enabled} focusNotification=${it.focusNotification} colorStatusBarIcon=${it.colorStatusBarIcon}")
         }.onFailure {
             XLog.w(TAG, "failed to refresh island prefs: ${it.message}")
         }
@@ -149,7 +149,7 @@ object IslandPreferences {
             showNotification = values.booleanValue(ISLAND_PREF_SHOW_NOTIFICATION, true),
             showOriginalNotification = values.booleanValue(ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION, true),
             focusNotification = values.booleanValue(ISLAND_PREF_FOCUS_NOTIF, true),
-            colorStatusBarIcon = values.booleanValue(COLOR_STATUS_BAR_ICON_KEY, true),
+            colorStatusBarIcon = values.booleanValue(COLOR_STATUS_BAR_ICON_KEY, false),
         )
     }
 

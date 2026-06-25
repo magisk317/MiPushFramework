@@ -37,6 +37,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "MiPushFramework"
 requireExistingProjectDir("magisk-ui-kit")
+requireExistingProjectDir("magisk-xposed-kit")
 requireExistingProjectDir("vendor")
 requireExistingProjectDir("pinned")
-include(":xmsf", ":mipush", ":xposed", ":common", ":core", ":settings", ":magisk-ui-kit", ":vendor", ":pinned", ":manager", ":app")
+include(":xmsf", ":mipush", ":xposed", ":common", ":core", ":settings", ":magisk-ui-kit", ":magisk-xposed-kit", ":vendor", ":pinned", ":manager", ":app")

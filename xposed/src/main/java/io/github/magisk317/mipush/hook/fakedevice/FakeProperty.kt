@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.hook.fakedevice
 import android.os.Build
 import io.github.magisk317.mipush.common.fakedevice.MiPushResetpropTemplate
 import io.github.magisk317.mipush.hook.XLog
-import io.github.magisk317.mipush.xposed.*
+import io.github.magisk317.xposed.*
 import java.util.concurrent.atomic.AtomicBoolean
 
 private const val TAG = "FakeProperties"
@@ -292,14 +292,14 @@ internal fun Map<String, String>.buildFieldOverrides(): List<BuildFieldOverride>
 
 private fun setStaticFieldIfPresent(targetClass: Class<*>, fieldName: String, value: String?) {
     if (value == null) return
-    runCatching { targetClass.setField(fieldName, value, String::class.java) }
+    runCatching { io.github.magisk317.xposed.HookHelpers.findField(targetClass, fieldName).set(null, value) }
         .onFailure {
             XLog.w(TAG, "skip Build field ${targetClass.name}#$fieldName: ${it.javaClass.simpleName}: ${it.message}")
         }
 }
 
 private fun setStaticFieldIfPresent(targetClass: Class<*>, fieldName: String, value: Int) {
-    runCatching { targetClass.setField(fieldName, value, Int::class.javaPrimitiveType!!) }
+    runCatching { io.github.magisk317.xposed.HookHelpers.findField(targetClass, fieldName).set(null, value) }
         .onFailure {
             XLog.w(TAG, "skip Build field ${targetClass.name}#$fieldName: ${it.javaClass.simpleName}: ${it.message}")
         }

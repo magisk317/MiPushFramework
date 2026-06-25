@@ -1,8 +1,8 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
 import android.app.Application
-import io.github.magisk317.mipush.xposed.LoadParam
-import io.github.magisk317.mipush.xposed.hookMethod
+import io.github.magisk317.xposed.LoadParam
+import io.github.magisk317.xposed.hookMethod
 
 class CoolApk : XGPush() {
     override fun fake(lpparam: LoadParam): Boolean {

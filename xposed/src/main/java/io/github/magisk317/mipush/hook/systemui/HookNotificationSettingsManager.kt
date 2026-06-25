@@ -1,8 +1,8 @@
 package io.github.magisk317.mipush.hook.systemui
 
 import io.github.magisk317.mipush.hook.XLog
-import io.github.magisk317.mipush.xposed.findHookClass
-import io.github.magisk317.mipush.xposed.hook
+import io.github.magisk317.xposed.findHookClass
+import io.github.magisk317.xposed.hook
 
 class HookNotificationSettingsManager : ISystemUIPluginHooker {
     companion object {

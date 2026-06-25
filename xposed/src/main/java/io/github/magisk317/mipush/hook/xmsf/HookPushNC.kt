@@ -8,12 +8,12 @@ import android.service.notification.StatusBarNotification
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.xmsf.nm.SystemNotificationManager
 import io.github.magisk317.mipush.hook.system.HookSystemService
-import io.github.magisk317.mipush.xposed.HookClassNotFoundError
-import io.github.magisk317.mipush.xposed.HookInvocationTargetError
-import io.github.magisk317.mipush.xposed.findClass
-import io.github.magisk317.mipush.xposed.getOrNull
-import io.github.magisk317.mipush.xposed.hookMethod
-import io.github.magisk317.mipush.xposed.set
+import io.github.magisk317.xposed.HookClassNotFoundError
+import io.github.magisk317.xposed.HookInvocationTargetError
+import io.github.magisk317.xposed.findClass
+import io.github.magisk317.xposed.getOrNull
+import io.github.magisk317.xposed.hookMethod
+import io.github.magisk317.xposed.set
 import java.lang.reflect.InvocationTargetException
 
 object HookPushNC {
@@ -30,7 +30,7 @@ object HookPushNC {
         return try {
             classLoader.findClass(TargetClass)
             true
-        } catch (e: HookClassNotFoundError) {
+        } catch (_: Throwable) {
             false
         }
     }

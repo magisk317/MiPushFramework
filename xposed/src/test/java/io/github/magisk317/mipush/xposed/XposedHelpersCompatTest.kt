@@ -2,6 +2,11 @@ package io.github.magisk317.mipush.xposed
 
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
+import io.github.magisk317.xposed.HookInvocationTargetError
+import io.github.magisk317.xposed.XposedRuntime
+import io.github.magisk317.xposed.callMethod
+import io.github.magisk317.xposed.hook
+import io.github.magisk317.xposed.setHookObjectField
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
@@ -19,7 +24,7 @@ class XposedHelpersCompatTest {
     @Test
     fun `callMethod unwraps invocation target exception like legacy Xposed helper`() {
         val target = HelperTarget()
-        val thrown = assertThrows(XposedHelpers.InvocationTargetError::class.java) {
+        val thrown = assertThrows(HookInvocationTargetError::class.java) {
             target.callMethod("throwChecked")
         }
 
@@ -46,7 +51,7 @@ class XposedHelpersCompatTest {
     fun `set object field walks superclass fields`() {
         val target = HelperTarget()
 
-        XposedHelpers.setObjectField(target, "parentValue", "patched")
+        setHookObjectField(target, "parentValue", "patched")
 
         assertEquals("patched", target.parentValue())
     }
@@ -131,7 +136,7 @@ class XposedHelpersCompatTest {
     @Test
     fun `runtime installs hook with stable hook id`() {
         val framework = RecordingFramework()
-        XposedRuntime.install(testModule(framework))
+        XposedRuntime.install(testModule(framework), "mipush")
         try {
             val method = HelperTarget::class.java.getDeclaredMethod(
                 "overloaded",

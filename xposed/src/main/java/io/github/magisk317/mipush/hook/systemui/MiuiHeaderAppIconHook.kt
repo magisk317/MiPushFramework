@@ -13,9 +13,9 @@ import android.widget.ImageView
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.island.IslandDispatchContract
-import io.github.magisk317.mipush.xposed.callMethod
-import io.github.magisk317.mipush.xposed.findClass
-import io.github.magisk317.mipush.xposed.hookMethod
+import io.github.magisk317.xposed.callMethod
+import io.github.magisk317.xposed.findClass
+import io.github.magisk317.xposed.hookMethod
 import java.util.Collections
 
 class MiuiHeaderAppIconHook {
