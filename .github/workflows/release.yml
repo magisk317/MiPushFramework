@@ -176,14 +176,47 @@ jobs:
           tag_name="${GITHUB_REF_NAME}"
           release_name="$tag_name"
           release_notes="MiPushFramework Release ${tag_name}"
+          changelog_notes=""
           if [[ -f "docs/CHANGELOG.md" ]]; then
-            extracted_notes="$(awk -v version="$tag_name" '
+            changelog_notes="$(awk -v version="$tag_name" '
               $0 == "---" && found { exit }
               found { print; next }
               index($0, "## [" version "]") == 1 { found = 1; next }
             ' docs/CHANGELOG.md)"
-            if [[ -n "$extracted_notes" ]]; then
-              release_notes="$extracted_notes"
+            if [[ -n "$changelog_notes" ]]; then
+              release_notes="$changelog_notes"
+            fi
+          fi
+
+          previous_tag=""
+          compare_range="$(printf '%s\n' "$changelog_notes" |
+            sed -nE 's#.*compare/([^[:space:]]+)\.\.\.([^[:space:]]+).*#\1 \2#p' |
+            head -n 1)"
+          if [[ -n "$compare_range" ]]; then
+            read -r previous_tag compare_to <<< "$compare_range"
+            if [[ "$compare_to" != "$tag_name" ]]; then
+              previous_tag=""
+            fi
+          fi
+          if [[ -z "$previous_tag" ]]; then
+            previous_tag="$(git describe --tags --abbrev=0 "${tag_name}^{commit}^" 2>/dev/null || true)"
+          fi
+
+          generate_args=(-X POST -f "tag_name=${tag_name}")
+          if [[ -n "$previous_tag" ]]; then
+            generate_args+=(-f "previous_tag_name=${previous_tag}")
+          fi
+          generated_notes="$(gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+            "${generate_args[@]}" \
+            --jq '.body' 2>/dev/null || true)"
+
+          if [[ -n "$generated_notes" ]]; then
+            changelog_without_link="$(printf '%s\n' "$changelog_notes" |
+              sed '/^[[:space:]]*>[[:space:]]*Full Changelog:/d')"
+            if [[ -n "$changelog_without_link" ]]; then
+              release_notes="$(printf '%s\n\n%s\n' "$changelog_without_link" "$generated_notes")"
+            else
+              release_notes="$generated_notes"
             fi
           fi
 
@@ -206,9 +239,9 @@ jobs:
             gh release create "$tag_name" "${release_assets[@]}" \
               --title "$release_name" \
               --verify-tag \
-              --generate-notes \
               --notes "$release_notes"
           fi
+        env:
           GH_TOKEN: ${{ secrets.GH_PAT != '' && secrets.GH_PAT || github.token }}
 
   publish-to-modules-repo:
@@ -241,26 +274,60 @@ jobs:
           tag_name="${GITHUB_REF_NAME}"
           release_name="$tag_name"
           release_notes="MiPushFramework Release ${tag_name}"
+          changelog_notes=""
           if [[ -f "docs/CHANGELOG.md" ]]; then
-            extracted_notes="$(awk -v version="$tag_name" '
+            changelog_notes="$(awk -v version="$tag_name" '
               $0 == "---" && found { exit }
               found { print; next }
               index($0, "## [" version "]") == 1 { found = 1; next }
             ' docs/CHANGELOG.md)"
-            if [[ -n "$extracted_notes" ]]; then
-              release_notes="$extracted_notes"
+            if [[ -n "$changelog_notes" ]]; then
+              release_notes="$changelog_notes"
             fi
           fi
 
-          mapfile -d '' release_assets < <(find artifacts/apks -type f \( -name '*.apk' -o -name '*.zip' \) -print0 | sort -z)
-          if [[ ${#release_assets[@]} -eq 0 ]]; then
-            echo "ERROR: no release assets found under artifacts/apks" >&2
+          previous_tag=""
+          compare_range="$(printf '%s\n' "$changelog_notes" |
+            sed -nE 's#.*compare/([^[:space:]]+)\.\.\.([^[:space:]]+).*#\1 \2#p' |
+            head -n 1)"
+          if [[ -n "$compare_range" ]]; then
+            read -r previous_tag compare_to <<< "$compare_range"
+            if [[ "$compare_to" != "$tag_name" ]]; then
+              previous_tag=""
+            fi
+          fi
+          if [[ -z "$previous_tag" ]]; then
+            previous_tag="$(git describe --tags --abbrev=0 "${tag_name}^{commit}^" 2>/dev/null || true)"
+          fi
+
+          generate_args=(-X POST -f "tag_name=${tag_name}")
+          if [[ -n "$previous_tag" ]]; then
+            generate_args+=(-f "previous_tag_name=${previous_tag}")
+          fi
+          generated_notes="$(GH_TOKEN="${SOURCE_RELEASE_TOKEN}" \
+            gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+            "${generate_args[@]}" \
+            --jq '.body' 2>/dev/null || true)"
+
+          if [[ -n "$generated_notes" ]]; then
+            changelog_without_link="$(printf '%s\n' "$changelog_notes" |
+              sed '/^[[:space:]]*>[[:space:]]*Full Changelog:/d')"
+            if [[ -n "$changelog_without_link" ]]; then
+              release_notes="$(printf '%s\n\n%s\n' "$changelog_without_link" "$generated_notes")"
+            else
+              release_notes="$generated_notes"
+            fi
+          fi
+
+          mapfile -d '' apk_files < <(find artifacts/apks -type f -name '*.apk' -print0 | sort -z)
+          if [[ ${#apk_files[@]} -eq 0 ]]; then
+            echo "ERROR: no APK files found under artifacts/apks" >&2
             find artifacts/apks -maxdepth 6 -type f | sort >&2 || true
             exit 1
           fi
 
           if gh release view "$tag_name" --repo "${{ env.MODULES_REPO }}" >/dev/null 2>&1; then
-            gh release upload "$tag_name" "${release_assets[@]}" \
+            gh release upload "$tag_name" "${apk_files[@]}" \
               --repo "${{ env.MODULES_REPO }}" \
               --clobber
             gh release edit "$tag_name" \
@@ -270,10 +337,11 @@ jobs:
               --notes "$release_notes"
           else
             gh release create "$tag_name" \
-              "${release_assets[@]}" \
+              "${apk_files[@]}" \
               --repo "${{ env.MODULES_REPO }}" \
               --title "$release_name" \
               --notes "$release_notes"
           fi
         env:
+          SOURCE_RELEASE_TOKEN: ${{ secrets.GH_PAT != '' && secrets.GH_PAT || github.token }}
           GH_TOKEN: ${{ secrets.XPOSED_MODULES_REPO_TOKEN }}
