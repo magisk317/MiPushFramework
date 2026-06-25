@@ -8,6 +8,7 @@ import android.os.Build
 import android.view.View
 import android.widget.RemoteViews
 import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.mipush.xposed.callMethod
 import io.github.magisk317.mipush.xposed.currentApplication
 import io.github.magisk317.mipush.xposed.findClass
@@ -62,6 +63,15 @@ class HookSystemUI {
                     val smallIcon = args[0] as? Icon ?: return@doBefore
                     val contentView = args[1] as? RemoteViews ?: return@doBefore
                     val p = args[2]
+
+                    if (!IslandPreferences.current().colorStatusBarIcon) {
+                        // Toggle OFF: force monochrome, prevent MIUI from preserving color
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            contentView.setInt(android.R.id.icon, "setOriginalIconColor", 0)
+                        }
+                        result = true
+                        return@doBefore
+                    }
 
                     val colorUtil = builder.callMethod("getColorUtil") ?: return@doBefore
                     val isGrayscaleIcon = colorUtil.callMethod("isGrayscaleIcon", context, smallIcon) as? Boolean ?: return@doBefore

@@ -243,11 +243,38 @@ private fun SettingsScreen(
                 }
 
                 SettingsSectionCard(
-                    title = stringResource(R.string.zygisk_status),
+                    title = stringResource(R.string.settings_home_misc_title),
                     expanded = zygiskExpanded,
                     onExpandedChange = { zygiskExpanded = !zygiskExpanded },
                 ) {
                     val context = LocalContext.current
+                    val showAllEvents by viewModel.showAllEvents.collectAsStateWithLifecycle()
+                    val colorStatusBarIcon by viewModel.colorStatusBarIcon.collectAsStateWithLifecycle()
+                    val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
+
+                    val showAllEventsTitle = stringResource(R.string.settings_show_all_events)
+                    SettingsSwitchItem(
+                        title = showAllEventsTitle,
+                        summary = "",
+                        checked = showAllEvents,
+                        onCheckedChange = { enabled ->
+                            viewModel.setShowAllEvents(enabled)
+                            showSwitchFeedback(showAllEventsTitle, enabled)
+                        }
+                    )
+
+                    val colorIconTitle = stringResource(R.string.pref_color_status_bar_icon_title)
+                    SettingsSwitchItem(
+                        title = colorIconTitle,
+                        summary = stringResource(R.string.pref_color_status_bar_icon_summary),
+                        checked = colorStatusBarIcon,
+                        onCheckedChange = { enabled ->
+                            viewModel.setColorStatusBarIcon(enabled)
+                            context.sendBroadcast(android.content.Intent(io.github.magisk317.mipush.common.ACTION_PREF_CHANGED))
+                            showSwitchFeedback(colorIconTitle, enabled)
+                        }
+                    )
+
                     SettingsItem(
                         title = stringResource(R.string.zygisk_status),
                         summary = stringResource(R.string.zygisk_status_summary),
@@ -448,7 +475,6 @@ private fun KeepAliveBlock(viewModel: SettingsViewModel, snackbarHostState: Snac
 @Composable
 private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: SnackbarHostState) {
     val scope = rememberCoroutineScope()
-    val showAllEvents by viewModel.showAllEvents.collectAsStateWithLifecycle()
     val islandEnabled by viewModel.islandEnabled.collectAsStateWithLifecycle()
     val islandTimeout by viewModel.islandTimeout.collectAsStateWithLifecycle()
     val islandFirstFloat by viewModel.islandFirstFloat.collectAsStateWithLifecycle()
@@ -460,17 +486,6 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
     var showIslandTimeoutDialog by remember { mutableStateOf(false) }
     var islandTimeoutInput by remember(islandTimeout) { mutableStateOf(islandTimeout.toString()) }
     val islandTimeoutError = stringResource(R.string.pref_island_timeout_error)
-
-    val showAllEventsTitle = stringResource(R.string.settings_show_all_events)
-    SettingsSwitchItem(
-        title = showAllEventsTitle,
-        summary = "",
-        checked = showAllEvents,
-        onCheckedChange = { enabled ->
-            viewModel.setShowAllEvents(enabled)
-            showSwitchFeedback(showAllEventsTitle, enabled)
-        }
-    )
 
     val islandEnabledTitle = stringResource(R.string.pref_island_enabled_title)
     SettingsSwitchItem(

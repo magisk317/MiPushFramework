@@ -57,6 +57,8 @@
     <string name="settings_debug_mode">Enable debug mode</string>
     <string name="settings_debug_mode_summary">Display debug actions in notifications, print full log</string>
     <string name="settings_show_all_events">Display all events</string>
+    <string name="pref_color_status_bar_icon_title">Color status bar icon</string>
+    <string name="pref_color_status_bar_icon_summary">When disabled, status bar icons will appear monochrome</string>
     <string name="settings_switch_enabled_feedback">%1$s enabled</string>
     <string name="settings_switch_disabled_feedback">%1$s disabled</string>
     <string name="settings_start_foreground_service">Keep MiPush alive</string>
@@ -219,7 +221,7 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="notification_channels_setting">Setting</string>
     <string name="notification_channels_copy_id">Copy channel ID</string>
 
-    <string name="zygisk_status">Zygisk Configuration</string>
+    <string name="zygisk_status">Other</string>
     <string name="zygisk_status_summary">Manage module status and app spoofing</string>
     <string name="zygisk_enabled">Enabled</string>
     <string name="zygisk_disabled">Disabled</string>
@@ -373,12 +375,12 @@ This could be the application doing a reverse registration, or the registration 
     <string name="mock_notification_missing_regsec">Cannot replay this encrypted push message: register secret is missing. Re-register the app and try again.</string>
     <string name="mock_notification_failed">Failed to replay this push message. Check logs for details.</string>
     <string name="mock_notification_no_receiver">Replay warning: target app receiver not found for this push intent.</string>
-    <string name="settings_home_service_title">Connection &amp; service</string>
+    <string name="settings_home_service_title">Services &amp; permissions</string>
     <string name="settings_home_service_summary">XMPP server, foreground service, and permission check.</string>
     <string name="settings_home_keepalive_title">Keep-alive &amp; system limits</string>
     <string name="settings_home_keepalive_summary">OOM adj, anti-kill, standby/Doze bypass, and dedicated keep-alive service.</string>
-    <string name="settings_home_notifications_title">Notifications &amp; display</string>
-    <string name="settings_home_notifications_summary">Event list visibility and island display controls.</string>
+    <string name="settings_home_notifications_title">Dynamic Island</string>
+    <string name="settings_home_notifications_summary">Dynamic island display controls and parameter adjustments.</string>
     <string name="pref_choose_theme_title">Theme</string>
     <string name="pref_choose_theme_summary">Follow System, Light, Dark or Pure Black</string>
     <string name="pref_ui_kit_style_title">UI style</string>
@@ -388,7 +390,7 @@ This could be the application doing a reverse registration, or the registration 
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
     <string name="theme_black">Pure Black</string>
-    <string name="settings_home_diagnostics_title">Diagnostics &amp; logs</string>
+    <string name="settings_home_diagnostics_title">Debug &amp; logs</string>
     <string name="settings_home_diagnostics_summary">View/share runtime logs, retention, debug level, and message replay.</string>
     <string name="settings_home_about_summary">Update entry and project information.</string>
     <string name="settings_version_label">Version</string>
