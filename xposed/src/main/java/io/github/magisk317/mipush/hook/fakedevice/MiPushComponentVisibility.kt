@@ -10,11 +10,11 @@ import android.content.pm.ProviderInfo
 import android.content.pm.ResolveInfo
 import android.content.pm.ServiceInfo
 import android.os.Process
-import io.github.magisk317.mipush.xposed.LoadParam
+import io.github.magisk317.xposed.LoadParam
 import io.github.magisk317.mipush.hook.XLog
-import io.github.magisk317.mipush.xposed.MethodHookParam
-import io.github.magisk317.mipush.xposed.findClass
-import io.github.magisk317.mipush.xposed.hook
+import io.github.magisk317.xposed.MethodHookParam
+import io.github.magisk317.xposed.findClass
+import io.github.magisk317.xposed.hook
 import java.lang.reflect.Method
 import java.util.Collections
 

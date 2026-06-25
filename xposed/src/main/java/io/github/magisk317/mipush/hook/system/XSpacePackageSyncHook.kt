@@ -28,6 +28,8 @@ object XSpacePackageSyncHook {
         Thread(runnable, "mipush-xspace-sync").apply { isDaemon = true }
     }
 
+    private const val RETRY_DELAY_MS = 3000L
+
     fun install(context: Context) {
         if (!installed.compareAndSet(false, true)) return
         val filter = IntentFilter().apply {
@@ -43,9 +45,23 @@ object XSpacePackageSyncHook {
         runCatching {
             registerReceiverForAllUsers(context, receiver, filter)
             XLog.i(TAG, "installed XSpace package sync receiver")
-        }.onFailure {
+        }.onFailure { throwable ->
             installed.set(false)
-            XLog.e(TAG, "install XSpace package sync receiver failed", it)
+            val isEarlyBootNpe = throwable is java.lang.reflect.InvocationTargetException &&
+                throwable.cause is NullPointerException
+            if (isEarlyBootNpe) {
+                XLog.w(TAG, "receiver registration failed (early boot), scheduling retry")
+                executor.execute {
+                    try {
+                        Thread.sleep(RETRY_DELAY_MS)
+                    } catch (_: InterruptedException) {
+                        return@execute
+                    }
+                    install(context)
+                }
+            } else {
+                XLog.e(TAG, "install XSpace package sync receiver failed", throwable)
+            }
         }
     }
 

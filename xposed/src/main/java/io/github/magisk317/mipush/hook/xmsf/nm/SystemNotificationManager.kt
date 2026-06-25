@@ -12,13 +12,14 @@ import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.common.utils.ImgUtils
 import io.github.magisk317.mipush.hook.XLog
-import io.github.magisk317.mipush.xposed.callMethod
-import io.github.magisk317.mipush.xposed.callStaticMethod
-import io.github.magisk317.mipush.xposed.currentApplication
-import io.github.magisk317.mipush.xposed.HookInvocationTargetError
-import io.github.magisk317.mipush.xposed.findHookConstructorExact
-import io.github.magisk317.mipush.xposed.findHookMethodExact
-import io.github.magisk317.mipush.xposed.setField
+import io.github.magisk317.mipush.hook.island.IslandPreferences
+import io.github.magisk317.xposed.callMethod
+import io.github.magisk317.xposed.callStaticMethod
+import io.github.magisk317.xposed.currentApplication
+import io.github.magisk317.xposed.HookInvocationTargetError
+import io.github.magisk317.xposed.findHookConstructorExact
+import io.github.magisk317.xposed.findHookMethodExact
+import io.github.magisk317.xposed.setHookObjectField
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import java.lang.reflect.InvocationTargetException
 
@@ -27,6 +28,7 @@ object SystemNotificationManager {
     private const val EXTRA_LARGE_ICON = "android.largeIcon"
     private const val EXTRA_MIUI_APP_ICON = "miui.appIcon"
     private const val EXTRA_MIUI_OP_PKG = "miui.opPkg"
+    private const val EXTRA_MIUI_IS_GRAYSCALE_ICON = "miui.isGrayscaleIcon"
     private val missingPackageWarnings = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
 
     private sealed class UidResolution {
@@ -161,8 +163,78 @@ object SystemNotificationManager {
         return notification.extras?.containsKey(EXTRA_LARGE_ICON) == true
     }
 
+    private fun toGrayscaleBitmap(bitmap: Bitmap): Bitmap {
+        val w = bitmap.width
+        val h = bitmap.height
+        val grayscale = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(grayscale)
+        val paint = android.graphics.Paint()
+        val colorMatrix = android.graphics.ColorMatrix()
+        colorMatrix.setSaturation(0f)
+        paint.colorFilter = android.graphics.ColorMatrixColorFilter(colorMatrix)
+        canvas.drawBitmap(bitmap, 0f, 0f, paint)
+        return grayscale
+    }
+
+    private fun markSmallIconMonochrome(notification: Notification, packageName: String): Boolean {
+        return runCatching {
+            notification.color = Notification.COLOR_DEFAULT
+            @Suppress("DEPRECATION")
+            notification.largeIcon = null
+            runCatching {
+                val fieldLargeIcon = Notification::class.java.getDeclaredField("mLargeIcon")
+                fieldLargeIcon.isAccessible = true
+                fieldLargeIcon.set(notification, null)
+            }
+            notification.extras?.remove(EXTRA_MIUI_APP_ICON)
+            notification.extras?.remove(EXTRA_MIUI_OP_PKG)
+            notification.extras?.remove(EXTRA_LARGE_ICON)
+            notification.extras?.putBoolean(EXTRA_MIUI_IS_GRAYSCALE_ICON, true)
+
+            // 将目标应用图标转换为灰度 Bitmap 后设置为 mSmallIcon
+            val app = currentApplication()
+            if (app != null) {
+                val pm = app.packageManager
+                val appInfo = pm.getApplicationInfo(packageName, 0)
+                if (appInfo.icon != 0) {
+                    val drawable = appInfo.loadIcon(pm)
+                    val bitmap = ImgUtils.drawableToBitmap(drawable)
+                    val grayscaleBitmap = toGrayscaleBitmap(bitmap)
+                    val fieldSmallIcon = Notification::class.java.getDeclaredField("mSmallIcon")
+                    fieldSmallIcon.isAccessible = true
+                    fieldSmallIcon.set(notification, Icon.createWithBitmap(grayscaleBitmap))
+                    XLog.d(TAG, "Set mSmallIcon to grayscale bitmap for monochrome mode pkg=$packageName")
+                }
+            }
+
+            XLog.d(TAG, "Marked existing smallIcon as grayscale and reset color/largeIcon for colorStatusBarIcon=false")
+            true
+        }.onFailure {
+            XLog.e(TAG, "Failed to mark smallIcon as grayscale", it)
+        }.getOrDefault(false)
+    }
+
     private fun injectAppIcons(packageName: String, notification: Notification) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+        val colorMode = IslandPreferences.current().colorStatusBarIcon
+        XLog.d(TAG, "injectAppIcons pkg=$packageName colorStatusBarIcon=$colorMode")
+        if (!colorMode) {
+            // 单色模式：用目标应用的 icon resource 设置 mSmallIcon，
+            // setCustomizedIcon(false) 让 MIUI 对其做 monochrome 渲染
+            try {
+                val pm = currentApplication()?.packageManager ?: return
+                val appInfo = pm.getApplicationInfo(packageName, 0)
+                if (appInfo.icon != 0) {
+                    val fieldSmallIcon = Notification::class.java.getDeclaredField("mSmallIcon")
+                    fieldSmallIcon.isAccessible = true
+                    fieldSmallIcon.set(notification, Icon.createWithResource(packageName, appInfo.icon))
+                    XLog.d(TAG, "injectAppIcons monochrome: set mSmallIcon resource from $packageName")
+                }
+            } catch (e: Exception) {
+                XLog.e(TAG, "injectAppIcons monochrome: failed", e)
+            }
+            return
+        }
         try {
             val pm = currentApplication()?.packageManager ?: return
             val appInfo = pm.getApplicationInfo(packageName, 0)
@@ -253,8 +325,9 @@ object SystemNotificationManager {
             if (extraNotification != null) {
                 val methodSetCustomizedIcon = extraNotification.javaClass.getDeclaredMethod("setCustomizedIcon", Boolean::class.javaPrimitiveType)
                 methodSetCustomizedIcon.isAccessible = true
-                methodSetCustomizedIcon.invoke(extraNotification, true)
-                XLog.d(TAG, "Successfully set miui customized icon")
+                val colorStatusBarIcon = IslandPreferences.current().colorStatusBarIcon
+                methodSetCustomizedIcon.invoke(extraNotification, colorStatusBarIcon)
+                XLog.d(TAG, "Successfully set miui customized icon=$colorStatusBarIcon")
 
                 try {
                     val methodSetTargetPkg = extraNotification.javaClass.getDeclaredMethod("setTargetPkg", CharSequence::class.java)
@@ -462,7 +535,7 @@ object SystemNotificationManager {
             createGroupsLocally(groups)
         }) {
             groups.forEach {
-                it.setField("mName", "Mi Push", String::class.java)
+                io.github.magisk317.xposed.setHookObjectField(it, "mName", "Mi Push")
 
                 // 无法 hook
                 // void createNotificationChannelGroup(String pkg, int uid, NotificationChannelGroup group, boolean fromApp, boolean fromListener)

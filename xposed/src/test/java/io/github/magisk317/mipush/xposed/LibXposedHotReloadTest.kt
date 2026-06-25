@@ -2,6 +2,9 @@ package io.github.magisk317.mipush.xposed
 
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
+import io.github.magisk317.xposed.LibXposedHookApi
+import io.github.magisk317.xposed.MethodHook
+import io.github.magisk317.xposed.XposedRuntime
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -16,15 +19,15 @@ import java.lang.reflect.Proxy
 class LibXposedHotReloadTest {
 
     private lateinit var module: TestModule
-    private lateinit var api: LibXposedHookApiImpl
+    private lateinit var api: LibXposedHookApi
     private lateinit var framework: RecordingFramework
 
     @BeforeEach
     fun setup() {
         framework = RecordingFramework()
         module = testModule(framework)
-        XposedRuntime.install(module, 102)
-        api = XposedRuntime.hookApi as LibXposedHookApiImpl
+        XposedRuntime.install(module, "mipush")
+        api = XposedRuntime.hookApi!!
     }
 
     @AfterEach

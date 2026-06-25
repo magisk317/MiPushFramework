@@ -4,8 +4,8 @@ import android.app.Application
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
-import io.github.magisk317.mipush.xposed.LoadParam
-import io.github.magisk317.mipush.xposed.hookMethod
+import io.github.magisk317.xposed.LoadParam
+import io.github.magisk317.xposed.hookMethod
 
 class PinDuoDuo : Common() {
     companion object {

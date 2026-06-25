@@ -1,11 +1,11 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
 import android.app.Application
-import io.github.magisk317.mipush.xposed.LoadParam
+import io.github.magisk317.xposed.LoadParam
 import io.github.magisk317.mipush.hook.XLog
-import io.github.magisk317.mipush.xposed.findClass
-import io.github.magisk317.mipush.xposed.hook
-import io.github.magisk317.mipush.xposed.hookMethod
+import io.github.magisk317.xposed.findClass
+import io.github.magisk317.xposed.hook
+import io.github.magisk317.xposed.hookMethod
 import java.lang.reflect.Method
 import java.util.Collections
 

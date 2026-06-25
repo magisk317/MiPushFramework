@@ -3,11 +3,11 @@ package io.github.magisk317.mipush.hook.system
 import android.content.pm.ShortcutInfo
 import android.os.Binder
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
-import io.github.magisk317.mipush.xposed.HookCallback
-import io.github.magisk317.mipush.xposed.MethodHookParam
-import io.github.magisk317.mipush.xposed.currentApplication
-import io.github.magisk317.mipush.xposed.findMethodExact
-import io.github.magisk317.mipush.xposed.hook
+import io.github.magisk317.xposed.HookCallback
+import io.github.magisk317.xposed.MethodHookParam
+import io.github.magisk317.xposed.currentApplication
+import io.github.magisk317.xposed.findMethodExact
+import io.github.magisk317.xposed.hook
 
 object ShortcutPermissionHooker {
     @Volatile private var xmsfUid = -1

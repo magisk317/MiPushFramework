@@ -2,8 +2,8 @@ package io.github.magisk317.mipush.hook.island
 
 import android.app.Application
 import io.github.magisk317.mipush.hook.XLog
-import io.github.magisk317.mipush.xposed.currentApplication
-import io.github.magisk317.mipush.xposed.hookMethod
+import io.github.magisk317.xposed.currentApplication
+import io.github.magisk317.xposed.hookMethod
 
 class IslandDispatcherHook {
     fun hook() {

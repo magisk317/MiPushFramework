@@ -139,6 +139,7 @@ android {
 
 dependencies {
     implementation(project(":common"))
+    api(project(":magisk-xposed-kit"))
     compileOnly(libs.libxposed.api)
     implementation(libs.hyperisland.kit) {
         exclude(group = "androidx.appcompat", module = "appcompat")
@@ -150,6 +151,8 @@ dependencies {
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.robolectric)
     testImplementation(libs.robolectric.junit5.extension)
+    testImplementation(libs.mockk)
+    testImplementation("net.jqwik:jqwik:1.9.2")
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 

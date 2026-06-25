@@ -5,17 +5,17 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import io.github.magisk317.mipush.xposed.LoadParam
+import io.github.magisk317.xposed.LoadParam
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.fakedevice.compat.ModuleCompatProfile
 import io.github.magisk317.mipush.hook.fakedevice.compat.ModuleCredentialResolver
 import io.github.magisk317.mipush.hook.fakedevice.compat.ModuleCompatRegistry
 import io.github.magisk317.mipush.hook.fakedevice.compat.ModuleProcessPolicy
-import io.github.magisk317.mipush.xposed.callStaticMethod
-import io.github.magisk317.mipush.xposed.currentApplication
-import io.github.magisk317.mipush.xposed.findClass
-import io.github.magisk317.mipush.xposed.hookAllMethods
-import io.github.magisk317.mipush.xposed.hookMethod
+import io.github.magisk317.xposed.callStaticMethod
+import io.github.magisk317.xposed.currentApplication
+import io.github.magisk317.xposed.findClass
+import io.github.magisk317.xposed.hookAllMethods
+import io.github.magisk317.xposed.hookMethod
 import java.util.Collections
 
 object ForceMiPushRegister {

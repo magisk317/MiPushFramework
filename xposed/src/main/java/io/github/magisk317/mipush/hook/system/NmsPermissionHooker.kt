@@ -9,14 +9,14 @@ import android.os.Process
 import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.hook.XLog
-import io.github.magisk317.mipush.xposed.HookCallback
-import io.github.magisk317.mipush.xposed.HookContext
-import io.github.magisk317.mipush.xposed.MethodHookParam
-import io.github.magisk317.mipush.xposed.currentApplication
-import io.github.magisk317.mipush.xposed.findClass
-import io.github.magisk317.mipush.xposed.findMethodExact
-import io.github.magisk317.mipush.xposed.hook
-import io.github.magisk317.mipush.xposed.hookMethod
+import io.github.magisk317.xposed.HookCallback
+import io.github.magisk317.xposed.HookContext
+import io.github.magisk317.xposed.MethodHookParam
+import io.github.magisk317.xposed.currentApplication
+import io.github.magisk317.xposed.findClass
+import io.github.magisk317.xposed.findMethodExact
+import io.github.magisk317.xposed.hook
+import io.github.magisk317.xposed.hookMethod
 
 object NmsPermissionHooker {
     private const val TAG = "NmsPermissionHooker"

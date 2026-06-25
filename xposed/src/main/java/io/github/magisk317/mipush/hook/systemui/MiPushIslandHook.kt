@@ -1,4 +1,6 @@
 package io.github.magisk317.mipush.hook.systemui
+import io.github.magisk317.xposed.BaseHook
+import io.github.magisk317.xposed.LoadParam
 
 import android.app.Notification
 import android.content.Context
@@ -14,12 +16,13 @@ import io.github.magisk317.mipush.hook.island.IslandDispatcher
 import io.github.magisk317.mipush.hook.island.IslandDispatcherHook
 import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.mipush.hook.island.IslandRequest
-import io.github.magisk317.mipush.xposed.currentApplication
-import io.github.magisk317.mipush.xposed.findClass
-import io.github.magisk317.mipush.xposed.hookMethod
+import io.github.magisk317.xposed.currentApplication
+import io.github.magisk317.xposed.findClass
+import io.github.magisk317.xposed.hookMethod
 
-class MiPushIslandHook {
-    fun hook(classLoader: ClassLoader) {
+class MiPushIslandHook : BaseHook() {
+    override fun onLoadPackage(param: LoadParam) {
+        val classLoader = param.classLoader
         XLog.i(TAG, "install systemui island hook implementation=focus-extras-first")
         IslandPreferences.startRefreshLoop()
         IslandDispatcherHook().hook()
