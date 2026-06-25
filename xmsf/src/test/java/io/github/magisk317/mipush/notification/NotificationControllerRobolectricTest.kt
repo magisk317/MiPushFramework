@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
@@ -14,8 +15,12 @@ import androidx.core.app.NotificationCompat
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import io.github.magisk317.mipush.common.NotificationStyle
 import io.github.magisk317.mipush.common.utils.CustomConfiguration
+import io.github.magisk317.mipush.data.PreferenceRepository
+import io.github.magisk317.mipush.data.dataStore
 import io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
+import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry
+import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -50,6 +55,10 @@ class NotificationControllerRobolectricTest {
         notificationManager.cancelAll()
         notificationManager.deleteNotificationChannel("target-default-implicit")
         notificationManager.deleteNotificationChannel("target-explicit")
+        runBlocking {
+            PreferenceRepository(RuntimeEnvironment.getApplication().dataStore)
+                .setColorStatusBarIcon(true)
+        }
         shadowOf(RuntimeEnvironment.getApplication()).clearBroadcastIntents()
     }
 
@@ -178,6 +187,30 @@ class NotificationControllerRobolectricTest {
     }
 
     @Test
+    fun `generated island payload respects hidden notification setting`() {
+        val context = RuntimeEnvironment.getApplication()
+        val metaInfo = PushMetaInfo().apply {
+            title = "Replay title"
+            description = "Replay body"
+        }
+
+        val focusBundle = MiPushIslandPayloadBuilder.build(
+            context = context,
+            metaInfo = metaInfo,
+            packageName = context.packageName,
+            largeIcon = null,
+            keepNotificationVisible = false,
+            options = MiPushIslandOptions(showNotification = false),
+        )
+
+        assertNotNull(focusBundle)
+        val focusParam = JSONObject(focusBundle!!.getString("miui.focus.param")!!)
+        val paramV2 = focusParam.optJSONObject("param_v2") ?: focusParam
+        assertFalse(paramV2.optBoolean("isShowNotification", false))
+        assertFalse(paramV2.optBoolean("showNotification", false))
+    }
+
+    @Test
     fun `general island payload uses icon text template to keep icon leading`() {
         val context = RuntimeEnvironment.getApplication()
         val metaInfo = PushMetaInfo().apply {
@@ -295,9 +328,12 @@ class NotificationControllerRobolectricTest {
     }
 
     @Test
-    fun `plain mock notification does not opt into island proxy`() {
+    fun `plain mock notification uses target icon semantics without island proxy`() {
         val context = RuntimeEnvironment.getApplication()
         val packageName = context.packageName
+        runBlocking {
+            PreferenceRepository(context.dataStore).setColorStatusBarIcon(false)
+        }
 
         NotificationController.testMock(context, MockNotificationKind.PLAIN, packageName)
 
@@ -307,6 +343,9 @@ class NotificationControllerRobolectricTest {
         assertNull(posted.extras.getBundle("miui.focus.pics"))
         assertFalse(posted.extras.getBoolean("mipush_island_allow_proxy", false))
         assertEquals(packageName, posted.extras.getString("target_package"))
+        assertFalse(posted.extras.containsKey("miui.isGrayscaleIcon"))
+        assertEquals(Icon.TYPE_BITMAP, posted.smallIcon.type)
+        assertEquals(Notification.COLOR_DEFAULT, posted.color)
         assertTrue(shadowOf(posted.contentIntent).isActivity)
         assertEquals(
             EVENTS_ROUTE,
@@ -459,6 +498,234 @@ class NotificationControllerRobolectricTest {
         assertNull(posted.extras.getString("miui.focus.pic_mipush_icon"))
         assertFalse(posted.extras.getBoolean("mipush_island_allow_proxy", false))
         assertNull(posted.extras.getBundle("miui.focus.pics"))
+    }
+
+    @Test
+    fun `mock replay notification posts as visible standalone group summary`() {
+        val context = RuntimeEnvironment.getApplication()
+        val packageName = context.packageName
+        val notificationId = 32021
+        val metaInfo = PushMetaInfo().apply {
+            title = "Replay title"
+            description = "Replay body"
+            extra = mutableMapOf(MockMessageRegistry.EXTRA_MOCK_REPLAY to "true")
+        }
+        val builder = NotificationCompat.Builder(context, "placeholder")
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(metaInfo.title)
+            .setContentText(metaInfo.description)
+
+        NotificationManagerEx.init(context)
+        NotificationController.publish(context, metaInfo, notificationId, packageName, builder)
+
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val posted = notificationManager.activeNotifications
+            .first { it.id == notificationId }
+            .notification
+
+        assertEquals(Notification.CATEGORY_ALARM, posted.category)
+        assertEquals(NotificationCompat.PRIORITY_MAX, posted.priorityForTest())
+        assertEquals("$packageName#mipush_mock_replay#$notificationId", posted.group)
+        assertEquals(Notification.GROUP_ALERT_ALL, posted.groupAlertBehavior)
+        assertTrue(posted.flags and Notification.FLAG_GROUP_SUMMARY != 0)
+        assertFalse(posted.flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
+    }
+
+    @Test
+    fun `mock replay hidden island posts local visible receipt without target package extras`() {
+        val context = RuntimeEnvironment.getApplication()
+        val packageName = context.packageName
+        val sourceColor = Color.rgb(0x33, 0x70, 0xff)
+        val source = NotificationCompat.Builder(context, "placeholder")
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("Replay title")
+            .setContentText("Replay body")
+            .setColor(sourceColor)
+            .build()
+
+        assertTrue(
+            NotificationController.shouldPostMockReplayVisibleReceipt(
+                isMockReplay = true,
+                options = MiPushIslandOptions(
+                    showNotification = false,
+                    showOriginalNotification = true,
+                ),
+            )
+        )
+        assertFalse(
+            NotificationController.shouldPostMockReplayVisibleReceipt(
+                isMockReplay = true,
+                options = MiPushIslandOptions(
+                    showNotification = false,
+                    showOriginalNotification = false,
+                ),
+            )
+        )
+        assertFalse(
+            NotificationController.shouldPostMockReplayVisibleReceipt(
+                isMockReplay = true,
+                options = MiPushIslandOptions(showNotification = true),
+            )
+        )
+
+        val posted = NotificationController.postMockReplayVisibleReceipt(
+            context = context,
+            packageName = packageName,
+            notificationId = 32022,
+            source = source,
+            colorStatusBarIcon = false,
+        )
+
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val receipt = notificationManager.activeNotifications
+            .single {
+                it.tag == "mipush_mock_replay_receipt:$packageName" &&
+                    it.id == NotificationController.mockReplayReceiptNotificationId(packageName)
+            }
+            .notification
+
+        assertTrue(posted)
+        assertEquals(Icon.TYPE_BITMAP, receipt.smallIcon.type)
+        assertEquals(Notification.COLOR_DEFAULT, receipt.color)
+        assertEquals(Notification.CATEGORY_MESSAGE, receipt.category)
+        assertEquals(NotificationCompat.PRIORITY_HIGH, receipt.priorityForTest())
+        assertEquals("Replay title", receipt.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
+        assertEquals("Replay body", receipt.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
+        assertTrue(receipt.extras.getBoolean("mipush_mock_replay_receipt", false))
+        assertEquals(packageName, receipt.extras.getString("mipush_mock_replay_source_package"))
+        assertNull(receipt.extras.getString("target_package"))
+        assertNull(receipt.extras.getString("miui.focus.param"))
+        assertFalse(receipt.extras.getBoolean("mipush_island_allow_proxy", false))
+    }
+
+    @Test
+    fun `mock replay local receipt uses target app icon color when enabled`() {
+        val context = RuntimeEnvironment.getApplication()
+        val packageName = context.packageName
+        val sourceColor = Color.rgb(0x33, 0x70, 0xff)
+        val expectedColor = NotificationController.getIconColor(context, packageName)
+        val source = NotificationCompat.Builder(context, "placeholder")
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("Replay title")
+            .setContentText("Replay body")
+            .setColor(sourceColor)
+            .build()
+
+        val posted = NotificationController.postMockReplayVisibleReceipt(
+            context = context,
+            packageName = packageName,
+            notificationId = 32023,
+            source = source,
+            colorStatusBarIcon = true,
+        )
+
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val receipt = notificationManager.activeNotifications
+            .single {
+                it.tag == "mipush_mock_replay_receipt:$packageName" &&
+                    it.id == NotificationController.mockReplayReceiptNotificationId(packageName)
+            }
+            .notification
+
+        assertTrue(posted)
+        assertEquals(Icon.TYPE_BITMAP, receipt.smallIcon.type)
+        assertEquals(expectedColor, receipt.color)
+    }
+
+    @Test
+    fun `disabled color status bar icon uses monochrome resource and default color`() {
+        val context = RuntimeEnvironment.getApplication()
+        val builder = NotificationCompat.Builder(context, "placeholder")
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setColor(Color.rgb(0x33, 0x70, 0xff))
+
+        val color = NotificationController.applyStatusBarIcon(
+            context = context,
+            packageName = context.packageName,
+            notificationBuilder = builder,
+            colorStatusBarIcon = false,
+        )
+        val notification = builder.build()
+
+        assertEquals(Notification.COLOR_DEFAULT, color)
+        assertEquals(Notification.COLOR_DEFAULT, notification.color)
+        assertEquals(Icon.TYPE_RESOURCE, notification.smallIcon.type)
+    }
+
+    @Test
+    fun `real publish monochrome path does not mark grayscale extra`() {
+        val context = RuntimeEnvironment.getApplication()
+        val packageName = context.packageName
+        val notificationId = 32025
+        val metaInfo = PushMetaInfo().apply {
+            title = "Real title"
+            description = "Real body"
+        }
+        val builder = NotificationCompat.Builder(context, "placeholder")
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(metaInfo.title)
+            .setContentText(metaInfo.description)
+
+        runBlocking {
+            PreferenceRepository(context.dataStore).setColorStatusBarIcon(false)
+        }
+        NotificationManagerEx.init(context)
+        NotificationController.publish(context, metaInfo, notificationId, packageName, builder)
+
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val posted = notificationManager.activeNotifications
+            .first { it.id == notificationId }
+            .notification
+
+        assertFalse(posted.extras.containsKey("miui.isGrayscaleIcon"))
+        assertEquals(packageName, posted.extras.getString("target_package"))
+    }
+
+    @Test
+    fun `mock replay monochrome path uses target icon and skips payload large icon`() {
+        val context = RuntimeEnvironment.getApplication()
+        val packageName = context.packageName
+        val notificationId = 32024
+        val metaInfo = PushMetaInfo().apply {
+            title = "Replay title"
+            description = "Replay body"
+            extra = mutableMapOf(
+                MockMessageRegistry.EXTRA_MOCK_REPLAY to "true",
+                "notification_large_icon_uri" to writeLargeIconForTest(context),
+            )
+        }
+        val builder = NotificationCompat.Builder(context, "placeholder")
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(metaInfo.title)
+            .setContentText(metaInfo.description)
+
+        assertFalse(
+            NotificationController.shouldAttachPayloadLargeIcon(
+                isMockReplay = true,
+                colorStatusBarIcon = false,
+            )
+        )
+        assertTrue(
+            NotificationController.shouldAttachPayloadLargeIcon(
+                isMockReplay = true,
+                colorStatusBarIcon = true,
+            )
+        )
+
+        runBlocking {
+            PreferenceRepository(context.dataStore).setColorStatusBarIcon(false)
+        }
+        NotificationManagerEx.init(context)
+        NotificationController.publish(context, metaInfo, notificationId, packageName, builder)
+
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val posted = notificationManager.activeNotifications
+            .first { it.id == notificationId }
+            .notification
+
+        assertNull(posted.extras.parcelable<Icon>(EXTRA_LARGE_ICON))
+        assertFalse(posted.extras.containsKey("miui.isGrayscaleIcon"))
+        assertEquals(Icon.TYPE_BITMAP, posted.smallIcon.type)
     }
 
     @Test
@@ -638,6 +905,9 @@ class NotificationControllerRobolectricTest {
             getParcelable(key)
         }
     }
+
+    @Suppress("DEPRECATION")
+    private fun Notification.priorityForTest(): Int = priority
 
     private fun assertFocusSequenceEnabled(focusParam: String) {
         val paramV2 = JSONObject(focusParam).getJSONObject("param_v2")

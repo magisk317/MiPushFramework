@@ -24,6 +24,8 @@ import java.util.Collections
 object NotificationManagerEx {
     private const val TAG = "NotificationManagerEx"
     private const val MODERN_IDENTITY_FIRST_SDK = Build.VERSION_CODES.Q
+    private const val EXTRA_XMSF_TARGET_PACKAGE = "xmsf_target_package"
+    private const val EXTRA_MIUI_TARGET_PACKAGE = "miui.targetPkg"
     @JvmField
     val HOOK_API_VERSION = 2
     private val diagnosticsLogged = Collections.synchronizedSet(mutableSetOf<String>())
@@ -123,8 +125,8 @@ object NotificationManagerEx {
         }
         runCatching {
             if (notification.extras != null) {
-                notification.extras.putString("xmsf_target_package", packageName)
-                notification.extras.putString("miui.targetPkg", packageName)
+                notification.extras.putString(EXTRA_XMSF_TARGET_PACKAGE, packageName)
+                notification.extras.putString(EXTRA_MIUI_TARGET_PACKAGE, packageName)
             }
             if (!MIUIUtils.isXMS() && MIUIUtils.isXMSF(appContext)) {
                 NotificationUtils.setTargetPackage(notification, packageName)

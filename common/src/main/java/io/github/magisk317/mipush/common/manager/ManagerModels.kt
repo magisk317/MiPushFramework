@@ -46,6 +46,7 @@ data class ManagerApplicationDiagnostics(
 
 object ManagerEventType {
     const val SEND_MESSAGE = 0
+    const val NOTIFICATION = 9
     const val REGISTRATION = 2
     const val UN_REGISTRATION = 20
     const val REGISTRATION_RESULT = 21

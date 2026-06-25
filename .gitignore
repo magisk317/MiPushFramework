@@ -48,3 +48,7 @@ org.eclipse.buildship.core.prefs
 # Local build artifacts
 build-artifacts/
 /build-artifacts/
+
+# Test convenience scripts and caches
+run_test.sh
+.jqwik-database

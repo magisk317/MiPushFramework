@@ -476,7 +476,7 @@ private fun EventInfoForDisplay.matchesFilters(
 ): Boolean {
     val matchesType = selectedTypeFilters.isEmpty() || selectedTypeFilters.any { filter ->
         when (filter) {
-            EventTypeFilter.Notification -> event.type == ManagerEventType.SEND_MESSAGE && !isPassThroughMessage()
+            EventTypeFilter.Notification -> event.canReplayNotification() && !isPassThroughMessage()
             EventTypeFilter.PassThrough -> event.type == ManagerEventType.SEND_MESSAGE && isPassThroughMessage()
             EventTypeFilter.Registration -> event.type in setOf(
                 ManagerEventType.REGISTRATION,
@@ -485,6 +485,7 @@ private fun EventInfoForDisplay.matchesFilters(
             )
             EventTypeFilter.Other -> event.type !in setOf(
                 ManagerEventType.SEND_MESSAGE,
+                ManagerEventType.NOTIFICATION,
                 ManagerEventType.REGISTRATION,
                 ManagerEventType.REGISTRATION_RESULT,
                 ManagerEventType.UN_REGISTRATION,
@@ -503,6 +504,10 @@ private fun EventInfoForDisplay.matchesFilters(
 
 private fun <T> Set<T>.toggle(value: T): Set<T> {
     return if (contains(value)) this - value else this + value
+}
+
+private fun ManagerEvent.canReplayNotification(): Boolean {
+    return type == ManagerEventType.SEND_MESSAGE || type == ManagerEventType.NOTIFICATION
 }
 
 private fun EventInfoForDisplay.isPassThroughMessage(): Boolean {
@@ -693,6 +698,7 @@ private fun EventDetailsDialog(
         )
     }
     val context = LocalContext.current
+    val canReplayNotification = clickedEvent.event.canReplayNotification()
 
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
     val targetHeight = screenHeight * 0.9f
@@ -701,28 +707,34 @@ private fun EventDetailsDialog(
         onDismiss,
         {
             DialogActionRow(
-                actions = listOf(
-                    DialogAction(
-                        label = stringResource(android.R.string.copy),
-                        onClick = { viewModel.copyToClipboard(json) }
-                    ),
-                    DialogAction(
-                        label = stringResource(R.string.action_notify),
-                        onClick = {
-                            if (!viewModel.mockMessage(clickedEvent.event)) {
-                                Napier.w(
-                                    "Cannot replay event id=${clickedEvent.id} pkg=${clickedEvent.packageName}: container unavailable",
-                                    tag = "EventListPage",
-                                )
-                                Utils.makeText(
-                                    context,
-                                    context.getString(R.string.mock_notification_failed),
-                                    0,
-                                )
-                            }
-                        }
-                    ),
-                )
+                actions = buildList {
+                    add(
+                        DialogAction(
+                            label = stringResource(android.R.string.copy),
+                            onClick = { viewModel.copyToClipboard(json) }
+                        )
+                    )
+                    if (canReplayNotification) {
+                        add(
+                            DialogAction(
+                                label = stringResource(R.string.action_notify),
+                                onClick = {
+                                    if (!viewModel.mockMessage(clickedEvent.event)) {
+                                        Napier.w(
+                                            "Cannot replay event id=${clickedEvent.id} pkg=${clickedEvent.packageName}: container unavailable",
+                                            tag = "EventListPage",
+                                        )
+                                        Utils.makeText(
+                                            context,
+                                            context.getString(R.string.mock_notification_failed),
+                                            0,
+                                        )
+                                    }
+                                }
+                            )
+                        )
+                    }
+                }
             )
         },
         title = {

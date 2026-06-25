@@ -13,6 +13,7 @@ import android.widget.ImageView
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.island.IslandDispatchContract
+import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.xposed.callMethod
 import io.github.magisk317.xposed.findClass
 import io.github.magisk317.xposed.hookMethod
@@ -55,12 +56,30 @@ class MiuiHeaderAppIconHook {
         val extras = notification.extras ?: return
         val targetPackage = resolveTargetPackage(extras) ?: return
         val userId = resolveUserId(expandedNotification)
-        val drawable = resolveLargeIconDrawable(context, notification, extras)
-        if (!MiuiHeaderAppIconPolicy.shouldReplace(userId, targetPackage, drawable != null)) return
+        val isMockReplayReceipt = extras.getBoolean(EXTRA_MOCK_REPLAY_RECEIPT, false)
+        val colorStatusBarIcon = IslandPreferences.current().colorStatusBarIcon
+        val drawable = resolveReplacementDrawable(
+            context = context,
+            notification = notification,
+            extras = extras,
+            targetPackage = targetPackage,
+            isMockReplayReceipt = isMockReplayReceipt,
+            colorStatusBarIcon = colorStatusBarIcon,
+        )
+        if (
+            !MiuiHeaderAppIconPolicy.shouldReplace(
+                userId = userId,
+                targetPackage = targetPackage,
+                hasReplacementIcon = drawable != null,
+                isMockReplayReceipt = isMockReplayReceipt,
+            )
+        ) {
+            return
+        }
 
         imageView.setImageDrawable(drawable)
         imageView.invalidate()
-        logReplacement(targetPackage, userId)
+        logReplacement(targetPackage, userId, isMockReplayReceipt, colorStatusBarIcon)
     }
 
     private fun resolveTargetPackage(extras: Bundle): String? {
@@ -68,6 +87,7 @@ class MiuiHeaderAppIconHook {
             extras.getString("target_package"),
             extras.getString("miui.targetPkg"),
             extras.getString("xmsf_target_package"),
+            extras.getString(EXTRA_MOCK_REPLAY_SOURCE_PACKAGE),
             extras.getString(IslandDispatchContract.SOURCE_PACKAGE),
         ).firstOrNull { !it.isNullOrBlank() }
     }
@@ -78,6 +98,31 @@ class MiuiHeaderAppIconHook {
         }.getOrNull() ?: return null
         return runCatching {
             user.callMethod("getIdentifier") as? Int
+        }.getOrNull()
+    }
+
+    private fun resolveReplacementDrawable(
+        context: Context,
+        notification: Notification,
+        extras: Bundle,
+        targetPackage: String,
+        isMockReplayReceipt: Boolean,
+        colorStatusBarIcon: Boolean,
+    ): Drawable? {
+        if (isMockReplayReceipt) {
+            if (!colorStatusBarIcon) {
+                return runCatching { notification.smallIcon?.loadDrawable(context) }.getOrNull()
+            }
+            resolveTargetAppIconDrawable(context, targetPackage)?.let { return it }
+        }
+        return resolveLargeIconDrawable(context, notification, extras)
+    }
+
+    private fun resolveTargetAppIconDrawable(context: Context, packageName: String): Drawable? {
+        return runCatching {
+            context.packageManager.getApplicationIcon(packageName)
+        }.onFailure {
+            XLog.e(TAG, "failed to resolve target app icon pkg=$packageName", it)
         }.getOrNull()
     }
 
@@ -104,14 +149,26 @@ class MiuiHeaderAppIconHook {
         }
     }
 
-    private fun logReplacement(targetPackage: String, userId: Int?) {
-        if (!loggedPackages.add("$targetPackage#${userId ?: -1}")) return
-        XLog.i(TAG, "replaced MIUI header app icon for XSpace MiPush notification pkg=$targetPackage userId=${userId ?: -1}")
+    private fun logReplacement(
+        targetPackage: String,
+        userId: Int?,
+        isMockReplayReceipt: Boolean,
+        colorStatusBarIcon: Boolean,
+    ) {
+        val mode = if (isMockReplayReceipt) {
+            "mock-replay:${if (colorStatusBarIcon) "color" else "monochrome"}"
+        } else {
+            "xspace"
+        }
+        if (!loggedPackages.add("$mode#$targetPackage#${userId ?: -1}")) return
+        XLog.i(TAG, "replaced MIUI header app icon mode=$mode pkg=$targetPackage userId=${userId ?: -1}")
     }
 
     private companion object {
         private const val TAG = "MiuiHeaderAppIconHook"
         private const val EXTRA_LARGE_ICON = "android.largeIcon"
+        private const val EXTRA_MOCK_REPLAY_RECEIPT = "mipush_mock_replay_receipt"
+        private const val EXTRA_MOCK_REPLAY_SOURCE_PACKAGE = "mipush_mock_replay_source_package"
         private val loggedPackages: MutableSet<String> = Collections.synchronizedSet(HashSet())
     }
 }
@@ -119,10 +176,16 @@ class MiuiHeaderAppIconHook {
 internal object MiuiHeaderAppIconPolicy {
     private const val XSPACE_USER_ID = 999
 
-    fun shouldReplace(userId: Int?, targetPackage: String?, hasLargeIcon: Boolean): Boolean {
-        if (userId != XSPACE_USER_ID) return false
+    fun shouldReplace(
+        userId: Int?,
+        targetPackage: String?,
+        hasReplacementIcon: Boolean,
+        isMockReplayReceipt: Boolean = false,
+    ): Boolean {
         if (targetPackage.isNullOrBlank()) return false
         if (targetPackage == XMSF_PACKAGE_NAME) return false
-        return hasLargeIcon
+        if (!hasReplacementIcon) return false
+        if (isMockReplayReceipt) return true
+        return userId == XSPACE_USER_ID
     }
 }

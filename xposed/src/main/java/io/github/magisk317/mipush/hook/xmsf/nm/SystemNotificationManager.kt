@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.drawable.Icon
 import android.os.Build
+import android.os.Bundle
 import android.os.UserHandle
 import android.service.notification.StatusBarNotification
 import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
@@ -28,7 +29,6 @@ object SystemNotificationManager {
     private const val EXTRA_LARGE_ICON = "android.largeIcon"
     private const val EXTRA_MIUI_APP_ICON = "miui.appIcon"
     private const val EXTRA_MIUI_OP_PKG = "miui.opPkg"
-    private const val EXTRA_MIUI_IS_GRAYSCALE_ICON = "miui.isGrayscaleIcon"
     private val missingPackageWarnings = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
 
     private sealed class UidResolution {
@@ -163,55 +163,26 @@ object SystemNotificationManager {
         return notification.extras?.containsKey(EXTRA_LARGE_ICON) == true
     }
 
-    private fun toGrayscaleBitmap(bitmap: Bitmap): Bitmap {
-        val w = bitmap.width
-        val h = bitmap.height
-        val grayscale = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-        val canvas = android.graphics.Canvas(grayscale)
-        val paint = android.graphics.Paint()
-        val colorMatrix = android.graphics.ColorMatrix()
-        colorMatrix.setSaturation(0f)
-        paint.colorFilter = android.graphics.ColorMatrixColorFilter(colorMatrix)
-        canvas.drawBitmap(bitmap, 0f, 0f, paint)
-        return grayscale
+    private fun ensureExtras(notification: Notification): Bundle? {
+        notification.extras?.let { return it }
+        return runCatching {
+            val extras = Bundle()
+            val field = Notification::class.java.getDeclaredField("extras")
+            field.isAccessible = true
+            field.set(notification, extras)
+            extras
+        }.onFailure {
+            XLog.e(TAG, "Failed to create extras bundle", it)
+        }.getOrNull()
     }
 
-    private fun markSmallIconMonochrome(notification: Notification, packageName: String): Boolean {
-        return runCatching {
-            notification.color = Notification.COLOR_DEFAULT
-            @Suppress("DEPRECATION")
-            notification.largeIcon = null
-            runCatching {
-                val fieldLargeIcon = Notification::class.java.getDeclaredField("mLargeIcon")
-                fieldLargeIcon.isAccessible = true
-                fieldLargeIcon.set(notification, null)
-            }
-            notification.extras?.remove(EXTRA_MIUI_APP_ICON)
-            notification.extras?.remove(EXTRA_MIUI_OP_PKG)
-            notification.extras?.remove(EXTRA_LARGE_ICON)
-            notification.extras?.putBoolean(EXTRA_MIUI_IS_GRAYSCALE_ICON, true)
-
-            // 将目标应用图标转换为灰度 Bitmap 后设置为 mSmallIcon
-            val app = currentApplication()
-            if (app != null) {
-                val pm = app.packageManager
-                val appInfo = pm.getApplicationInfo(packageName, 0)
-                if (appInfo.icon != 0) {
-                    val drawable = appInfo.loadIcon(pm)
-                    val bitmap = ImgUtils.drawableToBitmap(drawable)
-                    val grayscaleBitmap = toGrayscaleBitmap(bitmap)
-                    val fieldSmallIcon = Notification::class.java.getDeclaredField("mSmallIcon")
-                    fieldSmallIcon.isAccessible = true
-                    fieldSmallIcon.set(notification, Icon.createWithBitmap(grayscaleBitmap))
-                    XLog.d(TAG, "Set mSmallIcon to grayscale bitmap for monochrome mode pkg=$packageName")
-                }
-            }
-
-            XLog.d(TAG, "Marked existing smallIcon as grayscale and reset color/largeIcon for colorStatusBarIcon=false")
-            true
-        }.onFailure {
-            XLog.e(TAG, "Failed to mark smallIcon as grayscale", it)
-        }.getOrDefault(false)
+    fun prepareMonochromeTargetNotification(packageName: String, notification: Notification) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+        if (IslandPreferences.current().colorStatusBarIcon) return
+        val extras = notification.extras ?: return
+        extras.remove(EXTRA_MIUI_APP_ICON)
+        extras.remove(EXTRA_MIUI_OP_PKG)
+        XLog.d(TAG, "Prepared notification for default MIUI monochrome target path pkg=$packageName")
     }
 
     private fun injectAppIcons(packageName: String, notification: Notification) {
@@ -219,20 +190,8 @@ object SystemNotificationManager {
         val colorMode = IslandPreferences.current().colorStatusBarIcon
         XLog.d(TAG, "injectAppIcons pkg=$packageName colorStatusBarIcon=$colorMode")
         if (!colorMode) {
-            // 单色模式：用目标应用的 icon resource 设置 mSmallIcon，
-            // setCustomizedIcon(false) 让 MIUI 对其做 monochrome 渲染
-            try {
-                val pm = currentApplication()?.packageManager ?: return
-                val appInfo = pm.getApplicationInfo(packageName, 0)
-                if (appInfo.icon != 0) {
-                    val fieldSmallIcon = Notification::class.java.getDeclaredField("mSmallIcon")
-                    fieldSmallIcon.isAccessible = true
-                    fieldSmallIcon.set(notification, Icon.createWithResource(packageName, appInfo.icon))
-                    XLog.d(TAG, "injectAppIcons monochrome: set mSmallIcon resource from $packageName")
-                }
-            } catch (e: Exception) {
-                XLog.e(TAG, "injectAppIcons monochrome: failed", e)
-            }
+            prepareMonochromeTargetNotification(packageName, notification)
+            XLog.d(TAG, "Keeping original smallIcon for default MIUI monochrome mode pkg=$packageName")
             return
         }
         try {
@@ -309,15 +268,7 @@ object SystemNotificationManager {
         XLog.d(TAG, "notify() pkg=$packageName tag=$tag id=$id channel=${notification.channelId} group=${notification.group}")
 
         runCatching {
-            if (notification.extras == null) {
-                try {
-                    val field = Notification::class.java.getDeclaredField("extras")
-                    field.isAccessible = true
-                    field.set(notification, android.os.Bundle())
-                } catch (e: Exception) {
-                    XLog.e(TAG, "Failed to create extras bundle", e)
-                }
-            }
+            ensureExtras(notification)
 
             val field = notification.javaClass.getDeclaredField("extraNotification")
             field.isAccessible = true

@@ -43,7 +43,7 @@ class MipushManifestContractTest {
     }
 
     @Test
-    fun `libxposed entrypoint and user-selectable system scope remain declared`() {
+    fun `libxposed entrypoint hot reload base and user-selectable system scope remain declared`() {
         assertEquals(
             "io.github.magisk317.mipush.hook.LibXposedEntry",
             resolveProjectFile("xposed/src/main/resources/META-INF/xposed/java_init.list").readText().trim(),
@@ -54,32 +54,38 @@ class MipushManifestContractTest {
         assertTrue("autoHotReload=true" in moduleProps)
         assertFalse(moduleProps.lineSequence().map(String::trim).any { it.startsWith("staticScope=") })
 
+        val baseEntrySource = resolveProjectFile(
+            "magisk-xposed-kit/src/main/java/io/github/magisk317/xposed/BaseLibXposedEntry.kt",
+        ).readText()
+        assertTrue("HotReloadingParam" in baseEntrySource)
+        assertTrue("HotReloadedParam" in baseEntrySource)
+        assertTrue("param.setSavedInstanceState(createHotReloadState())" in baseEntrySource)
+        assertTrue("cleanupForHotReload()" in baseEntrySource)
+        assertTrue("putStringArrayList(STATE_LOADED_PACKAGES" in baseEntrySource)
+        assertTrue("val oldHookHandles = param.oldHookHandles" in baseEntrySource)
+        assertTrue("hookApi.beginHotReload(oldHookHandles)" in baseEntrySource)
+        assertTrue("restoreHotReloadState(param.savedInstanceState, oldHookHandles)" in baseEntrySource)
+        assertTrue("resolveCurrentProcessTargets(param, oldHookHandles)" in baseEntrySource)
+        assertTrue("handle.executable.declaringClass.classLoader" in baseEntrySource)
+        assertTrue("canLoadSystemServerHooks" in baseEntrySource)
+        assertTrue("SYSTEM_SERVER_SENTINEL_CLASSES" in baseEntrySource)
+        assertTrue("hookApi.finishHotReload()" in baseEntrySource)
+        assertTrue("hookApi.abortHotReload()" in baseEntrySource)
+        assertTrue("(loadedApkRef as WeakReference<Any>).get() ?: return@firstNotNullOfOrNull null" in baseEntrySource)
+        assertFalse("setSavedInstanceState(Pair(" in baseEntrySource)
+        assertFalse("HashMap(loadedPackages)" in baseEntrySource)
+        assertFalse("savedInstanceState as? Pair" in baseEntrySource)
+        assertFalse("?.get() ?: loadedApkRef" in baseEntrySource)
+        assertFalse("return resolveContextClassLoader()\n    }\n\n    private fun resolveContextClassLoader" in baseEntrySource)
+
         val entrySource = resolveProjectFile(
             "xposed/src/main/java/io/github/magisk317/mipush/hook/ModuleHooks.kt",
         ).readText()
-        assertTrue("HotReloadingParam" in entrySource)
-        assertTrue("HotReloadedParam" in entrySource)
-        assertTrue("val state = createHotReloadState()" in entrySource)
-        assertTrue("param.setSavedInstanceState(state)" in entrySource)
-        assertTrue("onHotReloading accepted process=" in entrySource)
-        assertTrue("onHotReloaded replay process=" in entrySource)
-        assertTrue("putStringArrayList(STATE_LOADED_PACKAGES" in entrySource)
-        assertTrue("val oldHookHandles = param.oldHookHandles" in entrySource)
-        assertTrue("hookApi.beginHotReload(oldHookHandles)" in entrySource)
-        assertTrue("oldHooks=${'$'}{oldHookHandles.size}" in entrySource)
-        assertTrue("restoreHotReloadState(param.savedInstanceState, oldHookHandles)" in entrySource)
-        assertTrue("resolveCurrentProcessTargets(param, oldHookHandles)" in entrySource)
-        assertTrue("handle.executable.declaringClass.classLoader" in entrySource)
-        assertTrue("canLoadSystemServerHooks" in entrySource)
-        assertTrue("SYSTEM_SERVER_SENTINEL_CLASSES" in entrySource)
-        assertTrue("hookApi.finishHotReload()" in entrySource)
-        assertTrue("hookApi.abortHotReload()" in entrySource)
-        assertTrue("loadedApkRef.get() ?: return@firstNotNullOfOrNull null" in entrySource)
-        assertFalse("setSavedInstanceState(Pair(" in entrySource)
-        assertFalse("HashMap(loadedPackages)" in entrySource)
-        assertFalse("savedInstanceState as? Pair" in entrySource)
-        assertFalse("?.get() ?: loadedApkRef" in entrySource)
-        assertFalse("return resolveContextClassLoader()\n    }\n\n    private fun resolveContextClassLoader" in entrySource)
+        assertTrue("override fun resolveCurrentProcessTargets(param: ModuleLoadedParam)" in entrySource)
+        assertTrue("resolveLoadedPackageClassLoader(\"com.android.systemui\")" in entrySource)
+        assertTrue("resolveLoadedPackageClassLoader(XMSF_PACKAGE_NAME)" in entrySource)
+        assertTrue("resolveLoadedPackageClassLoader(DOCUMENTS_UI_PACKAGE_NAME)" in entrySource)
+        assertTrue("resolveLoadedPackageClassLoader(SECURITY_CORE_PACKAGE_NAME)" in entrySource)
 
         val scope = resolveProjectFile("xposed/src/main/resources/META-INF/xposed/scope.list")
             .readLines()
