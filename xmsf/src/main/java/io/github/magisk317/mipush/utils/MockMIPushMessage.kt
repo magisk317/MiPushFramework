@@ -23,8 +23,6 @@ import java.util.concurrent.atomic.AtomicLong
 
 object MockMIPushMessage {
     private val TAG = MockMIPushMessage::class.java.simpleName
-    private const val EXTRA_MOCK_REPLAY = "mipush_mock_replay"
-    private const val EXTRA_MOCK_REPLAY_SOURCE_ID = "mipush_mock_replay_source_id"
     private val replaySequence = AtomicLong()
 
     @JvmStatic
@@ -144,8 +142,8 @@ object MockMIPushMessage {
         metaInfo.id = replayId
         metaInfo.setMessageTs(nowMs)
         metaInfo.putToExtra(PushConstants.EXTRA_JOB_KEY, replayId)
-        metaInfo.putToExtra(EXTRA_MOCK_REPLAY, "true")
-        metaInfo.putToExtra(EXTRA_MOCK_REPLAY_SOURCE_ID, sourceId)
+        metaInfo.putToExtra(MockMessageRegistry.EXTRA_MOCK_REPLAY, "true")
+        metaInfo.putToExtra(MockMessageRegistry.EXTRA_MOCK_REPLAY_SOURCE_ID, sourceId)
         logD("prepared mock replay sourceId=$sourceId replayId=$replayId")
         return container
     }

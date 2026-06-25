@@ -8,6 +8,8 @@ import io.github.magisk317.mipush.common.utils.logW
 
 import android.annotation.TargetApi
 import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -36,6 +38,7 @@ import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.common.NotificationStyle
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
+import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry
 import io.github.magisk317.mipush.utils.Configurations
 import io.github.magisk317.mipush.utils.IconConfigurations
 import io.github.magisk317.mipush.utils.ColorUtil
@@ -54,6 +57,8 @@ object NotificationController {
     private const val ACTION_CANCEL_ISLAND = "io.github.magisk317.mipush.action.CANCEL_ISLAND"
     private const val EXTRA_ALLOW_ISLAND_PROXY = "mipush_island_allow_proxy"
     private const val EXTRA_NOTIFICATION_ID = "notification_id"
+    private const val MOCK_REPLAY_RECEIPT_CHANNEL_ID = "mipush_mock_replay_receipt"
+    private const val MOCK_REPLAY_RECEIPT_TAG_PREFIX = "mipush_mock_replay_receipt:"
     private const val NOTIFICATION_LARGE_ICON = "mipush_notification"
     private const val NOTIFICATION_SMALL_ICON = "mipush_small_notification"
     private const val KIB = 1024
@@ -174,6 +179,8 @@ object NotificationController {
         metaInfo: PushMetaInfo,
         applyPayloadDecorations: Boolean = true,
     ): Notification? {
+        val islandOptions = MiPushIslandPreferences.read(context, packageName)
+        val isMockReplay = metaInfo.isMockReplay()
         val extras = Bundle()
         extras.putString("target_package", packageName)
         extras.putString("miui.targetPkg", packageName)
@@ -181,7 +188,10 @@ object NotificationController {
         val color = processIcon(context, packageName, notificationBuilder)
 
         val configuration = XMPushUtils.getConfiguration(metaInfo)
-        val largeIcon = if (applyPayloadDecorations) {
+        val largeIcon = if (
+            applyPayloadDecorations &&
+            shouldAttachPayloadLargeIcon(isMockReplay, islandOptions.colorStatusBarIcon)
+        ) {
             val iconUri = configuration.notificationLargeIconUri(null)
             getLargeIcon(context, metaInfo, iconUri)
         } else {
@@ -197,7 +207,6 @@ object NotificationController {
         }
 
         val previewNotification = ProgressStyleBuilder.buildNotification(context, notificationBuilder)
-        val islandOptions = MiPushIslandPreferences.read(context, packageName)
         val generatedFocusCandidate = islandOptions.canBuildFocusPayload && !previewNotification.isGroupSummary()
         val rawConfiguredFocusParam = configuration.focusParam(null)
         val preliminaryFocusPlan = FocusSemanticTranslator.plan(
@@ -234,6 +243,7 @@ object NotificationController {
                 largeIcon = largeIcon,
                 notificationId = notificationId,
                 notificationIcon = previewNotification.getLargeIconCompat(),
+                keepNotificationVisible = islandOptions.showNotification,
                 options = islandOptions,
                 liveUpdateResult = preliminaryFocusPlan.semantic?.toDetectionResult()
                     ?: preliminaryFocusPlan.nativeDetection,
@@ -265,6 +275,9 @@ object NotificationController {
             contentIntent = previewNotification.contentIntent,
             notificationKey = NativeNotificationFeatureBuilder.notificationKey(packageName, notificationId, tag),
         )
+        if (isMockReplay) {
+            applyMockReplayVisibility(notificationBuilder, packageName, notificationId)
+        }
 
         if (configuredFocusBundle != null && focusPlan.attachMiuiFocusExtras) {
             notificationBuilder.addExtras(configuredFocusBundle)
@@ -317,7 +330,11 @@ object NotificationController {
                 options = islandOptions,
             )
         ) {
-            quietGeneratedIslandStatusBarNotification(notificationBuilder)
+            if (isMockReplay) {
+                logD("keep mock replay original notification alerting pkg=$packageName id=$notificationId")
+            } else {
+                quietGeneratedIslandStatusBarNotification(notificationBuilder)
+            }
             NativeNotificationFeatureBuilder.buildNotification(
                 context,
                 notificationBuilder,
@@ -349,8 +366,173 @@ object NotificationController {
             NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag)
             return null
         }
+        if (shouldPostMockReplayVisibleReceipt(isMockReplay, islandOptions)) {
+            postMockReplayVisibleReceipt(
+                context,
+                packageName,
+                notificationId,
+                tag,
+                notificationToPost,
+                colorStatusBarIcon = islandOptions.colorStatusBarIcon,
+            )
+        }
         PushRuntime.observeNotificationEvent(packageName, "notification_publish_posted", "NotificationController.publish")
         return notificationToPost
+    }
+
+    private fun PushMetaInfo.isMockReplay(): Boolean {
+        return extra?.get(MockMessageRegistry.EXTRA_MOCK_REPLAY)
+            ?.equals("true", ignoreCase = true) == true
+    }
+
+    private fun applyMockReplayVisibility(
+        notificationBuilder: NotificationCompat.Builder,
+        packageName: String,
+        notificationId: Int,
+    ) {
+        val group = mockReplayGroup(packageName, notificationId)
+        notificationBuilder.setCategory(Notification.CATEGORY_ALARM)
+        notificationBuilder.priority = NotificationCompat.PRIORITY_MAX
+        notificationBuilder.setGroup(group)
+        // MIUI auto-groups target-package child notifications into Aggregate_AlertingSection.
+        // A replay is a single explicit test notification, so make it the visible summary itself.
+        notificationBuilder.setGroupSummary(true)
+        notificationBuilder.setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_ALL)
+        notificationBuilder.setDefaults(Notification.DEFAULT_ALL)
+        notificationBuilder.setOnlyAlertOnce(false)
+        notificationBuilder.setSilent(false)
+        logD(
+            "apply mock replay visibility pkg=$packageName category=alarm priority=max " +
+                "group=$group summary=true"
+        )
+    }
+
+    private fun mockReplayGroup(packageName: String, notificationId: Int): String {
+        return "$packageName#mipush_mock_replay#$notificationId"
+    }
+
+    internal fun shouldPostMockReplayVisibleReceipt(
+        isMockReplay: Boolean,
+        options: MiPushIslandOptions,
+    ): Boolean {
+        return isMockReplay && !options.showNotification && options.showOriginalNotification
+    }
+
+    internal fun shouldAttachPayloadLargeIcon(
+        isMockReplay: Boolean,
+        colorStatusBarIcon: Boolean,
+    ): Boolean {
+        return !isMockReplay || colorStatusBarIcon
+    }
+
+    internal fun mockReplayReceiptNotificationId(packageName: String): Int {
+        return 0x4d520000 xor packageName.hashCode()
+    }
+
+    internal fun postMockReplayVisibleReceipt(
+        context: Context,
+        packageName: String,
+        notificationId: Int,
+        originalTag: String? = null,
+        source: Notification,
+        colorStatusBarIcon: Boolean = MiPushIslandPreferences.read(context).colorStatusBarIcon,
+    ): Boolean {
+        val manager = context.getSystemService(NotificationManager::class.java) ?: return false
+        ensureMockReplayReceiptChannel(context, manager, packageName)
+        val appName = Global.applicationNameCache().getAppName(context, packageName)
+        val title = firstText(
+            source.extras,
+            Notification.EXTRA_TITLE,
+            Notification.EXTRA_TITLE_BIG,
+        ) ?: source.tickerText?.toString()
+            ?: appName
+        val content = firstText(
+            source.extras,
+            Notification.EXTRA_TEXT,
+            Notification.EXTRA_BIG_TEXT,
+            Notification.EXTRA_SUB_TEXT,
+            Notification.EXTRA_INFO_TEXT,
+        ) ?: appName
+        // Use the real notification target-app icon path; the source icon is only a fallback.
+        val sourceSmallIcon = runCatching {
+            val field = Notification::class.java.getDeclaredField("mSmallIcon")
+            field.isAccessible = true
+            field.get(source) as? android.graphics.drawable.Icon
+        }.getOrNull()
+        val builder = NotificationCompat.Builder(context, MOCK_REPLAY_RECEIPT_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notifications_black_24dp)
+            .setContentTitle(title)
+            .setContentText(content)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(content))
+            .setSubText(appName)
+            .setWhen(source.`when`.takeIf { it > 0L } ?: System.currentTimeMillis())
+            .setShowWhen(true)
+            .setAutoCancel(true)
+            .setLocalOnly(true)
+            .setCategory(Notification.CATEGORY_MESSAGE)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(Notification.DEFAULT_ALL)
+            .addExtras(
+                Bundle().apply {
+                    putBoolean("mipush_mock_replay_receipt", true)
+                    putString("mipush_mock_replay_source_package", packageName)
+                }
+            )
+        source.contentIntent?.let { builder.setContentIntent(it) }
+        if (sourceSmallIcon != null) {
+            runCatching {
+                val iconCompat = IconCompat.createFromIcon(sourceSmallIcon)
+                builder.setSmallIcon(iconCompat)
+            }
+        }
+        val color = processIcon(context, packageName, builder)
+        builder.setColor(if (colorStatusBarIcon) color else Notification.COLOR_DEFAULT)
+        val receipt = ProgressStyleBuilder.buildNotification(context, builder)
+        // 使用原始通知的 tag 和 id，使 receipt 替换原始通知
+        val receiptTag = originalTag ?: "$MOCK_REPLAY_RECEIPT_TAG_PREFIX$packageName"
+        val receiptId = if (originalTag != null) {
+            notificationId
+        } else {
+            mockReplayReceiptNotificationId(packageName)
+        }
+        return runCatching {
+            val postedAsTarget = NotificationManagerEx.isHooked &&
+                getNotificationManagerEx().notify(packageName, receiptTag, receiptId, receipt)
+            if (!postedAsTarget) {
+                manager.notify(receiptTag, receiptId, receipt)
+            }
+            PushRuntime.observeNotificationEvent(
+                packageName,
+                "mock_replay_visible_receipt_posted",
+                "NotificationController.publish",
+            )
+            logD("posted mock replay visible receipt pkg=$packageName sourceId=$notificationId tag=$receiptTag targetIdentity=$postedAsTarget")
+            true
+        }.onFailure {
+            Napier.w("mock replay visible receipt failed pkg=$packageName id=$notificationId: ${it.message}", it, tag = TAG)
+        }.getOrDefault(false)
+    }
+
+    private fun ensureMockReplayReceiptChannel(
+        context: Context,
+        manager: NotificationManager,
+        packageName: String,
+    ) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val channel = NotificationChannel(
+            MOCK_REPLAY_RECEIPT_CHANNEL_ID,
+            "MiPush replay",
+            NotificationManager.IMPORTANCE_HIGH,
+        ).apply {
+            setShowBadge(false)
+            lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+        }
+        if (NotificationManagerEx.isHooked) {
+            getNotificationManagerEx().createNotificationChannels(packageName, listOf(channel))
+        }
+        if (manager.getNotificationChannel(MOCK_REPLAY_RECEIPT_CHANNEL_ID) == null) {
+            manager.createNotificationChannel(channel)
+        }
     }
 
     private fun quietGeneratedIslandStatusBarNotification(notificationBuilder: NotificationCompat.Builder) {
@@ -667,6 +849,20 @@ object NotificationController {
         return color
     }
 
+    internal fun applyStatusBarIcon(
+        context: Context,
+        packageName: String,
+        notificationBuilder: NotificationCompat.Builder,
+        colorStatusBarIcon: Boolean,
+    ): Int {
+        if (colorStatusBarIcon) {
+            return processIcon(context, packageName, notificationBuilder)
+        }
+        notificationBuilder.setSmallIcon(R.drawable.ic_notifications_black_24dp)
+        notificationBuilder.setColor(Notification.COLOR_DEFAULT)
+        return Notification.COLOR_DEFAULT
+    }
+
     private fun setAppIconSmallIcon(
         context: Context,
         packageName: String,
@@ -760,7 +956,9 @@ object NotificationController {
 
         val id = (System.currentTimeMillis() / 1000L).toInt()
         val builder = NotificationCompat.Builder(context, mockChannelId)
-        builder.setSmallIcon(R.drawable.ic_notifications_black_24dp)
+        val colorStatusBarIcon = MiPushIslandPreferences.read(context, packageName).colorStatusBarIcon
+        val color = processIcon(context, packageName, builder)
+        builder.setColor(if (colorStatusBarIcon) color else Notification.COLOR_DEFAULT)
         builder.setWhen(System.currentTimeMillis())
         builder.setShowWhen(true)
         builder.setAutoCancel(true)
@@ -947,7 +1145,8 @@ object NotificationController {
                     for (i in steps.indices) {
                         Thread.sleep(3000)
                         val updateBuilder = NotificationCompat.Builder(context, mockChannelId).apply {
-                            setSmallIcon(R.drawable.ic_notifications_black_24dp)
+                            val updateColor = processIcon(context, packageName, this)
+                            setColor(if (colorStatusBarIcon) updateColor else Notification.COLOR_DEFAULT)
                             setWhen(System.currentTimeMillis())
                             setContentTitle(deliveryTitle)
                             setContentText(texts[i])
@@ -1205,4 +1404,5 @@ object NotificationController {
         canvas.drawText("XMSF", (width / 2).toFloat(), height / 2 + paint.textSize / 3, paint)
         return bitmap
     }
+
 }
