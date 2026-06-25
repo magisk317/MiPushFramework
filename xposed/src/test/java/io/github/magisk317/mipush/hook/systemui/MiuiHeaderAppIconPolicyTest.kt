@@ -7,11 +7,40 @@ import org.junit.jupiter.api.Test
 class MiuiHeaderAppIconPolicyTest {
     @Test
     fun `replaces only xspace mipush notifications with a resolved large icon`() {
-        assertTrue(MiuiHeaderAppIconPolicy.shouldReplace(999, "com.example.app", hasLargeIcon = true))
+        assertTrue(MiuiHeaderAppIconPolicy.shouldReplace(999, "com.example.app", hasReplacementIcon = true))
 
-        assertFalse(MiuiHeaderAppIconPolicy.shouldReplace(0, "com.example.app", hasLargeIcon = true))
-        assertFalse(MiuiHeaderAppIconPolicy.shouldReplace(999, "", hasLargeIcon = true))
-        assertFalse(MiuiHeaderAppIconPolicy.shouldReplace(999, "com.xiaomi.xmsf", hasLargeIcon = true))
-        assertFalse(MiuiHeaderAppIconPolicy.shouldReplace(999, "com.example.app", hasLargeIcon = false))
+        assertFalse(MiuiHeaderAppIconPolicy.shouldReplace(0, "com.example.app", hasReplacementIcon = true))
+        assertFalse(MiuiHeaderAppIconPolicy.shouldReplace(999, "", hasReplacementIcon = true))
+        assertFalse(MiuiHeaderAppIconPolicy.shouldReplace(999, "com.xiaomi.xmsf", hasReplacementIcon = true))
+        assertFalse(MiuiHeaderAppIconPolicy.shouldReplace(999, "com.example.app", hasReplacementIcon = false))
+    }
+
+    @Test
+    fun `replaces mock replay receipt header icon outside xspace`() {
+        assertTrue(
+            MiuiHeaderAppIconPolicy.shouldReplace(
+                userId = 0,
+                targetPackage = "com.example.app",
+                hasReplacementIcon = true,
+                isMockReplayReceipt = true,
+            )
+        )
+
+        assertFalse(
+            MiuiHeaderAppIconPolicy.shouldReplace(
+                userId = 0,
+                targetPackage = "com.xiaomi.xmsf",
+                hasReplacementIcon = true,
+                isMockReplayReceipt = true,
+            )
+        )
+        assertFalse(
+            MiuiHeaderAppIconPolicy.shouldReplace(
+                userId = 0,
+                targetPackage = "com.example.app",
+                hasReplacementIcon = false,
+                isMockReplayReceipt = true,
+            )
+        )
     }
 }

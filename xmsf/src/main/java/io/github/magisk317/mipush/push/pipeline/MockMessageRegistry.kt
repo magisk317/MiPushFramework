@@ -13,6 +13,8 @@ import io.github.magisk317.mipush.platform.support.XMPushUtils
 import java.security.MessageDigest
 
 object MockMessageRegistry {
+    const val EXTRA_MOCK_REPLAY = "mipush_mock_replay"
+    const val EXTRA_MOCK_REPLAY_SOURCE_ID = "mipush_mock_replay_source_id"
     private const val MARK_TTL_MS = 30_000L
     private val lock = Any()
     private val markedMessageIds = LinkedHashMap<String, Long>()
