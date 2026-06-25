@@ -35,6 +35,7 @@ jdom2 = "2.0.6.1"
 jose4j = "0.9.6"
 junit-jupiter = "6.1.0"
 junit-platform = "6.1.0"
+jqwik = "1.10.1"
 koin = "4.2.2"
 kotlin = "2.4.0"
 kotlinx-serialization = "1.11.0"
@@ -90,6 +91,7 @@ hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypass", vers
 hyperisland-kit = { module = "io.github.d4viddf:hyperisland_kit", version.ref = "hyperisland-kit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit-platform" }
+jqwik = { module = "net.jqwik:jqwik", version.ref = "jqwik" }
 koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
 koin-androidx-compose = { module = "io.insert-koin:koin-androidx-compose", version.ref = "koin" }
 koin-compose-viewmodel = { module = "io.insert-koin:koin-compose-viewmodel", version.ref = "koin" }
