@@ -59,6 +59,7 @@ import io.github.magisk317.mipush.main.viewmodel.ZygiskConfigViewModel
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.surface.AppIconImage
 import kotlinx.coroutines.launch
+import io.github.magisk317.mipush.manager.di.ManagerDependencies
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
 class ZygiskConfigPage : ComponentActivity() {
@@ -66,6 +67,7 @@ class ZygiskConfigPage : ComponentActivity() {
     private val viewModel: ZygiskConfigViewModel by viewModel()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        ManagerDependencies.start(this)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
