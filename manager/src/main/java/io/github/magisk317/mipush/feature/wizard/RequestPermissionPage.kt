@@ -91,6 +91,7 @@ private val TAG = "WizardPermission"
 open class RequestPermissionPage : ComponentActivity() {
     companion object {
         const val EXTRA_RECHECK_ONLY = "extra_recheck_only"
+        private val COLOR_GRANTED = Color(0xFF4CAF50) // Green 500
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -218,6 +219,8 @@ fun PermissionMainActivity(
     }
 }
 
+private val COLOR_GRANTED = Color(0xFF4CAF50) // Green 500
+
 @Composable
 fun PermissionItem(
     info: PermissionInfo,
@@ -237,7 +240,7 @@ fun PermissionItem(
                 Icon(
                     painter = painterResource(R.drawable.ic_check_circle_black_24dp),
                     contentDescription = stringResource(id = R.string.status_granted),
-                    tint = Color(0xFF4CAF50)
+                    tint = COLOR_GRANTED
                 )
             } else {
                 Icon(

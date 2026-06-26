@@ -311,7 +311,16 @@ object SystemNotificationManager {
             XLog.d(TAG, "notify() system call failed, falling back to local: $packageName id=$id")
             notifyLocally(tag, id, notification)
         }) {
-            val methodEnqueueNotificationWithTag = findHookMethodExact(requireNotificationManager().javaClass, "enqueueNotificationWithTag", String::class.java, String::class.java, String::class.java, Int::class.java, Notification::class.java, Int::class.java)
+            val methodEnqueueNotificationWithTag = findHookMethodExact(
+                requireNotificationManager().javaClass,
+                "enqueueNotificationWithTag",
+                String::class.java,
+                String::class.java,
+                String::class.java,
+                Int::class.java,
+                Notification::class.java,
+                Int::class.java,
+            )
             val opPkg = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ANDROID_PACKAGE_NAME else packageName
             methodEnqueueNotificationWithTag.invoke(requireNotificationManager(), packageName, opPkg, tag, id, notification, getUserId())
             XLog.d(TAG, "notify() enqueue OK pkg=$packageName id=$id")
@@ -329,10 +338,25 @@ object SystemNotificationManager {
             cancelLocally(tag, id)
         }) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val methodCancelNotificationWithTag = findHookMethodExact(requireNotificationManager().javaClass, "cancelNotificationWithTag", String::class.java, String::class.java, String::class.java, Int::class.java, Int::class.java)
+                val methodCancelNotificationWithTag = findHookMethodExact(
+                    requireNotificationManager().javaClass,
+                    "cancelNotificationWithTag",
+                    String::class.java,
+                    String::class.java,
+                    String::class.java,
+                    Int::class.java,
+                    Int::class.java,
+                )
                 methodCancelNotificationWithTag.invoke(requireNotificationManager(), packageName, ANDROID_PACKAGE_NAME, tag, id, getUserId())
             } else {
-                val methodCancelNotificationWithTag = findHookMethodExact(requireNotificationManager().javaClass, "cancelNotificationWithTag", String::class.java, String::class.java, Int::class.java, Int::class.java)
+                val methodCancelNotificationWithTag = findHookMethodExact(
+                    requireNotificationManager().javaClass,
+                    "cancelNotificationWithTag",
+                    String::class.java,
+                    String::class.java,
+                    Int::class.java,
+                    Int::class.java,
+                )
                 methodCancelNotificationWithTag.invoke(requireNotificationManager(), packageName, tag, id, getUserId())
             }
         }
@@ -386,11 +410,24 @@ object SystemNotificationManager {
                 }
         }) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                findHookMethodExact(requireNotificationManager().javaClass, "getNotificationChannelForPackage", String::class.java, Int::class.java, String::class.java, String::class.java, Boolean::class.java)
-                    .invoke(requireNotificationManager(), packageName, uid, channelId, null, false) as NotificationChannel?
+                findHookMethodExact(
+                    requireNotificationManager().javaClass,
+                    "getNotificationChannelForPackage",
+                    String::class.java,
+                    Int::class.java,
+                    String::class.java,
+                    String::class.java,
+                    Boolean::class.java,
+                ).invoke(requireNotificationManager(), packageName, uid, channelId, null, false) as NotificationChannel?
             } else {
-                findHookMethodExact(requireNotificationManager().javaClass, "getNotificationChannelForPackage", String::class.java, Int::class.java, String::class.java, Boolean::class.java)
-                    .invoke(requireNotificationManager(), packageName, uid, channelId, false) as NotificationChannel?
+                findHookMethodExact(
+                    requireNotificationManager().javaClass,
+                    "getNotificationChannelForPackage",
+                    String::class.java,
+                    Int::class.java,
+                    String::class.java,
+                    Boolean::class.java,
+                ).invoke(requireNotificationManager(), packageName, uid, channelId, false) as NotificationChannel?
             }
         }
     }

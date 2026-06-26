@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap
 class MiPushManifestChecker private constructor(
     private val context: Context
 ) {
-    private val TAG2 = "MiPushManifestChecker"
+    private val tag2 = "MiPushManifestChecker"
 
     fun checkPermissions(packageInfo: PackageInfo): Boolean {
         return try {

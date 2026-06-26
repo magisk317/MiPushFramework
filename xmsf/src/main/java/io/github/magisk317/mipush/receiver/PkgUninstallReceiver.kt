@@ -18,7 +18,7 @@ import io.github.magisk317.mipush.push.pipeline.StalePackagePushGuard
 import io.github.magisk317.mipush.service.PushServiceStarter
 
 class PkgUninstallReceiver : BroadcastReceiver() {
-    private val TAG = "PkgUninstallReceiver"
+    private val tag = "PkgUninstallReceiver"
 
     override fun onReceive(context: Context, intent: Intent?) {
         if (intent != null && intent.extras != null && isPackageChangeAction(intent.action)) {

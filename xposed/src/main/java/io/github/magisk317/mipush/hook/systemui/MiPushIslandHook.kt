@@ -55,7 +55,11 @@ class MiPushIslandHook : BaseHook() {
         }
         val options = IslandPreferences.current(sourcePackage)
         if (!options.canInjectFocusPayload) return
-        XLog.i(TAG, "handleNotification pkg=$sourcePackage showNotification=${options.showNotification} enableFloat=${options.enableFloat} canInject=${options.canInjectFocusPayload}")
+        XLog.i(
+            TAG,
+            "handleNotification pkg=$sourcePackage showNotification=${options.showNotification} " +
+                "enableFloat=${options.enableFloat} canInject=${options.canInjectFocusPayload}",
+        )
         val title = firstText(
             extras,
             Notification.EXTRA_TITLE,

@@ -17,6 +17,7 @@ import java.util.regex.Pattern
  * - Travel / itinerary (行程)
  */
 object LiveUpdateDetectorCore {
+    private const val MAX_TRACKER_LENGTH = 20
 
     /**
      * Progress category classification for Live Update notifications.
@@ -323,6 +324,7 @@ object LiveUpdateDetectorCore {
         // Extract the most meaningful short phrase (first sentence or key phrase)
         val sentences = description.split(Regex("[。！？.!?]"))
         val firstMeaningful = sentences.firstOrNull { it.length >= 3 }?.trim()
-        return firstMeaningful?.take(20)
+        return firstMeaningful?.take(MAX_TRACKER_LENGTH)
     }
+
 }

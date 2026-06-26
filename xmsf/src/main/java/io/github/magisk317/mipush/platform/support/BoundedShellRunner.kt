@@ -114,7 +114,7 @@ object DefaultBoundedShellRunner : BoundedShellRunner {
     private fun await(future: Future<BoundedShellResult>, timeoutMs: Long): BoundedShellResult {
         return try {
             future.get(timeoutMs, TimeUnit.MILLISECONDS)
-        } catch (e: java.util.concurrent.TimeoutException) {
+        } catch (_: java.util.concurrent.TimeoutException) {
             future.cancel(true)
             BoundedShellResult.timedOut()
         } catch (e: InterruptedException) {

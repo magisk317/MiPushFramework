@@ -18,7 +18,7 @@ import io.github.magisk317.mipush.runtime.PushRuntime
 import com.xiaomi.xmsf.push.service.XMAccountManager
 
 class MiuiPushMessageReceiver : PushMessageReceiver() {
-    private val TAG = MiuiPushMessageReceiver::class.java.simpleName
+    private val tag = MiuiPushMessageReceiver::class.java.simpleName
 
     override fun onCommandResult(context: Context, miPushCommandMessage: MiPushCommandMessage) {
         logD("onCommandResult")
@@ -64,7 +64,7 @@ class MiuiPushMessageReceiver : PushMessageReceiver() {
                     runCatching { context.startService(intent) }
                         .onFailure {
                             RateLimitedWarnLogger.warn(
-                                logTag = TAG,
+                                logTag = tag,
                                 key = "startService:$pkg",
                                 message = "failed to forward clicked notification",
                                 throwable = it
@@ -76,7 +76,7 @@ class MiuiPushMessageReceiver : PushMessageReceiver() {
                     runCatching { context.sendBroadcast(intent) }
                         .onFailure {
                             RateLimitedWarnLogger.warn(
-                                logTag = TAG,
+                                logTag = tag,
                                 key = "sendBroadcast:$pkg",
                                 message = "failed to forward passthrough message",
                                 throwable = it

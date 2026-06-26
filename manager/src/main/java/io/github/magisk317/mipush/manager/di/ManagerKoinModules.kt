@@ -27,7 +27,14 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val managerKoinModule = module {
-    single { SettingsManager(get<ManagerConfigGateway>(), get<ManagerRuntimeActions>(), get<ManagerLogGateway>(), get<io.github.magisk317.mipush.common.manager.ZygiskConfigGateway>()) }
+    single {
+        SettingsManager(
+            get<ManagerConfigGateway>(),
+            get<ManagerRuntimeActions>(),
+            get<ManagerLogGateway>(),
+            get<io.github.magisk317.mipush.common.manager.ZygiskConfigGateway>(),
+        )
+    }
 
     viewModel { SettingsViewModel(get<PreferenceRepository>(), get<SettingsManager>()) }
     viewModel { AdvancedSettingsViewModel(get<PreferenceRepository>(), get<SettingsManager>()) }

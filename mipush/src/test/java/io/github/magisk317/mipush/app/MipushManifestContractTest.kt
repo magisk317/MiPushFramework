@@ -71,7 +71,7 @@ class MipushManifestContractTest {
         assertTrue("SYSTEM_SERVER_SENTINEL_CLASSES" in baseEntrySource)
         assertTrue("hookApi.finishHotReload()" in baseEntrySource)
         assertTrue("hookApi.abortHotReload()" in baseEntrySource)
-        assertTrue("(loadedApkRef as WeakReference<Any>).get() ?: return@firstNotNullOfOrNull null" in baseEntrySource)
+        assertTrue("packages[packageName] as? WeakReference<*>" in baseEntrySource)
         assertFalse("setSavedInstanceState(Pair(" in baseEntrySource)
         assertFalse("HashMap(loadedPackages)" in baseEntrySource)
         assertFalse("savedInstanceState as? Pair" in baseEntrySource)

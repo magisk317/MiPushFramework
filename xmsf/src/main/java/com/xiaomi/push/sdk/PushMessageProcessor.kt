@@ -27,13 +27,13 @@ import io.github.magisk317.mipush.platform.activity.TopActivityFactory
 class PushMessageProcessor constructor(
     private val configurations: Configurations
 ) {
-    private val TAG = "PushMessageProcessor"
-    
+    private val tag = "PushMessageProcessor"
 
-    private val APP_CHECK_FRONT_MAX_RETRY = 8
-    private val APP_CHECK_SLEEP_DURATION_MS = 500L
-    private val APP_CHECK_SLEEP_MAX_TIMEOUT_MS =
-        APP_CHECK_FRONT_MAX_RETRY * APP_CHECK_SLEEP_DURATION_MS
+
+    private val appCheckFrontMaxRetry = 8
+    private val appCheckSleepDurationMs = 500L
+    private val appCheckSleepMaxTimeoutMs =
+        appCheckFrontMaxRetry * appCheckSleepDurationMs
 
     var iTopActivity: ITopActivity? = null
     private var topActivityMode: Int? = null

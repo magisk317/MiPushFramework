@@ -2,6 +2,7 @@ import org.gradle.api.provider.Provider
 
 plugins {
     id("magisk.android.application")
+    id("magisk.app.signing")
     id("magisk.app.packaging")
     alias(libs.plugins.kotlin.parcelize)
 }

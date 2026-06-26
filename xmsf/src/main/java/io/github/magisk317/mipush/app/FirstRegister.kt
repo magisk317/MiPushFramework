@@ -21,7 +21,7 @@ class FirstRegister(
     },
     private val scheduleRetry: (Context, Int) -> Unit = PushControllerUtils::registerPush,
 ) : Runnable {
-    private val TAG = "FirstRegister"
+    private val tag = "FirstRegister"
 
     override fun run() {
         Objects.requireNonNull(context)

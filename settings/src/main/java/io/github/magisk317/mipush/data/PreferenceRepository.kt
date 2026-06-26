@@ -1,3 +1,5 @@
+@file:Suppress("VariableNaming")
+
 package io.github.magisk317.mipush.data
 
 import androidx.datastore.core.DataStore

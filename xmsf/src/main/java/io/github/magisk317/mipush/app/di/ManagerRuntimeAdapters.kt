@@ -800,7 +800,7 @@ class XmsfZygiskConfigGateway : io.github.magisk317.mipush.common.manager.Zygisk
             val getPropMethod = Class.forName("android.os.SystemProperties").getMethod("get", String::class.java, String::class.java)
             val result = getPropMethod.invoke(null, "mipush.zygisk.enabled", "false") as String
             result == "true"
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             false
         }
     }

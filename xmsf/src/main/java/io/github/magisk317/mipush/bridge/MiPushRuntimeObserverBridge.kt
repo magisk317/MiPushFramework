@@ -265,10 +265,10 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
                     source = source
                 )
             }
-        } catch (e: IOException) {
+        } catch (_: IOException) {
             PushRuntime.observeAccountEvent("account_register_failed_io", source)
             null
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             PushRuntime.observeAccountEvent("account_register_failed_runtime", source)
             null
         }
