@@ -203,7 +203,7 @@ object ConvertUtils {
                 persistResolvedRegSec(container.packageName, candidateRegSec)
                 logD("resolvePushActionBytes: decrypt success for pkg=${container.packageName}")
                 return PushActionResolution(payload, candidateRegSec)
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 logD("resolvePushActionBytes: decrypt failed for pkg=${container.packageName}, trying next candidate")
             }
         }

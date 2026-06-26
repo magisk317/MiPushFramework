@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 object XSpacePackageSyncHook {
+    private const val USER_ID_DIVISOR = 100_000
     private const val TAG = "XSpacePackageSyncHook"
     private const val XSPACE_USER_ID = 999
     private const val PACKAGE_STATE_TIMEOUT_SECONDS = 20L
@@ -88,7 +89,7 @@ object XSpacePackageSyncHook {
 
     internal fun resolveUserId(userHandle: Int?, uid: Int?): Int? {
         if (userHandle != null) return userHandle
-        return uid?.let { it / 100_000 }
+        return uid?.let { it / USER_ID_DIVISOR }
     }
 
     internal fun installXmsfAction(): PackageSyncAction =

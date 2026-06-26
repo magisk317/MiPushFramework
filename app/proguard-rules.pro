@@ -37,3 +37,6 @@
 
 # Keep XposedRuntime inner classes to prevent lambda optimization issues
 -keep class io.github.magisk317.mipush.xposed.XposedRuntime$* { *; }
+
+# Keep kotlinx-collections-immutable used by Compose runtime internally
+-keep class androidx.compose.runtime.external.kotlinx.collections.immutable.** { *; }

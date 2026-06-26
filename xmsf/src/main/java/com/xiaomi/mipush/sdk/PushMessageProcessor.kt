@@ -593,7 +593,7 @@ class PushMessageProcessor private constructor(context: Context) {
                 XmPushThriftSerializeUtils.convertByteArrayToThriftObject(normalConfig, notification.getBinaryExtra())
                 OnlineConfigHelper.updateNormalConfigs(OnlineConfig.getInstance(sAppContext), normalConfig)
                 return null
-            } catch (e: TException) {
+            } catch (_: TException) {
                 return null
             }
         }
@@ -603,7 +603,7 @@ class PushMessageProcessor private constructor(context: Context) {
                 XmPushThriftSerializeUtils.convertByteArrayToThriftObject(customConfig, notification.getBinaryExtra())
                 OnlineConfigHelper.updateCustomConfigs(OnlineConfig.getInstance(sAppContext), customConfig)
                 return null
-            } catch (e: TException) {
+            } catch (_: TException) {
                 return null
             }
         }
@@ -872,7 +872,7 @@ class PushMessageProcessor private constructor(context: Context) {
                     if (payload != null) {
                         XmPushThriftSerializeUtils.convertByteArrayToThriftObject(container, payload)
                     }
-                } catch (e: TException) {
+                } catch (_: TException) {
                 }
                 commandMessage.command = container.action.toString()
                 commandMessage.resultCode = intent.getIntExtra(PushConstants.MIPUSH_EXTRA_ERROR_CODE, 0).toLong()

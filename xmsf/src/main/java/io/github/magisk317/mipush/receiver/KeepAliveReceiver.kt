@@ -19,7 +19,7 @@ import io.github.magisk317.mipush.runtime.PushRuntimeComponents
  * @author zts
  */
 class KeepAliveReceiver : BroadcastReceiver() {
-    private val TAG = KeepAliveReceiver::class.java.simpleName
+    private val tag = KeepAliveReceiver::class.java.simpleName
     private var lastActive: Long = System.currentTimeMillis()
 
     override fun onReceive(context: Context, intent: Intent?) {

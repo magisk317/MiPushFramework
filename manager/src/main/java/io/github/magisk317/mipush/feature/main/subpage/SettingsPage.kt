@@ -898,11 +898,11 @@ private suspend fun toggleAccessibilityServiceViaRoot(context: android.content.C
                 os.flush()
             }
             process.waitFor() == 0
-        } catch (e: java.io.IOException) {
+        } catch (_: java.io.IOException) {
             false
-        } catch (e: SecurityException) {
+        } catch (_: SecurityException) {
             false
-        } catch (e: InterruptedException) {
+        } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
             false
         } finally {

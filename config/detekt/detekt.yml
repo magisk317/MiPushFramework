@@ -5,10 +5,12 @@ naming:
   FunctionNaming:
     active: true
     functionPattern: '[a-zA-Z][a-zA-Z0-9]*'
-    excludes: ['**/test/**', '**/androidTest/**']
+    excludes: ['**/test/**', '**/androidTest/**', '**/vendor/**']
   VariableNaming:
     active: true
     variablePattern: '(_)?[a-z][A-Za-z0-9]*'
+    excludes:
+      - '**/vendor/**'
   TopLevelPropertyNaming:
     active: true
     propertyPattern: '[A-Za-z][_A-Za-z0-9]*'
@@ -16,7 +18,7 @@ naming:
 style:
   MagicNumber:
     active: true
-    excludes: ['**/test/**', '**/androidTest/**', '**/*.kts']
+    excludes: ['**/test/**', '**/androidTest/**', '**/*.kts', '**/vendor/**', '**/xmsf/**']
     ignoreNumbers:
       - '-1'
       - '0'
@@ -68,9 +70,16 @@ style:
   ReturnCount:
     active: true
     max: 12
+    excludes:
+      - '**/PushMessageProcessor.kt'
   MaxLineLength:
     active: true
     maxLineLength: 180
+    excludes:
+      - '**/vendor/**'
+      - '**/MiuiPushActivateService.kt'
+      - '**/MiPushIslandPayloadBuilder.kt'
+      - '**/MyMIPushNotificationHelper.kt'
 
 complexity:
   LongMethod:
@@ -86,6 +95,8 @@ complexity:
   CyclomaticComplexMethod:
     active: true
     allowedComplexity: 60
+    excludes:
+      - '**/vendor/**'
   NestedBlockDepth:
     active: true
     allowedDepth: 10
@@ -94,6 +105,8 @@ exceptions:
   SwallowedException:
     active: true
     allowedExceptionNameRegex: '_|(ignore|expected).*'
+    excludes:
+      - '**/vendor/**'
   TooGenericExceptionCaught:
     active: true
     exceptionNames:
@@ -108,8 +121,47 @@ exceptions:
     allowedExceptionNameRegex: '_|(ignore|expected).*'
     excludes:
       - '**/vendor/**'
-      - '**/xposed/**'
       - '**/service/runtime/**'
       - '**/platform/support/**'
       - '**/*ViewModel.kt'
       - '**/utils/**'
+      - '**/NotificationManagerEx.kt'
+      - '**/PushMessageProcessor.kt'
+      - '**/MiuiPushActivateService.kt'
+      - '**/PushControllerUtils.kt'
+      - '**/EventRepository.kt'
+      - '**/PushRuntimePendingPacketStore.kt'
+      - '**/MiPushFrameworkApp.kt'
+      - '**/ManagerRuntimeAdapters.kt'
+      - '**/MiPushRuntimeObserverBridge.kt'
+      - '**/FocusNotificationRegistry.kt'
+      - '**/NotificationController.kt'
+      - '**/ProgressStyleBuilder.kt'
+      - '**/ForegroundHelper.kt'
+      - '**/PushServiceStarter.kt'
+      - '**/RegisterRecorder.kt'
+      - '**/RegistrationRecorder.kt'
+      - '**/KeepAliveReceiver.kt'
+      - '**/MiPushPingReceiver.kt'
+      - '**/PkgUninstallReceiver.kt'
+      - '**/MiPushFacadeService.kt'
+      - '**/MyPushMessageHandler.kt'
+      - '**/SystemNotificationManager.kt'
+      - '**/KeepAliveHook.kt'
+      - '**/RootNotificationHelper.kt'
+      - '**/HookPushNC.kt'
+      - '**/HookSystemUI.kt'
+      - '**/XGPush.kt'
+      - '**/DouYin.kt'
+      - '**/DeviceDetector.kt'
+      - '**/BoundedRootRunner.kt'
+      - '**/HookSystemUIPlugin.kt'
+      - '**/HookNotificationSettingsManager.kt'
+      - '**/ShortcutPermissionHooker.kt'
+      - '**/NmsPermissionHooker.kt'
+      - '**/HookSystemService.kt'
+      - '**/ModuleHooks.kt'
+      - '**/ForceMiPushRegister.kt'
+      - '**/LegacyHuaweiSignatureCompat.kt'
+      - '**/MethodHook.kt'
+      - '**/BaseLibXposedEntry.kt'

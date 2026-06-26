@@ -23,6 +23,8 @@ run_pre_push_checks() {
     :common:check
     :xmsf:assembleDebug
     :xmsf:testDebugUnitTest
+    :app:assembleRelease
+    :mipush:assembleRelease
     -PbuildSplits
     -Pkotlin.incremental=false
   )

@@ -52,7 +52,12 @@ object IslandPreferences {
     fun refreshNow() {
         readOptions(packageName = null).onSuccess {
             options = it
-            XLog.i(TAG, "refreshed options: showNotification=${it.showNotification} enableFloat=${it.enableFloat} enabled=${it.enabled} focusNotification=${it.focusNotification} colorStatusBarIcon=${it.colorStatusBarIcon}")
+            XLog.i(
+                TAG,
+                "refreshed options: showNotification=${it.showNotification} " +
+                    "enableFloat=${it.enableFloat} enabled=${it.enabled} " +
+                    "focusNotification=${it.focusNotification} colorStatusBarIcon=${it.colorStatusBarIcon}",
+            )
         }.onFailure {
             XLog.w(TAG, "failed to refresh island prefs: ${it.message}")
         }

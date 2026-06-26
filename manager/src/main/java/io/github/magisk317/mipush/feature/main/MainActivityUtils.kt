@@ -18,7 +18,7 @@ import io.github.magisk317.mipush.platform.support.PushServiceBroadcastActions
 class MainActivityUtils(
     private val settingsManager: SettingsManager,
 ) {
-    private val TAG = "MainActivityUtils"
+    private val tag = "MainActivityUtils"
     private var messenger: InternalMessenger? = null
 
     fun interface ConnectionStatusChanged {
@@ -52,7 +52,5 @@ class MainActivityUtils(
         logI(String.format("[hook_res] ConnectionConfiguration.getXmppServerHost() -> [%s]", snapshot.xmppServerHost))
     }
 
-    companion object {
-        private val TAG: String = MainActivityUtils::class.java.simpleName
-    }
+    companion object
 }

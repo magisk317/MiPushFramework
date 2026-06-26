@@ -642,7 +642,7 @@ object NotificationManagerEx {
         val systemEnabled = try {
             val packageNM = getNotificationManagerForPackage(packageName)
             packageNM?.areNotificationsEnabled() ?: notificationManager.areNotificationsEnabled()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             notificationManager.areNotificationsEnabled()
         }
         

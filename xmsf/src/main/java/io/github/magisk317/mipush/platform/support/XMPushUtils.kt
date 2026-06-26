@@ -45,7 +45,7 @@ object XMPushUtils {
         }
         return try {
             context.createPackageContext(packageName, flags)
-        } catch (e: PackageManager.NameNotFoundException) {
+        } catch (_: PackageManager.NameNotFoundException) {
             context
         }
     }
