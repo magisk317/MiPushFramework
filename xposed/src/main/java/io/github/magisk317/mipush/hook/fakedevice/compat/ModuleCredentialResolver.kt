@@ -19,6 +19,7 @@ object ModuleCredentialResolver {
         "XM_APP_ID",
         "XIAOMI_APP_ID",
         "XIAOMI_PUSH_APP_ID",
+        "xiaomi_appid",
     )
 
     private val appKeyKeys = arrayOf(
@@ -33,6 +34,7 @@ object ModuleCredentialResolver {
         "XM_APP_KEY",
         "XIAOMI_APP_KEY",
         "XIAOMI_PUSH_APP_KEY",
+        "xiaomi_appkey",
     )
 
     fun resolve(context: Context, packageName: String): ModuleCredential? {

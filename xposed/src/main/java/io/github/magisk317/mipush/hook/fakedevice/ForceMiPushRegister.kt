@@ -58,6 +58,7 @@ object ForceMiPushRegister {
         profile: ModuleCompatProfile? = ModuleCompatRegistry.resolveProfile(packageName, processName, classLoader),
     ) {
         if (!ModuleProcessPolicy.shouldHandleProcess(profile, packageName, processName)) return
+        hookXiaomiPushChannelStart(packageName, classLoader)
         traceRegisterCalls(packageName, classLoader)
         tryRegister(application, packageName, processName, classLoader)
     }
@@ -217,6 +218,26 @@ object ForceMiPushRegister {
         traceJPushBridge(packageName, classLoader)
     }
 
+    private fun hookXiaomiPushChannelStart(packageName: String, classLoader: ClassLoader) {
+        runCatching {
+            val clazz = classLoader.findClass("com.alibaba.laiwang.xpn.xiaomi.XiaomiPushChannel")
+            clazz.hookAllMethods("start") {
+                doBefore {
+                    val appId = args.getOrNull(0) as? String
+                    val appKey = args.getOrNull(1) as? String
+                    XLog.i(
+                        TAG,
+                        "XiaomiPushChannel.start intercepted: pkg=$packageName, " +
+                            "appId=${appId.orEmpty()}, appKey=${appKey.orEmpty()}"
+                    )
+                }
+            }
+            XLog.i(TAG, "hooked XiaomiPushChannel.start for $packageName")
+        }.onFailure {
+            XLog.d(TAG, "XiaomiPushChannel.start hook failed for $packageName: $it")
+        }
+    }
+
     private fun traceAliBridge(packageName: String, classLoader: ClassLoader) {
         val classNames = listOf(
             "com.alibaba.sdk.android.push.channel.XiaomiPushUtils",
@@ -251,6 +272,9 @@ object ForceMiPushRegister {
                 }
             }
         }
+
+        // Hook XiaomiPushChannel.start() to capture MiPush appId/appKey
+        hookXiaomiPushChannelStart(packageName, classLoader)
     }
 
     private fun traceAccsBridge(packageName: String, classLoader: ClassLoader) {

@@ -51,6 +51,10 @@
       }
     },
     {
+      "packageName": "com.sgcc.wsgw.cn",
+      "hookPipelines": []
+    },
+    {
       "packageName": "com.chinamworld.bocmbci",
       "hookPipelines": [],
       "credentialOverride": {
