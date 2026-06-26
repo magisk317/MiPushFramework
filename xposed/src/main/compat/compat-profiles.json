@@ -36,7 +36,11 @@
     },
     {
       "packageName": "com.alibaba.android.rimet",
-      "hookPipelines": []
+      "hookPipelines": [],
+      "credentialOverride": {
+        "appId": "2882303761517296732",
+        "appKey": "5781729632732"
+      }
     },
     {
       "packageName": "com.baidu.netdisk.samsung",
