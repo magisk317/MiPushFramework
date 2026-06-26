@@ -8,8 +8,6 @@ on:
   workflow_run:
     types: [completed]
     workflows: [CI, Release]
-  release:
-    types: [published]
   workflow_dispatch:
 
 jobs:
