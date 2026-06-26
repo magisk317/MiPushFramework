@@ -71,6 +71,7 @@ open class MiPushFrameworkApp : Application() {
         CrashHandler.installCrashLogger()
         if (isAppMainProc(this)) {
             XSpaceXmsfInstallKeeper.schedule(this, "MiPushFrameworkApp.onCreate")
+            ProactiveMiPushRegistrar.schedule(this)
         }
 
         Hooker.setLogger(PushControllerUtils.wrapContext(this))
