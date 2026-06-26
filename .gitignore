@@ -52,3 +52,4 @@ build-artifacts/
 # Test convenience scripts and caches
 run_test.sh
 .jqwik-database
+signature.properties
