@@ -4,6 +4,14 @@
 
 ---
 
+## [v0.6.2] - Unreleased
+
+- TODO
+
+> Full Changelog: https://github.com/magisk317/MiPushFramework/compare/v0.6.1...v0.6.2
+
+---
+
 ## [v0.6.1] - 2026-06-26
 
 - `[feat(ui)]` 管理界面更新为统一样式，页面状态管理更清晰。
