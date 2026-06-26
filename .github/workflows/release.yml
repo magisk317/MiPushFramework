@@ -55,14 +55,15 @@ jobs:
 
       - name: Decode Keystore
         if: env.HAS_RELEASE_KEYSTORE == 'true'
-        run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > .yuuta.jks
+        run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > app/release.jks
 
       - name: Build XMSF release APK
         run: bash scripts/build_release.sh -Pkotlin.incremental=false
         env:
-          KEYSTORE_PASS: ${{ secrets.STORE_PASSWORD }}
-          ALIAS_NAME: ${{ secrets.KEY_ALIAS }}
-          ALIAS_PASS: ${{ secrets.KEY_PASSWORD }}
+          KEYSTORE_FILE: release.jks
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       - name: Upload XMSF release artifact
         uses: actions/upload-artifact@v7
@@ -71,6 +72,18 @@ jobs:
           path: |
             app/build/outputs/apk/normal/release/**/*.apk
             app/build/outputs/apk/vc105/release/**/*.apk
+
+      - name: Package mapping files for debugging
+        run: |
+          mkdir -p mapping-out
+          cp app/build/outputs/mapping/normalRelease/mapping.txt mapping-out/mapping-normal-release.txt 2>/dev/null || true
+          cp app/build/outputs/mapping/vc105Release/mapping.txt mapping-out/mapping-vc105-release.txt 2>/dev/null || true
+
+      - name: Upload mapping artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: mapping
+          path: mapping-out/
 
   build-mipush-apk:
     name: Build MiPush Release APK
@@ -99,14 +112,15 @@ jobs:
 
       - name: Decode Keystore
         if: env.HAS_RELEASE_KEYSTORE == 'true'
-        run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > .yuuta.jks
+        run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > app/release.jks
 
       - name: Build MiPush release APK
         run: ./gradlew :mipush:assembleRelease -PbuildSplits=true -Pkotlin.incremental=false
         env:
-          KEYSTORE_PASS: ${{ secrets.STORE_PASSWORD }}
-          ALIAS_NAME: ${{ secrets.KEY_ALIAS }}
-          ALIAS_PASS: ${{ secrets.KEY_PASSWORD }}
+          KEYSTORE_FILE: release.jks
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       - name: Upload MiPush release artifact
         uses: actions/upload-artifact@v7
