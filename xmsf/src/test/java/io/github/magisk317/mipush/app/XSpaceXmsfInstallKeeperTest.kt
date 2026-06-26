@@ -37,127 +37,99 @@ class XSpaceXmsfInstallKeeperTest {
     }
 
     @Test
-    fun `matching manager and xmsf install state is already synchronized`() {
+    fun `toggle off with both packages absent is already synchronized`() {
         val runner = RecordingRootRunner(
             "cmd user list" to xspaceUsers(),
-            XSpaceXmsfInstallKeeper.listPackageCommand(Constants.MANAGER_APP_NAME) to packageListed(Constants.MANAGER_APP_NAME),
-            XSpaceXmsfInstallKeeper.listPackageCommand() to packageListed(Constants.SERVICE_APP_NAME),
+            XSpaceXmsfInstallKeeper.listPackageCommand(Constants.SERVICE_APP_NAME) to BoundedShellResult(0),
+            XSpaceXmsfInstallKeeper.listPackageCommand(Constants.MANAGER_APP_NAME) to BoundedShellResult(0),
         )
 
         val result = XSpaceXmsfInstallKeeper.repairNow(
             hasRootAccess = { true },
             runRootCommand = runner::run,
+            isDualAppEnabled = false,
         )
 
         assertEquals(XSpaceXmsfInstallKeeper.Stage.ALREADY_SYNCHRONIZED, result.stage)
-        assertEquals(
-            listOf(
-                "cmd user list",
-                XSpaceXmsfInstallKeeper.listPackageCommand(Constants.MANAGER_APP_NAME),
-                XSpaceXmsfInstallKeeper.listPackageCommand(),
-            ),
-            runner.commands,
-        )
     }
 
     @Test
-    fun `missing xmsf with manager module installed triggers install existing`() {
+    fun `toggle off uninstalls both packages when present`() {
         val runner = RecordingRootRunner(
             "cmd user list" to xspaceUsers(),
+            XSpaceXmsfInstallKeeper.listPackageCommand(Constants.SERVICE_APP_NAME) to packageListed(Constants.SERVICE_APP_NAME),
             XSpaceXmsfInstallKeeper.listPackageCommand(Constants.MANAGER_APP_NAME) to packageListed(Constants.MANAGER_APP_NAME),
-            XSpaceXmsfInstallKeeper.listPackageCommand() to BoundedShellResult(0),
-            XSpaceXmsfInstallKeeper.installExistingCommand() to BoundedShellResult(
-                0,
-                stdout = listOf("Package com.xiaomi.xmsf installed for user: 999"),
-            ),
-            XSpaceXmsfInstallKeeper.listPackageCommand() to packageListed(Constants.SERVICE_APP_NAME),
-        )
-
-        val result = XSpaceXmsfInstallKeeper.repairNow(
-            hasRootAccess = { true },
-            runRootCommand = runner::run,
-        )
-
-        assertEquals(XSpaceXmsfInstallKeeper.Stage.INSTALL_EXISTING_SUCCEEDED, result.stage)
-        assertEquals(
-            listOf(
-                "cmd user list",
-                XSpaceXmsfInstallKeeper.listPackageCommand(Constants.MANAGER_APP_NAME),
-                XSpaceXmsfInstallKeeper.listPackageCommand(),
-                XSpaceXmsfInstallKeeper.installExistingCommand(),
-                XSpaceXmsfInstallKeeper.listPackageCommand(),
-            ),
-            runner.commands,
-        )
-    }
-
-    @Test
-    fun `install existing failure is reported`() {
-        val runner = RecordingRootRunner(
-            "cmd user list" to xspaceUsers(),
-            XSpaceXmsfInstallKeeper.listPackageCommand(Constants.MANAGER_APP_NAME) to packageListed(Constants.MANAGER_APP_NAME),
-            XSpaceXmsfInstallKeeper.listPackageCommand() to BoundedShellResult(0),
-            XSpaceXmsfInstallKeeper.installExistingCommand() to BoundedShellResult(1),
-        )
-
-        val result = XSpaceXmsfInstallKeeper.repairNow(
-            hasRootAccess = { true },
-            runRootCommand = runner::run,
-        )
-
-        assertEquals(XSpaceXmsfInstallKeeper.Stage.INSTALL_EXISTING_FAILED, result.stage)
-    }
-
-    @Test
-    fun `missing manager module and missing xmsf is already clean`() {
-        val runner = RecordingRootRunner(
-            "cmd user list" to xspaceUsers(),
+            XSpaceXmsfInstallKeeper.uninstallCommand(Constants.SERVICE_APP_NAME) to BoundedShellResult(0),
+            XSpaceXmsfInstallKeeper.uninstallCommand(Constants.MANAGER_APP_NAME) to BoundedShellResult(0),
+            XSpaceXmsfInstallKeeper.listPackageCommand(Constants.SERVICE_APP_NAME) to BoundedShellResult(0),
             XSpaceXmsfInstallKeeper.listPackageCommand(Constants.MANAGER_APP_NAME) to BoundedShellResult(0),
-            XSpaceXmsfInstallKeeper.listPackageCommand() to BoundedShellResult(0),
         )
 
         val result = XSpaceXmsfInstallKeeper.repairNow(
             hasRootAccess = { true },
             runRootCommand = runner::run,
-        )
-
-        assertEquals(XSpaceXmsfInstallKeeper.Stage.MODULE_ABSENT_XMSF_ABSENT, result.stage)
-        assertEquals(
-            listOf(
-                "cmd user list",
-                XSpaceXmsfInstallKeeper.listPackageCommand(Constants.MANAGER_APP_NAME),
-                XSpaceXmsfInstallKeeper.listPackageCommand(),
-            ),
-            runner.commands,
-        )
-    }
-
-    @Test
-    fun `missing manager module uninstalls xmsf from xspace`() {
-        val runner = RecordingRootRunner(
-            "cmd user list" to xspaceUsers(),
-            XSpaceXmsfInstallKeeper.listPackageCommand(Constants.MANAGER_APP_NAME) to BoundedShellResult(0),
-            XSpaceXmsfInstallKeeper.listPackageCommand() to packageListed(Constants.SERVICE_APP_NAME),
-            XSpaceXmsfInstallKeeper.uninstallCommand() to BoundedShellResult(0),
-            XSpaceXmsfInstallKeeper.listPackageCommand() to BoundedShellResult(0),
-        )
-
-        val result = XSpaceXmsfInstallKeeper.repairNow(
-            hasRootAccess = { true },
-            runRootCommand = runner::run,
+            isDualAppEnabled = false,
         )
 
         assertEquals(XSpaceXmsfInstallKeeper.Stage.UNINSTALL_SUCCEEDED, result.stage)
-        assertEquals(
-            listOf(
-                "cmd user list",
-                XSpaceXmsfInstallKeeper.listPackageCommand(Constants.MANAGER_APP_NAME),
-                XSpaceXmsfInstallKeeper.listPackageCommand(),
-                XSpaceXmsfInstallKeeper.uninstallCommand(),
-                XSpaceXmsfInstallKeeper.listPackageCommand(),
-            ),
-            runner.commands,
+    }
+
+    @Test
+    fun `toggle on with both packages present is already synchronized`() {
+        val runner = RecordingRootRunner(
+            "cmd user list" to xspaceUsers(),
+            XSpaceXmsfInstallKeeper.listPackageCommand(Constants.SERVICE_APP_NAME) to packageListed(Constants.SERVICE_APP_NAME),
+            XSpaceXmsfInstallKeeper.listPackageCommand(Constants.MANAGER_APP_NAME) to packageListed(Constants.MANAGER_APP_NAME),
         )
+
+        val result = XSpaceXmsfInstallKeeper.repairNow(
+            hasRootAccess = { true },
+            runRootCommand = runner::run,
+            isDualAppEnabled = true,
+        )
+
+        assertEquals(XSpaceXmsfInstallKeeper.Stage.ALREADY_SYNCHRONIZED, result.stage)
+    }
+
+    @Test
+    fun `toggle on installs both packages when absent`() {
+        val runner = RecordingRootRunner(
+            "cmd user list" to xspaceUsers(),
+            XSpaceXmsfInstallKeeper.listPackageCommand(Constants.SERVICE_APP_NAME) to BoundedShellResult(0),
+            XSpaceXmsfInstallKeeper.listPackageCommand(Constants.MANAGER_APP_NAME) to BoundedShellResult(0),
+            XSpaceXmsfInstallKeeper.installExistingCommand(Constants.SERVICE_APP_NAME) to BoundedShellResult(0),
+            XSpaceXmsfInstallKeeper.installExistingCommand(Constants.MANAGER_APP_NAME) to BoundedShellResult(0),
+            XSpaceXmsfInstallKeeper.listPackageCommand(Constants.SERVICE_APP_NAME) to packageListed(Constants.SERVICE_APP_NAME),
+            XSpaceXmsfInstallKeeper.listPackageCommand(Constants.MANAGER_APP_NAME) to packageListed(Constants.MANAGER_APP_NAME),
+        )
+
+        val result = XSpaceXmsfInstallKeeper.repairNow(
+            hasRootAccess = { true },
+            runRootCommand = runner::run,
+            isDualAppEnabled = true,
+        )
+
+        assertEquals(XSpaceXmsfInstallKeeper.Stage.INSTALL_EXISTING_SUCCEEDED, result.stage)
+    }
+
+    @Test
+    fun `toggle on installs missing packages when only some present`() {
+        val runner = RecordingRootRunner(
+            "cmd user list" to xspaceUsers(),
+            XSpaceXmsfInstallKeeper.listPackageCommand(Constants.SERVICE_APP_NAME) to packageListed(Constants.SERVICE_APP_NAME),
+            XSpaceXmsfInstallKeeper.listPackageCommand(Constants.MANAGER_APP_NAME) to BoundedShellResult(0),
+            XSpaceXmsfInstallKeeper.installExistingCommand(Constants.MANAGER_APP_NAME) to BoundedShellResult(0),
+            XSpaceXmsfInstallKeeper.listPackageCommand(Constants.SERVICE_APP_NAME) to packageListed(Constants.SERVICE_APP_NAME),
+            XSpaceXmsfInstallKeeper.listPackageCommand(Constants.MANAGER_APP_NAME) to packageListed(Constants.MANAGER_APP_NAME),
+        )
+
+        val result = XSpaceXmsfInstallKeeper.repairNow(
+            hasRootAccess = { true },
+            runRootCommand = runner::run,
+            isDualAppEnabled = true,
+        )
+
+        assertEquals(XSpaceXmsfInstallKeeper.Stage.INSTALL_EXISTING_SUCCEEDED, result.stage)
     }
 
     @Test

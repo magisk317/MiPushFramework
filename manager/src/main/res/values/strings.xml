@@ -379,6 +379,8 @@ This could be the application doing a reverse registration, or the registration 
     <string name="settings_home_notifications_title">Dynamic Island &amp; Focus notifications</string>
     <string name="settings_home_notifications_summary">Dynamic island display controls and parameter adjustments.</string>
     <string name="settings_home_misc_title">Miscellaneous</string>
+    <string name="settings_dual_app_title">Enable dual app</string>
+    <string name="settings_dual_app_summary">Install xmsf and MiPush to the dual-app space (user 999). Requires root access.</string>
     <string name="pref_choose_theme_title">Theme</string>
     <string name="pref_choose_theme_summary">Follow System, Light, Dark or Pure Black</string>
     <string name="pref_ui_kit_style_title">UI style</string>
