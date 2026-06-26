@@ -24,6 +24,10 @@
 -keep interface io.github.magisk317.mipush.hook.** { *; }
 -keep class io.github.magisk317.mipush.xposed.** { *; }
 
+# Keep magisk-xposed-kit runtime (XposedRuntime and Hooker implementations)
+# MethodHookerImpl.intercept() is invoked by LSPosed at runtime
+-keep class io.github.magisk317.xposed.** { *; }
+
 # Keep parcelables used across module boundaries when minification is enabled
 -keep class io.github.magisk317.mipush.common.model.** { *; }
 
