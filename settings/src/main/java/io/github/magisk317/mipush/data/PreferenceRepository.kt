@@ -72,6 +72,7 @@ class PreferenceRepository constructor(
     private val ICON_REMOTE_BRANCH = stringPreferencesKey("icon_remote_branch")
     private val ICON_REMOTE_ACCELERATOR = stringPreferencesKey("icon_remote_accelerator")
     private val COLOR_STATUS_BAR_ICON = booleanPreferencesKey(COLOR_STATUS_BAR_ICON_KEY)
+    private val DUAL_APP_ENABLED = booleanPreferencesKey("dual_app_enabled")
 
     // Getters
     val lastStartupTime: Flow<Long> = dataStore.data.map { it[LAST_STARTUP_TIME] ?: 0L }
@@ -94,6 +95,7 @@ class PreferenceRepository constructor(
     val islandShowOriginalNotification: Flow<Boolean> = dataStore.data.map { it[ISLAND_SHOW_ORIGINAL_NOTIFICATION] ?: true }
     val islandFocusNotification: Flow<Boolean> = dataStore.data.map { it[ISLAND_FOCUS_NOTIF] ?: true }
     val colorStatusBarIcon: Flow<Boolean> = dataStore.data.map { it[COLOR_STATUS_BAR_ICON] ?: false }
+    val dualAppEnabled: Flow<Boolean> = dataStore.data.map { it[DUAL_APP_ENABLED] ?: false }
 
     val hazeBlurRadius: Flow<Int> = dataStore.data.map { it[HAZE_BLUR_RADIUS] ?: 25 }
     val hazeTintAlpha: Flow<Float> = dataStore.data.map { it[HAZE_TINT_ALPHA] ?: 0.2f }
@@ -200,6 +202,10 @@ class PreferenceRepository constructor(
 
     suspend fun setColorStatusBarIcon(enable: Boolean) {
         dataStore.edit { it[COLOR_STATUS_BAR_ICON] = enable }
+    }
+
+    suspend fun setDualAppEnabled(enabled: Boolean) {
+        dataStore.edit { it[DUAL_APP_ENABLED] = enabled }
     }
 
     suspend fun setXmppServer(host: String) {

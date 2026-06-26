@@ -36,7 +36,7 @@ val managerKoinModule = module {
         )
     }
 
-    viewModel { SettingsViewModel(get<PreferenceRepository>(), get<SettingsManager>()) }
+    viewModel { SettingsViewModel(get<PreferenceRepository>(), get<SettingsManager>(), get<ManagerPermissionGateway>()) }
     viewModel { AdvancedSettingsViewModel(get<PreferenceRepository>(), get<SettingsManager>()) }
     viewModel { EventListViewModel(get<ManagerEventGateway>(), get<SettingsManager>(), androidContext()) }
     viewModel { ZygiskConfigViewModel(get(), get(), androidContext()) }

@@ -361,6 +361,8 @@
     <string name="settings_home_notifications_title">灵动岛与焦点通知</string>
     <string name="settings_home_notifications_summary">灵动岛显示控制与参数调整。</string>
     <string name="settings_home_misc_title">其他杂项</string>
+    <string name="settings_dual_app_title">启用双开</string>
+    <string name="settings_dual_app_summary">将 xmsf 和 MiPush 安装到分身空间（用户 999）。需要 Root 权限。</string>
     <string name="pref_choose_theme_title">主题</string>
     <string name="pref_choose_theme_summary">跟随系统、浅色、深色或纯黑</string>
     <string name="pref_ui_kit_style_title">界面风格</string>

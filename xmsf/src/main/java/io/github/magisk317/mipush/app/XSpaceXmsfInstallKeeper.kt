@@ -5,11 +5,15 @@ import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logW
+import io.github.magisk317.mipush.data.PreferenceRepository
+import io.github.magisk317.mipush.data.dataStore
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.platform.support.BoundedShellResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
@@ -38,11 +42,13 @@ object XSpaceXmsfInstallKeeper {
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                val isDualAppEnabled = readDualAppEnabled(appContext)
                 val result = repairNow(
                     hasRootAccess = { AppRootAccessFacade.refreshRootAccessIfGranted() },
                     runRootCommand = { command, timeoutMs ->
                         AppRootAccessFacade.runRootCommand(command, timeoutMs = timeoutMs)
                     },
+                    isDualAppEnabled = isDualAppEnabled,
                 )
                 logResult(appContext, source, result)
             } finally {
@@ -51,9 +57,17 @@ object XSpaceXmsfInstallKeeper {
         }
     }
 
+    private fun readDualAppEnabled(context: Context): Boolean {
+        return runCatching {
+            val repository = PreferenceRepository(context.dataStore)
+            runBlocking { repository.dualAppEnabled.first() }
+        }.getOrDefault(false)
+    }
+
     internal fun repairNow(
         hasRootAccess: () -> Boolean,
         runRootCommand: (String, Long) -> BoundedShellResult,
+        isDualAppEnabled: Boolean = false,
     ): RepairResult {
         if (!hasRootAccess()) {
             return RepairResult(Stage.ROOT_MISSING)
@@ -67,40 +81,53 @@ object XSpaceXmsfInstallKeeper {
             return RepairResult(Stage.XSPACE_USER_NOT_FOUND)
         }
 
-        val moduleList = runRootCommand(listPackageCommand(Constants.MANAGER_APP_NAME), PACKAGE_LIST_TIMEOUT_MS)
-        val moduleInstalled = isPackageListed(moduleList, Constants.MANAGER_APP_NAME)
-        val beforeList = runRootCommand(listPackageCommand(Constants.SERVICE_APP_NAME), PACKAGE_LIST_TIMEOUT_MS)
+        val xmsfList = runRootCommand(listPackageCommand(Constants.SERVICE_APP_NAME), PACKAGE_LIST_TIMEOUT_MS)
+        val managerList = runRootCommand(listPackageCommand(Constants.MANAGER_APP_NAME), PACKAGE_LIST_TIMEOUT_MS)
+        val xmsfInstalled = isPackageListed(xmsfList, Constants.SERVICE_APP_NAME)
+        val managerInstalled = isPackageListed(managerList, Constants.MANAGER_APP_NAME)
 
-        if (!moduleInstalled) {
-            if (!isPackageListed(beforeList, Constants.SERVICE_APP_NAME)) {
-                return RepairResult(Stage.MODULE_ABSENT_XMSF_ABSENT)
+        if (!isDualAppEnabled) {
+            // Toggle is OFF: uninstall both packages if present
+            if (!xmsfInstalled && !managerInstalled) {
+                return RepairResult(Stage.ALREADY_SYNCHRONIZED)
             }
-            val uninstall = runRootCommand(uninstallCommand(), UNINSTALL_TIMEOUT_MS)
-            if (!uninstall.isSuccess) {
-                return RepairResult(Stage.UNINSTALL_FAILED, exitCode = uninstall.exitCode)
+            if (xmsfInstalled) {
+                runRootCommand(uninstallCommand(Constants.SERVICE_APP_NAME), UNINSTALL_TIMEOUT_MS)
             }
-            val afterList = runRootCommand(listPackageCommand(Constants.SERVICE_APP_NAME), PACKAGE_LIST_TIMEOUT_MS)
-            return if (!isPackageListed(afterList, Constants.SERVICE_APP_NAME)) {
+            if (managerInstalled) {
+                runRootCommand(uninstallCommand(Constants.MANAGER_APP_NAME), UNINSTALL_TIMEOUT_MS)
+            }
+            val afterXmsf = runRootCommand(listPackageCommand(Constants.SERVICE_APP_NAME), PACKAGE_LIST_TIMEOUT_MS)
+            val afterManager = runRootCommand(listPackageCommand(Constants.MANAGER_APP_NAME), PACKAGE_LIST_TIMEOUT_MS)
+            val bothRemoved = !isPackageListed(afterXmsf, Constants.SERVICE_APP_NAME) &&
+                !isPackageListed(afterManager, Constants.MANAGER_APP_NAME)
+            return if (bothRemoved) {
                 RepairResult(Stage.UNINSTALL_SUCCEEDED)
             } else {
-                RepairResult(Stage.UNINSTALL_VERIFY_FAILED, exitCode = afterList.exitCode)
+                RepairResult(Stage.UNINSTALL_VERIFY_FAILED)
             }
         }
 
-        if (isPackageListed(beforeList, Constants.SERVICE_APP_NAME)) {
+        // Toggle is ON: install both packages if not present
+        if (xmsfInstalled && managerInstalled) {
             return RepairResult(Stage.ALREADY_SYNCHRONIZED)
         }
 
-        val install = runRootCommand(installExistingCommand(), INSTALL_TIMEOUT_MS)
-        if (!install.isSuccess) {
-            return RepairResult(Stage.INSTALL_EXISTING_FAILED, exitCode = install.exitCode)
+        if (!xmsfInstalled) {
+            runRootCommand(installExistingCommand(Constants.SERVICE_APP_NAME), INSTALL_TIMEOUT_MS)
+        }
+        if (!managerInstalled) {
+            runRootCommand(installExistingCommand(Constants.MANAGER_APP_NAME), INSTALL_TIMEOUT_MS)
         }
 
-        val afterList = runRootCommand(listPackageCommand(Constants.SERVICE_APP_NAME), PACKAGE_LIST_TIMEOUT_MS)
-        return if (isPackageListed(afterList, Constants.SERVICE_APP_NAME)) {
+        val afterXmsf = runRootCommand(listPackageCommand(Constants.SERVICE_APP_NAME), PACKAGE_LIST_TIMEOUT_MS)
+        val afterManager = runRootCommand(listPackageCommand(Constants.MANAGER_APP_NAME), PACKAGE_LIST_TIMEOUT_MS)
+        val bothInstalled = isPackageListed(afterXmsf, Constants.SERVICE_APP_NAME) &&
+            isPackageListed(afterManager, Constants.MANAGER_APP_NAME)
+        return if (bothInstalled) {
             RepairResult(Stage.INSTALL_EXISTING_SUCCEEDED)
         } else {
-            RepairResult(Stage.VERIFY_FAILED, exitCode = afterList.exitCode)
+            RepairResult(Stage.VERIFY_FAILED)
         }
     }
 
@@ -110,11 +137,11 @@ object XSpaceXmsfInstallKeeper {
     internal fun isPackageListed(result: BoundedShellResult, packageName: String): Boolean =
         result.isSuccess && result.stdoutText.lineSequence().any { it.trim() == "package:$packageName" }
 
-    internal fun installExistingCommand(): String =
-        "cmd package install-existing --user $XSPACE_USER_ID --wait ${Constants.SERVICE_APP_NAME}"
+    internal fun installExistingCommand(packageName: String = Constants.SERVICE_APP_NAME): String =
+        "cmd package install-existing --user $XSPACE_USER_ID --wait $packageName"
 
-    internal fun uninstallCommand(): String =
-        "cmd package uninstall --user $XSPACE_USER_ID ${Constants.SERVICE_APP_NAME}"
+    internal fun uninstallCommand(packageName: String = Constants.SERVICE_APP_NAME): String =
+        "cmd package uninstall --user $XSPACE_USER_ID $packageName"
 
     internal fun listPackageCommand(packageName: String = Constants.SERVICE_APP_NAME): String =
         "cmd package list packages --user $XSPACE_USER_ID $packageName"

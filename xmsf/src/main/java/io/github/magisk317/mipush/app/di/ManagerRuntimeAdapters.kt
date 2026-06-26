@@ -363,6 +363,50 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
         )
     }
 
+    override fun setDualAppEnabled(enabled: Boolean): ManagerXSpaceRepairResult {
+        if (!PermissionUtils.refreshRootAccessIfGranted()) {
+            return ManagerXSpaceRepairResult(stage = ManagerXSpaceRepairStage.ROOT_MISSING)
+        }
+        val users = runRootCommand("cmd user list", timeoutMs = 5_000L)
+        if (!users.isSuccess || !users.output.contains("{${XSPACE_USER_ID}:")) {
+            return ManagerXSpaceRepairResult(
+                stage = ManagerXSpaceRepairStage.XSPACE_USER_NOT_FOUND,
+                details = users.output.ifBlank { users.stderrText },
+            )
+        }
+
+        if (enabled) {
+            installExistingForUser(Constants.SERVICE_APP_NAME)
+            installExistingForUser(Constants.MANAGER_APP_NAME)
+        } else {
+            uninstallForUser(Constants.SERVICE_APP_NAME)
+            uninstallForUser(Constants.MANAGER_APP_NAME)
+        }
+
+        val xmsfInstalled = isPackageInstalledForUser(Constants.SERVICE_APP_NAME)
+        val managerInstalled = isPackageInstalledForUser(Constants.MANAGER_APP_NAME)
+        val expectedInstalled = enabled
+        val succeeded = xmsfInstalled == expectedInstalled && managerInstalled == expectedInstalled
+
+        return ManagerXSpaceRepairResult(
+            stage = if (succeeded) {
+                ManagerXSpaceRepairStage.COMPLETED
+            } else {
+                ManagerXSpaceRepairStage.PARTIAL_FAILED
+            },
+            xmsfInstalled = xmsfInstalled,
+            details = "enabled=$enabled, xmsfInstalled=$xmsfInstalled, managerInstalled=$managerInstalled",
+        )
+    }
+
+    override fun isDualAppInstalled(): Boolean {
+        if (!PermissionUtils.hasCachedRootAccess()) return false
+        val users = runRootCommand("cmd user list", timeoutMs = 5_000L)
+        if (!users.isSuccess || !users.output.contains("{${XSPACE_USER_ID}:")) return false
+        return isPackageInstalledForUser(Constants.SERVICE_APP_NAME) &&
+            isPackageInstalledForUser(Constants.MANAGER_APP_NAME)
+    }
+
     override fun launchAppOps(context: Context, permission: String, tips: CharSequence): Boolean =
         PermissionUtils.lunchAppOps(context, permission, tips)
 

@@ -248,6 +248,8 @@ private fun SettingsScreen(
                     val context = LocalContext.current
                     val showAllEvents by viewModel.showAllEvents.collectAsStateWithLifecycle()
                     val colorStatusBarIcon by viewModel.colorStatusBarIcon.collectAsStateWithLifecycle()
+                    val dualAppEnabled by viewModel.dualAppEnabled.collectAsStateWithLifecycle()
+                    val dualAppProcessing by viewModel.dualAppProcessing.collectAsStateWithLifecycle()
                     val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
 
                     val showAllEventsTitle = stringResource(R.string.settings_show_all_events)
@@ -270,6 +272,18 @@ private fun SettingsScreen(
                             viewModel.setColorStatusBarIcon(enabled)
                             context.sendBroadcast(android.content.Intent(io.github.magisk317.mipush.common.ACTION_PREF_CHANGED))
                             showSwitchFeedback(colorIconTitle, enabled)
+                        }
+                    )
+
+                    val dualAppTitle = stringResource(R.string.settings_dual_app_title)
+                    SettingsSwitchItem(
+                        title = dualAppTitle,
+                        summary = stringResource(R.string.settings_dual_app_summary),
+                        checked = dualAppEnabled,
+                        enabled = !dualAppProcessing,
+                        onCheckedChange = { enabled ->
+                            viewModel.setDualAppEnabled(enabled)
+                            showSwitchFeedback(dualAppTitle, enabled)
                         }
                     )
 

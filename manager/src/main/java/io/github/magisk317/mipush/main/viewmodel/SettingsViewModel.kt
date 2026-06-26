@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.manager.SettingsManager
+import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
+import io.github.magisk317.mipush.common.manager.ManagerXSpaceRepairStage
 import io.github.magisk317.uikit.theme.UiKitStyle
 import java.io.File
 import kotlinx.coroutines.flow.SharingStarted
@@ -12,12 +14,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.common.utils.Utils
 
 class SettingsViewModel constructor(
     private val preferenceRepository: PreferenceRepository,
-    private val settingsManager: SettingsManager
+    private val settingsManager: SettingsManager,
+    private val permissionGateway: ManagerPermissionGateway,
 ) : ViewModel() {
     data class ThemeState(
         val mode: Int,
@@ -88,6 +93,12 @@ class SettingsViewModel constructor(
 
     val colorStatusBarIcon: StateFlow<Boolean> = preferenceRepository.colorStatusBarIcon
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val dualAppEnabled: StateFlow<Boolean> = preferenceRepository.dualAppEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    private val _dualAppProcessing = MutableStateFlow(false)
+    val dualAppProcessing: StateFlow<Boolean> = _dualAppProcessing.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -198,6 +209,22 @@ class SettingsViewModel constructor(
 
     fun setColorStatusBarIcon(value: Boolean) = viewModelScope.launch {
         preferenceRepository.setColorStatusBarIcon(value)
+    }
+
+    fun setDualAppEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            _dualAppProcessing.value = true
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    permissionGateway.setDualAppEnabled(enabled)
+                }
+                if (result.stage == ManagerXSpaceRepairStage.COMPLETED) {
+                    preferenceRepository.setDualAppEnabled(enabled)
+                }
+            } finally {
+                _dualAppProcessing.value = false
+            }
+        }
     }
 
     fun setThemeMode(mode: Int, x: Float = -1f, y: Float = -1f) {

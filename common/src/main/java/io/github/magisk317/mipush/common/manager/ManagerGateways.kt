@@ -80,6 +80,8 @@ interface ManagerPermissionGateway {
     fun refreshRootAccessIfGranted(): Boolean
     fun requestRootAccess(): Boolean
     fun repairXSpaceUserSupport(): ManagerXSpaceRepairResult
+    fun setDualAppEnabled(enabled: Boolean): ManagerXSpaceRepairResult
+    fun isDualAppInstalled(): Boolean
     fun launchAppOps(context: Context, permission: String, tips: CharSequence): Boolean
     fun isUsageStatsAllowedByRoot(packageName: String): Boolean
     fun requestIgnoreBatteryOptimizations(context: Context): Boolean
