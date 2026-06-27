@@ -51,6 +51,7 @@ jobs:
         with:
           validate-wrappers: false
           allow-snapshot-wrappers: true
+
       - name: Decode Keystore
         if: env.HAS_RELEASE_KEYSTORE == 'true'
         run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > app/release.jks
@@ -103,6 +104,7 @@ jobs:
         with:
           validate-wrappers: false
           allow-snapshot-wrappers: true
+
       - name: Decode Keystore
         if: env.HAS_RELEASE_KEYSTORE == 'true'
         run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > app/release.jks
@@ -184,8 +186,6 @@ jobs:
           name: apks-magisk-module
           path: build/output/MiPushFramework-Magisk-*.zip
 
-
-
   create-release:
     name: Create Release
     needs: [build-xmsf-apk, build-mipush-apk, build-zygisk-module, build-magisk-module]
@@ -259,8 +259,7 @@ jobs:
             fi
           fi
 
-# ── Prioritize arm64-v8a APKs, then Magisk/Zygisk modules, then other ABIs ──
-                    # ���� Prioritize arm64-v8a APKs + Magisk/Zygisk modules ����
+          # ── 优先级：arm64-v8a APK → Magisk/Zygisk 模块 → 其他 ABI ──
           mapfile -d '' v8a_apks < <(
             find artifacts/apks -type f -name '*arm64-v8a*' -print0 | sort -z
           )
@@ -270,7 +269,6 @@ jobs:
           mapfile -d '' other_apks < <(
             find artifacts/apks -type f -name '*.apk' ! -name '*arm64-v8a*' -print0 | sort -z
           )
-          # Primary: v8a APKs first, then Magisk/Zygisk modules, then other ABIs
           release_assets=("${v8a_apks[@]}" "${modules[@]}" "${other_apks[@]}")
           if [[ ${#release_assets[@]} == 0 ]]; then
             echo "ERROR: no release assets found under artifacts/apks" >&2

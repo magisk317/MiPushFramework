@@ -80,6 +80,8 @@ jobs:
           allow-snapshot-wrappers: true
       - name: Build
         run: ./gradlew --warning-mode all :app:assembleDebug :mipush:assembleDebug -PbuildSplits -PminifyDebug -Pkotlin.incremental=false
+
+      # 构建 Magisk 模块（使用刚生成的 arm64-v8a Debug APK）
       - name: Build Magisk Module (XMSF normal + MiPush arm64-v8a only)
         run: bash scripts/build_magisk_module.sh
 
@@ -101,6 +103,8 @@ jobs:
               echo "| $app | $name | $size |"
             done < <(find app/build/outputs/apk mipush/build/outputs/apk -path '*/debug/*.apk' -not -path '*/androidTest/*' | sort)
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # 上传各个 Debug APK（按 ABI 区分）
       - name: Upload XMSF Normal Debug APK (arm64-v8a)
         if: always()
         uses: actions/upload-artifact@v7
@@ -191,14 +195,14 @@ jobs:
         with:
           name: MiPush-debug-universal
           path: mipush/build/outputs/apk/debug/**/*universal*.apk
+
+      # 上传 Magisk 模块（由 build 步骤生成）
       - name: Upload Magisk Module
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: MiPushFramework-Magisk-Module
           path: build/output/MiPushFramework-Magisk-*.zip
-
-
 
   build-zygisk:
     runs-on: ubuntu-latest
@@ -265,7 +269,8 @@ jobs:
 
   create-release:
     name: Create Release (Debug)
-    if: github.event_name == 'workflow_dispatch'
+    # 自动创建：push 到 dev/master；或手动触发 workflow_dispatch
+    if: (github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/master')) || github.event_name == 'workflow_dispatch'
     needs: [build, build-zygisk]
     runs-on: ubuntu-latest
     permissions:
@@ -282,32 +287,27 @@ jobs:
           path: artifacts/downloads
           merge-multiple: false
 
-      - name: Build Magisk Module
-        run: |
-          mkdir -p artifacts/downloads/magisk-input
-          # Collect v8a APKs from build artifacts
-          find artifacts/downloads -name '*arm64-v8a*.apk' -exec cp {} artifacts/downloads/magisk-input/ \;
-          XMSF_APK="$(find artifacts/downloads/magisk-input -name '*xmsf*' -o -name '*normal*' | head -1)"
-          MIPUSH_APK="$(find artifacts/downloads/magisk-input -name '*MiPush*' -o -name '*mipush*' | head -1)"
-          if [[ -z "$XMSF_APK" ]]; then
-            XMSF_APK="$(find artifacts/downloads/magisk-input -name '*arm64-v8a*' | head -1)"
-          fi
-          if [[ -z "$MIPUSH_APK" ]]; then
-            MIPUSH_APK="$(find artifacts/downloads/magisk-input -name '*arm64-v8a*' | tail -1)"
-          fi
-          bash scripts/build_magisk_module.sh "$XMSF_APK" "$MIPUSH_APK"
-
       - name: Collect release assets (v8a > Magisk > Zygisk > others)
         run: |
           mkdir -p artifacts/release
-          # 1) arm64-v8a APKs (primary)
+
+          # 1) arm64-v8a APKs（最高优先级）
           find artifacts/downloads -name '*arm64-v8a*.apk' -exec cp {} artifacts/release/ \;
-          # 2) Magisk module
-          cp build/output/MiPushFramework-Magisk-*.zip artifacts/release/ || true
-          # 3) ALL Zygisk modules (arm64-v8a, x86_64, x86, armeabi-v7a, universal)
+
+          # 2) Magisk 模块（直接从 build job 上传的 Artifact 中获取）
+          MAGISK_ZIP="$(find artifacts/downloads -path '*/MiPushFramework-Magisk-Module/*' -name '*.zip' | head -1)"
+          if [[ -n "$MAGISK_ZIP" ]]; then
+            cp "$MAGISK_ZIP" artifacts/release/
+          else
+            echo "WARNING: Magisk module zip not found in downloaded artifacts" >&2
+          fi
+
+          # 3) Zygisk 模块（所有 ABI）
           find artifacts/downloads -name '*.zip' -path '*zygisk*' -exec cp {} artifacts/release/ \; 2>/dev/null || true
-          # 4) Remaining APKs (other ABIs)
+
+          # 4) 其他 ABI 的 APK（非 arm64-v8a）
           find artifacts/downloads -name '*.apk' ! -name '*arm64-v8a*' -exec cp {} artifacts/release/ \; 2>/dev/null || true
+
           echo "=== Release assets ==="
           ls -la artifacts/release/
 
@@ -329,13 +329,22 @@ jobs:
           - **Zygisk Module** — Optional zygisk module
 
           > **Note**: These are debug builds signed with the default debug key."
+
           mapfile -d '' assets < <(find artifacts/release -type f -print0 | sort -z)
+          if [[ ${#assets[@]} -eq 0 ]]; then
+            echo "ERROR: no release assets collected" >&2
+            exit 1
+          fi
+
           if gh release view "$tag_name" >/dev/null 2>&1; then
             gh release upload "$tag_name" "${assets[@]}" --clobber
+            gh release edit "$tag_name" \
+              --title "$release_name" \
+              --draft=true \
+              --notes "$release_notes"
           else
             gh release create "$tag_name" "${assets[@]}" \
               --title "$release_name" \
               --draft \
               --notes "$release_notes"
           fi
-
