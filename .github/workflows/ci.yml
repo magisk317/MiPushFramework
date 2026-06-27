@@ -161,7 +161,7 @@ jobs:
         with:
           name: xmsf-vc105-debug-universal
           path: app/build/outputs/apk/vc105/debug/**/*universal*.apk
-- name: Upload MiPush Debug APK (arm64-v8a)
+      - name: Upload MiPush Debug APK (arm64-v8a)
         if: always()
         uses: actions/upload-artifact@v7
         with:
