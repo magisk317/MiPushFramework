@@ -6,11 +6,8 @@ Dates:
 - Refactor update: 2026-05-25
 - Consolidated in-repo record: 2026-06-02
 
-This document consolidates the former workspace-level planning notes into the repository:
-
-- `/home/lzc/wqk/mipushframework-refactor-plan.md`
-- `/home/lzc/wqk/wqk-mipushframework-xmsf-build-outputs-a-quiet-knuth.md`
-- `/home/lzc/wqk/mipush-island-styles-plan.md`
+This document consolidates the former workspace-level refactor, build-output, and island-style
+planning notes into the repository.
 
 ## Summary
 
