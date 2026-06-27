@@ -259,7 +259,8 @@ jobs:
             fi
           fi
 
-                    # ©¤©¤ Prioritize arm64-v8a APKs + Magisk/Zygisk modules ©¤©¤
+# â”€â”€ Prioritize arm64-v8a APKs, then Magisk/Zygisk modules, then other ABIs â”€â”€
+                    # ï¿½ï¿½ï¿½ï¿½ Prioritize arm64-v8a APKs + Magisk/Zygisk modules ï¿½ï¿½ï¿½ï¿½
           mapfile -d '' v8a_apks < <(
             find artifacts/apks -type f -name '*arm64-v8a*' -print0 | sort -z
           )
