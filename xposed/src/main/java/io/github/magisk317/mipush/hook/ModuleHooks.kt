@@ -54,6 +54,7 @@ class LibXposedEntry : BaseLibXposedEntry {
 
     override fun installModuleRuntime(module: XposedModule, hookApi: LibXposedHookApi) {
         XposedRuntime.install(module, "mipush")
+        XLog.configure()
     }
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {

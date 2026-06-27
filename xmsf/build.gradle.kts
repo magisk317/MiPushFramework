@@ -75,6 +75,7 @@ dependencies {
     implementation(project(":common"))
     implementation(project(":vendor"))
     implementation(project(":pinned"))
+    implementation(project(":magisk-xposed-kit"))
 
     implementation(libs.napier)
     implementation(libs.hyperisland.kit) {

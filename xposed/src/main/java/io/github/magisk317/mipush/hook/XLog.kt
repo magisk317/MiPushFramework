@@ -1,31 +1,25 @@
 package io.github.magisk317.mipush.hook
 
-import android.content.ContentValues
-import android.net.Uri
-import android.os.Process
 import android.util.Log
 import io.github.magisk317.mipush.xposed.BuildConfig
 import io.github.magisk317.xposed.MethodHookParam
 import io.github.magisk317.xposed.XposedRuntime
-import io.github.magisk317.xposed.currentApplication
+import io.github.magisk317.xposed.logging.XposedLogClient
 import java.lang.reflect.Method
-
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.ThreadPoolExecutor
-import java.util.concurrent.TimeUnit
 
 object XLog {
     private const val SOURCE = "MiPush"
-    private val logExecutor = ThreadPoolExecutor(
-        0, 1, 60L, TimeUnit.SECONDS,
-        LinkedBlockingQueue(256),
-        ThreadPoolExecutor.DiscardPolicy()
-    )
-    private val FRAMEWORK_LOG_URI: Uri = Uri.parse("content://com.xiaomi.xmsf.module.log/entry")
     private val suppressedDebugTags = setOf(
         "HookPushNC",
     )
     private const val TRACE_ENABLED = false
+
+    fun configure() {
+        XposedLogClient.configure(
+            authority = "com.xiaomi.xmsf.module.log",
+            source = SOURCE,
+        )
+    }
 
     fun t(tag: String, message: String?) {
         if (!BuildConfig.DEBUG || !TRACE_ENABLED) return
@@ -67,30 +61,16 @@ object XLog {
     private fun emit(level: String, tag: String, message: String?, throwable: Throwable?) {
         val priority = priorityFor(level)
         XposedRuntime.log(priority, tag, "[MiPush][$level][$tag] $message", throwable)
-        logExecutor.execute {
-            runCatching {
-                relayToFramework(level, tag, message, throwable)
-            }
-        }
-    }
-
-    private fun relayToFramework(level: String, tag: String, message: String?, throwable: Throwable?) {
         if (level == "T") return
-        val application = currentApplication() ?: return
-        runCatching {
-            val values = ContentValues().apply {
-                put("source", SOURCE)
-                put("level", level)
-                put("tag", tag)
-                put("message", message ?: "")
-                put("throwable", throwable?.stackTraceToString() ?: "")
-                put("package_name", application.packageName ?: "")
-                put("process_name", runCatching { android.app.Application.getProcessName() }.getOrNull() ?: "")
-                put("pid", Process.myPid())
-                put("uid", Process.myUid())
-            }
-            application.contentResolver.insert(FRAMEWORK_LOG_URI, values)
-        }
+        XposedLogClient.send(
+            io.github.magisk317.xposed.logging.XposedLogEvent(
+                source = SOURCE,
+                level = level,
+                tag = tag,
+                message = message ?: "",
+                throwable = throwable?.stackTraceToString() ?: "",
+            ),
+        )
     }
 
     private fun priorityFor(level: String): Int = when (level) {
