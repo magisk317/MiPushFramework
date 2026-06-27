@@ -96,12 +96,13 @@ set_perm_recursive "$MODPATH/system/app" 0 0 0755 0644
 CUSTOMIZE
 chmod +x "$BUILD_DIR/customize.sh"
 
-# 打包
+# 打包（关键修复：去掉 -x '*.git*'，避免误排除含有 .git 的目录名）
 mkdir -p "$OUTPUT_DIR"
 ZIP_FILE="$OUTPUT_DIR/${MODULE_NAME}.zip"
 rm -f "$ZIP_FILE"
 echo "Creating zip: $ZIP_FILE"
-(cd "$BUILD_DIR" && zip -r9 "$ZIP_FILE" . -x '*.git*' >/dev/null)
+# 使用 find 显式添加所有文件，更安全
+(cd "$BUILD_DIR" && find . -type f | zip -9 "$ZIP_FILE" -@ >/dev/null)
 
 echo ""
 echo "Magisk module created: $ZIP_FILE"
