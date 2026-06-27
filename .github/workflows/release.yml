@@ -7,12 +7,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate-release:
     name: Validate Release Metadata
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v7
         with:
@@ -30,7 +31,6 @@ jobs:
 
   build-xmsf-apk:
     name: Build XMSF Release APK
-    needs: [validate-release]
     runs-on: ubuntu-latest
     env:
       HAS_RELEASE_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE != '' }}
@@ -51,6 +51,7 @@ jobs:
         with:
           validate-wrappers: false
           allow-snapshot-wrappers: true
+
       - name: Decode Keystore
         if: env.HAS_RELEASE_KEYSTORE == 'true'
         run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > app/release.jks
@@ -69,20 +70,8 @@ jobs:
           name: apks-xmsf
           path: app/build/outputs/apk/normal/release/**/*arm64-v8a*.apk
 
-      - name: Package mapping files for debugging
-        run: |
-          mkdir -p mapping-out
-          cp app/build/outputs/mapping/normalRelease/mapping.txt mapping-out/mapping-normal-release.txt 2>/dev/null || true
-
-      - name: Upload mapping artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: mapping
-          path: mapping-out/
-
   build-mipush-apk:
     name: Build MiPush Release APK
-    needs: [validate-release]
     runs-on: ubuntu-latest
     env:
       HAS_RELEASE_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE != '' }}
@@ -103,6 +92,7 @@ jobs:
         with:
           validate-wrappers: false
           allow-snapshot-wrappers: true
+
       - name: Decode Keystore
         if: env.HAS_RELEASE_KEYSTORE == 'true'
         run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > app/release.jks
@@ -121,15 +111,15 @@ jobs:
           name: apks-mipush
           path: mipush/build/outputs/apk/release/**/*.apk
 
-  build-zygisk-module:
+  build-zygisk:
     name: Build Zygisk Module
-    needs: [validate-release]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout MiPushZygisk
         uses: actions/checkout@v7
         with:
-          repository: 'magisk317/MiPushZygisk'
+          repository: magisk317/MiPushZygisk
+          path: MiPushZygisk
           fetch-depth: 0
 
       - name: Install Rust toolchain
@@ -146,13 +136,39 @@ jobs:
       - name: Build Zygisk module
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-        run: ./build.sh
+        run: |
+          cd MiPushZygisk
+          ./build.sh
 
-      - name: Upload Zygisk release artifact
+      - name: Upload Zygisk artifact (arm64-v8a)
         uses: actions/upload-artifact@v7
         with:
-          name: apks-zygisk
-          path: build/*.zip
+          name: mipush-zygisk-arm64-v8a
+          path: MiPushZygisk/build/arm64-v8a_*.zip
+
+      - name: Upload Zygisk artifact (armeabi-v7a)
+        uses: actions/upload-artifact@v7
+        with:
+          name: mipush-zygisk-armeabi-v7a
+          path: MiPushZygisk/build/armeabi-v7a_*.zip
+
+      - name: Upload Zygisk artifact (x86)
+        uses: actions/upload-artifact@v7
+        with:
+          name: mipush-zygisk-x86
+          path: MiPushZygisk/build/x86_*.zip
+
+      - name: Upload Zygisk artifact (x86_64)
+        uses: actions/upload-artifact@v7
+        with:
+          name: mipush-zygisk-x86_64
+          path: MiPushZygisk/build/x86_64_*.zip
+
+      - name: Upload Zygisk artifact (universal)
+        uses: actions/upload-artifact@v7
+        with:
+          name: mipush-zygisk-universal
+          path: MiPushZygisk/build/universal_*.zip
 
   build-magisk-module:
     name: Build Magisk Module
@@ -164,16 +180,22 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - uses: actions/download-artifact@v8
+      - name: Download XMSF Artifact
+        uses: actions/download-artifact@v8
         with:
-          pattern: apks-*
-          path: artifacts/downloads
-          merge-multiple: true
+          name: apks-xmsf
+          path: artifacts/xmsf
+
+      - name: Download MiPush Artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: apks-mipush
+          path: artifacts/mipush
 
       - name: Build Magisk Module
         run: |
-          XMSF_APK="$(find artifacts/downloads -name '*arm64-v8a*' | head -1)"
-          MIPUSH_APK="$(find artifacts/downloads -name '*arm64-v8a*' | tail -1)"
+          XMSF_APK="$(find artifacts/xmsf -name '*arm64-v8a*' | head -1)"
+          MIPUSH_APK="$(find artifacts/mipush -name '*.apk' | head -1)"
           echo "XMSF_APK=$XMSF_APK"
           echo "MIPUSH_APK=$MIPUSH_APK"
           bash scripts/build_magisk_module.sh "$XMSF_APK" "$MIPUSH_APK"
@@ -184,11 +206,9 @@ jobs:
           name: apks-magisk-module
           path: build/output/MiPushFramework-Magisk-*.zip
 
-
-
   create-release:
     name: Create Release
-    needs: [build-xmsf-apk, build-mipush-apk, build-zygisk-module, build-magisk-module]
+    needs: [build-xmsf-apk, build-mipush-apk, build-zygisk, build-magisk-module]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -200,197 +220,77 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - uses: actions/download-artifact@v8
-        with:
-          pattern: apks-*
-          path: artifacts/apks
-          merge-multiple: true
-
-      - name: Publish Release
-        if: startsWith(github.ref, 'refs/tags/') && env.HAS_RELEASE_KEYSTORE == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          tag_name="${GITHUB_REF_NAME}"
-          release_name="$tag_name"
-          release_notes="MiPushFramework Release ${tag_name}"
-          changelog_notes=""
-          if [[ -f "docs/CHANGELOG.md" ]]; then
-            changelog_notes="$(awk -v version="$tag_name" '
-              $0 == "---" && found { exit }
-              found { print; next }
-              index($0, "## [" version "]") == 1 { found = 1; next }
-            ' docs/CHANGELOG.md)"
-            if [[ -n "$changelog_notes" ]]; then
-              release_notes="$changelog_notes"
-            fi
-          fi
-
-          previous_tag=""
-          compare_range="$(printf '%s\n' "$changelog_notes" |
-            sed -nE 's#.*compare/([^[:space:]]+)\.\.\.([^[:space:]]+).*#\1 \2#p' |
-            head -n 1)"
-          if [[ -n "$compare_range" ]]; then
-            read -r previous_tag compare_to <<< "$compare_range"
-            if [[ "$compare_to" != "$tag_name" ]]; then
-              previous_tag=""
-            fi
-          fi
-          if [[ -z "$previous_tag" ]]; then
-            previous_tag="$(git describe --tags --abbrev=0 "${tag_name}^{commit}^" 2>/dev/null || true)"
-          fi
-
-          generate_args=(-X POST -f "tag_name=${tag_name}")
-          if [[ -n "$previous_tag" ]]; then
-            generate_args+=(-f "previous_tag_name=${previous_tag}")
-          fi
-          generated_notes="$(gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
-            "${generate_args[@]}" \
-            --jq '.body' 2>/dev/null || true)"
-
-          if [[ -n "$generated_notes" ]]; then
-            changelog_without_link="$(printf '%s\n' "$changelog_notes" |
-              sed '/^[[:space:]]*>[[:space:]]*Full Changelog:/d')"
-            if [[ -n "$changelog_without_link" ]]; then
-              release_notes="$(printf '%s\n\n%s\n' "$changelog_without_link" "$generated_notes")"
-            else
-              release_notes="$generated_notes"
-            fi
-          fi
-
-# ── Prioritize arm64-v8a APKs, then Magisk/Zygisk modules, then other ABIs ──
-                    # ���� Prioritize arm64-v8a APKs + Magisk/Zygisk modules ����
-          mapfile -d '' v8a_apks < <(
-            find artifacts/apks -type f -name '*arm64-v8a*' -print0 | sort -z
-          )
-          mapfile -d '' modules < <(
-            find artifacts/apks -type f -name '*.zip' -print0 | sort -z
-          )
-          mapfile -d '' other_apks < <(
-            find artifacts/apks -type f -name '*.apk' ! -name '*arm64-v8a*' -print0 | sort -z
-          )
-          # Primary: v8a APKs first, then Magisk/Zygisk modules, then other ABIs
-          release_assets=("${v8a_apks[@]}" "${modules[@]}" "${other_apks[@]}")
-          if [[ ${#release_assets[@]} == 0 ]]; then
-            echo "ERROR: no release assets found under artifacts/apks" >&2
-            find artifacts/apks -maxdepth 6 -type f | sort >&2 || true
-            exit 1
-          fi
-
-          if gh release view "$tag_name" >/dev/null 2>&1; then
-            gh release upload "$tag_name" "${release_assets[@]}" --clobber
-            gh release edit "$tag_name" \
-              --title "$release_name" \
-              --draft=false \
-              --notes "$release_notes"
-          else
-            gh release create "$tag_name" "${release_assets[@]}" \
-              --title "$release_name" \
-              --verify-tag \
-              --notes "$release_notes"
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT != '' && secrets.GH_PAT || github.token }}
-
-  publish-to-modules-repo:
-    name: Publish to Xposed-Modules-Repo
-    needs: [create-release]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    env:
-      HAS_MODULES_REPO_TOKEN: ${{ secrets.XPOSED_MODULES_REPO_TOKEN != '' }}
-      HAS_RELEASE_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE != '' }}
-      MODULES_REPO: Xposed-Modules-Repo/io.github.magisk317.mipush
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          submodules: recursive
-          fetch-depth: 0
-
-      - name: Download Artifacts
+      - name: Download All Artifacts
         uses: actions/download-artifact@v8
         with:
-          pattern: apks-*
-          path: artifacts/apks
-          merge-multiple: true
+          pattern: "*"
+          path: artifacts/downloads
+          merge-multiple: false
 
-      - name: Publish Release in Xposed-Modules-Repo
-        if: env.HAS_MODULES_REPO_TOKEN == 'true' && env.HAS_RELEASE_KEYSTORE == 'true'
+      - name: Collect and Sort Release Assets
+        id: collect-assets
         shell: bash
         run: |
           set -euo pipefail
-          tag_name="${GITHUB_REF_NAME}"
-          release_name="$tag_name"
-          release_notes="MiPushFramework Release ${tag_name}"
-          changelog_notes=""
-          if [[ -f "docs/CHANGELOG.md" ]]; then
-            changelog_notes="$(awk -v version="$tag_name" '
-              $0 == "---" && found { exit }
-              found { print; next }
-              index($0, "## [" version "]") == 1 { found = 1; next }
-            ' docs/CHANGELOG.md)"
-            if [[ -n "$changelog_notes" ]]; then
-              release_notes="$changelog_notes"
-            fi
-          fi
+          mkdir -p artifacts/release
 
-          previous_tag=""
-          compare_range="$(printf '%s\n' "$changelog_notes" |
-            sed -nE 's#.*compare/([^[:space:]]+)\.\.\.([^[:space:]]+).*#\1 \2#p' |
-            head -n 1)"
-          if [[ -n "$compare_range" ]]; then
-            read -r previous_tag compare_to <<< "$compare_range"
-            if [[ "$compare_to" != "$tag_name" ]]; then
-              previous_tag=""
-            fi
-          fi
-          if [[ -z "$previous_tag" ]]; then
-            previous_tag="$(git describe --tags --abbrev=0 "${tag_name}^{commit}^" 2>/dev/null || true)"
-          fi
+          echo "=== 1) Copying arm64-v8a APKs ==="
+          find artifacts/downloads -type f -name '*arm64-v8a*.apk' -exec cp {} artifacts/release/ \;
 
-          generate_args=(-X POST -f "tag_name=${tag_name}")
-          if [[ -n "$previous_tag" ]]; then
-            generate_args+=(-f "previous_tag_name=${previous_tag}")
-          fi
-          generated_notes="$(GH_TOKEN="${SOURCE_RELEASE_TOKEN}" \
-            gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
-            "${generate_args[@]}" \
-            --jq '.body' 2>/dev/null || true)"
+          echo "=== 2) Copying Magisk module ==="
+          find artifacts/downloads -type f -name 'MiPushFramework-Magisk-*.zip' -exec cp {} artifacts/release/ \; || true
 
-          if [[ -n "$generated_notes" ]]; then
-            changelog_without_link="$(printf '%s\n' "$changelog_notes" |
-              sed '/^[[:space:]]*>[[:space:]]*Full Changelog:/d')"
-            if [[ -n "$changelog_without_link" ]]; then
-              release_notes="$(printf '%s\n\n%s\n' "$changelog_without_link" "$generated_notes")"
-            else
-              release_notes="$generated_notes"
-            fi
-          fi
+          echo "=== 3) Copying Zygisk modules ==="
+          find artifacts/downloads -type f -name '*.zip' -path '*zygisk*' -exec cp {} artifacts/release/ \; || true
 
-          mapfile -d '' apk_files < <(find artifacts/apks -type f -name '*.apk' -print0 | sort -z)
-          if [[ ${#apk_files[@]} -eq 0 ]]; then
-            echo "ERROR: no APK files found under artifacts/apks" >&2
-            find artifacts/apks -maxdepth 6 -type f | sort >&2 || true
-            exit 1
-          fi
+          echo "=== 4) Copying Remaining APKs ==="
+          find artifacts/downloads -type f -name '*.apk' ! -name '*arm64-v8a*' -exec cp {} artifacts/release/ \; || true
 
-          if gh release view "$tag_name" --repo "${{ env.MODULES_REPO }}" >/dev/null 2>&1; then
-            gh release upload "$tag_name" "${apk_files[@]}" \
-              --repo "${{ env.MODULES_REPO }}" \
-              --clobber
-            gh release edit "$tag_name" \
-              --repo "${{ env.MODULES_REPO }}" \
-              --title "$release_name" \
-              --draft=false \
-              --notes "$release_notes"
-          else
-            gh release create "$tag_name" \
-              "${apk_files[@]}" \
-              --repo "${{ env.MODULES_REPO }}" \
-              --title "$release_name" \
-              --notes "$release_notes"
-          fi
+          echo "=== Collected Files Overview ==="
+          ls -la artifacts/release/
+
+      - name: Publish Release
+        shell: bash
         env:
-          SOURCE_RELEASE_TOKEN: ${{ secrets.GH_PAT != '' && secrets.GH_PAT || github.token }}
-          GH_TOKEN: ${{ secrets.XPOSED_MODULES_REPO_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT != '' && secrets.GH_PAT || github.token }}
+        run: |
+          set -euo pipefail
+
+          # 根据触发源决定发布类型
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            # ------ 调试/手动编译分支 (Debug) ------
+            tag_name="debug-$(date +%Y%m%d-%H%M%S)"
+            release_name="CI Debug Build $(date +%Y-%m-%d)"
+            echo "## CI Debug Build" > release_notes.md
+            echo "Automatic debug build from \`${GITHUB_REF_NAME}\` branch." >> release_notes.md
+            echo "### Assets" >> release_notes.md
+            echo "- **XMSF/MiPush** (arm64-v8a) — APKs" >> release_notes.md
+            echo "- **Magisk Module** — Flash in Magisk Manager" >> release_notes.md
+            echo "- **Zygisk Module** — Architecture-specific Zygisk zip modules" >> release_notes.md
+            echo "> **Note**: Signed with default debug key." >> release_notes.md
+            is_draft="--draft"
+          else
+            # ------ 正式 Tag 触发发布分支 (Release) ------
+            tag_name="${GITHUB_REF_NAME}"
+            release_name="$tag_name"
+            release_notes="MiPushFramework Release ${tag_name}"
+            changelog_notes=""
+            if [[ -f "docs/CHANGELOG.md" ]]; then
+              changelog_notes="$(awk -v version="$tag_name" '
+                $0 == "---" && found { exit }
+                found { print; next }
+                index($0, "## [" version "]") == 1 { found = 1; next }
+              ' docs/CHANGELOG.md)"
+              if [[ -n "$changelog_notes" ]]; then release_notes="$changelog_notes"; fi
+            fi
+
+            previous_tag="$(git describe --tags --abbrev=0 "${tag_name}^{commit}^" 2>/dev/null || true)"
+            generate_args=(-X POST -f "tag_name=${tag_name}")
+            if [[ -n "$previous_tag" ]]; then generate_args+=(-f "previous_tag_name=${previous_tag}"); fi
+            
+            generated_notes="$(gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" "${generate_args[@]}" --jq '.body' 2>/dev/null || true)"
+            if [[ -n "$generated_notes" ]]; then
+              changelog_without_link="$(printf '%s\n' "$changelog_notes" | sed '/^[[:space:]]*>[[:space:]]*Full Changelog:/d')"
+              if [[ -n "$changelog_without_link" ]]; then
+                release_notes="$(printf '%s\n\n%s\n' "$changelog_without_link" "$generated_notes")"
+              else
