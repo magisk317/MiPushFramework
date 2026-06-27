@@ -130,17 +130,18 @@ internal object MyMIPushNotificationIntentSupport {
         }
 
         val activityIntent = getSdkIntent(context, container)
-        if (!shouldUseSdkActivityClick(activityIntent != null)) {
-            return PendingIntent.getService(context, notificationId, serviceIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
-        }
-
-        activityIntent!!.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        activityIntent.putExtra("mipush_serviceIntent", serviceIntent)
-        activityIntent.putExtras(serviceIntent)
-        return PendingIntent.getActivity(context, notificationId, activityIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
+        // 修复：始终使用 Service PendingIntent，即使 SDK intent 存在
+        // 这样可以避免直接启动 Activity 导致白屏（冷启动时 Application 未初始化）
+        // 只有 URL 和 web_uri 才使用 Activity PendingIntent（已在上面处理）
+        return PendingIntent.getService(context, notificationId, serviceIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
     }
 
-    internal fun shouldUseSdkActivityClick(sdkIntentAvailable: Boolean): Boolean = sdkIntentAvailable
+    /**
+     * 判断是否应使用 SDK Activity 点击。
+     * 修复后：始终返回 false，强制使用 Service PendingIntent。
+     * 原实现：直接返回 sdkIntentAvailable，导致有 SDK intent 时错误地使用 Activity PendingIntent。
+     */
+    internal fun shouldUseSdkActivityClick(sdkIntentAvailable: Boolean): Boolean = false
 
     fun getSdkIntent(context: Context, container: XmPushActionContainer): Intent? {
         val pkgName = container.packageName
