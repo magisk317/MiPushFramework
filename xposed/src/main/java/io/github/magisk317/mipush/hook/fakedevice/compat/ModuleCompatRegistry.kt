@@ -32,10 +32,23 @@ object ModuleCompatRegistry {
         "com.tencent.android.mipush.XMPushMessageReceiver",
     )
 
+    // 显式覆盖特定包的配置（用于修正生成配置中的错误或特殊需求）
+    private val overrideProfiles: Map<String, ModuleCompatProfile> = mapOf(
+        // registration-only 示例：仅注册，不挂载任何 hook 管道
+        "com.alibaba.android.rimet" to ModuleCompatProfile(
+            packageName = "com.alibaba.android.rimet",
+            hookPipelines = emptyList(),
+            credentialOverride = null,
+            isAutoDetected = false
+        )
+        // 如有其他需要覆盖的包，在此添加
+    )
+
     private val profilesByPackage: Map<String, ModuleCompatProfile> =
-        GeneratedCompatProfiles.profiles
+        (GeneratedCompatProfiles.profiles
             .filter { ZygiskPackagePolicy.isManagedPackage(it.packageName) }
-            .associateBy(ModuleCompatProfile::packageName)
+            .associateBy(ModuleCompatProfile::packageName) + overrideProfiles)
+            .toMap() // 确保不可变，且覆盖映射优先
 
     fun allProfiles(): List<ModuleCompatProfile> = profilesByPackage.values.toList()
 
@@ -76,5 +89,4 @@ object ModuleCompatRegistry {
             isAutoDetected = true,
         )
     }
-
 }
