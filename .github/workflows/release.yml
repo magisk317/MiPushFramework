@@ -166,16 +166,31 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - uses: actions/download-artifact@v8
+      # 分别下载两个 APK 构件，不合并，避免混淆
+      - name: Download XMSF APK artifact
+        uses: actions/download-artifact@v8
         with:
-          pattern: apks-*
-          path: artifacts/downloads
-          merge-multiple: true
+          name: apks-xmsf
+          path: artifacts/xmsf
+
+      - name: Download MiPush APK artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: apks-mipush
+          path: artifacts/mipush
 
       - name: Build Magisk Module
         run: |
-          XMSF_APK="$(find artifacts/downloads -name '*arm64-v8a*' | head -1)"
-          MIPUSH_APK="$(find artifacts/downloads -name '*arm64-v8a*' | tail -1)"
+          XMSF_APK="$(find artifacts/xmsf -type f -name '*arm64-v8a*.apk' | head -n 1)"
+          MIPUSH_APK="$(find artifacts/mipush -type f -name '*arm64-v8a*.apk' | head -n 1)"
+          if [[ -z "$XMSF_APK" ]]; then
+            echo "ERROR: XMSF arm64-v8a APK not found in artifacts/xmsf" >&2
+            exit 1
+          fi
+          if [[ -z "$MIPUSH_APK" ]]; then
+            echo "ERROR: MiPush arm64-v8a APK not found in artifacts/mipush" >&2
+            exit 1
+          fi
           echo "XMSF_APK=$XMSF_APK"
           echo "MIPUSH_APK=$MIPUSH_APK"
           bash scripts/build_magisk_module.sh "$XMSF_APK" "$MIPUSH_APK"

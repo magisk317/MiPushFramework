@@ -5,19 +5,27 @@
 # Usage:
 #   ./scripts/build_magisk_module.sh          # auto-detect from build outputs
 #   ./scripts/build_magisk_module.sh <xmsf_apk> <mipush_apk> [version]
+
 set -euo pipefail
+
+# Check required tools
+if ! command -v zip >/dev/null 2>&1; then
+  echo "ERROR: 'zip' command is required but not installed." >&2
+  exit 1
+fi
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-# ?? Config (overridable via args) ???????????????????????????????????
+# Config (overridable via args)
 XMSF_APK="${1:-}"
 MIPUSH_APK="${2:-}"
 VERSION_NAME="${3:-}"
 
 # Derive version from gradle properties if not provided
 if [[ -z "$VERSION_NAME" ]]; then
-  VERSION_NAME="$(sed -nE 's/^versionName[[:space:]]*=[[:space:]]*"([^"]+)"/\1/p' gradle/libs.versions.toml 2>/dev/null || echo "")"
+  # Allow leading whitespace in libs.versions.toml
+  VERSION_NAME="$(sed -nE 's/^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"([^"]+)"/\1/p' gradle/libs.versions.toml 2>/dev/null || echo "")"
 fi
 if [[ -z "$VERSION_NAME" ]]; then
   VERSION_NAME="$(date +%Y%m%d)"
@@ -29,12 +37,12 @@ MODULE_NAME="MiPushFramework-Magisk-${VERSION_NAME}"
 BUILD_DIR="$ROOT_DIR/build/magisk-module"
 OUTPUT_DIR="$ROOT_DIR/build/output"
 
-# ?? Resolve APK files ???????????????????????????????????????????????
+# Resolve APK files (only arm64-v8a, file type guaranteed)
 if [[ -z "$XMSF_APK" ]]; then
-  XMSF_APK="$(find app/build/outputs/apk/normal -name '*arm64-v8a*' 2>/dev/null | head -1 || true)"
+  XMSF_APK="$(find app/build/outputs/apk/normal -type f -name '*arm64-v8a*' 2>/dev/null | head -n 1 || true)"
 fi
 if [[ -z "$MIPUSH_APK" ]]; then
-  MIPUSH_APK="$(find mipush/build/outputs/apk -name '*arm64-v8a*' 2>/dev/null | head -1 || true)"
+  MIPUSH_APK="$(find mipush/build/outputs/apk -type f -name '*arm64-v8a*' 2>/dev/null | head -n 1 || true)"
 fi
 
 if [[ -z "$XMSF_APK" ]] || [[ ! -f "$XMSF_APK" ]]; then
@@ -50,7 +58,7 @@ echo "XMSF APK:   $XMSF_APK"
 echo "MiPush APK: $MIPUSH_APK"
 echo "Version:    $VERSION_NAME"
 
-# ?? Prepare staging directory ???????????????????????????????????????
+# Prepare staging directory
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR/system/app/$XMSF_PACKAGE"
 mkdir -p "$BUILD_DIR/system/app/$MIPUSH_PACKAGE"
@@ -59,29 +67,29 @@ mkdir -p "$BUILD_DIR/system/app/$MIPUSH_PACKAGE"
 cp "$XMSF_APK"   "$BUILD_DIR/system/app/$XMSF_PACKAGE/base.apk"
 cp "$MIPUSH_APK" "$BUILD_DIR/system/app/$MIPUSH_PACKAGE/base.apk"
 
-# ?? module.prop ?????????????????????????????????????????????????????
+# module.prop
 cat > "$BUILD_DIR/module.prop" << PROP
 id=MiPushFramework
 name=MiPush Framework
 version=${VERSION_NAME}
 versionCode=$(date +%Y%m%d)
 author=MiPush Contributors
-description=MiPush Framework Magisk module ? installs XMSF and MiPush as system apps for enhanced push compatibility.
+description=MiPush Framework Magisk module - installs XMSF and MiPush as system apps for enhanced push compatibility.
 PROP
 
-# ?? customize.sh ????????????????????????????????????????????????????
+# customize.sh
 cat > "$BUILD_DIR/customize.sh" << 'CUSTOMIZE'
 #!/sbin/sh
 ui_print "- Installing MiPush Framework as system apps..."
-ui_print "  ? com.xiaomi.xmsf (XMSF)"
-ui_print "  ? io.github.magisk317.mipush (MiPush)"
+ui_print "  - com.xiaomi.xmsf (XMSF)"
+ui_print "  - io.github.magisk317.mipush (MiPush)"
 
-set_perm_recursive $MODPATH/system/app 0 0 0755 0644
+set_perm_recursive "$MODPATH/system/app" 0 0 0755 0644
 CUSTOMIZE
 
 chmod +x "$BUILD_DIR/customize.sh"
 
-# ?? Create zip ??????????????????????????????????????????????????????
+# Create zip
 mkdir -p "$OUTPUT_DIR"
 ZIP_FILE="$OUTPUT_DIR/${MODULE_NAME}.zip"
 
