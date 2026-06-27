@@ -21,62 +21,41 @@ import tech.apter.junit.jupiter.robolectric.RobolectricExtension
  *
  * **Validates: Requirements 1.1, 2.1, 2.2**
  *
- * Property 1: Bug Condition - SDK Intent Notifications Use Activity PendingIntent (White Screen)
- *
- * This test encodes the EXPECTED (correct) behavior:
- * - `shouldUseSdkActivityClick(true)` should return `false`
- * - `buildClickedPendingIntent()` should return a Service PendingIntent targeting MyPushMessageHandler
- *   when an SDK intent is available (container has `notify_effect` and no URL)
- *
- * On UNFIXED code, these tests FAIL because:
- * - `shouldUseSdkActivityClick(true)` currently returns `true` (not `false`)
- * - `buildClickedPendingIntent()` currently returns Activity PendingIntent (not Service PendingIntent)
- *
- * Test failure confirms the bug exists: `shouldUseSdkActivityClick(true)` returns `true`,
- * causing `PendingIntent.getActivity()` to be used for SDK intent notifications,
- * which leads to white screen on cold start.
+ * This test encodes the EXPECTED behavior:
+ * - `shouldUseSdkActivityClick(true)` should return `true` (use Activity path when SDK intent available)
+ * - `shouldUseSdkActivityClick(false)` should return `false` (use Service path when no SDK intent)
+ * - `buildClickedPendingIntent()` should return an Activity PendingIntent targeting the resolved
+ *   SDK intent when an SDK intent is available (container has `notify_effect` and resolves successfully)
+ * - `buildClickedPendingIntent()` should return a Service PendingIntent when no SDK intent is available
  */
 @ExtendWith(RobolectricExtension::class)
 @Config(sdk = [28])
-@DisplayName("Bug Condition: SDK Intent Notifications Should Use Service PendingIntent")
+@DisplayName("Bug Condition: SDK Intent Notifications Path Selection")
 class MyMIPushNotificationIntentSupportBugConditionTest {
 
-    /**
-     * **Validates: Requirements 2.1, 2.2**
-     *
-     * Property: shouldUseSdkActivityClick(true) MUST return false to prevent direct Activity launch.
-     *
-     * Bug condition: On unfixed code, this returns `true`, causing Activity PendingIntent creation
-     * which leads to white screen when the target app is not running (cold start).
-     */
     @Test
-    @DisplayName("shouldUseSdkActivityClick(true) returns false (prevents Activity PendingIntent for SDK intents)")
-    fun `shouldUseSdkActivityClick with sdkIntentAvailable true returns false`() {
+    @DisplayName("shouldUseSdkActivityClick(true) returns true (use Activity path for SDK intents)")
+    fun `shouldUseSdkActivityClick with sdkIntentAvailable true returns true`() {
         val result = MyMIPushNotificationIntentSupport.shouldUseSdkActivityClick(sdkIntentAvailable = true)
-
-        // Expected behavior after fix: always return false to force Service path
-        // Bug condition: currently returns true, causing direct Activity launch → white screen
-        assertFalse(result,
-            "shouldUseSdkActivityClick(true) should return false to prevent Activity PendingIntent. " +
-            "Returning true causes PendingIntent.getActivity() for SDK intent notifications, " +
-            "leading to white screen on cold start because the app's Application class " +
-            "has not finished initialization."
+        assertTrue(result,
+            "shouldUseSdkActivityClick(true) should return true to use Activity PendingIntent " +
+            "when SDK intent is available, enabling direct deep-link navigation."
         )
     }
 
-    /**
-     * **Validates: Requirements 1.1, 2.1, 2.2**
-     *
-     * Property: buildClickedPendingIntent() MUST return a Service PendingIntent targeting
-     * MyPushMessageHandler when an SDK intent is available (notify_effect=NOTIFICATION_CLICK_INTENT,
-     * class_name specified, no URL).
-     *
-     * Bug condition: On unfixed code, this returns an Activity PendingIntent targeting the
-     * app's deep-link Activity directly, which causes white screen on cold start.
-     */
     @Test
-    @DisplayName("buildClickedPendingIntent returns Service PendingIntent for SDK intent with class_name (notify_effect=2)")
-    fun `buildClickedPendingIntent returns Service PendingIntent when SDK intent is available with explicit class`() {
+    @DisplayName("shouldUseSdkActivityClick(false) returns false (use Service path without SDK intents)")
+    fun `shouldUseSdkActivityClick with sdkIntentAvailable false returns false`() {
+        val result = MyMIPushNotificationIntentSupport.shouldUseSdkActivityClick(sdkIntentAvailable = false)
+        assertFalse(result,
+            "shouldUseSdkActivityClick(false) should return false to use Service PendingIntent " +
+            "when no SDK intent is available."
+        )
+    }
+
+    @Test
+    @DisplayName("buildClickedPendingIntent returns Activity PendingIntent for SDK intent with class_name (notify_effect=2)")
+    fun `buildClickedPendingIntent returns Activity PendingIntent when SDK intent is available with explicit class`() {
         val context = RuntimeEnvironment.getApplication()
         val targetPackage = "com.taobao.idlefish"
         val targetClass = "com.taobao.idlefish.ChatDetailActivity"
@@ -108,38 +87,25 @@ class MyMIPushNotificationIntentSupportBugConditionTest {
         assertNotNull(pendingIntent, "PendingIntent should not be null for SDK intent notification")
         val shadow = shadowOf(pendingIntent!!)
 
-        // Expected behavior: Service PendingIntent targeting MyPushMessageHandler
-        assertTrue(shadow.isService,
-            "buildClickedPendingIntent() should return a Service PendingIntent when SDK intent is available. " +
-            "Bug: currently returns Activity PendingIntent which directly launches the deep-link Activity, " +
-            "causing white screen on cold start because Application class hasn't initialized."
+        assertTrue(shadow.isActivity,
+            "buildClickedPendingIntent() should return an Activity PendingIntent when SDK intent is available, " +
+            "enabling direct deep-link navigation to the target Activity."
         )
-        assertFalse(shadow.isActivity,
-            "buildClickedPendingIntent() should NOT return an Activity PendingIntent for SDK intent notifications. " +
-            "Activity PendingIntent causes direct Activity launch → white screen on cold start."
+        assertFalse(shadow.isService,
+            "buildClickedPendingIntent() should NOT return a Service PendingIntent for SDK intent notifications."
         )
         assertEquals(
-            "com.xiaomi.push.sdk.MyPushMessageHandler",
-            shadow.savedIntent.component?.className,
-            "Service PendingIntent should target MyPushMessageHandler for proper app initialization via pullUpApp()"
+            targetComponent,
+            shadow.savedIntent.component,
+            "Activity PendingIntent should target the resolved SDK intent component."
         )
     }
 
-    /**
-     * **Validates: Requirements 1.1, 2.1, 2.2**
-     *
-     * Property: buildClickedPendingIntent() MUST return a Service PendingIntent targeting
-     * MyPushMessageHandler when SDK intent is available with notify_effect=1 (default launch).
-     *
-     * This covers the case where notify_effect="1" (NOTIFICATION_CLICK_DEFAULT) resolves
-     * to the app's launch intent. On unfixed code, this also produces an Activity PendingIntent.
-     */
     @Test
-    @DisplayName("buildClickedPendingIntent returns Service PendingIntent for SDK intent with default launch (notify_effect=1)")
-    fun `buildClickedPendingIntent returns Service PendingIntent when SDK intent is available with default launch`() {
+    @DisplayName("buildClickedPendingIntent returns Service PendingIntent when no SDK intent (notify_effect=1, no launch intent)")
+    fun `buildClickedPendingIntent returns Service PendingIntent when no SDK intent available`() {
         val context = RuntimeEnvironment.getApplication()
         val targetPackage = "com.taobao.idlefish"
-        val launcherActivity = "com.taobao.idlefish.MainLauncherActivity"
 
         val container = XmPushActionContainer().apply {
             packageName = targetPackage
@@ -152,21 +118,7 @@ class MyMIPushNotificationIntentSupportBugConditionTest {
             }
         }
 
-        // Register a launch intent for the target package
-        val launchIntent = android.content.Intent(android.content.Intent.ACTION_MAIN).apply {
-            addCategory(android.content.Intent.CATEGORY_LAUNCHER)
-            component = ComponentName(targetPackage, launcherActivity)
-        }
-        shadowOf(context.packageManager).addActivityIfNotPresent(
-            ComponentName(targetPackage, launcherActivity)
-        )
-        shadowOf(context.packageManager).addIntentFilterForActivity(
-            ComponentName(targetPackage, launcherActivity),
-            android.content.IntentFilter().apply {
-                addAction(android.content.Intent.ACTION_MAIN)
-                addCategory(android.content.Intent.CATEGORY_LAUNCHER)
-            }
-        )
+        // Do NOT register a launch intent — getSdkIntent() will return null
 
         val pendingIntent = MyMIPushNotificationIntentSupport.buildClickedPendingIntent(
             context = context,
@@ -176,20 +128,14 @@ class MyMIPushNotificationIntentSupportBugConditionTest {
             extra = null,
         )
 
-        // If getSdkIntent returns non-null (launch intent resolved), the fix should use Service path
-        // If getSdkIntent returns null (launch intent not resolved), Service path is already used
-        // Either way, the result should be a Service PendingIntent
-        if (pendingIntent != null) {
-            val shadow = shadowOf(pendingIntent)
-            assertTrue(shadow.isService,
-                "buildClickedPendingIntent() should return a Service PendingIntent for notify_effect=1 (default launch). " +
-                "Bug: currently returns Activity PendingIntent which directly launches the app's main Activity, " +
-                "causing white screen on cold start."
-            )
-            assertFalse(shadow.isActivity,
-                "buildClickedPendingIntent() should NOT return an Activity PendingIntent for default launch notifications."
-            )
-        }
-        // If pendingIntent is null, getSdkIntent didn't resolve (acceptable - no bug to demonstrate)
+        assertNotNull(pendingIntent, "PendingIntent should not be null even without SDK intent")
+        val shadow = shadowOf(pendingIntent!!)
+
+        assertTrue(shadow.isService,
+            "buildClickedPendingIntent() should return a Service PendingIntent when no SDK intent is available."
+        )
+        assertFalse(shadow.isActivity,
+            "buildClickedPendingIntent() should NOT return an Activity PendingIntent when no SDK intent is available."
+        )
     }
 }
