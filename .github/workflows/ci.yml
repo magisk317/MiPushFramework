@@ -289,20 +289,20 @@ jobs:
           echo "Contents of artifacts/downloads:"
           find artifacts/downloads -type f | sort
 
-      - name: Collect release assets (v8a APK > ZIP modules > other APK)
+      - name: Collect release assets by priority (modules > v8a APK > other APK)
         run: |
           mkdir -p artifacts/release
 
-          # 1) arm64-v8a APKs（最高优先级）
-          find artifacts/downloads -type f -name '*arm64-v8a*.apk' -exec cp {} artifacts/release/ \;
-
-          # 2) 所有 ZIP 模块（Magisk + Zygisk）
+          # 1) 所有 .zip 模块（Magisk + Zygisk）优先
           find artifacts/downloads -type f -name '*.zip' -exec cp {} artifacts/release/ \;
 
-          # 3) 其他 ABI 的 APK（非 arm64-v8a）
+          # 2) arm64-v8a APK
+          find artifacts/downloads -type f -name '*arm64-v8a*.apk' -exec cp {} artifacts/release/ \;
+
+          # 3) 其他 ABI APK
           find artifacts/downloads -type f -name '*.apk' ! -name '*arm64-v8a*' -exec cp {} artifacts/release/ \;
 
-          echo "=== Release assets ==="
+          echo "=== Release assets (copied to artifacts/release) ==="
           ls -la artifacts/release/
 
       - name: Create Release
@@ -316,15 +316,20 @@ jobs:
 
           Automatic debug build from \`${GITHUB_REF_NAME}\` branch.
 
-          ### Assets
-          - **XMSF** (arm64-v8a) — com.xiaomi.xmsf
-          - **MiPush** (arm64-v8a) — io.github.magisk317.mipush
-          - **Magisk Module** — Flash in Magisk Manager to install both as system apps
-          - **Zygisk Module** — Optional zygisk module
+          ### Assets (Priority Order)
+          1. **Magisk & Zygisk modules** (`.zip`)
+          2. **arm64-v8a APKs** (XMSF & MiPush)
+          3. **Other ABI APKs** (armeabi-v7a, x86, x86_64, universal)
 
           > **Note**: These are debug builds signed with the default debug key."
 
-          mapfile -d '' assets < <(find artifacts/release -type f -print0 | sort -z)
+          # Build assets array in priority order: modules first, then v8a APK, then others
+          mapfile -d '' modules < <(find artifacts/release -type f -name '*.zip' -print0 | sort -z)
+          mapfile -d '' v8a_apks < <(find artifacts/release -type f -name '*arm64-v8a*.apk' -print0 | sort -z)
+          mapfile -d '' other_apks < <(find artifacts/release -type f -name '*.apk' ! -name '*arm64-v8a*' -print0 | sort -z)
+
+          assets=("${modules[@]}" "${v8a_apks[@]}" "${other_apks[@]}")
+
           if [[ ${#assets[@]} -eq 0 ]]; then
             echo "ERROR: no release assets collected" >&2
             exit 1

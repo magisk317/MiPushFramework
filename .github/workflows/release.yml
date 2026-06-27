@@ -166,7 +166,6 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      # 分别下载两个 APK 构件，不合并，避免混淆
       - name: Download XMSF APK artifact
         uses: actions/download-artifact@v8
         with:
@@ -274,17 +273,19 @@ jobs:
             fi
           fi
 
-          # ── 优先级：arm64-v8a APK → Magisk/Zygisk 模块 → 其他 ABI ──
-          mapfile -d '' v8a_apks < <(
-            find artifacts/apks -type f -name '*arm64-v8a*' -print0 | sort -z
-          )
+          # ── 优先顺序：模块 (.zip) → arm64-v8a APK → 其他 APK ──
           mapfile -d '' modules < <(
             find artifacts/apks -type f -name '*.zip' -print0 | sort -z
+          )
+          mapfile -d '' v8a_apks < <(
+            find artifacts/apks -type f -name '*arm64-v8a*.apk' -print0 | sort -z
           )
           mapfile -d '' other_apks < <(
             find artifacts/apks -type f -name '*.apk' ! -name '*arm64-v8a*' -print0 | sort -z
           )
-          release_assets=("${v8a_apks[@]}" "${modules[@]}" "${other_apks[@]}")
+
+          # 按优先级组合
+          release_assets=("${modules[@]}" "${v8a_apks[@]}" "${other_apks[@]}")
           if [[ ${#release_assets[@]} == 0 ]]; then
             echo "ERROR: no release assets found under artifacts/apks" >&2
             find artifacts/apks -maxdepth 6 -type f | sort >&2 || true
