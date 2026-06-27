@@ -80,6 +80,9 @@ jobs:
           allow-snapshot-wrappers: true
       - name: Build
         run: ./gradlew --warning-mode all :app:assembleDebug :mipush:assembleDebug -PbuildSplits -PminifyDebug -Pkotlin.incremental=false
+      - name: Build Magisk Module
+        run: bash scripts/build_magisk_module.sh
+
       - name: Write build summary
         if: always()
         run: |
@@ -104,61 +107,7 @@ jobs:
         with:
           name: xmsf-normal-debug-arm64-v8a
           path: app/build/outputs/apk/normal/debug/**/*arm64-v8a*.apk
-      - name: Upload XMSF vc105 Debug APK (arm64-v8a)
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: xmsf-vc105-debug-arm64-v8a
-          path: app/build/outputs/apk/vc105/debug/**/*arm64-v8a*.apk
-      - name: Upload XMSF Normal Debug APK (armeabi-v7a)
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: xmsf-normal-debug-armeabi-v7a
-          path: app/build/outputs/apk/normal/debug/**/*armeabi-v7a*.apk
-      - name: Upload XMSF Normal Debug APK (x86)
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: xmsf-normal-debug-x86
-          path: app/build/outputs/apk/normal/debug/**/*x86_*.apk
-      - name: Upload XMSF Normal Debug APK (x86_64)
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: xmsf-normal-debug-x86_64
-          path: app/build/outputs/apk/normal/debug/**/*x86_64*.apk
-      - name: Upload XMSF Normal Debug APK (universal)
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: xmsf-normal-debug-universal
-          path: app/build/outputs/apk/normal/debug/**/*universal*.apk
-      - name: Upload XMSF vc105 Debug APK (armeabi-v7a)
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: xmsf-vc105-debug-armeabi-v7a
-          path: app/build/outputs/apk/vc105/debug/**/*armeabi-v7a*.apk
-      - name: Upload XMSF vc105 Debug APK (x86)
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: xmsf-vc105-debug-x86
-          path: app/build/outputs/apk/vc105/debug/**/*x86_*.apk
-      - name: Upload XMSF vc105 Debug APK (x86_64)
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: xmsf-vc105-debug-x86_64
-          path: app/build/outputs/apk/vc105/debug/**/*x86_64*.apk
-      - name: Upload XMSF vc105 Debug APK (universal)
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: xmsf-vc105-debug-universal
-          path: app/build/outputs/apk/vc105/debug/**/*universal*.apk
-      - name: Upload MiPush Debug APK (arm64-v8a)
+- name: Upload MiPush Debug APK (arm64-v8a)
         if: always()
         uses: actions/upload-artifact@v7
         with:
@@ -188,6 +137,14 @@ jobs:
         with:
           name: MiPush-debug-universal
           path: mipush/build/outputs/apk/debug/**/*universal*.apk
+      - name: Upload Magisk Module
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: MiPushFramework-Magisk-Module
+          path: build/output/MiPushFramework-Magisk-*.zip
+
+
 
   build-zygisk:
     runs-on: ubuntu-latest
@@ -251,3 +208,78 @@ jobs:
         with:
           name: mipush-zygisk-universal
           path: MiPushZygisk/build/universal_*.zip
+
+  create-release:
+    name: Create Release (Debug)
+    if: github.event_name == 'workflow_dispatch'
+    needs: [build, build-zygisk]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: "*"
+          path: artifacts/downloads
+          merge-multiple: false
+
+      - name: Build Magisk Module
+        run: |
+          mkdir -p artifacts/downloads/magisk-input
+          # Collect v8a APKs from build artifacts
+          find artifacts/downloads -name '*arm64-v8a*.apk' -exec cp {} artifacts/downloads/magisk-input/ \;
+          XMSF_APK="$(find artifacts/downloads/magisk-input -name '*xmsf*' -o -name '*normal*' | head -1)"
+          MIPUSH_APK="$(find artifacts/downloads/magisk-input -name '*MiPush*' -o -name '*mipush*' | head -1)"
+          if [[ -z "$XMSF_APK" ]]; then
+            XMSF_APK="$(find artifacts/downloads/magisk-input -name '*arm64-v8a*' | head -1)"
+          fi
+          if [[ -z "$MIPUSH_APK" ]]; then
+            MIPUSH_APK="$(find artifacts/downloads/magisk-input -name '*arm64-v8a*' | tail -1)"
+          fi
+          bash scripts/build_magisk_module.sh "$XMSF_APK" "$MIPUSH_APK"
+
+      - name: Collect release assets
+        run: |
+          mkdir -p artifacts/release
+          # arm64-v8a APKs (primary)
+          find artifacts/downloads -name '*arm64-v8a*.apk' -exec cp {} artifacts/release/ \;
+          # Magisk module
+          cp build/output/MiPushFramework-Magisk-*.zip artifacts/release/ || true
+          # Zygisk modules
+          find artifacts/downloads -name '*.zip' -path '*zygisk*' -exec cp {} artifacts/release/ \; 2>/dev/null || true
+          echo "=== Release assets ==="
+          ls -la artifacts/release/
+
+      - name: Create Release
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT != '' && secrets.GH_PAT || github.token }}
+        run: |
+          set -euo pipefail
+          tag_name="debug-$(date +%Y%m%d-%H%M%S)"
+          release_name="CI Debug Build $(date +%Y-%m-%d)"
+          release_notes="## CI Debug Build
+
+          Automatic debug build from \`${GITHUB_REF_NAME}\` branch.
+
+          ### Assets
+          - **XMSF** (arm64-v8a) â€?com.xiaomi.xmsf
+          - **MiPush** (arm64-v8a) â€?io.github.magisk317.mipush
+          - **Magisk Module** â€?Flash in Magisk Manager to install both as system apps
+          - **Zygisk Module** â€?Optional zygisk module
+
+          > **Note**: These are debug builds signed with the default debug key."
+          mapfile -d '' assets < <(find artifacts/release -type f -print0 | sort -z)
+          if gh release view "$tag_name" >/dev/null 2>&1; then
+            gh release upload "$tag_name" "${assets[@]}" --clobber
+          else
+            gh release create "$tag_name" "${assets[@]}" \
+              --title "$release_name" \
+              --draft \
+              --notes "$release_notes"
+          fi
+

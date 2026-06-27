@@ -67,15 +67,12 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: apks-xmsf
-          path: |
-            app/build/outputs/apk/normal/release/**/*.apk
-            app/build/outputs/apk/vc105/release/**/*.apk
+          path: app/build/outputs/apk/normal/release/**/*arm64-v8a*.apk
 
       - name: Package mapping files for debugging
         run: |
           mkdir -p mapping-out
           cp app/build/outputs/mapping/normalRelease/mapping.txt mapping-out/mapping-normal-release.txt 2>/dev/null || true
-          cp app/build/outputs/mapping/vc105Release/mapping.txt mapping-out/mapping-vc105-release.txt 2>/dev/null || true
 
       - name: Upload mapping artifact
         uses: actions/upload-artifact@v7
@@ -157,9 +154,41 @@ jobs:
           name: apks-zygisk
           path: build/*.zip
 
+  build-magisk-module:
+    name: Build Magisk Module
+    needs: [build-xmsf-apk, build-mipush-apk]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: apks-*
+          path: artifacts/downloads
+          merge-multiple: true
+
+      - name: Build Magisk Module
+        run: |
+          XMSF_APK="$(find artifacts/downloads -name '*arm64-v8a*' | head -1)"
+          MIPUSH_APK="$(find artifacts/downloads -name '*arm64-v8a*' | tail -1)"
+          echo "XMSF_APK=$XMSF_APK"
+          echo "MIPUSH_APK=$MIPUSH_APK"
+          bash scripts/build_magisk_module.sh "$XMSF_APK" "$MIPUSH_APK"
+
+      - name: Upload Magisk Module Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: apks-magisk-module
+          path: build/output/MiPushFramework-Magisk-*.zip
+
+
+
   create-release:
     name: Create Release
-    needs: [build-xmsf-apk, build-mipush-apk, build-zygisk-module]
+    needs: [build-xmsf-apk, build-mipush-apk, build-zygisk-module, build-magisk-module]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -230,9 +259,18 @@ jobs:
             fi
           fi
 
-          mapfile -d '' release_assets < <(
-            find artifacts/apks -type f \( -name '*.apk' -o -name '*.zip' \) -print0 | sort -z
+                    # ©¤©¤ Prioritize arm64-v8a APKs + Magisk/Zygisk modules ©¤©¤
+          mapfile -d '' v8a_apks < <(
+            find artifacts/apks -type f -name '*arm64-v8a*' -print0 | sort -z
           )
+          mapfile -d '' modules < <(
+            find artifacts/apks -type f -name '*.zip' -print0 | sort -z
+          )
+          mapfile -d '' other_apks < <(
+            find artifacts/apks -type f -name '*.apk' ! -name '*arm64-v8a*' -print0 | sort -z
+          )
+          # Primary: v8a APKs first, then Magisk/Zygisk modules, then other ABIs
+          release_assets=("${v8a_apks[@]}" "${modules[@]}" "${other_apks[@]}")
           if [[ ${#release_assets[@]} == 0 ]]; then
             echo "ERROR: no release assets found under artifacts/apks" >&2
             find artifacts/apks -maxdepth 6 -type f | sort >&2 || true
