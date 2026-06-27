@@ -14,7 +14,7 @@ jobs:
     name: Validate Release Metadata
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
@@ -35,7 +35,7 @@ jobs:
     env:
       HAS_RELEASE_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE != '' }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
@@ -47,11 +47,10 @@ jobs:
           distribution: 'temurin'
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@v4
         with:
           validate-wrappers: false
-          allow-snapshot-wrappers: true
-
+          
 
       - name: Decode Keystore
         if: env.HAS_RELEASE_KEYSTORE == 'true'
@@ -66,7 +65,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       - name: Upload XMSF release artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: apks-xmsf
           path: |
@@ -80,7 +79,7 @@ jobs:
           cp app/build/outputs/mapping/vc105Release/mapping.txt mapping-out/mapping-vc105-release.txt 2>/dev/null || true
 
       - name: Upload mapping artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: mapping
           path: mapping-out/
@@ -92,7 +91,7 @@ jobs:
     env:
       HAS_RELEASE_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE != '' }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
@@ -104,11 +103,10 @@ jobs:
           distribution: 'temurin'
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@v4
         with:
           validate-wrappers: false
-          allow-snapshot-wrappers: true
-
+          
 
       - name: Decode Keystore
         if: env.HAS_RELEASE_KEYSTORE == 'true'
@@ -123,7 +121,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       - name: Upload MiPush release artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: apks-mipush
           path: mipush/build/outputs/apk/release/**/*.apk
@@ -134,7 +132,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout MiPushZygisk
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
         with:
           repository: 'magisk317/MiPushZygisk'
           fetch-depth: 0
@@ -156,7 +154,7 @@ jobs:
         run: ./build.sh
 
       - name: Upload Zygisk release artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: apks-zygisk
           path: build/*.zip
@@ -170,7 +168,7 @@ jobs:
     env:
       HAS_RELEASE_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE != '' }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
@@ -268,7 +266,7 @@ jobs:
       HAS_RELEASE_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE != '' }}
       MODULES_REPO: Xposed-Modules-Repo/io.github.magisk317.mipush
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0

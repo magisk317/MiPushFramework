@@ -21,7 +21,7 @@ jobs:
     env:
       GRADLE_OPTS: -Dorg.gradle.warning.mode=all
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
@@ -30,10 +30,10 @@ jobs:
           distribution: temurin
           java-version: "26"
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@v4
         with:
           validate-wrappers: false
-          allow-snapshot-wrappers: true
+          
       - name: Detekt
         continue-on-error: true
         run: ./gradlew --warning-mode all detekt qualityGateDetekt -PminifyDebug -Pkotlin.incremental=false
@@ -43,7 +43,7 @@ jobs:
     env:
       GRADLE_OPTS: -Dorg.gradle.warning.mode=all
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
@@ -52,10 +52,10 @@ jobs:
           distribution: temurin
           java-version: "26"
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@v4
         with:
           validate-wrappers: false
-          allow-snapshot-wrappers: true
+          
       - name: Test
         continue-on-error: true
         run: ./gradlew --warning-mode all :common:check :xmsf:testNormalDebugUnitTest :xmsf:testVc105DebugUnitTest testDebugUnitTest -PminifyDebug -Pkotlin.incremental=false -x detekt -x qualityGateDetekt
@@ -65,7 +65,7 @@ jobs:
     env:
       GRADLE_OPTS: -Dorg.gradle.warning.mode=all
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
@@ -74,10 +74,10 @@ jobs:
           distribution: temurin
           java-version: "26"
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@v4
         with:
           validate-wrappers: false
-          allow-snapshot-wrappers: true
+          
       - name: Build
         run: ./gradlew --warning-mode all :app:assembleDebug :mipush:assembleDebug -PbuildSplits -PminifyDebug -Pkotlin.incremental=false
       - name: Write build summary
@@ -100,91 +100,91 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload XMSF Normal Debug APK (arm64-v8a)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: xmsf-normal-debug-arm64-v8a
           path: app/build/outputs/apk/normal/debug/**/*arm64-v8a*.apk
       - name: Upload XMSF vc105 Debug APK (arm64-v8a)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: xmsf-vc105-debug-arm64-v8a
           path: app/build/outputs/apk/vc105/debug/**/*arm64-v8a*.apk
       - name: Upload XMSF Normal Debug APK (armeabi-v7a)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: xmsf-normal-debug-armeabi-v7a
           path: app/build/outputs/apk/normal/debug/**/*armeabi-v7a*.apk
       - name: Upload XMSF Normal Debug APK (x86)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: xmsf-normal-debug-x86
           path: app/build/outputs/apk/normal/debug/**/*x86_*.apk
       - name: Upload XMSF Normal Debug APK (x86_64)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: xmsf-normal-debug-x86_64
           path: app/build/outputs/apk/normal/debug/**/*x86_64*.apk
       - name: Upload XMSF Normal Debug APK (universal)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: xmsf-normal-debug-universal
           path: app/build/outputs/apk/normal/debug/**/*universal*.apk
       - name: Upload XMSF vc105 Debug APK (armeabi-v7a)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: xmsf-vc105-debug-armeabi-v7a
           path: app/build/outputs/apk/vc105/debug/**/*armeabi-v7a*.apk
       - name: Upload XMSF vc105 Debug APK (x86)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: xmsf-vc105-debug-x86
           path: app/build/outputs/apk/vc105/debug/**/*x86_*.apk
       - name: Upload XMSF vc105 Debug APK (x86_64)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: xmsf-vc105-debug-x86_64
           path: app/build/outputs/apk/vc105/debug/**/*x86_64*.apk
       - name: Upload XMSF vc105 Debug APK (universal)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: xmsf-vc105-debug-universal
           path: app/build/outputs/apk/vc105/debug/**/*universal*.apk
       - name: Upload MiPush Debug APK (arm64-v8a)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: MiPush-debug-arm64-v8a
           path: mipush/build/outputs/apk/debug/**/*arm64-v8a*.apk
       - name: Upload MiPush Debug APK (armeabi-v7a)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: MiPush-debug-armeabi-v7a
           path: mipush/build/outputs/apk/debug/**/*armeabi-v7a*.apk
       - name: Upload MiPush Debug APK (x86)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: MiPush-debug-x86
           path: mipush/build/outputs/apk/debug/**/*x86_*.apk
       - name: Upload MiPush Debug APK (x86_64)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: MiPush-debug-x86_64
           path: mipush/build/outputs/apk/debug/**/*x86_64*.apk
       - name: Upload MiPush Debug APK (universal)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: MiPush-debug-universal
           path: mipush/build/outputs/apk/debug/**/*universal*.apk
@@ -193,7 +193,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout MiPushZygisk
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
         with:
           repository: magisk317/MiPushZygisk
           path: MiPushZygisk
@@ -219,35 +219,35 @@ jobs:
 
       - name: Upload Zygisk artifact (arm64-v8a)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: mipush-zygisk-arm64-v8a
           path: MiPushZygisk/build/arm64-v8a_*.zip
 
       - name: Upload Zygisk artifact (armeabi-v7a)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: mipush-zygisk-armeabi-v7a
           path: MiPushZygisk/build/armeabi-v7a_*.zip
 
       - name: Upload Zygisk artifact (x86)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: mipush-zygisk-x86
           path: MiPushZygisk/build/x86_*.zip
 
       - name: Upload Zygisk artifact (x86_64)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: mipush-zygisk-x86_64
           path: MiPushZygisk/build/x86_64_*.zip
 
       - name: Upload Zygisk artifact (universal)
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: mipush-zygisk-universal
           path: MiPushZygisk/build/universal_*.zip
