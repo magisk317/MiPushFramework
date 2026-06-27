@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: Branch to sync (default: dev)
+        description: "Branch to sync (default: dev)"
         required: false
         default: dev
         type: string
@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || 'dev' }}
           fetch-depth: 0
