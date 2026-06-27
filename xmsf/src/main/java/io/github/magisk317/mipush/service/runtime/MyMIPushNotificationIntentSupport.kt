@@ -140,7 +140,7 @@ internal object MyMIPushNotificationIntentSupport {
         return PendingIntent.getActivity(context, notificationId, activityIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
     }
 
-    internal fun shouldUseSdkActivityClick(sdkIntentAvailable: Boolean): Boolean = false
+    internal fun shouldUseSdkActivityClick(sdkIntentAvailable: Boolean): Boolean = sdkIntentAvailable
 
     fun getSdkIntent(context: Context, container: XmPushActionContainer): Intent? {
         val pkgName = container.packageName
