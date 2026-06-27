@@ -103,7 +103,6 @@ jobs:
             done < <(find app/build/outputs/apk mipush/build/outputs/apk -path '*/debug/*.apk' -not -path '*/androidTest/*' | sort)
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # 上传各个 Debug APK（按 ABI 区分）
       - name: Upload XMSF Normal Debug APK (arm64-v8a)
         if: always()
         uses: actions/upload-artifact@v7
@@ -195,7 +194,6 @@ jobs:
           name: MiPush-debug-universal
           path: mipush/build/outputs/apk/debug/**/*universal*.apk
 
-      # 上传 Magisk 模块（由 build 步骤生成）
       - name: Upload Magisk Module
         if: always()
         uses: actions/upload-artifact@v7
@@ -279,38 +277,30 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - uses: actions/download-artifact@v8
+      - name: Download all artifacts
+        uses: actions/download-artifact@v8
         with:
-          pattern: |
-            xmsf-*
-            MiPush-*
-            MiPushFramework-Magisk-Module
-            mipush-zygisk-*
+          pattern: "*"
           path: artifacts/downloads
           merge-multiple: false
 
-      - name: Collect release assets (v8a > Magisk > Zygisk > others)
+      - name: List downloaded artifacts (debug)
+        run: |
+          echo "Contents of artifacts/downloads:"
+          find artifacts/downloads -type f | sort
+
+      - name: Collect release assets (v8a APK > ZIP modules > other APK)
         run: |
           mkdir -p artifacts/release
 
-          # 1) arm64-v8a APKs（从 xmsf-* 和 MiPush-* 目录中收集）
-          find artifacts/downloads -path '*/xmsf-*/*' -name '*arm64-v8a*.apk' -exec cp {} artifacts/release/ \;
-          find artifacts/downloads -path '*/MiPush-*/*' -name '*arm64-v8a*.apk' -exec cp {} artifacts/release/ \;
+          # 1) arm64-v8a APKs（最高优先级）
+          find artifacts/downloads -type f -name '*arm64-v8a*.apk' -exec cp {} artifacts/release/ \;
 
-          # 2) Magisk 模块
-          MAGISK_ZIP="$(find artifacts/downloads -path '*/MiPushFramework-Magisk-Module/*' -name '*.zip' | head -n 1)"
-          if [[ -n "$MAGISK_ZIP" ]]; then
-            cp "$MAGISK_ZIP" artifacts/release/
-          else
-            echo "WARNING: Magisk module zip not found" >&2
-          fi
+          # 2) 所有 ZIP 模块（Magisk + Zygisk）
+          find artifacts/downloads -type f -name '*.zip' -exec cp {} artifacts/release/ \;
 
-          # 3) Zygisk 模块（所有 ABI）
-          find artifacts/downloads -path '*/mipush-zygisk-*/*' -name '*.zip' -exec cp {} artifacts/release/ \; 2>/dev/null || true
-
-          # 4) 其他 ABI 的 APK（非 arm64-v8a）
-          find artifacts/downloads -path '*/xmsf-*/*' -name '*.apk' ! -name '*arm64-v8a*' -exec cp {} artifacts/release/ \; 2>/dev/null || true
-          find artifacts/downloads -path '*/MiPush-*/*' -name '*.apk' ! -name '*arm64-v8a*' -exec cp {} artifacts/release/ \; 2>/dev/null || true
+          # 3) 其他 ABI 的 APK（非 arm64-v8a）
+          find artifacts/downloads -type f -name '*.apk' ! -name '*arm64-v8a*' -exec cp {} artifacts/release/ \;
 
           echo "=== Release assets ==="
           ls -la artifacts/release/
