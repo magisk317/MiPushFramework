@@ -1,0 +1,108 @@
+name: Sync Upstream
+
+on:
+  schedule:
+    - cron: "0 0 * * *"  # Daily at midnight UTC
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to sync (default: dev)
+        required: false
+        default: dev
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sync-upstream:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || 'dev' }}
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT || github.token }}
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/magisk317/MiPushFramework.git
+          git remote -v
+
+      - name: Fetch upstream
+        run: |
+          git fetch upstream
+          echo "Upstream branches:"
+          git branch -r
+
+      - name: Save protected workflow files
+        id: save-protected
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+          echo "Current branch: $BRANCH"
+          mkdir -p /tmp/protected-files
+          cp .github/workflows/ci.yml /tmp/protected-files/ci.yml
+          cp .github/workflows/sync-upstream.yml /tmp/protected-files/sync-upstream.yml
+          echo "Protected files saved."
+
+      - name: Merge upstream changes
+        id: merge
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+          echo "Merging upstream/$BRANCH into $BRANCH"
+          if git merge upstream/$BRANCH --no-edit; then
+            echo "Merge succeeded (fast-forward or clean merge)."
+            echo "merged=true" >> $GITHUB_OUTPUT
+          else
+            echo "Merge conflict detected. Will attempt to resolve."
+            echo "merged=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Restore protected workflow files (resolve conflicts)
+        run: |
+          # Always restore protected files to keep our customizations
+          cp /tmp/protected-files/ci.yml .github/workflows/ci.yml
+          cp /tmp/protected-files/sync-upstream.yml .github/workflows/sync-upstream.yml
+          echo "Protected workflow files restored."
+
+          # If there are unresolved merge conflicts, mark them as resolved
+          if [ -f .git/MERGE_HEAD ]; then
+            git add .github/workflows/ci.yml .github/workflows/sync-upstream.yml
+            echo "Marked protected files as resolved in merge."
+          fi
+
+      - name: Commit merge
+        run: |
+          # Check if we're still in a merge state
+          if [ -f .git/MERGE_HEAD ]; then
+            git commit --no-edit
+            echo "Merge committed with protected files preserved."
+          fi
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No changes to push."
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "Changes detected."
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Push changes
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+          git push origin "HEAD:${BRANCH}"
+          echo "Changes pushed to ${BRANCH}."
