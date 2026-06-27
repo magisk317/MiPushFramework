@@ -274,32 +274,33 @@ jobs:
           fi
 
           # ── 优先顺序：模块 (.zip) → arm64-v8a APK → 其他 APK ──
-          mapfile -d '' modules < <(
-            find artifacts/apks -type f -name '*.zip' -print0 | sort -z
-          )
-          mapfile -d '' v8a_apks < <(
-            find artifacts/apks -type f -name '*arm64-v8a*.apk' -print0 | sort -z
-          )
-          mapfile -d '' other_apks < <(
-            find artifacts/apks -type f -name '*.apk' ! -name '*arm64-v8a*' -print0 | sort -z
-          )
+          assets=()
+          while IFS= read -r -d '' file; do
+            assets+=("$file")
+          done < <(find artifacts/apks -type f -name '*.zip' -print0 | sort -z)
 
-          # 按优先级组合
-          release_assets=("${modules[@]}" "${v8a_apks[@]}" "${other_apks[@]}")
-          if [[ ${#release_assets[@]} == 0 ]]; then
+          while IFS= read -r -d '' file; do
+            assets+=("$file")
+          done < <(find artifacts/apks -type f -name '*arm64-v8a*.apk' -print0 | sort -z)
+
+          while IFS= read -r -d '' file; do
+            assets+=("$file")
+          done < <(find artifacts/apks -type f -name '*.apk' ! -name '*arm64-v8a*' -print0 | sort -z)
+
+          if [[ ${#assets[@]} -eq 0 ]]; then
             echo "ERROR: no release assets found under artifacts/apks" >&2
             find artifacts/apks -maxdepth 6 -type f | sort >&2 || true
             exit 1
           fi
 
           if gh release view "$tag_name" >/dev/null 2>&1; then
-            gh release upload "$tag_name" "${release_assets[@]}" --clobber
+            gh release upload "$tag_name" "${assets[@]}" --clobber
             gh release edit "$tag_name" \
               --title "$release_name" \
               --draft=false \
               --notes "$release_notes"
           else
-            gh release create "$tag_name" "${release_assets[@]}" \
+            gh release create "$tag_name" "${assets[@]}" \
               --title "$release_name" \
               --verify-tag \
               --notes "$release_notes"
