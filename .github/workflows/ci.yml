@@ -324,19 +324,23 @@ jobs:
           EOF
           )
 
-          # Build assets array in priority order: modules first, then v8a APK, then others
+          # 构建资产数组，上传顺序影响显示顺序：后传的排在最前。
+          # 因此我们先添加其他 APK，再添加 v8a APK，最后添加 .zip 模块，这样 .zip 模块会排在最前面。
           assets=()
+          # 1) 其他 ABI APK（最先上传，排在最后）
           while IFS= read -r -d '' file; do
             assets+=("$file")
-          done < <(find artifacts/release -type f -name '*.zip' -print0 | sort -z)
+          done < <(find artifacts/release -type f -name '*.apk' ! -name '*arm64-v8a*' -print0 | sort -z)
 
+          # 2) arm64-v8a APK（中间上传，排在中间）
           while IFS= read -r -d '' file; do
             assets+=("$file")
           done < <(find artifacts/release -type f -name '*arm64-v8a*.apk' -print0 | sort -z)
 
+          # 3) .zip 模块（最后上传，排在最前）
           while IFS= read -r -d '' file; do
             assets+=("$file")
-          done < <(find artifacts/release -type f -name '*.apk' ! -name '*arm64-v8a*' -print0 | sort -z)
+          done < <(find artifacts/release -type f -name '*.zip' -print0 | sort -z)
 
           if [[ ${#assets[@]} -eq 0 ]]; then
             echo "ERROR: no release assets collected" >&2
@@ -344,6 +348,7 @@ jobs:
           fi
 
           if gh release view "$tag_name" >/dev/null 2>&1; then
+            # 如果已存在，则用 upload 追加（此时上传顺序同样重要）
             gh release upload "$tag_name" "${assets[@]}" --clobber
             gh release edit "$tag_name" \
               --title "$release_name" \
