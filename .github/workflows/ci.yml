@@ -297,7 +297,7 @@ jobs:
           fi
           bash scripts/build_magisk_module.sh "$XMSF_APK" "$MIPUSH_APK"
 
-      - name: Collect release assets (v8a ¡ú Magisk ¡ú Zygisk ¡ú others)
+      - name: Collect release assets (v8a > Magisk > Zygisk > others)
         run: |
           mkdir -p artifacts/release
           # 1) arm64-v8a APKs (primary)
@@ -323,10 +323,10 @@ jobs:
           Automatic debug build from \`${GITHUB_REF_NAME}\` branch.
 
           ### Assets
-          - **XMSF** (arm64-v8a) ï¿?com.xiaomi.xmsf
-          - **MiPush** (arm64-v8a) ï¿?io.github.magisk317.mipush
-          - **Magisk Module** ï¿?Flash in Magisk Manager to install both as system apps
-          - **Zygisk Module** ï¿?Optional zygisk module
+          - **XMSF** (arm64-v8a) â€” com.xiaomi.xmsf
+          - **MiPush** (arm64-v8a) â€” io.github.magisk317.mipush
+          - **Magisk Module** â€” Flash in Magisk Manager to install both as system apps
+          - **Zygisk Module** â€” Optional zygisk module
 
           > **Note**: These are debug builds signed with the default debug key."
           mapfile -d '' assets < <(find artifacts/release -type f -print0 | sort -z)
