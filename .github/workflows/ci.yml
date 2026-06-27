@@ -308,16 +308,21 @@ jobs:
           set -euo pipefail
           tag_name="debug-$(date +%Y%m%d-%H%M%S)"
           release_name="CI Debug Build $(date +%Y-%m-%d)"
-          release_notes="## CI Debug Build
 
-          Automatic debug build from \`${GITHUB_REF_NAME}\` branch.
+          # 使用 heredoc 安全地定义多行 release_notes，避免 Shell 解析 '>' 等特殊字符
+          release_notes=$(cat <<'EOF'
+          ## CI Debug Build
+
+          Automatic debug build from `${GITHUB_REF_NAME}` branch.
 
           ### Assets (Priority Order)
           1. **Magisk & Zygisk modules** (`.zip`)
           2. **arm64-v8a APKs** (XMSF & MiPush)
           3. **Other ABI APKs** (armeabi-v7a, x86, x86_64, universal)
 
-          > **Note**: These are debug builds signed with the default debug key."
+          > **Note**: These are debug builds signed with the default debug key.
+          EOF
+          )
 
           # Build assets array in priority order: modules first, then v8a APK, then others
           assets=()
