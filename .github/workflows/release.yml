@@ -180,19 +180,57 @@ jobs:
 
       - name: Build Magisk Module
         run: |
+          echo "🔍 Searching for XMSF arm64-v8a APK..."
           XMSF_APK="$(find artifacts/xmsf -type f -name '*arm64-v8a*.apk' | head -n 1)"
+          if [[ -n "$XMSF_APK" ]]; then
+            echo "✅ XMSF arm64-v8a found: $XMSF_APK"
+          else
+            echo "❌ XMSF arm64-v8a not found, trying universal..."
+            XMSF_APK="$(find artifacts/xmsf -type f -name '*universal*.apk' | head -n 1)"
+            if [[ -n "$XMSF_APK" ]]; then
+              echo "✅ XMSF universal found: $XMSF_APK"
+            else
+              echo "ERROR: No XMSF APK found (arm64-v8a or universal)!" >&2
+              exit 1
+            fi
+          fi
+
+          echo "🔍 Searching for MiPush arm64-v8a APK..."
           MIPUSH_APK="$(find artifacts/mipush -type f -name '*arm64-v8a*.apk' | head -n 1)"
-          if [[ -z "$XMSF_APK" ]]; then
-            echo "ERROR: XMSF arm64-v8a APK not found in artifacts/xmsf" >&2
-            exit 1
+          if [[ -n "$MIPUSH_APK" ]]; then
+            echo "✅ MiPush arm64-v8a found: $MIPUSH_APK"
+          else
+            echo "❌ MiPush arm64-v8a not found, trying universal..."
+            MIPUSH_APK="$(find artifacts/mipush -type f -name '*universal*.apk' | head -n 1)"
+            if [[ -n "$MIPUSH_APK" ]]; then
+              echo "✅ MiPush universal found: $MIPUSH_APK"
+            else
+              echo "ERROR: No MiPush APK found (arm64-v8a or universal)!" >&2
+              exit 1
+            fi
           fi
-          if [[ -z "$MIPUSH_APK" ]]; then
-            echo "ERROR: MiPush arm64-v8a APK not found in artifacts/mipush" >&2
-            exit 1
-          fi
-          echo "XMSF_APK=$XMSF_APK"
-          echo "MIPUSH_APK=$MIPUSH_APK"
+
+          echo "Final APK paths:"
+          echo "  XMSF_APK   = $XMSF_APK"
+          echo "  MIPUSH_APK = $MIPUSH_APK"
+          ls -lh "$XMSF_APK" "$MIPUSH_APK"
+
           bash scripts/build_magisk_module.sh "$XMSF_APK" "$MIPUSH_APK"
+
+      - name: Verify Magisk module contents
+        run: |
+          ZIP_FILE="$(find build/output -name 'MiPushFramework-Magisk-*.zip' | head -n 1)"
+          echo "Contents of $ZIP_FILE:"
+          unzip -l "$ZIP_FILE"
+          if ! unzip -l "$ZIP_FILE" | grep -q "system/app/io.github.magisk317.mipush/base.apk"; then
+            echo "ERROR: MiPush APK not found in module zip!" >&2
+            exit 1
+          fi
+          if ! unzip -l "$ZIP_FILE" | grep -q "system/app/com.xiaomi.xmsf/base.apk"; then
+            echo "ERROR: XMSF APK not found in module zip!" >&2
+            exit 1
+          fi
+          echo "✅ Both APKs present in module."
 
       - name: Upload Magisk Module Artifact
         uses: actions/upload-artifact@v7
@@ -266,4 +304,31 @@ jobs:
           if [[ -n "$generated_notes" ]]; then
             changelog_without_link="$(printf '%s\n' "$changelog_notes" |
               sed '/^[[:space:]]*>[[:space:]]*Full Changelog:/d')"
-            if [[ -n "$changelog
+            if [[ -n "$changelog_without_link" ]]; then
+              release_notes="$changelog_without_link"
+            else
+              release_notes="$generated_notes"
+            fi
+          fi
+
+          # 收集所有 APK 和 zip 作为资产
+          assets=()
+          while IFS= read -r -d '' file; do
+            assets+=("$file")
+          done < <(find artifacts/apks -type f \( -name '*.apk' -o -name '*.zip' \) -print0 | sort -z)
+
+          if [[ ${#assets[@]} -eq 0 ]]; then
+            echo "ERROR: no release assets found" >&2
+            exit 1
+          fi
+
+          if gh release view "$tag_name" >/dev/null 2>&1; then
+            gh release upload "$tag_name" "${assets[@]}" --clobber
+            gh release edit "$tag_name" \
+              --title "$release_name" \
+              --notes "$release_notes"
+          else
+            gh release create "$tag_name" "${assets[@]}" \
+              --title "$release_name" \
+              --notes "$release_notes"
+          fi

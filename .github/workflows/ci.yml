@@ -57,8 +57,13 @@ jobs:
           validate-wrappers: false
           allow-snapshot-wrappers: true
       - name: Test
-        continue-on-error: true
         run: ./gradlew --warning-mode all :common:check :xmsf:testNormalDebugUnitTest :xmsf:testVc105DebugUnitTest testDebugUnitTest -PminifyDebug -Pkotlin.incremental=false -x detekt -x qualityGateDetekt
+      - name: Upload test report (if available)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: xposed-test-report
+          path: xposed/build/reports/tests
 
   build:
     runs-on: ubuntu-latest
@@ -81,24 +86,62 @@ jobs:
       - name: Build
         run: ./gradlew --warning-mode all :app:assembleDebug :mipush:assembleDebug -PbuildSplits -PminifyDebug -Pkotlin.incremental=false
 
-      - name: Build Magisk Module (XMSF normal + MiPush arm64-v8a only)
+      - name: Build Magisk Module (XMSF normal + MiPush)
+        id: build_module
         run: |
-          # 显式查找两个 APK 并传递参数，避免自动查找不可靠
+          # 查找 XMSF APK (优先 arm64-v8a)
+          echo "🔍 Searching for XMSF arm64-v8a APK..."
           XMSF_APK="$(find app/build/outputs/apk/normal/debug -type f -name '*arm64-v8a*.apk' | head -n 1)"
+          if [[ -n "$XMSF_APK" ]]; then
+            echo "✅ XMSF arm64-v8a found: $XMSF_APK"
+          else
+            echo "❌ XMSF arm64-v8a not found, trying universal..."
+            XMSF_APK="$(find app/build/outputs/apk/normal/debug -type f -name '*universal*.apk' | head -n 1)"
+            if [[ -n "$XMSF_APK" ]]; then
+              echo "✅ XMSF universal found: $XMSF_APK"
+            else
+              echo "ERROR: No XMSF APK found (arm64-v8a or universal)!" >&2
+              exit 1
+            fi
+          fi
+
+          # 查找 MiPush APK (优先 arm64-v8a, 回退 universal)
+          echo "🔍 Searching for MiPush arm64-v8a APK..."
           MIPUSH_APK="$(find mipush/build/outputs/apk/debug -type f -name '*arm64-v8a*.apk' | head -n 1)"
-          echo "XMSF_APK=$XMSF_APK"
-          echo "MIPUSH_APK=$MIPUSH_APK"
-          if [[ -z "$XMSF_APK" ]]; then
-            echo "ERROR: XMSF APK not found" >&2
-            exit 1
+          if [[ -n "$MIPUSH_APK" ]]; then
+            echo "✅ MiPush arm64-v8a found: $MIPUSH_APK"
+          else
+            echo "❌ MiPush arm64-v8a not found, trying universal..."
+            MIPUSH_APK="$(find mipush/build/outputs/apk/debug -type f -name '*universal*.apk' | head -n 1)"
+            if [[ -n "$MIPUSH_APK" ]]; then
+              echo "✅ MiPush universal found: $MIPUSH_APK"
+            else
+              echo "ERROR: No MiPush APK found (arm64-v8a or universal)!" >&2
+              exit 1
+            fi
           fi
-          if [[ -z "$MIPUSH_APK" ]]; then
-            echo "ERROR: MiPush APK not found" >&2
-            exit 1
-          fi
-          # 确保文件存在并打印大小
+
+          echo "Final APK paths:"
+          echo "  XMSF_APK   = $XMSF_APK"
+          echo "  MIPUSH_APK = $MIPUSH_APK"
           ls -lh "$XMSF_APK" "$MIPUSH_APK"
+
           bash scripts/build_magisk_module.sh "$XMSF_APK" "$MIPUSH_APK"
+
+      - name: Verify Magisk module contents
+        run: |
+          ZIP_FILE="$(find build/output -name 'MiPushFramework-Magisk-*.zip' | head -n 1)"
+          echo "Contents of $ZIP_FILE:"
+          unzip -l "$ZIP_FILE"
+          if ! unzip -l "$ZIP_FILE" | grep -q "system/app/io.github.magisk317.mipush/base.apk"; then
+            echo "ERROR: MiPush APK not found in module zip!" >&2
+            exit 1
+          fi
+          if ! unzip -l "$ZIP_FILE" | grep -q "system/app/com.xiaomi.xmsf/base.apk"; then
+            echo "ERROR: XMSF APK not found in module zip!" >&2
+            exit 1
+          fi
+          echo "✅ Both APKs present in module."
 
       - name: Write build summary
         if: always()
