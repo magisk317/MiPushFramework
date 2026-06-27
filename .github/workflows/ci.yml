@@ -342,9 +342,11 @@ jobs:
             gh release upload "$tag_name" "${assets[@]}" --clobber
             gh release edit "$tag_name" \
               --title "$release_name" \
+              --prerelease \
               --notes "$release_notes"
           else
             gh release create "$tag_name" "${assets[@]}" \
               --title "$release_name" \
+              --prerelease \
               --notes "$release_notes"
           fi
