@@ -56,14 +56,31 @@ jobs:
         with:
           validate-wrappers: false
           allow-snapshot-wrappers: true
-      - name: Test
+
+      - name: Run all tests (including xposed)
+        id: test
+        continue-on-error: true
         run: ./gradlew --warning-mode all :common:check :xmsf:testNormalDebugUnitTest :xmsf:testVc105DebugUnitTest testDebugUnitTest -PminifyDebug -Pkotlin.incremental=false -x detekt -x qualityGateDetekt
-      - name: Upload test report (if available)
+
+      - name: Print test failure details to log
+        if: steps.test.outcome == 'failure'
+        run: |
+          echo "::group::📋 Failed test details (extracted from XML reports)"
+          find . -path "*/build/test-results/*/TEST-*.xml" -exec grep -l "<failure" {} \; -exec echo "=== {} ===" \; -exec cat {} \; || true
+          echo "::endgroup::"
+
+      - name: Upload all test reports (HTML + XML)
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: xposed-test-report
-          path: xposed/build/reports/tests
+          name: test-reports-all
+          path: |
+            **/build/reports/tests
+            **/build/test-results
+
+      - name: Fail the job if tests failed
+        if: steps.test.outcome == 'failure'
+        run: exit 1
 
   build:
     runs-on: ubuntu-latest
