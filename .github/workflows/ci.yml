@@ -82,7 +82,23 @@ jobs:
         run: ./gradlew --warning-mode all :app:assembleDebug :mipush:assembleDebug -PbuildSplits -PminifyDebug -Pkotlin.incremental=false
 
       - name: Build Magisk Module (XMSF normal + MiPush arm64-v8a only)
-        run: bash scripts/build_magisk_module.sh
+        run: |
+          # 显式查找两个 APK 并传递参数，避免自动查找不可靠
+          XMSF_APK="$(find app/build/outputs/apk/normal/debug -type f -name '*arm64-v8a*.apk' | head -n 1)"
+          MIPUSH_APK="$(find mipush/build/outputs/apk/debug -type f -name '*arm64-v8a*.apk' | head -n 1)"
+          echo "XMSF_APK=$XMSF_APK"
+          echo "MIPUSH_APK=$MIPUSH_APK"
+          if [[ -z "$XMSF_APK" ]]; then
+            echo "ERROR: XMSF APK not found" >&2
+            exit 1
+          fi
+          if [[ -z "$MIPUSH_APK" ]]; then
+            echo "ERROR: MiPush APK not found" >&2
+            exit 1
+          fi
+          # 确保文件存在并打印大小
+          ls -lh "$XMSF_APK" "$MIPUSH_APK"
+          bash scripts/build_magisk_module.sh "$XMSF_APK" "$MIPUSH_APK"
 
       - name: Write build summary
         if: always()
@@ -309,7 +325,6 @@ jobs:
           tag_name="debug-$(date +%Y%m%d-%H%M%S)"
           release_name="CI Debug Build $(date +%Y-%m-%d)"
 
-          # 使用 heredoc 安全地定义多行 release_notes，避免 Shell 解析 '>' 等特殊字符
           release_notes=$(cat <<'EOF'
           ## CI Debug Build
 
@@ -324,8 +339,7 @@ jobs:
           EOF
           )
 
-          # 构建资产数组，上传顺序影响显示顺序：后传的排在最前。
-          # 因此我们先添加其他 APK，再添加 v8a APK，最后添加 .zip 模块，这样 .zip 模块会排在最前面。
+          # 构建资产数组：后上传的排在最前。因此顺序：other APK → v8a APK → .zip
           assets=()
           # 1) 其他 ABI APK（最先上传，排在最后）
           while IFS= read -r -d '' file; do
@@ -348,7 +362,6 @@ jobs:
           fi
 
           if gh release view "$tag_name" >/dev/null 2>&1; then
-            # 如果已存在，则用 upload 追加（此时上传顺序同样重要）
             gh release upload "$tag_name" "${assets[@]}" --clobber
             gh release edit "$tag_name" \
               --title "$release_name" \

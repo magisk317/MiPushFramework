@@ -37,12 +37,12 @@ MODULE_NAME="MiPushFramework-Magisk-${VERSION_NAME}"
 BUILD_DIR="$ROOT_DIR/build/magisk-module"
 OUTPUT_DIR="$ROOT_DIR/build/output"
 
-# Resolve APK files (only arm64-v8a, file type guaranteed)
+# Resolve APK files (only arm64-v8a, file type guaranteed) only if not provided
 if [[ -z "$XMSF_APK" ]]; then
-  XMSF_APK="$(find app/build/outputs/apk/normal -type f -name '*arm64-v8a*' 2>/dev/null | head -n 1 || true)"
+  XMSF_APK="$(find app/build/outputs/apk/normal -type f -name '*arm64-v8a*.apk' 2>/dev/null | head -n 1 || true)"
 fi
 if [[ -z "$MIPUSH_APK" ]]; then
-  MIPUSH_APK="$(find mipush/build/outputs/apk -type f -name '*arm64-v8a*' 2>/dev/null | head -n 1 || true)"
+  MIPUSH_APK="$(find mipush/build/outputs/apk -type f -name '*arm64-v8a*.apk' 2>/dev/null | head -n 1 || true)"
 fi
 
 if [[ -z "$XMSF_APK" ]] || [[ ! -f "$XMSF_APK" ]]; then
@@ -58,14 +58,18 @@ echo "XMSF APK:   $XMSF_APK"
 echo "MiPush APK: $MIPUSH_APK"
 echo "Version:    $VERSION_NAME"
 
+# 打印文件大小以确认
+echo "XMSF APK size: $(du -h "$XMSF_APK" | awk '{print $1}')"
+echo "MiPush APK size: $(du -h "$MIPUSH_APK" | awk '{print $1}')"
+
 # Prepare staging directory
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR/system/app/$XMSF_PACKAGE"
 mkdir -p "$BUILD_DIR/system/app/$MIPUSH_PACKAGE"
 
 # Copy APKs as base.apk
-cp "$XMSF_APK"   "$BUILD_DIR/system/app/$XMSF_PACKAGE/base.apk"
-cp "$MIPUSH_APK" "$BUILD_DIR/system/app/$MIPUSH_PACKAGE/base.apk"
+cp -v "$XMSF_APK"   "$BUILD_DIR/system/app/$XMSF_PACKAGE/base.apk"
+cp -v "$MIPUSH_APK" "$BUILD_DIR/system/app/$MIPUSH_PACKAGE/base.apk"
 
 # module.prop
 cat > "$BUILD_DIR/module.prop" << PROP
@@ -99,3 +103,5 @@ rm -f "$ZIP_FILE"
 echo ""
 echo "Magisk module created: $ZIP_FILE"
 echo "   Size: $(du -h "$ZIP_FILE" | awk '{print $1}')"
+echo "Contents of module zip:"
+unzip -l "$ZIP_FILE" | head -20
