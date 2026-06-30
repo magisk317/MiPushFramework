@@ -234,8 +234,55 @@ class LogUtilsRobolectricTest {
         assertEquals(emptyList<String>(), rootAccess.commands)
     }
 
+    @Test
+    fun `export captures xmsf keepalive diagnostics when root is granted`() {
+        val currentDate = LogUtils.currentDateString(Date())
+        File(LogBundleExporter.getLogDir(context), "runtime.$currentDate.jsonl")
+            .writeText("""{"timestamp":1,"message":"hello"}""")
+        val rootAccess = RecordingRootAccess(granted = true) { command ->
+            when {
+                command.startsWith("pm path com.xiaomi.xmsfkeeper") ->
+                    BoundedShellResult(0, stdout = listOf("package:/product/app/XMSFKeeperAll/XMSFKeeperAll.apk"))
+                command.startsWith("dumpsys package com.xiaomi.xmsfkeeper") ->
+                    BoundedShellResult(0, stdout = listOf("pkgFlags=[ SYSTEM HAS_CODE PERSISTENT ALLOW_CLEAR_USER_DATA ]"))
+                command.startsWith("pidof com.xiaomi.xmsfkeeper") ->
+                    BoundedShellResult(0, stdout = listOf("1234", "u0_a195 1234 com.xiaomi.xmsfkeeper"))
+                command.startsWith("dumpsys activity services com.xiaomi.xmsf/com.xiaomi.push.service.XMPushService") ->
+                    BoundedShellResult(
+                        0,
+                        stdout = listOf(
+                            "ConnectionRecord{... com.xiaomi.xmsfkeeper ...}",
+                            "infoAllowStartForeground=[callingPackage: com.xiaomi.xmsfkeeper; code:PROC_STATE_PERSISTENT]",
+                        ),
+                    )
+                else -> BoundedShellResult(0, stdout = listOf("root-output"))
+            }
+        }
+        LogBundleExporter.rootCommandAccess = rootAccess
+
+        val result = LogBundleExporter.buildLogBundle(context)
+
+        val zip = result.file
+        assertNotNull(zip)
+        val diagnosticText = ZipFile(zip).use { archive ->
+            val entry = archive.getEntry("system/xmsf_keepalive.txt")
+            assertNotNull(entry)
+            archive.getInputStream(entry).bufferedReader().use { it.readText() }
+        }
+        assertTrue(result.details.contains("xmsf keepalive diagnostics"))
+        assertTrue(rootAccess.commands.any { it.contains("com.xiaomi.xmsfkeeper") })
+        assertTrue(rootAccess.commands.any { it.contains("dumpsys activity services") })
+        assertTrue(diagnosticText.contains("xmsfkeeper package flags"))
+        assertTrue(diagnosticText.contains("PERSISTENT"))
+        assertTrue(diagnosticText.contains("XMPushService binding"))
+        assertTrue(diagnosticText.contains("com.xiaomi.xmsfkeeper"))
+    }
+
     private class RecordingRootAccess(
         private val granted: Boolean,
+        private val responder: (String) -> BoundedShellResult = {
+            BoundedShellResult(0, stdout = listOf("root-output"))
+        },
     ) : LogBundleExporter.RootCommandAccess {
         val commands = mutableListOf<String>()
 
@@ -243,7 +290,7 @@ class LogUtilsRobolectricTest {
 
         override fun runRootCommand(command: String, timeoutMs: Long): BoundedShellResult {
             commands += command
-            return BoundedShellResult(0, stdout = listOf("root-output"))
+            return responder(command)
         }
     }
 }

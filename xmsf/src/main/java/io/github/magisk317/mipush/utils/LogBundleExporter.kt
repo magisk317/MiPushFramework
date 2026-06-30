@@ -28,6 +28,9 @@ object LogBundleExporter {
     private const val ZIP_MIME_TYPE = "application/zip"
     private const val EXPORT_FILE_PREFIX = "mipush_logs_"
     private const val STAGING_DIR_PREFIX = ".tmp_mipush_logs_"
+    private const val XMSF_KEEPER_PACKAGE = "com.xiaomi.xmsfkeeper"
+    private const val XMSF_KEEPALIVE_DIAGNOSTICS_FILE = "xmsf_keepalive.txt"
+    private const val ROOT_DIAGNOSTICS_TIMEOUT_MS = 6_000L
     private const val PRIVATE_LOG_DIR_NAME = "log"
     private const val PRIVATE_CRASH_DIR_NAME = "crash"
     private const val PRIVATE_EXPORT_DIR_NAME = "xmsf_logs"
@@ -109,6 +112,7 @@ object LogBundleExporter {
                 if (!lsposedCopied) {
                     details += "lsposed log missing or unreadable"
                 }
+                captureXmsfKeepaliveDiagnostics(stagingDir, details)
                 captureLogcat(stagingDir, details)
                 sanitizeDirectory(stagingDir)
 
@@ -332,6 +336,102 @@ object LogBundleExporter {
             details += "logcat: su"
         }
     }
+
+    private fun captureXmsfKeepaliveDiagnostics(stagingDir: File, details: MutableList<String>) {
+        if (!rootCommandAccess.refreshRootAccessIfGranted()) {
+            details += "xmsf keepalive diagnostics skipped: root not granted"
+            return
+        }
+
+        val output = File(stagingDir, "system/$XMSF_KEEPALIVE_DIAGNOSTICS_FILE")
+        val parent = output.parentFile
+        if (parent == null || !ensureDirectory(parent, recreateWhenFile = true)) {
+            details += "xmsf keepalive diagnostics failed: output dir unavailable"
+            return
+        }
+
+        val sections = keepaliveDiagnosticCommands().map { section ->
+            section to rootCommandAccess.runRootCommand(section.command, timeoutMs = ROOT_DIAGNOSTICS_TIMEOUT_MS)
+        }
+        val text = buildString {
+            appendLine("# XMSF keepalive diagnostics")
+            appendLine("# Captures Xiaomi system keeper package, process, and XMPushService binding state.")
+            appendLine()
+            sections.forEach { (section, result) ->
+                appendLine("## ${section.title}")
+                appendLine("$ ${section.command}")
+                appendLine("exitCode=${result.exitCode} timedOut=${result.timedOut} skipped=${result.skipped}")
+                val stdout = result.stdoutText.ifBlank { "<empty>" }
+                appendLine("[stdout]")
+                appendLine(stdout)
+                val stderr = result.stderrText.ifBlank { "<empty>" }
+                appendLine("[stderr]")
+                appendLine(stderr)
+                appendLine()
+            }
+        }
+        output.writeText(text)
+        details += "xmsf keepalive diagnostics: system/$XMSF_KEEPALIVE_DIAGNOSTICS_FILE"
+    }
+
+    private data class KeepaliveDiagnosticCommand(
+        val title: String,
+        val command: String,
+    )
+
+    private fun keepaliveDiagnosticCommands(): List<KeepaliveDiagnosticCommand> {
+        val packageFields =
+            """Package \[|codePath=|resourcePath=|legacyNativeLibraryDir=|versionCode=|versionName=|""" +
+                "pkgFlags=|privateFlags=|userId=|firstInstallTime=|lastUpdateTime=|enabled="
+        val serviceFields =
+            "ServiceRecord|packageName=|processName=|app=|recentCallingPackage=|recentCallingUid=|" +
+                "infoAllowStartForeground|Bindings:|Client AppBindRecord|ConnectionRecord|" +
+                """caller=|callerPackage|com\.xiaomi\.xmsfkeeper"""
+        val logcatFields =
+            """XMSFKeeper|xmsfkeeper|caller=com\.xiaomi\.xmsfkeeper|XMPushService"""
+        return listOf(
+            KeepaliveDiagnosticCommand(
+                title = "xmsf package path",
+                command = packagePathDiagnosticCommand(Constants.SERVICE_APP_NAME),
+            ),
+            KeepaliveDiagnosticCommand(
+                title = "xmsf package flags",
+                command = packageFlagsDiagnosticCommand(Constants.SERVICE_APP_NAME, packageFields),
+            ),
+            KeepaliveDiagnosticCommand(
+                title = "xmsfkeeper package path",
+                command = packagePathDiagnosticCommand(XMSF_KEEPER_PACKAGE),
+            ),
+            KeepaliveDiagnosticCommand(
+                title = "xmsfkeeper package flags",
+                command = packageFlagsDiagnosticCommand(XMSF_KEEPER_PACKAGE, packageFields),
+            ),
+            KeepaliveDiagnosticCommand(
+                title = "xmsfkeeper process",
+                command = "pidof $XMSF_KEEPER_PACKAGE || true; " +
+                    "(ps -A || ps) | grep -F ${shQuote(XMSF_KEEPER_PACKAGE)} | grep -v grep || " +
+                    "echo ${shQuote("process missing: $XMSF_KEEPER_PACKAGE")}",
+            ),
+            KeepaliveDiagnosticCommand(
+                title = "XMPushService binding",
+                command = "dumpsys activity services ${Constants.SERVICE_APP_NAME}/${Constants.XM_PUSH_SERVICE_CLASS} | " +
+                    "grep -E ${shQuote(serviceFields)} || " +
+                    "echo ${shQuote("binding fields missing: ${Constants.SERVICE_APP_NAME}/${Constants.XM_PUSH_SERVICE_CLASS}")}",
+            ),
+            KeepaliveDiagnosticCommand(
+                title = "recent xmsfkeeper logcat",
+                command = "logcat -d -v threadtime -b all | grep -E ${shQuote(logcatFields)} | tail -n 200 || " +
+                    "echo ${shQuote("recent xmsfkeeper logcat entries missing")}",
+            ),
+        )
+    }
+
+    private fun packagePathDiagnosticCommand(packageName: String): String =
+        "pm path $packageName || echo ${shQuote("package missing: $packageName")}"
+
+    private fun packageFlagsDiagnosticCommand(packageName: String, grepPattern: String): String =
+        "dumpsys package $packageName | grep -E ${shQuote(grepPattern)} || " +
+            "echo ${shQuote("package fields missing: $packageName")}"
 
     private fun dumpCommandOutput(command: List<String>, output: File): Boolean {
         return runCatching {
