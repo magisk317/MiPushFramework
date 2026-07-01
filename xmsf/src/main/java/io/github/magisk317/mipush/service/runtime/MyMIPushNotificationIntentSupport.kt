@@ -21,6 +21,7 @@ import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.push.hook.ExplicitHookBridge
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
+import com.xiaomi.push.service.ComponentHelper
 import com.xiaomi.push.service.MIPushNotificationHelper
 import com.xiaomi.push.service.PushConstants
 import java.net.MalformedURLException
@@ -30,6 +31,10 @@ import java.net.URL
 internal object MyMIPushNotificationIntentSupport {
     private const val TAG = "MyNotificationIntent"
     internal const val EXTRA_STYLE_TARGET_INTENT = "mipush_style_target_intent"
+
+    private const val BRIDGE_ACTIVITY_CLASS = "com.xiaomi.mipush.sdk.BridgeActivity"
+    private val BRIDGE_ACTIVITY_FLAGS =
+        Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
 
     private const val KEY_NOTIFICATION_STYLE_TYPE = "notification_style_type"
     private const val STYLE_TYPE_VOIP = "6"
@@ -109,6 +114,7 @@ internal object MyMIPushNotificationIntentSupport {
             val intent = Intent(Intent.ACTION_VIEW)
             intent.data = Uri.parse(urlJump)
             intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
+            logClickRoute("url", container.packageName, notificationId)
             return PendingIntent.getActivity(context, notificationId, intent, FLAG_IMMUTABLE_UPDATE_CURRENT)
         }
 
@@ -130,14 +136,91 @@ internal object MyMIPushNotificationIntentSupport {
         }
 
         val activityIntent = getSdkIntent(context, container)
-        if (!shouldUseSdkActivityClick(activityIntent != null)) {
-            return PendingIntent.getService(context, notificationId, serviceIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
+        if (shouldUseSdkActivityClick(activityIntent != null)) {
+            activityIntent!!.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            activityIntent.putExtra("mipush_serviceIntent", serviceIntent)
+            activityIntent.putExtras(serviceIntent)
+            logClickRoute("sdk_activity", container.packageName, notificationId)
+            return PendingIntent.getActivity(context, notificationId, activityIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
         }
 
-        activityIntent!!.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        activityIntent.putExtra("mipush_serviceIntent", serviceIntent)
-        activityIntent.putExtras(serviceIntent)
-        return PendingIntent.getActivity(context, notificationId, activityIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
+        // Prefer the target app's own BridgeActivity so the click launches in the target
+        // process (a foreground user action, allowed by AMS) instead of XMSF starting the
+        // target's PushMessageHandler from the background (blocked on Samsung/AOSP as
+        // "Background start not allowed"). Mirrors stock MIPushNotificationActionSupport.
+        val bridgePendingIntent = buildBridgePendingIntent(
+            context, container, decryptedContent, notificationId, extra
+        )
+        if (bridgePendingIntent != null) {
+            logClickRoute("bridge_activity", container.packageName, notificationId)
+            return bridgePendingIntent
+        }
+
+        logClickRoute("xmsf_service", container.packageName, notificationId)
+        return PendingIntent.getService(context, notificationId, serviceIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
+    }
+
+    /**
+     * Builds an Activity PendingIntent targeting the destination app's `BridgeActivity`, carrying a
+     * target-pointed `PushMessageHandler` intent as [PushConstants.MIPUSH_EXTRA_INTENT_PAYLOAD].
+     * Returns null when the target app has no usable BridgeActivity, in which case the caller keeps
+     * the legacy XMSF service fallback.
+     */
+    private fun buildBridgePendingIntent(
+        context: Context,
+        container: XmPushActionContainer,
+        decryptedContent: ByteArray,
+        notificationId: Int,
+        extra: Bundle?
+    ): PendingIntent? {
+        val metaInfo = container.metaInfo ?: return null
+        val bridgeActivity = ComponentName(container.packageName, BRIDGE_ACTIVITY_CLASS)
+        if (!ComponentHelper.checkActivity(context, bridgeActivity)) {
+            return null
+        }
+
+        val messageId = metaInfo.id ?: ""
+        val targetIntent = if (MIPushNotificationHelper.isBusinessMessage(container)) {
+            Intent().apply {
+                component = ComponentName(
+                    PushConstants.PUSH_SERVICE_PACKAGE_NAME,
+                    "com.xiaomi.mipush.sdk.PushMessageHandler"
+                )
+            }
+        } else {
+            Intent(PushConstants.MIPUSH_ACTION_NEW_MESSAGE).apply {
+                component = ComponentName(
+                    container.packageName,
+                    "com.xiaomi.mipush.sdk.PushMessageHandler"
+                )
+            }
+        }.apply {
+            putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, decryptedContent)
+            putExtra(MIPushNotificationHelper.FROM_NOTIFICATION, true)
+            if (extra != null) {
+                putExtras(extra)
+            }
+            addCategory(metaInfo.notifyId.toString())
+            addCategory(messageId)
+        }
+
+        val bridgeIntent = Intent().apply {
+            component = bridgeActivity
+            addFlags(BRIDGE_ACTIVITY_FLAGS)
+            putExtra(PushConstants.MIPUSH_EXTRA_INTENT_PAYLOAD, targetIntent)
+            addCategory(metaInfo.notifyId.toString())
+            addCategory(messageId)
+        }
+        return PendingIntent.getActivity(
+            context,
+            notificationId,
+            bridgeIntent,
+            FLAG_IMMUTABLE_UPDATE_CURRENT
+        )
+    }
+
+    private fun logClickRoute(route: String, packageName: String?, notificationId: Int) {
+        logD("$TAG click route=$route pkg=$packageName notificationId=$notificationId")
     }
 
     internal fun shouldUseSdkActivityClick(sdkIntentAvailable: Boolean): Boolean = sdkIntentAvailable
