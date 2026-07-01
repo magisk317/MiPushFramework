@@ -297,6 +297,10 @@ object NotificationManagerEx {
     ): Boolean {
         // Fully replaced by HookPushNC when the Xposed module is active.
         Napier.d("notify() called with: packageName = $packageName, tag = $tag, id = $id, channel = ${notification.channelId}, group = ${notification.group}", tag = TAG)
+        // Attribution marker: when isHooked is true the system NMS hook owns publishing and this
+        // app-process body is normally bypassed. Seeing this line run with isHooked=true means the
+        // hook did not intercept and we are about to publish as a local (non-owned) fallback.
+        logD("notify() attribution pkg=$packageName isHooked=$isHooked id=$id channel=${notification.channelId}")
         if (!isTargetPackageAvailable(packageName)) {
             logD("drop notification for absent target package pkg=$packageName tag=$tag id=$id channel=${notification.channelId}")
             return false

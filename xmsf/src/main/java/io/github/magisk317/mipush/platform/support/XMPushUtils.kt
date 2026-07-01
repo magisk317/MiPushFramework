@@ -96,15 +96,48 @@ object XMPushUtils {
         XmPushThriftSerializeUtils.convertThriftObjectToBytes(container)
             ?: throw IllegalArgumentException("Unable to serialize: ${container.javaClass.name}")
 
+    /**
+     * Observable outcome of a downstream dispatch attempt. Callers must not treat a broadcast
+     * fallback as an equivalent success for apps that rely on `PushMessageHandler` (e.g. QQ): a
+     * generic broadcast can be delivered by the system yet never reach the SDK message pipeline.
+     */
+    sealed class DispatchResult {
+        /** Explicit `startService` to the target `PushMessageHandler` returned a component. */
+        object ServiceStarted : DispatchResult()
+
+        /**
+         * `startService` was refused by the platform (null return or an exception such as
+         * Samsung/AOSP "Background start not allowed"). No broadcast fallback succeeded either.
+         */
+        data class ServiceBlocked(val cause: Throwable? = null) : DispatchResult()
+
+        /** Service start did not succeed, but a broadcast fallback was sent. */
+        data class BroadcastSent(val explicit: Boolean) : DispatchResult()
+
+        /** Nothing could be delivered. */
+        object Failed : DispatchResult()
+
+        val dispatched: Boolean
+            get() = this is ServiceStarted || this is BroadcastSent
+    }
+
     @JvmStatic
     fun dispatchToApplication(
         context: Context,
         packageName: String,
         payload: ByteArray,
         fromNotification: Boolean = false
-    ): Boolean {
-        if (packageName.isBlank()) return false
-        
+    ): Boolean = dispatchToApplicationResult(context, packageName, payload, fromNotification).dispatched
+
+    @JvmStatic
+    fun dispatchToApplicationResult(
+        context: Context,
+        packageName: String,
+        payload: ByteArray,
+        fromNotification: Boolean = false
+    ): DispatchResult {
+        if (packageName.isBlank()) return DispatchResult.Failed
+
         val intent = Intent("com.xiaomi.mipush.RECEIVE_MESSAGE").apply {
             `package` = packageName
             putExtra("mipush_payload", payload)
@@ -123,10 +156,12 @@ object XMPushUtils {
         val serviceIntent = Intent(intent).apply {
             component = android.content.ComponentName(packageName, io.github.magisk317.mipush.common.Constants.PUSH_MESSAGE_HANDLER_CLASS)
         }
-        val started = runCatching { context.startService(serviceIntent) }.getOrNull()
-        if (started != null) {
-            return true
+        val serviceStart = runCatching { context.startService(serviceIntent) }
+        val startedComponent = serviceStart.getOrNull()
+        if (startedComponent != null) {
+            return DispatchResult.ServiceStarted
         }
+        val serviceStartError = serviceStart.exceptionOrNull()
 
         // 2. Fallback to broadcast dispatch
         // Query explicit receivers first to bypass some restrictions or for logging
@@ -159,13 +194,20 @@ object XMPushUtils {
                 }.getOrDefault(false)
                 dispatched = dispatched || delivered
             }
-            return dispatched
+            if (dispatched) {
+                return DispatchResult.BroadcastSent(explicit = true)
+            }
         }
 
         // 3. Final generic broadcast
-        return runCatching {
+        val genericSent = runCatching {
             context.sendBroadcast(intent)
             true
         }.getOrDefault(false)
+        return if (genericSent) {
+            DispatchResult.BroadcastSent(explicit = false)
+        } else {
+            DispatchResult.ServiceBlocked(serviceStartError)
+        }
     }
 }

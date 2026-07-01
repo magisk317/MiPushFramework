@@ -167,13 +167,25 @@ class PushMessageProcessor constructor(
         }
 
         // Use unified dispatch logic from XMPushUtils
-        val dispatched = XMPushUtils.dispatchToApplication(context, targetPackage, payload, fromNotification = true)
-        return if (dispatched) {
-            // We don't get the ComponentName back in this simplified call, but for the sake of current logic:
-            ApplicationDeliveryResult(serviceComponent = ComponentName(targetPackage, Constants.PUSH_MESSAGE_HANDLER_CLASS))
-        } else {
-            ApplicationDeliveryResult()
+        val result = XMPushUtils.dispatchToApplicationResult(context, targetPackage, payload, fromNotification = true)
+        logD("$tag forwardToTargetApplication pkg=$targetPackage dispatch result=${dispatchResultTag(result)}")
+        return when (result) {
+            is XMPushUtils.DispatchResult.ServiceStarted ->
+                ApplicationDeliveryResult(serviceComponent = ComponentName(targetPackage, Constants.PUSH_MESSAGE_HANDLER_CLASS))
+            is XMPushUtils.DispatchResult.BroadcastSent ->
+                ApplicationDeliveryResult(deliveredByBroadcastFallback = true)
+            is XMPushUtils.DispatchResult.ServiceBlocked,
+            XMPushUtils.DispatchResult.Failed ->
+                ApplicationDeliveryResult()
         }
+    }
+
+    private fun dispatchResultTag(result: XMPushUtils.DispatchResult): String = when (result) {
+        XMPushUtils.DispatchResult.ServiceStarted -> "service_started"
+        is XMPushUtils.DispatchResult.ServiceBlocked -> "service_blocked"
+        is XMPushUtils.DispatchResult.BroadcastSent ->
+            if (result.explicit) "broadcast_sent_explicit" else "broadcast_sent_generic"
+        XMPushUtils.DispatchResult.Failed -> "failed"
     }
 
     private fun activeApp(targetPackage: String) {
