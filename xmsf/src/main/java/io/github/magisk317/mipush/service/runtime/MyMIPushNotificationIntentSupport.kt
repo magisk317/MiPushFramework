@@ -498,7 +498,9 @@ internal object MyMIPushNotificationIntentSupport {
     }
 
     private fun inFetchIntentBlackList(pkg: String): Boolean {
-        // Known problematic packages
-        return pkg.contains("youku") || pkg.contains("tudou")
+        // Known problematic packages: sdk_activity click either shows white screen
+        // (cold start before initialization) or silently fails to open.
+        return pkg.contains("youku") || pkg.contains("tudou") ||
+            pkg.contains("baidu.tieba") || pkg.contains("taobao.idlefish")
     }
 }
