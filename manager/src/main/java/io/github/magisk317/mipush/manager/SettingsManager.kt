@@ -13,6 +13,7 @@ import io.github.magisk317.mipush.common.manager.ManagerLogClearResult
 import io.github.magisk317.mipush.common.manager.ManagerLogExportResult
 import io.github.magisk317.mipush.common.manager.ManagerLogGateway
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
+import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeEnvironmentSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileContent
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileSummary
@@ -93,6 +94,10 @@ class SettingsManager constructor(
 
     fun getRuntimeEnvironmentSnapshot(context: Context): ManagerRuntimeEnvironmentSnapshot {
         return runtimeActions.getRuntimeEnvironmentSnapshot(context)
+    }
+
+    fun getConnectionSnapshot(): ManagerConnectionSnapshot {
+        return runtimeActions.getConnectionSnapshot()
     }
 
     fun resetTopActivityCache() {

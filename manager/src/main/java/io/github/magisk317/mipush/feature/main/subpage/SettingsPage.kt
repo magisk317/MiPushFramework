@@ -113,6 +113,7 @@ fun Settings(
     viewModel: SettingsViewModel = koinViewModel(),
     onShowAboutDialog: (String) -> Unit = {},
     onSectionChanged: (String?) -> Unit = {},
+    onNavigateToConnectionStatus: () -> Unit = {},
     sectionBackSignal: Int = 0,
     hazeState: HazeState? = null,
     hazeStyle: HazeBlurStyle? = null,
@@ -128,6 +129,7 @@ fun Settings(
                 onShowAboutDialog = onShowAboutDialog,
                 viewModel = viewModel,
                 onSectionChanged = onSectionChanged,
+                onNavigateToConnectionStatus = onNavigateToConnectionStatus,
                 sectionBackSignal = sectionBackSignal,
                 hazeState = hazeState,
                 hazeStyle = hazeStyle,
@@ -150,6 +152,7 @@ private fun SettingsScreen(
     onShowAboutDialog: (String) -> Unit,
     viewModel: SettingsViewModel,
     onSectionChanged: (String?) -> Unit,
+    onNavigateToConnectionStatus: () -> Unit,
     scrollState: androidx.compose.foundation.ScrollState = androidx.compose.foundation.rememberScrollState(),
     sectionBackSignal: Int,
     hazeState: HazeState?,
@@ -221,7 +224,7 @@ private fun SettingsScreen(
                     expanded = serviceExpanded,
                     onExpandedChange = { serviceExpanded = !serviceExpanded },
                 ) {
-                    ConnectionServiceBlock(viewModel, snackbarHostState)
+                    ConnectionServiceBlock(viewModel, snackbarHostState, onNavigateToConnectionStatus)
                 }
 
                 SettingsSectionCard(
@@ -361,22 +364,16 @@ private fun rememberSwitchFeedback(snackbarHostState: SnackbarHostState): (Strin
 }
 
 @Composable
-private fun ConnectionServiceBlock(viewModel: SettingsViewModel, snackbarHostState: SnackbarHostState) {
+private fun ConnectionServiceBlock(viewModel: SettingsViewModel, snackbarHostState: SnackbarHostState, onNavigateToConnectionStatus: () -> Unit) {
     val context = LocalContext.current
-    val isStartForeground by viewModel.isStartForeground.collectAsStateWithLifecycle()
-    val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
 
     SetXMPPServer(viewModel)
 
-    val startForegroundTitle = stringResource(R.string.settings_start_foreground_service)
-    SettingsSwitchItem(
-        title = startForegroundTitle,
-        summary = stringResource(R.string.settings_start_foreground_service_summary),
-        checked = isStartForeground,
-    ) { enabled ->
-        viewModel.setStartForeground(enabled)
-        viewModel.startMiPushServiceAsForegroundService(context)
-        showSwitchFeedback(startForegroundTitle, enabled)
+    SettingsItem(
+        title = stringResource(R.string.settings_connection_status),
+        summary = stringResource(R.string.settings_connection_status_summary),
+    ) {
+        onNavigateToConnectionStatus()
     }
 
     SettingsItem(
@@ -391,6 +388,7 @@ private fun ConnectionServiceBlock(viewModel: SettingsViewModel, snackbarHostSta
 private fun KeepAliveBlock(viewModel: SettingsViewModel, snackbarHostState: SnackbarHostState) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val isStartForeground by viewModel.isStartForeground.collectAsStateWithLifecycle()
     val keepAliveOomAdj by viewModel.keepAliveOomAdj.collectAsStateWithLifecycle()
     val keepAliveAntiKill by viewModel.keepAliveAntiKill.collectAsStateWithLifecycle()
     val keepAliveStandbyBypass by viewModel.keepAliveStandbyBypass.collectAsStateWithLifecycle()
@@ -414,70 +412,85 @@ private fun KeepAliveBlock(viewModel: SettingsViewModel, snackbarHostState: Snac
     }
     val activityIntentNotFoundMessage = stringResource(R.string.activity_intent_not_found)
 
-    val keepAliveOomAdjTitle = stringResource(R.string.pref_keepalive_oom_adj_title)
+    // Master switch: 推送服务保活
+    val startForegroundTitle = stringResource(R.string.settings_start_foreground_service)
     SettingsSwitchItem(
-        title = keepAliveOomAdjTitle,
-        summary = stringResource(R.string.pref_keepalive_oom_adj_summary),
-        checked = keepAliveOomAdj,
+        title = startForegroundTitle,
+        summary = stringResource(R.string.settings_start_foreground_service_summary),
+        checked = isStartForeground,
     ) { enabled ->
-        viewModel.setKeepAliveOomAdj(enabled)
-        showSwitchFeedback(keepAliveOomAdjTitle, enabled)
+        viewModel.setStartForeground(enabled)
+        viewModel.startMiPushServiceAsForegroundService(context)
+        showSwitchFeedback(startForegroundTitle, enabled)
     }
 
-    val keepAliveAntiKillTitle = stringResource(R.string.pref_keepalive_anti_kill_title)
-    SettingsSwitchItem(
-        title = keepAliveAntiKillTitle,
-        summary = stringResource(R.string.pref_keepalive_anti_kill_summary),
-        checked = keepAliveAntiKill,
-    ) { enabled ->
-        viewModel.setKeepAliveAntiKill(enabled)
-        showSwitchFeedback(keepAliveAntiKillTitle, enabled)
-    }
+    // Sub-switches only visible when master switch is on
+    if (isStartForeground) {
+        val keepAliveOomAdjTitle = stringResource(R.string.pref_keepalive_oom_adj_title)
+        SettingsSwitchItem(
+            title = keepAliveOomAdjTitle,
+            summary = stringResource(R.string.pref_keepalive_oom_adj_summary),
+            checked = keepAliveOomAdj,
+        ) { enabled ->
+            viewModel.setKeepAliveOomAdj(enabled)
+            showSwitchFeedback(keepAliveOomAdjTitle, enabled)
+        }
 
-    val keepAliveStandbyBypassTitle = stringResource(R.string.pref_keepalive_standby_bypass_title)
-    SettingsSwitchItem(
-        title = keepAliveStandbyBypassTitle,
-        summary = stringResource(R.string.pref_keepalive_standby_bypass_summary),
-        checked = keepAliveStandbyBypass,
-    ) { enabled ->
-        viewModel.setKeepAliveStandbyBypass(enabled)
-        showSwitchFeedback(keepAliveStandbyBypassTitle, enabled)
-    }
+        val keepAliveAntiKillTitle = stringResource(R.string.pref_keepalive_anti_kill_title)
+        SettingsSwitchItem(
+            title = keepAliveAntiKillTitle,
+            summary = stringResource(R.string.pref_keepalive_anti_kill_summary),
+            checked = keepAliveAntiKill,
+        ) { enabled ->
+            viewModel.setKeepAliveAntiKill(enabled)
+            showSwitchFeedback(keepAliveAntiKillTitle, enabled)
+        }
 
-    val keepAliveDozeBypassTitle = stringResource(R.string.pref_keepalive_doze_bypass_title)
-    SettingsSwitchItem(
-        title = keepAliveDozeBypassTitle,
-        summary = stringResource(R.string.pref_keepalive_doze_bypass_summary),
-        checked = keepAliveDozeBypass,
-    ) { enabled ->
-        viewModel.setKeepAliveDozeBypass(enabled)
-        showSwitchFeedback(keepAliveDozeBypassTitle, enabled)
-    }
+        val keepAliveStandbyBypassTitle = stringResource(R.string.pref_keepalive_standby_bypass_title)
+        SettingsSwitchItem(
+            title = keepAliveStandbyBypassTitle,
+            summary = stringResource(R.string.pref_keepalive_standby_bypass_summary),
+            checked = keepAliveStandbyBypass,
+        ) { enabled ->
+            viewModel.setKeepAliveStandbyBypass(enabled)
+            showSwitchFeedback(keepAliveStandbyBypassTitle, enabled)
+        }
 
-    SettingsSwitchItem(
-        title = stringResource(R.string.pref_keepalive_dedicated_service_title),
-        summary = stringResource(
-            if (keepAliveAccessibilityServiceEnabled) {
-                R.string.pref_keepalive_dedicated_service_enabled_summary
-            } else {
-                R.string.pref_keepalive_dedicated_service_disabled_summary
-            }
-        ),
-        checked = keepAliveAccessibilityServiceEnabled,
-    ) { enabled ->
-        scope.launch {
-            val success = toggleAccessibilityServiceViaRoot(context, enabled)
-            if (success) {
-                accessibilityStatusRefresh += 1
-            } else {
-                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                runCatching {
-                    context.startActivity(intent)
-                }.onFailure {
-                    snackbarHostState.showSnackbar(
-                        message = activityIntentNotFoundMessage,
-                        duration = SnackbarDuration.Short,
-                    )
+        val keepAliveDozeBypassTitle = stringResource(R.string.pref_keepalive_doze_bypass_title)
+        SettingsSwitchItem(
+            title = keepAliveDozeBypassTitle,
+            summary = stringResource(R.string.pref_keepalive_doze_bypass_summary),
+            checked = keepAliveDozeBypass,
+        ) { enabled ->
+            viewModel.setKeepAliveDozeBypass(enabled)
+            showSwitchFeedback(keepAliveDozeBypassTitle, enabled)
+        }
+
+        SettingsSwitchItem(
+            title = stringResource(R.string.pref_keepalive_dedicated_service_title),
+            summary = stringResource(
+                if (keepAliveAccessibilityServiceEnabled) {
+                    R.string.pref_keepalive_dedicated_service_enabled_summary
+                } else {
+                    R.string.pref_keepalive_dedicated_service_disabled_summary
+                }
+            ),
+            checked = keepAliveAccessibilityServiceEnabled,
+        ) { enabled ->
+            scope.launch {
+                val success = toggleAccessibilityServiceViaRoot(context, enabled)
+                if (success) {
+                    accessibilityStatusRefresh += 1
+                } else {
+                    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                    runCatching {
+                        context.startActivity(intent)
+                    }.onFailure {
+                        snackbarHostState.showSnackbar(
+                            message = activityIntentNotFoundMessage,
+                            duration = SnackbarDuration.Short,
+                        )
+                    }
                 }
             }
         }

@@ -86,6 +86,10 @@ object AndroidPushRuntime {
         updatedAtMs = 0L,
         source = "initial"
     )
+    private var connectedAtMs: Long = 0L
+    private var lastDisconnectedAtMs: Long = 0L
+    private var connectionSessionCount: Long = 0L
+    private var lastResolvedIp: String? = null
     private var downstreamMessageCount: Long = 0
     private var deliveredToAppCount: Long = 0
     private var duplicateMessageCount: Long = 0
@@ -184,6 +188,41 @@ object AndroidPushRuntime {
             lastChannelState = lastChannelState,
             lastRegistrationPackage = lastRegistrationPackage,
             lastRegistrationState = lastRegistrationState
+        )
+    }
+
+    data class ConnectionSnapshotData(
+        val connectionState: String,
+        val connectedAtMs: Long,
+        val lastDisconnectedAtMs: Long,
+        val connectionSessionCount: Long,
+        val serverHost: String?,
+        val resolvedIp: String?,
+        val downstreamMessageCount: Long,
+        val deliveredToAppCount: Long,
+        val duplicateMessageCount: Long,
+        val ackMessageCount: Long,
+        val registeredPackageCount: Int,
+        val trackedChannelCount: Int,
+        val boundChannelCount: Int,
+    )
+
+    @JvmStatic
+    fun connectionSnapshot(): ConnectionSnapshotData = synchronized(lock) {
+        ConnectionSnapshotData(
+            connectionState = connectionRecord.state.name,
+            connectedAtMs = connectedAtMs,
+            lastDisconnectedAtMs = lastDisconnectedAtMs,
+            connectionSessionCount = connectionSessionCount,
+            serverHost = connectionRecord.host,
+            resolvedIp = lastResolvedIp,
+            downstreamMessageCount = downstreamMessageCount,
+            deliveredToAppCount = deliveredToAppCount,
+            duplicateMessageCount = duplicateMessageCount,
+            ackMessageCount = ackMessageCount,
+            registeredPackageCount = registrationRecords.values.count { it.state == PushRegistrationState.Registered },
+            trackedChannelCount = channelRecords.size,
+            boundChannelCount = channelRecords.values.count { it.state == PushChannelState.Bound },
         )
     }
 
@@ -515,7 +554,8 @@ object AndroidPushRuntime {
         source: String,
         host: String? = null,
         reason: String? = null,
-        nowMs: Long = System.currentTimeMillis()
+        nowMs: Long = System.currentTimeMillis(),
+        resolvedIp: String? = null
     ): PushConnectionRecord {
         val record = PushConnectionRecord(
             state = state,
@@ -526,6 +566,17 @@ object AndroidPushRuntime {
         )
         synchronized(lock) {
             connectionRecord = record
+            when (state) {
+                PushConnectionState.Connected -> {
+                    connectedAtMs = nowMs
+                    connectionSessionCount += 1
+                    lastResolvedIp = resolvedIp
+                }
+                PushConnectionState.Disconnected -> {
+                    lastDisconnectedAtMs = nowMs
+                }
+                else -> { /* no-op */ }
+            }
             updateLastObservationLocked(lastPackageName, "connection:${state.name}")
         }
         return record
@@ -581,6 +632,11 @@ object AndroidPushRuntime {
                 source = source,
                 host = host
             )
+            // Backfill timestamps if first observation of Connected state
+            if (connectionState == PushConnectionState.Connected && connectedAtMs == 0L) {
+                connectedAtMs = nowMs
+                connectionSessionCount += 1
+            }
             val iterator = channelRecords.entries.iterator()
             while (iterator.hasNext()) {
                 val entry = iterator.next()

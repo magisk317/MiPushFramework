@@ -319,6 +319,7 @@ fun MainScreen(
                     contentPadding = padding,
                     onShowAboutDialog = onAbout,
                     onSectionChanged = {},
+                    onNavigateToConnectionStatus = { navController.navigate(AppDestinations.ConnectionStatus.ROUTE) },
                     sectionBackSignal = settingsBackSignal,
                     hazeState = hState,
                     hazeStyle = hStyle,

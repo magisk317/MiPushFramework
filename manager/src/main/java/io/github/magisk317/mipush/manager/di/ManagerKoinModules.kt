@@ -16,6 +16,7 @@ import io.github.magisk317.mipush.main.viewmodel.ConfigEditorViewModel
 import io.github.magisk317.mipush.main.viewmodel.ConfigManagerViewModel
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
 import io.github.magisk317.mipush.main.viewmodel.OverviewViewModel
+import io.github.magisk317.mipush.main.viewmodel.ConnectionStatusViewModel
 import io.github.magisk317.mipush.main.viewmodel.RequestPermissionViewModel
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.main.viewmodel.ZygiskConfigViewModel
@@ -44,6 +45,7 @@ val managerKoinModule = module {
     viewModel { ConfigEditorViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidContext()) }
     viewModel { ApplicationInfoViewModel(get<ManagerApplicationGateway>(), get<SettingsManager>(), androidContext()) }
     viewModel { OverviewViewModel(get<ManagerApplicationGateway>(), androidContext()) }
+    viewModel { ConnectionStatusViewModel(get<SettingsManager>()) }
     viewModel { ApplicationListViewModel(get<ManagerApplicationGateway>(), get<SettingsManager>(), androidContext()) }
     viewModel { RequestPermissionViewModel(get<ManagerPermissionGateway>(), get<PreferenceRepository>(), androidContext()) }
 }

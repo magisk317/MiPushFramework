@@ -17,6 +17,24 @@ data class ManagerRuntimeEnvironmentSnapshot(
     val xmppServerHost: String,
 )
 
+data class ManagerConnectionSnapshot(
+    val connectionState: String,
+    val connectedAtMs: Long,
+    val lastDisconnectedAtMs: Long,
+    val connectionSessionCount: Long,
+    val serverHost: String?,
+    val serverIp: String?,
+    val keepAliveIntervalMs: Int,
+    val pingIntervalMs: Int,
+    val downstreamMessageCount: Long,
+    val deliveredToAppCount: Long,
+    val duplicateMessageCount: Long,
+    val ackMessageCount: Long,
+    val registeredPackageCount: Int,
+    val trackedChannelCount: Int,
+    val boundChannelCount: Int,
+)
+
 interface ManagerRuntimeActions {
     suspend fun clearHistory()
     fun startMiPushServiceAsForegroundService(context: Context)
@@ -25,6 +43,7 @@ interface ManagerRuntimeActions {
     fun setXmppServer(context: Context, newHost: String)
     fun getXmppServerHint(): String
     fun getRuntimeEnvironmentSnapshot(context: Context): ManagerRuntimeEnvironmentSnapshot
+    fun getConnectionSnapshot(): ManagerConnectionSnapshot
     fun observeNotificationEvent(packageName: String, action: String, source: String)
     fun setRuntimeLogRetentionDays(days: Int)
 }

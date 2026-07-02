@@ -138,7 +138,8 @@ class XMPushServiceLifecycleRuntime(
         XMPushServiceLifecycleBridge.onConnectionStatusChanged(XMPushServiceListener.ConnectionStatus.connected)
         val plan = PushServiceConnectionRuntime.planReconnectionSuccess(Alarm.isAlive(), service.shouldFalldown())
         AndroidPushRuntime.observeChannelEvent(null, plan.eventAction, "XMPushServiceLifecycleRuntime.reconnectionSuccessful")
-        AndroidPushRuntime.observeConnectionState(PushConnectionState.Connected, "XMPushServiceLifecycleRuntime.reconnectionSuccessful", connection.host, "listener_connected")
+        val resolvedIp = (connection as? com.xiaomi.smack.SocketConnection)?.resolvedIp
+        AndroidPushRuntime.observeConnectionState(PushConnectionState.Connected, "XMPushServiceLifecycleRuntime.reconnectionSuccessful", connection.host, "listener_connected", resolvedIp = resolvedIp)
         if (plan.shouldBroadcastAvailable) {
             service.broadcastNetworkAvailable(true)
         }

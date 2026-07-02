@@ -32,6 +32,7 @@ import io.github.magisk317.mipush.common.manager.ManagerLogGateway
 import io.github.magisk317.mipush.common.manager.ManagerNotificationGateway
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
+import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeEnvironmentSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileContent
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileInfo
@@ -60,6 +61,9 @@ import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
 import io.github.magisk317.mipush.runtime.store.event.type.NotificationType
 import io.github.magisk317.mipush.runtime.store.event.type.TypeFactory
 import io.github.magisk317.mipush.service.runtime.RuntimeSettingsAdapter
+import io.github.magisk317.mipush.runtime.android.AndroidPushRuntime
+import com.xiaomi.smack.SmackConfiguration
+import com.xiaomi.smack.ConnectionConfiguration
 import io.github.magisk317.mipush.utils.RegSecUtils
 import io.github.magisk317.mipush.utils.LogBundleExporter
 import io.github.magisk317.mipush.utils.LogUtils
@@ -777,6 +781,40 @@ class XmsfManagerRuntimeActions(
 
     override fun getRuntimeEnvironmentSnapshot(context: Context): ManagerRuntimeEnvironmentSnapshot {
         return runtimeSettingsAdapter.getRuntimeEnvironmentSnapshot(context)
+    }
+
+    override fun getConnectionSnapshot(): ManagerConnectionSnapshot {
+        val cs = AndroidPushRuntime.connectionSnapshot()
+        // Sanitize: if currently Connected and lastDisconnected > connectedAt,
+        // it's a stale event from a previous session — don't report it.
+        val sanitizedLastDisconnected = if (
+            cs.connectionState == "Connected" &&
+            cs.lastDisconnectedAtMs > cs.connectedAtMs &&
+            cs.connectedAtMs > 0L
+        ) 0L else cs.lastDisconnectedAtMs
+        // Resolve IP: prefer runtime-captured IP, fallback to querying current socket
+        val resolvedIp = cs.resolvedIp ?: runCatching {
+            val service = com.xiaomi.push.service.XMPushServiceProxy.get()
+            val conn = service?.currentConnection
+            (conn as? com.xiaomi.smack.SocketConnection)?.resolvedIp
+        }.getOrNull()
+        return ManagerConnectionSnapshot(
+            connectionState = cs.connectionState,
+            connectedAtMs = cs.connectedAtMs,
+            lastDisconnectedAtMs = sanitizedLastDisconnected,
+            connectionSessionCount = cs.connectionSessionCount,
+            serverHost = cs.serverHost ?: ConnectionConfiguration.getXmppServerHost(),
+            serverIp = resolvedIp,
+            keepAliveIntervalMs = SmackConfiguration.keepAliveInterval,
+            pingIntervalMs = SmackConfiguration.pingInterval,
+            downstreamMessageCount = cs.downstreamMessageCount,
+            deliveredToAppCount = cs.deliveredToAppCount,
+            duplicateMessageCount = cs.duplicateMessageCount,
+            ackMessageCount = cs.ackMessageCount,
+            registeredPackageCount = cs.registeredPackageCount,
+            trackedChannelCount = cs.trackedChannelCount,
+            boundChannelCount = cs.boundChannelCount,
+        )
     }
 
     override fun observeNotificationEvent(packageName: String, action: String, source: String) {

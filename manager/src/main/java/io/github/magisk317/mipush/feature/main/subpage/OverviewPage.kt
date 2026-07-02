@@ -191,6 +191,9 @@ private fun OverviewScreen(
         TopAppBar(
             title = { Text(text = stringResource(R.string.app_name)) },
             windowInsets = WindowInsets.statusBars,
+            actions = {
+                ConnectionStatusIndicator()
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.TopCenter)
@@ -237,6 +240,42 @@ private fun OverviewScreen(
                         Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                     }
             },
+        )
+    }
+}
+
+@Composable
+private fun ConnectionStatusIndicator() {
+    val viewModel: io.github.magisk317.mipush.main.viewmodel.ConnectionStatusViewModel = koinViewModel()
+    val snapshot by viewModel.snapshot.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.startAutoRefresh()
+    }
+
+    val data = snapshot
+    val state = data?.connectionState ?: "Idle"
+    val indicatorColor = when (state) {
+        "Connected" -> Color(0xFF4CAF50)
+        "Connecting" -> Color(0xFFFFC107)
+        "Disconnected" -> Color(0xFFF44336)
+        else -> Color.Gray
+    }
+
+    Row(
+        modifier = Modifier.padding(end = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .background(indicatorColor, CircleShape)
+        )
+        Text(
+            text = state,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

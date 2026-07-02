@@ -475,5 +475,45 @@ fun AppNavHostContent(
                 ) + fadeOut(animationSpec = tween(300))
             },
         ) { /* detail route reserved */ }
+
+        // ==================== Connection Status ====================
+        composable(
+            route = AppDestinations.ConnectionStatus.ROUTE,
+            enterTransition = {
+                val direction = forwardDirection(initialState.destination.route, targetState.destination.route)
+                slideInHorizontally(
+                    initialOffsetX = { direction * it },
+                    animationSpec = tween(300, easing = EaseInOut),
+                ) + fadeIn(animationSpec = tween(300))
+            },
+            exitTransition = {
+                val direction = forwardDirection(initialState.destination.route, targetState.destination.route)
+                slideOutHorizontally(
+                    targetOffsetX = { -direction * it },
+                    animationSpec = tween(300, easing = EaseInOut),
+                ) + fadeOut(animationSpec = tween(300))
+            },
+            popEnterTransition = {
+                val direction = forwardDirection(initialState.destination.route, targetState.destination.route)
+                slideInHorizontally(
+                    initialOffsetX = { -direction * it },
+                    animationSpec = tween(300, easing = EaseInOut),
+                ) + fadeIn(animationSpec = tween(300))
+            },
+            popExitTransition = {
+                val direction = forwardDirection(initialState.destination.route, targetState.destination.route)
+                slideOutHorizontally(
+                    targetOffsetX = { direction * it },
+                    animationSpec = tween(300, easing = EaseInOut),
+                ) + fadeOut(animationSpec = tween(300))
+            },
+        ) {
+            val viewModel: io.github.magisk317.mipush.main.viewmodel.ConnectionStatusViewModel =
+                org.koin.androidx.compose.koinViewModel()
+            io.github.magisk317.mipush.feature.main.subpage.ConnectionStatusPage(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+            )
+        }
     }
 }

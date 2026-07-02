@@ -94,6 +94,9 @@ open class SocketConnection(
     override val host: String?
         get() = mHost
 
+    val resolvedIp: String?
+        get() = runCatching { socket?.inetAddress?.hostAddress }.getOrNull()
+
     override val isConnected: Boolean
         get() = socket?.isConnected ?: false
 
