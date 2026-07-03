@@ -25,7 +25,8 @@ import tech.apter.junit.jupiter.robolectric.RobolectricExtension
  * - `shouldUseSdkActivityClick(true)` should return `true` (use Activity path when SDK intent available)
  * - `shouldUseSdkActivityClick(false)` should return `false` (use Service path when no SDK intent)
  * - `buildClickedPendingIntent()` should return an Activity PendingIntent targeting the resolved
- *   SDK intent when an SDK intent is available (container has `notify_effect` and resolves successfully)
+ *   SDK intent for regular packages when an SDK intent is available
+ * - known problematic packages should bypass the sdk_activity route and use the safer service path
  * - `buildClickedPendingIntent()` should return a Service PendingIntent when no SDK intent is available
  */
 @ExtendWith(RobolectricExtension::class)
@@ -54,11 +55,11 @@ class MyMIPushNotificationIntentSupportBugConditionTest {
     }
 
     @Test
-    @DisplayName("buildClickedPendingIntent returns Activity PendingIntent for SDK intent with class_name (notify_effect=2)")
+    @DisplayName("buildClickedPendingIntent returns Activity PendingIntent for regular SDK intent with class_name")
     fun `buildClickedPendingIntent returns Activity PendingIntent when SDK intent is available with explicit class`() {
         val context = RuntimeEnvironment.getApplication()
-        val targetPackage = "com.taobao.idlefish"
-        val targetClass = "com.taobao.idlefish.ChatDetailActivity"
+        val targetPackage = "com.example.target"
+        val targetClass = "com.example.target.ChatDetailActivity"
         val targetComponent = ComponentName(targetPackage, targetClass)
 
         val container = XmPushActionContainer().apply {
@@ -98,6 +99,49 @@ class MyMIPushNotificationIntentSupportBugConditionTest {
             targetComponent,
             shadow.savedIntent.component,
             "Activity PendingIntent should target the resolved SDK intent component."
+        )
+    }
+
+    @Test
+    @DisplayName("buildClickedPendingIntent bypasses sdk_activity for known white-screen packages")
+    fun `buildClickedPendingIntent returns Service PendingIntent for idlefish even when SDK intent resolves`() {
+        val context = RuntimeEnvironment.getApplication()
+        val targetPackage = "com.taobao.idlefish"
+        val targetClass = "com.taobao.idlefish.ChatDetailActivity"
+        val targetComponent = ComponentName(targetPackage, targetClass)
+
+        val container = XmPushActionContainer().apply {
+            packageName = targetPackage
+            metaInfo = PushMetaInfo().apply {
+                setId("msg-001-idlefish")
+                setNotifyId(1)
+                extra = mutableMapOf(
+                    PushConstants.EXTRA_PARAM_NOTIFY_EFFECT to PushConstants.NOTIFICATION_CLICK_INTENT,
+                    PushConstants.EXTRA_PARAM_CLASS_NAME to targetClass,
+                )
+            }
+        }
+
+        shadowOf(context.packageManager).addActivityIfNotPresent(targetComponent)
+
+        val pendingIntent = MyMIPushNotificationIntentSupport.buildClickedPendingIntent(
+            context = context,
+            container = container,
+            decryptedContent = byteArrayOf(1, 2, 3),
+            notificationId = 101,
+            extra = null,
+        )
+
+        assertNotNull(pendingIntent, "PendingIntent should not be null for blacklisted SDK intent notification")
+        val shadow = shadowOf(pendingIntent!!)
+
+        assertTrue(
+            shadow.isService,
+            "Known white-screen packages should bypass sdk_activity and use the service path."
+        )
+        assertFalse(
+            shadow.isActivity,
+            "Known white-screen packages should not directly launch the resolved SDK Activity."
         )
     }
 

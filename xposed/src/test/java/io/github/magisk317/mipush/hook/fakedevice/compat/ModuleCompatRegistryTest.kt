@@ -221,11 +221,14 @@ class ModuleCompatRegistryTest {
     }
 
     @Test
-    fun `registry keeps registration only profile without hook pipelines`() {
+    fun `registry keeps credential-only profile without hook pipelines`() {
         val profile = ModuleCompatRegistry.getProfile("com.alibaba.android.rimet")
         assertNotNull(profile)
         assertEquals(emptyList<HookPipelineId>(), profile!!.hookPipelines)
-        assertNull(profile.credentialOverride)
+        assertEquals(
+            ModuleCredential(appId = "2882303761517296732", appKey = "5781729632732"),
+            profile.credentialOverride,
+        )
     }
 
     @Test

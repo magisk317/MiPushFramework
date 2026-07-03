@@ -2,6 +2,8 @@ package io.github.magisk317.mipush.service.runtime
 
 import android.content.ComponentName
 import android.content.Intent
+import android.os.Build
+import android.os.Parcelable
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
@@ -67,7 +69,7 @@ class MyMIPushNotificationIntentSupportBridgeTest {
             shadow.savedIntent.component
         )
 
-        val payloadIntent = shadow.savedIntent.getParcelableExtra<Intent>(
+        val payloadIntent = shadow.savedIntent.parcelableExtraCompat<Intent>(
             PushConstants.MIPUSH_EXTRA_INTENT_PAYLOAD
         )
         assertNotNull(payloadIntent, "BridgeActivity intent must carry the target PushMessageHandler payload")
@@ -112,7 +114,7 @@ class MyMIPushNotificationIntentSupportBridgeTest {
         assertTrue(shadow.isActivity)
         assertEquals(ComponentName(targetPackage, bridgeClass), shadow.savedIntent.component)
 
-        val payloadIntent = shadow.savedIntent.getParcelableExtra<Intent>(
+        val payloadIntent = shadow.savedIntent.parcelableExtraCompat<Intent>(
             PushConstants.MIPUSH_EXTRA_INTENT_PAYLOAD
         )
         assertNotNull(payloadIntent)
@@ -152,5 +154,14 @@ class MyMIPushNotificationIntentSupportBridgeTest {
             ComponentName("com.xiaomi.xmsf", "com.xiaomi.push.sdk.MyPushMessageHandler"),
             shadow.savedIntent.component
         )
+    }
+
+    private inline fun <reified T : Parcelable> Intent.parcelableExtraCompat(key: String): T? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            getParcelableExtra(key, T::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            getParcelableExtra(key) as? T
+        }
     }
 }
