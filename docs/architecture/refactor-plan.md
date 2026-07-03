@@ -62,8 +62,13 @@ graph.
 
 Completed state:
 
-- `LibXposedEntry : XposedModule` is the unified entrypoint.
-- `META-INF/xposed/{module.prop,java_init.list,scope.list}` declares modern metadata.
+- `LibXposedEntry` is the unified libxposed entrypoint declared by
+  `META-INF/xposed/java_init.list`; the class currently lives in
+  `xposed/src/main/java/io/github/magisk317/mipush/hook/ModuleHooks.kt`.
+- `META-INF/xposed/{module.prop,java_init.list,scope.list}` declares modern metadata. The current
+  `scope.list` keeps platform/companion hook targets (`android`, `system`, `com.android.systemui`,
+  `com.miui.securitycore`, `com.google.android.documentsui`, and `com.xiaomi.xmsf`) and leaves
+  third-party app scope user-selectable in LSPosed.
 - Old Xposed manifest metadata and `assets/xposed_init` were removed from `mipush`.
 - Hook helpers such as `hook`, `hookMethod`, `hookAllMethods`, and `invokeOriginalMethod` are
   centralized in `xposed/XPosedX.kt`.
@@ -165,7 +170,9 @@ Current state:
   for `SettingsManager` and `ManagerDependencies` instead of pretending those classes belong to the
   xmsf `app.*` package.
 - `verifyModuleBoundaries` now scans `manager`/`settings` for both deep Xiaomi imports and direct
-  `io.github.magisk317.mipush.app.*` imports so new cross-module leakage shows up immediately.
+  `io.github.magisk317.mipush.app.*` imports, and scans the xmsf app-facing roots for deep Xiaomi
+  imports plus direct FQCN/class-like string references, so new cross-module leakage shows up
+  immediately.
 - The same boundary guard now rejects manager/settings string-literal references to deep
   `com.xiaomi.*` classes, so compatibility diagnostics have to go through shared runtime adapters
   instead of reflective escape hatches.
@@ -179,11 +186,13 @@ Remaining:
 
 - Continue moving manager helper/state acquisition toward narrower, testable injected seams so the
   manager module relies on xmsf Koin startup details in fewer places.
-- Keep `ManagerDependencies.start()` as a host-container check plus module registration, not a
-  hidden fallback container. The current host bootstrap lives in `app`'s `MiPushHostApp` via the
+- Keep `ManagerDependencies.start()` as host-container module registration, not a hidden fallback
+  container. The current host bootstrap lives in `app`'s `MiPushHostApp` via the
   `MiPushFrameworkApp.onAppDependenciesStarted()` extension point and is gated to the main app
-  process. If the manager ever needs to run standalone, that should be a separate, explicit
-  bootstrap path rather than a silent reintroduction of partial self-start.
+  process. `MainActivity` also calls `ManagerDependencies.start(this)` before injecting manager
+  objects; that is an idempotent guard against an already-started xmsf host container, not ownership
+  of the host bootstrap. If the manager ever needs to run standalone, that should be a separate,
+  explicit bootstrap path rather than a silent reintroduction of partial self-start.
 - Continue shrinking manager references to xmsf-owned classes until the remaining dependencies are
   clearly intentional compatibility bridges rather than namespace drift.
 
@@ -193,9 +202,9 @@ Already-debugged traps:
   That route fails both architecturally and mechanically: `xmsf` does not depend on `manager`, so
   adding `SettingsManager` or manager ViewModels there breaks compilation and weakens the intended
   module ownership boundary.
-- Do not put `ManagerDependencies.start(...)` back into `manager` `MainActivity`. That hides the
-  packaged host requirement, encourages partial self-start, and makes the manager UI responsible
-  for runtime container wiring instead of treating that as an app-shell concern.
+- Do not turn `MainActivity`'s `ManagerDependencies.start(...)` guard into a fallback container
+  starter. The packaged host requirement must stay explicit: `AppDependencies.start(...)` owns the
+  xmsf Koin host and `MiPushHostApp` owns eager manager-module loading in the main process.
 - Do not treat subclassing `MiPushFrameworkApp` as free. The packaged host path originally failed
   because `MiPushFrameworkApp` was final; the stable fix is an explicit
   `MiPushFrameworkApp.onAppDependenciesStarted()` hook plus an open base class, not a duplicated

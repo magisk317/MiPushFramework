@@ -3,10 +3,12 @@
 ## Current State
 
 The Xposed module is now user-selectable for third-party application scope. Its packaged
-`scope.list` only keeps the hook-required system entries:
+`scope.list` only keeps the hook-required platform and companion entries:
 
 - `android` / `system` for system-server hooks.
 - `com.android.systemui` for notification island and focus-display hooks.
+- `com.miui.securitycore` for XSpace package and MiPush-required package visibility hooks.
+- `com.google.android.documentsui` for XSpace document picker compatibility hooks.
 - `com.xiaomi.xmsf` for XMSF-side notification and authorization hooks.
 
 Third-party applications are intentionally not packaged in the static scope. Users should select

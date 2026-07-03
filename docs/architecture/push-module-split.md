@@ -5,12 +5,12 @@ historical ownership map for future runtime work, not as an active migration che
 
 ## Current Snapshot
 
-As of 2026-05-10, after the runtime, timer, service receiver, client-report, remaining
+As of the current module layout, after the runtime, timer, service receiver, client-report, remaining
 `com.xiaomi.push.*` splits, and the final `PushMessageProcessor` Kotlin port,
 `xmsf/src/main/java` contains:
 
 - 0 Java files
-- 205 Kotlin files
+- 206 Kotlin files
 
 The remaining legacy app-facing compatibility surface now lives primarily under:
 

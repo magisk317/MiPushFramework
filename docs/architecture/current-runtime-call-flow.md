@@ -50,16 +50,20 @@ Key source:
 
 ## 3. Runtime Spine
 
-- Entry point: `xmsf` `PushRuntime` (package `io.github.magisk317.mipush.runtime`)
+- Entry point: `xmsf` `PushRuntime` facade (package `io.github.magisk317.mipush.runtime`)
 - Main work:
   - queue and drain bridge intents
   - track registration, connection, and channel state
   - replay registration work on boot, network, and account changes
   - track downstream delivery and notification counters
+- Current shape:
+  - `PushRuntime` is the stable facade used by stock-facing code and manager adapters
+  - `AndroidPushRuntime` owns the Android-coupled in-process state, counters, queues, and snapshots
 
 Key source:
 
-- `xmsf/src/main/java/io/github/magisk317/mipush/runtime/android/PushRuntime.kt`
+- `xmsf/src/main/java/io/github/magisk317/mipush/runtime/PushRuntime.kt`
+- `xmsf/src/main/java/io/github/magisk317/mipush/runtime/android/AndroidPushRuntime.kt`
 
 ## 4. Execution Host
 
