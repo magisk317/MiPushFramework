@@ -11,11 +11,13 @@ import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
 import io.github.magisk317.mipush.service.XMPushServiceListener
 import com.xiaomi.channel.commonutils.android.Region
 import com.xiaomi.channel.commonutils.android.SystemUtils
-import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.network.Network
 import com.xiaomi.push.log.LogUploader
 import com.xiaomi.smack.util.TrafficUtils
 import com.xiaomi.stats.StatsHandler
+import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.mipush.common.utils.logV
+import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.runtime.core.PushConnectionState
 import io.github.magisk317.mipush.runtime.android.AndroidPushRuntime
 
@@ -42,9 +44,9 @@ class XMPushServiceLifecycleRuntime(
     fun networkChanged() {
         val activeNetworkName = Network.getActiveNetworkName(service)
         if (!activeNetworkName.isNullOrEmpty() && activeNetworkName != "null") {
-            MyLog.w("network changed,[type: $activeNetworkName]")
+            logW("network changed,[type: $activeNetworkName]")
         } else {
-            MyLog.w("network changed, no active network")
+            logW("network changed, no active network")
         }
         StatsHandler.getContext()?.statsChannelIfNeed()
         TrafficUtils.notifyNetworkChanage(service)
@@ -67,7 +69,7 @@ class XMPushServiceLifecycleRuntime(
     fun postOnCreate() {
         val regionStorage = AppRegionStorage.getInstance(service.applicationContext)
         var region = regionStorage.getRegion()
-        MyLog.w("region of cache is $region")
+        logW("region of cache is $region")
         if (TextUtils.isEmpty(region)) {
             region = service.ensureRegionAvaible()
         }
@@ -99,7 +101,7 @@ class XMPushServiceLifecycleRuntime(
                 service.clientEventDispatcher.notifyServiceStarted(service, service.runtimeObserver)
             }
         } catch (e: Exception) {
-            MyLog.e(e)
+            logE("notify service started failed", e)
         }
     }
 
@@ -114,7 +116,7 @@ class XMPushServiceLifecycleRuntime(
     }
 
     fun connectionStarted(connection: Connection) {
-        MyLog.v("begin to connect...")
+        logV("begin to connect...")
         XMPushServiceLifecycleBridge.onConnectionStatusChanged(XMPushServiceListener.ConnectionStatus.connecting)
         AndroidPushRuntime.observeConnectionState(PushConnectionState.Connecting, "XMPushServiceLifecycleRuntime.connectionStarted", connection.host, "listener_started")
         StatsHandler.getContext()?.connectionStarted(connection)
@@ -147,7 +149,7 @@ class XMPushServiceLifecycleRuntime(
             service.reconnectionManager.onConnectSucceeded()
         }
         if (plan.shouldRegisterAlarm) {
-            MyLog.w("reconnection successful, reactivate alarm.")
+            logW("reconnection successful, reactivate alarm.")
             Alarm.registerPing(true)
         }
         if (plan.shouldBindAllClients) {

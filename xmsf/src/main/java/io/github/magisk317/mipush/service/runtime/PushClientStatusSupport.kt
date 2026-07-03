@@ -8,7 +8,7 @@ import com.xiaomi.push.service.*
 
 import android.os.Message
 import android.os.RemoteException
-import com.xiaomi.channel.commonutils.logger.MyLog
+import io.github.magisk317.mipush.common.utils.logI
 
 object PushClientStatusSupport {
     @JvmStatic
@@ -158,6 +158,6 @@ object PushClientStatusSupport {
     }
 
     private fun logInfo(message: String) {
-        runCatching { MyLog.i(message) }
+        runCatching { logI(message) }
     }
 }

@@ -5,8 +5,8 @@ import android.text.TextUtils
 import com.xiaomi.channel.commonutils.android.AppInfoUtils
 import com.xiaomi.channel.commonutils.android.DeviceInfo
 import com.xiaomi.channel.commonutils.android.MIUIUtils
-import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.string.XMStringUtils
+import io.github.magisk317.mipush.common.utils.logW
 import com.xiaomi.push.service.MIPushHelper
 import com.xiaomi.push.service.PacketHelper
 import com.xiaomi.push.service.PushConstants
@@ -77,7 +77,7 @@ object RegistrationPayloadRepair {
         val jsonText = runCatching {
             context.assets.open(COMPAT_PROFILES_ASSET).bufferedReader().use { it.readText() }
         }.getOrElse { error ->
-            MyLog.w("registration payload repair profile unavailable: ${error.message}")
+            logW("registration payload repair profile unavailable: ${error.message}", error)
             return emptyMap()
         }
         return parseCredentialOverrides(jsonText).mapValues { (packageName, credential) ->

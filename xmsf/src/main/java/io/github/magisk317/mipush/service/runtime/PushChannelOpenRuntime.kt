@@ -4,9 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.os.Messenger
 import androidx.core.content.IntentCompat
-import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.string.MD5
 import com.xiaomi.push.service.*
+import io.github.magisk317.mipush.common.utils.logW
 
 object PushChannelOpenRuntime {
     @JvmStatic
@@ -139,6 +139,6 @@ object PushChannelOpenRuntime {
     }
 
     private fun safeWarn(message: String) {
-        runCatching { MyLog.w(message) }
+        runCatching { logW(message) }
     }
 }

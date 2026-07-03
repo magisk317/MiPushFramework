@@ -3,7 +3,7 @@ import com.xiaomi.push.service.*
 import com.xiaomi.slim.Blob
 import com.xiaomi.smack.packet.Packet
 
-import com.xiaomi.channel.commonutils.logger.MyLog
+import io.github.magisk317.mipush.common.utils.logW
 
 object PushPacketRuntime {
     @JvmStatic
@@ -84,6 +84,6 @@ object PushPacketRuntime {
     }
 
     private fun safeWarn(message: String) {
-        runCatching { MyLog.w(message) }
+        runCatching { logW(message) }
     }
 }

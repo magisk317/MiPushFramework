@@ -7,10 +7,10 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.SystemClock
-import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.reflect.JavaCalls
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.smack.SmackConfiguration
+import io.github.magisk317.mipush.common.utils.logV
 
 class AlarmManagerTimerCompat(private val context: Context) {
     @Volatile
@@ -52,7 +52,7 @@ class AlarmManagerTimerCompat(private val context: Context) {
             } catch (_: Exception) {
             } finally {
                 pi = null
-                MyLog.v("unregister timer")
+                logV("unregister timer")
                 nextPingTs = 0
             }
         }
@@ -70,7 +70,7 @@ class AlarmManagerTimerCompat(private val context: Context) {
             pendingIntent
         )
 
-        MyLog.v("register timer$triggerAtMillis")
+        logV("register timer$triggerAtMillis")
     }
 
 
