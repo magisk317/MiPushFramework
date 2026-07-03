@@ -196,7 +196,7 @@
     <!-- Permission -->
     <string name="permission_allow_receive">接收通知栏消息</string>
     <string name="permission_allow_receive_command">接收命令消息（无通知栏提醒）</string>
-    <string name="permission_allow_receive_register_result">接收注册结果（暂时无效）</string>
+    <string name="permission_allow_receive_register_result">接收注册结果</string>
     <string name="register_type_allow">允许并自动注册</string>
 
     <string name="register_type_deny">阻止注册</string>

@@ -85,7 +85,7 @@ Verification:
 ```bash
 rg "de\\.robv.*api|XposedBridge|XC_Method|api\\.xposed|xposed_init" \
   settings.gradle.kts gradle xposed mipush/src/main
-./gradlew :xposed:compileDebugKotlin :mipush:assembleDebug :xmsf:assembleNormalDebug
+./gradlew :xposed:compileDebugKotlin :mipush:assembleDebug :app:assembleNormalDebug
 ```
 
 ### P2: DI Migration
@@ -113,7 +113,7 @@ rg "hilt|Hilt|dagger|javax-inject|javax\\.inject|androidx-hilt|@Inject|@Singleto
 git diff --check
 ./gradlew :xmsf:compileNormalDebugKotlin
 ./gradlew :xmsf:testNormalDebugUnitTest
-./gradlew :xmsf:assembleNormalDebug
+./gradlew :app:assembleNormalDebug
 ```
 
 ### P3: Quality Gates
@@ -503,7 +503,7 @@ Optional future work:
 ./gradlew :core:testDebugUnitTest
 ./gradlew :xmsf:testNormalDebugUnitTest
 ./gradlew :xposed:compileDebugKotlin
-./gradlew :xmsf:assembleNormalDebug
+./gradlew :app:assembleNormalDebug
 ./gradlew :mipush:assembleDebug
 ```
 

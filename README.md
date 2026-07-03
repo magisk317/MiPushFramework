@@ -149,7 +149,7 @@ Xposed 模块不再固定三方应用作用域。需要伪装增强的主应用�
 ./gradlew :core:testDebugUnitTest
 ./gradlew :xmsf:testNormalDebugUnitTest
 ./gradlew :xposed:compileDebugKotlin
-./gradlew :xmsf:assembleNormalDebug
+./gradlew :app:assembleNormalDebug
 ./gradlew :mipush:assembleDebug
 ./gradlew verifyModuleBoundaries
 ```
