@@ -28,7 +28,7 @@ object AppDatabaseMigrations {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE REGISTERED_APPLICATION ADD COLUMN island_enabled INTEGER NOT NULL DEFAULT 1")
             db.execSQL(
-                "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN island_focus_notification INTEGER NOT NULL DEFAULT 1"
+                "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN island_focus_notification INTEGER NOT NULL DEFAULT 0"
             )
         }
     }

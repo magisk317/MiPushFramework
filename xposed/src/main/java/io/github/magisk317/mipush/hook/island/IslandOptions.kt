@@ -7,7 +7,7 @@ data class IslandOptions(
     val enableFloat: Boolean = true,
     val showNotification: Boolean = true,
     val showOriginalNotification: Boolean = true,
-    val focusNotification: Boolean = true,
+    val focusNotification: Boolean = false,
     val colorStatusBarIcon: Boolean = false,
 ) {
     val canInjectFocusPayload: Boolean

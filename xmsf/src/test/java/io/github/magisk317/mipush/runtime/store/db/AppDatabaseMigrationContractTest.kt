@@ -57,7 +57,7 @@ class AppDatabaseMigrationContractTest {
         assertEquals(
             listOf(
                 "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN island_enabled INTEGER NOT NULL DEFAULT 1",
-                "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN island_focus_notification INTEGER NOT NULL DEFAULT 1",
+                "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN island_focus_notification INTEGER NOT NULL DEFAULT 0",
             ),
             statements,
         )

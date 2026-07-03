@@ -13,12 +13,12 @@ class IslandPreferencesTest {
     }
 
     @Test
-    fun `default options enable focus payload injection`() {
+    fun `default options keep focus payload injection disabled`() {
         val options = IslandPreferences.current()
 
         assertTrue(options.enabled)
-        assertTrue(options.focusNotification)
-        assertTrue(options.canInjectFocusPayload)
+        assertFalse(options.focusNotification)
+        assertFalse(options.canInjectFocusPayload)
         assertEquals(5, options.timeoutSecs)
     }
 

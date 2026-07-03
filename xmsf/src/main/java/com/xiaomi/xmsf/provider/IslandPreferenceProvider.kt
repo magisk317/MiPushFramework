@@ -85,7 +85,7 @@ class IslandPreferenceProvider : ContentProvider() {
                         ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION to repository.islandShowOriginalNotification.first().toFlagValue(),
                         ISLAND_PREF_FOCUS_NOTIF to (
                             globalFocusNotification &&
-                                (appFocusNotification ?: true)
+                                (appFocusNotification ?: false)
                             ).toFlagValue(),
                         COLOR_STATUS_BAR_ICON_KEY to repository.colorStatusBarIcon.first().toFlagValue(),
                     )
@@ -127,7 +127,7 @@ class IslandPreferenceProvider : ContentProvider() {
         ISLAND_PREF_ENABLE_FLOAT to true.toFlagValue(),
         ISLAND_PREF_SHOW_NOTIFICATION to true.toFlagValue(),
         ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION to true.toFlagValue(),
-        ISLAND_PREF_FOCUS_NOTIF to true.toFlagValue(),
+        ISLAND_PREF_FOCUS_NOTIF to false.toFlagValue(),
         COLOR_STATUS_BAR_ICON_KEY to false.toFlagValue(),
     )
 }

@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 4,
-    "identityHash": "0d1b893c9de242525008a8394b5c7343",
+    "identityHash": "728ee0ac43191eef7ab891cc49613203",
     "entities": [
       {
         "tableName": "EVENT",
@@ -82,7 +82,7 @@
       },
       {
         "tableName": "REGISTERED_APPLICATION",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `pkg` TEXT NOT NULL, `type` INTEGER NOT NULL, `notification_on_register` INTEGER NOT NULL, `blocked` INTEGER NOT NULL DEFAULT 0, `island_enabled` INTEGER NOT NULL DEFAULT 1, `island_focus_notification` INTEGER NOT NULL DEFAULT 1, `registered_type` INTEGER NOT NULL, `app_name` TEXT NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `pkg` TEXT NOT NULL, `type` INTEGER NOT NULL, `notification_on_register` INTEGER NOT NULL, `blocked` INTEGER NOT NULL DEFAULT 0, `island_enabled` INTEGER NOT NULL DEFAULT 1, `island_focus_notification` INTEGER NOT NULL DEFAULT 0, `registered_type` INTEGER NOT NULL, `app_name` TEXT NOT NULL)",
         "fields": [
           {
             "fieldPath": "id",
@@ -126,7 +126,7 @@
             "columnName": "island_focus_notification",
             "affinity": "INTEGER",
             "notNull": true,
-            "defaultValue": "1"
+            "defaultValue": "0"
           },
           {
             "fieldPath": "registeredType",
@@ -162,7 +162,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0d1b893c9de242525008a8394b5c7343')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '728ee0ac43191eef7ab891cc49613203')"
     ]
   }
 }

@@ -93,7 +93,7 @@ class PreferenceRepository constructor(
     val islandEnableFloat: Flow<Boolean> = dataStore.data.map { it[ISLAND_ENABLE_FLOAT] ?: true }
     val islandShowNotification: Flow<Boolean> = dataStore.data.map { it[ISLAND_SHOW_NOTIFICATION] ?: true }
     val islandShowOriginalNotification: Flow<Boolean> = dataStore.data.map { it[ISLAND_SHOW_ORIGINAL_NOTIFICATION] ?: true }
-    val islandFocusNotification: Flow<Boolean> = dataStore.data.map { it[ISLAND_FOCUS_NOTIF] ?: true }
+    val islandFocusNotification: Flow<Boolean> = dataStore.data.map { it[ISLAND_FOCUS_NOTIF] ?: false }
     val colorStatusBarIcon: Flow<Boolean> = dataStore.data.map { it[COLOR_STATUS_BAR_ICON] ?: false }
     val dualAppEnabled: Flow<Boolean> = dataStore.data.map { it[DUAL_APP_ENABLED] ?: false }
 

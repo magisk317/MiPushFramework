@@ -153,7 +153,7 @@ object IslandPreferences {
             enableFloat = values.booleanValue(ISLAND_PREF_ENABLE_FLOAT, true),
             showNotification = values.booleanValue(ISLAND_PREF_SHOW_NOTIFICATION, true),
             showOriginalNotification = values.booleanValue(ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION, true),
-            focusNotification = values.booleanValue(ISLAND_PREF_FOCUS_NOTIF, true),
+            focusNotification = values.booleanValue(ISLAND_PREF_FOCUS_NOTIF, false),
             colorStatusBarIcon = values.booleanValue(COLOR_STATUS_BAR_ICON_KEY, false),
         )
     }

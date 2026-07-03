@@ -7,11 +7,12 @@ import org.junit.jupiter.api.Test
 
 class IslandOptionsTest {
     @Test
-    fun `default options keep both focus and original notifications visible`() {
+    fun `default options keep generated and original notifications visible`() {
         val options = IslandOptions()
 
         assertTrue(options.showNotification)
         assertTrue(options.showOriginalNotification)
+        assertFalse(options.focusNotification)
     }
 
     @Test
@@ -28,13 +29,11 @@ class IslandOptionsTest {
     }
 
     @Test
-    fun `field defaults match the historical default true`() {
+    fun `field defaults keep focus notification opt in`() {
         val options = IslandOptions()
-        // After the split, both the focus-notification and original-notification
-        // switches must default to true so the user keeps the legacy behavior
-        // of seeing both notifications after a fresh install.
         assertEquals(true, options.showNotification)
         assertEquals(true, options.showOriginalNotification)
+        assertEquals(false, options.focusNotification)
     }
 
     @Test

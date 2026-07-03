@@ -9,7 +9,7 @@ data class ManagerApplication(
     val notificationOnRegister: Boolean = false,
     val blocked: Boolean = false,
     val islandEnabled: Boolean = true,
-    val islandFocusNotification: Boolean = true,
+    val islandFocusNotification: Boolean = false,
     val registeredType: Int = RegisteredType.NOT_REGISTERED,
     val existServices: Boolean = false,
     val appName: String = "",

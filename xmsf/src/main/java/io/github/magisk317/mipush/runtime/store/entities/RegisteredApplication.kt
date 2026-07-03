@@ -87,8 +87,8 @@ class RegisteredApplication : Parcelable {
     @ColumnInfo(name = "island_enabled", defaultValue = "1")
     var islandEnabled: Boolean = true
 
-    @ColumnInfo(name = "island_focus_notification", defaultValue = "1")
-    var islandFocusNotification: Boolean = true
+    @ColumnInfo(name = "island_focus_notification", defaultValue = "0")
+    var islandFocusNotification: Boolean = false
 
     @RegisteredType
     @ColumnInfo(name = "registered_type")
@@ -120,7 +120,7 @@ class RegisteredApplication : Parcelable {
         appName: String,
         blocked: Boolean = false,
         islandEnabled: Boolean = true,
-        islandFocusNotification: Boolean = true,
+        islandFocusNotification: Boolean = false,
     ) {
         this.id = id
         this.packageName = packageName
