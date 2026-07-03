@@ -37,6 +37,7 @@ class HookSystemUI : BaseHook() {
         val classLoader = param.classLoader
         XLog.i(TAG, "HookSystemUI.hook() called")
         MiuiHeaderAppIconHook().hook(classLoader)
+        MiPushFocusStatusBarIconHook().hook(classLoader)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             // Always install the hook; check colorStatusBarIcon dynamically per-call
