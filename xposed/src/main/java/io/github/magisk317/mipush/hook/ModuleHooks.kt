@@ -12,6 +12,7 @@ import io.github.magisk317.mipush.hook.fakedevice.ForceMiPushRegister
 import io.github.magisk317.mipush.hook.fakedevice.fakeAllBuildInProperties
 import io.github.magisk317.mipush.hook.keepalive.KeepAliveHook
 import io.github.magisk317.mipush.hook.securitycore.SecurityCoreXSpaceMiPushHook
+import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.mipush.hook.system.HookSystemService
 import io.github.magisk317.mipush.hook.systemui.HookNotificationSettingsManager
 import io.github.magisk317.mipush.hook.systemui.MiPushIslandHook
@@ -124,13 +125,25 @@ class LibXposedEntry : BaseLibXposedEntry {
                     pluginLoader
                 )
 
-                XLog.d(tag, "hooking canShowFocus method")
-                classFocusNotifUtils.declaredMethods.find { it.name == "canShowFocus" }!!
-                    .hook {
-                        replace {
-                            true
+                val method = classFocusNotifUtils.declaredMethods.find { it.name == "canShowFocus" }!!
+                val paramTypes = method.parameterTypes
+                // Identify which parameter index holds the package name (String).
+                // Known signatures: canShowFocus(Context, String) or canShowFocus(String).
+                val pkgArgIndex = paramTypes.indexOfFirst { it == String::class.java }
+
+                XLog.d(tag, "hooking canShowFocus paramTypes=${paramTypes.map { it.simpleName }} pkgArgIndex=$pkgArgIndex")
+                method.hook {
+                    replace {
+                        val packageName = if (pkgArgIndex >= 0) args[pkgArgIndex] as? String else null
+                        val allowed = if (packageName.isNullOrBlank()) {
+                            IslandPreferences.current().canInjectFocusPayload
+                        } else {
+                            IslandPreferences.current(packageName).canInjectFocusPayload
                         }
+                        XLog.d(tag, "canShowFocus pkg=$packageName -> $allowed")
+                        allowed
                     }
+                }
             } catch (e: Throwable) {
                 XLog.e(tag, "hook failure: ${e.message}", e)
             }

@@ -19,6 +19,20 @@ internal object IslandProxyNotificationIds {
     ): Int = fromPackage(packageName)
 }
 
+internal object IslandProxySourceKeys {
+    fun fromStatusBarKey(
+        key: String?,
+        packageName: String?,
+        notificationId: Int,
+        tag: String?,
+    ): String {
+        key?.takeIf { it.isNotBlank() }?.let { return it }
+        val pkg = packageName?.takeIf { it.isNotBlank() }
+            ?: IslandDispatchContract.SYSTEM_UI_PACKAGE
+        return "$pkg#$notificationId#${tag.orEmpty()}"
+    }
+}
+
 internal class IslandProxyPostTracker(
     private val ttlMs: Long,
     private val now: () -> Long = System::currentTimeMillis,

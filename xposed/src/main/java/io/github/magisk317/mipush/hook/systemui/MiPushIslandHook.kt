@@ -18,6 +18,7 @@ import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.mipush.hook.island.IslandRequest
 import io.github.magisk317.xposed.currentApplication
 import io.github.magisk317.xposed.findClass
+import io.github.magisk317.xposed.hook
 import io.github.magisk317.xposed.hookMethod
 
 class MiPushIslandHook : BaseHook() {
@@ -27,6 +28,7 @@ class MiPushIslandHook : BaseHook() {
         IslandPreferences.startRefreshLoop()
         IslandDispatcherHook().hook()
         hookGenerateInnerNotifBean(classLoader)
+        hookNotificationRemoved(classLoader)
     }
 
     private fun hookGenerateInnerNotifBean(classLoader: ClassLoader) {
@@ -110,7 +112,13 @@ class MiPushIslandHook : BaseHook() {
                 clearBeforePost = true,
             ),
         )
-        XLog.d(TAG, "posted island proxy pkg=$sourcePackage id=${sbn.id}")
+        // Track source → proxy mapping so we can cancel proxy when source is removed.
+        val sourceKey = sourceKeyFor(sbn)
+        synchronized(trackedForCancel) {
+            if (trackedForCancel.size >= MAX_TRACKED_SIZE) trackedForCancel.clear()
+            trackedForCancel[sourceKey] = proxyId
+        }
+        XLog.d(TAG, "posted island proxy pkg=$sourcePackage id=${sbn.id} proxyId=$proxyId sourceKey=$sourceKey")
     }
 
     private fun resolveSourcePackage(sbn: StatusBarNotification, extras: Bundle): String? {
@@ -178,11 +186,82 @@ class MiPushIslandHook : BaseHook() {
         return (sbn.packageName.hashCode() xor sbn.id)
     }
 
+    private fun sourceKeyFor(sbn: StatusBarNotification): String {
+        return IslandProxySourceKeys.fromStatusBarKey(
+            key = sbn.key,
+            packageName = sbn.packageName,
+            notificationId = sbn.id,
+            tag = sbn.tag,
+        )
+    }
+
     private companion object {
         private const val TAG = "MiPushIslandHook"
         private const val EXTRA_ALLOW_PROXY = "mipush_island_allow_proxy"
         private const val EXTRA_LARGE_ICON_KEY = "android.largeIcon"
         private const val PROXY_POST_DEDUPE_MS = 2_000L
+        private const val MAX_TRACKED_SIZE = 500
         private val recentProxyPosts = IslandProxyPostTracker(PROXY_POST_DEDUPE_MS)
+        private val trackedForCancel = mutableMapOf<String, Int>()
+    }
+
+    // -- Phase 5: cancel proxy notification when source notification is removed --
+
+    private fun hookNotificationRemoved(classLoader: ClassLoader) {
+        var hooked = false
+        // Try 3-param onNotificationRemoved(sbn, rankingMap, reason) first
+        runCatching {
+            val rankingMapClass = classLoader.findClass(
+                "android.service.notification.NotificationListenerService\$RankingMap"
+            )
+            val listenerClass = classLoader.findClass(
+                "android.service.notification.NotificationListenerService"
+            )
+            val method = listenerClass.getDeclaredMethod(
+                "onNotificationRemoved",
+                StatusBarNotification::class.java,
+                rankingMapClass,
+                Int::class.javaPrimitiveType!!,
+            )
+            method.hook {
+                doAfter {
+                    handleNotificationRemoved(args[0] as? StatusBarNotification)
+                }
+            }
+            hooked = true
+            XLog.i(TAG, "hooked onNotificationRemoved(sbn, rankingMap, reason)")
+        }.onFailure {
+            XLog.d(TAG, "onNotificationRemoved 3-param not found: ${it.message}")
+        }
+
+        // Fallback: 1-param onNotificationRemoved(sbn)
+        if (!hooked) {
+            runCatching {
+                val listenerClass = classLoader.findClass(
+                    "android.service.notification.NotificationListenerService"
+                )
+                val method = listenerClass.getDeclaredMethod(
+                    "onNotificationRemoved",
+                    StatusBarNotification::class.java,
+                )
+                method.hook {
+                    doAfter {
+                        handleNotificationRemoved(args[0] as? StatusBarNotification)
+                    }
+                }
+                XLog.i(TAG, "hooked onNotificationRemoved(sbn)")
+            }.onFailure {
+                XLog.e(TAG, "onNotificationRemoved hook failed: ${it.message}", it)
+            }
+        }
+    }
+
+    private fun handleNotificationRemoved(sbn: StatusBarNotification?) {
+        sbn ?: return
+        val sourceKey = sourceKeyFor(sbn)
+        val proxyId = synchronized(trackedForCancel) { trackedForCancel.remove(sourceKey) } ?: return
+        val context = currentApplication()?.applicationContext ?: return
+        IslandDispatcher.cancel(context, proxyId)
+        XLog.d(TAG, "cancelled proxy proxyId=$proxyId for removed source key=$sourceKey")
     }
 }

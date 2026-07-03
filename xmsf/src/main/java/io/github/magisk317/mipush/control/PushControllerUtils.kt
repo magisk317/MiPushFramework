@@ -20,9 +20,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.text.TextUtils
-import io.github.aakira.napier.Napier
-import io.github.aakira.napier.DebugAntilog
-import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.misc.ScheduledJobManager
 import com.xiaomi.mipush.sdk.MiPushClient
 import com.xiaomi.push.service.PushServiceConstants
@@ -36,7 +33,6 @@ import io.github.magisk317.mipush.common.Constants
 
 @SuppressLint("WrongConstant")
 object PushControllerUtils {
-    private val TAG = "PushControllerUtils"
     private val liveReceiver: BroadcastReceiver = KeepAliveReceiver()
     private val retryInterval = intArrayOf(3600000, 7200000, 14400000, 28800000, 86400000)
 
@@ -45,7 +41,7 @@ object PushControllerUtils {
         Objects.requireNonNull(context)
         val length = retryInterval.size
         val intervalMs = if (i < length) retryInterval[i] else retryInterval[length - 1]
-        MyLog.i("for make sure xmsf register push succ, schedule register after ${intervalMs / 1000} sec")
+        logI("for make sure xmsf register push succ, schedule register after ${intervalMs / 1000} sec")
         Handler(Looper.getMainLooper()).postDelayed(RetryRegister(context, i), intervalMs.toLong())
     }
 

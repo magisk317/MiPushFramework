@@ -219,7 +219,7 @@ class GetSmallIconHookBugConditionTest {
         val colorStatusBarIcon = IslandPreferences.current().colorStatusBarIcon
         val extras = input.toExtras()
 
-        // Simulate the hook's doBefore logic on UNFIXED code
+        // Simulate the hook's doBefore decision on current code.
         val intercepted = hookIntercepts(colorStatusBarIcon, extras)
 
         // Expected behavior: hook does NOT intercept (intercepted == false)

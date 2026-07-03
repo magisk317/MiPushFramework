@@ -46,6 +46,10 @@ class NotificationControllerRobolectricTest {
         private const val EXTRA_START_ROUTE = "extra_start_route"
         private const val ACTION_SHOW_ISLAND = "io.github.magisk317.mipush.action.SHOW_ISLAND"
         private const val EXTRA_LARGE_ICON = "android.largeIcon"
+
+        private fun focusPayloadOptions(): MiPushIslandOptions {
+            return MiPushIslandOptions(focusNotification = true)
+        }
     }
 
     @AfterEach
@@ -150,7 +154,8 @@ class NotificationControllerRobolectricTest {
             context = context,
             metaInfo = metaInfo,
             packageName = context.packageName,
-            largeIcon = icon
+            largeIcon = icon,
+            options = focusPayloadOptions(),
         )
 
         assertNotNull(focusBundle)
@@ -178,6 +183,7 @@ class NotificationControllerRobolectricTest {
             metaInfo = metaInfo,
             packageName = context.packageName,
             largeIcon = null,
+            options = focusPayloadOptions(),
         )
 
         assertNotNull(focusBundle)
@@ -200,7 +206,7 @@ class NotificationControllerRobolectricTest {
             packageName = context.packageName,
             largeIcon = null,
             keepNotificationVisible = false,
-            options = MiPushIslandOptions(showNotification = false),
+            options = focusPayloadOptions().copy(showNotification = false),
         )
 
         assertNotNull(focusBundle)
@@ -223,6 +229,7 @@ class NotificationControllerRobolectricTest {
             metaInfo = metaInfo,
             packageName = "com.eg.android.AlipayGphone",
             largeIcon = null,
+            options = focusPayloadOptions(),
         )
 
         assertNotNull(focusBundle)
@@ -253,6 +260,7 @@ class NotificationControllerRobolectricTest {
             metaInfo = metaInfo,
             packageName = "com.eg.android.AlipayGphone",
             largeIcon = null,
+            options = focusPayloadOptions(),
         )
 
         assertNotNull(focusBundle)
@@ -306,6 +314,7 @@ class NotificationControllerRobolectricTest {
             largeIcon = null,
             contentIntent = clickPendingIntent,
             actionTitle = "Open events",
+            options = focusPayloadOptions(),
         )
 
         assertNotNull(focusBundle)

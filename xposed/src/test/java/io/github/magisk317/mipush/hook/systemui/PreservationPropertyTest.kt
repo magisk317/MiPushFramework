@@ -13,7 +13,6 @@ import net.jqwik.api.lifecycle.AfterProperty
 import net.jqwik.api.lifecycle.BeforeProperty
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertTrue
 
 /**
  * Preservation Property Tests — Property-Based
@@ -22,15 +21,13 @@ import org.junit.jupiter.api.Assertions.assertTrue
  *
  * Property 2: Preservation — Non-MiPush Notifications and Other Hooks Unaffected
  *
- * These tests verify that behaviors which should be UNCHANGED by the fix are
- * already correct on UNFIXED code. They serve as regression guards:
+ * These tests verify the scoped SystemUI icon policy. They serve as regression guards:
  * - Non-MiPush notifications must never be intercepted by the getSmallIcon hook
- * - processSmallIconColor must return early when toggle OFF, and process non-grayscale
- *   icons when toggle ON
- * - IconManager.setIcon must always set icon_is_pre_L to true
+ * - processSmallIconColor must return early when toggle OFF or the notification is not MiPush-managed,
+ *   and process MiPush-managed non-grayscale icons when toggle ON
+ * - IconManager.setIcon must only force icon_is_pre_L for MiPush-managed notifications when color mode is ON
  *
- * On UNFIXED code, these tests PASS — confirming the baseline behaviors to preserve.
- * After the fix is applied, they must STILL pass — confirming no regressions.
+ * The important invariant is that non-MiPush notifications are left to native SystemUI behavior.
  */
 class PreservationPropertyTest {
 
@@ -86,6 +83,7 @@ class PreservationPropertyTest {
     data class ProcessSmallIconColorInput(
         val colorStatusBarIcon: Boolean,
         val isGrayscaleIcon: Boolean,
+        val isMiPushManaged: Boolean,
     )
 
     // ─── Pure Logic Simulation ───────────────────────────────────────────────────
@@ -94,38 +92,23 @@ class PreservationPropertyTest {
      * Replicates `HookSystemUI.isMiPushManagedNotification` logic.
      */
     private fun isMiPushManagedNotification(extras: NotificationExtras): Boolean {
-        return extras.containsKey(EXTRA_TARGET_PACKAGE) ||
-            extras.containsKey(EXTRA_MIUI_TARGET_PACKAGE) ||
-            extras.containsKey(EXTRA_XMSF_TARGET_PACKAGE) ||
-            extras.getBoolean(EXTRA_MOCK_REPLAY_RECEIPT, false) ||
-            extras.getString(EXTRA_MOCK_REPLAY_SOURCE_PACKAGE)?.isNotBlank() == true ||
-            extras.getString(IslandDispatchContract.SOURCE_PACKAGE)?.isNotBlank() == true ||
-            extras.getString(IslandDispatchContract.OWNER) == IslandDispatchContract.OWNER_MARKER
+        return SystemUiNotificationPolicy.hasMiPushManagementMarker(
+            containsKey = extras::containsKey,
+            getBoolean = extras::getBoolean,
+            getString = extras::getString,
+        )
     }
 
     /**
-     * Replicates the getSmallIcon hook's doBefore logic from UNFIXED code.
-     *
-     * UNFIXED code:
-     * ```
-     * if (IslandPreferences.current().colorStatusBarIcon) return@doBefore
-     * ...
-     * if (isMiPushManagedNotification(sbn)) {
-     *     result = notification.smallIcon
-     * }
-     * ```
+     * Replicates the getSmallIcon hook's doBefore decision.
      *
      * @return true if hook intercepts (sets result), false otherwise
      */
     private fun getSmallIconHookIntercepts(colorStatusBarIcon: Boolean, extras: NotificationExtras): Boolean {
-        // Guard from UNFIXED code: returns early when toggle is ON
-        if (colorStatusBarIcon) return false
-
-        // Check if notification is MiPush-managed
-        if (isMiPushManagedNotification(extras)) {
-            return true // hook sets result = notification.smallIcon
-        }
-        return false
+        return SystemUiNotificationPolicy.shouldInterceptSmallIcon(
+            colorStatusBarIcon = colorStatusBarIcon,
+            isMiPushManaged = isMiPushManagedNotification(extras),
+        )
     }
 
     /**
@@ -155,11 +138,15 @@ class PreservationPropertyTest {
     }
 
     private fun processSmallIconColorDecision(input: ProcessSmallIconColorInput): ProcessSmallIconColorResult {
-        if (!input.colorStatusBarIcon) {
+        if (!input.colorStatusBarIcon || !input.isMiPushManaged) {
             return ProcessSmallIconColorResult.ReturnEarly
         }
-        // Toggle ON: process icon
-        if (!input.isGrayscaleIcon) {
+        if (SystemUiNotificationPolicy.shouldApplySmallIconColor(
+                colorStatusBarIcon = input.colorStatusBarIcon,
+                isMiPushManaged = input.isMiPushManaged,
+                isGrayscaleIcon = input.isGrayscaleIcon,
+            )
+        ) {
             return ProcessSmallIconColorResult.SetOriginalIconColor
         }
         return ProcessSmallIconColorResult.NoAction
@@ -167,12 +154,31 @@ class PreservationPropertyTest {
 
     /**
      * Replicates IconManager.setIcon hook's doAfter logic.
-     * Always sets icon_is_pre_L tag to true on the icon view.
      *
-     * @return the value set for icon_is_pre_L (always true)
+     * @return true when the hook should force icon_is_pre_L on the icon view.
      */
-    private fun iconManagerSetIconResult(): Boolean {
-        return true
+    private fun iconManagerSetIconResult(colorStatusBarIcon: Boolean, isMiPushManaged: Boolean): Boolean {
+        return SystemUiNotificationPolicy.shouldForcePreLIconTag(
+            colorStatusBarIcon = colorStatusBarIcon,
+            isMiPushManaged = isMiPushManaged,
+        )
+    }
+
+    /**
+     * Replicates legacy NotificationEntry.setIconTag hook scope on Android versions before R.
+     */
+    private fun legacySetIconTagResult(
+        tagIdMatches: Boolean,
+        hasStatusBarNotification: Boolean,
+        colorStatusBarIcon: Boolean,
+        isMiPushManaged: Boolean,
+    ): Boolean {
+        if (!tagIdMatches) return false
+        if (!hasStatusBarNotification) return false
+        return SystemUiNotificationPolicy.shouldForcePreLIconTag(
+            colorStatusBarIcon = colorStatusBarIcon,
+            isMiPushManaged = isMiPushManaged,
+        )
     }
 
     // ─── jqwik Setup ─────────────────────────────────────────────────────────────
@@ -294,8 +300,9 @@ class PreservationPropertyTest {
         return Combinators.combine(
             Arbitraries.of(true, false), // colorStatusBarIcon
             Arbitraries.of(true, false), // isGrayscaleIcon
-        ).`as` { color, grayscale ->
-            ProcessSmallIconColorInput(color, grayscale)
+            Arbitraries.of(true, false), // isMiPushManaged
+        ).`as` { color, grayscale, isMiPushManaged ->
+            ProcessSmallIconColorInput(color, grayscale, isMiPushManaged)
         }
     }
 
@@ -357,7 +364,7 @@ class PreservationPropertyTest {
                 result,
                 "When colorStatusBarIcon=false, processSmallIconColor must return early " +
                     "to let MIUI's native logic handle it. " +
-                    "isGrayscaleIcon=${input.isGrayscaleIcon}"
+                    "isGrayscaleIcon=${input.isGrayscaleIcon}, isMiPushManaged=${input.isMiPushManaged}"
             )
         }
     }
@@ -378,7 +385,14 @@ class PreservationPropertyTest {
     ) {
         if (input.colorStatusBarIcon) {
             val result = processSmallIconColorDecision(input)
-            if (!input.isGrayscaleIcon) {
+            if (!input.isMiPushManaged) {
+                assertEquals(
+                    ProcessSmallIconColorResult.ReturnEarly,
+                    result,
+                    "When colorStatusBarIcon=true but notification is not MiPush-managed, " +
+                        "processSmallIconColor must return early"
+                )
+            } else if (!input.isGrayscaleIcon) {
                 assertEquals(
                     ProcessSmallIconColorResult.SetOriginalIconColor,
                     result,
@@ -397,26 +411,60 @@ class PreservationPropertyTest {
     }
 
     /**
-     * Property: IconManager.setIcon always sets icon_is_pre_L to true.
+     * Property: IconManager.setIcon only forces icon_is_pre_L for scoped color-icon handling on R+.
      *
      * **Validates: Requirements 3.3**
      *
-     * The IconManager.setIcon hook unconditionally sets the icon_is_pre_L tag
-     * to true on every icon view, regardless of any other state.
-     * This is a trivial but important preservation property.
+     * The IconManager.setIcon hook must not mark unrelated notifications.
      */
     @Property(tries = 50)
-    fun `IconManager setIcon always sets icon_is_pre_L to true`(
-        @ForAll("islandOptions") options: IslandOptions
+    fun `IconManager setIcon only marks MiPush managed icons when color mode is on`(
+        @ForAll("islandOptions") options: IslandOptions,
+        @ForAll isMiPushManaged: Boolean,
     ) {
         IslandPreferences.resetForTest(options)
 
-        val result = iconManagerSetIconResult()
+        val result = iconManagerSetIconResult(options.colorStatusBarIcon, isMiPushManaged)
 
-        assertTrue(
+        assertEquals(
+            options.colorStatusBarIcon && isMiPushManaged,
             result,
-            "IconManager.setIcon must always set icon_is_pre_L=true on icon views. " +
-                "colorStatusBarIcon=${options.colorStatusBarIcon}, enabled=${options.enabled}"
+            "IconManager.setIcon should force icon_is_pre_L only for MiPush-managed icons " +
+                "when colorStatusBarIcon=true. colorStatusBarIcon=${options.colorStatusBarIcon}, " +
+                "isMiPushManaged=$isMiPushManaged"
+        )
+    }
+
+    /**
+     * Property: legacy NotificationEntry.setIconTag only forces icon_is_pre_L for scoped handling.
+     *
+     * **Validates: Requirements 3.3**
+     *
+     * The pre-R hook must also leave unrelated or unresolved notifications to native SystemUI behavior.
+     */
+    @Property(tries = 80)
+    fun `legacy NotificationEntry setIconTag only marks resolved MiPush managed icons when color mode is on`(
+        @ForAll("islandOptions") options: IslandOptions,
+        @ForAll tagIdMatches: Boolean,
+        @ForAll hasStatusBarNotification: Boolean,
+        @ForAll isMiPushManaged: Boolean,
+    ) {
+        IslandPreferences.resetForTest(options)
+
+        val result = legacySetIconTagResult(
+            tagIdMatches = tagIdMatches,
+            hasStatusBarNotification = hasStatusBarNotification,
+            colorStatusBarIcon = options.colorStatusBarIcon,
+            isMiPushManaged = isMiPushManaged,
+        )
+
+        assertEquals(
+            tagIdMatches && hasStatusBarNotification && options.colorStatusBarIcon && isMiPushManaged,
+            result,
+            "Legacy NotificationEntry.setIconTag should force icon_is_pre_L only for resolved " +
+                "MiPush-managed icons when colorStatusBarIcon=true. tagIdMatches=$tagIdMatches, " +
+                "hasStatusBarNotification=$hasStatusBarNotification, " +
+                "colorStatusBarIcon=${options.colorStatusBarIcon}, isMiPushManaged=$isMiPushManaged"
         )
     }
 
@@ -426,8 +474,7 @@ class PreservationPropertyTest {
      * **Validates: Requirements 3.5**
      *
      * Specifically targets the monochrome-desired case with non-MiPush notifications.
-     * Even though the unfixed code has the guard inverted for MiPush notifications,
-     * non-MiPush notifications are unaffected because `isMiPushManagedNotification` returns false.
+     * Non-MiPush notifications are unaffected because `isMiPushManagedNotification` returns false.
      */
     @Property(tries = 100)
     fun `non-MiPush notifications unaffected when monochrome desired`(
@@ -451,8 +498,7 @@ class PreservationPropertyTest {
      *
      * **Validates: Requirements 3.5**
      *
-     * When the toggle is ON, the guard returns early for ALL notifications (on unfixed code).
-     * Non-MiPush notifications are unaffected in both cases.
+     * When the toggle is ON, only MiPush-managed notifications may be intercepted.
      */
     @Property(tries = 100)
     fun `non-MiPush notifications unaffected when color desired`(

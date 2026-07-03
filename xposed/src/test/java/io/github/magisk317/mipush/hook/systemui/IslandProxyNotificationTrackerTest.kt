@@ -40,6 +40,31 @@ class IslandProxyNotificationTrackerTest {
     }
 
     @Test
+    fun `source keys prefer status bar key and otherwise include tag`() {
+        val key = IslandProxySourceKeys.fromStatusBarKey(
+            key = "0|com.example.app|42|tag|1000",
+            packageName = "com.example.app",
+            notificationId = 42,
+            tag = "ignored",
+        )
+        val fallbackWithTag = IslandProxySourceKeys.fromStatusBarKey(
+            key = null,
+            packageName = "com.example.app",
+            notificationId = 42,
+            tag = "tag",
+        )
+        val fallbackWithoutTag = IslandProxySourceKeys.fromStatusBarKey(
+            key = null,
+            packageName = "com.example.app",
+            notificationId = 42,
+            tag = null,
+        )
+
+        assertEquals("0|com.example.app|42|tag|1000", key)
+        assertNotEquals(fallbackWithTag, fallbackWithoutTag)
+    }
+
+    @Test
     fun `tracker suppresses repeated posts only inside ttl`() {
         var now = 1_000L
         val tracker = IslandProxyPostTracker(ttlMs = 2_000L) { now }

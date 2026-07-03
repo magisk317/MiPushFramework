@@ -11,12 +11,12 @@ import android.service.notification.StatusBarNotification
 import android.view.View
 import android.widget.RemoteViews
 import io.github.magisk317.mipush.hook.XLog
-import io.github.magisk317.mipush.hook.island.IslandDispatchContract
 import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.xposed.callMethod
 import io.github.magisk317.xposed.currentApplication
 import io.github.magisk317.xposed.findClass
 import io.github.magisk317.xposed.get
+import io.github.magisk317.xposed.getHookObjectField
 import io.github.magisk317.xposed.hook
 import io.github.magisk317.xposed.hookAllMethods
 import io.github.magisk317.xposed.hookMethod
@@ -25,11 +25,6 @@ class HookSystemUI : BaseHook() {
     companion object {
         private const val TAG = "HookSystemUI"
         private const val SYSTEMUI_PACKAGE = "com.android.systemui"
-        private const val EXTRA_TARGET_PACKAGE = "target_package"
-        private const val EXTRA_MIUI_TARGET_PACKAGE = "miui.targetPkg"
-        private const val EXTRA_XMSF_TARGET_PACKAGE = "xmsf_target_package"
-        private const val EXTRA_MOCK_REPLAY_RECEIPT = "mipush_mock_replay_receipt"
-        private const val EXTRA_MOCK_REPLAY_SOURCE_PACKAGE = "mipush_mock_replay_source_package"
     }
 
     private val ID_ICON_IS_PRE_L: Int by lazy {
@@ -44,35 +39,34 @@ class HookSystemUI : BaseHook() {
         MiuiHeaderAppIconHook().hook(classLoader)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            // getSmallIcon hook disabled for monochrome investigation
-            // When colorStatusBarIcon is true (color mode), we need this hook to intercept
-            // and return notification.smallIcon. For now, only install when color mode is on.
-            if (IslandPreferences.current().colorStatusBarIcon) {
-                try {
-                    val notifImageUtilClass =
-                        classLoader.findClass("com.android.systemui.statusbar.notification.utils.NotifImageUtil")
-                    notifImageUtilClass.hookMethod(
-                        "getSmallIcon",
-                        Context::class.java,
-                        StatusBarNotification::class.java,
-                        Int::class.javaPrimitiveType!!,
-                        Boolean::class.javaPrimitiveType!!,
-                    ) {
-                        doBefore {
-                            val sbn = args[1] as? StatusBarNotification ?: return@doBefore
-                            val notification = sbn.notification ?: return@doBefore
-                            if (isMiPushManagedNotification(sbn)) {
-                                result = notification.smallIcon
-                                return@doBefore
-                            }
+            // Always install the hook; check colorStatusBarIcon dynamically per-call
+            // so toggling the setting takes effect without restarting SystemUI.
+            try {
+                val notifImageUtilClass =
+                    classLoader.findClass("com.android.systemui.statusbar.notification.utils.NotifImageUtil")
+                notifImageUtilClass.hookMethod(
+                    "getSmallIcon",
+                    Context::class.java,
+                    StatusBarNotification::class.java,
+                    Int::class.javaPrimitiveType!!,
+                    Boolean::class.javaPrimitiveType!!,
+                ) {
+                    doBefore {
+                        val colorStatusBarIcon = IslandPreferences.current().colorStatusBarIcon
+                        val sbn = args[1] as? StatusBarNotification ?: return@doBefore
+                        val notification = sbn.notification ?: return@doBefore
+                        val isMiPushManaged = SystemUiNotificationPolicy.isMiPushManagedNotification(
+                            notification.extras
+                        )
+                        if (SystemUiNotificationPolicy.shouldInterceptSmallIcon(colorStatusBarIcon, isMiPushManaged)) {
+                            result = notification.smallIcon
+                            return@doBefore
                         }
                     }
-                    XLog.i(TAG, "hooked NotifImageUtil.getSmallIcon (color mode active)")
-                } catch (e: Exception) {
-                    XLog.e(TAG, "Failed to hook NotifImageUtil.getSmallIcon", e)
                 }
-            } else {
-                XLog.i(TAG, "skipped NotifImageUtil.getSmallIcon hook (monochrome mode)")
+                XLog.i(TAG, "hooked NotifImageUtil.getSmallIcon (dynamic color mode check)")
+            } catch (e: Exception) {
+                XLog.e(TAG, "Failed to hook NotifImageUtil.getSmallIcon", e)
             }
 
             try {
@@ -80,6 +74,14 @@ class HookSystemUI : BaseHook() {
                     .hookAllMethods("setIcon") {
                         doAfter {
                             runCatching {
+                                val colorStatusBarIcon = IslandPreferences.current().colorStatusBarIcon
+                                val sbn = statusBarNotificationFromEntry(args.firstOrNull()) ?: return@runCatching
+                                val isMiPushManaged = SystemUiNotificationPolicy.isMiPushManagedNotification(
+                                    sbn.notification?.extras
+                                )
+                                if (!SystemUiNotificationPolicy.shouldForcePreLIconTag(colorStatusBarIcon, isMiPushManaged)) {
+                                    return@runCatching
+                                }
                                 val iconView = args[2] as? View ?: return@runCatching
                                 iconView.setTag(ID_ICON_IS_PRE_L, true)
                             }
@@ -92,8 +94,19 @@ class HookSystemUI : BaseHook() {
             classLoader.findClass("com.android.systemui.statusbar.notification.collection.NotificationEntry")
                 .hookMethod("setIconTag", Int::class.java, Any::class.java) {
                     doBefore {
-                        if (args[0] == ID_ICON_IS_PRE_L) {
+                        runCatching {
+                            if (args[0] != ID_ICON_IS_PRE_L) return@runCatching
+                            val colorStatusBarIcon = IslandPreferences.current().colorStatusBarIcon
+                            val sbn = statusBarNotificationFromEntry(thisObject) ?: return@runCatching
+                            val isMiPushManaged = SystemUiNotificationPolicy.isMiPushManagedNotification(
+                                sbn.notification?.extras
+                            )
+                            if (!SystemUiNotificationPolicy.shouldForcePreLIconTag(colorStatusBarIcon, isMiPushManaged)) {
+                                return@runCatching
+                            }
                             args[1] = true
+                        }.onFailure {
+                            XLog.e(TAG, "legacy setIconTag hook failed", it)
                         }
                     }
                 }
@@ -109,13 +122,25 @@ class HookSystemUI : BaseHook() {
                         val contentView = args[1] as? RemoteViews ?: return@doBefore
                         val p = args[2]
 
-                        // processSmallIconColor: always run (no toggle check)
-                        // This ensures MIUI renders bitmap icons correctly via icon_is_pre_L
+                        val colorStatusBarIcon = IslandPreferences.current().colorStatusBarIcon
+                        val notification = runCatching {
+                            builder.callMethod("build") as? Notification
+                                ?: builder["mN"] as? Notification
+                        }.getOrNull()
+                        val isMiPushManaged = SystemUiNotificationPolicy.isMiPushManagedNotification(
+                            notification?.extras
+                        )
+                        if (!colorStatusBarIcon || !isMiPushManaged) return@doBefore
 
                         val colorUtil = builder.callMethod("getColorUtil") ?: return@doBefore
                         val isGrayscaleIcon = colorUtil.callMethod("isGrayscaleIcon", context, smallIcon) as? Boolean ?: return@doBefore
 
-                        if (!isGrayscaleIcon) {
+                        if (SystemUiNotificationPolicy.shouldApplySmallIconColor(
+                                colorStatusBarIcon = colorStatusBarIcon,
+                                isMiPushManaged = isMiPushManaged,
+                                isGrayscaleIcon = isGrayscaleIcon,
+                            )
+                        ) {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                                 val bgColor = builder.callMethod("getBackgroundColor", p) as? Int ?: 0
                                 contentView.setInt(android.R.id.icon, "setBackgroundColor", bgColor)
@@ -136,15 +161,12 @@ class HookSystemUI : BaseHook() {
         }
     }
 
-    private fun isMiPushManagedNotification(sbn: StatusBarNotification): Boolean {
-        val extras = sbn.notification?.extras ?: return false
-        return extras.containsKey(EXTRA_TARGET_PACKAGE) ||
-            extras.containsKey(EXTRA_MIUI_TARGET_PACKAGE) ||
-            extras.containsKey(EXTRA_XMSF_TARGET_PACKAGE) ||
-            extras.getBoolean(EXTRA_MOCK_REPLAY_RECEIPT, false) ||
-            extras.getString(EXTRA_MOCK_REPLAY_SOURCE_PACKAGE)?.isNotBlank() == true ||
-            extras.getString(IslandDispatchContract.SOURCE_PACKAGE)?.isNotBlank() == true ||
-            extras.getString(IslandDispatchContract.OWNER) == IslandDispatchContract.OWNER_MARKER
+    private fun statusBarNotificationFromEntry(entry: Any?): StatusBarNotification? {
+        if (entry == null) return null
+        return runCatching {
+            getHookObjectField(entry, "mSbn") as? StatusBarNotification
+        }.getOrNull() ?: runCatching {
+            entry.callMethod("getSbn") as? StatusBarNotification
+        }.getOrNull()
     }
-
 }
