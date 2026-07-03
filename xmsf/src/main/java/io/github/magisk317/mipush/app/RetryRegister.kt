@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.app
 
 import android.content.Context
-import com.xiaomi.channel.commonutils.logger.MyLog
+import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.control.PushControllerUtils
 import io.github.magisk317.mipush.control.PushControllerUtils.pushRegistered
@@ -15,7 +15,7 @@ class RetryRegister(private val context: Context, private val tryRegisterCount: 
                 source = "RetryRegister.run",
                 reason = "reg_id_present"
             )
-            MyLog.i("register successed, stop retry")
+            logI("register successed, stop retry")
             return
         }
         PushRuntime.requestFrameworkRegistration(
@@ -24,7 +24,7 @@ class RetryRegister(private val context: Context, private val tryRegisterCount: 
         )
         val retry = tryRegisterCount + 1
         if (retry <= 10) {
-            MyLog.i("register not successed, register again, retryIndex: $retry")
+            logI("register not successed, register again, retryIndex: $retry")
             PushControllerUtils.registerPush(context, retry)
             return
         }
@@ -34,6 +34,6 @@ class RetryRegister(private val context: Context, private val tryRegisterCount: 
             source = "RetryRegister.run",
             reason = "retry_exhausted"
         )
-        MyLog.i("register not successed, but retry to many times, stop retry")
+        logI("register not successed, but retry to many times, stop retry")
     }
 }

@@ -2,7 +2,6 @@ package io.github.magisk317.mipush.app.di
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import com.xiaomi.push.sdk.PushMessageProcessor
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
 import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
@@ -22,6 +21,7 @@ import io.github.magisk317.mipush.data.dataStore
 import io.github.magisk317.mipush.runtime.data.EventRepository
 import io.github.magisk317.mipush.runtime.store.DatabaseUtils
 import io.github.magisk317.mipush.runtime.store.db.AppDatabase
+import io.github.magisk317.mipush.service.runtime.RuntimeProcessorBindings
 import io.github.magisk317.mipush.service.runtime.RuntimeSettingsAdapter
 import io.github.magisk317.mipush.MiPushEventListener
 import io.github.magisk317.mipush.push.hook.ModernHookHandler
@@ -59,9 +59,9 @@ val xmsfCoreKoinModule = module {
     single { ModernHookHandler() }
     single { MiPushEventListener() }
     single { RegistrationRecorder() }
-    single { RuntimeSettingsAdapter(androidContext(), get()) }
-    single<ManagerRuntimeActions> { XmsfManagerRuntimeActions(get(), get()) }
-    single { PushMessageProcessor(get()) }
+    single { RuntimeProcessorBindings.createPushMessageProcessor(get()) }
+    single { RuntimeSettingsAdapter(androidContext(), get(), get()) }
+    single<ManagerRuntimeActions> { XmsfManagerRuntimeActions(get()) }
     single { ConfigSyncStateStore(androidContext()) }
     single { LocalConfigRepository(androidContext()) }
     single { ConfigCatalogService(get()) }

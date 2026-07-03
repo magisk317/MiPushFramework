@@ -29,6 +29,8 @@ required_manager_app_scan_roots=(
 )
 
 deep_xiaomi_pattern='^import com\.xiaomi\.(channel|mipush|network|push|smack|slim|stats|tinyData|xmpush)'
+deep_xiaomi_fqcn_pattern='com\.xiaomi\.(channel|mipush|network|push|smack|slim|stats|tinyData|xmpush)\.[A-Za-z_]'
+deep_xiaomi_class_string_pattern='"com\.xiaomi\.(channel|mipush|network|push|smack|slim|stats|tinyData|xmpush)(\.[A-Za-z_][A-Za-z0-9_]*)*\.[A-Z][A-Za-z0-9_]*[a-z][A-Za-z0-9_]*"'
 manager_app_pattern='^import io\.github\.magisk317\.mipush\.app\.'
 deep_xiaomi_string_pattern='"com\.xiaomi\.(channel|mipush|network|push|smack|slim|stats|tinyData|xmpush)'
 
@@ -51,6 +53,14 @@ require_scan_roots "${required_manager_app_scan_roots[@]}"
     rg -n "$deep_xiaomi_pattern" "$root" || true
   done
 
+  for root in "${required_deep_xiaomi_scan_roots[@]}"; do
+    rg -n "$deep_xiaomi_fqcn_pattern" "$root" | awk '$0 !~ /"/ { print }' || true
+  done
+
+  for root in "${required_deep_xiaomi_scan_roots[@]}"; do
+    rg -n "$deep_xiaomi_class_string_pattern" "$root" || true
+  done
+
   for root in "${required_manager_app_scan_roots[@]}"; do
     rg -n "$manager_app_pattern" "$root" || true
   done
@@ -67,7 +77,7 @@ comm -13 "$tmp_baseline" "$tmp_current" > "$tmp_new"
 comm -23 "$tmp_baseline" "$tmp_current" > "$tmp_stale"
 
 if [ -s "$tmp_new" ]; then
-  echo "New architecture-boundary imports were added outside the allowed adapter areas." >&2
+  echo "New architecture-boundary imports/references were added outside the allowed adapter areas." >&2
   echo "Move the dependency behind an xmsf runtime/bridge adapter, manager gateway, or explicit shared contract." >&2
   echo "Only update the baseline for deliberate, documented compatibility debt." >&2
   echo >&2
@@ -83,18 +93,19 @@ if [ -s "$tmp_stale" ]; then
   exit 1
 fi
 
-manager_build_file="manager/build.gradle.kts"
-if [ -f "$manager_build_file" ]; then
-  rg -n 'project\(":(vendor|xmsf|pinned)"\)' "$manager_build_file" \
-    | while IFS=: read -r path _line import_line; do
-      [ -n "${path:-}" ] || continue
-      printf '%s|%s\n' "$path" "$import_line"
-    done > "$tmp_forbidden_deps" || true
-fi
+for build_file in "manager/build.gradle.kts" "settings/build.gradle.kts"; do
+  if [ -f "$build_file" ]; then
+    rg -n 'project\(":(vendor|xmsf|pinned)"\)' "$build_file" \
+      | while IFS=: read -r path _line import_line; do
+        [ -n "${path:-}" ] || continue
+        printf '%s|%s\n' "$path" "$import_line"
+      done >> "$tmp_forbidden_deps" || true
+  fi
+done
 
 if [ -s "$tmp_forbidden_deps" ]; then
-  echo "Manager build script contains forbidden project dependencies." >&2
-  echo "Manager should only depend on shared contracts, settings, core, common, and ui-kit." >&2
+  echo "Manager/settings build scripts contain forbidden project dependencies." >&2
+  echo "Manager/settings should only depend on shared contracts, core/common/settings, and ui-kit." >&2
   echo >&2
   cat "$tmp_forbidden_deps" >&2
   exit 1

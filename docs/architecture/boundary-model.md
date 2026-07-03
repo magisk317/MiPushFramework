@@ -70,18 +70,19 @@ graph.
   `xmsf/src/main/java/io/github/magisk317/mipush/bridge` are the allowed adapter areas for direct
   vendor/pinned interaction.
 - `verifyModuleBoundaries` is wired into `check` and now scans `manager`, `settings`, and the
-  xmsf app-facing roots for new deep Xiaomi imports. In `manager` and `settings` it also flags
+  xmsf app-facing roots for new deep Xiaomi imports, direct non-string FQCN references, and
+  class-like deep Xiaomi string references. In `manager` and `settings` it also flags
   direct imports from `io.github.magisk317.mipush.app.*`, because that namespace belongs to xmsf
   runtime ownership rather than the manager UI surface. The same scan also rejects string-literal
   references to deep `com.xiaomi.*` classes under `manager`/`settings`, so reflection cannot be
   used there to tunnel around the import boundary for runtime probes or compatibility checks.
-  Existing debt is listed in
-  `scripts/module_boundary_baseline.txt`; new entries should be moved behind a runtime/bridge
-  adapter or explicit shared contract unless the baseline update is a deliberate compatibility
-  exception. The check also fails stale baseline entries, so resolved debt must be removed from the
-  baseline in the same change. The same task also rejects direct `manager` Gradle dependencies on
-  `vendor`, `xmsf`, or `pinned`; those relationships must be expressed through shared contracts
-  instead.
+  The baseline file at `scripts/module_boundary_baseline.txt` is currently empty of exceptions.
+  New entries should be moved behind a runtime/bridge adapter or explicit shared contract unless
+  the baseline update is a deliberate compatibility exception. The check also fails stale baseline
+  entries, so resolved debt must be removed from the baseline in the same change. The same task also
+  rejects direct `manager`/`settings` Gradle
+  dependencies on `vendor`, `xmsf`, or `pinned`; those relationships must be expressed through
+  shared contracts instead.
 - `vendor` may depend on frozen protocol types from `pinned`, but new product behavior should not be
   added there unless it is preserving a stock runtime contract.
 - `pinned` changes must be compatibility-preserving and non-creative.
@@ -137,8 +138,10 @@ graph.
   loads `ManagerDependencies` only after `AppDependencies.start(...)` has completed in the main app
   process.
 - `MainActivity` injects `SettingsManager` on first launch, so the host app must register manager
-  Koin eagerly once the xmsf root container exists. Do not move that registration behind a
-  cold-start process-name heuristic.
+  Koin eagerly once the xmsf root container exists. `MainActivity` still calls
+  `ManagerDependencies.start(this)` as an idempotent launch guard, but that path must not start the
+  xmsf host container, copy manager bindings into xmsf modules, or become the owner of manager
+  bootstrap. Do not move host-side registration behind a cold-start process-name heuristic.
 - Manager main chrome collapse/expand is intentionally shared across `EventList`, `ApplicationList`,
   `Configurations`, and `Settings`, while `Overview` keeps its own always-visible treatment. A June
   2026 regression showed that route switches during half-expanded animation can leak a negative
@@ -149,7 +152,9 @@ graph.
 - The following routes are treated as resolved traps and should not be reintroduced:
   - do not copy manager bindings (`SettingsManager`, manager ViewModels, manager Koin module
     contents) into `xmsfCoreKoinModule`; `xmsf` must not depend on `manager`
-  - do not restart manager bootstrap from `MainActivity` or other manager UI entrypoints
+  - do not make `MainActivity` or other manager UI entrypoints create a fallback Koin host or own
+    manager bootstrap; their `ManagerDependencies.start(...)` call may only load/check the manager
+    module against an already-started host container
   - do not load manager UI modules from the `:services` subprocess
   - do not use reflective `com.xiaomi.*` lookups in manager/settings as a substitute for runtime
     adapter contracts
@@ -170,8 +175,9 @@ graph.
 ./gradlew qualityGateKoverVerify   # Explicit coverage gate
 ```
 
-Boundary baseline is maintained at `scripts/module_boundary_baseline.txt` and validated by
-`scripts/verify_module_boundaries.sh`.
+The boundary baseline file is maintained at `scripts/module_boundary_baseline.txt` and validated by
+`scripts/verify_module_boundaries.sh`; it is allowed to contain only comments when no exceptions
+remain.
 
 Kover is intentionally loaded only for explicit `qualityGateKover*` tasks, direct Kover tasks, or
 when `-PenableKover=true` is supplied. The ordinary `check` path stays on Detekt, unit tests, Android

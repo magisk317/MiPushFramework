@@ -99,6 +99,14 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         XMPushService.observer = this
     }
 
+    companion object {
+        fun ensureInstalled(context: Context): Boolean {
+            if (XMPushService.observer != null) return false
+            MiPushRuntimeObserverBridge(context)
+            return true
+        }
+    }
+
     private fun frameworkProcessor(): PushMessageProcessor {
         return AppDependencies.get<PushMessageProcessor>(appContext)
     }

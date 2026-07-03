@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logW
+import io.github.magisk317.mipush.platform.support.LegacyComponentNames
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import kotlinx.coroutines.CoroutineScope
@@ -128,7 +129,7 @@ object ProactiveMiPushRegistrar {
 
     private fun hasXMPushService(pkgInfo: android.content.pm.PackageInfo): Boolean {
         return pkgInfo.services?.any { service ->
-            service.name == "com.xiaomi.push.service.XMPushService"
+            service.name == LegacyComponentNames.LEGACY_MAIN_SERVICE_CLASS
         } == true
     }
 

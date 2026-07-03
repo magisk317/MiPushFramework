@@ -20,6 +20,7 @@ import com.xiaomi.xmpush.thrift.XmPushActionNotification
 import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.notification.NotificationChannelManager
 import io.github.magisk317.mipush.notification.NotificationController
+import io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.utils.Configurations
 import io.github.magisk317.mipush.utils.RegSecUtils
@@ -226,9 +227,8 @@ class EventRepository constructor(
             logD("pushService is null, ensuring observer and starting service")
             // Ensure the runtime observer is initialized before starting the push service.
             // Normally BootReceiver does this, but it may not have run.
-            if (com.xiaomi.push.service.XMPushService.observer == null) {
-                logD("XMPushService.observer is null, initializing MiPushRuntimeObserverBridge")
-                io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge(context)
+            if (MiPushRuntimeObserverBridge.ensureInstalled(context)) {
+                logD("runtime observer bridge was missing, installed MiPushRuntimeObserverBridge")
             }
             PushServiceStarter.start(context, Intent(context, AppXMPushService::class.java))
             waitForPushServiceAndReplay(containerWithRegSec)

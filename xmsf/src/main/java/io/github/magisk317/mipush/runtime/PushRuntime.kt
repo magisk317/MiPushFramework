@@ -29,6 +29,10 @@ object PushRuntime {
         AndroidPushRuntime.snapshot()
 
     @JvmStatic
+    fun connectionSnapshot() =
+        AndroidPushRuntime.connectionSnapshot()
+
+    @JvmStatic
     fun requestFrameworkRegistration(source: String, reason: String? = null): Boolean =
         AndroidPushRuntime.requestFrameworkRegistration(source, reason)
 

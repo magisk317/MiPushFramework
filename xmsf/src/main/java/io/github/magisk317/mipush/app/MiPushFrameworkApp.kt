@@ -30,6 +30,7 @@ import io.github.aakira.napier.LogLevel
 import io.github.magisk317.mipush.utils.LogUtils
 import io.github.magisk317.mipush.push.hook.HookTrace
 import io.github.magisk317.mipush.bridge.LegacyLoggerBridge
+import io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.utils.Hooker
 import io.github.magisk317.mipush.utils.PrivilegeElevator
@@ -78,12 +79,10 @@ open class MiPushFrameworkApp : Application() {
         Hooker.hook(this)
         NotificationManagerEx.init(applicationContext)
         registerPrefChangeReceiver()
-        // Initialize the runtime observer early so XMPushService.observer is set
-        // before any service start. BootReceiver normally does this, but it may
-        // not exist in the manifest or may not have fired yet.
-        if (com.xiaomi.push.service.XMPushService.observer == null) {
-            io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge(this)
-        }
+        // Initialize the runtime observer bridge before any service start.
+        // BootReceiver normally does this, but it may not exist in the manifest
+        // or may not have fired yet.
+        MiPushRuntimeObserverBridge.ensureInstalled(this)
         PushRuntimeExecutionBridge.attach(this)
         PushRuntimeChannelTracker.attach(this)
         PushControllerUtils.setAllEnable(true, this)
