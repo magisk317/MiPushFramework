@@ -9,6 +9,7 @@ module.exports = {
   automerge: true,
   automergeType: "pr",
   automergeStrategy: "merge",
-  platformAutomerge: true,
+  platformAutomerge: false,
+  ignoreTests: true,
   gitAuthor: "Magisk317 <35032111-magisk731@users.noreply.gitlab.com>",
 };
