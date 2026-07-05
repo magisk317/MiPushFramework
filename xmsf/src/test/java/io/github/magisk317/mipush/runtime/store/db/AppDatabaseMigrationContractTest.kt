@@ -32,7 +32,7 @@ class AppDatabaseMigrationContractTest {
 
     @Test
     fun `migration registry exposes all migrations`() {
-        assertEquals(3, AppDatabaseMigrations.ALL.size)
+        assertEquals(4, AppDatabaseMigrations.ALL.size)
         assertEquals(1, AppDatabaseMigrations.MIGRATION_1_2.startVersion)
         assertEquals(2, AppDatabaseMigrations.MIGRATION_1_2.endVersion)
         
@@ -41,6 +41,9 @@ class AppDatabaseMigrationContractTest {
 
         assertEquals(3, AppDatabaseMigrations.MIGRATION_3_4.startVersion)
         assertEquals(4, AppDatabaseMigrations.MIGRATION_3_4.endVersion)
+
+        assertEquals(4, AppDatabaseMigrations.MIGRATION_4_5.startVersion)
+        assertEquals(5, AppDatabaseMigrations.MIGRATION_4_5.endVersion)
     }
 
     @Test
@@ -58,6 +61,64 @@ class AppDatabaseMigrationContractTest {
             listOf(
                 "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN island_enabled INTEGER NOT NULL DEFAULT 1",
                 "ALTER TABLE REGISTERED_APPLICATION ADD COLUMN island_focus_notification INTEGER NOT NULL DEFAULT 0",
+            ),
+            statements,
+        )
+    }
+
+    @Test
+    fun `migration 4 to 5 rebuilds registered applications with opt-in focus default`() {
+        val statements = mutableListOf<String>()
+        val db = mockk<SupportSQLiteDatabase>(relaxed = true)
+        val sqlSlot = slot<String>()
+        every { db.execSQL(capture(sqlSlot)) } answers {
+            statements += sqlSlot.captured
+        }
+
+        AppDatabaseMigrations.MIGRATION_4_5.migrate(db)
+
+        assertEquals(
+            listOf(
+                """
+                CREATE TABLE IF NOT EXISTS `REGISTERED_APPLICATION_new` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+                    `pkg` TEXT NOT NULL,
+                    `type` INTEGER NOT NULL,
+                    `notification_on_register` INTEGER NOT NULL,
+                    `blocked` INTEGER NOT NULL DEFAULT 0,
+                    `island_enabled` INTEGER NOT NULL DEFAULT 1,
+                    `island_focus_notification` INTEGER NOT NULL DEFAULT 0,
+                    `registered_type` INTEGER NOT NULL,
+                    `app_name` TEXT NOT NULL
+                )
+                """.trimIndent(),
+                """
+                INSERT INTO `REGISTERED_APPLICATION_new` (
+                    `id`,
+                    `pkg`,
+                    `type`,
+                    `notification_on_register`,
+                    `blocked`,
+                    `island_enabled`,
+                    `island_focus_notification`,
+                    `registered_type`,
+                    `app_name`
+                )
+                SELECT
+                    `id`,
+                    `pkg`,
+                    `type`,
+                    `notification_on_register`,
+                    `blocked`,
+                    `island_enabled`,
+                    `island_focus_notification`,
+                    `registered_type`,
+                    `app_name`
+                FROM `REGISTERED_APPLICATION`
+                """.trimIndent(),
+                "DROP TABLE `REGISTERED_APPLICATION`",
+                "ALTER TABLE `REGISTERED_APPLICATION_new` RENAME TO `REGISTERED_APPLICATION`",
+                "CREATE UNIQUE INDEX IF NOT EXISTS `index_REGISTERED_APPLICATION_pkg` ON `REGISTERED_APPLICATION` (`pkg`)",
             ),
             statements,
         )
