@@ -36,6 +36,7 @@ const val ISLAND_PREF_SHOW_NOTIFICATION = "pref_island_show_notification"
 const val ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION = "pref_island_show_original_notification"
 const val ISLAND_PREF_FOCUS_NOTIF = "pref_island_focus_notif"
 const val COLOR_STATUS_BAR_ICON_KEY = "pref_color_status_bar_icon"
+const val COLOR_STATUS_BAR_ICON_GLOBAL_KEY = "pref_color_status_bar_icon_global"
 const val ACTION_PREF_CHANGED = "io.github.magisk317.mipush.action.PREF_CHANGED"
 
 @Suppress("MaxLineLength")

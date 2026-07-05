@@ -76,7 +76,11 @@
     <string name="settings_debug_mode_summary">通知中展示调试动作，打印完整日志</string>
     <string name="settings_show_all_events">事件列表中展示所有事件</string>
     <string name="pref_color_status_bar_icon_title">状态栏彩色图标</string>
-    <string name="pref_color_status_bar_icon_summary">关闭后状态栏图标将显示为单色</string>
+    <string name="pref_color_status_bar_icon_summary">配置 MiPush 相关通知和全局状态栏图标颜色策略</string>
+    <string name="pref_color_status_bar_icon_mipush_title">MiPush 管理的通知</string>
+    <string name="pref_color_status_bar_icon_mipush_summary">关闭后，MiPush 管理的状态栏图标将显示为单色</string>
+    <string name="pref_color_status_bar_icon_global_title">强力模式</string>
+    <string name="pref_color_status_bar_icon_global_summary">所有状态栏通知图标都跟随同一个彩色/单色设置</string>
     <string name="settings_switch_enabled_feedback">%1$s：已开启</string>
     <string name="settings_switch_disabled_feedback">%1$s：已关闭</string>
     <string name="settings_start_foreground_service">推送服务保活</string>

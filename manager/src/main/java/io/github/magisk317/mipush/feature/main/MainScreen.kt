@@ -320,6 +320,9 @@ fun MainScreen(
                     onShowAboutDialog = onAbout,
                     onSectionChanged = {},
                     onNavigateToConnectionStatus = { navController.navigate(AppDestinations.ConnectionStatus.ROUTE) },
+                    onNavigateToStatusBarIconSettings = {
+                        navController.navigate(AppDestinations.StatusBarIconSettings.ROUTE)
+                    },
                     sectionBackSignal = settingsBackSignal,
                     hazeState = hState,
                     hazeStyle = hStyle,

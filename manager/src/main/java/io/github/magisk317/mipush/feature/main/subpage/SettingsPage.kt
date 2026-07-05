@@ -78,6 +78,7 @@ import dev.chrisbanes.haze.blur.blurEffect
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import io.github.magisk317.uikit.preference.SectionCard
+import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileContent
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileInfo
@@ -114,6 +115,7 @@ fun Settings(
     onShowAboutDialog: (String) -> Unit = {},
     onSectionChanged: (String?) -> Unit = {},
     onNavigateToConnectionStatus: () -> Unit = {},
+    onNavigateToStatusBarIconSettings: () -> Unit = {},
     sectionBackSignal: Int = 0,
     hazeState: HazeState? = null,
     hazeStyle: HazeBlurStyle? = null,
@@ -130,6 +132,7 @@ fun Settings(
                 viewModel = viewModel,
                 onSectionChanged = onSectionChanged,
                 onNavigateToConnectionStatus = onNavigateToConnectionStatus,
+                onNavigateToStatusBarIconSettings = onNavigateToStatusBarIconSettings,
                 sectionBackSignal = sectionBackSignal,
                 hazeState = hazeState,
                 hazeStyle = hazeStyle,
@@ -153,6 +156,7 @@ private fun SettingsScreen(
     viewModel: SettingsViewModel,
     onSectionChanged: (String?) -> Unit,
     onNavigateToConnectionStatus: () -> Unit,
+    onNavigateToStatusBarIconSettings: () -> Unit,
     scrollState: androidx.compose.foundation.ScrollState = androidx.compose.foundation.rememberScrollState(),
     sectionBackSignal: Int,
     hazeState: HazeState?,
@@ -250,7 +254,6 @@ private fun SettingsScreen(
                 ) {
                     val context = LocalContext.current
                     val showAllEvents by viewModel.showAllEvents.collectAsStateWithLifecycle()
-                    val colorStatusBarIcon by viewModel.colorStatusBarIcon.collectAsStateWithLifecycle()
                     val dualAppEnabled by viewModel.dualAppEnabled.collectAsStateWithLifecycle()
                     val dualAppProcessing by viewModel.dualAppProcessing.collectAsStateWithLifecycle()
                     val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
@@ -266,16 +269,10 @@ private fun SettingsScreen(
                         }
                     )
 
-                    val colorIconTitle = stringResource(R.string.pref_color_status_bar_icon_title)
-                    SettingsSwitchItem(
-                        title = colorIconTitle,
+                    SettingsItem(
+                        title = stringResource(R.string.pref_color_status_bar_icon_title),
                         summary = stringResource(R.string.pref_color_status_bar_icon_summary),
-                        checked = colorStatusBarIcon,
-                        onCheckedChange = { enabled ->
-                            viewModel.setColorStatusBarIcon(enabled)
-                            context.sendBroadcast(android.content.Intent(io.github.magisk317.mipush.common.ACTION_PREF_CHANGED))
-                            showSwitchFeedback(colorIconTitle, enabled)
-                        }
+                        onClick = onNavigateToStatusBarIconSettings,
                     )
 
                     val dualAppTitle = stringResource(R.string.settings_dual_app_title)
@@ -500,6 +497,7 @@ private fun KeepAliveBlock(viewModel: SettingsViewModel, snackbarHostState: Snac
 @Composable
 private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: SnackbarHostState) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val islandEnabled by viewModel.islandEnabled.collectAsStateWithLifecycle()
     val islandTimeout by viewModel.islandTimeout.collectAsStateWithLifecycle()
     val islandFirstFloat by viewModel.islandFirstFloat.collectAsStateWithLifecycle()
@@ -518,7 +516,9 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
         summary = stringResource(R.string.pref_island_enabled_summary),
         checked = islandEnabled,
     ) { enabled ->
-        viewModel.setIslandEnabled(enabled)
+        viewModel.setIslandEnabled(enabled) {
+            notifyPrefChanged(context)
+        }
         showSwitchFeedback(islandEnabledTitle, enabled)
     }
 
@@ -538,7 +538,9 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
         checked = islandFirstFloat,
         enabled = islandEnabled,
     ) { enabled ->
-        viewModel.setIslandFirstFloat(enabled)
+        viewModel.setIslandFirstFloat(enabled) {
+            notifyPrefChanged(context)
+        }
         showSwitchFeedback(islandFirstFloatTitle, enabled)
     }
 
@@ -549,7 +551,9 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
         checked = islandEnableFloat,
         enabled = islandEnabled,
     ) { enabled ->
-        viewModel.setIslandEnableFloat(enabled)
+        viewModel.setIslandEnableFloat(enabled) {
+            notifyPrefChanged(context)
+        }
         showSwitchFeedback(islandEnableFloatTitle, enabled)
     }
 
@@ -560,7 +564,9 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
         checked = islandShowNotification,
         enabled = islandEnabled,
     ) { enabled ->
-        viewModel.setIslandShowNotification(enabled)
+        viewModel.setIslandShowNotification(enabled) {
+            notifyPrefChanged(context)
+        }
         showSwitchFeedback(islandShowNotificationTitle, enabled)
     }
 
@@ -571,7 +577,9 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
         checked = islandShowOriginalNotification,
         enabled = islandEnabled,
     ) { enabled ->
-        viewModel.setIslandShowOriginalNotification(enabled)
+        viewModel.setIslandShowOriginalNotification(enabled) {
+            notifyPrefChanged(context)
+        }
         showSwitchFeedback(islandShowOriginalNotificationTitle, enabled)
     }
 
@@ -582,7 +590,9 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
         checked = islandFocusNotification,
         enabled = islandEnabled,
     ) { enabled ->
-        viewModel.setIslandFocusNotification(enabled)
+        viewModel.setIslandFocusNotification(enabled) {
+            notifyPrefChanged(context)
+        }
         showSwitchFeedback(islandFocusNotificationTitle, enabled)
     }
 
@@ -609,7 +619,9 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
                                 snackbarHostState.showSnackbar(islandTimeoutError)
                             }
                         } else {
-                            viewModel.setIslandTimeout(days)
+                            viewModel.setIslandTimeout(days) {
+                                notifyPrefChanged(context)
+                            }
                             showIslandTimeoutDialog = false
                         }
                     },
@@ -624,6 +636,10 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
             },
         )
     }
+}
+
+private fun notifyPrefChanged(context: Context) {
+    context.sendBroadcast(Intent(ACTION_PREF_CHANGED))
 }
 
 @Composable

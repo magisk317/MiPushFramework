@@ -55,7 +55,11 @@
     <string name="settings_debug_mode_summary">Display debug actions in notifications, print full log</string>
     <string name="settings_show_all_events">Display all events</string>
     <string name="pref_color_status_bar_icon_title">Color status bar icon</string>
-    <string name="pref_color_status_bar_icon_summary">When disabled, status bar icons will appear monochrome</string>
+    <string name="pref_color_status_bar_icon_summary">Configure MiPush and global status bar icon color policy</string>
+    <string name="pref_color_status_bar_icon_mipush_title">MiPush managed notifications</string>
+    <string name="pref_color_status_bar_icon_mipush_summary">When disabled, MiPush-managed status bar icons will be monochrome</string>
+    <string name="pref_color_status_bar_icon_global_title">Strong mode</string>
+    <string name="pref_color_status_bar_icon_global_summary">Apply the same color policy to all status bar notification icons</string>
     <string name="settings_switch_enabled_feedback">%1$s enabled</string>
     <string name="settings_switch_disabled_feedback">%1$s disabled</string>
     <string name="settings_start_foreground_service">Keep MiPush alive</string>

@@ -12,8 +12,8 @@ import io.github.magisk317.mipush.hook.fakedevice.ForceMiPushRegister
 import io.github.magisk317.mipush.hook.fakedevice.fakeAllBuildInProperties
 import io.github.magisk317.mipush.hook.keepalive.KeepAliveHook
 import io.github.magisk317.mipush.hook.securitycore.SecurityCoreXSpaceMiPushHook
-import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.mipush.hook.system.HookSystemService
+import io.github.magisk317.mipush.hook.systemui.FocusNotificationPermissionPolicy
 import io.github.magisk317.mipush.hook.systemui.HookNotificationSettingsManager
 import io.github.magisk317.mipush.hook.systemui.MiPushIslandHook
 import io.github.magisk317.mipush.hook.systemui.HookSystemUI
@@ -112,6 +112,8 @@ class LibXposedEntry : BaseLibXposedEntry {
             return
         }
 
+        HookNotificationSettingsManager().hook(loadParam.classLoader)
+
         HookSystemUIPlugin(
             "miui.systemui.plugin",
             HookNotificationSettingsManager()
@@ -133,15 +135,18 @@ class LibXposedEntry : BaseLibXposedEntry {
 
                 XLog.d(tag, "hooking canShowFocus paramTypes=${paramTypes.map { it.simpleName }} pkgArgIndex=$pkgArgIndex")
                 method.hook {
-                    replace {
+                    doAfter {
+                        val originalAllowed = result as? Boolean ?: return@doAfter
                         val packageName = if (pkgArgIndex >= 0) args[pkgArgIndex] as? String else null
-                        val allowed = if (packageName.isNullOrBlank()) {
-                            IslandPreferences.current().canInjectFocusPayload
-                        } else {
-                            IslandPreferences.current(packageName).canInjectFocusPayload
+                        val miPushAllowed = FocusNotificationPermissionPolicy.miPushPreferenceAllows(packageName)
+                        val allowed = FocusNotificationPermissionPolicy.merge(
+                            systemAllowed = originalAllowed,
+                            miPushAllowed = miPushAllowed,
+                        )
+                        if (allowed != originalAllowed) {
+                            XLog.d(tag, "canShowFocus pkg=$packageName system=$originalAllowed mipush=$miPushAllowed -> $allowed")
+                            result = allowed
                         }
-                        XLog.d(tag, "canShowFocus pkg=$packageName -> $allowed")
-                        allowed
                     }
                 }
             } catch (e: Throwable) {

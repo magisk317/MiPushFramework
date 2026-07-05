@@ -89,10 +89,13 @@ class SettingsViewModel constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     val islandFocusNotification: StateFlow<Boolean> = preferenceRepository.islandFocusNotification
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val colorStatusBarIcon: StateFlow<Boolean> = preferenceRepository.colorStatusBarIcon
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val colorStatusBarIconGlobal: StateFlow<Boolean> = preferenceRepository.colorStatusBarIconGlobal
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val dualAppEnabled: StateFlow<Boolean> = preferenceRepository.dualAppEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
@@ -179,36 +182,49 @@ class SettingsViewModel constructor(
         preferenceRepository.setKeepAliveDozeBypass(value)
     }
 
-    fun setIslandEnabled(value: Boolean) = viewModelScope.launch {
+    fun setIslandEnabled(value: Boolean, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
         preferenceRepository.setIslandEnabled(value)
+        onUpdated?.invoke()
     }
 
-    fun setIslandTimeout(value: Int) = viewModelScope.launch {
+    fun setIslandTimeout(value: Int, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
         preferenceRepository.setIslandTimeout(value)
+        onUpdated?.invoke()
     }
 
-    fun setIslandFirstFloat(value: Boolean) = viewModelScope.launch {
+    fun setIslandFirstFloat(value: Boolean, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
         preferenceRepository.setIslandFirstFloat(value)
+        onUpdated?.invoke()
     }
 
-    fun setIslandEnableFloat(value: Boolean) = viewModelScope.launch {
+    fun setIslandEnableFloat(value: Boolean, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
         preferenceRepository.setIslandEnableFloat(value)
+        onUpdated?.invoke()
     }
 
-    fun setIslandShowNotification(value: Boolean) = viewModelScope.launch {
+    fun setIslandShowNotification(value: Boolean, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
         preferenceRepository.setIslandShowNotification(value)
+        onUpdated?.invoke()
     }
 
-    fun setIslandShowOriginalNotification(value: Boolean) = viewModelScope.launch {
+    fun setIslandShowOriginalNotification(value: Boolean, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
         preferenceRepository.setIslandShowOriginalNotification(value)
+        onUpdated?.invoke()
     }
 
-    fun setIslandFocusNotification(value: Boolean) = viewModelScope.launch {
+    fun setIslandFocusNotification(value: Boolean, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
         preferenceRepository.setIslandFocusNotification(value)
+        onUpdated?.invoke()
     }
 
-    fun setColorStatusBarIcon(value: Boolean) = viewModelScope.launch {
+    fun setColorStatusBarIcon(value: Boolean, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
         preferenceRepository.setColorStatusBarIcon(value)
+        onUpdated?.invoke()
+    }
+
+    fun setColorStatusBarIconGlobal(value: Boolean, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
+        preferenceRepository.setColorStatusBarIconGlobal(value)
+        onUpdated?.invoke()
     }
 
     fun setDualAppEnabled(enabled: Boolean) {

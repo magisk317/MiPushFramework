@@ -161,6 +161,14 @@ object AppDestinations {
         const val ROUTE = "connection_status"
     }
 
+    /**
+     * 状态栏图标策略详情页
+     */
+    @Serializable
+    data object StatusBarIconSettings {
+        const val ROUTE = "status_bar_icon_settings"
+    }
+
     private fun encodeRouteArg(value: String): String {
         return URLEncoder.encode(value, StandardCharsets.UTF_8.toString())
     }

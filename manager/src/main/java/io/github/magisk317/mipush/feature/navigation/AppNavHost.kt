@@ -66,7 +66,8 @@ fun AppNavHostContent(
                 route.startsWith(AppDestinations.ConfigEditor.ROUTE) -> 3
 
             route.startsWith(AppDestinations.Settings.ROUTE) ||
-                route.startsWith(AppDestinations.SettingsSection.ROUTE) -> 4
+                route.startsWith(AppDestinations.SettingsSection.ROUTE) ||
+                route.startsWith(AppDestinations.StatusBarIconSettings.ROUTE) -> 4
 
             else -> 0
         }
@@ -511,6 +512,45 @@ fun AppNavHostContent(
             val viewModel: io.github.magisk317.mipush.main.viewmodel.ConnectionStatusViewModel =
                 org.koin.androidx.compose.koinViewModel()
             io.github.magisk317.mipush.feature.main.subpage.ConnectionStatusPage(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(
+            route = AppDestinations.StatusBarIconSettings.ROUTE,
+            enterTransition = {
+                val direction = forwardDirection(initialState.destination.route, targetState.destination.route)
+                slideInHorizontally(
+                    initialOffsetX = { direction * it },
+                    animationSpec = tween(300, easing = EaseInOut),
+                ) + fadeIn(animationSpec = tween(300))
+            },
+            exitTransition = {
+                val direction = forwardDirection(initialState.destination.route, targetState.destination.route)
+                slideOutHorizontally(
+                    targetOffsetX = { -direction * it },
+                    animationSpec = tween(300, easing = EaseInOut),
+                ) + fadeOut(animationSpec = tween(300))
+            },
+            popEnterTransition = {
+                val direction = forwardDirection(initialState.destination.route, targetState.destination.route)
+                slideInHorizontally(
+                    initialOffsetX = { -direction * it },
+                    animationSpec = tween(300, easing = EaseInOut),
+                ) + fadeIn(animationSpec = tween(300))
+            },
+            popExitTransition = {
+                val direction = forwardDirection(initialState.destination.route, targetState.destination.route)
+                slideOutHorizontally(
+                    targetOffsetX = { direction * it },
+                    animationSpec = tween(300, easing = EaseInOut),
+                ) + fadeOut(animationSpec = tween(300))
+            },
+        ) {
+            val viewModel: io.github.magisk317.mipush.main.viewmodel.SettingsViewModel =
+                org.koin.androidx.compose.koinViewModel()
+            io.github.magisk317.mipush.feature.main.subpage.StatusBarIconSettingsPage(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
             )
