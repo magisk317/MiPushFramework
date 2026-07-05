@@ -510,7 +510,7 @@ class NotificationControllerRobolectricTest {
     }
 
     @Test
-    fun `mock replay notification posts as visible standalone group summary`() {
+    fun `mock replay publish replaces target post with visible receipt`() {
         val context = RuntimeEnvironment.getApplication()
         val packageName = context.packageName
         val notificationId = 32021
@@ -529,15 +529,21 @@ class NotificationControllerRobolectricTest {
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val posted = notificationManager.activeNotifications
-            .first { it.id == notificationId }
+            .single { it.id == notificationId }
             .notification
 
-        assertEquals(Notification.CATEGORY_ALARM, posted.category)
-        assertEquals(NotificationCompat.PRIORITY_MAX, posted.priorityForTest())
-        assertEquals("$packageName#mipush_mock_replay#$notificationId", posted.group)
-        assertEquals(Notification.GROUP_ALERT_ALL, posted.groupAlertBehavior)
-        assertTrue(posted.flags and Notification.FLAG_GROUP_SUMMARY != 0)
+        assertEquals(Notification.CATEGORY_MESSAGE, posted.category)
+        assertEquals(NotificationCompat.PRIORITY_HIGH, posted.priorityForTest())
+        assertNull(posted.group)
+        assertFalse(posted.flags and Notification.FLAG_GROUP_SUMMARY != 0)
         assertFalse(posted.flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
+        assertEquals("Replay title", posted.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
+        assertEquals("Replay body", posted.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
+        assertTrue(posted.extras.getBoolean("mipush_mock_replay_receipt", false))
+        assertEquals(packageName, posted.extras.getString("mipush_mock_replay_source_package"))
+        assertNull(posted.extras.getString("target_package"))
+        assertNull(posted.extras.getString("miui.focus.param"))
+        assertFalse(posted.extras.getBoolean("mipush_island_allow_proxy", false))
     }
 
     @Test
@@ -565,12 +571,11 @@ class NotificationControllerRobolectricTest {
             NotificationController.shouldPostMockReplayVisibleReceipt(
                 isMockReplay = true,
                 options = MiPushIslandOptions(
-                    showNotification = false,
                     showOriginalNotification = false,
                 ),
             )
         )
-        assertFalse(
+        assertTrue(
             NotificationController.shouldPostMockReplayVisibleReceipt(
                 isMockReplay = true,
                 options = MiPushIslandOptions(showNotification = true),

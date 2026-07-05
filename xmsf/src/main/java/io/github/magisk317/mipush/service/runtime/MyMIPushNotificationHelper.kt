@@ -40,7 +40,6 @@ import io.github.magisk317.mipush.utils.IconConfigurations
 import io.github.magisk317.mipush.utils.PackageConfig
 import io.github.magisk317.mipush.app.ConfigCenter
 import java.util.LinkedHashMap
-import java.util.concurrent.atomic.AtomicLong
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
@@ -77,8 +76,6 @@ class MyMIPushNotificationHelper {
             CoroutineScope(SupervisorJob() + notificationDispatcher)
         private val nonDisplayDispatchLock = Any()
         private val recentNonDisplayDispatches = LinkedHashMap<String, Long>()
-        private val mockReplayNotificationSequence = AtomicLong()
-
         @JvmStatic
         fun markNotificationSessionStarted(source: String, nowMs: Long = System.currentTimeMillis()) {
             notificationSessionStartedAtMs = nowMs
@@ -511,10 +508,12 @@ class MyMIPushNotificationHelper {
         }
 
         private fun mockReplayNotificationIdentity(messageId: String?, metaInfo: PushMetaInfo): String {
-            val sourceId = messageId?.takeIf { it.isNotBlank() }
+            val sourceId = metaInfo.extra?.get(MockMessageRegistry.EXTRA_MOCK_REPLAY_SOURCE_ID)
+                ?.takeIf { it.isNotBlank() }
+                ?: messageId?.takeIf { it.isNotBlank() }
                 ?: metaInfo.id?.takeIf { it.isNotBlank() }
                 ?: metaInfo.notifyId.toString()
-            return "mock_replay:${sourceId}:${System.currentTimeMillis()}:${mockReplayNotificationSequence.incrementAndGet()}"
+            return "mock_replay:$sourceId"
         }
 
         private fun shouldUseStableNotifyId(container: XmPushActionContainer): Boolean {

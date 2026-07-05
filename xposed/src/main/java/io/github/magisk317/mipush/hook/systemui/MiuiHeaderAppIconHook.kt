@@ -64,7 +64,6 @@ class MiuiHeaderAppIconHook {
             extras = extras,
             targetPackage = targetPackage,
             isMockReplayReceipt = isMockReplayReceipt,
-            colorStatusBarIcon = colorStatusBarIcon,
         )
         if (
             !MiuiHeaderAppIconPolicy.shouldReplace(
@@ -107,13 +106,31 @@ class MiuiHeaderAppIconHook {
         extras: Bundle,
         targetPackage: String,
         isMockReplayReceipt: Boolean,
-        colorStatusBarIcon: Boolean,
     ): Drawable? {
         if (isMockReplayReceipt) {
-            if (!colorStatusBarIcon) {
-                return runCatching { notification.smallIcon?.loadDrawable(context) }.getOrNull()
+            val targetAppIcon = resolveTargetAppIconDrawable(context, targetPackage)
+            val largeIcon = if (targetAppIcon == null) {
+                resolveLargeIconDrawable(context, notification, extras)
+            } else {
+                null
             }
-            resolveTargetAppIconDrawable(context, targetPackage)?.let { return it }
+            val smallIcon = if (targetAppIcon == null && largeIcon == null) {
+                runCatching { notification.smallIcon?.loadDrawable(context) }.getOrNull()
+            } else {
+                null
+            }
+            return when (
+                MiuiHeaderAppIconPolicy.mockReplayReplacementSource(
+                    hasTargetAppIcon = targetAppIcon != null,
+                    hasLargeIcon = largeIcon != null,
+                    hasSmallIcon = smallIcon != null,
+                )
+            ) {
+                MiuiHeaderAppIconSource.TARGET_APP -> targetAppIcon
+                MiuiHeaderAppIconSource.LARGE_ICON -> largeIcon
+                MiuiHeaderAppIconSource.SMALL_ICON -> smallIcon
+                null -> null
+            }
         }
         return resolveLargeIconDrawable(context, notification, extras)
     }
@@ -173,6 +190,12 @@ class MiuiHeaderAppIconHook {
     }
 }
 
+internal enum class MiuiHeaderAppIconSource {
+    TARGET_APP,
+    LARGE_ICON,
+    SMALL_ICON,
+}
+
 internal object MiuiHeaderAppIconPolicy {
     private const val XSPACE_USER_ID = 999
 
@@ -187,5 +210,16 @@ internal object MiuiHeaderAppIconPolicy {
         if (!hasReplacementIcon) return false
         if (isMockReplayReceipt) return true
         return userId == XSPACE_USER_ID
+    }
+
+    fun mockReplayReplacementSource(
+        hasTargetAppIcon: Boolean,
+        hasLargeIcon: Boolean,
+        hasSmallIcon: Boolean,
+    ): MiuiHeaderAppIconSource? {
+        if (hasTargetAppIcon) return MiuiHeaderAppIconSource.TARGET_APP
+        if (hasLargeIcon) return MiuiHeaderAppIconSource.LARGE_ICON
+        if (hasSmallIcon) return MiuiHeaderAppIconSource.SMALL_ICON
+        return null
     }
 }

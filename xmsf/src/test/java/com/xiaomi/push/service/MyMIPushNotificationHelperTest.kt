@@ -151,17 +151,19 @@ class MyMIPushNotificationHelperTest {
     }
 
     @Test
-    fun `getNotificationId uses one-shot identity for mock replay notifications`() {
+    fun `getNotificationId uses stable source identity for mock replay notifications`() {
         val container = notificationContainer("job-replay")
         val regularId = MyMIPushNotificationHelper.getNotificationId(container)
 
         MockMessageRegistry.mark(container)
+        container.metaInfo.putToExtra(MockMessageRegistry.EXTRA_MOCK_REPLAY_SOURCE_ID, "job-replay")
 
         val firstReplayId = MyMIPushNotificationHelper.getNotificationId(container)
         val secondReplayId = MyMIPushNotificationHelper.getNotificationId(container)
 
         assertNotEquals(regularId, firstReplayId)
-        assertNotEquals(firstReplayId, secondReplayId)
+        assertEquals(firstReplayId, secondReplayId)
+        assertEquals("com.ruanmei.ithome_mock_replay:job-replay".hashCode(), firstReplayId)
     }
 
     @Test

@@ -393,17 +393,15 @@ object NotificationController {
         val group = mockReplayGroup(packageName, notificationId)
         notificationBuilder.setCategory(Notification.CATEGORY_ALARM)
         notificationBuilder.priority = NotificationCompat.PRIORITY_MAX
-        notificationBuilder.setGroup(group)
-        // MIUI auto-groups target-package child notifications into Aggregate_AlertingSection.
-        // A replay is a single explicit test notification, so make it the visible summary itself.
-        notificationBuilder.setGroupSummary(true)
+        notificationBuilder.setGroup(null)
+        notificationBuilder.setGroupSummary(false)
         notificationBuilder.setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_ALL)
         notificationBuilder.setDefaults(Notification.DEFAULT_ALL)
         notificationBuilder.setOnlyAlertOnce(false)
         notificationBuilder.setSilent(false)
         logD(
             "apply mock replay visibility pkg=$packageName category=alarm priority=max " +
-                "group=$group summary=true"
+                "group=$group summary=false"
         )
     }
 
@@ -415,7 +413,7 @@ object NotificationController {
         isMockReplay: Boolean,
         options: MiPushIslandOptions,
     ): Boolean {
-        return isMockReplay && !options.showNotification && options.showOriginalNotification
+        return isMockReplay && options.showOriginalNotification
     }
 
     internal fun shouldAttachPayloadLargeIcon(
