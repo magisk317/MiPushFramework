@@ -13,12 +13,19 @@ include:
     file: /.gitlab/ci/renovate.yml
 
 workflow:
+  auto_cancel:
+    on_new_commit: interruptible
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $CI_PIPELINE_SOURCE == "push"'
       when: never
     - if: '$CI_COMMIT_TAG'
     - if: '$CI_COMMIT_BRANCH'
+
+default:
+  interruptible: true
+  tags:
+    - magisk-local-linux
 
 stages:
   - build
@@ -60,6 +67,20 @@ variables:
     - if: '$CI_COMMIT_TAG'
     - if: '$CI_COMMIT_BRANCH'
 
+.mipush_package_rules:
+  rules:
+    - if: '$DEPENDENCY_OWNER == "gitlab" && $CI_PIPELINE_SOURCE == "web"'
+      when: never
+    - if: '$DEPENDENCY_OWNER == "gitlab" && $CI_PIPELINE_SOURCE == "api"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: never
+    - if: '$CI_COMMIT_TAG'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: manual
+      allow_failure: true
+    - when: never
+
 android:build:
   extends:
     - .magisk_android_build
@@ -80,7 +101,7 @@ android:build:
       - mipush/build/outputs/apk/**/debug/*.apk
 
 zygisk:build:
-  extends: .mipush_android_rules
+  extends: .mipush_package_rules
   image: "rust:1-bookworm"
   stage: build
   variables:
@@ -132,6 +153,7 @@ telegram:ci:
       artifacts: true
     - job: zygisk:build
       artifacts: true
+      optional: true
 
 android:detekt:
   extends:
@@ -217,6 +239,8 @@ android:release:gitlab:
   stage: release-publish
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab"'
+      when: manual
+      allow_failure: true
     - when: never
   needs:
     - job: android:release:apk
@@ -234,6 +258,8 @@ android:release:modules-repo:
   stage: release-publish
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $MAGISK_ANDROID_RELEASE_MODULES_REPO != "" && $XPOSED_MODULES_REPO_TOKEN != ""'
+      when: manual
+      allow_failure: true
     - when: never
   needs:
     - job: android:release:apk
