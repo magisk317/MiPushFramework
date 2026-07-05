@@ -4,9 +4,7 @@
         "config:recommended"
     ],
     "ignorePaths": [
-        ".github/**",
-        ".gitlab/**",
-        ".gitlab-ci.yml"
+        ".github/**"
     ],
     "forkProcessing": "enabled",
     "pruneStaleBranches": true,
