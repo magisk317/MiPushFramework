@@ -107,6 +107,8 @@ zygisk:build:
   variables:
     CARGO_HOME: "$CI_PROJECT_DIR/.cargo"
     ANDROID_NDK_HOME: "$MIPUSH_ZYGISK_NDK_HOME"
+    RUSTUP_DIST_SERVER: "https://mirrors.tuna.tsinghua.edu.cn/rustup"
+    RUSTUP_UPDATE_ROOT: "https://mirrors.tuna.tsinghua.edu.cn/rustup/rustup"
   cache:
     key: "zygisk-cargo-$CI_COMMIT_REF_SLUG"
     paths:
@@ -114,8 +116,31 @@ zygisk:build:
       - .cargo/git/
       - MiPushZygisk/module/target/
   before_script:
-    - apt-get update
+    - |
+      set -euo pipefail
+      export DEBIAN_FRONTEND=noninteractive
+      sed -i \
+        -e 's#http://deb.debian.org/debian-security#https://mirrors.tuna.tsinghua.edu.cn/debian-security#g' \
+        -e 's#http://security.debian.org/debian-security#https://mirrors.tuna.tsinghua.edu.cn/debian-security#g' \
+        -e 's#http://deb.debian.org/debian#https://mirrors.tuna.tsinghua.edu.cn/debian#g' \
+        -e 's#http://archive.ubuntu.com/ubuntu#https://mirrors.tuna.tsinghua.edu.cn/ubuntu#g' \
+        -e 's#http://security.ubuntu.com/ubuntu#https://mirrors.tuna.tsinghua.edu.cn/ubuntu#g' \
+        /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
+      apt-get update
     - apt-get install -y --no-install-recommends ca-certificates curl git unzip zip
+    - |
+      set -euo pipefail
+      mkdir -p "$CARGO_HOME"
+      cat > "$CARGO_HOME/config.toml" <<'EOF'
+      [source.crates-io]
+      replace-with = "tuna"
+
+      [source.tuna]
+      registry = "sparse+https://mirrors.tuna.tsinghua.edu.cn/crates.io-index/"
+
+      [net]
+      git-fetch-with-cli = true
+      EOF
     - rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
     - mkdir -p .android
     - |
@@ -268,6 +293,14 @@ android:release:modules-repo:
     - |
       set -euo pipefail
       install -d -m 0755 /etc/apt/keyrings
+      export DEBIAN_FRONTEND=noninteractive
+      sed -i \
+        -e 's#http://deb.debian.org/debian-security#https://mirrors.tuna.tsinghua.edu.cn/debian-security#g' \
+        -e 's#http://security.debian.org/debian-security#https://mirrors.tuna.tsinghua.edu.cn/debian-security#g' \
+        -e 's#http://deb.debian.org/debian#https://mirrors.tuna.tsinghua.edu.cn/debian#g' \
+        -e 's#http://archive.ubuntu.com/ubuntu#https://mirrors.tuna.tsinghua.edu.cn/ubuntu#g' \
+        -e 's#http://security.ubuntu.com/ubuntu#https://mirrors.tuna.tsinghua.edu.cn/ubuntu#g' \
+        /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
       apt-get update
       apt-get install -y --no-install-recommends gpg
       curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
