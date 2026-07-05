@@ -212,6 +212,51 @@ android:release:apk:
       - app/build/outputs/mapping/**/mapping.txt
       - mipush/build/outputs/apk/**/release/*.apk
 
+android:release:gitlab:
+  extends: .magisk_android_base
+  stage: release-publish
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab"'
+    - when: never
+  needs:
+    - job: android:release:apk
+      artifacts: true
+    - job: zygisk:build
+      artifacts: true
+  script:
+    - |
+      set -euo pipefail
+      chmod +x scripts/publish_mipush_release.sh
+      scripts/publish_mipush_release.sh gitlab-release
+
+android:release:modules-repo:
+  extends: .magisk_android_base
+  stage: release-publish
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $MAGISK_ANDROID_RELEASE_MODULES_REPO != "" && $XPOSED_MODULES_REPO_TOKEN != ""'
+    - when: never
+  needs:
+    - job: android:release:apk
+      artifacts: true
+  script:
+    - |
+      set -euo pipefail
+      install -d -m 0755 /etc/apt/keyrings
+      apt-get update
+      apt-get install -y --no-install-recommends gpg
+      curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+        | gpg --dearmor -o /etc/apt/keyrings/githubcli-archive-keyring.gpg
+      chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+        > /etc/apt/sources.list.d/github-cli.list
+      apt-get update
+      apt-get install -y --no-install-recommends gh
+      rm -rf /var/lib/apt/lists/*
+
+      chmod +x scripts/publish_mipush_release.sh
+      SOURCE_RELEASE_TOKEN="${SOURCE_RELEASE_TOKEN:-${GITHUB_RELEASE_TOKEN:-}}" \
+        scripts/publish_mipush_release.sh modules-repo
+
 renovate:gitlab:
   extends: .magisk_renovate_gitlab
   stage: maintenance

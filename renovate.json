@@ -11,6 +11,12 @@
     "forkProcessing": "enabled",
     "pruneStaleBranches": true,
     "pruneBranchAfterAutomerge": true,
+    "minimumReleaseAge": "24 hours",
+    "internalChecksFilter": "strict",
+    "prCreation": "immediate",
+    "timezone": "Asia/Shanghai",
+    "dependencyDashboard": true,
+    "dependencyDashboardOSVVulnerabilitySummary": "all",
     "baseBranchPatterns": [
         "dev"
     ],
@@ -61,6 +67,16 @@
                 "int:VERSION_CODE",
                 "int:PUSH_VERSION_CODE",
                 "int:RUNTIME_API_VERSION"
+            ],
+            "enabled": false
+        },
+        {
+            "description": "The root Gradle force block is maintained by dependency-force-manager, not Renovate.",
+            "matchManagers": [
+                "gradle"
+            ],
+            "matchFileNames": [
+                "build.gradle.kts"
             ],
             "enabled": false
         }
