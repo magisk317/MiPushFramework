@@ -172,7 +172,7 @@ telegram:ci:
   variables:
     MAGISK_TELEGRAM_PROJECT_TAG: "📌 #MiPushFramework"
     MAGISK_TELEGRAM_PROJECT_NAME: "MiPushFramework"
-    MAGISK_TELEGRAM_CI_BRANCH: "dev"
+    MAGISK_TELEGRAM_CI_BRANCH: "beta"
   needs:
     - job: android:build
       artifacts: true
