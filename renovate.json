@@ -3,6 +3,11 @@
     "extends": [
         "config:recommended"
     ],
+    "ignorePaths": [
+        ".github/**",
+        ".gitlab/**",
+        ".gitlab-ci.yml"
+    ],
     "forkProcessing": "enabled",
     "pruneStaleBranches": true,
     "pruneBranchAfterAutomerge": true,

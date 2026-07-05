@@ -55,6 +55,13 @@ MiPushFramework 会以 `com.xiaomi.xmsf` 的形式提供系统推送服务，让
 - **实况通知**：对进度类消息提供 Android 16+ `Notification.ProgressStyle` / promoted ongoing 支持，低版本回退为常规进度通知。
 - **日志导出**：运行日志使用 JSONL，按天轮转，并在导出时清理旧文本日志、脱敏 token 等敏感字段。
 
+## 自动化维护边界
+
+- Telegram CI 通知：GitHub 侧由 `.github/workflows/notification.yml` 处理，GitLab 侧由 `.gitlab-ci.yml` 的 `telegram:ci` 处理；GitLab 通知在 debug APK 构建完成后发送，不等待 quality 阶段。
+- Renovate：GitHub 侧继续使用 `.github/renovate-config.js`；GitLab 侧使用 `.gitlab/renovate-config.js` 和隐藏变量 `RENOVATE_TOKEN`。`renovate.json` 会忽略 GitHub/GitLab workflow 配置，避免两个平台互相改 CI 入口。
+- Release 发布：GitHub workflow 继续负责主仓 Release、Xposed-Modules-Repo 和 Zygisk 资产；GitLab 侧目前只做 tag release 构建校验，等远端项目、密钥和多资产发布链路确认后再接管发布。
+- Dependabot 与 GitHub dependency workflows 暂不迁移，现有 GitHub Dependency Graph / alerts 相关流程保持不变。
+
 ## 安装与使用
 
 1. 从 [Releases](https://github.com/magisk317/MiPushFramework/releases) 或 [CI](https://github.com/magisk317/MiPushFramework/actions/workflows/ci.yml) 下载 APK。

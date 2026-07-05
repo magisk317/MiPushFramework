@@ -1,0 +1,171 @@
+include:
+  - project: magisk3171/magisk-ci-toolkit
+    ref: master
+    file: /.gitlab/ci/android.yml
+  - project: magisk3171/magisk-ci-toolkit
+    ref: master
+    file: /.gitlab/ci/android-release.yml
+  - project: magisk3171/magisk-ci-toolkit
+    ref: master
+    file: /.gitlab/ci/telegram.yml
+  - project: magisk3171/magisk-ci-toolkit
+    ref: master
+    file: /.gitlab/ci/renovate.yml
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $CI_PIPELINE_SOURCE == "push"'
+      when: never
+    - if: '$CI_COMMIT_TAG'
+    - if: '$CI_COMMIT_BRANCH'
+
+stages:
+  - build
+  - notify
+  - quality
+  - release-validate
+  - release-build
+  - release-publish
+  - maintenance
+
+variables:
+  GIT_DEPTH: "0"
+  GIT_SUBMODULE_STRATEGY: recursive
+  GIT_SUBMODULE_DEPTH: "0"
+  MAGISK_ANDROID_SDKMANAGER_CHANNEL: "3"
+  MAGISK_ANDROID_COMPILE_SDK: "37"
+  MAGISK_ANDROID_COMPILE_SDK_PACKAGE: "platforms;android-37.0"
+  MAGISK_ANDROID_SDK_PACKAGES: "platform-tools build-tools;37.0.0"
+  MAGISK_GRADLE_ARGS: "--warning-mode all"
+  MAGISK_ANDROID_RELEASE_PACKAGE_NAME: "io.github.magisk317.mipush"
+  MAGISK_ANDROID_RELEASE_GITHUB_REPOSITORY: "magisk317/MiPushFramework"
+  MAGISK_ANDROID_RELEASE_MODULES_REPO: "Xposed-Modules-Repo/io.github.magisk317.mipush"
+  MAGISK_ANDROID_RELEASE_PUBLISH_PLAY: "false"
+  RENOVATE_CONFIG_FILE: ".gitlab/renovate-config.js"
+
+.mipush_android_rules:
+  rules:
+    - if: '$DEPENDENCY_OWNER == "gitlab" && $CI_PIPELINE_SOURCE == "web"'
+      when: never
+    - if: '$DEPENDENCY_OWNER == "gitlab" && $CI_PIPELINE_SOURCE == "api"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_TAG'
+    - if: '$CI_COMMIT_BRANCH'
+
+android:build:
+  extends:
+    - .magisk_android_build
+    - .mipush_android_rules
+  variables:
+    MAGISK_ANDROID_BUILD_TASKS: >-
+      :app:assembleDebug
+      :mipush:assembleDebug
+      -PbuildSplits
+      -PminifyDebug
+      -Pkotlin.incremental=false
+  artifacts:
+    name: "MiPushFramework-debug-$CI_COMMIT_REF_SLUG"
+    when: always
+    expire_in: 14 days
+    paths:
+      - app/build/outputs/apk/**/debug/*.apk
+      - mipush/build/outputs/apk/**/debug/*.apk
+
+telegram:ci:
+  extends: .magisk_telegram_ci
+  stage: notify
+  allow_failure: true
+  variables:
+    MAGISK_TELEGRAM_PROJECT_TAG: "📌 #MiPushFramework"
+    MAGISK_TELEGRAM_PROJECT_NAME: "MiPushFramework"
+    MAGISK_TELEGRAM_CI_BRANCH: "dev"
+  needs:
+    - job: android:build
+      artifacts: true
+
+android:detekt:
+  extends:
+    - .magisk_android_detekt
+    - .mipush_android_rules
+  allow_failure: true
+  variables:
+    MAGISK_ANDROID_DETEKT_TASKS: >-
+      detekt
+      qualityGateDetekt
+      -PminifyDebug
+      -Pkotlin.incremental=false
+  artifacts:
+    name: "MiPushFramework-detekt-$CI_COMMIT_REF_SLUG"
+    when: always
+    expire_in: 14 days
+    paths:
+      - merged-sarif/detekt.sarif
+      - "**/build/reports/detekt/**"
+
+android:test:
+  extends:
+    - .magisk_android_base
+    - .mipush_android_rules
+  stage: quality
+  allow_failure: true
+  script:
+    - |
+      set -euo pipefail
+      : "${MAGISK_GRADLE_ARGS:=--warning-mode all}"
+      ./gradlew $MAGISK_GRADLE_ARGS \
+        :common:check \
+        :xmsf:testNormalDebugUnitTest \
+        :xmsf:testVc105DebugUnitTest \
+        testDebugUnitTest \
+        -PminifyDebug \
+        -Pkotlin.incremental=false \
+        -x detekt \
+        -x qualityGateDetekt
+  artifacts:
+    name: "MiPushFramework-test-$CI_COMMIT_REF_SLUG"
+    when: always
+    expire_in: 14 days
+    reports:
+      junit:
+        - "**/build/test-results/test*/TEST-*.xml"
+
+android:release:guard:
+  extends:
+    - .magisk_android_base
+    - .magisk_android_release_tag_rules
+  stage: release-validate
+  script:
+    - |
+      set -euo pipefail
+      chmod +x scripts/check_release_guard.sh
+      scripts/check_release_guard.sh "$CI_COMMIT_TAG"
+
+android:release:apk:
+  extends: .magisk_android_release_apk
+  stage: release-build
+  variables:
+    MAGISK_ANDROID_RELEASE_APK_TASKS: >-
+      :app:assembleRelease
+      :mipush:assembleRelease
+      -PbuildSplits=true
+      -Pkotlin.incremental=false
+  needs:
+    - job: android:release:guard
+      artifacts: false
+  artifacts:
+    name: "MiPushFramework-release-apks-$CI_COMMIT_TAG"
+    when: always
+    expire_in: 30 days
+    paths:
+      - app/build/outputs/apk/**/release/*.apk
+      - app/build/outputs/native-debug-symbols/**/native-debug-symbols.zip
+      - app/build/outputs/mapping/**/mapping.txt
+      - mipush/build/outputs/apk/**/release/*.apk
+
+renovate:gitlab:
+  extends: .magisk_renovate_gitlab
+  stage: maintenance

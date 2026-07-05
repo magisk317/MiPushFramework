@@ -36,10 +36,12 @@ release/
 .project
 org.eclipse.buildship.core.prefs
 
-# Keep only .github in repository root
+# Keep selected repository metadata directories in the root
 /.*/
 !/.github/
 !/.github/**
+!/.gitlab/
+!/.gitlab/**
 
 # Logs
 *.log

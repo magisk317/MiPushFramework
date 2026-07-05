@@ -1,12 +1,12 @@
 [submodule "magisk-ui-kit"]
 	path = magisk-ui-kit
-	url = https://gitlab.com/magisk731/magisk-ui-kit.git
+	url = https://gitlab.com/magisk3171/magisk-ui-kit.git
 [submodule "build-logic"]
 	path = build-logic
-	url = https://gitlab.com/magisk731/magisk-build-logic
+	url = https://gitlab.com/magisk3171/magisk-build-logic.git
 [submodule "scripts/_toolkit"]
 	path = scripts/_toolkit
-	url = https://gitlab.com/magisk731/magisk-ci-toolkit.git
+	url = https://gitlab.com/magisk3171/magisk-ci-toolkit.git
 [submodule "magisk-xposed-kit"]
 	path = magisk-xposed-kit
-	url = https://gitlab.com/magisk731/magisk-xposed-kit.git
+	url = https://gitlab.com/magisk3171/magisk-xposed-kit.git
