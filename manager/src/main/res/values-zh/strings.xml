@@ -105,9 +105,9 @@
     <string name="config_remote_source_label">远端源：%1$s</string>
     <string name="config_remote_source_with_accelerator_label">远端源：%1$s\n加速源：%2$s</string>
     <string name="config_remote_source_title">远端源</string>
-    <string name="config_remote_repository_label">仓库</string>
+    <string name="config_remote_repository_label">仓库或项目 URL</string>
     <string name="config_remote_branch_label">分支</string>
-    <string name="config_remote_accelerator_label">GitHub 加速源</string>
+    <string name="config_remote_accelerator_label">原始文件加速源</string>
     <string name="config_remote_source_default_hint">内置默认：%1$s</string>
     <string name="config_directory_title">本地目录</string>
     <string name="config_directory_not_selected">还没有选择本地配置目录。</string>

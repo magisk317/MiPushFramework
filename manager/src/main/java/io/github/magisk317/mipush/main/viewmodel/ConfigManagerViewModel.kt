@@ -130,9 +130,9 @@ class ConfigManagerViewModel constructor(
             val normalizedRepository = repository.trim()
             val normalizedBranch = branch.trim()
             preferenceRepository.setIconRemoteSource(
-                normalizedRepository.ifBlank { ConfigDefaults.REMOTE_REPOSITORY },
-                normalizedBranch.ifBlank { ConfigDefaults.REMOTE_BRANCH },
-                accelerator.trim().ifBlank { ConfigDefaults.REMOTE_ACCELERATOR },
+                normalizedRepository.ifBlank { ConfigDefaults.ICON_REMOTE_REPOSITORY },
+                normalizedBranch.ifBlank { ConfigDefaults.ICON_REMOTE_BRANCH },
+                accelerator.trim().ifBlank { ConfigDefaults.ICON_REMOTE_ACCELERATOR },
             )
             _uiState.update { it.copy(message = "图标源已更新") }
         }

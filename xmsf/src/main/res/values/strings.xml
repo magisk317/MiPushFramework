@@ -79,9 +79,9 @@
     <string name="config_remote_source_label">Remote source: %1$s</string>
     <string name="config_remote_source_with_accelerator_label">Remote source: %1$s\nAccelerator: %2$s</string>
     <string name="config_remote_source_title">Remote source</string>
-    <string name="config_remote_repository_label">Repository</string>
+    <string name="config_remote_repository_label">Repository or project URL</string>
     <string name="config_remote_branch_label">Branch</string>
-    <string name="config_remote_accelerator_label">GitHub accelerator</string>
+    <string name="config_remote_accelerator_label">Raw URL accelerator</string>
     <string name="config_remote_source_default_hint">Built-in default: %1$s</string>
     <string name="config_directory_title">Local directory</string>
     <string name="config_directory_not_selected">No local configuration directory selected yet.</string>
