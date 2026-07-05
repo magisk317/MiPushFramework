@@ -10,3 +10,4 @@ TAG_NAME="${1:-}"
 
 source "${TOOLKIT_SCRIPT}"
 check_release_guard "$ROOT_DIR" "$TAG_NAME"
+"${ROOT_DIR}/scripts/check_zygisk_version_sync.sh" "$ROOT_DIR"

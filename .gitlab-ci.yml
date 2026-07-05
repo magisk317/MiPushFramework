@@ -43,6 +43,10 @@ variables:
   MAGISK_ANDROID_RELEASE_MODULES_REPO: "Xposed-Modules-Repo/io.github.magisk317.mipush"
   MAGISK_ANDROID_RELEASE_PUBLISH_PLAY: "false"
   RENOVATE_CONFIG_FILE: ".gitlab/renovate-config.js"
+  MIPUSH_ZYGISK_REPOSITORY: "https://gitlab.com/magisk3171/MiPushZygisk.git"
+  MIPUSH_ZYGISK_REF: "main"
+  MIPUSH_ZYGISK_NDK_VERSION: "r27d"
+  MIPUSH_ZYGISK_NDK_HOME: "$CI_PROJECT_DIR/.android/android-ndk-r27d"
 
 .mipush_android_rules:
   rules:
@@ -75,6 +79,46 @@ android:build:
       - app/build/outputs/apk/**/debug/*.apk
       - mipush/build/outputs/apk/**/debug/*.apk
 
+zygisk:build:
+  extends: .mipush_android_rules
+  image: "rust:1-bookworm"
+  stage: build
+  variables:
+    CARGO_HOME: "$CI_PROJECT_DIR/.cargo"
+    ANDROID_NDK_HOME: "$MIPUSH_ZYGISK_NDK_HOME"
+  cache:
+    key: "zygisk-cargo-$CI_COMMIT_REF_SLUG"
+    paths:
+      - .cargo/registry/
+      - .cargo/git/
+      - MiPushZygisk/module/target/
+  before_script:
+    - apt-get update
+    - apt-get install -y --no-install-recommends ca-certificates curl git unzip zip
+    - rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+    - mkdir -p .android
+    - |
+      set -euo pipefail
+      if [ ! -d "$ANDROID_NDK_HOME" ]; then
+        curl --retry 5 --fail --location --silent --show-error \
+          "https://dl.google.com/android/repository/android-ndk-${MIPUSH_ZYGISK_NDK_VERSION}-linux.zip" \
+          --output /tmp/android-ndk.zip
+        unzip -q /tmp/android-ndk.zip -d .android
+      fi
+  script:
+    - |
+      set -euo pipefail
+      source scripts/resolve_zygisk_version_env.sh
+      git clone --depth 1 --branch "$MIPUSH_ZYGISK_REF" "$MIPUSH_ZYGISK_REPOSITORY" MiPushZygisk
+      cd MiPushZygisk
+      ./build.sh
+  artifacts:
+    name: "MiPushFramework-zygisk-$CI_COMMIT_REF_SLUG"
+    when: always
+    expire_in: 14 days
+    paths:
+      - MiPushZygisk/build/*.zip
+
 telegram:ci:
   extends: .magisk_telegram_ci
   stage: notify
@@ -85,6 +129,8 @@ telegram:ci:
     MAGISK_TELEGRAM_CI_BRANCH: "dev"
   needs:
     - job: android:build
+      artifacts: true
+    - job: zygisk:build
       artifacts: true
 
 android:detekt:

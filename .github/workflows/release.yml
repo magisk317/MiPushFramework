@@ -133,11 +133,14 @@ jobs:
     needs: [validate-release]
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout MiPushZygisk
+      - name: Checkout MiPushFramework
         uses: actions/checkout@v7
         with:
-          repository: 'magisk317/MiPushZygisk'
+          path: MiPushFramework
           fetch-depth: 0
+
+      - name: Checkout MiPushZygisk
+        run: git clone --depth 1 --branch main https://gitlab.com/magisk3171/MiPushZygisk.git MiPushZygisk
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -153,13 +156,16 @@ jobs:
       - name: Build Zygisk module
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-        run: ./build.sh
+        run: |
+          source MiPushFramework/scripts/resolve_zygisk_version_env.sh
+          cd MiPushZygisk
+          ./build.sh
 
       - name: Upload Zygisk release artifact
         uses: actions/upload-artifact@v7
         with:
           name: apks-zygisk
-          path: build/*.zip
+          path: MiPushZygisk/build/*.zip
 
   create-release:
     name: Create Release

@@ -191,12 +191,14 @@ jobs:
   build-zygisk:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout MiPushZygisk
+      - name: Checkout MiPushFramework
         uses: actions/checkout@v7
         with:
-          repository: magisk317/MiPushZygisk
-          path: MiPushZygisk
+          path: MiPushFramework
           fetch-depth: 0
+
+      - name: Checkout MiPushZygisk
+        run: git clone --depth 1 --branch main https://gitlab.com/magisk3171/MiPushZygisk.git MiPushZygisk
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -213,6 +215,7 @@ jobs:
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
+          source MiPushFramework/scripts/resolve_zygisk_version_env.sh
           cd MiPushZygisk
           ./build.sh
 
