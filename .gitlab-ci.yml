@@ -29,8 +29,8 @@ default:
 
 stages:
   - build
-  - notify
   - quality
+  - notify
   - release-validate
   - release-build
   - release-publish
@@ -49,7 +49,7 @@ variables:
   MAGISK_ANDROID_RELEASE_GITHUB_REPOSITORY: "magisk317/MiPushFramework"
   MAGISK_ANDROID_RELEASE_MODULES_REPO: "Xposed-Modules-Repo/io.github.magisk317.mipush"
   MAGISK_ANDROID_RELEASE_PUBLISH_PLAY: "false"
-  RENOVATE_CONFIG_FILE: ".gitlab/renovate-config.js"
+  MAGISK_RENOVATE_REPOSITORY: "magisk3171/MiPushFramework"
   MIPUSH_ZYGISK_REPOSITORY: "https://gitlab.com/magisk3171/MiPushZygisk.git"
   MIPUSH_ZYGISK_REF: "main"
   MIPUSH_ZYGISK_NDK_VERSION: "r27d"
@@ -63,6 +63,8 @@ variables:
       when: never
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
       when: never
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TITLE =~ /^Merge branch .renovate\/.+ into /'
+      when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_TAG'
     - if: '$CI_COMMIT_BRANCH'
@@ -75,10 +77,14 @@ variables:
       when: never
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
       when: never
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TITLE =~ /^Merge branch .renovate\/.+ into /'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_TAG'
     - if: '$CI_PIPELINE_SOURCE == "web"'
       when: manual
       allow_failure: true
+    - if: '$CI_COMMIT_BRANCH'
     - when: never
 
 android:build:
@@ -173,9 +179,13 @@ telegram:ci:
     MAGISK_TELEGRAM_PROJECT_TAG: "📌 #MiPushFramework"
     MAGISK_TELEGRAM_PROJECT_NAME: "MiPushFramework"
     MAGISK_TELEGRAM_CI_BRANCH: "beta"
+    MAGISK_TELEGRAM_CI_ARTIFACT_PATTERNS: |-
+      *arm64-v8a*.apk
+      arm64-v8a_*.zip
   needs:
     - job: android:build
       artifacts: true
+      optional: true
     - job: zygisk:build
       artifacts: true
       optional: true
@@ -184,7 +194,9 @@ android:detekt:
   extends:
     - .magisk_android_detekt
     - .mipush_android_rules
+  stage: quality
   allow_failure: true
+  needs: []
   variables:
     MAGISK_ANDROID_DETEKT_TASKS: >-
       detekt
@@ -205,6 +217,7 @@ android:test:
     - .mipush_android_rules
   stage: quality
   allow_failure: true
+  needs: []
   script:
     - |
       set -euo pipefail
@@ -277,6 +290,22 @@ android:release:gitlab:
       set -euo pipefail
       chmod +x scripts/publish_mipush_release.sh
       scripts/publish_mipush_release.sh gitlab-release
+
+telegram:release:
+  extends: .magisk_telegram_release
+  stage: release-publish
+  allow_failure: true
+  variables:
+    MAGISK_TELEGRAM_PROJECT_TAG: "📌 #MiPushFramework"
+    MAGISK_TELEGRAM_PROJECT_NAME: "MiPushFramework"
+    MAGISK_TELEGRAM_RELEASE_ARTIFACT_PATTERNS: |-
+      *arm64-v8a*.apk
+      arm64-v8a_*.zip
+  needs:
+    - job: android:release:apk
+      artifacts: true
+    - job: zygisk:build
+      artifacts: true
 
 android:release:modules-repo:
   extends: .magisk_android_base
