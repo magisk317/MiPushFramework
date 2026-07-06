@@ -115,7 +115,7 @@ jobs:
         run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > app/release.jks
 
       - name: Build MiPush release APK
-        run: ./gradlew :mipush:assembleRelease -PbuildSplits=true -Pkotlin.incremental=false
+        run: bash scripts/_toolkit/gradle/run_gradle_with_retry.sh :mipush:assembleRelease -PbuildSplits=true -Pkotlin.incremental=false
         env:
           KEYSTORE_FILE: release.jks
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}

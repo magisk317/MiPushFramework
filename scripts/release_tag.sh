@@ -39,7 +39,7 @@ run_pre_push_checks() {
   echo "Running pre-push CI command..."
   (
     cd "$ROOT_DIR"
-    ./gradlew "${gradle_args[@]}"
+    bash scripts/_toolkit/gradle/run_gradle_with_retry.sh "${gradle_args[@]}"
   )
   echo "Pre-push checks passed."
 }

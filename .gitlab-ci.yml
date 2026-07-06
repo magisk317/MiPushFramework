@@ -222,7 +222,7 @@ android:test:
     - |
       set -euo pipefail
       : "${MAGISK_GRADLE_ARGS:=--warning-mode all}"
-      ./gradlew $MAGISK_GRADLE_ARGS \
+      bash scripts/_toolkit/gradle/run_gradle_with_retry.sh $MAGISK_GRADLE_ARGS \
         :common:check \
         :xmsf:testNormalDebugUnitTest \
         :xmsf:testVc105DebugUnitTest \

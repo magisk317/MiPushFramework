@@ -35,7 +35,7 @@ jobs:
           allow-snapshot-wrappers: true
       - name: Detekt
         continue-on-error: true
-        run: ./gradlew --warning-mode all detekt qualityGateDetekt -PminifyDebug -Pkotlin.incremental=false
+        run: bash scripts/_toolkit/gradle/run_gradle_with_retry.sh --warning-mode all detekt qualityGateDetekt -PminifyDebug -Pkotlin.incremental=false
 
   test:
     runs-on: ubuntu-latest
@@ -57,7 +57,7 @@ jobs:
           allow-snapshot-wrappers: true
       - name: Test
         continue-on-error: true
-        run: ./gradlew --warning-mode all :common:check :xmsf:testNormalDebugUnitTest :xmsf:testVc105DebugUnitTest testDebugUnitTest -PminifyDebug -Pkotlin.incremental=false -x detekt -x qualityGateDetekt
+        run: bash scripts/_toolkit/gradle/run_gradle_with_retry.sh --warning-mode all :common:check :xmsf:testNormalDebugUnitTest :xmsf:testVc105DebugUnitTest testDebugUnitTest -PminifyDebug -Pkotlin.incremental=false -x detekt -x qualityGateDetekt
 
   build:
     runs-on: ubuntu-latest
@@ -78,7 +78,7 @@ jobs:
           validate-wrappers: false
           allow-snapshot-wrappers: true
       - name: Build
-        run: ./gradlew --warning-mode all :app:assembleDebug :mipush:assembleDebug -PbuildSplits -PminifyDebug -Pkotlin.incremental=false
+        run: bash scripts/_toolkit/gradle/run_gradle_with_retry.sh --warning-mode all :app:assembleDebug :mipush:assembleDebug -PbuildSplits -PminifyDebug -Pkotlin.incremental=false
       - name: Write build summary
         if: always()
         run: |
