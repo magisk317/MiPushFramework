@@ -6,13 +6,6 @@ pluginManagement {
         gradlePluginPortal()
         maven { url = uri("https://jitpack.io") }
     }
-    resolutionStrategy {
-        eachPlugin {
-            if (requested.id.id == "org.greenrobot.greendao") {
-                useModule("org.greenrobot:greendao-gradle-plugin:${requested.version}")
-            }
-        }
-    }
 }
 
 fun requireExistingProjectDir(path: String) {
