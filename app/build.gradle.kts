@@ -49,6 +49,9 @@ android {
 }
 
 dependencies {
+    implementation(project(":common"))
     implementation(project(":xmsf"))
     implementation(project(":manager"))
+
+    implementation(libs.kotlinx.coroutines.android)
 }
