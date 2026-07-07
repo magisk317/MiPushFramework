@@ -285,13 +285,6 @@ private fun InfoRow(
     summary: String,
 ) {
     ListItem(
-        headlineContent = {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.outline,
-            )
-        },
         supportingContent = {
             Text(
                 text = summary,
@@ -308,7 +301,13 @@ private fun InfoRow(
             )
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-    )
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.outline,
+        )
+    }
 }
 
 private fun formatTimestamp(ms: Long, fallback: String): String {

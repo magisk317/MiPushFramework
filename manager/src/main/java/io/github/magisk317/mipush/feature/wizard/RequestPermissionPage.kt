@@ -230,12 +230,6 @@ fun PermissionItem(
     onPermissionStateChanged: () -> Unit
 ) {
     ListItem(
-        headlineContent = { 
-            Text(
-                text = info.permissionTitle,
-                fontWeight = FontWeight.SemiBold
-            ) 
-        },
         supportingContent = { Text(text = info.permissionDescription) },
         leadingContent = {
             if (isGranted) {
@@ -259,16 +253,21 @@ fun PermissionItem(
                 }
             }
             .background(
-                color = if (isGranted) 
+                color = if (isGranted)
                     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                else 
+                else
                     MaterialTheme.colorScheme.surfaceVariant,
                 shape = MaterialTheme.shapes.medium
             ),
         colors = ListItemDefaults.colors(
             containerColor = Color.Transparent
         )
-    )
+    ) {
+        Text(
+            text = info.permissionTitle,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
 }
 
 @Composable
