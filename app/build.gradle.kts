@@ -4,7 +4,7 @@ plugins {
     id("magisk.app.packaging")
 }
 
-extra["mipushArtifactBaseName"] = "xmsf"
+extra["artifactBaseName"] = "xmsf"
 
 val versionNameStr = rootProject.version.toString().ifBlank { libs.versions.versionName.get() }
 val pushVersionCode = libs.versions.pushVersionCode.get().toInt()

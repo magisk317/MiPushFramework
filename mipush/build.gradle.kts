@@ -7,7 +7,7 @@ plugins {
     alias(libs.plugins.kotlin.parcelize)
 }
 
-extra["mipushArtifactBaseName"] = "MiPush"
+extra["artifactBaseName"] = "MiPush"
 
 android {
     namespace = "io.github.magisk317.mipush.app"
