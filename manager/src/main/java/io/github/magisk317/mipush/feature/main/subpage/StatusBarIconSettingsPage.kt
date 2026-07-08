@@ -38,10 +38,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.blur.blurEffect
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
 import io.github.magisk317.mipush.feature.ui.theme.spacing
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
@@ -64,18 +60,13 @@ fun StatusBarIconSettingsPage(
     val snackbarHostState = remember { SnackbarHostState() }
     val showSwitchFeedback = rememberStatusBarIconSwitchFeedback(snackbarHostState)
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val hazeState = remember { HazeState() }
 
     Page {
         Box(modifier = Modifier.fillMaxSize()) {
             OverlayHeaderScaffold(
                 fallbackTopPadding = topInset + 64.dp,
                 overlayModifier = Modifier
-                    .fillMaxWidth()
-                    .hazeEffect(hazeState) {
-                        blurEffect { }
-                        forceInvalidateOnPreDraw = true
-                    },
+                    .fillMaxWidth(),
                 overlay = {
                     TopAppBar(
                         title = { Text(stringResource(R.string.pref_color_status_bar_icon_title)) },
@@ -95,7 +86,6 @@ fun StatusBarIconSettingsPage(
                     SectionColumn(
                         modifier = Modifier
                             .fillMaxSize()
-                            .hazeSource(state = hazeState)
                             .verticalScroll(rememberScrollState()),
                         contentPadding = PaddingValues(
                             start = MaterialTheme.spacing.medium,

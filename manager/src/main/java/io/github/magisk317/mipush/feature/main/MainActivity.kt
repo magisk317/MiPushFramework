@@ -46,7 +46,6 @@ import androidx.navigation.NavController
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import io.github.magisk317.uikit.surface.NavigationSuiteScaffold
-import io.github.magisk317.uikit.theme.rememberHazeStyle
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -76,10 +75,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import io.github.magisk317.mipush.manager.R
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.blur.HazeBlurStyle
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
 import io.github.magisk317.uikit.theme.UiKitStyle
 import androidx.navigation.NavHostController
 import io.github.magisk317.mipush.feature.navigation.*
@@ -197,15 +192,10 @@ open class MainActivity : ComponentActivity() {
                 themeMode = ThemeMode.fromValue(currentThemeMode),
                 uiKitStyle = currentUiKitStyle,
             ) {
-                val hazeState = remember { HazeState() }
-                val hazeStyle = rememberHazeStyle()
-                
                 Box(modifier = Modifier.fillMaxSize()) {
                     MainScreen(
                         startDestination = startDestination,
                         initialRouteOverride = explicitRoute,
-                        hazeState = hazeState,
-                        hazeStyle = hazeStyle,
                     )
 
                     if (isAnimating && screenshotBitmap != null) {

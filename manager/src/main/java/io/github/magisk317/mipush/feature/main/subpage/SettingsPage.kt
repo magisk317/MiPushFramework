@@ -72,11 +72,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.manager.R
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.blur.HazeBlurStyle
-import dev.chrisbanes.haze.blur.blurEffect
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
 import io.github.magisk317.uikit.preference.SectionCard
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
 import io.github.magisk317.mipush.common.Constants
@@ -117,8 +112,6 @@ fun Settings(
     onNavigateToConnectionStatus: () -> Unit = {},
     onNavigateToStatusBarIconSettings: () -> Unit = {},
     sectionBackSignal: Int = 0,
-    hazeState: HazeState? = null,
-    hazeStyle: HazeBlurStyle? = null,
     scrollChromeState: ScrollChromeState? = null,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -134,8 +127,6 @@ fun Settings(
                 onNavigateToConnectionStatus = onNavigateToConnectionStatus,
                 onNavigateToStatusBarIconSettings = onNavigateToStatusBarIconSettings,
                 sectionBackSignal = sectionBackSignal,
-                hazeState = hazeState,
-                hazeStyle = hazeStyle,
                 snackbarHostState = snackbarHostState,
                 scrollChromeState = scrollChromeState,
                 scrollState = scrollState,
@@ -159,8 +150,6 @@ private fun SettingsScreen(
     onNavigateToStatusBarIconSettings: () -> Unit,
     scrollState: androidx.compose.foundation.ScrollState = androidx.compose.foundation.rememberScrollState(),
     sectionBackSignal: Int,
-    hazeState: HazeState?,
-    hazeStyle: HazeBlurStyle?,
     snackbarHostState: SnackbarHostState,
     scrollChromeState: ScrollChromeState?,
 ) {
@@ -182,17 +171,7 @@ private fun SettingsScreen(
         headerOffsetY = scrollChromeState?.animatedHeaderOffsetY ?: 0f,
         onHeaderHeightChanged = { scrollChromeState?.headerHeightPx = it.toFloat() },
         overlayModifier = Modifier
-            .fillMaxWidth()
-            .then(
-                if (hazeState != null && hazeStyle != null) {
-                    Modifier.hazeEffect(hazeState) {
-                        blurEffect { style = hazeStyle }
-                        forceInvalidateOnPreDraw = true
-                    }
-                } else {
-                    Modifier
-                }
-            ),
+            .fillMaxWidth(),
         overlay = {
             TopAppBar(
                 title = { Text(title) },
@@ -207,13 +186,6 @@ private fun SettingsScreen(
             SectionColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .then(
-                        if (hazeState != null) {
-                            Modifier.hazeSource(state = hazeState)
-                        } else {
-                            Modifier
-                        }
-                    )
                     .verticalScroll(scrollState),
                 contentPadding = PaddingValues(
                     start = MaterialTheme.spacing.medium,

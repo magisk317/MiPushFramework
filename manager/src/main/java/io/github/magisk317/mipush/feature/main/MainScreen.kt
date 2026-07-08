@@ -59,10 +59,6 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import io.github.magisk317.mipush.manager.R
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.blur.HazeBlurStyle
-import dev.chrisbanes.haze.blur.blurEffect
-import dev.chrisbanes.haze.hazeEffect
 import io.github.magisk317.uikit.surface.AppBottomNavigationBar
 import io.github.magisk317.uikit.surface.AppNavigationItemSpec
 import io.github.magisk317.uikit.surface.AppNavigationRail
@@ -109,8 +105,6 @@ private data class MainTabItem(
 fun MainScreen(
     startDestination: String,
     initialRouteOverride: String? = null,
-    hazeState: HazeState,
-    hazeStyle: HazeBlurStyle,
 ) {
     val context = LocalContext.current
     val navController = rememberNavController()
@@ -257,28 +251,22 @@ fun MainScreen(
             navController = navController,
             startDestination = startDestination,
             contentPadding = contentPadding,
-            hazeState = hazeState,
-            hazeStyle = hazeStyle,
-            overviewPage = { padding, hState, hStyle ->
+            overviewPage = { padding ->
                 Overview(
                     contentPadding = padding,
                     onShowAboutDialog = { content -> aboutDialogContent = content },
-                    hazeState = hState,
-                    hazeStyle = hStyle,
                 )
             },
-            eventsPage = { q, padding, _, groupByApp, hState, hStyle ->
+            eventsPage = { q, padding, _, groupByApp ->
                 EventList(
                     query = q,
                     contentPadding = padding,
                     refreshSignal = eventRefreshTrigger,
                     groupByApp = groupByApp,
-                    hazeState = hState,
-                    hazeStyle = hStyle,
                     scrollChromeState = scrollChromeState,
                 )
             },
-            appsPage = { q, padding, _, filterMode, hState, hStyle ->
+            appsPage = { q, padding, _, filterMode ->
                 ApplicationList(
                     q,
                     contentPadding = padding,
@@ -291,30 +279,26 @@ fun MainScreen(
                                 .putExtra(ApplicationInfoPage.EXTRA_IGNORE_NOT_REGISTERED, true),
                         )
                     },
-                    hazeState = hState,
-                    hazeStyle = hStyle,
                     scrollChromeState = scrollChromeState,
                 )
             },
-            configsPage = { initialQuery, padding, refreshSignal, onOpenEditor, hState, hStyle ->
+            configsPage = { initialQuery, padding, refreshSignal, onOpenEditor ->
                 Configurations(
                     initialQuery = initialQuery,
                     contentPadding = padding,
                     refreshSignal = configRefreshTrigger + refreshSignal,
                     onOpenEditor = onOpenEditor,
-                    hazeState = hState,
-                    hazeStyle = hStyle,
                     scrollChromeState = scrollChromeState,
                 )
             },
-            configEditorPage = { path, padding, onBack, _, _ ->
+            configEditorPage = { path, padding, onBack ->
                 ConfigurationEditor(
                     path = path,
                     onBack = onBack,
                     contentPadding = padding,
                 )
             },
-            settingsPage = { padding, onAbout, _, _, hState, hStyle ->
+            settingsPage = { padding, onAbout, _, _ ->
                 Settings(
                     contentPadding = padding,
                     onShowAboutDialog = onAbout,
@@ -324,8 +308,6 @@ fun MainScreen(
                         navController.navigate(AppDestinations.StatusBarIconSettings.ROUTE)
                     },
                     sectionBackSignal = settingsBackSignal,
-                    hazeState = hState,
-                    hazeStyle = hStyle,
                     scrollChromeState = scrollChromeState,
                 )
             },
@@ -375,11 +357,7 @@ fun MainScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 8.dp)
-                            .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                            .hazeEffect(hazeState) {
-                                blurEffect { style = hazeStyle }
-                                forceInvalidateOnPreDraw = true
-                            },
+                            .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)),
                     ) {
                         AppBottomNavigationBar(
                             items = tabs.mapIndexed { index, tab ->
@@ -403,11 +381,7 @@ fun MainScreen(
                     modifier = Modifier
                         .fillMaxHeight()
                         .padding(start = 12.dp, top = 12.dp, bottom = 12.dp)
-                        .clip(RoundedCornerShape(28.dp))
-                        .hazeEffect(hazeState) {
-                            blurEffect { style = hazeStyle }
-                            forceInvalidateOnPreDraw = true
-                        },
+                        .clip(RoundedCornerShape(28.dp)),
                 ) {
                     AppNavigationRail(
                         header = {
@@ -459,8 +433,6 @@ fun MainScreen(
             exit = fadeOut(animationSpec = tween(MAIN_CHROME_ANIMATION_MILLIS)),
         ) {
             SystemBarsScrim(
-                hazeState = hazeState,
-                hazeStyle = hazeStyle,
                 statusBarAlpha = systemBarAlpha,
                 navBarAlpha = systemBarAlpha,
             )

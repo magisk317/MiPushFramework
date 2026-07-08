@@ -34,12 +34,6 @@ class SettingsViewModel constructor(
     private val _themeState = MutableStateFlow(ThemeState(0))
     val themeState: StateFlow<ThemeState> = _themeState.asStateFlow()
 
-    val hazeBlurRadius: StateFlow<Int> = preferenceRepository.hazeBlurRadius
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 25)
-
-    val hazeTintAlpha: StateFlow<Float> = preferenceRepository.hazeTintAlpha
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.2f)
-
     val xmppServer: StateFlow<String?> = preferenceRepository.xmppServer
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
@@ -124,18 +118,6 @@ class SettingsViewModel constructor(
             preferenceRepository.runtimeLogRetentionDays.collect { days ->
                 settingsManager.setRuntimeLogRetentionDays(days)
             }
-        }
-    }
-
-    fun updateHazeBlurRadius(radius: Int) {
-        viewModelScope.launch {
-            preferenceRepository.setHazeBlurRadius(radius)
-        }
-    }
-
-    fun updateHazeTintAlpha(alpha: Float) {
-        viewModelScope.launch {
-            preferenceRepository.setHazeTintAlpha(alpha)
         }
     }
 

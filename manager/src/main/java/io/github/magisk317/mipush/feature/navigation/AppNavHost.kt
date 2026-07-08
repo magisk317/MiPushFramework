@@ -11,8 +11,6 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.compose.foundation.layout.PaddingValues
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.blur.HazeBlurStyle
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
@@ -40,14 +38,12 @@ fun AppNavHostContent(
     navController: NavHostController,
     startDestination: String = AppDestinations.Overview.ROUTE,
     contentPadding: PaddingValues,
-    hazeState: HazeState? = null,
-    hazeStyle: HazeBlurStyle? = null,
-    overviewPage: @Composable (PaddingValues, HazeState?, HazeBlurStyle?) -> Unit,
-    eventsPage: @Composable (String, PaddingValues, Int, Boolean, HazeState?, HazeBlurStyle?) -> Unit,
-    appsPage: @Composable (String, PaddingValues, Int, Int, HazeState?, HazeBlurStyle?) -> Unit,
-    configsPage: @Composable (String, PaddingValues, Int, (String) -> Unit, HazeState?, HazeBlurStyle?) -> Unit,
-    configEditorPage: @Composable (String, PaddingValues, () -> Unit, HazeState?, HazeBlurStyle?) -> Unit,
-    settingsPage: @Composable (PaddingValues, (String?) -> Unit, (String?) -> Unit, Int, HazeState?, HazeBlurStyle?) -> Unit,
+    overviewPage: @Composable (PaddingValues) -> Unit,
+    eventsPage: @Composable (String, PaddingValues, Int, Boolean) -> Unit,
+    appsPage: @Composable (String, PaddingValues, Int, Int) -> Unit,
+    configsPage: @Composable (String, PaddingValues, Int, (String) -> Unit) -> Unit,
+    configEditorPage: @Composable (String, PaddingValues, () -> Unit) -> Unit,
+    settingsPage: @Composable (PaddingValues, (String?) -> Unit, (String?) -> Unit, Int) -> Unit,
     onAbout: (String?) -> Unit = {},
     onSectionChanged: (String?) -> Unit = {},
 ) {
@@ -141,7 +137,7 @@ fun AppNavHostContent(
                 ) + fadeOut(animationSpec = tween(300))
             },
         ) {
-            overviewPage(contentPadding, hazeState, hazeStyle)
+            overviewPage(contentPadding)
         }
 
         // ==================== Events 分支 ====================
@@ -176,7 +172,7 @@ fun AppNavHostContent(
                 ) + fadeOut(animationSpec = tween(300))
             },
         ) {
-            eventsPage("", contentPadding, 0, false, hazeState, hazeStyle)
+            eventsPage("", contentPadding, 0, false)
         }
 
         composable(
@@ -244,7 +240,7 @@ fun AppNavHostContent(
                 ) + fadeOut(animationSpec = tween(300))
             },
         ) {
-            appsPage("", contentPadding, 0, 0, hazeState, hazeStyle)
+            appsPage("", contentPadding, 0, 0)
         }
 
         composable(
@@ -317,8 +313,6 @@ fun AppNavHostContent(
                 contentPadding,
                 0,
                 { path -> navController.navigate(AppDestinations.ConfigEditor.route(path)) },
-                hazeState,
-                hazeStyle,
             )
         }
 
@@ -361,8 +355,6 @@ fun AppNavHostContent(
                 contentPadding,
                 0,
                 { path -> navController.navigate(AppDestinations.ConfigEditor.route(path)) },
-                hazeState,
-                hazeStyle,
             )
         }
 
@@ -404,8 +396,6 @@ fun AppNavHostContent(
                 ),
                 contentPadding,
                 { navController.popBackStack() },
-                hazeState,
-                hazeStyle,
             )
         }
 
@@ -441,7 +431,7 @@ fun AppNavHostContent(
                 ) + fadeOut(animationSpec = tween(300))
             },
         ) {
-            settingsPage(contentPadding, onAbout, onSectionChanged, 0, hazeState, hazeStyle)
+            settingsPage(contentPadding, onAbout, onSectionChanged, 0)
         }
 
         composable(

@@ -177,7 +177,7 @@ scripts/build_release.sh
 ## 致谢
 
 - @Rachel030219 提供文件。
-- Android Open Source Project, AndroidX, Jetpack Compose, Material 3, Kotlin, kotlinx.coroutines, kotlinx.serialization, Koin, Room, DataStore, Navigation, Lifecycle, AppCompat, libxposed API, LSPosed HiddenApiBypass, libsu, Napier, Haze, Miuix, JetBrains Markdown, JUnit, MockK, Robolectric, Detekt, Kover, KSP。
+- Android Open Source Project, AndroidX, Jetpack Compose, Material 3, Kotlin, kotlinx.coroutines, kotlinx.serialization, Koin, Room, DataStore, Navigation, Lifecycle, AppCompat, libxposed API, LSPosed HiddenApiBypass, libsu, Napier, Miuix, JetBrains Markdown, JUnit, MockK, Robolectric, Detekt, Kover, KSP。
 - [HyperIsland](https://github.com/1812z/HyperIsland) 提供超级岛实现参考。
 - [HyperIsland-ToolKit](https://github.com/D4vidDf/HyperIsland-ToolKit) 提供 HyperIsland SDK 支持。
 - 酷安 @PzHown @lmnm011223 @苏沐晨风丶（未采纳）提供图标。

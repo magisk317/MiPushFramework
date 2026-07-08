@@ -56,11 +56,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.aakira.napier.Napier
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.blur.HazeBlurStyle
-import dev.chrisbanes.haze.blur.blurEffect
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
 import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.main.viewmodel.ApplicationListViewModel
@@ -107,8 +102,6 @@ fun ApplicationList(
     refreshSignal: Int = 0,
     filterMode: Int = 0,
     onAppClick: (String) -> Unit,
-    hazeState: HazeState? = null,
-    hazeStyle: HazeBlurStyle? = null,
     scrollChromeState: ScrollChromeState? = null,
 ) {
     val listViewModel: ApplicationListViewModel = koinViewModel()
@@ -173,17 +166,7 @@ fun ApplicationList(
             headerOffsetY = if (searchExpanded) 0f else (scrollChromeState?.animatedHeaderOffsetY ?: 0f),
             onHeaderHeightChanged = { scrollChromeState?.headerHeightPx = it.toFloat() },
             overlayModifier = Modifier
-                .fillMaxWidth()
-                .then(
-                    if (hazeState != null && hazeStyle != null) {
-                        Modifier.hazeEffect(hazeState) {
-                            blurEffect { style = hazeStyle }
-                            forceInvalidateOnPreDraw = true
-                        }
-                    } else {
-                        Modifier
-                    }
-                ),
+                .fillMaxWidth(),
             content = { listPadding ->
                 RefreshableLazyColumn(
                     onRefresh,
@@ -196,13 +179,7 @@ fun ApplicationList(
                         top = listPadding.calculateTopPadding() + 8.dp,
                         bottom = listPadding.calculateBottomPadding(),
                     ),
-                    modifier = if (hazeState != null) {
-                        Modifier
-                            .fillMaxSize()
-                            .hazeSource(hazeState)
-                    } else {
-                        Modifier.fillMaxSize()
-                    },
+                    modifier = Modifier.fillMaxSize(),
                     listState = listState,
                 ) {
                     items(items.res, { it.packageName }) {
@@ -453,8 +430,6 @@ private fun ApplicationListPreview(
     onAppClick: (String) -> Unit,
     items: ApplicationPageOperation.MiPushApplications,
     itemsInfo: Map<String, AppInfoForDisplay>,
-    hazeState: HazeState? = null,
-    hazeStyle: HazeBlurStyle? = null,
     scrollChromeState: ScrollChromeState? = null,
 ) {
     val isPreview = LocalInspectionMode.current

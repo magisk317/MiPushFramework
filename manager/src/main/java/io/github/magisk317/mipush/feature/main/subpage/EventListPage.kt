@@ -70,11 +70,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.blur.HazeBlurStyle
-import dev.chrisbanes.haze.blur.blurEffect
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.manager.R
@@ -121,8 +116,6 @@ fun EventList(
     refreshSignal: Int = 0,
     groupByApp: Boolean = false,
     viewModel: EventListViewModel = koinViewModel(),
-    hazeState: HazeState? = null,
-    hazeStyle: HazeBlurStyle? = null,
     scrollChromeState: ScrollChromeState? = null,
 ) {
     Page {
@@ -161,17 +154,7 @@ fun EventList(
             headerOffsetY = scrollChromeState?.animatedHeaderOffsetY ?: 0f,
             onHeaderHeightChanged = { scrollChromeState?.headerHeightPx = it.toFloat() },
             overlayModifier = Modifier
-                .fillMaxWidth()
-                .then(
-                    if (hazeState != null && hazeStyle != null) {
-                        Modifier.hazeEffect(hazeState) {
-                            blurEffect { style = hazeStyle }
-                            forceInvalidateOnPreDraw = true
-                        }
-                    } else {
-                        Modifier
-                    }
-                ),
+                .fillMaxWidth(),
             content = { listPadding ->
                 if (showGroupedByApp) {
                     EventGroupList(
@@ -184,7 +167,6 @@ fun EventList(
                         viewModel = viewModel,
                         selectedTypeFilters = selectedTypeFilters,
                         selectedStatusFilters = selectedStatusFilters,
-                        hazeState = hazeState,
                         scrollChromeState = scrollChromeState,
                         listState = listState,
                     )
@@ -207,8 +189,6 @@ fun EventList(
                         ),
                         selectedTypeFilters = selectedTypeFilters,
                         selectedStatusFilters = selectedStatusFilters,
-                        hazeState = hazeState,
-                        hazeStyle = hazeStyle,
                         snackbarHostState = snackbarHostState,
                         viewModel = viewModel,
                         scrollChromeState = scrollChromeState,
@@ -524,7 +504,6 @@ private fun EventGroupList(
     viewModel: EventListViewModel,
     selectedTypeFilters: Set<EventTypeFilter>,
     selectedStatusFilters: Set<EventStatusFilter>,
-    hazeState: HazeState? = null,
     scrollChromeState: ScrollChromeState? = null,
     listState: androidx.compose.foundation.lazy.LazyListState? = null,
 ) {
@@ -610,7 +589,7 @@ private fun EventGroupList(
         scrollToTopSignal = refreshSignal,
         scrollChromeState = scrollChromeState,
         contentPadding = contentPadding,
-        modifier = if (hazeState != null) Modifier.hazeSource(hazeState) else Modifier,
+        modifier = Modifier,
         listState = listState,
     ) {
         if (groupedItems.isEmpty() && !isLoading) {
@@ -811,8 +790,6 @@ private fun EventList(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     selectedTypeFilters: Set<EventTypeFilter> = emptySet(),
     selectedStatusFilters: Set<EventStatusFilter> = emptySet(),
-    hazeState: HazeState? = null,
-    hazeStyle: HazeBlurStyle? = null,
     snackbarHostState: SnackbarHostState,
     viewModel: EventListViewModel,
     scrollChromeState: ScrollChromeState? = null,
@@ -900,11 +877,7 @@ private fun EventList(
         scrollToTopSignal = refreshSignal,
         scrollChromeState = scrollChromeState,
         contentPadding = contentPadding,
-        modifier = if (hazeState != null) {
-            Modifier.hazeSource(hazeState)
-        } else {
-            Modifier
-        },
+        modifier = Modifier,
         listState = listState,
     ) {
         if (filteredItems.isEmpty() && !isLoading) {

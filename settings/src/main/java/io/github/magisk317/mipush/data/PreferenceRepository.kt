@@ -56,8 +56,6 @@ class PreferenceRepository constructor(
     private val ISLAND_SHOW_ORIGINAL_NOTIFICATION = booleanPreferencesKey(ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION)
     private val ISLAND_FOCUS_NOTIF = booleanPreferencesKey(ISLAND_PREF_FOCUS_NOTIF)
 
-    private val HAZE_BLUR_RADIUS = intPreferencesKey("haze_blur_radius")
-    private val HAZE_TINT_ALPHA = floatPreferencesKey("haze_tint_alpha")
     private val SHOW_WIZARD = booleanPreferencesKey("show_wizard")
     private val USAGE_STATS_REQUESTED = booleanPreferencesKey("usage_stats_requested")
     private val EVENT_GROUP_BY_APP = booleanPreferencesKey("event_group_by_app")
@@ -100,8 +98,6 @@ class PreferenceRepository constructor(
     val colorStatusBarIconGlobal: Flow<Boolean> = dataStore.data.map { it[COLOR_STATUS_BAR_ICON_GLOBAL] ?: false }
     val dualAppEnabled: Flow<Boolean> = dataStore.data.map { it[DUAL_APP_ENABLED] ?: false }
 
-    val hazeBlurRadius: Flow<Int> = dataStore.data.map { it[HAZE_BLUR_RADIUS] ?: 25 }
-    val hazeTintAlpha: Flow<Float> = dataStore.data.map { it[HAZE_TINT_ALPHA] ?: 0.2f }
     val showWizard: Flow<Boolean> = dataStore.data.map { it[SHOW_WIZARD] ?: true }
     val usageStatsRequested: Flow<Boolean> = dataStore.data.map { it[USAGE_STATS_REQUESTED] ?: false }
     val eventGroupByApp: Flow<Boolean> = dataStore.data.map { it[EVENT_GROUP_BY_APP] ?: false }
@@ -221,14 +217,6 @@ class PreferenceRepository constructor(
 
     suspend fun setConfigDirectory(uri: String) {
         dataStore.edit { it[CONFIG_DIRECTORY] = uri }
-    }
-
-    suspend fun setHazeBlurRadius(radius: Int) {
-        dataStore.edit { it[HAZE_BLUR_RADIUS] = radius }
-    }
-
-    suspend fun setHazeTintAlpha(alpha: Float) {
-        dataStore.edit { it[HAZE_TINT_ALPHA] = alpha }
     }
 
     suspend fun setShowWizard(show: Boolean) {

@@ -63,7 +63,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import dev.chrisbanes.haze.hazeSource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.input.pointer.pointerInput
@@ -78,10 +77,6 @@ import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.main.viewmodel.OverviewViewModel
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.blur.HazeBlurStyle
-import dev.chrisbanes.haze.blur.blurEffect
-import dev.chrisbanes.haze.hazeEffect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.feature.main.MainActivityOperation
@@ -105,15 +100,11 @@ private val OverviewCardShape = RoundedCornerShape(28.dp)
 fun Overview(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     onShowAboutDialog: (String) -> Unit = {},
-    hazeState: HazeState? = null,
-    hazeStyle: HazeBlurStyle? = null,
 ) {
     Page {
         OverviewScreen(
             contentPadding = contentPadding,
             onShowAboutDialog = onShowAboutDialog,
-            hazeState = hazeState,
-            hazeStyle = hazeStyle,
         )
     }
 }
@@ -122,8 +113,6 @@ fun Overview(
 private fun OverviewScreen(
     contentPadding: PaddingValues,
     onShowAboutDialog: (String) -> Unit,
-    hazeState: HazeState?,
-    hazeStyle: HazeBlurStyle?,
 ) {
     val context = LocalContext.current
     val overviewViewModel: OverviewViewModel = koinViewModel()
@@ -146,13 +135,6 @@ private fun OverviewScreen(
         SectionColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .then(
-                    if (hazeState != null) {
-                        Modifier.hazeSource(state = hazeState)
-                    } else {
-                        Modifier
-                    }
-                )
                 .verticalScroll(scrollState),
             contentPadding = PaddingValues(
                 start = MaterialTheme.spacing.medium,
@@ -196,17 +178,7 @@ private fun OverviewScreen(
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .align(Alignment.TopCenter)
-                .then(
-                    if (hazeState != null && hazeStyle != null) {
-                        Modifier.hazeEffect(hazeState) {
-                            blurEffect { style = hazeStyle }
-                            forceInvalidateOnPreDraw = true
-                        }
-                    } else {
-                        Modifier
-                    }
-                ),
+                .align(Alignment.TopCenter),
             colors = TopAppBarDefaults.topAppBarColors(
                 containerColor = Color.Transparent,
                 scrolledContainerColor = Color.Transparent,

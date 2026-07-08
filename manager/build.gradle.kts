@@ -37,8 +37,6 @@ dependencies {
     implementation(libs.androidx.startup.runtime)
 
     implementation(libs.markdown)
-    implementation(libs.haze.android)
-    implementation(libs.haze.blur.android)
     implementation(libs.androidx.datastore.preferences)
 
     implementation(libs.koin.android)
