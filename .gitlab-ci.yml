@@ -161,7 +161,30 @@ zygisk:build:
     - |
       set -euo pipefail
       source scripts/resolve_zygisk_version_env.sh
-      git clone --depth 1 --branch "$MIPUSH_ZYGISK_REF" "$MIPUSH_ZYGISK_REPOSITORY" MiPushZygisk
+      cached_target_dir=""
+      if [ -d MiPushZygisk ] && [ ! -d MiPushZygisk/.git ]; then
+        cached_target_dir="$(mktemp -d)"
+        if [ -d MiPushZygisk/module/target ]; then
+          mkdir -p "$cached_target_dir/module"
+          mv MiPushZygisk/module/target "$cached_target_dir/module/target"
+        fi
+        rm -rf MiPushZygisk
+      fi
+      if [ -d MiPushZygisk/.git ]; then
+        git -C MiPushZygisk remote set-url origin "$MIPUSH_ZYGISK_REPOSITORY"
+        git -C MiPushZygisk fetch --depth 1 origin "$MIPUSH_ZYGISK_REF"
+        git -C MiPushZygisk checkout --detach FETCH_HEAD
+      else
+        git clone --depth 1 --branch "$MIPUSH_ZYGISK_REF" "$MIPUSH_ZYGISK_REPOSITORY" MiPushZygisk
+      fi
+      if [ -n "$cached_target_dir" ] && [ -d "$cached_target_dir/module/target" ]; then
+        mkdir -p MiPushZygisk/module
+        rm -rf MiPushZygisk/module/target
+        mv "$cached_target_dir/module/target" MiPushZygisk/module/target
+      fi
+      if [ -n "$cached_target_dir" ]; then
+        rm -rf "$cached_target_dir"
+      fi
       cd MiPushZygisk
       ./build.sh
   artifacts:
@@ -233,6 +256,22 @@ android:test:
         -x qualityGateDetekt
   artifacts:
     name: "MiPushFramework-test-$CI_COMMIT_REF_SLUG"
+    when: always
+    expire_in: 14 days
+    reports:
+      junit:
+        - "**/build/test-results/test*/TEST-*.xml"
+
+android:shared-compat:
+  extends:
+    - .magisk_android_base
+    - .mipush_android_rules
+  stage: quality
+  needs: []
+  script:
+    - bash scripts/checks/verify_shared_submodule_compat.sh
+  artifacts:
+    name: "MiPushFramework-shared-compat-$CI_COMMIT_REF_SLUG"
     when: always
     expire_in: 14 days
     reports:
