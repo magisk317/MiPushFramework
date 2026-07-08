@@ -5,6 +5,7 @@ import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
+import io.github.magisk317.mipush.common.utils.BundleSerializer
 
 import android.content.Intent
 import io.github.aakira.napier.Napier
