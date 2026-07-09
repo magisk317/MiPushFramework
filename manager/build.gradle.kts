@@ -20,7 +20,7 @@ android {
 dependencies {
     implementation(project(":common"))
     implementation(project(":settings"))
-    implementation(project(":magisk-ui-kit"))
+    api(project(":magisk-ui-kit"))
     implementation(project(":core"))
 
     testImplementation(libs.junit.jupiter)
