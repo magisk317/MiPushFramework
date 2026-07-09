@@ -26,10 +26,8 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -82,9 +80,9 @@ import io.github.magisk317.uikit.surface.MetricCard
 import io.github.magisk317.uikit.surface.MetricGrid
 import io.github.magisk317.uikit.surface.MetricSpec
 import io.github.magisk317.uikit.surface.OverlayHeaderScaffold
-import io.github.magisk317.uikit.surface.WorkspaceSearchField
 import io.github.magisk317.uikit.surface.WorkspaceTopBarSearchOverlay
 import io.github.magisk317.uikit.surface.WorkspaceListItem
+import io.github.magisk317.uikit.surface.chromeTopAppBarColors
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -157,13 +155,14 @@ fun ApplicationList(
 
     Page {
         val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-        val topOverlayHeight = topInset + if (searchExpanded) 152.dp else 96.dp
+        val searchActive = searchExpanded || currentQuery.isNotBlank()
+        val topOverlayHeight = topInset + if (searchActive) 152.dp else 96.dp
         val listState = androidx.compose.foundation.lazy.rememberLazyListState()
         Box(modifier = Modifier.fillMaxSize()) {
         OverlayHeaderScaffold(
             fallbackTopPadding = topOverlayHeight,
             bottomPadding = contentPadding.calculateBottomPadding() + 28.dp,
-            headerOffsetY = if (searchExpanded) 0f else (scrollChromeState?.animatedHeaderOffsetY ?: 0f),
+            headerOffsetY = scrollChromeState?.animatedHeaderOffsetY ?: 0f,
             onHeaderHeightChanged = { scrollChromeState?.headerHeightPx = it.toFloat() },
             overlayModifier = Modifier
                 .fillMaxWidth(),
@@ -188,28 +187,14 @@ fun ApplicationList(
                 }
             },
             overlay = {
-                Column {
-                    TopAppBar(
-                        title = { Text(stringResource(R.string.app_list_hero_title)) },
-                        windowInsets = WindowInsets.statusBars,
-                        actions = {
-                            IconButton(onClick = { searchExpanded = !searchExpanded }) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_search_24dp),
-                                    contentDescription = stringResource(R.string.action_search),
-                                    tint = if (searchExpanded || currentQuery.isNotBlank()) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
-                                )
-                            }
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.Transparent,
-                            scrolledContainerColor = Color.Transparent,
-                        ),
-                    )
+                WorkspaceTopBarSearchOverlay(
+                    title = stringResource(R.string.app_list_hero_title),
+                    searchQuery = currentQuery,
+                    searchPlaceholder = stringResource(android.R.string.search_go),
+                    searchVisible = searchActive,
+                    searchActionContentDescription = stringResource(R.string.action_search),
+                    onSearchActionClick = { searchExpanded = !searchExpanded },
+                    preSearchContent = {
                     Text(
                         text = stringResource(
                             R.string.app_list_hero_summary,
@@ -224,16 +209,8 @@ fun ApplicationList(
                             bottom = MaterialTheme.spacing.small,
                         ),
                     )
-                    if (searchExpanded || currentQuery.isNotBlank()) {
-                        WorkspaceSearchField(
-                            query = currentQuery,
-                            placeholder = stringResource(android.R.string.search_go),
-                            onValueChange = { currentQuery = it },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = MaterialTheme.spacing.medium),
-                        )
-                    }
+                    },
+                    supportingContent = {
                     Column(
                         modifier = Modifier.padding(
                             start = MaterialTheme.spacing.medium,
@@ -248,7 +225,9 @@ fun ApplicationList(
                             filterMode = filterMode,
                         )
                     }
-                }
+                    },
+                    onSearchChange = { currentQuery = it },
+                )
             },
         )
         ScrollToTopFAB(listState, visible = scrollChromeState?.isChromeVisible != true, extraBottomPadding = 80.dp)
@@ -472,10 +451,7 @@ private fun ApplicationListPreview(
                         TopAppBar(
                             title = { Text(stringResource(R.string.app_list_hero_title)) },
                             windowInsets = WindowInsets.statusBars,
-                            colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = Color.Transparent,
-                                scrolledContainerColor = Color.Transparent,
-                            ),
+                            colors = chromeTopAppBarColors(),
                         )
                     }
                 },

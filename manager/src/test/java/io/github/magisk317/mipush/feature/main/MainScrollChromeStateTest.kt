@@ -95,25 +95,31 @@ class MainScrollChromeStateTest {
         assertTrue(
             shouldKeepMainChromeVisible(
                 route = AppDestinations.Overview.ROUTE,
-                chromeVisible = false,
             ),
         )
         assertTrue(
             shouldKeepMainChromeVisible(
                 route = AppDestinations.Settings.ROUTE,
-                chromeVisible = false,
             ),
         )
         assertTrue(
             shouldKeepMainChromeVisible(
                 route = AppDestinations.SettingsSection.ROUTE,
-                chromeVisible = false,
+            ),
+        )
+        assertTrue(
+            shouldKeepMainChromeVisible(
+                route = AppDestinations.Configs.ROUTE,
+            ),
+        )
+        assertTrue(
+            shouldKeepMainChromeVisible(
+                route = AppDestinations.ConfigsSearch.ROUTE,
             ),
         )
         assertFalse(
             shouldKeepMainChromeVisible(
                 route = AppDestinations.AppsList.ROUTE,
-                chromeVisible = false,
             ),
         )
     }

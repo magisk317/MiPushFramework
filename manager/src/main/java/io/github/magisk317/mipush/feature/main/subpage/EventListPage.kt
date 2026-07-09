@@ -41,8 +41,6 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -91,7 +89,7 @@ import io.github.magisk317.uikit.surface.DialogActionRow
 import io.github.magisk317.uikit.surface.ScrollToTopFAB
 import io.github.magisk317.uikit.surface.InfoPill
 import io.github.magisk317.uikit.surface.OverlayHeaderScaffold
-import io.github.magisk317.uikit.surface.WorkspaceSearchField
+import io.github.magisk317.uikit.surface.WorkspaceTopBarSearchOverlay
 import io.github.magisk317.uikit.surface.WorkspaceEmptyState
 import io.github.magisk317.uikit.surface.WorkspaceListItem
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
@@ -197,13 +195,17 @@ fun EventList(
                 }
             },
             overlay = {
-                TopAppBar(
-                    title = {
-                        Text(
-                            if (packageName.isNotEmpty()) resolvedTitle ?: packageName else stringResource(R.string.recent_activity_title),
-                        )
+                WorkspaceTopBarSearchOverlay(
+                    title = if (packageName.isNotEmpty()) {
+                        resolvedTitle ?: packageName
+                    } else {
+                        stringResource(R.string.recent_activity_title)
                     },
-                    windowInsets = WindowInsets.statusBars,
+                    searchQuery = currentQuery,
+                    searchPlaceholder = stringResource(android.R.string.search_go),
+                    searchVisible = searchActive,
+                    searchActionContentDescription = stringResource(R.string.action_search),
+                    onSearchActionClick = { searchExpanded = !searchExpanded },
                     actions = {
                         if (packageName.isEmpty()) {
                             IconButton(onClick = { groupMode = !groupMode }) {
@@ -224,33 +226,9 @@ fun EventList(
                                 )
                             }
                         }
-                        IconButton(onClick = { searchExpanded = !searchExpanded }) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_search_24dp),
-                                contentDescription = stringResource(R.string.action_search),
-                                tint = if (searchExpanded || currentQuery.isNotBlank()) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                },
-                            )
-                        }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        scrolledContainerColor = Color.Transparent,
-                    ),
+                    onSearchChange = { currentQuery = it },
                 )
-                if (searchExpanded || currentQuery.isNotBlank()) {
-                    WorkspaceSearchField(
-                        query = currentQuery,
-                        placeholder = stringResource(android.R.string.search_go),
-                        onValueChange = { currentQuery = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = MaterialTheme.spacing.medium),
-                    )
-                }
             }
         )
             val snackbarBottomPadding = contentPadding.calculateBottomPadding() +

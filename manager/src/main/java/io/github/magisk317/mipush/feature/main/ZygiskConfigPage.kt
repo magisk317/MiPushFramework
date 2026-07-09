@@ -58,6 +58,7 @@ import io.github.magisk317.mipush.feature.ui.theme.spacing
 import io.github.magisk317.mipush.main.viewmodel.ZygiskConfigViewModel
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.surface.AppIconImage
+import io.github.magisk317.uikit.surface.chromeTopAppBarColors
 import kotlinx.coroutines.launch
 import io.github.magisk317.mipush.manager.di.ManagerDependencies
 import org.koin.androidx.viewmodel.ext.android.viewModel
@@ -92,7 +93,8 @@ class ZygiskConfigPage : ComponentActivity() {
             modifier = Modifier.fillMaxSize(),
             topBar = {
                 TopAppBar(
-                    title = { Text(stringResource(R.string.zygisk_status)) }
+                    title = { Text(stringResource(R.string.zygisk_status)) },
+                    colors = chromeTopAppBarColors(),
                 )
             },
             floatingActionButton = {

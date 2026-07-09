@@ -45,7 +45,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -74,6 +73,7 @@ import io.github.magisk317.uikit.surface.OverlayHeaderScaffold
 import io.github.magisk317.uikit.surface.ScrollToTopFAB
 import io.github.magisk317.uikit.surface.WorkspaceSearchField
 import io.github.magisk317.uikit.surface.WorkspaceListItem
+import io.github.magisk317.uikit.surface.chromeTopAppBarColors
 import io.github.magisk317.uikit.scroll.ScrollChromeState
 import io.github.magisk317.uikit.scroll.ReportLazyListScrollToChrome
 import io.github.magisk317.mipush.feature.ui.theme.spacing
@@ -244,10 +244,7 @@ fun Configurations(
                 TopAppBar(
                     title = { Text(stringResource(R.string.main_configs)) },
                     windowInsets = WindowInsets.statusBars,
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        scrolledContainerColor = Color.Transparent,
-                    ),
+                    colors = chromeTopAppBarColors(),
                 )
             },
             content = { listPadding ->
@@ -401,6 +398,7 @@ fun ConfigurationEditor(
                         )
                     }
                 },
+                colors = chromeTopAppBarColors(),
             )
 
             Column(

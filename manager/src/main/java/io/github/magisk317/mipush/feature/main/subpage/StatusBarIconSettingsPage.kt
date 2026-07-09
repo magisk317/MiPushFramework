@@ -26,7 +26,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -46,6 +45,7 @@ import io.github.magisk317.uikit.preference.SectionCard
 import io.github.magisk317.uikit.preference.StateSwitchItem as SettingsSwitchItem
 import io.github.magisk317.uikit.surface.OverlayHeaderScaffold
 import io.github.magisk317.uikit.surface.SectionColumn
+import io.github.magisk317.uikit.surface.chromeTopAppBarColors
 import java.util.Locale
 import kotlinx.coroutines.launch
 
@@ -76,10 +76,7 @@ fun StatusBarIconSettingsPage(
                             }
                         },
                         windowInsets = WindowInsets.statusBars,
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.Transparent,
-                            scrolledContainerColor = Color.Transparent,
-                        ),
+                        colors = chromeTopAppBarColors(),
                     )
                 },
                 content = { listPadding ->
