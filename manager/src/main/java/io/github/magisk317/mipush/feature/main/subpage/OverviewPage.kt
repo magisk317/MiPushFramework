@@ -57,6 +57,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -100,11 +101,13 @@ private val OverviewCardShape = RoundedCornerShape(28.dp)
 fun Overview(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     onShowAboutDialog: (String) -> Unit = {},
+    onNavigateToConnectionStatus: () -> Unit = {},
 ) {
     Page {
         OverviewScreen(
             contentPadding = contentPadding,
             onShowAboutDialog = onShowAboutDialog,
+            onNavigateToConnectionStatus = onNavigateToConnectionStatus,
         )
     }
 }
@@ -113,6 +116,7 @@ fun Overview(
 private fun OverviewScreen(
     contentPadding: PaddingValues,
     onShowAboutDialog: (String) -> Unit,
+    onNavigateToConnectionStatus: () -> Unit,
 ) {
     val context = LocalContext.current
     val overviewViewModel: OverviewViewModel = koinViewModel()
@@ -174,7 +178,7 @@ private fun OverviewScreen(
             title = { Text(text = stringResource(R.string.app_name)) },
             windowInsets = WindowInsets.statusBars,
             actions = {
-                ConnectionStatusIndicator()
+                ConnectionStatusIndicator(onClick = onNavigateToConnectionStatus)
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -214,7 +218,7 @@ private fun OverviewScreen(
 }
 
 @Composable
-private fun ConnectionStatusIndicator() {
+private fun ConnectionStatusIndicator(onClick: () -> Unit = {}) {
     val viewModel: io.github.magisk317.mipush.main.viewmodel.ConnectionStatusViewModel = koinViewModel()
     val snapshot by viewModel.snapshot.collectAsState()
 
@@ -232,7 +236,10 @@ private fun ConnectionStatusIndicator() {
     }
 
     Row(
-        modifier = Modifier.padding(end = 16.dp),
+        modifier = Modifier
+            .clip(CircleShape)
+            .clickable(onClick = onClick)
+            .padding(end = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {

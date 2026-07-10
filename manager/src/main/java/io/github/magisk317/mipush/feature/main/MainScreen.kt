@@ -240,6 +240,7 @@ fun MainScreen(
                 Overview(
                     contentPadding = padding,
                     onShowAboutDialog = { content -> aboutDialogContent = content },
+                    onNavigateToConnectionStatus = { navController.navigate(AppDestinations.ConnectionStatus.ROUTE) },
                 )
             },
             eventsPage = { q, padding, _, groupByApp ->
