@@ -152,9 +152,6 @@ zygisk:build:
       [source.tuna]
       registry = "sparse+https://mirrors.tuna.tsinghua.edu.cn/crates.io-index/"
 
-      [source.tuna-fallback]
-      registry = "sparse+https://index.crates.io/"
-
       [net]
       git-fetch-with-cli = true
       EOF
