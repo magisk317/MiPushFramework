@@ -3,6 +3,8 @@ package io.github.magisk317.mipush.hook.fakedevice
 import android.app.Application
 import io.github.magisk317.xposed.LoadParam
 import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.DefaultLogSanitizer
+import io.github.magisk317.xposed.logging.LogSanitizerConfig
 import io.github.magisk317.xposed.findClass
 import io.github.magisk317.xposed.hook
 import io.github.magisk317.xposed.hookMethod
@@ -238,14 +240,19 @@ internal object VendorPushHookHelper {
     internal fun sanitizeForLog(value: Any?): String {
         if (value == null) return "null"
         val raw = value.toString()
-        val sanitized = raw
-            .replace(Regex("""(?i)(token|regid|reg_id|account|aid|appId|app_id|appKey|app_key|accessid|access_id)=([^,}\]\s]+)""")) {
-                "${it.groupValues[1]}=${redactMiddle(it.groupValues[2])}"
-            }
             .replace("\n", " ")
             .replace("\r", " ")
-        val compact = if (sanitized.length > 240) sanitized.take(240) + "..." else sanitized
-        return if (shouldRedactWholeValue(value, compact)) redactMiddle(compact) else compact
+        if (!LogSanitizerConfig.isEnabled()) {
+            return if (raw.length > 240) raw.take(240) + "..." else raw
+        }
+        // Field-aware sanitization first; bare high-entropy tokens fall back to redactArg.
+        val fieldSanitized = DefaultLogSanitizer.sanitize(raw)
+        val sanitized = if (fieldSanitized != raw) {
+            fieldSanitized
+        } else {
+            DefaultLogSanitizer.redactArg(value)
+        }.replace("\n", " ").replace("\r", " ")
+        return if (sanitized.length > 240) sanitized.take(240) + "..." else sanitized
     }
 
     internal fun markHooked(key: String): Boolean = hookedMethods.add(key)
@@ -272,17 +279,7 @@ internal object VendorPushHookHelper {
         }
     }
 
-    private fun redactMiddle(value: String): String {
-        if (value.length <= 8) return "<redacted>"
-        return value.take(4) + "..." + value.takeLast(4)
-    }
 
-    private fun shouldRedactWholeValue(value: Any, text: String): Boolean {
-        if (value !is CharSequence) return false
-        val lower = text.lowercase()
-        if (lower in setOf("true", "false", "null")) return false
-        return text.length >= 16 && text.none { it.isWhitespace() }
-    }
 
     private data class VendorHookContext(
         val packageName: String,

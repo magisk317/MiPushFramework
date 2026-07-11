@@ -67,9 +67,13 @@ class VendorPushHookHelperTest {
             "token=abcdef1234567890 appId=2882303761517999999 account=user@example.com",
         )
 
-        assertTrue(value.contains("token=abcd...7890"))
-        assertTrue(value.contains("appId=2882...9999"))
-        assertTrue(value.contains("account=user....com"))
+        // Neutral kit redacts key/value secrets to "***" and never leaves raw identifiers.
+        assertTrue(value.contains("token="))
+        assertTrue(value.contains("appId="))
+        assertTrue(value.contains("account="))
+        assertFalse(value.contains("abcdef1234567890"))
+        assertFalse(value.contains("2882303761517999999"))
+        assertFalse(value.contains("user@example.com"))
     }
 
     @Test
