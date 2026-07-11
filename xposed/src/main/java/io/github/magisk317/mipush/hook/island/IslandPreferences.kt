@@ -67,7 +67,6 @@ object IslandPreferences {
         }.onFailure {
             XLog.w(TAG, "failed to refresh island prefs: ${it.message}")
         }
-        syncLogSanitizerFromProvider()
     }
 
     fun startRefreshLoop() {
@@ -123,35 +122,6 @@ object IslandPreferences {
     }
 
 
-    private fun syncLogSanitizerFromProvider() {
-        val sensitiveDebug = readFlag(SENSITIVE_DEBUG_LOG_MODE_KEY, default = false)
-        // pref=true means plaintext; LogSanitizerConfig enabled means sanitize.
-        LogSanitizerConfig.setEnabled(!sensitiveDebug)
-    }
-
-    private fun readFlag(key: String, default: Boolean): Boolean {
-        val app = currentApplication() ?: return default
-        return runCatching {
-            val uri = Uri.parse("content://$ISLAND_PREF_AUTHORITY/$ISLAND_PREF_PATH_FLAGS")
-            app.contentResolver.query(
-                uri,
-                arrayOf(ISLAND_PREF_COLUMN_KEY, ISLAND_PREF_COLUMN_VALUE),
-                null,
-                arrayOf(key),
-                null,
-            )?.use { cursor ->
-                val keyIdx = cursor.getColumnIndex(ISLAND_PREF_COLUMN_KEY)
-                val valueIdx = cursor.getColumnIndex(ISLAND_PREF_COLUMN_VALUE)
-                while (cursor.moveToNext()) {
-                    if (cursor.getString(keyIdx) == key) {
-                        return@use cursor.getString(valueIdx) == "1"
-                    }
-                }
-                default
-            } ?: default
-        }.getOrDefault(default)
-    }
-
     internal fun resetForTest(options: IslandOptions = IslandOptions()) {
         this.options = options
         refreshLoopStarted = false
@@ -182,6 +152,13 @@ object IslandPreferences {
                 }
             }
         }.orEmpty()
+
+        // Reuse the single provider query above instead of a second readFlag round-trip.
+        // pref=true means plaintext debug; LogSanitizerConfig enabled means sanitize.
+        // Unprivileged hook processes that cannot read the provider fall back to
+        // default=false here → setEnabled(true) → sanitized (fail-closed).
+        val sensitiveDebug = values.booleanValue(SENSITIVE_DEBUG_LOG_MODE_KEY, false)
+        LogSanitizerConfig.setEnabled(!sensitiveDebug)
 
         IslandOptions(
             enabled = values.booleanValue(ISLAND_PREF_ENABLED, true),
