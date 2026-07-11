@@ -22,6 +22,7 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
+import io.github.magisk317.mipush.common.SENSITIVE_DEBUG_LOG_MODE_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.utils.ConfigDefaults
@@ -41,6 +42,7 @@ class PreferenceRepository constructor(
     private val XMPP_SERVER = stringPreferencesKey("xmpp_server")
     private val CONFIG_DIRECTORY = stringPreferencesKey("config_directory")
     private val DEBUG_MODE = booleanPreferencesKey("debug_mode")
+    private val SENSITIVE_DEBUG_LOG_MODE = booleanPreferencesKey(SENSITIVE_DEBUG_LOG_MODE_KEY)
     private val SHOW_ALL_EVENTS = booleanPreferencesKey("show_all_events")
     private val START_FOREGROUND = booleanPreferencesKey("start_foreground")
     private val START_PUSH_AS_FOREGROUND_SERVICE = booleanPreferencesKey("start_push_as_foreground_service")
@@ -80,6 +82,7 @@ class PreferenceRepository constructor(
     val xmppServer: Flow<String?> = dataStore.data.map { it[XMPP_SERVER] }
     val configDirectory: Flow<String?> = dataStore.data.map { it[CONFIG_DIRECTORY] }
     val isDebugMode: Flow<Boolean> = dataStore.data.map { it[DEBUG_MODE] ?: false }
+    val isSensitiveDebugLogMode: Flow<Boolean> = dataStore.data.map { it[SENSITIVE_DEBUG_LOG_MODE] ?: false }
     val isShowAllEvents: Flow<Boolean> = dataStore.data.map { it[SHOW_ALL_EVENTS] ?: false }
     val isStartForeground: Flow<Boolean> = dataStore.data.map { it[START_FOREGROUND] ?: true }
     val startPushAsForegroundService: Flow<Boolean> = dataStore.data.map { it[START_PUSH_AS_FOREGROUND_SERVICE] ?: true }
@@ -128,6 +131,7 @@ class PreferenceRepository constructor(
     }
 
     val debugMode: Flow<Boolean> = isDebugMode
+    val sensitiveDebugLogMode: Flow<Boolean> = isSensitiveDebugLogMode
     val showAllEvents: Flow<Boolean> = isShowAllEvents
 
     // Setters
@@ -141,6 +145,10 @@ class PreferenceRepository constructor(
 
     suspend fun setDebugMode(debug: Boolean) {
         dataStore.edit { it[DEBUG_MODE] = debug }
+    }
+
+    suspend fun setSensitiveDebugLogMode(enabled: Boolean) {
+        dataStore.edit { it[SENSITIVE_DEBUG_LOG_MODE] = enabled }
     }
 
     suspend fun setShowAllEvents(show: Boolean) {

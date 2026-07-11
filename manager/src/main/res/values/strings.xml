@@ -53,6 +53,8 @@
     <string name="accessibility_desc">Used for foreground app detection when UsageStats is unavailable.</string>
     <string name="settings_debug_mode">Enable debug mode</string>
     <string name="settings_debug_mode_summary">Display debug actions in notifications, print full log</string>
+    <string name="settings_sensitive_debug_log_mode">Sensitive debug logs</string>
+    <string name="settings_sensitive_debug_log_mode_summary">When enabled, logs may include tokens, regIds and device identifiers in plaintext. Default is off (sanitized).</string>
     <string name="settings_show_all_events">Display all events</string>
     <string name="pref_color_status_bar_icon_title">Color status bar icon</string>
     <string name="pref_color_status_bar_icon_summary">Configure MiPush and global status bar icon color policy</string>

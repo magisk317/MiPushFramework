@@ -18,6 +18,7 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_FIRST_FLOAT
 import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
+import io.github.magisk317.mipush.common.SENSITIVE_DEBUG_LOG_MODE_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_PATH_FLAGS
 import io.github.magisk317.mipush.common.ISLAND_PREF_READ_PERMISSION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
@@ -44,6 +45,7 @@ class IslandPreferenceProvider : ContentProvider() {
         ISLAND_PREF_FOCUS_NOTIF,
         COLOR_STATUS_BAR_ICON_KEY,
         COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
+        SENSITIVE_DEBUG_LOG_MODE_KEY,
     )
 
     override fun onCreate(): Boolean = true
@@ -91,6 +93,7 @@ class IslandPreferenceProvider : ContentProvider() {
                             ).toFlagValue(),
                         COLOR_STATUS_BAR_ICON_KEY to repository.colorStatusBarIcon.first().toFlagValue(),
                         COLOR_STATUS_BAR_ICON_GLOBAL_KEY to repository.colorStatusBarIconGlobal.first().toFlagValue(),
+                        SENSITIVE_DEBUG_LOG_MODE_KEY to repository.isSensitiveDebugLogMode.first().toFlagValue(),
                     )
                 }
             }.getOrDefault(defaultFlags())
@@ -133,5 +136,6 @@ class IslandPreferenceProvider : ContentProvider() {
         ISLAND_PREF_FOCUS_NOTIF to false.toFlagValue(),
         COLOR_STATUS_BAR_ICON_KEY to false.toFlagValue(),
         COLOR_STATUS_BAR_ICON_GLOBAL_KEY to false.toFlagValue(),
+        SENSITIVE_DEBUG_LOG_MODE_KEY to false.toFlagValue(),
     )
 }

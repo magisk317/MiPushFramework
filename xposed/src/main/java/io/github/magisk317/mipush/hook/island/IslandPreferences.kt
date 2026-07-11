@@ -20,7 +20,9 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
+import io.github.magisk317.mipush.common.SENSITIVE_DEBUG_LOG_MODE_KEY
 import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.LogSanitizerConfig
 import io.github.magisk317.xposed.currentApplication
 
 object IslandPreferences {
@@ -36,6 +38,7 @@ object IslandPreferences {
         ISLAND_PREF_FOCUS_NOTIF,
         COLOR_STATUS_BAR_ICON_KEY,
         COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
+        SENSITIVE_DEBUG_LOG_MODE_KEY,
     )
 
     @Volatile
@@ -64,6 +67,7 @@ object IslandPreferences {
         }.onFailure {
             XLog.w(TAG, "failed to refresh island prefs: ${it.message}")
         }
+        syncLogSanitizerFromProvider()
     }
 
     fun startRefreshLoop() {
@@ -116,6 +120,36 @@ object IslandPreferences {
                 start()
             }
         }
+    }
+
+
+    private fun syncLogSanitizerFromProvider() {
+        val sensitiveDebug = readFlag(SENSITIVE_DEBUG_LOG_MODE_KEY, default = false)
+        // pref=true means plaintext; LogSanitizerConfig enabled means sanitize.
+        LogSanitizerConfig.setEnabled(!sensitiveDebug)
+    }
+
+    private fun readFlag(key: String, default: Boolean): Boolean {
+        val app = currentApplication() ?: return default
+        return runCatching {
+            val uri = Uri.parse("content://$ISLAND_PREF_AUTHORITY/$ISLAND_PREF_PATH_FLAGS")
+            app.contentResolver.query(
+                uri,
+                arrayOf(ISLAND_PREF_COLUMN_KEY, ISLAND_PREF_COLUMN_VALUE),
+                null,
+                arrayOf(key),
+                null,
+            )?.use { cursor ->
+                val keyIdx = cursor.getColumnIndex(ISLAND_PREF_COLUMN_KEY)
+                val valueIdx = cursor.getColumnIndex(ISLAND_PREF_COLUMN_VALUE)
+                while (cursor.moveToNext()) {
+                    if (cursor.getString(keyIdx) == key) {
+                        return@use cursor.getString(valueIdx) == "1"
+                    }
+                }
+                default
+            } ?: default
+        }.getOrDefault(default)
     }
 
     internal fun resetForTest(options: IslandOptions = IslandOptions()) {

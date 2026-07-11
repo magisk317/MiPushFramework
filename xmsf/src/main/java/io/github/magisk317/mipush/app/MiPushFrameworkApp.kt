@@ -25,6 +25,7 @@ import io.github.magisk317.mipush.diagnostics.PushHealthSnapshotLogger
 import io.github.magisk317.mipush.telemetry.TelemetryDisabler
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.aakira.napier.Napier
+import io.github.magisk317.xposed.logging.LogSanitizerConfig
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.LogLevel
 import io.github.magisk317.mipush.utils.LogUtils
@@ -167,12 +168,22 @@ open class MiPushFrameworkApp : Application() {
         LegacyLoggerBridge.setDebugLoggingEnabled(initialDebugMode)
         LogUtils.setMinLogLevel(if (initialDebugMode) LogLevel.VERBOSE else LogLevel.INFO)
         HookTrace.enabled = initialDebugMode
+        val initialSensitiveDebugLog = runCatching {
+            runBlocking { preferenceRepository.isSensitiveDebugLogMode.first() }
+        }.getOrDefault(false)
+        // pref=true means plaintext; LogSanitizerConfig enabled means sanitize.
+        LogSanitizerConfig.setEnabled(!initialSensitiveDebugLog)
         // 收集后续变更，确保设置页开关拨动后实时生效
         applicationScope.launch {
             preferenceRepository.isDebugMode.collect { enabled ->
                 LegacyLoggerBridge.setDebugLoggingEnabled(enabled)
                 LogUtils.setMinLogLevel(if (enabled) LogLevel.VERBOSE else LogLevel.INFO)
                 HookTrace.enabled = enabled
+            }
+        }
+        applicationScope.launch {
+            preferenceRepository.isSensitiveDebugLogMode.collect { enabled ->
+                LogSanitizerConfig.setEnabled(!enabled)
             }
         }
         logI("App starts: ${BuildConfig.VERSION_NAME}, debugMode=$initialDebugMode")

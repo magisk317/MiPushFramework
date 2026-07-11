@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.hook
 
+import io.github.magisk317.mipush.hook.island.IslandPreferences
 import android.app.Application
 import android.content.Context
 import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
@@ -56,6 +57,8 @@ class LibXposedEntry : BaseLibXposedEntry {
     override fun installModuleRuntime(module: XposedModule, hookApi: LibXposedHookApi) {
         XposedRuntime.install(module, "mipush")
         XLog.configure()
+        // Pull sensitive-debug pref into LogSanitizerConfig for hook processes.
+        IslandPreferences.startRefreshLoop()
     }
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {

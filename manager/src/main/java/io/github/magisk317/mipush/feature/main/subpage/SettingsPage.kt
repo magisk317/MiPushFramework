@@ -616,6 +616,7 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val debugMode by viewModel.debugMode.collectAsStateWithLifecycle()
+    val sensitiveDebugLogMode by viewModel.sensitiveDebugLogMode.collectAsStateWithLifecycle()
     val runtimeLogRetentionDays by viewModel.runtimeLogRetentionDays.collectAsStateWithLifecycle()
     val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
     var showClearConfirmDialog by remember { mutableStateOf(false) }
@@ -710,6 +711,17 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
     ) { enabled ->
         viewModel.setDebugMode(enabled)
         showSwitchFeedback(debugModeTitle, enabled)
+    }
+
+    val sensitiveDebugTitle = stringResource(R.string.settings_sensitive_debug_log_mode)
+    SettingsSwitchItem(
+        title = sensitiveDebugTitle,
+        summary = stringResource(R.string.settings_sensitive_debug_log_mode_summary),
+        checked = sensitiveDebugLogMode,
+    ) { enabled ->
+        viewModel.setSensitiveDebugLogMode(enabled)
+        context.sendBroadcast(Intent(ACTION_PREF_CHANGED))
+        showSwitchFeedback(sensitiveDebugTitle, enabled)
     }
 
     if (showClearConfirmDialog) {
