@@ -19,6 +19,55 @@ The current architecture documents remain authoritative for shipped behavior unt
 switch phase is complete. This document describes the target and migration path, not current
 runtime behavior.
 
+## Implementation Status
+
+The Phase 1 transport foundation now exists without changing application packaging:
+
+- `:manager-api` owns the versioned AIDL handshake, capability identifiers, and size-framed wire
+  DTOs;
+- XMSF exposes a main-process Binder service behind a signature permission and per-call caller
+  verification;
+- `:manager-client` models missing, incompatible, denied, timed-out, and transiently disconnected
+  states, and reconnects through a fresh handshake after Binder death;
+- the connection snapshot has a complete wire mapping, including keepalive and ping intervals.
+
+The manager UI still uses the existing in-process gateways. The next cut is a comparison adapter
+that reads both paths and proves equivalent snapshots before any screen switches to Binder data.
+
+## Prior Art And Rejected Paths
+
+The upstream history contains a complete earlier attempt and its reversals:
+
+- `ee6b6f796` split the manager and push service into two APKs with `IPushController` AIDL, explicit
+  binding, and Binder death notification. It also ignored the `bindService` result, exposed no
+  protocol version, used a normal-level bind permission without per-call package/signature checks,
+  and offered a synchronous helper that waited up to ten seconds.
+- `9563cab855` and `5eba16d3ae` then patched unbind/retry edge cases around disconnects. They did
+  not establish explicit session ownership; those failure modes now have dedicated lifecycle tests
+  instead of catch-and-retry patches.
+- `94cb74f1fa` replaced the primary Binder route with `ContentProvider.call`, including a synthetic
+  300 ms ready callback. Its exported provider retained normal-level read access, and the route had
+  no durable death/reconnect boundary, so it is unsuitable as the general management RPC transport.
+- `7a604baf39` fused manager and push back into one APK. Later, `7147ba4858` removed cross-module
+  database access and `8422a15696` folded the single-consumer provider module into push. This shows
+  that storage ownership matters, but extra runtime modules do not create an application boundary.
+- `1259427f53` and `28038fd3c5` subsequently extracted service abilities and dependency interfaces
+  while retaining the single runtime APK. The reusable lesson is interface ownership inside the
+  runtime, not another installable service or shared database.
+- `96dfb0afd` exposed a permission-protected provider for plugin APIs, while `796fe47bf` briefly
+  introduced an empty SDK module and `65fb15c9d` reverted that standalone boundary. These are
+  provider/plugin precedents, not evidence for a general manager-to-runtime transport.
+
+The current fork already established the corresponding domain seams in `ba13135608`, `64cd3e3cbd`,
+and `f87c235693`. The earlier `06d19a936` split `:app` and `:manager` only as modules inside one
+APK, and `e2735f018` documents why `compileOnly` dependencies appeared to work while both halves
+were co-packaged. It also folded the single-consumer `runtime-android-core` module back into XMSF
+in `c682ac416b` (after the `98824b9bd`/`0aa478589` extraction) and removed the redundant protocol
+module in `0623d89c4`. Therefore this plan reuses the gateway/adapter work, adds only the
+cross-application `manager-api` and `manager-client` boundaries, and keeps the all-in-one build as
+a measured fallback. It does not reuse Android-owned gateway objects as wire DTOs or recreate a
+one-consumer runtime module.
+
 ## Why This Direction
 
 The reference comparison identifies the real trade-off:
@@ -143,6 +192,14 @@ Compatibility rules:
 Use narrow typed operations rather than exposing internal Koin objects or databases. Event and
 application queries are paginated. Log bundles, config imports, and other large data use file
 descriptors. Runtime change notifications use a registered callback with polling as a fallback.
+
+The current synchronous AIDL methods have an important cancellation limit: coroutine timeout can
+release the client session and return a typed timeout, but it cannot forcibly interrupt a Binder
+`transact` that is already blocked in the caller process. `manager-client` therefore caps the
+number of in-flight blocking calls, quarantines late results, and makes a timed-out feature
+skippable; once the cap is exhausted it returns a typed timeout without queueing another blocking
+call or starting an unbounded reconnect loop. A future callback/one-way transport is required
+before treating cancellation as a hard thread-reclamation guarantee.
 
 ## Trust Boundary
 

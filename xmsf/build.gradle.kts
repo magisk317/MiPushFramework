@@ -74,6 +74,7 @@ tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
 }
 
 dependencies {
+    implementation(project(":manager-api"))
     implementation(project(":diagnostics"))
     implementation(project(":core"))
     implementation(project(":settings"))

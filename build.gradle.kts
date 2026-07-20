@@ -103,6 +103,8 @@ val detektBlockingProjects = setOf(
     ":magisk-xposed-kit:diagnostics",
     ":magisk-xposed-kit:logging",
     ":manager",
+    ":manager-api",
+    ":manager-client",
     ":mipush",
     ":pinned",
     ":settings",

@@ -1,5 +1,6 @@
 package com.xiaomi.xmsf
 
+import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -30,6 +31,36 @@ class ManifestContractTest {
 
         assertNotNull(permission)
         assertEquals("signature", permission!!.getAttributeNS(ANDROID_NS, "protectionLevel"))
+    }
+
+    @Test
+    fun `manager runtime binder is signature protected and explicitly discoverable`() {
+        val document = parseManifest()
+        val permission = findNodeByAndroidName(
+            document = document,
+            tagName = "permission",
+            androidName = ManagerProtocol.SERVICE_PERMISSION,
+        )
+        val service = findApplicationNodeByAndroidName(
+            document = document,
+            tagName = "service",
+            androidName = ManagerProtocol.RUNTIME_SERVICE_CLASS,
+        )
+
+        assertNotNull(permission)
+        assertEquals("signature", permission!!.getAttributeNS(ANDROID_NS, "protectionLevel"))
+        assertNotNull(service)
+        assertEquals("true", service!!.getAttributeNS(ANDROID_NS, "exported"))
+        assertEquals(ManagerProtocol.SERVICE_PERMISSION, service.getAttributeNS(ANDROID_NS, "permission"))
+        assertEquals("", service.getAttributeNS(ANDROID_NS, "process"))
+        val actions = service.getElementsByTagName("action")
+        assertTrue(
+            (0 until actions.length).any { index ->
+                (actions.item(index) as? Element)?.getAttributeNS(ANDROID_NS, "name") ==
+                    ManagerProtocol.SERVICE_ACTION
+            },
+            "Manager runtime service must expose the versioned explicit bind action",
+        )
     }
 
     @Test

@@ -38,6 +38,9 @@
     <permission
             android:name="com.xiaomi.xmsf.permission.READ_ISLAND_PREFS"
             android:protectionLevel="signature" />
+    <permission
+            android:name="com.xiaomi.xmsf.permission.BIND_MANAGER_RUNTIME"
+            android:protectionLevel="signature" />
 
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="com.xiaomi.xmsf.permission.MIPUSH_RECEIVE" />
@@ -369,6 +372,14 @@
                 android:name="com.xiaomi.xmsf.services.MainProcBridgeService"
                 android:enabled="true"
                 android:exported="false" />
+        <service
+                android:name="io.github.magisk317.mipush.manager.runtime.ManagerRuntimeService"
+                android:exported="true"
+                android:permission="com.xiaomi.xmsf.permission.BIND_MANAGER_RUNTIME">
+            <intent-filter>
+                <action android:name="io.github.magisk317.mipush.action.BIND_MANAGER_RUNTIME" />
+            </intent-filter>
+        </service>
         <service
                 android:name="com.xiaomi.xmsf.services.ServiceBoxService"
                 android:exported="false"
