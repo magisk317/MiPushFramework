@@ -23,12 +23,12 @@ make_tmp_file() {
 usage() {
   cat >&2 <<'EOF'
 Usage:
+  publish_mipush_release.sh release-notes
   publish_mipush_release.sh gitlab-release
-  publish_mipush_release.sh modules-repo
 
 Modes:
+  release-notes   Extract the current tag section from docs/CHANGELOG.md.
   gitlab-release  Publish XMSF APK, MiPush APK, Zygisk zip, and debug files to GitLab Release.
-  modules-repo    Publish release APKs to Xposed-Modules-Repo.
 EOF
 }
 
@@ -36,11 +36,17 @@ urlencode() {
   python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$1"
 }
 
-require_env() {
-  local name="$1"
-  if [[ -z "${!name:-}" ]]; then
-    echo "ERROR: $name is required" >&2
-    exit 2
+require_supported_env() {
+  local name
+  local missing=()
+  for name in "$@"; do
+    if [[ -z "${!name:-}" ]]; then
+      missing+=("$name")
+    fi
+  done
+  if [[ "${#missing[@]}" -gt 0 ]]; then
+    echo "SKIP: unsupported environment; missing ${missing[*]}"
+    return 1
   fi
 }
 
@@ -66,10 +72,9 @@ release_tag() {
 generate_release_notes() {
   local tag_name="$1"
   local output_file="$2"
-  local generate_github_notes="${3:-false}"
-  local source_repo="${MAGISK_ANDROID_RELEASE_GITHUB_REPOSITORY:-magisk317/MiPushFramework}"
+  local platform="${3:-source}"
   local changelog_file="${MAGISK_RELEASE_CHANGELOG_FILE:-docs/CHANGELOG.md}"
-  local changelog_extract generated_notes previous_tag compare_range
+  local changelog_extract compare_range previous_tag compare_to compare_url
   make_tmp_file changelog_extract
 
   if [[ -f "$changelog_file" ]] && awk -v version="$tag_name" '
@@ -83,35 +88,43 @@ generate_release_notes() {
     printf 'MiPushFramework Release %s\n' "$tag_name" > "$changelog_extract"
   fi
 
-  generated_notes=""
-  if [[ "$generate_github_notes" == "true" && -n "$source_repo" ]] && command -v gh >/dev/null 2>&1; then
-    previous_tag=""
-    compare_range="$(sed -nE 's#.*compare/([^[:space:]]+)\.\.\.([^[:space:]]+).*#\1 \2#p' "$changelog_extract" | head -n 1)"
-    if [[ -n "$compare_range" ]]; then
-      read -r previous_tag compare_to <<< "$compare_range"
-      if [[ "$compare_to" != "$tag_name" ]]; then
-        previous_tag=""
-      fi
+  compare_range="$(sed -nE 's#.*compare/([^[:space:]]+)\.\.\.([^[:space:]]+).*#\1 \2#p' "$changelog_extract" | head -n 1)"
+  previous_tag=""
+  compare_to=""
+  if [[ -n "$compare_range" ]]; then
+    read -r previous_tag compare_to <<< "$compare_range"
+  fi
+  if [[ -n "$previous_tag" && "$compare_to" == "$tag_name" ]]; then
+    compare_url=""
+    case "$platform" in
+      github)
+        compare_url="https://github.com/${GITHUB_REPOSITORY:-magisk317/MiPushFramework}/compare/${previous_tag}...${tag_name}"
+        ;;
+      gitlab)
+        compare_url="${CI_PROJECT_URL:-https://gitlab.com/magisk3171/MiPushFramework}/-/compare/${previous_tag}...${tag_name}"
+        ;;
+      source) ;;
+      *)
+        echo "ERROR: unsupported release-notes platform: $platform" >&2
+        return 2
+        ;;
+    esac
+    if [[ -n "$compare_url" ]]; then
+      awk -v replacement="> Full Changelog: ${compare_url}" '
+        /^[[:space:]]*>[[:space:]]*Full Changelog:/ { print replacement; next }
+        { print }
+      ' "$changelog_extract" > "$output_file"
+    else
+      cat "$changelog_extract" > "$output_file"
     fi
-    if [[ -z "$previous_tag" ]]; then
-      previous_tag="$(git describe --tags --abbrev=0 "${tag_name}^{commit}^" 2>/dev/null || true)"
-    fi
-    generate_args=(-X POST -f "tag_name=${tag_name}")
-    if [[ -n "$previous_tag" ]]; then
-      generate_args+=(-f "previous_tag_name=${previous_tag}")
-    fi
-    generated_notes="$(gh api "repos/${source_repo}/releases/generate-notes" \
-      "${generate_args[@]}" \
-      --jq '.body' 2>/dev/null || true)"
-    if [[ -n "$generated_notes" ]]; then
-      sed -i '/^[[:space:]]*>[[:space:]]*Full Changelog:/d' "$changelog_extract"
-    fi
+  else
+    cat "$changelog_extract" > "$output_file"
   fi
 
-  cat "$changelog_extract" > "$output_file"
-  if [[ -n "$generated_notes" ]]; then
-    printf '\n%s\n' "$generated_notes" >> "$output_file"
-  fi
+  [[ -s "$output_file" ]] || {
+    echo "ERROR: generated release notes are empty: $output_file" >&2
+    return 1
+  }
 }
 
 find_if_dir() {
@@ -129,13 +142,6 @@ collect_main_assets() {
     find_if_dir MiPushZygisk/build -type f -name '*.zip'
     find_if_dir app/build/outputs/mapping -type f -name mapping.txt
     find_if_dir app/build/outputs/native-debug-symbols -type f -name native-debug-symbols.zip
-  } | sort
-}
-
-collect_modules_repo_assets() {
-  {
-    find_if_dir app/build/outputs/apk -type f -path '*/release/*.apk'
-    find_if_dir mipush/build/outputs/apk -type f -path '*/release/*.apk'
   } | sort
 }
 
@@ -160,10 +166,9 @@ copy_assets() {
 }
 
 publish_gitlab_release() {
-  require_env CI_API_V4_URL
-  require_env CI_PROJECT_ID
-  require_env CI_PROJECT_URL
-  require_env CI_JOB_TOKEN
+  if ! require_supported_env CI_API_V4_URL CI_PROJECT_ID CI_PROJECT_URL CI_JOB_TOKEN; then
+    return 0
+  fi
 
   local tag_name notes_file asset_dir package_name encoded_project encoded_tag encoded_package
   tag_name="$(release_tag)"
@@ -171,7 +176,7 @@ publish_gitlab_release() {
   asset_dir="${MAGISK_GITLAB_RELEASE_ASSET_DIR:-release-assets}"
   package_name="${MAGISK_GITLAB_RELEASE_PACKAGE_NAME:-mipush-release}"
 
-  generate_release_notes "$tag_name" "$notes_file" false
+  generate_release_notes "$tag_name" "$notes_file" gitlab
 
   mapfile -t release_assets < <(collect_main_assets)
   if [[ "${#release_assets[@]}" -eq 0 ]]; then
@@ -320,57 +325,17 @@ PY
   echo "Published GitLab release: $tag_name"
 }
 
-publish_modules_repo() {
-  require_env MAGISK_ANDROID_RELEASE_MODULES_REPO
-  require_env XPOSED_MODULES_REPO_TOKEN
-
-  if ! command -v gh >/dev/null 2>&1; then
-    echo "ERROR: gh is required for modules repo publication" >&2
-    exit 2
-  fi
-
-  local tag_name notes_file source_token
-  tag_name="$(release_tag)"
-  notes_file="${MAGISK_RELEASE_NOTES_FILE:-release-notes.md}"
-  source_token="${SOURCE_RELEASE_TOKEN:-$XPOSED_MODULES_REPO_TOKEN}"
-
-  GH_TOKEN="$source_token" generate_release_notes "$tag_name" "$notes_file" true
-
-  mapfile -t apk_files < <(collect_modules_repo_assets)
-  if [[ "${#apk_files[@]}" -eq 0 ]]; then
-    echo "ERROR: no APK files found for modules repo publication" >&2
-    exit 1
-  fi
-
-  export GH_TOKEN="$XPOSED_MODULES_REPO_TOKEN"
-  if gh release view "$tag_name" --repo "$MAGISK_ANDROID_RELEASE_MODULES_REPO" >/dev/null 2>&1; then
-    gh release upload "$tag_name" "${apk_files[@]}" \
-      --repo "$MAGISK_ANDROID_RELEASE_MODULES_REPO" \
-      --clobber
-    gh release edit "$tag_name" \
-      --repo "$MAGISK_ANDROID_RELEASE_MODULES_REPO" \
-      --title "$tag_name" \
-      --draft=false \
-      --notes-file "$notes_file"
-  else
-    gh release create "$tag_name" "${apk_files[@]}" \
-      --repo "$MAGISK_ANDROID_RELEASE_MODULES_REPO" \
-      --title "$tag_name" \
-      --notes-file "$notes_file"
-  fi
-
-  echo "Published Xposed-Modules-Repo release: $tag_name"
-}
-
 mode="${1:-}"
 cd "$ROOT_DIR"
 
 case "$mode" in
+  release-notes)
+    notes_file="${MAGISK_RELEASE_NOTES_FILE:-release-notes.md}"
+    generate_release_notes "$(release_tag)" "$notes_file" "${MAGISK_RELEASE_PLATFORM:-source}"
+    echo "Generated release notes: $notes_file"
+    ;;
   gitlab-release)
     publish_gitlab_release
-    ;;
-  modules-repo)
-    publish_modules_repo
     ;;
   -h|--help|"")
     usage

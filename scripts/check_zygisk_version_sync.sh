@@ -6,6 +6,7 @@ ROOT_DIR="${1:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 ZYGISK_REPOSITORY="${MIPUSH_ZYGISK_REPOSITORY:-https://gitlab.com/magisk3171/MiPushZygisk.git}"
 ZYGISK_REF="${MIPUSH_ZYGISK_REF:-main}"
 TEMP_DIR=""
+RESOLVED_ZYGISK_DIR=""
 
 cleanup() {
   if [[ -n "$TEMP_DIR" ]]; then
@@ -28,19 +29,36 @@ resolve_zygisk_dir() {
       echo "ERROR: MIPUSH_ZYGISK_SOURCE_DIR does not exist: $MIPUSH_ZYGISK_SOURCE_DIR" >&2
       return 1
     fi
-    printf '%s\n' "$MIPUSH_ZYGISK_SOURCE_DIR"
+    RESOLVED_ZYGISK_DIR="$MIPUSH_ZYGISK_SOURCE_DIR"
     return 0
   fi
 
+  if ! git ls-remote --exit-code "$ZYGISK_REPOSITORY" "refs/heads/$ZYGISK_REF" >/dev/null 2>&1; then
+    echo "SKIP: MiPushZygisk source is unavailable; version sync cannot be checked."
+    return 2
+  fi
+
   TEMP_DIR="$(mktemp -d)"
-  git clone --depth 1 --branch "$ZYGISK_REF" "$ZYGISK_REPOSITORY" "$TEMP_DIR/MiPushZygisk" >/dev/null 2>&1
-  printf '%s\n' "$TEMP_DIR/MiPushZygisk"
+  if ! git clone --depth 1 --branch "$ZYGISK_REF" "$ZYGISK_REPOSITORY" "$TEMP_DIR/MiPushZygisk" >/dev/null 2>&1; then
+    echo "SKIP: MiPushZygisk source could not be checked out; version sync cannot be checked."
+    return 2
+  fi
+  RESOLVED_ZYGISK_DIR="$TEMP_DIR/MiPushZygisk"
 }
 
 expected_version_name="$MIPUSH_ZYGISK_VERSION_NAME"
 expected_version_code="$MIPUSH_ZYGISK_VERSION_CODE"
 
-zygisk_dir="$(resolve_zygisk_dir)"
+set +e
+resolve_zygisk_dir
+resolve_status="$?"
+set -e
+case "$resolve_status" in
+  0) ;;
+  2) exit 0 ;;
+  *) exit "$resolve_status" ;;
+esac
+zygisk_dir="$RESOLVED_ZYGISK_DIR"
 build_script="$zygisk_dir/build.sh"
 cargo_toml="$zygisk_dir/module/Cargo.toml"
 module_prop="$zygisk_dir/magisk/module.prop"

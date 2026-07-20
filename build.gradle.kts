@@ -31,7 +31,7 @@ fun KoverProjectExtension.configureProjectKoverVerification() {
     reports {
         verify {
             rule {
-                minBound(0)
+                minBound(10)
             }
         }
     }
@@ -93,7 +93,23 @@ val forcedKotlinVersion = extensions
     .get()
     .requiredVersion
 val forcedByteBuddyVersion = libs.versions.bytebuddy.get()
-val detektBlockingProjects = setOf(":xposed")
+val detektBlockingProjects = setOf(
+    ":app",
+    ":common",
+    ":core",
+    ":diagnostics",
+    ":magisk-ui-kit",
+    ":magisk-xposed-kit",
+    ":magisk-xposed-kit:diagnostics",
+    ":magisk-xposed-kit:logging",
+    ":manager",
+    ":mipush",
+    ":pinned",
+    ":settings",
+    ":vendor",
+    ":xmsf",
+    ":xposed",
+)
 val qualityGateKoverModules = listOf("common", "core", "xposed", "xmsf")
 
 subprojects {
@@ -101,12 +117,13 @@ subprojects {
         apply(plugin = "dev.detekt")
         val blocksNewViolations = path in detektBlockingProjects
         val detektBaselineFile = rootProject.layout.projectDirectory.file("config/detekt/baselines/${name}.xml")
+        val hasDetektBaseline = detektBaselineFile.asFile.isFile
         extensions.configure<DetektExtension> {
             autoCorrect = false
             parallel = true
             buildUponDefaultConfig = false
             config.setFrom(files("${rootProject.projectDir}/config/detekt/detekt.yml"))
-            if (blocksNewViolations) {
+            if (blocksNewViolations && hasDetektBaseline) {
                 baseline.set(detektBaselineFile)
             }
         }
@@ -114,16 +131,16 @@ subprojects {
             "detektPlugins"(catalog.detekt.rules.ktlint)
         }
         tasks.withType<DetektCreateBaselineTask>().configureEach {
-            if (blocksNewViolations) {
+            if (blocksNewViolations && hasDetektBaseline) {
                 baseline.set(detektBaselineFile)
             }
         }
         tasks.withType<Detekt>().configureEach {
-            if (blocksNewViolations) {
+            if (blocksNewViolations && hasDetektBaseline) {
                 baseline.set(detektBaselineFile)
             }
-            // Most modules stay report-only while xposed starts failing on findings outside its baseline.
-            ignoreFailures = true
+            // Every project in detektBlockingProjects is strict; only existing baselines are honored.
+            ignoreFailures = !blocksNewViolations
             reports {
                 html.required.set(true)
                 checkstyle.required.set(true)

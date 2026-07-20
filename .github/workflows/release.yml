@@ -39,7 +39,7 @@ jobs:
     needs: [validate-release]
     runs-on: ubuntu-latest
     env:
-      HAS_RELEASE_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE != '' }}
+      HAS_RELEASE_SIGNING: ${{ secrets.RELEASE_KEYSTORE != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -54,10 +54,15 @@ jobs:
 
 
       - name: Decode Keystore
-        if: env.HAS_RELEASE_KEYSTORE == 'true'
+        if: env.HAS_RELEASE_SIGNING == 'true'
         run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > app/release.jks
 
+      - name: Skip unsupported release signing
+        if: env.HAS_RELEASE_SIGNING != 'true'
+        run: echo "SKIP release build; complete signing credentials are not configured."
+
       - name: Build XMSF release APK
+        if: env.HAS_RELEASE_SIGNING == 'true'
         uses: ./.magisk-ci-toolkit/.github/actions/run-gradle-with-retry
         with:
           arguments: :app:assembleRelease -PbuildSplits=true -Pkotlin.incremental=false
@@ -67,32 +72,40 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
+      - name: Package release debug files
+        if: env.HAS_RELEASE_SIGNING == 'true'
+        run: |
+          mkdir -p release-debug-files
+          copy_optional() {
+            local source_file="$1"
+            local target_file="$2"
+            if [[ -f "$source_file" ]]; then
+              cp "$source_file" "release-debug-files/$target_file"
+            else
+              echo "SKIP optional release asset: $source_file"
+            fi
+          }
+          copy_optional app/build/outputs/mapping/normalRelease/mapping.txt mapping-normal-release.txt
+          copy_optional app/build/outputs/mapping/vc105Release/mapping.txt mapping-vc105-release.txt
+          copy_optional app/build/outputs/native-debug-symbols/normalRelease/native-debug-symbols.zip native-symbols-normal-release.zip
+          copy_optional app/build/outputs/native-debug-symbols/vc105Release/native-debug-symbols.zip native-symbols-vc105-release.zip
+
       - name: Upload XMSF release artifact
+        if: env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: apks-xmsf
           path: |
             app/build/outputs/apk/normal/release/**/*.apk
             app/build/outputs/apk/vc105/release/**/*.apk
-
-      - name: Package mapping files for debugging
-        run: |
-          mkdir -p mapping-out
-          cp app/build/outputs/mapping/normalRelease/mapping.txt mapping-out/mapping-normal-release.txt 2>/dev/null || true
-          cp app/build/outputs/mapping/vc105Release/mapping.txt mapping-out/mapping-vc105-release.txt 2>/dev/null || true
-
-      - name: Upload mapping artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: mapping
-          path: mapping-out/
+            release-debug-files/
 
   build-mipush-apk:
     name: Build MiPush Release APK
     needs: [validate-release]
     runs-on: ubuntu-latest
     env:
-      HAS_RELEASE_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE != '' }}
+      HAS_RELEASE_SIGNING: ${{ secrets.RELEASE_KEYSTORE != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -107,10 +120,15 @@ jobs:
 
 
       - name: Decode Keystore
-        if: env.HAS_RELEASE_KEYSTORE == 'true'
+        if: env.HAS_RELEASE_SIGNING == 'true'
         run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > app/release.jks
 
+      - name: Skip unsupported release signing
+        if: env.HAS_RELEASE_SIGNING != 'true'
+        run: echo "SKIP release build; complete signing credentials are not configured."
+
       - name: Build MiPush release APK
+        if: env.HAS_RELEASE_SIGNING == 'true'
         uses: ./.magisk-ci-toolkit/.github/actions/run-gradle-with-retry
         with:
           arguments: :mipush:assembleRelease -PbuildSplits=true -Pkotlin.incremental=false
@@ -121,6 +139,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       - name: Upload MiPush release artifact
+        if: env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: apks-mipush
@@ -137,21 +156,36 @@ jobs:
           path: MiPushFramework
           fetch-depth: 0
 
+      - name: Check Zygisk source support
+        id: zygisk-source
+        shell: bash
+        run: |
+          if git ls-remote --exit-code https://gitlab.com/magisk3171/MiPushZygisk.git refs/heads/main >/dev/null 2>&1; then
+            echo "supported=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "supported=false" >> "$GITHUB_OUTPUT"
+            echo "SKIP Zygisk build; source repository is unavailable on this runner."
+          fi
+
       - name: Checkout MiPushZygisk
+        if: steps.zygisk-source.outputs.supported == 'true'
         run: git clone --depth 1 --branch main https://gitlab.com/magisk3171/MiPushZygisk.git MiPushZygisk
 
       - name: Install Rust toolchain
+        if: steps.zygisk-source.outputs.supported == 'true'
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
 
       - name: Install Android NDK
+        if: steps.zygisk-source.outputs.supported == 'true'
         uses: nttld/setup-ndk@v1
         id: setup-ndk
         with:
           ndk-version: r27d
 
       - name: Build Zygisk module
+        if: steps.zygisk-source.outputs.supported == 'true'
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
@@ -160,6 +194,7 @@ jobs:
           ./build.sh
 
       - name: Upload Zygisk release artifact
+        if: steps.zygisk-source.outputs.supported == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: apks-zygisk
@@ -172,7 +207,7 @@ jobs:
     permissions:
       contents: write
     env:
-      HAS_RELEASE_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE != '' }}
+      HAS_RELEASE_SIGNING: ${{ secrets.RELEASE_KEYSTORE != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -180,66 +215,30 @@ jobs:
           fetch-depth: 0
 
       - uses: actions/download-artifact@v8
+        if: startsWith(github.ref, 'refs/tags/') && env.HAS_RELEASE_SIGNING == 'true'
         with:
           pattern: apks-*
           path: artifacts/apks
           merge-multiple: true
 
+      - name: Skip unsupported release publication
+        if: startsWith(github.ref, 'refs/tags/') && env.HAS_RELEASE_SIGNING != 'true'
+        run: echo "SKIP GitHub Release; complete signing credentials are not configured."
+
       - name: Publish Release
-        if: startsWith(github.ref, 'refs/tags/') && env.HAS_RELEASE_KEYSTORE == 'true'
+        if: startsWith(github.ref, 'refs/tags/') && env.HAS_RELEASE_SIGNING == 'true'
         shell: bash
         run: |
           set -euo pipefail
 
           tag_name="${GITHUB_REF_NAME}"
           release_name="$tag_name"
-          release_notes="MiPushFramework Release ${tag_name}"
-          changelog_notes=""
-          if [[ -f "docs/CHANGELOG.md" ]]; then
-            changelog_notes="$(awk -v version="$tag_name" '
-              $0 == "---" && found { exit }
-              found { print; next }
-              index($0, "## [" version "]") == 1 { found = 1; next }
-            ' docs/CHANGELOG.md)"
-            if [[ -n "$changelog_notes" ]]; then
-              release_notes="$changelog_notes"
-            fi
-          fi
-
-          previous_tag=""
-          compare_range="$(printf '%s\n' "$changelog_notes" |
-            sed -nE 's#.*compare/([^[:space:]]+)\.\.\.([^[:space:]]+).*#\1 \2#p' |
-            head -n 1)"
-          if [[ -n "$compare_range" ]]; then
-            read -r previous_tag compare_to <<< "$compare_range"
-            if [[ "$compare_to" != "$tag_name" ]]; then
-              previous_tag=""
-            fi
-          fi
-          if [[ -z "$previous_tag" ]]; then
-            previous_tag="$(git describe --tags --abbrev=0 "${tag_name}^{commit}^" 2>/dev/null || true)"
-          fi
-
-          generate_args=(-X POST -f "tag_name=${tag_name}")
-          if [[ -n "$previous_tag" ]]; then
-            generate_args+=(-f "previous_tag_name=${previous_tag}")
-          fi
-          generated_notes="$(gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
-            "${generate_args[@]}" \
-            --jq '.body' 2>/dev/null || true)"
-
-          if [[ -n "$generated_notes" ]]; then
-            changelog_without_link="$(printf '%s\n' "$changelog_notes" |
-              sed '/^[[:space:]]*>[[:space:]]*Full Changelog:/d')"
-            if [[ -n "$changelog_without_link" ]]; then
-              release_notes="$(printf '%s\n\n%s\n' "$changelog_without_link" "$generated_notes")"
-            else
-              release_notes="$generated_notes"
-            fi
-          fi
+          MAGISK_RELEASE_NOTES_FILE=release-notes.md \
+          MAGISK_RELEASE_PLATFORM=github \
+            scripts/publish_mipush_release.sh release-notes
 
           mapfile -d '' release_assets < <(
-            find artifacts/apks -type f \( -name '*.apk' -o -name '*.zip' \) -print0 | sort -z
+            find artifacts/apks -type f \( -name '*.apk' -o -name '*.zip' -o -name '*.txt' \) -print0 | sort -z
           )
           if [[ ${#release_assets[@]} == 0 ]]; then
             echo "ERROR: no release assets found under artifacts/apks" >&2
@@ -252,12 +251,12 @@ jobs:
             gh release edit "$tag_name" \
               --title "$release_name" \
               --draft=false \
-              --notes "$release_notes"
+              --notes-file release-notes.md
           else
             gh release create "$tag_name" "${release_assets[@]}" \
               --title "$release_name" \
               --verify-tag \
-              --notes "$release_notes"
+              --notes-file release-notes.md
           fi
         env:
           GH_TOKEN: ${{ secrets.GH_PAT != '' && secrets.GH_PAT || github.token }}
@@ -266,10 +265,11 @@ jobs:
     name: Publish to Xposed-Modules-Repo
     needs: [create-release]
     runs-on: ubuntu-latest
+    continue-on-error: true
     if: startsWith(github.ref, 'refs/tags/')
     env:
       HAS_MODULES_REPO_TOKEN: ${{ secrets.XPOSED_MODULES_REPO_TOKEN != '' }}
-      HAS_RELEASE_KEYSTORE: ${{ secrets.RELEASE_KEYSTORE != '' }}
+      HAS_RELEASE_SIGNING: ${{ secrets.RELEASE_KEYSTORE != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
       MODULES_REPO: Xposed-Modules-Repo/io.github.magisk317.mipush
     steps:
       - uses: actions/checkout@v7
@@ -278,64 +278,27 @@ jobs:
           fetch-depth: 0
 
       - name: Download Artifacts
+        if: env.HAS_MODULES_REPO_TOKEN == 'true' && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/download-artifact@v8
         with:
           pattern: apks-*
           path: artifacts/apks
           merge-multiple: true
 
+      - name: Skip unsupported modules repository publication
+        if: env.HAS_MODULES_REPO_TOKEN != 'true' || env.HAS_RELEASE_SIGNING != 'true'
+        run: echo "SKIP Xposed-Modules-Repo; token or complete signing credentials are not configured."
+
       - name: Publish Release in Xposed-Modules-Repo
-        if: env.HAS_MODULES_REPO_TOKEN == 'true' && env.HAS_RELEASE_KEYSTORE == 'true'
+        if: env.HAS_MODULES_REPO_TOKEN == 'true' && env.HAS_RELEASE_SIGNING == 'true'
         shell: bash
         run: |
           set -euo pipefail
           tag_name="${GITHUB_REF_NAME}"
           release_name="$tag_name"
-          release_notes="MiPushFramework Release ${tag_name}"
-          changelog_notes=""
-          if [[ -f "docs/CHANGELOG.md" ]]; then
-            changelog_notes="$(awk -v version="$tag_name" '
-              $0 == "---" && found { exit }
-              found { print; next }
-              index($0, "## [" version "]") == 1 { found = 1; next }
-            ' docs/CHANGELOG.md)"
-            if [[ -n "$changelog_notes" ]]; then
-              release_notes="$changelog_notes"
-            fi
-          fi
-
-          previous_tag=""
-          compare_range="$(printf '%s\n' "$changelog_notes" |
-            sed -nE 's#.*compare/([^[:space:]]+)\.\.\.([^[:space:]]+).*#\1 \2#p' |
-            head -n 1)"
-          if [[ -n "$compare_range" ]]; then
-            read -r previous_tag compare_to <<< "$compare_range"
-            if [[ "$compare_to" != "$tag_name" ]]; then
-              previous_tag=""
-            fi
-          fi
-          if [[ -z "$previous_tag" ]]; then
-            previous_tag="$(git describe --tags --abbrev=0 "${tag_name}^{commit}^" 2>/dev/null || true)"
-          fi
-
-          generate_args=(-X POST -f "tag_name=${tag_name}")
-          if [[ -n "$previous_tag" ]]; then
-            generate_args+=(-f "previous_tag_name=${previous_tag}")
-          fi
-          generated_notes="$(GH_TOKEN="${SOURCE_RELEASE_TOKEN}" \
-            gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
-            "${generate_args[@]}" \
-            --jq '.body' 2>/dev/null || true)"
-
-          if [[ -n "$generated_notes" ]]; then
-            changelog_without_link="$(printf '%s\n' "$changelog_notes" |
-              sed '/^[[:space:]]*>[[:space:]]*Full Changelog:/d')"
-            if [[ -n "$changelog_without_link" ]]; then
-              release_notes="$(printf '%s\n\n%s\n' "$changelog_without_link" "$generated_notes")"
-            else
-              release_notes="$generated_notes"
-            fi
-          fi
+          MAGISK_RELEASE_NOTES_FILE=release-notes.md \
+          MAGISK_RELEASE_PLATFORM=github \
+            scripts/publish_mipush_release.sh release-notes
 
           mapfile -d '' apk_files < <(find artifacts/apks -type f -name '*.apk' -print0 | sort -z)
           if [[ ${#apk_files[@]} -eq 0 ]]; then
@@ -352,14 +315,13 @@ jobs:
               --repo "${{ env.MODULES_REPO }}" \
               --title "$release_name" \
               --draft=false \
-              --notes "$release_notes"
+              --notes-file release-notes.md
           else
             gh release create "$tag_name" \
               "${apk_files[@]}" \
               --repo "${{ env.MODULES_REPO }}" \
               --title "$release_name" \
-              --notes "$release_notes"
+              --notes-file release-notes.md
           fi
         env:
-          SOURCE_RELEASE_TOKEN: ${{ secrets.GH_PAT != '' && secrets.GH_PAT || github.token }}
           GH_TOKEN: ${{ secrets.XPOSED_MODULES_REPO_TOKEN }}
