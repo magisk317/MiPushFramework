@@ -17,13 +17,14 @@ import android.os.RemoteException
 import android.text.TextUtils
 import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
-import com.xiaomi.push.service.XMPushService
+import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.channel.commonutils.network.Network
 import com.xiaomi.channel.commonutils.string.MD5
 import com.xiaomi.push.clientreport.PerfMessageHelper
 import com.xiaomi.push.service.OnlineConfig
 import com.xiaomi.push.service.PacketHelper
 import com.xiaomi.push.service.PushConstants
+import com.xiaomi.push.service.ServiceClientIntentSupport
 import com.xiaomi.push.service.PushProvision
 import com.xiaomi.push.service.clientReport.PushClientReportManager
 import com.xiaomi.push.service.clientReport.ReportConstants
@@ -221,7 +222,7 @@ class PushServiceClient private constructor(context: Context) {
         return Intent().apply {
             val packageName = mContext.packageName
             enableMyPushService()
-            component = ComponentName(mContext, PushConstants.PUSH_SERVICE_CLASS_NAME_JAR)
+            component = ComponentName(mContext, ServiceClientIntentSupport.localServiceClassName(mContext))
             putExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE, packageName)
         }
     }
@@ -487,12 +488,12 @@ class PushServiceClient private constructor(context: Context) {
         val intent = registerTask
         registerTask = null
         if (intent != null) {
-            XMPushService.observer?.cacheRegistrationTask(
+            XMPushServiceCore.observer?.cacheRegistrationTask(
                 mContext.packageName, intent, "PushServiceClient.processRegisterTask",
                 "legacy_cached_task", System.currentTimeMillis()
             )
         }
-        XMPushService.observer?.dispatchRegistrationTasks("PushServiceClient.processRegisterTask")
+        XMPushServiceCore.observer?.dispatchRegistrationTasks("PushServiceClient.processRegisterTask")
     }
 
     fun register(xmPushActionRegistration: XmPushActionRegistration, z: Boolean) {
@@ -502,7 +503,7 @@ class PushServiceClient private constructor(context: Context) {
         )
         registerTask = null
         AppInfoHolder.getInstance(mContext).appRegRequestId = xmPushActionRegistration.id
-        XMPushService.observer?.onAccountEvent(
+        XMPushServiceCore.observer?.onAccountEvent(
             mContext.packageName,
             if (z) "env_changed" else "client_register"
         )
@@ -521,11 +522,11 @@ class PushServiceClient private constructor(context: Context) {
         intent.putExtra(PushConstants.MIPUSH_EXTRA_ENV_CHANAGE, z)
         intent.putExtra(PushConstants.MIPUSH_EXTRA_ENV_TYPE, AppInfoHolder.getInstance(mContext).envType)
         if (Network.hasNetwork(mContext) && isProvisioned()) {
-            XMPushService.observer?.clearRegistrationTasks(mContext.packageName)
-            XMPushService.observer?.onAccountEvent(mContext.packageName, "call_service")
+            XMPushServiceCore.observer?.clearRegistrationTasks(mContext.packageName)
+            XMPushServiceCore.observer?.onAccountEvent(mContext.packageName, "call_service")
             callService(intent)
         } else {
-            XMPushService.observer?.cacheRegistrationTask(
+            XMPushServiceCore.observer?.cacheRegistrationTask(
                 mContext.packageName, intent, "PushServiceClient.register",
                 if (Network.hasNetwork(mContext)) "device_unprovisioned" else "network_unavailable",
                 System.currentTimeMillis()

@@ -27,6 +27,7 @@ interface IPushRuntimeObserver {
     fun onServiceCreated(service: android.app.Service) {}
     fun postOnCreate() {}
     fun onServiceDestroy() {}
+    fun onPackageDataCleared(packageName: String) {}
     fun networkChanged() {}
     fun startForegroundService() {}
     fun getMIID(): String?
@@ -48,7 +49,7 @@ interface IPushRuntimeObserver {
     fun onRegistrationStateChanged(packageName: String, state: PushRegistrationState, reason: String, message: String)
     fun onRegistrationResult(packageName: String, success: Boolean, source: String, reason: String) {}
     fun repairRegistrationPayload(context: Context, packageName: String): PushRegistrationPayloadRepairResult? = null
-    fun cacheRegistrationRequest(packageName: String, payload: ByteArray)
+    fun cacheRegistrationRequest(packageName: String, payload: ByteArray, appId: String? = null)
     fun clearAccount(context: Context, packageName: String) {}
     fun observeUnregistration(packageName: String, state: PushRegistrationState) {}
     fun cacheRegistrationTask(packageName: String, intent: Intent, source: String, reason: String, timestampMs: Long) {}
@@ -78,6 +79,7 @@ interface IPushRuntimeObserver {
 
     // --- Message Processing ---
     fun onPayloadReceived(context: Context, payload: ByteArray?, size: Long, source: String)
+    fun shouldAcceptProfile(container: Any): Boolean = true
     fun processMIPushMessage(payload: ByteArray, trafficBytes: Long)
     fun postProcessMIPushMessage(targetPackage: String, payload: ByteArray, intent: Intent)
     fun onSendMessage(packageName: String, size: Int) = Unit

@@ -5,7 +5,7 @@ import io.github.magisk317.mipush.common.Constants
 object LegacyComponentNames {
     const val SERVICE_PACKAGE = "com.xiaomi.xmsf"
     const val BRIDGE_SERVICE_CLASS = "com.xiaomi.xmsf.push.service.XMPushService"
-    const val LEGACY_MAIN_SERVICE_CLASS = "com.xiaomi.push.service.XMPushService"
+    const val LEGACY_COMPAT_SERVICE_CLASS = "com.xiaomi.push.service.XMPushService"
 
     const val MAIN_ACTIVITY = "io.github.magisk317.mipush.feature.main.MainActivity"
     const val APPLICATION_INFO_PAGE = "io.github.magisk317.mipush.feature.main.ApplicationInfoPage"
@@ -25,7 +25,7 @@ object LegacyComponentNames {
 
     val manifestServices = setOf(
         BRIDGE_SERVICE_CLASS,
-        LEGACY_MAIN_SERVICE_CLASS,
+        LEGACY_COMPAT_SERVICE_CLASS,
         Constants.KEEPALIVE_ACCESSIBILITY_SERVICE_CLASS,
     )
 }

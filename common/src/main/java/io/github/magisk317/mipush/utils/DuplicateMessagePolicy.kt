@@ -11,6 +11,7 @@ import java.util.LinkedHashMap
  */
 object DuplicateMessagePolicy {
     private const val DEDUP_WINDOW_MS = 60_000L
+    internal const val MAX_TRACKED_MESSAGES = 2_048
     private val lock = Any()
     private val seen = LinkedHashMap<String, Long>()
 
@@ -21,6 +22,14 @@ object DuplicateMessagePolicy {
             pruneExpiredLocked(nowMs)
             val previous = seen[messageId]
             val duplicated = previous != null && (nowMs - previous) <= DEDUP_WINDOW_MS
+            if (previous == null && seen.size >= MAX_TRACKED_MESSAGES) {
+                seen.entries.iterator().run {
+                    if (hasNext()) {
+                        next()
+                        remove()
+                    }
+                }
+            }
             seen[messageId] = nowMs
             return duplicated
         }
@@ -32,6 +41,8 @@ object DuplicateMessagePolicy {
             seen.clear()
         }
     }
+
+    internal fun trackedMessageCount(): Int = synchronized(lock) { seen.size }
 
     private fun pruneExpiredLocked(nowMs: Long) {
         val iterator = seen.entries.iterator()

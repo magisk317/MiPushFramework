@@ -7,6 +7,7 @@ import android.content.Intent
 import android.text.TextUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.push.service.PushConstants
+import com.xiaomi.push.service.ServiceClientIntentSupport
 import com.xiaomi.push.service.PushServiceConstants
 import com.xiaomi.push.service.ServiceClient
 
@@ -37,7 +38,7 @@ class PkgUninstallReceiver : BroadcastReceiver() {
 
         try {
             val serviceIntent = Intent().apply {
-                component = ComponentName(context, PushConstants.PUSH_SERVICE_CLASS_NAME_JAR)
+                component = ComponentName(context, ServiceClientIntentSupport.localServiceClassName(context))
                 action = PushServiceConstants.ACTION_UNINSTALL
                 putExtra(PushServiceConstants.EXTRA_UNINSTALL_PKG_NAME, encodedSchemeSpecificPart)
             }

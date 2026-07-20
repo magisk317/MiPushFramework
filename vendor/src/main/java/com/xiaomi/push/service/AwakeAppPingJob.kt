@@ -9,7 +9,7 @@ import java.lang.ref.WeakReference
 
 class AwakeAppPingJob(
     private val notification: XmPushActionNotification,
-    private val pushServiceReference: WeakReference<XMPushService>,
+    private val pushServiceReference: WeakReference<XMPushServiceCore>,
     private val isCache: Boolean,
 ) : ScheduledJobManager.Job() {
     override fun getJobId(): String = "22"

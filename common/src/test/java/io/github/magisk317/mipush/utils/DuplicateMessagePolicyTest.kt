@@ -1,10 +1,21 @@
 package io.github.magisk317.mipush.utils
 
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class DuplicateMessagePolicyTest {
+
+    @Test
+    fun `message churn cannot grow dedupe state without bound`() {
+        DuplicateMessagePolicy.clearAllForTests()
+        repeat(DuplicateMessagePolicy.MAX_TRACKED_MESSAGES + 100) { index ->
+            DuplicateMessagePolicy.checkAndMark("message-$index", nowMs = 1_000L)
+        }
+
+        assertEquals(DuplicateMessagePolicy.MAX_TRACKED_MESSAGES, DuplicateMessagePolicy.trackedMessageCount())
+    }
 
     @Test
     fun `checkAndMark keeps duplicate within extended window`() {

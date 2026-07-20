@@ -37,7 +37,7 @@ class PushLayerProcessIml : IProcessData {
                 ActionType.Notification,
             ),
         )
-        if (context !is XMPushService) {
+        if (context !is XMPushServiceCore) {
             MyLog.w("MoleInfo : context is not correct in pushLayer ${notification.id}")
             return
         }

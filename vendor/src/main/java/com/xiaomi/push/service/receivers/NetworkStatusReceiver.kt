@@ -15,6 +15,7 @@ import com.xiaomi.mipush.sdk.OperatePushHelper
 import com.xiaomi.mipush.sdk.PushServiceClient
 import com.xiaomi.mipush.sdk.RetryType
 import com.xiaomi.push.service.PushConstants
+import com.xiaomi.push.service.ServiceClientIntentSupport
 import com.xiaomi.push.service.PushServiceConstants
 import com.xiaomi.push.service.ServiceClient
 import com.xiaomi.smack.util.TrafficUtils
@@ -45,7 +46,7 @@ class NetworkStatusReceiver @JvmOverloads constructor(dummy: Any? = null) : Broa
         ) {
             try {
                 val intent = Intent().apply {
-                    component = ComponentName(context, PushConstants.PUSH_SERVICE_CLASS_NAME_JAR)
+                    component = ComponentName(context, ServiceClientIntentSupport.localServiceClassName(context))
                     action = PushServiceConstants.ACTION_NETWORK_STATUS_CHANGED
                 }
                 ServiceClient.getInstance(context).startServiceSafely(intent)

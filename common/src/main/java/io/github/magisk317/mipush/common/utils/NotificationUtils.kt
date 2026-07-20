@@ -19,7 +19,15 @@ object NotificationUtils {
     }
 
     @JvmStatic
-    fun getPackageName(@NonNull groupOrChannel: String): String {
-        return groupOrChannel.substring(3)
+    fun isMiPushManagedChannelId(@NonNull packageName: String, channelId: String?): Boolean {
+        if (channelId.isNullOrEmpty()) return false
+        val prefix = getChannelIdByPkg(packageName)
+        return channelId == prefix || channelId.startsWith(prefix + "_")
+    }
+
+    @JvmStatic
+    fun isMiPushManagedGroupId(@NonNull packageName: String, groupId: String?): Boolean {
+        if (groupId.isNullOrEmpty()) return false
+        return groupId == getGroupIdByPkg(packageName)
     }
 }

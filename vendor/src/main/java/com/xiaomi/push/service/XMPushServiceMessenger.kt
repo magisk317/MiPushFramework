@@ -12,7 +12,7 @@ import com.xiaomi.smack.Connection
 import io.github.magisk317.mipush.platform.support.PushServiceBroadcastActions
 
 class XMPushServiceMessenger(
-    private val xmPushService: XMPushService
+    private val xmPushService: XMPushServiceCore
 ) : BroadcastReceiver() {
 
     private var connectionStatus: Int = 0

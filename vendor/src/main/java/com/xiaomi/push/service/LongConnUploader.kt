@@ -18,7 +18,7 @@ import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
  * Stock class name is obfuscated as com.xiaomi.push.service.b0; this file keeps the deobfuscated LongConnUploader API.
  */
 class LongConnUploader(
-    private val pushService: XMPushService,
+    private val pushService: XMPushServiceCore,
 ) : TinyDataUploader {
     private fun getAppId(packageName: String): String? {
         return if (PushConstants.PUSH_SERVICE_PACKAGE_NAME == packageName) {
@@ -35,7 +35,7 @@ class LongConnUploader(
 
     override fun upload(list: MutableList<ClientUploadDataItem>, str: String, str2: String) {
         pushService.executeJob(
-            object : XMPushService.Job(XMPushServiceJob.TYPE_SEND_MSG) {
+            object : XMPushServiceCore.Job(XMPushServiceJob.TYPE_SEND_MSG) {
                 override fun getDesc(): String = "Send tiny data."
                 override fun process() {
                     val appId = getAppId(str)
@@ -45,7 +45,7 @@ class LongConnUploader(
                     }
                     val notifications = TinyDataHelper.pack(list, str, appId, Blob.MAX_BLOB_SIZE)
                     if (notifications == null) {
-                        MyLog.e("TinyData LongConnUploader.upload Get a null XmPushActionNotification list when TinyDataHelper.pack() in XMPushService.")
+                        MyLog.e("TinyData LongConnUploader.upload Get a null XmPushActionNotification list when TinyDataHelper.pack() in XMPushServiceCore.")
                         return
                     }
                     for (notification in notifications) {

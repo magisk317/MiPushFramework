@@ -159,6 +159,19 @@ class RegistrationThrottleTest {
         )
     }
 
+    @org.junit.jupiter.api.Test
+    fun `tracked package state is bounded under random package churn`() {
+        repeat(RegistrationThrottle.MAX_TRACKED_PACKAGES + 100) { index ->
+            RegistrationThrottle.shouldThrottle(
+                packageName = "com.example.app$index",
+                channelBound = false,
+                nowMs = 1_000L,
+            )
+        }
+
+        assertEquals(RegistrationThrottle.MAX_TRACKED_PACKAGES, RegistrationThrottle.trackedPackageCount())
+    }
+
     /**
      * Helper: generates a random package name like "com.example.app123".
      */

@@ -37,9 +37,13 @@ object Utils {
     }
 
     @JvmStatic
-    fun myUid(): Int {
+    fun myUserId(): Int {
         return Process.myUserHandle().hashCode()
     }
+
+    @JvmStatic
+    @Deprecated("Use myUserId()", ReplaceWith("myUserId()"))
+    fun myUid(): Int = myUserId()
 
     @JvmStatic
     fun getApplication(): Context? {
@@ -87,16 +91,6 @@ object Utils {
         @ColorInt val colorAccent = ta.getColor(0, 0)
         ta.recycle()
         return colorAccent
-    }
-
-    @JvmStatic
-    fun getUTC(date: Date): Date {
-        return date
-    }
-
-    @JvmStatic
-    fun getUTC(): Date {
-        return getUTC(Date())
     }
 
     @JvmStatic

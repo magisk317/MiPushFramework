@@ -22,7 +22,7 @@ object XMPushServiceEnvironment {
     private const val SUPER_POWER_MODE = "power_supersave_mode_open"
 
     @JvmStatic
-    fun canOpenForegroundService(service: XMPushService): Boolean {
+    fun canOpenForegroundService(service: XMPushServiceCore): Boolean {
         if (TextUtils.equals(service.packageName, PushConstants.PUSH_SERVICE_PACKAGE_NAME)) {
             return false
         }
@@ -30,7 +30,7 @@ object XMPushServiceEnvironment {
     }
 
     @JvmStatic
-    fun ensureRegionAvailable(service: XMPushService): String? {
+    fun ensureRegionAvailable(service: XMPushServiceCore): String? {
         ThreadUtils.checkNotUIThread()
         var countryCode: String? = null
         val start = SystemClock.elapsedRealtime()
@@ -66,7 +66,7 @@ object XMPushServiceEnvironment {
     }
 
     @JvmStatic
-    fun getFalldownTimeRange(service: XMPushService): IntArray? {
+    fun getFalldownTimeRange(service: XMPushServiceCore): IntArray? {
         val range = OnlineConfig.getInstance(service.applicationContext)
             .getStringValue(ConfigKey.FallDownTimeRange.value, "") ?: ""
         val parts = range.split(",")
@@ -90,7 +90,7 @@ object XMPushServiceEnvironment {
     @Suppress("DEPRECATION")
     @JvmStatic
     fun getPushServiceNotification(context: Context): Notification {
-        val intent = Intent(context, XMPushService::class.java)
+        val intent = Intent(context, XMPushServiceCore::class.java)
         if (Build.VERSION.SDK_INT >= 11) {
             return Notification.Builder(context)
                 .setSmallIcon(context.applicationInfo.icon)
@@ -121,7 +121,7 @@ object XMPushServiceEnvironment {
     }
 
     @JvmStatic
-    fun isExtremePowerSaveMode(service: XMPushService): Boolean {
+    fun isExtremePowerSaveMode(service: XMPushServiceCore): Boolean {
         if (PushConstants.PUSH_SERVICE_PACKAGE_NAME != service.packageName) {
             return false
         }
@@ -129,7 +129,7 @@ object XMPushServiceEnvironment {
     }
 
     @JvmStatic
-    fun isSuperPowerModeEnable(service: XMPushService): Boolean {
+    fun isSuperPowerModeEnable(service: XMPushServiceCore): Boolean {
         if (PushConstants.PUSH_SERVICE_PACKAGE_NAME != service.packageName) {
             return false
         }
@@ -147,7 +147,7 @@ object XMPushServiceEnvironment {
     }
 
     @JvmStatic
-    fun shouldFalldown(service: XMPushService, falldownStart: Int, falldownEnd: Int): Boolean {
+    fun shouldFalldown(service: XMPushServiceCore, falldownStart: Int, falldownEnd: Int): Boolean {
         return service.applicationContext.packageName == PushConstants.PUSH_SERVICE_PACKAGE_NAME &&
             isInFalldownTimeRange(falldownStart, falldownEnd) &&
             !DeviceInfo.isScreenOn(service) &&

@@ -15,7 +15,7 @@ import com.xiaomi.push.protobuf.ChannelMessage
 import com.xiaomi.smack.ConnectionConfiguration
 
 class XMPushServiceLifecycleInfrastructure(
-    private val service: XMPushService,
+    private val service: XMPushServiceCore,
 ) {
     companion object {
         private const val EXTREME_POWER_MODE = "EXTREME_POWER_MODE_ENABLE"
@@ -144,6 +144,6 @@ class XMPushServiceLifecycleInfrastructure(
         } catch (_: Exception) {
             ""
         }
-        MyLog.persist("XMPushService created. pid=${Process.myPid()}, uid=${Process.myUid()}, uuid=$accountId")
+        MyLog.persist("XMPushServiceCore created. pid=${Process.myPid()}, uid=${Process.myUid()}, uuid=$accountId")
     }
 }

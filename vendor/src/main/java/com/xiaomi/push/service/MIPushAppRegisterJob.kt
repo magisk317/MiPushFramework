@@ -4,12 +4,12 @@ import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.smack.XMPPException
 
 class MIPushAppRegisterJob(
-    private val pushService: XMPushService,
+    private val pushService: XMPushServiceCore,
     private val packageName: String,
     private val appId: String,
     private val appToken: String,
     private val payload: ByteArray,
-) : XMPushService.Job(XMPushServiceJob.TYPE_BIND_UNBIND) {
+) : XMPushServiceCore.Job(XMPushServiceJob.TYPE_BIND_UNBIND) {
     override fun getDesc(): String = "register app"
 
     override fun process() {

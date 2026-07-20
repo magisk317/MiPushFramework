@@ -5,8 +5,8 @@ import com.xiaomi.push.service.XMPushServiceJob.Companion.TYPE_SEND_MSG
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
 
-class PullAllApplicationDataFromServerJob(xmPushService: XMPushService) :
-    XMPushService.Job(TYPE_SEND_MSG) {
+class PullAllApplicationDataFromServerJob(xmPushService: XMPushServiceCore) :
+    XMPushServiceCore.Job(TYPE_SEND_MSG) {
 
     private val xmPushActionOperator = XmPushActionOperator(xmPushService)
 

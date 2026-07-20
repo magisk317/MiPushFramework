@@ -20,7 +20,7 @@ import android.service.notification.StatusBarNotification
 import androidx.annotation.RequiresApi
 import androidx.core.content.IntentCompat
 import android.util.Log
-import com.xiaomi.push.service.XMPushService
+import com.xiaomi.push.service.XMPushServiceCore
 import android.content.pm.ApplicationInfo
 
 /** Increase the version if breaking changes have been made to notification data, to avoid restoring from incompatible version. */
@@ -156,7 +156,7 @@ private const val FLAG_IMMUTABLE_NO_CREATE = FLAG_NO_CREATE or FLAG_IMMUTABLE
         ): PendingIntent? = PendingIntent.getBroadcast(context, identity, retriever, FLAG_IMMUTABLE_NO_CREATE)
 
         private fun restoreNotification(context: Context, sbn: StatusBarNotification) {
-            val observer = XMPushService.observer
+            val observer = XMPushServiceCore.observer
             val n = observer?.rebuildRestoredNotification(context, sbn.notification) ?: sbn.notification
             context.getSystemService(NotificationManager::class.java)!!.notify(sbn.tag, sbn.id, n)
         }

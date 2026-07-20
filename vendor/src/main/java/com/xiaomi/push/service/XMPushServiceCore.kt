@@ -24,7 +24,7 @@ import java.util.ArrayList
 import java.util.Collections
 
 @Suppress("MemberVisibilityCanBePrivate")
-open class XMPushService : Service(), ConnectionListener, IPushServiceAction {
+open class XMPushServiceCore : Service(), ConnectionListener, IPushServiceAction {
     lateinit var connectionConfiguration: ConnectionConfiguration
     lateinit var clientEventDispatcher: ClientEventDispatcher
     override var currentConnection: Connection? = null

@@ -29,7 +29,7 @@ object MIPushClientManager {
 
     @JvmStatic
     fun notifyRegisterError(context: Context, errorCode: Int, errorMessage: String) {
-        val observer = XMPushService.observer
+        val observer = XMPushServiceCore.observer
         observer?.notifyRegisterError(errorCode, errorMessage, object : IPendingPacketErrorNotifier {
             override fun notifyError(errorCode: Int, errorMessage: String) {
                 MIPushAckDispatcher.notifyRegisterError(context, errorCode, errorMessage)

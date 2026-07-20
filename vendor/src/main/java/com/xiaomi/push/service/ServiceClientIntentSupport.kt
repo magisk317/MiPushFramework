@@ -19,7 +19,7 @@ object ServiceClientIntentSupport {
             }
         } else {
             Intent().apply {
-                setComponent(ComponentName(context, PushConstants.PUSH_SERVICE_CLASS_NAME_JAR))
+                setComponent(ComponentName(context, localServiceClassName(context)))
                 putExtra(PushConstants.EXTRA_PACKAGE_NAME, context.packageName)
                 enableMyPushService(context)
             }
@@ -35,6 +35,16 @@ object ServiceClientIntentSupport {
                 PushConstants.PUSH_SERVICE_CLASS_NAME
             }
         }.getOrDefault(PushConstants.PUSH_SERVICE_CLASS_NAME)
+    }
+
+    /** XMSF must keep its raw control actions on the non-exported runtime service. */
+    @JvmStatic
+    fun localServiceClassName(context: Context): String {
+        return if (context.packageName == PushConstants.PUSH_SERVICE_PACKAGE_NAME) {
+            XMPushServiceCore::class.java.name
+        } else {
+            PushConstants.PUSH_SERVICE_CLASS_NAME_JAR
+        }
     }
 
     @JvmStatic

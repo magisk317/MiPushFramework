@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.Intent
 
 class ConnectionChangeReceiver(
-    private val service: XMPushService,
+    private val service: XMPushServiceCore,
 ) : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         service.onStartCommand(intent, 0, 1)
@@ -13,7 +13,7 @@ class ConnectionChangeReceiver(
 }
 
 class ScreenStateReceiver(
-    private val service: XMPushService,
+    private val service: XMPushServiceCore,
 ) : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         service.onStartCommand(intent, 0, 1)

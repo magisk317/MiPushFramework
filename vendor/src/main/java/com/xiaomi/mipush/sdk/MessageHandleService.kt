@@ -8,7 +8,7 @@ import android.text.TextUtils
 import androidx.core.os.BundleCompat
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.misc.ScheduledJobManager
-import com.xiaomi.push.service.XMPushService
+import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.push.service.clientReport.PushClientReportManager
 import com.xiaomi.push.service.clientReport.ReportConstants
 import com.xiaomi.push.service.xmpush.Command
@@ -76,7 +76,7 @@ class MessageHandleService : BaseService() {
                     1 -> {
                         var pushMessageInterface: PushMessageHandler.PushMessageInterface? = null
                         pushMessageInterface =
-                            XMPushService.observer?.processMIPushIntent(intent) as? PushMessageHandler.PushMessageInterface
+                            XMPushServiceCore.observer?.processMIPushIntent(intent) as? PushMessageHandler.PushMessageInterface
                         val reportType = intent.getIntExtra(ReportConstants.EVENT_MESSAGE_TYPE, -1)
                         if (pushMessageInterface is MiPushMessage) {
                             if (!pushMessageInterface.isArrivedMessage()) {

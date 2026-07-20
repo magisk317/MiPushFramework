@@ -109,27 +109,6 @@ data class ManagerEvent(
     }
 }
 
-data class ManagerRuntimeLogFileInfo(
-    val name: String,
-    val sizeBytes: Long,
-    val lineCount: Int,
-    val lastTimestamp: Long?,
-)
-
-data class ManagerRuntimeLogFileSummary(
-    val fileCount: Int,
-    val totalBytes: Long,
-    val entryCount: Int,
-    val firstTimestamp: Long?,
-    val lastTimestamp: Long?,
-    val files: List<ManagerRuntimeLogFileInfo>,
-)
-
-data class ManagerRuntimeLogFileContent(
-    val name: String,
-    val text: String,
-)
-
 data class ManagerLogExportResult(
     val file: File?,
     val details: String,

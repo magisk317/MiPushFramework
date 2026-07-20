@@ -4,7 +4,7 @@ import android.content.Context
 import android.os.Build
 import android.text.TextUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
-import com.xiaomi.push.service.XMPushService
+import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.push.service.XMPushServiceProxy
 
 object SystemUtils {
@@ -50,7 +50,7 @@ object SystemUtils {
 
     @JvmStatic
     fun getMIUIType(): Int {
-        val observer = XMPushService.observer ?: return 0
+        val observer = XMPushServiceCore.observer ?: return 0
         return if (observer.isMiuiStableVersion() == true) {
             3
         } else if (observer.isMiuiDevelopmentVersion() == true) {
@@ -108,7 +108,7 @@ object SystemUtils {
 
     @JvmStatic
     fun isGlobalVersion(): Boolean {
-        return XMPushService.observer?.isMiuiGlobalBuild() ?: false
+        return XMPushServiceCore.observer?.isMiuiGlobalBuild() ?: false
     }
 
     @JvmStatic

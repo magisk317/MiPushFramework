@@ -172,7 +172,7 @@ object MiPushClient4Hybrid {
         val str = miPushMessage.extra?.get(PushConstants.EXTRA_JOB_KEY)
         val messageId = if (TextUtils.isEmpty(str)) miPushMessage.messageId else str!!
         if (!messageId.isNullOrEmpty()) {
-            com.xiaomi.push.service.XMPushService.observer?.removeCachedMsgId(messageId)
+            com.xiaomi.push.service.XMPushServiceCore.observer?.removeCachedMsgId(messageId)
         }
     }
 

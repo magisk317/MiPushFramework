@@ -6,7 +6,7 @@ import android.os.SystemClock
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.network.Network
 import com.xiaomi.mipush.sdk.stat.db.MessageInfoContract
-import com.xiaomi.push.service.XMPushService
+import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.push.thrift.ChannelStatsType
 import com.xiaomi.push.thrift.StatsEvent
 import com.xiaomi.smack.Connection
@@ -20,7 +20,7 @@ import com.xiaomi.smack.SmackConfiguration
  * Stock class name is obfuscated as oa.c; this file keeps the deobfuscated com.xiaomi.stats.StatsContext API.
  */
 class StatsContext(
-    val pushService: XMPushService,
+    val pushService: XMPushServiceCore,
     var connection: Connection? = null
 ) : ConnectionListener {
     companion object {
