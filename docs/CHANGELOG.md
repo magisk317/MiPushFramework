@@ -4,11 +4,18 @@
 
 ---
 
-## [v0.6.2] - Unreleased
+## [v0.6.2] - 2026-07-20
 
-- TODO
+- `[feat(ui/app)]` 新增连接状态页、桌面小组件、事件搜索与清理，并统一主界面导航和设置交互。
+- `[feat(notification)]` 优先保留应用自带焦点参数，恢复 AMap 实况与超级岛链路，并增强模拟通知反馈。
+- `[fix(notification)]` 修复通知深链点击、PendingIntent 身份、状态栏图标和岛通知作用域问题。
+- `[feat(xposed/xspace)]` 扩展钉钉与 mPaaS 凭据兼容，改进双开安装管理和逐应用 Zygisk 策略。
+- `[fix(runtime/security)]` 补齐 stock XMSF 兼容契约，增强注册与配置状态恢复，并收紧导出组件权限边界。
+- `[feat(diagnostics/config)]` 统一日志归档与脱敏，新增敏感调试开关，并支持 GitLab 配置源。
+- `[build/release]` 对齐 GitHub/GitLab 发版资产与门禁，完善质量检查和不支持能力的跳过流程。
+- `[deps/docs/test]` 更新构建工具、依赖与架构文档，并补充运行时、通知和安全契约测试。
 
-> Full Changelog: https://github.com/magisk317/MiPushFramework/compare/v0.6.1...v0.6.2
+> Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v0.6.1...v0.6.2
 
 ---
 
