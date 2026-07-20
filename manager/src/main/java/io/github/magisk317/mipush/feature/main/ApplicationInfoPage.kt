@@ -353,9 +353,14 @@ open class ApplicationInfoPage : ComponentActivity() {
                         FilledTonalButton(
                             onClick = {
                                 scope.launch {
-                                    infoViewModel.launchTargetAppAndForceRegister(
+                                    val feedback = infoViewModel.launchTargetAppAndForceRegister(
                                         applicationInfo.packageName,
                                         applicationInfo.registeredType,
+                                    )
+                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                    snackbarHostState.showSnackbar(
+                                        message = feedback,
+                                        duration = SnackbarDuration.Short,
                                     )
                                 }
                             },
@@ -450,8 +455,8 @@ open class ApplicationInfoPage : ComponentActivity() {
             SettingSwitchRow(
                 title = zygiskTitle,
                 summary = stringResource(R.string.zygisk_spoof_switch_summary),
-                checked = isZygiskEnabledForApp,
-                enabled = isZygiskConfigurableForApp,
+                checked = isZygiskEnabledForApp && !blocked,
+                enabled = isZygiskConfigurableForApp && !blocked,
                 showDivider = true,
             ) { enabled ->
                 infoViewModel.updateZygiskEnabledForApp(enabled)
@@ -485,8 +490,10 @@ open class ApplicationInfoPage : ComponentActivity() {
     private fun IslandDisplaySection(snackbarHostState: SnackbarHostState) {
         val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
         val currentInfo by infoViewModel.applicationInfo.collectAsStateWithLifecycle()
-        val islandEnabled = currentInfo?.islandEnabled ?: applicationInfo.islandEnabled
-        val islandFocusNotification = currentInfo?.islandFocusNotification ?: applicationInfo.islandFocusNotification
+        val blocked = currentInfo?.blocked ?: applicationInfo.blocked
+        val islandEnabled = (currentInfo?.islandEnabled ?: applicationInfo.islandEnabled) && !blocked
+        val islandFocusNotification =
+            (currentInfo?.islandFocusNotification ?: applicationInfo.islandFocusNotification) && !blocked
 
         DetailSectionCard(
             title = stringResource(R.string.app_detail_island_controls),
@@ -497,6 +504,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                 title = islandEnabledTitle,
                 summary = stringResource(R.string.app_detail_island_enabled_summary),
                 checked = islandEnabled,
+                enabled = !blocked,
                 showDivider = true,
             ) { enabled ->
                 infoViewModel.updateIslandEnabled(enabled)
@@ -508,7 +516,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                 title = islandFocusNotificationTitle,
                 summary = stringResource(R.string.app_detail_island_focus_notification_summary),
                 checked = islandFocusNotification,
-                enabled = islandEnabled,
+                enabled = !blocked && islandEnabled,
             ) { enabled ->
                 infoViewModel.updateIslandFocusEnabled(enabled)
                 showSwitchFeedback(islandFocusNotificationTitle, enabled)
@@ -542,19 +550,16 @@ open class ApplicationInfoPage : ComponentActivity() {
     @Composable
     private fun NotificationChannelGroups() {
         val isPreview = LocalInspectionMode.current
-        val groups: List<NotificationChannelGroup>
-        val notificationChannels: List<NotificationChannel>
+        val sections: List<NotificationChannelSection>
         val currentNotificationGateway by rememberUpdatedState(notificationGateway)
 
         if (isPreview) {
-            groups = emptyList()
-            notificationChannels = emptyList()
+            sections = emptyList()
         } else {
-            groups = appConfigurationUtils.notificationChannelGroups
-            notificationChannels = appConfigurationUtils.notificationChannels ?: emptyList()
+            sections = appConfigurationUtils.notificationChannelSections()
         }
 
-        if (groups.isEmpty()) {
+        if (sections.isEmpty()) {
             ActionSummaryRow(
                 title = stringResource(R.string.settings_manage_app_notifications),
                 summary = stringResource(R.string.settings_manage_app_notifications_summary),
@@ -566,35 +571,53 @@ open class ApplicationInfoPage : ComponentActivity() {
             return
         }
 
-        groups.forEach { group ->
-            val categoryName = appConfigurationUtils.getNotificationCategoryName(group)
+        sections.forEach { section ->
             NotificationCategoryCard(
-                categoryName = categoryName,
-                channels = notificationChannels.filter { it.group == group.id },
+                categoryName = section.title,
+                channels = section.channels,
+                sectionKind = section.kind,
             )
         }
     }
 
     @Composable
-    private fun NotificationCategoryCard(categoryName: String, channels: List<NotificationChannel>) {
+    private fun NotificationCategoryCard(
+        categoryName: String,
+        channels: List<NotificationChannel>,
+        sectionKind: NotificationChannelSectionKind = NotificationChannelSectionKind.MIPUSH,
+    ) {
         val currentNotificationGateway by rememberUpdatedState(notificationGateway)
+        val sectionSummary = when (sectionKind) {
+            NotificationChannelSectionKind.MIPUSH ->
+                stringResource(R.string.notification_channels_section_mipush_summary)
+            NotificationChannelSectionKind.NATIVE ->
+                stringResource(R.string.notification_channels_section_native_summary)
+        }
         DetailSectionCard(
             title = categoryName,
-            summary = stringResource(R.string.notification_channels_group_summary),
+            summary = sectionSummary,
         ) {
             channels.forEach { channel ->
                 var shouldShowDialog by remember { mutableStateOf(false) }
+                val badge = when (sectionKind) {
+                    NotificationChannelSectionKind.MIPUSH ->
+                        stringResource(R.string.notification_channels_managed_badge)
+                    NotificationChannelSectionKind.NATIVE ->
+                        stringResource(R.string.notification_channels_native_badge)
+                }
+                val title = "[$badge] " + AppConfigurationUtils.getNotificationTitle(
+                    channel,
+                    currentNotificationGateway,
+                ).toString()
                 SettingsItem(
-                    title = AppConfigurationUtils.getNotificationTitle(channel, currentNotificationGateway).toString(),
+                    title = title,
                     summary = AppConfigurationUtils.getNotificationSummary(channel),
                     onClick = { shouldShowDialog = true },
                 )
                 if (shouldShowDialog) {
                     AlertDialog(
                         onDismissRequest = { shouldShowDialog = false },
-                        title = {
-                            Text(AppConfigurationUtils.getNotificationTitle(channel, currentNotificationGateway).toString())
-                        },
+                        title = { Text(title) },
                         text = {
                             Text(AppConfigurationUtils.getNotificationSummary(channel))
                         },
@@ -604,10 +627,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                                     DialogAction(
                                         label = stringResource(R.string.notification_channels_setting),
                                         onClick = {
-                                            appConfigurationUtils.gotoNotificationChannelSettingPage(
-                                                channel,
-                                                appConfigurationUtils.configApp,
-                                            )
+                                            appConfigurationUtils.gotoNotificationChannelSettingPage(channel)
                                             shouldShowDialog = false
                                         },
                                     ),

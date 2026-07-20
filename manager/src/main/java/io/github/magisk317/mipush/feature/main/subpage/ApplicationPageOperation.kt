@@ -9,14 +9,18 @@ import io.github.magisk317.mipush.manager.R
 class ApplicationPageOperation(
     private val applicationGateway: ManagerApplicationGateway,
 ) {
-    fun getMiPushApplications(): MiPushApplications {
+    fun getMiPushApplications(includeSystemApps: Boolean = false): MiPushApplications {
         val context = Utils.getApplication() ?: return MiPushApplications()
-        return getMiPushApplications(context, query = "", filterMode = 0)
+        return getMiPushApplications(context, query = "", filterMode = 0, includeSystemApps = includeSystemApps)
     }
 
-    fun getMiPushApplicationsThatQueryMatched(query: String, filterMode: Int = 0): MiPushApplications {
+    fun getMiPushApplicationsThatQueryMatched(
+        query: String,
+        filterMode: Int = 0,
+        includeSystemApps: Boolean = false,
+    ): MiPushApplications {
         val context = Utils.getApplication() ?: return MiPushApplications()
-        return getMiPushApplications(context, query, filterMode)
+        return getMiPushApplications(context, query, filterMode, includeSystemApps)
     }
 
     fun updateRegisteredApplicationDb(context: Context, list: List<ManagerApplication>) {
@@ -26,8 +30,13 @@ class ApplicationPageOperation(
     fun getNotSupportHint(context: Context, notUseMiPushCount: Int): String =
         context.getString(R.string.footer_app_ignored_not_registered, notUseMiPushCount.toString())
 
-    private fun getMiPushApplications(context: Context, query: String, filterMode: Int): MiPushApplications {
-        val snapshot = applicationGateway.loadApplications(context, query, filterMode)
+    private fun getMiPushApplications(
+        context: Context,
+        query: String,
+        filterMode: Int,
+        includeSystemApps: Boolean = false,
+    ): MiPushApplications {
+        val snapshot = applicationGateway.loadApplications(context, query, filterMode, includeSystemApps)
         return MiPushApplications().apply {
             registeredPkgs.putAll(snapshot.registeredPkgs)
             res = snapshot.items.toMutableList()

@@ -17,7 +17,6 @@ import android.os.SystemClock
 import android.util.TypedValue
 import android.widget.RemoteViews
 import com.xiaomi.xmsf.app.R
-import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerEvent
 import io.github.magisk317.mipush.common.manager.ManagerEventGateway
@@ -52,7 +51,6 @@ internal object MiPushWidgetRunner {
 internal object MiPushWidgetDependencies {
     fun ensureStarted(context: Context) {
         val appContext = context.applicationContext ?: context
-        AppDependencies.start(appContext)
         ManagerDependencies.start(appContext)
     }
 
@@ -66,7 +64,7 @@ internal object MiPushWidgetDependencies {
         return get()
     }
 
-    private inline fun <reified T : Any> get(): T = AppDependencies.get(T::class)
+    private inline fun <reified T : Any> get(): T = ManagerDependencies.get()
 }
 
 internal object MiPushWidgetIntents {

@@ -9,7 +9,6 @@ import android.graphics.BitmapFactory
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
-import android.widget.Toast
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -45,6 +44,8 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -55,6 +56,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
+import io.github.magisk317.uikit.common.showLatestSnackbar
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -91,7 +95,7 @@ import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import io.github.magisk317.uikit.surface.DonateDialog
 import io.github.magisk317.uikit.surface.QRCodeDialog
-import io.github.magisk317.uikit.surface.saveImageToGallery
+import io.github.magisk317.uikit.surface.saveImageToGalleryAsync
 import io.github.magisk317.uikit.surface.chromeTopAppBarColors
 import io.github.magisk317.uikit.R as UiKitR
 
@@ -123,6 +127,8 @@ private fun OverviewScreen(
     val mainActivityOperation = MainActivityOperation(context)
     var showDonateDialog by remember { mutableStateOf(false) }
     var showQRCodeDialog by remember { mutableStateOf<Pair<Int, String>?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     val appStats by overviewViewModel.stats.collectAsState()
     LaunchedEffect(Unit) {
         overviewViewModel.loadStats()
@@ -185,6 +191,11 @@ private fun OverviewScreen(
                 .align(Alignment.TopCenter),
             colors = chromeTopAppBarColors(),
         )
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
     }
 
     if (showDonateDialog) {
@@ -208,11 +219,13 @@ private fun OverviewScreen(
             type = type,
             onDismiss = { showQRCodeDialog = null },
             onSave = {
-                saveImageToGallery(context, resId, "${type}_qrcode")
-                    .forEach { message ->
-                        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                scope.launch {
+                    saveImageToGalleryAsync(context, resId, "${type}_qrcode")
+                        .forEach { message ->
+                            snackbarHostState.showLatestSnackbar(message)
+                        }
                     }
-            },
+                },
         )
     }
 }

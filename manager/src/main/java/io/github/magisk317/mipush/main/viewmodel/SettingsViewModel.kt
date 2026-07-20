@@ -261,12 +261,6 @@ class SettingsViewModel constructor(
         settingsManager.clearHistory(context, viewModelScope)
     }
 
-    fun summarizeRuntimeLogFiles(context: android.content.Context) =
-        settingsManager.summarizeRuntimeLogFiles(context)
-
-    fun readRuntimeLogFile(context: android.content.Context, fileName: String) =
-        settingsManager.readRuntimeLogFile(context, fileName)
-
     fun buildRuntimeLogBundle(context: android.content.Context) =
         settingsManager.buildRuntimeLogBundle(context)
 

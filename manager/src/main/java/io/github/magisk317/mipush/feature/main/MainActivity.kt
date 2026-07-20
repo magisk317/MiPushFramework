@@ -225,4 +225,9 @@ open class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onDestroy() {
+        mainActivityUtils.close()
+        super.onDestroy()
+    }
 }

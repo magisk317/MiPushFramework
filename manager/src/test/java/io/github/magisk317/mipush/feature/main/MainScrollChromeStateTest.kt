@@ -123,29 +123,4 @@ class MainScrollChromeStateTest {
             ),
         )
     }
-
-    @Test
-    fun `bottom gesture scrim follows compact bottom bar visibility`() {
-        assertTrue(
-            shouldShowBottomGestureScrim(
-                isCompact = true,
-                compactBottomBarAvailable = true,
-                compactBottomBarVisible = true,
-            ),
-        )
-        assertFalse(
-            shouldShowBottomGestureScrim(
-                isCompact = true,
-                compactBottomBarAvailable = true,
-                compactBottomBarVisible = false,
-            ),
-        )
-        assertFalse(
-            shouldShowBottomGestureScrim(
-                isCompact = false,
-                compactBottomBarAvailable = true,
-                compactBottomBarVisible = true,
-            ),
-        )
-    }
 }

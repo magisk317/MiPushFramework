@@ -36,9 +36,15 @@ class ZygiskConfigViewModel(
             
             val isZygiskEnabled = settingsManager.isZygiskModuleEnabled()
             
-            val appsList = withContext(Dispatchers.IO) {
+            val allApps = withContext(Dispatchers.IO) {
                 applicationGateway.loadApplications(context).items
-                    .filter { ZygiskPackagePolicy.isManagedPackage(it.packageName) }
+            }
+            val blockedPackages = allApps.asSequence()
+                .filter { it.blocked }
+                .map { it.packageName }
+                .toSet()
+            val appsList = allApps.filter {
+                !it.blocked && ZygiskPackagePolicy.isManagedPackage(it.packageName)
             }
 
             val zygiskConfig = withContext(Dispatchers.IO) {
@@ -48,7 +54,7 @@ class ZygiskConfigViewModel(
             _state.value = _state.value.copy(
                 isLoading = false,
                 isZygiskEnabled = isZygiskEnabled,
-                spoofPackages = zygiskConfig.enabledPackages(),
+                spoofPackages = zygiskConfig.enabledPackages() - blockedPackages,
                 installedApps = appsList
             )
         }

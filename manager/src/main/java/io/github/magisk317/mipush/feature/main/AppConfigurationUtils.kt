@@ -56,11 +56,11 @@ class AppConfigurationUtils(
     fun gotoNotificationSettingPage() {
         context.startActivity(
             Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                .putExtra(Settings.EXTRA_APP_PACKAGE, Constants.SERVICE_APP_NAME)
+                .putExtra(Settings.EXTRA_APP_PACKAGE, configApp)
         )
     }
 
-    fun gotoNotificationChannelSettingPage(channel: NotificationChannel, configApp: String) {
+    fun gotoNotificationChannelSettingPage(channel: NotificationChannel, configApp: String = this.configAppFor(channel)) {
         context.startActivity(
             Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
                 .putExtra(Settings.EXTRA_APP_PACKAGE, configApp)
@@ -77,28 +77,107 @@ class AppConfigurationUtils(
         notificationGateway.deleteNotificationChannel(application.packageName, channel.id)
     }
 
-    val notificationChannels: List<NotificationChannel>?
+    val notificationChannels: List<NotificationChannel>
         get() = notificationGateway.getNotificationChannels(application.packageName)
 
+    /**
+     * Settings deep-link package for this app's notification owner.
+     * Hooked / target-provisioned channels live under the target package; otherwise under XMSF.
+     */
     val configApp: String
-        get() = if (notificationGateway.isHooked) application.packageName else Constants.SERVICE_APP_NAME
+        get() = if (notificationGateway.isHooked) {
+            application.packageName
+        } else {
+            Constants.SERVICE_APP_NAME
+        }
+
+    fun configAppFor(channel: NotificationChannel): String {
+        // Unhooked MiPush-managed channels live under XMSF; everything else under target package.
+        val managed = NotificationUtils.isMiPushManagedChannelId(application.packageName, channel.id)
+        return if (managed && !notificationGateway.isHooked) {
+            Constants.SERVICE_APP_NAME
+        } else {
+            application.packageName
+        }
+    }
 
     fun getNotificationCategoryName(group: NotificationChannelGroup): String {
         val suffix = if (group.id == null) "" else String.format(": %s (%s)", group.name, group.id)
         return context.getString(R.string.notification_channels) + suffix
     }
 
+    fun isMiPushManagedChannel(channel: NotificationChannel): Boolean {
+        return NotificationUtils.isMiPushManagedChannelId(application.packageName, channel.id) ||
+            NotificationUtils.isMiPushManagedGroupId(application.packageName, channel.group)
+    }
+
+    fun isMiPushManagedGroup(group: NotificationChannelGroup): Boolean {
+        return NotificationUtils.isMiPushManagedGroupId(application.packageName, group.id)
+    }
+
+    /**
+     * Product model C: dual sections.
+     * - MiPush: managed group / ch_$pkg* ids
+     * - Native: remaining target-app channels (hooked / identity-capable paths)
+     */
+    fun notificationChannelSections(): List<NotificationChannelSection> {
+        val mipushGroupId = NotificationUtils.getGroupIdByPkg(application.packageName)
+        val groups = notificationGateway.getNotificationChannelGroups(application.packageName)
+        val channels = notificationChannels
+        val groupById = groups.associateBy { it.id }
+
+        val mipushChannels = channels.filter { isMiPushManagedChannel(it) }
+        val nativeChannels = channels.filterNot { isMiPushManagedChannel(it) }
+
+        val sections = mutableListOf<NotificationChannelSection>()
+
+        val mipushGroup = groupById[mipushGroupId]
+        if (mipushChannels.isNotEmpty() || mipushGroup != null) {
+            sections += NotificationChannelSection(
+                kind = NotificationChannelSectionKind.MIPUSH,
+                title = context.getString(R.string.notification_channels_section_mipush),
+                summary = context.getString(R.string.notification_channels_section_mipush_summary),
+                group = mipushGroup,
+                channels = mipushChannels.sortedBy { it.id },
+            )
+        }
+
+        if (notificationGateway.isHooked && nativeChannels.isNotEmpty()) {
+            val nativeByGroup = nativeChannels.groupBy { it.group }
+            nativeByGroup.forEach { (groupId, groupChannels) ->
+                val group = groupId?.let { groupById[it] }
+                val title = if (group != null) {
+                    context.getString(R.string.notification_channels_section_native) +
+                        String.format(": %s (%s)", group.name, group.id)
+                } else {
+                    context.getString(R.string.notification_channels_section_native)
+                }
+                sections += NotificationChannelSection(
+                    kind = NotificationChannelSectionKind.NATIVE,
+                    title = title,
+                    summary = context.getString(R.string.notification_channels_section_native_summary),
+                    group = group,
+                    channels = groupChannels.sortedBy { it.id },
+                )
+            }
+        } else if (!notificationGateway.isHooked) {
+            // Unhooked: only show MiPush-managed surface; native app channels are not owned here.
+        }
+
+        return sections
+    }
+
     val notificationChannelGroups: List<NotificationChannelGroup>
         get() {
-        val mipushGroup = NotificationUtils.getGroupIdByPkg(application.packageName)
-        val groups = notificationGateway.getNotificationChannelGroups(application.packageName).toMutableList()
-        if (notificationGateway.isHooked) {
-            makeMIPushGroupToTopPositions(groups, mipushGroup)
-        } else {
-            removeAllNonMIPushGroup(groups, mipushGroup)
+            val mipushGroup = NotificationUtils.getGroupIdByPkg(application.packageName)
+            val groups = notificationGateway.getNotificationChannelGroups(application.packageName).toMutableList()
+            if (notificationGateway.isHooked) {
+                makeMIPushGroupToTopPositions(groups, mipushGroup)
+            } else {
+                removeAllNonMIPushGroup(groups, mipushGroup)
+            }
+            return groups
         }
-        return groups
-    }
 
     companion object {
         @JvmStatic
@@ -157,3 +236,16 @@ class AppConfigurationUtils(
         }
     }
 }
+
+enum class NotificationChannelSectionKind {
+    MIPUSH,
+    NATIVE,
+}
+
+data class NotificationChannelSection(
+    val kind: NotificationChannelSectionKind,
+    val title: String,
+    val summary: String,
+    val group: NotificationChannelGroup?,
+    val channels: List<NotificationChannel>,
+)

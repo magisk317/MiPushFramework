@@ -18,6 +18,10 @@ class ConnectionStatusViewModel constructor(
     private val settingsManager: SettingsManager,
 ) : ViewModel() {
 
+    private companion object {
+        const val AUTO_REFRESH_INTERVAL_MILLIS = 5_000L
+    }
+
     private val _snapshot = MutableStateFlow<ManagerConnectionSnapshot?>(null)
     val snapshot: StateFlow<ManagerConnectionSnapshot?> = _snapshot.asStateFlow()
 
@@ -51,7 +55,7 @@ class ConnectionStatusViewModel constructor(
                 }
                 _snapshot.value = result
                 _tick.value += 1
-                delay(5_000L)
+                delay(AUTO_REFRESH_INTERVAL_MILLIS)
             }
         }
     }

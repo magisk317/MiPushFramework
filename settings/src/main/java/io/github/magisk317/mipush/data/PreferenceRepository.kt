@@ -27,7 +27,21 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.utils.ConfigDefaults
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+
+data class IslandSettingsSnapshot(
+    val enabled: Boolean,
+    val timeoutSecs: Int,
+    val firstFloat: Boolean,
+    val enableFloat: Boolean,
+    val showNotification: Boolean,
+    val showOriginalNotification: Boolean,
+    val focusNotification: Boolean,
+    val colorStatusBarIcon: Boolean,
+    val colorStatusBarIconGlobal: Boolean,
+    val sensitiveDebugLogMode: Boolean,
+)
 
 class PreferenceRepository constructor(
     private val dataStore: DataStore<Preferences>
@@ -62,9 +76,11 @@ class PreferenceRepository constructor(
     private val USAGE_STATS_REQUESTED = booleanPreferencesKey("usage_stats_requested")
     private val EVENT_GROUP_BY_APP = booleanPreferencesKey("event_group_by_app")
     private val APP_FILTER_MODE = intPreferencesKey("app_filter_mode")
+    private val SHOW_SYSTEM_APPS = booleanPreferencesKey("show_system_apps")
     private val THEME_MODE = intPreferencesKey("theme_mode")
     private val UI_KIT_STYLE = intPreferencesKey("ui_kit_style")
     private val RUNTIME_LOG_RETENTION_DAYS = intPreferencesKey("runtime_log_retention_days")
+    private val EVENT_RETENTION_DAYS = intPreferencesKey("event_retention_days")
     private val LAST_CONFIG_SYNC_TIME = longPreferencesKey("last_config_sync_time")
     private val CONFIG_REMOTE_REPOSITORY = stringPreferencesKey("config_remote_repository")
     private val CONFIG_REMOTE_BRANCH = stringPreferencesKey("config_remote_branch")
@@ -105,10 +121,14 @@ class PreferenceRepository constructor(
     val usageStatsRequested: Flow<Boolean> = dataStore.data.map { it[USAGE_STATS_REQUESTED] ?: false }
     val eventGroupByApp: Flow<Boolean> = dataStore.data.map { it[EVENT_GROUP_BY_APP] ?: false }
     val appFilterMode: Flow<Int> = dataStore.data.map { it[APP_FILTER_MODE] ?: 0 }
+    val showSystemApps: Flow<Boolean> = dataStore.data.map { it[SHOW_SYSTEM_APPS] ?: false }
     val themeMode: Flow<Int> = dataStore.data.map { it[THEME_MODE] ?: 0 }
     val uiKitStyle: Flow<Int> = dataStore.data.map { it[UI_KIT_STYLE] ?: DEFAULT_UI_KIT_STYLE }
     val runtimeLogRetentionDays: Flow<Int> = dataStore.data.map {
-        (it[RUNTIME_LOG_RETENTION_DAYS] ?: 7).coerceAtLeast(1)
+        (it[RUNTIME_LOG_RETENTION_DAYS] ?: 2).coerceAtLeast(1)
+    }
+    val eventRetentionDays: Flow<Int> = dataStore.data.map {
+        (it[EVENT_RETENTION_DAYS] ?: 7).coerceAtLeast(1)
     }
     val lastConfigSyncTime: Flow<Long> = dataStore.data.map { it[LAST_CONFIG_SYNC_TIME] ?: 0L }
     val configRemoteRepository: Flow<String> = dataStore.data.map {
@@ -133,6 +153,22 @@ class PreferenceRepository constructor(
     val debugMode: Flow<Boolean> = isDebugMode
     val sensitiveDebugLogMode: Flow<Boolean> = isSensitiveDebugLogMode
     val showAllEvents: Flow<Boolean> = isShowAllEvents
+
+    suspend fun readIslandSettingsSnapshot(): IslandSettingsSnapshot {
+        val preferences = dataStore.data.first()
+        return IslandSettingsSnapshot(
+            enabled = preferences[ISLAND_ENABLED] ?: true,
+            timeoutSecs = (preferences[ISLAND_TIMEOUT] ?: 5).coerceAtLeast(1),
+            firstFloat = preferences[ISLAND_FIRST_FLOAT] ?: true,
+            enableFloat = preferences[ISLAND_ENABLE_FLOAT] ?: true,
+            showNotification = preferences[ISLAND_SHOW_NOTIFICATION] ?: true,
+            showOriginalNotification = preferences[ISLAND_SHOW_ORIGINAL_NOTIFICATION] ?: true,
+            focusNotification = preferences[ISLAND_FOCUS_NOTIF] ?: false,
+            colorStatusBarIcon = preferences[COLOR_STATUS_BAR_ICON] ?: false,
+            colorStatusBarIconGlobal = preferences[COLOR_STATUS_BAR_ICON_GLOBAL] ?: false,
+            sensitiveDebugLogMode = preferences[SENSITIVE_DEBUG_LOG_MODE] ?: false,
+        )
+    }
 
     // Setters
     suspend fun setLastStartupTime(time: Long) {
@@ -243,6 +279,10 @@ class PreferenceRepository constructor(
         dataStore.edit { it[APP_FILTER_MODE] = mode }
     }
 
+    suspend fun setShowSystemApps(show: Boolean) {
+        dataStore.edit { it[SHOW_SYSTEM_APPS] = show }
+    }
+
     suspend fun setThemeMode(mode: Int) {
         dataStore.edit { it[THEME_MODE] = mode }
     }
@@ -253,6 +293,10 @@ class PreferenceRepository constructor(
 
     suspend fun setRuntimeLogRetentionDays(days: Int) {
         dataStore.edit { it[RUNTIME_LOG_RETENTION_DAYS] = days.coerceAtLeast(1) }
+    }
+
+    suspend fun setEventRetentionDays(days: Int) {
+        dataStore.edit { it[EVENT_RETENTION_DAYS] = days.coerceAtLeast(1) }
     }
 
     suspend fun setLastConfigSyncTime(time: Long) {

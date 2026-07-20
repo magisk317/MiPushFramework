@@ -9,7 +9,6 @@ import io.github.magisk317.mipush.common.manager.ManagerLogGateway
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
-import io.github.magisk317.mipush.main.viewmodel.AdvancedSettingsViewModel
 import io.github.magisk317.mipush.main.viewmodel.ApplicationInfoViewModel
 import io.github.magisk317.mipush.main.viewmodel.ApplicationListViewModel
 import io.github.magisk317.mipush.main.viewmodel.ConfigEditorViewModel
@@ -30,7 +29,6 @@ import org.koin.dsl.module
 val managerKoinModule = module {
     single {
         SettingsManager(
-            get<ManagerConfigGateway>(),
             get<ManagerRuntimeActions>(),
             get<ManagerLogGateway>(),
             get<io.github.magisk317.mipush.common.manager.ZygiskConfigGateway>(),
@@ -38,15 +36,14 @@ val managerKoinModule = module {
     }
 
     viewModel { SettingsViewModel(get<PreferenceRepository>(), get<SettingsManager>(), get<ManagerPermissionGateway>()) }
-    viewModel { AdvancedSettingsViewModel(get<PreferenceRepository>(), get<SettingsManager>()) }
-    viewModel { EventListViewModel(get<ManagerEventGateway>(), get<SettingsManager>(), androidContext()) }
+    viewModel { EventListViewModel(get<ManagerEventGateway>(), get<SettingsManager>(), get<PreferenceRepository>(), androidContext()) }
     viewModel { ZygiskConfigViewModel(get(), get(), androidContext()) }
     viewModel { ConfigManagerViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidContext()) }
     viewModel { ConfigEditorViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidContext()) }
     viewModel { ApplicationInfoViewModel(get<ManagerApplicationGateway>(), get<SettingsManager>(), androidContext()) }
     viewModel { OverviewViewModel(get<ManagerApplicationGateway>(), androidContext()) }
     viewModel { ConnectionStatusViewModel(get<SettingsManager>()) }
-    viewModel { ApplicationListViewModel(get<ManagerApplicationGateway>(), get<SettingsManager>(), androidContext()) }
+    viewModel { ApplicationListViewModel(get<ManagerApplicationGateway>(), get<SettingsManager>(), get<PreferenceRepository>(), androidContext()) }
     viewModel { RequestPermissionViewModel(get<ManagerPermissionGateway>(), get<PreferenceRepository>(), androidContext()) }
 }
 
@@ -63,6 +60,8 @@ object ManagerDependencies {
         loadKoinModules(managerKoinModule)
         modulesLoaded = true
     }
+
+    inline fun <reified T : Any> get(): T = GlobalContext.get().get()
 
     private fun requireHostKoin(context: Context) {
         if (GlobalContext.getOrNull() != null) {

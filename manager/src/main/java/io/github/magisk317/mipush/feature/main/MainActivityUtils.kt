@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import io.github.magisk317.mipush.runtime.core.ConnectionStatus
+import io.github.magisk317.mipush.common.manager.ManagerRuntimeEnvironmentSnapshot
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.platform.support.InternalMessenger
@@ -31,6 +32,7 @@ class MainActivityUtils(
         connectionStatusChanged: ConnectionStatusChanged,
     ) {
         val appContext = context.applicationContext
+        close()
         messenger = InternalMessenger(appContext).apply {
             register(IntentFilter(PushServiceBroadcastActions.SET_CONNECTION_STATUS))
             addListener { intent ->
@@ -46,11 +48,20 @@ class MainActivityUtils(
 
     fun printHookResultForCheck() {
         val snapshot = settingsManager.getRuntimeEnvironmentSnapshot(Utils.getApplication() ?: return)
-        logI(String.format("[hook_res] MIUIUtils.getIsMIUI() -> [%s]", snapshot.isMiui))
-        logI(String.format("[hook_res] DeviceInfo.quicklyGetIMEI() -> [%s]", snapshot.imei))
-        logI(String.format("[hook_res] DeviceInfo.getMacAddress() -> [%s]", snapshot.macAddress))
-        logI(String.format("[hook_res] ConnectionConfiguration.getXmppServerHost() -> [%s]", snapshot.xmppServerHost))
+        safeRuntimeSnapshotLines(snapshot).forEach(::logI)
     }
 
-    companion object
+    fun close() {
+        messenger?.unregister()
+        messenger = null
+    }
+
+    companion object {
+        internal fun safeRuntimeSnapshotLines(snapshot: ManagerRuntimeEnvironmentSnapshot): List<String> = listOf(
+            "[hook_res] isMiui=${snapshot.isMiui}",
+            "[hook_res] imeiPresent=${!snapshot.imei.isNullOrBlank()}",
+            "[hook_res] macAddressPresent=${!snapshot.macAddress.isNullOrBlank()}",
+            "[hook_res] xmppServerConfigured=${snapshot.xmppServerHost.isNotBlank()}",
+        )
+    }
 }

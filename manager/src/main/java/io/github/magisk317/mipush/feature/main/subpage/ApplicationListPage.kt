@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Text
@@ -35,6 +36,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -50,9 +52,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.manager.R
@@ -83,6 +82,8 @@ import io.github.magisk317.uikit.surface.OverlayHeaderScaffold
 import io.github.magisk317.uikit.surface.WorkspaceTopBarSearchOverlay
 import io.github.magisk317.uikit.surface.WorkspaceListItem
 import io.github.magisk317.uikit.surface.chromeTopAppBarColors
+import io.github.magisk317.uikit.surface.AppBottomSheet
+import io.github.magisk317.uikit.preference.StateSwitchItem
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -106,18 +107,27 @@ fun ApplicationList(
     val items by listViewModel.items.collectAsState()
     val itemsInfo by listViewModel.itemsInfo.collectAsState()
     val stats by listViewModel.stats.collectAsState()
+    val showSystemApps by listViewModel.showSystemApps.collectAsState()
     val context = LocalContext.current
+    var showListSettingsSheet by rememberSaveable { mutableStateOf(false) }
 
     var currentQuery by rememberSaveable(query) { mutableStateOf(query) }
     var searchExpanded by rememberSaveable(query) { mutableStateOf(query.isNotBlank()) }
 
-    val shouldRefresh = items.res.isEmpty() || currentQuery.isNotEmpty() || refreshSignal > 0
-    var isNeedRefresh by rememberSaveable(currentQuery, refreshSignal, filterMode) { mutableStateOf(shouldRefresh) }
+    // Auto-load only when cache miss (first enter / search / filter / external refreshSignal).
+    // Tab re-enter with same query+filter and non-empty VM cache skips IO; pull-to-refresh always loads.
+    var isNeedRefresh by remember { mutableStateOf(false) }
+    var handledRefreshSignal by rememberSaveable { mutableIntStateOf(0) }
 
+    // showSystemApps toggles reload inside ViewModel.setShowSystemApps to avoid double IO.
+    // currentQuery in keys keeps search live; cache hit short-circuits.
     LaunchedEffect(currentQuery, refreshSignal, filterMode) {
-        if (!shouldRefresh) {
-            isNeedRefresh = true
+        val forceBySignal = refreshSignal > handledRefreshSignal
+        if (!forceBySignal && listViewModel.hasCachedList(currentQuery, filterMode)) {
+            isNeedRefresh = false
+            return@LaunchedEffect
         }
+        isNeedRefresh = true
     }
 
     val refreshScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
@@ -127,29 +137,11 @@ fun ApplicationList(
         }
     }
 
-    LaunchedEffect(Unit) {
-        if (items.res.isEmpty()) {
-            listViewModel.loadApplications(currentQuery, filterMode)
-            isNeedRefresh = false
-        }
-    }
-
     val onRefresh: (onRefreshed: () -> Unit) -> Unit = { onRefreshed ->
         listViewModel.loadApplications(currentQuery, filterMode) {
+            handledRefreshSignal = refreshSignal
             isNeedRefresh = false
             onRefreshed()
-        }
-    }
-
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner, currentQuery, isNeedRefresh) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event != Lifecycle.Event.ON_RESUME || isNeedRefresh) return@LifecycleEventObserver
-            listViewModel.refreshApplications(currentQuery, filterMode)
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -194,6 +186,15 @@ fun ApplicationList(
                     searchVisible = searchActive,
                     searchActionContentDescription = stringResource(R.string.action_search),
                     onSearchActionClick = { searchExpanded = !searchExpanded },
+                    actions = {
+                        IconButton(onClick = { showListSettingsSheet = true }) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_settings_black_24dp),
+                                contentDescription = stringResource(R.string.action_list_settings),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    },
                     preSearchContent = {
                     Text(
                         text = stringResource(
@@ -223,6 +224,7 @@ fun ApplicationList(
                             stats = stats,
                             query = currentQuery,
                             filterMode = filterMode,
+                            showSystemApps = showSystemApps,
                         )
                     }
                     },
@@ -231,6 +233,21 @@ fun ApplicationList(
             },
         )
         ScrollToTopFAB(listState, visible = scrollChromeState?.isChromeVisible != true, extraBottomPadding = 80.dp)
+
+        // 列表设置：与记录页 / xinyi / xsmscode 拉齐，收进一个设置图标 → 底部 sheet。
+        AppBottomSheet(
+            show = showListSettingsSheet,
+            onDismissRequest = { showListSettingsSheet = false },
+            title = stringResource(R.string.action_list_settings),
+        ) {
+            StateSwitchItem(
+                title = stringResource(R.string.action_show_system_apps),
+                summary = "",
+                checked = showSystemApps,
+            ) { checked ->
+                listViewModel.setShowSystemApps(checked)
+            }
+        }
         }
     }
 }
@@ -240,6 +257,7 @@ private fun ApplicationHeaderPills(
     stats: ApplicationStats,
     query: String,
     filterMode: Int,
+    showSystemApps: Boolean = false,
 ) {
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -267,6 +285,13 @@ private fun ApplicationHeaderPills(
                 text = label,
                 containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                 contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+            )
+        }
+        if (showSystemApps) {
+            InfoPill(
+                text = stringResource(R.string.action_show_system_apps),
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             )
         }
     }
@@ -303,7 +328,7 @@ private fun ApplicationItem(item: ManagerApplication, onAppClick: (String) -> Un
     val activityLabel = if (isRecentlyActive) {
         io.github.magisk317.mipush.feature.main.subpage.friendlyDateString(
             java.util.Date(item.lastReceiveTimeMs),
-            io.github.magisk317.mipush.common.utils.Utils.getUTC(),
+            java.util.Date(),
             LocalContext.current
         )
     } else {
