@@ -143,6 +143,7 @@ Xposed 模块不再固定三方应用作用域。需要伪装增强的主应用�
 
 - [模块边界](docs/architecture/boundary-model.md)
 - [运行时调用链](docs/architecture/current-runtime-call-flow.md)
+- [管理器与运行时应用拆分方案](docs/architecture/manager-runtime-app-split-plan.md)
 - [Xposed 通知边界](docs/architecture/xposed-notification-boundary.md)
 - [Stock dump 契约审计（2026-07）](docs/architecture/stock-dump-contract-audit-2026-07.md)
 - [重构与通知集成计划](docs/architecture/refactor-plan.md)
