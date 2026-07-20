@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="${1:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 ZYGISK_REPOSITORY="${MIPUSH_ZYGISK_REPOSITORY:-https://gitlab.com/magisk3171/MiPushZygisk.git}"
-ZYGISK_REF="${MIPUSH_ZYGISK_REF:-main}"
+ZYGISK_REF="${MIPUSH_ZYGISK_REF:-}"
 TEMP_DIR=""
 RESOLVED_ZYGISK_DIR=""
 
@@ -33,26 +33,37 @@ resolve_zygisk_dir() {
     return 0
   fi
 
-  if ! git ls-remote --exit-code "$ZYGISK_REPOSITORY" "refs/heads/$ZYGISK_REF" >/dev/null 2>&1; then
-    echo "SKIP: MiPushZygisk source is unavailable; version sync cannot be checked."
-    return 2
-  fi
-
   TEMP_DIR="$(mktemp -d)"
-  if ! git clone --depth 1 --branch "$ZYGISK_REF" "$ZYGISK_REPOSITORY" "$TEMP_DIR/MiPushZygisk" >/dev/null 2>&1; then
-    echo "SKIP: MiPushZygisk source could not be checked out; version sync cannot be checked."
-    return 2
+  if resolved_dir="$(
+    MIPUSH_ZYGISK_REPOSITORY="$ZYGISK_REPOSITORY" \
+      MIPUSH_ZYGISK_REF="$ZYGISK_REF" \
+      "$SCRIPT_DIR/resolve_zygisk_source.sh" "$TEMP_DIR/MiPushZygisk"
+  )"; then
+    resolve_status=0
+  else
+    resolve_status="$?"
   fi
-  RESOLVED_ZYGISK_DIR="$TEMP_DIR/MiPushZygisk"
+  case "$resolve_status" in
+    0) RESOLVED_ZYGISK_DIR="$resolved_dir" ;;
+    2)
+      echo "SKIP: MiPushZygisk source is unavailable; version sync cannot be checked."
+      return 2
+      ;;
+    *)
+      echo "ERROR: MiPushZygisk source could not be checked out." >&2
+      return "$resolve_status"
+      ;;
+  esac
 }
 
 expected_version_name="$MIPUSH_ZYGISK_VERSION_NAME"
 expected_version_code="$MIPUSH_ZYGISK_VERSION_CODE"
 
-set +e
-resolve_zygisk_dir
-resolve_status="$?"
-set -e
+if resolve_zygisk_dir; then
+  resolve_status=0
+else
+  resolve_status="$?"
+fi
 case "$resolve_status" in
   0) ;;
   2) exit 0 ;;

@@ -50,9 +50,12 @@ variables:
   MAGISK_ANDROID_RELEASE_PUBLISH_PLAY: "false"
   MAGISK_RENOVATE_REPOSITORY: "magisk3171/MiPushFramework"
   MIPUSH_ZYGISK_REPOSITORY: "https://gitlab.com/magisk3171/MiPushZygisk.git"
-  MIPUSH_ZYGISK_REF: "main"
+  # Pin the external source so an old tag cannot change when MiPushZygisk/main advances.
+  MIPUSH_ZYGISK_REF: "10f155adebc4f0bef474bff121c39225591dba3a"
   MIPUSH_ZYGISK_NDK_VERSION: "r27d"
   MIPUSH_ZYGISK_NDK_HOME: "$CI_PROJECT_DIR/.android/android-ndk-r27d"
+  # Public SHA-256 fingerprint of the production APK signing certificate.
+  MIPUSH_RELEASE_CERT_SHA256: "027b936e1d82a606d83599548b8b11e49a2c8ae2588c4a9fbe8311e2c54f103a"
 
 .mipush_android_rules:
   rules:
@@ -65,7 +68,6 @@ variables:
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TITLE =~ /^Merge branch .renovate\/.+ into /'
       when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_COMMIT_TAG'
     - if: '$CI_COMMIT_BRANCH'
 
 .mipush_package_rules:
@@ -116,7 +118,7 @@ zygisk:build:
     RUSTUP_DIST_SERVER: "https://mirrors.tuna.tsinghua.edu.cn/rustup"
     RUSTUP_UPDATE_ROOT: "https://mirrors.tuna.tsinghua.edu.cn/rustup/rustup"
   cache:
-    key: "zygisk-cargo-$CI_COMMIT_REF_SLUG"
+    key: "zygisk-cargo-$CI_COMMIT_REF_SLUG-$MIPUSH_ZYGISK_REF"
     paths:
       - .cargo/registry/
       - .cargo/git/
@@ -124,6 +126,27 @@ zygisk:build:
   before_script:
     - |
       set -euo pipefail
+      if ! command -v git >/dev/null 2>&1; then
+        echo "SKIP Zygisk build; git is unavailable on this runner."
+        mkdir -p MiPushZygisk/build
+        printf '%s\n' "source-unavailable" > MiPushZygisk/build/.zygisk-skip
+        exit 0
+      fi
+
+      set +e
+      scripts/resolve_zygisk_source.sh "$CI_PROJECT_DIR/MiPushZygisk" >/dev/null
+      resolve_status="$?"
+      set -e
+      if [[ "$resolve_status" -eq 2 ]]; then
+        echo "SKIP Zygisk build; pinned source is unavailable on this runner."
+        mkdir -p MiPushZygisk/build
+        printf '%s\n' "source-unavailable" > MiPushZygisk/build/.zygisk-skip
+        exit 0
+      elif [[ "$resolve_status" -ne 0 ]]; then
+        echo "ERROR: failed to resolve the pinned MiPushZygisk source" >&2
+        exit "$resolve_status"
+      fi
+
       export DEBIAN_FRONTEND=noninteractive
       sed -i \
         -e 's#http://deb.debian.org/debian-security#https://mirrors.tuna.tsinghua.edu.cn/debian-security#g' \
@@ -183,34 +206,6 @@ zygisk:build:
         export MAGISK_BUILD_TIMESTAMP="$CI_PIPELINE_CREATED_AT"
       fi
       source scripts/resolve_zygisk_version_env.sh
-      if ! git ls-remote --exit-code "$MIPUSH_ZYGISK_REPOSITORY" "refs/heads/$MIPUSH_ZYGISK_REF" >/dev/null 2>&1; then
-        echo "SKIP Zygisk build; source repository is unavailable on this runner."
-        exit 0
-      fi
-      cached_target_dir=""
-      if [ -d MiPushZygisk ] && [ ! -d MiPushZygisk/.git ]; then
-        cached_target_dir="$(mktemp -d)"
-        if [ -d MiPushZygisk/module/target ]; then
-          mkdir -p "$cached_target_dir/module"
-          mv MiPushZygisk/module/target "$cached_target_dir/module/target"
-        fi
-        rm -rf MiPushZygisk
-      fi
-      if [ -d MiPushZygisk/.git ]; then
-        git -C MiPushZygisk remote set-url origin "$MIPUSH_ZYGISK_REPOSITORY"
-        git -C MiPushZygisk fetch --depth 1 origin "$MIPUSH_ZYGISK_REF"
-        git -C MiPushZygisk checkout --detach FETCH_HEAD
-      else
-        git clone --depth 1 --branch "$MIPUSH_ZYGISK_REF" "$MIPUSH_ZYGISK_REPOSITORY" MiPushZygisk
-      fi
-      if [ -n "$cached_target_dir" ] && [ -d "$cached_target_dir/module/target" ]; then
-        mkdir -p MiPushZygisk/module
-        rm -rf MiPushZygisk/module/target
-        mv "$cached_target_dir/module/target" MiPushZygisk/module/target
-      fi
-      if [ -n "$cached_target_dir" ]; then
-        rm -rf "$cached_target_dir"
-      fi
       cd MiPushZygisk
       ./build.sh
   artifacts:
@@ -219,6 +214,7 @@ zygisk:build:
     expire_in: 14 days
     paths:
       - MiPushZygisk/build/*.zip
+      - MiPushZygisk/build/.zygisk-skip
 
 telegram:ci:
   extends: .magisk_telegram_ci

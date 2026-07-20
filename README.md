@@ -57,6 +57,7 @@ MiPushFramework 会以 `com.xiaomi.xmsf` 的形式提供系统推送服务，让
 - Telegram CI 通知：GitHub 侧由 `.github/workflows/notification.yml` 处理，GitLab 侧由 `.gitlab-ci.yml` 的 `telegram:ci` 处理；GitLab 通知在 debug APK 构建完成后发送，不等待 quality 阶段。
 - Renovate：GitHub 侧继续使用 `.github/renovate-config.js`；GitLab 侧使用 `.gitlab/renovate-config.js` 和隐藏变量 `RENOVATE_TOKEN`。`renovate.json` 会忽略 GitHub/GitLab workflow 配置，避免两个平台互相改 CI 入口。
 - Release 发布：GitHub 与 GitLab 使用相同的版本/tag 门禁、正式签名要求、XMSF/MiPush/Zygisk 构建和主 Release 资产集合，均发布 APK、Zygisk zip、mapping 与 native symbols，并从 `docs/CHANGELOG.md` 提取同一份说明。缺少平台能力或所需密钥时对应步骤会明确跳过且不阻断后续流程；真正开始后的构建、签名或上传错误仍会失败。Xposed-Modules-Repo 同步仅保留在 GitHub workflow。
+- GitLab 发版使用固定的 MiPushZygisk commit；同一 tag 重试会重新校验该源，并复用同一流水线已成功生成的上游 artifacts，避免 `main` 漂移改变旧版本。
 - Dependabot 与 GitHub dependency workflows 暂不迁移，现有 GitHub Dependency Graph / alerts 相关流程保持不变。
 
 ## 安装与使用
