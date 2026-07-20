@@ -16,13 +16,22 @@ That means:
 
 ## Collected Artifacts
 
-Collected outside the repo as reference samples:
+Curated outside the Gradle repo under `../device_dumps/devices/xiaomi_pudding/`:
 - `framework.jar`
 - `services.jar`
 - `miui-framework.jar`
 - `miui-services.jar`
 - `xiaomi-framework.jar`
 - `com.xiaomi.xmsf base.apk`
+
+The archive now provides an SHA/package/version/output map at
+`../device_dumps/metadata/artifact-index.tsv`; all six April inputs have JADX output, including the
+supplemental `xiaomi-framework.jar` pass. The April override APK is byte-identical to the
+2026-04-13 `current/base.apk` and must not be treated as stock.
+
+The actual stock baseline is the 11-split XMSF `7.4.67-C` set captured on 2026-04-13. Use its
+per-split output for provenance and `combined-jadx-1.5.6` for cross-split searches. Generated Java
+contains known JADX failures, so Binder/switch conclusions require dex-code confirmation.
 
 ## Observed Boundary Signals
 
@@ -41,3 +50,5 @@ When deciding whether a repository package should be isolated or rewritten:
 - compare against framework / services / MIUI jars for **platform responsibility**
 - compare against current `xmsf.apk` for **what the project currently ships**
 - do not treat the shipped `xmsf.apk` as “official system xmsf”; it is the project build
+- compare stock-facing component contracts against the 2026-04-13 stock split set, not only against
+  same-name classes in the April project override

@@ -5,8 +5,9 @@
 MiPushFramework is a system-package-compatible app split into explicit Gradle modules:
 
 1. **xmsf**
-   - Product-owned `com.xiaomi.xmsf` application, manifest entrypoints, UI, settings, stock
+   - Product-owned `com.xiaomi.xmsf` runtime library, manifest entrypoints, UI, settings, stock
      compatibility surfaces, notification publish, runtime adapters, and Xposed-facing bridges.
+     It is packaged into the device-installable application by `app`, not installed by itself.
    - Compatibility-sensitive package/component names are preserved here when external callers expect
      stock XMSF names.
 
@@ -41,14 +42,27 @@ MiPushFramework is a system-package-compatible app split into explicit Gradle mo
      `com.xiaomi.xmpush.thrift.*`, `com.xiaomi.push.protobuf.*`, and
      `com.xiaomi.push.thrift.*`.
 
-5. **common / mipush / xposed / magisk-ui-kit**
+5. **common / settings / diagnostics / mipush / xposed / magisk-ui-kit**
    - `common` holds shared app/runtime utilities and persistence models.
-   - `mipush` holds client-facing SDK compatibility code.
+   - `settings` holds DataStore preference extensions and shared preference repository surfaces.
+   - `diagnostics` holds the shared diagnostic archive / LogBundle export pipeline used by app and
+     runtime; keep product-specific collection in parent modules, reuse archive/sanitize here or via
+     `magisk-xposed-kit:diagnostics` where already wired.
+   - `mipush` holds client-facing SDK compatibility code (separate package from `com.xiaomi.xmsf`).
    - `xposed` holds hook-side integration and must avoid depending on app-process-only state.
    - `magisk-ui-kit` holds reusable Compose UI building blocks.
    - The manager main-screen scroll chrome state is shared across several routes, but that shared
      state belongs to manager-level navigation behavior rather than ui-kit. Keep route-reset policy
      in `manager/MainScreen` and keep ui-kit scaffolds defensive against transient negative offsets.
+
+6. **app / manager**
+   - `app` is the application shell that produces the device-installable `com.xiaomi.xmsf` APK and
+     owns manager bootstrap via `MiPushHostApp.onAppDependenciesStarted()`.
+   - `manager` is the management UI surface packaged through `app`; it is not a standalone runtime
+     container. Do not move manager bootstrap into manager UI entrypoints or into `xmsf` Koin modules
+     as the ownership root.
+   - `xmsf` remains an Android library module. Prefer `:app:assembleNormalDebug` when validating the
+     installable runtime; `:xmsf:assembleNormalDebug` only packages the library surface.
 
 Device dumps and platform jars are reference inputs only. They must not enter the Gradle source
 graph.
@@ -61,6 +75,9 @@ graph.
   behavior, and stock-facing provider/service authorities.
 - Internal structure may change as long as external contracts remain stable: package/component
   names, manifest entrypoints, broadcast actions, intent extras, binder contracts, and wire behavior.
+- Stock-facing compatibility work must also preserve caller identity, Bundle value types, result
+  code type, persistence effects, and the real runtime consumer. The evidence and current limits
+  are maintained in `docs/architecture/stock-dump-contract-audit-2026-07.md`.
 
 ## Layering Rules
 
@@ -69,6 +86,14 @@ graph.
 - `xmsf/src/main/java/io/github/magisk317/mipush/service/runtime` and
   `xmsf/src/main/java/io/github/magisk317/mipush/bridge` are the allowed adapter areas for direct
   vendor/pinned interaction.
+- Stock ABI and Provider adaptation belongs in product-owned `xmsf` surfaces such as
+  `com.xiaomi.xmsf.stock` and named Binder facades. Keep raw dump sources out of the build graph,
+  and do not move product behavior into `vendor` solely to mimic a stock package name.
+- Restoring a stock `signatureOrSystem` declaration does not authorize an arbitrary caller. Keep
+  caller package/UID checks on sensitive methods, including notification-broker and provider paths.
+- The handwritten `com.xiaomi.micloudsdk` Binder types are a narrow compatibility boundary. Match
+  their descriptor, transaction/reply ABI, and `Intent` in/out behavior without making the app
+  depend on a broader proprietary MiCloud SDK.
 - `verifyModuleBoundaries` is wired into `check` and now scans `manager`, `settings`, and the
   xmsf app-facing roots for new deep Xiaomi imports, direct non-string FQCN references, and
   class-like deep Xiaomi string references. In `manager` and `settings` it also flags
@@ -101,8 +126,9 @@ graph.
 - `xmsf/.../utils/LogBundleExporter` is the canonical app log exporter. It owns app-specific JSONL
   selection, old text-log cleanup, redaction, optional root-only LSPosed collection, and share intent
   creation.
-- `common/.../utils/LogBundleExporter` is retained only for reusable private-file export helpers and
-  does not attempt `su` fallback. Root-only collection belongs in the xmsf exporter.
+- The former `common/.../utils/LogBundleExporter` facade was removed. Reusable archive and
+  sanitization primitives live in the shared diagnostics/Xposed kits; app-specific file selection,
+  optional root-only LSPosed collection, and share-intent creation stay in the xmsf exporter.
 
 ## Public Interfaces
 
@@ -115,6 +141,16 @@ graph.
   adapter instead of calling vendor runtime directly.
 
 ## Current Architecture Debts
+
+- `KeepAliveRuntimeAdapter` deliberately implements a reduced polling binder rather than stock's
+  process-observer runtime. Strategy updates remain inert until ServiceBox resolves
+  `KASwitch=142`; `OnetrackSwitch=140` is observed/persisted but intentionally does not re-enable
+  stock OneTrack behavior while telemetry is disabled. Its JSON parser and bind/unbind behavior
+  have deterministic tests, but cadence and lifecycle behavior still require device evidence. Do
+  not describe it as a full stock keep-alive implementation.
+- System-only permissions and notification/XSpace behavior are similarly bounded by platform
+  policy. Unit/build evidence proves our adapters; installed-device `dumpsys` and hook evidence are
+  required for final visible-UI claims.
 
 - The configuration stack lives only in `xmsf/.../utils` (`Configurations`, `ConfigurationsLoader`,
   `ConfigValueConverter`, `IconConfigurations`, `PackageConfig`). The duplicate, unused copies that

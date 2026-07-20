@@ -1,24 +1,18 @@
 # MiPushFramework
 
-[![CI](https://github.com/magisk317/MiPushFramework/actions/workflows/ci.yml/badge.svg?branch=beta)](https://github.com/magisk317/MiPushFramework/actions/workflows/ci.yml)
-[![Release](https://github.com/magisk317/MiPushFramework/actions/workflows/release.yml/badge.svg)](https://github.com/magisk317/MiPushFramework/actions/workflows/release.yml)
-[![Dependency Force Manager](https://github.com/magisk317/MiPushFramework/actions/workflows/dependency-force-manager.yml/badge.svg)](https://github.com/magisk317/MiPushFramework/actions/workflows/dependency-force-manager.yml)
-[![Dependency Submission](https://github.com/magisk317/MiPushFramework/actions/workflows/dependency-submission.yml/badge.svg?branch=beta)](https://github.com/magisk317/MiPushFramework/actions/workflows/dependency-submission.yml)
-[![Latest Release](https://img.shields.io/github/v/release/magisk317/MiPushFramework)](https://github.com/magisk317/MiPushFramework/releases)
-[![License GPL-3.0](https://img.shields.io/badge/license-GPLv3.0-blue.svg)](LICENSE)
-[![Telegram](https://img.shields.io/badge/Telegram-Group-2CA5E0?logo=telegram&logoColor=white)](https://t.me/+NR2QaQ4dlEgxYmNl)
-![Android](https://img.shields.io/badge/Android-28%2B%20%2F%20target%2037-3DDC84?logo=android&logoColor=white)
-![Kotlin](https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&logoColor=white)
-![Java](https://img.shields.io/badge/Java-25%2B-E76F00?logo=openjdk&logoColor=white)
-![Gradle](https://img.shields.io/badge/Gradle-9.6.1-02303A?logo=gradle&logoColor=white)
-![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM_2026.06.01-4285F4?logo=jetpackcompose&logoColor=white)
-![AGP](https://img.shields.io/badge/AGP-9.3.0--rc01-3DDC84?logo=gradle&logoColor=white)
+<!-- badges:platform:start -->
+[![CI](https://img.shields.io/github/actions/workflow/status/magisk317/MiPushFramework/ci.yml?branch=dev&style=flat-square&label=CI&logo=github-actions&logoColor=white)](https://github.com/magisk317/MiPushFramework/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/actions/workflow/status/magisk317/MiPushFramework/release.yml?style=flat-square&label=Release&logo=github-actions&logoColor=white)](https://github.com/magisk317/MiPushFramework/actions/workflows/release.yml) [![Latest Release](https://img.shields.io/github/v/release/magisk317/MiPushFramework?include_prereleases&style=flat-square&logo=github)](https://github.com/magisk317/MiPushFramework/releases) [![License](https://img.shields.io/github/license/magisk317/MiPushFramework?style=flat-square)](LICENSE)
+<!-- badges:platform:end -->
+
+<!-- badges:tech:start -->
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org) [![Java](https://img.shields.io/badge/Java-26%2B-E76F00?style=flat-square&logo=openjdk&logoColor=white)](https://openjdk.org) [![Jetpack Compose](https://img.shields.io/badge/Jetpack_Compose-BOM_2026.07.00-4285F4?style=flat-square&logo=android&logoColor=white)](https://developer.android.com/jetpack/compose) [![Gradle](https://img.shields.io/badge/Gradle-9.6.1-02303A?style=flat-square&logo=gradle&logoColor=white)](https://gradle.org) [![AGP](https://img.shields.io/badge/AGP-9.3.0-3DDC84?style=flat-square&logo=gradle&logoColor=white)](https://developer.android.com/studio/releases/gradle-plugin) [![Min SDK](https://img.shields.io/badge/Min_SDK-28-brightgreen?style=flat-square&logo=android&logoColor=white)](https://developer.android.com/about/versions) [![Target SDK](https://img.shields.io/badge/Target_SDK-37-blue?style=flat-square&logo=android&logoColor=white)](https://developer.android.com/about/versions) [![Xposed API](https://img.shields.io/badge/Xposed_API-102-orange?style=flat-square)](https://github.com/libxposed/api) [![Telegram](https://img.shields.io/badge/Telegram-Group-2CA5E0?style=flat-square&logo=telegram&logoColor=white)](https://t.me/+NR2QaQ4dlEgxYmNl)
+<!-- badges:tech:end -->
 
 在非 MIUI 系统上使用接近 MIUI 的小米系统级推送。
 
 MiPushFramework 会以 `com.xiaomi.xmsf` 的形式提供系统推送服务，让接入小米推送的应用尽量把推送委托给统一的框架进程，而不是各自常驻后台运行 `XMPushService`。项目同时保留通知改写、事件观测、配置规则、焦点通知、HyperIsland 超级岛和 Android 实况通知等兼容能力。
 
-当前开发分支最低支持 Android 9.0（API 28）。构建环境以 `gradle/libs.versions.toml` 为准，目前使用 Java 25+ / Gradle 9.x，并保持较激进的 Android Gradle Plugin、Kotlin 和 JDK 版本，用来尽早暴露兼容问题。release 或紧急修复如需稳定通道，应单独处理，不在常规架构收口中回退工具链。
+当前开发分支最低支持 Android 9.0（API 28）。构建环境以 `gradle/libs.versions.toml` 为准，目前使用 Java 26+ / Gradle 9.x，并保持较激进的 Android Gradle Plugin、Kotlin 和 JDK 版本，用来尽早暴露兼容问题。release 或紧急修复如需稳定通道，应单独处理，不在常规架构收口中回退工具链。
 
 ## 与原仓库的区别
 
@@ -57,14 +51,17 @@ MiPushFramework 会以 `com.xiaomi.xmsf` 的形式提供系统推送服务，让
 
 ## 自动化维护边界
 
+- CI 公共逻辑固定到 `magisk-ci-toolkit` 的不可变提交；GitLab `include.ref`、作业变量和
+  本地/GitHub resolver 必须保持同一 SHA。resolver 使用 exact fetch，因此仍可由维护者
+  显式覆盖为 branch/tag，但仓库默认值不得回退到浮动 `main`。
 - Telegram CI 通知：GitHub 侧由 `.github/workflows/notification.yml` 处理，GitLab 侧由 `.gitlab-ci.yml` 的 `telegram:ci` 处理；GitLab 通知在 debug APK 构建完成后发送，不等待 quality 阶段。
 - Renovate：GitHub 侧继续使用 `.github/renovate-config.js`；GitLab 侧使用 `.gitlab/renovate-config.js` 和隐藏变量 `RENOVATE_TOKEN`。`renovate.json` 会忽略 GitHub/GitLab workflow 配置，避免两个平台互相改 CI 入口。
-- Release 发布：GitHub workflow 继续保留主仓 Release、Xposed-Modules-Repo 和 Zygisk 资产发布；GitLab tag pipeline 在 `RELEASE_OWNER=gitlab` 时也会发布主仓 GitLab Release，并将 XMSF APK、MiPush APK、Zygisk zip、mapping 和 native symbols 一并挂载，同时可同步 APK 到 Xposed-Modules-Repo。
+- Release 发布：GitHub 与 GitLab 使用相同的版本/tag 门禁、正式签名要求、XMSF/MiPush/Zygisk 构建和主 Release 资产集合，均发布 APK、Zygisk zip、mapping 与 native symbols，并从 `docs/CHANGELOG.md` 提取同一份说明。缺少平台能力或所需密钥时对应步骤会明确跳过且不阻断后续流程；真正开始后的构建、签名或上传错误仍会失败。Xposed-Modules-Repo 同步仅保留在 GitHub workflow。
 - Dependabot 与 GitHub dependency workflows 暂不迁移，现有 GitHub Dependency Graph / alerts 相关流程保持不变。
 
 ## 安装与使用
 
-1. 从 [Releases](https://github.com/magisk317/MiPushFramework/releases) 或 [CI](https://github.com/magisk317/MiPushFramework/actions/workflows/ci.yml) 下载 APK。
+1. 从 [GitHub Releases](https://github.com/magisk317/MiPushFramework/releases)、[GitLab Releases](https://gitlab.com/magisk3171/MiPushFramework/-/releases) 或 [CI](https://github.com/magisk317/MiPushFramework/actions/workflows/ci.yml) 下载 APK。
 2. 安装后跟随向导完成基础设置。
 3. 建议将框架安装为系统应用。部分应用没有完整应用列表权限，只有在系统应用列表中看到 `com.xiaomi.xmsf` 时才会注册系统推送。
 4. 可选开启“推送服务保活”等高级选项。
@@ -114,7 +111,7 @@ Xposed 模块不再固定三方应用作用域。需要伪装增强的主应用�
 
 ### 哪些通知会变成焦点通知、超级岛或实况通知？
 
-- 服务端显式携带 `miui.focus.param` 的推送会走 MIUI/HyperOS 焦点通知语义。
+- 服务端或应用显式携带 `miui.focus.param` / `miui.focus.rv` 的推送会优先保留自身的 MIUI/HyperOS 焦点通知语义。
 - 未显式配置但符合条件的 MiPush 通知，可在 MIUI/HyperOS 上通过 SystemUI 代理生成超级岛展示。
 - 非 MIUI/AOSP 上不会保留 MIUI 私有 focus extras；进度类语义会尽量翻译成 Android 实况通知或普通进度通知。
 
@@ -147,6 +144,7 @@ Xposed 模块不再固定三方应用作用域。需要伪装增强的主应用�
 - [模块边界](docs/architecture/boundary-model.md)
 - [运行时调用链](docs/architecture/current-runtime-call-flow.md)
 - [Xposed 通知边界](docs/architecture/xposed-notification-boundary.md)
+- [Stock dump 契约审计（2026-07）](docs/architecture/stock-dump-contract-audit-2026-07.md)
 - [重构与通知集成计划](docs/architecture/refactor-plan.md)
 - [旧 push 拆分与 Kotlin 迁移记录](docs/architecture/push-module-split.md)
 
