@@ -21,8 +21,10 @@ run_pre_push_checks() {
   local gradle_args=(
     --warning-mode all
     :common:check
-    :xmsf:assembleDebug
-    :xmsf:testDebugUnitTest
+    :xmsf:assembleNormalDebug
+    :xmsf:assembleVc105Debug
+    :xmsf:testNormalDebugUnitTest
+    :xmsf:testVc105DebugUnitTest
     :app:assembleRelease
     :mipush:assembleRelease
     -PbuildSplits
@@ -83,37 +85,41 @@ if working_tree_dirty; then
   exit 1
 fi
 
-delete_local_tag_if_exists() {
-  if git -C "$ROOT_DIR" rev-parse -q --verify "refs/tags/$TAG_NAME" >/dev/null; then
-    local old_ref
-    old_ref="$(git -C "$ROOT_DIR" rev-list -n 1 "$TAG_NAME" 2>/dev/null || true)"
-    echo "WARN: local tag exists, deleting before retag: $TAG_NAME (${old_ref:-unknown})"
-    git -C "$ROOT_DIR" tag -d "$TAG_NAME" >/dev/null
-  fi
-}
-
-delete_remote_tag_if_exists() {
-  local remote_output
-  local remote_ref
-  if ! remote_output="$(git -C "$ROOT_DIR" ls-remote --tags "$REMOTE_NAME" "refs/tags/$TAG_NAME")"; then
-    echo "ERROR: failed to query remote tags from $REMOTE_NAME" >&2
+local_tag_exists=false
+if git -C "$ROOT_DIR" rev-parse -q --verify "refs/tags/$TAG_NAME" >/dev/null; then
+  local_tag_exists=true
+  local_tag_commit="$(git -C "$ROOT_DIR" rev-parse "refs/tags/$TAG_NAME^{commit}")"
+  head_commit="$(git -C "$ROOT_DIR" rev-parse HEAD)"
+  if [[ "$local_tag_commit" != "$head_commit" ]]; then
+    echo "ERROR: local tag $TAG_NAME points to $local_tag_commit, not HEAD $head_commit" >&2
     exit 1
   fi
-  remote_ref="$(printf '%s\n' "$remote_output" | awk '{print $1}' | head -n1)"
-  if [[ -n "$remote_ref" ]]; then
-    echo "WARN: remote tag exists, deleting before retag: $TAG_NAME ($remote_ref)"
-    if ! git -C "$ROOT_DIR" push "$REMOTE_NAME" ":refs/tags/$TAG_NAME"; then
-      echo "ERROR: failed to delete remote tag $TAG_NAME from $REMOTE_NAME" >&2
-      exit 1
-    fi
+  if [[ "$(git -C "$ROOT_DIR" cat-file -t "refs/tags/$TAG_NAME")" != tag ]]; then
+    echo "ERROR: local tag $TAG_NAME is not an annotated signed tag" >&2
+    exit 1
   fi
-}
+  if ! git -C "$ROOT_DIR" verify-tag "$TAG_NAME" >/dev/null 2>&1; then
+    echo "ERROR: local tag $TAG_NAME does not have a verifiable signature" >&2
+    exit 1
+  fi
+  echo "Reusing existing local tag after a previous push failure: $TAG_NAME"
+fi
 
-delete_local_tag_if_exists
-delete_remote_tag_if_exists
+remote_output=""
+if ! remote_output="$(git -C "$ROOT_DIR" ls-remote --tags "$REMOTE_NAME" \
+  "refs/tags/$TAG_NAME" "refs/tags/$TAG_NAME^{}")"; then
+    echo "ERROR: failed to query remote tags from $REMOTE_NAME" >&2
+    exit 1
+fi
+if [[ -n "$remote_output" ]]; then
+  echo "ERROR: remote tag $TAG_NAME already exists and is immutable; retry its GitLab pipeline instead of retagging" >&2
+  exit 1
+fi
 
-git -C "$ROOT_DIR" tag -s "$TAG_NAME" -m "$TAG_NAME"
-git -C "$ROOT_DIR" push --force-with-lease "$REMOTE_NAME" "$current_branch"
+git -C "$ROOT_DIR" push "$REMOTE_NAME" "$current_branch"
+if [[ "$local_tag_exists" != true ]]; then
+  git -C "$ROOT_DIR" tag -s "$TAG_NAME" -m "$TAG_NAME"
+fi
 git -C "$ROOT_DIR" push "$REMOTE_NAME" "$TAG_NAME"
 
-echo "Created and pushed tag: $TAG_NAME (branch: $current_branch, remote: $REMOTE_NAME)"
+echo "Pushed release tag: $TAG_NAME (branch: $current_branch, remote: $REMOTE_NAME)"
