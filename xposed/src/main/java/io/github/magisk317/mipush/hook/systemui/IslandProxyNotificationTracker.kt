@@ -58,3 +58,28 @@ internal class IslandProxyPostTracker(
         }
     }
 }
+
+internal class IslandProxyOwnershipTracker(
+    private val maxTrackedSources: Int,
+) {
+    private val sourceToProxy = LinkedHashMap<String, Int>()
+    private val latestSourceByProxy = LinkedHashMap<Int, String>()
+
+    @Synchronized
+    fun record(sourceKey: String, proxyId: Int) {
+        if (sourceToProxy.size >= maxTrackedSources && sourceKey !in sourceToProxy) {
+            sourceToProxy.clear()
+            latestSourceByProxy.clear()
+        }
+        sourceToProxy[sourceKey] = proxyId
+        latestSourceByProxy[proxyId] = sourceKey
+    }
+
+    @Synchronized
+    fun removeAndResolveCancellation(sourceKey: String): Int? {
+        val proxyId = sourceToProxy.remove(sourceKey) ?: return null
+        if (latestSourceByProxy[proxyId] != sourceKey) return null
+        latestSourceByProxy.remove(proxyId)
+        return proxyId
+    }
+}

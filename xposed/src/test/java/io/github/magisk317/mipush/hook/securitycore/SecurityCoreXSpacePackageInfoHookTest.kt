@@ -9,6 +9,14 @@ import org.junit.jupiter.api.Test
 
 class SecurityCoreXSpacePackageInfoHookTest {
     @Test
+    fun `hooks the class that actually declares the package info binder method`() {
+        assertTrue(
+            "com.android.server.pm.IPackageManagerBase" in
+                SecurityCoreXSpacePackageInfoHook.packageManagerHookTargets()
+        )
+    }
+
+    @Test
     fun `patch decision only allows SecurityCore mipush signal package queries`() {
         assertTrue(
             SecurityCoreXSpacePackageInfoHook.decidePackageInfoPatch(
@@ -18,6 +26,16 @@ class SecurityCoreXSpacePackageInfoHookTest {
                 userId = 999,
                 alreadyRequired = false,
             ).forceRequired
+        )
+        assertTrue(
+            SecurityCoreXSpacePackageInfoHook.decidePackageInfoPatch(
+                callerProcessName = "com.miui.securitycore",
+                queryPackage = "io.github.magisk317.mipush",
+                flags = GET_SERVICES or GET_PERMISSIONS,
+                userId = 0,
+                alreadyRequired = false,
+            ).forceRequired,
+            "the dumped SecurityCore path reads MiPush manifest signals from owner user 0",
         )
 
         assertFalse(
@@ -53,6 +71,15 @@ class SecurityCoreXSpacePackageInfoHookTest {
                 queryPackage = "com.xiaomi.xmsf",
                 flags = GET_SERVICES or GET_PERMISSIONS,
                 userId = 999,
+                alreadyRequired = false,
+            ).forceRequired
+        )
+        assertFalse(
+            SecurityCoreXSpacePackageInfoHook.decidePackageInfoPatch(
+                callerProcessName = "com.miui.securitycore",
+                queryPackage = "io.github.magisk317.mipush",
+                flags = GET_SERVICES or GET_PERMISSIONS,
+                userId = 10,
                 alreadyRequired = false,
             ).forceRequired
         )

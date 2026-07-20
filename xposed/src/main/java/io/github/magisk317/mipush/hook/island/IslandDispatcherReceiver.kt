@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
+import io.github.magisk317.mipush.common.ISLAND_PREF_READ_PERMISSION
 import io.github.magisk317.mipush.hook.XLog
 
 internal object IslandDispatcherReceiver {
@@ -37,10 +38,18 @@ internal object IslandDispatcherReceiver {
             addAction(IslandDispatchContract.ACTION_CANCEL)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(receiver, filter, null, null, Context.RECEIVER_EXPORTED)
+            context.registerReceiver(
+                receiver,
+                filter,
+                REQUIRED_SENDER_PERMISSION,
+                null,
+                Context.RECEIVER_EXPORTED,
+            )
         } else {
             @Suppress("DEPRECATION")
-            context.registerReceiver(receiver, filter)
+            context.registerReceiver(receiver, filter, REQUIRED_SENDER_PERMISSION, null)
         }
     }
+
+    internal const val REQUIRED_SENDER_PERMISSION = ISLAND_PREF_READ_PERMISSION
 }

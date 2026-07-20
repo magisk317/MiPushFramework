@@ -151,9 +151,12 @@ object HookPushNC {
         //        packageName: String
         //    ): List<NotificationChannel?>?
         classNotificationManager.hookMethod("getNotificationChannels", String::class.java) {
-            replace(hookCheck) {
+            // Always take over listing: system-hook readiness is not required for NMS/root fallbacks.
+            replace {
                 tryInvoke {
-                    return@replace SystemNotificationManager.getNotificationChannels(args[0] as String)
+                    val channels = SystemNotificationManager.getNotificationChannels(args[0] as String)
+                    XLog.d(TAG, "hook getNotificationChannels pkg=${args[0]} count=${channels?.size}")
+                    return@replace channels
                 }
             }
         }
@@ -224,9 +227,11 @@ object HookPushNC {
         //        packageName: String
         //    ): List<NotificationChannelGroup?>?
         classNotificationManager.hookMethod("getNotificationChannelGroups", String::class.java) {
-            replace(hookCheck) {
+            replace {
                 tryInvoke {
-                    return@replace SystemNotificationManager.getNotificationChannelGroups(args[0] as String)
+                    val groups = SystemNotificationManager.getNotificationChannelGroups(args[0] as String)
+                    XLog.d(TAG, "hook getNotificationChannelGroups pkg=${args[0]} count=${groups?.size}")
+                    return@replace groups
                 }
             }
         }
@@ -352,9 +357,21 @@ object HookPushNC {
         }
 
         identityBridgeClass.hookMethod("getTargetNotificationChannels", Context::class.java, String::class.java) {
-            replace(hookCheck) {
+            replace {
                 tryInvoke {
-                    return@replace SystemNotificationManager.getNotificationChannels(args[1] as String)
+                    val channels = SystemNotificationManager.getNotificationChannels(args[1] as String)
+                    XLog.d(TAG, "hook getTargetNotificationChannels pkg=${args[1]} count=${channels?.size}")
+                    return@replace channels.orEmpty()
+                }
+            }
+        }
+
+        identityBridgeClass.hookMethod("getTargetNotificationChannelGroups", Context::class.java, String::class.java) {
+            replace {
+                tryInvoke {
+                    val groups = SystemNotificationManager.getNotificationChannelGroups(args[1] as String)
+                    XLog.d(TAG, "hook getTargetNotificationChannelGroups pkg=${args[1]} count=${groups?.size}")
+                    return@replace groups.orEmpty()
                 }
             }
         }

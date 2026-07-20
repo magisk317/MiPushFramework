@@ -37,4 +37,32 @@ class NmsPermissionHookerTest {
             ),
         )
     }
+
+    @Test
+    fun `preserves delegate identity only for an authenticated xmsf caller`() {
+        assertTrue(
+            NmsPermissionHooker.shouldPreserveXmsfDelegateIdentity(
+                callingPackage = "com.xiaomi.xmsf",
+                callingUid = 99910209,
+                primaryXmsfUid = 10209,
+                callingPackages = listOf("com.xiaomi.xmsf"),
+            ),
+        )
+        assertFalse(
+            NmsPermissionHooker.shouldPreserveXmsfDelegateIdentity(
+                callingPackage = "android",
+                callingUid = 99910209,
+                primaryXmsfUid = 10209,
+                callingPackages = listOf("com.xiaomi.xmsf"),
+            ),
+        )
+        assertFalse(
+            NmsPermissionHooker.shouldPreserveXmsfDelegateIdentity(
+                callingPackage = "com.xiaomi.xmsf",
+                callingUid = 99912000,
+                primaryXmsfUid = 10209,
+                callingPackages = listOf("com.example.app"),
+            ),
+        )
+    }
 }

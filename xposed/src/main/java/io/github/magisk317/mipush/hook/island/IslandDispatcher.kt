@@ -20,10 +20,8 @@ object IslandDispatcher {
     }
 
     fun post(context: Context, request: IslandRequest) {
-        if (!request.showNotification) {
-            XLog.i(TAG, "skip island post notificationId=${request.notificationId} showNotification=false")
-            return
-        }
+        // showNotification belongs to the focus payload and controls shade visibility. The
+        // notification still has to reach SystemUI when false so the island itself can render.
         IslandDispatcherNotifier.post(context.applicationContext ?: context, request)
         IslandDispatchState.markPosted(request.notificationId)
     }

@@ -39,6 +39,7 @@ internal sealed class VendorForceAction {
 internal object VendorPushHookHelper {
     private const val TAG = "VendorPushCompat"
     private const val MAX_LOGS_PER_KEY = 8
+    private const val LOG_VALUE_MAX_LENGTH = 240
 
     private val hookedMethods: MutableSet<String> = Collections.synchronizedSet(HashSet())
     private val hookedRuntimeCallbacks: MutableSet<String> = Collections.synchronizedSet(HashSet())
@@ -243,7 +244,7 @@ internal object VendorPushHookHelper {
             .replace("\n", " ")
             .replace("\r", " ")
         if (!LogSanitizerConfig.isEnabled()) {
-            return if (raw.length > 240) raw.take(240) + "..." else raw
+            return truncateLogValue(raw)
         }
         // Field-aware sanitization first; bare high-entropy tokens fall back to redactArg.
         val fieldSanitized = DefaultLogSanitizer.sanitize(raw)
@@ -252,7 +253,15 @@ internal object VendorPushHookHelper {
         } else {
             DefaultLogSanitizer.redactArg(value)
         }.replace("\n", " ").replace("\r", " ")
-        return if (sanitized.length > 240) sanitized.take(240) + "..." else sanitized
+        return truncateLogValue(sanitized)
+    }
+
+    private fun truncateLogValue(value: String): String {
+        return if (value.length > LOG_VALUE_MAX_LENGTH) {
+            value.take(LOG_VALUE_MAX_LENGTH) + "..."
+        } else {
+            value
+        }
     }
 
     internal fun markHooked(key: String): Boolean = hookedMethods.add(key)

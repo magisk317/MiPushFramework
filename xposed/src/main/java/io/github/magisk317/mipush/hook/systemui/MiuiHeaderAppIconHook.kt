@@ -55,6 +55,7 @@ class MiuiHeaderAppIconHook {
         }.getOrNull() ?: return
         val extras = notification.extras ?: return
         val targetPackage = resolveTargetPackage(extras) ?: return
+        val postingPackage = resolvePostingPackage(expandedNotification)
         val userId = resolveUserId(expandedNotification)
         val isMockReplayReceipt = extras.getBoolean(EXTRA_MOCK_REPLAY_RECEIPT, false)
         val colorStatusBarIcon = IslandPreferences.current().colorStatusBarIcon
@@ -69,6 +70,7 @@ class MiuiHeaderAppIconHook {
             !MiuiHeaderAppIconPolicy.shouldReplace(
                 userId = userId,
                 targetPackage = targetPackage,
+                postingPackage = postingPackage,
                 hasReplacementIcon = drawable != null,
                 isMockReplayReceipt = isMockReplayReceipt,
             )
@@ -79,6 +81,12 @@ class MiuiHeaderAppIconHook {
         imageView.setImageDrawable(drawable)
         imageView.invalidate()
         logReplacement(targetPackage, userId, isMockReplayReceipt, colorStatusBarIcon)
+    }
+
+    private fun resolvePostingPackage(expandedNotification: Any): String? {
+        return runCatching {
+            expandedNotification.callMethod("getPackageName") as? String
+        }.getOrNull()?.takeIf { it.isNotBlank() }
     }
 
     private fun resolveTargetPackage(extras: Bundle): String? {
@@ -202,6 +210,7 @@ internal object MiuiHeaderAppIconPolicy {
     fun shouldReplace(
         userId: Int?,
         targetPackage: String?,
+        postingPackage: String?,
         hasReplacementIcon: Boolean,
         isMockReplayReceipt: Boolean = false,
     ): Boolean {
@@ -209,7 +218,12 @@ internal object MiuiHeaderAppIconPolicy {
         if (targetPackage == XMSF_PACKAGE_NAME) return false
         if (!hasReplacementIcon) return false
         if (isMockReplayReceipt) return true
-        return userId == XSPACE_USER_ID
+        // A correctly delegated notification already has targetPackage as the SBN package, so
+        // stock SystemUI can resolve and XSpace-badge its app icon. Override only the local-XMSF
+        // fallback identity; otherwise a content largeIcon would replace a correct app header.
+        return userId == XSPACE_USER_ID &&
+            !postingPackage.isNullOrBlank() &&
+            postingPackage != targetPackage
     }
 
     fun mockReplayReplacementSource(

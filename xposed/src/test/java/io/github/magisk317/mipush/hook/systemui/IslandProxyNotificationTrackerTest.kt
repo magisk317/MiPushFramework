@@ -75,4 +75,16 @@ class IslandProxyNotificationTrackerTest {
         now += 2_001L
         assertFalse(tracker.shouldSkip(42))
     }
+
+    @Test
+    fun `removing an older source does not cancel a newer package proxy`() {
+        val tracker = IslandProxyOwnershipTracker(maxTrackedSources = 10)
+        val proxyId = IslandProxyNotificationIds.fromPackage("com.example.app")
+
+        tracker.record("source-old", proxyId)
+        tracker.record("source-new", proxyId)
+
+        assertEquals(null, tracker.removeAndResolveCancellation("source-old"))
+        assertEquals(proxyId, tracker.removeAndResolveCancellation("source-new"))
+    }
 }

@@ -31,6 +31,12 @@ object SystemNotificationManager {
     private const val EXTRA_MIUI_OP_PKG = "miui.opPkg"
     private val missingPackageWarnings = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
 
+    // 某些系统 API（如 getNotificationChannelsForPackage）需要 STATUS_BAR_SERVICE 权限，
+    // 本进程 uid 稳定拿不到，每次调用都必然抛 SecurityException 再回退 root。
+    // 记录列表逐行查询时这会造成大量无谓的失败反射调用；这里记住"该操作已被系统拒绝"，
+    // 之后直接走 fallback，不再每行重试。按操作名区分（权限门槛与包无关）。
+    private val blockedSystemOps = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
+
     private sealed class UidResolution {
         data class Found(val uid: Int) : UidResolution()
         object MissingPackage : UidResolution()
@@ -92,12 +98,20 @@ object SystemNotificationManager {
         fallback: (Throwable) -> T,
         block: () -> T
     ): T {
+        // 该操作此前已被系统权限拒绝：直接走 fallback，不再发起注定失败的反射调用。
+        if (blockedSystemOps.contains(operation)) {
+            return fallback(SecurityException("$operation previously blocked, using fallback"))
+        }
         return try {
             block()
         } catch (t: Throwable) {
             val cause = t.unwrapSystemCallFailure()
             if (cause is SecurityException) {
-                XLog.w(TAG, "$operation: system API blocked for $packageName: ${cause.message}")
+                if (blockedSystemOps.add(operation)) {
+                    XLog.w(TAG, "$operation: system API blocked for $packageName (memoized, will skip retries): ${cause.message}")
+                } else {
+                    XLog.w(TAG, "$operation: system API blocked for $packageName: ${cause.message}")
+                }
             } else {
                 XLog.e(TAG, "$operation: system API failed for $packageName", cause)
             }
@@ -321,7 +335,9 @@ object SystemNotificationManager {
                 Notification::class.java,
                 Int::class.java,
             )
-            val opPkg = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ANDROID_PACKAGE_NAME else packageName
+            // Stock XMSF posts as a delegate: pkg is the target app while opPkg remains XMSF.
+            // The system-server hook authorizes this pair without rewriting it to "android".
+            val opPkg = XMSF_PACKAGE_NAME
             methodEnqueueNotificationWithTag.invoke(requireNotificationManager(), packageName, opPkg, tag, id, notification, getUserId())
             XLog.d(TAG, "notify() enqueue OK pkg=$packageName id=$id")
             true
@@ -435,18 +451,23 @@ object SystemNotificationManager {
     fun getNotificationChannels(
         packageName: String
     ): List<NotificationChannel?>? {
-        XLog.d(TAG, "getNotificationChannels() called with: packageName = $packageName")
+        XLog.d(TAG, "getNotificationChannels() called with: packageName = $packageName hasNms=${notificationManager != null}")
         val uid = resolveUid(packageName, "getNotificationChannels")
         if (uid == null) {
-            return RootNotificationHelper.getNotificationChannels(packageName)
+            val root = RootNotificationHelper.getNotificationChannels(packageName)
+            XLog.d(TAG, "getNotificationChannels uid-null pkg=$packageName rootCount=${root?.size}")
+            return root
                 ?: if (isCurrentPackage(packageName)) {
                     localNotificationManager()?.notificationChannels
                 } else {
                     null
                 }
         }
-        return runSystemCall("getNotificationChannels", packageName, fallback = {
-            RootNotificationHelper.getNotificationChannels(packageName)
+        return runSystemCall("getNotificationChannels", packageName, fallback = { error ->
+            XLog.w(TAG, "getNotificationChannels fallback pkg=$packageName uid=$uid err=${error.message}")
+            val root = RootNotificationHelper.getNotificationChannels(packageName)
+            XLog.d(TAG, "getNotificationChannels root fallback count=${root?.size} pkg=$packageName")
+            root
                 ?: if (isCurrentPackage(packageName)) {
                     localNotificationManager()?.notificationChannels
                 } else {
@@ -456,7 +477,9 @@ object SystemNotificationManager {
             val parceledListSlice = findHookMethodExact(requireNotificationManager().javaClass, "getNotificationChannelsForPackage", String::class.java, Int::class.java, Boolean::class.java)
                 .invoke(requireNotificationManager(), packageName, uid, false)
             @Suppress("UNCHECKED_CAST")
-            parceledListSlice?.callMethod("getList") as List<NotificationChannel?>?
+            val list = parceledListSlice?.callMethod("getList") as List<NotificationChannel?>?
+            XLog.d(TAG, "getNotificationChannels nms count=${list?.size} pkg=$packageName uid=$uid")
+            list
         }
     }
 

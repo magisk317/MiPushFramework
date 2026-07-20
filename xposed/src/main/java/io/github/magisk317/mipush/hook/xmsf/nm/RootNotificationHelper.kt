@@ -19,6 +19,41 @@ object RootNotificationHelper {
 
     private var rootAvailable: Boolean? = null
 
+    // dumpsys notification 导出的是全系统所有包的通道状态；一次抓取即可服务同屏内所有包的查询。
+    // 记录列表逐行查询会在极短时间内对同一/多个包发起大量查询，这里用短 TTL 缓存整份 dump，
+    // 把 root 往返从"每行一次"压到"每个 TTL 窗口一次"，并按包缓存解析结果避免同屏重复解析。
+    private const val DUMP_TTL_MS = 3_000L
+    private data class DumpSnapshot(val capturedAt: Long, val output: String)
+    private val dumpLock = Any()
+    @Volatile private var dumpSnapshot: DumpSnapshot? = null
+    private val channelParseCache = java.util.concurrent.ConcurrentHashMap<String, List<NotificationChannel?>>()
+    private val groupParseCache = java.util.concurrent.ConcurrentHashMap<String, List<NotificationChannelGroup?>>()
+
+    /** 返回当前有效的 dumpsys 快照；过期则刷新一次并清空解析缓存。返回 null 表示 root 取数失败。 */
+    private fun currentDump(): String? {
+        val now = System.currentTimeMillis()
+        dumpSnapshot?.let { if (now - it.capturedAt < DUMP_TTL_MS) return it.output }
+        synchronized(dumpLock) {
+            val cached = dumpSnapshot
+            val inner = System.currentTimeMillis()
+            if (cached != null && inner - cached.capturedAt < DUMP_TTL_MS) return cached.output
+            val fresh = execDumpsys("dumpsys notification") ?: return null
+            dumpSnapshot = DumpSnapshot(inner, fresh)
+            channelParseCache.clear()
+            groupParseCache.clear()
+            return fresh
+        }
+    }
+
+    /** 通道发生写操作（创建/删除）后可调用，丢弃缓存避免读到旧状态。 */
+    fun invalidateCache() {
+        synchronized(dumpLock) {
+            dumpSnapshot = null
+            channelParseCache.clear()
+            groupParseCache.clear()
+        }
+    }
+
     fun isRootAvailable(): Boolean {
         rootAvailable?.let { return it }
         val result = BoundedRootRunner.run("id", timeoutMs = 3_000L)
@@ -41,13 +76,23 @@ object RootNotificationHelper {
     }
 
     fun getNotificationChannels(packageName: String): List<NotificationChannel?>? {
-        val output = execDumpsys("dumpsys notification channels $packageName") ?: return null
-        val channels = parseChannels(output, packageName)
+        // Newer Android/MIUI builds ignore "channels <pkg>" and dump the whole manager state.
+        // Prefer scoped extraction from full dumpsys when available.
+        channelParseCache[packageName]?.let {
+            XLog.d(TAG, "getNotificationChannels cache-hit pkg=$packageName count=${it.size}")
+            return it
+        }
+        val output = currentDump() ?: return null
+        val scoped = extractAppSettingsBlock(output, packageName) ?: output
+        val channels = parseChannels(scoped, packageName)
+        XLog.d(TAG, "getNotificationChannels dumpsys pkg=$packageName rawCount=${channels.size} scoped=${scoped !== output}")
         // 去重：同一 channelId 保留最低 importance（用户在 App 命名空间禁用的通道优先于 xmsf 命名空间的副本）
-        return channels.filterNotNull()
+        val deduped = channels.filterNotNull()
             .groupBy { it.id }
             .map { (_, group) -> group.minByOrNull { it.importance } }
             .sortedBy { it?.id }
+        channelParseCache[packageName] = deduped
+        return deduped
     }
 
     fun getNotificationChannelGroup(packageName: String, groupId: String): NotificationChannelGroup? {
@@ -56,8 +101,24 @@ object RootNotificationHelper {
     }
 
     fun getNotificationChannelGroups(packageName: String): List<NotificationChannelGroup?>? {
-        val output = execDumpsys("dumpsys notification groups $packageName") ?: return null
-        return parseGroups(output, packageName)
+        groupParseCache[packageName]?.let {
+            XLog.d(TAG, "getNotificationChannelGroups cache-hit pkg=$packageName count=${it.size}")
+            return it
+        }
+        val output = currentDump() ?: return null
+        val scoped = extractAppSettingsBlock(output, packageName) ?: output
+        val groups = parseGroups(scoped, packageName)
+        XLog.d(TAG, "getNotificationChannelGroups dumpsys pkg=$packageName count=${groups.size}")
+        groupParseCache[packageName] = groups
+        return groups
+    }
+
+    private fun extractAppSettingsBlock(output: String, packageName: String): String? {
+        val marker = "AppSettings: $packageName "
+        val start = output.indexOf(marker)
+        if (start < 0) return null
+        val next = output.indexOf("AppSettings: ", start + marker.length)
+        return if (next > start) output.substring(start, next) else output.substring(start)
     }
 
     fun areNotificationsEnabled(packageName: String): Boolean? {

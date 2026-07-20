@@ -8,8 +8,11 @@ import io.github.magisk317.xposed.getHookObjectField
 import io.github.magisk317.xposed.hook
 
 class HookSystemUIPlugin(
-    private val pluginPackageName: String, private val hooker: ISystemUIPluginHooker
+    private val pluginPackageName: String,
+    private vararg val hookers: ISystemUIPluginHooker,
 ) {
+    private var pluginHooksDispatched = false
+
     companion object {
         private const val TAG = "HookSystemUIPlugin"
     }
@@ -24,22 +27,43 @@ class HookSystemUIPlugin(
                 doAfter {
                     val owner = thisObject ?: return@doAfter
                     val componentName =
-                        (io.github.magisk317.xposed.getHookObjectField(owner, "mComponentName") as? ComponentName)
-                    if (componentName!!.packageName == pluginPackageName) {
-                        unhook()
-                        val pluginContext = result as ContextWrapper
-                        val pluginLoader = pluginContext.classLoader
-                        XLog.d(TAG, "hook [$pluginPackageName] by Plugin ClassLoader: [$pluginLoader]")
-                        hooker.hook(pluginLoader)
+                        io.github.magisk317.xposed.getHookObjectField(owner, "mComponentName") as? ComponentName
+                    if (componentName?.packageName != pluginPackageName) return@doAfter
+                    val pluginContext = result as? ContextWrapper ?: return@doAfter
+                    val pluginLoader = pluginContext.classLoader ?: return@doAfter
+                    val shouldDispatch = synchronized(this@HookSystemUIPlugin) {
+                        if (pluginHooksDispatched) {
+                            false
+                        } else {
+                            pluginHooksDispatched = true
+                            true
+                        }
                     }
+                    if (!shouldDispatch) return@doAfter
+                    unhook()
+                    XLog.d(TAG, "hook [$pluginPackageName] by Plugin ClassLoader: [$pluginLoader]")
+                    dispatchHookers(pluginLoader)
                 }
             }
         } catch (e: Throwable) {
             XLog.e(
                 TAG,
-                "hook SystemUI Plugin [$pluginPackageName] with [${hooker.javaClass.name}] failure: " + e.message,
+                "hook SystemUI Plugin [$pluginPackageName] observer setup failure: " + e.message,
                 e
             )
+        }
+    }
+
+    internal fun dispatchHookers(pluginLoader: ClassLoader) {
+        hookers.forEach { hooker ->
+            runCatching { hooker.hook(pluginLoader) }
+                .onFailure {
+                    XLog.e(
+                        TAG,
+                        "hook SystemUI Plugin [$pluginPackageName] with [${hooker::class.java.name}] failure: ${it.message}",
+                        it,
+                    )
+                }
         }
     }
 

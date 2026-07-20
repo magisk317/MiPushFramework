@@ -8,13 +8,30 @@ import org.junit.jupiter.api.Test
 
 class MiuiHeaderAppIconPolicyTest {
     @Test
-    fun `replaces only xspace mipush notifications with a resolved large icon`() {
-        assertTrue(MiuiHeaderAppIconPolicy.shouldReplace(999, "com.example.app", hasReplacementIcon = true))
+    fun `replaces only xspace fallback identities with a resolved icon`() {
+        assertTrue(
+            MiuiHeaderAppIconPolicy.shouldReplace(
+                userId = 999,
+                targetPackage = "com.example.app",
+                postingPackage = "com.xiaomi.xmsf",
+                hasReplacementIcon = true,
+            )
+        )
 
-        assertFalse(MiuiHeaderAppIconPolicy.shouldReplace(0, "com.example.app", hasReplacementIcon = true))
-        assertFalse(MiuiHeaderAppIconPolicy.shouldReplace(999, "", hasReplacementIcon = true))
-        assertFalse(MiuiHeaderAppIconPolicy.shouldReplace(999, "com.xiaomi.xmsf", hasReplacementIcon = true))
-        assertFalse(MiuiHeaderAppIconPolicy.shouldReplace(999, "com.example.app", hasReplacementIcon = false))
+        assertFalse(
+            MiuiHeaderAppIconPolicy.shouldReplace(0, "com.example.app", "com.xiaomi.xmsf", true)
+        )
+        assertFalse(MiuiHeaderAppIconPolicy.shouldReplace(999, "", "com.xiaomi.xmsf", true))
+        assertFalse(MiuiHeaderAppIconPolicy.shouldReplace(999, "com.xiaomi.xmsf", "com.xiaomi.xmsf", true))
+        assertFalse(MiuiHeaderAppIconPolicy.shouldReplace(999, "com.example.app", "com.xiaomi.xmsf", false))
+        assertFalse(
+            MiuiHeaderAppIconPolicy.shouldReplace(
+                userId = 999,
+                targetPackage = "com.example.app",
+                postingPackage = "com.example.app",
+                hasReplacementIcon = true,
+            )
+        )
     }
 
     @Test
@@ -23,6 +40,7 @@ class MiuiHeaderAppIconPolicyTest {
             MiuiHeaderAppIconPolicy.shouldReplace(
                 userId = 0,
                 targetPackage = "com.example.app",
+                postingPackage = "com.xiaomi.xmsf",
                 hasReplacementIcon = true,
                 isMockReplayReceipt = true,
             )
@@ -32,6 +50,7 @@ class MiuiHeaderAppIconPolicyTest {
             MiuiHeaderAppIconPolicy.shouldReplace(
                 userId = 0,
                 targetPackage = "com.xiaomi.xmsf",
+                postingPackage = "com.xiaomi.xmsf",
                 hasReplacementIcon = true,
                 isMockReplayReceipt = true,
             )
@@ -40,6 +59,7 @@ class MiuiHeaderAppIconPolicyTest {
             MiuiHeaderAppIconPolicy.shouldReplace(
                 userId = 0,
                 targetPackage = "com.example.app",
+                postingPackage = "com.xiaomi.xmsf",
                 hasReplacementIcon = false,
                 isMockReplayReceipt = true,
             )

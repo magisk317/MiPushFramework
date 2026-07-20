@@ -1,8 +1,6 @@
 package io.github.magisk317.mipush.hook.util
 
-import java.util.concurrent.Callable
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
+import io.github.magisk317.mipush.common.process.BoundedProcessRunner
 
 internal data class XposedShellResult(
     val exitCode: Int,
@@ -15,37 +13,17 @@ internal data class XposedShellResult(
 }
 
 internal object BoundedRootRunner {
-    private val executor = java.util.concurrent.ThreadPoolExecutor(
-        0, 2, 60L, java.util.concurrent.TimeUnit.SECONDS,
-        java.util.concurrent.LinkedBlockingQueue(16)
-    ) { runnable ->
-        Thread(runnable, "mipush-xposed-root-runner").apply { isDaemon = true }
-    }
-
     fun run(command: String, timeoutMs: Long = 5_000L): XposedShellResult {
-        var process: Process? = null
-        return try {
-            val started = ProcessBuilder("su", "-c", command)
-                .redirectErrorStream(true)
-                .start()
-            process = started
-            val output = executor.submit(Callable { started.inputStream.bufferedReader().use { it.readText() } })
-            val completed = started.waitFor(timeoutMs, TimeUnit.MILLISECONDS)
-            if (!completed) {
-                started.destroyForcibly()
-                return XposedShellResult(exitCode = -1, stdout = "", stderr = "timeout", timedOut = true)
-            }
-            XposedShellResult(
-                exitCode = started.exitValue(),
-                stdout = runCatching { output.get(1, TimeUnit.SECONDS) }.getOrDefault(""),
-            )
-        } catch (e: InterruptedException) {
-            Thread.currentThread().interrupt()
-            XposedShellResult(exitCode = -1, stdout = "", stderr = e.message ?: e.javaClass.simpleName)
-        } catch (e: Exception) {
-            XposedShellResult(exitCode = -1, stdout = "", stderr = e.message ?: e.javaClass.simpleName)
-        } finally {
-            process?.destroy()
-        }
+        val result = BoundedProcessRunner.run(
+            command = listOf("su", "-c", command),
+            timeoutMillis = timeoutMs,
+            redirectErrorStream = true,
+        )
+        return XposedShellResult(
+            exitCode = result.exitCode,
+            stdout = result.stdout,
+            stderr = result.stderr,
+            timedOut = result.timedOut,
+        )
     }
 }

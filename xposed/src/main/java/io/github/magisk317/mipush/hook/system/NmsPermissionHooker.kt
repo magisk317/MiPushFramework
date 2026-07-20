@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.hook.system
 import android.app.Notification
 import android.app.NotificationChannelGroup
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Binder
 import android.os.Build
 import android.os.Process
@@ -16,6 +17,7 @@ import io.github.magisk317.xposed.currentApplication
 import io.github.magisk317.xposed.findClass
 import io.github.magisk317.xposed.findMethodExact
 import io.github.magisk317.xposed.hook
+import io.github.magisk317.xposed.hookAllMethods
 import io.github.magisk317.xposed.hookMethod
 
 object NmsPermissionHooker {
@@ -92,8 +94,122 @@ object NmsPermissionHooker {
         }
     }
 
+    internal fun shouldPreserveXmsfDelegateIdentity(
+        callingPackage: String?,
+        callingUid: Int,
+        primaryXmsfUid: Int,
+        callingPackages: Collection<String>,
+    ): Boolean {
+        return callingPackage == XMSF_PACKAGE_NAME &&
+            isXmsfCallingIdentity(callingUid, primaryXmsfUid, callingPackages)
+    }
+
+    private fun hookNotificationEnqueue(preserveDelegateIdentity: Boolean): HookCallback = {
+        replace {
+            var token: Long? = null
+            if (AmapNavigationFocusCompat.attachIfEligibleFromNmsArguments(args)) {
+                XLog.d(TAG, "attached native focus payload to AMap navigation notification")
+            }
+            if (fromXmsf()) {
+                if (preserveDelegateIdentity) {
+                    // Keep the stock delegate identity. SystemUI and MIUI notification policy use
+                    // opPkg=com.xiaomi.xmsf to distinguish a target-app MiPush notification from
+                    // a notification posted by the Android system itself.
+                    args[1] = XMSF_PACKAGE_NAME
+                } else {
+                    token = Binder.clearCallingIdentity()
+                    args[1] = ANDROID_PACKAGE_NAME
+                }
+            }
+            try {
+                invokeOriginal()
+            } catch (e: java.lang.reflect.InvocationTargetException) {
+                throw e.targetException ?: e.cause ?: e
+            } finally {
+                if (token != null) {
+                    Binder.restoreCallingIdentity(token)
+                }
+            }
+        }
+    }
+
+    /**
+     * Foreground-service notifications are posted through NotificationManagerInternal rather
+     * than BinderService.enqueueNotificationWithTag. Hook the shared NMS implementation so the
+     * narrow AMap compatibility bridge sees both routes.
+     */
+    private fun installAmapNavigationFocusBridge(classLoader: ClassLoader?) {
+        runCatching {
+            val notificationManagerService = findClass(
+                "com.android.server.notification.NotificationManagerService",
+                classLoader,
+            )
+            val hooks = notificationManagerService.hookAllMethods("enqueueNotificationInternal") {
+                doBefore {
+                    if (AmapNavigationFocusCompat.attachIfEligibleFromForegroundServiceNmsArguments(args)) {
+                        XLog.d(TAG, "attached native focus payload to AMap navigation notification via NMS internal enqueue")
+                    }
+                }
+            }
+            check(hooks.isNotEmpty()) { "no NMS enqueueNotificationInternal overloads found" }
+            XLog.i(TAG, "AMap navigation focus bridge installed on ${hooks.size} NMS internal enqueue overload(s)")
+        }.onFailure { throwable ->
+            XLog.w(TAG, "AMap navigation focus bridge unavailable: ${throwable.message}")
+        }
+    }
+
+    private fun installNotificationDelegateResolver(classLoader: ClassLoader?): Boolean {
+        return runCatching {
+            val notificationManagerService = findClass(
+                "com.android.server.notification.NotificationManagerService",
+                classLoader,
+            )
+            val getPackageUidAsUser = PackageManager::class.java.getMethod(
+                "getPackageUidAsUser",
+                String::class.java,
+                Int::class.javaPrimitiveType,
+            )
+            notificationManagerService.hookMethod(
+                "resolveNotificationUid",
+                String::class.java,
+                String::class.java,
+                Int::class.javaPrimitiveType!!,
+                Int::class.javaPrimitiveType!!,
+            ) {
+                doBefore {
+                    val callingPackage = args[0] as? String
+                    val targetPackage = args[1] as? String ?: return@doBefore
+                    val callingUid = args[2] as? Int ?: return@doBefore
+                    val userId = args[3] as? Int ?: return@doBefore
+                    if (!shouldPreserveXmsfDelegateIdentity(
+                            callingPackage = callingPackage,
+                            callingUid = callingUid,
+                            primaryXmsfUid = getXmsfUid(),
+                            callingPackages = getCallingPackages(callingUid),
+                        )
+                    ) {
+                        return@doBefore
+                    }
+                    val packageManager = getContext().packageManager
+                    result = getPackageUidAsUser.invoke(packageManager, targetPackage, userId) as Int
+                }
+            }
+            XLog.i(TAG, "notification delegate resolver hook installed; preserving XMSF opPkg")
+            true
+        }.getOrElse { throwable ->
+            XLog.w(
+                TAG,
+                "notification delegate resolver unavailable; keep system-identity fallback: ${throwable.message}",
+            )
+            false
+        }
+    }
+
     fun hook(classINotificationManager: Class<*>) {
         XLog.i(TAG, "installing NMS permission hooks on ${classINotificationManager.name}")
+        installAmapNavigationFocusBridge(classINotificationManager.classLoader)
+        val preserveNotificationDelegateIdentity =
+            installNotificationDelegateResolver(classINotificationManager.classLoader)
         //boolean canNotifyAsPackage(String callingPkg, String targetPkg, int userId);
         findMethodExact(classINotificationManager, "canNotifyAsPackage", String::class.java, String::class.java, Int::class.java)
             .hook(hookCanNotifyAsPackage())
@@ -118,11 +234,7 @@ object NmsPermissionHooker {
 
         //void enqueueNotificationWithTag(String pkg, String opPkg, String tag, int id, Notification notification, int userId)
         findMethodExact(classINotificationManager, "enqueueNotificationWithTag", String::class.java, String::class.java, String::class.java, Int::class.java, Notification::class.java, Int::class.java)
-            .hook(hookPermission(0) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    args[1] = ANDROID_PACKAGE_NAME
-                }
-            })
+            .hook(hookNotificationEnqueue(preserveNotificationDelegateIdentity))
 
         //void createNotificationChannelsForPackage(String pkg, int uid, in ParceledListSlice channelsList);
         findMethodExact(classINotificationManager, "createNotificationChannelsForPackage", String::class.java, Int::class.java, findClass("android.content.pm.ParceledListSlice", null))

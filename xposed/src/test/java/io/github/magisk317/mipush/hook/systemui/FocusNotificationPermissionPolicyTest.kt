@@ -1,10 +1,18 @@
 package io.github.magisk317.mipush.hook.systemui
 
+import io.github.magisk317.mipush.common.island.IslandOptions
+import io.github.magisk317.mipush.hook.island.IslandPreferences
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class FocusNotificationPermissionPolicyTest {
+    @BeforeEach
+    fun reset() {
+        IslandPreferences.resetForTest()
+    }
+
     @Test
     fun `system allowed focus is never narrowed by MiPush preference`() {
         assertTrue(
@@ -29,6 +37,25 @@ class FocusNotificationPermissionPolicyTest {
                 miPushAllowed = false,
             )
         )
+    }
+
+    @Test
+    fun `enabled focus authorization bypass applies globally`() {
+        IslandPreferences.resetForTest(
+            IslandOptions(
+                enabled = true,
+                enableFloat = true,
+                focusNotification = true,
+            )
+        )
+
+        assertTrue(FocusNotificationPermissionPolicy.miPushPreferenceAllows("com.example.unregistered"))
+        assertTrue(FocusNotificationPermissionPolicy.miPushPreferenceAllows("com.autonavi.minimap"))
+    }
+
+    @Test
+    fun `disabled focus authorization bypass does not widen any package`() {
+        assertFalse(FocusNotificationPermissionPolicy.miPushPreferenceAllows("com.example.any"))
     }
 
     @Test
