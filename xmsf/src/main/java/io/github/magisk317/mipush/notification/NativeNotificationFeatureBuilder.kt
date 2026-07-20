@@ -13,6 +13,7 @@ import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmsf.R
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.common.NotificationStyle
+import io.github.magisk317.mipush.common.notification.NotificationProgressTextSupport
 import java.util.concurrent.ConcurrentHashMap
 
 internal object NativeNotificationFeatureBuilder {
@@ -209,7 +210,10 @@ internal object NativeNotificationFeatureBuilder {
         builder.setCategory(Notification.CATEGORY_ALARM)
         builder.priority = NotificationCompat.PRIORITY_HIGH
         builder.setOnlyAlertOnce(true)
-        val durationMs = extractDurationMs("${metaInfo.title.orEmpty()} ${metaInfo.description.orEmpty()}")
+        val durationMs = NotificationProgressTextSupport.extractCountdownMillis(
+            metaInfo.title,
+            metaInfo.description,
+        )
         if (durationMs > 0) {
             builder.setWhen(System.currentTimeMillis() + durationMs)
             builder.setUsesChronometer(true)
@@ -309,22 +313,6 @@ internal object NativeNotificationFeatureBuilder {
         )
         session.isActive = true
         return session.sessionToken
-    }
-
-    private fun extractDurationMs(text: String): Long {
-        Regex("(\\d+)\\s*(?:分钟|min|mins|minute|minutes)").find(text)?.let {
-            return it.groupValues[1].toLongOrNull()?.takeIf { value -> value in 1..1440 }
-                ?.times(60_000L) ?: 0L
-        }
-        Regex("(\\d+)\\s*(?:小时|hour|hours|hr|hrs)").find(text)?.let {
-            return it.groupValues[1].toLongOrNull()?.takeIf { value -> value in 1..72 }
-                ?.times(3_600_000L) ?: 0L
-        }
-        Regex("(\\d+)\\s*(?:秒|sec|second|seconds)").find(text)?.let {
-            return it.groupValues[1].toLongOrNull()?.takeIf { value -> value in 1..3600 }
-                ?.times(1_000L) ?: 0L
-        }
-        return 0L
     }
 
     private fun markNativeFeature(

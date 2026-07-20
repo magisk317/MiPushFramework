@@ -32,10 +32,10 @@ class AppDatabaseMigrationContractTest {
 
     @Test
     fun `migration registry exposes all migrations`() {
-        assertEquals(4, AppDatabaseMigrations.ALL.size)
+        assertEquals(5, AppDatabaseMigrations.ALL.size)
         assertEquals(1, AppDatabaseMigrations.MIGRATION_1_2.startVersion)
         assertEquals(2, AppDatabaseMigrations.MIGRATION_1_2.endVersion)
-        
+
         assertEquals(2, AppDatabaseMigrations.MIGRATION_2_3.startVersion)
         assertEquals(3, AppDatabaseMigrations.MIGRATION_2_3.endVersion)
 
@@ -44,6 +44,28 @@ class AppDatabaseMigrationContractTest {
 
         assertEquals(4, AppDatabaseMigrations.MIGRATION_4_5.startVersion)
         assertEquals(5, AppDatabaseMigrations.MIGRATION_4_5.endVersion)
+
+        assertEquals(5, AppDatabaseMigrations.MIGRATION_5_6.startVersion)
+        assertEquals(6, AppDatabaseMigrations.MIGRATION_5_6.endVersion)
+    }
+
+    @Test
+    fun `migration 5 to 6 adds search_text column`() {
+        val statements = mutableListOf<String>()
+        val db = mockk<SupportSQLiteDatabase>(relaxed = true)
+        val sqlSlot = slot<String>()
+        every { db.execSQL(capture(sqlSlot)) } answers {
+            statements += sqlSlot.captured
+        }
+
+        AppDatabaseMigrations.MIGRATION_5_6.migrate(db)
+
+        assertEquals(
+            listOf(
+                "ALTER TABLE `EVENT` ADD COLUMN `search_text` TEXT",
+            ),
+            statements,
+        )
     }
 
     @Test

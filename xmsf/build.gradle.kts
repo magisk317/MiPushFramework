@@ -65,11 +65,16 @@ android {
 }
 
 tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
-    jvmArgs("-Xshare:off", "--enable-native-access=ALL-UNNAMED")
+    jvmArgs(
+        "-Xshare:off",
+        "--enable-native-access=ALL-UNNAMED",
+        "--sun-misc-unsafe-memory-access=allow",
+    )
     useJUnitPlatform()
 }
 
 dependencies {
+    implementation(project(":diagnostics"))
     implementation(project(":core"))
     implementation(project(":settings"))
     implementation(project(":common"))

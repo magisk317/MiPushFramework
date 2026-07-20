@@ -1,9 +1,10 @@
 package io.github.magisk317.mipush
 
 import android.os.Build
+import io.github.magisk317.mipush.common.notification.MockReplayOutcome
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
-import com.xiaomi.push.service.XMPushService
+import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.xmpush.thrift.ActionType
 
 object SdkNotificationCompat {
@@ -16,8 +17,8 @@ object SdkNotificationCompat {
     }
 
     @JvmStatic
-    fun notifyWithModernHelper(pushService: XMPushService, payload: ByteArray?) {
-        if (payload == null || payload.isEmpty()) return
-        MyMIPushNotificationHelper.notifyPushMessage(pushService, payload)
+    fun notifyWithModernHelper(pushService: XMPushServiceCore, payload: ByteArray?): MockReplayOutcome {
+        if (payload == null || payload.isEmpty()) return MockReplayOutcome.Failed
+        return MyMIPushNotificationHelper.notifyPushMessage(pushService, payload)
     }
 }

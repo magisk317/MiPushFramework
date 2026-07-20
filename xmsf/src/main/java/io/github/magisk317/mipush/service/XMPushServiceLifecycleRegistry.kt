@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.service
 
 import android.content.Intent
-import com.xiaomi.push.service.XMPushService
+import com.xiaomi.push.service.XMPushServiceCore
 import java.util.ArrayDeque
 
 internal class XMPushServiceLifecycleRegistry {
@@ -16,7 +16,7 @@ internal class XMPushServiceLifecycleRegistry {
     )
 
     private val lock = Any()
-    private var currentService: XMPushService? = null
+    private var currentService: XMPushServiceCore? = null
     private var listener: XMPushServiceListener? = null
     private val pendingStarts = ArrayDeque<Intent>()
 
@@ -32,7 +32,7 @@ internal class XMPushServiceLifecycleRegistry {
         null
     }
 
-    fun attach(pushService: XMPushService, factory: (XMPushService) -> XMPushServiceListener): AttachResult {
+    fun attach(pushService: XMPushServiceCore, factory: (XMPushServiceCore) -> XMPushServiceListener): AttachResult {
         return synchronized(lock) {
             if (currentService === pushService && listener != null) {
                 return@synchronized AttachResult(listener = listener, createdNow = false)
@@ -46,7 +46,7 @@ internal class XMPushServiceLifecycleRegistry {
 
     fun currentListener(): XMPushServiceListener? = synchronized(lock) { listener }
 
-    fun detach(pushService: XMPushService?): XMPushServiceListener? = synchronized(lock) {
+    fun detach(pushService: XMPushServiceCore?): XMPushServiceListener? = synchronized(lock) {
         if (pushService != null && currentService !== pushService) {
             return null
         }
@@ -59,7 +59,7 @@ internal class XMPushServiceLifecycleRegistry {
 
     fun canStartForegroundImmediately(): Boolean = synchronized(lock) { currentService != null }
 
-    fun <T> withService(block: (XMPushService) -> T): T? {
+    fun <T> withService(block: (XMPushServiceCore) -> T): T? {
         val service = synchronized(lock) { currentService } ?: return null
         return block(service)
     }

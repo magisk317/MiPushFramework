@@ -37,7 +37,7 @@ class PkgUninstallReceiver : BroadcastReceiver() {
                         packageName,
                         "PkgUninstallReceiver"
                     )
-                    val serviceIntent = Intent(context, com.xiaomi.push.service.XMPushService::class.java)
+                    val serviceIntent = Intent(context, com.xiaomi.push.service.XMPushServiceCore::class.java)
                     serviceIntent.action = PushServiceConstants.ACTION_UNINSTALL
                     serviceIntent.putExtra(
                         PushServiceConstants.EXTRA_UNINSTALL_PKG_NAME,

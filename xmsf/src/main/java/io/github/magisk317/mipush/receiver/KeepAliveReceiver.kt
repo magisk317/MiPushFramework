@@ -31,7 +31,7 @@ class KeepAliveReceiver : BroadcastReceiver() {
 
             lastActive = now
             logD("start service when ${intent?.action}")
-            val localIntent = PushRuntimeComponents.newLegacyMainServiceIntent(context)
+            val localIntent = PushRuntimeComponents.newCoreServiceIntent(context)
             localIntent.putExtra(PushServiceConstants.EXTRA_TIME_STAMP, now)
             localIntent.action = PushServiceConstants.ACTION_CHECK_ALIVE
             PushServiceStarter.start(context, localIntent)

@@ -1,8 +1,10 @@
 package io.github.magisk317.mipush.utils
 
+import android.app.Application
 import android.content.Context
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.platform.support.BoundedShellResult
+import io.github.magisk317.xposed.logging.LogSanitizerConfig
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -11,6 +13,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.api.parallel.Execution
+import org.junit.jupiter.api.parallel.ExecutionMode
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import tech.apter.junit.jupiter.robolectric.RobolectricExtension
@@ -19,14 +23,17 @@ import java.util.Date
 import java.util.zip.ZipFile
 
 @ExtendWith(RobolectricExtension::class)
-@Config(sdk = [28])
+@Config(sdk = [28], application = Application::class)
+@Execution(ExecutionMode.SAME_THREAD)
 class LogUtilsRobolectricTest {
     private lateinit var context: Context
 
     @BeforeEach
     fun setUp() {
         context = RuntimeEnvironment.getApplication()
+        LogSanitizerConfig.setEnabled(true)
         LogUtils.resetForTest()
+        LogSanitizerConfig.setEnabled(true)
         LogBundleExporter.clearLogFolders(context)
         LogUtils.init(context)
         LogUtils.setRetentionDays(context, 7)
@@ -50,13 +57,26 @@ class LogUtilsRobolectricTest {
         val content = LogUtils.readLogFile(context, aggregate!!.name)
         assertNotNull(content)
         assertTrue(content!!.text.contains(""""tag":"DiagTest""""))
-        assertTrue(content.text.contains(""""message":"hello token=secret""""))
+        assertFalse(content.text.contains("token=secret"))
+        assertTrue(content.text.contains(""""message":"hello token=***""""))
         assertTrue(content.text.contains(""""time":"""))
         assertFalse(content.text.contains(""""timestamp":"""))
         assertFalse(content.text.contains(""""source":"""))
         assertFalse(content.text.contains(""""uid":"""))
         assertFalse(content.text.contains(""""threadId":"""))
         assertFalse(content.text.contains(""""throwable":"""))
+    }
+
+    @Test
+    fun `sensitive debug mode explicitly permits plaintext local logs`() {
+        LogSanitizerConfig.setEnabled(false)
+
+        Napier.i("token=debug-secret", tag = "DiagSensitive")
+
+        val aggregate = LogUtils.summarizeFiles(context).files
+            .first { it.name.matches(Regex("""runtime\.\d{4}-\d{2}-\d{2}\.jsonl""")) }
+        val content = LogUtils.readLogFile(context, aggregate.name)
+        assertTrue(content!!.text.contains("token=debug-secret"))
     }
 
     @Test
@@ -149,7 +169,9 @@ class LogUtilsRobolectricTest {
     fun `export redacts token values in bundled logs`() {
         val currentDate = LogUtils.currentDateString(Date())
         File(LogBundleExporter.getLogDir(context), "runtime.$currentDate.jsonl")
-            .writeText("""{"timestamp":1,"message":"ipc_token=secret token=plain"}""")
+            .writeText(
+                """{"timestamp":1,"message":"ipc_token=secret token=plain phone=13800138000","sender":"13800138000","code":"123456"}""",
+            )
 
         val result = LogBundleExporter.buildLogBundle(context)
 
@@ -164,8 +186,11 @@ class LogUtilsRobolectricTest {
         }
         assertFalse(text.contains("ipc_token=secret"))
         assertFalse(text.contains("token=plain"))
-        assertTrue(text.contains("ipc_token=<redacted>"))
-        assertTrue(text.contains("token=<redacted>"))
+        assertFalse(text.contains("13800138000"))
+        assertFalse(text.contains("123456"))
+        assertTrue(text.contains("payload[len="))
+        assertTrue(text.contains("sender[len="))
+        assertTrue(text.contains("code[len="))
     }
 
     @Test

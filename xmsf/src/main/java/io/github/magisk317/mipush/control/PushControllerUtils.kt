@@ -82,12 +82,12 @@ object PushControllerUtils {
                 }
             }
             try {
-                resolveClass("com.xiaomi.push.service.XMPushService")?.let { serviceClass ->
+                resolveClass("com.xiaomi.push.service.XMPushServiceCore")?.let { serviceClass ->
                     val serviceIntent = Intent(context, serviceClass)
                     serviceIntent.putExtra(PushServiceConstants.EXTRA_TIME_STAMP, System.currentTimeMillis())
                     serviceIntent.action = PushServiceConstants.ACTION_TIMER
                     PushServiceStarter.start(context, serviceIntent)
-                } ?: logW("XMPushService class is unavailable, skip startForegroundService")
+                } ?: logW("XMPushServiceCore class is unavailable, skip startForegroundService")
             } catch (e: Throwable) {
                 logE("Unexpected error", e)
             }
@@ -110,7 +110,7 @@ object PushControllerUtils {
                 val scheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as? JobScheduler
                 scheduler?.cancelAll()
             }
-            resolveClass("com.xiaomi.push.service.XMPushService")?.let { serviceClass ->
+            resolveClass("com.xiaomi.push.service.XMPushServiceCore")?.let { serviceClass ->
                 context.stopService(Intent(context, serviceClass))
             }
         }

@@ -17,6 +17,7 @@ import io.github.d4viddf.hyperisland_kit.models.ProgressInfo
 import io.github.d4viddf.hyperisland_kit.models.TextInfo
 import io.github.d4viddf.hyperisland_kit.models.TimerInfo
 import io.github.magisk317.mipush.common.NotificationStyle
+import io.github.magisk317.mipush.common.notification.NotificationProgressTextSupport
 import io.github.magisk317.mipush.common.utils.ImgUtils
 import com.xiaomi.xmsf.R
 import org.json.JSONObject
@@ -278,7 +279,7 @@ internal object MiPushIslandPayloadBuilder {
         content: String,
         clickAction: HyperAction?,
     ) {
-        val countdownMs = extractCountdownMs(title, content)
+        val countdownMs = NotificationProgressTextSupport.extractCountdownMillis(title, content)
         if (countdownMs > 0) {
             builder.setHighlightInfo(
                 title = title,
@@ -287,7 +288,7 @@ internal object MiPushIslandPayloadBuilder {
             )
             builder.setBigIslandCountdown(countdownMs, PIC_ICON_KEY)
             if (clickAction != null) {
-                builder.setHintAction(resolveAlertHint(title, content) ?: title, null, clickAction)
+                builder.setHintAction(NotificationProgressTextSupport.resolveAlertHint(title, content) ?: title, null, clickAction)
                 builder.addHiddenAction(clickAction)
             }
             return
@@ -307,53 +308,6 @@ internal object MiPushIslandPayloadBuilder {
         )
         if (clickAction != null) {
             builder.addHiddenAction(clickAction)
-        }
-    }
-
-    /** 从标题/内容中提取倒计时毫秒数 */
-    private fun extractCountdownMs(title: String, content: String): Long {
-        val text = "$title $content"
-
-        // 匹配 "N分钟后" / "N分" / "N min"
-        Regex("(\\d+)\\s*(?:分钟|min|mins|minute|minutes)").find(text)?.let {
-            val mins = it.groupValues[1].toLongOrNull()
-            if (mins != null && mins in 1..1440) return mins * 60 * 1000
-        }
-
-        // 匹配 "N小时后" / "N小时" / "N hour"
-        Regex("(\\d+)\\s*(?:小时|hour|hours|hr|hrs)").find(text)?.let {
-            val hours = it.groupValues[1].toLongOrNull()
-            if (hours != null && hours in 1..72) return hours * 3600 * 1000
-        }
-
-        // 匹配 "N秒后" / "N秒" / "N sec"
-        Regex("(\\d+)\\s*(?:秒|sec|second|seconds)").find(text)?.let {
-            val secs = it.groupValues[1].toLongOrNull()
-            if (secs != null && secs in 1..3600) return secs * 1000
-        }
-
-        // 匹配 "HH:MM:SS" 或 "MM:SS" 格式
-        Regex("(\\d{1,2}):(\\d{2})(?::(\\d{2}))?").find(text)?.let {
-            val h = it.groupValues[1].toLongOrNull() ?: 0
-            val m = it.groupValues[2].toLongOrNull() ?: 0
-            val s = it.groupValues[3].toLongOrNull() ?: 0
-            val totalMs = (h * 3600 + m * 60 + s) * 1000
-            if (totalMs in 1000..86400000) return totalMs
-        }
-
-        return 0
-    }
-
-    /** 从标题/内容推断提醒提示标签 */
-    private fun resolveAlertHint(title: String, content: String): String? {
-        val text = "$title $content"
-        return when {
-            text.contains("闹钟") || text.contains("alarm") -> "闹钟"
-            text.contains("提醒") || text.contains("reminder") -> "提醒"
-            text.contains("待办") || text.contains("todo") -> "待办"
-            text.contains("会议") || text.contains("meeting") -> "会议"
-            text.contains("倒计时") || text.contains("countdown") -> "倒计时"
-            else -> null
         }
     }
 
@@ -425,7 +379,8 @@ internal object MiPushIslandPayloadBuilder {
         )
 
         // 优先使用 LiveUpdateDetector 的检测结果，回退到文本正则提取
-        val progress = liveUpdateResult?.progressPercent ?: extractProgress(content)
+        val progress = liveUpdateResult?.progressPercent
+            ?: NotificationProgressTextSupport.extractProgressPercent(content)
         val isTracking = isTrackingCategory(liveUpdateResult)
 
         if (progress in 0..100) {
@@ -464,7 +419,7 @@ internal object MiPushIslandPayloadBuilder {
         // 设置 HintInfo 显示分类标签
         val hintLabel = liveUpdateResult?.trackerLabel
             ?: liveUpdateResult?.category?.label
-            ?: resolveProgressHint(title, content)
+            ?: NotificationProgressTextSupport.resolveProgressHint(title, content)
         if (hintLabel != null) {
             if (clickAction != null) {
                 builder.setHintAction(hintLabel, null, clickAction)
@@ -483,30 +438,6 @@ internal object MiPushIslandPayloadBuilder {
         if (result?.isProgress != true) return false
         val category = result.category.name
         return category in setOf("DELIVERY", "RIDE_HAILING", "LOGISTICS", "TRAVEL")
-    }
-
-    /** 从标题/内容推断进度提示标签 */
-    private fun resolveProgressHint(title: String, content: String): String? {
-        val text = "$title $content"
-        return when {
-            text.contains("下载") || text.contains("download") -> "下载中"
-            text.contains("上传") || text.contains("upload") -> "上传中"
-            text.contains("安装") || text.contains("install") -> "安装中"
-            text.contains("更新") || text.contains("update") -> "更新中"
-            text.contains("同步") || text.contains("sync") -> "同步中"
-            else -> null
-        }
-    }
-
-    /** 从文本中提取进度百分比，返回 -1 表示未找到 */
-    private fun extractProgress(text: String): Int {
-        // 匹配 "XX%" 格式
-        val percentRegex = Regex("(\\d{1,3})%")
-        percentRegex.find(text)?.let {
-            val value = it.groupValues[1].toIntOrNull()
-            if (value != null && value in 0..100) return value
-        }
-        return -1
     }
 
     private fun Bundle.putFocusAction(icon: Icon, title: String, contentIntent: PendingIntent) {

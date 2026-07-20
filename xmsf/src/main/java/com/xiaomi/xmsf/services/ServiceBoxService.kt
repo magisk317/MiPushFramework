@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
 import com.xiaomi.xmsf.stock.StockSurfaceSupport
+import io.github.magisk317.mipush.service.runtime.KeepAliveRuntimeAdapter
 
 class ServiceBoxService : Service() {
     private var mainProcBridge: IMainProcBridge? = null
@@ -13,6 +14,7 @@ class ServiceBoxService : Service() {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             mainProcBridge = IMainProcBridge.Stub.asInterface(service)
             StockSurfaceSupport.recordStatEvent(this@ServiceBoxService, "service_box:main_proc_connected")
+            refreshOnlineConfig()
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -23,11 +25,7 @@ class ServiceBoxService : Service() {
     private val binder = object : ISubProcBridge.Stub() {
         override fun notifyOnlineConfigChanged() {
             StockSurfaceSupport.recordStatEvent(this@ServiceBoxService, "service_box:online_config_changed")
-            val keepAliveEnabled = mainProcBridge?.getOnlineBooleanConfig(1005, false) ?: false
-            StockSurfaceSupport.updateKeepAliveConfig(
-                this@ServiceBoxService,
-                """{"source":"service_box","onlineConfigChanged":true,"keepAliveEnabled":$keepAliveEnabled}""",
-            )
+            refreshOnlineConfig()
         }
     }
 
@@ -39,8 +37,13 @@ class ServiceBoxService : Service() {
     override fun onDestroy() {
         runCatching { unbindService(connection) }
         mainProcBridge = null
+        KeepAliveRuntimeAdapter.shutdown()
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
+
+    private fun refreshOnlineConfig() {
+        KeepAliveRuntimeAdapter.refreshOnlineConfig(this, mainProcBridge)
+    }
 }

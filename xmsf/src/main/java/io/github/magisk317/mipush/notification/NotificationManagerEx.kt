@@ -17,6 +17,7 @@ import android.service.notification.StatusBarNotification
 import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.push.service.NotificationUtils
 import com.xiaomi.push.service.NotificationIdentityBridge
+import com.xiaomi.push.service.NotificationManagerPlatformSupport
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.aakira.napier.Napier
 import java.util.Collections
@@ -446,52 +447,113 @@ object NotificationManagerEx {
         if (directChannel != null) {
             return directChannel
         }
-        return notificationManager.getNotificationChannel(channelId)
+        // Only fall back to XMSF-local lookup for this process package or MiPush-managed ids.
+        if (packageName == appContext.packageName ||
+            io.github.magisk317.mipush.common.utils.NotificationUtils.isMiPushManagedChannelId(packageName, channelId)
+        ) {
+            return notificationManager.getNotificationChannel(channelId)
+        }
+        return null
     }
 
     fun getNotificationChannels(
         packageName: String
     ): List<NotificationChannel?>? {
-        logD("getNotificationChannels() called with: packageName = $packageName")
+        logD(
+            "getNotificationChannels() called with: packageName = $packageName " +
+                "isHooked=$isHooked modern=${shouldUseModernIdentityStrategy(packageName)} " +
+                "legacyScoped=${canUseLegacyPackageScopedApis()} sdk=${Build.VERSION.SDK_INT}"
+        )
+        if (packageName == appContext.packageName) {
+            val local = notificationManager.notificationChannels
+            logD("getNotificationChannels self pkg count=${local.size}")
+            return local
+        }
+
+        val strategy = runCatching {
+            NotificationIdentityBridge.resolveStrategy(appContext, packageName)
+        }.getOrNull()
+        logD("getNotificationChannels strategy=$strategy for $packageName")
+
         if (shouldUseModernIdentityStrategy(packageName)) {
             val targetChannels = NotificationIdentityBridge.getTargetNotificationChannels(appContext, packageName)
+            logD("getNotificationChannels identity count=${targetChannels.size} pkg=$packageName")
             if (targetChannels.isNotEmpty()) {
                 return targetChannels
             }
             maybeLogDiagnosticsOnce("target-channel-list-empty", packageName, null, null)
+
+            val platformChannels = queryPlatformNotificationChannels(packageName)
+            if (platformChannels.isNotEmpty()) {
+                logI("getNotificationChannels platform fallback count=${platformChannels.size} pkg=$packageName")
+                return platformChannels
+            }
+
+            // Package-context NM is expected to fail for foreign packages on modern SDKs.
             if (!canUseLegacyPackageScopedApis()) {
                 val packageNotificationManager = getNotificationManagerForPackage(packageName)
                 if (packageNotificationManager != null && packageNotificationManager !== notificationManager) {
                     try {
-                        return packageNotificationManager.notificationChannels
+                        val packageChannels = packageNotificationManager.notificationChannels
+                        logD("getNotificationChannels package-context count=${packageChannels.size} pkg=$packageName")
+                        if (packageChannels.isNotEmpty()) {
+                            return packageChannels
+                        }
                     } catch (e: Exception) {
-                        logE("Failed to query channels via package context for $packageName", e)
+                        logW("Failed to query channels via package context for $packageName: ${e.message}")
                     }
                 }
             }
-            return try {
-                val method = NotificationManager::class.java.getMethod(
-                    "getNotificationChannelsForPackage",
-                    String::class.java,
-                    Int::class.javaPrimitiveType
-                )
-                @Suppress("UNCHECKED_CAST")
-                method.invoke(notificationManager, packageName, 0) as? List<NotificationChannel?>
-            } catch (e: Exception) {
-                logE("Failed to invoke getNotificationChannelsForPackage", e)
-                emptyList()
+
+            val managedLocal = localManagedChannels(packageName)
+            if (managedLocal.isNotEmpty()) {
+                logI("getNotificationChannels local-managed fallback count=${managedLocal.size} pkg=$packageName")
+                return managedLocal
             }
-        } else if (!canUseLegacyPackageScopedApis()) {
+            logW("getNotificationChannels empty after all fallbacks pkg=$packageName")
+            return emptyList()
+        }
+
+        if (!canUseLegacyPackageScopedApis()) {
             val packageNotificationManager = getNotificationManagerForPackage(packageName)
             if (packageNotificationManager != null && packageNotificationManager !== notificationManager) {
                 try {
                     return packageNotificationManager.notificationChannels
                 } catch (e: Exception) {
-                    logE("Failed to query channels via package context for $packageName", e)
+                    logW("Failed to query channels via package context for $packageName: ${e.message}")
                 }
             }
+            val platformChannels = queryPlatformNotificationChannels(packageName)
+            if (platformChannels.isNotEmpty()) {
+                return platformChannels
+            }
+            return localManagedChannels(packageName)
         }
-        return notificationManager.getNotificationChannels()
+
+        val platformChannels = queryPlatformNotificationChannels(packageName)
+        if (platformChannels.isNotEmpty()) {
+            return platformChannels
+        }
+        return localManagedChannels(packageName)
+    }
+
+    private fun queryPlatformNotificationChannels(packageName: String): List<NotificationChannel?> {
+        return runCatching {
+            NotificationManagerPlatformSupport.init(appContext)
+            NotificationManagerPlatformSupport.getNotificationChannels(packageName).orEmpty()
+        }.onFailure {
+            logE("queryPlatformNotificationChannels failed pkg=$packageName", it)
+        }.getOrDefault(emptyList())
+    }
+
+    private fun localManagedChannels(packageName: String): List<NotificationChannel?> {
+        return notificationManager.notificationChannels
+            .filter { channel ->
+                channel != null && (
+                    channel.group == io.github.magisk317.mipush.common.utils.NotificationUtils.getGroupIdByPkg(packageName) ||
+                        io.github.magisk317.mipush.common.utils.NotificationUtils.isMiPushManagedChannelId(packageName, channel.id)
+                    )
+            }
     }
 
     fun deleteNotificationChannel(
@@ -499,8 +561,36 @@ object NotificationManagerEx {
         channelId: String?
     ) {
         logD("deleteNotificationChannel() called with: packageName = $packageName, channelId = $channelId")
-        if (shouldUseModernIdentityStrategy(packageName)) {
+        if (channelId.isNullOrEmpty()) {
+            return
+        }
+        if (packageName == appContext.packageName) {
             notificationManager.deleteNotificationChannel(channelId)
+            return
+        }
+        if (shouldUseModernIdentityStrategy(packageName)) {
+            // Prefer deleting under the target package identity when possible.
+            if (NotificationIdentityBridge.deleteTargetNotificationChannel(appContext, packageName, channelId)) {
+                return
+            }
+            val packageNotificationManager = getNotificationManagerForPackage(packageName)
+            if (packageNotificationManager != null && packageNotificationManager !== notificationManager) {
+                try {
+                    packageNotificationManager.deleteNotificationChannel(channelId)
+                    // Same no-op risk as createPackageContext; only stop if channel is gone.
+                    if (getNotificationChannel(packageName, channelId) == null) {
+                        return
+                    }
+                } catch (e: Exception) {
+                    logE("Failed to delete channel via package context for $packageName/$channelId", e)
+                }
+            }
+            // Only fall back to local XMSF NM for MiPush-managed channels that may live here.
+            if (io.github.magisk317.mipush.common.utils.NotificationUtils.isMiPushManagedChannelId(packageName, channelId)) {
+                notificationManager.deleteNotificationChannel(channelId)
+            } else {
+                maybeLogDiagnosticsOnce("target-channel-delete-unsupported", packageName, channelId, null)
+            }
             return
         }
         if (!canUseLegacyPackageScopedApis()) {
@@ -508,13 +598,19 @@ object NotificationManagerEx {
             if (packageNotificationManager != null && packageNotificationManager !== notificationManager) {
                 try {
                     packageNotificationManager.deleteNotificationChannel(channelId)
-                    return
+                    if (getNotificationChannel(packageName, channelId) == null) {
+                        return
+                    }
                 } catch (e: Exception) {
                     logE("Failed to delete channel via package context for $packageName/$channelId", e)
                 }
             }
         }
-        notificationManager.deleteNotificationChannel(channelId)
+        if (io.github.magisk317.mipush.common.utils.NotificationUtils.isMiPushManagedChannelId(packageName, channelId) ||
+            packageName == appContext.packageName
+        ) {
+            notificationManager.deleteNotificationChannel(channelId)
+        }
     }
 
 
@@ -530,7 +626,9 @@ object NotificationManagerEx {
         }
         if (shouldUseModernIdentityStrategy(packageName)) {
             if (NotificationIdentityBridge.createTargetNotificationChannelGroups(appContext, packageName, nonNullGroups)) {
-                createLocalNotificationChannelGroups(nonNullGroups)
+                if (!isHooked) {
+                    createLocalNotificationChannelGroups(nonNullGroups)
+                }
                 return
             }
             maybeLogDiagnosticsOnce(
@@ -539,7 +637,9 @@ object NotificationManagerEx {
                 null,
                 nonNullGroups.firstOrNull()?.id
             )
-            createLocalNotificationChannelGroups(nonNullGroups)
+            if (!isHooked) {
+                createLocalNotificationChannelGroups(nonNullGroups)
+            }
             return
         }
         if (!canUseLegacyPackageScopedApis()) {
@@ -565,52 +665,100 @@ object NotificationManagerEx {
         if (directGroup != null) {
             return directGroup
         }
-        return notificationManager.getNotificationChannelGroup(groupId)
+        if (packageName == appContext.packageName ||
+            io.github.magisk317.mipush.common.utils.NotificationUtils.isMiPushManagedGroupId(packageName, groupId)
+        ) {
+            return notificationManager.getNotificationChannelGroup(groupId)
+        }
+        return null
     }
 
     fun getNotificationChannelGroups(
         packageName: String
     ): List<NotificationChannelGroup?>? {
-        logD("getNotificationChannelGroups() called with: packageName = $packageName")
+        logD(
+            "getNotificationChannelGroups() called with: packageName = $packageName " +
+                "isHooked=$isHooked modern=${shouldUseModernIdentityStrategy(packageName)}"
+        )
+        if (packageName == appContext.packageName) {
+            return notificationManager.notificationChannelGroups
+        }
         if (shouldUseModernIdentityStrategy(packageName)) {
             val targetGroups = NotificationIdentityBridge.getTargetNotificationChannelGroups(appContext, packageName)
+            logD("getNotificationChannelGroups identity count=${targetGroups.size} pkg=$packageName")
             if (targetGroups.isNotEmpty()) {
                 return targetGroups
             }
             maybeLogDiagnosticsOnce("target-group-list-empty", packageName, null, null)
+
+            val platformGroups = queryPlatformNotificationChannelGroups(packageName)
+            if (platformGroups.isNotEmpty()) {
+                logI("getNotificationChannelGroups platform fallback count=${platformGroups.size} pkg=$packageName")
+                return platformGroups
+            }
+
             if (!canUseLegacyPackageScopedApis()) {
                 val packageNotificationManager = getNotificationManagerForPackage(packageName)
                 if (packageNotificationManager != null && packageNotificationManager !== notificationManager) {
                     try {
-                        return packageNotificationManager.notificationChannelGroups
+                        val packageGroups = packageNotificationManager.notificationChannelGroups
+                        logD("getNotificationChannelGroups package-context count=${packageGroups.size} pkg=$packageName")
+                        if (packageGroups.isNotEmpty()) {
+                            return packageGroups
+                        }
                     } catch (e: Exception) {
-                        logE("Failed to query groups via package context for $packageName", e)
+                        logW("Failed to query groups via package context for $packageName: ${e.message}")
                     }
                 }
             }
-            return try {
-                val method = NotificationManager::class.java.getMethod(
-                    "getNotificationChannelGroupsForPackage",
-                    String::class.java,
-                    Int::class.javaPrimitiveType
-                )
-                @Suppress("UNCHECKED_CAST")
-                method.invoke(notificationManager, packageName, 0) as? List<NotificationChannelGroup?>
-            } catch (e: Exception) {
-                logE("Failed to invoke getNotificationChannelGroupsForPackage", e)
-                emptyList()
+            val managedLocal = localManagedGroups(packageName)
+            if (managedLocal.isNotEmpty()) {
+                logI("getNotificationChannelGroups local-managed fallback count=${managedLocal.size} pkg=$packageName")
+                return managedLocal
             }
-        } else if (!canUseLegacyPackageScopedApis()) {
+            logW("getNotificationChannelGroups empty after all fallbacks pkg=$packageName")
+            return emptyList()
+        }
+        if (!canUseLegacyPackageScopedApis()) {
             val packageNotificationManager = getNotificationManagerForPackage(packageName)
             if (packageNotificationManager != null && packageNotificationManager !== notificationManager) {
                 try {
                     return packageNotificationManager.notificationChannelGroups
                 } catch (e: Exception) {
-                    logE("Failed to query groups via package context for $packageName", e)
+                    logW("Failed to query groups via package context for $packageName: ${e.message}")
                 }
             }
+            val platformGroups = queryPlatformNotificationChannelGroups(packageName)
+            if (platformGroups.isNotEmpty()) {
+                return platformGroups
+            }
+            return localManagedGroups(packageName)
         }
-        return notificationManager.getNotificationChannelGroups()
+        val platformGroups = queryPlatformNotificationChannelGroups(packageName)
+        if (platformGroups.isNotEmpty()) {
+            return platformGroups
+        }
+        return localManagedGroups(packageName)
+    }
+
+    private fun queryPlatformNotificationChannelGroups(packageName: String): List<NotificationChannelGroup?> {
+        return runCatching {
+            NotificationManagerPlatformSupport.init(appContext)
+            NotificationManagerPlatformSupport.getNotificationChannelGroups(packageName).orEmpty()
+        }.onFailure {
+            logE("queryPlatformNotificationChannelGroups failed pkg=$packageName", it)
+        }.getOrDefault(emptyList())
+    }
+
+    private fun localManagedGroups(packageName: String): List<NotificationChannelGroup?> {
+        return notificationManager.notificationChannelGroups
+            .filter { group ->
+                group != null &&
+                    io.github.magisk317.mipush.common.utils.NotificationUtils.isMiPushManagedGroupId(
+                        packageName,
+                        group.id,
+                    )
+            }
     }
 
     fun deleteNotificationChannelGroup(

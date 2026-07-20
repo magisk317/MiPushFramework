@@ -3,17 +3,17 @@ package io.github.magisk317.mipush.service
 import android.os.Build
 import io.github.magisk317.mipush.platform.support.Global
 import com.xiaomi.push.revival.NotificationsRevivalForSelfUpdated
-import com.xiaomi.push.service.XMPushService
+import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.push.service.XMPushServiceMessenger
 
 object XMPushServiceAbilityAssembler {
     @JvmStatic
-    fun prepare(pushService: XMPushService) {
+    fun prepare(pushService: XMPushServiceCore) {
         Global.registrationRecorder().initContext(pushService)
     }
 
     @JvmStatic
-    fun createListeners(pushService: XMPushService): List<XMPushServiceListener> {
+    fun createListeners(pushService: XMPushServiceCore): List<XMPushServiceListener> {
         val listeners = ArrayList<XMPushServiceListener>()
         listeners += RegisterRecordAbility(RegisterRecorder(pushService))
         listeners += ForegroundAbility(ForegroundHelper(pushService))

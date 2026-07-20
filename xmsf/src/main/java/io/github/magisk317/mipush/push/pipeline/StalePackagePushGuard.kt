@@ -10,6 +10,7 @@ import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import io.github.magisk317.mipush.service.runtime.RegistrationIntentDeduper
+import com.xiaomi.xmsf.stock.StockProfileIdStore
 
 object StalePackagePushGuard {
     private const val TAG = "StalePackagePushGuard"
@@ -69,6 +70,7 @@ object StalePackagePushGuard {
     ) {
         MIPushAppInfo.getInstance(context).addUnRegisteredPkg(packageName)
         RegisteredApplicationDb.markUnregistered(packageName)
+        StockProfileIdStore.clear(context, packageName)
         Utils.removeRegSec(packageName)
         if (clearLastReceiveTime) {
             Utils.removeLastReceiveTime(packageName)

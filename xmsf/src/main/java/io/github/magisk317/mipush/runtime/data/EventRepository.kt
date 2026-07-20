@@ -5,6 +5,7 @@ import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
+import io.github.magisk317.mipush.common.notification.MockReplayOutcome
 
 import android.content.ClipboardManager
 import android.content.Context
@@ -24,7 +25,7 @@ import io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.utils.Configurations
 import io.github.magisk317.mipush.utils.RegSecUtils
-import com.xiaomi.push.service.XMPushService as SdkXMPushService
+import com.xiaomi.push.service.XMPushServiceCore as SdkXMPushService
 import com.xiaomi.xmsf.push.service.MiPushFacadeService as AppXMPushService
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.utils.ConvertUtils
@@ -34,12 +35,14 @@ import kotlinx.serialization.json.JsonElement
 import org.apache.thrift.TBase
 import io.github.magisk317.mipush.common.utils.CustomConfiguration
 import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.runtime.store.db.DayCount
 import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.entities.Event
 import io.github.magisk317.mipush.config.ConfigNavigationHelper
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 import io.github.magisk317.mipush.service.PushServiceStarter
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.delay
 
 class EventRepository constructor(
     private val context: Context,
@@ -120,6 +123,21 @@ class EventRepository constructor(
         return EventDb.deleteByIdAsync(id)
     }
 
+    /** 按本地日历日聚合可清理事件的条数(排除注册态),供日历清理界面高亮与计数。 */
+    suspend fun countEventsByDay(): List<DayCount> {
+        return EventDb.countEventsByDayAsync()
+    }
+
+    /** 删除某个时间区间 [start, end) 内的可清理事件(排除注册态),供"仅清理当天"使用。 */
+    suspend fun deleteHistoryInRange(start: Long, end: Long): Int {
+        return EventDb.deleteHistoryInRangeAsync(start, end)
+    }
+
+    /** 清理某个时间点之前的可清理事件(排除注册态),供"清理此日期及之前"使用。 */
+    suspend fun deleteHistoryBefore(cutoff: Long): Int {
+        return EventDb.deleteHistoryBeforeAsync(cutoff)
+    }
+
     suspend fun restoreEvent(event: Event): Long {
         val restored = Event(
             id = null,
@@ -139,8 +157,8 @@ class EventRepository constructor(
         clipboardManager.setPrimaryClip(android.content.ClipData.newPlainText(null, info))
     }
 
-    fun mockMessage(containerWithRegSec: XmPushActionContainer) {
-        val pushService: SdkXMPushService? = XMPushServiceLifecycleBridge.peekService()
+    suspend fun mockMessage(containerWithRegSec: XmPushActionContainer): MockReplayOutcome {
+        var pushService: SdkXMPushService? = XMPushServiceLifecycleBridge.peekService()
         PushRuntime.observeNotificationEvent(
             containerWithRegSec.packageName,
             "mock_replay_request",
@@ -163,12 +181,8 @@ class EventRepository constructor(
                 "mock_replay_missing_regsec",
                 "EventRepository.mockMessage",
             )
-            Utils.makeText(
-                context,
-                context.getString(R.string.mock_notification_missing_regsec),
-                0
-            )
-            return
+            logW("mock replay rejected: encrypted payload has no regSec pkg=${containerWithRegSec.packageName}")
+            return MockReplayOutcome.Failed
         }
 
         // Preflight diagnostics: if framework cannot even resolve receiver, replay will be dropped silently.
@@ -195,11 +209,6 @@ class EventRepository constructor(
                         containerWithRegSec.packageName,
                         "mock_replay_preflight_no_receiver",
                         "EventRepository.mockMessage",
-                    )
-                    Utils.makeText(
-                        context,
-                        context.getString(R.string.mock_notification_no_receiver),
-                        0,
                     )
                 } else {
                     PushRuntime.observeNotificationEvent(
@@ -230,36 +239,58 @@ class EventRepository constructor(
             if (MiPushRuntimeObserverBridge.ensureInstalled(context)) {
                 logD("runtime observer bridge was missing, installed MiPushRuntimeObserverBridge")
             }
-            PushServiceStarter.start(context, Intent(context, AppXMPushService::class.java))
-            waitForPushServiceAndReplay(containerWithRegSec)
-            return
-        }
-        val replayContainer = containerWithRegSec.deepCopy()
-        PushRuntime.observeNotificationEvent(
-            replayContainer.packageName,
-            "mock_replay_dispatch_immediate",
-            "EventRepository.mockMessage",
-        )
-        val handled = MockMIPushMessage.mockProcessMIPushMessage(
-            pushService,
-            replayContainer
-        )
-        PushRuntime.observeNotificationEvent(
-            replayContainer.packageName,
-            if (handled) "mock_replay_handled" else "mock_replay_failed",
-            "EventRepository.mockMessage",
-        )
-        logD(
-            "mockMessage finished pkg=${replayContainer.packageName} action=${replayContainer.action} " +
-                "messageId=${io.github.magisk317.mipush.push.pipeline.MessageIdentity.fromContainer(replayContainer)} handled=$handled"
-        )
-        if (!handled) {
-            Utils.makeText(
-                context,
-                context.getString(R.string.mock_notification_failed),
-                0
+            runCatching {
+                PushServiceStarter.start(context, Intent(context, AppXMPushService::class.java))
+            }.onFailure {
+                PushRuntime.observeNotificationEvent(
+                    containerWithRegSec.packageName,
+                    "mock_replay_service_start_failed",
+                    "EventRepository.mockMessage",
+                )
+                logE("mock replay could not start push service", it)
+            }.getOrElse {
+                return MockReplayOutcome.Failed
+            }
+            val ready = waitForPushService()
+            if (ready == null) {
+                PushRuntime.observeNotificationEvent(
+                    containerWithRegSec.packageName,
+                    "mock_replay_service_timeout",
+                    "EventRepository.mockMessage",
+                )
+                logW("pushService did not become ready within ${MOCK_REPLAY_MAX_WAIT_MS}ms")
+                return MockReplayOutcome.Failed
+            }
+            pushService = ready.first
+            logD("pushService became ready after ${ready.second}ms, replaying mock")
+            PushRuntime.observeNotificationEvent(
+                containerWithRegSec.packageName,
+                "mock_replay_dispatch_deferred",
+                "EventRepository.mockMessage",
+            )
+        } else {
+            PushRuntime.observeNotificationEvent(
+                containerWithRegSec.packageName,
+                "mock_replay_dispatch_immediate",
+                "EventRepository.mockMessage",
             )
         }
+        val replayContainer = containerWithRegSec.deepCopy()
+        val outcome = runCatching {
+            MockMIPushMessage.mockProcessMIPushMessage(
+                requireNotNull(pushService),
+                replayContainer,
+            )
+        }.onFailure {
+            logE("mock replay dispatch failed pkg=${replayContainer.packageName}", it)
+        }.getOrDefault(MockReplayOutcome.Failed)
+        observeMockReplayOutcome(replayContainer.packageName, outcome)
+        logD(
+            "mockMessage finished pkg=${replayContainer.packageName} action=${replayContainer.action} " +
+                "messageId=${io.github.magisk317.mipush.push.pipeline.MessageIdentity.fromContainer(replayContainer)} " +
+                "outcome=$outcome"
+        )
+        return outcome
     }
 
     fun getContent(event: Event, containerWithRegSec: XmPushActionContainer): String {
@@ -287,79 +318,27 @@ class EventRepository constructor(
         }
     }
 
-    private fun waitForPushServiceAndReplay(containerWithRegSec: XmPushActionContainer) {
-        Thread {
-            try {
-                val waitedMs = waitForPushService { service, waited ->
-                    logD("pushService became ready after ${waited}ms, replaying mock")
-                    val replayContainer = containerWithRegSec.deepCopy()
-                    PushRuntime.observeNotificationEvent(
-                        replayContainer.packageName,
-                        "mock_replay_dispatch_deferred",
-                        "EventRepository.waitForPushServiceAndReplay",
-                    )
-                    val handled = MockMIPushMessage.mockProcessMIPushMessage(service, replayContainer)
-                    PushRuntime.observeNotificationEvent(
-                        replayContainer.packageName,
-                        if (handled) "mock_replay_handled" else "mock_replay_failed",
-                        "EventRepository.waitForPushServiceAndReplay",
-                    )
-                    logD("deferred mockMessage handled=$handled")
-                    if (!handled) {
-                        showMockFailedToast()
-                    }
-                }
-                if (waitedMs == null) {
-                    PushRuntime.observeNotificationEvent(
-                        containerWithRegSec.packageName,
-                        "mock_replay_service_timeout",
-                        "EventRepository.waitForPushServiceAndReplay",
-                    )
-                    logW("pushService did not become ready within ${MOCK_REPLAY_MAX_WAIT_MS}ms")
-                    showMockFailedToast()
-                }
-            } catch (t: InterruptedException) {
-                Thread.currentThread().interrupt()
-                PushRuntime.observeNotificationEvent(
-                    containerWithRegSec.packageName,
-                    "mock_replay_wait_interrupted",
-                    "EventRepository.waitForPushServiceAndReplay",
-                )
-                logW("mock replay wait interrupted", t)
-            } catch (t: Throwable) {
-                PushRuntime.observeNotificationEvent(
-                    containerWithRegSec.packageName,
-                    "mock_replay_wait_failed",
-                    "EventRepository.waitForPushServiceAndReplay",
-                )
-                logE("deferred mock replay failed", t)
-                showMockFailedToast()
-            }
-        }.apply {
-            name = "MiPushMockReplay"
-            isDaemon = true
-            start()
-        }
-    }
-
-    private fun waitForPushService(onReady: (SdkXMPushService, Long) -> Unit): Long? {
+    private suspend fun waitForPushService(): Pair<SdkXMPushService, Long>? {
         var waited = 0L
         while (waited < MOCK_REPLAY_MAX_WAIT_MS) {
-            Thread.sleep(MOCK_REPLAY_POLL_MS)
+            delay(MOCK_REPLAY_POLL_MS)
             waited += MOCK_REPLAY_POLL_MS
             val service = XMPushServiceLifecycleBridge.peekService()
             if (service != null) {
-                onReady(service, waited)
-                return waited
+                return service to waited
             }
         }
         return null
     }
 
-    private fun showMockFailedToast() {
-        android.os.Handler(android.os.Looper.getMainLooper()).post {
-            Utils.makeText(context, context.getString(R.string.mock_notification_failed), 0)
+    private fun observeMockReplayOutcome(packageName: String, outcome: MockReplayOutcome) {
+        val action = when (outcome) {
+            MockReplayOutcome.BlockedByPermission -> "mock_replay_blocked_by_permission"
+            MockReplayOutcome.Dispatched -> "mock_replay_dispatched"
+            MockReplayOutcome.Posted -> "mock_replay_posted"
+            MockReplayOutcome.Failed -> "mock_replay_failed"
         }
+        PushRuntime.observeNotificationEvent(packageName, action, "EventRepository.mockMessage")
     }
 
     fun containerToJson(container: XmPushActionContainer, regSec: String?): CharSequence {

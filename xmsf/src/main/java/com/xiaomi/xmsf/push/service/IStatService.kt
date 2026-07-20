@@ -11,7 +11,13 @@ interface IStatService : IInterface {
     @Throws(RemoteException::class)
     fun insertEvent(str: String?)
 
+    @Throws(RemoteException::class)
+    fun insertEventIntl(map: Map<*, *>?)
+
     abstract class Stub : Binder(), IStatService {
+        init {
+            attachInterface(this, DESCRIPTOR)
+        }
 
         override fun asBinder(): IBinder = this
 
@@ -21,7 +27,13 @@ interface IStatService : IInterface {
                 TRANSACTION_INSERT_EVENT -> {
                     data.enforceInterface(DESCRIPTOR)
                     insertEvent(data.readString())
-                    reply?.writeNoException()
+                    true
+                }
+
+                TRANSACTION_INSERT_EVENT_INTL -> {
+                    data.enforceInterface(DESCRIPTOR)
+                    @Suppress("DEPRECATION")
+                    insertEventIntl(data.readHashMap(javaClass.classLoader))
                     true
                 }
 
@@ -35,9 +47,42 @@ interface IStatService : IInterface {
         }
 
         companion object {
-            private const val DESCRIPTOR = "com.xiaomi.xmsf.push.service.IStatService"
+            const val DESCRIPTOR = "com.xiaomi.xmsf.push.service.IStatService"
             private const val TRANSACTION_INSERT_EVENT = 1
+            private const val TRANSACTION_INSERT_EVENT_INTL = 2
             private const val INTERFACE_TRANSACTION = 1598968902
+
+            @JvmStatic
+            fun asInterface(binder: IBinder?): IStatService? {
+                if (binder == null) return null
+                val local = binder.queryLocalInterface(DESCRIPTOR)
+                return if (local is IStatService) local else Proxy(binder)
+            }
+        }
+
+        private class Proxy(
+            private val remote: IBinder,
+        ) : IStatService {
+            override fun asBinder(): IBinder = remote
+
+            override fun insertEvent(str: String?) {
+                transactOneWay(TRANSACTION_INSERT_EVENT) { parcel -> parcel.writeString(str) }
+            }
+
+            override fun insertEventIntl(map: Map<*, *>?) {
+                transactOneWay(TRANSACTION_INSERT_EVENT_INTL) { parcel -> parcel.writeMap(map) }
+            }
+
+            private inline fun transactOneWay(code: Int, writeBody: (Parcel) -> Unit) {
+                val data = Parcel.obtain()
+                try {
+                    data.writeInterfaceToken(DESCRIPTOR)
+                    writeBody(data)
+                    remote.transact(code, data, null, IBinder.FLAG_ONEWAY)
+                } finally {
+                    data.recycle()
+                }
+            }
         }
     }
 }

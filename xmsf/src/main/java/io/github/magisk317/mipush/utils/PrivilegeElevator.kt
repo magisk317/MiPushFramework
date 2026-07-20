@@ -1,7 +1,7 @@
 package io.github.magisk317.mipush.utils
 
 import com.topjohnwu.superuser.Shell
-import com.xiaomi.xmsf.BuildConfig
+import io.github.magisk317.mipush.common.BuildConfig
 
 object PrivilegeElevator {
     init {

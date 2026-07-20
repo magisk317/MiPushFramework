@@ -22,7 +22,7 @@ class MiPushPingReceiver : BroadcastReceiver() {
             if (TextUtils.equals(context.packageName, intent.`package`)) {
                 logV("Ping XMChannelService on timer")
                 try {
-                    val localIntent = Intent(context, com.xiaomi.push.service.XMPushService::class.java)
+                    val localIntent = Intent(context, com.xiaomi.push.service.XMPushServiceCore::class.java)
                     localIntent.putExtra(PushServiceConstants.EXTRA_TIME_STAMP, System.currentTimeMillis())
                     localIntent.action = PushServiceConstants.ACTION_TIMER
                     PushServiceStarter.start(context, localIntent)

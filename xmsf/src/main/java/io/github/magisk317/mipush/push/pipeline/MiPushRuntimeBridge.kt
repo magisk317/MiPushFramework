@@ -14,8 +14,12 @@ import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.compat.RegistrationStateStore
 import io.github.magisk317.mipush.service.RegisterRecorder
 import com.xiaomi.push.service.PushConstants
+import com.xiaomi.push.service.MIPushAppAbsentManager
+import com.xiaomi.push.service.MIPushAppInfo
+import com.xiaomi.push.service.MIPushEventProcessor
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
+import com.xiaomi.xmpush.thrift.XmPushActionUnRegistrationResult
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.runtime.PushRegistrationState
 import io.github.magisk317.mipush.runtime.PushRuntime
@@ -27,10 +31,21 @@ import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import io.github.magisk317.mipush.runtime.store.entities.Event
 import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
 import io.github.magisk317.mipush.runtime.store.event.type.TypeFactory
+import com.xiaomi.xmsf.stock.StockSurfaceSupport
 import kotlinx.coroutines.runBlocking
 import java.util.LinkedHashMap
 
 object MiPushRuntimeBridge {
+    internal data class ConfirmedRegistrationTransition(
+        val registeredType: Int,
+        val appId: String? = null,
+    )
+
+    internal data class RegistrationResultOutcome(
+        val success: Boolean,
+        val appId: String? = null,
+    )
+
     private val diagnosticPackages = setOf("com.ss.android.ugc.aweme")
     private const val NOTIFICATION_DISPATCH_ALLOWANCE_TTL_MS = 30_000L
     private const val NOTIFICATION_DISPATCH_ALLOWANCE_COUNT = 3
@@ -56,8 +71,9 @@ object MiPushRuntimeBridge {
                             packageName = packageName,
                             source = "application_intent:${intent.action ?: "unknown"}"
                         )
-                        PushConstants.MIPUSH_ACTION_UNREGISTER_APP -> PushRuntime.observeUnregistration(
+                        PushConstants.MIPUSH_ACTION_UNREGISTER_APP -> PushRuntime.observeChannelEvent(
                             packageName = packageName,
+                            action = "unregistration_requested",
                             source = "application_intent:${intent.action ?: "unknown"}"
                         )
                     }
@@ -133,7 +149,19 @@ object MiPushRuntimeBridge {
         source: String
     ): Boolean {
         val container = XMPushUtils.packToContainer(payload) ?: return false
+        if (MIPushEventProcessor.shouldCheckProfile(container) &&
+            !StockSurfaceSupport.isProfileAllowed(context, container)
+        ) {
+            // Storage/allowance fence only. The decrypted MIPushEventProcessor gate owns the one
+            // stock profileId_missing ACK and mismatch event; do not duplicate feedback here.
+            logI(
+                "fence payload outside registered profile source=$source pkg=${container.packageName} " +
+                    "action=${container.action?.name} messageId=${MessageIdentity.fromContainer(container)}",
+            )
+            return false
+        }
         if (StalePackagePushGuard.shouldDropInbound(context, container, source)) {
+            handleRegistrationResultForAbsentPackage(context, container)
             logD(
                 "drop payload for absent package source=$source pkg=${container.packageName} " +
                     "action=${container.action?.name} messageId=${MessageIdentity.fromContainer(container)}"
@@ -159,7 +187,8 @@ object MiPushRuntimeBridge {
         if (!shouldProcess) {
             return false
         }
-        if (!isMockReplay) {
+        if (shouldApplyServerRegistrationState(isMockReplay)) {
+            persistConfirmedRegistrationStateFromContainer(context, container)
             markNotificationDispatchAllowance(
                 packageName = container.packageName,
                 actionName = actionName,
@@ -233,7 +262,7 @@ object MiPushRuntimeBridge {
         }
         val eventType = TypeFactory.createForStore(container)
         val application = RegisteredApplicationDb.registerApplication(pkg)
-        applyRegistrationStateFromContainer(container, application)
+        applyRegistrationStateFromContainer(context, container, application)
         val messageId = MessageIdentity.fromContainer(container)
         logD("recordEvent start pkg=$pkg action=${container.action?.name} messageId=$messageId eventType=${eventType.type}")
         runBlocking { EventDb.insertEventAsync(Event.ResultType.OK, eventType) }
@@ -350,14 +379,25 @@ object MiPushRuntimeBridge {
     }
 
     private fun applyRegistrationStateFromContainer(
+        context: Context,
         container: XmPushActionContainer,
         application: RegisteredApplication
     ) {
-        val nextType = when (container.action) {
-            ActionType.UnRegistration -> RegisteredApplication.RegisteredType.Unregistered
-            ActionType.Registration -> resolveRegistrationState(container)
-            else -> null
-        } ?: return
+        val registrationOutcome = resolveRegistrationResultOutcome(container)
+        if (registrationOutcome != null) {
+            MIPushAppAbsentManager.forgetPendingRegistration(context, application.packageName)
+            if (!registrationOutcome.success) {
+                PushRuntime.observeRegistrationResult(
+                    packageName = application.packageName,
+                    success = false,
+                    source = "server_result:${container.action}",
+                    reason = "registration_error",
+                )
+                return
+            }
+        }
+        val transition = resolveConfirmedRegistrationTransition(container) ?: return
+        val nextType = transition.registeredType
         RegistrationStateStore.updateIfChanged(
             application = application,
             nextType = nextType,
@@ -365,6 +405,7 @@ object MiPushRuntimeBridge {
         )
         when (nextType) {
             RegisteredApplication.RegisteredType.Registered -> {
+                MIPushAppInfo.getInstance(context).removeUnRegisteredPkg(application.packageName)
                 PushRuntime.observeRegistrationResult(
                     packageName = application.packageName,
                     success = true,
@@ -372,19 +413,11 @@ object MiPushRuntimeBridge {
                 )
             }
             RegisteredApplication.RegisteredType.Unregistered -> {
-                if (container.action == ActionType.UnRegistration) {
-                    PushRuntime.observeUnregistration(
-                        packageName = application.packageName,
-                        source = "server_result:${container.action}"
-                    )
-                } else {
-                    PushRuntime.observeRegistrationResult(
-                        packageName = application.packageName,
-                        success = false,
-                        source = "server_result:${container.action}",
-                        reason = "registration_error"
-                    )
-                }
+                MIPushAppInfo.getInstance(context).addUnRegisteredPkg(application.packageName)
+                PushRuntime.observeUnregistration(
+                    packageName = application.packageName,
+                    source = "server_result:${container.action}"
+                )
             }
             else -> {
                 PushRuntime.observeRegistrationState(
@@ -396,20 +429,88 @@ object MiPushRuntimeBridge {
         }
     }
 
-    private fun resolveRegistrationState(container: XmPushActionContainer): Int? {
+    internal fun resolveServerRegistrationState(container: XmPushActionContainer): Int? {
+        return resolveConfirmedRegistrationTransition(container)?.registeredType
+    }
+
+    internal fun resolveConfirmedRegistrationTransition(
+        container: XmPushActionContainer,
+    ): ConfirmedRegistrationTransition? {
         if (container.isRequest) {
             return null
         }
         val result = runCatching {
             ConvertUtils.getResponseMessageBodyFromContainer(container, RegSecUtils.getRegSec(container))
-                as? XmPushActionRegistrationResult
-        }.getOrNull()
-        return when {
-            result == null -> null
-            result.errorCode.toInt() == 0 -> RegisteredApplication.RegisteredType.Registered
-            else -> RegisteredApplication.RegisteredType.Unregistered
+        }.getOrNull() ?: return null
+        return when (result) {
+            is XmPushActionRegistrationResult -> {
+                result.appId
+                    ?.takeIf { result.errorCode == 0L && it.isNotBlank() }
+                    ?.let { appId ->
+                        ConfirmedRegistrationTransition(
+                            registeredType = RegisteredApplication.RegisteredType.Registered,
+                            appId = appId,
+                        )
+                    }
+            }
+            is XmPushActionUnRegistrationResult -> {
+                ConfirmedRegistrationTransition(RegisteredApplication.RegisteredType.Unregistered)
+                    .takeIf { result.errorCode == 0L }
+            }
+            else -> null
         }
     }
+
+    internal fun resolveRegistrationResultOutcome(
+        container: XmPushActionContainer,
+    ): RegistrationResultOutcome? {
+        if (container.isRequest) return null
+        val result = runCatching {
+            ConvertUtils.getResponseMessageBodyFromContainer(container, RegSecUtils.getRegSec(container))
+        }.getOrNull() as? XmPushActionRegistrationResult ?: return null
+        return RegistrationResultOutcome(
+            success = result.errorCode == 0L && !result.appId.isNullOrBlank(),
+            appId = result.appId?.takeIf { it.isNotBlank() },
+        )
+    }
+
+    private fun handleRegistrationResultForAbsentPackage(
+        context: Context,
+        container: XmPushActionContainer,
+    ) {
+        val packageName = container.packageName?.takeIf { it.isNotBlank() } ?: return
+        val outcome = resolveRegistrationResultOutcome(container) ?: return
+        MIPushAppAbsentManager.forgetPendingRegistration(context, packageName)
+        if (outcome.success && outcome.appId != null) {
+            MIPushAppAbsentManager.queuePendingAppAbsent(context, packageName, outcome.appId)
+            MIPushAppAbsentManager.forgetRegisteredPackage(context, packageName)
+        }
+    }
+
+    internal fun persistConfirmedRegistrationState(
+        context: Context,
+        packageName: String,
+        transition: ConfirmedRegistrationTransition,
+    ) {
+        when (transition.registeredType) {
+            RegisteredApplication.RegisteredType.Registered ->
+                MIPushAppAbsentManager.rememberRegisteredPackage(context, packageName, transition.appId)
+            RegisteredApplication.RegisteredType.Unregistered ->
+                MIPushAppAbsentManager.forgetRegisteredPackage(context, packageName)
+        }
+    }
+
+    internal fun persistConfirmedRegistrationStateFromContainer(
+        context: Context,
+        container: XmPushActionContainer,
+    ): Boolean {
+        val packageName = container.packageName?.takeIf { it.isNotBlank() } ?: return false
+        val transition = resolveConfirmedRegistrationTransition(container) ?: return false
+        persistConfirmedRegistrationState(context, packageName, transition)
+        return true
+    }
+
+    internal fun shouldApplyServerRegistrationState(isMockReplay: Boolean): Boolean = !isMockReplay
 
     @JvmStatic
     fun triggerRegistration(context: Context, packageName: String) {

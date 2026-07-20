@@ -41,6 +41,25 @@ class RootAccessFacadeTest {
     }
 
     @Test
+    fun `denied root request asks and probes only once`() {
+        var requestCount = 0
+        val runner = RecordingRunner(
+            "id -u" to BoundedShellResult(exitCode = 1, stderr = listOf("denied")),
+        )
+        val facade = RootAccessFacade(
+            runner = runner,
+            rootGrantState = { false },
+            requestRootGrant = { requestCount += 1 },
+        )
+
+        assertFalse(facade.requestRootAccess())
+
+        assertEquals(1, requestCount)
+        assertEquals(listOf("id -u"), runner.commands)
+        assertFalse(facade.hasCachedRootAccess())
+    }
+
+    @Test
     fun `refresh revokes cached root access when grant becomes denied`() {
         var grantState: Boolean? = true
         val runner = RecordingRunner(

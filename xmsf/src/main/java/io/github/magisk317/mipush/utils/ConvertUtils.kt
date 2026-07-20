@@ -9,7 +9,6 @@ import io.github.magisk317.mipush.common.utils.BundleSerializer
 
 import android.content.Intent
 import io.github.aakira.napier.Napier
-import io.github.aakira.napier.DebugAntilog
 import com.xiaomi.mipush.sdk.DecryptException
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.*
@@ -192,7 +191,7 @@ object ConvertUtils {
             return PushActionResolution(container.getPushAction(), null)
         }
         val candidateRegSecs = RegSecUtils.getCandidateRegSecs(container, regSec)
-        logD("resolvePushActionBytes: pkg=${container.packageName} candidateCount=${candidateRegSecs.size} candidates=${candidateRegSecs.map { it.take(8) + "..." }}")
+        logD(formatCandidateSummary(container.packageName, candidateRegSecs))
         if (candidateRegSecs.isEmpty()) {
             Napier.d("resolvePushActionBytes: no regSec candidates for pkg=${container.packageName}", tag = TAG)
             return null
@@ -211,6 +210,9 @@ object ConvertUtils {
         logD("resolvePushActionBytes: all regSec candidates failed for pkg=${container.packageName}")
         return null
     }
+
+    internal fun formatCandidateSummary(packageName: String?, candidates: Collection<String>): String =
+        "resolvePushActionBytes: pkg=$packageName candidateCount=${candidates.size}"
 
     private fun persistResolvedRegSec(packageName: String?, regSec: String?) {
         if (packageName.isNullOrEmpty() || regSec.isNullOrEmpty()) {

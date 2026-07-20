@@ -10,7 +10,7 @@ import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
 import com.xiaomi.network.Fallback
 import com.xiaomi.push.service.MIPushNotificationHelper
 import com.xiaomi.push.service.PushConstants
-import com.xiaomi.push.service.XMPushService
+import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
@@ -19,7 +19,7 @@ import io.github.magisk317.mipush.common.utils.Utils
 class ModernHookHandler : HookedMethodHandler {
     override fun shouldSendBroadcast(
         joinPoint: Any?,
-        pushService: XMPushService,
+        pushService: XMPushServiceCore,
         packageName: String,
         container: XmPushActionContainer,
         metaInfo: PushMetaInfo
@@ -27,7 +27,7 @@ class ModernHookHandler : HookedMethodHandler {
 
     override fun postProcessMIPushMessage(
         joinPoint: Any?,
-        pushService: XMPushService,
+        pushService: XMPushServiceCore,
         pkgName: String,
         payload: ByteArray,
         newMessageIntent: Intent
@@ -40,7 +40,7 @@ class ModernHookHandler : HookedMethodHandler {
         MiPushRuntimeBridge.onTransferToApplication(payload)
     }
 
-    override fun notifyPacketArrival(joinPoint: Any?, pushService: XMPushService, chid: String, data: Any) {
+    override fun notifyPacketArrival(joinPoint: Any?, pushService: XMPushServiceCore, chid: String, data: Any) {
         HookTraceCompat.notifyPacketArrival(chid, data)
     }
 
@@ -57,7 +57,7 @@ class ModernHookHandler : HookedMethodHandler {
         MiPushRuntimeBridge.onIntentForwardedToServer(intent)
     }
 
-    override fun onCreate(joinPoint: Any?, pushService: XMPushService) {
+    override fun onCreate(joinPoint: Any?, pushService: XMPushServiceCore) {
         HookTraceCompat.onServiceCreate(pushService)
         XMPushServiceLifecycleBridge.ensureCreated(pushService)
     }
@@ -105,7 +105,7 @@ class ModernHookHandler : HookedMethodHandler {
 
     override fun processMIPushMessage(
         joinPoint: Any?,
-        pushService: XMPushService,
+        pushService: XMPushServiceCore,
         decryptedContent: ByteArray,
         packetBytesLen: Long
     ) {
@@ -121,7 +121,7 @@ class ModernHookHandler : HookedMethodHandler {
 
     override fun isDuplicateMessage(
         joinPoint: Any?,
-        pushService: XMPushService,
+        pushService: XMPushServiceCore,
         packageName: String,
         messageId: String
     ): Boolean = ExplicitHookBridge.isDuplicateMessage(pushService, packageName, messageId)

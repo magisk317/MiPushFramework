@@ -129,7 +129,7 @@ object ProactiveMiPushRegistrar {
 
     private fun hasXMPushService(pkgInfo: android.content.pm.PackageInfo): Boolean {
         return pkgInfo.services?.any { service ->
-            service.name == LegacyComponentNames.LEGACY_MAIN_SERVICE_CLASS
+            service.name == LegacyComponentNames.LEGACY_COMPAT_SERVICE_CLASS
         } == true
     }
 
@@ -139,7 +139,7 @@ object ProactiveMiPushRegistrar {
     }
 
     private fun triggerRegistration(context: Context, packageName: String) {
-        try {
+        runCatching {
             // Register in database
             RegisteredApplicationDb.registerApplication(packageName)
 
@@ -150,8 +150,8 @@ object ProactiveMiPushRegistrar {
                 reason = "proactive_scan"
             )
             logI("requested registration for $packageName, success=$success")
-        } catch (e: Throwable) {
-            logW("failed to trigger registration for $packageName: ${e.message}")
+        }.onFailure { error ->
+            logW("failed to trigger registration for $packageName: ${error.message}")
         }
     }
 }

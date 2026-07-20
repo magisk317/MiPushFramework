@@ -9,6 +9,7 @@ import io.github.magisk317.mipush.common.utils.logW
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.SdkNotificationCompat
+import io.github.magisk317.mipush.common.notification.MockReplayOutcome
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.push.pipeline.MessageIdentity
 import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry
@@ -16,7 +17,7 @@ import io.github.magisk317.mipush.runtime.PushRuntime
 import com.xiaomi.channel.commonutils.reflect.JavaCalls
 import com.xiaomi.push.service.MIPushEventProcessor
 import com.xiaomi.push.service.PushConstants
-import com.xiaomi.push.service.XMPushService
+import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import java.lang.reflect.InvocationTargetException
 import java.util.concurrent.atomic.AtomicLong
@@ -26,7 +27,10 @@ object MockMIPushMessage {
     private val replaySequence = AtomicLong()
 
     @JvmStatic
-    fun mockProcessMIPushMessage(pushService: XMPushService, container: XmPushActionContainer): Boolean {
+    fun mockProcessMIPushMessage(
+        pushService: XMPushServiceCore,
+        container: XmPushActionContainer,
+    ): MockReplayOutcome {
         val replayContainer = prepareReplayContainer(container)
         val payload = XMPushUtils.packToBytes(replayContainer)
         val messageId = MessageIdentity.fromContainer(replayContainer)
@@ -48,17 +52,17 @@ object MockMIPushMessage {
                     "messageId=$messageId"
             )
             return runCatching {
-                SdkNotificationCompat.notifyWithModernHelper(pushService, payload)
+                val outcome = SdkNotificationCompat.notifyWithModernHelper(pushService, payload)
                 observeReplayEvent(
                     replayContainer,
-                    "mock_replay_modern_helper_success",
+                    outcome.observationAction(),
                     "MockMIPushMessage.mockProcessMIPushMessage",
                 )
                 logD(
                     "mockProcessMIPushMessage modern helper completed pkg=${replayContainer.packageName} " +
-                        "action=${replayContainer.action} messageId=$messageId"
+                        "action=${replayContainer.action} messageId=$messageId outcome=$outcome"
                 )
-                true
+                outcome
             }.onFailure {
                 observeReplayEvent(
                     replayContainer,
@@ -70,7 +74,7 @@ object MockMIPushMessage {
                         "action=${replayContainer.action} messageId=$messageId payloadSize=${payload.size}",
                     it
                 )
-            }.getOrDefault(false)
+            }.getOrDefault(MockReplayOutcome.Failed)
         }
         try {
             invokeProcessMiPushMessage(pushService, replayContainer, payload)
@@ -83,7 +87,7 @@ object MockMIPushMessage {
                 "mockProcessMIPushMessage legacy invoke completed pkg=${replayContainer.packageName} " +
                     "action=${replayContainer.action} messageId=$messageId"
             )
-            return true
+            return MockReplayOutcome.Dispatched
         } catch (e: Exception) {
             if (shouldFallbackWithModernHelper(e)) {
                 logW("mock fallback to modern helper due to PendingIntent flag crash")
@@ -94,17 +98,17 @@ object MockMIPushMessage {
                     "MockMIPushMessage.mockProcessMIPushMessage",
                 )
                 runCatching { SdkNotificationCompat.notifyWithModernHelper(pushService, payload) }
-                    .onSuccess {
+                    .onSuccess { outcome ->
                         observeReplayEvent(
                             replayContainer,
-                            "mock_replay_modern_helper_fallback_success",
+                            outcome.observationAction(),
                             "MockMIPushMessage.mockProcessMIPushMessage",
                         )
                         logD(
                             "mockProcessMIPushMessage fallback modern helper completed pkg=${replayContainer.packageName} " +
-                                "action=${replayContainer.action} messageId=$messageId"
+                                "action=${replayContainer.action} messageId=$messageId outcome=$outcome"
                         )
-                        return true
+                        return outcome
                     }
                     .onFailure { fallbackError ->
                         observeReplayEvent(
@@ -125,7 +129,7 @@ object MockMIPushMessage {
                     "messageId=$messageId payloadSize=${payload.size}",
                 e
             )
-            return false
+            return MockReplayOutcome.Failed
         }
     }
 
@@ -156,7 +160,7 @@ object MockMIPushMessage {
         ClassNotFoundException::class
     )
     fun invokeProcessMiPushMessage(
-        pushService: XMPushService,
+        pushService: XMPushServiceCore,
         container: XmPushActionContainer,
         payload: ByteArray = XMPushUtils.packToBytes(container)
     ) {
@@ -175,7 +179,7 @@ object MockMIPushMessage {
         InvocationTargetException::class,
         ClassNotFoundException::class
     )
-    fun invokeProcessMiPushMessage(pushService: XMPushService, mockDecryptedContent: ByteArray) {
+    fun invokeProcessMiPushMessage(pushService: XMPushServiceCore, mockDecryptedContent: ByteArray) {
         val result = JavaCalls.callStaticMethodOrThrow(
             MIPushEventProcessor::class.java.name,
             "processMIPushMessage",
@@ -191,6 +195,13 @@ object MockMIPushMessage {
 
     private fun observeReplayEvent(container: XmPushActionContainer, action: String, source: String) {
         PushRuntime.observeNotificationEvent(container.packageName, action, source)
+    }
+
+    internal fun MockReplayOutcome.observationAction(): String = when (this) {
+        MockReplayOutcome.BlockedByPermission -> "mock_replay_blocked_by_permission"
+        MockReplayOutcome.Dispatched -> "mock_replay_dispatched"
+        MockReplayOutcome.Posted -> "mock_replay_posted"
+        MockReplayOutcome.Failed -> "mock_replay_failed"
     }
 
     private fun shouldFallbackWithModernHelper(error: Throwable?): Boolean {

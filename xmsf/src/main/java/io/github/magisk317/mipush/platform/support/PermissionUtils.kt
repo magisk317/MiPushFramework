@@ -41,7 +41,7 @@ object PermissionUtils {
         if (Utils.isAppOpsInstalled()) {
             val intent = Intent(Intent.ACTION_SHOW_APP_INFO)
                 .setClassName("rikka.appops", "rikka.appops.appdetail.AppDetailActivity")
-                .putExtra("rikka.appops.intent.extra.USER_HANDLE", Utils.myUid())
+                .putExtra("rikka.appops.intent.extra.USER_HANDLE", Utils.myUserId())
                 .putExtra("rikka.appops.intent.extra.PACKAGE_NAME", Constants.SERVICE_APP_NAME)
                 .setData(Uri.parse("package:" + Constants.SERVICE_APP_NAME))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -56,7 +56,7 @@ object PermissionUtils {
     @JvmStatic
     fun allowPermission(permission: String): Boolean {
         return AppRootAccessFacade.runRootCommand(
-            "appops set --user " + Utils.myUid() + " " + Constants.SERVICE_APP_NAME + " " + permission + " " + AppOpsManagerOverride.MODE_ALLOWED
+            "appops set --user " + Utils.myUserId() + " " + Constants.SERVICE_APP_NAME + " " + permission + " " + AppOpsManagerOverride.MODE_ALLOWED
         ).isSuccess
     }
 
@@ -85,8 +85,8 @@ object PermissionUtils {
         val packageName = context.packageName
         val commands = listOf(
             "pm grant $packageName android.permission.POST_NOTIFICATIONS",
-            "appops set --user ${Utils.myUid()} $packageName POST_NOTIFICATION allow",
-            "appops set --user ${Utils.myUid()} $packageName android:post_notification allow",
+            "appops set --user ${Utils.myUserId()} $packageName POST_NOTIFICATION allow",
+            "appops set --user ${Utils.myUserId()} $packageName android:post_notification allow",
             "cmd appops set $packageName POST_NOTIFICATION allow"
         )
         commands.forEach { AppRootAccessFacade.runRootCommand(it) }

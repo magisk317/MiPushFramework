@@ -1,16 +1,92 @@
 package io.github.magisk317.mipush.push.pipeline
 
 import com.xiaomi.push.service.MIPushNotificationHelper
+import com.xiaomi.push.service.MIPushHelper
 import com.xiaomi.push.service.PushConstants
+import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
+import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
+import com.xiaomi.xmpush.thrift.XmPushActionUnRegistrationResult
 import io.github.magisk317.mipush.runtime.android.AndroidPushRuntime
+import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class MiPushRuntimeBridgeTest {
+
+    @Test
+    fun `only successful server registration results produce final state changes`() {
+        val success = MIPushHelper.constructResponseContainer(
+            "com.example.target",
+            "app-id",
+            XmPushActionRegistrationResult("request-id", "app-id", 0L),
+            ActionType.Registration,
+        )
+        val failure = MIPushHelper.constructResponseContainer(
+            "com.example.target",
+            "app-id",
+            XmPushActionRegistrationResult("request-id", "app-id", 1L),
+            ActionType.Registration,
+        )
+
+        assertEquals(
+            RegisteredApplication.RegisteredType.Registered,
+            MiPushRuntimeBridge.resolveServerRegistrationState(success),
+        )
+        assertEquals(null, MiPushRuntimeBridge.resolveServerRegistrationState(failure))
+        assertTrue(MiPushRuntimeBridge.resolveRegistrationResultOutcome(success)!!.success)
+        assertFalse(MiPushRuntimeBridge.resolveRegistrationResultOutcome(failure)!!.success)
+    }
+
+    @Test
+    fun `only successful server unregistration results produce final state changes`() {
+        val success = MIPushHelper.constructResponseContainer(
+            "com.example.target",
+            "app-id",
+            XmPushActionUnRegistrationResult("request-id", "app-id", 0L),
+            ActionType.UnRegistration,
+        )
+        val failure = MIPushHelper.constructResponseContainer(
+            "com.example.target",
+            "app-id",
+            XmPushActionUnRegistrationResult("request-id", "app-id", 1L),
+            ActionType.UnRegistration,
+        )
+
+        assertEquals(
+            RegisteredApplication.RegisteredType.Unregistered,
+            MiPushRuntimeBridge.resolveServerRegistrationState(success),
+        )
+        assertEquals(null, MiPushRuntimeBridge.resolveServerRegistrationState(failure))
+    }
+
+    @Test
+    fun `forged requests cannot be interpreted as verified final state`() {
+        val forgedRegister = MIPushHelper.constructResponseContainer(
+            "com.example.victim",
+            "attacker-app-id",
+            XmPushActionRegistrationResult("forged", "attacker-app-id", 0L),
+            ActionType.Registration,
+        ).apply { setIsRequest(true) }
+        val forgedUnregister = MIPushHelper.constructResponseContainer(
+            "com.example.victim",
+            "attacker-app-id",
+            XmPushActionUnRegistrationResult("forged", "attacker-app-id", 0L),
+            ActionType.UnRegistration,
+        ).apply { setIsRequest(true) }
+
+        assertEquals(null, MiPushRuntimeBridge.resolveServerRegistrationState(forgedRegister))
+        assertEquals(null, MiPushRuntimeBridge.resolveServerRegistrationState(forgedUnregister))
+    }
+
+    @Test
+    fun `mock replays cannot apply verified server registration state`() {
+        assertFalse(MiPushRuntimeBridge.shouldApplyServerRegistrationState(isMockReplay = true))
+        assertTrue(MiPushRuntimeBridge.shouldApplyServerRegistrationState(isMockReplay = false))
+    }
 
     @Test
     fun `shouldProcessPayloadIdentity blocks duplicate notification payload within extended window`() {

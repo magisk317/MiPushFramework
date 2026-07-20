@@ -8,7 +8,11 @@ import io.github.magisk317.mipush.common.utils.logW
 
 import android.app.Service
 import android.content.Intent
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
+import android.os.Message
+import android.os.Messenger
 import android.widget.Toast
 import io.github.magisk317.mipush.diagnostics.PushHealthSnapshotLogger
 import io.github.magisk317.mipush.diagnostics.RateLimitedWarnLogger
@@ -28,7 +32,6 @@ import io.github.magisk317.mipush.runtime.PushRuntimeBridgeHost
 import io.github.magisk317.mipush.runtime.PushRuntimeComponents
 import io.github.magisk317.mipush.service.runtime.RegistrationIntentDeduper
 import io.github.magisk317.mipush.utils.ConvertUtils
-import io.github.aakira.napier.Napier
 import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.utils.Utils
@@ -36,6 +39,9 @@ import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.app.di.AppDependencies
 
 open class MiPushFacadeService : Service() {
+    /** Set only on manifest-declared components intended for third-party MiPush SDK traffic. */
+    protected open val isExternalIngress: Boolean = false
+
     private val configCenter: ConfigCenter by lazy { AppDependencies.get(this) }
     private val iconConfigurations: IconConfigurations by lazy { AppDependencies.get(this) }
 
@@ -55,6 +61,29 @@ open class MiPushFacadeService : Service() {
         }
     }
 
+    private val externalIngressMessenger by lazy(LazyThreadSafetyMode.NONE) {
+        Messenger(
+            object : Handler(Looper.getMainLooper()) {
+                override fun handleMessage(message: Message) {
+                    if (message.what == ExternalPushIngress.MESSAGE_REGION_REQUEST) {
+                        ExternalPushIngress.replyRegion(
+                            message,
+                            ExternalPushIngress.resolveRegion(
+                                this@MiPushFacadeService,
+                                XMPushServiceLifecycleBridge.peekService()?.regionName,
+                            ),
+                        )
+                        return
+                    }
+                    submitExternalResult(
+                        sourceIntent = message.obj as? Intent,
+                        result = ExternalPushIngress.validateBoundMessage(this@MiPushFacadeService, message),
+                    )
+                }
+            },
+        )
+    }
+
     override fun onCreate() {
         super.onCreate()
         HookTraceCompat.onBridgeServiceCreate()
@@ -68,20 +97,12 @@ open class MiPushFacadeService : Service() {
             "XMPushService.onStartCommand",
             "action=${intent?.action ?: "null"}"
         )
-        intent?.let { it ->
-            val processedIntent = if (it.action == null && it.hasExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE)) {
-                Napier.w("Received intent with null action but MiPush extras, fixing as RegisterApp request", tag = TAG)
-                Intent(it).apply { action = PushConstants.MIPUSH_ACTION_REGISTER_APP }
-            } else {
-                it
-            }
-            PushRuntime.submitBridgeIntent(processedIntent) 
-        }
-        return START_STICKY
+        intent?.let(::submitStartIntent)
+        return if (isExternalIngress) START_NOT_STICKY else START_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder? {
-        return null
+        return if (isExternalIngress) externalIngressMessenger.binder else null
     }
 
     override fun onDestroy() {
@@ -96,7 +117,7 @@ open class MiPushFacadeService : Service() {
             logD("drop duplicate register intent before legacy forward pkg=$packageName")
             return
         }
-        if (intent.component?.className == PushRuntimeComponents.LEGACY_MAIN_SERVICE_CLASS) {
+        if (intent.component?.className == PushRuntimeComponents.CORE_SERVICE_CLASS) {
             XMPushServiceLifecycleBridge.recordPendingStart(intent)
         }
         if (Constants.CONFIGURATIONS_UPDATE_ACTION == intent.action) {
@@ -145,6 +166,41 @@ open class MiPushFacadeService : Service() {
         }
     }
 
+    private fun submitStartIntent(intent: Intent) {
+        if (isExternalIngress) {
+            // Android does not preserve the originating UID into onStartCommand. The Messenger
+            // route below has UID binding; this legacy startService route is payload-gated only.
+            logW("External MiPush start has no caller UID; applying payload-only ingress validation")
+            submitExternalResult(intent, ExternalPushIngress.validateStart(this, intent))
+            return
+        }
+        val internalIntent = if (intent.action == null && intent.hasExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE)) {
+            Intent(intent).apply { action = PushConstants.MIPUSH_ACTION_REGISTER_APP }
+        } else {
+            intent
+        }
+        PushRuntime.submitBridgeIntent(internalIntent)
+    }
+
+    private fun submitExternalResult(
+        sourceIntent: Intent?,
+        result: ExternalPushIntentPolicy.ValidationResult,
+    ) {
+        val acceptedIntent = result.intent
+        if (acceptedIntent == null) {
+            logRejectedExternalIntent(sourceIntent, result.rejectionReason.orEmpty())
+            return
+        }
+        PushRuntime.submitBridgeIntent(acceptedIntent)
+    }
+
+    private fun logRejectedExternalIntent(intent: Intent?, reason: String) {
+        logW(
+            "Rejected intent on exported MiPush compatibility entry: " +
+                "action=${intent?.action} reason=$reason",
+        )
+    }
+
     private fun observeRuntimeRouting(intent: Intent) {
         val packageName = intent.getStringExtra(PushConstants.EXTRA_PACKAGE_NAME)
             ?: intent.getStringExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE)
@@ -189,10 +245,10 @@ open class MiPushFacadeService : Service() {
             }
             PushConstants.MIPUSH_ACTION_UNREGISTER_APP -> {
                 if (!packageName.isNullOrBlank()) {
-                    PushRuntime.observeUnregistration(
+                    PushRuntime.observeChannelEvent(
                         packageName = packageName,
+                        action = "unregistration_requested",
                         source = "XMPushService.observeRuntimeRouting",
-                        reason = "forward_unregister"
                     )
                 }
             }
@@ -215,8 +271,12 @@ open class MiPushFacadeService : Service() {
     }
 
     private fun forwardToPushServiceMain(intent: Intent) {
-        val intent2 = PushRuntimeComponents.newLegacyMainServiceIntent(this, intent.action ?: "com.xiaomi.push.service.ACTION_START").apply {
-            putExtras(intent)
+        val intent2 = PushRuntimeComponents.newCoreServiceIntent(this, intent.action ?: "com.xiaomi.push.service.ACTION_START").apply {
+            if (isExternalIngress) {
+                ExternalPushIntentPolicy.copyAllowedExtras(intent, this)
+            } else {
+                putExtras(intent)
+            }
         }
         PushServiceStarter.start(this, intent2)
         logD("forward intent ${ConvertUtils.toJson(intent)}")

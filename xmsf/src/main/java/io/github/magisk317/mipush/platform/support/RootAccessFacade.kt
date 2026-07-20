@@ -11,6 +11,10 @@ class RootAccessFacade(
 ) {
     private val rootAccessCache = AtomicReference<Boolean?>(null)
 
+    // `id -u` root 探测是一次 su 进程往返；记录列表逐行触发时会重复探测同一稳定状态。
+    // root 授权在一个进程周期内极少变化，这里对探测结果做 TTL 节流，避免每行一次 su 往返。
+    private val lastProbeAt = java.util.concurrent.atomic.AtomicLong(0L)
+
     fun hasCachedRootAccess(): Boolean = rootAccessCache.get() == true
 
     fun refreshRootAccessIfGranted(): Boolean {
@@ -21,6 +25,11 @@ class RootAccessFacade(
         }
         if (granted != true && rootAccessCache.get() != true) {
             return false
+        }
+        // TTL 内直接复用上次探测结果，跳过 `id -u` 往返。
+        val cached = rootAccessCache.get()
+        if (cached != null && System.currentTimeMillis() - lastProbeAt.get() < PROBE_TTL_MS) {
+            return cached
         }
         return probeRootAccess()
     }
@@ -59,7 +68,12 @@ class RootAccessFacade(
         val result = runner.run("id -u", ShellCommandMode.ROOT, timeoutMs = 3_000L)
         val available = result.isSuccess && result.stdout.firstOrNull()?.trim() == "0"
         rootAccessCache.set(available)
+        lastProbeAt.set(System.currentTimeMillis())
         return available
+    }
+
+    companion object {
+        private const val PROBE_TTL_MS = 10_000L
     }
 }
 

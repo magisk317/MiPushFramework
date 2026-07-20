@@ -24,7 +24,7 @@ import io.github.magisk317.mipush.runtime.android.AndroidPushRuntime
 // removed PushAccountRuntime
 
 class XMPushServiceLifecycleRuntime(
-    private val service: XMPushService,
+    private val service: XMPushServiceCore,
 ) {
     fun configureClientChangeListener() {
         val clientsManager = PushClientsManager.getInstance()
@@ -84,7 +84,7 @@ class XMPushServiceLifecycleRuntime(
             ConnectionConfiguration.setXmppServerHost(XMPushServiceEnvironment.resolveXmppRegionHost(service.regionName))
         }
         if (service.isPushEnabled()) {
-            val prepareAccountJob = object : XMPushService.Job(XMPushServiceJob.TYPE_PREPARE_MIPUSH_ACCOUNT) {
+            val prepareAccountJob = object : XMPushServiceCore.Job(XMPushServiceJob.TYPE_PREPARE_MIPUSH_ACCOUNT) {
                 override fun getDesc(): String = "prepare the mi push account."
 
                 override fun process() {
@@ -141,7 +141,13 @@ class XMPushServiceLifecycleRuntime(
         val plan = PushServiceConnectionRuntime.planReconnectionSuccess(Alarm.isAlive(), service.shouldFalldown())
         AndroidPushRuntime.observeChannelEvent(null, plan.eventAction, "XMPushServiceLifecycleRuntime.reconnectionSuccessful")
         val resolvedIp = (connection as? com.xiaomi.smack.SocketConnection)?.resolvedIp
-        AndroidPushRuntime.observeConnectionState(PushConnectionState.Connected, "XMPushServiceLifecycleRuntime.reconnectionSuccessful", connection.host, "listener_connected", resolvedIp = resolvedIp)
+        AndroidPushRuntime.observeConnectionState(
+            state = PushConnectionState.Connected,
+            source = "XMPushServiceLifecycleRuntime.reconnectionSuccessful",
+            host = connection.host,
+            reason = "listener_connected",
+            resolvedIp = resolvedIp,
+        )
         if (plan.shouldBroadcastAvailable) {
             service.broadcastNetworkAvailable(true)
         }

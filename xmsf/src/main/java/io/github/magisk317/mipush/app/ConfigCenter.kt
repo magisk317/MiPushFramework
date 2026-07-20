@@ -67,7 +67,7 @@ class ConfigCenter constructor(
         val configLoaded = Configurations.getInstance().init(appContext, directory)
         val iconLoaded = Global.iconConfigurations().init(appContext, directory)
         if (!PushControllerUtils.isAppMainProc(appContext)) {
-            val intent = PushRuntimeComponents.newLegacyMainServiceIntent(
+            val intent = PushRuntimeComponents.newCoreServiceIntent(
                 appContext,
                 Constants.CONFIGURATIONS_UPDATE_ACTION
             )

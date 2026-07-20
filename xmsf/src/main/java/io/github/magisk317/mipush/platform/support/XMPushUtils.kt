@@ -4,17 +4,16 @@ import io.github.magisk317.mipush.push.hook.HookTraceCompat
 import com.xiaomi.push.service.MIPushEventProcessor
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.PushMetaInfo
-import com.xiaomi.xmpush.thrift.Target
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
-import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import org.apache.thrift.TBase
 import io.github.magisk317.mipush.common.utils.CustomConfiguration
 import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.common.configurations.XMPushUtils as CoreXMPushUtils
 
 /**
  * XM 推送工具类
@@ -24,18 +23,12 @@ import io.github.magisk317.mipush.common.utils.Utils
 object XMPushUtils {
     @JvmStatic
     fun getConfiguration(container: XmPushActionContainer?): CustomConfiguration {
-        if (container == null) {
-            return CustomConfiguration(null)
-        }
-        return getConfiguration(container.metaInfo)
+        return CoreXMPushUtils.getConfiguration(container)
     }
 
     @JvmStatic
     fun getConfiguration(metaInfo: PushMetaInfo?): CustomConfiguration {
-        if (metaInfo == null) {
-            return CustomConfiguration(null)
-        }
-        return CustomConfiguration(metaInfo.extra)
+        return CoreXMPushUtils.getConfiguration(metaInfo)
     }
 
     @JvmStatic
@@ -73,27 +66,14 @@ object XMPushUtils {
         actionType: ActionType,
         appId: String?
     ): XmPushActionContainer {
-        val payload = XmPushThriftSerializeUtils.convertThriftObjectToBytes(action)
-            ?: throw IllegalArgumentException("Unable to serialize push action: ${action.javaClass.name}")
-        val container = XmPushActionContainer().apply {
-            target = Target().apply {
-                channelId = 5L
-                userId = "fakeid"
-            }
-            setPushAction(payload)
-            this.action = actionType
-            isRequest = true
-            this.packageName = packageName
-            setEncryptAction(false)
-            appid = appId
-        }
+        val container = CoreXMPushUtils.packToContainer(action, packageName, actionType, appId)
         HookTraceCompat.onBuildContainer(0, container)
         return container
     }
 
     @JvmStatic
     fun <T : TBase<T, *>> packToBytes(container: T): ByteArray =
-        XmPushThriftSerializeUtils.convertThriftObjectToBytes(container)
+        CoreXMPushUtils.packToBytes(container)
             ?: throw IllegalArgumentException("Unable to serialize: ${container.javaClass.name}")
 
     /**

@@ -64,6 +64,6 @@ object PushServiceStarter {
     }
 
     private fun isXMPushServiceTarget(intent: Intent): Boolean {
-        return intent.component?.className == PushRuntimeComponents.LEGACY_MAIN_SERVICE_CLASS
+        return intent.component?.className == PushRuntimeComponents.CORE_SERVICE_CLASS
     }
 }

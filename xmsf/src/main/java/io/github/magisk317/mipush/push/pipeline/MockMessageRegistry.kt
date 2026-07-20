@@ -16,6 +16,7 @@ object MockMessageRegistry {
     const val EXTRA_MOCK_REPLAY = "mipush_mock_replay"
     const val EXTRA_MOCK_REPLAY_SOURCE_ID = "mipush_mock_replay_source_id"
     private const val MARK_TTL_MS = 30_000L
+    internal const val MAX_MARKED_MESSAGES = 256
     private val lock = Any()
     private val markedMessageIds = LinkedHashMap<String, Long>()
 
@@ -31,6 +32,14 @@ object MockMessageRegistry {
         val now = System.currentTimeMillis()
         synchronized(lock) {
             pruneExpiredLocked(now)
+            if (!markedMessageIds.containsKey(messageId) && markedMessageIds.size >= MAX_MARKED_MESSAGES) {
+                markedMessageIds.entries.iterator().run {
+                    if (hasNext()) {
+                        next()
+                        remove()
+                    }
+                }
+            }
             markedMessageIds[messageId] = now
         }
         logD("marked mock message id=$messageId ttlMs=$MARK_TTL_MS")
@@ -71,6 +80,8 @@ object MockMessageRegistry {
             markedMessageIds.clear()
         }
     }
+
+    internal fun markedMessageCount(): Int = synchronized(lock) { markedMessageIds.size }
 
     private fun pruneExpiredLocked(now: Long) {
         val iterator = markedMessageIds.entries.iterator()

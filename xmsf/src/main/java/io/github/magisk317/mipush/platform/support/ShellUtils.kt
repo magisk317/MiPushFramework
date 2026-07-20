@@ -75,15 +75,4 @@ object ShellUtils {
         return s == null || s.trim { it <= ' ' }.isEmpty()
     }
 
-    @JvmStatic
-    fun exec(command: String): Boolean {
-        return AppRootAccessFacade.runRootCommand(command).isSuccess
-    }
-
-    @JvmStatic
-    fun isSuAvailable(): Boolean {
-        return AppRootAccessFacade
-            .runShellCommand("command -v su >/dev/null 2>&1 || su --help >/dev/null 2>&1")
-            .isSuccess
-    }
 }

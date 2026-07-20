@@ -1,9 +1,9 @@
 package io.github.magisk317.mipush.platform.support
 
 import com.topjohnwu.superuser.Shell
+import io.github.magisk317.mipush.common.process.BoundedProcessRunner
 import java.io.File
 import java.util.concurrent.Callable
-import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
 
@@ -82,33 +82,17 @@ object DefaultBoundedShellRunner : BoundedShellRunner {
     }
 
     private fun runProcess(command: List<String>, timeoutMs: Long): BoundedShellResult {
-        var process: Process? = null
-        return try {
-            val started = ProcessBuilder(command)
-                .directory(File("/"))
-                .start()
-            process = started
-            val stdout = executor.submit(Callable { started.inputStream.bufferedReader().use { it.readLines() } })
-            val stderr = executor.submit(Callable { started.errorStream.bufferedReader().use { it.readLines() } })
-            val completed = started.waitFor(timeoutMs, TimeUnit.MILLISECONDS)
-            if (!completed) {
-                started.destroyForcibly()
-                BoundedShellResult.timedOut()
-            } else {
-                BoundedShellResult(
-                    exitCode = started.exitValue(),
-                    stdout = awaitLines(stdout),
-                    stderr = awaitLines(stderr),
-                )
-            }
-        } catch (e: InterruptedException) {
-            Thread.currentThread().interrupt()
-            BoundedShellResult.failed(e)
-        } catch (e: Exception) {
-            BoundedShellResult.failed(e)
-        } finally {
-            process?.destroy()
-        }
+        val result = BoundedProcessRunner.run(
+            command = command,
+            timeoutMillis = timeoutMs,
+            workingDirectory = File("/"),
+        )
+        return BoundedShellResult(
+            exitCode = result.exitCode,
+            stdout = result.stdout.nonEmptyLines(),
+            stderr = result.stderr.nonEmptyLines(),
+            timedOut = result.timedOut,
+        )
     }
 
     private fun await(future: Future<BoundedShellResult>, timeoutMs: Long): BoundedShellResult {
@@ -125,11 +109,7 @@ object DefaultBoundedShellRunner : BoundedShellRunner {
         }
     }
 
-    private fun awaitLines(future: Future<List<String>>): List<String> {
-        return try {
-            future.get(1, TimeUnit.SECONDS)
-        } catch (_: Exception) {
-            emptyList()
-        }
+    private fun String.nonEmptyLines(): List<String> {
+        return if (isEmpty()) emptyList() else lineSequence().toList()
     }
 }

@@ -1,7 +1,5 @@
 package io.github.magisk317.mipush.runtime.store.db
 
-import android.content.Context
-import android.net.Uri
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import androidx.sqlite.db.SimpleSQLiteQuery
@@ -10,10 +8,10 @@ import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
 import io.github.magisk317.mipush.utils.RegSecUtils
 import io.github.magisk317.mipush.utils.ConvertUtils
 import kotlinx.coroutines.runBlocking
-import io.github.magisk317.mipush.common.utils.DatabaseUtils
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.DatabaseUtils.eventDao
 import io.github.magisk317.mipush.runtime.store.entities.Event
+import io.github.magisk317.mipush.runtime.store.event.EventSearchTextBuilder
 import io.github.magisk317.mipush.runtime.store.event.EventType
 
 /**
@@ -21,16 +19,8 @@ import io.github.magisk317.mipush.runtime.store.event.EventType
  * @date 2017/12/23
  */
 object EventDb {
-    const val AUTHORITY = "io.github.magisk317.mipush.runtime.stores.EventProvider"
-    const val BASE_PATH = "EVENT"
-
-    @JvmField
-    val CONTENT_URI: Uri = Uri.parse("content://$AUTHORITY/$BASE_PATH")
-
-    @JvmStatic
-    private fun getInstance(context: Context): DatabaseUtils {
-        return DatabaseUtils(CONTENT_URI, context.contentResolver)
-    }
+    /** 事件记录默认保留天数(与既有硬编码行为保持一致)。 */
+    const val DEFAULT_RETENTION_DAYS = 7
 
     class RegistrationInfo {
         @JvmField
@@ -45,7 +35,10 @@ object EventDb {
         if (event.type == Event.Type.SendMessage) {
             Utils.setLastReceiveTime(event.pkg, event.date)
         }
-        return eventDao.insert(event)
+        val id = eventDao.insert(event)
+        // 入库咽喉节流触发按天清理,避免事件表无上界增长(内部有时间间隔节流)。
+        EventRetentionManager.maybePruneAfterInsert()
+        return id
     }
 
     suspend fun insertEventAsync(@Event.ResultType result: Int, type: EventType): Long {
@@ -58,11 +51,12 @@ object EventDb {
             id = null,
             pkg = type.pkg ?: "",
             type = type.type,
-            date = Utils.getUTC().time,
+            date = System.currentTimeMillis(),
             result = result,
             info = type.info,
             payload = type.payload,
-            regSec = Utils.getRegSec(type.pkg ?: "")
+            regSec = Utils.getRegSec(type.pkg ?: ""),
+            searchText = EventSearchTextBuilder.build(type),
         )
     }
 
@@ -90,7 +84,9 @@ object EventDb {
             args.addAll(types)
         }
         if (!text.isNullOrBlank()) {
-            queryBuilder.append(" AND dev_info LIKE ?")
+            // 搜索只打 UI 对齐的快照列;search_text 为空时回退 dev_info 兼容极少数无快照的旧记录。
+            queryBuilder.append(" AND (search_text LIKE ? OR (search_text IS NULL AND dev_info LIKE ?))")
+            args.add("%$text%")
             args.add("%$text%")
         }
         queryBuilder.append(" ORDER BY id DESC LIMIT ?")
@@ -130,7 +126,9 @@ object EventDb {
             args.addAll(types)
         }
         if (!text.isNullOrBlank()) {
-            queryBuilder.append(" AND dev_info LIKE ?")
+            // 搜索打 UI 对齐的 search_text 快照;兼容极少数仅有旧 dev_info 的残留行。
+            queryBuilder.append(" AND (search_text LIKE ? OR dev_info LIKE ?)")
+            args.add("%$text%")
             args.add("%$text%")
         }
         queryBuilder.append(" ORDER BY date DESC LIMIT ? OFFSET ?")
@@ -140,13 +138,40 @@ object EventDb {
         return eventDao.queryRaw(SimpleSQLiteQuery(queryBuilder.toString(), args.toTypedArray()))
     }
 
-    suspend fun deleteHistoryAsync() {
-        val data = Utils.getUTC().time - 1000L * 3600L * 24 * 7
-        eventDao.deleteHistory(data)
+    /**
+     * 按保留天数清理事件记录。
+     * @param retentionDays 保留最近多少天;小于 1 时按 1 天兜底,避免误传 0 清空全表。
+     * 注册状态事件(type 20/21)由 [EventDao.deleteHistory] 的 SQL 永久保留。
+     */
+    suspend fun deleteHistoryAsync(retentionDays: Int = DEFAULT_RETENTION_DAYS) {
+        val days = retentionDays.coerceAtLeast(1)
+        val cutoff = System.currentTimeMillis() - 1000L * 3600L * 24 * days
+        eventDao.deleteHistory(cutoff)
     }
 
     suspend fun deleteByIdAsync(id: Long): Boolean {
         return eventDao.deleteById(id) > 0
+    }
+
+    /** 按本地日历日聚合可清理事件的条数(排除注册态),供日历清理界面高亮与计数。 */
+    suspend fun countEventsByDayAsync(): List<DayCount> {
+        return eventDao.countEventsByDay()
+    }
+
+    /**
+     * 删除某个时间区间 [start, end) 内的可清理事件(排除注册态),供"仅清理当天"使用。
+     * @return 实际删除条数。
+     */
+    suspend fun deleteHistoryInRangeAsync(start: Long, end: Long): Int {
+        return eventDao.deleteHistoryInRange(start, end)
+    }
+
+    /**
+     * 清理某个时间点之前的可清理事件(排除注册态),供"清理此日期及之前"使用。
+     * @return 实际删除条数。
+     */
+    suspend fun deleteHistoryBeforeAsync(cutoff: Long): Int {
+        return eventDao.deleteHistory(cutoff)
     }
 
     suspend fun queryRegisteredAsync(): RegistrationInfo {

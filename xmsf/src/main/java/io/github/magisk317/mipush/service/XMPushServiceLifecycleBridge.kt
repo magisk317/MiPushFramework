@@ -11,10 +11,10 @@ import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.network.NetworkPolicyCompat
 import io.github.magisk317.mipush.service.runtime.RegistrationIntentDeduper
-import com.xiaomi.push.service.XMPushService
+import com.xiaomi.push.service.XMPushServiceCore
 
 /**
- * Runtime replacement for old AOP lifecycle callbacks around XMPushService.
+ * Runtime replacement for old AOP lifecycle callbacks around XMPushServiceCore.
  */
 object XMPushServiceLifecycleBridge {
     private val registry = XMPushServiceLifecycleRegistry()
@@ -37,7 +37,7 @@ object XMPushServiceLifecycleBridge {
     }
 
     @JvmStatic
-    fun ensureCreated(pushService: XMPushService) {
+    fun ensureCreated(pushService: XMPushServiceCore) {
         val attachResult = registry.attach(pushService) { service ->
             XMPushServiceAbility(service)
         }
@@ -50,7 +50,7 @@ object XMPushServiceLifecycleBridge {
     }
 
     @JvmStatic
-    fun onStart(pushService: XMPushService, intent: Intent?) {
+    fun onStart(pushService: XMPushServiceCore, intent: Intent?) {
         ensureCreated(pushService)
         if (intent == null) return
         val activeListener = registry.currentListener() ?: return
@@ -59,7 +59,7 @@ object XMPushServiceLifecycleBridge {
     }
 
     @JvmStatic
-    fun onDestroy(pushService: XMPushService?) {
+    fun onDestroy(pushService: XMPushServiceCore?) {
         val oldListener = registry.detach(pushService) ?: return
         runCatching { oldListener.destroy() }
             .onFailure { logE("listener.destroy failed", it) }
@@ -76,9 +76,9 @@ object XMPushServiceLifecycleBridge {
     }
 
     @JvmStatic
-    fun peekService(): XMPushService? = registry.withService { it }
+    fun peekService(): XMPushServiceCore? = registry.withService { it }
 
-    fun <T> withService(block: (XMPushService) -> T): T? = registry.withService(block)
+    fun <T> withService(block: (XMPushServiceCore) -> T): T? = registry.withService(block)
 
     @JvmStatic
     fun snapshot(): LifecycleSnapshot {
