@@ -4,6 +4,14 @@
 
 ---
 
+## [v0.6.3] - Unreleased
+
+- TODO
+
+> Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v0.6.2...v0.6.3
+
+---
+
 ## [v0.6.2] - 2026-07-20
 
 - `[feat(ui/app)]` 新增连接状态页、桌面小组件、事件搜索与清理，并统一主界面导航和设置交互。
