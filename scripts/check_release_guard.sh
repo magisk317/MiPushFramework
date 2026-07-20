@@ -9,6 +9,8 @@ TOOLKIT_SCRIPT="${TOOLKIT_DIR}/release/check_release_guard.sh"
 # MiPushFramework configuration
 TAG_NAME="${1:-}"
 
+"$SCRIPT_DIR/check_release_tag_push_contract.sh"
+
 check_non_ascii_subject_allowlist() {
   local release_commit base_tag commit_range sha subject
   local fail=0

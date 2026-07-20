@@ -116,7 +116,9 @@ if [[ -n "$remote_output" ]]; then
   exit 1
 fi
 
-git -C "$ROOT_DIR" push "$REMOTE_NAME" "$current_branch"
+# The branch commit is already validated locally; do not create a second CI
+# pipeline when the subsequent tag push will start the release pipeline.
+git -C "$ROOT_DIR" push -o ci.skip "$REMOTE_NAME" "$current_branch"
 if [[ "$local_tag_exists" != true ]]; then
   git -C "$ROOT_DIR" tag -s "$TAG_NAME" -m "$TAG_NAME"
 fi
