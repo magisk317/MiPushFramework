@@ -43,7 +43,9 @@ data class ManagerHandshake(
                     supportedCapabilities = readStringList(),
                     maxPageSize = readInt(),
                     maxPayloadBytes = readInt(),
-                    compatibilityReason = readString(),
+                    compatibilityReason = readString(
+                        maxLength = ManagerProtocol.MAX_COMPATIBILITY_REASON_LENGTH,
+                    ),
                 )
             }
 

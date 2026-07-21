@@ -20,16 +20,37 @@ class ManagerRuntimeServiceAidlTest {
     fun `transaction ids remain append only`() {
         assertEquals(IBinder.FIRST_CALL_TRANSACTION, IManagerRuntimeService.Stub.TRANSACTION_handshake)
         assertEquals(IBinder.FIRST_CALL_TRANSACTION + 1, IManagerRuntimeService.Stub.TRANSACTION_getConnectionSnapshot)
+        assertEquals(IBinder.FIRST_CALL_TRANSACTION + 2, IManagerRuntimeService.Stub.TRANSACTION_getApplicationPage)
+        assertEquals(IBinder.FIRST_CALL_TRANSACTION + 3, IManagerRuntimeService.Stub.TRANSACTION_getApplicationDetail)
+        assertEquals(
+            IBinder.FIRST_CALL_TRANSACTION + 4,
+            IManagerRuntimeService.Stub.TRANSACTION_getApplicationDiagnostics,
+        )
     }
 
     @Test
     fun `remote proxy transacts handshake and connection snapshot`() {
         val handshake = handshake()
         val snapshot = snapshot()
+        val page = applicationPage()
+        val detail = applicationDetail()
+        val diagnostics = applicationDiagnostics()
         val stub = object : IManagerRuntimeService.Stub() {
             override fun handshake(clientMajor: Int, clientMinor: Int): ManagerHandshake = handshake
 
             override fun getConnectionSnapshot(): ManagerConnectionSnapshotDto = snapshot
+
+            override fun getApplicationPage(query: ManagerApplicationQueryDto): ManagerApplicationPageDto = page
+
+            override fun getApplicationDetail(
+                packageName: String,
+                ignoreNotRegistered: Boolean,
+            ): ManagerApplicationDetailDto? = detail
+
+            override fun getApplicationDiagnostics(
+                packageName: String,
+                registeredType: Int,
+            ): ManagerApplicationDiagnosticsDto = diagnostics
         }
 
         val remote = IManagerRuntimeService.Stub.asInterface(RemoteBinder(stub))
@@ -37,6 +58,9 @@ class ManagerRuntimeServiceAidlTest {
         assertNotSame(stub, remote)
         assertEquals(handshake, remote.handshake(ManagerProtocol.MAJOR, ManagerProtocol.MINOR))
         assertEquals(snapshot, remote.connectionSnapshot)
+        assertEquals(page, remote.getApplicationPage(ManagerApplicationQueryDto()))
+        assertEquals(detail, remote.getApplicationDetail(detail.packageName, false))
+        assertEquals(diagnostics, remote.getApplicationDiagnostics(detail.packageName, detail.registeredType))
     }
 
     @Test
@@ -140,6 +164,54 @@ class ManagerRuntimeServiceAidlTest {
         registeredPackageCount = 4,
         trackedChannelCount = 3,
         boundChannelCount = 2,
+    )
+
+    private fun applicationSummary() = ManagerApplicationSummaryDto(
+        id = 11L,
+        packageName = "com.example.app",
+        type = 2,
+        notificationOnRegister = true,
+        blocked = false,
+        islandEnabled = true,
+        islandFocusNotification = true,
+        registeredType = 1,
+        existServices = true,
+        appName = "Example",
+        appNamePinYin = "example",
+        lastReceiveTimeMs = 123L,
+    )
+
+    private fun applicationPage() = ManagerApplicationPageDto(
+        items = listOf(applicationSummary()),
+        stats = ManagerApplicationStatsDto(
+            total = 2,
+            usingMiPush = 1,
+            notUsingMiPush = 1,
+            registered = 1,
+            notRegistered = 0,
+        ),
+        nextPageToken = "opaque-token",
+    )
+
+    private fun applicationDetail() = ManagerApplicationDetailDto(
+        id = 11L,
+        packageName = "com.example.app",
+        type = 2,
+        notificationOnRegister = true,
+        islandFocusNotification = true,
+        registeredType = 1,
+        existServices = true,
+        appName = "Example",
+        appNamePinYin = "example",
+        lastReceiveTimeMs = 123L,
+    )
+
+    private fun applicationDiagnostics() = ManagerApplicationDiagnosticsDto(
+        hasLocalRegistration = true,
+        regSecCount = 2,
+        latestRegistrationEventResult = 0,
+        registeredType = 1,
+        inferenceReason = "local_registration",
     )
 
     private class RemoteBinder(private val delegate: IBinder) : IBinder by delegate {

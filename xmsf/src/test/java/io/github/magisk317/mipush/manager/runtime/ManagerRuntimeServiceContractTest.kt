@@ -4,10 +4,12 @@ import android.app.Application
 import android.content.ComponentName
 import android.content.Intent
 import io.github.magisk317.mipush.manager.api.IManagerRuntimeService
+import io.github.magisk317.mipush.manager.api.ManagerApplicationQueryDto
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -44,10 +46,34 @@ class ManagerRuntimeServiceContractTest {
         assertEquals(packageInfo.versionName.orEmpty(), compatible.runtimeVersionName)
         assertEquals(packageInfo.longVersionCode, compatible.runtimeVersionCode)
         assertTrue(ManagerProtocol.CAPABILITY_CONNECTION_SNAPSHOT in compatible.supportedCapabilities)
+        assertTrue(ManagerProtocol.CAPABILITY_APPLICATION_LIST in compatible.supportedCapabilities)
+        assertTrue(ManagerProtocol.CAPABILITY_APPLICATION_DETAIL in compatible.supportedCapabilities)
+        assertTrue(ManagerProtocol.CAPABILITY_APPLICATION_DIAGNOSTICS in compatible.supportedCapabilities)
 
         val incompatible = remote.handshake(ManagerProtocol.MAJOR + 1, ManagerProtocol.MINOR)
         assertEquals("protocol_major_mismatch", incompatible.compatibilityReason)
         assertTrue(incompatible.supportedCapabilities.isEmpty())
+
+        controller.destroy()
+    }
+
+    @Test
+    fun `application endpoints reject invalid requests before runtime reads`() {
+        val controller = Robolectric.buildService(ManagerRuntimeService::class.java).create()
+        val service = controller.get()
+        val component = ComponentName(service, ManagerRuntimeService::class.java)
+        val binder = service.onBind(Intent(ManagerProtocol.SERVICE_ACTION).setComponent(component))
+        val remote = IManagerRuntimeService.Stub.asInterface(binder)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            remote.getApplicationPage(ManagerApplicationQueryDto(pageSize = 0))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            remote.getApplicationDetail("not-a-package", true)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            remote.getApplicationDiagnostics("valid.package", 99)
+        }
 
         controller.destroy()
     }

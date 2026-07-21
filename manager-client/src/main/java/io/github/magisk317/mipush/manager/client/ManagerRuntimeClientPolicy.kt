@@ -18,7 +18,8 @@ internal object ManagerRuntimeClientPolicy {
         return if (validationReason != null || !compatibility.isCompatible) {
             ManagerRuntimeAvailability.Incompatible(
                 handshake = handshake,
-                reason = validationReason ?: handshake.compatibilityReason ?: compatibility.reason ?: "protocol_incompatible",
+                // Do not surface arbitrary text supplied by an incompatible runtime.
+                reason = validationReason ?: compatibility.reason ?: "protocol_incompatible",
             )
         } else {
             ManagerRuntimeAvailability.Available(

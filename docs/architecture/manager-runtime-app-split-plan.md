@@ -35,11 +35,26 @@ The Phase 1 transport implementation now exists without changing application pac
 - `:mipush` owns a process-scoped transport probe that exercises the real manager package identity
   while keeping unavailable and unsupported runtime states non-blocking.
 
+The Phase 2 application read slice now exists behind the same transport:
+
+- `:manager-api` raises the protocol minor, adds the `application_list`, `application_detail`, and
+  `application_diagnostics` capabilities, and defines size-framed, primitive-only DTOs for the
+  application query, page, summary, detail, stats, and diagnostics surfaces with keyset pagination;
+- XMSF adds a read-only application reader that projects installed packages and stored registration
+  rows without persisting a reconciliation result, and maps them to the wire DTOs behind the Binder
+  service;
+- `:manager-client` exposes typed application page, detail, and diagnostics calls, treats a legitimate
+  not-found detail as a successful null result, and keeps a missing capability or malformed response
+  local to that call;
+- the manager UI keeps its in-process gateway as the primary path and compares the Binder result
+  asynchronously, reporting only field names without leaking snapshot values.
+
 The manager UI still uses the existing in-process gateways as its primary path. Gradle unit tests,
-detekt, and the bundled app compilation cover the local Phase 1 contract. Cross-package device and
-ROM evidence remains pending under the current no-device-test policy, so the all-in-one path remains
-the shipped baseline. The next implementation cut is Phase 2 application read paths; each screen
-stays on its existing gateway until its Binder result has comparison evidence.
+detekt, and the bundled app compilation cover the local Phase 1 and Phase 2 contracts. Cross-package
+device and ROM evidence remains pending under the current no-device-test policy, so the all-in-one
+path remains the shipped baseline. The next implementation cut is the remaining Phase 2 read paths
+(events, configuration catalog, notification-channel summaries, and log export); each screen stays on
+its existing gateway until its Binder result has comparison evidence.
 
 ## Prior Art And Rejected Paths
 

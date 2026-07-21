@@ -8,7 +8,11 @@ import io.github.magisk317.mipush.common.manager.ManagerApplication
 import io.github.magisk317.mipush.common.manager.ManagerApplicationDiagnostics
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
 import io.github.magisk317.mipush.manager.SettingsManager
+import io.github.magisk317.mipush.manager.application.ApplicationDetailComparison
+import io.github.magisk317.mipush.manager.application.ApplicationDiagnosticsComparison
+import io.github.magisk317.mipush.manager.application.ComparingApplicationDetailSource
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -60,6 +64,7 @@ internal object ApplicationInfoStatePolicy {
 
 class ApplicationInfoViewModel constructor(
     private val applicationGateway: ManagerApplicationGateway,
+    private val applicationSource: ComparingApplicationDetailSource,
     private val settingsManager: SettingsManager,
     private val context: Context,
 ) : ViewModel() {
@@ -76,11 +81,28 @@ class ApplicationInfoViewModel constructor(
     private val _diagnostics = MutableStateFlow<ManagerApplicationDiagnostics?>(null)
     val diagnostics: StateFlow<ManagerApplicationDiagnostics?> = _diagnostics.asStateFlow()
 
-    fun setApplicationInfo(info: ManagerApplication) {
+    private val _detailComparison = MutableStateFlow<ApplicationDetailComparison>(
+        ApplicationDetailComparison.NotStarted,
+    )
+    val detailComparison: StateFlow<ApplicationDetailComparison> = _detailComparison.asStateFlow()
+
+    private val _diagnosticsComparison = MutableStateFlow<ApplicationDiagnosticsComparison>(
+        ApplicationDiagnosticsComparison.NotStarted,
+    )
+    val diagnosticsComparison: StateFlow<ApplicationDiagnosticsComparison> = _diagnosticsComparison.asStateFlow()
+
+    private var detailComparisonJob: Job? = null
+    private var diagnosticsComparisonJob: Job? = null
+
+    fun setApplicationInfo(
+        info: ManagerApplication,
+        ignoreNotRegistered: Boolean = false,
+    ) {
         _applicationInfo.value = info
         refreshZygiskConfigurable(info)
         loadZygiskState(info.packageName, blocked = info.blocked)
         loadDiagnostics(info.packageName, info.registeredType)
+        scheduleDetailComparison(info, ignoreNotRegistered)
     }
 
     private fun refreshZygiskConfigurable(info: ManagerApplication) {
@@ -118,9 +140,10 @@ class ApplicationInfoViewModel constructor(
     private fun loadDiagnostics(packageName: String, registeredType: Int) {
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) {
-                applicationGateway.getDiagnostics(packageName, registeredType)
+                applicationSource.loadPrimaryDiagnostics(packageName, registeredType)
             }
             _diagnostics.value = result
+            scheduleDiagnosticsComparison(packageName, registeredType, result)
         }
     }
 
@@ -165,6 +188,49 @@ class ApplicationInfoViewModel constructor(
                 packageName = packageName,
                 registeredType = registeredType,
             )
+        }
+    }
+
+    override fun onCleared() {
+        detailComparisonJob?.cancel()
+        diagnosticsComparisonJob?.cancel()
+        detailComparisonJob = null
+        diagnosticsComparisonJob = null
+        super.onCleared()
+    }
+
+    private fun scheduleDetailComparison(
+        primary: ManagerApplication,
+        ignoreNotRegistered: Boolean,
+    ) {
+        detailComparisonJob?.cancel()
+        _detailComparison.value = ApplicationDetailComparison.Comparing
+        detailComparisonJob = viewModelScope.launch {
+            _detailComparison.value = withContext(Dispatchers.IO) {
+                applicationSource.compareRemote(
+                    packageName = primary.packageName,
+                    ignoreNotRegistered = ignoreNotRegistered,
+                    primary = primary,
+                )
+            }
+        }
+    }
+
+    private fun scheduleDiagnosticsComparison(
+        packageName: String,
+        registeredType: Int,
+        primary: ManagerApplicationDiagnostics,
+    ) {
+        diagnosticsComparisonJob?.cancel()
+        _diagnosticsComparison.value = ApplicationDiagnosticsComparison.Comparing
+        diagnosticsComparisonJob = viewModelScope.launch {
+            _diagnosticsComparison.value = withContext(Dispatchers.IO) {
+                applicationSource.compareRemoteDiagnostics(
+                    packageName = packageName,
+                    registeredType = registeredType,
+                    primary = primary,
+                )
+            }
         }
     }
 }

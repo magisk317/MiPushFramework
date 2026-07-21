@@ -76,9 +76,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.magisk317.mipush.common.manager.ManagerApplication
 import io.github.magisk317.mipush.common.manager.ManagerApplicationDiagnostics
-import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
 import io.github.magisk317.mipush.common.manager.ManagerNotificationGateway
 import io.github.magisk317.mipush.main.viewmodel.ApplicationInfoViewModel
+import io.github.magisk317.mipush.manager.application.ComparingApplicationDetailSource
 import io.github.magisk317.mipush.manager.R
 import kotlinx.coroutines.launch
 import io.github.magisk317.mipush.common.utils.Utils
@@ -107,7 +107,7 @@ open class ApplicationInfoPage : ComponentActivity() {
         const val EXTRA_IGNORE_NOT_REGISTERED: String = "EXTRA_IGNORE_NOT_REGISTERED"
     }
 
-    private val applicationGateway: ManagerApplicationGateway by inject()
+    private val applicationSource: ComparingApplicationDetailSource by inject()
     private val notificationGateway: ManagerNotificationGateway by inject()
     private val infoViewModel: ApplicationInfoViewModel by viewModel()
 
@@ -128,7 +128,10 @@ open class ApplicationInfoPage : ComponentActivity() {
             return
         }
         init(app)
-        infoViewModel.setApplicationInfo(app)
+        infoViewModel.setApplicationInfo(
+            info = app,
+            ignoreNotRegistered = intent.getBooleanExtra(EXTRA_IGNORE_NOT_REGISTERED, false),
+        )
         appConfigurationUtils = AppConfigurationUtils(this, app, notificationGateway)
         setContent {
             Theme {
@@ -140,8 +143,7 @@ open class ApplicationInfoPage : ComponentActivity() {
     private fun getRegisteredApplication(): ManagerApplication? {
         if (!intent.hasExtra(EXTRA_PACKAGE_NAME)) return null
         val pkg = intent.getStringExtra(EXTRA_PACKAGE_NAME) ?: return null
-        return applicationGateway.getApplication(
-            context = this,
+        return applicationSource.loadPrimary(
             packageName = pkg,
             ignoreNotRegistered = intent.getBooleanExtra(EXTRA_IGNORE_NOT_REGISTERED, false),
         )

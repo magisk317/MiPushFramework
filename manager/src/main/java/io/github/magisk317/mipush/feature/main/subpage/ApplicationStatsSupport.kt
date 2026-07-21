@@ -1,9 +1,8 @@
 package io.github.magisk317.mipush.feature.main.subpage
 
-import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
+import io.github.magisk317.mipush.manager.application.ComparingApplicationListSource
 import io.github.magisk317.mipush.feature.main.RegistrationStateStyle
 
 data class ApplicationStats(
@@ -27,11 +26,9 @@ fun ApplicationPageOperation.MiPushApplications.toApplicationStats(): Applicatio
 }
 
 suspend fun loadApplicationStats(
-    context: Context,
-    applicationGateway: ManagerApplicationGateway,
+    applicationSource: ComparingApplicationListSource,
 ): ApplicationStats = withContext(Dispatchers.IO) {
-    val operation = ApplicationPageOperation(applicationGateway)
+    val operation = ApplicationPageOperation(applicationSource)
     val applications = operation.getMiPushApplicationsThatQueryMatched(query = "", filterMode = 0)
-    operation.updateRegisteredApplicationDb(context, applications.res)
     applications.toApplicationStats()
 }

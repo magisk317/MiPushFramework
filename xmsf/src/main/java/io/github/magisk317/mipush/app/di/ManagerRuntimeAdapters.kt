@@ -4,15 +4,11 @@ import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageInfo
-import android.content.pm.PackageManager
-import android.content.pm.ServiceInfo
 import android.net.Uri
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.app.MiPushFrameworkApp
 import io.github.magisk317.mipush.common.Constants
-import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import io.github.magisk317.mipush.common.fakedevice.ZygiskConfig
 import io.github.magisk317.mipush.common.manager.ManagerApplication
 import io.github.magisk317.mipush.common.manager.ManagerApplicationDiagnostics
@@ -46,7 +42,6 @@ import io.github.magisk317.mipush.compat.RegistrationStateStore
 import io.github.magisk317.mipush.notification.NotificationChannelManager
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.platform.support.Global
-import io.github.magisk317.mipush.platform.support.MiPushManifestChecker
 import io.github.magisk317.mipush.platform.support.PermissionUtils
 import io.github.magisk317.mipush.platform.support.ShellUtils
 import io.github.magisk317.mipush.runtime.PushRuntime
@@ -58,6 +53,12 @@ import io.github.magisk317.mipush.runtime.store.entities.Event
 import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
 import io.github.magisk317.mipush.runtime.store.event.type.NotificationType
 import io.github.magisk317.mipush.runtime.store.event.type.TypeFactory
+import io.github.magisk317.mipush.manager.runtime.read.AndroidManagerApplicationReadSource
+import io.github.magisk317.mipush.manager.runtime.read.InstalledApplicationSnapshot
+import io.github.magisk317.mipush.manager.runtime.read.ManagerApplicationReadPolicy
+import io.github.magisk317.mipush.manager.runtime.read.RegistrationEventSnapshot
+import io.github.magisk317.mipush.manager.runtime.read.toManagerApplication
+import io.github.magisk317.mipush.manager.runtime.read.toStoredApplicationSnapshot
 import io.github.magisk317.mipush.service.runtime.RuntimeSettingsAdapter
 import io.github.magisk317.mipush.utils.RegSecUtils
 import io.github.magisk317.mipush.utils.LogBundleExporter
@@ -482,38 +483,41 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
             .filter { includeSystemApps || Utils.isUserApplication(it.packageName) }
             .associateBy { it.packageName }
             .toMutableMap()
-        val packageInfos = loadPackagesOnDevice(context)
-            .filter { isListCandidate(it, includeSystemApps) }
-            .toMutableList()
-        val total = packageInfos.size
-        val lastReceiveTimes = runBlocking { EventDb.getAllLastReceiveTimesAsync() }
-        val checker = createManifestChecker(context)
-        val displayApplications = packageInfos
-            .asSequence()
-            .filter { shouldShowInList(it, checker, includeSystemApps) }
-            .map { info ->
-                val app = registered[info.packageName] ?: RegisteredApplicationDb.registerApplication(info.packageName)
-                app.existServices = hasMiPushServices(checker, info)
+        val readSource = AndroidManagerApplicationReadSource(context)
+        val catalog = readSource.readInstalledApplications(includeSystemApps)
+        val lastReceiveTimes = readSource.readLastReceiveTimes(
+            catalog.applications.map(InstalledApplicationSnapshot::packageName),
+        )
+        val displayApplications = catalog.applications
+            .map { installed ->
+                val app = registered[installed.packageName] ?: RegisteredApplicationDb.registerApplication(installed.packageName)
+                app.existServices = installed.hasMiPushServices
                 app.appName = app.appName.takeIf { it.isNotBlank() }
-                    ?: Global.applicationNameCache().getAppName(context, app.packageName).toString()
+                    ?: installed.appName
                 app.appNamePinYin = app.appName.lowercase(Locale.ROOT)
-                app.lastReceiveTime = Date(maxOf(lastReceiveTimes[app.packageName] ?: 0L, Utils.getLastReceiveTime(app.packageName) ?: 0L))
+                app.lastReceiveTime = Date(lastReceiveTimes[app.packageName] ?: 0L)
                 app
             }
-            .toList()
         reconcileLocalRegistrationState(displayApplications)
         val apps = displayApplications
             .asSequence()
-            .map { it.toManagerApplication() }
-            .filter { isQueryMatched(it, query) }
-            .filter { matchesFilter(it, filterMode) }
-            .sortedWith(::compareForDisplay)
+            .map { it.toManagerApplication(deriveAppNamePinYin = true) }
+            .filter { ManagerApplicationReadPolicy.matchesQuery(it, query) }
+            .filter { ManagerApplicationReadPolicy.matchesFilter(it, filterMode) }
+            .sortedWith(ManagerApplicationReadPolicy.comparator)
             .toList()
-        Napier.d("manager app list loaded total=$total shown=${apps.size} ms=${timer.elapsed()}", tag = "XmsfManagerApplicationGateway")
+        Napier.d(
+            "manager app list loaded total=${catalog.totalCandidatePackages} shown=${apps.size} ms=${timer.elapsed()}",
+            tag = "XmsfManagerApplicationGateway",
+        )
         return ManagerApplications(
-            registeredPkgs = registered.mapValues { it.value.toManagerApplication() },
+            registeredPkgs = registered.mapValues {
+                it.value.toManagerApplication(
+                    deriveAppNamePinYin = it.value.appNamePinYin.isNotEmpty(),
+                )
+            },
             items = apps,
-            totalPkg = total,
+            totalPkg = catalog.totalCandidatePackages,
         )
     }
 
@@ -586,9 +590,11 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
             regSecCount = regSecCount,
             latestRegistrationEventResult = latestRegistrationEvent?.result,
             registeredType = registeredType,
-            inferenceReason = inferReason(
+            inferenceReason = ManagerApplicationReadPolicy.inferReason(
                 registeredType = registeredType,
-                latestEvent = latestRegistrationEvent,
+                latestEvent = latestRegistrationEvent?.let {
+                    RegistrationEventSnapshot(type = it.type, result = it.result)
+                },
                 hasLocalRegistration = hasLocalRegistration,
                 hasRegSec = regSecCount > 0,
             ),
@@ -647,112 +653,10 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
     }
 
     private fun refreshTransientState(context: Context, application: RegisteredApplication) {
-        application.lastReceiveTime = Date(Utils.getLastReceiveTime(application.packageName) ?: 0L)
-        val packageInfo = runCatching {
-            PackageManagerCompatBridge.getPackageInfo(
-                context.packageManager,
-                application.packageName,
-                PackageManager.GET_SERVICES or PackageManager.GET_RECEIVERS,
-            )
-        }.getOrNull()
-        application.existServices = packageInfo?.let { hasMiPushServices(createManifestChecker(context), it) } ?: false
-    }
-
-    private fun loadPackagesOnDevice(context: Context): MutableList<PackageInfo> {
-        val packageManager = context.packageManager
-        val flags = PackageManager.MATCH_DISABLED_COMPONENTS or PackageManager.GET_SERVICES or PackageManager.GET_RECEIVERS
-        return try {
-            PackageManagerCompatBridge.getInstalledPackages(packageManager, 0).map { info ->
-                runCatching { PackageManagerCompatBridge.getPackageInfo(packageManager, info.packageName, flags) }.getOrElse { info }
-            }.toMutableList()
-        } catch (error: RuntimeException) {
-            Napier.e("Failed to load installed packages", error, tag = "XmsfManagerApplicationGateway")
-            mutableListOf()
-        }
-    }
-
-    private fun shouldShowInList(
-        info: PackageInfo,
-        checker: MiPushManifestChecker?,
-        includeSystemApps: Boolean,
-    ): Boolean = isListCandidate(info, includeSystemApps) && hasMiPushServices(checker, info)
-
-    private fun isListCandidate(info: PackageInfo, includeSystemApps: Boolean): Boolean {
-        val appInfo = info.applicationInfo ?: return false
-        if ((appInfo.flags and android.content.pm.ApplicationInfo.FLAG_INSTALLED) == 0) {
-            return false
-        }
-        return includeSystemApps || Utils.isUserApplication(appInfo)
-    }
-
-    private fun isUserApplication(info: PackageInfo): Boolean = isListCandidate(info, includeSystemApps = false)
-
-    private fun hasMiPushServices(checker: MiPushManifestChecker?, info: PackageInfo): Boolean {
-        val serviceNames = info.services?.mapNotNull(ServiceInfo::name)?.toSet().orEmpty()
-        val receiverNames = info.receivers?.mapNotNull { it.name }?.toSet().orEmpty()
-        val plan = RegistrationHelper.classifyForceRegisterPlan(
-            packageName = info.packageName,
-            serviceNames = serviceNames,
-            receiverNames = receiverNames,
-        )
-        if (plan.serviceCandidates.isEmpty() && plan.receiverCandidates.isEmpty() && plan.bridgeCandidates.isEmpty()) {
-            return false
-        }
-        if (plan.serviceCandidates.isNotEmpty()) {
-            checker?.checkServices(info)
-        }
-        return true
-    }
-
-    private fun createManifestChecker(context: Context): MiPushManifestChecker? =
-        runCatching { MiPushManifestChecker.create(context) }.getOrNull()
-
-    private fun isQueryMatched(info: ManagerApplication, query: String): Boolean {
-        if (query.isBlank()) return true
-        val q = query.lowercase()
-        return info.packageName.lowercase().contains(q) ||
-            info.appName.lowercase().contains(q) ||
-            info.appNamePinYin.lowercase().contains(q)
-    }
-
-    private fun matchesFilter(info: ManagerApplication, filterMode: Int): Boolean =
-        when (filterMode) {
-            1 -> info.registeredType == ManagerApplication.RegisteredType.REGISTERED
-            2 -> info.registeredType == ManagerApplication.RegisteredType.NOT_REGISTERED && info.lastReceiveTimeMs == 0L
-            3 -> info.registeredType == ManagerApplication.RegisteredType.UNREGISTERED && info.lastReceiveTimeMs == 0L
-            else -> true
-        }
-
-    private fun compareForDisplay(o1: ManagerApplication, o2: ManagerApplication): Int {
-        fun priority(app: ManagerApplication): Int = when {
-            app.registeredType == ManagerApplication.RegisteredType.REGISTERED -> 0
-            app.lastReceiveTimeMs > 0L -> 1
-            app.registeredType == ManagerApplication.RegisteredType.UNREGISTERED -> 2
-            else -> 3
-        }
-        val p = priority(o1) - priority(o2)
-        if (p != 0) return p
-        val t = o2.lastReceiveTimeMs.compareTo(o1.lastReceiveTimeMs)
-        if (t != 0) return t
-        return o1.appNamePinYin.compareTo(o2.appNamePinYin)
-    }
-
-    private fun inferReason(
-        registeredType: Int,
-        latestEvent: Event?,
-        hasLocalRegistration: Boolean,
-        hasRegSec: Boolean,
-    ): String {
-        if (registeredType == ManagerApplication.RegisteredType.REGISTERED) return "registered"
-        if (latestEvent == null && !hasLocalRegistration && !hasRegSec) return "never_attempted"
-        if (latestEvent?.type == Event.Type.UnRegistration) return "unregistered_after_attempt"
-        if (latestEvent?.type == Event.Type.RegistrationResult && latestEvent.result != ManagerEventResult.OK) {
-            return "registration_result_failed"
-        }
-        if (latestEvent?.type == Event.Type.Registration) return "registering_or_waiting_result"
-        if (hasLocalRegistration && registeredType != ManagerApplication.RegisteredType.REGISTERED) return "local_state_stale"
-        if (hasRegSec && !hasLocalRegistration) return "has_secret_but_no_local_reg"
-        return "unknown"
+        val readSource = AndroidManagerApplicationReadSource(context)
+        application.lastReceiveTime = Date(readSource.readLastReceiveTime(application.packageName))
+        application.existServices = readSource.readInstalledApplication(application.packageName)
+            ?.hasMiPushServices == true
     }
 }
 
@@ -805,24 +709,19 @@ class XmsfManagerRuntimeActions(
     }
 }
 
-private fun RegisteredApplication.toManagerApplication(): ManagerApplication =
-    ManagerApplication(
-        id = id,
-        packageName = packageName,
-        type = type,
-        notificationOnRegister = notificationOnRegister,
-        blocked = blocked,
-        islandEnabled = islandEnabled,
-        islandFocusNotification = islandFocusNotification,
-        registeredType = when (registeredType) {
-            RegisteredApplication.RegisteredType.Registered -> ManagerApplication.RegisteredType.REGISTERED
-            RegisteredApplication.RegisteredType.Unregistered -> ManagerApplication.RegisteredType.UNREGISTERED
-            else -> ManagerApplication.RegisteredType.NOT_REGISTERED
-        },
-        existServices = existServices,
-        appName = appName,
-        appNamePinYin = appNamePinYin,
+private fun RegisteredApplication.toManagerApplication(
+    deriveAppNamePinYin: Boolean = false,
+): ManagerApplication =
+    toStoredApplicationSnapshot().toManagerApplication(
+        installed = InstalledApplicationSnapshot(
+            packageName = packageName,
+            appName = appName,
+            hasMiPushServices = existServices,
+        ),
         lastReceiveTimeMs = lastReceiveTime.time,
+        locallyRegistered = false,
+        fallbackToInstalledName = false,
+        deriveAppNamePinYin = deriveAppNamePinYin,
     )
 
 private fun ManagerApplication.toRegisteredApplication(): RegisteredApplication =

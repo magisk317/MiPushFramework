@@ -5,9 +5,12 @@ import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.common.fakedevice.ZygiskConfig
 import io.github.magisk317.mipush.common.fakedevice.ZygiskPackagePolicy
 import io.github.magisk317.mipush.common.manager.ManagerApplication
-import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
 import io.github.magisk317.mipush.manager.SettingsManager
+import io.github.magisk317.mipush.manager.application.ApplicationListComparison
+import io.github.magisk317.mipush.manager.application.ApplicationListRequest
+import io.github.magisk317.mipush.manager.application.ComparingApplicationListSource
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -23,22 +26,28 @@ data class ZygiskConfigState(
 
 class ZygiskConfigViewModel(
     private val settingsManager: SettingsManager,
-    private val applicationGateway: ManagerApplicationGateway,
-    private val context: android.content.Context
+    private val applicationSource: ComparingApplicationListSource,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ZygiskConfigState())
     val state: StateFlow<ZygiskConfigState> = _state
+
+    private val _applicationComparison = MutableStateFlow<ApplicationListComparison>(
+        ApplicationListComparison.NotStarted,
+    )
+    val applicationComparison: StateFlow<ApplicationListComparison> = _applicationComparison
+    private var comparisonJob: Job? = null
 
     fun load() {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true)
             
             val isZygiskEnabled = settingsManager.isZygiskModuleEnabled()
-            
-            val allApps = withContext(Dispatchers.IO) {
-                applicationGateway.loadApplications(context).items
+
+            val applications = withContext(Dispatchers.IO) {
+                applicationSource.loadPrimary(ApplicationListRequest())
             }
+            val allApps = applications.applications.items
             val blockedPackages = allApps.asSequence()
                 .filter { it.blocked }
                 .map { it.packageName }
@@ -57,6 +66,16 @@ class ZygiskConfigViewModel(
                 spoofPackages = zygiskConfig.enabledPackages() - blockedPackages,
                 installedApps = appsList
             )
+            comparisonJob?.cancel()
+            _applicationComparison.value = ApplicationListComparison.Comparing
+            comparisonJob = viewModelScope.launch {
+                _applicationComparison.value = withContext(Dispatchers.IO) {
+                    applicationSource.compareRemote(
+                        request = ApplicationListRequest(),
+                        primary = applications,
+                    )
+                }
+            }
         }
     }
 
@@ -81,5 +100,11 @@ class ZygiskConfigViewModel(
                 onError()
             }
         }
+    }
+
+    override fun onCleared() {
+        comparisonJob?.cancel()
+        comparisonJob = null
+        super.onCleared()
     }
 }

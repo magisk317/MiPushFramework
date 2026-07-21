@@ -20,6 +20,12 @@ import io.github.magisk317.mipush.main.viewmodel.RequestPermissionViewModel
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.main.viewmodel.ZygiskConfigViewModel
 import io.github.magisk317.mipush.manager.SettingsManager
+import io.github.magisk317.mipush.manager.application.ComparingApplicationDetailSource
+import io.github.magisk317.mipush.manager.application.ComparingApplicationListSource
+import io.github.magisk317.mipush.manager.application.InProcessApplicationDetailSource
+import io.github.magisk317.mipush.manager.application.InProcessApplicationListSource
+import io.github.magisk317.mipush.manager.application.RemoteApplicationDetailSource
+import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.connection.ComparingConnectionSnapshotSource
 import io.github.magisk317.mipush.manager.connection.InProcessConnectionSnapshotSource
@@ -55,16 +61,46 @@ val managerKoinModule = module {
             remoteSource = get<RemoteConnectionSnapshotSource>(),
         )
     }
+    single { InProcessApplicationListSource(androidContext(), get<ManagerApplicationGateway>()) }
+    single { RemoteApplicationListSource(get<ManagerRuntimeClient>()) }
+    single {
+        ComparingApplicationListSource(
+            inProcessSource = get<InProcessApplicationListSource>(),
+            remoteSource = get<RemoteApplicationListSource>(),
+        )
+    }
+    single { InProcessApplicationDetailSource(androidContext(), get<ManagerApplicationGateway>()) }
+    single { RemoteApplicationDetailSource(get<ManagerRuntimeClient>()) }
+    single {
+        ComparingApplicationDetailSource(
+            inProcessSource = get<InProcessApplicationDetailSource>(),
+            remoteSource = get<RemoteApplicationDetailSource>(),
+        )
+    }
 
     viewModel { SettingsViewModel(get<PreferenceRepository>(), get<SettingsManager>(), get<ManagerPermissionGateway>()) }
     viewModel { EventListViewModel(get<ManagerEventGateway>(), get<SettingsManager>(), get<PreferenceRepository>(), androidContext()) }
-    viewModel { ZygiskConfigViewModel(get(), get(), androidContext()) }
+    viewModel { ZygiskConfigViewModel(get<SettingsManager>(), get<ComparingApplicationListSource>()) }
     viewModel { ConfigManagerViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidContext()) }
     viewModel { ConfigEditorViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidContext()) }
-    viewModel { ApplicationInfoViewModel(get<ManagerApplicationGateway>(), get<SettingsManager>(), androidContext()) }
-    viewModel { OverviewViewModel(get<ManagerApplicationGateway>(), androidContext()) }
+    viewModel {
+        ApplicationInfoViewModel(
+            get<ManagerApplicationGateway>(),
+            get<ComparingApplicationDetailSource>(),
+            get<SettingsManager>(),
+            androidContext(),
+        )
+    }
+    viewModel { OverviewViewModel(get<ComparingApplicationListSource>()) }
     viewModel { ConnectionStatusViewModel(get<ComparingConnectionSnapshotSource>()) }
-    viewModel { ApplicationListViewModel(get<ManagerApplicationGateway>(), get<SettingsManager>(), get<PreferenceRepository>(), androidContext()) }
+    viewModel {
+        ApplicationListViewModel(
+            get<ComparingApplicationListSource>(),
+            get<SettingsManager>(),
+            get<PreferenceRepository>(),
+            androidContext(),
+        )
+    }
     viewModel { RequestPermissionViewModel(get<ManagerPermissionGateway>(), get<PreferenceRepository>(), androidContext()) }
 }
 

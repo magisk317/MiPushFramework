@@ -3,36 +3,37 @@ package io.github.magisk317.mipush.main.viewmodel
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import io.github.magisk317.mipush.common.manager.ManagerApplication
-import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
-import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.feature.main.RegistrationStateStyle
 import io.github.magisk317.mipush.feature.main.subpage.AppInfoForDisplay
-import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.feature.main.subpage.ApplicationPageOperation
 import io.github.magisk317.mipush.feature.main.subpage.ApplicationStats
 import io.github.magisk317.mipush.feature.main.subpage.friendlyDateString
 import io.github.magisk317.mipush.feature.main.subpage.toApplicationStats
 import io.github.magisk317.mipush.manager.R
+import io.github.magisk317.mipush.manager.SettingsManager
+import io.github.magisk317.mipush.manager.application.ApplicationListComparison
+import io.github.magisk317.mipush.manager.application.ComparingApplicationListSource
+import java.util.Date
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.util.Date
 import kotlinx.coroutines.withContext
 
 class ApplicationListViewModel constructor(
-    private val applicationGateway: ManagerApplicationGateway,
+    applicationSource: ComparingApplicationListSource,
     private val settingsManager: SettingsManager,
     private val preferenceRepository: PreferenceRepository,
     private val context: Context,
 ) : ViewModel() {
 
-    val applicationPageOperation = ApplicationPageOperation(applicationGateway)
+    val applicationPageOperation = ApplicationPageOperation(applicationSource)
 
     private val _items = MutableStateFlow(ApplicationPageOperation.MiPushApplications())
     val items: StateFlow<ApplicationPageOperation.MiPushApplications> = _items.asStateFlow()
@@ -43,6 +44,11 @@ class ApplicationListViewModel constructor(
     private val _stats = MutableStateFlow(ApplicationStats())
     val stats: StateFlow<ApplicationStats> = _stats.asStateFlow()
 
+    private val _comparison = MutableStateFlow<ApplicationListComparison>(
+        ApplicationListComparison.NotStarted,
+    )
+    val comparison: StateFlow<ApplicationListComparison> = _comparison.asStateFlow()
+
     val showSystemApps: StateFlow<Boolean> = preferenceRepository.showSystemApps
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
@@ -52,6 +58,7 @@ class ApplicationListViewModel constructor(
     private var lastFilterMode: Int = 0
     @Volatile
     private var listLoaded: Boolean = false
+    private var comparisonJob: Job? = null
 
     /** True when [items] matches the given query/filter and was loaded this process. */
     fun hasCachedList(query: String, filterMode: Int): Boolean {
@@ -87,15 +94,15 @@ class ApplicationListViewModel constructor(
                         includeSystemApps = includeSystemApps,
                     )
                 }
-                withContext(Dispatchers.IO) {
-                    applicationPageOperation.updateRegisteredApplicationDb(context, applications.res)
-                }
                 updateInfos(applications)
                 _items.value = applications
                 _stats.value = applications.toApplicationStats()
                 listLoaded = true
+                scheduleRemoteComparison(query, filterMode, includeSystemApps, applications)
                 onRefreshed?.invoke()
-            } catch (_: Throwable) {
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
                 onRefreshed?.invoke()
             }
         }
@@ -115,13 +122,13 @@ class ApplicationListViewModel constructor(
                         includeSystemApps = includeSystemApps,
                     )
                 }
-                withContext(Dispatchers.IO) {
-                    applicationPageOperation.updateRegisteredApplicationDb(context, applications.res)
-                }
                 updateInfos(applications)
                 _items.value = applications
                 _stats.value = applications.toApplicationStats()
-            } catch (_: Throwable) {
+                scheduleRemoteComparison(query, filterMode, includeSystemApps, applications)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
             }
         }
     }
@@ -144,5 +151,31 @@ class ApplicationListViewModel constructor(
             )
         }
         _itemsInfo.value = infoMap
+    }
+
+    override fun onCleared() {
+        comparisonJob?.cancel()
+        comparisonJob = null
+        super.onCleared()
+    }
+
+    private fun scheduleRemoteComparison(
+        query: String,
+        filterMode: Int,
+        includeSystemApps: Boolean,
+        primary: ApplicationPageOperation.MiPushApplications,
+    ) {
+        comparisonJob?.cancel()
+        _comparison.value = ApplicationListComparison.Comparing
+        comparisonJob = viewModelScope.launch {
+            _comparison.value = withContext(Dispatchers.IO) {
+                applicationPageOperation.compareRemote(
+                    query = query,
+                    filterMode = filterMode,
+                    includeSystemApps = includeSystemApps,
+                    primary = primary,
+                )
+            }
+        }
     }
 }

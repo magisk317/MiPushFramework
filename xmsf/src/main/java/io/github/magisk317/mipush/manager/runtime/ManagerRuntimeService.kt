@@ -10,14 +10,33 @@ import android.os.Process
 import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.manager.api.IManagerRuntimeService
+import io.github.magisk317.mipush.manager.api.ManagerApplicationDetailDto
+import io.github.magisk317.mipush.manager.api.ManagerApplicationDiagnosticsDto
+import io.github.magisk317.mipush.manager.api.ManagerApplicationPageDto
+import io.github.magisk317.mipush.manager.api.ManagerApplicationQueryDto
+import io.github.magisk317.mipush.manager.api.ManagerApplicationStatsDto
+import io.github.magisk317.mipush.manager.api.ManagerApplicationSummaryDto
 import io.github.magisk317.mipush.manager.api.ManagerConnectionSnapshotDto
 import io.github.magisk317.mipush.manager.api.ManagerHandshake
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
+import io.github.magisk317.mipush.manager.runtime.read.AndroidManagerApplicationReadSource
+import io.github.magisk317.mipush.manager.runtime.read.ManagerApplicationReadDiagnostics
+import io.github.magisk317.mipush.manager.runtime.read.ManagerApplicationReadPage
+import io.github.magisk317.mipush.manager.runtime.read.ManagerApplicationReadQuery
+import io.github.magisk317.mipush.manager.runtime.read.ManagerApplicationReadStats
+import io.github.magisk317.mipush.manager.runtime.read.ManagerApplicationRuntimeReader
 import io.github.magisk317.mipush.service.runtime.RuntimeSettingsAdapter
 
 class ManagerRuntimeService : Service() {
     private val runtimeSettingsAdapter: RuntimeSettingsAdapter by lazy {
         AppDependencies.get(this)
+    }
+    private val applicationReader by lazy {
+        ManagerApplicationRuntimeReader(
+            source = AndroidManagerApplicationReadSource(this),
+            maxPageSize = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
+            maxPayloadBytes = ManagerProtocol.DEFAULT_MAX_PAYLOAD_BYTES,
+        )
     }
 
     private val binder = object : IManagerRuntimeService.Stub() {
@@ -50,6 +69,50 @@ class ManagerRuntimeService : Service() {
             enforceTrustedCaller()
             return withRuntimeIdentity {
                 runtimeSettingsAdapter.getConnectionSnapshot().toWireDto()
+            }
+        }
+
+        override fun getApplicationPage(query: ManagerApplicationQueryDto): ManagerApplicationPageDto {
+            enforceTrustedCaller()
+            ManagerProtocol.validateApplicationQuery(
+                query = query,
+                negotiatedMaxPageSize = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
+            )?.let(::invalidArgument)
+            return withRuntimeIdentity {
+                applicationReader.readPage(query.toReadQuery()).toWireDto().also { page ->
+                    ManagerProtocol.validateApplicationPage(
+                        page = page,
+                        negotiatedMaxPageSize = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
+                    )?.let(::invalidArgument)
+                }
+            }
+        }
+
+        override fun getApplicationDetail(
+            packageName: String,
+            ignoreNotRegistered: Boolean,
+        ): ManagerApplicationDetailDto? {
+            enforceTrustedCaller()
+            requireValidPackageName(packageName)
+            return withRuntimeIdentity {
+                applicationReader.readDetail(packageName, ignoreNotRegistered)?.toDetailDto()?.also { detail ->
+                    ManagerProtocol.validateApplicationDetail(detail)?.let(::invalidArgument)
+                }
+            }
+        }
+
+        override fun getApplicationDiagnostics(
+            packageName: String,
+            registeredType: Int,
+        ): ManagerApplicationDiagnosticsDto {
+            enforceTrustedCaller()
+            requireValidPackageName(packageName)
+            ManagerProtocol.validateApplicationDiagnosticsRequest(packageName, registeredType)
+                ?.let(::invalidArgument)
+            return withRuntimeIdentity {
+                applicationReader.readDiagnostics(packageName, registeredType).toWireDto().also { diagnostics ->
+                    ManagerProtocol.validateApplicationDiagnostics(diagnostics)?.let(::invalidArgument)
+                }
             }
         }
     }
@@ -91,6 +154,17 @@ class ManagerRuntimeService : Service() {
         }
     }
 
+    private fun requireValidPackageName(packageName: String) {
+        if (
+            ManagerProtocol.validateApplicationPackageName(packageName) != null ||
+            packageName.any { !it.isLetterOrDigit() && it != '.' && it != '_' }
+        ) {
+            invalidArgument("invalid_application_package_name")
+        }
+    }
+
+    private fun invalidArgument(reason: String): Nothing = throw IllegalArgumentException(reason)
+
     private inline fun <T> withRuntimeIdentity(block: () -> T): T {
         val token = Binder.clearCallingIdentity()
         return try {
@@ -123,4 +197,71 @@ internal fun ManagerConnectionSnapshot.toWireDto(): ManagerConnectionSnapshotDto
         registeredPackageCount = registeredPackageCount,
         trackedChannelCount = trackedChannelCount,
         boundChannelCount = boundChannelCount,
+    )
+
+private fun ManagerApplicationQueryDto.toReadQuery(): ManagerApplicationReadQuery =
+    ManagerApplicationReadQuery(
+        schemaVersion = schemaVersion,
+        query = query,
+        filterMode = filterMode,
+        includeSystemApps = includeSystemApps,
+        pageSize = pageSize,
+        pageToken = pageToken,
+    )
+
+private fun ManagerApplicationReadPage.toWireDto(): ManagerApplicationPageDto =
+    ManagerApplicationPageDto(
+        items = items.map { it.toSummaryDto() },
+        stats = stats.toWireDto(),
+        nextPageToken = nextPageToken,
+    )
+
+private fun ManagerApplicationReadStats.toWireDto(): ManagerApplicationStatsDto =
+    ManagerApplicationStatsDto(
+        total = total,
+        usingMiPush = usingMiPush,
+        notUsingMiPush = notUsingMiPush,
+        registered = registered,
+        notRegistered = notRegistered,
+    )
+
+private fun io.github.magisk317.mipush.common.manager.ManagerApplication.toSummaryDto(): ManagerApplicationSummaryDto =
+    ManagerApplicationSummaryDto(
+        id = id,
+        packageName = packageName,
+        type = type,
+        notificationOnRegister = notificationOnRegister,
+        blocked = blocked,
+        islandEnabled = islandEnabled,
+        islandFocusNotification = islandFocusNotification,
+        registeredType = registeredType,
+        existServices = existServices,
+        appName = appName,
+        appNamePinYin = appNamePinYin,
+        lastReceiveTimeMs = lastReceiveTimeMs,
+    )
+
+private fun io.github.magisk317.mipush.common.manager.ManagerApplication.toDetailDto(): ManagerApplicationDetailDto =
+    ManagerApplicationDetailDto(
+        id = id,
+        packageName = packageName,
+        type = type,
+        notificationOnRegister = notificationOnRegister,
+        blocked = blocked,
+        islandEnabled = islandEnabled,
+        islandFocusNotification = islandFocusNotification,
+        registeredType = registeredType,
+        existServices = existServices,
+        appName = appName,
+        appNamePinYin = appNamePinYin,
+        lastReceiveTimeMs = lastReceiveTimeMs,
+    )
+
+private fun ManagerApplicationReadDiagnostics.toWireDto(): ManagerApplicationDiagnosticsDto =
+    ManagerApplicationDiagnosticsDto(
+        hasLocalRegistration = hasLocalRegistration,
+        regSecCount = regSecCount,
+        latestRegistrationEventResult = latestRegistrationEventResult,
+        registeredType = registeredType,
+        inferenceReason = inferenceReason,
     )

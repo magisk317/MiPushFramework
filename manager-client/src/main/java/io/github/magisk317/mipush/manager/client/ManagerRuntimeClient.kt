@@ -10,6 +10,10 @@ import android.os.DeadObjectException
 import android.os.IBinder
 import android.os.RemoteException
 import io.github.magisk317.mipush.manager.api.IManagerRuntimeService
+import io.github.magisk317.mipush.manager.api.ManagerApplicationDetailDto
+import io.github.magisk317.mipush.manager.api.ManagerApplicationDiagnosticsDto
+import io.github.magisk317.mipush.manager.api.ManagerApplicationPageDto
+import io.github.magisk317.mipush.manager.api.ManagerApplicationQueryDto
 import io.github.magisk317.mipush.manager.api.ManagerConnectionSnapshotDto
 import io.github.magisk317.mipush.manager.api.ManagerHandshake
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
@@ -24,10 +28,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withTimeoutOrNull
@@ -105,7 +111,7 @@ class ManagerRuntimeClient(
         val shouldUnbind: Boolean,
     )
 
-    private data class SnapshotTarget(
+    private data class RemoteTarget(
         val session: BindSession,
         val service: IManagerRuntimeService,
         val handshake: ManagerHandshake,
@@ -141,10 +147,10 @@ class ManagerRuntimeClient(
             )
         } catch (_: SecurityException) {
             BindResult.Failure(ManagerRuntimeAvailability.PermissionDenied)
-        } catch (error: IllegalStateException) {
-            BindResult.Failure(ManagerRuntimeAvailability.Failed(error.reason()))
-        } catch (error: RuntimeException) {
-            BindResult.Failure(ManagerRuntimeAvailability.Failed(error.reason()))
+        } catch (_: IllegalStateException) {
+            BindResult.Failure(ManagerRuntimeAvailability.Failed("bind_illegal_state"))
+        } catch (_: RuntimeException) {
+            BindResult.Failure(ManagerRuntimeAvailability.Failed("bind_failed"))
         }
 
         when (bindResult) {
@@ -163,53 +169,81 @@ class ManagerRuntimeClient(
         }
     }
 
-    @Suppress("TooGenericExceptionCaught")
     suspend fun getConnectionSnapshot(): ManagerRuntimeResult<ManagerConnectionSnapshotDto> {
-        val target = synchronized(lock) {
-            val state = _availability.value
-            val session = activeSession
-            val handshake = (state as? ManagerRuntimeAvailability.Available)?.handshake
-            if (session == null || handshake == null || session.service == null) {
-                null
-            } else {
-                SnapshotTarget(session, session.service!!, handshake)
-            }
+        return callCapability(
+            capability = ManagerProtocol.CAPABILITY_CONNECTION_SNAPSHOT,
+            validator = { snapshot, _ -> ManagerProtocol.validateConnectionSnapshot(snapshot) },
+        ) { it.connectionSnapshot }
+    }
+
+    suspend fun getApplicationPage(
+        query: ManagerApplicationQueryDto,
+    ): ManagerRuntimeResult<ManagerApplicationPageDto> {
+        return callCapability(
+            capability = ManagerProtocol.CAPABILITY_APPLICATION_LIST,
+            requestValidator = { handshake ->
+                ManagerProtocol.validateApplicationQuery(query, handshake.maxPageSize)
+            },
+            validator = { page, handshake ->
+                ManagerProtocol.validateApplicationPage(
+                    page = page,
+                    negotiatedMaxPageSize = handshake.maxPageSize,
+                    negotiatedMaxPayloadBytes = handshake.maxPayloadBytes,
+                )
+            },
+        ) { it.getApplicationPage(query) }
+    }
+
+    suspend fun getApplicationDetail(
+        packageName: String,
+        ignoreNotRegistered: Boolean = false,
+    ): ManagerRuntimeResult<ManagerApplicationDetailDto?> = callCapability(
+        capability = ManagerProtocol.CAPABILITY_APPLICATION_DETAIL,
+        requestValidator = { ManagerProtocol.validateApplicationPackageName(packageName) },
+        validator = { detail, _ -> detail?.let(ManagerProtocol::validateApplicationDetail) },
+    ) { it.getApplicationDetail(packageName, ignoreNotRegistered) }
+
+    suspend fun getApplicationDiagnostics(
+        packageName: String,
+        registeredType: Int,
+    ): ManagerRuntimeResult<ManagerApplicationDiagnosticsDto> = callCapability(
+        capability = ManagerProtocol.CAPABILITY_APPLICATION_DIAGNOSTICS,
+        requestValidator = {
+            ManagerProtocol.validateApplicationDiagnosticsRequest(packageName, registeredType)
+        },
+        validator = { diagnostics, _ -> ManagerProtocol.validateApplicationDiagnostics(diagnostics) },
+    ) { it.getApplicationDiagnostics(packageName, registeredType) }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun <T> callCapability(
+        capability: String,
+        requestValidator: (ManagerHandshake) -> String? = { null },
+        validator: (T, ManagerHandshake) -> String?,
+        block: (IManagerRuntimeService) -> T,
+    ): ManagerRuntimeResult<T> {
+        val target = currentRemoteTarget()
+            ?: return ManagerRuntimeResult.Unavailable(availability.value)
+        if (capability !in target.handshake.supportedCapabilities) {
+            return ManagerRuntimeResult.Unsupported(capability)
         }
-        if (target == null) {
-            return ManagerRuntimeResult.Unavailable(availability.value)
-        }
-        if (ManagerProtocol.CAPABILITY_CONNECTION_SNAPSHOT !in target.handshake.supportedCapabilities) {
-            return ManagerRuntimeResult.Unsupported(ManagerProtocol.CAPABILITY_CONNECTION_SNAPSHOT)
-        }
+        requestValidator(target.handshake)?.let { return ManagerRuntimeResult.Failed(it) }
 
         return try {
-            val snapshot = callRemote(target.session) { target.service.connectionSnapshot }
-            val validationReason = ManagerProtocol.validateConnectionSnapshot(snapshot)
+            val value = callRemote(target.session) { block(target.service) }
+            val validationReason = validator(value, target.handshake)
             if (validationReason != null) {
-                val current = releaseSession(
-                    target.session,
-                    ManagerRuntimeAvailability.Failed(validationReason),
-                )
-                return if (current) {
-                    ManagerRuntimeResult.Failed(validationReason)
-                } else {
-                    ManagerRuntimeResult.Unavailable(availability.value)
-                }
-            }
-            val stillCurrent = synchronized(lock) {
-                isCurrentLocked(target.session) && target.session.service === target.service
-            }
-            if (stillCurrent) {
-                ManagerRuntimeResult.Success(snapshot)
+                ManagerRuntimeResult.Failed(validationReason)
+            } else if (isCurrentTarget(target)) {
+                ManagerRuntimeResult.Success(value)
             } else {
                 ManagerRuntimeResult.Unavailable(availability.value)
             }
         } catch (_: SecurityException) {
             val current = releaseSession(target.session, ManagerRuntimeAvailability.PermissionDenied)
-            if (!current) {
-                ManagerRuntimeResult.Unavailable(availability.value)
-            } else {
+            if (current) {
                 ManagerRuntimeResult.Unavailable(ManagerRuntimeAvailability.PermissionDenied)
+            } else {
+                ManagerRuntimeResult.Unavailable(availability.value)
             }
         } catch (error: RemoteCallTimeoutException) {
             val timeoutState = ManagerRuntimeAvailability.TimedOut
@@ -223,22 +257,42 @@ class ManagerRuntimeClient(
             )
             if (current) scheduleReconnect()
             ManagerRuntimeResult.Unavailable(availability.value)
-        } catch (error: RemoteException) {
+        } catch (_: RemoteException) {
             val current = releaseSession(
                 target.session,
                 ManagerRuntimeAvailability.TemporarilyDisconnected(DisconnectReason.REMOTE_ERROR),
             )
             if (current) scheduleReconnect()
-            if (current) ManagerRuntimeResult.Failed(error.reason()) else ManagerRuntimeResult.Unavailable(availability.value)
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: RuntimeException) {
-            val current = releaseSession(
-                target.session,
-                ManagerRuntimeAvailability.Failed(error.reason()),
+            ManagerRuntimeResult.Unavailable(
+                if (current) {
+                    ManagerRuntimeAvailability.TemporarilyDisconnected(DisconnectReason.REMOTE_ERROR)
+                } else {
+                    availability.value
+                },
             )
-            if (current) ManagerRuntimeResult.Failed(error.reason()) else ManagerRuntimeResult.Unavailable(availability.value)
+        } catch (error: CancellationException) {
+            if (!currentCoroutineContext().isActive) throw error
+            ManagerRuntimeResult.Unavailable(availability.value)
+        } catch (_: RuntimeException) {
+            // A method-level malformed/unsupported response must not tear down unrelated features.
+            ManagerRuntimeResult.Failed("runtime_operation_failed")
         }
+    }
+
+    private fun currentRemoteTarget(): RemoteTarget? = synchronized(lock) {
+        val state = _availability.value
+        val session = activeSession
+        val handshake = (state as? ManagerRuntimeAvailability.Available)?.handshake
+        val service = session?.service
+        if (session == null || handshake == null || service == null) {
+            null
+        } else {
+            RemoteTarget(session, service, handshake)
+        }
+    }
+
+    private fun isCurrentTarget(target: RemoteTarget): Boolean = synchronized(lock) {
+        isCurrentLocked(target.session) && target.session.service === target.service
     }
 
     override fun close() {
@@ -375,8 +429,8 @@ class ManagerRuntimeClient(
                 ManagerRuntimeAvailability.TemporarilyDisconnected(DisconnectReason.REMOTE_ERROR),
             )
             if (current) scheduleReconnect()
-        } catch (error: RuntimeException) {
-            releaseSession(session, ManagerRuntimeAvailability.Failed(error.reason()))
+        } catch (_: RuntimeException) {
+            releaseSession(session, ManagerRuntimeAvailability.Failed("handshake_failed"))
         }
     }
 
@@ -507,9 +561,10 @@ class ManagerRuntimeClient(
             throw CancellationException("manager runtime client is no longer active")
         }
         return try {
-            withTimeoutOrNull(callTimeoutMillis) {
+            val completed = withTimeoutOrNull(callTimeoutMillis) {
                 RemoteCallValue(deferred.await())
-            }?.value ?: throw RemoteCallTimeoutException(permitsExhausted = false)
+            } ?: throw RemoteCallTimeoutException(permitsExhausted = false)
+            completed.value
         } finally {
             synchronized(lock) { session.remoteCalls -= deferred }
             deferred.cancel()
@@ -532,8 +587,6 @@ class ManagerRuntimeClient(
         data class Success(val accepted: Boolean) : BindResult
         data class Failure(val state: ManagerRuntimeAvailability) : BindResult
     }
-
-    private fun Throwable.reason(): String = message?.takeIf { it.isNotBlank() } ?: javaClass.simpleName
 
     private companion object {
         const val DEFAULT_CALL_TIMEOUT_MS = 3_000L

@@ -8,6 +8,12 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
 import io.github.magisk317.mipush.manager.api.IManagerRuntimeService
+import io.github.magisk317.mipush.manager.api.ManagerApplicationDetailDto
+import io.github.magisk317.mipush.manager.api.ManagerApplicationDiagnosticsDto
+import io.github.magisk317.mipush.manager.api.ManagerApplicationPageDto
+import io.github.magisk317.mipush.manager.api.ManagerApplicationQueryDto
+import io.github.magisk317.mipush.manager.api.ManagerApplicationStatsDto
+import io.github.magisk317.mipush.manager.api.ManagerApplicationSummaryDto
 import io.github.magisk317.mipush.manager.api.ManagerConnectionSnapshotDto
 import io.github.magisk317.mipush.manager.api.ManagerHandshake
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
@@ -15,6 +21,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Job
@@ -94,6 +101,141 @@ class ManagerRuntimeClientLifecycleTest {
     }
 
     @Test
+    fun `missing application capability skips only that operation`() = runBlocking {
+        val service = FakeRuntimeService()
+        val context = FakeServiceContext(service)
+        val client = client(context)
+
+        client.connect()
+        val applicationResult = client.getApplicationPage(ManagerApplicationQueryDto())
+        val snapshotResult = client.getConnectionSnapshot()
+
+        assertEquals(
+            ManagerRuntimeResult.Unsupported(ManagerProtocol.CAPABILITY_APPLICATION_LIST),
+            applicationResult,
+        )
+        assertTrue(snapshotResult is ManagerRuntimeResult.Success)
+        assertEquals(0, service.applicationPageCount)
+        assertEquals(1, service.snapshotCount)
+        assertTrue(client.availability.value is ManagerRuntimeAvailability.Available)
+        client.close()
+    }
+
+    @Test
+    fun `invalid application request does not invoke the runtime or release the session`() = runBlocking {
+        val service = FakeRuntimeService(
+            capabilities = listOf(ManagerProtocol.CAPABILITY_APPLICATION_LIST),
+        )
+        val context = FakeServiceContext(service)
+        val client = client(context)
+
+        client.connect()
+        val result = client.getApplicationPage(
+            ManagerApplicationQueryDto(pageSize = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE + 1),
+        )
+
+        assertEquals(ManagerRuntimeResult.Failed("invalid_application_page_size"), result)
+        assertEquals(0, service.applicationPageCount)
+        assertTrue(client.availability.value is ManagerRuntimeAvailability.Available)
+        client.close()
+    }
+
+    @Test
+    fun `nullable application detail is a successful not found result`() = runBlocking {
+        val service = FakeRuntimeService(
+            capabilities = listOf(ManagerProtocol.CAPABILITY_APPLICATION_DETAIL),
+        )
+        val context = FakeServiceContext(service)
+        val client = client(context)
+
+        client.connect()
+        val result = client.getApplicationDetail("example.missing")
+
+        assertEquals(ManagerRuntimeResult.Success(null), result)
+        assertEquals(1, service.applicationDetailCount)
+        assertTrue(client.availability.value is ManagerRuntimeAvailability.Available)
+        client.close()
+    }
+
+    @Test
+    fun `missing diagnostics capability does not disable application detail`() = runBlocking {
+        val service = FakeRuntimeService(
+            capabilities = listOf(ManagerProtocol.CAPABILITY_APPLICATION_DETAIL),
+        )
+        val context = FakeServiceContext(service)
+        val client = client(context)
+
+        client.connect()
+        val diagnostics = client.getApplicationDiagnostics("example.missing", registeredType = 0)
+        val detail = client.getApplicationDetail("example.missing")
+
+        assertEquals(
+            ManagerRuntimeResult.Unsupported(ManagerProtocol.CAPABILITY_APPLICATION_DIAGNOSTICS),
+            diagnostics,
+        )
+        assertEquals(ManagerRuntimeResult.Success(null), detail)
+        assertEquals(0, service.applicationDiagnosticsCount)
+        assertEquals(1, service.applicationDetailCount)
+        assertTrue(client.availability.value is ManagerRuntimeAvailability.Available)
+        client.close()
+    }
+
+    @Test
+    fun `invalid capability response does not release unrelated operations`() = runBlocking {
+        val service = FakeRuntimeService(
+            capabilities = listOf(
+                ManagerProtocol.CAPABILITY_APPLICATION_LIST,
+                ManagerProtocol.CAPABILITY_CONNECTION_SNAPSHOT,
+            ),
+            applicationPageResult = ManagerApplicationPageDto(
+                items = listOf(ManagerApplicationSummaryDto(packageName = "example.app")),
+                stats = ManagerApplicationStatsDto(
+                    total = 1,
+                    usingMiPush = 1,
+                    notUsingMiPush = 0,
+                    registered = 0,
+                    notRegistered = 0,
+                ),
+            ),
+        )
+        val context = FakeServiceContext(service)
+        val client = client(context)
+
+        client.connect()
+        val page = client.getApplicationPage(ManagerApplicationQueryDto())
+        val snapshot = client.getConnectionSnapshot()
+
+        assertEquals(ManagerRuntimeResult.Failed("inconsistent_application_stats_registration"), page)
+        assertTrue(snapshot is ManagerRuntimeResult.Success)
+        assertEquals(0, context.unbindCount)
+        assertTrue(client.availability.value is ManagerRuntimeAvailability.Available)
+        client.close()
+    }
+
+    @Test
+    fun `runtime operation errors are sanitized and remain feature local`() = runBlocking {
+        val service = FakeRuntimeService(
+            capabilities = listOf(
+                ManagerProtocol.CAPABILITY_APPLICATION_DETAIL,
+                ManagerProtocol.CAPABILITY_CONNECTION_SNAPSHOT,
+            ),
+            applicationDetailFailure = IllegalArgumentException("private runtime path"),
+        )
+        val context = FakeServiceContext(service)
+        val client = client(context)
+
+        client.connect()
+        val detail = client.getApplicationDetail("example.app")
+        val snapshot = client.getConnectionSnapshot()
+
+        assertEquals(ManagerRuntimeResult.Failed("runtime_operation_failed"), detail)
+        assertTrue(snapshot is ManagerRuntimeResult.Success)
+        assertEquals(0, context.unbindCount)
+        assertTrue(client.availability.value is ManagerRuntimeAvailability.Available)
+        client.close()
+    }
+
+    @Test
     fun `callback arriving after close cannot restore the session`() {
         val service = FakeRuntimeService()
         val context = FakeServiceContext(service, autoConnect = false)
@@ -159,7 +301,10 @@ class ManagerRuntimeClientLifecycleTest {
             releaseFirst.countDown()
             assertTrue(firstCompleted.await(1, TimeUnit.SECONDS))
             assertEquals("new", available.handshake.runtimeVersionName)
-            assertEquals("new", (client.availability.value as ManagerRuntimeAvailability.Available).handshake.runtimeVersionName)
+            assertEquals(
+                "new",
+                (client.availability.value as ManagerRuntimeAvailability.Available).handshake.runtimeVersionName,
+            )
         } finally {
             releaseFirst.countDown()
             client.close()
@@ -249,6 +394,50 @@ class ManagerRuntimeClientLifecycleTest {
             assertTrue(callerCancelled is kotlinx.coroutines.TimeoutCancellationException)
             assertTrue(client.availability.value is ManagerRuntimeAvailability.Available)
             assertEquals(0, context.unbindCount)
+        } finally {
+            releaseSnapshot.countDown()
+            client.close()
+            dispatcher.close()
+        }
+    }
+
+    @Test
+    fun `session release converts internal call cancellation to unavailable`() = runBlocking {
+        val snapshotStarted = CountDownLatch(1)
+        val releaseSnapshot = CountDownLatch(1)
+        val service = FakeRuntimeService(
+            snapshotStarted = snapshotStarted,
+            snapshotRelease = releaseSnapshot,
+        )
+        val context = FakeServiceContext(service)
+        val dispatcher = Executors.newFixedThreadPool(2).asCoroutineDispatcher()
+        val client = client(
+            context = context,
+            ioDispatcher = dispatcher,
+            callTimeoutMillis = 10_000L,
+            reconnectDelayProvider = { 10_000L },
+        )
+
+        try {
+            client.connect()
+            withTimeout(1_000L) {
+                client.availability.first { it is ManagerRuntimeAvailability.Available }
+            }
+            val result = async(dispatcher) { client.getConnectionSnapshot() }
+            assertTrue(snapshotStarted.await(1, TimeUnit.SECONDS))
+
+            context.dispatchBindingDied()
+            // The runtime transact is simulated as blocking and cannot be interrupted by
+            // cancellation; unblock it so the released session converts the stale response
+            // to a typed unavailable result instead of racing the assertion timeout.
+            releaseSnapshot.countDown()
+
+            assertEquals(
+                ManagerRuntimeResult.Unavailable(
+                    ManagerRuntimeAvailability.TemporarilyDisconnected(DisconnectReason.BINDING_DIED),
+                ),
+                withTimeout(1_000L) { result.await() },
+            )
         } finally {
             releaseSnapshot.countDown()
             client.close()
@@ -558,10 +747,20 @@ class ManagerRuntimeClientLifecycleTest {
         private val handshakeFailure: RuntimeException? = null,
         private val snapshotStarted: CountDownLatch? = null,
         private val snapshotRelease: CountDownLatch? = null,
+        private val applicationPageResult: ManagerApplicationPageDto = ManagerApplicationPageDto(
+            stats = ManagerApplicationStatsDto(),
+        ),
+        private val applicationDetailFailure: RuntimeException? = null,
     ) : IManagerRuntimeService.Stub() {
         var handshakeCount = 0
             private set
         var snapshotCount = 0
+            private set
+        var applicationPageCount = 0
+            private set
+        var applicationDetailCount = 0
+            private set
+        var applicationDiagnosticsCount = 0
             private set
 
         override fun handshake(clientMajor: Int, clientMinor: Int): ManagerHandshake {
@@ -608,6 +807,28 @@ class ManagerRuntimeClientLifecycleTest {
                 trackedChannelCount = 0,
                 boundChannelCount = 0,
             )
+        }
+
+        override fun getApplicationPage(query: ManagerApplicationQueryDto): ManagerApplicationPageDto {
+            applicationPageCount += 1
+            return applicationPageResult
+        }
+
+        override fun getApplicationDetail(
+            packageName: String,
+            ignoreNotRegistered: Boolean,
+        ): ManagerApplicationDetailDto? {
+            applicationDetailCount += 1
+            applicationDetailFailure?.let { throw it }
+            return null
+        }
+
+        override fun getApplicationDiagnostics(
+            packageName: String,
+            registeredType: Int,
+        ): ManagerApplicationDiagnosticsDto {
+            applicationDiagnosticsCount += 1
+            return ManagerApplicationDiagnosticsDto(registeredType = registeredType)
         }
 
         override fun asBinder(): IBinder = this
