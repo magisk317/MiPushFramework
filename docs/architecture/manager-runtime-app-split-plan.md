@@ -21,7 +21,7 @@ runtime behavior.
 
 ## Implementation Status
 
-The Phase 1 transport foundation now exists without changing application packaging:
+The Phase 1 transport implementation now exists without changing application packaging:
 
 - `:manager-api` owns the versioned AIDL handshake, capability identifiers, and size-framed wire
   DTOs;
@@ -29,10 +29,17 @@ The Phase 1 transport foundation now exists without changing application packagi
   verification;
 - `:manager-client` models missing, incompatible, denied, timed-out, and transiently disconnected
   states, and reconnects through a fresh handshake after Binder death;
-- the connection snapshot has a complete wire mapping, including keepalive and ping intervals.
+- the connection snapshot has a complete wire mapping, including keepalive and ping intervals;
+- the XMSF-packaged manager publishes the existing in-process snapshot first and compares the
+  Binder result asynchronously without exposing snapshot values in mismatch diagnostics;
+- `:mipush` owns a process-scoped transport probe that exercises the real manager package identity
+  while keeping unavailable and unsupported runtime states non-blocking.
 
-The manager UI still uses the existing in-process gateways. The next cut is a comparison adapter
-that reads both paths and proves equivalent snapshots before any screen switches to Binder data.
+The manager UI still uses the existing in-process gateways as its primary path. Gradle unit tests,
+detekt, and the bundled app compilation cover the local Phase 1 contract. Cross-package device and
+ROM evidence remains pending under the current no-device-test policy, so the all-in-one path remains
+the shipped baseline. The next implementation cut is Phase 2 application read paths; each screen
+stays on its existing gateway until its Binder result has comparison evidence.
 
 ## Prior Art And Rejected Paths
 

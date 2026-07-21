@@ -3,7 +3,9 @@ package io.github.magisk317.mipush.main.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
-import io.github.magisk317.mipush.manager.SettingsManager
+import io.github.magisk317.mipush.manager.connection.ComparingConnectionSnapshotSource
+import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotComparison
+import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSourceResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -15,7 +17,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class ConnectionStatusViewModel constructor(
-    private val settingsManager: SettingsManager,
+    private val snapshotSource: ComparingConnectionSnapshotSource,
 ) : ViewModel() {
 
     private companion object {
@@ -32,17 +34,22 @@ class ConnectionStatusViewModel constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+    private val _comparison = MutableStateFlow<ConnectionSnapshotComparison>(
+        ConnectionSnapshotComparison.NotStarted,
+    )
+    val comparison: StateFlow<ConnectionSnapshotComparison> = _comparison.asStateFlow()
+
     private var autoRefreshJob: Job? = null
+    private var comparisonJob: Job? = null
 
     fun refresh() {
         viewModelScope.launch {
             _isRefreshing.value = true
-            val result = withContext(Dispatchers.IO) {
-                runCatching { settingsManager.getConnectionSnapshot() }.getOrNull()
+            try {
+                refreshPrimarySnapshot()
+            } finally {
+                _isRefreshing.value = false
             }
-            _snapshot.value = result
-            _tick.value += 1
-            _isRefreshing.value = false
         }
     }
 
@@ -50,11 +57,7 @@ class ConnectionStatusViewModel constructor(
         stopAutoRefresh()
         autoRefreshJob = viewModelScope.launch {
             while (isActive) {
-                val result = withContext(Dispatchers.IO) {
-                    runCatching { settingsManager.getConnectionSnapshot() }.getOrNull()
-                }
-                _snapshot.value = result
-                _tick.value += 1
+                refreshPrimarySnapshot()
                 delay(AUTO_REFRESH_INTERVAL_MILLIS)
             }
         }
@@ -68,5 +71,34 @@ class ConnectionStatusViewModel constructor(
     override fun onCleared() {
         super.onCleared()
         stopAutoRefresh()
+        comparisonJob?.cancel()
+        comparisonJob = null
+    }
+
+    private suspend fun refreshPrimarySnapshot() {
+        when (val result = withContext(Dispatchers.IO) { snapshotSource.loadPrimary() }) {
+            is ConnectionSnapshotSourceResult.Available -> {
+                _snapshot.value = result.snapshot
+                scheduleRemoteComparison(result.snapshot)
+            }
+
+            is ConnectionSnapshotSourceResult.Unavailable -> {
+                comparisonJob?.cancel()
+                comparisonJob = null
+                _snapshot.value = null
+                _comparison.value = ConnectionSnapshotComparison.Skipped(result.status)
+            }
+        }
+        _tick.value += 1
+    }
+
+    private fun scheduleRemoteComparison(primary: ManagerConnectionSnapshot) {
+        comparisonJob?.cancel()
+        _comparison.value = ConnectionSnapshotComparison.Comparing
+        comparisonJob = viewModelScope.launch {
+            _comparison.value = withContext(Dispatchers.IO) {
+                snapshotSource.compareRemote(primary)
+            }
+        }
     }
 }

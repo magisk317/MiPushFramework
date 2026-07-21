@@ -41,7 +41,9 @@ android {
 
 dependencies {
     implementation(project(":common"))
+    implementation(project(":manager-client"))
     implementation(project(":xposed"))
+    implementation(libs.kotlinx.coroutines.android)
 
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)

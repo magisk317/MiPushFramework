@@ -20,6 +20,13 @@ import io.github.magisk317.mipush.main.viewmodel.RequestPermissionViewModel
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.main.viewmodel.ZygiskConfigViewModel
 import io.github.magisk317.mipush.manager.SettingsManager
+import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
+import io.github.magisk317.mipush.manager.connection.ComparingConnectionSnapshotSource
+import io.github.magisk317.mipush.manager.connection.InProcessConnectionSnapshotSource
+import io.github.magisk317.mipush.manager.connection.RemoteConnectionSnapshotSource
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.loadKoinModules
@@ -34,6 +41,20 @@ val managerKoinModule = module {
             get<io.github.magisk317.mipush.common.manager.ZygiskConfigGateway>(),
         )
     }
+    single {
+        ManagerRuntimeClient(
+            context = androidContext(),
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+        ).apply { connect() }
+    }
+    single { InProcessConnectionSnapshotSource(get<SettingsManager>()) }
+    single { RemoteConnectionSnapshotSource(get<ManagerRuntimeClient>()) }
+    single {
+        ComparingConnectionSnapshotSource(
+            inProcessSource = get<InProcessConnectionSnapshotSource>(),
+            remoteSource = get<RemoteConnectionSnapshotSource>(),
+        )
+    }
 
     viewModel { SettingsViewModel(get<PreferenceRepository>(), get<SettingsManager>(), get<ManagerPermissionGateway>()) }
     viewModel { EventListViewModel(get<ManagerEventGateway>(), get<SettingsManager>(), get<PreferenceRepository>(), androidContext()) }
@@ -42,7 +63,7 @@ val managerKoinModule = module {
     viewModel { ConfigEditorViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidContext()) }
     viewModel { ApplicationInfoViewModel(get<ManagerApplicationGateway>(), get<SettingsManager>(), androidContext()) }
     viewModel { OverviewViewModel(get<ManagerApplicationGateway>(), androidContext()) }
-    viewModel { ConnectionStatusViewModel(get<SettingsManager>()) }
+    viewModel { ConnectionStatusViewModel(get<ComparingConnectionSnapshotSource>()) }
     viewModel { ApplicationListViewModel(get<ManagerApplicationGateway>(), get<SettingsManager>(), get<PreferenceRepository>(), androidContext()) }
     viewModel { RequestPermissionViewModel(get<ManagerPermissionGateway>(), get<PreferenceRepository>(), androidContext()) }
 }
