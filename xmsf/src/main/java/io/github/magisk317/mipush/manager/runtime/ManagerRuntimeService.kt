@@ -25,6 +25,24 @@ import io.github.magisk317.mipush.manager.runtime.read.ManagerApplicationReadPag
 import io.github.magisk317.mipush.manager.runtime.read.ManagerApplicationReadQuery
 import io.github.magisk317.mipush.manager.runtime.read.ManagerApplicationReadStats
 import io.github.magisk317.mipush.manager.runtime.read.ManagerApplicationRuntimeReader
+import io.github.magisk317.mipush.manager.api.ManagerConfigurationCatalogDto
+import io.github.magisk317.mipush.manager.api.ManagerEventPageDto
+import io.github.magisk317.mipush.manager.api.ManagerEventQueryDto
+import io.github.magisk317.mipush.manager.api.ManagerEventSummaryDto
+import io.github.magisk317.mipush.manager.api.ManagerLogExportResultDto
+import io.github.magisk317.mipush.manager.api.ManagerNotificationChannelGroupSummaryDto
+import io.github.magisk317.mipush.manager.api.ManagerNotificationChannelPageDto
+import io.github.magisk317.mipush.manager.api.ManagerNotificationChannelQueryDto
+import io.github.magisk317.mipush.manager.api.ManagerNotificationChannelSummaryDto
+import io.github.magisk317.mipush.manager.runtime.read.ManagerConfigurationCatalogRuntimeReader
+import io.github.magisk317.mipush.manager.runtime.read.ManagerEventReadPage
+import io.github.magisk317.mipush.manager.runtime.read.ManagerEventReadQuery
+import io.github.magisk317.mipush.manager.runtime.read.ManagerEventReadSummary
+import io.github.magisk317.mipush.manager.runtime.read.ManagerEventRuntimeReader
+import io.github.magisk317.mipush.manager.runtime.read.ManagerLogExportRuntimeReader
+import io.github.magisk317.mipush.manager.runtime.read.ManagerNotificationChannelReadPage
+import io.github.magisk317.mipush.manager.runtime.read.ManagerNotificationChannelReadQuery
+import io.github.magisk317.mipush.manager.runtime.read.ManagerNotificationChannelRuntimeReader
 import io.github.magisk317.mipush.service.runtime.RuntimeSettingsAdapter
 
 class ManagerRuntimeService : Service() {
@@ -38,6 +56,10 @@ class ManagerRuntimeService : Service() {
             maxPayloadBytes = ManagerProtocol.DEFAULT_MAX_PAYLOAD_BYTES,
         )
     }
+    private val eventReader by lazy { ManagerEventRuntimeReader(this) }
+    private val notificationChannelReader by lazy { ManagerNotificationChannelRuntimeReader() }
+    private val configurationCatalogReader by lazy { ManagerConfigurationCatalogRuntimeReader(this) }
+    private val logExportReader by lazy { ManagerLogExportRuntimeReader(this) }
 
     private val binder = object : IManagerRuntimeService.Stub() {
         override fun handshake(clientMajor: Int, clientMinor: Int): ManagerHandshake {
@@ -112,6 +134,58 @@ class ManagerRuntimeService : Service() {
             return withRuntimeIdentity {
                 applicationReader.readDiagnostics(packageName, registeredType).toWireDto().also { diagnostics ->
                     ManagerProtocol.validateApplicationDiagnostics(diagnostics)?.let(::invalidArgument)
+                }
+            }
+        }
+
+        override fun getEventPage(query: ManagerEventQueryDto): ManagerEventPageDto {
+            enforceTrustedCaller()
+            ManagerProtocol.validateEventQuery(
+                query = query,
+                negotiatedMaxPageSize = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
+            )?.let(::invalidArgument)
+            return withRuntimeIdentity {
+                eventReader.readPage(query.toReadQuery()).toWireDto().also { page ->
+                    ManagerProtocol.validateEventPage(
+                        page = page,
+                        negotiatedMaxPageSize = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
+                    )?.let(::invalidArgument)
+                }
+            }
+        }
+
+        override fun getNotificationChannelPage(
+            query: ManagerNotificationChannelQueryDto,
+        ): ManagerNotificationChannelPageDto {
+            enforceTrustedCaller()
+            ManagerProtocol.validateNotificationChannelQuery(
+                query = query,
+                negotiatedMaxPageSize = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
+            )?.let(::invalidArgument)
+            return withRuntimeIdentity {
+                notificationChannelReader.readPage(query.toReadQuery()).toWireDto().also { page ->
+                    ManagerProtocol.validateNotificationChannelPage(
+                        page = page,
+                        negotiatedMaxPageSize = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
+                    )?.let(::invalidArgument)
+                }
+            }
+        }
+
+        override fun getConfigurationCatalog(): ManagerConfigurationCatalogDto {
+            enforceTrustedCaller()
+            return withRuntimeIdentity {
+                configurationCatalogReader.readCatalog().also { catalog ->
+                    ManagerProtocol.validateConfigurationCatalog(catalog)?.let(::invalidArgument)
+                }
+            }
+        }
+
+        override fun exportRuntimeLogs(): ManagerLogExportResultDto {
+            enforceTrustedCaller()
+            return withRuntimeIdentity {
+                logExportReader.export().also { result ->
+                    ManagerProtocol.validateLogExportResult(result)?.let(::invalidArgument)
                 }
             }
         }
@@ -264,4 +338,66 @@ private fun ManagerApplicationReadDiagnostics.toWireDto(): ManagerApplicationDia
         latestRegistrationEventResult = latestRegistrationEventResult,
         registeredType = registeredType,
         inferenceReason = inferenceReason,
+    )
+
+
+private fun ManagerEventQueryDto.toReadQuery(): ManagerEventReadQuery =
+    ManagerEventReadQuery(
+        schemaVersion = schemaVersion,
+        lastId = lastId,
+        pageSize = pageSize,
+        packageName = packageName,
+        query = query,
+    )
+
+private fun ManagerEventReadPage.toWireDto(): ManagerEventPageDto =
+    ManagerEventPageDto(items = items.map { it.toWireDto() })
+
+private fun ManagerEventReadSummary.toWireDto(): ManagerEventSummaryDto =
+    ManagerEventSummaryDto(
+        id = id,
+        packageName = packageName,
+        configOptions = configOptions,
+        channel = channel,
+        receiveDateMs = receiveDateMs,
+        title = title,
+        content = content,
+        appName = appName,
+        type = type,
+        result = result,
+        info = info,
+        payload = payload,
+        regSec = regSec,
+    )
+
+private fun ManagerNotificationChannelQueryDto.toReadQuery(): ManagerNotificationChannelReadQuery =
+    ManagerNotificationChannelReadQuery(
+        packageName = packageName,
+        pageSize = pageSize,
+        pageToken = pageToken,
+    )
+
+private fun ManagerNotificationChannelReadPage.toWireDto(): ManagerNotificationChannelPageDto =
+    ManagerNotificationChannelPageDto(
+        packageName = packageName,
+        isHooked = isHooked,
+        items = items.map {
+            ManagerNotificationChannelSummaryDto(
+                id = it.id,
+                name = it.name,
+                importance = it.importance,
+                groupId = it.groupId,
+                description = it.description,
+                enabled = it.enabled,
+                managedByMiPush = it.managedByMiPush,
+            )
+        },
+        groups = groups.map {
+            ManagerNotificationChannelGroupSummaryDto(
+                id = it.id,
+                name = it.name,
+                managedByMiPush = it.managedByMiPush,
+            )
+        },
+        nextPageToken = nextPageToken,
     )

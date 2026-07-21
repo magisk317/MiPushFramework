@@ -49,12 +49,26 @@ The Phase 2 application read slice now exists behind the same transport:
 - the manager UI keeps its in-process gateway as the primary path and compares the Binder result
   asynchronously, reporting only field names without leaking snapshot values.
 
+The remaining Phase 2 read surfaces now also exist behind the same transport (protocol minor 2):
+
+- events: `event_list` with keyset pagination by descending id, display-projected summaries, and
+  optional payload/regSec for comparison fidelity only;
+- notification channels: `notification_channels` with pure DTO channel/group summaries, package-scoped
+  keyset pagination, and full group metadata for section rebuilds;
+- configuration catalog: `configuration_catalog` returns remote catalog metadata only; local SAF trees
+  and document content remain manager-owned;
+- log export: `log_export` returns a typed result with an optional read-only `ParcelFileDescriptor`;
+  comparison probes close remote descriptors immediately so FDs are not retained.
+
+Each of these screens still uses its existing in-process gateway as the primary path and compares the
+Binder result asynchronously. Missing, unsupported, timed-out, or malformed remote responses stay local
+to that capability and do not block other manager pages.
+
 The manager UI still uses the existing in-process gateways as its primary path. Gradle unit tests,
 detekt, and the bundled app compilation cover the local Phase 1 and Phase 2 contracts. Cross-package
 device and ROM evidence remains pending under the current no-device-test policy, so the all-in-one
-path remains the shipped baseline. The next implementation cut is the remaining Phase 2 read paths
-(events, configuration catalog, notification-channel summaries, and log export); each screen stays on
-its existing gateway until its Binder result has comparison evidence.
+path remains the shipped baseline. The next implementation cut is Phase 3 preference/configuration
+ownership, then write-path request IDs, then packaging migration of manager hosting into `:mipush`.
 
 ## Prior Art And Rejected Paths
 
@@ -285,6 +299,10 @@ Exit criteria:
 
 Move application list/details, events, configuration catalog, notification-channel summaries, and
 log export behind the client. Add pagination and file-descriptor tests before moving large data.
+
+Status: protocol, runtime readers, client methods, and comparison sources are implemented for all
+listed surfaces. The manager still uses in-process gateways as the primary path. Device/ROM evidence
+and the eventual cut-over away from direct gateway access remain open.
 
 Exit criteria:
 

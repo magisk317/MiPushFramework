@@ -48,6 +48,25 @@ internal fun Parcel.writeWireNullableInt(value: Int?) {
     value?.let { writeInt(it) }
 }
 
+internal fun Parcel.writeWireNullableParcelable(value: Parcelable?, flags: Int) {
+    if (value == null) {
+        writeInt(0)
+    } else {
+        writeInt(1)
+        value.writeToParcel(this, flags)
+    }
+}
+
+internal fun Parcel.writeWireByteArray(value: ByteArray?) {
+    if (value == null) {
+        writeInt(-1)
+        return
+    }
+    writeInt(value.size)
+    writeByteArray(value)
+}
+
+
 internal class WireParcelReader(
     private val source: Parcel,
     private val end: Int,
@@ -143,10 +162,38 @@ internal class WireParcelReader(
         }
     }
 
+
+    fun readByteArray(
+        maxLength: Int = ManagerProtocol.MAX_EVENT_PAYLOAD_BYTES,
+    ): ByteArray? {
+        if (!hasRemaining(Integer.BYTES)) return null
+        val size = source.readInt()
+        if (size < 0) return null
+        if (size > maxLength) {
+            throw BadParcelableException("Manager wire byte array exceeds limit: $size")
+        }
+        if (!hasRemaining(size)) {
+            throw BadParcelableException("Manager wire byte array is truncated")
+        }
+        val value = ByteArray(size)
+        source.readByteArray(value)
+        enforceFrameBoundary()
+        return value
+    }
+
     fun <T> readParcelable(creator: Parcelable.Creator<T>, defaultValue: T): T =
         if (!hasRemaining(Integer.BYTES)) defaultValue else creator.createFromParcel(source).also {
             enforceFrameBoundary()
         }
+
+    fun <T : Parcelable> readNullableParcelable(creator: Parcelable.Creator<T>): T? {
+        if (!hasRemaining(Integer.BYTES)) return null
+        return when (val present = source.readInt()) {
+            0 -> null
+            1 -> creator.createFromParcel(source).also { enforceFrameBoundary() }
+            else -> throw BadParcelableException("Invalid manager wire nullable parcelable marker: $present")
+        }
+    }
 
     private fun enforceFrameBoundary() {
         if (source.dataPosition() > end) {

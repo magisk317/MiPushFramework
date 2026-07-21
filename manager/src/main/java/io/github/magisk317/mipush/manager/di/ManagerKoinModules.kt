@@ -26,6 +26,17 @@ import io.github.magisk317.mipush.manager.application.InProcessApplicationDetail
 import io.github.magisk317.mipush.manager.application.InProcessApplicationListSource
 import io.github.magisk317.mipush.manager.application.RemoteApplicationDetailSource
 import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
+import io.github.magisk317.mipush.manager.configuration.ComparingConfigurationCatalogSource
+import io.github.magisk317.mipush.manager.configuration.RemoteConfigurationCatalogSource
+import io.github.magisk317.mipush.manager.events.ComparingEventListSource
+import io.github.magisk317.mipush.manager.events.InProcessEventListSource
+import io.github.magisk317.mipush.manager.events.RemoteEventListSource
+import io.github.magisk317.mipush.manager.logs.ComparingLogExportSource
+import io.github.magisk317.mipush.manager.logs.InProcessLogExportSource
+import io.github.magisk317.mipush.manager.logs.RemoteLogExportSource
+import io.github.magisk317.mipush.manager.notification.ComparingNotificationChannelSource
+import io.github.magisk317.mipush.manager.notification.InProcessNotificationChannelSource
+import io.github.magisk317.mipush.manager.notification.RemoteNotificationChannelSource
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.connection.ComparingConnectionSnapshotSource
 import io.github.magisk317.mipush.manager.connection.InProcessConnectionSnapshotSource
@@ -71,6 +82,18 @@ val managerKoinModule = module {
     }
     single { InProcessApplicationDetailSource(androidContext(), get<ManagerApplicationGateway>()) }
     single { RemoteApplicationDetailSource(get<ManagerRuntimeClient>()) }
+
+    single { InProcessEventListSource(get()) }
+    single { RemoteEventListSource(get<ManagerRuntimeClient>()) }
+    single { ComparingEventListSource(get(), get()) }
+    single { InProcessNotificationChannelSource(get()) }
+    single { RemoteNotificationChannelSource(get<ManagerRuntimeClient>()) }
+    single { ComparingNotificationChannelSource(get(), get()) }
+    single { RemoteConfigurationCatalogSource(get<ManagerRuntimeClient>()) }
+    single { ComparingConfigurationCatalogSource(get()) }
+    single { InProcessLogExportSource(get()) }
+    single { RemoteLogExportSource(get<ManagerRuntimeClient>()) }
+    single { ComparingLogExportSource(get(), get()) }
     single {
         ComparingApplicationDetailSource(
             inProcessSource = get<InProcessApplicationDetailSource>(),
@@ -78,19 +101,12 @@ val managerKoinModule = module {
         )
     }
 
-    viewModel { SettingsViewModel(get<PreferenceRepository>(), get<SettingsManager>(), get<ManagerPermissionGateway>()) }
-    viewModel { EventListViewModel(get<ManagerEventGateway>(), get<SettingsManager>(), get<PreferenceRepository>(), androidContext()) }
+    viewModel { SettingsViewModel(get<PreferenceRepository>(), get<SettingsManager>(), get<ManagerPermissionGateway>(), get()) }
+    viewModel { EventListViewModel(get<ComparingEventListSource>(), get<ManagerEventGateway>(), get<SettingsManager>(), get<PreferenceRepository>(), androidContext()) }
     viewModel { ZygiskConfigViewModel(get<SettingsManager>(), get<ComparingApplicationListSource>()) }
-    viewModel { ConfigManagerViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidContext()) }
+    viewModel { ConfigManagerViewModel(get(), get(), get(), androidContext(), get()) }
     viewModel { ConfigEditorViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidContext()) }
-    viewModel {
-        ApplicationInfoViewModel(
-            get<ManagerApplicationGateway>(),
-            get<ComparingApplicationDetailSource>(),
-            get<SettingsManager>(),
-            androidContext(),
-        )
-    }
+    viewModel { ApplicationInfoViewModel(get(), get(), get(), get(), androidContext()) }
     viewModel { OverviewViewModel(get<ComparingApplicationListSource>()) }
     viewModel { ConnectionStatusViewModel(get<ComparingConnectionSnapshotSource>()) }
     viewModel {

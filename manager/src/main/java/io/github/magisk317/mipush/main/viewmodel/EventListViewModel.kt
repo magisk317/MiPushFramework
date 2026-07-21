@@ -15,6 +15,10 @@ import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.manager.ManagerEvent
 import io.github.magisk317.mipush.common.manager.ManagerDayCount
 import io.github.magisk317.mipush.common.manager.ManagerEventGateway
+import io.github.magisk317.mipush.manager.events.ComparingEventListSource
+import io.github.magisk317.mipush.manager.events.EventListComparison
+import io.github.magisk317.mipush.manager.events.EventListRequest
+import kotlinx.coroutines.Job
 import io.github.magisk317.mipush.common.notification.MockReplayOutcome
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.feature.main.subpage.EventInfoForDisplay
@@ -22,6 +26,7 @@ import java.util.Date
 import io.github.magisk317.mipush.manager.SettingsManager
 
 class EventListViewModel constructor(
+    private val eventSource: ComparingEventListSource,
     private val eventGateway: ManagerEventGateway,
     private val settingsManager: SettingsManager,
     private val preferenceRepository: PreferenceRepository,
@@ -29,6 +34,10 @@ class EventListViewModel constructor(
 ) : ViewModel() {
     private val _events = MutableStateFlow<List<EventInfoForDisplay>>(emptyList())
     val events: StateFlow<List<EventInfoForDisplay>> = _events.asStateFlow()
+
+    private val _comparison = MutableStateFlow<EventListComparison?>(null)
+    val comparison: StateFlow<EventListComparison?> = _comparison.asStateFlow()
+    private var comparisonJob: Job? = null
 
     /**
      * In-memory list snapshot for tab reuse.
@@ -94,18 +103,38 @@ class EventListViewModel constructor(
 
     fun loadEvents(query: String, packageName: String, isRefresh: Boolean, lastId: Long?) {
         viewModelScope.launch {
-            val loadedEvents = withContext(Dispatchers.IO) {
-                eventGateway.getEventsById(if (isRefresh) null else lastId, Constants.PAGE_SIZE, packageName, query)
-                    .map { 
-                        toEventInfoForDisplay(it)
-                    }
+            val request = EventListRequest(
+                lastId = if (isRefresh) null else lastId,
+                pageSize = Constants.PAGE_SIZE,
+                packageName = packageName,
+                query = query,
+            )
+            val primary = withContext(Dispatchers.IO) {
+                eventSource.loadPrimary(request)
             }
+            val loadedEvents = primary.map { toEventInfoForDisplay(it) }
             if (isRefresh) {
                 _events.value = loadedEvents
             } else {
                 _events.value = _events.value + loadedEvents
             }
+            scheduleComparison(request, primary)
         }
+    }
+
+    private fun scheduleComparison(request: EventListRequest, primary: List<ManagerEvent>) {
+        comparisonJob?.cancel()
+        comparisonJob = viewModelScope.launch {
+            _comparison.value = withContext(Dispatchers.IO) {
+                eventSource.compareRemote(request, primary)
+            }
+        }
+    }
+
+    override fun onCleared() {
+        comparisonJob?.cancel()
+        comparisonJob = null
+        super.onCleared()
     }
 
     private fun toEventInfoForDisplay(it: ManagerEvent): EventInfoForDisplay {
@@ -150,10 +179,15 @@ class EventListViewModel constructor(
     
     suspend fun fetchEventsSuspend(isRefresh: Boolean, lastId: Long?, packageName: String, query: String): List<EventInfoForDisplay> {
         return withContext(Dispatchers.IO) {
-            eventGateway.getEventsById(if (isRefresh) null else lastId, Constants.PAGE_SIZE, packageName, query)
-                .map { 
-                    toEventInfoForDisplay(it)
-                }
+            val request = EventListRequest(
+                lastId = if (isRefresh) null else lastId,
+                pageSize = Constants.PAGE_SIZE,
+                packageName = packageName,
+                query = query,
+            )
+            val primary = eventSource.loadPrimary(request)
+            scheduleComparison(request, primary)
+            primary.map { toEventInfoForDisplay(it) }
         }
     }
 

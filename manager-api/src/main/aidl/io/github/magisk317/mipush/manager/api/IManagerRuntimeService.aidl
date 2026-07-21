@@ -6,6 +6,12 @@ import io.github.magisk317.mipush.manager.api.ManagerApplicationDetailDto;
 import io.github.magisk317.mipush.manager.api.ManagerApplicationDiagnosticsDto;
 import io.github.magisk317.mipush.manager.api.ManagerApplicationPageDto;
 import io.github.magisk317.mipush.manager.api.ManagerApplicationQueryDto;
+import io.github.magisk317.mipush.manager.api.ManagerEventQueryDto;
+import io.github.magisk317.mipush.manager.api.ManagerEventPageDto;
+import io.github.magisk317.mipush.manager.api.ManagerNotificationChannelQueryDto;
+import io.github.magisk317.mipush.manager.api.ManagerNotificationChannelPageDto;
+import io.github.magisk317.mipush.manager.api.ManagerConfigurationCatalogDto;
+import io.github.magisk317.mipush.manager.api.ManagerLogExportResultDto;
 
 interface IManagerRuntimeService {
     ManagerHandshake handshake(int clientMajor, int clientMinor);
@@ -13,4 +19,8 @@ interface IManagerRuntimeService {
     ManagerApplicationPageDto getApplicationPage(in ManagerApplicationQueryDto query);
     @nullable ManagerApplicationDetailDto getApplicationDetail(String packageName, boolean ignoreNotRegistered);
     ManagerApplicationDiagnosticsDto getApplicationDiagnostics(String packageName, int registeredType);
+    ManagerEventPageDto getEventPage(in ManagerEventQueryDto query);
+    ManagerNotificationChannelPageDto getNotificationChannelPage(in ManagerNotificationChannelQueryDto query);
+    ManagerConfigurationCatalogDto getConfigurationCatalog();
+    ManagerLogExportResultDto exportRuntimeLogs();
 }

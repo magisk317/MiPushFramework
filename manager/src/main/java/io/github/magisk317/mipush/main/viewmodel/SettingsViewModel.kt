@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.manager.SettingsManager
+import io.github.magisk317.mipush.manager.logs.ComparingLogExportSource
+import io.github.magisk317.mipush.manager.logs.LogExportComparison
+import io.github.magisk317.mipush.manager.logs.LogExportSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 import io.github.magisk317.mipush.common.manager.ManagerXSpaceRepairStage
 import io.github.magisk317.uikit.theme.UiKitStyle
@@ -23,6 +26,7 @@ class SettingsViewModel constructor(
     private val preferenceRepository: PreferenceRepository,
     private val settingsManager: SettingsManager,
     private val permissionGateway: ManagerPermissionGateway,
+    private val logExportSource: ComparingLogExportSource,
 ) : ViewModel() {
     data class ThemeState(
         val mode: Int,
@@ -261,8 +265,18 @@ class SettingsViewModel constructor(
         settingsManager.clearHistory(context, viewModelScope)
     }
 
-    fun buildRuntimeLogBundle(context: android.content.Context) =
-        settingsManager.buildRuntimeLogBundle(context)
+    fun buildRuntimeLogBundle(context: android.content.Context): io.github.magisk317.mipush.common.manager.ManagerLogExportResult {
+        val result = settingsManager.buildRuntimeLogBundle(context)
+        viewModelScope.launch(Dispatchers.IO) {
+            val primary = LogExportSnapshot(
+                success = result.file != null,
+                details = result.details,
+                hasDescriptor = result.file != null,
+            )
+            logExportSource.compareRemote(primary)
+        }
+        return result
+    }
 
     fun buildRuntimeLogShareIntent(context: android.content.Context, file: File) =
         settingsManager.buildRuntimeLogShareIntent(context, file)

@@ -26,6 +26,19 @@ class ManagerRuntimeServiceAidlTest {
             IBinder.FIRST_CALL_TRANSACTION + 4,
             IManagerRuntimeService.Stub.TRANSACTION_getApplicationDiagnostics,
         )
+        assertEquals(IBinder.FIRST_CALL_TRANSACTION + 5, IManagerRuntimeService.Stub.TRANSACTION_getEventPage)
+        assertEquals(
+            IBinder.FIRST_CALL_TRANSACTION + 6,
+            IManagerRuntimeService.Stub.TRANSACTION_getNotificationChannelPage,
+        )
+        assertEquals(
+            IBinder.FIRST_CALL_TRANSACTION + 7,
+            IManagerRuntimeService.Stub.TRANSACTION_getConfigurationCatalog,
+        )
+        assertEquals(
+            IBinder.FIRST_CALL_TRANSACTION + 8,
+            IManagerRuntimeService.Stub.TRANSACTION_exportRuntimeLogs,
+        )
     }
 
     @Test
@@ -51,6 +64,19 @@ class ManagerRuntimeServiceAidlTest {
                 packageName: String,
                 registeredType: Int,
             ): ManagerApplicationDiagnosticsDto = diagnostics
+
+            override fun getEventPage(query: ManagerEventQueryDto): ManagerEventPageDto =
+                ManagerEventPageDto()
+
+            override fun getNotificationChannelPage(
+                query: ManagerNotificationChannelQueryDto,
+            ): ManagerNotificationChannelPageDto = ManagerNotificationChannelPageDto()
+
+            override fun getConfigurationCatalog(): ManagerConfigurationCatalogDto =
+                ManagerConfigurationCatalogDto()
+
+            override fun exportRuntimeLogs(): ManagerLogExportResultDto =
+                ManagerLogExportResultDto(success = false, details = "unused")
         }
 
         val remote = IManagerRuntimeService.Stub.asInterface(RemoteBinder(stub))

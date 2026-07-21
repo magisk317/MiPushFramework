@@ -16,6 +16,12 @@ import io.github.magisk317.mipush.manager.api.ManagerApplicationStatsDto
 import io.github.magisk317.mipush.manager.api.ManagerApplicationSummaryDto
 import io.github.magisk317.mipush.manager.api.ManagerConnectionSnapshotDto
 import io.github.magisk317.mipush.manager.api.ManagerHandshake
+import io.github.magisk317.mipush.manager.api.ManagerConfigurationCatalogDto
+import io.github.magisk317.mipush.manager.api.ManagerEventPageDto
+import io.github.magisk317.mipush.manager.api.ManagerEventQueryDto
+import io.github.magisk317.mipush.manager.api.ManagerLogExportResultDto
+import io.github.magisk317.mipush.manager.api.ManagerNotificationChannelPageDto
+import io.github.magisk317.mipush.manager.api.ManagerNotificationChannelQueryDto
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -830,6 +836,18 @@ class ManagerRuntimeClientLifecycleTest {
             applicationDiagnosticsCount += 1
             return ManagerApplicationDiagnosticsDto(registeredType = registeredType)
         }
+
+        override fun getEventPage(query: ManagerEventQueryDto): ManagerEventPageDto = ManagerEventPageDto()
+
+        override fun getNotificationChannelPage(
+            query: ManagerNotificationChannelQueryDto,
+        ): ManagerNotificationChannelPageDto = ManagerNotificationChannelPageDto()
+
+        override fun getConfigurationCatalog(): ManagerConfigurationCatalogDto =
+            ManagerConfigurationCatalogDto()
+
+        override fun exportRuntimeLogs(): ManagerLogExportResultDto =
+            ManagerLogExportResultDto(success = false, details = "unused")
 
         override fun asBinder(): IBinder = this
     }

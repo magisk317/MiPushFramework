@@ -11,6 +11,8 @@ import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.application.ApplicationDetailComparison
 import io.github.magisk317.mipush.manager.application.ApplicationDiagnosticsComparison
 import io.github.magisk317.mipush.manager.application.ComparingApplicationDetailSource
+import io.github.magisk317.mipush.manager.notification.ComparingNotificationChannelSource
+import io.github.magisk317.mipush.manager.notification.NotificationChannelComparison
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -65,6 +67,7 @@ internal object ApplicationInfoStatePolicy {
 class ApplicationInfoViewModel constructor(
     private val applicationGateway: ManagerApplicationGateway,
     private val applicationSource: ComparingApplicationDetailSource,
+    private val notificationChannelSource: ComparingNotificationChannelSource,
     private val settingsManager: SettingsManager,
     private val context: Context,
 ) : ViewModel() {
@@ -93,6 +96,9 @@ class ApplicationInfoViewModel constructor(
 
     private var detailComparisonJob: Job? = null
     private var diagnosticsComparisonJob: Job? = null
+    private val _notificationComparison = MutableStateFlow<NotificationChannelComparison?>(null)
+    val notificationComparison: StateFlow<NotificationChannelComparison?> = _notificationComparison.asStateFlow()
+    private var notificationComparisonJob: Job? = null
 
     fun setApplicationInfo(
         info: ManagerApplication,
@@ -191,11 +197,23 @@ class ApplicationInfoViewModel constructor(
         }
     }
 
+
+    fun scheduleNotificationComparison(packageName: String) {
+        notificationComparisonJob?.cancel()
+        notificationComparisonJob = viewModelScope.launch {
+            _notificationComparison.value = withContext(Dispatchers.IO) {
+                val primary = notificationChannelSource.loadPrimary(packageName)
+                notificationChannelSource.compareRemote(packageName, primary)
+            }
+        }
+    }
     override fun onCleared() {
         detailComparisonJob?.cancel()
         diagnosticsComparisonJob?.cancel()
+        notificationComparisonJob?.cancel()
         detailComparisonJob = null
         diagnosticsComparisonJob = null
+        notificationComparisonJob = null
         super.onCleared()
     }
 

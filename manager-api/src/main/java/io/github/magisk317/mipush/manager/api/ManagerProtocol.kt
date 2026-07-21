@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.manager.api
 
 object ManagerProtocol {
     const val MAJOR = 1
-    const val MINOR = 1
+    const val MINOR = 2
 
     const val RUNTIME_PACKAGE = "com.xiaomi.xmsf"
     const val MANAGER_PACKAGE = "io.github.magisk317.mipush"
@@ -14,6 +14,10 @@ object ManagerProtocol {
     const val CAPABILITY_APPLICATION_LIST = "application_list"
     const val CAPABILITY_APPLICATION_DETAIL = "application_detail"
     const val CAPABILITY_APPLICATION_DIAGNOSTICS = "application_diagnostics"
+    const val CAPABILITY_EVENT_LIST = "event_list"
+    const val CAPABILITY_NOTIFICATION_CHANNELS = "notification_channels"
+    const val CAPABILITY_CONFIGURATION_CATALOG = "configuration_catalog"
+    const val CAPABILITY_LOG_EXPORT = "log_export"
     const val CONNECTION_SNAPSHOT_SCHEMA_VERSION = 1
     const val APPLICATION_QUERY_SCHEMA_VERSION = 1
     const val APPLICATION_PAGE_SCHEMA_VERSION = 1
@@ -21,6 +25,16 @@ object ManagerProtocol {
     const val APPLICATION_STATS_SCHEMA_VERSION = 1
     const val APPLICATION_DETAIL_SCHEMA_VERSION = 1
     const val APPLICATION_DIAGNOSTICS_SCHEMA_VERSION = 1
+    const val EVENT_QUERY_SCHEMA_VERSION = 1
+    const val EVENT_PAGE_SCHEMA_VERSION = 1
+    const val EVENT_SUMMARY_SCHEMA_VERSION = 1
+    const val NOTIFICATION_CHANNEL_QUERY_SCHEMA_VERSION = 1
+    const val NOTIFICATION_CHANNEL_PAGE_SCHEMA_VERSION = 1
+    const val NOTIFICATION_CHANNEL_SUMMARY_SCHEMA_VERSION = 1
+    const val NOTIFICATION_CHANNEL_GROUP_SUMMARY_SCHEMA_VERSION = 1
+    const val CONFIGURATION_CATALOG_SCHEMA_VERSION = 1
+    const val CONFIGURATION_CATALOG_ENTRY_SCHEMA_VERSION = 1
+    const val LOG_EXPORT_RESULT_SCHEMA_VERSION = 1
     const val DEFAULT_MAX_PAGE_SIZE = 100
     const val DEFAULT_MAX_PAYLOAD_BYTES = 512 * 1024
     const val MAX_CAPABILITY_COUNT = 64
@@ -32,6 +46,17 @@ object ManagerProtocol {
     const val MAX_PACKAGE_NAME_LENGTH = 255
     const val MAX_PAGE_TOKEN_LENGTH = 1_024
     const val MAX_APPLICATION_PAGE_ITEM_COUNT = 1_000
+    const val MAX_EVENT_PAGE_ITEM_COUNT = 1_000
+    const val MAX_EVENT_PAYLOAD_BYTES = 256 * 1024
+    const val MAX_EVENT_CONFIG_OPTION_COUNT = 64
+    const val MAX_EVENT_CONFIG_OPTION_LENGTH = 128
+    const val MAX_NOTIFICATION_CHANNEL_PAGE_ITEM_COUNT = 1_000
+    const val MAX_NOTIFICATION_CHANNEL_GROUP_COUNT = 1_000
+    const val MAX_CONFIGURATION_CATALOG_ITEM_COUNT = 2_000
+    const val MAX_CONFIGURATION_PATH_LENGTH = 512
+    const val MAX_CONFIGURATION_NAME_LENGTH = 255
+    const val MAX_CONFIGURATION_SHA_LENGTH = 128
+    const val MAX_LOG_EXPORT_DETAILS_LENGTH = 4_096
     const val MAX_WIRE_FRAME_BYTES = DEFAULT_MAX_PAYLOAD_BYTES
     const val APPLICATION_FILTER_ALL = 0
     const val APPLICATION_FILTER_REGISTERED = 1
@@ -52,6 +77,10 @@ object ManagerProtocol {
         CAPABILITY_APPLICATION_LIST,
         CAPABILITY_APPLICATION_DETAIL,
         CAPABILITY_APPLICATION_DIAGNOSTICS,
+        CAPABILITY_EVENT_LIST,
+        CAPABILITY_NOTIFICATION_CHANNELS,
+        CAPABILITY_CONFIGURATION_CATALOG,
+        CAPABILITY_LOG_EXPORT,
     )
 
     fun evaluateCompatibility(
@@ -208,6 +237,180 @@ object ManagerProtocol {
             else -> null
         }
 
+
+    fun validateEventQuery(
+        query: ManagerEventQueryDto,
+        negotiatedMaxPageSize: Int,
+    ): String? = when {
+        query.schemaVersion < 1 -> "invalid_event_query_schema"
+        query.pageSize !in 1..negotiatedMaxPageSize -> "invalid_event_page_size"
+        query.query.length > MAX_APPLICATION_QUERY_LENGTH -> "event_query_too_long"
+        query.packageName.isNotEmpty() && validateApplicationPackageName(query.packageName) != null ->
+            "invalid_event_package_name"
+        query.lastId != null && query.lastId < 0L -> "invalid_event_last_id"
+        else -> null
+    }
+
+    fun validateEventSummary(summary: ManagerEventSummaryDto): String? = when {
+        summary.schemaVersion < 1 -> "invalid_event_summary_schema"
+        summary.id < 0L -> "invalid_event_id"
+        validateApplicationPackageName(summary.packageName) != null && summary.packageName.isNotEmpty() ->
+            "invalid_event_package_name"
+        summary.title.length > MAX_WIRE_STRING_LENGTH -> "event_title_too_long"
+        summary.content.length > MAX_WIRE_STRING_LENGTH -> "event_content_too_long"
+        summary.channel.length > MAX_WIRE_STRING_LENGTH -> "event_channel_too_long"
+        summary.appName?.length?.let { it > MAX_WIRE_STRING_LENGTH } == true -> "event_app_name_too_long"
+        summary.info?.length?.let { it > MAX_WIRE_STRING_LENGTH } == true -> "event_info_too_long"
+        summary.regSec?.length?.let { it > MAX_WIRE_STRING_LENGTH } == true -> "event_reg_sec_too_long"
+        summary.configOptions.size > MAX_EVENT_CONFIG_OPTION_COUNT -> "too_many_event_config_options"
+        summary.configOptions.any { it.length > MAX_EVENT_CONFIG_OPTION_LENGTH } ->
+            "event_config_option_too_long"
+        summary.payload != null && summary.payload.size > MAX_EVENT_PAYLOAD_BYTES ->
+            "event_payload_too_large"
+        else -> null
+    }
+
+    fun validateEventPage(
+        page: ManagerEventPageDto,
+        negotiatedMaxPageSize: Int,
+        negotiatedMaxPayloadBytes: Int = DEFAULT_MAX_PAYLOAD_BYTES,
+    ): String? {
+        if (page.schemaVersion < 1) return "invalid_event_page_schema"
+        if (negotiatedMaxPageSize !in 1..MAX_NEGOTIATED_PAGE_SIZE) return "invalid_negotiated_page_size"
+        if (negotiatedMaxPayloadBytes !in 1..MAX_NEGOTIATED_PAYLOAD_BYTES) {
+            return "invalid_negotiated_payload_bytes"
+        }
+        if (page.items.size > negotiatedMaxPageSize) return "too_many_event_page_items"
+        page.items.forEach { summary ->
+            validateEventSummary(summary)?.let { return it }
+        }
+        if (estimateEventPageWireBytes(page) > negotiatedMaxPayloadBytes.toLong()) {
+            return "event_page_payload_too_large"
+        }
+        return null
+    }
+
+    fun estimateEventPageWireBytes(page: ManagerEventPageDto): Long {
+        val items = page.items.fold(0L) { acc, summary ->
+            acc + EVENT_SUMMARY_FRAME_BYTES +
+                wireStringBytes(summary.packageName) +
+                summary.configOptions.fold(0L) { optionAcc, option ->
+                    optionAcc + wireStringBytes(option)
+                } +
+                wireStringBytes(summary.channel) +
+                wireStringBytes(summary.title) +
+                wireStringBytes(summary.content) +
+                wireStringBytes(summary.appName) +
+                wireStringBytes(summary.info) +
+                (summary.payload?.size?.toLong() ?: 0L) +
+                wireStringBytes(summary.regSec)
+        }
+        return EVENT_PAGE_FIXED_BYTES + items
+    }
+
+    fun validateNotificationChannelQuery(
+        query: ManagerNotificationChannelQueryDto,
+        negotiatedMaxPageSize: Int,
+    ): String? = when {
+        query.schemaVersion < 1 -> "invalid_notification_channel_query_schema"
+        validateApplicationPackageName(query.packageName) != null -> "invalid_notification_channel_package_name"
+        query.pageSize !in 1..negotiatedMaxPageSize -> "invalid_notification_channel_page_size"
+        query.pageToken?.length?.let { it > MAX_PAGE_TOKEN_LENGTH } == true ->
+            "notification_channel_page_token_too_long"
+        else -> null
+    }
+
+    fun validateNotificationChannelSummary(summary: ManagerNotificationChannelSummaryDto): String? = when {
+        summary.schemaVersion < 1 -> "invalid_notification_channel_summary_schema"
+        summary.id.isBlank() || summary.id.length > MAX_WIRE_STRING_LENGTH ->
+            "invalid_notification_channel_id"
+        summary.name.length > MAX_WIRE_STRING_LENGTH -> "notification_channel_name_too_long"
+        summary.groupId?.length?.let { it > MAX_WIRE_STRING_LENGTH } == true ->
+            "notification_channel_group_id_too_long"
+        summary.description?.length?.let { it > MAX_WIRE_STRING_LENGTH } == true ->
+            "notification_channel_description_too_long"
+        else -> null
+    }
+
+    fun validateNotificationChannelGroupSummary(group: ManagerNotificationChannelGroupSummaryDto): String? =
+        when {
+            group.schemaVersion < 1 -> "invalid_notification_channel_group_schema"
+            group.id.isBlank() || group.id.length > MAX_WIRE_STRING_LENGTH ->
+                "invalid_notification_channel_group_id"
+            group.name.length > MAX_WIRE_STRING_LENGTH -> "notification_channel_group_name_too_long"
+            else -> null
+        }
+
+    fun validateNotificationChannelPage(
+        page: ManagerNotificationChannelPageDto,
+        negotiatedMaxPageSize: Int,
+        negotiatedMaxPayloadBytes: Int = DEFAULT_MAX_PAYLOAD_BYTES,
+    ): String? {
+        if (page.schemaVersion < 1) return "invalid_notification_channel_page_schema"
+        if (negotiatedMaxPageSize !in 1..MAX_NEGOTIATED_PAGE_SIZE) return "invalid_negotiated_page_size"
+        if (page.items.size > negotiatedMaxPageSize) return "too_many_notification_channel_page_items"
+        if (page.groups.size > MAX_NOTIFICATION_CHANNEL_GROUP_COUNT) {
+            return "too_many_notification_channel_groups"
+        }
+        if (page.nextPageToken?.length?.let { it > MAX_PAGE_TOKEN_LENGTH } == true) {
+            return "notification_channel_next_page_token_too_long"
+        }
+        page.items.forEach { validateNotificationChannelSummary(it)?.let { reason -> return reason } }
+        page.groups.forEach { validateNotificationChannelGroupSummary(it)?.let { reason -> return reason } }
+        if (estimateNotificationChannelPageWireBytes(page) > negotiatedMaxPayloadBytes.toLong()) {
+            return "notification_channel_page_payload_too_large"
+        }
+        return null
+    }
+
+    fun estimateNotificationChannelPageWireBytes(page: ManagerNotificationChannelPageDto): Long {
+        val items = page.items.fold(0L) { acc, summary ->
+            acc + NOTIFICATION_CHANNEL_SUMMARY_FRAME_BYTES +
+                wireStringBytes(summary.id) +
+                wireStringBytes(summary.name) +
+                wireStringBytes(summary.groupId) +
+                wireStringBytes(summary.description)
+        }
+        val groups = page.groups.fold(0L) { acc, group ->
+            acc + NOTIFICATION_CHANNEL_GROUP_FRAME_BYTES +
+                wireStringBytes(group.id) +
+                wireStringBytes(group.name)
+        }
+        return NOTIFICATION_CHANNEL_PAGE_FIXED_BYTES + items + groups + wireStringBytes(page.nextPageToken)
+    }
+
+    fun validateConfigurationCatalog(catalog: ManagerConfigurationCatalogDto): String? {
+        if (catalog.schemaVersion < 1) return "invalid_configuration_catalog_schema"
+        if (catalog.sourceRepo.length > MAX_WIRE_STRING_LENGTH) return "configuration_source_repo_too_long"
+        if (catalog.branch.length > MAX_WIRE_STRING_LENGTH) return "configuration_branch_too_long"
+        if (catalog.generatedAt.length > MAX_WIRE_STRING_LENGTH) return "configuration_generated_at_too_long"
+        if (catalog.files.size > MAX_CONFIGURATION_CATALOG_ITEM_COUNT) {
+            return "too_many_configuration_catalog_items"
+        }
+        catalog.files.forEach { entry ->
+            validateConfigurationCatalogEntry(entry)?.let { return it }
+        }
+        return null
+    }
+
+    fun validateConfigurationCatalogEntry(entry: ManagerConfigurationCatalogEntryDto): String? = when {
+        entry.schemaVersion < 1 -> "invalid_configuration_catalog_entry_schema"
+        entry.path.isBlank() || entry.path.length > MAX_CONFIGURATION_PATH_LENGTH ->
+            "invalid_configuration_path"
+        entry.name.length > MAX_CONFIGURATION_NAME_LENGTH -> "configuration_name_too_long"
+        entry.sha.length > MAX_CONFIGURATION_SHA_LENGTH -> "configuration_sha_too_long"
+        entry.size < 0 -> "invalid_configuration_size"
+        entry.updatedAt.length > MAX_WIRE_STRING_LENGTH -> "configuration_updated_at_too_long"
+        else -> null
+    }
+
+    fun validateLogExportResult(result: ManagerLogExportResultDto): String? = when {
+        result.schemaVersion < 1 -> "invalid_log_export_result_schema"
+        result.details.length > MAX_LOG_EXPORT_DETAILS_LENGTH -> "log_export_details_too_long"
+        result.success && result.parcelFileDescriptor == null -> "log_export_missing_descriptor"
+        else -> null
+    }
+
     private fun validateApplicationFields(
         schemaVersion: Int,
         packageName: String,
@@ -232,6 +435,11 @@ object ManagerProtocol {
     private const val APPLICATION_PAGE_FIXED_BYTES = 4L + 4L + 4L
     private const val APPLICATION_SUMMARY_FRAME_BYTES = 4L + 4L + 4L + 28L + 8L
     private const val APPLICATION_STATS_FRAME_BYTES = 4L + 6L * 4L
+    private const val EVENT_PAGE_FIXED_BYTES = 4L + 4L
+    private const val EVENT_SUMMARY_FRAME_BYTES = 4L + 8L + 8L + 8L + 8L + 8L
+    private const val NOTIFICATION_CHANNEL_PAGE_FIXED_BYTES = 4L + 4L + 4L + 4L
+    private const val NOTIFICATION_CHANNEL_SUMMARY_FRAME_BYTES = 4L + 4L + 12L
+    private const val NOTIFICATION_CHANNEL_GROUP_FRAME_BYTES = 4L + 4L
 
     data class Compatibility(
         val status: CompatibilityStatus,

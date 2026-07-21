@@ -14,6 +14,12 @@ import io.github.magisk317.mipush.manager.api.ManagerApplicationDetailDto
 import io.github.magisk317.mipush.manager.api.ManagerApplicationDiagnosticsDto
 import io.github.magisk317.mipush.manager.api.ManagerApplicationPageDto
 import io.github.magisk317.mipush.manager.api.ManagerApplicationQueryDto
+import io.github.magisk317.mipush.manager.api.ManagerNotificationChannelQueryDto
+import io.github.magisk317.mipush.manager.api.ManagerNotificationChannelPageDto
+import io.github.magisk317.mipush.manager.api.ManagerLogExportResultDto
+import io.github.magisk317.mipush.manager.api.ManagerEventQueryDto
+import io.github.magisk317.mipush.manager.api.ManagerEventPageDto
+import io.github.magisk317.mipush.manager.api.ManagerConfigurationCatalogDto
 import io.github.magisk317.mipush.manager.api.ManagerConnectionSnapshotDto
 import io.github.magisk317.mipush.manager.api.ManagerHandshake
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
@@ -213,6 +219,49 @@ class ManagerRuntimeClient(
         },
         validator = { diagnostics, _ -> ManagerProtocol.validateApplicationDiagnostics(diagnostics) },
     ) { it.getApplicationDiagnostics(packageName, registeredType) }
+
+    suspend fun getEventPage(
+        query: ManagerEventQueryDto,
+    ): ManagerRuntimeResult<ManagerEventPageDto> = callCapability(
+        capability = ManagerProtocol.CAPABILITY_EVENT_LIST,
+        requestValidator = { handshake ->
+            ManagerProtocol.validateEventQuery(query, handshake.maxPageSize)
+        },
+        validator = { page, handshake ->
+            ManagerProtocol.validateEventPage(
+                page = page,
+                negotiatedMaxPageSize = handshake.maxPageSize,
+                negotiatedMaxPayloadBytes = handshake.maxPayloadBytes,
+            )
+        },
+    ) { it.getEventPage(query) }
+
+    suspend fun getNotificationChannelPage(
+        query: ManagerNotificationChannelQueryDto,
+    ): ManagerRuntimeResult<ManagerNotificationChannelPageDto> = callCapability(
+        capability = ManagerProtocol.CAPABILITY_NOTIFICATION_CHANNELS,
+        requestValidator = { handshake ->
+            ManagerProtocol.validateNotificationChannelQuery(query, handshake.maxPageSize)
+        },
+        validator = { page, handshake ->
+            ManagerProtocol.validateNotificationChannelPage(
+                page = page,
+                negotiatedMaxPageSize = handshake.maxPageSize,
+                negotiatedMaxPayloadBytes = handshake.maxPayloadBytes,
+            )
+        },
+    ) { it.getNotificationChannelPage(query) }
+
+    suspend fun getConfigurationCatalog(): ManagerRuntimeResult<ManagerConfigurationCatalogDto> =
+        callCapability(
+            capability = ManagerProtocol.CAPABILITY_CONFIGURATION_CATALOG,
+            validator = { catalog, _ -> ManagerProtocol.validateConfigurationCatalog(catalog) },
+        ) { it.configurationCatalog }
+
+    suspend fun exportRuntimeLogs(): ManagerRuntimeResult<ManagerLogExportResultDto> = callCapability(
+        capability = ManagerProtocol.CAPABILITY_LOG_EXPORT,
+        validator = { result, _ -> ManagerProtocol.validateLogExportResult(result) },
+    ) { it.exportRuntimeLogs() }
 
     @Suppress("TooGenericExceptionCaught")
     private suspend fun <T> callCapability(

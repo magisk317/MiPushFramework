@@ -132,6 +132,7 @@ open class ApplicationInfoPage : ComponentActivity() {
             info = app,
             ignoreNotRegistered = intent.getBooleanExtra(EXTRA_IGNORE_NOT_REGISTERED, false),
         )
+        infoViewModel.scheduleNotificationComparison(app.packageName)
         appConfigurationUtils = AppConfigurationUtils(this, app, notificationGateway)
         setContent {
             Theme {
