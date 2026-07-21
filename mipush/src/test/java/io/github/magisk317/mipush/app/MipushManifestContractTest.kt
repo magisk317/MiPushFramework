@@ -21,6 +21,57 @@ class MipushManifestContractTest {
     }
 
     @Test
+    fun `manager launcher is exported for LSPosed and launcher entrypoints`() {
+        val activities = parseManifest().getElementsByTagName("activity")
+        val launcher = (0 until activities.length)
+            .map { activities.item(it) }
+            .first { node ->
+                node.attributes.getNamedItemNS(ANDROID_NS, "name")?.nodeValue ==
+                    "io.github.magisk317.mipush.app.ManagerLauncherActivity"
+        }
+
+        assertEquals("true", launcher.attributes.getNamedItemNS(ANDROID_NS, "exported").nodeValue)
+        assertEquals("true", launcher.attributes.getNamedItemNS(ANDROID_NS, "excludeFromRecents").nodeValue)
+        assertEquals("true", launcher.attributes.getNamedItemNS(ANDROID_NS, "noHistory").nodeValue)
+        val intentFilters = launcher.childNodes.let { children ->
+            (0 until children.length)
+                .map(children::item)
+                .filter { it.nodeName == "intent-filter" }
+        }
+        val declarations = intentFilters.map { intentFilter ->
+            (0 until intentFilter.childNodes.length)
+                .map(intentFilter.childNodes::item)
+                .filter { it.nodeName == "action" || it.nodeName == "category" }
+                .associate { node ->
+                    node.nodeName to node.attributes.getNamedItemNS(ANDROID_NS, "name").nodeValue
+                }
+        }
+
+        assertTrue(
+            declarations.any { filter ->
+                filter["action"] == "android.intent.action.MAIN" &&
+                    filter["category"] == "android.intent.category.LAUNCHER"
+            },
+        )
+        assertTrue(
+            declarations.any { filter ->
+                filter["action"] == "android.intent.action.MAIN" &&
+                    filter["category"] == "de.robv.android.xposed.category.MODULE_SETTINGS"
+            }
+        )
+        val launcherSource = resolveFile(
+            "src/main/java/io/github/magisk317/mipush/app/ManagerLauncherActivity.kt",
+        ).readText()
+        assertTrue("Intent.FLAG_ACTIVITY_NEW_TASK" in launcherSource)
+    }
+
+    @Test
+    fun `manager app name is localized separately`() {
+        assertEquals("MiPush Manager", readStringResource("src/main/res/values/strings.xml", "app_name"))
+        assertEquals("MiPush 管理器", readStringResource("src/main/res/values-zh/strings.xml", "app_name"))
+    }
+
+    @Test
     fun `legacy xposed manifest metadata is removed`() {
         val document = parseManifest()
         val application = document.getElementsByTagName("application").item(0)
@@ -109,6 +160,17 @@ class MipushManifestContractTest {
         .apply { isNamespaceAware = true }
         .newDocumentBuilder()
         .parse(resolveFile("src/main/AndroidManifest.xml"))
+
+    private fun readStringResource(relativePath: String, name: String): String {
+        val strings = DocumentBuilderFactory.newInstance()
+            .newDocumentBuilder()
+            .parse(resolveFile(relativePath))
+            .getElementsByTagName("string")
+        return (0 until strings.length)
+            .map { strings.item(it) }
+            .first { it.attributes.getNamedItem("name").nodeValue == name }
+            .textContent
+    }
 
     private fun resolveFile(relativePath: String): File {
         val direct = File(relativePath)

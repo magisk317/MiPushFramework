@@ -1,4 +1,5 @@
 <resources>
-    <string name="app_name">MiPush Module</string>
+    <string name="app_name">MiPush Manager</string>
+    <string name="manager_runtime_unavailable">MiPush runtime is not installed or its manager entry is unavailable.</string>
     <string name="xposedDescription">Runtime enhancement module for MiPushFramework: target-app notification identity and Xiaomi-device compatibility hooks.</string>
 </resources>
