@@ -171,6 +171,22 @@ class MipushManifestContractTest {
         )
     }
 
+
+    @Test
+    fun `manager host declares connection and recent-events widgets`() {
+        val receivers = parseManifest().getElementsByTagName("receiver").let { nodes ->
+            (0 until nodes.length).mapNotNull { index ->
+                nodes.item(index).attributes.getNamedItemNS(ANDROID_NS, "name")?.nodeValue
+            }.toSet()
+        }
+        assertTrue(
+            "io.github.magisk317.mipush.app.widget.ConnectionStatusWidgetProvider" in receivers,
+        )
+        assertTrue(
+            "io.github.magisk317.mipush.app.widget.RecentEventsWidgetProvider" in receivers,
+        )
+    }
+
     private fun parseManifest() = DocumentBuilderFactory.newInstance()
         .apply { isNamespaceAware = true }
         .newDocumentBuilder()

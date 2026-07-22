@@ -1,4 +1,4 @@
-package com.xiaomi.xmsf.app.widget
+package io.github.magisk317.mipush.app.widget
 
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
@@ -6,14 +6,14 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 
-class ConnectionStatusWidgetProvider : AppWidgetProvider() {
+class RecentEventsWidgetProvider : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == MiPushWidgetActions.ACTION_REFRESH_CONNECTION ||
+        if (intent.action == MiPushWidgetActions.ACTION_REFRESH_RECENT_EVENTS ||
             intent.action == AppWidgetManager.ACTION_APPWIDGET_UPDATE
         ) {
             val pendingResult = goAsync()
             MiPushWidgetRunner.launch {
-                runCatching { ConnectionStatusWidgetRenderer.updateAll(context) }
+                runCatching { RecentEventsWidgetRenderer.updateAll(context) }
                 pendingResult.finish()
             }
             return
@@ -23,7 +23,7 @@ class ConnectionStatusWidgetProvider : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         MiPushWidgetRunner.launch {
-            ConnectionStatusWidgetRenderer.update(context, appWidgetManager, appWidgetIds)
+            RecentEventsWidgetRenderer.update(context, appWidgetManager, appWidgetIds)
         }
     }
 
@@ -34,7 +34,7 @@ class ConnectionStatusWidgetProvider : AppWidgetProvider() {
         newOptions: Bundle,
     ) {
         MiPushWidgetRunner.launch {
-            ConnectionStatusWidgetRenderer.update(context, appWidgetManager, intArrayOf(appWidgetId))
+            RecentEventsWidgetRenderer.update(context, appWidgetManager, intArrayOf(appWidgetId))
         }
     }
 }

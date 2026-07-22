@@ -1,20 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="widget_action_refresh">Refresh</string>
-    <string name="widget_updated_at">Updated %1$s</string>
-    <string name="widget_updated_placeholder">Updated --:--</string>
-    <string name="connection_status_not_available">-</string>
-    <string name="widget_status_unavailable">Unavailable</string>
-    <string name="widget_status_tap_refresh">Tap refresh to load runtime state</string>
-    <string name="widget_connection_status_title">MiPush connection</string>
-    <string name="widget_connection_description">Shows MiPush connection state and session details.</string>
-    <string name="widget_connection_duration">Duration</string>
-    <string name="widget_connection_messages">Messages</string>
-    <string name="widget_connection_session">Session #%1$d</string>
-    <string name="widget_connection_message_counts">%1$d in / %2$d delivered</string>
-    <string name="widget_recent_events_title">MiPush records</string>
-    <string name="widget_recent_events_description">Shows recent non-registration MiPush records.</string>
-    <string name="widget_recent_events_empty">No push records yet</string>
-    <string name="widget_event_title_format">%1$s - %2$s</string>
     <string name="manager_ui_unavailable">MiPush Manager is not installed or unavailable.</string>
 </resources>

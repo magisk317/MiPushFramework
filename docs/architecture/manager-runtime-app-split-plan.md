@@ -362,7 +362,7 @@ actions. Keep the XMSF-packaged manager enabled as an internal comparison build.
 Status: `:mipush` depends on `:manager`, starts `ManagerDependencies.startAsRemoteHost()`, declares
 manager Activities in its manifest, and opens `WelcomeActivity` from the launcher instead of
 redirecting into XMSF. Remote gateways cover Binder-backed reads/writes for supported capabilities;
-unsupported surfaces stay local no-ops. Widgets remain on the XMSF shell until Phase 6.
+unsupported surfaces stay local no-ops. Widgets now ship with the `:mipush` manager host.
 
 Exit criteria:
 
@@ -381,9 +381,8 @@ retired.
 
 Status: `:app` now has a `composition` flavor dimension. The default `split` composition depends on
 runtime modules only, gates manager bootstrap off, and exposes `activity-alias` compatibility
-launchers that forward into the standalone manager package. The `bundled` composition keeps
-`:manager`, real manager Activities, and the existing widgets as the all-in-one comparison baseline.
-Widgets are not yet hosted by `:mipush` (residual on the bundled XMSF shell only).
+launchers that forward into the standalone manager package. The `bundled` composition keeps `:manager` and real manager Activities as the all-in-one
+comparison baseline. Widgets live on `:mipush` for both compositions.
 `LegacyUiEntryPoints` resolves the manager UI package by classpath so both compositions keep working.
 
 ## Verification Matrix

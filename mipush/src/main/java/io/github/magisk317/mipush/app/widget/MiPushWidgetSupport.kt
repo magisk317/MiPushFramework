@@ -1,4 +1,5 @@
-package com.xiaomi.xmsf.app.widget
+@file:Suppress("MagicNumber")
+package io.github.magisk317.mipush.app.widget
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -16,7 +17,7 @@ import android.text.TextUtils
 import android.os.SystemClock
 import android.util.TypedValue
 import android.widget.RemoteViews
-import com.xiaomi.xmsf.app.R
+import io.github.magisk317.mipush.app.R
 import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerEvent
 import io.github.magisk317.mipush.common.manager.ManagerEventGateway
@@ -36,8 +37,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 internal object MiPushWidgetActions {
-    const val ACTION_REFRESH_CONNECTION = "com.xiaomi.xmsf.app.widget.REFRESH_CONNECTION"
-    const val ACTION_REFRESH_RECENT_EVENTS = "com.xiaomi.xmsf.app.widget.REFRESH_RECENT_EVENTS"
+    const val ACTION_REFRESH_CONNECTION = "io.github.magisk317.mipush.app.widget.REFRESH_CONNECTION"
+    const val ACTION_REFRESH_RECENT_EVENTS = "io.github.magisk317.mipush.app.widget.REFRESH_RECENT_EVENTS"
 }
 
 internal object MiPushWidgetRunner {
@@ -51,7 +52,7 @@ internal object MiPushWidgetRunner {
 internal object MiPushWidgetDependencies {
     fun ensureStarted(context: Context) {
         val appContext = context.applicationContext ?: context
-        ManagerDependencies.start(appContext)
+        ManagerDependencies.startAsRemoteHost(appContext)
     }
 
     fun settingsManager(context: Context): SettingsManager {

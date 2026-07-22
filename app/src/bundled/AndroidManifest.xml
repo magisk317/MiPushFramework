@@ -33,29 +33,5 @@
             android:label="@string/helplib_title"
             android:theme="@style/AppTheme"
             android:exported="false" />
-
-        <receiver
-            android:name="com.xiaomi.xmsf.app.widget.ConnectionStatusWidgetProvider"
-            android:exported="true"
-            android:label="@string/widget_connection_status_title">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/mipush_widget_connection_status" />
-        </receiver>
-
-        <receiver
-            android:name="com.xiaomi.xmsf.app.widget.RecentEventsWidgetProvider"
-            android:exported="true"
-            android:label="@string/widget_recent_events_title">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/mipush_widget_recent_events" />
-        </receiver>
     </application>
 </manifest>
