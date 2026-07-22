@@ -27,14 +27,20 @@ class ManagerWriteRuntimeExecutor(
     )
 
     fun execute(request: ManagerWriteRequestDto): ManagerWriteResultDto {
-        idempotencyStore.get(request.requestId)?.let { previous ->
-            return previous.copy(status = ManagerProtocol.WRITE_STATUS_DUPLICATE)
+        when (val begin = idempotencyStore.begin(request.requestId)) {
+            is ManagerWriteIdempotencyStore.BeginResult.Duplicate -> return begin.result
+            ManagerWriteIdempotencyStore.BeginResult.Execute -> Unit
         }
-        val result = runCatching { dispatch(request) }.getOrElse {
-            failed(request.requestId, "runtime_operation_failed")
+        return try {
+            val result = runCatching { dispatch(request) }.getOrElse {
+                failed(request.requestId, "runtime_operation_failed")
+            }
+            idempotencyStore.complete(result)
+            result
+        } catch (error: Throwable) {
+            idempotencyStore.abort(request.requestId)
+            throw error
         }
-        idempotencyStore.put(result)
-        return result
     }
 
     private fun dispatch(request: ManagerWriteRequestDto): ManagerWriteResultDto =
@@ -43,10 +49,7 @@ class ManagerWriteRuntimeExecutor(
             ManagerProtocol.WRITE_OP_DELETE_EVENT -> deleteEvent(request)
             ManagerProtocol.WRITE_OP_RESTORE_EVENT -> restoreEvent(request)
             ManagerProtocol.WRITE_OP_SET_XMPP_SERVER -> setXmppServer(request)
-            ManagerProtocol.WRITE_OP_CLEAR_HISTORY -> {
-                runBlocking { runtimeActions.clearHistory() }
-                success(request.requestId, "history_cleared")
-            }
+            ManagerProtocol.WRITE_OP_CLEAR_HISTORY -> clearHistory(request)
             ManagerProtocol.WRITE_OP_SET_RUNTIME_LOG_RETENTION -> {
                 val days = request.intArgument.coerceAtLeast(1)
                 runtimeActions.setRuntimeLogRetentionDays(days)
@@ -102,7 +105,8 @@ class ManagerWriteRuntimeExecutor(
         return if (deleted) {
             success(request.requestId, "event_deleted", resultLong = eventId)
         } else {
-            failed(request.requestId, "event_delete_failed")
+            // Already absent is treated as success so retries stay idempotent.
+            success(request.requestId, "event_already_absent", resultLong = eventId)
         }
     }
 
@@ -127,6 +131,27 @@ class ManagerWriteRuntimeExecutor(
         } else {
             failed(request.requestId, "event_restore_failed")
         }
+    }
+
+    private fun clearHistory(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        val endExclusive = request.argument.toLongOrNull()
+        val deleted = runBlocking {
+            when {
+                request.longArgument > 0L && endExclusive != null && endExclusive > request.longArgument ->
+                    eventGateway.clearHistoryInRange(request.longArgument, endExclusive)
+                request.longArgument > 0L && request.argument.isBlank() ->
+                    eventGateway.clearHistoryBefore(request.longArgument)
+                else -> {
+                    runtimeActions.clearHistory()
+                    0
+                }
+            }
+        }
+        return success(
+            requestId = request.requestId,
+            details = "history_cleared",
+            resultLong = deleted.toLong(),
+        )
     }
 
     private fun setXmppServer(request: ManagerWriteRequestDto): ManagerWriteResultDto {

@@ -41,6 +41,18 @@ object EventDb {
         return id
     }
 
+    suspend fun getByIdAsync(id: Long): Event? = eventDao.getById(id)
+
+    suspend fun insertOrReplaceEventAsync(event: Event): Long {
+        Napier.d("insertOrReplaceEvent() called with: $event", tag = "EventDb")
+        if (event.type == Event.Type.SendMessage) {
+            Utils.setLastReceiveTime(event.pkg, event.date)
+        }
+        val id = eventDao.insertOrReplace(event)
+        EventRetentionManager.maybePruneAfterInsert()
+        return if (id > 0L) id else (event.id ?: id)
+    }
+
     suspend fun insertEventAsync(@Event.ResultType result: Int, type: EventType): Long {
         return insertEventAsync(createEvent(result, type))
     }

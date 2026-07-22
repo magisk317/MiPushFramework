@@ -221,22 +221,30 @@ class RemoteManagerEventGateway(
     override suspend fun countEventsByDay(): List<ManagerDayCount> = emptyList()
 
     override suspend fun clearHistoryBefore(cutoffMillis: Long): Int {
-        RemoteWriteSupport.execute(
+        val result = RemoteWriteSupport.execute(
             client = client,
             operation = ManagerProtocol.WRITE_OP_CLEAR_HISTORY,
             longArgument = cutoffMillis,
         )
-        return 0
+        return if (RemoteWriteSupport.isSuccess(result)) {
+            result?.resultLong?.toInt() ?: 0
+        } else {
+            0
+        }
     }
 
     override suspend fun clearHistoryInRange(startMillis: Long, endMillis: Long): Int {
-        RemoteWriteSupport.execute(
+        val result = RemoteWriteSupport.execute(
             client = client,
             operation = ManagerProtocol.WRITE_OP_CLEAR_HISTORY,
             longArgument = startMillis,
             argument = endMillis.toString(),
         )
-        return 0
+        return if (RemoteWriteSupport.isSuccess(result)) {
+            result?.resultLong?.toInt() ?: 0
+        } else {
+            0
+        }
     }
 }
 

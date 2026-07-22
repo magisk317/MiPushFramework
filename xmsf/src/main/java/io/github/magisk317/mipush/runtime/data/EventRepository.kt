@@ -139,6 +139,21 @@ class EventRepository constructor(
     }
 
     suspend fun restoreEvent(event: Event): Long {
+        val preferredId = event.id
+        if (preferredId != null && preferredId > 0L) {
+            EventDb.getByIdAsync(preferredId)?.let { return preferredId }
+            val restored = Event(
+                id = preferredId,
+                pkg = event.pkg,
+                type = event.type,
+                date = event.date,
+                result = event.result,
+                info = event.info,
+                payload = event.payload,
+                regSec = event.regSec,
+            )
+            return EventDb.insertOrReplaceEventAsync(restored)
+        }
         val restored = Event(
             id = null,
             pkg = event.pkg,

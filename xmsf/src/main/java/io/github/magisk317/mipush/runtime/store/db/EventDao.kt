@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.runtime.store.db
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.RawQuery
 import androidx.sqlite.db.SupportSQLiteQuery
@@ -11,6 +12,12 @@ import io.github.magisk317.mipush.runtime.store.entities.Event
 interface EventDao {
     @Insert
     suspend fun insert(event: Event): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrReplace(event: Event): Long
+
+    @Query("SELECT * FROM EVENT WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Long): Event?
 
     @Query("SELECT * FROM EVENT WHERE id < :lastId ORDER BY id DESC LIMIT :limit")
     suspend fun queryById(lastId: Long, limit: Int): List<Event>

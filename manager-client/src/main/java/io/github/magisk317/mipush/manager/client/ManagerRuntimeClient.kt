@@ -316,10 +316,12 @@ class ManagerRuntimeClient(
             val value = callRemote(target.session) { block(target.service) }
             val validationReason = validator(value, target.handshake)
             if (validationReason != null) {
+                discardOwnedWireResources(value)
                 ManagerRuntimeResult.Failed(validationReason)
             } else if (isCurrentTarget(target)) {
                 ManagerRuntimeResult.Success(value)
             } else {
+                discardOwnedWireResources(value)
                 ManagerRuntimeResult.Unavailable(availability.value)
             }
         } catch (_: SecurityException) {
@@ -622,6 +624,7 @@ class ManagerRuntimeClient(
     private fun isCurrentLocked(session: BindSession): Boolean =
         !closed && !session.released && activeSession === session
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     private suspend fun <T> callRemote(session: BindSession, block: () -> T): T {
         if (!remoteCallPermits.tryAcquire()) {
             throw RemoteCallTimeoutException(permitsExhausted = true)
@@ -647,7 +650,16 @@ class ManagerRuntimeClient(
         return try {
             val completed = withTimeoutOrNull(callTimeoutMillis) {
                 RemoteCallValue(deferred.await())
-            } ?: throw RemoteCallTimeoutException(permitsExhausted = false)
+            }
+            if (completed == null) {
+                // If the remote finished after the client timed out, drop any transferred FDs.
+                deferred.invokeOnCompletion { error ->
+                    if (error == null) {
+                        discardOwnedWireResources(runCatching { deferred.getCompleted() }.getOrNull())
+                    }
+                }
+                throw RemoteCallTimeoutException(permitsExhausted = false)
+            }
             completed.value
         } finally {
             synchronized(lock) { session.remoteCalls -= deferred }
@@ -670,6 +682,13 @@ class ManagerRuntimeClient(
     private sealed interface BindResult {
         data class Success(val accepted: Boolean) : BindResult
         data class Failure(val state: ManagerRuntimeAvailability) : BindResult
+    }
+
+    private fun discardOwnedWireResources(value: Any?) {
+        when (value) {
+            is ManagerLogExportResultDto ->
+                runCatching { value.parcelFileDescriptor?.close() }
+        }
     }
 
     private companion object {

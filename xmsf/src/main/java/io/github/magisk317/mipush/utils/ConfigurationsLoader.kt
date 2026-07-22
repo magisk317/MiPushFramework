@@ -44,25 +44,25 @@ class ConfigurationsLoader private constructor(
         synchronized(lock) {
             mLastLoadTime = System.currentTimeMillis()
             val newConfigs = hashMapOf<String, MutableList<Any>>()
-            do {
-                if (context == null || treeUri == null) {
-                    break
-                }
+            var loaded = false
+            if (context != null && treeUri != null) {
                 val exceptions = mutableListOf<Pair<DocumentFile, ConfigJsonException>>()
                 parseDirectory(context, treeUri, exceptions, configurations, newConfigs)
-
                 if (exceptions.isNotEmpty()) {
                     for (pair in exceptions) {
                         val errmsg = getJsonExceptionMessage(context, pair)
                         logE(errmsg.toString())
                     }
-                    break
+                } else {
+                    loaded = true
                 }
-                packageConfigs = newConfigs
-                return true
-            } while (false)
+            }
+            // Manager-uploaded snapshots overlay SAF content and survive process restarts.
+            if (context != null) {
+                ActiveConfigurationSnapshotStore.applyTo(context, configurations, newConfigs)
+            }
             packageConfigs = newConfigs
-            return false
+            return loaded
         }
     }
 
@@ -102,6 +102,19 @@ class ConfigurationsLoader private constructor(
             parse(json, configurations, newConfigs)
             packageConfigs = newConfigs
         }
+    }
+
+    /**
+     * Parse [json] into [target] without replacing the live packageConfigs map.
+     * Used by manager-upload overlays and tests that merge into a staging map.
+     */
+    @Throws(ConfigJsonException::class)
+    fun loadInto(
+        json: String,
+        configurations: Configurations,
+        target: MutableMap<String, MutableList<Any>>,
+    ) {
+        parse(json, configurations, target)
     }
 
     @Throws(ConfigJsonException::class)

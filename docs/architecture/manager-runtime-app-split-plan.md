@@ -58,7 +58,8 @@ The remaining Phase 2 read surfaces now also exist behind the same transport (pr
 - configuration catalog: `configuration_catalog` returns remote catalog metadata only; local SAF trees
   and document content remain manager-owned;
 - log export: `log_export` returns a typed result with an optional read-only `ParcelFileDescriptor`;
-  comparison probes close remote descriptors immediately so FDs are not retained.
+  clients and comparison probes close transferred descriptors on success consumption and on
+  validation failure / late-timeout completion so orphan FDs are not retained.
 
 Each of these screens still uses its existing in-process gateway as the primary path and compares the
 Binder result asynchronously. Missing, unsupported, timed-out, or malformed remote responses stay local
@@ -69,12 +70,22 @@ XMSF. Gradle unit tests, detekt, and the bundled app compilation cover the local
 Cross-package device and ROM evidence remains pending under the current no-device-test policy, so the
 all-in-one path remains a comparison baseline. Phase 3 preference/configuration ownership now has a
 complete key catalog, runtime preference snapshot export, manager migration snapshot export, and
-configuration content upload over a validated ParcelFileDescriptor. Phase 4 write-path request IDs
-now exist for application updates, event delete/restore, XMPP host changes, history clear, and
-retention controls. Phase 5 hosts the manager Compose UI in `:mipush` with a manager-owned Koin
-container and Binder-backed remote gateways. Phase 6 makes the default XMSF APK runtime-only
+configuration content upload that both merges into the live loader and persists under
+`filesDir/manager_runtime_active_config/`, reapplied as an overlay after each SAF tree load.
+Phase 4 write commands use stable request IDs derived from operation material (not random UUIDs),
+single-flight in-process idempotency reservations, data-level restore-by-original-id, and
+argument-aware clear-history. Phase 5 hosts the manager Compose UI in `:mipush` with a manager-owned
+Koin container and Binder-backed remote gateways. Phase 6 makes the default XMSF APK runtime-only
 (`split` composition) while retaining a `bundled` comparison composition that still packages the
 manager UI and widgets.
+
+Residual honesty notes after the 2026-07-22 review remediation:
+
+- event pages apply a cumulative wire-byte budget and may drop payload/regSec rather than fail the page;
+- log-export clients close transferred FDs on validation failure, session mismatch, and late-timeout completion;
+- write idempotency remains process-local (not durable across XMSF process death); restore is made safe by
+  reusing the original event id via insert-or-replace;
+- device/ROM matrix evidence is still out of scope until explicitly requested.
 
 ## Prior Art And Rejected Paths
 
@@ -307,12 +318,17 @@ Move application list/details, events, configuration catalog, notification-chann
 log export behind the client. Add pagination and file-descriptor tests before moving large data.
 
 Status: protocol, runtime readers, client methods, and comparison sources are implemented for all
-listed surfaces. The manager still uses in-process gateways as the primary path. Device/ROM evidence
-and the eventual cut-over away from direct gateway access remain open.
+listed surfaces. Event pages now size-bound and wire-byte-bound their summaries (dropping optional
+payload/regSec when needed) so oversized pages fail closed as truncated pages rather than whole-call
+errors. Log-export client paths close transferred descriptors on non-success outcomes. The manager
+still uses in-process gateways as the primary path when packaged inside XMSF; remote gateways are the
+primary path for the standalone `:mipush` host. Device/ROM evidence and the eventual cut-over away
+from any remaining in-process seams remain open.
 
 Exit criteria:
 
-- manager code no longer accesses runtime databases or platform notification objects directly;
+- manager code no longer accesses runtime databases directly (DB access is runtime-side only);
+- platform notification reconstruction in remote comparison/UI seams is still an open cleanup item;
 - Binder transaction-size tests cover worst-case pages and payload metadata;
 - reconnecting does not duplicate event actions or leak callbacks.
 
@@ -325,9 +341,12 @@ keep XMSF's active snapshot authoritative.
 Status: `PreferenceOwnership` classifies every shared DataStore key. Protocol minor 3 adds
 `runtime_preferences`, `manager_migration_snapshot`, and `configuration_upload`. XMSF exports
 runtime-owned and manager-owned snapshots over Binder and accepts validated JSON config uploads
-that restore the previous active snapshot on parse/persist failure. Separate manager-private
-DataStore packaging still lands with the mipush host migration; while packages remain bundled the
-classification and migration snapshot are the authoritative contract.
+that (1) merge into the live loader, (2) persist under the private active-config directory, and
+(3) reapply that directory as an overlay after each SAF tree init. Parse/persist failure restores the
+previous in-memory map and closes the upload descriptor on every path. Upload is still merge semantics
+(not a full atomic replace of the entire config set). Separate manager-private DataStore packaging
+still lands with the mipush host migration; while packages remain bundled the classification and
+migration snapshot are the authoritative contract.
 
 Exit criteria:
 
@@ -342,15 +361,20 @@ actions, permission repair, Zygisk configuration, and runtime controls. Commands
 idempotency rules where a retry could otherwise duplicate work.
 
 Status: protocol minor 4 adds `write_commands` with `ManagerWriteRequestDto` / `ManagerWriteResultDto`.
-XMSF executes selected write operations behind an in-process request-id cache that returns
-`duplicate` on retry. Unsupported operations return a typed unsupported status without blocking the
-session. Remaining privileged root/Zygisk write surfaces continue to use the existing gateways until
-their Binder command payloads are expanded.
+Manager remote writes derive a stable SHA-256 request id from operation material so Binder-death
+retries reuse the same id. XMSF single-flights in-flight ids and returns `duplicate` for completed
+ones from an in-process cache. `restore_event` reuses the original event id (`insertOrReplace`) so
+retries after runtime process death do not create duplicate rows even when the memory cache is cold.
+`clear_history` honors before/range arguments and returns deleted counts via `resultLong`.
+Unsupported operations return a typed unsupported status without blocking the session. Remaining
+privileged root/Zygisk write surfaces continue to use the existing gateways until their Binder
+command payloads are expanded.
 
 Exit criteria:
 
 - every write has a typed success/failure/unsupported result;
-- retry after Binder death cannot repeat a destructive action silently;
+- retry after Binder death cannot silently duplicate restore/delete for supported operations
+  (stable request ids + data-level restore idempotency; durable cross-process write journal still optional);
 - caller identity is tested for every privileged endpoint.
 
 ### Phase 5: Host Manager In `mipush`

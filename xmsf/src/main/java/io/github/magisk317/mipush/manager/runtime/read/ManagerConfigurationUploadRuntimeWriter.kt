@@ -2,14 +2,13 @@ package io.github.magisk317.mipush.manager.runtime.read
 
 import android.content.Context
 import android.os.ParcelFileDescriptor
+import java.io.FileInputStream
 import io.github.magisk317.mipush.common.configurations.ConfigJsonException
 import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadRequestDto
 import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadResultDto
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
+import io.github.magisk317.mipush.utils.ActiveConfigurationSnapshotStore
 import io.github.magisk317.mipush.utils.Configurations
-import java.io.File
-import java.io.FileInputStream
-import java.io.FileOutputStream
 import java.nio.charset.StandardCharsets
 
 /**
@@ -22,22 +21,22 @@ class ManagerConfigurationUploadRuntimeWriter(
     fun upload(request: ManagerConfigurationUploadRequestDto): ManagerConfigurationUploadResultDto {
         val descriptor = request.parcelFileDescriptor
             ?: return fail("configuration_upload_missing_descriptor")
-        val path = request.path.substringAfterLast('/').ifBlank { request.path }
-        if (!path.endsWith(".json", ignoreCase = true)) {
-            return fail("configuration_upload_not_json")
-        }
-        val content = readLimited(descriptor, request.contentLength)
-            ?: return fail("configuration_upload_read_failed")
-        if (content.size > ManagerProtocol.MAX_CONFIGURATION_UPLOAD_BYTES) {
-            return fail("configuration_upload_too_large")
-        }
-        val text = content.toString(StandardCharsets.UTF_8)
-        val configurations = Configurations.getInstance()
-        val previous = configurations.loader.getConfigs().mapValues { (_, value) ->
-            value.toMutableList()
-        }.toMutableMap()
-
         return try {
+            val path = request.path.substringAfterLast('/').ifBlank { request.path }
+            if (!path.endsWith(".json", ignoreCase = true)) {
+                return fail("configuration_upload_not_json")
+            }
+            val content = readLimited(descriptor, request.contentLength)
+                ?: return fail("configuration_upload_read_failed")
+            if (content.size > ManagerProtocol.MAX_CONFIGURATION_UPLOAD_BYTES) {
+                return fail("configuration_upload_too_large")
+            }
+            val text = content.toString(StandardCharsets.UTF_8)
+            val configurations = Configurations.getInstance()
+            val previous = configurations.loader.getConfigs().mapValues { (_, value) ->
+                value.toMutableList()
+            }.toMutableMap()
+
             try {
                 configurations.load(text)
             } catch (_: ConfigJsonException) {
@@ -48,18 +47,7 @@ class ManagerConfigurationUploadRuntimeWriter(
                 return fail("configuration_upload_invalid_json")
             }
 
-            val snapshotDir = File(context.filesDir, ACTIVE_CONFIG_DIR).apply { mkdirs() }
-            val target = File(snapshotDir, path)
-            val temp = File(snapshotDir, "$path.tmp")
-            try {
-                FileOutputStream(temp).use { it.write(content) }
-                if (!temp.renameTo(target) && !(target.delete() && temp.renameTo(target))) {
-                    temp.delete()
-                    restore(configurations, previous)
-                    return fail("configuration_upload_persist_failed")
-                }
-            } catch (_: Exception) {
-                temp.delete()
+            if (!ActiveConfigurationSnapshotStore.persist(context, path, content)) {
                 restore(configurations, previous)
                 return fail("configuration_upload_persist_failed")
             }
@@ -107,8 +95,4 @@ class ManagerConfigurationUploadRuntimeWriter(
         activated = false,
         details = details,
     )
-
-    private companion object {
-        const val ACTIVE_CONFIG_DIR = "manager_runtime_active_config"
-    }
 }
