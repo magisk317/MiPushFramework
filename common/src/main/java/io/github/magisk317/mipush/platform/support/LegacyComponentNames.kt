@@ -14,6 +14,7 @@ object LegacyComponentNames {
     const val RECENT_EVENT_LIST_PAGE = "io.github.magisk317.mipush.feature.main.RecentEventListPage"
     const val REQUEST_PERMISSION_PAGE = "io.github.magisk317.mipush.feature.wizard.RequestPermissionPage"
     const val WELCOME_ACTIVITY = "io.github.magisk317.mipush.feature.wizard.WelcomeActivity"
+    const val MANAGER_LAUNCHER_ACTIVITY = "io.github.magisk317.mipush.app.ManagerLauncherActivity"
 
     val manifestActivities = setOf(
         MAIN_ACTIVITY,

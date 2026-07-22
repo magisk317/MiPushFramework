@@ -38,6 +38,10 @@ import io.github.magisk317.mipush.manager.notification.ComparingNotificationChan
 import io.github.magisk317.mipush.manager.notification.InProcessNotificationChannelSource
 import io.github.magisk317.mipush.manager.notification.RemoteNotificationChannelSource
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
+import io.github.magisk317.mipush.manager.migration.ManagerPreferenceMigration
+import io.github.magisk317.mipush.manager.launcher.LauncherIconController
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import io.github.magisk317.mipush.manager.connection.ComparingConnectionSnapshotSource
 import io.github.magisk317.mipush.manager.connection.InProcessConnectionSnapshotSource
 import io.github.magisk317.mipush.manager.connection.RemoteConnectionSnapshotSource
@@ -144,19 +148,31 @@ object ManagerDependencies {
      */
     @Synchronized
     fun startAsRemoteHost(context: Context) {
-        if (modulesLoaded) {
-            return
-        }
         val appContext = context.applicationContext ?: context
-        if (GlobalContext.getOrNull() == null) {
-            startKoin {
-                androidContext(appContext)
-                modules(managerRemoteHostModule, managerKoinModule)
+        if (!modulesLoaded) {
+            if (GlobalContext.getOrNull() == null) {
+                startKoin {
+                    androidContext(appContext)
+                    modules(managerRemoteHostModule, managerKoinModule)
+                }
+            } else {
+                loadKoinModules(listOf(managerRemoteHostModule, managerKoinModule))
             }
-        } else {
-            loadKoinModules(listOf(managerRemoteHostModule, managerKoinModule))
+            modulesLoaded = true
         }
-        modulesLoaded = true
+        val koin = GlobalContext.get()
+        val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        ManagerPreferenceMigration.schedule(
+            scope = appScope,
+            client = koin.get(),
+            preferenceRepository = koin.get(),
+        )
+        appScope.launch(Dispatchers.IO) {
+            val iconId = runCatching {
+                koin.get<PreferenceRepository>().selectedLauncherIcon.first()
+            }.getOrDefault(LauncherIconController.ICON_DEFAULT)
+            LauncherIconController.apply(appContext, iconId)
+        }
     }
 
     inline fun <reified T : Any> get(): T = GlobalContext.get().get()

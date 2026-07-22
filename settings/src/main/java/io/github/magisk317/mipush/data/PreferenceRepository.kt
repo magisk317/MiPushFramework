@@ -339,6 +339,64 @@ class PreferenceRepository constructor(
     }
 
 
+    private val MANAGER_MIGRATION_APPLIED = booleanPreferencesKey("manager_migration_applied")
+    private val SELECTED_LAUNCHER_ICON = stringPreferencesKey("selected_launcher_icon")
+
+    val managerMigrationApplied: Flow<Boolean> = dataStore.data.map { it[MANAGER_MIGRATION_APPLIED] ?: false }
+    val selectedLauncherIcon: Flow<String> = dataStore.data.map {
+        it[SELECTED_LAUNCHER_ICON] ?: DEFAULT_LAUNCHER_ICON
+    }
+
+    suspend fun isManagerMigrationApplied(): Boolean =
+        dataStore.data.first()[MANAGER_MIGRATION_APPLIED] ?: false
+
+    suspend fun setManagerMigrationApplied(applied: Boolean) {
+        dataStore.edit { it[MANAGER_MIGRATION_APPLIED] = applied }
+    }
+
+    suspend fun setSelectedLauncherIcon(iconId: String) {
+        dataStore.edit { it[SELECTED_LAUNCHER_ICON] = iconId }
+    }
+
+    /**
+     * Import manager-owned preference entries produced by [exportOwnedPreferences].
+     * When [onlyMissing] is true, existing local values win so re-import is safe.
+     */
+    suspend fun importOwnedPreferences(
+        entries: List<OwnedPreferenceValue>,
+        owner: PreferenceOwner = PreferenceOwner.MANAGER,
+        onlyMissing: Boolean = true,
+    ): Int {
+        val wanted = PreferenceOwnership.entries
+            .filter { it.owner == owner }
+            .map { it.key }
+            .toSet()
+        var written = 0
+        dataStore.edit { prefs ->
+            for (entry in entries) {
+                if (entry.key !in wanted) continue
+                val key = when (entry.type) {
+                    "boolean" -> booleanPreferencesKey(entry.key)
+                    "int" -> intPreferencesKey(entry.key)
+                    "long" -> longPreferencesKey(entry.key)
+                    "float" -> floatPreferencesKey(entry.key)
+                    else -> stringPreferencesKey(entry.key)
+                }
+                if (onlyMissing && prefs.contains(key)) continue
+                when (entry.type) {
+                    "boolean" -> prefs[booleanPreferencesKey(entry.key)] = entry.value.toBooleanStrictOrNull()
+                        ?: entry.value.equals("true", ignoreCase = true)
+                    "int" -> prefs[intPreferencesKey(entry.key)] = entry.value.toIntOrNull() ?: continue
+                    "long" -> prefs[longPreferencesKey(entry.key)] = entry.value.toLongOrNull() ?: continue
+                    "float" -> prefs[floatPreferencesKey(entry.key)] = entry.value.toFloatOrNull() ?: continue
+                    else -> prefs[stringPreferencesKey(entry.key)] = entry.value
+                }
+                written += 1
+            }
+        }
+        return written
+    }
+
     /**
      * Snapshot owned preferences as typed string entries for Binder migration / comparison.
      * Only keys classified by [PreferenceOwnership] are emitted.
@@ -369,5 +427,6 @@ class PreferenceRepository constructor(
 
     private companion object {
         const val DEFAULT_UI_KIT_STYLE = 0
+        const val DEFAULT_LAUNCHER_ICON = "default"
     }
 }

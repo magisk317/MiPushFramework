@@ -64,6 +64,8 @@ object ManagerProtocol {
     const val WRITE_OP_CLEAR_HISTORY = "clear_history"
     const val WRITE_OP_SET_RUNTIME_LOG_RETENTION = "set_runtime_log_retention"
     const val WRITE_OP_APPLY_EVENT_RETENTION = "apply_event_retention"
+    const val WRITE_OP_START_FOREGROUND = "start_foreground"
+    const val WRITE_OP_XMPP_RECONNECT = "xmpp_reconnect"
     const val DEFAULT_MAX_PAGE_SIZE = 100
     const val DEFAULT_MAX_PAYLOAD_BYTES = 512 * 1024
     const val MAX_CAPABILITY_COUNT = 64

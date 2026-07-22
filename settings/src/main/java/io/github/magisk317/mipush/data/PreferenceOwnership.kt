@@ -135,6 +135,8 @@ object PreferenceOwnership {
             "Remote icon repository",
         ),
         PreferenceOwnershipEntry("icon_remote_branch", PreferenceOwner.MANAGER, "Remote icon branch"),
+        PreferenceOwnershipEntry("manager_migration_applied", PreferenceOwner.MANAGER, "Manager preference migration marker"),
+        PreferenceOwnershipEntry("selected_launcher_icon", PreferenceOwner.MANAGER, "Selected launcher icon alias"),
         PreferenceOwnershipEntry(
             "icon_remote_accelerator",
             PreferenceOwner.MANAGER,

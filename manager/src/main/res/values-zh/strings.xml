@@ -593,4 +593,14 @@
     <string name="mock_live_update_ride_title">司机正在前往上车点</string>
     <string name="mock_live_update_ride_desc">距您约500米，预计3分钟到达</string>
 
+
+    <string name="settings_launcher_icon">应用图标</string>
+    <string name="settings_launcher_icon_summary">选择桌面上显示的管理器图标</string>
+    <string name="settings_launcher_icon_default">默认</string>
+    <string name="settings_launcher_icon_legacy">经典</string>
+    <string name="settings_launcher_icon_xmsf">推送服务风格</string>
+    <string name="settings_migrate_prefs">从运行时导入管理器偏好</string>
+    <string name="settings_migrate_prefs_summary">把仍保存在推送服务包内的界面偏好复制到管理器</string>
+    <string name="settings_migrate_prefs_done">已导入 %1$d 项偏好</string>
+
 </resources>

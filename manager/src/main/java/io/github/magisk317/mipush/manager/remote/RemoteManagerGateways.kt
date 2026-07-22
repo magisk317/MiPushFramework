@@ -444,11 +444,21 @@ class RemoteManagerRuntimeActions(
         )
     }
 
-    override fun startMiPushServiceAsForegroundService(context: Context) = Unit
+    override fun startMiPushServiceAsForegroundService(context: Context) {
+        RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_START_FOREGROUND,
+        )
+    }
 
     override fun resetTopActivityCache() = Unit
 
-    override fun sendXmppReconnectRequest(context: Context) = Unit
+    override fun sendXmppReconnectRequest(context: Context) {
+        RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_XMPP_RECONNECT,
+        )
+    }
 
     override fun setXmppServer(context: Context, newHost: String) {
         RemoteWriteSupport.execute(
@@ -458,15 +468,32 @@ class RemoteManagerRuntimeActions(
         )
     }
 
-    override fun getXmppServerHint(): String = ""
+    override fun getXmppServerHint(): String = runBlocking {
+        when (val result = connectionSource.load()) {
+            is io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSourceResult.Available -> {
+                val host = result.snapshot.serverHost.orEmpty()
+                val ip = result.snapshot.serverIp.orEmpty()
+                when {
+                    host.isNotBlank() && ip.isNotBlank() -> "$host ($ip)"
+                    host.isNotBlank() -> host
+                    ip.isNotBlank() -> ip
+                    else -> ""
+                }
+            }
+            is io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSourceResult.Unavailable -> ""
+        }
+    }
 
     override fun getRuntimeEnvironmentSnapshot(context: Context): ManagerRuntimeEnvironmentSnapshot =
-        ManagerRuntimeEnvironmentSnapshot(
-            isMiui = 0,
-            imei = null,
-            macAddress = null,
-            xmppServerHost = "",
-        )
+        runBlocking {
+            val host = getXmppServerHint()
+            ManagerRuntimeEnvironmentSnapshot(
+                isMiui = 0,
+                imei = null,
+                macAddress = null,
+                xmppServerHost = host,
+            )
+        }
 
     override fun getConnectionSnapshot(): ManagerConnectionSnapshot = runBlocking {
         when (val result = connectionSource.load()) {

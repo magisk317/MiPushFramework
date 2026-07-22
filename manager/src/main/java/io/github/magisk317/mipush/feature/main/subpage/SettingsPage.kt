@@ -229,6 +229,7 @@ private fun SettingsScreen(
                     onExpandedChange = { zygiskExpanded = !zygiskExpanded },
                 ) {
                     val context = LocalContext.current
+                    val scope = rememberCoroutineScope()
                     val showAllEvents by viewModel.showAllEvents.collectAsStateWithLifecycle()
                     val dualAppEnabled by viewModel.dualAppEnabled.collectAsStateWithLifecycle()
                     val dualAppProcessing by viewModel.dualAppProcessing.collectAsStateWithLifecycle()
@@ -250,6 +251,62 @@ private fun SettingsScreen(
                         summary = stringResource(R.string.pref_color_status_bar_icon_summary),
                         onClick = onNavigateToStatusBarIconSettings,
                     )
+
+                    val selectedLauncherIcon by viewModel.selectedLauncherIcon.collectAsStateWithLifecycle()
+                    val launcherIconSummary = when (selectedLauncherIcon) {
+                        "legacy" -> stringResource(R.string.settings_launcher_icon_legacy)
+                        "xmsf" -> stringResource(R.string.settings_launcher_icon_xmsf)
+                        else -> stringResource(R.string.settings_launcher_icon_default)
+                    }
+                    var showLauncherIconDialog by remember { mutableStateOf(false) }
+                    SettingsItem(
+                        title = stringResource(R.string.settings_launcher_icon),
+                        summary = stringResource(R.string.settings_launcher_icon_summary) + " · " + launcherIconSummary,
+                    ) { showLauncherIconDialog = true }
+                    if (showLauncherIconDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showLauncherIconDialog = false },
+                            title = { Text(stringResource(R.string.settings_launcher_icon)) },
+                            text = {
+                                Column {
+                                    listOf(
+                                        "default" to R.string.settings_launcher_icon_default,
+                                        "legacy" to R.string.settings_launcher_icon_legacy,
+                                        "xmsf" to R.string.settings_launcher_icon_xmsf,
+                                    ).forEach { (id, labelRes) ->
+                                        Text(
+                                            text = stringResource(labelRes),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    viewModel.setSelectedLauncherIcon(context, id)
+                                                    showLauncherIconDialog = false
+                                                }
+                                                .padding(vertical = 12.dp),
+                                        )
+                                    }
+                                }
+                            },
+                            confirmButton = {
+                                TextButton(onClick = { showLauncherIconDialog = false }) {
+                                    Text(stringResource(android.R.string.cancel))
+                                }
+                            },
+                        )
+                    }
+
+                    SettingsItem(
+                        title = stringResource(R.string.settings_migrate_prefs),
+                        summary = stringResource(R.string.settings_migrate_prefs_summary),
+                    ) {
+                        viewModel.migrateManagerPreferencesFromRuntime { written ->
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    message = context.getString(R.string.settings_migrate_prefs_done, written),
+                                )
+                            }
+                        }
+                    }
 
                     val dualAppTitle = stringResource(R.string.settings_dual_app_title)
                     SettingsSwitchItem(

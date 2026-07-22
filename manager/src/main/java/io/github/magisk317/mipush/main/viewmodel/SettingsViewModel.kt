@@ -250,6 +250,33 @@ class SettingsViewModel constructor(
         }
     }
 
+    val selectedLauncherIcon = preferenceRepository.selectedLauncherIcon
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "default")
+
+    fun setSelectedLauncherIcon(context: android.content.Context, iconId: String) {
+        viewModelScope.launch {
+            preferenceRepository.setSelectedLauncherIcon(iconId)
+            io.github.magisk317.mipush.manager.launcher.LauncherIconController.apply(context, iconId)
+        }
+    }
+
+    fun migrateManagerPreferencesFromRuntime(onDone: (Int) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            // Force re-import of missing keys even if previously marked applied.
+            preferenceRepository.setManagerMigrationApplied(false)
+            val client = runCatching {
+                org.koin.core.context.GlobalContext.get().get<io.github.magisk317.mipush.manager.client.ManagerRuntimeClient>()
+            }.getOrNull()
+            val written = if (client != null) {
+                io.github.magisk317.mipush.manager.migration.ManagerPreferenceMigration.maybeMigrate(
+                    client = client,
+                    preferenceRepository = preferenceRepository,
+                )
+            } else 0
+            withContext(Dispatchers.Main) { onDone(written) }
+        }
+    }
+
     fun setRuntimeLogRetentionDays(days: Int) {
         viewModelScope.launch {
             preferenceRepository.setRuntimeLogRetentionDays(days)

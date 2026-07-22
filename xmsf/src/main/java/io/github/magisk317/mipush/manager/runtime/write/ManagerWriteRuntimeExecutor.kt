@@ -56,6 +56,14 @@ class ManagerWriteRuntimeExecutor(
                 LogUtils.setRetentionDays(days)
                 success(request.requestId, "runtime_log_retention:$days")
             }
+            ManagerProtocol.WRITE_OP_START_FOREGROUND -> {
+                runtimeActions.startMiPushServiceAsForegroundService(context)
+                success(request.requestId, "foreground_started")
+            }
+            ManagerProtocol.WRITE_OP_XMPP_RECONNECT -> {
+                runtimeActions.sendXmppReconnectRequest(context)
+                success(request.requestId, "xmpp_reconnect_requested")
+            }
             ManagerProtocol.WRITE_OP_APPLY_EVENT_RETENTION -> {
                 val days = request.intArgument.coerceAtLeast(1)
                 runtimeActions.applyEventRetentionDays(days)

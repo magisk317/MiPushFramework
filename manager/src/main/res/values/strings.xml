@@ -605,4 +605,14 @@ This could be the application doing a reverse registration, or the registration 
     <string name="mock_voip_accept">Accept</string>
     <string name="mock_voip_decline">Decline</string>
 
+
+    <string name="settings_launcher_icon">Launcher icon</string>
+    <string name="settings_launcher_icon_summary">Choose which app icon appears on the home screen</string>
+    <string name="settings_launcher_icon_default">Default</string>
+    <string name="settings_launcher_icon_legacy">Classic</string>
+    <string name="settings_launcher_icon_xmsf">Push service style</string>
+    <string name="settings_migrate_prefs">Import manager preferences from runtime</string>
+    <string name="settings_migrate_prefs_summary">Copy UI preferences saved in the push service package</string>
+    <string name="settings_migrate_prefs_done">Imported %1$d preferences</string>
+
 </resources>

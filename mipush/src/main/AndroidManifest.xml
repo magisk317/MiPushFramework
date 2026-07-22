@@ -22,21 +22,60 @@
         android:theme="@style/AppTheme"
         tools:targetApi="tiramisu">
 
+        
         <activity
             android:name="io.github.magisk317.mipush.app.ManagerLauncherActivity"
             android:excludeFromRecents="true"
             android:exported="true"
+            android:icon="@mipmap/ic_launcher"
             android:noHistory="true"
             android:theme="@style/AppTheme">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
+            <!-- No LAUNCHER filter: desktop icons are activity-aliases so icon can be switched. -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="de.robv.android.xposed.category.MODULE_SETTINGS" />
             </intent-filter>
         </activity>
+
+        <activity-alias
+            android:name="io.github.magisk317.mipush.app.ManagerLauncherActivityDefault"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/app_name"
+            android:targetActivity="io.github.magisk317.mipush.app.ManagerLauncherActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name="io.github.magisk317.mipush.app.ManagerLauncherActivityLegacy"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_legacy"
+            android:label="@string/app_name"
+            android:targetActivity="io.github.magisk317.mipush.app.ManagerLauncherActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name="io.github.magisk317.mipush.app.ManagerLauncherActivityXmsf"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_xmsf"
+            android:label="@string/app_name"
+            android:targetActivity="io.github.magisk317.mipush.app.ManagerLauncherActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
 
         <activity
             android:name="io.github.magisk317.mipush.feature.wizard.WelcomeActivity"
