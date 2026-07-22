@@ -72,8 +72,9 @@ complete key catalog, runtime preference snapshot export, manager migration snap
 configuration content upload over a validated ParcelFileDescriptor. Phase 4 write-path request IDs
 now exist for application updates, event delete/restore, XMPP host changes, history clear, and
 retention controls. Phase 5 hosts the manager Compose UI in `:mipush` with a manager-owned Koin
-container and Binder-backed remote gateways; the XMSF-packaged manager remains available for
-comparison until Phase 6 removes it from the default XMSF APK.
+container and Binder-backed remote gateways. Phase 6 makes the default XMSF APK runtime-only
+(`split` composition) while retaining a `bundled` comparison composition that still packages the
+manager UI and widgets.
 
 ## Prior Art And Rejected Paths
 
@@ -377,6 +378,13 @@ the current XMSF widgets to `:mipush`. Keep a thin compatibility launcher for on
 Maintain an all-in-one build variant as a regression baseline until split builds pass the ROM
 matrix. Decide later, from device evidence, whether that variant remains a supported fallback or is
 retired.
+
+Status: `:app` now has a `composition` flavor dimension. The default `split` composition depends on
+runtime modules only, gates manager bootstrap off, and exposes `activity-alias` compatibility
+launchers that forward into the standalone manager package. The `bundled` composition keeps
+`:manager`, real manager Activities, and the existing widgets as the all-in-one comparison baseline.
+Widgets are not yet hosted by `:mipush` (residual on the bundled XMSF shell only).
+`LegacyUiEntryPoints` resolves the manager UI package by classpath so both compositions keep working.
 
 ## Verification Matrix
 

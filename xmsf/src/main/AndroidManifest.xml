@@ -132,40 +132,6 @@
                 android:name="com.xiaomi.xmsf.push.service.CompatXMPushService"
                 android:foregroundServiceType="remoteMessaging"
                 android:exported="false" />
-        <activity
-                android:name="io.github.magisk317.mipush.feature.wizard.WelcomeActivity"
-                android:icon="@mipmap/ic_launcher"
-                android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-        <activity
-                android:name="io.github.magisk317.mipush.feature.wizard.RequestPermissionPage"
-                android:exported="false" />
-
-        <activity
-                android:name="io.github.magisk317.mipush.feature.main.MainActivity"
-                android:exported="false" />
-
-        <activity
-                android:name="io.github.magisk317.mipush.feature.main.ApplicationInfoPage"
-                android:configChanges="screenLayout|screenSize|orientation"
-                android:exported="false" />
-        <activity
-                android:name="io.github.magisk317.mipush.feature.main.ZygiskConfigPage"
-                android:exported="false" />
-
-        <activity
-                android:name="io.github.magisk317.mipush.feature.main.RecentEventListPage"
-                android:label="@string/recent_activity_title"
-                android:exported="false" />
-        <activity
-                android:name="io.github.magisk317.mipush.feature.main.HelpPage"
-                android:label="@string/helplib_title"
-                android:theme="@style/AppTheme"
-                android:exported="false" />
 
         <provider
                 android:name="androidx.core.content.FileProvider"

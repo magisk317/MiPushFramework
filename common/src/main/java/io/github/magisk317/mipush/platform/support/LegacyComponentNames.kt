@@ -4,6 +4,7 @@ import io.github.magisk317.mipush.common.Constants
 
 object LegacyComponentNames {
     const val SERVICE_PACKAGE = "com.xiaomi.xmsf"
+    const val MANAGER_PACKAGE = "io.github.magisk317.mipush"
     const val BRIDGE_SERVICE_CLASS = "com.xiaomi.xmsf.push.service.XMPushService"
     const val LEGACY_COMPAT_SERVICE_CLASS = "com.xiaomi.push.service.XMPushService"
 

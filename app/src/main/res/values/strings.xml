@@ -16,4 +16,5 @@
     <string name="widget_recent_events_description">Shows recent non-registration MiPush records.</string>
     <string name="widget_recent_events_empty">No push records yet</string>
     <string name="widget_event_title_format">%1$s - %2$s</string>
+    <string name="manager_ui_unavailable">MiPush Manager is not installed or unavailable.</string>
 </resources>

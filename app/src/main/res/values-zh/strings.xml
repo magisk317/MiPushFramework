@@ -16,4 +16,5 @@
     <string name="widget_recent_events_description">显示最近的非注册类 MiPush 记录。</string>
     <string name="widget_recent_events_empty">暂无推送记录</string>
     <string name="widget_event_title_format">%1$s - %2$s</string>
+    <string name="manager_ui_unavailable">MiPush 管理器未安装或不可用</string>
 </resources>
