@@ -64,14 +64,16 @@ Each of these screens still uses its existing in-process gateway as the primary 
 Binder result asynchronously. Missing, unsupported, timed-out, or malformed remote responses stay local
 to that capability and do not block other manager pages.
 
-The manager UI still uses the existing in-process gateways as its primary path. Gradle unit tests,
-detekt, and the bundled app compilation cover the local Phase 1 and Phase 2 contracts. Cross-package
-device and ROM evidence remains pending under the current no-device-test policy, so the all-in-one
-path remains the shipped baseline. Phase 3 preference/configuration ownership now has a complete key catalog, runtime preference
-snapshot export, manager migration snapshot export, and configuration content upload over a
-validated ParcelFileDescriptor. Phase 4 write-path request IDs now exist for application updates, event delete/restore, XMPP
-host changes, history clear, and retention controls. The next implementation cut is packaging
-migration of manager hosting into `:mipush`, then removing manager from the default XMSF APK.
+The manager UI still uses the existing in-process gateways as its primary path when packaged inside
+XMSF. Gradle unit tests, detekt, and the bundled app compilation cover the local Phase 1–4 contracts.
+Cross-package device and ROM evidence remains pending under the current no-device-test policy, so the
+all-in-one path remains a comparison baseline. Phase 3 preference/configuration ownership now has a
+complete key catalog, runtime preference snapshot export, manager migration snapshot export, and
+configuration content upload over a validated ParcelFileDescriptor. Phase 4 write-path request IDs
+now exist for application updates, event delete/restore, XMPP host changes, history clear, and
+retention controls. Phase 5 hosts the manager Compose UI in `:mipush` with a manager-owned Koin
+container and Binder-backed remote gateways; the XMSF-packaged manager remains available for
+comparison until Phase 6 removes it from the default XMSF APK.
 
 ## Prior Art And Rejected Paths
 
@@ -355,6 +357,11 @@ Exit criteria:
 Add `:manager` and `:manager-client` to `:mipush`, start a manager-owned Koin container, move manager
 Activity declarations and widgets, and switch internal navigation to explicit package-scoped
 actions. Keep the XMSF-packaged manager enabled as an internal comparison build.
+
+Status: `:mipush` depends on `:manager`, starts `ManagerDependencies.startAsRemoteHost()`, declares
+manager Activities in its manifest, and opens `WelcomeActivity` from the launcher instead of
+redirecting into XMSF. Remote gateways cover Binder-backed reads/writes for supported capabilities;
+unsupported surfaces stay local no-ops. Widgets remain on the XMSF shell until Phase 6.
 
 Exit criteria:
 

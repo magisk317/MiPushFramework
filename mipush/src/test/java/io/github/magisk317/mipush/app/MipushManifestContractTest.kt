@@ -63,6 +63,21 @@ class MipushManifestContractTest {
             "src/main/java/io/github/magisk317/mipush/app/ManagerLauncherActivity.kt",
         ).readText()
         assertTrue("Intent.FLAG_ACTIVITY_NEW_TASK" in launcherSource)
+        assertTrue("WelcomeActivity" in launcherSource)
+        assertFalse("LegacyComponentNames.SERVICE_PACKAGE" in launcherSource)
+    }
+
+    @Test
+    fun `manager activities are hosted in mipush package`() {
+        val names = parseManifest().getElementsByTagName("activity").let { activities ->
+            (0 until activities.length).mapNotNull { index ->
+                activities.item(index).attributes.getNamedItemNS(ANDROID_NS, "name")?.nodeValue
+            }.toSet()
+        }
+        assertTrue("io.github.magisk317.mipush.feature.wizard.WelcomeActivity" in names)
+        assertTrue("io.github.magisk317.mipush.feature.main.MainActivity" in names)
+        assertTrue("io.github.magisk317.mipush.feature.main.ApplicationInfoPage" in names)
+        assertTrue("io.github.magisk317.mipush.feature.wizard.RequestPermissionPage" in names)
     }
 
     @Test

@@ -47,6 +47,7 @@ import kotlinx.coroutines.SupervisorJob
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.loadKoinModules
+import org.koin.core.context.startKoin
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
@@ -124,6 +125,9 @@ object ManagerDependencies {
     @Volatile
     private var modulesLoaded = false
 
+    /**
+     * XMSF-packaged host path: the runtime Koin container must already expose manager gateways.
+     */
     @Synchronized
     fun start(context: Context) {
         if (modulesLoaded) {
@@ -131,6 +135,27 @@ object ManagerDependencies {
         }
         requireHostKoin(context)
         loadKoinModules(managerKoinModule)
+        modulesLoaded = true
+    }
+
+    /**
+     * Standalone `:mipush` host path: start a manager-owned Koin container that reaches XMSF only
+     * through the authenticated Binder client.
+     */
+    @Synchronized
+    fun startAsRemoteHost(context: Context) {
+        if (modulesLoaded) {
+            return
+        }
+        val appContext = context.applicationContext ?: context
+        if (GlobalContext.getOrNull() == null) {
+            startKoin {
+                androidContext(appContext)
+                modules(managerRemoteHostModule, managerKoinModule)
+            }
+        } else {
+            loadKoinModules(listOf(managerRemoteHostModule, managerKoinModule))
+        }
         modulesLoaded = true
     }
 
@@ -144,7 +169,8 @@ object ManagerDependencies {
         error(
             "Koin host container is not started for manager dependencies " +
                 "(process=$process, package=${context.packageName}). " +
-                "MiPushFrameworkApp must call AppDependencies.start() before ManagerDependencies.start()."
+                "MiPushFrameworkApp must call AppDependencies.start() before ManagerDependencies.start(), " +
+                "or the mipush host must call ManagerDependencies.startAsRemoteHost()."
         )
     }
 }

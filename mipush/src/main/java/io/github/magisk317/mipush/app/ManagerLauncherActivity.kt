@@ -1,31 +1,23 @@
 package io.github.magisk317.mipush.app
 
 import android.app.Activity
-import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Bundle
-import android.widget.Toast
-import io.github.magisk317.mipush.platform.support.LegacyComponentNames
+import io.github.magisk317.mipush.feature.wizard.WelcomeActivity
+import io.github.magisk317.mipush.manager.di.ManagerDependencies
 
+/**
+ * Launcher / LSPosed module-settings entry for the standalone manager host.
+ * Opens the in-package manager UI rather than redirecting into XMSF.
+ */
 class ManagerLauncherActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        val managerIntent = Intent().setClassName(
-            LegacyComponentNames.SERVICE_PACKAGE,
-            LegacyComponentNames.WELCOME_ACTIVITY,
-        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        try {
-            startActivity(managerIntent)
-        } catch (_: ActivityNotFoundException) {
-            showUnavailableMessage()
-        } catch (_: SecurityException) {
-            showUnavailableMessage()
-        }
+        ManagerDependencies.startAsRemoteHost(applicationContext)
+        startActivity(
+            Intent(this, WelcomeActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
         finish()
-    }
-
-    private fun showUnavailableMessage() {
-        Toast.makeText(this, R.string.manager_runtime_unavailable, Toast.LENGTH_LONG).show()
     }
 }
