@@ -69,8 +69,9 @@ detekt, and the bundled app compilation cover the local Phase 1 and Phase 2 cont
 device and ROM evidence remains pending under the current no-device-test policy, so the all-in-one
 path remains the shipped baseline. Phase 3 preference/configuration ownership now has a complete key catalog, runtime preference
 snapshot export, manager migration snapshot export, and configuration content upload over a
-validated ParcelFileDescriptor. The next implementation cut is Phase 4 write-path request IDs,
-then packaging migration of manager hosting into `:mipush`.
+validated ParcelFileDescriptor. Phase 4 write-path request IDs now exist for application updates, event delete/restore, XMPP
+host changes, history clear, and retention controls. The next implementation cut is packaging
+migration of manager hosting into `:mipush`, then removing manager from the default XMSF APK.
 
 ## Prior Art And Rejected Paths
 
@@ -336,6 +337,12 @@ Exit criteria:
 Remote application state changes, event delete/restore/replay, configuration activation, root
 actions, permission repair, Zygisk configuration, and runtime controls. Commands use request IDs and
 idempotency rules where a retry could otherwise duplicate work.
+
+Status: protocol minor 4 adds `write_commands` with `ManagerWriteRequestDto` / `ManagerWriteResultDto`.
+XMSF executes selected write operations behind an in-process request-id cache that returns
+`duplicate` on retry. Unsupported operations return a typed unsupported status without blocking the
+session. Remaining privileged root/Zygisk write surfaces continue to use the existing gateways until
+their Binder command payloads are expanded.
 
 Exit criteria:
 

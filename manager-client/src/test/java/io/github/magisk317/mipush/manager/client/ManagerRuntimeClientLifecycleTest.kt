@@ -26,6 +26,8 @@ import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadRequestD
 import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadResultDto
 import io.github.magisk317.mipush.manager.api.ManagerMigrationSnapshotDto
 import io.github.magisk317.mipush.manager.api.ManagerRuntimePreferencesDto
+import io.github.magisk317.mipush.manager.api.ManagerWriteRequestDto
+import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -863,6 +865,9 @@ class ManagerRuntimeClientLifecycleTest {
             request: ManagerConfigurationUploadRequestDto,
         ): ManagerConfigurationUploadResultDto =
             ManagerConfigurationUploadResultDto(success = false, details = "unused")
+
+        override fun executeWrite(request: ManagerWriteRequestDto): ManagerWriteResultDto =
+            ManagerWriteResultDto(requestId = request.requestId, status = "unsupported")
 
         override fun asBinder(): IBinder = this
     }

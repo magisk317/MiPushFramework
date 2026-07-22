@@ -26,6 +26,8 @@ import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadRequestD
 import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadResultDto
 import io.github.magisk317.mipush.manager.api.ManagerMigrationSnapshotDto
 import io.github.magisk317.mipush.manager.api.ManagerRuntimePreferencesDto
+import io.github.magisk317.mipush.manager.api.ManagerWriteRequestDto
+import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import java.io.Closeable
 import kotlinx.coroutines.CancellationException
@@ -287,6 +289,14 @@ class ManagerRuntimeClient(
         requestValidator = { ManagerProtocol.validateConfigurationUploadRequest(request) },
         validator = { result, _ -> ManagerProtocol.validateConfigurationUploadResult(result) },
     ) { it.uploadConfiguration(request) }
+
+    suspend fun executeWrite(
+        request: ManagerWriteRequestDto,
+    ): ManagerRuntimeResult<ManagerWriteResultDto> = callCapability(
+        capability = ManagerProtocol.CAPABILITY_WRITE_COMMANDS,
+        requestValidator = { ManagerProtocol.validateWriteRequest(request) },
+        validator = { result, _ -> ManagerProtocol.validateWriteResult(result) },
+    ) { it.executeWrite(request) }
 
     @Suppress("TooGenericExceptionCaught")
     private suspend fun <T> callCapability(

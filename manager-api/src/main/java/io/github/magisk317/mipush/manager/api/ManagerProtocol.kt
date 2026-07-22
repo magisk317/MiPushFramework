@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.manager.api
 
 object ManagerProtocol {
     const val MAJOR = 1
-    const val MINOR = 3
+    const val MINOR = 4
 
     const val RUNTIME_PACKAGE = "com.xiaomi.xmsf"
     const val MANAGER_PACKAGE = "io.github.magisk317.mipush"
@@ -21,6 +21,7 @@ object ManagerProtocol {
     const val CAPABILITY_RUNTIME_PREFERENCES = "runtime_preferences"
     const val CAPABILITY_MANAGER_MIGRATION_SNAPSHOT = "manager_migration_snapshot"
     const val CAPABILITY_CONFIGURATION_UPLOAD = "configuration_upload"
+    const val CAPABILITY_WRITE_COMMANDS = "write_commands"
     const val CONNECTION_SNAPSHOT_SCHEMA_VERSION = 1
     const val APPLICATION_QUERY_SCHEMA_VERSION = 1
     const val APPLICATION_PAGE_SCHEMA_VERSION = 1
@@ -47,6 +48,22 @@ object ManagerProtocol {
     const val MAX_PREFERENCE_KEY_LENGTH = 128
     const val MAX_PREFERENCE_VALUE_LENGTH = 4_096
     const val MAX_CONFIGURATION_UPLOAD_BYTES = 512 * 1024
+    const val WRITE_REQUEST_SCHEMA_VERSION = 1
+    const val WRITE_RESULT_SCHEMA_VERSION = 1
+    const val MAX_WRITE_REQUEST_ID_LENGTH = 128
+    const val MAX_WRITE_OPERATION_LENGTH = 64
+    const val MAX_WRITE_ARGUMENT_LENGTH = 4_096
+    const val WRITE_STATUS_SUCCESS = "success"
+    const val WRITE_STATUS_FAILED = "failed"
+    const val WRITE_STATUS_UNSUPPORTED = "unsupported"
+    const val WRITE_STATUS_DUPLICATE = "duplicate"
+    const val WRITE_OP_UPDATE_APPLICATION = "update_application"
+    const val WRITE_OP_DELETE_EVENT = "delete_event"
+    const val WRITE_OP_RESTORE_EVENT = "restore_event"
+    const val WRITE_OP_SET_XMPP_SERVER = "set_xmpp_server"
+    const val WRITE_OP_CLEAR_HISTORY = "clear_history"
+    const val WRITE_OP_SET_RUNTIME_LOG_RETENTION = "set_runtime_log_retention"
+    const val WRITE_OP_APPLY_EVENT_RETENTION = "apply_event_retention"
     const val DEFAULT_MAX_PAGE_SIZE = 100
     const val DEFAULT_MAX_PAYLOAD_BYTES = 512 * 1024
     const val MAX_CAPABILITY_COUNT = 64
@@ -96,6 +113,7 @@ object ManagerProtocol {
         CAPABILITY_RUNTIME_PREFERENCES,
         CAPABILITY_MANAGER_MIGRATION_SNAPSHOT,
         CAPABILITY_CONFIGURATION_UPLOAD,
+        CAPABILITY_WRITE_COMMANDS,
     )
 
     fun evaluateCompatibility(
@@ -473,6 +491,34 @@ object ManagerProtocol {
         entry.type !in setOf("string", "boolean", "int", "long", "float") -> "invalid_preference_type"
         requireRuntimeOwner && entry.owner != "runtime" -> "preference_not_runtime_owned"
         !requireRuntimeOwner && entry.owner != "manager" -> "preference_not_manager_owned"
+        else -> null
+    }
+
+
+    fun validateWriteRequest(request: ManagerWriteRequestDto): String? = when {
+        request.schemaVersion < 1 -> "invalid_write_request_schema"
+        request.requestId.isBlank() || request.requestId.length > MAX_WRITE_REQUEST_ID_LENGTH ->
+            "invalid_write_request_id"
+        request.operation.isBlank() || request.operation.length > MAX_WRITE_OPERATION_LENGTH ->
+            "invalid_write_operation"
+        request.argument.length > MAX_WRITE_ARGUMENT_LENGTH -> "write_argument_too_long"
+        request.packageName.isNotEmpty() && validateApplicationPackageName(request.packageName) != null ->
+            "invalid_write_package_name"
+        request.eventId != null && request.eventId < 0L -> "invalid_write_event_id"
+        else -> null
+    }
+
+    fun validateWriteResult(result: ManagerWriteResultDto): String? = when {
+        result.schemaVersion < 1 -> "invalid_write_result_schema"
+        result.requestId.isBlank() || result.requestId.length > MAX_WRITE_REQUEST_ID_LENGTH ->
+            "invalid_write_result_request_id"
+        result.status !in setOf(
+            WRITE_STATUS_SUCCESS,
+            WRITE_STATUS_FAILED,
+            WRITE_STATUS_UNSUPPORTED,
+            WRITE_STATUS_DUPLICATE,
+        ) -> "invalid_write_status"
+        result.details.length > MAX_LOG_EXPORT_DETAILS_LENGTH -> "write_details_too_long"
         else -> null
     }
 

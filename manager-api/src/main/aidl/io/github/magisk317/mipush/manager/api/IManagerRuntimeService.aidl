@@ -16,6 +16,8 @@ import io.github.magisk317.mipush.manager.api.ManagerRuntimePreferencesDto;
 import io.github.magisk317.mipush.manager.api.ManagerMigrationSnapshotDto;
 import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadRequestDto;
 import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadResultDto;
+import io.github.magisk317.mipush.manager.api.ManagerWriteRequestDto;
+import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto;
 
 interface IManagerRuntimeService {
     ManagerHandshake handshake(int clientMajor, int clientMinor);
@@ -30,4 +32,5 @@ interface IManagerRuntimeService {
     ManagerRuntimePreferencesDto getRuntimePreferences();
     ManagerMigrationSnapshotDto getManagerMigrationSnapshot();
     ManagerConfigurationUploadResultDto uploadConfiguration(in ManagerConfigurationUploadRequestDto request);
+    ManagerWriteResultDto executeWrite(in ManagerWriteRequestDto request);
 }

@@ -51,6 +51,10 @@ class ManagerRuntimeServiceAidlTest {
             IBinder.FIRST_CALL_TRANSACTION + 11,
             IManagerRuntimeService.Stub.TRANSACTION_uploadConfiguration,
         )
+        assertEquals(
+            IBinder.FIRST_CALL_TRANSACTION + 12,
+            IManagerRuntimeService.Stub.TRANSACTION_executeWrite,
+        )
     }
 
     @Test
@@ -100,6 +104,9 @@ class ManagerRuntimeServiceAidlTest {
                 request: ManagerConfigurationUploadRequestDto,
             ): ManagerConfigurationUploadResultDto =
                 ManagerConfigurationUploadResultDto(success = false, details = "unused")
+
+            override fun executeWrite(request: ManagerWriteRequestDto): ManagerWriteResultDto =
+                ManagerWriteResultDto(requestId = request.requestId, status = "unsupported")
         }
 
         val remote = IManagerRuntimeService.Stub.asInterface(RemoteBinder(stub))

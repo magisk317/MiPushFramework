@@ -44,7 +44,7 @@ class ManagerPhase3ParcelableTest {
 
     @Test
     fun `protocol recognizes phase 3 capabilities`() {
-        assertEquals(3, ManagerProtocol.MINOR)
+        assertTrue(ManagerProtocol.MINOR >= 3)
         assertTrue(ManagerProtocol.KNOWN_CAPABILITIES.contains(ManagerProtocol.CAPABILITY_RUNTIME_PREFERENCES))
         assertTrue(ManagerProtocol.KNOWN_CAPABILITIES.contains(ManagerProtocol.CAPABILITY_CONFIGURATION_UPLOAD))
         assertEquals(

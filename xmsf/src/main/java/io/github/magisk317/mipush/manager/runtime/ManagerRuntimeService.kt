@@ -46,6 +46,9 @@ import io.github.magisk317.mipush.manager.api.ManagerMigrationSnapshotDto
 import io.github.magisk317.mipush.manager.api.ManagerRuntimePreferencesDto
 import io.github.magisk317.mipush.manager.runtime.read.ManagerConfigurationUploadRuntimeWriter
 import io.github.magisk317.mipush.manager.runtime.read.ManagerPreferenceRuntimeReader
+import io.github.magisk317.mipush.manager.api.ManagerWriteRequestDto
+import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto
+import io.github.magisk317.mipush.manager.runtime.write.ManagerWriteRuntimeExecutor
 import io.github.magisk317.mipush.manager.runtime.read.ManagerNotificationChannelReadPage
 import io.github.magisk317.mipush.manager.runtime.read.ManagerNotificationChannelReadQuery
 import io.github.magisk317.mipush.manager.runtime.read.ManagerNotificationChannelRuntimeReader
@@ -68,6 +71,7 @@ class ManagerRuntimeService : Service() {
     private val logExportReader by lazy { ManagerLogExportRuntimeReader(this) }
     private val preferenceReader by lazy { ManagerPreferenceRuntimeReader(this) }
     private val configurationUploadWriter by lazy { ManagerConfigurationUploadRuntimeWriter(this) }
+    private val writeExecutor by lazy { ManagerWriteRuntimeExecutor(this) }
 
     private val binder = object : IManagerRuntimeService.Stub() {
         override fun handshake(clientMajor: Int, clientMinor: Int): ManagerHandshake {
@@ -224,6 +228,16 @@ class ManagerRuntimeService : Service() {
             return withRuntimeIdentity {
                 configurationUploadWriter.upload(request).also {
                     ManagerProtocol.validateConfigurationUploadResult(it)?.let(::invalidArgument)
+                }
+            }
+        }
+
+        override fun executeWrite(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+            enforceTrustedCaller()
+            ManagerProtocol.validateWriteRequest(request)?.let(::invalidArgument)
+            return withRuntimeIdentity {
+                writeExecutor.execute(request).also {
+                    ManagerProtocol.validateWriteResult(it)?.let(::invalidArgument)
                 }
             }
         }
