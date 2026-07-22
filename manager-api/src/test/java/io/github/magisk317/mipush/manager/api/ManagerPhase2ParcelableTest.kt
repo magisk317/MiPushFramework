@@ -113,7 +113,7 @@ class ManagerPhase2ParcelableTest {
     fun `protocol recognizes phase 2 capabilities and validates event pages`() {
         assertTrue(ManagerProtocol.KNOWN_CAPABILITIES.contains(ManagerProtocol.CAPABILITY_EVENT_LIST))
         assertTrue(ManagerProtocol.KNOWN_CAPABILITIES.contains(ManagerProtocol.CAPABILITY_LOG_EXPORT))
-        assertEquals(2, ManagerProtocol.MINOR)
+        assertTrue(ManagerProtocol.MINOR >= 2)
 
         val page = ManagerEventPageDto(
             items = listOf(

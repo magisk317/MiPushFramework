@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.manager.api
 
 object ManagerProtocol {
     const val MAJOR = 1
-    const val MINOR = 2
+    const val MINOR = 3
 
     const val RUNTIME_PACKAGE = "com.xiaomi.xmsf"
     const val MANAGER_PACKAGE = "io.github.magisk317.mipush"
@@ -18,6 +18,9 @@ object ManagerProtocol {
     const val CAPABILITY_NOTIFICATION_CHANNELS = "notification_channels"
     const val CAPABILITY_CONFIGURATION_CATALOG = "configuration_catalog"
     const val CAPABILITY_LOG_EXPORT = "log_export"
+    const val CAPABILITY_RUNTIME_PREFERENCES = "runtime_preferences"
+    const val CAPABILITY_MANAGER_MIGRATION_SNAPSHOT = "manager_migration_snapshot"
+    const val CAPABILITY_CONFIGURATION_UPLOAD = "configuration_upload"
     const val CONNECTION_SNAPSHOT_SCHEMA_VERSION = 1
     const val APPLICATION_QUERY_SCHEMA_VERSION = 1
     const val APPLICATION_PAGE_SCHEMA_VERSION = 1
@@ -35,6 +38,15 @@ object ManagerProtocol {
     const val CONFIGURATION_CATALOG_SCHEMA_VERSION = 1
     const val CONFIGURATION_CATALOG_ENTRY_SCHEMA_VERSION = 1
     const val LOG_EXPORT_RESULT_SCHEMA_VERSION = 1
+    const val RUNTIME_PREFERENCES_SCHEMA_VERSION = 1
+    const val RUNTIME_PREFERENCE_ENTRY_SCHEMA_VERSION = 1
+    const val MANAGER_MIGRATION_SNAPSHOT_SCHEMA_VERSION = 1
+    const val CONFIGURATION_UPLOAD_REQUEST_SCHEMA_VERSION = 1
+    const val CONFIGURATION_UPLOAD_RESULT_SCHEMA_VERSION = 1
+    const val MAX_PREFERENCE_ENTRY_COUNT = 256
+    const val MAX_PREFERENCE_KEY_LENGTH = 128
+    const val MAX_PREFERENCE_VALUE_LENGTH = 4_096
+    const val MAX_CONFIGURATION_UPLOAD_BYTES = 512 * 1024
     const val DEFAULT_MAX_PAGE_SIZE = 100
     const val DEFAULT_MAX_PAYLOAD_BYTES = 512 * 1024
     const val MAX_CAPABILITY_COUNT = 64
@@ -81,6 +93,9 @@ object ManagerProtocol {
         CAPABILITY_NOTIFICATION_CHANNELS,
         CAPABILITY_CONFIGURATION_CATALOG,
         CAPABILITY_LOG_EXPORT,
+        CAPABILITY_RUNTIME_PREFERENCES,
+        CAPABILITY_MANAGER_MIGRATION_SNAPSHOT,
+        CAPABILITY_CONFIGURATION_UPLOAD,
     )
 
     fun evaluateCompatibility(
@@ -408,6 +423,56 @@ object ManagerProtocol {
         result.schemaVersion < 1 -> "invalid_log_export_result_schema"
         result.details.length > MAX_LOG_EXPORT_DETAILS_LENGTH -> "log_export_details_too_long"
         result.success && result.parcelFileDescriptor == null -> "log_export_missing_descriptor"
+        else -> null
+    }
+
+
+    fun validateRuntimePreferences(snapshot: ManagerRuntimePreferencesDto): String? {
+        if (snapshot.schemaVersion < 1) return "invalid_runtime_preferences_schema"
+        if (snapshot.entries.size > MAX_PREFERENCE_ENTRY_COUNT) return "too_many_runtime_preferences"
+        snapshot.entries.forEach { entry ->
+            validatePreferenceEntry(entry, requireRuntimeOwner = true)?.let { return it }
+        }
+        return null
+    }
+
+    fun validateManagerMigrationSnapshot(snapshot: ManagerMigrationSnapshotDto): String? {
+        if (snapshot.schemaVersion < 1) return "invalid_manager_migration_snapshot_schema"
+        if (snapshot.entries.size > MAX_PREFERENCE_ENTRY_COUNT) return "too_many_migration_preferences"
+        snapshot.entries.forEach { entry ->
+            validatePreferenceEntry(entry, requireRuntimeOwner = false)?.let { return it }
+        }
+        return null
+    }
+
+    fun validateConfigurationUploadRequest(request: ManagerConfigurationUploadRequestDto): String? = when {
+        request.schemaVersion < 1 -> "invalid_configuration_upload_request_schema"
+        request.path.isBlank() || request.path.length > MAX_CONFIGURATION_PATH_LENGTH ->
+            "invalid_configuration_upload_path"
+        request.path.contains("..") || request.path.startsWith("/") ->
+            "invalid_configuration_upload_path"
+        request.contentLength !in 0..MAX_CONFIGURATION_UPLOAD_BYTES ->
+            "invalid_configuration_upload_size"
+        request.parcelFileDescriptor == null -> "configuration_upload_missing_descriptor"
+        else -> null
+    }
+
+    fun validateConfigurationUploadResult(result: ManagerConfigurationUploadResultDto): String? = when {
+        result.schemaVersion < 1 -> "invalid_configuration_upload_result_schema"
+        result.details.length > MAX_LOG_EXPORT_DETAILS_LENGTH -> "configuration_upload_details_too_long"
+        else -> null
+    }
+
+    private fun validatePreferenceEntry(
+        entry: ManagerPreferenceEntryDto,
+        requireRuntimeOwner: Boolean,
+    ): String? = when {
+        entry.schemaVersion < 1 -> "invalid_preference_entry_schema"
+        entry.key.isBlank() || entry.key.length > MAX_PREFERENCE_KEY_LENGTH -> "invalid_preference_key"
+        entry.value.length > MAX_PREFERENCE_VALUE_LENGTH -> "preference_value_too_long"
+        entry.type !in setOf("string", "boolean", "int", "long", "float") -> "invalid_preference_type"
+        requireRuntimeOwner && entry.owner != "runtime" -> "preference_not_runtime_owned"
+        !requireRuntimeOwner && entry.owner != "manager" -> "preference_not_manager_owned"
         else -> null
     }
 

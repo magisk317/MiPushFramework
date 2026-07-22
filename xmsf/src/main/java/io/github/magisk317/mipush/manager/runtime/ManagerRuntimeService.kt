@@ -40,6 +40,12 @@ import io.github.magisk317.mipush.manager.runtime.read.ManagerEventReadQuery
 import io.github.magisk317.mipush.manager.runtime.read.ManagerEventReadSummary
 import io.github.magisk317.mipush.manager.runtime.read.ManagerEventRuntimeReader
 import io.github.magisk317.mipush.manager.runtime.read.ManagerLogExportRuntimeReader
+import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadRequestDto
+import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadResultDto
+import io.github.magisk317.mipush.manager.api.ManagerMigrationSnapshotDto
+import io.github.magisk317.mipush.manager.api.ManagerRuntimePreferencesDto
+import io.github.magisk317.mipush.manager.runtime.read.ManagerConfigurationUploadRuntimeWriter
+import io.github.magisk317.mipush.manager.runtime.read.ManagerPreferenceRuntimeReader
 import io.github.magisk317.mipush.manager.runtime.read.ManagerNotificationChannelReadPage
 import io.github.magisk317.mipush.manager.runtime.read.ManagerNotificationChannelReadQuery
 import io.github.magisk317.mipush.manager.runtime.read.ManagerNotificationChannelRuntimeReader
@@ -60,6 +66,8 @@ class ManagerRuntimeService : Service() {
     private val notificationChannelReader by lazy { ManagerNotificationChannelRuntimeReader() }
     private val configurationCatalogReader by lazy { ManagerConfigurationCatalogRuntimeReader(this) }
     private val logExportReader by lazy { ManagerLogExportRuntimeReader(this) }
+    private val preferenceReader by lazy { ManagerPreferenceRuntimeReader(this) }
+    private val configurationUploadWriter by lazy { ManagerConfigurationUploadRuntimeWriter(this) }
 
     private val binder = object : IManagerRuntimeService.Stub() {
         override fun handshake(clientMajor: Int, clientMinor: Int): ManagerHandshake {
@@ -186,6 +194,36 @@ class ManagerRuntimeService : Service() {
             return withRuntimeIdentity {
                 logExportReader.export().also { result ->
                     ManagerProtocol.validateLogExportResult(result)?.let(::invalidArgument)
+                }
+            }
+        }
+
+        override fun getRuntimePreferences(): ManagerRuntimePreferencesDto {
+            enforceTrustedCaller()
+            return withRuntimeIdentity {
+                preferenceReader.readRuntimePreferences().also {
+                    ManagerProtocol.validateRuntimePreferences(it)?.let(::invalidArgument)
+                }
+            }
+        }
+
+        override fun getManagerMigrationSnapshot(): ManagerMigrationSnapshotDto {
+            enforceTrustedCaller()
+            return withRuntimeIdentity {
+                preferenceReader.readManagerMigrationSnapshot().also {
+                    ManagerProtocol.validateManagerMigrationSnapshot(it)?.let(::invalidArgument)
+                }
+            }
+        }
+
+        override fun uploadConfiguration(
+            request: ManagerConfigurationUploadRequestDto,
+        ): ManagerConfigurationUploadResultDto {
+            enforceTrustedCaller()
+            ManagerProtocol.validateConfigurationUploadRequest(request)?.let(::invalidArgument)
+            return withRuntimeIdentity {
+                configurationUploadWriter.upload(request).also {
+                    ManagerProtocol.validateConfigurationUploadResult(it)?.let(::invalidArgument)
                 }
             }
         }

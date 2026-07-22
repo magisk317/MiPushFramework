@@ -67,8 +67,10 @@ to that capability and do not block other manager pages.
 The manager UI still uses the existing in-process gateways as its primary path. Gradle unit tests,
 detekt, and the bundled app compilation cover the local Phase 1 and Phase 2 contracts. Cross-package
 device and ROM evidence remains pending under the current no-device-test policy, so the all-in-one
-path remains the shipped baseline. The next implementation cut is Phase 3 preference/configuration
-ownership, then write-path request IDs, then packaging migration of manager hosting into `:mipush`.
+path remains the shipped baseline. Phase 3 preference/configuration ownership now has a complete key catalog, runtime preference
+snapshot export, manager migration snapshot export, and configuration content upload over a
+validated ParcelFileDescriptor. The next implementation cut is Phase 4 write-path request IDs,
+then packaging migration of manager hosting into `:mipush`.
 
 ## Prior Art And Rejected Paths
 
@@ -315,6 +317,13 @@ Exit criteria:
 Classify every existing preference as manager-owned or runtime-owned. Introduce separate stores and
 a one-time migration snapshot. Move config content transfer to validated file-descriptor upload and
 keep XMSF's active snapshot authoritative.
+
+Status: `PreferenceOwnership` classifies every shared DataStore key. Protocol minor 3 adds
+`runtime_preferences`, `manager_migration_snapshot`, and `configuration_upload`. XMSF exports
+runtime-owned and manager-owned snapshots over Binder and accepts validated JSON config uploads
+that restore the previous active snapshot on parse/persist failure. Separate manager-private
+DataStore packaging still lands with the mipush host migration; while packages remain bundled the
+classification and migration snapshot are the authoritative contract.
 
 Exit criteria:
 

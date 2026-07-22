@@ -12,6 +12,10 @@ import io.github.magisk317.mipush.manager.api.ManagerNotificationChannelQueryDto
 import io.github.magisk317.mipush.manager.api.ManagerNotificationChannelPageDto;
 import io.github.magisk317.mipush.manager.api.ManagerConfigurationCatalogDto;
 import io.github.magisk317.mipush.manager.api.ManagerLogExportResultDto;
+import io.github.magisk317.mipush.manager.api.ManagerRuntimePreferencesDto;
+import io.github.magisk317.mipush.manager.api.ManagerMigrationSnapshotDto;
+import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadRequestDto;
+import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadResultDto;
 
 interface IManagerRuntimeService {
     ManagerHandshake handshake(int clientMajor, int clientMinor);
@@ -23,4 +27,7 @@ interface IManagerRuntimeService {
     ManagerNotificationChannelPageDto getNotificationChannelPage(in ManagerNotificationChannelQueryDto query);
     ManagerConfigurationCatalogDto getConfigurationCatalog();
     ManagerLogExportResultDto exportRuntimeLogs();
+    ManagerRuntimePreferencesDto getRuntimePreferences();
+    ManagerMigrationSnapshotDto getManagerMigrationSnapshot();
+    ManagerConfigurationUploadResultDto uploadConfiguration(in ManagerConfigurationUploadRequestDto request);
 }

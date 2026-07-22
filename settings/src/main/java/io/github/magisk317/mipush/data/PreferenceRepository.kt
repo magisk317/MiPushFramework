@@ -43,6 +43,13 @@ data class IslandSettingsSnapshot(
     val sensitiveDebugLogMode: Boolean,
 )
 
+data class OwnedPreferenceValue(
+    val key: String,
+    val type: String,
+    val value: String,
+    val owner: PreferenceOwner,
+)
+
 class PreferenceRepository constructor(
     private val dataStore: DataStore<Preferences>
 ) {
@@ -329,6 +336,35 @@ class PreferenceRepository constructor(
             it[ICON_REMOTE_BRANCH] = branch
             it[ICON_REMOTE_ACCELERATOR] = accelerator
         }
+    }
+
+
+    /**
+     * Snapshot owned preferences as typed string entries for Binder migration / comparison.
+     * Only keys classified by [PreferenceOwnership] are emitted.
+     */
+    suspend fun exportOwnedPreferences(owner: PreferenceOwner): List<OwnedPreferenceValue> {
+        val prefs = dataStore.data.first()
+        val wanted = PreferenceOwnership.entries.filter { it.owner == owner }.map { it.key }.toSet()
+        val out = mutableListOf<OwnedPreferenceValue>()
+        prefs.asMap().forEach { (key, value) ->
+            val name = key.name
+            if (name !in wanted) return@forEach
+            val type = when (value) {
+                is Boolean -> "boolean"
+                is Int -> "int"
+                is Long -> "long"
+                is Float -> "float"
+                else -> "string"
+            }
+            out += OwnedPreferenceValue(
+                key = name,
+                type = type,
+                value = value.toString(),
+                owner = owner,
+            )
+        }
+        return out.sortedBy { it.key }
     }
 
     private companion object {

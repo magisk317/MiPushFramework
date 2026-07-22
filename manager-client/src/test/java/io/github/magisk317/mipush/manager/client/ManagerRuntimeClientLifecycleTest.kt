@@ -22,6 +22,10 @@ import io.github.magisk317.mipush.manager.api.ManagerEventQueryDto
 import io.github.magisk317.mipush.manager.api.ManagerLogExportResultDto
 import io.github.magisk317.mipush.manager.api.ManagerNotificationChannelPageDto
 import io.github.magisk317.mipush.manager.api.ManagerNotificationChannelQueryDto
+import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadRequestDto
+import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadResultDto
+import io.github.magisk317.mipush.manager.api.ManagerMigrationSnapshotDto
+import io.github.magisk317.mipush.manager.api.ManagerRuntimePreferencesDto
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -848,6 +852,17 @@ class ManagerRuntimeClientLifecycleTest {
 
         override fun exportRuntimeLogs(): ManagerLogExportResultDto =
             ManagerLogExportResultDto(success = false, details = "unused")
+
+        override fun getRuntimePreferences(): ManagerRuntimePreferencesDto =
+            ManagerRuntimePreferencesDto()
+
+        override fun getManagerMigrationSnapshot(): ManagerMigrationSnapshotDto =
+            ManagerMigrationSnapshotDto()
+
+        override fun uploadConfiguration(
+            request: ManagerConfigurationUploadRequestDto,
+        ): ManagerConfigurationUploadResultDto =
+            ManagerConfigurationUploadResultDto(success = false, details = "unused")
 
         override fun asBinder(): IBinder = this
     }

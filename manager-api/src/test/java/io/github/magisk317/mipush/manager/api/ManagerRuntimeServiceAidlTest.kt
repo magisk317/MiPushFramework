@@ -39,6 +39,18 @@ class ManagerRuntimeServiceAidlTest {
             IBinder.FIRST_CALL_TRANSACTION + 8,
             IManagerRuntimeService.Stub.TRANSACTION_exportRuntimeLogs,
         )
+        assertEquals(
+            IBinder.FIRST_CALL_TRANSACTION + 9,
+            IManagerRuntimeService.Stub.TRANSACTION_getRuntimePreferences,
+        )
+        assertEquals(
+            IBinder.FIRST_CALL_TRANSACTION + 10,
+            IManagerRuntimeService.Stub.TRANSACTION_getManagerMigrationSnapshot,
+        )
+        assertEquals(
+            IBinder.FIRST_CALL_TRANSACTION + 11,
+            IManagerRuntimeService.Stub.TRANSACTION_uploadConfiguration,
+        )
     }
 
     @Test
@@ -77,6 +89,17 @@ class ManagerRuntimeServiceAidlTest {
 
             override fun exportRuntimeLogs(): ManagerLogExportResultDto =
                 ManagerLogExportResultDto(success = false, details = "unused")
+
+            override fun getRuntimePreferences(): ManagerRuntimePreferencesDto =
+                ManagerRuntimePreferencesDto()
+
+            override fun getManagerMigrationSnapshot(): ManagerMigrationSnapshotDto =
+                ManagerMigrationSnapshotDto()
+
+            override fun uploadConfiguration(
+                request: ManagerConfigurationUploadRequestDto,
+            ): ManagerConfigurationUploadResultDto =
+                ManagerConfigurationUploadResultDto(success = false, details = "unused")
         }
 
         val remote = IManagerRuntimeService.Stub.asInterface(RemoteBinder(stub))

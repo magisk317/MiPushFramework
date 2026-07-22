@@ -22,6 +22,10 @@ import io.github.magisk317.mipush.manager.api.ManagerEventPageDto
 import io.github.magisk317.mipush.manager.api.ManagerConfigurationCatalogDto
 import io.github.magisk317.mipush.manager.api.ManagerConnectionSnapshotDto
 import io.github.magisk317.mipush.manager.api.ManagerHandshake
+import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadRequestDto
+import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadResultDto
+import io.github.magisk317.mipush.manager.api.ManagerMigrationSnapshotDto
+import io.github.magisk317.mipush.manager.api.ManagerRuntimePreferencesDto
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import java.io.Closeable
 import kotlinx.coroutines.CancellationException
@@ -262,6 +266,27 @@ class ManagerRuntimeClient(
         capability = ManagerProtocol.CAPABILITY_LOG_EXPORT,
         validator = { result, _ -> ManagerProtocol.validateLogExportResult(result) },
     ) { it.exportRuntimeLogs() }
+
+
+    suspend fun getRuntimePreferences(): ManagerRuntimeResult<ManagerRuntimePreferencesDto> =
+        callCapability(
+            capability = ManagerProtocol.CAPABILITY_RUNTIME_PREFERENCES,
+            validator = { snapshot, _ -> ManagerProtocol.validateRuntimePreferences(snapshot) },
+        ) { it.runtimePreferences }
+
+    suspend fun getManagerMigrationSnapshot(): ManagerRuntimeResult<ManagerMigrationSnapshotDto> =
+        callCapability(
+            capability = ManagerProtocol.CAPABILITY_MANAGER_MIGRATION_SNAPSHOT,
+            validator = { snapshot, _ -> ManagerProtocol.validateManagerMigrationSnapshot(snapshot) },
+        ) { it.managerMigrationSnapshot }
+
+    suspend fun uploadConfiguration(
+        request: ManagerConfigurationUploadRequestDto,
+    ): ManagerRuntimeResult<ManagerConfigurationUploadResultDto> = callCapability(
+        capability = ManagerProtocol.CAPABILITY_CONFIGURATION_UPLOAD,
+        requestValidator = { ManagerProtocol.validateConfigurationUploadRequest(request) },
+        validator = { result, _ -> ManagerProtocol.validateConfigurationUploadResult(result) },
+    ) { it.uploadConfiguration(request) }
 
     @Suppress("TooGenericExceptionCaught")
     private suspend fun <T> callCapability(
