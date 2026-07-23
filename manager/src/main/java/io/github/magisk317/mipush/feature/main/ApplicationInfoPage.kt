@@ -46,8 +46,8 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import io.github.magisk317.uikit.common.ElevatedSnackbarHost
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -176,9 +176,9 @@ open class ApplicationInfoPage : ComponentActivity() {
                     ) {
                         SettingsScreen(snackbarHostState)
                     }
-                    SnackbarHost(
+                    ElevatedSnackbarHost(
                         hostState = snackbarHostState,
-                        modifier = Modifier.align(Alignment.BottomCenter),
+                        bottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 16.dp,
                     )
                 }
             }

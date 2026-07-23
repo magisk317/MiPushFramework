@@ -10,13 +10,14 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <application
         android:name="io.github.magisk317.mipush.app.App"
         android:allowBackup="true"
         android:description="@string/xposedDescription"
         android:enableOnBackInvokedCallback="true"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@mipmap/ic_launcher_xmsf"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
@@ -27,7 +28,7 @@
             android:name="io.github.magisk317.mipush.app.ManagerLauncherActivity"
             android:excludeFromRecents="true"
             android:exported="true"
-            android:icon="@mipmap/ic_launcher"
+            android:icon="@mipmap/ic_launcher_xmsf"
             android:noHistory="true"
             android:theme="@style/AppTheme">
             <!-- No LAUNCHER filter: desktop icons are activity-aliases so icon can be switched. -->
@@ -41,7 +42,7 @@
             android:name="io.github.magisk317.mipush.app.ManagerLauncherActivityDefault"
             android:enabled="true"
             android:exported="true"
-            android:icon="@mipmap/ic_launcher"
+            android:icon="@mipmap/ic_launcher_xmsf"
             android:label="@string/app_name"
             android:targetActivity="io.github.magisk317.mipush.app.ManagerLauncherActivity">
             <intent-filter>
@@ -63,18 +64,12 @@
             </intent-filter>
         </activity-alias>
 
+        <!-- Legacy third alias retained only so apply() can force-disable it after upgrades. -->
         <activity-alias
             android:name="io.github.magisk317.mipush.app.ManagerLauncherActivityXmsf"
             android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_xmsf"
-            android:label="@string/app_name"
-            android:targetActivity="io.github.magisk317.mipush.app.ManagerLauncherActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
+            android:exported="false"
+            android:targetActivity="io.github.magisk317.mipush.app.ManagerLauncherActivity" />
 
 
         <activity

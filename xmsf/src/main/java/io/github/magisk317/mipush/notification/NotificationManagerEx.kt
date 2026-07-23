@@ -20,6 +20,7 @@ import com.xiaomi.push.service.NotificationIdentityBridge
 import com.xiaomi.push.service.NotificationManagerPlatformSupport
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.aakira.napier.Napier
+import io.github.magisk317.mipush.platform.support.PermissionUtils
 import java.util.Collections
 
 object NotificationManagerEx {
@@ -27,6 +28,7 @@ object NotificationManagerEx {
     private const val MODERN_IDENTITY_FIRST_SDK = Build.VERSION_CODES.Q
     private const val EXTRA_XMSF_TARGET_PACKAGE = "xmsf_target_package"
     private const val EXTRA_MIUI_TARGET_PACKAGE = "miui.targetPkg"
+    private const val EXTRA_SUBSTITUTE_APP_NAME = "android.substName"
     @JvmField
     val HOOK_API_VERSION = 2
     private val diagnosticsLogged = Collections.synchronizedSet(mutableSetOf<String>())
@@ -128,6 +130,18 @@ object NotificationManagerEx {
             if (notification.extras != null) {
                 notification.extras.putString(EXTRA_XMSF_TARGET_PACKAGE, packageName)
                 notification.extras.putString(EXTRA_MIUI_TARGET_PACKAGE, packageName)
+                notification.extras.putString("target_package", packageName)
+                // When identity falls back to posting as xmsf (e.g. Live Update AppOps), SystemUI
+                // still shows the posting package label ("推送服务"). Prefer the target app name.
+                val appLabel = runCatching {
+                    val pm = appContext.packageManager
+                    val info = pm.getApplicationInfo(packageName, 0)
+                    pm.getApplicationLabel(info)?.toString()
+                }.getOrNull()?.takeIf { it.isNotBlank() }
+                if (!appLabel.isNullOrBlank()) {
+                    notification.extras.putString(EXTRA_SUBSTITUTE_APP_NAME, appLabel)
+                    notification.extras.putString("android.substName", appLabel)
+                }
             }
             if (!MIUIUtils.isXMS() && MIUIUtils.isXMSF(appContext)) {
                 NotificationUtils.setTargetPackage(notification, packageName)
@@ -312,6 +326,9 @@ object NotificationManagerEx {
                 if (NotificationIdentityBridge.notifyAsTargetPackage(appContext, packageName, tag, id, notification)) {
                     return true
                 }
+                if (maybeRetryNotifyAsTargetAfterAppOpsGrant(packageName, tag, id, notification)) {
+                    return true
+                }
                 maybeLogDiagnosticsOnce("identity-notify-fallback", packageName, notification.channelId, notification.group)
             }
             return notifyLocally(tag, id, notification)
@@ -332,6 +349,33 @@ object NotificationManagerEx {
             }
         }
         return notifyLocally(tag, id, notification)
+    }
+
+
+    /**
+     * Android 16+ Live Updates (ProgressStyle / promoted ongoing) can require
+     * UPDATE_APP_OPS_STATS for notifyAsPackage. After reinstall that grant is often missing
+     * until root silent-grant runs; retry once after best-effort grant.
+     */
+    private fun maybeRetryNotifyAsTargetAfterAppOpsGrant(
+        packageName: String,
+        tag: String?,
+        id: Int,
+        notification: Notification,
+    ): Boolean {
+        val isLiveUpdate = notification.extras?.getBoolean("xmsf.live_update", false) == true ||
+            notification.extras?.getBoolean("android.requestPromotedOngoing", false) == true
+        if (!isLiveUpdate) return false
+        val granted = runCatching {
+            PermissionUtils.grantSilentPermissions(packageName = appContext.packageName)
+        }.getOrDefault(false)
+        if (!granted) {
+            logD("live-update identity retry skipped: silent grant failed pkg=$packageName id=$id")
+            return false
+        }
+        val ok = NotificationIdentityBridge.notifyAsTargetPackage(appContext, packageName, tag, id, notification)
+        logD("live-update identity retry after appops grant pkg=$packageName id=$id ok=$ok")
+        return ok
     }
 
     private fun notifyLocally(tag: String?, id: Int, notification: Notification): Boolean {

@@ -62,6 +62,9 @@
     <string name="pref_color_status_bar_icon_mipush_summary">When disabled, MiPush-managed status bar icons will be monochrome</string>
     <string name="pref_color_status_bar_icon_global_title">Strong mode</string>
     <string name="pref_color_status_bar_icon_global_summary">Apply the same color policy to all status bar notification icons</string>
+    <string name="pref_color_status_bar_icon_restart_title">Device reboot required</string>
+    <string name="pref_color_status_bar_icon_restart_message">Changing this switch reboots the device so the status-bar icon policy takes effect system-wide.</string>
+    <string name="pref_color_status_bar_icon_restart_confirm">Apply and reboot</string>
     <string name="settings_switch_enabled_feedback">%1$s enabled</string>
     <string name="settings_switch_disabled_feedback">%1$s disabled</string>
     <string name="settings_start_foreground_service">Keep MiPush alive</string>
@@ -607,9 +610,9 @@ This could be the application doing a reverse registration, or the registration 
 
 
     <string name="settings_launcher_icon">Launcher icon</string>
-    <string name="settings_launcher_icon_summary">Choose which app icon appears on the home screen</string>
-    <string name="settings_launcher_icon_default">Default</string>
-    <string name="settings_launcher_icon_legacy">Classic</string>
+    <string name="settings_launcher_icon_summary">Home-screen and Recents icon. System App Info always uses the package default icon. Dual-space clones sync when root is available.</string>
+    <string name="settings_launcher_icon_default">Default (push service)</string>
+    <string name="settings_launcher_icon_legacy">Module</string>
     <string name="settings_launcher_icon_xmsf">Push service style</string>
     <string name="settings_migrate_prefs">Import manager preferences from runtime</string>
     <string name="settings_migrate_prefs_summary">Copy UI preferences saved in the push service package</string>

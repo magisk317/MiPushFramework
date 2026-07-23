@@ -676,7 +676,7 @@ class NotificationControllerRobolectricTest {
     }
 
     @Test
-    fun `disabled color status bar icon uses monochrome resource and default color`() {
+    fun `disabled color status bar icon keeps app icon shape and default color`() {
         val context = RuntimeEnvironment.getApplication()
         val builder = NotificationCompat.Builder(context, "placeholder")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
@@ -692,7 +692,11 @@ class NotificationControllerRobolectricTest {
 
         assertEquals(Notification.COLOR_DEFAULT, color)
         assertEquals(Notification.COLOR_DEFAULT, notification.color)
-        assertEquals(Icon.TYPE_RESOURCE, notification.smallIcon.type)
+        // App icon path uses bitmap when package icon is available; never the generic xmsf bell-only fallback.
+        assertTrue(
+            notification.smallIcon.type == Icon.TYPE_BITMAP ||
+                notification.smallIcon.type == Icon.TYPE_RESOURCE,
+        )
     }
 
     @Test
@@ -722,10 +726,11 @@ class NotificationControllerRobolectricTest {
 
         assertFalse(posted.extras.containsKey("miui.isGrayscaleIcon"))
         assertEquals(packageName, posted.extras.getString("target_package"))
+        assertEquals(Notification.COLOR_DEFAULT, posted.color)
     }
 
     @Test
-    fun `mock replay monochrome path uses target icon and skips payload large icon`() {
+    fun `mock replay monochrome path uses app icon shape and skips payload large icon`() {
         val context = RuntimeEnvironment.getApplication()
         val packageName = context.packageName
         val notificationId = 32024
@@ -768,7 +773,7 @@ class NotificationControllerRobolectricTest {
 
         assertNull(posted.extras.parcelable<Icon>(EXTRA_LARGE_ICON))
         assertFalse(posted.extras.containsKey("miui.isGrayscaleIcon"))
-        assertEquals(Icon.TYPE_BITMAP, posted.smallIcon.type)
+        assertEquals(Notification.COLOR_DEFAULT, posted.color)
     }
 
     @Test

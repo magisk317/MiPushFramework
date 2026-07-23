@@ -83,6 +83,9 @@
     <string name="pref_color_status_bar_icon_mipush_summary">关闭后，MiPush 管理的状态栏图标将显示为单色</string>
     <string name="pref_color_status_bar_icon_global_title">强力模式</string>
     <string name="pref_color_status_bar_icon_global_summary">所有状态栏通知图标都跟随同一个彩色/单色设置</string>
+    <string name="pref_color_status_bar_icon_restart_title">需要重启手机</string>
+    <string name="pref_color_status_bar_icon_restart_message">修改此项会重启手机，否则状态栏彩色图标策略不会在系统侧完整生效。</string>
+    <string name="pref_color_status_bar_icon_restart_confirm">应用并重启手机</string>
     <string name="settings_switch_enabled_feedback">%1$s：已开启</string>
     <string name="settings_switch_disabled_feedback">%1$s：已关闭</string>
     <string name="settings_start_foreground_service">推送服务保活</string>
@@ -595,9 +598,9 @@
 
 
     <string name="settings_launcher_icon">应用图标</string>
-    <string name="settings_launcher_icon_summary">选择桌面上显示的管理器图标</string>
-    <string name="settings_launcher_icon_default">默认</string>
-    <string name="settings_launcher_icon_legacy">经典</string>
+    <string name="settings_launcher_icon_summary">影响桌面与多任务图标。系统「应用管理」使用安装时的包图标，无法随切换变更。双开分身在有 Root 时会同步别名。</string>
+    <string name="settings_launcher_icon_default">默认（推送服务）</string>
+    <string name="settings_launcher_icon_legacy">模块</string>
     <string name="settings_launcher_icon_xmsf">推送服务风格</string>
     <string name="settings_migrate_prefs">从运行时导入管理器偏好</string>
     <string name="settings_migrate_prefs_summary">把仍保存在推送服务包内的界面偏好复制到管理器</string>

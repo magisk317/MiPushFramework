@@ -111,7 +111,7 @@ class HookSystemUI : BaseHook() {
                                 )
                                 val iconView = args[2] as? View ?: return@runCatching
                                 preLTag?.let { iconView.setTag(ID_ICON_IS_PRE_L, it) }
-                                val shouldTint = SystemUiNotificationPolicy.shouldApplyGlobalMonochromeToNotification(
+                                val shouldTint = SystemUiNotificationPolicy.shouldApplyMonochromeTintToNotification(
                                     colorStatusBarIcon = options.colorStatusBarIcon,
                                     forceGlobalStatusBarIcons = options.colorStatusBarIconGlobal,
                                     isMiPushManaged = isMiPushManaged,
@@ -160,7 +160,9 @@ class HookSystemUI : BaseHook() {
                         val contentView = args[1] as? RemoteViews ?: return@doBefore
                         val p = args[2]
 
-                        val colorStatusBarIcon = IslandPreferences.current().colorStatusBarIcon
+                        val options = IslandPreferences.current()
+                        val colorStatusBarIcon = options.colorStatusBarIcon
+                        val forceGlobalStatusBarIcons = options.colorStatusBarIconGlobal
                         val notification = runCatching {
                             builder.callMethod("build") as? Notification
                                 ?: builder["mN"] as? Notification
@@ -168,9 +170,24 @@ class HookSystemUI : BaseHook() {
                         val isMiPushManaged = SystemUiNotificationPolicy.isMiPushManagedNotification(
                             notification?.extras
                         )
-                        val forceGlobalStatusBarIcons = IslandPreferences.current().colorStatusBarIconGlobal
-                        if (!colorStatusBarIcon ||
-                            !SystemUiNotificationPolicy.shouldProcessSmallIconColor(
+                        // Toggle OFF: force monochrome for MiPush (and global strong mode).
+                        // Letting MIUI native run keeps TYPE_BITMAP app icons colored.
+                        if (!colorStatusBarIcon) {
+                            if (SystemUiNotificationPolicy.shouldForceMonochromeProcessSmallIcon(
+                                    colorStatusBarIcon = colorStatusBarIcon,
+                                    forceGlobalStatusBarIcons = forceGlobalStatusBarIcons,
+                                    isMiPushManaged = isMiPushManaged,
+                                )
+                            ) {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                    contentView.setInt(android.R.id.icon, "setOriginalIconColor", 0)
+                                }
+                                result = true
+                            }
+                            return@doBefore
+                        }
+
+                        if (!SystemUiNotificationPolicy.shouldProcessSmallIconColor(
                                 colorStatusBarIcon = colorStatusBarIcon,
                                 forceGlobalStatusBarIcons = forceGlobalStatusBarIcons,
                                 isMiPushManaged = isMiPushManaged,

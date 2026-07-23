@@ -9,6 +9,7 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import android.app.NotificationManager
+import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import io.github.magisk317.mipush.common.notification.NotificationContentSupport
 import io.github.magisk317.mipush.hook.XLog
@@ -219,7 +220,10 @@ class MiPushIslandHook : BaseHook() {
                     .forEach { method ->
                         method.hook {
                             doAfter {
-                                handleNotificationRemoved(args.firstOrNull() as? StatusBarNotification)
+                                handleNotificationRemoved(
+                                    thisObject as? NotificationListenerService,
+                                    args.firstOrNull() as? StatusBarNotification,
+                                )
                             }
                         }
                         hookedCount++
@@ -241,7 +245,7 @@ class MiPushIslandHook : BaseHook() {
                 .forEach { method ->
                     method.hook {
                         doAfter {
-                            handleNotificationRemoved(args.firstOrNull() as? StatusBarNotification)
+                            handleNotificationRemoved(thisObject as? NotificationListenerService, args.firstOrNull() as? StatusBarNotification)
                         }
                     }
                     hookedCount++
@@ -253,12 +257,60 @@ class MiPushIslandHook : BaseHook() {
         }
     }
 
-    private fun handleNotificationRemoved(sbn: StatusBarNotification?) {
+    private fun handleNotificationRemoved(
+        listener: NotificationListenerService?,
+        sbn: StatusBarNotification?,
+    ) {
         sbn ?: return
-        val sourceKey = sourceKeyFor(sbn)
-        val proxyId = trackedForCancel.removeAndResolveCancellation(sourceKey) ?: return
         val context = currentApplication()?.applicationContext ?: return
-        IslandDispatcher.cancel(context, proxyId)
-        XLog.d(TAG, "cancelled proxy proxyId=$proxyId for removed source key=$sourceKey")
+        val sourceKey = sourceKeyFor(sbn)
+        val proxyId = trackedForCancel.removeAndResolveCancellation(sourceKey)
+        if (proxyId != null) {
+            IslandDispatcher.cancel(context, proxyId)
+            XLog.d(TAG, "cancelled proxy proxyId=$proxyId for removed source key=$sourceKey")
+        }
+        // Native Live Update path never enters trackedForCancel (allowIslandProxy=false). When the
+        // shade row is dismissed, force-cancel the same notification so the promoted island dies.
+        cancelNativeLiveUpdateIfNeeded(context, listener, sbn)
+    }
+
+    private fun cancelNativeLiveUpdateIfNeeded(
+        context: Context,
+        listener: NotificationListenerService?,
+        sbn: StatusBarNotification,
+    ) {
+        val notification = sbn.notification ?: return
+        val extras = notification.extras ?: return
+        val promotedFlag = runCatching {
+            Notification::class.java.getField("FLAG_PROMOTED_ONGOING").getInt(null)
+        }.getOrDefault(0)
+        val isLiveUpdate = extras.getBoolean("xmsf.live_update", false) ||
+            extras.getBoolean("android.requestPromotedOngoing", false) ||
+            (promotedFlag != 0 && (notification.flags and promotedFlag) != 0)
+        if (!isLiveUpdate) return
+        val relatedToMipush = sbn.packageName == "com.xiaomi.xmsf" ||
+            !extras.getString("target_package").isNullOrBlank() ||
+            !extras.getString("miui.targetPkg").isNullOrBlank() ||
+            !extras.getString("xmsf_target_package").isNullOrBlank()
+        if (!relatedToMipush) return
+
+        // Prefer NLS cancelNotification(key) — it asks NMS to remove the real posting package entry
+        // (works for both target-package identity and local xmsf fallback). SystemUI's own
+        // NotificationManager.cancel(tag,id) would only cancel SystemUI-owned posts.
+        val cancelledViaListener = runCatching {
+            if (listener == null) return@runCatching false
+            listener.cancelNotification(sbn.key)
+            true
+        }.getOrDefault(false)
+        val targetPackage = extras.getString("target_package")
+            ?: extras.getString("miui.targetPkg")
+            ?: extras.getString("xmsf_target_package")
+            ?: sbn.packageName
+        XLog.d(
+            TAG,
+            "native live-update remove sync pkg=${sbn.packageName} target=$targetPackage " +
+                "tag=${sbn.tag} id=${sbn.id} key=${sbn.key} listenerCancel=$cancelledViaListener",
+        )
     }
 }
+

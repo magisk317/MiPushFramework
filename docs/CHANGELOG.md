@@ -4,9 +4,21 @@
 
 ---
 
+## [v0.7.0] - Unreleased
+
+- 版本：`versionCode 10` / `versionName 0.7.0`（manager/mipush）；XMSF 仍用 `pushVersionCode 1003003000`。
+- `[feat(manager/runtime)]` 拆分管理器包与 XMSF 运行时：远程读写、偏好迁移、图标切换、root 权限补齐与分身支持。
+- `[feat(notification)]` Live Update 身份修复（`UPDATE_APP_OPS_STATS`）、substName 兜底、划掉通知栏同步 cancel 岛。
+- `[fix(systemui)]` 状态栏单色图标恢复强单色；Live Update 移除时 `cancelNotification(key)`。
+- `[feat(ui)]` 管理器图标预览资源、ElevatedSnackbarHost 统一 snackbar、杂项/双开相关交互修复。
+
+> Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v0.6.3...v0.7.0
+
+---
+
 ## [v0.6.3] - Unreleased
 
-- TODO
+- 后续并入 0.7.0 的 manager/runtime 拆分与 Live Update 修复（见上）。
 
 > Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v0.6.2...v0.6.3
 

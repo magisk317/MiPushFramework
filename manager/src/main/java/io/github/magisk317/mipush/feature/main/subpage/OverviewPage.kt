@@ -44,8 +44,8 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import io.github.magisk317.uikit.common.ElevatedSnackbarHost
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -192,9 +192,9 @@ private fun OverviewScreen(
             colors = chromeTopAppBarColors(),
         )
 
-        SnackbarHost(
+        ElevatedSnackbarHost(
             hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter),
+            bottomPadding = contentPadding.calculateBottomPadding() + 16.dp,
         )
     }
 

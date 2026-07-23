@@ -104,6 +104,14 @@ class SettingsViewModel constructor(
     private val _dualAppProcessing = MutableStateFlow(false)
     val dualAppProcessing: StateFlow<Boolean> = _dualAppProcessing.asStateFlow()
 
+    /** Align manager toggle with packages actually installed for user 999. */
+    fun refreshDualAppFromRuntime() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val installed = runCatching { permissionGateway.isDualAppInstalled() }.getOrDefault(false)
+            preferenceRepository.setDualAppEnabled(installed)
+        }
+    }
+
     init {
         viewModelScope.launch {
             preferenceRepository.themeMode.collect { mode ->
@@ -212,24 +220,112 @@ class SettingsViewModel constructor(
 
     fun setColorStatusBarIcon(value: Boolean, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
         preferenceRepository.setColorStatusBarIcon(value)
+        pushRuntimeBoolean(
+            key = io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY,
+            value = value,
+        )
         onUpdated?.invoke()
     }
 
     fun setColorStatusBarIconGlobal(value: Boolean, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
         preferenceRepository.setColorStatusBarIconGlobal(value)
+        pushRuntimeBoolean(
+            key = io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
+            value = value,
+        )
         onUpdated?.invoke()
     }
 
-    fun setDualAppEnabled(enabled: Boolean) {
+    /**
+     * Apply color-status-bar preference, push to runtime (xmsf), then **reboot the device**.
+     * Status-bar / SystemUI coloring needs a full reboot; manager-only exit is not enough.
+     */
+    fun applyColorStatusBarIconWithRestart(
+        context: android.content.Context,
+        managed: Boolean? = null,
+        global: Boolean? = null,
+        onPrepared: (() -> Unit)? = null,
+        onRebootFailed: ((String) -> Unit)? = null,
+    ) = viewModelScope.launch {
+        if (managed != null) {
+            preferenceRepository.setColorStatusBarIcon(managed)
+            pushRuntimeBoolean(
+                key = io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY,
+                value = managed,
+            )
+        }
+        if (global != null) {
+            preferenceRepository.setColorStatusBarIconGlobal(global)
+            pushRuntimeBoolean(
+                key = io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
+                value = global,
+            )
+        }
+        onPrepared?.invoke()
+        val rebootResult = withContext(Dispatchers.IO) {
+            val client = runCatching {
+                org.koin.core.context.GlobalContext.get()
+                    .get<io.github.magisk317.mipush.manager.client.ManagerRuntimeClient>()
+            }.getOrNull()
+            if (client == null) {
+                return@withContext null
+            }
+            io.github.magisk317.mipush.manager.remote.RemoteWriteSupport.execute(
+                client = client,
+                operation = io.github.magisk317.mipush.manager.api.ManagerProtocol.WRITE_OP_REBOOT_DEVICE,
+                uniqueRequestId = true,
+            )
+        }
+        val ok = io.github.magisk317.mipush.manager.remote.RemoteWriteSupport.isSuccess(rebootResult)
+        if (!ok) {
+            val detail = rebootResult?.details.orEmpty().ifBlank { "reboot_unavailable" }
+            onRebootFailed?.invoke(detail)
+        }
+        // Device should reboot shortly; do not exitOnly — reboot is the intended restart.
+    }
+
+    private suspend fun pushRuntimeBoolean(key: String, value: Boolean) {
+        withContext(Dispatchers.IO) {
+            val client = runCatching {
+                org.koin.core.context.GlobalContext.get()
+                    .get<io.github.magisk317.mipush.manager.client.ManagerRuntimeClient>()
+            }.getOrNull() ?: return@withContext
+            io.github.magisk317.mipush.manager.remote.RemoteWriteSupport.execute(
+                client = client,
+                operation = io.github.magisk317.mipush.manager.api.ManagerProtocol.WRITE_OP_SET_RUNTIME_BOOLEAN,
+                booleanArgument = value,
+                argument = key,
+                uniqueRequestId = true,
+            )
+        }
+    }
+
+    fun setDualAppEnabled(enabled: Boolean, onResult: ((Boolean, String) -> Unit)? = null) {
         viewModelScope.launch {
             _dualAppProcessing.value = true
             try {
                 val result = withContext(Dispatchers.IO) {
                     permissionGateway.setDualAppEnabled(enabled)
                 }
-                if (result.stage == ManagerXSpaceRepairStage.COMPLETED) {
+                val success = result.stage == ManagerXSpaceRepairStage.COMPLETED
+                if (success) {
                     preferenceRepository.setDualAppEnabled(enabled)
                 }
+                val message = when (result.stage) {
+                    ManagerXSpaceRepairStage.COMPLETED ->
+                        if (enabled) "双开已启用" else "双开已关闭"
+                    ManagerXSpaceRepairStage.ROOT_MISSING -> "需要 Root 权限（请给推送服务 com.xiaomi.xmsf 授权）"
+                    ManagerXSpaceRepairStage.XSPACE_USER_NOT_FOUND -> "未找到分身用户 999"
+                    ManagerXSpaceRepairStage.PARTIAL_FAILED -> when (result.details) {
+                        "runtime_write_unavailable" -> "运行时未连接，请确认推送服务已启动"
+                        else -> if (result.details.isBlank()) {
+                            "双开操作未完全成功"
+                        } else {
+                            "双开操作未完全成功（${result.details}）"
+                        }
+                    }
+                }
+                onResult?.invoke(success, message)
             } finally {
                 _dualAppProcessing.value = false
             }
@@ -256,7 +352,47 @@ class SettingsViewModel constructor(
     fun setSelectedLauncherIcon(context: android.content.Context, iconId: String) {
         viewModelScope.launch {
             preferenceRepository.setSelectedLauncherIcon(iconId)
-            io.github.magisk317.mipush.manager.launcher.LauncherIconController.apply(context, iconId)
+            // Must run on main: finishAndRemoveTask + relaunch refreshes Recents icon.
+            // Cross-user alias sync (dual-space 999) must finish before process kill.
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                val resumeRoute =
+                    io.github.magisk317.mipush.feature.navigation.AppDestinations.Settings.ROUTE
+                io.github.magisk317.mipush.manager.launcher.LauncherIconController.applyAndRelaunch(
+                    context = context,
+                    iconId = iconId,
+                    resumeRoute = resumeRoute,
+                    crossUserSync = { normalized ->
+                        // Binder → xmsf root: pm enable/disable --user 0/999
+                        kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+                            runCatching {
+                                val client = org.koin.core.context.GlobalContext.get()
+                                    .get<io.github.magisk317.mipush.manager.client.ManagerRuntimeClient>()
+                                io.github.magisk317.mipush.manager.remote.RemoteWriteSupport.execute(
+                                    client = client,
+                                    operation = io.github.magisk317.mipush.manager.api.ManagerProtocol.WRITE_OP_SYNC_LAUNCHER_ICON,
+                                    argument = normalized,
+                                    uniqueRequestId = true,
+                                )
+                            }
+                        }
+                    },
+                    scheduleExternalRelaunch = { route ->
+                        // Primary relaunch: xmsf schedules root `am start` after manager dies.
+                        kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+                            runCatching {
+                                val client = org.koin.core.context.GlobalContext.get()
+                                    .get<io.github.magisk317.mipush.manager.client.ManagerRuntimeClient>()
+                                io.github.magisk317.mipush.manager.remote.RemoteWriteSupport.execute(
+                                    client = client,
+                                    operation = io.github.magisk317.mipush.manager.api.ManagerProtocol.WRITE_OP_RELAUNCH_MANAGER,
+                                    argument = route,
+                                    uniqueRequestId = true,
+                                )
+                            }
+                        }
+                    },
+                )
+            }
         }
     }
 

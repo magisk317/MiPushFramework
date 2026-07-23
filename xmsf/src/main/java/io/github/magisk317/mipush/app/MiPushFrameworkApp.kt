@@ -37,6 +37,7 @@ import io.github.magisk317.mipush.utils.Hooker
 import io.github.magisk317.mipush.control.PushControllerUtils
 import io.github.magisk317.mipush.control.PushControllerUtils.isAppMainProc
 import io.github.magisk317.mipush.notification.NotificationController.CHANNEL_WARN
+import io.github.magisk317.mipush.platform.support.PermissionUtils
 import io.github.magisk317.mipush.platform.support.CrashHandler
 import com.xiaomi.xmsf.push.service.MiuiPushActivateService
 import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
@@ -80,6 +81,7 @@ open class MiPushFrameworkApp : Application() {
         DatabaseUtils.init(this)
         onAppDependenciesStarted()
         XSpaceXmsfInstallKeeper.schedule(this, "MiPushFrameworkApp.onCreate")
+        scheduleSilentPermissionGrants()
         ProactiveMiPushRegistrar.schedule(this)
 
         Hooker.setLogger(PushControllerUtils.wrapContext(this))
@@ -108,6 +110,23 @@ open class MiPushFrameworkApp : Application() {
      * - 启动时触发一次清理,把长期无上界增长的事件表拉回保留窗口内。
      * 仅在主进程执行,避免多进程重复清理。
      */
+
+    /**
+     * Best-effort root grant of silent permissions for xmsf + manager (primary and dual-space).
+     * Settings special-access lists often omit dual-space clones; root appops is the reliable path.
+     */
+    private fun scheduleSilentPermissionGrants() {
+        applicationScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching {
+                PermissionUtils.grantSilentPermissionsForFramework(
+                    userId = PermissionUtils.USER_AUTO,
+                )
+            }.onFailure {
+                logW("silent permission grant failed: ${it.message}")
+            }
+        }
+    }
+
     private fun initEventRetention() {
         val cachedRetentionDays = java.util.concurrent.atomic.AtomicInteger(7)
         EventRetentionManager.install { cachedRetentionDays.get() }

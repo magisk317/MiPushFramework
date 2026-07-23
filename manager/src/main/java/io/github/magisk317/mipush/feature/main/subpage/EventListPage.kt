@@ -34,8 +34,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import io.github.magisk317.uikit.common.ElevatedSnackbarHost
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
@@ -239,31 +239,15 @@ fun EventList(
             val snackbarBottomPadding = contentPadding.calculateBottomPadding() +
                 WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
                 MaterialTheme.spacing.medium
-            SnackbarHost(
+            ElevatedSnackbarHost(
                 hostState = snackbarHostState,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(
-                        start = MaterialTheme.spacing.medium,
-                        end = MaterialTheme.spacing.medium,
-                        bottom = snackbarBottomPadding,
-                    ),
-            ) { data ->
-                val dismissState = rememberSwipeToDismissBoxState()
-                LaunchedEffect(dismissState.currentValue, data) {
-                    if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
-                        data.dismiss()
-                    }
-                }
-                SwipeToDismissBox(
-                    state = dismissState,
-                    enableDismissFromStartToEnd = true,
-                    enableDismissFromEndToStart = true,
-                    backgroundContent = {},
-                ) {
-                    DeleteCountdownSnackbar(data)
-                }
-            }
+                bottomPadding = snackbarBottomPadding,
+                modifier = Modifier.padding(
+                    start = MaterialTheme.spacing.medium,
+                    end = MaterialTheme.spacing.medium,
+                ),
+                snackbar = { data -> DeleteCountdownSnackbar(data) },
+            )
             ScrollToTopFAB(
                 listState = listState,
                 visible = snackbarHostState.currentSnackbarData == null && scrollChromeState?.isChromeVisible != true,

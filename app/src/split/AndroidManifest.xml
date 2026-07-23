@@ -8,18 +8,11 @@
             android:noHistory="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
-        <!-- One-cycle compatibility launchers that forward into the standalone manager package. -->
+        <!-- Component-name compatibility aliases only. No LAUNCHER: desktop icon lives on manager package. -->
         <activity-alias
             android:name="io.github.magisk317.mipush.feature.wizard.WelcomeActivity"
             android:exported="true"
-            android:icon="@mipmap/ic_launcher"
-            android:label="@string/app_name"
-            android:targetActivity="com.xiaomi.xmsf.app.compat.ManagerUiRedirectActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
+            android:targetActivity="com.xiaomi.xmsf.app.compat.ManagerUiRedirectActivity" />
         <activity-alias
             android:name="io.github.magisk317.mipush.feature.wizard.RequestPermissionPage"
             android:exported="false"

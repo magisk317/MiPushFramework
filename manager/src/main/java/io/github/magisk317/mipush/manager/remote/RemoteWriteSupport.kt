@@ -18,19 +18,24 @@ internal object RemoteWriteSupport {
         longArgument: Long = 0L,
         booleanArgument: Boolean = false,
         argument: String = "",
+        uniqueRequestId: Boolean = false,
     ): ManagerWriteResultDto? = runBlocking {
         when (
             val result = client.executeWrite(
                 ManagerWriteRequestDto(
-                    requestId = stableRequestId(
-                        operation = operation,
-                        packageName = packageName,
-                        eventId = eventId,
-                        intArgument = intArgument,
-                        longArgument = longArgument,
-                        booleanArgument = booleanArgument,
-                        argument = argument,
-                    ),
+                    requestId = if (uniqueRequestId) {
+                        java.util.UUID.randomUUID().toString()
+                    } else {
+                        stableRequestId(
+                            operation = operation,
+                            packageName = packageName,
+                            eventId = eventId,
+                            intArgument = intArgument,
+                            longArgument = longArgument,
+                            booleanArgument = booleanArgument,
+                            argument = argument,
+                        )
+                    },
                     operation = operation,
                     packageName = packageName,
                     eventId = eventId,

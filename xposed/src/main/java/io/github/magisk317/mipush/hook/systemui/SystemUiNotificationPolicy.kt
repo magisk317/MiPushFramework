@@ -160,6 +160,37 @@ internal object SystemUiNotificationPolicy {
         forceGlobalStatusBarIcons: Boolean,
     ): Boolean = forceGlobalStatusBarIcons && !colorStatusBarIcon
 
+    fun shouldForceMonochromeProcessSmallIcon(
+        colorStatusBarIcon: Boolean,
+        forceGlobalStatusBarIcons: Boolean,
+        isMiPushManaged: Boolean,
+    ): Boolean {
+        if (colorStatusBarIcon) return false
+        return isMiPushManaged || forceGlobalStatusBarIcons
+    }
+
+    fun shouldApplyMonochromeTintToNotification(
+        colorStatusBarIcon: Boolean,
+        forceGlobalStatusBarIcons: Boolean,
+        isMiPushManaged: Boolean,
+        packageName: String?,
+        uid: Int,
+        isSystemApp: Boolean,
+        canColorize: Boolean,
+    ): Boolean {
+        if (colorStatusBarIcon) return false
+        if (isMiPushManaged) return true
+        return shouldApplyGlobalMonochromeToNotification(
+            colorStatusBarIcon = colorStatusBarIcon,
+            forceGlobalStatusBarIcons = forceGlobalStatusBarIcons,
+            isMiPushManaged = isMiPushManaged,
+            packageName = packageName,
+            uid = uid,
+            isSystemApp = isSystemApp,
+            canColorize = canColorize,
+        )
+    }
+
     fun shouldApplyGlobalMonochromeToNotification(
         colorStatusBarIcon: Boolean,
         forceGlobalStatusBarIcons: Boolean,

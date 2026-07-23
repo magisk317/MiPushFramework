@@ -189,7 +189,27 @@ class RemoteManagerEventGateway(
         clipboard?.setPrimaryClip(ClipData.newPlainText("mipush", content))
     }
 
-    override suspend fun mockMessage(event: ManagerEvent): MockReplayOutcome = MockReplayOutcome.Failed
+    override suspend fun mockMessage(event: ManagerEvent): MockReplayOutcome {
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_MOCK_MESSAGE,
+            packageName = event.packageName,
+            eventId = event.id,
+            intArgument = event.type,
+            longArgument = event.receiveDateMs,
+        ) ?: return MockReplayOutcome.Failed
+        return when (result.details) {
+            ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_POSTED -> MockReplayOutcome.Posted
+            ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_DISPATCHED -> MockReplayOutcome.Dispatched
+            ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_BLOCKED -> MockReplayOutcome.BlockedByPermission
+            ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_FAILED -> MockReplayOutcome.Failed
+            else -> if (RemoteWriteSupport.isSuccess(result)) {
+                MockReplayOutcome.Dispatched
+            } else {
+                MockReplayOutcome.Failed
+            }
+        }
+    }
 
     override fun getJson(event: ManagerEvent): String? = null
 
@@ -539,19 +559,121 @@ class RemoteManagerRuntimeActions(
     )
 }
 
-class RemoteManagerPermissionGateway : ManagerPermissionGateway {
-    override fun hasCachedRootAccess(): Boolean = false
-    override fun refreshRootAccessIfGranted(): Boolean = false
-    override fun requestRootAccess(): Boolean = false
+class RemoteManagerPermissionGateway(
+    private val client: ManagerRuntimeClient,
+) : ManagerPermissionGateway {
+    @Volatile
+    private var rootCached: Boolean? = null
+
+    override fun hasCachedRootAccess(): Boolean = rootCached == true
+
+    override fun refreshRootAccessIfGranted(): Boolean = queryRoot(requestShell = false)
+
+    override fun requestRootAccess(): Boolean = queryRoot(requestShell = true)
+
     override fun repairXSpaceUserSupport(): ManagerXSpaceRepairResult =
         ManagerXSpaceRepairResult(stage = ManagerXSpaceRepairStage.ROOT_MISSING)
-    override fun setDualAppEnabled(enabled: Boolean): ManagerXSpaceRepairResult =
-        ManagerXSpaceRepairResult(stage = ManagerXSpaceRepairStage.ROOT_MISSING)
-    override fun isDualAppInstalled(): Boolean = false
-    override fun launchAppOps(context: Context, permission: String, tips: CharSequence): Boolean = false
-    override fun isUsageStatsAllowedByRoot(packageName: String): Boolean = false
-    override fun requestIgnoreBatteryOptimizations(context: Context): Boolean = false
-    override fun grantNotificationPermission(context: Context): Boolean = false
+
+    override fun setDualAppEnabled(enabled: Boolean): ManagerXSpaceRepairResult {
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_SET_DUAL_APP,
+            booleanArgument = enabled,
+        ) ?: return ManagerXSpaceRepairResult(
+            stage = ManagerXSpaceRepairStage.PARTIAL_FAILED,
+            details = "runtime_write_unavailable",
+        )
+        val stage = when (result.details) {
+            ManagerProtocol.WRITE_DETAIL_DUAL_APP_COMPLETED -> ManagerXSpaceRepairStage.COMPLETED
+            ManagerProtocol.WRITE_DETAIL_DUAL_APP_ROOT_MISSING -> ManagerXSpaceRepairStage.ROOT_MISSING
+            ManagerProtocol.WRITE_DETAIL_DUAL_APP_XSPACE_MISSING -> ManagerXSpaceRepairStage.XSPACE_USER_NOT_FOUND
+            ManagerProtocol.WRITE_DETAIL_DUAL_APP_PARTIAL_FAILED -> ManagerXSpaceRepairStage.PARTIAL_FAILED
+            else -> if (RemoteWriteSupport.isSuccess(result)) {
+                ManagerXSpaceRepairStage.COMPLETED
+            } else {
+                ManagerXSpaceRepairStage.PARTIAL_FAILED
+            }
+        }
+        // Dual-app enable already grants silent perms on runtime; re-assert from manager as well.
+        if (stage == ManagerXSpaceRepairStage.COMPLETED && enabled) {
+            grantSilentPermissions(userId = -1, packageName = "", op = "all")
+            // New dual-space clone starts at manifest defaults (Default alias); push current icon.
+            runCatching {
+                val iconId = org.koin.core.context.GlobalContext.get()
+                    .get<io.github.magisk317.mipush.data.PreferenceRepository>()
+                    .let { repo ->
+                        kotlinx.coroutines.runBlocking {
+                            repo.selectedLauncherIcon.first()
+                        }
+                    }
+                RemoteWriteSupport.execute(
+                    client = client,
+                    operation = ManagerProtocol.WRITE_OP_SYNC_LAUNCHER_ICON,
+                    argument = iconId,
+                    uniqueRequestId = true,
+                )
+            }
+        }
+        return ManagerXSpaceRepairResult(stage = stage, details = result.details)
+    }
+
+    override fun isDualAppInstalled(): Boolean {
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_QUERY_DUAL_APP,
+        ) ?: return false
+        return result.details == ManagerProtocol.WRITE_DETAIL_DUAL_APP_INSTALLED || result.resultLong == 1L
+    }
+
+    override fun launchAppOps(context: Context, permission: String, tips: CharSequence): Boolean {
+        // Grant the requested appop for both packages, primary + dual-space.
+        return grantSilentPermissions(userId = -1, packageName = "", op = permission)
+    }
+
+    override fun isUsageStatsAllowedByRoot(packageName: String): Boolean {
+        // Best-effort: if root is available assume grant path works; UI re-checks AppOps.
+        return refreshRootAccessIfGranted()
+    }
+
+    override fun requestIgnoreBatteryOptimizations(context: Context): Boolean {
+        // Full silent suite includes deviceidle whitelist for both packages.
+        return grantSilentPermissions(userId = 0, packageName = "", op = "all")
+    }
+
+    override fun grantNotificationPermission(context: Context): Boolean {
+        return grantSilentPermissions(userId = -1, packageName = "", op = "all")
+    }
+
+    private fun queryRoot(requestShell: Boolean): Boolean {
+        // requestShell currently maps to the same runtime ensureRootAccess path.
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_QUERY_ROOT,
+            booleanArgument = requestShell,
+            uniqueRequestId = true,
+        ) ?: run {
+            rootCached = false
+            return false
+        }
+        val available = result.resultLong == 1L ||
+            result.details == ManagerProtocol.WRITE_DETAIL_ROOT_AVAILABLE ||
+            RemoteWriteSupport.isSuccess(result) && result.details != ManagerProtocol.WRITE_DETAIL_ROOT_MISSING
+        rootCached = available
+        return available
+    }
+
+    private fun grantSilentPermissions(userId: Int, packageName: String, op: String): Boolean {
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_GRANT_SILENT_PERMISSIONS,
+            packageName = packageName,
+            intArgument = userId,
+            argument = op,
+            uniqueRequestId = true,
+        ) ?: return false
+        return RemoteWriteSupport.isSuccess(result) ||
+            result.details == ManagerProtocol.WRITE_DETAIL_GRANT_SILENT_OK
+    }
 }
 
 class RemoteZygiskConfigGateway : ZygiskConfigGateway {

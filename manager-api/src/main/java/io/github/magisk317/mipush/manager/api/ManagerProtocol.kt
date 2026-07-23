@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.manager.api
 
 object ManagerProtocol {
     const val MAJOR = 1
-    const val MINOR = 4
+    const val MINOR = 5
 
     const val RUNTIME_PACKAGE = "com.xiaomi.xmsf"
     const val MANAGER_PACKAGE = "io.github.magisk317.mipush"
@@ -57,6 +57,16 @@ object ManagerProtocol {
     const val WRITE_STATUS_FAILED = "failed"
     const val WRITE_STATUS_UNSUPPORTED = "unsupported"
     const val WRITE_STATUS_DUPLICATE = "duplicate"
+    const val WRITE_DETAIL_MOCK_REPLAY_POSTED = "mock_replay_posted"
+    const val WRITE_DETAIL_MOCK_REPLAY_DISPATCHED = "mock_replay_dispatched"
+    const val WRITE_DETAIL_MOCK_REPLAY_FAILED = "mock_replay_failed"
+    const val WRITE_DETAIL_MOCK_REPLAY_BLOCKED = "mock_replay_blocked_by_permission"
+    const val WRITE_DETAIL_DUAL_APP_COMPLETED = "dual_app_completed"
+    const val WRITE_DETAIL_DUAL_APP_ROOT_MISSING = "dual_app_root_missing"
+    const val WRITE_DETAIL_DUAL_APP_XSPACE_MISSING = "dual_app_xspace_user_not_found"
+    const val WRITE_DETAIL_DUAL_APP_PARTIAL_FAILED = "dual_app_partial_failed"
+    const val WRITE_DETAIL_DUAL_APP_INSTALLED = "dual_app_installed"
+    const val WRITE_DETAIL_DUAL_APP_NOT_INSTALLED = "dual_app_not_installed"
     const val WRITE_OP_UPDATE_APPLICATION = "update_application"
     const val WRITE_OP_DELETE_EVENT = "delete_event"
     const val WRITE_OP_RESTORE_EVENT = "restore_event"
@@ -66,6 +76,31 @@ object ManagerProtocol {
     const val WRITE_OP_APPLY_EVENT_RETENTION = "apply_event_retention"
     const val WRITE_OP_START_FOREGROUND = "start_foreground"
     const val WRITE_OP_XMPP_RECONNECT = "xmpp_reconnect"
+    const val WRITE_OP_MOCK_MESSAGE = "mock_message"
+    const val WRITE_OP_SET_DUAL_APP = "set_dual_app"
+    const val WRITE_OP_QUERY_DUAL_APP = "query_dual_app"
+    const val WRITE_OP_GRANT_SILENT_PERMISSIONS = "grant_silent_permissions"
+    const val WRITE_OP_QUERY_ROOT = "query_root"
+    const val WRITE_OP_SYNC_LAUNCHER_ICON = "sync_launcher_icon"
+    const val WRITE_OP_SET_RUNTIME_BOOLEAN = "set_runtime_boolean"
+    const val WRITE_OP_RESTART_RUNTIME = "restart_runtime"
+    const val WRITE_OP_REBOOT_DEVICE = "reboot_device"
+    const val WRITE_OP_RELAUNCH_MANAGER = "relaunch_manager"
+    const val WRITE_DETAIL_RELAUNCH_MANAGER_OK = "relaunch_manager_ok"
+    const val WRITE_DETAIL_RELAUNCH_MANAGER_FAILED = "relaunch_manager_failed"
+    const val WRITE_DETAIL_REBOOT_DEVICE_OK = "reboot_device_ok"
+    const val WRITE_DETAIL_REBOOT_DEVICE_ROOT_MISSING = "reboot_device_root_missing"
+    const val WRITE_DETAIL_SET_RUNTIME_BOOLEAN_OK = "set_runtime_boolean_ok"
+    const val WRITE_DETAIL_SET_RUNTIME_BOOLEAN_UNKNOWN_KEY = "set_runtime_boolean_unknown_key"
+    const val WRITE_DETAIL_RESTART_RUNTIME_OK = "restart_runtime_ok"
+    const val WRITE_DETAIL_SYNC_LAUNCHER_ICON_OK = "sync_launcher_icon_ok"
+    const val WRITE_DETAIL_SYNC_LAUNCHER_ICON_ROOT_MISSING = "sync_launcher_icon_root_missing"
+    const val WRITE_DETAIL_SYNC_LAUNCHER_ICON_FAILED = "sync_launcher_icon_failed"
+    const val WRITE_DETAIL_GRANT_SILENT_OK = "grant_silent_ok"
+    const val WRITE_DETAIL_GRANT_SILENT_ROOT_MISSING = "grant_silent_root_missing"
+    const val WRITE_DETAIL_GRANT_SILENT_FAILED = "grant_silent_failed"
+    const val WRITE_DETAIL_ROOT_AVAILABLE = "root_available"
+    const val WRITE_DETAIL_ROOT_MISSING = "root_missing"
     const val DEFAULT_MAX_PAGE_SIZE = 100
     const val DEFAULT_MAX_PAYLOAD_BYTES = 512 * 1024
     const val MAX_CAPABILITY_COUNT = 64

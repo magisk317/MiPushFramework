@@ -99,4 +99,21 @@ class ManagerWriteIdempotencyStoreTest {
             ),
         )
     }
+
+    @Test
+    fun `does not cache failed results so retries can re-run`() {
+        val store = ManagerWriteIdempotencyStore()
+        assertEquals(ManagerWriteIdempotencyStore.BeginResult.Execute, store.begin("req-fail"))
+        store.complete(
+            ManagerWriteResultDto(
+                requestId = "req-fail",
+                status = ManagerProtocol.WRITE_STATUS_FAILED,
+                details = "dual_app_root_missing",
+            ),
+        )
+        assertNull(store.get("req-fail"))
+        assertEquals(ManagerWriteIdempotencyStore.BeginResult.Execute, store.begin("req-fail"))
+        store.abort("req-fail")
+    }
+
 }

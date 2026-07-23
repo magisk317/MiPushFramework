@@ -286,6 +286,13 @@
         </receiver>
 
         <receiver
+                android:name="io.github.magisk317.mipush.notification.LiveUpdateDismissReceiver"
+                android:exported="false">
+            <intent-filter>
+                <action android:name="io.github.magisk317.mipush.action.LIVE_UPDATE_DISMISSED" />
+            </intent-filter>
+        </receiver>
+        <receiver
                 android:name="io.github.magisk317.mipush.receiver.NotificationEventReceiver"
                 android:exported="true"
                 android:permission="com.xiaomi.xmsf.permission.NOTIFICATION_ACTIVE">

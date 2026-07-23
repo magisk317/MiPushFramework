@@ -123,7 +123,12 @@ open class MainActivity : ComponentActivity() {
         WelcomeIslandNotifier.notifyAfterInstallOrUpdate(this)
         enableEdgeToEdge()
         mainActivityUtils.initOnCreate(applicationContext, configGateway::loadConfigurations) { placeholder = it.toString() }
+        val pendingResumeRoute = io.github.magisk317.mipush.manager.launcher.LauncherIconController
+            .consumePendingResumeRoute(this)
         val explicitRoute = intent?.getStringExtra(EXTRA_START_ROUTE)
+            ?.takeIf { it.isNotBlank() }
+            ?: pendingResumeRoute
+        val startTab = intent?.getStringExtra(EXTRA_START_TAB)
         val startDestination = when {
             explicitRoute?.startsWith(AppDestinations.Configs.ROUTE) == true ||
                 explicitRoute?.startsWith(AppDestinations.ConfigsSearch.ROUTE) == true ||
@@ -131,7 +136,9 @@ open class MainActivity : ComponentActivity() {
 
             explicitRoute?.startsWith(AppDestinations.Settings.ROUTE) == true ||
                 explicitRoute?.startsWith(AppDestinations.SettingsSection.ROUTE) == true ||
-                intent?.getStringExtra(EXTRA_START_TAB) == START_TAB_SETTINGS -> AppDestinations.Settings.ROUTE
+                explicitRoute?.startsWith(AppDestinations.StatusBarIconSettings.ROUTE) == true ||
+                explicitRoute?.startsWith(AppDestinations.ConnectionStatus.ROUTE) == true ||
+                startTab == START_TAB_SETTINGS -> AppDestinations.Settings.ROUTE
 
             else -> AppDestinations.Overview.ROUTE
         }

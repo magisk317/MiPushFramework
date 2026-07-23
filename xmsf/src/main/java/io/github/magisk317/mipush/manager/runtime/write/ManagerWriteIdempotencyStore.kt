@@ -53,7 +53,13 @@ class ManagerWriteIdempotencyStore(
 
     fun complete(result: ManagerWriteResultDto) = lock.withLock {
         inFlight -= result.requestId
-        if (result.requestId.isNotBlank()) {
+        // Only cache completed successes. Caching FAILED (e.g. temporary ROOT_MISSING)
+        // would permanently block later retries with the same stable requestId after the
+        // user grants root or the environment recovers.
+        if (result.requestId.isNotBlank() &&
+            (result.status == ManagerProtocol.WRITE_STATUS_SUCCESS ||
+                result.status == ManagerProtocol.WRITE_STATUS_DUPLICATE)
+        ) {
             results[result.requestId] = result
         }
         condition.signalAll()

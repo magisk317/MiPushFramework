@@ -344,7 +344,7 @@ class PreferenceRepository constructor(
 
     val managerMigrationApplied: Flow<Boolean> = dataStore.data.map { it[MANAGER_MIGRATION_APPLIED] ?: false }
     val selectedLauncherIcon: Flow<String> = dataStore.data.map {
-        it[SELECTED_LAUNCHER_ICON] ?: DEFAULT_LAUNCHER_ICON
+        normalizeLauncherIcon(it[SELECTED_LAUNCHER_ICON] ?: DEFAULT_LAUNCHER_ICON)
     }
 
     suspend fun isManagerMigrationApplied(): Boolean =
@@ -355,7 +355,7 @@ class PreferenceRepository constructor(
     }
 
     suspend fun setSelectedLauncherIcon(iconId: String) {
-        dataStore.edit { it[SELECTED_LAUNCHER_ICON] = iconId }
+        dataStore.edit { it[SELECTED_LAUNCHER_ICON] = normalizeLauncherIcon(iconId) }
     }
 
     /**
@@ -428,5 +428,9 @@ class PreferenceRepository constructor(
     private companion object {
         const val DEFAULT_UI_KIT_STYLE = 0
         const val DEFAULT_LAUNCHER_ICON = "default"
+        const val LEGACY_LAUNCHER_ICON = "legacy"
+
+        fun normalizeLauncherIcon(iconId: String): String =
+            if (iconId == LEGACY_LAUNCHER_ICON) LEGACY_LAUNCHER_ICON else DEFAULT_LAUNCHER_ICON
     }
 }

@@ -30,6 +30,14 @@ open class WelcomeActivity : ComponentActivity() {
     }
 
     private fun jumpToMainActivity() {
-        startActivity(LegacyUiEntryPoints.mainActivityIntent(this))
+        val startRoute = intent?.getStringExtra("extra_start_route")
+        val startTab = intent?.getStringExtra("extra_start_tab")
+        startActivity(
+            LegacyUiEntryPoints.mainActivityIntent(
+                context = this,
+                startRoute = startRoute,
+                startTab = startTab,
+            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
     }
 }

@@ -11,6 +11,15 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.clip
+import androidx.compose.material3.RadioButton
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.border
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,8 +47,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import io.github.magisk317.uikit.common.ElevatedSnackbarHost
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -138,9 +147,9 @@ fun Settings(
                 scrollChromeState = scrollChromeState,
                 scrollState = scrollState,
             )
-            SnackbarHost(
+            ElevatedSnackbarHost(
                 hostState = snackbarHostState,
-                modifier = Modifier.align(Alignment.BottomCenter),
+                bottomPadding = contentPadding.calculateBottomPadding() + 16.dp,
             )
             ScrollToTopFAB(scrollState, visible = scrollChromeState?.isChromeVisible != true, extraBottomPadding = 80.dp)
         }
@@ -171,6 +180,9 @@ private fun SettingsScreen(
 
     LaunchedEffect(title) {
         onSectionChanged(title)
+    }
+    LaunchedEffect(Unit) {
+        viewModel.refreshDualAppFromRuntime()
     }
 
     OverlayHeaderScaffold(
@@ -253,45 +265,46 @@ private fun SettingsScreen(
                     )
 
                     val selectedLauncherIcon by viewModel.selectedLauncherIcon.collectAsStateWithLifecycle()
-                    val launcherIconSummary = when (selectedLauncherIcon) {
+                    val normalizedLauncherIcon =
+                        if (selectedLauncherIcon == "legacy") "legacy" else "default"
+                    val launcherIconSummary = when (normalizedLauncherIcon) {
                         "legacy" -> stringResource(R.string.settings_launcher_icon_legacy)
-                        "xmsf" -> stringResource(R.string.settings_launcher_icon_xmsf)
                         else -> stringResource(R.string.settings_launcher_icon_default)
                     }
                     var showLauncherIconDialog by remember { mutableStateOf(false) }
+                    val currentPreviewRes = when (normalizedLauncherIcon) {
+                        "legacy" -> R.mipmap.ic_launcher_preview_legacy
+                        else -> R.mipmap.ic_launcher_preview_default
+                    }
                     SettingsItem(
                         title = stringResource(R.string.settings_launcher_icon),
-                        summary = stringResource(R.string.settings_launcher_icon_summary) + " · " + launcherIconSummary,
+                        summary = launcherIconSummary + " · " + stringResource(R.string.settings_launcher_icon_summary),
+                        trailingContent = {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                tonalElevation = 0.dp,
+                            ) {
+                                Image(
+                                    painter = painterResource(currentPreviewRes),
+                                    contentDescription = launcherIconSummary,
+                                    contentScale = ContentScale.Fit,
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .padding(2.dp)
+                                        .clip(RoundedCornerShape(6.dp)),
+                                )
+                            }
+                        },
                     ) { showLauncherIconDialog = true }
                     if (showLauncherIconDialog) {
-                        AlertDialog(
-                            onDismissRequest = { showLauncherIconDialog = false },
-                            title = { Text(stringResource(R.string.settings_launcher_icon)) },
-                            text = {
-                                Column {
-                                    listOf(
-                                        "default" to R.string.settings_launcher_icon_default,
-                                        "legacy" to R.string.settings_launcher_icon_legacy,
-                                        "xmsf" to R.string.settings_launcher_icon_xmsf,
-                                    ).forEach { (id, labelRes) ->
-                                        Text(
-                                            text = stringResource(labelRes),
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clickable {
-                                                    viewModel.setSelectedLauncherIcon(context, id)
-                                                    showLauncherIconDialog = false
-                                                }
-                                                .padding(vertical = 12.dp),
-                                        )
-                                    }
-                                }
+                        LauncherIconPickerDialog(
+                            selectedIconId = selectedLauncherIcon,
+                            onSelect = { id ->
+                                viewModel.setSelectedLauncherIcon(context, id)
+                                showLauncherIconDialog = false
                             },
-                            confirmButton = {
-                                TextButton(onClick = { showLauncherIconDialog = false }) {
-                                    Text(stringResource(android.R.string.cancel))
-                                }
-                            },
+                            onDismiss = { showLauncherIconDialog = false },
                         )
                     }
 
@@ -315,9 +328,12 @@ private fun SettingsScreen(
                         checked = dualAppEnabled,
                         enabled = !dualAppProcessing,
                         onCheckedChange = { enabled ->
-                            viewModel.setDualAppEnabled(enabled)
-                            showSwitchFeedback(dualAppTitle, enabled)
-                        }
+                            viewModel.setDualAppEnabled(enabled) { success, message ->
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(message)
+                                }
+                            }
+                        },
                     )
 
                     SettingsItem(
@@ -909,6 +925,94 @@ private fun SetXMPPServer(viewModel: SettingsViewModel) {
 }
 
 @Preview(showBackground = true)
+
+
+@Composable
+private fun LauncherIconPickerDialog(
+    selectedIconId: String,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    data class LauncherIconOption(
+        val id: String,
+        val labelRes: Int,
+        val iconRes: Int,
+    )
+    val options = listOf(
+        LauncherIconOption(
+            id = "default",
+            labelRes = R.string.settings_launcher_icon_default,
+            iconRes = R.mipmap.ic_launcher_preview_default,
+        ),
+        LauncherIconOption(
+            id = "legacy",
+            labelRes = R.string.settings_launcher_icon_legacy,
+            iconRes = R.mipmap.ic_launcher_preview_legacy,
+        ),
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_launcher_icon)) },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                options.forEach { option ->
+                    val selected = option.id == (if (selectedIconId == "legacy") "legacy" else "default")
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .border(
+                                width = if (selected) 2.dp else 1.dp,
+                                color = if (selected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.outlineVariant
+                                },
+                                shape = RoundedCornerShape(16.dp),
+                            )
+                            .clickable { onSelect(option.id) }
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            tonalElevation = 0.dp,
+                        ) {
+                            Image(
+                                painter = painterResource(option.iconRes),
+                                contentDescription = stringResource(option.labelRes),
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .padding(4.dp)
+                                    .clip(RoundedCornerShape(10.dp)),
+                            )
+                        }
+                        Text(
+                            text = stringResource(option.labelRes),
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f),
+                        )
+                        RadioButton(
+                            selected = selected,
+                            onClick = { onSelect(option.id) },
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+        },
+    )
+}
+
 @Composable
 fun SettingsPagePreview() {
     Utils.context = LocalContext.current

@@ -7,8 +7,8 @@ java = "26"
 javaBytecode = "25"
 
 # App version
-versionCode = "9"
-versionName = "0.6.3"
+versionCode = "10"
+versionName = "0.7.0"
 pushVersionCode = "1003003000"
 
 activity-compose = "1.13.0"

@@ -37,6 +37,9 @@ import io.github.magisk317.mipush.config.ConfigSyncRepository
 import io.github.magisk317.mipush.config.toSummary
 import io.github.magisk317.mipush.common.utils.ElapsedTimer
 import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.data.PreferenceRepository
+import io.github.magisk317.mipush.data.dataStore
 import io.github.magisk317.mipush.compat.RegistrationStateCompat
 import io.github.magisk317.mipush.compat.RegistrationStateStore
 import io.github.magisk317.mipush.notification.NotificationChannelManager
@@ -183,10 +186,21 @@ class XmsfManagerEventGateway(
     }
 
     override suspend fun mockMessage(event: ManagerEvent): MockReplayOutcome {
+        val resolved = resolveEventForMock(event) ?: return MockReplayOutcome.Failed
         val container = io.github.magisk317.mipush.common.configurations.RegSecUtils
-            .getContainerWithRegSec(event.payload, event.regSec)
+            .getContainerWithRegSec(resolved.payload, resolved.regSec)
             ?: return MockReplayOutcome.Failed
         return eventRepository.mockMessage(container)
+    }
+
+    private suspend fun resolveEventForMock(event: ManagerEvent): ManagerEvent? {
+        val payload = event.payload
+        if (payload != null && payload.isNotEmpty()) {
+            return event
+        }
+        if (event.id <= 0L) return null
+        val stored = EventDb.getByIdAsync(event.id) ?: return null
+        return stored.toManagerEvent()
     }
 
     override fun getJson(event: ManagerEvent): String? =
@@ -352,7 +366,9 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
     }
 
     override fun setDualAppEnabled(enabled: Boolean): ManagerXSpaceRepairResult {
-        if (!PermissionUtils.refreshRootAccessIfGranted()) {
+        // refreshRootAccessIfGranted() returns false while Shell grant state is still null
+        // (unknown). requestRootAccess() forces Shell init + probe so Magisk-granted apps work.
+        if (!PermissionUtils.refreshRootAccessIfGranted() && !PermissionUtils.requestRootAccess()) {
             return ManagerXSpaceRepairResult(stage = ManagerXSpaceRepairStage.ROOT_MISSING)
         }
         val users = runRootCommand("cmd user list", timeoutMs = 5_000L)
@@ -375,6 +391,26 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
         val managerInstalled = isPackageInstalledForUser(Constants.MANAGER_APP_NAME)
         val expectedInstalled = enabled
         val succeeded = xmsfInstalled == expectedInstalled && managerInstalled == expectedInstalled
+        if (succeeded) {
+            // Persist runtime-owned dual_app_enabled so XSpaceXmsfInstallKeeper can keep packages in sync.
+            runCatching {
+                val context = Utils.context?.applicationContext ?: return@runCatching
+                runBlocking {
+                    PreferenceRepository(context.dataStore).setDualAppEnabled(enabled)
+                }
+            }
+            if (enabled) {
+                // Root-grant silent permissions for primary + dual-space (xmsf + manager).
+                PermissionUtils.grantSilentPermissionsForFramework(
+                    userId = PermissionUtils.USER_AUTO,
+                )
+            } else {
+                // Still re-assert main-user silent grants after dual-app teardown.
+                PermissionUtils.grantSilentPermissionsForFramework(
+                    userId = PermissionUtils.USER_PRIMARY,
+                )
+            }
+        }
 
         return ManagerXSpaceRepairResult(
             stage = if (succeeded) {
@@ -388,7 +424,12 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
     }
 
     override fun isDualAppInstalled(): Boolean {
-        if (!PermissionUtils.hasCachedRootAccess()) return false
+        if (!PermissionUtils.hasCachedRootAccess() &&
+            !PermissionUtils.refreshRootAccessIfGranted() &&
+            !PermissionUtils.requestRootAccess()
+        ) {
+            return false
+        }
         val users = runRootCommand("cmd user list", timeoutMs = 5_000L)
         if (!users.isSuccess || !users.output.contains("{${XSPACE_USER_ID}:")) return false
         return isPackageInstalledForUser(Constants.SERVICE_APP_NAME) &&
