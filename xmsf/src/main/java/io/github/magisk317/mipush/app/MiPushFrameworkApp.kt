@@ -25,6 +25,7 @@ import io.github.magisk317.mipush.diagnostics.PushHealthSnapshotLogger
 import io.github.magisk317.mipush.telemetry.TelemetryDisabler
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.aakira.napier.Napier
+import io.github.magisk317.xposed.logging.LogSanitizerConfig
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.LogLevel
 import io.github.magisk317.mipush.utils.LogUtils
@@ -33,26 +34,29 @@ import io.github.magisk317.mipush.bridge.LegacyLoggerBridge
 import io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.utils.Hooker
-import io.github.magisk317.mipush.utils.PrivilegeElevator
 import io.github.magisk317.mipush.control.PushControllerUtils
 import io.github.magisk317.mipush.control.PushControllerUtils.isAppMainProc
 import io.github.magisk317.mipush.notification.NotificationController.CHANNEL_WARN
+import io.github.magisk317.mipush.platform.support.PermissionUtils
 import io.github.magisk317.mipush.platform.support.CrashHandler
 import com.xiaomi.xmsf.push.service.MiuiPushActivateService
 import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
 import io.github.magisk317.mipush.runtime.PushRuntimeExecutionBridge
-import com.xiaomi.xmsf.BuildConfig
 import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.common.ISLAND_PREF_READ_PERMISSION
+import io.github.magisk317.mipush.common.VERSION_NAME
 import io.github.magisk317.mipush.platform.service.PushServiceAccessibility
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.DatabaseUtils
+import io.github.magisk317.mipush.runtime.store.db.EventRetentionManager
 import com.xiaomi.xmsf.stock.StockSurfaceBootstrap
 import io.github.magisk317.mipush.app.di.AppDependencies
-import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 open class MiPushFrameworkApp : Application() {
@@ -62,18 +66,23 @@ open class MiPushFrameworkApp : Application() {
     override fun onCreate() {
         applicationScope = MainScope()
         super.onCreate()
-        DatabaseUtils.init(this)
         TelemetryDisabler.disableAll(this)
-        PrivilegeElevator.tryToElevate()
         Utils.setApplicationContext(this)
+        if (!isAppMainProc(this)) {
+            LogUtils.init(this)
+            CrashHandler.installCrashLogger()
+            logI("Initialized minimal app shell outside main process")
+            return
+        }
+
         AppDependencies.start(this)
-        onAppDependenciesStarted()
         initBasicLogger()
         CrashHandler.installCrashLogger()
-        if (isAppMainProc(this)) {
-            XSpaceXmsfInstallKeeper.schedule(this, "MiPushFrameworkApp.onCreate")
-            ProactiveMiPushRegistrar.schedule(this)
-        }
+        DatabaseUtils.init(this)
+        onAppDependenciesStarted()
+        XSpaceXmsfInstallKeeper.schedule(this, "MiPushFrameworkApp.onCreate")
+        scheduleSilentPermissionGrants()
+        ProactiveMiPushRegistrar.schedule(this)
 
         Hooker.setLogger(PushControllerUtils.wrapContext(this))
         Hooker.hook(this)
@@ -91,21 +100,65 @@ open class MiPushFrameworkApp : Application() {
         requestDozeWhiteList()
         // Android 17: Check for memory limit warnings
         checkMemoryLimit()
+        initEventRetention()
         PushHealthSnapshotLogger.log(this, "MiPushFrameworkApp.onCreate")
+    }
+
+    /**
+     * 接线事件记录的保留期限清理:
+     * - 向 [EventRetentionManager] 注入保留天数 provider(从 [PreferenceRepository] 缓存回传);
+     * - 启动时触发一次清理,把长期无上界增长的事件表拉回保留窗口内。
+     * 仅在主进程执行,避免多进程重复清理。
+     */
+
+    /**
+     * Best-effort root grant of silent permissions for xmsf + manager (primary and dual-space).
+     * Settings special-access lists often omit dual-space clones; root appops is the reliable path.
+     */
+    private fun scheduleSilentPermissionGrants() {
+        applicationScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching {
+                PermissionUtils.grantSilentPermissionsForFramework(
+                    userId = PermissionUtils.USER_AUTO,
+                )
+            }.onFailure {
+                logW("silent permission grant failed: ${it.message}")
+            }
+        }
+    }
+
+    private fun initEventRetention() {
+        val cachedRetentionDays = java.util.concurrent.atomic.AtomicInteger(7)
+        EventRetentionManager.install { cachedRetentionDays.get() }
+        applicationScope.launch {
+            preferenceRepository.eventRetentionDays.collect { days ->
+                cachedRetentionDays.set(days.coerceAtLeast(1))
+            }
+        }
+        applicationScope.launch {
+            val days = runCatching {
+                preferenceRepository.eventRetentionDays.first()
+            }.getOrDefault(7).coerceAtLeast(1)
+            cachedRetentionDays.set(days)
+            EventRetentionManager.pruneNow()
+        }
     }
 
     protected open fun onAppDependenciesStarted() = Unit
 
     private fun registerPrefChangeReceiver() {
         runCatching {
-            registerReceiver(
+            ContextCompat.registerReceiver(
+                this,
                 object : android.content.BroadcastReceiver() {
                     override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
                         io.github.magisk317.mipush.notification.NotificationManagerEx.triggerStatusBarRefresh()
                     }
                 },
                 android.content.IntentFilter(io.github.magisk317.mipush.common.ACTION_PREF_CHANGED),
-                android.content.Context.RECEIVER_EXPORTED,
+                ISLAND_PREF_READ_PERMISSION,
+                null,
+                ContextCompat.RECEIVER_EXPORTED,
             )
         }.onFailure {
             logE("failed to register pref change receiver", it)
@@ -167,6 +220,10 @@ open class MiPushFrameworkApp : Application() {
         LegacyLoggerBridge.setDebugLoggingEnabled(initialDebugMode)
         LogUtils.setMinLogLevel(if (initialDebugMode) LogLevel.VERBOSE else LogLevel.INFO)
         HookTrace.enabled = initialDebugMode
+        val initialSensitiveDebugLog = runCatching {
+            runBlocking { preferenceRepository.isSensitiveDebugLogMode.first() }
+        }.getOrNull()
+        LogSanitizerConfig.syncSensitiveDebugMode(initialSensitiveDebugLog)
         // 收集后续变更，确保设置页开关拨动后实时生效
         applicationScope.launch {
             preferenceRepository.isDebugMode.collect { enabled ->
@@ -175,7 +232,12 @@ open class MiPushFrameworkApp : Application() {
                 HookTrace.enabled = enabled
             }
         }
-        logI("App starts: ${BuildConfig.VERSION_NAME}, debugMode=$initialDebugMode")
+        applicationScope.launch {
+            preferenceRepository.isSensitiveDebugLogMode
+                .catch { LogSanitizerConfig.syncSensitiveDebugMode(null) }
+                .collect { LogSanitizerConfig.syncSensitiveDebugMode(it) }
+        }
+        logI("App starts: $VERSION_NAME, debugMode=$initialDebugMode")
     }
 
     private fun notifyDozeWhiteListRequest(manager: NotificationManagerCompat) {

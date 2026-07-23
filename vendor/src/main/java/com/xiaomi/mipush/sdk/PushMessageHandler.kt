@@ -106,7 +106,7 @@ class PushMessageHandler : BaseService() {
                     if (isCallbackEmpty()) {
                         MyLog.e("receive a message before application calling initialize")
                     } else {
-                        val pushMessageInterface = com.xiaomi.push.service.XMPushService.observer?.processMIPushIntent(intent) as? PushMessageInterface
+                        val pushMessageInterface = com.xiaomi.push.service.XMPushServiceCore.observer?.processMIPushIntent(intent) as? PushMessageInterface
                         if (pushMessageInterface != null) {
                             processMessageForCallback(context, pushMessageInterface)
                         }

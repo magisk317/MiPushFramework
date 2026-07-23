@@ -11,6 +11,10 @@ interface ISubProcBridge : IInterface {
     fun notifyOnlineConfigChanged()
 
     abstract class Stub : Binder(), ISubProcBridge {
+        init {
+            attachInterface(this, DESCRIPTOR)
+        }
+
         override fun asBinder(): IBinder = this
 
         override fun onTransact(code: Int, data: Parcel, reply: Parcel?, flags: Int): Boolean {
@@ -30,9 +34,35 @@ interface ISubProcBridge : IInterface {
         }
 
         companion object {
-            private const val DESCRIPTOR = "com.xiaomi.xmsf.services.ISubProcBridge"
+            const val DESCRIPTOR = "com.xiaomi.xmsf.services.ISubProcBridge"
             private const val TRANSACTION_NOTIFY_ONLINE_CONFIG_CHANGED = 1
             private const val INTERFACE_TRANSACTION = 1598968902
+
+            @JvmStatic
+            fun asInterface(binder: IBinder?): ISubProcBridge? {
+                if (binder == null) return null
+                val local = binder.queryLocalInterface(DESCRIPTOR)
+                return if (local is ISubProcBridge) local else Proxy(binder)
+            }
+        }
+
+        private class Proxy(
+            private val remote: IBinder,
+        ) : ISubProcBridge {
+            override fun asBinder(): IBinder = remote
+
+            override fun notifyOnlineConfigChanged() {
+                val data = Parcel.obtain()
+                val reply = Parcel.obtain()
+                try {
+                    data.writeInterfaceToken(DESCRIPTOR)
+                    remote.transact(TRANSACTION_NOTIFY_ONLINE_CONFIG_CHANGED, data, reply, 0)
+                    reply.readException()
+                } finally {
+                    reply.recycle()
+                    data.recycle()
+                }
+            }
         }
     }
 }

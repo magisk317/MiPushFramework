@@ -4,11 +4,38 @@
 
 ---
 
-## [v0.6.2] - Unreleased
+## [v0.7.0] - Unreleased
 
-- TODO
+- 版本：`versionCode 10` / `versionName 0.7.0`（manager/mipush）；XMSF 仍用 `pushVersionCode 1003003000`。
+- `[feat(manager/runtime)]` 拆分管理器包与 XMSF 运行时：远程读写、偏好迁移、图标切换、root 权限补齐与分身支持。
+- `[feat(notification)]` Live Update 身份修复（`UPDATE_APP_OPS_STATS`）、substName 兜底、划掉通知栏同步 cancel 岛。
+- `[fix(systemui)]` 状态栏单色图标恢复强单色；Live Update 移除时 `cancelNotification(key)`。
+- `[feat(ui)]` 管理器图标预览资源、ElevatedSnackbarHost 统一 snackbar、杂项/双开相关交互修复。
 
-> Full Changelog: https://github.com/magisk317/MiPushFramework/compare/v0.6.1...v0.6.2
+> Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v0.6.3...v0.7.0
+
+---
+
+## [v0.6.3] - Unreleased
+
+- 后续并入 0.7.0 的 manager/runtime 拆分与 Live Update 修复（见上）。
+
+> Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v0.6.2...v0.6.3
+
+---
+
+## [v0.6.2] - 2026-07-20
+
+- `[feat(ui/app)]` 新增连接状态页、桌面小组件、事件搜索与清理，并统一主界面导航和设置交互。
+- `[feat(notification)]` 优先保留应用自带焦点参数，恢复 AMap 实况与超级岛链路，并增强模拟通知反馈。
+- `[fix(notification)]` 修复通知深链点击、PendingIntent 身份、状态栏图标和岛通知作用域问题。
+- `[feat(xposed/xspace)]` 扩展钉钉与 mPaaS 凭据兼容，改进双开安装管理和逐应用 Zygisk 策略。
+- `[fix(runtime/security)]` 补齐 stock XMSF 兼容契约，增强注册与配置状态恢复，并收紧导出组件权限边界。
+- `[feat(diagnostics/config)]` 统一日志归档与脱敏，新增敏感调试开关，并支持 GitLab 配置源。
+- `[build/release]` 对齐 GitHub/GitLab 发版资产与门禁，完善质量检查和不支持能力的跳过流程。
+- `[deps/docs/test]` 更新构建工具、依赖与架构文档，并补充运行时、通知和安全契约测试。
+
+> Full Changelog: https://gitlab.com/magisk3171/MiPushFramework/-/compare/v0.6.1...v0.6.2
 
 ---
 

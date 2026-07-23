@@ -10,7 +10,7 @@ As of the current module layout, after the runtime, timer, service receiver, cli
 `xmsf/src/main/java` contains:
 
 - 0 Java files
-- 206 Kotlin files
+  - 215 Kotlin files (current July 2026 audit snapshot)
 
 The remaining legacy app-facing compatibility surface now lives primarily under:
 
@@ -19,20 +19,20 @@ The remaining legacy app-facing compatibility surface now lives primarily under:
 The HyperOS 3 / Android 16 reference dump is:
 
 ```text
-device_dumps/xiaomi_pudding_2026-04-13_stock_baseline
+../device_dumps/devices/xiaomi_pudding/2026-04-13-stock-baseline
 ```
 
 Use these two source trees differently:
 
 - Stock 7.x baseline:
-  `device_dumps/xiaomi_pudding_2026-04-13_stock_baseline/jadx/com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources`
+  `../device_dumps/devices/xiaomi_pudding/2026-04-13-stock-baseline/jadx/com.xiaomi.xmsf/stock/split-XiaomiServiceFrameworkCN-master/sources`
   - package `com.xiaomi.xmsf`
   - version `7.4.67-C`
   - versionCode `70004067`
   - APK SHA-256 `444e9f128591e04e38672bfe44a246ab3fa97ae68e95882839d8a7afe766df2b`
   - many runtime packages are obfuscated, so matching requires behavior and call-site review.
 - Current project override:
-  `device_dumps/xiaomi_pudding_2026-04-13_stock_baseline/jadx/com.xiaomi.xmsf/current/base/sources`
+  `../device_dumps/devices/xiaomi_pudding/2026-04-13-stock-baseline/jadx/com.xiaomi.xmsf/current/base/sources`
   - package `com.xiaomi.xmsf`
   - version `0.3.17-20260410000745`
   - versionCode `1003003000`
@@ -42,6 +42,11 @@ Use these two source trees differently:
 There are no remaining Java sources under `xmsf/src/main/java` or `vendor/src/main/java`.
 Stock 7.x files often contain JADX artifacts such as obfuscated names, synthetic switch maps, or invalid `??`
 temporaries; those remain reference signals, not source-ready code.
+
+The archive-wide raw-input/output map is `../device_dumps/metadata/artifact-index.tsv`. For
+cross-split XMSF searches use the normalized `combined-jadx-1.5.6` view, but retain the per-split
+tree for provenance. Binder transactions and malformed switch methods must be cross-checked with a
+dex disassembler instead of trusting generated Java alone.
 
 ## Current Rules
 

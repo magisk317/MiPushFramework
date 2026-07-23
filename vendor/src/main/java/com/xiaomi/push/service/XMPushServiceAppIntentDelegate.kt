@@ -19,10 +19,10 @@ import com.xiaomi.push.service.PushServiceRegisterAppAction
 import com.xiaomi.push.service.PushServiceMiPushAppAction
 
 class XMPushServiceAppIntentDelegate(
-    private val service: XMPushService,
+    private val service: XMPushServiceCore,
 ) {
     fun handleRegisterApp(intent: Intent) {
-        observeRegistrationIntent(intent, PushRegistrationState.Registering, "XMPushService.handleIntent:register_app", "register_intent")
+        observeRegistrationIntent(intent, "XMPushService.handleIntent:register_app", "register_intent")
         val provision = PushProvision.getInstance(service.applicationContext)
         if (provision.checkProvisioned() && provision.getProvisioned() == 0) {
             MyLog.w("register without being provisioned. ${intent.getStringExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE)}")
@@ -36,13 +36,12 @@ class XMPushServiceAppIntentDelegate(
             service.packageName,
         )
         val packageName = plan.packageName ?: return
-        MIPushAppInfo.getInstance(service).removeUnRegisteredPkg(packageName)
         if (!plan.shouldClearAccountCache) {
             service.registerForMiPushApp(plan.payload, packageName)
             return
         }
         service.executeJobNow(
-            object : XMPushService.Job(XMPushServiceJob.TYPE_CLEAR_ACCOUNT_CACHE) {
+            object : XMPushServiceCore.Job(XMPushServiceJob.TYPE_CLEAR_ACCOUNT_CACHE) {
                 override fun getDesc(): String = "clear account cache."
 
                 override fun process() {
@@ -65,8 +64,11 @@ class XMPushServiceAppIntentDelegate(
         )
         val packageName = plan.packageName ?: return
         if (plan.action == PushServiceMiPushAppAction.Unregister) {
-            observeRegistrationIntent(intent, PushRegistrationState.Unregistered, "XMPushService.handleIntent:unregister_app", "unregister_intent")
-            MIPushAppInfo.getInstance(service).addUnRegisteredPkg(packageName)
+            service.runtimeObserver.onChannelEvent(
+                packageName,
+                "unregistration_requested",
+                "XMPushService.handleIntent:unregister_app",
+            )
         } else {
             observeUplinkIntent(intent, "XMPushService.handleIntent:mipush_send_message")
         }
@@ -93,10 +95,12 @@ class XMPushServiceAppIntentDelegate(
             return
         }
         val appId = MIPushAppAbsentManager.getRememberedAppId(service, packageName)
+            ?: MIPushAppAbsentManager.getPendingRegistrationAppId(service, packageName)
         if (appId.isNullOrEmpty() || !removed) {
             return
         }
         MIPushAppAbsentManager.forgetRegisteredPackage(service, packageName)
+        MIPushAppAbsentManager.forgetPendingRegistration(service, packageName)
         if (MIPushNotificationHelper.hasLocalNotifyType(service, packageName)) {
             MIPushNotificationHelper.clearLocalNotifyType(service, packageName)
         }
@@ -111,6 +115,7 @@ class XMPushServiceAppIntentDelegate(
         }
         MyLog.w("clear notifications of package $packageName")
         MIPushNotificationHelper.clearNotification(service, packageName)
+        service.runtimeObserver.onPackageDataCleared(packageName)
     }
 
     fun handleClearNotification(intent: Intent) {
@@ -246,13 +251,14 @@ class XMPushServiceAppIntentDelegate(
         service.doAWPingCMD(intent, frequency)
     }
 
-    private fun observeRegistrationIntent(intent: Intent, state: PushRegistrationState, source: String, reason: String) {
+    private fun observeRegistrationIntent(intent: Intent, source: String, reason: String) {
         val packageName = packageName(intent) ?: return
-        if (state == PushRegistrationState.Unregistered) {
-            service.runtimeObserver.observeUnregistration(packageName, state)
-        } else {
-            service.runtimeObserver.onRegistrationStateChanged(packageName, state, source, reason)
-        }
+        service.runtimeObserver.onRegistrationStateChanged(
+            packageName,
+            PushRegistrationState.Registering,
+            source,
+            reason,
+        )
     }
 
     private fun observeUplinkIntent(intent: Intent, source: String) {

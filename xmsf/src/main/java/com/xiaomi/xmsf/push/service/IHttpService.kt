@@ -11,6 +11,9 @@ interface IHttpService : IInterface {
     @Throws(RemoteException::class)
     fun doHttpPost(str: String?, map: Map<*, *>?): String?
 
+    @Throws(RemoteException::class)
+    fun doHttpPostIntl(str: String?, map: Map<*, *>?): String?
+
     abstract class Stub : Binder(), IHttpService {
         init {
             attachInterface(this, DESCRIPTOR)
@@ -33,6 +36,18 @@ interface IHttpService : IInterface {
                     true
                 }
 
+                TRANSACTION_DO_HTTP_POST_INTL -> {
+                    data.enforceInterface(DESCRIPTOR)
+                    @Suppress("DEPRECATION")
+                    val response = doHttpPostIntl(
+                        data.readString(),
+                        data.readHashMap(javaClass.classLoader),
+                    )
+                    reply?.writeNoException()
+                    reply?.writeString(response)
+                    true
+                }
+
                 INTERFACE_TRANSACTION -> {
                     reply?.writeString(DESCRIPTOR)
                     true
@@ -43,9 +58,51 @@ interface IHttpService : IInterface {
         }
 
         companion object {
-            private const val DESCRIPTOR = "com.xiaomi.xmsf.push.service.IHttpService"
+            const val DESCRIPTOR = "com.xiaomi.xmsf.push.service.IHttpService"
             private const val TRANSACTION_DO_HTTP_POST = 1
+            private const val TRANSACTION_DO_HTTP_POST_INTL = 2
             private const val INTERFACE_TRANSACTION = 1598968902
+
+            @JvmStatic
+            fun asInterface(binder: IBinder?): IHttpService? {
+                if (binder == null) return null
+                val local = binder.queryLocalInterface(DESCRIPTOR)
+                return if (local is IHttpService) local else Proxy(binder)
+            }
+        }
+
+        private class Proxy(
+            private val remote: IBinder,
+        ) : IHttpService {
+            override fun asBinder(): IBinder = remote
+
+            override fun doHttpPost(str: String?, map: Map<*, *>?): String? = transactPost(
+                TRANSACTION_DO_HTTP_POST,
+                str,
+                map,
+            )
+
+            override fun doHttpPostIntl(str: String?, map: Map<*, *>?): String? = transactPost(
+                TRANSACTION_DO_HTTP_POST_INTL,
+                str,
+                map,
+            )
+
+            private fun transactPost(code: Int, str: String?, map: Map<*, *>?): String? {
+                val data = Parcel.obtain()
+                val reply = Parcel.obtain()
+                return try {
+                    data.writeInterfaceToken(DESCRIPTOR)
+                    data.writeString(str)
+                    data.writeMap(map)
+                    remote.transact(code, data, reply, 0)
+                    reply.readException()
+                    reply.readString()
+                } finally {
+                    reply.recycle()
+                    data.recycle()
+                }
+            }
         }
     }
 }

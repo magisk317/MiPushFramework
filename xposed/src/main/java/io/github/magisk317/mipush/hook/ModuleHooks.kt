@@ -6,18 +6,23 @@ import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.common.XMSF_PROCESS_NAME
 import io.github.magisk317.mipush.common.doOnce
+import io.github.magisk317.mipush.hook.amap.AmapNavigationLiveViewHook
 import io.github.magisk317.mipush.hook.documentsui.DocumentsUiXSpaceHook
 import io.github.magisk317.mipush.hook.fakedevice.FakeDeviceHook
 import io.github.magisk317.mipush.hook.fakedevice.ForceMiPushRegister
 import io.github.magisk317.mipush.hook.fakedevice.fakeAllBuildInProperties
+import io.github.magisk317.mipush.hook.island.IslandDispatcherHook
+import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.mipush.hook.keepalive.KeepAliveHook
 import io.github.magisk317.mipush.hook.securitycore.SecurityCoreXSpaceMiPushHook
 import io.github.magisk317.mipush.hook.system.HookSystemService
 import io.github.magisk317.mipush.hook.systemui.FocusNotificationPermissionPolicy
+import io.github.magisk317.mipush.hook.systemui.HookFocusAuthorization
 import io.github.magisk317.mipush.hook.systemui.HookNotificationSettingsManager
 import io.github.magisk317.mipush.hook.systemui.MiPushIslandHook
 import io.github.magisk317.mipush.hook.systemui.HookSystemUI
 import io.github.magisk317.mipush.hook.systemui.HookSystemUIPlugin
+import io.github.magisk317.mipush.hook.systemui.ISystemUIPluginHooker
 import io.github.magisk317.mipush.hook.xmsf.HookXmsf
 import io.github.magisk317.mipush.hook.xmsf.UnlockFocusAuthHook
 import io.github.magisk317.xposed.BaseHook
@@ -47,6 +52,7 @@ class LibXposedEntry : BaseLibXposedEntry {
         HookSystemUI(),
         SecurityCoreXSpaceMiPushHook(),
         DocumentsUiXSpaceHook(),
+        AmapNavigationLiveViewHook(),
         HookXmsf(),
         FakeDeviceHook(),
     )
@@ -56,6 +62,8 @@ class LibXposedEntry : BaseLibXposedEntry {
     override fun installModuleRuntime(module: XposedModule, hookApi: LibXposedHookApi) {
         XposedRuntime.install(module, "mipush")
         XLog.configure()
+        // Pull sensitive-debug pref into LogSanitizerConfig for hook processes.
+        IslandPreferences.startRefreshLoop()
     }
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
@@ -101,25 +109,20 @@ class LibXposedEntry : BaseLibXposedEntry {
                     ?.let { mapOf(SECURITY_CORE_PACKAGE_NAME to it) }
                     ?: emptyMap()
             }
+            AMAP_PACKAGE_NAME -> {
+                resolveLoadedPackageClassLoader(AMAP_PACKAGE_NAME)
+                    ?.let { mapOf(AMAP_PACKAGE_NAME to it) }
+                    ?: emptyMap()
+            }
             else -> emptyMap()
         }
     }
 
     // -- SystemUI island hooks --
-    private fun removeHyperOSFocusNotificationPackageLimit(loadParam: LoadParam) {
-        if (isHyperIslandInstalled(loadParam.classLoader)) {
-            XLog.i(TAG, "skip focus unlock hooks because HyperIsland is installed")
-            return
-        }
-
+    private fun installFocusAuthorizationBypass(loadParam: LoadParam) {
         HookNotificationSettingsManager().hook(loadParam.classLoader)
 
-        HookSystemUIPlugin(
-            "miui.systemui.plugin",
-            HookNotificationSettingsManager()
-        ).hook(loadParam.classLoader)
-
-        HookSystemUIPlugin("miui.systemui.plugin") { pluginLoader ->
+        val focusNotifUtilsHooker = ISystemUIPluginHooker { pluginLoader ->
             val tag = "HookFocusNotifUtils"
             try {
                 val classFocusNotifUtils = findClass(
@@ -152,15 +155,26 @@ class LibXposedEntry : BaseLibXposedEntry {
             } catch (e: Throwable) {
                 XLog.e(tag, "hook failure: ${e.message}", e)
             }
-        }.hook(loadParam.classLoader)
+        }
+
+        HookSystemUIPlugin(
+            "miui.systemui.plugin",
+            HookNotificationSettingsManager(),
+            HookFocusAuthorization(),
+            focusNotifUtilsHooker,
+        ).hook(loadParam.classLoader)
     }
 
     private fun hookSystemUiIsland(loadParam: LoadParam) {
+        // XMSF sends generated-focus requests to this project-private receiver in SystemUI.
+        // An external HyperIsland module may own rendering, but it does not own that receiver.
+        IslandDispatcherHook().hook()
+        // Authorization is configured by this module even if an external renderer is installed.
+        installFocusAuthorizationBypass(loadParam)
         if (isHyperIslandInstalled(loadParam.classLoader)) {
-            XLog.i(TAG, "skip systemui island hooks because HyperIsland is installed")
+            XLog.i(TAG, "registered island dispatcher; skip built-in rendering hooks because HyperIsland is installed")
             return
         }
-        removeHyperOSFocusNotificationPackageLimit(loadParam)
         MiPushIslandHook().onLoadPackage(loadParam)
     }
 
@@ -317,6 +331,7 @@ class LibXposedEntry : BaseLibXposedEntry {
         private const val HYPERISLAND_PACKAGE_NAME = "io.github.hyperisland"
         private const val SECURITY_CORE_PACKAGE_NAME = "com.miui.securitycore"
         private const val DOCUMENTS_UI_PACKAGE_NAME = "com.google.android.documentsui"
+        private const val AMAP_PACKAGE_NAME = "com.autonavi.minimap"
 
         @Volatile
         private var taxAttachFallbackInstalled = false

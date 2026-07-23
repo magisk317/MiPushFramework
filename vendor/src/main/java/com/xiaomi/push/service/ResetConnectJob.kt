@@ -6,7 +6,7 @@ import com.xiaomi.smack.ConnectionConfiguration
 
 class ResetConnectJob(
     private val pushAction: IPushServiceAction
-) : XMPushService.Job(XMPushServiceJob.TYPE_RESET_CONNECT) {
+) : XMPushServiceCore.Job(XMPushServiceJob.TYPE_RESET_CONNECT) {
 
     override fun getDesc(): String = "reset connection"
 

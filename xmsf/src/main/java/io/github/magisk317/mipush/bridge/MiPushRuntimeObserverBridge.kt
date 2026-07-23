@@ -23,6 +23,7 @@ import com.xiaomi.push.service.IPushRuntimeObserver
 import com.xiaomi.push.service.IPushServiceAction
 import com.xiaomi.push.service.MIPushAccount
 import com.xiaomi.push.service.MIPushAccountUtils
+import com.xiaomi.push.service.MIPushAppAbsentManager
 import com.xiaomi.push.service.MIPushHelper
 import com.xiaomi.push.service.PushBindResultPlan
 import com.xiaomi.push.service.PushBucketFetchPlan
@@ -57,7 +58,7 @@ import com.xiaomi.push.service.PushSlimWritePlan
 import com.xiaomi.push.service.PushSocketFailurePlan
 import com.xiaomi.push.service.PushSocketHostSelectionPlan
 import com.xiaomi.push.service.PushClientsManager
-import com.xiaomi.push.service.XMPushService
+import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.push.service.XMPushServiceProxy
 import com.xiaomi.slim.Blob
 import com.xiaomi.smack.Connection
@@ -69,6 +70,8 @@ import io.github.magisk317.mipush.push.hook.HookTraceCompat
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
 import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
 import com.xiaomi.push.sdk.PushMessageProcessor
+import com.xiaomi.xmsf.stock.StockSurfaceSupport
+import com.xiaomi.xmsf.stock.StockProfileIdStore
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
 import io.github.magisk317.mipush.runtime.PushRuntimePendingPacketStore
@@ -96,12 +99,12 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     private val appContext: Context = context.applicationContext ?: context
 
     init {
-        XMPushService.observer = this
+        XMPushServiceCore.observer = this
     }
 
     companion object {
         fun ensureInstalled(context: Context): Boolean {
-            if (XMPushService.observer != null) return false
+            if (XMPushServiceCore.observer != null) return false
             MiPushRuntimeObserverBridge(context)
             return true
         }
@@ -121,7 +124,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun onServiceCreated(service: android.app.Service) {
-        if (service is com.xiaomi.push.service.XMPushService) {
+        if (service is com.xiaomi.push.service.XMPushServiceCore) {
             io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge.ensureCreated(service)
         }
     }
@@ -179,7 +182,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
             reason = error?.message ?: reason.toString()
         )
         val service = XMPushServiceProxy.get()
-        val shouldFalldown = (service as? XMPushService)?.shouldFalldown() ?: false
+        val shouldFalldown = (service as? XMPushServiceCore)?.shouldFalldown() ?: false
         val plan = PushServiceConnectionRuntime.planConnectionClosed(shouldFalldown)
         PushRuntime.observeChannelEvent(null, plan.eventAction, "MiPushRuntimeObserverBridge.connectionClosed")
         if (plan.shouldScheduleReconnect) {
@@ -295,6 +298,10 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         MiPushRuntimeBridge.onApplicationIntentReceived(appContext, intent)
     }
 
+    override fun onPackageDataCleared(packageName: String) {
+        StockProfileIdStore.clear(appContext, packageName)
+    }
+
     override fun onRegistrationResult(packageName: String, success: Boolean, source: String, reason: String) {
         if (!Utils.isUserApplication(appContext, packageName)) return
         PushRuntime.observeRegistrationResult(packageName, success, source, reason)
@@ -304,8 +311,9 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         return RegistrationPayloadRepair.repair(context, packageName)
     }
 
-    override fun cacheRegistrationRequest(packageName: String, payload: ByteArray) {
+    override fun cacheRegistrationRequest(packageName: String, payload: ByteArray, appId: String?) {
         if (!Utils.isUserApplication(appContext, packageName)) return
+        MIPushAppAbsentManager.rememberPendingRegistration(appContext, packageName, appId)
         PushRuntimePendingPacketStore.cacheRegistrationRequest(packageName, payload)
     }
 
@@ -432,6 +440,11 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
 
     override fun onPayloadReceived(context: Context, payload: ByteArray?, size: Long, source: String) {
         payload?.let { MiPushRuntimeBridge.onPayloadFromServer(context, it, size, source) }
+    }
+
+    override fun shouldAcceptProfile(container: Any): Boolean {
+        val pushContainer = container as? com.xiaomi.xmpush.thrift.XmPushActionContainer ?: return true
+        return StockSurfaceSupport.isProfileAllowed(appContext, pushContainer)
     }
 
     override fun processMIPushMessage(payload: ByteArray, trafficBytes: Long) {

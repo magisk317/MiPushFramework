@@ -10,6 +10,7 @@ import org.gradle.kotlin.dsl.configure
 plugins {
     id("magisk.android.library")
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.robolectric.junit5)
 }
 
 abstract class GenerateMiPushPropTemplateTask : DefaultTask() {
@@ -107,6 +108,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":diagnostics"))
     implementation(project(":pinned"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.collection)
@@ -117,6 +119,8 @@ dependencies {
     implementation(libs.napier)
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.mockk)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.robolectric.junit5.extension)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
@@ -131,4 +135,8 @@ extensions.configure<LibraryAndroidComponentsExtension> {
 
 tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
     dependsOn(generateMiPushPropTemplate)
+}
+
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
 }

@@ -67,8 +67,9 @@ Completed state:
   `xposed/src/main/java/io/github/magisk317/mipush/hook/ModuleHooks.kt`.
 - `META-INF/xposed/{module.prop,java_init.list,scope.list}` declares modern metadata. The current
   `scope.list` keeps platform/companion hook targets (`android`, `system`, `com.android.systemui`,
-  `com.miui.securitycore`, `com.google.android.documentsui`, and `com.xiaomi.xmsf`) and leaves
-  third-party app scope user-selectable in LSPosed.
+  `com.miui.securitycore`, `com.google.android.documentsui`, `com.xiaomi.xmsf`, and the explicit
+  AMap navigation bridge target `com.autonavi.minimap`) and leaves other third-party app scope
+  user-selectable in LSPosed.
 - Old Xposed manifest metadata and `assets/xposed_init` were removed from `mipush`.
 - Hook helpers such as `hook`, `hookMethod`, `hookAllMethods`, and `invokeOriginalMethod` are
   centralized in `xposed/XPosedX.kt`.

@@ -8,6 +8,7 @@ import io.github.aakira.napier.Antilog
 import io.github.aakira.napier.DebugAntilog
 import io.github.aakira.napier.LogLevel
 import io.github.aakira.napier.Napier
+import io.github.magisk317.xposed.logging.DefaultLogSanitizer
 import java.io.File
 import java.time.Instant
 import java.time.LocalDate
@@ -18,7 +19,7 @@ import java.util.Date
 import java.util.Locale
 
 object LogUtils {
-    private const val DEFAULT_RETENTION_DAYS = 7
+    private const val DEFAULT_RETENTION_DAYS = 2
     private const val MIN_RETENTION_DAYS = 1
     private const val MAX_READ_LINES = 2000
     private const val DEFAULT_ROUTE = "app"
@@ -192,8 +193,8 @@ object LogUtils {
             timestamp = now.time,
             level = level,
             tag = tag,
-            message = message,
-            throwable = throwable,
+            message = DefaultLogSanitizer.sanitizeIfEnabled(message),
+            throwable = DefaultLogSanitizer.sanitizeIfEnabled(throwable),
             route = route,
             packageName = packageName,
             processName = processName,

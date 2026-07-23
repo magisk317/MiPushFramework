@@ -11,12 +11,34 @@ object LegacyUiEntryPoints {
     private const val EXTRA_IGNORE_NOT_REGISTERED = "EXTRA_IGNORE_NOT_REGISTERED"
     private const val EXTRA_RECHECK_ONLY = "extra_recheck_only"
 
+    /**
+     * Prefer the local package when it still packages the manager UI (bundled baseline).
+     * Otherwise open the standalone manager package.
+     */
+    fun managerUiPackage(context: Context): String {
+        return if (hasLocalManagerUi(context)) {
+            context.packageName
+        } else {
+            LegacyComponentNames.MANAGER_PACKAGE
+        }
+    }
+
+    private fun hasLocalManagerUi(context: Context): Boolean {
+        return runCatching {
+            Class.forName(LegacyComponentNames.MAIN_ACTIVITY, false, context.classLoader)
+            true
+        }.getOrDefault(false)
+    }
+
+    private fun managerUiIntent(context: Context, className: String): Intent =
+        Intent().setClassName(managerUiPackage(context), className)
+
     fun mainActivityIntent(
         context: Context,
         startRoute: String? = null,
         startTab: String? = null,
     ): Intent {
-        return Intent().setClassName(context, LegacyComponentNames.MAIN_ACTIVITY).apply {
+        return managerUiIntent(context, LegacyComponentNames.MAIN_ACTIVITY).apply {
             if (!startRoute.isNullOrBlank()) {
                 putExtra(EXTRA_START_ROUTE, startRoute)
             }
@@ -31,20 +53,20 @@ object LegacyUiEntryPoints {
         packageName: String,
         ignoreNotRegistered: Boolean = false,
     ): Intent {
-        return Intent().setClassName(context, LegacyComponentNames.APPLICATION_INFO_PAGE)
+        return managerUiIntent(context, LegacyComponentNames.APPLICATION_INFO_PAGE)
             .putExtra(EXTRA_PACKAGE_NAME, packageName)
             .putExtra(EXTRA_IGNORE_NOT_REGISTERED, ignoreNotRegistered)
     }
 
     fun helpPageIntent(context: Context): Intent {
-        return Intent().setClassName(context, LegacyComponentNames.HELP_PAGE)
+        return managerUiIntent(context, LegacyComponentNames.HELP_PAGE)
     }
 
     fun recentEventListIntent(
         context: Context,
         packageName: String,
     ): Intent {
-        return Intent().setClassName(context, LegacyComponentNames.RECENT_EVENT_LIST_PAGE)
+        return managerUiIntent(context, LegacyComponentNames.RECENT_EVENT_LIST_PAGE)
             .setData(Uri.parse(packageName))
     }
 
@@ -52,7 +74,7 @@ object LegacyUiEntryPoints {
         context: Context,
         recheckOnly: Boolean = false,
     ): Intent {
-        return Intent().setClassName(context, LegacyComponentNames.REQUEST_PERMISSION_PAGE)
+        return managerUiIntent(context, LegacyComponentNames.REQUEST_PERMISSION_PAGE)
             .putExtra(EXTRA_RECHECK_ONLY, recheckOnly)
     }
 }

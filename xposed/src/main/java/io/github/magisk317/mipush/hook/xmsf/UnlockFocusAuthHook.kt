@@ -33,7 +33,7 @@ class UnlockFocusAuthHook : BaseHook() {
             }
             method.hook {
                 doBefore {
-                    if (!IslandPreferences.current().canInjectFocusPayload) return@doBefore
+                    if (!IslandPreferences.current().focusNotification) return@doBefore
                     val error = args.firstOrNull() ?: return@doBefore
                     runCatching {
                         setHookIntField(error, "a", 0)

@@ -115,9 +115,17 @@ object NotificationIdentityBridge {
     }
 
     fun getTargetNotificationChannels(context: Context, packageName: String): List<NotificationChannel> {
-        return when (resolveStrategy(context, packageName)) {
+        NotificationManagerPlatformSupport.ensureInitialized(appContext(context))
+        val strategy = resolveStrategy(context, packageName)
+        return when (strategy) {
             Strategy.FRAMEWORK -> runCatching {
                 NotificationManagerPlatformSupport.getNotificationChannels(packageName)
+            }.onFailure {
+                android.util.Log.w(
+                    "NotificationIdentityBridge",
+                    "FRAMEWORK getTargetNotificationChannels failed pkg=$packageName: ${it.message}",
+                    it,
+                )
             }.getOrNull().orEmpty()
 
             Strategy.DELEGATED -> runCatching {
@@ -129,6 +137,12 @@ object NotificationIdentityBridge {
                     Int::class.javaPrimitiveType
                 ).invoke(remoteService, appContext(context).packageName, packageName, callingUserId(context))
                 listFromParceledListSlice<NotificationChannel>(channels)
+            }.onFailure {
+                android.util.Log.w(
+                    "NotificationIdentityBridge",
+                    "DELEGATED getTargetNotificationChannels failed pkg=$packageName: ${it.message}",
+                    it,
+                )
             }.getOrNull().orEmpty()
 
             Strategy.UNSUPPORTED -> emptyList()
@@ -136,9 +150,16 @@ object NotificationIdentityBridge {
     }
 
     fun getTargetNotificationChannelGroups(context: Context, packageName: String): List<NotificationChannelGroup> {
+        NotificationManagerPlatformSupport.ensureInitialized(appContext(context))
         return when (resolveStrategy(context, packageName)) {
             Strategy.FRAMEWORK -> runCatching {
                 NotificationManagerPlatformSupport.getNotificationChannelGroups(packageName)
+            }.onFailure {
+                android.util.Log.w(
+                    "NotificationIdentityBridge",
+                    "FRAMEWORK getTargetNotificationChannelGroups failed pkg=$packageName: ${it.message}",
+                    it,
+                )
             }.getOrNull().orEmpty()
 
             Strategy.DELEGATED -> runCatching {
@@ -150,6 +171,12 @@ object NotificationIdentityBridge {
                     Int::class.javaPrimitiveType
                 ).invoke(remoteService, appContext(context).packageName, packageName, callingUserId(context))
                 listFromParceledListSlice<NotificationChannelGroup>(groups)
+            }.onFailure {
+                android.util.Log.w(
+                    "NotificationIdentityBridge",
+                    "DELEGATED getTargetNotificationChannelGroups failed pkg=$packageName: ${it.message}",
+                    it,
+                )
             }.getOrNull().orEmpty()
 
             Strategy.UNSUPPORTED -> emptyList()
@@ -213,6 +240,48 @@ object NotificationIdentityBridge {
             }
             true
         }.getOrDefault(false)
+    }
+
+    fun deleteTargetNotificationChannel(
+        context: Context,
+        packageName: String,
+        channelId: String?,
+    ): Boolean {
+        if (channelId.isNullOrEmpty()) {
+            return false
+        }
+        val appContext = appContext(context)
+        if (packageName == appContext.packageName) {
+            return runCatching {
+                notificationManager(context).deleteNotificationChannel(channelId)
+                notificationManager(context).getNotificationChannel(channelId) == null
+            }.getOrDefault(false)
+        }
+
+        // Attempt identity-aware delete paths. Never treat "no throw" as success —
+        // packageContext NotificationManager often no-ops for foreign packages.
+        if (resolveStrategy(context, packageName) == Strategy.FRAMEWORK) {
+            runCatching {
+                NotificationManagerPlatformSupport.deleteNotificationChannel(packageName, channelId)
+            }.onFailure {
+                logE("deleteTargetNotificationChannel platform failed pkg=$packageName channelId=$channelId", it)
+            }
+        }
+
+        runCatching {
+            val packageContext = context.createPackageContext(packageName, 0)
+            val nm = packageContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.deleteNotificationChannel(channelId)
+        }.onFailure {
+            logE("deleteTargetNotificationChannel package-context failed pkg=$packageName channelId=$channelId", it)
+        }
+
+        // Success only when the channel is actually gone from the target identity list.
+        val stillPresent = getTargetNotificationChannel(context, packageName, channelId) != null
+        if (stillPresent) {
+            logD("deleteTargetNotificationChannel incomplete pkg=$packageName channelId=$channelId stillPresent=true")
+        }
+        return !stillPresent
     }
 
     fun notifyAsTargetPackage(

@@ -1,15 +1,15 @@
 include:
   - project: magisk3171/magisk-ci-toolkit
-    ref: master
+    ref: 80c97bce4285efac8d6cfea21c0078498c400e28
     file: /.gitlab/ci/android.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: master
+    ref: 80c97bce4285efac8d6cfea21c0078498c400e28
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: master
+    ref: 80c97bce4285efac8d6cfea21c0078498c400e28
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: master
+    ref: 80c97bce4285efac8d6cfea21c0078498c400e28
     file: /.gitlab/ci/renovate.yml
 
 workflow:
@@ -29,14 +29,15 @@ default:
 
 stages:
   - build
-  - notify
   - quality
+  - notify
   - release-validate
   - release-build
   - release-publish
   - maintenance
 
 variables:
+  MAGISK_CI_TOOLKIT_REF: "80c97bce4285efac8d6cfea21c0078498c400e28"
   GIT_DEPTH: "0"
   GIT_SUBMODULE_STRATEGY: recursive
   GIT_SUBMODULE_DEPTH: "0"
@@ -46,14 +47,15 @@ variables:
   MAGISK_ANDROID_SDK_PACKAGES: "platform-tools build-tools;37.0.0"
   MAGISK_GRADLE_ARGS: "--warning-mode all"
   MAGISK_ANDROID_RELEASE_PACKAGE_NAME: "io.github.magisk317.mipush"
-  MAGISK_ANDROID_RELEASE_GITHUB_REPOSITORY: "magisk317/MiPushFramework"
-  MAGISK_ANDROID_RELEASE_MODULES_REPO: "Xposed-Modules-Repo/io.github.magisk317.mipush"
   MAGISK_ANDROID_RELEASE_PUBLISH_PLAY: "false"
-  RENOVATE_CONFIG_FILE: ".gitlab/renovate-config.js"
+  MAGISK_RENOVATE_REPOSITORY: "magisk3171/MiPushFramework"
   MIPUSH_ZYGISK_REPOSITORY: "https://gitlab.com/magisk3171/MiPushZygisk.git"
-  MIPUSH_ZYGISK_REF: "main"
+  # Pin the external source so an old tag cannot change when MiPushZygisk/main advances.
+  MIPUSH_ZYGISK_REF: "10f155adebc4f0bef474bff121c39225591dba3a"
   MIPUSH_ZYGISK_NDK_VERSION: "r27d"
   MIPUSH_ZYGISK_NDK_HOME: "$CI_PROJECT_DIR/.android/android-ndk-r27d"
+  # Public SHA-256 fingerprint of the production APK signing certificate.
+  MIPUSH_RELEASE_CERT_SHA256: "027b936e1d82a606d83599548b8b11e49a2c8ae2588c4a9fbe8311e2c54f103a"
 
 .mipush_android_rules:
   rules:
@@ -63,8 +65,9 @@ variables:
       when: never
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
       when: never
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TITLE =~ /^Merge branch .renovate\/.+ into /'
+      when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_COMMIT_TAG'
     - if: '$CI_COMMIT_BRANCH'
 
 .mipush_package_rules:
@@ -75,10 +78,14 @@ variables:
       when: never
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
       when: never
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TITLE =~ /^Merge branch .renovate\/.+ into /'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_TAG'
     - if: '$CI_PIPELINE_SOURCE == "web"'
       when: manual
       allow_failure: true
+    - if: '$CI_COMMIT_BRANCH'
     - when: never
 
 android:build:
@@ -86,6 +93,7 @@ android:build:
     - .magisk_android_build
     - .mipush_android_rules
   variables:
+    MAGISK_BUILD_TIMESTAMP: "$CI_PIPELINE_CREATED_AT"
     MAGISK_ANDROID_BUILD_TASKS: >-
       :app:assembleDebug
       :mipush:assembleDebug
@@ -110,7 +118,7 @@ zygisk:build:
     RUSTUP_DIST_SERVER: "https://mirrors.tuna.tsinghua.edu.cn/rustup"
     RUSTUP_UPDATE_ROOT: "https://mirrors.tuna.tsinghua.edu.cn/rustup/rustup"
   cache:
-    key: "zygisk-cargo-$CI_COMMIT_REF_SLUG"
+    key: "zygisk-cargo-$CI_COMMIT_REF_SLUG-$MIPUSH_ZYGISK_REF"
     paths:
       - .cargo/registry/
       - .cargo/git/
@@ -118,6 +126,27 @@ zygisk:build:
   before_script:
     - |
       set -euo pipefail
+      if ! command -v git >/dev/null 2>&1; then
+        echo "SKIP Zygisk build; git is unavailable on this runner."
+        mkdir -p MiPushZygisk/build
+        printf '%s\n' "source-unavailable" > MiPushZygisk/build/.zygisk-skip
+        exit 0
+      fi
+
+      set +e
+      scripts/resolve_zygisk_source.sh "$CI_PROJECT_DIR/MiPushZygisk" >/dev/null
+      resolve_status="$?"
+      set -e
+      if [[ "$resolve_status" -eq 2 ]]; then
+        echo "SKIP Zygisk build; pinned source is unavailable on this runner."
+        mkdir -p MiPushZygisk/build
+        printf '%s\n' "source-unavailable" > MiPushZygisk/build/.zygisk-skip
+        exit 0
+      elif [[ "$resolve_status" -ne 0 ]]; then
+        echo "ERROR: failed to resolve the pinned MiPushZygisk source" >&2
+        exit "$resolve_status"
+      fi
+
       export DEBIAN_FRONTEND=noninteractive
       sed -i \
         -e 's#http://deb.debian.org/debian-security#https://mirrors.tuna.tsinghua.edu.cn/debian-security#g' \
@@ -126,7 +155,15 @@ zygisk:build:
         -e 's#http://archive.ubuntu.com/ubuntu#https://mirrors.tuna.tsinghua.edu.cn/ubuntu#g' \
         -e 's#http://security.ubuntu.com/ubuntu#https://mirrors.tuna.tsinghua.edu.cn/ubuntu#g' \
         /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
-      apt-get update
+      if ! apt-get update; then
+        echo "Mirror apt-get update failed, falling back to official sources" >&2
+        sed -i \
+          -e 's#https://mirrors.tuna.tsinghua.edu.cn/debian-security#http://deb.debian.org/debian-security#g' \
+          -e 's#https://mirrors.tuna.tsinghua.edu.cn/debian#http://deb.debian.org/debian#g' \
+          -e 's#https://mirrors.tuna.tsinghua.edu.cn/ubuntu#http://archive.ubuntu.com/ubuntu#g' \
+          /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
+        apt-get update
+      fi
     - apt-get install -y --no-install-recommends ca-certificates curl git unzip zip
     - |
       set -euo pipefail
@@ -141,12 +178,19 @@ zygisk:build:
       [net]
       git-fetch-with-cli = true
       EOF
-    - rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+    - |
+      set -euo pipefail
+      if ! rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android; then
+        echo "Rustup mirror failed, falling back to official server" >&2
+        export RUSTUP_DIST_SERVER="https://static.rust-lang.org"
+        export RUSTUP_UPDATE_ROOT="https://static.rust-lang.org/rustup"
+        rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+      fi
     - mkdir -p .android
     - |
       set -euo pipefail
       if [ ! -d "$ANDROID_NDK_HOME" ]; then
-        curl --retry 5 --fail --location --silent --show-error \
+        curl --retry 5 --retry-all-errors --continue-at - --fail --location --silent --show-error \
           "https://dl.google.com/android/repository/android-ndk-${MIPUSH_ZYGISK_NDK_VERSION}-linux.zip" \
           --output /tmp/android-ndk.zip
         unzip -q /tmp/android-ndk.zip -d .android
@@ -154,8 +198,14 @@ zygisk:build:
   script:
     - |
       set -euo pipefail
+      if [[ -n "${CI_COMMIT_TAG:-}" ]]; then
+        export MAGISK_BUILD_TYPE=release
+        unset MAGISK_BUILD_TIMESTAMP
+      else
+        export MAGISK_BUILD_TYPE=debug
+        export MAGISK_BUILD_TIMESTAMP="$CI_PIPELINE_CREATED_AT"
+      fi
       source scripts/resolve_zygisk_version_env.sh
-      git clone --depth 1 --branch "$MIPUSH_ZYGISK_REF" "$MIPUSH_ZYGISK_REPOSITORY" MiPushZygisk
       cd MiPushZygisk
       ./build.sh
   artifacts:
@@ -164,6 +214,7 @@ zygisk:build:
     expire_in: 14 days
     paths:
       - MiPushZygisk/build/*.zip
+      - MiPushZygisk/build/.zygisk-skip
 
 telegram:ci:
   extends: .magisk_telegram_ci
@@ -172,10 +223,14 @@ telegram:ci:
   variables:
     MAGISK_TELEGRAM_PROJECT_TAG: "📌 #MiPushFramework"
     MAGISK_TELEGRAM_PROJECT_NAME: "MiPushFramework"
-    MAGISK_TELEGRAM_CI_BRANCH: "dev"
+    MAGISK_TELEGRAM_CI_BRANCH: "beta"
+    MAGISK_TELEGRAM_CI_ARTIFACT_PATTERNS: |-
+      *arm64-v8a*.apk
+      arm64-v8a_*.zip
   needs:
     - job: android:build
       artifacts: true
+      optional: true
     - job: zygisk:build
       artifacts: true
       optional: true
@@ -184,7 +239,8 @@ android:detekt:
   extends:
     - .magisk_android_detekt
     - .mipush_android_rules
-  allow_failure: true
+  stage: quality
+  needs: []
   variables:
     MAGISK_ANDROID_DETEKT_TASKS: >-
       detekt
@@ -204,22 +260,39 @@ android:test:
     - .magisk_android_base
     - .mipush_android_rules
   stage: quality
-  allow_failure: true
+  needs: []
   script:
     - |
       set -euo pipefail
       : "${MAGISK_GRADLE_ARGS:=--warning-mode all}"
-      ./gradlew $MAGISK_GRADLE_ARGS \
+      bash "$MAGISK_CI_TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" $MAGISK_GRADLE_ARGS \
         :common:check \
         :xmsf:testNormalDebugUnitTest \
         :xmsf:testVc105DebugUnitTest \
         testDebugUnitTest \
+        qualityGateKoverVerify \
         -PminifyDebug \
         -Pkotlin.incremental=false \
         -x detekt \
         -x qualityGateDetekt
   artifacts:
     name: "MiPushFramework-test-$CI_COMMIT_REF_SLUG"
+    when: always
+    expire_in: 14 days
+    reports:
+      junit:
+        - "**/build/test-results/test*/TEST-*.xml"
+
+android:shared-compat:
+  extends:
+    - .magisk_android_base
+    - .mipush_android_rules
+  stage: quality
+  needs: []
+  script:
+    - bash scripts/checks/verify_shared_submodule_compat.sh
+  artifacts:
+    name: "MiPushFramework-shared-compat-$CI_COMMIT_REF_SLUG"
     when: always
     expire_in: 14 days
     reports:
@@ -240,6 +313,10 @@ android:release:guard:
 android:release:apk:
   extends: .magisk_android_release_apk
   stage: release-build
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/'
+      when: never
   variables:
     MAGISK_ANDROID_RELEASE_APK_TASKS: >-
       :app:assembleRelease
@@ -263,9 +340,7 @@ android:release:gitlab:
   extends: .magisk_android_base
   stage: release-publish
   rules:
-    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab"'
-      when: manual
-      allow_failure: true
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
     - when: never
   needs:
     - job: android:release:apk
@@ -278,43 +353,26 @@ android:release:gitlab:
       chmod +x scripts/publish_mipush_release.sh
       scripts/publish_mipush_release.sh gitlab-release
 
-android:release:modules-repo:
-  extends: .magisk_android_base
+telegram:release:
+  extends: .magisk_telegram_release
   stage: release-publish
+  allow_failure: true
   rules:
-    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $MAGISK_ANDROID_RELEASE_MODULES_REPO != "" && $XPOSED_MODULES_REPO_TOKEN != ""'
-      when: manual
-      allow_failure: true
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
     - when: never
+  variables:
+    MAGISK_TELEGRAM_PROJECT_TAG: "📌 #MiPushFramework"
+    MAGISK_TELEGRAM_PROJECT_NAME: "MiPushFramework"
+    MAGISK_TELEGRAM_RELEASE_ARTIFACT_PATTERNS: |-
+      *arm64-v8a*.apk
+      arm64-v8a_*.zip
   needs:
     - job: android:release:apk
       artifacts: true
-  script:
-    - |
-      set -euo pipefail
-      install -d -m 0755 /etc/apt/keyrings
-      export DEBIAN_FRONTEND=noninteractive
-      sed -i \
-        -e 's#http://deb.debian.org/debian-security#https://mirrors.tuna.tsinghua.edu.cn/debian-security#g' \
-        -e 's#http://security.debian.org/debian-security#https://mirrors.tuna.tsinghua.edu.cn/debian-security#g' \
-        -e 's#http://deb.debian.org/debian#https://mirrors.tuna.tsinghua.edu.cn/debian#g' \
-        -e 's#http://archive.ubuntu.com/ubuntu#https://mirrors.tuna.tsinghua.edu.cn/ubuntu#g' \
-        -e 's#http://security.ubuntu.com/ubuntu#https://mirrors.tuna.tsinghua.edu.cn/ubuntu#g' \
-        /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
-      apt-get update
-      apt-get install -y --no-install-recommends gpg
-      curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-        | gpg --dearmor -o /etc/apt/keyrings/githubcli-archive-keyring.gpg
-      chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
-      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-        > /etc/apt/sources.list.d/github-cli.list
-      apt-get update
-      apt-get install -y --no-install-recommends gh
-      rm -rf /var/lib/apt/lists/*
-
-      chmod +x scripts/publish_mipush_release.sh
-      SOURCE_RELEASE_TOKEN="${SOURCE_RELEASE_TOKEN:-${GITHUB_RELEASE_TOKEN:-}}" \
-        scripts/publish_mipush_release.sh modules-repo
+    - job: zygisk:build
+      artifacts: true
+    - job: android:release:gitlab
+      artifacts: false
 
 renovate:gitlab:
   extends: .magisk_renovate_gitlab

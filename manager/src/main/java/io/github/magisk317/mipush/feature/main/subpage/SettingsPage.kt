@@ -11,6 +11,15 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.clip
+import androidx.compose.material3.RadioButton
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.border
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,14 +47,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import io.github.magisk317.uikit.common.ElevatedSnackbarHost
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -72,17 +80,19 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.manager.R
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.blur.HazeBlurStyle
-import dev.chrisbanes.haze.blur.blurEffect
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
+import io.github.magisk317.uikit.preference.NonNegativeIntegerInputDialog
+import io.github.magisk317.uikit.preference.RuntimeLogDiagnosticsCallbacks
+import io.github.magisk317.uikit.preference.RuntimeLogDiagnosticsItem
+import io.github.magisk317.uikit.preference.RuntimeLogDiagnosticsItems
+import io.github.magisk317.uikit.preference.RuntimeLogDiagnosticsLabels
+import io.github.magisk317.uikit.preference.RuntimeLogDiagnosticsLayout
+import io.github.magisk317.uikit.preference.RuntimeLogDiagnosticsState
+import io.github.magisk317.uikit.preference.RuntimeLogShareEntryMode
+import io.github.magisk317.uikit.surface.ConfirmActionDialog
 import io.github.magisk317.uikit.preference.SectionCard
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
 import io.github.magisk317.mipush.common.Constants
-import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileContent
-import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileInfo
-import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileSummary
+import io.github.magisk317.mipush.common.process.BoundedProcessRunner
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.feature.main.MainActivityOperation
 import io.github.magisk317.uikit.scroll.ScrollChromeState
@@ -94,6 +104,7 @@ import io.github.magisk317.uikit.preference.Item as SettingsItem
 import io.github.magisk317.uikit.preference.StateSwitchItem as SettingsSwitchItem
 import io.github.magisk317.uikit.surface.OverlayHeaderScaffold
 import io.github.magisk317.uikit.surface.SectionColumn
+import io.github.magisk317.uikit.surface.chromeTopAppBarColors
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 import io.github.magisk317.mipush.feature.ui.theme.Theme
 import io.github.magisk317.mipush.feature.ui.theme.spacing
@@ -117,8 +128,6 @@ fun Settings(
     onNavigateToConnectionStatus: () -> Unit = {},
     onNavigateToStatusBarIconSettings: () -> Unit = {},
     sectionBackSignal: Int = 0,
-    hazeState: HazeState? = null,
-    hazeStyle: HazeBlurStyle? = null,
     scrollChromeState: ScrollChromeState? = null,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -134,15 +143,13 @@ fun Settings(
                 onNavigateToConnectionStatus = onNavigateToConnectionStatus,
                 onNavigateToStatusBarIconSettings = onNavigateToStatusBarIconSettings,
                 sectionBackSignal = sectionBackSignal,
-                hazeState = hazeState,
-                hazeStyle = hazeStyle,
                 snackbarHostState = snackbarHostState,
                 scrollChromeState = scrollChromeState,
                 scrollState = scrollState,
             )
-            SnackbarHost(
+            ElevatedSnackbarHost(
                 hostState = snackbarHostState,
-                modifier = Modifier.align(Alignment.BottomCenter),
+                bottomPadding = contentPadding.calculateBottomPadding() + 16.dp,
             )
             ScrollToTopFAB(scrollState, visible = scrollChromeState?.isChromeVisible != true, extraBottomPadding = 80.dp)
         }
@@ -159,8 +166,6 @@ private fun SettingsScreen(
     onNavigateToStatusBarIconSettings: () -> Unit,
     scrollState: androidx.compose.foundation.ScrollState = androidx.compose.foundation.rememberScrollState(),
     sectionBackSignal: Int,
-    hazeState: HazeState?,
-    hazeStyle: HazeBlurStyle?,
     snackbarHostState: SnackbarHostState,
     scrollChromeState: ScrollChromeState?,
 ) {
@@ -176,44 +181,27 @@ private fun SettingsScreen(
     LaunchedEffect(title) {
         onSectionChanged(title)
     }
+    LaunchedEffect(Unit) {
+        viewModel.refreshDualAppFromRuntime()
+    }
 
     OverlayHeaderScaffold(
         fallbackTopPadding = topInset + 64.dp,
         headerOffsetY = scrollChromeState?.animatedHeaderOffsetY ?: 0f,
         onHeaderHeightChanged = { scrollChromeState?.headerHeightPx = it.toFloat() },
         overlayModifier = Modifier
-            .fillMaxWidth()
-            .then(
-                if (hazeState != null && hazeStyle != null) {
-                    Modifier.hazeEffect(hazeState) {
-                        blurEffect { style = hazeStyle }
-                        forceInvalidateOnPreDraw = true
-                    }
-                } else {
-                    Modifier
-                }
-            ),
+            .fillMaxWidth(),
         overlay = {
             TopAppBar(
                 title = { Text(title) },
                 windowInsets = WindowInsets.statusBars,
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = Color.Transparent,
-                ),
+                colors = chromeTopAppBarColors(),
             )
         },
         content = { listPadding ->
             SectionColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .then(
-                        if (hazeState != null) {
-                            Modifier.hazeSource(state = hazeState)
-                        } else {
-                            Modifier
-                        }
-                    )
                     .verticalScroll(scrollState),
                 contentPadding = PaddingValues(
                     start = MaterialTheme.spacing.medium,
@@ -253,6 +241,7 @@ private fun SettingsScreen(
                     onExpandedChange = { zygiskExpanded = !zygiskExpanded },
                 ) {
                     val context = LocalContext.current
+                    val scope = rememberCoroutineScope()
                     val showAllEvents by viewModel.showAllEvents.collectAsStateWithLifecycle()
                     val dualAppEnabled by viewModel.dualAppEnabled.collectAsStateWithLifecycle()
                     val dualAppProcessing by viewModel.dualAppProcessing.collectAsStateWithLifecycle()
@@ -275,6 +264,63 @@ private fun SettingsScreen(
                         onClick = onNavigateToStatusBarIconSettings,
                     )
 
+                    val selectedLauncherIcon by viewModel.selectedLauncherIcon.collectAsStateWithLifecycle()
+                    val normalizedLauncherIcon =
+                        if (selectedLauncherIcon == "legacy") "legacy" else "default"
+                    val launcherIconSummary = when (normalizedLauncherIcon) {
+                        "legacy" -> stringResource(R.string.settings_launcher_icon_legacy)
+                        else -> stringResource(R.string.settings_launcher_icon_default)
+                    }
+                    var showLauncherIconDialog by remember { mutableStateOf(false) }
+                    val currentPreviewRes = when (normalizedLauncherIcon) {
+                        "legacy" -> R.mipmap.ic_launcher_preview_legacy
+                        else -> R.mipmap.ic_launcher_preview_default
+                    }
+                    SettingsItem(
+                        title = stringResource(R.string.settings_launcher_icon),
+                        summary = launcherIconSummary + " · " + stringResource(R.string.settings_launcher_icon_summary),
+                        trailingContent = {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                tonalElevation = 0.dp,
+                            ) {
+                                Image(
+                                    painter = painterResource(currentPreviewRes),
+                                    contentDescription = launcherIconSummary,
+                                    contentScale = ContentScale.Fit,
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .padding(2.dp)
+                                        .clip(RoundedCornerShape(6.dp)),
+                                )
+                            }
+                        },
+                    ) { showLauncherIconDialog = true }
+                    if (showLauncherIconDialog) {
+                        LauncherIconPickerDialog(
+                            selectedIconId = selectedLauncherIcon,
+                            onSelect = { id ->
+                                viewModel.setSelectedLauncherIcon(context, id)
+                                showLauncherIconDialog = false
+                            },
+                            onDismiss = { showLauncherIconDialog = false },
+                        )
+                    }
+
+                    SettingsItem(
+                        title = stringResource(R.string.settings_migrate_prefs),
+                        summary = stringResource(R.string.settings_migrate_prefs_summary),
+                    ) {
+                        viewModel.migrateManagerPreferencesFromRuntime { written ->
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    message = context.getString(R.string.settings_migrate_prefs_done, written),
+                                )
+                            }
+                        }
+                    }
+
                     val dualAppTitle = stringResource(R.string.settings_dual_app_title)
                     SettingsSwitchItem(
                         title = dualAppTitle,
@@ -282,9 +328,12 @@ private fun SettingsScreen(
                         checked = dualAppEnabled,
                         enabled = !dualAppProcessing,
                         onCheckedChange = { enabled ->
-                            viewModel.setDualAppEnabled(enabled)
-                            showSwitchFeedback(dualAppTitle, enabled)
-                        }
+                            viewModel.setDualAppEnabled(enabled) { success, message ->
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(message)
+                                }
+                            }
+                        },
                     )
 
                     SettingsItem(
@@ -647,13 +696,11 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val debugMode by viewModel.debugMode.collectAsStateWithLifecycle()
+    val sensitiveDebugLogMode by viewModel.sensitiveDebugLogMode.collectAsStateWithLifecycle()
     val runtimeLogRetentionDays by viewModel.runtimeLogRetentionDays.collectAsStateWithLifecycle()
     val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
     var showClearConfirmDialog by remember { mutableStateOf(false) }
     var showRuntimeLogRetentionDialog by remember { mutableStateOf(false) }
-    var runtimeLogRetentionInput by remember(runtimeLogRetentionDays) {
-        mutableStateOf(runtimeLogRetentionDays.toString())
-    }
     val runtimeLogExportFailedTemplate = stringResource(R.string.runtime_log_export_failed)
     val logShareTitle = stringResource(R.string.log_share_title)
     val runtimeLogShareFailedTemplate = stringResource(R.string.runtime_log_share_failed)
@@ -704,105 +751,80 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
         }
     }
 
-    SettingsItem(
-        title = stringResource(R.string.settings_get_log),
-        summary = stringResource(R.string.settings_get_log_summary),
-    ) {
-        shareRuntimeLogBundle()
-    }
-
-    SettingsItem(
-        title = stringResource(R.string.runtime_log_clear_confirm_title),
-        summary = stringResource(R.string.runtime_log_clear_summary),
-    ) {
-        showClearConfirmDialog = true
-    }
-
-    SettingsItem(
-        title = stringResource(R.string.settings_clear_history),
-        summary = stringResource(R.string.settings_clear_history_summary),
-    ) {
-        viewModel.clearHistory(context)
-    }
-
-    SettingsItem(
-        title = stringResource(R.string.settings_runtime_log_retention_days),
-        summary = stringResource(R.string.settings_runtime_log_retention_days_summary, runtimeLogRetentionDays),
-    ) {
-        runtimeLogRetentionInput = runtimeLogRetentionDays.toString()
-        showRuntimeLogRetentionDialog = true
-    }
-
     val debugModeTitle = stringResource(R.string.settings_debug_mode)
-    SettingsSwitchItem(
-        title = debugModeTitle,
-        summary = stringResource(R.string.settings_debug_mode_summary),
-        checked = debugMode,
-    ) { enabled ->
-        viewModel.setDebugMode(enabled)
-        showSwitchFeedback(debugModeTitle, enabled)
-    }
+    val sensitiveDebugTitle = stringResource(R.string.settings_sensitive_debug_log_mode)
+    RuntimeLogDiagnosticsItems(
+        labels = RuntimeLogDiagnosticsLabels(
+            shareLogTitle = stringResource(R.string.settings_get_log),
+            shareLogSummary = stringResource(R.string.settings_get_log_summary),
+            verboseLogTitle = debugModeTitle,
+            verboseLogSummary = stringResource(R.string.settings_debug_mode_summary),
+            retentionTitle = stringResource(R.string.settings_runtime_log_retention_days),
+            retentionSummary = stringResource(
+                R.string.settings_runtime_log_retention_days_summary,
+                runtimeLogRetentionDays,
+            ),
+            clearLogTitle = stringResource(R.string.runtime_log_clear_confirm_title),
+            clearLogSummary = stringResource(R.string.runtime_log_clear_summary),
+            sensitiveLogTitle = sensitiveDebugTitle,
+            sensitiveLogSummary = stringResource(R.string.settings_sensitive_debug_log_mode_summary),
+        ),
+        state = RuntimeLogDiagnosticsState(
+            verboseLogEnabled = debugMode,
+            sensitiveLogEnabled = sensitiveDebugLogMode,
+        ),
+        callbacks = RuntimeLogDiagnosticsCallbacks(
+            onShareLog = ::shareRuntimeLogBundle,
+            onVerboseLogEnabledChange = { enabled ->
+                viewModel.setDebugMode(enabled)
+                showSwitchFeedback(debugModeTitle, enabled)
+            },
+            onRetentionClick = { showRuntimeLogRetentionDialog = true },
+            onClearLogClick = { showClearConfirmDialog = true },
+            onSensitiveLogEnabledChange = { enabled ->
+                viewModel.setSensitiveDebugLogMode(enabled)
+                context.sendBroadcast(Intent(ACTION_PREF_CHANGED))
+                showSwitchFeedback(sensitiveDebugTitle, enabled)
+            },
+        ),
+        layout = RuntimeLogDiagnosticsLayout(
+            shareEntryMode = RuntimeLogShareEntryMode.SEPARATE_ITEM,
+            itemOrder = listOf(
+                RuntimeLogDiagnosticsItem.SHARE_LOG,
+                RuntimeLogDiagnosticsItem.CLEAR_LOG,
+                RuntimeLogDiagnosticsItem.RETENTION,
+                RuntimeLogDiagnosticsItem.VERBOSE_LOG,
+                RuntimeLogDiagnosticsItem.SENSITIVE_LOG,
+            ),
+        ),
+    )
 
     if (showClearConfirmDialog) {
-        AlertDialog(
+        ConfirmActionDialog(
+            title = stringResource(R.string.runtime_log_clear_confirm_title),
+            message = stringResource(R.string.runtime_log_clear_confirm_message),
+            confirmText = stringResource(R.string.action_clear),
+            cancelText = stringResource(android.R.string.cancel),
             onDismissRequest = { showClearConfirmDialog = false },
-            title = { Text(stringResource(R.string.runtime_log_clear_confirm_title)) },
-            text = { Text(stringResource(R.string.runtime_log_clear_confirm_message)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    showClearConfirmDialog = false
-                    clearRuntimeLogFolders()
-                }) {
-                    Text(stringResource(R.string.action_clear))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearConfirmDialog = false }) {
-                    Text(stringResource(android.R.string.cancel))
-                }
+            onConfirm = {
+                showClearConfirmDialog = false
+                clearRuntimeLogFolders()
             },
         )
     }
 
     if (showRuntimeLogRetentionDialog) {
-        AlertDialog(
-            onDismissRequest = { showRuntimeLogRetentionDialog = false },
-            title = { Text(stringResource(R.string.settings_runtime_log_retention_days)) },
-            text = {
-                TextField(
-                    value = runtimeLogRetentionInput,
-                    onValueChange = { value ->
-                        runtimeLogRetentionInput = value.filter { it.isDigit() }
-                    },
-                    supportingText = { Text(stringResource(R.string.settings_runtime_log_retention_days_hint)) },
-                    singleLine = true,
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val days = runtimeLogRetentionInput.toIntOrNull()
-                        if (days == null || days < 1) {
-                            scope.launch {
-                                snackbarHostState.showSnackbar(
-                                    runtimeLogRetentionDaysError,
-                                )
-                            }
-                            return@TextButton
-                        }
-                        viewModel.setRuntimeLogRetentionDays(days)
-                        showRuntimeLogRetentionDialog = false
-                    },
-                ) {
-                    Text(stringResource(android.R.string.ok))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showRuntimeLogRetentionDialog = false }) {
-                    Text(stringResource(android.R.string.cancel))
-                }
-            },
-        )
+        NonNegativeIntegerInputDialog(
+            title = stringResource(R.string.settings_runtime_log_retention_days),
+            initialValue = runtimeLogRetentionDays,
+            errorText = runtimeLogRetentionDaysError,
+            onDismiss = { showRuntimeLogRetentionDialog = false },
+            minimumValue = 1,
+            supportingText = stringResource(R.string.settings_runtime_log_retention_days_hint),
+        ) { days ->
+            viewModel.setRuntimeLogRetentionDays(days)
+            showRuntimeLogRetentionDialog = false
+        }
     }
 }
 
@@ -903,6 +925,94 @@ private fun SetXMPPServer(viewModel: SettingsViewModel) {
 }
 
 @Preview(showBackground = true)
+
+
+@Composable
+private fun LauncherIconPickerDialog(
+    selectedIconId: String,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    data class LauncherIconOption(
+        val id: String,
+        val labelRes: Int,
+        val iconRes: Int,
+    )
+    val options = listOf(
+        LauncherIconOption(
+            id = "default",
+            labelRes = R.string.settings_launcher_icon_default,
+            iconRes = R.mipmap.ic_launcher_preview_default,
+        ),
+        LauncherIconOption(
+            id = "legacy",
+            labelRes = R.string.settings_launcher_icon_legacy,
+            iconRes = R.mipmap.ic_launcher_preview_legacy,
+        ),
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_launcher_icon)) },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                options.forEach { option ->
+                    val selected = option.id == (if (selectedIconId == "legacy") "legacy" else "default")
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .border(
+                                width = if (selected) 2.dp else 1.dp,
+                                color = if (selected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.outlineVariant
+                                },
+                                shape = RoundedCornerShape(16.dp),
+                            )
+                            .clickable { onSelect(option.id) }
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            tonalElevation = 0.dp,
+                        ) {
+                            Image(
+                                painter = painterResource(option.iconRes),
+                                contentDescription = stringResource(option.labelRes),
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .padding(4.dp)
+                                    .clip(RoundedCornerShape(10.dp)),
+                            )
+                        }
+                        Text(
+                            text = stringResource(option.labelRes),
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f),
+                        )
+                        RadioButton(
+                            selected = selected,
+                            onClick = { onSelect(option.id) },
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+        },
+    )
+}
+
 @Composable
 fun SettingsPagePreview() {
     Utils.context = LocalContext.current
@@ -913,45 +1023,31 @@ fun SettingsPagePreview() {
 
 private suspend fun toggleAccessibilityServiceViaRoot(context: android.content.Context, enable: Boolean): Boolean {
     return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-        var process: Process? = null
-        try {
-            val component = ComponentName(
-                Constants.SERVICE_APP_NAME,
-                Constants.KEEPALIVE_ACCESSIBILITY_SERVICE_CLASS,
-            ).flattenToString()
-            val currentServices = Settings.Secure.getString(
-                context.contentResolver,
-                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
-            ).orEmpty()
-            val newServices = if (enable) {
-                if (currentServices.contains(component)) return@withContext true
-                if (currentServices.isEmpty()) component else "$currentServices:$component"
-            } else {
-                if (!currentServices.contains(component)) return@withContext true
-                currentServices.split(":").filter { it.isNotEmpty() && it != component }.joinToString(":")
-            }
-
-            process = Runtime.getRuntime().exec("su")
-            java.io.DataOutputStream(process.outputStream).use { os ->
-                os.writeBytes("settings put secure enabled_accessibility_services $newServices\n")
-                if (enable) {
-                    os.writeBytes("settings put secure accessibility_enabled 1\n")
-                }
-                os.writeBytes("exit\n")
-                os.flush()
-            }
-            process.waitFor() == 0
-        } catch (_: java.io.IOException) {
-            false
-        } catch (_: SecurityException) {
-            false
-        } catch (_: InterruptedException) {
-            Thread.currentThread().interrupt()
-            false
-        } finally {
-            runCatching { process?.inputStream?.close() }
-            runCatching { process?.errorStream?.close() }
-            runCatching { process?.destroy() }
+        val component = ComponentName(
+            Constants.SERVICE_APP_NAME,
+            Constants.KEEPALIVE_ACCESSIBILITY_SERVICE_CLASS,
+        ).flattenToString()
+        val currentServices = Settings.Secure.getString(
+            context.contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+        ).orEmpty()
+        val newServices = if (enable) {
+            if (currentServices.contains(component)) return@withContext true
+            if (currentServices.isEmpty()) component else "$currentServices:$component"
+        } else {
+            if (!currentServices.contains(component)) return@withContext true
+            currentServices.split(":").filter { it.isNotEmpty() && it != component }.joinToString(":")
         }
+
+        val script = buildString {
+            appendLine("settings put secure enabled_accessibility_services $newServices")
+            if (enable) appendLine("settings put secure accessibility_enabled 1")
+            appendLine("exit")
+        }
+        BoundedProcessRunner.run(
+            command = listOf("su"),
+            timeoutMillis = 8_000L,
+            standardInput = script,
+        ).isSuccess
     }
 }

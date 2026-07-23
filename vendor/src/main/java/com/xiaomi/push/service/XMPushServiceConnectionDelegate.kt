@@ -10,7 +10,7 @@ import com.xiaomi.smack.filter.PacketFilter
 import com.xiaomi.smack.packet.Packet
 
 class XMPushServiceConnectionDelegate(
-    private val service: XMPushService,
+    private val service: XMPushServiceCore,
 ) {
     fun connect() {
         val currentConnection = service.currentConnection
@@ -127,7 +127,7 @@ class XMPushServiceConnectionDelegate(
 
     fun setConnectingTimeout() {
         service.executeJobDelayed(
-            object : XMPushService.Job(XMPushServiceJob.TYPE_CONNECTING_TIMEOUT) {
+            object : XMPushServiceCore.Job(XMPushServiceJob.TYPE_CONNECTING_TIMEOUT) {
                 override fun getDesc(): String = "disconnect because of connecting timeout"
 
                 override fun process() {

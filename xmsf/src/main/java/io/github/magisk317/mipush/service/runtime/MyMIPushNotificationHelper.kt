@@ -28,7 +28,9 @@ import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmsf.R
+import com.xiaomi.xmsf.stock.StockSurfaceSupport
 import com.xiaomi.push.service.MIPushNotificationHelper
+import com.xiaomi.push.service.MIPushEventProcessor
 import com.xiaomi.push.service.PushConstants
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.notification.NotificationController
@@ -41,6 +43,7 @@ import io.github.magisk317.mipush.utils.PackageConfig
 import io.github.magisk317.mipush.app.ConfigCenter
 import java.util.LinkedHashMap
 import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.common.notification.MockReplayOutcome
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import kotlinx.coroutines.CoroutineScope
@@ -65,11 +68,11 @@ class MyMIPushNotificationHelper {
         private const val GROUP_TYPE_MIPUSH_GROUP = "#group#"
         private const val GROUP_TYPE_PASS_THROUGH = "#pass_through#"
         private const val NON_DISPLAY_DISPATCH_WINDOW_MS = 30_000L
+        private const val CONFIGURATION_RETRY_DELAY_MS = 30_000L
 
         @Volatile
         private var notificationSessionStartedAtMs: Long = System.currentTimeMillis()
-        @Volatile
-        private var tryLoadConfigurations = false
+        private val configurationLoadGate = ConfigurationLoadGate(CONFIGURATION_RETRY_DELAY_MS)
         private val notificationDispatcher: ExecutorCoroutineDispatcher =
             Executors.newFixedThreadPool(3).asCoroutineDispatcher()
         private val notificationScope: CoroutineScope =
@@ -83,8 +86,9 @@ class MyMIPushNotificationHelper {
         }
 
         @JvmStatic
-        fun notifyPushMessage(context: Context, decryptedContent: ByteArray) {
-            val container = XMPushUtils.packToContainer(decryptedContent) ?: return
+        fun notifyPushMessage(context: Context, decryptedContent: ByteArray): MockReplayOutcome {
+            val container = XMPushUtils.packToContainer(decryptedContent)
+                ?: return MockReplayOutcome.Failed
             val messageId = MessageIdentity.fromContainer(container)
             val isMockReplay = MockMessageRegistry.isMarked(container)
             logD(
@@ -97,16 +101,27 @@ class MyMIPushNotificationHelper {
                     "skip absent package notification pkg=${container.packageName} action=${container.action} " +
                         "messageId=$messageId"
                 )
-                return
+                return MockReplayOutcome.Failed
             }
             if (!shouldPublishNotification(container)) {
-                dispatchNonDisplayPayloadToApplication(context, container, decryptedContent, messageId)
+                val dispatched = dispatchNonDisplayPayloadToApplication(context, container, decryptedContent, messageId)
                 logD("skip non-display notification publish action=${container.action} pkg=${container.packageName}")
-                return
+                return if (dispatched) MockReplayOutcome.Dispatched else MockReplayOutcome.Failed
+            }
+            if (MIPushEventProcessor.shouldCheckProfile(container) &&
+                !StockSurfaceSupport.isProfileAllowed(context, container)
+            ) {
+                // The normal decrypted runtime gate owns the stock error ACK and accounting. This
+                // is only a no-feedback guard for direct/fallback notification entry points.
+                logI(
+                    "skip notification outside registered profile pkg=${container.packageName} " +
+                        "action=${container.action} messageId=$messageId",
+                )
+                return MockReplayOutcome.Failed
             }
             if (RegisteredApplicationDb.isBlocked(container.packageName)) {
                 logD("skip blocked application pkg=${container.packageName} action=${container.action}")
-                return
+                return MockReplayOutcome.BlockedByPermission
             }
             if (!isMockReplay && shouldDropReplayNotification(container)) {
                 val messageTs = container.metaInfo?.messageTs ?: 0L
@@ -121,7 +136,7 @@ class MyMIPushNotificationHelper {
                     action = "replay_notification_drop",
                     source = "MyMIPushNotificationHelper.notifyPushMessage"
                 )
-                return
+                return MockReplayOutcome.Failed
             }
             HookTraceCompat.notifyPushMessage(container, decryptedContent)
             if (!MiPushRuntimeBridge.onNotificationDispatch(context, container, decryptedContent)) {
@@ -129,7 +144,7 @@ class MyMIPushNotificationHelper {
                     "skip duplicate notification publish action=${container.action} pkg=${container.packageName} " +
                         "messageId=$messageId mockReplay=$isMockReplay"
                 )
-                return
+                return MockReplayOutcome.Failed
             }
             val notificationOp = AppInfoUtils.getAppNotificationOp(
                 context,
@@ -142,10 +157,10 @@ class MyMIPushNotificationHelper {
                         MIPushNotificationHelper.getTargetPackage(container) +
                         "'s notification messageId=$messageId mockReplay=$isMockReplay"
                 )
-            } else {
-                loadConfigurationsOnce(context)
-                handleNotificationByConfigurations(context, decryptedContent, container.packageName, container)
+                return MockReplayOutcome.BlockedByPermission
             }
+            loadConfigurationsOnce(context)
+            return handleNotificationByConfigurations(context, decryptedContent, container.packageName, container)
         }
 
         private fun handleNotificationByConfigurations(
@@ -153,9 +168,10 @@ class MyMIPushNotificationHelper {
             decryptedContent: ByteArray,
             packageName: String,
             container: XmPushActionContainer
-        ) {
-            try {
+        ): MockReplayOutcome {
+            return try {
                 val messageId = MessageIdentity.fromContainer(container)
+                val isMockReplay = MockMessageRegistry.isMarked(container)
                 val operations = Configurations.getInstance().handle(packageName, container)
                 logD(
                     "handleNotificationByConfigurations pkg=$packageName action=${container.action} " +
@@ -169,26 +185,35 @@ class MyMIPushNotificationHelper {
                     )
                     wakeScreen(context, packageName)
                 }
-                if (!operations.contains(PackageConfig.OPERATION_IGNORE)) {
+                val notificationOutcome = if (!operations.contains(PackageConfig.OPERATION_IGNORE)) {
                     PushRuntime.observeNotificationEvent(
                         packageName = packageName,
                         action = "policy_notify",
                         source = "MyMIPushNotificationHelper.handleNotificationByConfigurations"
                     )
-                    notificationScope.launch {
-                        try {
-                            logD(
-                                "policy_notify dispatch start pkg=$packageName action=${container.action} " +
-                                    "messageId=$messageId"
-                            )
-                            doNotifyPushMessage(context, container, decryptedContent)
-                        } catch (e: Exception) {
-                            logE(
-                                "policy_notify dispatch failed pkg=$packageName action=${container.action} " +
-                                    "messageId=$messageId",
-                                e
-                            )
+                    if (isMockReplay) {
+                        logD(
+                            "policy_notify replay start pkg=$packageName action=${container.action} " +
+                                "messageId=$messageId"
+                        )
+                        doNotifyPushMessage(context, container, decryptedContent)
+                    } else {
+                        notificationScope.launch {
+                            try {
+                                logD(
+                                    "policy_notify dispatch start pkg=$packageName action=${container.action} " +
+                                        "messageId=$messageId"
+                                )
+                                doNotifyPushMessage(context, container, decryptedContent)
+                            } catch (e: Exception) {
+                                logE(
+                                    "policy_notify dispatch failed pkg=$packageName action=${container.action} " +
+                                        "messageId=$messageId",
+                                    e
+                                )
+                            }
                         }
+                        MockReplayOutcome.Dispatched
                     }
                 } else {
                     PushRuntime.observeNotificationEvent(
@@ -196,6 +221,7 @@ class MyMIPushNotificationHelper {
                         action = "policy_ignore",
                         source = "MyMIPushNotificationHelper.handleNotificationByConfigurations"
                     )
+                    MockReplayOutcome.BlockedByPermission
                 }
                 if (operations.contains(PackageConfig.OPERATION_OPEN)) {
                     PushRuntime.observeNotificationEvent(
@@ -218,20 +244,29 @@ class MyMIPushNotificationHelper {
                         }
                     }
                 }
+                notificationOutcome
             } catch (e: Exception) {
                 logE("handleNotificationByConfigurations encountered error", e)
+                MockReplayOutcome.Failed
             }
         }
 
         private fun loadConfigurationsOnce(context: Context) {
-            if (!tryLoadConfigurations) {
-                tryLoadConfigurations = true
-                try {
+            val result = configurationLoadGate.ensureInitialized(
+                nowMs = System.currentTimeMillis(),
+                source = {
                     val configCenter: ConfigCenter = Global.configCenter()
-                    val configurationDirectory = runBlocking { configCenter.getConfigurationDirectoryAsync() }
-                    loadConfigurations(context, configurationDirectory)
-                } catch (e: Exception) {
-                    Utils.makeText(context, e.toString(), Toast.LENGTH_LONG)
+                    runBlocking { configCenter.getConfigurationDirectoryAsync() }
+                },
+                initializer = { directory -> loadConfigurations(context, directory) },
+            )
+            if (result is ConfigurationLoadResult.Failed) {
+                val error = result.error
+                if (error == null) {
+                    logW("Notification configuration initialization was incomplete; retry deferred")
+                } else {
+                    logE("Failed to load notification configurations; retry deferred", error)
+                    Utils.makeText(context, error.toString(), Toast.LENGTH_LONG)
                 }
             }
         }
@@ -266,19 +301,19 @@ class MyMIPushNotificationHelper {
             container: XmPushActionContainer,
             decryptedContent: ByteArray,
             messageId: String?
-        ) {
+        ): Boolean {
             if (!shouldDispatchNonDisplayPayload(container)) {
-                return
+                return false
             }
             val packageName = container.packageName
             if (packageName.isNullOrBlank()) {
                 logW("skip non-display payload dispatch because package is blank action=${container.action}")
-                return
+                return false
             }
             val action = container.action?.name ?: "Unknown"
             if (!claimNonDisplayDispatch(packageName, action, messageId)) {
                 logD("skip duplicate non-display payload dispatch pkg=$packageName action=$action messageId=$messageId")
-                return
+                return false
             }
             HookTraceCompat.notifyPushMessage(container, decryptedContent)
             val dispatched = XMPushUtils.dispatchToApplication(
@@ -297,6 +332,7 @@ class MyMIPushNotificationHelper {
             } else {
                 logW("non-display payload dispatch failed pkg=$packageName action=$action messageId=$messageId")
             }
+            return dispatched
         }
 
         private fun claimNonDisplayDispatch(
@@ -342,12 +378,12 @@ class MyMIPushNotificationHelper {
             return messageTs < sessionStartedAtMs - REPLAY_WINDOW_MS
         }
 
-        private fun loadConfigurations(context: Context, configurationDirectory: Uri?) {
+        private fun loadConfigurations(context: Context, configurationDirectory: Uri?): Boolean {
             val configurations = Configurations.getInstance()
-            if (configurations.init(context, configurationDirectory)) {
-                val iconConfigurations: IconConfigurations = Global.iconConfigurations()
-                iconConfigurations.init(context, configurationDirectory)
-            }
+            val iconConfigurations: IconConfigurations = Global.iconConfigurations()
+            val configurationsLoaded = configurations.init(context, configurationDirectory)
+            val iconsLoaded = iconConfigurations.init(context, configurationDirectory)
+            return configurationDirectory == null || configurationsLoaded && iconsLoaded
         }
 
         private fun wakeScreen(context: Context, sourcePackage: String) {
@@ -359,13 +395,17 @@ class MyMIPushNotificationHelper {
             fullWakeLock.acquire(10000)
         }
 
-        private fun doNotifyPushMessage(context: Context, container: XmPushActionContainer, decryptedContent: ByteArray) {
+        private fun doNotifyPushMessage(
+            context: Context,
+            container: XmPushActionContainer,
+            decryptedContent: ByteArray,
+        ): MockReplayOutcome {
             val metaInfo = container.metaInfo
             val messageId = MessageIdentity.fromContainer(container)
             val isMockReplay = MockMessageRegistry.isMarked(container)
             if (metaInfo == null) {
                 logW("doNotifyPushMessage: metaInfo is null, skip notification pkg=${container.packageName} messageId=$messageId")
-                return
+                return MockReplayOutcome.Failed
             }
             val notificationId = getNotificationId(container)
             logD("doNotifyPushMessage pkg=${container.packageName} messageId=$messageId notificationId=$notificationId mockReplay=$isMockReplay messageTs=${metaInfo.messageTs} notifyId=${metaInfo.notifyId}")
@@ -376,7 +416,7 @@ class MyMIPushNotificationHelper {
                     action = "voip_sequence_drop",
                     source = "MyMIPushNotificationHelper.doNotifyPushMessage"
                 )
-                return
+                return MockReplayOutcome.Failed
             }
             if (VoipNotificationHelper.isVoipEndEvent(metaInfo)) {
                 logD("cancel voip notification pkg=${container.packageName} messageId=$messageId notificationId=$notificationId")
@@ -386,7 +426,7 @@ class MyMIPushNotificationHelper {
                     action = "voip_cancel",
                     source = "MyMIPushNotificationHelper.doNotifyPushMessage"
                 )
-                return
+                return MockReplayOutcome.Dispatched
             }
             val focusParam = focusParamForSortFilter(metaInfo)
             if (NotificationSortFilter.shouldFilter(context, focusParam, container.packageName, notificationId)) {
@@ -396,20 +436,21 @@ class MyMIPushNotificationHelper {
                     action = "focus_filter_drop",
                     source = "MyMIPushNotificationHelper.doNotifyPushMessage"
                 )
-                return
+                return MockReplayOutcome.BlockedByPermission
             }
             val result = getNotificationFor(context, container, decryptedContent, notificationId)
             logD(
                 "doNotifyPushMessage publish start pkg=${container.packageName} action=${container.action} " +
                     "messageId=$messageId notificationId=${result.notificationId}"
             )
-            NotificationController.publish(
+            val posted = NotificationController.publish(
                 context,
                 metaInfo,
                 result.notificationId,
                 container.packageName,
                 result.notificationBuilder
             )
+            return if (posted) MockReplayOutcome.Posted else MockReplayOutcome.Failed
         }
 
         @NonNull
@@ -459,7 +500,13 @@ class MyMIPushNotificationHelper {
             }
 
             if (metaInfo.extra != null) {
-                MyMIPushNotificationIntentSupport.addStyleActions(notificationBuilder, context, packageName, metaInfo.extra)
+                MyMIPushNotificationIntentSupport.addStyleActions(
+                    notificationBuilder,
+                    context,
+                    packageName,
+                    notificationId,
+                    metaInfo.extra,
+                )
             }
 
             notificationBuilder.setWhen(metaInfo.messageTs)
@@ -471,6 +518,7 @@ class MyMIPushNotificationHelper {
                 MyMIPushNotificationIntentSupport.carryPendingIntentForTemporarilyWhitelisted(
                     context,
                     container,
+                    notificationId,
                     notificationBuilder
                 )
             }

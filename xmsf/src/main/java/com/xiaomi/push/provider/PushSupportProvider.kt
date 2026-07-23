@@ -10,7 +10,8 @@ import com.xiaomi.xmsf.stock.StockSurfaceSupport
 class PushSupportProvider : ContentProvider() {
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle {
         val context = context ?: return StockSurfaceSupport.pushSupportResult(3, message = "context_missing")
-        return StockSurfaceSupport.handlePushSupportCall(context, method, extras)
+        val callingPackage = runCatching { this.callingPackage }.getOrNull()
+        return StockSurfaceSupport.handlePushSupportCall(context, callingPackage, method, extras)
     }
 
     override fun onCreate(): Boolean = true

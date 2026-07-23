@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.push.hook
 import android.content.Intent
 import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry
 import io.github.magisk317.mipush.utils.DuplicateMessagePolicy
-import com.xiaomi.push.service.XMPushService
+import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.push.service.clientReport.ReportConstants
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
@@ -17,7 +17,7 @@ import com.xiaomi.xmpush.thrift.XmPushActionContainer
 object ExplicitHookBridge {
     @JvmStatic
     fun shouldSendBroadcast(
-        pushService: XMPushService,
+        pushService: XMPushServiceCore,
         packageName: String,
         container: XmPushActionContainer,
         metaInfo: PushMetaInfo
@@ -44,7 +44,7 @@ object ExplicitHookBridge {
 
     @JvmStatic
     fun isDuplicateMessage(
-        pushService: XMPushService,
+        pushService: XMPushServiceCore,
         packageName: String,
         messageId: String
     ): Boolean {

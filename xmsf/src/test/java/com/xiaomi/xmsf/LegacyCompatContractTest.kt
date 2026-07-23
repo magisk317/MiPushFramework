@@ -1,6 +1,7 @@
 package com.xiaomi.xmsf
 
 import io.github.magisk317.mipush.platform.support.LegacyComponentNames
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.w3c.dom.Element
@@ -10,21 +11,13 @@ import javax.xml.parsers.DocumentBuilderFactory
 class LegacyCompatContractTest {
 
     @Test
-    fun `legacy activity and service entrypoints remain declared in manifest`() {
-        val document = parseManifest()
-        val declaredActivities = findApplicationNodes(document, "activity")
-            .mapNotNull { it.getAttributeNS(ANDROID_NS, "name").takeIf(String::isNotBlank) }
-            .map(::normalizeManifestClassName)
-            .toSet()
+    fun `legacy service entrypoints remain declared in runtime manifest`() {
+        val document = parseManifest("src/main/AndroidManifest.xml", "xmsf/src/main/AndroidManifest.xml")
         val declaredServices = findApplicationNodes(document, "service")
             .mapNotNull { it.getAttributeNS(ANDROID_NS, "name").takeIf(String::isNotBlank) }
             .map(::normalizeManifestClassName)
             .toSet()
 
-        assertTrue(
-            declaredActivities.containsAll(LegacyComponentNames.manifestActivities),
-            "Missing legacy manifest activities: ${LegacyComponentNames.manifestActivities - declaredActivities}",
-        )
         assertTrue(
             declaredServices.containsAll(LegacyComponentNames.manifestServices),
             "Missing legacy manifest services: ${LegacyComponentNames.manifestServices - declaredServices}",
@@ -32,19 +25,69 @@ class LegacyCompatContractTest {
     }
 
     @Test
+    fun `manager UI activities are no longer packaged by the xmsf library manifest`() {
+        val document = parseManifest("src/main/AndroidManifest.xml", "xmsf/src/main/AndroidManifest.xml")
+        val declaredActivities = findApplicationNodes(document, "activity")
+            .mapNotNull { it.getAttributeNS(ANDROID_NS, "name").takeIf(String::isNotBlank) }
+            .map(::normalizeManifestClassName)
+            .toSet()
+
+        LegacyComponentNames.manifestActivities.forEach { activity ->
+            assertFalse(
+                activity in declaredActivities,
+                "Manager UI activity $activity must leave the xmsf library manifest after packaging split",
+            )
+        }
+    }
+
+    @Test
+    fun `split packaging keeps thin compatibility aliases for legacy component names`() {
+        val document = parseManifest(
+            "src/split/AndroidManifest.xml",
+            "app/src/split/AndroidManifest.xml",
+        )
+        val aliases = findApplicationNodes(document, "activity-alias")
+            .mapNotNull { it.getAttributeNS(ANDROID_NS, "name").takeIf(String::isNotBlank) }
+            .map(::normalizeManifestClassName)
+            .toSet()
+        assertTrue(
+            aliases.containsAll(LegacyComponentNames.manifestActivities),
+            "Missing split compatibility aliases: ${LegacyComponentNames.manifestActivities - aliases}",
+        )
+    }
+
+    @Test
+    fun `bundled packaging still declares real manager activities`() {
+        val document = parseManifest(
+            "src/bundled/AndroidManifest.xml",
+            "app/src/bundled/AndroidManifest.xml",
+        )
+        val activities = findApplicationNodes(document, "activity")
+            .mapNotNull { it.getAttributeNS(ANDROID_NS, "name").takeIf(String::isNotBlank) }
+            .map(::normalizeManifestClassName)
+            .toSet()
+        assertTrue(
+            activities.containsAll(LegacyComponentNames.manifestActivities),
+            "Missing bundled manager activities: ${LegacyComponentNames.manifestActivities - activities}",
+        )
+    }
+
+    @Test
     fun `legacy compat source files remain thin facades`() {
-        // top.trumeet compat shims have been deleted — all manifest entries now point directly
-        // to io.github.magisk317.mipush.feature canonical classes.
         assertSourceContains(
             "common/src/main/java/io/github/magisk317/mipush/platform/support/LegacyUiEntryPoints.kt",
             "LegacyComponentNames.MAIN_ACTIVITY",
         )
+        assertSourceContains(
+            "common/src/main/java/io/github/magisk317/mipush/platform/support/LegacyUiEntryPoints.kt",
+            "managerUiPackage",
+        )
     }
 
-    private fun parseManifest() = DocumentBuilderFactory.newInstance()
+    private fun parseManifest(direct: String, nested: String) = DocumentBuilderFactory.newInstance()
         .apply { isNamespaceAware = true }
         .newDocumentBuilder()
-        .parse(resolveFile("src/main/AndroidManifest.xml", "xmsf/src/main/AndroidManifest.xml"))
+        .parse(resolveFile(direct, nested))
 
     private fun findApplicationNodes(document: org.w3c.dom.Document, tagName: String): List<Element> {
         val application = document.getElementsByTagName("application").item(0) as? Element ?: return emptyList()
@@ -77,8 +120,10 @@ class LegacyCompatContractTest {
         val directFile = File(direct)
         if (directFile.isFile) return directFile
         val nestedFile = File(nested)
-        require(nestedFile.isFile) { "Cannot resolve file: $direct or $nested" }
-        return nestedFile
+        if (nestedFile.isFile) return nestedFile
+        val fromXmsf = File("../$nested")
+        require(fromXmsf.isFile) { "Cannot resolve file: $direct or $nested" }
+        return fromXmsf
     }
 
     private companion object {

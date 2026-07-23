@@ -5,7 +5,7 @@ import com.xiaomi.channel.commonutils.network.Network
 import com.xiaomi.channel.commonutils.stats.Stats
 import com.xiaomi.push.protobuf.ChannelMessage
 import com.xiaomi.push.service.ServiceConfig
-import com.xiaomi.push.service.XMPushService
+import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.push.thrift.ChannelStatsType
 import com.xiaomi.push.thrift.StatsEvent
 import com.xiaomi.push.thrift.StatsEvents
@@ -135,7 +135,7 @@ class StatsHandler private constructor() {
         }
     }
 
-    fun init(xMPushService: XMPushService) {
+    fun init(xMPushService: XMPushServiceCore) {
         synchronized(this) {
             context = StatsContext(xMPushService)
             uuid = ""

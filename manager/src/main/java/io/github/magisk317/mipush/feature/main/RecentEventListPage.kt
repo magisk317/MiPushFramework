@@ -12,11 +12,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
-import dev.chrisbanes.haze.HazeState
 import io.github.magisk317.mipush.feature.main.subpage.EventList
 import io.github.magisk317.mipush.feature.ui.theme.Theme
 import io.github.magisk317.uikit.theme.SystemBarsScrim
-import io.github.magisk317.uikit.theme.rememberHazeStyle
 
 open class RecentEventListPage : ComponentActivity() {
 
@@ -39,20 +37,12 @@ open class RecentEventListPage : ComponentActivity() {
 
 @Composable
 private fun RecentEventPage(packageName: String) {
-    val hazeState = remember { HazeState() }
-    val hazeStyle = rememberHazeStyle()
-
     Box(Modifier.fillMaxSize()) {
         EventList(
             query = "",
             packageName = packageName,
             contentPadding = PaddingValues(0.dp),
-            hazeState = hazeState,
-            hazeStyle = hazeStyle,
         )
-        SystemBarsScrim(
-            hazeState = hazeState,
-            hazeStyle = hazeStyle,
-        )
+        SystemBarsScrim()
     }
 }

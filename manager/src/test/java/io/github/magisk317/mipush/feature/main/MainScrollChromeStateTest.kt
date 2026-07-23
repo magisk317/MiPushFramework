@@ -95,50 +95,31 @@ class MainScrollChromeStateTest {
         assertTrue(
             shouldKeepMainChromeVisible(
                 route = AppDestinations.Overview.ROUTE,
-                chromeVisible = false,
             ),
         )
         assertTrue(
             shouldKeepMainChromeVisible(
                 route = AppDestinations.Settings.ROUTE,
-                chromeVisible = false,
             ),
         )
         assertTrue(
             shouldKeepMainChromeVisible(
                 route = AppDestinations.SettingsSection.ROUTE,
-                chromeVisible = false,
+            ),
+        )
+        assertTrue(
+            shouldKeepMainChromeVisible(
+                route = AppDestinations.Configs.ROUTE,
+            ),
+        )
+        assertTrue(
+            shouldKeepMainChromeVisible(
+                route = AppDestinations.ConfigsSearch.ROUTE,
             ),
         )
         assertFalse(
             shouldKeepMainChromeVisible(
                 route = AppDestinations.AppsList.ROUTE,
-                chromeVisible = false,
-            ),
-        )
-    }
-
-    @Test
-    fun `bottom gesture scrim follows compact bottom bar visibility`() {
-        assertTrue(
-            shouldShowBottomGestureScrim(
-                isCompact = true,
-                compactBottomBarAvailable = true,
-                compactBottomBarVisible = true,
-            ),
-        )
-        assertFalse(
-            shouldShowBottomGestureScrim(
-                isCompact = true,
-                compactBottomBarAvailable = true,
-                compactBottomBarVisible = false,
-            ),
-        )
-        assertFalse(
-            shouldShowBottomGestureScrim(
-                isCompact = false,
-                compactBottomBarAvailable = true,
-                compactBottomBarVisible = true,
             ),
         )
     }

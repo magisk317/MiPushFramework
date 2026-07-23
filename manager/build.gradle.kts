@@ -19,8 +19,9 @@ android {
 
 dependencies {
     implementation(project(":common"))
+    implementation(project(":manager-client"))
     implementation(project(":settings"))
-    implementation(project(":magisk-ui-kit"))
+    api(project(":magisk-ui-kit"))
     implementation(project(":core"))
 
     testImplementation(libs.junit.jupiter)
@@ -37,8 +38,6 @@ dependencies {
     implementation(libs.androidx.startup.runtime)
 
     implementation(libs.markdown)
-    implementation(libs.haze.android)
-    implementation(libs.haze.blur.android)
     implementation(libs.androidx.datastore.preferences)
 
     implementation(libs.koin.android)

@@ -10,7 +10,7 @@ import android.content.Intent
 import android.os.SystemClock
 import io.github.aakira.napier.Napier
 import com.xiaomi.network.Fallback
-import com.xiaomi.push.service.XMPushService
+import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.smack.packet.Packet
 import com.xiaomi.slim.Blob
 import com.xiaomi.xmpush.thrift.PushMetaInfo
@@ -68,7 +68,7 @@ internal object AspectLogCompat {
     }
 
     fun logShouldSendBroadcast(
-        pushService: XMPushService,
+        pushService: XMPushServiceCore,
         packageName: String,
         metaInfo: PushMetaInfo?,
         decision: Boolean

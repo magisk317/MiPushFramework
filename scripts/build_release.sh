@@ -5,4 +5,5 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cd "${ROOT_DIR}"
 
-./gradlew :app:assembleRelease -PbuildSplits=true "$@"
+TOOLKIT_DIR="$("$ROOT_DIR/scripts/resolve_ci_toolkit.sh")"
+bash "$TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" :app:assembleRelease -PbuildSplits=true "$@"

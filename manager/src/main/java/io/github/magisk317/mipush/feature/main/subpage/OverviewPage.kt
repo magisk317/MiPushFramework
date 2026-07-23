@@ -9,7 +9,6 @@ import android.graphics.BitmapFactory
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
-import android.widget.Toast
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -45,8 +44,9 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.SnackbarHostState
+import io.github.magisk317.uikit.common.ElevatedSnackbarHost
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,14 +56,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
+import io.github.magisk317.uikit.common.showLatestSnackbar
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import dev.chrisbanes.haze.hazeSource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.input.pointer.pointerInput
@@ -78,10 +81,6 @@ import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.main.viewmodel.OverviewViewModel
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.blur.HazeBlurStyle
-import dev.chrisbanes.haze.blur.blurEffect
-import dev.chrisbanes.haze.hazeEffect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.feature.main.MainActivityOperation
@@ -96,7 +95,8 @@ import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import io.github.magisk317.uikit.surface.DonateDialog
 import io.github.magisk317.uikit.surface.QRCodeDialog
-import io.github.magisk317.uikit.surface.saveImageToGallery
+import io.github.magisk317.uikit.surface.saveImageToGalleryAsync
+import io.github.magisk317.uikit.surface.chromeTopAppBarColors
 import io.github.magisk317.uikit.R as UiKitR
 
 private val OverviewCardShape = RoundedCornerShape(28.dp)
@@ -105,15 +105,13 @@ private val OverviewCardShape = RoundedCornerShape(28.dp)
 fun Overview(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     onShowAboutDialog: (String) -> Unit = {},
-    hazeState: HazeState? = null,
-    hazeStyle: HazeBlurStyle? = null,
+    onNavigateToConnectionStatus: () -> Unit = {},
 ) {
     Page {
         OverviewScreen(
             contentPadding = contentPadding,
             onShowAboutDialog = onShowAboutDialog,
-            hazeState = hazeState,
-            hazeStyle = hazeStyle,
+            onNavigateToConnectionStatus = onNavigateToConnectionStatus,
         )
     }
 }
@@ -122,14 +120,15 @@ fun Overview(
 private fun OverviewScreen(
     contentPadding: PaddingValues,
     onShowAboutDialog: (String) -> Unit,
-    hazeState: HazeState?,
-    hazeStyle: HazeBlurStyle?,
+    onNavigateToConnectionStatus: () -> Unit,
 ) {
     val context = LocalContext.current
     val overviewViewModel: OverviewViewModel = koinViewModel()
     val mainActivityOperation = MainActivityOperation(context)
     var showDonateDialog by remember { mutableStateOf(false) }
     var showQRCodeDialog by remember { mutableStateOf<Pair<Int, String>?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     val appStats by overviewViewModel.stats.collectAsState()
     LaunchedEffect(Unit) {
         overviewViewModel.loadStats()
@@ -146,13 +145,6 @@ private fun OverviewScreen(
         SectionColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .then(
-                    if (hazeState != null) {
-                        Modifier.hazeSource(state = hazeState)
-                    } else {
-                        Modifier
-                    }
-                )
                 .verticalScroll(scrollState),
             contentPadding = PaddingValues(
                 start = MaterialTheme.spacing.medium,
@@ -192,25 +184,17 @@ private fun OverviewScreen(
             title = { Text(text = stringResource(R.string.app_name)) },
             windowInsets = WindowInsets.statusBars,
             actions = {
-                ConnectionStatusIndicator()
+                ConnectionStatusIndicator(onClick = onNavigateToConnectionStatus)
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .align(Alignment.TopCenter)
-                .then(
-                    if (hazeState != null && hazeStyle != null) {
-                        Modifier.hazeEffect(hazeState) {
-                            blurEffect { style = hazeStyle }
-                            forceInvalidateOnPreDraw = true
-                        }
-                    } else {
-                        Modifier
-                    }
-                ),
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.Transparent,
-                scrolledContainerColor = Color.Transparent,
-            ),
+                .align(Alignment.TopCenter),
+            colors = chromeTopAppBarColors(),
+        )
+
+        ElevatedSnackbarHost(
+            hostState = snackbarHostState,
+            bottomPadding = contentPadding.calculateBottomPadding() + 16.dp,
         )
     }
 
@@ -235,17 +219,19 @@ private fun OverviewScreen(
             type = type,
             onDismiss = { showQRCodeDialog = null },
             onSave = {
-                saveImageToGallery(context, resId, "${type}_qrcode")
-                    .forEach { message ->
-                        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                scope.launch {
+                    saveImageToGalleryAsync(context, resId, "${type}_qrcode")
+                        .forEach { message ->
+                            snackbarHostState.showLatestSnackbar(message)
+                        }
                     }
-            },
+                },
         )
     }
 }
 
 @Composable
-private fun ConnectionStatusIndicator() {
+private fun ConnectionStatusIndicator(onClick: () -> Unit = {}) {
     val viewModel: io.github.magisk317.mipush.main.viewmodel.ConnectionStatusViewModel = koinViewModel()
     val snapshot by viewModel.snapshot.collectAsState()
 
@@ -263,7 +249,10 @@ private fun ConnectionStatusIndicator() {
     }
 
     Row(
-        modifier = Modifier.padding(end = 16.dp),
+        modifier = Modifier
+            .clip(CircleShape)
+            .clickable(onClick = onClick)
+            .padding(end = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {

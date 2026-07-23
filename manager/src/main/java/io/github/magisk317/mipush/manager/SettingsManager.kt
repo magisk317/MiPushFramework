@@ -3,20 +3,16 @@ package io.github.magisk317.mipush.manager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.widget.Toast
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.fakedevice.ZygiskConfig
-import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
 import io.github.magisk317.mipush.common.manager.ManagerLogClearResult
 import io.github.magisk317.mipush.common.manager.ManagerLogExportResult
 import io.github.magisk317.mipush.common.manager.ManagerLogGateway
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
 import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeEnvironmentSnapshot
-import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileContent
-import io.github.magisk317.mipush.common.manager.ManagerRuntimeLogFileSummary
 import io.github.magisk317.mipush.common.utils.Utils
 
 import java.io.File
@@ -24,11 +20,9 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
 class SettingsManager constructor(
-    private val configGateway: ManagerConfigGateway,
     private val runtimeActions: ManagerRuntimeActions,
     private val logGateway: ManagerLogGateway,
     private val zygiskConfigGateway: io.github.magisk317.mipush.common.manager.ZygiskConfigGateway,
@@ -59,14 +53,10 @@ class SettingsManager constructor(
         logGateway.setRetentionDays(days)
     }
 
-    fun summarizeRuntimeLogFiles(context: Context): ManagerRuntimeLogFileSummary {
-        return logGateway.summarizeFiles(context)
+    /** 应用事件记录保留天数(触发一次即时清理);天数持久化由 ViewModel 写入 DataStore。 */
+    fun applyEventRetentionDays(days: Int) {
+        runtimeActions.applyEventRetentionDays(days)
     }
-
-    fun readRuntimeLogFile(context: Context, fileName: String): ManagerRuntimeLogFileContent? {
-        return logGateway.readLogFile(context, fileName)
-    }
-
 
     fun buildRuntimeLogBundle(context: Context): ManagerLogExportResult {
         return logGateway.buildLogBundle(context)
@@ -104,31 +94,12 @@ class SettingsManager constructor(
         runtimeActions.resetTopActivityCache()
     }
 
-    fun getXMPPServer(context: Context): String? = runBlocking { configGateway.getXmppServer() }
-
-    fun getConfigurationDirectory(context: Context): Uri? = runBlocking { configGateway.getConfigurationDirectory() }
-
     fun shareLogs(context: Context) {
         context.startActivity(
             Intent().setComponent(
                 ComponentName(Constants.SERVICE_APP_NAME, Constants.SHARE_LOG_COMPONENT_NAME)
             )
         )
-    }
-
-    fun saveConfigurationUri(context: Context, data: Intent): Uri {
-        val uri = data.data!!
-        setConfigurationDirectory(context, uri)
-        return uri
-    }
-
-    fun setConfigurationDirectory(context: Context, uri: Uri) {
-        context.contentResolver.takePersistableUriPermission(
-            uri,
-            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-        )
-        runBlocking { configGateway.setConfigurationDirectory(uri) }
-        configGateway.loadConfigurations(context)
     }
 
     fun isZygiskModuleEnabled(): Boolean = zygiskConfigGateway.isZygiskModuleEnabled()

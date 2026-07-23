@@ -5,9 +5,9 @@ import com.xiaomi.slim.Blob
 import com.xiaomi.smack.XMPPException
 
 class BatchSendMessageJob(
-    private val pushService: XMPushService,
+    private val pushService: XMPushServiceCore,
     private val blobs: Array<Blob>?,
-) : XMPushService.Job(4) {
+) : XMPushServiceCore.Job(4) {
     override fun getDesc(): String = "batch send message."
 
     override fun process() {

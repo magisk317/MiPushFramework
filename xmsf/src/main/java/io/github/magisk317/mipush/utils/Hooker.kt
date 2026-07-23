@@ -20,7 +20,7 @@ import io.github.magisk317.mipush.service.XMPushServiceListener
 import com.xiaomi.channel.commonutils.logger.LoggerInterface
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.network.HostManager
-import com.xiaomi.push.service.XMPushService
+import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.smack.ConnectionConfiguration
 import com.xiaomi.smack.SmackConfiguration
 import kotlinx.coroutines.runBlocking
@@ -60,7 +60,7 @@ object Hooker {
         Dependencies.set(object : OuterDependencies {
             override fun configuration(): Configurations = configurations
 
-            override fun serviceListener(pushService: XMPushService): XMPushServiceListener =
+            override fun serviceListener(pushService: XMPushServiceCore): XMPushServiceListener =
                 XMPushServiceAbility(pushService)
 
             override fun hookedMethodHandler(): HookedMethodHandler = Global.hookHandler()

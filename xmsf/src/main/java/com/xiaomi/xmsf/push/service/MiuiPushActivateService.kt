@@ -1,11 +1,6 @@
 package com.xiaomi.xmsf.push.service
 
-import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
-import io.github.magisk317.mipush.common.utils.logI
-import io.github.magisk317.mipush.common.utils.logV
-import io.github.magisk317.mipush.common.utils.logW
-
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -17,122 +12,13 @@ import android.content.pm.Signature
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.text.TextUtils
-import io.github.magisk317.mipush.diagnostics.RateLimitedWarnLogger
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
-import io.github.aakira.napier.Napier
-import io.github.aakira.napier.DebugAntilog
+import io.github.magisk317.mipush.diagnostics.RateLimitedWarnLogger
 
 class MiuiPushActivateService : Service() {
-    private val handler = Handler(Looper.getMainLooper())
-
     override fun onBind(intent: Intent?): IBinder? = null
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        handleIntentInternal(intent)
-        return START_NOT_STICKY
-    }
-
-    private fun getPackages(): List<String> {
-        val packages = ArrayList<String>()
-        val installedApplications: List<ApplicationInfo>? =
-            packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
-        if (installedApplications != null) {
-            for (applicationInfo in installedApplications) {
-                if (applicationInfo.metaData != null &&
-                    applicationInfo.metaData.containsKey("miui_push_app") &&
-                    verifySignatures(applicationInfo.packageName)
-                ) {
-                    packages.add(applicationInfo.packageName)
-                }
-            }
-        }
-        return packages
-    }
-
-    private fun isPackageRegistered(pkg: String): Boolean {
-        return getSharedPreferences("pref_registered_pkg_names", 0).contains(pkg)
-    }
-
-    private fun verifySignatures(pkg: String): Boolean {
-        try {
-            val packageInfo: PackageInfo = PackageManagerCompatBridge.getPackageInfo(
-                packageManager,
-                pkg,
-                PackageManager.GET_SIGNING_CERTIFICATES
-            )
-            val signingInfo = packageInfo.signingInfo ?: return false
-            val signatures = if (signingInfo.hasMultipleSigners()) {
-                signingInfo.apkContentsSigners
-            } else {
-                signingInfo.signingCertificateHistory
-            }
-            for (signature in signatures) {
-                for (platformSignature in MIUI_PLATFORM_SIGNATURES) {
-                    if (platformSignature == signature) {
-                        return true
-                    }
-                }
-            }
-        } catch (_: NameNotFoundException) {
-        }
-        return false
-    }
-
-    fun addRegisteredPackage(pkg: String, appId: String) {
-        getSharedPreferences("pref_registered_pkg_names", 0).edit().putString(pkg, appId).apply()
-    }
-
-    private fun handleIntentInternal(intent: Intent?) {
-        val action = intent?.action ?: return
-        if ("com.xiaomi.xmsf.push.SCAN" == action) {
-            var delay = 0L
-            for (pkg in getPackages()) {
-                if (!isPackageRegistered(pkg)) {
-                    delay += 60000
-                    handler.postDelayed({
-                        try {
-                            val scanIntent = Intent("com.xiaomi.xmsf.push.SCAN")
-                            scanIntent.setPackage(pkg)
-                            startService(scanIntent)
-                        } catch (th: Throwable) {
-                            RateLimitedWarnLogger.warn(
-                                logTag = TAG,
-                                key = "scan:$pkg",
-                                message = "unable to start scan service",
-                                throwable = th
-                            )
-                            logE("unable to start service" + th.message)
-                        }
-                    }, delay)
-                }
-            }
-        } else if ("com.xiaomi.xmsf.push.ACCOUNT_CHANGE" == action) {
-            for (pkg in getPackages()) {
-                if (isPackageRegistered(pkg)) {
-                    try {
-                        val accountChangeIntent = Intent("com.xiaomi.xmsf.push.ACCOUNT_CHANGE")
-                        accountChangeIntent.setPackage(pkg)
-                        startService(accountChangeIntent)
-                    } catch (th: Throwable) {
-                        RateLimitedWarnLogger.warn(
-                            logTag = TAG,
-                            key = "account_change:$pkg",
-                            message = "unable to start account-change service",
-                            throwable = th
-                        )
-                        logE("unable to start service" + th.message)
-                    }
-                }
-            }
-        } else if ("com.xiaomi.xmsf.push.APP_REGISTERED" == action) {
-            val sourcePackage = intent.getStringExtra("source_package")
-            val appId = intent.getStringExtra("app_id")
-            if (!TextUtils.isEmpty(sourcePackage) && !TextUtils.isEmpty(appId)) {
-                addRegisteredPackage(sourcePackage!!, appId!!)
-            }
-        }
-    }
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_NOT_STICKY
 
     companion object {
         private val TAG = MiuiPushActivateService::class.java.simpleName
@@ -146,20 +32,87 @@ class MiuiPushActivateService : Service() {
 
         @JvmStatic
         fun awakePushActivateService(context: Context, action: String) {
-            try {
-                val intent = Intent(context, MiuiPushActivateService::class.java)
-                intent.`package` = context.packageName
-                intent.action = action
-                context.startService(intent)
-            } catch (th: Throwable) {
-                RateLimitedWarnLogger.warn(
-                    logTag = TAG,
-                    key = "awake:$action",
-                    message = "unable to awake MiuiPushActivateService",
-                    throwable = th
-                )
-                logE("unable to start service" + th.message)
+            val appContext = context.applicationContext ?: context
+            when (action) {
+                ACTION_SCAN -> scanTrustedPackages(appContext)
+                ACTION_ACCOUNT_CHANGE -> notifyAccountChanged(appContext)
             }
         }
+
+        internal fun isInternalActionSupported(action: String): Boolean =
+            action == ACTION_SCAN || action == ACTION_ACCOUNT_CHANGE
+
+        private fun scanTrustedPackages(context: Context) {
+            var delay = 0L
+            for (packageName in getTrustedPushPackages(context)) {
+                if (isPackageRegistered(context, packageName)) continue
+                delay += SCAN_DELAY_STEP_MS
+                handler.postDelayed({
+                    startTargetService(context, packageName, ACTION_SCAN, "scan")
+                }, delay)
+            }
+        }
+
+        private fun notifyAccountChanged(context: Context) {
+            getTrustedPushPackages(context)
+                .filter { isPackageRegistered(context, it) }
+                .forEach { packageName ->
+                    startTargetService(context, packageName, ACTION_ACCOUNT_CHANGE, "account_change")
+                }
+        }
+
+        private fun startTargetService(context: Context, packageName: String, action: String, source: String) {
+            try {
+                context.startService(Intent(action).setPackage(packageName))
+            } catch (throwable: Throwable) {
+                RateLimitedWarnLogger.warn(
+                    logTag = TAG,
+                    key = "$source:$packageName",
+                    message = "unable to start trusted push target service",
+                    throwable = throwable,
+                )
+                logE("unable to start service: ${throwable.message}")
+            }
+        }
+
+        private fun getTrustedPushPackages(context: Context): List<String> {
+            return context.packageManager
+                .getInstalledApplications(PackageManager.GET_META_DATA)
+                .filter { applicationInfo ->
+                    applicationInfo.metaData?.containsKey("miui_push_app") == true &&
+                        verifySignatures(context, applicationInfo.packageName)
+                }
+                .map(ApplicationInfo::packageName)
+        }
+
+        private fun isPackageRegistered(context: Context, packageName: String): Boolean {
+            return context.getSharedPreferences(REGISTERED_PACKAGES_PREFS, Context.MODE_PRIVATE)
+                .contains(packageName)
+        }
+
+        private fun verifySignatures(context: Context, packageName: String): Boolean {
+            val packageInfo: PackageInfo = try {
+                PackageManagerCompatBridge.getPackageInfo(
+                    context.packageManager,
+                    packageName,
+                    PackageManager.GET_SIGNING_CERTIFICATES,
+                )
+            } catch (_: NameNotFoundException) {
+                return false
+            }
+            val signingInfo = packageInfo.signingInfo ?: return false
+            val signatures = if (signingInfo.hasMultipleSigners()) {
+                signingInfo.apkContentsSigners
+            } else {
+                signingInfo.signingCertificateHistory
+            }
+            return signatures.any { it in MIUI_PLATFORM_SIGNATURES }
+        }
+
+        private const val ACTION_SCAN = "com.xiaomi.xmsf.push.SCAN"
+        private const val ACTION_ACCOUNT_CHANGE = "com.xiaomi.xmsf.push.ACCOUNT_CHANGE"
+        private const val REGISTERED_PACKAGES_PREFS = "pref_registered_pkg_names"
+        private const val SCAN_DELAY_STEP_MS = 60_000L
+        private val handler by lazy { Handler(Looper.getMainLooper()) }
     }
 }

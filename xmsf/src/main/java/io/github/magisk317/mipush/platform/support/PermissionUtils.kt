@@ -9,9 +9,41 @@ import androidx.core.content.ContextCompat
 import com.xiaomi.xmsf.R
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.platform.override.AppOpsManagerOverride
 
+/**
+ * Root-backed silent permission grants for both [Constants.SERVICE_APP_NAME] (xmsf) and
+ * [Constants.MANAGER_APP_NAME] (mipush manager), for primary user and dual-space (999).
+ *
+ * Special-access Settings UIs are almost always scoped to the current user, so dual-space
+ * clones often cannot be toggled in the main-user overlay list — root appops is the reliable path.
+ */
 object PermissionUtils {
+    const val USER_PRIMARY = 0
+    const val USER_XSPACE = 999
+    /** intArgument sentinel: grant for primary and dual-space (if installed). */
+    const val USER_AUTO = -1
+
+    private val FRAMEWORK_PACKAGES = listOf(
+        Constants.SERVICE_APP_NAME,
+        Constants.MANAGER_APP_NAME,
+    )
+
+    /** AppOps that Magisk/root can typically force-allow without interactive Settings. */
+    private val SILENT_APPOPS = listOf(
+        "SYSTEM_ALERT_WINDOW",
+        AppOpsManagerOverride.OPSTR_SYSTEM_ALERT_WINDOW,
+        "GET_USAGE_STATS",
+        AppOpsManagerOverride.OPSTR_GET_USAGE_STATS,
+        "POST_NOTIFICATION",
+        "android:post_notification",
+        "RUN_IN_BACKGROUND",
+        "android:run_in_background",
+        "RUN_ANY_IN_BACKGROUND",
+        "android:run_any_in_background",
+    )
+
     @JvmStatic
     fun hasRootAccess(): Boolean = AppRootAccessFacade.refreshRootAccessIfGranted()
 
@@ -25,23 +57,127 @@ object PermissionUtils {
     fun requestRootAccess(): Boolean = AppRootAccessFacade.requestRootAccess()
 
     @JvmStatic
+    fun ensureRootAccess(): Boolean =
+        refreshRootAccessIfGranted() || requestRootAccess()
+
+    @JvmStatic
     fun canAssignPermissionViaAppOps(): Boolean {
-        return Utils.isAppOpsInstalled() || hasCachedRootAccess()
+        return Utils.isAppOpsInstalled() || hasCachedRootAccess() || ensureRootAccess()
+    }
+
+    /**
+     * Grant one appop for [packageName] on [userId]. Tries both `appops set` and `cmd appops set`.
+     */
+    @JvmStatic
+    fun allowPermission(
+        permission: String,
+        packageName: String = Constants.SERVICE_APP_NAME,
+        userId: Int = Utils.myUserId(),
+    ): Boolean {
+        if (!ensureRootAccess()) return false
+        val commands = listOf(
+            "appops set --user $userId $packageName $permission allow",
+            "cmd appops set --user $userId $packageName $permission allow",
+        )
+        val ok = commands.any { AppRootAccessFacade.runRootCommand(it).isSuccess }
+        logI("allowPermission user=$userId pkg=$packageName op=$permission ok=$ok")
+        return ok
+    }
+
+    /**
+     * Full silent grant suite for one package on one user (overlay, usage stats, notifications,
+     * background, battery whitelist).
+     */
+    @JvmStatic
+    fun grantSilentPermissions(
+        packageName: String,
+        userId: Int = USER_PRIMARY,
+    ): Boolean {
+        if (!ensureRootAccess()) {
+            logI("grantSilentPermissions skip no-root pkg=$packageName user=$userId")
+            return false
+        }
+        var anySuccess = false
+        for (op in SILENT_APPOPS) {
+            if (allowPermission(op, packageName, userId)) {
+                anySuccess = true
+            }
+        }
+        val privilegedPmGrants = listOf(
+            "android.permission.POST_NOTIFICATIONS",
+            // Live Updates / ProgressStyle notifyAsPackage on Android 16+ checks this.
+            "android.permission.UPDATE_APP_OPS_STATS",
+            "android.permission.POST_PROMOTED_NOTIFICATIONS",
+        )
+        for (permission in privilegedPmGrants) {
+            val grant = AppRootAccessFacade.runRootCommand(
+                "pm grant --user $userId $packageName $permission",
+            )
+            if (grant.isSuccess) anySuccess = true
+        }
+        // deviceidle whitelist is process/global, not per-user, but still helps keep-alives.
+        listOf(
+            "cmd deviceidle whitelist +$packageName",
+            "dumpsys deviceidle whitelist +$packageName",
+        ).forEach { AppRootAccessFacade.runRootCommand(it) }
+        logI("grantSilentPermissions done pkg=$packageName user=$userId anySuccess=$anySuccess")
+        return anySuccess
+    }
+
+    /**
+     * Grant silent permissions for xmsf + manager on the given user ids.
+     * [USER_AUTO] expands to primary + dual-space when dual packages are present.
+     */
+    @JvmStatic
+    fun grantSilentPermissionsForFramework(
+        userId: Int = USER_AUTO,
+        packages: Collection<String> = FRAMEWORK_PACKAGES,
+    ): Boolean {
+        if (!ensureRootAccess()) return false
+        val users = resolveUsers(userId)
+        var ok = false
+        for (user in users) {
+            for (pkg in packages) {
+                if (user != USER_PRIMARY && !isPackageInstalledForUser(pkg, user)) {
+                    logI("grantSilentPermissionsForFramework skip missing pkg=$pkg user=$user")
+                    continue
+                }
+                if (grantSilentPermissions(pkg, user)) {
+                    ok = true
+                }
+            }
+        }
+        return ok
     }
 
     @JvmStatic
     fun lunchAppOps(context: Context, permission: String, tips: CharSequence): Boolean {
-        if (hasCachedRootAccess()) {
-            if (allowPermission(permission)) {
-                return true
+        // Prefer root grant for both framework packages (main user + dual if present).
+        if (ensureRootAccess()) {
+            val targetPackages = linkedSetOf(
+                context.packageName,
+                Constants.SERVICE_APP_NAME,
+                Constants.MANAGER_APP_NAME,
+            )
+            var granted = false
+            for (pkg in targetPackages) {
+                if (allowPermission(permission, pkg, USER_PRIMARY)) {
+                    granted = true
+                }
+                if (isPackageInstalledForUser(pkg, USER_XSPACE) &&
+                    allowPermission(permission, pkg, USER_XSPACE)
+                ) {
+                    granted = true
+                }
             }
+            if (granted) return true
             Toast.makeText(context, R.string.fail, Toast.LENGTH_SHORT).show()
         }
 
         if (Utils.isAppOpsInstalled()) {
             val intent = Intent(Intent.ACTION_SHOW_APP_INFO)
                 .setClassName("rikka.appops", "rikka.appops.appdetail.AppDetailActivity")
-                .putExtra("rikka.appops.intent.extra.USER_HANDLE", Utils.myUid())
+                .putExtra("rikka.appops.intent.extra.USER_HANDLE", Utils.myUserId())
                 .putExtra("rikka.appops.intent.extra.PACKAGE_NAME", Constants.SERVICE_APP_NAME)
                 .setData(Uri.parse("package:" + Constants.SERVICE_APP_NAME))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -54,24 +190,20 @@ object PermissionUtils {
     }
 
     @JvmStatic
-    fun allowPermission(permission: String): Boolean {
-        return AppRootAccessFacade.runRootCommand(
-            "appops set --user " + Utils.myUid() + " " + Constants.SERVICE_APP_NAME + " " + permission + " " + AppOpsManagerOverride.MODE_ALLOWED
-        ).isSuccess
-    }
-
-    @JvmStatic
     fun requestIgnoreBatteryOptimizations(context: Context): Boolean {
-        if (!hasCachedRootAccess()) {
+        if (!ensureRootAccess()) {
             return false
         }
-        val commands = listOf(
-            "cmd deviceidle whitelist +${context.packageName}",
-            "dumpsys deviceidle whitelist +${context.packageName}"
-        )
-        commands.forEach { AppRootAccessFacade.runRootCommand(it) }
+        val packages = linkedSetOf(context.packageName, Constants.SERVICE_APP_NAME, Constants.MANAGER_APP_NAME)
+        packages.forEach { pkg ->
+            listOf(
+                "cmd deviceidle whitelist +$pkg",
+                "dumpsys deviceidle whitelist +$pkg",
+            ).forEach { AppRootAccessFacade.runRootCommand(it) }
+        }
         val powerManager = context.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
-        return powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true
+        return powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true ||
+            hasCachedRootAccess()
     }
 
     @JvmStatic
@@ -79,20 +211,95 @@ object PermissionUtils {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
             return true
         }
-        if (!hasCachedRootAccess()) {
+        if (!ensureRootAccess()) {
             return false
         }
-        val packageName = context.packageName
-        val commands = listOf(
-            "pm grant $packageName android.permission.POST_NOTIFICATIONS",
-            "appops set --user ${Utils.myUid()} $packageName POST_NOTIFICATION allow",
-            "appops set --user ${Utils.myUid()} $packageName android:post_notification allow",
-            "cmd appops set $packageName POST_NOTIFICATION allow"
-        )
-        commands.forEach { AppRootAccessFacade.runRootCommand(it) }
+        val packages = linkedSetOf(context.packageName, Constants.SERVICE_APP_NAME, Constants.MANAGER_APP_NAME)
+        for (pkg in packages) {
+            for (user in resolveUsers(USER_AUTO)) {
+                if (user != USER_PRIMARY && !isPackageInstalledForUser(pkg, user)) continue
+                AppRootAccessFacade.runRootCommand(
+                    "pm grant --user $user $pkg android.permission.POST_NOTIFICATIONS",
+                )
+                allowPermission("POST_NOTIFICATION", pkg, user)
+                allowPermission("android:post_notification", pkg, user)
+            }
+        }
         return ContextCompat.checkSelfPermission(
             context,
-            android.Manifest.permission.POST_NOTIFICATIONS
-        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            android.Manifest.permission.POST_NOTIFICATIONS,
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED || hasCachedRootAccess()
     }
+
+    private fun resolveUsers(userId: Int): List<Int> {
+        if (userId != USER_AUTO) return listOf(userId)
+        val users = mutableListOf(USER_PRIMARY)
+        if (FRAMEWORK_PACKAGES.any { isPackageInstalledForUser(it, USER_XSPACE) }) {
+            users += USER_XSPACE
+        }
+        return users
+    }
+
+    private fun isPackageInstalledForUser(packageName: String, userId: Int): Boolean {
+        val result = AppRootAccessFacade.runRootCommand(
+            "cmd package list packages --user $userId $packageName",
+            timeoutMs = 5_000L,
+        )
+        if (!result.isSuccess) return false
+        val needle = "package:$packageName"
+        return result.stdout.any { it.trim() == needle || it.contains(needle) }
+    }
+
+    /**
+     * Sync manager launcher activity-aliases for [userIds] (desktop icon per user).
+     * PackageManager.setComponentEnabledSetting only affects the calling user; dual-space
+     * (999) needs root `pm enable/disable --user`.
+     *
+     * Note: system App Info always uses the package [android:icon] on &lt;application&gt;,
+     * which cannot be changed at runtime — only launcher/recents follow aliases.
+     */
+    @JvmStatic
+    fun syncLauncherIconAliases(
+        iconId: String,
+        userIds: Collection<Int> = listOf(USER_PRIMARY, USER_XSPACE),
+    ): Boolean {
+        if (!ensureRootAccess()) {
+            logI("syncLauncherIconAliases skip no-root iconId=$iconId")
+            return false
+        }
+        val selected = when (iconId) {
+            "legacy" -> "legacy"
+            else -> "default"
+        }
+        val aliases = linkedMapOf(
+            "default" to "io.github.magisk317.mipush.app.ManagerLauncherActivityDefault",
+            "legacy" to "io.github.magisk317.mipush.app.ManagerLauncherActivityLegacy",
+        )
+        val retired = "io.github.magisk317.mipush.app.ManagerLauncherActivityXmsf"
+        val pkg = Constants.MANAGER_APP_NAME
+        var any = false
+        for (user in userIds) {
+            if (user != USER_PRIMARY && !isPackageInstalledForUser(pkg, user)) {
+                logI("syncLauncherIconAliases skip missing pkg user=$user")
+                continue
+            }
+            for ((id, className) in aliases) {
+                val component = "$pkg/$className"
+                val cmd = if (id == selected) {
+                    "pm enable --user $user $component"
+                } else {
+                    "pm disable --user $user $component"
+                }
+                val result = AppRootAccessFacade.runRootCommand(cmd, timeoutMs = 5_000L)
+                logI("syncLauncherIconAliases $cmd ok=${result.isSuccess} out=${result.stdoutText.trim()}")
+                if (result.isSuccess) any = true
+            }
+            AppRootAccessFacade.runRootCommand(
+                "pm disable --user $user $pkg/$retired",
+                timeoutMs = 5_000L,
+            )
+        }
+        return any
+    }
+
 }

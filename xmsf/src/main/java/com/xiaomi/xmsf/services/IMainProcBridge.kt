@@ -17,17 +17,14 @@ interface IMainProcBridge : IInterface {
     fun getOnlineStringConfig(key: Int, defaultValue: String?): String?
 
     abstract class Stub : Binder(), IMainProcBridge {
+        init {
+            attachInterface(this, DESCRIPTOR)
+        }
+
         override fun asBinder(): IBinder = this
 
         override fun onTransact(code: Int, data: Parcel, reply: Parcel?, flags: Int): Boolean {
             return when (code) {
-                TRANSACTION_GET_BOOLEAN -> {
-                    data.enforceInterface(DESCRIPTOR)
-                    val result = getOnlineBooleanConfig(data.readInt(), data.readInt() != 0)
-                    reply?.writeNoException()
-                    reply?.writeInt(if (result) 1 else 0)
-                    true
-                }
                 TRANSACTION_GET_INT -> {
                     data.enforceInterface(DESCRIPTOR)
                     val result = getOnlineIntConfig(data.readInt(), data.readInt())
@@ -42,6 +39,13 @@ interface IMainProcBridge : IInterface {
                     reply?.writeString(result)
                     true
                 }
+                TRANSACTION_GET_BOOLEAN -> {
+                    data.enforceInterface(DESCRIPTOR)
+                    val result = getOnlineBooleanConfig(data.readInt(), data.readInt() != 0)
+                    reply?.writeNoException()
+                    reply?.writeInt(if (result) 1 else 0)
+                    true
+                }
                 INTERFACE_TRANSACTION -> {
                     reply?.writeString(DESCRIPTOR)
                     true
@@ -51,10 +55,10 @@ interface IMainProcBridge : IInterface {
         }
 
         companion object {
-            private const val DESCRIPTOR = "com.xiaomi.xmsf.services.IMainProcBridge"
-            private const val TRANSACTION_GET_BOOLEAN = 1
-            private const val TRANSACTION_GET_INT = 2
-            private const val TRANSACTION_GET_STRING = 3
+            const val DESCRIPTOR = "com.xiaomi.xmsf.services.IMainProcBridge"
+            private const val TRANSACTION_GET_INT = 1
+            private const val TRANSACTION_GET_STRING = 2
+            private const val TRANSACTION_GET_BOOLEAN = 3
             private const val INTERFACE_TRANSACTION = 1598968902
 
             @JvmStatic

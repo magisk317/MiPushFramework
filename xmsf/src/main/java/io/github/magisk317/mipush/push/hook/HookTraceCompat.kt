@@ -3,7 +3,7 @@ package io.github.magisk317.mipush.push.hook
 import android.content.Intent
 import android.content.pm.PackageInfo
 import com.xiaomi.network.Fallback
-import com.xiaomi.push.service.XMPushService
+import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.push.service.clientReport.ReportConstants
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.aakira.napier.Napier
@@ -21,12 +21,12 @@ object HookTraceCompat {
 
     @JvmStatic
     fun onBridgeServiceCreate() {
-        HookTrace.mark("com.xiaomi.xmsf.push.service.XMPushService.onCreate")
+        HookTrace.mark("com.xiaomi.xmsf.push.service.XMPushServiceCore.onCreate")
     }
 
     @JvmStatic
     fun onBridgeServiceDestroy() {
-        HookTrace.mark("com.xiaomi.xmsf.push.service.XMPushService.onDestroy")
+        HookTrace.mark("com.xiaomi.xmsf.push.service.XMPushServiceCore.onDestroy")
     }
 
     @JvmStatic
@@ -60,41 +60,41 @@ object HookTraceCompat {
     }
 
     @JvmStatic
-    fun onServiceCreate(pushService: XMPushService) {
+    fun onServiceCreate(pushService: XMPushServiceCore) {
         Napier.d("onServiceCreate called for $pushService", tag = "HookTraceCompat")
-        HookTrace.mark("XMPushService.onCreate")
-        AspectLogCompat.logServiceMethod("XMPushService.onCreate", details = "Service started")
+        HookTrace.mark("XMPushServiceCore.onCreate")
+        AspectLogCompat.logServiceMethod("XMPushServiceCore.onCreate", details = "Service started")
     }
 
     @JvmStatic
     fun onStartCommand() {
-        HookTrace.mark("XMPushService.onStartCommand")
-        AspectLogCompat.logServiceMethod("XMPushService.onStartCommand")
+        HookTrace.mark("XMPushServiceCore.onStartCommand")
+        AspectLogCompat.logServiceMethod("XMPushServiceCore.onStartCommand")
     }
 
     @JvmStatic
     fun onStartCommand(intent: Intent?) {
         Napier.d("onStartCommand called with intent: $intent", tag = "HookTraceCompat")
-        HookTrace.mark("XMPushService.onStartCommand")
-        AspectLogCompat.logServiceMethod("XMPushService.onStartCommand", intent)
+        HookTrace.mark("XMPushServiceCore.onStartCommand")
+        AspectLogCompat.logServiceMethod("XMPushServiceCore.onStartCommand", intent)
     }
 
     @JvmStatic
     fun onStart(intent: Intent, startId: Int) {
-        HookTrace.mark("XMPushService.onStart")
-        AspectLogCompat.logServiceMethod("XMPushService.onStart", intent, "startId=$startId")
+        HookTrace.mark("XMPushServiceCore.onStart")
+        AspectLogCompat.logServiceMethod("XMPushServiceCore.onStart", intent, "startId=$startId")
     }
 
     @JvmStatic
     fun onBind(intent: Intent) {
-        HookTrace.mark("XMPushService.onBind")
-        AspectLogCompat.logServiceMethod("XMPushService.onBind", intent)
+        HookTrace.mark("XMPushServiceCore.onBind")
+        AspectLogCompat.logServiceMethod("XMPushServiceCore.onBind", intent)
     }
 
     @JvmStatic
     fun onDestroy() {
-        HookTrace.mark("XMPushService.onDestroy")
-        AspectLogCompat.logServiceMethod("XMPushService.onDestroy", details = "Service stopped")
+        HookTrace.mark("XMPushServiceCore.onDestroy")
+        AspectLogCompat.logServiceMethod("XMPushServiceCore.onDestroy", details = "Service stopped")
     }
 
     @JvmStatic
@@ -117,15 +117,15 @@ object HookTraceCompat {
 
     @JvmStatic
     fun onSendMessage(intent: Intent) {
-        HookTrace.mark("XMPushService.sendMessage")
-        AspectLogCompat.logServiceMethod("XMPushService.sendMessage", intent)
+        HookTrace.mark("XMPushServiceCore.sendMessage")
+        AspectLogCompat.logServiceMethod("XMPushServiceCore.sendMessage", intent)
     }
 
     @JvmStatic
     fun onSendMessage(packageName: String, payloadSize: Int) {
-        HookTrace.mark("XMPushService.sendMessage")
+        HookTrace.mark("XMPushServiceCore.sendMessage")
         AspectLogCompat.logServiceMethod(
-            "XMPushService.sendMessage",
+            "XMPushServiceCore.sendMessage",
             details = "package=$packageName payloadSize=$payloadSize"
         )
     }

@@ -71,12 +71,13 @@ internal object MyMIPushNotificationIntentSupport {
         builder: NotificationCompat.Builder,
         context: Context,
         pkgName: String,
+        notificationId: Int,
         metaExtra: Map<String, String>
     ) {
         for (place in 1..NOTIFICATION_ACTION_BUTTON_PLACE_RIGHT) {
             val title = getStyleActionTitle(place, metaExtra)
             if (TextUtils.isEmpty(title)) continue
-            val pendingIntent = getStylePendingIntent(context, pkgName, place, metaExtra)
+            val pendingIntent = getStylePendingIntent(context, pkgName, place, metaExtra, notificationId)
             if (pendingIntent != null) {
                 builder.addAction(0, title, pendingIntent)
             }
@@ -86,15 +87,18 @@ internal object MyMIPushNotificationIntentSupport {
     fun carryPendingIntentForTemporarilyWhitelisted(
         context: Context,
         container: XmPushActionContainer,
+        notificationId: Int,
         builder: NotificationCompat.Builder
     ) {
         val targetIntent = MyMIPushNotificationHelper.buildTargetIntentWithoutExtras(
             container.packageName,
             container.metaInfo
-        )
+        ).apply {
+            data = pendingIntentIdentity(container.packageName, notificationId, 0)
+        }
         val pendingIntent = PendingIntent.getService(
             context,
-            0,
+            pendingIntentRequestCode(container.packageName, notificationId, 0),
             targetIntent,
             FLAG_IMMUTABLE_UPDATE_CURRENT
         )
@@ -109,13 +113,20 @@ internal object MyMIPushNotificationIntentSupport {
         extra: Bundle?
     ): PendingIntent? {
         val metaInfo = container.metaInfo ?: return null
+        val messageId = metaInfo.id.orEmpty()
+        val requestCode = pendingIntentRequestCode(
+            container.packageName,
+            notificationId,
+            messageId.hashCode(),
+        )
         val urlJump = resolveClickedUrl(metaInfo)
         if (!TextUtils.isEmpty(urlJump)) {
             val intent = Intent(Intent.ACTION_VIEW)
             intent.data = Uri.parse(urlJump)
+            applyPendingIntentIdentity(intent, container.packageName, notificationId, messageId)
             intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
             logClickRoute("url", container.packageName, notificationId)
-            return PendingIntent.getActivity(context, notificationId, intent, FLAG_IMMUTABLE_UPDATE_CURRENT)
+            return PendingIntent.getActivity(context, requestCode, intent, FLAG_IMMUTABLE_UPDATE_CURRENT)
         }
 
         val serviceIntent = Intent().apply {
@@ -133,6 +144,7 @@ internal object MyMIPushNotificationIntentSupport {
                 putExtras(extra)
             }
             addCategory(metaInfo.notifyId.toString())
+            applyPendingIntentIdentity(this, container.packageName, notificationId, messageId)
         }
 
         val activityIntent = getSdkIntent(context, container)
@@ -140,8 +152,9 @@ internal object MyMIPushNotificationIntentSupport {
             activityIntent!!.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             activityIntent.putExtra("mipush_serviceIntent", serviceIntent)
             activityIntent.putExtras(serviceIntent)
+            applyPendingIntentIdentity(activityIntent, container.packageName, notificationId, messageId)
             logClickRoute("sdk_activity", container.packageName, notificationId)
-            return PendingIntent.getActivity(context, notificationId, activityIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
+            return PendingIntent.getActivity(context, requestCode, activityIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
         }
 
         // Prefer the target app's own BridgeActivity so the click launches in the target
@@ -157,7 +170,7 @@ internal object MyMIPushNotificationIntentSupport {
         }
 
         logClickRoute("xmsf_service", container.packageName, notificationId)
-        return PendingIntent.getService(context, notificationId, serviceIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
+        return PendingIntent.getService(context, requestCode, serviceIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
     }
 
     /**
@@ -210,10 +223,11 @@ internal object MyMIPushNotificationIntentSupport {
             putExtra(PushConstants.MIPUSH_EXTRA_INTENT_PAYLOAD, targetIntent)
             addCategory(metaInfo.notifyId.toString())
             addCategory(messageId)
+            applyPendingIntentIdentity(this, container.packageName, notificationId, messageId)
         }
         return PendingIntent.getActivity(
             context,
-            notificationId,
+            pendingIntentRequestCode(container.packageName, notificationId, messageId.hashCode()),
             bridgeIntent,
             FLAG_IMMUTABLE_UPDATE_CURRENT
         )
@@ -246,6 +260,44 @@ internal object MyMIPushNotificationIntentSupport {
         return intent
     }
 
+    /**
+     * Returns the Activity intent shape that can safely be persisted by the stock BoxMessage
+     * surface. Stock rejects service/broadcast PendingIntents for box messages.
+     */
+    fun buildBoxActivityIntent(
+        context: Context,
+        container: XmPushActionContainer,
+        payload: ByteArray,
+    ): Intent? {
+        getSdkIntent(context, container)?.let { return it }
+        val metaInfo = container.metaInfo ?: return null
+        val packageName = container.packageName?.takeIf(String::isNotBlank) ?: return null
+        val bridgeActivity = ComponentName(packageName, BRIDGE_ACTIVITY_CLASS)
+        if (!ComponentHelper.checkActivity(context, bridgeActivity)) return null
+
+        val targetIntent = if (MIPushNotificationHelper.isBusinessMessage(container)) {
+            Intent().setComponent(
+                ComponentName(PushConstants.PUSH_SERVICE_PACKAGE_NAME, "com.xiaomi.mipush.sdk.PushMessageHandler"),
+            )
+        } else {
+            Intent(PushConstants.MIPUSH_ACTION_NEW_MESSAGE).setComponent(
+                ComponentName(packageName, "com.xiaomi.mipush.sdk.PushMessageHandler"),
+            )
+        }.apply {
+            putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, payload)
+            putExtra(MIPushNotificationHelper.FROM_NOTIFICATION, true)
+            addCategory(metaInfo.notifyId.toString())
+            addCategory(metaInfo.id.orEmpty())
+        }
+        return Intent().apply {
+            component = bridgeActivity
+            addFlags(BRIDGE_ACTIVITY_FLAGS)
+            putExtra(PushConstants.MIPUSH_EXTRA_INTENT_PAYLOAD, targetIntent)
+            addCategory(metaInfo.notifyId.toString())
+            addCategory(metaInfo.id.orEmpty())
+        }
+    }
+
     fun startServicePendingIntent(
         context: Context,
         container: XmPushActionContainer,
@@ -267,10 +319,21 @@ internal object MyMIPushNotificationIntentSupport {
         localIntent.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, payload)
         localIntent.putExtra(MIPushNotificationHelper.FROM_NOTIFICATION, true)
         localIntent.addCategory(pushMetaInfo.notifyId.toString())
+        applyPendingIntentIdentity(
+            localIntent,
+            container.packageName,
+            pushMetaInfo.notifyId,
+            pushMetaInfo.id.orEmpty(),
+        )
+        val requestCode = pendingIntentRequestCode(
+            container.packageName,
+            pushMetaInfo.notifyId,
+            pushMetaInfo.id.orEmpty().hashCode(),
+        )
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            PendingIntent.getForegroundService(context, 0, localIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
+            PendingIntent.getForegroundService(context, requestCode, localIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
         } else {
-            PendingIntent.getService(context, 0, localIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
+            PendingIntent.getService(context, requestCode, localIntent, FLAG_IMMUTABLE_UPDATE_CURRENT)
         }
     }
 
@@ -286,6 +349,14 @@ internal object MyMIPushNotificationIntentSupport {
         pkgName: String,
         place: Int,
         metaExtra: Map<String, String>?
+    ): PendingIntent? = getStylePendingIntent(context, pkgName, place, metaExtra, 0)
+
+    private fun getStylePendingIntent(
+        context: Context,
+        pkgName: String,
+        place: Int,
+        metaExtra: Map<String, String>?,
+        notificationId: Int,
     ): PendingIntent? {
         if (metaExtra == null) return null
         val keys = styleActionKeys(place, metaExtra)
@@ -294,23 +365,63 @@ internal object MyMIPushNotificationIntentSupport {
         return when (typeId) {
             PushConstants.NOTIFICATION_CLICK_WEB_PAGE -> PendingIntent.getActivity(
                 context,
-                place,
-                intent,
+                pendingIntentRequestCode(pkgName, notificationId, place),
+                intent.apply { addCategory(pendingIntentCategory(pkgName, notificationId, place)) },
                 FLAG_IMMUTABLE_UPDATE_CURRENT
             )
             PushConstants.NOTIFICATION_CLICK_DEFAULT,
             PushConstants.NOTIFICATION_CLICK_INTENT -> PendingIntent.getService(
                 context,
-                place,
+                pendingIntentRequestCode(pkgName, notificationId, place),
                 Intent().apply {
                     component = ComponentName("com.xiaomi.xmsf", "com.xiaomi.push.sdk.MyPushMessageHandler")
                     putExtra(EXTRA_STYLE_TARGET_INTENT, intent)
+                    data = pendingIntentIdentity(pkgName, notificationId, place)
                 },
                 FLAG_IMMUTABLE_UPDATE_CURRENT
             )
             else -> null
         }
     }
+
+    internal fun pendingIntentRequestCode(packageName: String?, notificationId: Int, place: Int): Int =
+        "${packageName.orEmpty()}:$notificationId:$place".hashCode()
+
+    internal fun pendingIntentIdentity(packageName: String, notificationId: Int, place: Int): Uri =
+        Uri.Builder()
+            .scheme("mipush-action")
+            .authority(packageName)
+            .appendPath(notificationId.toString())
+            .appendPath(place.toString())
+            .build()
+
+    internal fun pendingIntentIdentity(
+        packageName: String?,
+        notificationId: Int,
+        discriminator: String,
+    ): Uri = Uri.Builder()
+        .scheme("mipush-action")
+        .authority(packageName?.takeIf { it.isNotBlank() } ?: "unknown")
+        .appendPath(notificationId.toString())
+        .appendPath(discriminator)
+        .build()
+
+    internal fun applyPendingIntentIdentity(
+        intent: Intent,
+        packageName: String?,
+        notificationId: Int,
+        discriminator: String,
+    ) {
+        val identity = pendingIntentIdentity(packageName, notificationId, discriminator)
+        if (intent.data == null) {
+            intent.data = identity
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            intent.identifier = identity.toString()
+        }
+    }
+
+    private fun pendingIntentCategory(packageName: String, notificationId: Int, place: Int): String =
+        "$packageName.mipush_action.$notificationId.$place"
 
     private fun getPendingIntentFromExtra(
         context: Context,

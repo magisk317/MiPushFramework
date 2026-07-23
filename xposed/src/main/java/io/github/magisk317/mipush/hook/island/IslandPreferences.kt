@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
+import android.os.Build
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
 import io.github.magisk317.mipush.common.ISLAND_PREF_AUTHORITY
 import io.github.magisk317.mipush.common.ISLAND_PREF_COLUMN_KEY
@@ -15,13 +16,19 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLED
 import io.github.magisk317.mipush.common.ISLAND_PREF_FIRST_FLOAT
 import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
 import io.github.magisk317.mipush.common.ISLAND_PREF_PATH_FLAGS
+import io.github.magisk317.mipush.common.ISLAND_PREF_READ_PERMISSION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
+import io.github.magisk317.mipush.common.SENSITIVE_DEBUG_LOG_MODE_KEY
 import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.LogSanitizerConfig
 import io.github.magisk317.xposed.currentApplication
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicLong
 
 object IslandPreferences {
     private const val TAG = "IslandPreferences"
@@ -36,6 +43,7 @@ object IslandPreferences {
         ISLAND_PREF_FOCUS_NOTIF,
         COLOR_STATUS_BAR_ICON_KEY,
         COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
+        SENSITIVE_DEBUG_LOG_MODE_KEY,
     )
 
     @Volatile
@@ -43,16 +51,51 @@ object IslandPreferences {
 
     @Volatile
     private var refreshLoopStarted = false
+    private val packageOptions = ConcurrentHashMap<String, IslandOptions>()
+    private val packageRefreshes = ConcurrentHashMap.newKeySet<String>()
+    private val refreshGeneration = AtomicLong()
+    private val refreshExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "MiPushIslandPrefs").apply { isDaemon = true }
+    }
 
     fun current(): IslandOptions = options
 
     fun current(packageName: String?): IslandOptions {
         val pkg = packageName?.takeIf { it.isNotBlank() } ?: return options
-        return readOptions(pkg).getOrNull() ?: options
+        val cached = packageOptions[pkg]
+        if (cached == null && packageRefreshes.add(pkg)) {
+            val generation = refreshGeneration.get()
+            refreshExecutor.execute {
+                readOptions(pkg).onSuccess {
+                    if (refreshGeneration.get() == generation) {
+                        packageOptions[pkg] = it
+                    }
+                }
+                packageRefreshes.remove(pkg)
+            }
+        }
+        // A package-specific opt-out must not inherit a globally enabled focus mode
+        // while the first asynchronous read is still in flight.
+        return cached ?: options.copy(focusNotification = false)
     }
 
     fun refreshNow() {
+        val refresh = prepareRefresh()
+        refreshExecutor.execute {
+            refreshBlocking(refresh.generation)
+            refresh.packageNames.forEach { packageName ->
+                readOptions(packageName).onSuccess {
+                    if (refreshGeneration.get() == refresh.generation) {
+                        packageOptions[packageName] = it
+                    }
+                }
+            }
+        }
+    }
+
+    private fun refreshBlocking(generation: Long) {
         readOptions(packageName = null).onSuccess {
+            if (refreshGeneration.get() != generation) return@onSuccess
             options = it
             XLog.i(
                 TAG,
@@ -65,6 +108,17 @@ object IslandPreferences {
             XLog.w(TAG, "failed to refresh island prefs: ${it.message}")
         }
     }
+
+    internal fun prepareRefresh(): RefreshRequest = RefreshRequest(
+        generation = refreshGeneration.incrementAndGet(),
+        // Keep serving the last package-specific value while its replacement is loaded.
+        packageNames = (packageOptions.keys + packageRefreshes).toSet(),
+    )
+
+    internal data class RefreshRequest(
+        val generation: Long,
+        val packageNames: Set<String>,
+    )
 
     fun startRefreshLoop() {
         if (refreshLoopStarted) return
@@ -79,15 +133,24 @@ object IslandPreferences {
                 while (!registered) {
                     runCatching {
                         val app = currentApplication() ?: return@runCatching
-                        app.registerReceiver(
-                            object : BroadcastReceiver() {
-                                override fun onReceive(context: Context?, intent: Intent?) {
-                                    refreshNow()
-                                }
-                            },
-                            IntentFilter(ACTION_PREF_CHANGED),
-                            Context.RECEIVER_EXPORTED,
-                        )
+                        val receiver = object : BroadcastReceiver() {
+                            override fun onReceive(context: Context?, intent: Intent?) {
+                                refreshNow()
+                            }
+                        }
+                        val filter = IntentFilter(ACTION_PREF_CHANGED)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            app.registerReceiver(
+                                receiver,
+                                filter,
+                                ISLAND_PREF_READ_PERMISSION,
+                                null,
+                                Context.RECEIVER_EXPORTED,
+                            )
+                        } else {
+                            @Suppress("DEPRECATION")
+                            app.registerReceiver(receiver, filter, ISLAND_PREF_READ_PERMISSION, null)
+                        }
                         registered = true
                     }
                     if (!registered) {
@@ -118,9 +181,17 @@ object IslandPreferences {
         }
     }
 
+
     internal fun resetForTest(options: IslandOptions = IslandOptions()) {
         this.options = options
+        packageOptions.clear()
+        packageRefreshes.clear()
+        refreshGeneration.incrementAndGet()
         refreshLoopStarted = false
+    }
+
+    internal fun cachePackageOptionsForTest(packageName: String, options: IslandOptions) {
+        packageOptions[packageName] = options
     }
 
     private fun readOptions(packageName: String?): Result<IslandOptions> = runCatching {
@@ -149,6 +220,10 @@ object IslandPreferences {
             }
         }.orEmpty()
 
+        // Reuse the single provider query above instead of a second readFlag round-trip.
+        val sensitiveDebug = values.booleanValue(SENSITIVE_DEBUG_LOG_MODE_KEY, false)
+        LogSanitizerConfig.syncSensitiveDebugMode(sensitiveDebug)
+
         IslandOptions(
             enabled = values.booleanValue(ISLAND_PREF_ENABLED, true),
             timeoutSecs = values.intValue(ISLAND_PREF_TIMEOUT, 5).coerceAtLeast(1),
@@ -160,6 +235,8 @@ object IslandPreferences {
             colorStatusBarIcon = values.booleanValue(COLOR_STATUS_BAR_ICON_KEY, false),
             colorStatusBarIconGlobal = values.booleanValue(COLOR_STATUS_BAR_ICON_GLOBAL_KEY, false),
         )
+    }.onFailure {
+        LogSanitizerConfig.syncSensitiveDebugMode(null)
     }
 
     private fun Map<String, String>.booleanValue(key: String, default: Boolean): Boolean {

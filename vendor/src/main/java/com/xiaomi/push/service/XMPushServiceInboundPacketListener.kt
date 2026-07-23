@@ -5,7 +5,7 @@ import com.xiaomi.smack.PacketListener
 import com.xiaomi.smack.packet.Packet
 
 class XMPushServiceInboundPacketListener(
-    private val service: XMPushService,
+    private val service: XMPushServiceCore,
 ) : PacketListener {
     override fun process(blob: Blob) {
         service.executeJob(BlobReceiveJob(service, blob))

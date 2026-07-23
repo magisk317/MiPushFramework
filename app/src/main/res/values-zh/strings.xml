@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="manager_ui_unavailable">MiPush 管理器未安装或不可用</string>
+</resources>

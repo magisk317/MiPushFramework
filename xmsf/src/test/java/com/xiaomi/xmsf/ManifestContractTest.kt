@@ -1,5 +1,6 @@
 package com.xiaomi.xmsf
 
+import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -33,6 +34,86 @@ class ManifestContractTest {
     }
 
     @Test
+    fun `manager runtime binder is signature protected and explicitly discoverable`() {
+        val document = parseManifest()
+        val permission = findNodeByAndroidName(
+            document = document,
+            tagName = "permission",
+            androidName = ManagerProtocol.SERVICE_PERMISSION,
+        )
+        val service = findApplicationNodeByAndroidName(
+            document = document,
+            tagName = "service",
+            androidName = ManagerProtocol.RUNTIME_SERVICE_CLASS,
+        )
+
+        assertNotNull(permission)
+        assertEquals("signature", permission!!.getAttributeNS(ANDROID_NS, "protectionLevel"))
+        assertNotNull(service)
+        assertEquals("true", service!!.getAttributeNS(ANDROID_NS, "exported"))
+        assertEquals(ManagerProtocol.SERVICE_PERMISSION, service.getAttributeNS(ANDROID_NS, "permission"))
+        assertEquals("", service.getAttributeNS(ANDROID_NS, "process"))
+        val actions = service.getElementsByTagName("action")
+        assertTrue(
+            (0 until actions.length).any { index ->
+                (actions.item(index) as? Element)?.getAttributeNS(ANDROID_NS, "name") ==
+                    ManagerProtocol.SERVICE_ACTION
+            },
+            "Manager runtime service must expose the versioned explicit bind action",
+        )
+    }
+
+    @Test
+    fun `stock compatibility permissions preserve system image callers`() {
+        val document = parseManifest()
+        listOf(
+            "com.xiaomi.xmsf.permission.MIPUSH_RECEIVE",
+            "com.xiaomi.xmsf.permission.NOTIFICATION_ACTIVE",
+            "com.xiaomi.xmsf.permission.USE_XMSF_UPLOAD",
+            "com.xiaomi.xmsf.permission.USE_XMSF_TRAFFIC",
+            "com.xiaomi.xmsf.permission.READ_XMSF_LOG",
+            "com.xiaomi.xmsf.permission.CHANNEL",
+            "com.xiaomi.push.permission.PUSH_SUPPORT",
+            "com.xiaomi.xmsf.permission.UPDATE_KA_CONFIG",
+        ).forEach { permissionName ->
+            val permission = findNodeByAndroidName(document, "permission", permissionName)
+            assertNotNull(permission, "Missing $permissionName")
+            assertEquals(
+                "signatureOrSystem",
+                permission!!.getAttributeNS(ANDROID_NS, "protectionLevel"),
+                "$permissionName must preserve the stock privileged/system-image caller boundary",
+            )
+        }
+    }
+
+    @Test
+    fun `only gated mipush compatibility ingress services are exported`() {
+        val document = parseManifest()
+
+        assertApplicationNodeAttribute(
+            document,
+            "service",
+            ".push.service.XMPushService",
+            "exported",
+            "true",
+        )
+        assertApplicationNodeAttribute(
+            document,
+            "service",
+            "com.xiaomi.push.service.XMPushService",
+            "exported",
+            "true",
+        )
+        listOf(
+            ".push.service.MiPushFacadeService",
+            "com.xiaomi.xmsf.push.service.CompatXMPushService",
+            "com.xiaomi.push.service.XMPushServiceCore",
+        ).forEach { serviceName ->
+            assertApplicationNodeAttribute(document, "service", serviceName, "exported", "false")
+        }
+    }
+
+    @Test
     fun `stock push providers are restored with stock authorities`() {
         val document = parseManifest()
 
@@ -45,6 +126,33 @@ class ManifestContractTest {
     }
 
     @Test
+    fun `exported stock provider ingress keeps the declared permission gates`() {
+        val document = parseManifest()
+
+        assertApplicationNodeAttribute(
+            document,
+            "provider",
+            "com.xiaomi.xmsf.provider.ChannelProvider",
+            "permission",
+            "com.xiaomi.xmsf.permission.CHANNEL",
+        )
+        assertApplicationNodeAttribute(
+            document,
+            "provider",
+            "com.xiaomi.push.provider.PushSupportProvider",
+            "permission",
+            "com.xiaomi.push.permission.PUSH_SUPPORT",
+        )
+        listOf(
+            "com.xiaomi.xmsf.provider.ChannelProvider",
+            "com.xiaomi.push.provider.PushSupportProvider",
+            "com.xiaomi.xmsf.provider.PushProfileIdProvider",
+        ).forEach { providerName ->
+            assertApplicationNodeAttribute(document, "provider", providerName, "exported", "true")
+        }
+    }
+
+    @Test
     fun `stock bridge and listener services are restored`() {
         val document = parseManifest()
 
@@ -54,6 +162,101 @@ class ManifestContractTest {
         assertApplicationNodeExists(document, "service", "com.xiaomi.xmsf.services.ServiceBoxService")
         assertApplicationNodeExists(document, "service", "com.xiaomi.xmsf.services.keepalive.strategy.KeepAliveConfigService")
         assertApplicationNodeExists(document, "service", "com.xiaomi.xmsf.sync.BindMiCloudPushService")
+    }
+
+    @Test
+    fun `inert compatibility services are internal only`() {
+        val document = parseManifest()
+
+        assertApplicationNodeAttribute(
+            document,
+            "service",
+            "com.xiaomi.xmsf.push.service.StatService",
+            "exported",
+            "false",
+        )
+        assertApplicationNodeAttribute(
+            document,
+            "service",
+            ".push.service.MiuiPushActivateService",
+            "exported",
+            "false",
+        )
+    }
+
+    @Test
+    fun `private diagnostics and push receivers are not externally injectable`() {
+        val document = parseManifest()
+
+        listOf(".ShareLogActivity", ".RemoveDozeActivity").forEach { activityName ->
+            assertApplicationNodeAttribute(document, "activity", activityName, "exported", "false")
+        }
+        listOf(
+            "com.xiaomi.mipush.sdk.PushServiceReceiver",
+            "io.github.magisk317.mipush.receiver.MiuiPushMessageReceiver",
+        ).forEach { receiverName ->
+            assertApplicationNodeAttribute(document, "receiver", receiverName, "exported", "false")
+        }
+    }
+
+    @Test
+    fun `push message handler restores stock receive permission`() {
+        val document = parseManifest()
+
+        assertApplicationNodeAttribute(
+            document,
+            "service",
+            "com.xiaomi.mipush.sdk.PushMessageHandler",
+            "permission",
+            "com.xiaomi.xmsf.permission.MIPUSH_RECEIVE",
+        )
+        assertNotNull(
+            findNodeByAndroidName(
+                document,
+                "uses-permission",
+                "com.xiaomi.xmsf.permission.MIPUSH_RECEIVE",
+            ),
+            "The host package must request its own signature permission for self PendingIntents.",
+        )
+    }
+
+    @Test
+    fun `subprocess bridge is internal only`() {
+        val document = parseManifest()
+
+        assertApplicationNodeAttribute(
+            document,
+            "service",
+            "com.xiaomi.xmsf.services.ServiceBoxService",
+            "exported",
+            "false",
+        )
+    }
+
+    @Test
+    fun `keep alive config service preserves its exported subprocess binder route`() {
+        val document = parseManifest()
+        val service = findApplicationNodeByAndroidName(
+            document,
+            "service",
+            "com.xiaomi.xmsf.services.keepalive.strategy.KeepAliveConfigService",
+        )
+
+        assertNotNull(service)
+        assertEquals("true", service!!.getAttributeNS(ANDROID_NS, "exported"))
+        assertEquals(":services", service.getAttributeNS(ANDROID_NS, "process"))
+        assertEquals(
+            "com.xiaomi.xmsf.permission.UPDATE_KA_CONFIG",
+            service.getAttributeNS(ANDROID_NS, "permission"),
+        )
+        val actions = service.getElementsByTagName("action")
+        assertTrue(
+            (0 until actions.length).any { index ->
+                (actions.item(index) as? Element)?.getAttributeNS(ANDROID_NS, "name") ==
+                    "com.xiaomi.xmsf.service.UPDATE_KA_CONFIG"
+            },
+            "KeepAliveConfigService must retain the stock update action",
+        )
     }
 
     @Test

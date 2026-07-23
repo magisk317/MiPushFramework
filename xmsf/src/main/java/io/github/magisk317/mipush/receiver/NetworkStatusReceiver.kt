@@ -16,7 +16,7 @@ class NetworkStatusReceiver : BroadcastReceiver() {
             action = intent?.action ?: "android.net.conn.CONNECTIVITY_CHANGE",
             source = "NetworkStatusReceiver.onReceive"
         )
-        val serviceIntent = PushRuntimeComponents.newLegacyMainServiceIntent(
+        val serviceIntent = PushRuntimeComponents.newCoreServiceIntent(
             context,
             "com.xiaomi.push.network_status_changed"
         )

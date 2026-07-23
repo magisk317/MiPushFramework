@@ -44,7 +44,7 @@ class XMJobService : Service() {
         override fun onStartJob(params: JobParameters): Boolean {
             MyLog.w("Job started ${params.jobId}")
             startService(
-                Intent(this, XMPushService::class.java).apply {
+                Intent(this, XMPushServiceCore::class.java).apply {
                     action = PushServiceConstants.ACTION_TIMER
                     `package` = packageName
                 },

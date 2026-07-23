@@ -34,15 +34,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import io.github.magisk317.uikit.common.ElevatedSnackbarHost
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -70,11 +68,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.blur.HazeBlurStyle
-import dev.chrisbanes.haze.blur.blurEffect
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.manager.R
@@ -88,6 +81,7 @@ import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.manager.ManagerEvent
 import io.github.magisk317.mipush.common.manager.ManagerEventResult
 import io.github.magisk317.mipush.common.manager.ManagerEventType
+import io.github.magisk317.mipush.common.notification.MockReplayOutcome
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.uikit.surface.AppIconImage
 import io.github.magisk317.mipush.feature.ui.component.RefreshableLazyColumn
@@ -96,11 +90,15 @@ import io.github.magisk317.uikit.surface.DialogActionRow
 import io.github.magisk317.uikit.surface.ScrollToTopFAB
 import io.github.magisk317.uikit.surface.InfoPill
 import io.github.magisk317.uikit.surface.OverlayHeaderScaffold
-import io.github.magisk317.uikit.surface.WorkspaceSearchField
+import io.github.magisk317.uikit.surface.WorkspaceTopBarSearchOverlay
 import io.github.magisk317.uikit.surface.WorkspaceEmptyState
 import io.github.magisk317.uikit.surface.WorkspaceListItem
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 import io.github.magisk317.uikit.scroll.ScrollChromeState
+import io.github.magisk317.uikit.surface.AppBottomSheet
+import io.github.magisk317.uikit.preference.StateSwitchItem
+import io.github.magisk317.uikit.preference.Item as SettingsItem
+import io.github.magisk317.uikit.preference.TextInputDialog
 import io.github.magisk317.mipush.feature.ui.theme.spacing
 import java.time.Instant
 import java.time.ZoneId
@@ -121,8 +119,6 @@ fun EventList(
     refreshSignal: Int = 0,
     groupByApp: Boolean = false,
     viewModel: EventListViewModel = koinViewModel(),
-    hazeState: HazeState? = null,
-    hazeStyle: HazeBlurStyle? = null,
     scrollChromeState: ScrollChromeState? = null,
 ) {
     Page {
@@ -137,6 +133,11 @@ fun EventList(
         var groupMode by rememberSaveable(groupByApp, packageName) { mutableStateOf(groupByApp) }
         val showGroupedByApp = packageName.isEmpty() && groupMode
         val snackbarHostState = remember { SnackbarHostState() }
+        val eventRetentionDays by viewModel.eventRetentionDays.collectAsState()
+        var showListSettingsSheet by rememberSaveable { mutableStateOf(false) }
+        var showRetentionDialog by rememberSaveable { mutableStateOf(false) }
+        var showCleanupDialog by rememberSaveable { mutableStateOf(false) }
+        val retentionError = stringResource(R.string.event_retention_dialog_error)
         val resolvedTitle = remember(packageName) {
             if (packageName.isBlank()) {
                 null
@@ -161,17 +162,7 @@ fun EventList(
             headerOffsetY = scrollChromeState?.animatedHeaderOffsetY ?: 0f,
             onHeaderHeightChanged = { scrollChromeState?.headerHeightPx = it.toFloat() },
             overlayModifier = Modifier
-                .fillMaxWidth()
-                .then(
-                    if (hazeState != null && hazeStyle != null) {
-                        Modifier.hazeEffect(hazeState) {
-                            blurEffect { style = hazeStyle }
-                            forceInvalidateOnPreDraw = true
-                        }
-                    } else {
-                        Modifier
-                    }
-                ),
+                .fillMaxWidth(),
             content = { listPadding ->
                 if (showGroupedByApp) {
                     EventGroupList(
@@ -184,19 +175,23 @@ fun EventList(
                         viewModel = viewModel,
                         selectedTypeFilters = selectedTypeFilters,
                         selectedStatusFilters = selectedStatusFilters,
-                        hazeState = hazeState,
                         scrollChromeState = scrollChromeState,
                         listState = listState,
                     )
                 } else {
-                    var lastId by rememberSaveable(refreshSignal) { mutableStateOf<Long?>(null) }
                     EventList(
                         onClick = { clickedEvent = it },
                         getEvents = { isRefresh ->
-                            if (isRefresh) lastId = null
-                            viewModel.fetchEventsSuspend(isRefresh, lastId, packageName, currentQuery).also { list ->
-                                list.lastOrNull()?.let { lastId = it.id }
+                            val lastId = if (isRefresh) {
+                                null
+                            } else {
+                                viewModel.getEventListSnapshot(
+                                    query = currentQuery,
+                                    packageName = packageName,
+                                    refreshSignal = refreshSignal,
+                                )?.lastId
                             }
+                            viewModel.fetchEventsSuspend(isRefresh, lastId, packageName, currentQuery)
                         },
                         query = currentQuery,
                         packageName = packageName,
@@ -207,8 +202,6 @@ fun EventList(
                         ),
                         selectedTypeFilters = selectedTypeFilters,
                         selectedStatusFilters = selectedStatusFilters,
-                        hazeState = hazeState,
-                        hazeStyle = hazeStyle,
                         snackbarHostState = snackbarHostState,
                         viewModel = viewModel,
                         scrollChromeState = scrollChromeState,
@@ -217,95 +210,116 @@ fun EventList(
                 }
             },
             overlay = {
-                TopAppBar(
-                    title = {
-                        Text(
-                            if (packageName.isNotEmpty()) resolvedTitle ?: packageName else stringResource(R.string.recent_activity_title),
-                        )
+                WorkspaceTopBarSearchOverlay(
+                    title = if (packageName.isNotEmpty()) {
+                        resolvedTitle ?: packageName
+                    } else {
+                        stringResource(R.string.recent_activity_title)
                     },
-                    windowInsets = WindowInsets.statusBars,
+                    searchQuery = currentQuery,
+                    searchPlaceholder = stringResource(android.R.string.search_go),
+                    searchVisible = searchActive,
+                    searchActionContentDescription = stringResource(R.string.action_search),
+                    onSearchActionClick = { searchExpanded = !searchExpanded },
                     actions = {
                         if (packageName.isEmpty()) {
-                            IconButton(onClick = { groupMode = !groupMode }) {
+                            IconButton(onClick = { showListSettingsSheet = true }) {
                                 Icon(
-                                    painter = painterResource(
-                                        if (showGroupedByApp) {
-                                            R.drawable.ic_event_note_black_24dp
-                                        } else {
-                                            R.drawable.ic_apps_black_24dp
-                                        },
-                                    ),
-                                    contentDescription = if (showGroupedByApp) {
-                                        stringResource(R.string.recent_activity_action_show_events)
-                                    } else {
-                                        stringResource(R.string.recent_activity_action_group_by_app)
-                                    },
+                                    painter = painterResource(R.drawable.ic_settings_black_24dp),
+                                    contentDescription = stringResource(R.string.action_list_settings),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         }
-                        IconButton(onClick = { searchExpanded = !searchExpanded }) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_search_24dp),
-                                contentDescription = stringResource(R.string.action_search),
-                                tint = if (searchExpanded || currentQuery.isNotBlank()) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                },
-                            )
-                        }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        scrolledContainerColor = Color.Transparent,
-                    ),
+                    onSearchChange = { currentQuery = it },
                 )
-                if (searchExpanded || currentQuery.isNotBlank()) {
-                    WorkspaceSearchField(
-                        query = currentQuery,
-                        placeholder = stringResource(android.R.string.search_go),
-                        onValueChange = { currentQuery = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = MaterialTheme.spacing.medium),
-                    )
-                }
             }
         )
             val snackbarBottomPadding = contentPadding.calculateBottomPadding() +
                 WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() +
                 MaterialTheme.spacing.medium
-            SnackbarHost(
+            ElevatedSnackbarHost(
                 hostState = snackbarHostState,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(
-                        start = MaterialTheme.spacing.medium,
-                        end = MaterialTheme.spacing.medium,
-                        bottom = snackbarBottomPadding,
-                    ),
-            ) { data ->
-                val dismissState = rememberSwipeToDismissBoxState()
-                LaunchedEffect(dismissState.currentValue, data) {
-                    if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
-                        data.dismiss()
-                    }
-                }
-                SwipeToDismissBox(
-                    state = dismissState,
-                    enableDismissFromStartToEnd = true,
-                    enableDismissFromEndToStart = true,
-                    backgroundContent = {},
-                ) {
-                    DeleteCountdownSnackbar(data)
-                }
-            }
+                bottomPadding = snackbarBottomPadding,
+                modifier = Modifier.padding(
+                    start = MaterialTheme.spacing.medium,
+                    end = MaterialTheme.spacing.medium,
+                ),
+                snackbar = { data -> DeleteCountdownSnackbar(data) },
+            )
             ScrollToTopFAB(
                 listState = listState,
                 visible = snackbarHostState.currentSnackbarData == null && scrollChromeState?.isChromeVisible != true,
                 extraBottomPadding = 80.dp,
             )
+
+            // 列表设置：与 xinyi / xsmscode 记录页拉齐，收进一个设置图标 → 底部 sheet。
+            AppBottomSheet(
+                show = showListSettingsSheet,
+                onDismissRequest = { showListSettingsSheet = false },
+                title = stringResource(R.string.action_list_settings),
+            ) {
+                StateSwitchItem(
+                    title = stringResource(R.string.recent_activity_action_group_by_app),
+                    summary = stringResource(R.string.recent_activity_group_by_app_summary),
+                    checked = groupMode,
+                ) { checked ->
+                    groupMode = checked
+                }
+                SettingsItem(
+                    title = stringResource(R.string.recent_activity_action_retention),
+                    summary = stringResource(R.string.event_retention_summary, eventRetentionDays),
+                ) {
+                    showListSettingsSheet = false
+                    showRetentionDialog = true
+                }
+                SettingsItem(
+                    title = stringResource(R.string.event_cleanup_title),
+                    summary = stringResource(R.string.event_cleanup_summary),
+                ) {
+                    showListSettingsSheet = false
+                    showCleanupDialog = true
+                }
+            }
+
+            if (showRetentionDialog) {
+                TextInputDialog(
+                    title = stringResource(R.string.event_retention_dialog_title),
+                    initialValue = eventRetentionDays.toString(),
+                    supportingText = stringResource(R.string.event_retention_dialog_hint),
+                    onDismiss = { showRetentionDialog = false },
+                    validator = { input ->
+                        val days = input.toIntOrNull()
+                        if (days == null || days < 1) retentionError else null
+                    },
+                ) { input ->
+                    input.toIntOrNull()?.takeIf { it >= 1 }?.let { viewModel.setEventRetentionDays(it) }
+                    showRetentionDialog = false
+                }
+            }
+
+            if (showCleanupDialog) {
+                val cleanupScope = rememberCoroutineScope()
+                val cleanupDoneTemplate = stringResource(R.string.event_cleanup_done)
+                val cleanupNoneMessage = stringResource(R.string.event_cleanup_none)
+                EventCleanupCalendarDialog(
+                    viewModel = viewModel,
+                    onDismiss = { showCleanupDialog = false },
+                    onCleaned = { deleted ->
+                        cleanupScope.launch {
+                            snackbarHostState.currentSnackbarData?.dismiss()
+                            snackbarHostState.showSnackbar(
+                                if (deleted > 0) {
+                                    String.format(cleanupDoneTemplate, deleted)
+                                } else {
+                                    cleanupNoneMessage
+                                },
+                            )
+                        }
+                    },
+                )
+            }
         }
     }
 }
@@ -524,17 +538,17 @@ private fun EventGroupList(
     viewModel: EventListViewModel,
     selectedTypeFilters: Set<EventTypeFilter>,
     selectedStatusFilters: Set<EventStatusFilter>,
-    hazeState: HazeState? = null,
     scrollChromeState: ScrollChromeState? = null,
     listState: androidx.compose.foundation.lazy.LazyListState? = null,
 ) {
     val context = LocalContext.current
-    val groupedItems = remember(query) { mutableStateListOf<EventGroupForDisplay>() }
-    val allEvents = remember(query) { mutableStateListOf<EventInfoForDisplay>() }
-    var lastId by rememberSaveable(query, refreshSignal) { mutableStateOf<Long?>(null) }
-    var hasMore by rememberSaveable(query) { mutableStateOf(true) }
-    var isNeedRefresh by rememberSaveable(query, refreshSignal) { mutableStateOf(true) }
+    val groupedItems = remember { mutableStateListOf<EventGroupForDisplay>() }
+    val allEvents = remember { mutableStateListOf<EventInfoForDisplay>() }
+    var lastId by remember { mutableStateOf<Long?>(null) }
+    var hasMore by remember { mutableStateOf(true) }
+    var isNeedRefresh by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
+
     fun rebuildGroups() {
         val grouped = allEvents
             .filter { it.matchesFilters(selectedTypeFilters, selectedStatusFilters) }
@@ -554,6 +568,26 @@ private fun EventGroupList(
         groupedItems.addAll(grouped)
     }
 
+    // Seed from VM snapshot on tab re-enter; search/query/refreshSignal miss reloads.
+    // Empty-but-loaded snapshots still skip auto-refresh (legitimate empty result).
+    LaunchedEffect(query, refreshSignal) {
+        val snap = viewModel.getEventListSnapshot(query = query, packageName = "", refreshSignal = refreshSignal)
+        if (snap != null) {
+            allEvents.clear()
+            allEvents.addAll(snap.events)
+            lastId = snap.lastId
+            hasMore = snap.hasMore
+            isNeedRefresh = false
+            rebuildGroups()
+        } else {
+            allEvents.clear()
+            lastId = null
+            hasMore = true
+            isNeedRefresh = true
+            rebuildGroups()
+        }
+    }
+
     androidx.compose.runtime.LaunchedEffect(selectedTypeFilters, selectedStatusFilters) {
         rebuildGroups()
     }
@@ -571,6 +605,14 @@ private fun EventGroupList(
             events.lastOrNull()?.let { lastId = it.id }
             hasMore = events.size >= Constants.PAGE_SIZE
             rebuildGroups()
+            viewModel.putEventListSnapshot(
+                query = query,
+                packageName = "",
+                refreshSignal = refreshSignal,
+                events = allEvents.toList(),
+                lastId = lastId,
+                hasMore = hasMore,
+            )
         } finally {
             isLoading = false
         }
@@ -610,7 +652,7 @@ private fun EventGroupList(
         scrollToTopSignal = refreshSignal,
         scrollChromeState = scrollChromeState,
         contentPadding = contentPadding,
-        modifier = if (hazeState != null) Modifier.hazeSource(hazeState) else Modifier,
+        modifier = Modifier,
         listState = listState,
     ) {
         if (groupedItems.isEmpty() && !isLoading) {
@@ -625,7 +667,7 @@ private fun EventGroupList(
             items(groupedItems, key = { it.packageName }) { group ->
                 val updatedAt = friendlyDateString(
                     group.latestDate,
-                    Utils.getUTC(),
+                    Date(),
                     context
                 )
                 WorkspaceListItem(
@@ -698,6 +740,7 @@ private fun EventDetailsDialog(
         )
     }
     val context = LocalContext.current
+    val replayScope = rememberCoroutineScope()
     val canReplayNotification = clickedEvent.event.canReplayNotification()
 
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
@@ -719,14 +762,15 @@ private fun EventDetailsDialog(
                             DialogAction(
                                 label = stringResource(R.string.action_notify),
                                 onClick = {
-                                    if (!viewModel.mockMessage(clickedEvent.event)) {
-                                        Napier.w(
-                                            "Cannot replay event id=${clickedEvent.id} pkg=${clickedEvent.packageName}: container unavailable",
+                                    replayScope.launch {
+                                        val outcome = viewModel.mockMessage(clickedEvent.event)
+                                        Napier.d(
+                                            "Replay event id=${clickedEvent.id} pkg=${clickedEvent.packageName} outcome=$outcome",
                                             tag = "EventListPage",
                                         )
                                         Utils.makeText(
                                             context,
-                                            context.getString(R.string.mock_notification_failed),
+                                            context.getString(outcome.feedbackStringRes()),
                                             0,
                                         )
                                     }
@@ -767,6 +811,13 @@ private fun EventDetailsDialog(
         },
         modifier = Modifier.heightIn(Dp.Unspecified, targetHeight)
     )
+}
+
+internal fun MockReplayOutcome.feedbackStringRes(): Int = when (this) {
+    MockReplayOutcome.BlockedByPermission -> R.string.mock_notification_blocked_by_permission
+    MockReplayOutcome.Dispatched -> R.string.mock_notification_dispatched
+    MockReplayOutcome.Posted -> R.string.mock_notification_posted
+    MockReplayOutcome.Failed -> R.string.mock_notification_failed
 }
 
 private fun buildEventDebugInfo(event: EventInfoForDisplay): String {
@@ -811,8 +862,6 @@ private fun EventList(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     selectedTypeFilters: Set<EventTypeFilter> = emptySet(),
     selectedStatusFilters: Set<EventStatusFilter> = emptySet(),
-    hazeState: HazeState? = null,
-    hazeStyle: HazeBlurStyle? = null,
     snackbarHostState: SnackbarHostState,
     viewModel: EventListViewModel,
     scrollChromeState: ScrollChromeState? = null,
@@ -829,7 +878,39 @@ private fun EventList(
     val refreshScope = rememberCoroutineScope()
     val actionScope = rememberCoroutineScope()
     var isLoading by remember { mutableStateOf(false) }
-    var hasMore by rememberSaveable(query, packageName) { mutableStateOf(true) }
+    var hasMore by remember { mutableStateOf(true) }
+    var isNeedRefresh by remember { mutableStateOf(false) }
+
+    fun persistSnapshot() {
+        viewModel.putEventListSnapshot(
+            query = query,
+            packageName = packageName,
+            refreshSignal = refreshSignal,
+            events = items.toList(),
+            lastId = items.lastOrNull()?.id,
+            hasMore = hasMore,
+        )
+    }
+
+    // Tab re-enter: restore VM snapshot. Search/package/refreshSignal change: reload.
+    LaunchedEffect(query, packageName, refreshSignal) {
+        val snap = viewModel.getEventListSnapshot(
+            query = query,
+            packageName = packageName,
+            refreshSignal = refreshSignal,
+        )
+        if (snap != null) {
+            items.clear()
+            items.appendDistinct(snap.events)
+            hasMore = snap.hasMore
+            isNeedRefresh = false
+        } else {
+            items.clear()
+            hasMore = true
+            isNeedRefresh = true
+        }
+    }
+
     val doLoadMore: (onRefreshed: () -> Unit) -> Unit = doLoadMore@{ onRefreshed ->
         if (isLoading || !hasMore) {
             onRefreshed()
@@ -837,17 +918,16 @@ private fun EventList(
         }
         isLoading = true
         refreshScope.launch {
-            val loaded = getEvents(items.isEmpty())
+            val loaded = getEvents(false)
             withContext(Dispatchers.Main) {
                 items.appendDistinct(loaded)
                 hasMore = loaded.size >= Constants.PAGE_SIZE
+                persistSnapshot()
                 isLoading = false
                 onRefreshed()
             }
         }
     }
-    val shouldRefresh = items.isEmpty() || query.isNotEmpty() || packageName.isNotEmpty() || refreshSignal > 0
-    var isNeedRefresh by rememberSaveable(query, packageName, refreshSignal) { mutableStateOf(shouldRefresh) }
     val doRefresh: (onRefreshed: () -> Unit) -> Unit = doRefresh@{ onRefreshed ->
         if (isLoading) {
             onRefreshed()
@@ -860,6 +940,7 @@ private fun EventList(
                 items.clear()
                 items.appendDistinct(elements)
                 hasMore = elements.size >= Constants.PAGE_SIZE
+                persistSnapshot()
                 isLoading = false
                 isNeedRefresh = false
                 onRefreshed()
@@ -874,6 +955,7 @@ private fun EventList(
         val key = item.composeKey()
         val insertAt = items.indexOfFirst { it.composeKey() == key }.coerceAtLeast(0)
         items.removeAll { it.composeKey() == key }
+        persistSnapshot()
 
         actionScope.launch {
             viewModel.deleteEvent(item)
@@ -887,6 +969,7 @@ private fun EventList(
                 viewModel.restoreEvent(item)?.let { restored ->
                     val idx = insertAt.coerceIn(0, items.size)
                     items.add(idx, restored)
+                    persistSnapshot()
                 }
             }
         }
@@ -900,11 +983,7 @@ private fun EventList(
         scrollToTopSignal = refreshSignal,
         scrollChromeState = scrollChromeState,
         contentPadding = contentPadding,
-        modifier = if (hazeState != null) {
-            Modifier.hazeSource(hazeState)
-        } else {
-            Modifier
-        },
+        modifier = Modifier,
         listState = listState,
     ) {
         if (filteredItems.isEmpty() && !isLoading) {

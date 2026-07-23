@@ -8,6 +8,7 @@ import android.database.MatrixCursor
 import android.net.Uri
 import android.os.Binder
 import android.os.Process
+import io.github.magisk317.xposed.logging.PackageCallerGuard
 import io.github.magisk317.mipush.common.ISLAND_PREF_AUTHORITY
 import io.github.magisk317.mipush.common.ISLAND_PREF_COLUMN_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_COLUMN_PACKAGE
@@ -18,20 +19,29 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_FIRST_FLOAT
 import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
+import io.github.magisk317.mipush.common.SENSITIVE_DEBUG_LOG_MODE_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_PATH_FLAGS
 import io.github.magisk317.mipush.common.ISLAND_PREF_READ_PERMISSION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
-import io.github.magisk317.mipush.data.PreferenceRepository
-import io.github.magisk317.mipush.data.dataStore
-import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import io.github.magisk317.mipush.notification.IslandOptionsSnapshotReader
 
 class IslandPreferenceProvider : ContentProvider() {
     private companion object {
         private const val SYSTEM_UI_PACKAGE = "com.android.systemui"
+        private const val AMAP_PACKAGE = "com.autonavi.minimap"
+        private val systemUiCallerGuard = PackageCallerGuard(setOf(SYSTEM_UI_PACKAGE))
+        private val amapCallerGuard = PackageCallerGuard(
+            allowedPackages = setOf(AMAP_PACKAGE),
+            requireSystemPackage = false,
+        )
+    }
+
+    private enum class CallerAccess {
+        FULL,
+        FOCUS_BYPASS_ONLY,
+        DENIED,
     }
 
     private val keys = listOf(
@@ -44,6 +54,7 @@ class IslandPreferenceProvider : ContentProvider() {
         ISLAND_PREF_FOCUS_NOTIF,
         COLOR_STATUS_BAR_ICON_KEY,
         COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
+        SENSITIVE_DEBUG_LOG_MODE_KEY,
     )
 
     override fun onCreate(): Boolean = true
@@ -58,42 +69,29 @@ class IslandPreferenceProvider : ContentProvider() {
         if (uri.authority != ISLAND_PREF_AUTHORITY || uri.lastPathSegment != ISLAND_PREF_PATH_FLAGS) {
             return null
         }
-        if (!isAuthorizedCaller()) {
+        val appContext = context?.applicationContext ?: return null
+        val callerAccess = resolveCallerAccess(appContext)
+        if (callerAccess == CallerAccess.DENIED) {
             return null
         }
-        val appContext = context?.applicationContext ?: return null
-        val repository = PreferenceRepository(appContext.dataStore)
-        val requestedKeys = selectionArgs?.filter { it in keys }?.takeIf { it.isNotEmpty() } ?: keys
-        val packageName = uri.getQueryParameter(ISLAND_PREF_COLUMN_PACKAGE)
-            ?.takeIf { it.isNotBlank() }
-            ?: uri.getQueryParameter("package")
+        val requestedKeys = preferenceKeysForCaller(
+            focusBypassOnly = callerAccess == CallerAccess.FOCUS_BYPASS_ONLY,
+            selectionArgs = selectionArgs,
+        )
+        val packageName = if (callerAccess == CallerAccess.FOCUS_BYPASS_ONLY) {
+            // The app-process bridge needs only the global authorization switch. Never expose
+            // registered-app focus state through a caller-controlled package query.
+            null
+        } else {
+            uri.getQueryParameter(ISLAND_PREF_COLUMN_PACKAGE)
                 ?.takeIf { it.isNotBlank() }
+                ?: uri.getQueryParameter("package")
+                    ?.takeIf { it.isNotBlank() }
+        }
 
         return MatrixCursor(arrayOf(ISLAND_PREF_COLUMN_KEY, ISLAND_PREF_COLUMN_VALUE)).apply {
-            val flags = runCatching {
-                runBlocking {
-                    val globalEnabled = repository.islandEnabled.first()
-                    val globalFocusNotification = repository.islandFocusNotification.first()
-                    val appEnabled = packageName?.let(RegisteredApplicationDb::getIslandEnabled)
-                    val appFocusNotification = packageName?.let(
-                        RegisteredApplicationDb::getIslandFocusNotificationEnabled
-                    )
-                    mapOf(
-                        ISLAND_PREF_ENABLED to (globalEnabled && (appEnabled ?: true)).toFlagValue(),
-                        ISLAND_PREF_TIMEOUT to repository.islandTimeout.first().coerceAtLeast(1).toString(),
-                        ISLAND_PREF_FIRST_FLOAT to repository.islandFirstFloat.first().toFlagValue(),
-                        ISLAND_PREF_ENABLE_FLOAT to repository.islandEnableFloat.first().toFlagValue(),
-                        ISLAND_PREF_SHOW_NOTIFICATION to repository.islandShowNotification.first().toFlagValue(),
-                        ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION to repository.islandShowOriginalNotification.first().toFlagValue(),
-                        ISLAND_PREF_FOCUS_NOTIF to (
-                            globalFocusNotification &&
-                                (appFocusNotification ?: false)
-                            ).toFlagValue(),
-                        COLOR_STATUS_BAR_ICON_KEY to repository.colorStatusBarIcon.first().toFlagValue(),
-                        COLOR_STATUS_BAR_ICON_GLOBAL_KEY to repository.colorStatusBarIconGlobal.first().toFlagValue(),
-                    )
-                }
-            }.getOrDefault(defaultFlags())
+            val snapshot = IslandOptionsSnapshotReader.read(appContext, packageName)
+            val flags = snapshot.options.toPreferenceFlags(snapshot.sensitiveDebugLogMode)
             requestedKeys.forEach { key ->
                 addRow(arrayOf(key, flags.getValue(key)))
             }
@@ -108,30 +106,36 @@ class IslandPreferenceProvider : ContentProvider() {
 
     override fun getType(uri: Uri): String? = null
 
-    private fun isAuthorizedCaller(): Boolean {
-        val appContext = context ?: return false
+    private fun resolveCallerAccess(appContext: android.content.Context): CallerAccess {
         val callingUid = Binder.getCallingUid()
-        if (callingUid == Process.myUid() || callingUid == Process.SYSTEM_UID || callingUid == Process.ROOT_UID) {
-            return true
+        if (callingUid == Process.ROOT_UID || systemUiCallerGuard.isCallerAllowed(appContext)) {
+            return CallerAccess.FULL
         }
-        val packages = appContext.packageManager.getPackagesForUid(callingUid).orEmpty()
-        if (SYSTEM_UI_PACKAGE in packages) {
-            return true
+        if (appContext.checkCallingPermission(ISLAND_PREF_READ_PERMISSION) == PackageManager.PERMISSION_GRANTED) {
+            return CallerAccess.FULL
         }
-        return appContext.checkCallingPermission(ISLAND_PREF_READ_PERMISSION) == PackageManager.PERMISSION_GRANTED
+        return if (amapCallerGuard.isCallerAllowed(appContext)) {
+            CallerAccess.FOCUS_BYPASS_ONLY
+        } else {
+            CallerAccess.DENIED
+        }
     }
 
-    private fun Boolean.toFlagValue(): String = if (this) "1" else "0"
+    internal fun preferenceKeysForCaller(
+        focusBypassOnly: Boolean,
+        selectionArgs: Array<out String>?,
+    ): List<String> {
+        val allowedKeys = if (focusBypassOnly) listOf(ISLAND_PREF_FOCUS_NOTIF) else keys
+        return if (selectionArgs.isNullOrEmpty()) {
+            allowedKeys
+        } else {
+            selectionArgs.filter { it in allowedKeys }
+        }
+    }
 
-    private fun defaultFlags(): Map<String, String> = mapOf(
-        ISLAND_PREF_ENABLED to true.toFlagValue(),
-        ISLAND_PREF_TIMEOUT to "5",
-        ISLAND_PREF_FIRST_FLOAT to true.toFlagValue(),
-        ISLAND_PREF_ENABLE_FLOAT to true.toFlagValue(),
-        ISLAND_PREF_SHOW_NOTIFICATION to true.toFlagValue(),
-        ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION to true.toFlagValue(),
-        ISLAND_PREF_FOCUS_NOTIF to false.toFlagValue(),
-        COLOR_STATUS_BAR_ICON_KEY to false.toFlagValue(),
-        COLOR_STATUS_BAR_ICON_GLOBAL_KEY to false.toFlagValue(),
-    )
+    internal fun isTrustedSystemUiPackage(packageName: String, flags: Int): Boolean =
+        systemUiCallerGuard.isPackageAllowed(packageName, flags)
+
+    internal fun isTrustedAmapPackage(packageName: String, flags: Int): Boolean =
+        amapCallerGuard.isPackageAllowed(packageName, flags)
 }

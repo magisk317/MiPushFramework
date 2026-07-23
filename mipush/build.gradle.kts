@@ -4,10 +4,11 @@ plugins {
     id("magisk.android.application")
     id("magisk.app.signing")
     id("magisk.app.packaging")
+    id("magisk.android.compose")
     alias(libs.plugins.kotlin.parcelize)
 }
 
-extra["mipushArtifactBaseName"] = "MiPush"
+extra["artifactBaseName"] = "MiPush"
 
 android {
     namespace = "io.github.magisk317.mipush.app"
@@ -24,6 +25,7 @@ android {
         versionName = verName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        missingDimensionStrategy("version", "normal")
     }
 
     buildTypes {
@@ -36,12 +38,18 @@ android {
 
     buildFeatures {
         buildConfig = true
+        compose = true
     }
 }
 
 dependencies {
     implementation(project(":common"))
+    implementation(project(":manager"))
+    implementation(project(":manager-client"))
     implementation(project(":xposed"))
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.koin.android)
+    implementation(libs.androidx.datastore.preferences)
 
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)

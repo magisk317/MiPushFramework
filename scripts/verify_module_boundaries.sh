@@ -18,12 +18,18 @@ tmp_forbidden_deps="$(mktemp)"
 trap 'rm -f "$tmp_current" "$tmp_baseline" "$tmp_new" "$tmp_stale" "$tmp_forbidden_deps"' EXIT
 
 required_deep_xiaomi_scan_roots=(
+  "manager-api/src/main/aidl"
+  "manager-api/src/main/java"
+  "manager-client/src/main/java"
   "manager/src/main/java"
   "settings/src/main/java"
   "xmsf/src/main/java/io/github/magisk317/mipush/app"
 )
 
 required_manager_app_scan_roots=(
+  "manager-api/src/main/aidl"
+  "manager-api/src/main/java"
+  "manager-client/src/main/java"
   "manager/src/main/java"
   "settings/src/main/java"
 )
@@ -103,9 +109,19 @@ for build_file in "manager/build.gradle.kts" "settings/build.gradle.kts"; do
   fi
 done
 
+for build_file in "manager-api/build.gradle.kts" "manager-client/build.gradle.kts"; do
+  if [ -f "$build_file" ]; then
+    rg -n 'project\(":(common|core|pinned|settings|vendor|xmsf)"\)' "$build_file" \
+      | while IFS=: read -r path _line import_line; do
+        [ -n "${path:-}" ] || continue
+        printf '%s|%s\n' "$path" "$import_line"
+      done >> "$tmp_forbidden_deps" || true
+  fi
+done
+
 if [ -s "$tmp_forbidden_deps" ]; then
-  echo "Manager/settings build scripts contain forbidden project dependencies." >&2
-  echo "Manager/settings should only depend on shared contracts, core/common/settings, and ui-kit." >&2
+  echo "Manager boundary build scripts contain forbidden project dependencies." >&2
+  echo "Manager UI may use shared contracts; manager-api/client must stay independent of runtime implementations." >&2
   echo >&2
   cat "$tmp_forbidden_deps" >&2
   exit 1

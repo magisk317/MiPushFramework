@@ -4,10 +4,10 @@
 
     <permission
             android:name="com.xiaomi.xmsf.permission.MIPUSH_RECEIVE"
-            android:protectionLevel="signature" />
+            android:protectionLevel="signatureOrSystem" />
     <permission
             android:name="com.xiaomi.xmsf.permission.NOTIFICATION_ACTIVE"
-            android:protectionLevel="signature" />
+            android:protectionLevel="signatureOrSystem" />
     <permission
             android:name="com.xiaomi.xmsf.permission.BIND_HTTP_SERVICE"
             android:protectionLevel="signature" />
@@ -16,33 +16,37 @@
             android:protectionLevel="signature" />
     <permission
             android:name="com.xiaomi.xmsf.permission.USE_XMSF_UPLOAD"
-            android:protectionLevel="signature" />
+            android:protectionLevel="signatureOrSystem" />
     <permission
             android:name="com.xiaomi.xmsf.permission.USE_XMSF_TRAFFIC"
-            android:protectionLevel="signature" />
+            android:protectionLevel="signatureOrSystem" />
     <permission
             android:name="com.xiaomi.xmsf.permission.READ_XMSF_LOG"
-            android:protectionLevel="signature" />
+            android:protectionLevel="signatureOrSystem" />
     <permission
             android:name="com.xiaomi.xmsf.permission.CHANNEL"
-            android:protectionLevel="signature" />
+            android:protectionLevel="signatureOrSystem" />
     <permission
             android:name="com.xiaomi.push.permission.PUSH_SUPPORT"
-            android:protectionLevel="signature" />
+            android:protectionLevel="signatureOrSystem" />
     <permission
             android:name="com.xiaomi.xmsf.permission.UPDATE_KA_CONFIG"
-            android:protectionLevel="signature" />
+            android:protectionLevel="signatureOrSystem" />
     <permission
             android:name="com.xiaomi.xmsf.permission.READ_KEEPALIVE_PREFS"
             android:protectionLevel="signature" />
     <permission
             android:name="com.xiaomi.xmsf.permission.READ_ISLAND_PREFS"
             android:protectionLevel="signature" />
+    <permission
+            android:name="com.xiaomi.xmsf.permission.BIND_MANAGER_RUNTIME"
+            android:protectionLevel="signature" />
 
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="com.xiaomi.xmsf.permission.MIPUSH_RECEIVE" />
     <uses-permission android:name="com.xiaomi.xmsf.permission.NOTIFICATION_ACTIVE" />
     <uses-permission android:name="com.xiaomi.xmsf.permission.USE_XMSF_UPLOAD" />
+    <uses-permission android:name="com.xiaomi.xmsf.permission.READ_ISLAND_PREFS" />
     <uses-permission android:name="com.xiaomi.permission.SEND_PUSH" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission
@@ -118,50 +122,15 @@
 
         <activity
                 android:name=".ShareLogActivity"
-                android:exported="true" />
+                android:exported="false" />
         <activity
                 android:name=".RemoveDozeActivity"
-                android:exported="true" />
+                android:exported="false" />
 
-        <!-- Compat entry for legacy callers that resolve com.xiaomi.push.service.XMPushService -->
+        <!-- Internal compatibility entry; external SDK traffic uses the gated XMPushService below. -->
         <service
                 android:name="com.xiaomi.xmsf.push.service.CompatXMPushService"
                 android:foregroundServiceType="remoteMessaging"
-                tools:ignore="ExportedService"
-                android:exported="true" />
-        <activity
-                android:name="io.github.magisk317.mipush.feature.wizard.WelcomeActivity"
-                android:icon="@mipmap/ic_launcher"
-                android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-        <activity
-                android:name="io.github.magisk317.mipush.feature.wizard.RequestPermissionPage"
-                android:exported="false" />
-
-        <activity
-                android:name="io.github.magisk317.mipush.feature.main.MainActivity"
-                android:exported="false" />
-
-        <activity
-                android:name="io.github.magisk317.mipush.feature.main.ApplicationInfoPage"
-                android:configChanges="screenLayout|screenSize|orientation"
-                android:exported="false" />
-        <activity
-                android:name="io.github.magisk317.mipush.feature.main.ZygiskConfigPage"
-                android:exported="false" />
-
-        <activity
-                android:name="io.github.magisk317.mipush.feature.main.RecentEventListPage"
-                android:label="@string/recent_activity_title"
-                android:exported="false" />
-        <activity
-                android:name="io.github.magisk317.mipush.feature.main.HelpPage"
-                android:label="@string/helplib_title"
-                android:theme="@style/AppTheme"
                 android:exported="false" />
 
         <provider
@@ -282,7 +251,7 @@
         <!-- Fixed ManifestChecker crash: Add PushServiceReceiver -->
         <receiver
                 android:name="com.xiaomi.mipush.sdk.PushServiceReceiver"
-                android:exported="true">
+                android:exported="false">
             <intent-filter>
                 <action android:name="com.xiaomi.mipush.RECEIVE_MESSAGE" />
             </intent-filter>
@@ -296,8 +265,7 @@
 
         <receiver
                 android:name="io.github.magisk317.mipush.receiver.MiuiPushMessageReceiver"
-                tools:ignore="ExportedReceiver"
-                android:exported="true">
+                android:exported="false">
             <intent-filter>
                 <action android:name="com.xiaomi.mipush.RECEIVE_MESSAGE" />
             </intent-filter>
@@ -317,6 +285,13 @@
             </intent-filter>
         </receiver>
 
+        <receiver
+                android:name="io.github.magisk317.mipush.notification.LiveUpdateDismissReceiver"
+                android:exported="false">
+            <intent-filter>
+                <action android:name="io.github.magisk317.mipush.action.LIVE_UPDATE_DISMISSED" />
+            </intent-filter>
+        </receiver>
         <receiver
                 android:name="io.github.magisk317.mipush.receiver.NotificationEventReceiver"
                 android:exported="true"
@@ -357,8 +332,7 @@
                 android:exported="true" />
         <service
                 android:name="com.xiaomi.xmsf.push.service.StatService"
-                tools:ignore="ExportedService"
-                android:exported="true" />
+                android:exported="false" />
         <service
                 android:name="com.xiaomi.xmsf.push.service.notificationcollection.NotificationListener"
                 android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
@@ -372,9 +346,16 @@
                 android:enabled="true"
                 android:exported="false" />
         <service
-                android:name="com.xiaomi.xmsf.services.ServiceBoxService"
+                android:name="io.github.magisk317.mipush.manager.runtime.ManagerRuntimeService"
                 android:exported="true"
-                tools:ignore="ExportedService"
+                android:permission="com.xiaomi.xmsf.permission.BIND_MANAGER_RUNTIME">
+            <intent-filter>
+                <action android:name="io.github.magisk317.mipush.action.BIND_MANAGER_RUNTIME" />
+            </intent-filter>
+        </service>
+        <service
+                android:name="com.xiaomi.xmsf.services.ServiceBoxService"
+                android:exported="false"
                 android:process=":services" />
         <service
                 android:name="com.xiaomi.xmsf.services.keepalive.strategy.KeepAliveConfigService"
@@ -398,8 +379,7 @@
         <service
                 android:name=".push.service.MiPushFacadeService"
                 android:foregroundServiceType="remoteMessaging"
-                tools:ignore="ExportedService"
-                android:exported="true" />
+                android:exported="false" />
         <service
                 android:name=".push.service.XMPushService"
                 android:foregroundServiceType="remoteMessaging"
@@ -410,12 +390,17 @@
                 android:foregroundServiceType="remoteMessaging"
                 tools:ignore="ExportedService"
                 android:exported="true" />
+        <service
+                android:name="com.xiaomi.push.service.XMPushServiceCore"
+                android:foregroundServiceType="remoteMessaging"
+                android:exported="false" />
 
 
         <!--app -->
 
         <service
                 android:name="com.xiaomi.mipush.sdk.PushMessageHandler"
+                android:permission="com.xiaomi.xmsf.permission.MIPUSH_RECEIVE"
                 android:enabled="true"
                 tools:ignore="ExportedService"
                 android:exported="true" />
@@ -430,8 +415,7 @@
 
         <service
                 android:name=".push.service.MiuiPushActivateService"
-                tools:ignore="ExportedService"
-                android:exported="true" />
+                android:exported="false" />
 
         <service
                 android:name="com.xiaomi.push.sdk.MyPushMessageHandler"

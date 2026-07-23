@@ -1,5 +1,7 @@
 package io.github.magisk317.mipush.hook.island
 
+import android.os.Bundle
+
 object IslandDispatchContract {
     const val SYSTEM_UI_PACKAGE = "com.android.systemui"
     const val ACTION_SHOW = "io.github.magisk317.mipush.action.SHOW_ISLAND"
@@ -11,9 +13,13 @@ object IslandDispatchContract {
     const val DEFAULT_NOTIFICATION_ID = 0x4d495049
 
     const val FOCUS_PARAM = "miui.focus.param"
+    const val FOCUS_REMOTE_VIEW = "miui.focus.rv"
     const val SOURCE_PACKAGE = "hyperisland_source_pkg"
     const val SOURCE_CHANNEL = "hyperisland_source_channel"
     const val OWNER = "hyperisland.owner"
     const val OWNER_MARKER = "io.github.magisk317.mipush"
     const val PROCESSED = "mipush_island_processed"
+
+    fun hasNativeFocusPayload(extras: Bundle): Boolean =
+        extras.containsKey(FOCUS_PARAM) || extras.containsKey(FOCUS_REMOTE_VIEW)
 }

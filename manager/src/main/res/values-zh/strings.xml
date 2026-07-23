@@ -74,6 +74,8 @@
     <string name="debug_test_content">这是%1$s测试内容</string>
     <string name="settings_debug_mode">启用调试模式</string>
     <string name="settings_debug_mode_summary">通知中展示调试动作，打印完整日志</string>
+    <string name="settings_sensitive_debug_log_mode">敏感调试日志</string>
+    <string name="settings_sensitive_debug_log_mode_summary">开启后日志可能输出 token、regId、设备标识等明文。默认关闭（脱敏）。</string>
     <string name="settings_show_all_events">事件列表中展示所有事件</string>
     <string name="pref_color_status_bar_icon_title">状态栏彩色图标</string>
     <string name="pref_color_status_bar_icon_summary">配置 MiPush 相关通知和全局状态栏图标颜色策略</string>
@@ -81,6 +83,9 @@
     <string name="pref_color_status_bar_icon_mipush_summary">关闭后，MiPush 管理的状态栏图标将显示为单色</string>
     <string name="pref_color_status_bar_icon_global_title">强力模式</string>
     <string name="pref_color_status_bar_icon_global_summary">所有状态栏通知图标都跟随同一个彩色/单色设置</string>
+    <string name="pref_color_status_bar_icon_restart_title">需要重启手机</string>
+    <string name="pref_color_status_bar_icon_restart_message">修改此项会重启手机，否则状态栏彩色图标策略不会在系统侧完整生效。</string>
+    <string name="pref_color_status_bar_icon_restart_confirm">应用并重启手机</string>
     <string name="settings_switch_enabled_feedback">%1$s：已开启</string>
     <string name="settings_switch_disabled_feedback">%1$s：已关闭</string>
     <string name="settings_start_foreground_service">推送服务保活</string>
@@ -261,23 +266,12 @@
     <string name="settings_get_log_summary">构建并分享日志包用于调试。</string>
     <string name="settings_runtime_log_retention_days">日志保留天数</string>
     <string name="settings_runtime_log_retention_days_summary">按天轮转，保留最近 %1$d 天日志</string>
-    <string name="settings_runtime_log_retention_days_hint">单位：天，最小值 1，默认 7。</string>
+    <string name="settings_runtime_log_retention_days_hint">单位：天，最小值 1，默认 2。</string>
     <string name="settings_runtime_log_retention_days_error">请输入大于等于 1 的整数。</string>
-    <string name="runtime_log_viewer_title">调试日志</string>
     <string name="runtime_log_export_failed">导出失败：%1$s</string>
     <string name="runtime_log_share_failed">分享失败：%1$s</string>
     <string name="runtime_log_cleared">日志与崩溃文件已清空</string>
     <string name="runtime_log_clear_partial_failed">部分清空失败：%1$s</string>
-    <string name="runtime_log_info_loading">正在加载日志...</string>
-    <string name="runtime_log_info_empty">暂无运行日志</string>
-    <string name="runtime_log_info_summary">文件：%1$d 个，条目：%2$d</string>
-    <string name="runtime_log_info_range">范围：%1$s - %2$s</string>
-    <string name="runtime_log_info_preview_title">最近日志</string>
-    <string name="runtime_log_action_wrap">换行</string>
-    <string name="runtime_log_action_no_wrap">不换行</string>
-    <string name="runtime_log_action_format">格式化</string>
-    <string name="runtime_log_action_compact">压缩</string>
-    <string name="runtime_log_delete_failed">删除失败：%1$s</string>
     <string name="runtime_log_clear_confirm_title">清空日志</string>
     <string name="runtime_log_clear_confirm_message">确认要清空所有日志和崩溃文件吗？</string>
     <string name="runtime_log_clear_summary">清空所有运行日志和崩溃文件</string>
@@ -302,6 +296,31 @@
     <string name="recent_activity_mode_stream">事件流</string>
     <string name="recent_activity_action_show_events">显示事件流</string>
     <string name="recent_activity_action_group_by_app">按应用分组</string>
+    <string name="recent_activity_group_by_app_summary">把记录按来源应用聚合展示。</string>
+    <string name="recent_activity_action_retention">保留期限</string>
+    <string name="event_retention_dialog_title">记录保留期限</string>
+    <string name="event_retention_dialog_hint">保留最近多少天的事件记录（注册状态记录始终保留）。</string>
+    <string name="event_retention_dialog_error">请输入不小于 1 的天数。</string>
+    <string name="event_retention_summary">当前保留最近 %1$d 天</string>
+    <string name="event_cleanup_title">清理记录</string>
+    <string name="event_cleanup_summary">按日历选择清理某天或某天之前的记录</string>
+    <string name="event_cleanup_calendar_hint">有记录的日期已高亮，数字为当天可清理条数。</string>
+    <string name="event_cleanup_preset_7">清理 7 天前</string>
+    <string name="event_cleanup_preset_30">清理 30 天前</string>
+    <string name="event_cleanup_preset_all">清理全部</string>
+    <string name="event_cleanup_month_summary">本月共 %1$d 条可清理记录</string>
+    <string name="event_cleanup_day_count">%1$d</string>
+    <string name="event_cleanup_selected_day">%1$s · %2$d 条记录</string>
+    <string name="event_cleanup_day_only">仅清理当天（%1$s）</string>
+    <string name="event_cleanup_day_and_before">清理此日期及之前（%1$s 起）</string>
+    <string name="event_cleanup_confirm_title">确认清理</string>
+    <string name="event_cleanup_confirm_day_only">将删除 %1$s 当天的 %2$d 条记录，注册状态记录会保留。此操作不可撤销。</string>
+    <string name="event_cleanup_confirm_before">将删除 %1$s 及之前的 %2$d 条记录，注册状态记录会保留。此操作不可撤销。</string>
+    <string name="event_cleanup_confirm_all">将删除全部 %1$d 条记录，注册状态记录会保留。此操作不可撤销。</string>
+    <string name="event_cleanup_done">已清理 %1$d 条记录</string>
+    <string name="event_cleanup_none">没有可清理的记录</string>
+    <string name="event_cleanup_prev_month">上个月</string>
+    <string name="event_cleanup_next_month">下个月</string>
     <string name="recent_activity_group_count">%1$d 条记录</string>
     <string name="recent_activity_updated_at">更新于 %1$s</string>
     <string name="recent_activity_disabled_label">已禁用</string>
@@ -396,6 +415,9 @@
     <string name="force_register_sent">已发送强制注册请求</string>
     <string name="force_register_failed">强制注册失败，请查看日志</string>
     <string name="mock_notification_missing_regsec">无法重放这条加密推送：缺少注册密钥（regSec）。请先让应用重新注册后再试。</string>
+    <string name="mock_notification_blocked_by_permission">重放被应用设置或通知权限拦截。</string>
+    <string name="mock_notification_dispatched">重放已分发；当前运行路径无法确认通知最终发布。</string>
+    <string name="mock_notification_posted">重放通知已发布。</string>
     <string name="mock_notification_failed">重放推送失败，请查看日志。</string>
     <string name="mock_notification_no_receiver">重放预检：目标应用没有匹配此推送的接收器。</string>
     <string name="settings_home_service_title">服务与权限</string>
@@ -436,6 +458,16 @@
     <string name="app_list_stats_not_registered">未注册成功</string>
     <string name="app_list_hero_title">应用接入概览</string>
     <string name="app_list_hero_summary">当前扫描到 %1$d / %2$d 个应用具备 MiPush 接入面。</string>
+    <string name="action_list_settings">列表设置</string>
+    <string name="action_show_system_apps">显示系统应用</string>
+    <string name="notification_channels_section_mipush">MiPush 渠道</string>
+    <string name="notification_channels_section_native">应用原生渠道</string>
+    <string name="notification_channels_section_mipush_summary">由 MiPush 为该应用创建或使用的通知渠道。</string>
+    <string name="notification_channels_section_native_summary">目标应用自身拥有的通知渠道。</string>
+    <string name="notification_channels_managed_badge">MiPush</string>
+    <string name="notification_channels_native_badge">原生</string>
+    <string name="notification_settings_owner_xmsf">由 XMSF 包代管</string>
+    <string name="notification_settings_owner_target">归属目标应用包</string>
     <string name="app_list_item_delivery_active">近期活跃</string>
     <string name="app_list_item_delivery_idle">等待触发</string>
     <string name="app_detail_force_register">启动并强制注册</string>
@@ -532,7 +564,7 @@
     <string name="pref_island_show_original_notification_title">显示原通知</string>
     <string name="pref_island_show_original_notification_summary">展示超级岛时仍保留源应用通知。</string>
     <string name="pref_island_focus_notif_title">焦点认证绕过</string>
-    <string name="pref_island_focus_notif_summary">允许生成的焦点通知参数通过 XMSF 焦点认证。</string>
+    <string name="pref_island_focus_notif_summary">允许所有应用的焦点通知绕过 SystemUI 和 XMSF 认证。</string>
 
     <string name="mock_target_package">目标包名</string>
     <string name="mock_group_notification_shade">通知栏</string>
@@ -563,5 +595,15 @@
     <string name="mock_live_update_delivery_desc">骑手已取餐，预计15分钟送达</string>
     <string name="mock_live_update_ride_title">司机正在前往上车点</string>
     <string name="mock_live_update_ride_desc">距您约500米，预计3分钟到达</string>
+
+
+    <string name="settings_launcher_icon">应用图标</string>
+    <string name="settings_launcher_icon_summary">影响桌面与多任务图标。系统「应用管理」使用安装时的包图标，无法随切换变更。双开分身在有 Root 时会同步别名。</string>
+    <string name="settings_launcher_icon_default">默认（推送服务）</string>
+    <string name="settings_launcher_icon_legacy">模块</string>
+    <string name="settings_launcher_icon_xmsf">推送服务风格</string>
+    <string name="settings_migrate_prefs">从运行时导入管理器偏好</string>
+    <string name="settings_migrate_prefs_summary">把仍保存在推送服务包内的界面偏好复制到管理器</string>
+    <string name="settings_migrate_prefs_done">已导入 %1$d 项偏好</string>
 
 </resources>

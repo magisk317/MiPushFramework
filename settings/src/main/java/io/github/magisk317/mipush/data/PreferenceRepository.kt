@@ -22,11 +22,33 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
+import io.github.magisk317.mipush.common.SENSITIVE_DEBUG_LOG_MODE_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.utils.ConfigDefaults
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+
+data class IslandSettingsSnapshot(
+    val enabled: Boolean,
+    val timeoutSecs: Int,
+    val firstFloat: Boolean,
+    val enableFloat: Boolean,
+    val showNotification: Boolean,
+    val showOriginalNotification: Boolean,
+    val focusNotification: Boolean,
+    val colorStatusBarIcon: Boolean,
+    val colorStatusBarIconGlobal: Boolean,
+    val sensitiveDebugLogMode: Boolean,
+)
+
+data class OwnedPreferenceValue(
+    val key: String,
+    val type: String,
+    val value: String,
+    val owner: PreferenceOwner,
+)
 
 class PreferenceRepository constructor(
     private val dataStore: DataStore<Preferences>
@@ -41,6 +63,7 @@ class PreferenceRepository constructor(
     private val XMPP_SERVER = stringPreferencesKey("xmpp_server")
     private val CONFIG_DIRECTORY = stringPreferencesKey("config_directory")
     private val DEBUG_MODE = booleanPreferencesKey("debug_mode")
+    private val SENSITIVE_DEBUG_LOG_MODE = booleanPreferencesKey(SENSITIVE_DEBUG_LOG_MODE_KEY)
     private val SHOW_ALL_EVENTS = booleanPreferencesKey("show_all_events")
     private val START_FOREGROUND = booleanPreferencesKey("start_foreground")
     private val START_PUSH_AS_FOREGROUND_SERVICE = booleanPreferencesKey("start_push_as_foreground_service")
@@ -56,15 +79,15 @@ class PreferenceRepository constructor(
     private val ISLAND_SHOW_ORIGINAL_NOTIFICATION = booleanPreferencesKey(ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION)
     private val ISLAND_FOCUS_NOTIF = booleanPreferencesKey(ISLAND_PREF_FOCUS_NOTIF)
 
-    private val HAZE_BLUR_RADIUS = intPreferencesKey("haze_blur_radius")
-    private val HAZE_TINT_ALPHA = floatPreferencesKey("haze_tint_alpha")
     private val SHOW_WIZARD = booleanPreferencesKey("show_wizard")
     private val USAGE_STATS_REQUESTED = booleanPreferencesKey("usage_stats_requested")
     private val EVENT_GROUP_BY_APP = booleanPreferencesKey("event_group_by_app")
     private val APP_FILTER_MODE = intPreferencesKey("app_filter_mode")
+    private val SHOW_SYSTEM_APPS = booleanPreferencesKey("show_system_apps")
     private val THEME_MODE = intPreferencesKey("theme_mode")
     private val UI_KIT_STYLE = intPreferencesKey("ui_kit_style")
     private val RUNTIME_LOG_RETENTION_DAYS = intPreferencesKey("runtime_log_retention_days")
+    private val EVENT_RETENTION_DAYS = intPreferencesKey("event_retention_days")
     private val LAST_CONFIG_SYNC_TIME = longPreferencesKey("last_config_sync_time")
     private val CONFIG_REMOTE_REPOSITORY = stringPreferencesKey("config_remote_repository")
     private val CONFIG_REMOTE_BRANCH = stringPreferencesKey("config_remote_branch")
@@ -82,6 +105,7 @@ class PreferenceRepository constructor(
     val xmppServer: Flow<String?> = dataStore.data.map { it[XMPP_SERVER] }
     val configDirectory: Flow<String?> = dataStore.data.map { it[CONFIG_DIRECTORY] }
     val isDebugMode: Flow<Boolean> = dataStore.data.map { it[DEBUG_MODE] ?: false }
+    val isSensitiveDebugLogMode: Flow<Boolean> = dataStore.data.map { it[SENSITIVE_DEBUG_LOG_MODE] ?: false }
     val isShowAllEvents: Flow<Boolean> = dataStore.data.map { it[SHOW_ALL_EVENTS] ?: false }
     val isStartForeground: Flow<Boolean> = dataStore.data.map { it[START_FOREGROUND] ?: true }
     val startPushAsForegroundService: Flow<Boolean> = dataStore.data.map { it[START_PUSH_AS_FOREGROUND_SERVICE] ?: true }
@@ -100,16 +124,18 @@ class PreferenceRepository constructor(
     val colorStatusBarIconGlobal: Flow<Boolean> = dataStore.data.map { it[COLOR_STATUS_BAR_ICON_GLOBAL] ?: false }
     val dualAppEnabled: Flow<Boolean> = dataStore.data.map { it[DUAL_APP_ENABLED] ?: false }
 
-    val hazeBlurRadius: Flow<Int> = dataStore.data.map { it[HAZE_BLUR_RADIUS] ?: 25 }
-    val hazeTintAlpha: Flow<Float> = dataStore.data.map { it[HAZE_TINT_ALPHA] ?: 0.2f }
     val showWizard: Flow<Boolean> = dataStore.data.map { it[SHOW_WIZARD] ?: true }
     val usageStatsRequested: Flow<Boolean> = dataStore.data.map { it[USAGE_STATS_REQUESTED] ?: false }
     val eventGroupByApp: Flow<Boolean> = dataStore.data.map { it[EVENT_GROUP_BY_APP] ?: false }
     val appFilterMode: Flow<Int> = dataStore.data.map { it[APP_FILTER_MODE] ?: 0 }
+    val showSystemApps: Flow<Boolean> = dataStore.data.map { it[SHOW_SYSTEM_APPS] ?: false }
     val themeMode: Flow<Int> = dataStore.data.map { it[THEME_MODE] ?: 0 }
     val uiKitStyle: Flow<Int> = dataStore.data.map { it[UI_KIT_STYLE] ?: DEFAULT_UI_KIT_STYLE }
     val runtimeLogRetentionDays: Flow<Int> = dataStore.data.map {
-        (it[RUNTIME_LOG_RETENTION_DAYS] ?: 7).coerceAtLeast(1)
+        (it[RUNTIME_LOG_RETENTION_DAYS] ?: 2).coerceAtLeast(1)
+    }
+    val eventRetentionDays: Flow<Int> = dataStore.data.map {
+        (it[EVENT_RETENTION_DAYS] ?: 7).coerceAtLeast(1)
     }
     val lastConfigSyncTime: Flow<Long> = dataStore.data.map { it[LAST_CONFIG_SYNC_TIME] ?: 0L }
     val configRemoteRepository: Flow<String> = dataStore.data.map {
@@ -132,7 +158,24 @@ class PreferenceRepository constructor(
     }
 
     val debugMode: Flow<Boolean> = isDebugMode
+    val sensitiveDebugLogMode: Flow<Boolean> = isSensitiveDebugLogMode
     val showAllEvents: Flow<Boolean> = isShowAllEvents
+
+    suspend fun readIslandSettingsSnapshot(): IslandSettingsSnapshot {
+        val preferences = dataStore.data.first()
+        return IslandSettingsSnapshot(
+            enabled = preferences[ISLAND_ENABLED] ?: true,
+            timeoutSecs = (preferences[ISLAND_TIMEOUT] ?: 5).coerceAtLeast(1),
+            firstFloat = preferences[ISLAND_FIRST_FLOAT] ?: true,
+            enableFloat = preferences[ISLAND_ENABLE_FLOAT] ?: true,
+            showNotification = preferences[ISLAND_SHOW_NOTIFICATION] ?: true,
+            showOriginalNotification = preferences[ISLAND_SHOW_ORIGINAL_NOTIFICATION] ?: true,
+            focusNotification = preferences[ISLAND_FOCUS_NOTIF] ?: false,
+            colorStatusBarIcon = preferences[COLOR_STATUS_BAR_ICON] ?: false,
+            colorStatusBarIconGlobal = preferences[COLOR_STATUS_BAR_ICON_GLOBAL] ?: false,
+            sensitiveDebugLogMode = preferences[SENSITIVE_DEBUG_LOG_MODE] ?: false,
+        )
+    }
 
     // Setters
     suspend fun setLastStartupTime(time: Long) {
@@ -145,6 +188,10 @@ class PreferenceRepository constructor(
 
     suspend fun setDebugMode(debug: Boolean) {
         dataStore.edit { it[DEBUG_MODE] = debug }
+    }
+
+    suspend fun setSensitiveDebugLogMode(enabled: Boolean) {
+        dataStore.edit { it[SENSITIVE_DEBUG_LOG_MODE] = enabled }
     }
 
     suspend fun setShowAllEvents(show: Boolean) {
@@ -223,14 +270,6 @@ class PreferenceRepository constructor(
         dataStore.edit { it[CONFIG_DIRECTORY] = uri }
     }
 
-    suspend fun setHazeBlurRadius(radius: Int) {
-        dataStore.edit { it[HAZE_BLUR_RADIUS] = radius }
-    }
-
-    suspend fun setHazeTintAlpha(alpha: Float) {
-        dataStore.edit { it[HAZE_TINT_ALPHA] = alpha }
-    }
-
     suspend fun setShowWizard(show: Boolean) {
         dataStore.edit { it[SHOW_WIZARD] = show }
     }
@@ -247,6 +286,10 @@ class PreferenceRepository constructor(
         dataStore.edit { it[APP_FILTER_MODE] = mode }
     }
 
+    suspend fun setShowSystemApps(show: Boolean) {
+        dataStore.edit { it[SHOW_SYSTEM_APPS] = show }
+    }
+
     suspend fun setThemeMode(mode: Int) {
         dataStore.edit { it[THEME_MODE] = mode }
     }
@@ -257,6 +300,10 @@ class PreferenceRepository constructor(
 
     suspend fun setRuntimeLogRetentionDays(days: Int) {
         dataStore.edit { it[RUNTIME_LOG_RETENTION_DAYS] = days.coerceAtLeast(1) }
+    }
+
+    suspend fun setEventRetentionDays(days: Int) {
+        dataStore.edit { it[EVENT_RETENTION_DAYS] = days.coerceAtLeast(1) }
     }
 
     suspend fun setLastConfigSyncTime(time: Long) {
@@ -291,7 +338,99 @@ class PreferenceRepository constructor(
         }
     }
 
+
+    private val MANAGER_MIGRATION_APPLIED = booleanPreferencesKey("manager_migration_applied")
+    private val SELECTED_LAUNCHER_ICON = stringPreferencesKey("selected_launcher_icon")
+
+    val managerMigrationApplied: Flow<Boolean> = dataStore.data.map { it[MANAGER_MIGRATION_APPLIED] ?: false }
+    val selectedLauncherIcon: Flow<String> = dataStore.data.map {
+        normalizeLauncherIcon(it[SELECTED_LAUNCHER_ICON] ?: DEFAULT_LAUNCHER_ICON)
+    }
+
+    suspend fun isManagerMigrationApplied(): Boolean =
+        dataStore.data.first()[MANAGER_MIGRATION_APPLIED] ?: false
+
+    suspend fun setManagerMigrationApplied(applied: Boolean) {
+        dataStore.edit { it[MANAGER_MIGRATION_APPLIED] = applied }
+    }
+
+    suspend fun setSelectedLauncherIcon(iconId: String) {
+        dataStore.edit { it[SELECTED_LAUNCHER_ICON] = normalizeLauncherIcon(iconId) }
+    }
+
+    /**
+     * Import manager-owned preference entries produced by [exportOwnedPreferences].
+     * When [onlyMissing] is true, existing local values win so re-import is safe.
+     */
+    suspend fun importOwnedPreferences(
+        entries: List<OwnedPreferenceValue>,
+        owner: PreferenceOwner = PreferenceOwner.MANAGER,
+        onlyMissing: Boolean = true,
+    ): Int {
+        val wanted = PreferenceOwnership.entries
+            .filter { it.owner == owner }
+            .map { it.key }
+            .toSet()
+        var written = 0
+        dataStore.edit { prefs ->
+            for (entry in entries) {
+                if (entry.key !in wanted) continue
+                val key = when (entry.type) {
+                    "boolean" -> booleanPreferencesKey(entry.key)
+                    "int" -> intPreferencesKey(entry.key)
+                    "long" -> longPreferencesKey(entry.key)
+                    "float" -> floatPreferencesKey(entry.key)
+                    else -> stringPreferencesKey(entry.key)
+                }
+                if (onlyMissing && prefs.contains(key)) continue
+                when (entry.type) {
+                    "boolean" -> prefs[booleanPreferencesKey(entry.key)] = entry.value.toBooleanStrictOrNull()
+                        ?: entry.value.equals("true", ignoreCase = true)
+                    "int" -> prefs[intPreferencesKey(entry.key)] = entry.value.toIntOrNull() ?: continue
+                    "long" -> prefs[longPreferencesKey(entry.key)] = entry.value.toLongOrNull() ?: continue
+                    "float" -> prefs[floatPreferencesKey(entry.key)] = entry.value.toFloatOrNull() ?: continue
+                    else -> prefs[stringPreferencesKey(entry.key)] = entry.value
+                }
+                written += 1
+            }
+        }
+        return written
+    }
+
+    /**
+     * Snapshot owned preferences as typed string entries for Binder migration / comparison.
+     * Only keys classified by [PreferenceOwnership] are emitted.
+     */
+    suspend fun exportOwnedPreferences(owner: PreferenceOwner): List<OwnedPreferenceValue> {
+        val prefs = dataStore.data.first()
+        val wanted = PreferenceOwnership.entries.filter { it.owner == owner }.map { it.key }.toSet()
+        val out = mutableListOf<OwnedPreferenceValue>()
+        prefs.asMap().forEach { (key, value) ->
+            val name = key.name
+            if (name !in wanted) return@forEach
+            val type = when (value) {
+                is Boolean -> "boolean"
+                is Int -> "int"
+                is Long -> "long"
+                is Float -> "float"
+                else -> "string"
+            }
+            out += OwnedPreferenceValue(
+                key = name,
+                type = type,
+                value = value.toString(),
+                owner = owner,
+            )
+        }
+        return out.sortedBy { it.key }
+    }
+
     private companion object {
         const val DEFAULT_UI_KIT_STYLE = 0
+        const val DEFAULT_LAUNCHER_ICON = "default"
+        const val LEGACY_LAUNCHER_ICON = "legacy"
+
+        fun normalizeLauncherIcon(iconId: String): String =
+            if (iconId == LEGACY_LAUNCHER_ICON) LEGACY_LAUNCHER_ICON else DEFAULT_LAUNCHER_ICON
     }
 }

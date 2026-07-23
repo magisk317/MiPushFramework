@@ -1,4 +1,22 @@
 <resources>
-    <string name="app_name">MiPush 模块</string>
+    <string name="app_name">MiPush 管理器</string>
+    <string name="manager_runtime_unavailable">MiPush 运行时未安装，或管理器入口不可用。</string>
     <string name="xposedDescription">为 MiPushFramework 提供运行时增强能力：目标应用通知身份增强与小米设备兼容伪装。</string>
+
+    <string name="widget_action_refresh">刷新</string>
+    <string name="widget_updated_at">更新于 %1$s</string>
+    <string name="widget_updated_placeholder">更新于 --:--</string>
+    <string name="connection_status_not_available">-</string>
+    <string name="widget_status_unavailable">不可用</string>
+    <string name="widget_status_tap_refresh">点按刷新以读取运行状态</string>
+    <string name="widget_connection_status_title">MiPush 连接</string>
+    <string name="widget_connection_description">显示 MiPush 连接状态与会话信息。</string>
+    <string name="widget_connection_duration">连接时长</string>
+    <string name="widget_connection_messages">消息</string>
+    <string name="widget_connection_session">会话 #%1$d</string>
+    <string name="widget_connection_message_counts">%1$d 下行 / %2$d 投递</string>
+    <string name="widget_recent_events_title">MiPush 记录</string>
+    <string name="widget_recent_events_description">显示最近的非注册类 MiPush 记录。</string>
+    <string name="widget_recent_events_empty">暂无推送记录</string>
+    <string name="widget_event_title_format">%1$s - %2$s</string>
 </resources>

@@ -233,21 +233,10 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="settings_runtime_log_retention_days_summary">Daily rotation, keep the last %1$d days</string>
     <string name="settings_runtime_log_retention_days_hint">Retention in days, minimum 1. Default is 7.</string>
     <string name="settings_runtime_log_retention_days_error">Please enter an integer greater than or equal to 1.</string>
-    <string name="runtime_log_viewer_title">Debugging logs</string>
     <string name="runtime_log_export_failed">Export failed: %1$s</string>
     <string name="runtime_log_share_failed">Share failed: %1$s</string>
     <string name="runtime_log_cleared">Logs and crash files cleared</string>
     <string name="runtime_log_clear_partial_failed">Partially cleared: %1$s</string>
-    <string name="runtime_log_info_loading">Loading logs...</string>
-    <string name="runtime_log_info_empty">No runtime logs yet</string>
-    <string name="runtime_log_info_summary">Files: %1$d, entries: %2$d</string>
-    <string name="runtime_log_info_range">Range: %1$s - %2$s</string>
-    <string name="runtime_log_info_preview_title">Recent logs</string>
-    <string name="runtime_log_action_wrap">Wrap</string>
-    <string name="runtime_log_action_no_wrap">No wrap</string>
-    <string name="runtime_log_action_format">Format</string>
-    <string name="runtime_log_action_compact">Compact</string>
-    <string name="runtime_log_delete_failed">Delete failed: %1$s</string>
     <string name="action_share">Share</string>
     <string name="action_clear">Clear</string>
     <string name="action_delete">Delete</string>
@@ -503,7 +492,7 @@ This could be the application doing a reverse registration, or the registration 
     <string name="pref_island_show_notification_title">Show island notification</string>
     <string name="pref_island_show_notification_summary">Show the island proxy notification in the shade.</string>
     <string name="pref_island_focus_notif_title">Focus authorization bypass</string>
-    <string name="pref_island_focus_notif_summary">Allow generated focus payloads to pass XMSF focus authorization.</string>
+    <string name="pref_island_focus_notif_summary">Allow focus notifications from all apps to bypass SystemUI and XMSF authorization.</string>
 
     <string name="mock_target_package">Target Package</string>
     <string name="mock_group_notification_shade">Notification shade</string>

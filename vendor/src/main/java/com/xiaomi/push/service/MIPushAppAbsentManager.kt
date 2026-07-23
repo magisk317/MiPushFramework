@@ -6,6 +6,7 @@ import com.xiaomi.smack.XMPPException
 
 object MIPushAppAbsentManager {
     private const val PREF_PENDING_APP_ABSENT = "pref_pending_app_absent"
+    private const val PREF_PENDING_REGISTRATION = "pref_pending_registration"
 
     @JvmStatic
     fun rememberRegisteredPackage(context: Context, packageName: String?, appId: String?) {
@@ -30,6 +31,28 @@ object MIPushAppAbsentManager {
         return context.getSharedPreferences(PushServiceConstants.PREF_KEY_REGISTERED_PKGS, 0)
             .getString(packageName, null)
             ?.takeIf { it.isNotBlank() }
+    }
+
+    @JvmStatic
+    fun rememberPendingRegistration(context: Context, packageName: String?, appId: String?) {
+        val pkg = packageName?.takeIf { it.isNotBlank() } ?: return
+        val resolvedAppId = appId?.takeIf { it.isNotBlank() } ?: return
+        pendingRegistrationPrefs(context).edit().putString(pkg, resolvedAppId).commit()
+    }
+
+    @JvmStatic
+    fun getPendingRegistrationAppId(context: Context, packageName: String): String? {
+        return pendingRegistrationPrefs(context).getString(packageName, null)?.takeIf { it.isNotBlank() }
+    }
+
+    @JvmStatic
+    fun forgetPendingRegistration(context: Context, packageName: String) {
+        pendingRegistrationPrefs(context).edit().remove(packageName).commit()
+    }
+
+    @JvmStatic
+    fun queuePendingAppAbsent(context: Context, packageName: String, appId: String) {
+        enqueue(context, packageName, appId)
     }
 
     @JvmStatic
@@ -96,4 +119,7 @@ object MIPushAppAbsentManager {
 
     private fun pendingPrefs(context: Context) =
         context.getSharedPreferences(PREF_PENDING_APP_ABSENT, 0)
+
+    private fun pendingRegistrationPrefs(context: Context) =
+        context.getSharedPreferences(PREF_PENDING_REGISTRATION, 0)
 }

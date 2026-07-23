@@ -13,6 +13,7 @@ import io.github.d4viddf.hyperisland_kit.models.ImageTextInfoRight
 import io.github.d4viddf.hyperisland_kit.models.PicInfo
 import io.github.d4viddf.hyperisland_kit.models.TextInfo
 import io.github.magisk317.mipush.common.NotificationStyle
+import io.github.magisk317.mipush.common.notification.NotificationProgressTextSupport
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -29,8 +30,6 @@ object IslandPayloadBuilder {
     private const val FOCUS_PICS = "miui.focus.pics"
     private const val FOCUS_ACTIONS = "miui.focus.actions"
     private const val FOCUS_ACTION_PREFIX = "miui.focus.action_"
-    private const val MAX_COUNTDOWN_HOURS = 72L
-    private const val MILLIS_PER_HOUR = 3_600_000L
 
     fun buildFocusParam(
         context: Context,
@@ -218,12 +217,12 @@ object IslandPayloadBuilder {
         showIslandIcon: Boolean,
         action: HyperAction?,
     ) {
-        val countdownMs = extractCountdownMs(title, content)
+        val countdownMs = NotificationProgressTextSupport.extractCountdownMillis(title, content)
         if (countdownMs > 0) {
             builder.setHighlightInfo(title = title, content = content, picKey = PIC_ICON_KEY)
             builder.setBigIslandCountdown(countdownMs, PIC_ICON_KEY)
             if (action != null) {
-                builder.setHintAction(resolveAlertHint(title, content) ?: title, null, action)
+                builder.setHintAction(NotificationProgressTextSupport.resolveAlertHint(title, content) ?: title, null, action)
             }
             return
         }
@@ -266,7 +265,7 @@ object IslandPayloadBuilder {
         action: HyperAction?,
     ) {
         builder.setIconTextInfo(picKey = PIC_ICON_KEY, title = title, content = content)
-        val progress = extractProgress(content)
+        val progress = NotificationProgressTextSupport.extractProgressPercent(content)
         if (progress in 0..100) {
             builder.setProgressBar(progress = progress)
             builder.setSmallIslandCircularProgress(
@@ -282,7 +281,7 @@ object IslandPayloadBuilder {
             builder.setProgressBar(progress = 0)
             builder.setStandardBigIslandInfo(title, content, showIslandIcon)
         }
-        val hintLabel = resolveProgressHint(title, content)
+        val hintLabel = NotificationProgressTextSupport.resolveProgressHint(title, content)
         if (hintLabel != null) {
             if (action != null) {
                 builder.setHintAction(hintLabel, null, action)
@@ -341,30 +340,6 @@ object IslandPayloadBuilder {
         )
     }
 
-    private fun resolveAlertHint(title: String, content: String): String? {
-        val text = "$title $content"
-        return when {
-            text.contains("闹钟") || text.contains("alarm") -> "闹钟"
-            text.contains("提醒") || text.contains("reminder") -> "提醒"
-            text.contains("待办") || text.contains("todo") -> "待办"
-            text.contains("会议") || text.contains("meeting") -> "会议"
-            text.contains("倒计时") || text.contains("countdown") -> "倒计时"
-            else -> null
-        }
-    }
-
-    private fun resolveProgressHint(title: String, content: String): String? {
-        val text = "$title $content"
-        return when {
-            text.contains("下载") || text.contains("download") -> "下载中"
-            text.contains("上传") || text.contains("upload") -> "上传中"
-            text.contains("安装") || text.contains("install") -> "安装中"
-            text.contains("更新") || text.contains("update") -> "更新中"
-            text.contains("同步") || text.contains("sync") -> "同步中"
-            else -> null
-        }
-    }
-
     private fun buildActionsBundle(actions: List<Notification.Action>): Bundle? {
         val bundle = Bundle()
         actions.take(2).forEachIndexed { index, action ->
@@ -393,40 +368,6 @@ object IslandPayloadBuilder {
 
     private fun fallbackIcon(context: Context): Icon {
         return Icon.createWithResource(context, android.R.drawable.sym_def_app_icon)
-    }
-
-    /** 从文本中提取进度百分比，返回 -1 表示未找到 */
-    private fun extractProgress(text: String): Int {
-        Regex("(\\d{1,3})%").find(text)?.let {
-            val value = it.groupValues[1].toIntOrNull()
-            if (value != null && value in 0..100) return value
-        }
-        return -1
-    }
-
-    /** 从标题/内容中提取倒计时毫秒数 */
-    private fun extractCountdownMs(title: String, content: String): Long {
-        val text = "$title $content"
-        Regex("(\\d+)\\s*(?:分钟|min|mins|minute|minutes)").find(text)?.let {
-            val mins = it.groupValues[1].toLongOrNull()
-            if (mins != null && mins in 1..1440) return mins * 60 * 1000
-        }
-        Regex("(\\d+)\\s*(?:小时|hour|hours|hr|hrs)").find(text)?.let {
-            val hours = it.groupValues[1].toLongOrNull()
-            if (hours != null && hours in 1..MAX_COUNTDOWN_HOURS) return hours * MILLIS_PER_HOUR
-        }
-        Regex("(\\d+)\\s*(?:秒|sec|second|seconds)").find(text)?.let {
-            val secs = it.groupValues[1].toLongOrNull()
-            if (secs != null && secs in 1..3600) return secs * 1000
-        }
-        Regex("(\\d{1,2}):(\\d{2})(?::(\\d{2}))?").find(text)?.let {
-            val h = it.groupValues[1].toLongOrNull() ?: 0
-            val m = it.groupValues[2].toLongOrNull() ?: 0
-            val s = it.groupValues[3].toLongOrNull() ?: 0
-            val totalMs = (h * 3600 + m * 60 + s) * 1000
-            if (totalMs in 1000..86400000) return totalMs
-        }
-        return 0
     }
 
     private fun String.fixTextButtonJson(): String {

@@ -6,7 +6,7 @@ import android.os.Messenger
 import com.xiaomi.smack.Connection
 
 /**
- * Interface defining core XMPushService actions that legacy foundation components need to call.
+ * Interface defining core XMPushServiceCore actions that legacy foundation components need to call.
  */
 interface IPushServiceAction {
     val currentConnection: Connection?

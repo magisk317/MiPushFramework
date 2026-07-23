@@ -135,8 +135,34 @@ class MIPushEventProcessor {
                 pushAction.runtimeObserver.processMIPushMessage(payload, trafficBytes)
                 return
             }
+            if (shouldCheckProfile(container) && !pushAction.runtimeObserver.shouldAcceptProfile(container)) {
+                MyLog.w(
+                    "drop display message outside registered profile pkg=${container.packageName} " +
+                        "messageId=${container.metaInfo?.id}",
+                )
+                MIPushAckDispatcher.sendProfileIdMismatchAck(pushAction, container)
+                pushAction.runtimeObserver.onNotificationEvent(
+                    container.packageName,
+                    "profile_id_mismatch_drop",
+                    "MIPushEventProcessor.processMIPushMessage",
+                )
+                return
+            }
             pushAction.runtimeObserver.processMIPushMessage(payload, trafficBytes)
             maybeAckInboundSendMessage(pushAction, container)
+        }
+
+        /**
+         * Stock invokes the raw x9.a profile matcher only in its display-message branch: a
+         * SendMessage with non-empty title/description and passThrough != 1.
+         */
+        @JvmStatic
+        fun shouldCheckProfile(container: XmPushActionContainer): Boolean {
+            val metaInfo = container.metaInfo ?: return false
+            return container.action == ActionType.SendMessage &&
+                !metaInfo.title.isNullOrEmpty() &&
+                !metaInfo.description.isNullOrEmpty() &&
+                metaInfo.passThrough != 1
         }
 
         private fun maybeAckInboundSendMessage(pushAction: IPushServiceAction, container: XmPushActionContainer) {

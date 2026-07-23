@@ -103,6 +103,14 @@ class Event {
     @ColumnInfo(name = "dev_info")
     var info: String? = null
 
+    /**
+     * UI 对齐的可搜索文本快照(包名 + 本地化应用名 + 标题 + 正文/摘要)。
+     * 入库时一次性生成,搜索只打这一列,避免"搜索列 ≠ 展示字段"的错位。
+     * 解不出的字段留空;加密消息在无 regSec 时可能只含包名。
+     */
+    @ColumnInfo(name = "search_text")
+    var searchText: String? = null
+
     @ColumnInfo(name = "payload")
     var payload: ByteArray? = null
 
@@ -134,7 +142,8 @@ class Event {
         result: Int,
         info: String?,
         payload: ByteArray?,
-        regSec: String?
+        regSec: String?,
+        searchText: String? = null
     ) {
         this.id = id
         this.pkg = pkg
@@ -144,6 +153,7 @@ class Event {
         this.info = info
         this.payload = payload
         this.regSec = regSec
+        this.searchText = searchText
     }
 
     constructor()

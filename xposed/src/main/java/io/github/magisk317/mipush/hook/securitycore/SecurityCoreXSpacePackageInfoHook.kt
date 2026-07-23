@@ -23,6 +23,10 @@ object SecurityCoreXSpacePackageInfoHook {
     private const val XSPACE_USER_ID = 999
 
     private val packageManagerClasses = listOf(
+        // HyperOS 3 declares the Binder getPackageInfo(String, long, int) implementation here.
+        // IPackageManagerImpl inherits the final method and therefore does not expose it through
+        // declaredMethods; keeping only the concrete service classes makes this fallback inert.
+        "com.android.server.pm.IPackageManagerBase",
         "com.android.server.pm.PackageManagerService\$IPackageManagerImpl",
         "com.android.server.pm.PackageManagerService",
     )
@@ -90,7 +94,11 @@ object SecurityCoreXSpacePackageInfoHook {
         if (!requestsMiPushRequiredSignals(flags)) {
             return SecurityCoreXSpaceMiPushDecision(forceRequired = false, reason = "flags_without_mipush_signals")
         }
-        if (userId != null && userId != XSPACE_USER_ID) {
+        // SecurityCore's dumped isMiPushRequired path reads the source package manifest from
+        // owner user 0 (getPackageInfo(..., 4100L, 0)), then uses that result to decide whether
+        // XMSF must be retained/installed for user 999. Some variants may query the clone user
+        // directly, so keep both observed XSpace-related users and reject every other user.
+        if (userId != null && userId != OWNER_USER_ID && userId != XSPACE_USER_ID) {
             return SecurityCoreXSpaceMiPushDecision(forceRequired = false, reason = "unsupported_user")
         }
         return SecurityCoreXSpaceMiPushPolicy.decide(queryPackage, originalRequired = alreadyRequired)
@@ -181,6 +189,8 @@ object SecurityCoreXSpacePackageInfoHook {
             type == Int::class.javaPrimitiveType ||
             type == Int::class.javaObjectType
     }
+
+    internal fun packageManagerHookTargets(): List<String> = packageManagerClasses.toList()
 
     private fun logPatch(
         packageName: String,

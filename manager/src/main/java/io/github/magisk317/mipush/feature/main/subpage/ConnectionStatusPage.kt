@@ -28,7 +28,6 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -42,16 +41,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.blur.blurEffect
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
 import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.feature.ui.theme.spacing
 import io.github.magisk317.mipush.main.viewmodel.ConnectionStatusViewModel
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.surface.DetailSectionCard
 import io.github.magisk317.uikit.surface.OverlayHeaderScaffold
+import io.github.magisk317.uikit.surface.chromeTopAppBarColors
 import io.github.magisk317.uikit.surface.SectionColumn
 
 @Composable
@@ -71,17 +67,12 @@ fun ConnectionStatusPage(
     }
 
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val hazeState = remember { HazeState() }
 
     Page {
         OverlayHeaderScaffold(
             fallbackTopPadding = topInset + 64.dp,
             overlayModifier = Modifier
-                .fillMaxWidth()
-                .hazeEffect(hazeState) {
-                    blurEffect { }
-                    forceInvalidateOnPreDraw = true
-                },
+                .fillMaxWidth(),
             overlay = {
                 TopAppBar(
                     title = { Text(stringResource(R.string.connection_status_title)) },
@@ -96,17 +87,13 @@ fun ConnectionStatusPage(
                         }
                     },
                     windowInsets = WindowInsets.statusBars,
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        scrolledContainerColor = Color.Transparent,
-                    ),
+                    colors = chromeTopAppBarColors(),
                 )
             },
             content = { listPadding ->
                 SectionColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .hazeSource(state = hazeState)
                         .verticalScroll(rememberScrollState()),
                     contentPadding = PaddingValues(
                         start = MaterialTheme.spacing.medium,
@@ -285,13 +272,6 @@ private fun InfoRow(
     summary: String,
 ) {
     ListItem(
-        headlineContent = {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.outline,
-            )
-        },
         supportingContent = {
             Text(
                 text = summary,
@@ -308,7 +288,13 @@ private fun InfoRow(
             )
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-    )
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.outline,
+        )
+    }
 }
 
 private fun formatTimestamp(ms: Long, fallback: String): String {

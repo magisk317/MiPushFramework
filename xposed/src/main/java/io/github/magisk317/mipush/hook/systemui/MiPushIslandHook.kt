@@ -9,24 +9,25 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import android.app.NotificationManager
+import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import io.github.magisk317.mipush.common.notification.NotificationContentSupport
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.island.IslandDispatchContract
 import io.github.magisk317.mipush.hook.island.IslandDispatcher
-import io.github.magisk317.mipush.hook.island.IslandDispatcherHook
 import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.mipush.hook.island.IslandRequest
 import io.github.magisk317.xposed.currentApplication
 import io.github.magisk317.xposed.findClass
 import io.github.magisk317.xposed.hook
 import io.github.magisk317.xposed.hookMethod
+import java.lang.reflect.Method
 
 class MiPushIslandHook : BaseHook() {
     override fun onLoadPackage(param: LoadParam) {
         val classLoader = param.classLoader
         XLog.i(TAG, "install systemui island hook implementation=focus-extras-first")
         IslandPreferences.startRefreshLoop()
-        IslandDispatcherHook().hook()
         hookGenerateInnerNotifBean(classLoader)
         hookNotificationRemoved(classLoader)
     }
@@ -49,7 +50,10 @@ class MiPushIslandHook : BaseHook() {
         val notification = sbn?.notification ?: return
         val extras = notification.extras ?: return
         if (extras.getBoolean(IslandDispatchContract.PROCESSED, false)) return
-        if (extras.containsKey(IslandDispatchContract.FOCUS_PARAM)) return
+        if (IslandDispatchContract.hasNativeFocusPayload(extras)) {
+            XLog.d(TAG, "preserve native focus payload pkg=${sbn.packageName} key=${sbn.key}")
+            return
+        }
 
         val sourcePackage = resolveSourcePackage(sbn, extras) ?: return
         if (!extras.getBoolean(EXTRA_ALLOW_PROXY, false)) {
@@ -62,12 +66,12 @@ class MiPushIslandHook : BaseHook() {
             "handleNotification pkg=$sourcePackage showNotification=${options.showNotification} " +
                 "enableFloat=${options.enableFloat} canInject=${options.canInjectFocusPayload}",
         )
-        val title = firstText(
+        val title = NotificationContentSupport.firstText(
             extras,
             Notification.EXTRA_TITLE,
             Notification.EXTRA_TITLE_BIG,
         ) ?: notification.tickerText?.toString() ?: return
-        val content = firstText(
+        val content = NotificationContentSupport.firstText(
             extras,
             Notification.EXTRA_TEXT,
             Notification.EXTRA_BIG_TEXT,
@@ -114,10 +118,7 @@ class MiPushIslandHook : BaseHook() {
         )
         // Track source → proxy mapping so we can cancel proxy when source is removed.
         val sourceKey = sourceKeyFor(sbn)
-        synchronized(trackedForCancel) {
-            if (trackedForCancel.size >= MAX_TRACKED_SIZE) trackedForCancel.clear()
-            trackedForCancel[sourceKey] = proxyId
-        }
+        trackedForCancel.record(sourceKey, proxyId)
         XLog.d(TAG, "posted island proxy pkg=$sourcePackage id=${sbn.id} proxyId=$proxyId sourceKey=$sourceKey")
     }
 
@@ -128,12 +129,6 @@ class MiPushIslandHook : BaseHook() {
             ?: extras.getString(IslandDispatchContract.SOURCE_PACKAGE)
         if (!explicit.isNullOrBlank()) return explicit
         return null
-    }
-
-    private fun firstText(extras: Bundle, vararg keys: String): String? {
-        return keys.firstNotNullOfOrNull { key ->
-            extras.getCharSequence(key)?.toString()?.takeIf { it.isNotBlank() }
-        }
     }
 
     private fun resolveIcon(
@@ -195,73 +190,127 @@ class MiPushIslandHook : BaseHook() {
         )
     }
 
+    internal fun isNotificationRemovedCallback(method: Method): Boolean {
+        return method.name == "onNotificationRemoved" &&
+            method.parameterTypes.firstOrNull() == StatusBarNotification::class.java
+    }
+
     private companion object {
         private const val TAG = "MiPushIslandHook"
         private const val EXTRA_ALLOW_PROXY = "mipush_island_allow_proxy"
         private const val EXTRA_LARGE_ICON_KEY = "android.largeIcon"
         private const val PROXY_POST_DEDUPE_MS = 2_000L
         private const val MAX_TRACKED_SIZE = 500
+        private val SYSTEM_UI_NOTIFICATION_LISTENER_CLASSES = listOf(
+            "com.android.systemui.statusbar.notification.MiuiNotificationListener",
+            "com.android.systemui.statusbar.NotificationListener",
+        )
         private val recentProxyPosts = IslandProxyPostTracker(PROXY_POST_DEDUPE_MS)
-        private val trackedForCancel = mutableMapOf<String, Int>()
+        private val trackedForCancel = IslandProxyOwnershipTracker(MAX_TRACKED_SIZE)
     }
 
     // -- Phase 5: cancel proxy notification when source notification is removed --
 
     private fun hookNotificationRemoved(classLoader: ClassLoader) {
-        var hooked = false
-        // Try 3-param onNotificationRemoved(sbn, rankingMap, reason) first
-        runCatching {
-            val rankingMapClass = classLoader.findClass(
-                "android.service.notification.NotificationListenerService\$RankingMap"
-            )
-            val listenerClass = classLoader.findClass(
-                "android.service.notification.NotificationListenerService"
-            )
-            val method = listenerClass.getDeclaredMethod(
-                "onNotificationRemoved",
-                StatusBarNotification::class.java,
-                rankingMapClass,
-                Int::class.javaPrimitiveType!!,
-            )
-            method.hook {
-                doAfter {
-                    handleNotificationRemoved(args[0] as? StatusBarNotification)
-                }
+        var hookedCount = 0
+        for (className in SYSTEM_UI_NOTIFICATION_LISTENER_CLASSES) {
+            runCatching {
+                classLoader.findClass(className).declaredMethods
+                    .filter(::isNotificationRemovedCallback)
+                    .forEach { method ->
+                        method.hook {
+                            doAfter {
+                                handleNotificationRemoved(
+                                    thisObject as? NotificationListenerService,
+                                    args.firstOrNull() as? StatusBarNotification,
+                                )
+                            }
+                        }
+                        hookedCount++
+                    }
+            }.onFailure {
+                XLog.d(TAG, "skip notification removal target $className: ${it.message}")
             }
-            hooked = true
-            XLog.i(TAG, "hooked onNotificationRemoved(sbn, rankingMap, reason)")
-        }.onFailure {
-            XLog.d(TAG, "onNotificationRemoved 3-param not found: ${it.message}")
+        }
+        if (hookedCount > 0) {
+            XLog.i(TAG, "hooked SystemUI notification removal callbacks count=$hookedCount")
+            return
         }
 
-        // Fallback: 1-param onNotificationRemoved(sbn)
-        if (!hooked) {
-            runCatching {
-                val listenerClass = classLoader.findClass(
-                    "android.service.notification.NotificationListenerService"
-                )
-                val method = listenerClass.getDeclaredMethod(
-                    "onNotificationRemoved",
-                    StatusBarNotification::class.java,
-                )
-                method.hook {
-                    doAfter {
-                        handleNotificationRemoved(args[0] as? StatusBarNotification)
+        // Last-resort fallback for variants whose listener does not override the framework API.
+        runCatching {
+            classLoader.findClass("android.service.notification.NotificationListenerService")
+                .declaredMethods
+                .filter(::isNotificationRemovedCallback)
+                .forEach { method ->
+                    method.hook {
+                        doAfter {
+                            handleNotificationRemoved(thisObject as? NotificationListenerService, args.firstOrNull() as? StatusBarNotification)
+                        }
                     }
+                    hookedCount++
                 }
-                XLog.i(TAG, "hooked onNotificationRemoved(sbn)")
-            }.onFailure {
-                XLog.e(TAG, "onNotificationRemoved hook failed: ${it.message}", it)
-            }
+            check(hookedCount > 0) { "no notification removal callback found" }
+            XLog.i(TAG, "hooked framework notification removal fallback count=$hookedCount")
+        }.onFailure {
+            XLog.e(TAG, "notification removal hook failed: ${it.message}", it)
         }
     }
 
-    private fun handleNotificationRemoved(sbn: StatusBarNotification?) {
+    private fun handleNotificationRemoved(
+        listener: NotificationListenerService?,
+        sbn: StatusBarNotification?,
+    ) {
         sbn ?: return
-        val sourceKey = sourceKeyFor(sbn)
-        val proxyId = synchronized(trackedForCancel) { trackedForCancel.remove(sourceKey) } ?: return
         val context = currentApplication()?.applicationContext ?: return
-        IslandDispatcher.cancel(context, proxyId)
-        XLog.d(TAG, "cancelled proxy proxyId=$proxyId for removed source key=$sourceKey")
+        val sourceKey = sourceKeyFor(sbn)
+        val proxyId = trackedForCancel.removeAndResolveCancellation(sourceKey)
+        if (proxyId != null) {
+            IslandDispatcher.cancel(context, proxyId)
+            XLog.d(TAG, "cancelled proxy proxyId=$proxyId for removed source key=$sourceKey")
+        }
+        // Native Live Update path never enters trackedForCancel (allowIslandProxy=false). When the
+        // shade row is dismissed, force-cancel the same notification so the promoted island dies.
+        cancelNativeLiveUpdateIfNeeded(context, listener, sbn)
+    }
+
+    private fun cancelNativeLiveUpdateIfNeeded(
+        context: Context,
+        listener: NotificationListenerService?,
+        sbn: StatusBarNotification,
+    ) {
+        val notification = sbn.notification ?: return
+        val extras = notification.extras ?: return
+        val promotedFlag = runCatching {
+            Notification::class.java.getField("FLAG_PROMOTED_ONGOING").getInt(null)
+        }.getOrDefault(0)
+        val isLiveUpdate = extras.getBoolean("xmsf.live_update", false) ||
+            extras.getBoolean("android.requestPromotedOngoing", false) ||
+            (promotedFlag != 0 && (notification.flags and promotedFlag) != 0)
+        if (!isLiveUpdate) return
+        val relatedToMipush = sbn.packageName == "com.xiaomi.xmsf" ||
+            !extras.getString("target_package").isNullOrBlank() ||
+            !extras.getString("miui.targetPkg").isNullOrBlank() ||
+            !extras.getString("xmsf_target_package").isNullOrBlank()
+        if (!relatedToMipush) return
+
+        // Prefer NLS cancelNotification(key) — it asks NMS to remove the real posting package entry
+        // (works for both target-package identity and local xmsf fallback). SystemUI's own
+        // NotificationManager.cancel(tag,id) would only cancel SystemUI-owned posts.
+        val cancelledViaListener = runCatching {
+            if (listener == null) return@runCatching false
+            listener.cancelNotification(sbn.key)
+            true
+        }.getOrDefault(false)
+        val targetPackage = extras.getString("target_package")
+            ?: extras.getString("miui.targetPkg")
+            ?: extras.getString("xmsf_target_package")
+            ?: sbn.packageName
+        XLog.d(
+            TAG,
+            "native live-update remove sync pkg=${sbn.packageName} target=$targetPackage " +
+                "tag=${sbn.tag} id=${sbn.id} key=${sbn.key} listenerCancel=$cancelledViaListener",
+        )
     }
 }
+

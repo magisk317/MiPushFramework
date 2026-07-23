@@ -31,7 +31,7 @@ fun KoverProjectExtension.configureProjectKoverVerification() {
     reports {
         verify {
             rule {
-                minBound(0)
+                minBound(10)
             }
         }
     }
@@ -46,12 +46,12 @@ buildscript {
     configurations.all {
         resolutionStrategy {
             // BEGIN AUTO FORCED DEPENDENCIES (managed by workflow)
-            force("io.netty:netty-codec:4.2.15.Final")
-            force("io.netty:netty-codec-http:4.2.15.Final")
-            force("io.netty:netty-codec-http2:4.2.15.Final")
-            force("io.netty:netty-common:4.2.15.Final")
-            force("io.netty:netty-handler:4.2.15.Final")
-            force("io.netty:netty-handler-proxy:4.2.15.Final")
+            force("io.netty:netty-codec:5.0.0.Alpha2")
+            force("io.netty:netty-codec-http:5.0.0.Alpha2")
+            force("io.netty:netty-codec-http2:5.0.0.Alpha2")
+            force("io.netty:netty-common:5.0.0.Alpha2")
+            force("io.netty:netty-handler:5.0.0.Alpha2")
+            force("io.netty:netty-handler-proxy:5.0.0.Alpha2")
             force("org.apache.commons:commons-lang3:3.20.0")
             force("org.apache.httpcomponents:httpclient:4.5.14")
             force("org.bitbucket.b_c:jose4j:0.9.6")
@@ -93,7 +93,25 @@ val forcedKotlinVersion = extensions
     .get()
     .requiredVersion
 val forcedByteBuddyVersion = libs.versions.bytebuddy.get()
-val detektBlockingProjects = setOf(":xposed")
+val detektBlockingProjects = setOf(
+    ":app",
+    ":common",
+    ":core",
+    ":diagnostics",
+    ":magisk-ui-kit",
+    ":magisk-xposed-kit",
+    ":magisk-xposed-kit:diagnostics",
+    ":magisk-xposed-kit:logging",
+    ":manager",
+    ":manager-api",
+    ":manager-client",
+    ":mipush",
+    ":pinned",
+    ":settings",
+    ":vendor",
+    ":xmsf",
+    ":xposed",
+)
 val qualityGateKoverModules = listOf("common", "core", "xposed", "xmsf")
 
 subprojects {
@@ -101,12 +119,13 @@ subprojects {
         apply(plugin = "dev.detekt")
         val blocksNewViolations = path in detektBlockingProjects
         val detektBaselineFile = rootProject.layout.projectDirectory.file("config/detekt/baselines/${name}.xml")
+        val hasDetektBaseline = detektBaselineFile.asFile.isFile
         extensions.configure<DetektExtension> {
             autoCorrect = false
             parallel = true
             buildUponDefaultConfig = false
             config.setFrom(files("${rootProject.projectDir}/config/detekt/detekt.yml"))
-            if (blocksNewViolations) {
+            if (blocksNewViolations && hasDetektBaseline) {
                 baseline.set(detektBaselineFile)
             }
         }
@@ -114,16 +133,16 @@ subprojects {
             "detektPlugins"(catalog.detekt.rules.ktlint)
         }
         tasks.withType<DetektCreateBaselineTask>().configureEach {
-            if (blocksNewViolations) {
+            if (blocksNewViolations && hasDetektBaseline) {
                 baseline.set(detektBaselineFile)
             }
         }
         tasks.withType<Detekt>().configureEach {
-            if (blocksNewViolations) {
+            if (blocksNewViolations && hasDetektBaseline) {
                 baseline.set(detektBaselineFile)
             }
-            // Most modules stay report-only while xposed starts failing on findings outside its baseline.
-            ignoreFailures = true
+            // Every project in detektBlockingProjects is strict; only existing baselines are honored.
+            ignoreFailures = !blocksNewViolations
             reports {
                 html.required.set(true)
                 checkstyle.required.set(true)
@@ -152,12 +171,12 @@ allprojects {
     configurations.configureEach {
         resolutionStrategy {
             // BEGIN AUTO FORCED DEPENDENCIES (managed by workflow)
-            force("io.netty:netty-codec:4.2.15.Final")
-            force("io.netty:netty-codec-http:4.2.15.Final")
-            force("io.netty:netty-codec-http2:4.2.15.Final")
-            force("io.netty:netty-common:4.2.15.Final")
-            force("io.netty:netty-handler:4.2.15.Final")
-            force("io.netty:netty-handler-proxy:4.2.15.Final")
+            force("io.netty:netty-codec:5.0.0.Alpha2")
+            force("io.netty:netty-codec-http:5.0.0.Alpha2")
+            force("io.netty:netty-codec-http2:5.0.0.Alpha2")
+            force("io.netty:netty-common:5.0.0.Alpha2")
+            force("io.netty:netty-handler:5.0.0.Alpha2")
+            force("io.netty:netty-handler-proxy:5.0.0.Alpha2")
             force("org.apache.commons:commons-lang3:3.20.0")
             force("org.apache.httpcomponents:httpclient:4.5.14")
             force("org.bitbucket.b_c:jose4j:0.9.6")

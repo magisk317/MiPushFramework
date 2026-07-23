@@ -10,6 +10,7 @@ import com.xiaomi.xmpush.thrift.XmPushActionSendMessage
 import io.github.magisk317.mipush.utils.ConvertUtils
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.apache.thrift.TSerializer
@@ -33,6 +34,16 @@ class ConvertUtilsTest {
         }
 
         assertNull(ConvertUtils.getResponseMessageBodyFromContainer(container, null))
+    }
+
+    @Test
+    fun candidateSummary_omitsSecretMaterial() {
+        val secrets = listOf("AbCd1234secret", "EfGh5678secret")
+
+        val summary = ConvertUtils.formatCandidateSummary("com.example.app", secrets)
+
+        assertEquals("resolvePushActionBytes: pkg=com.example.app candidateCount=2", summary)
+        secrets.forEach { assertFalse(summary.contains(it.take(8))) }
     }
 
     @Test
@@ -165,4 +176,3 @@ class ConvertUtilsTest {
             *prefData.map { (k, v) -> k to v.mapValues { it.value as Any? } }.toTypedArray()
         )
 }
-

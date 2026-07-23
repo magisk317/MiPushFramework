@@ -104,6 +104,47 @@ class FocusSemanticTranslatorTest {
     }
 
     @Test
+    fun `MIUI configured focus does not depend on local generated focus enablement`() {
+        val plan = FocusSemanticTranslator.plan(
+            context = RuntimeEnvironment.getApplication(),
+            metaInfo = PushMetaInfo().apply {
+                title = "状态更新"
+                description = "处理中"
+            },
+            packageName = "com.example.app",
+            configuredFocusParam = progressFocusParam,
+            generatedFocusParam = null,
+            generatedFocusCandidate = false,
+            capabilities = miui(),
+        )
+
+        assertTrue(plan.attachMiuiFocusExtras)
+        assertFalse(plan.allowIslandProxy)
+        assertEquals("miui_focus_extras", plan.reason)
+    }
+
+    @Test
+    fun `MIUI configured focus outranks a generated fallback`() {
+        val plan = FocusSemanticTranslator.plan(
+            context = RuntimeEnvironment.getApplication(),
+            metaInfo = PushMetaInfo().apply {
+                title = "Configured title"
+                description = "Configured body"
+            },
+            packageName = "com.example.app",
+            configuredFocusParam = chatFocusParam,
+            generatedFocusParam = progressFocusParam,
+            generatedFocusCandidate = true,
+            capabilities = miui(),
+        )
+
+        assertTrue(plan.attachMiuiFocusExtras)
+        assertFalse(plan.allowIslandProxy)
+        assertEquals(FocusSemanticTranslator.Source.CONFIGURED_FOCUS, plan.semantic?.source)
+        assertEquals("miui_focus_extras", plan.reason)
+    }
+
+    @Test
     fun `MIUI generated focus uses island proxy path`() {
         val plan = FocusSemanticTranslator.plan(
             context = RuntimeEnvironment.getApplication(),

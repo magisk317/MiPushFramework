@@ -105,8 +105,10 @@ object FocusSemanticTranslator {
             ?: detected.takeIf { it.isProgress }?.toSemantic(Source.DETECTED)
             ?: parseFocusParam(generatedFocusParam, Source.GENERATED_FOCUS)
 
+        // A server-configured focus payload is already authoritative MIUI data. The local
+        // generated-focus switch only controls synthetic payloads and must not strip configured
+        // miui.focus.param extras from an otherwise valid notification.
         val attachMiuiFocusExtras = capabilities.supportsMiuiFocusExtras &&
-            generatedFocusCandidate &&
             !configuredFocusParam.isNullOrBlank()
         val allowIslandProxy = capabilities.supportsMiuiFocusExtras &&
             generatedFocusCandidate &&

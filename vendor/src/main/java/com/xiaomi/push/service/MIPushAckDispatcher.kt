@@ -76,6 +76,25 @@ object MIPushAckDispatcher {
     }
 
     @JvmStatic
+    fun sendProfileIdMismatchAck(pushAction: IPushServiceAction, container: XmPushActionContainer) {
+        enqueue(pushAction, "send ack message for checking profileId error ack message.") {
+            val reason = "Profile ID is missing"
+            val ackMessage = MIPushEventProcessor.constructAckMessage(pushAction.context, container)
+            ackMessage.metaInfo?.apply {
+                putToExtra(reason, "1")
+                putToExtra(com.xiaomi.smack.packet.Message.MSG_TYPE_ERROR, "profileId_missing")
+                putToExtra("reason", reason)
+            }
+            MIPushHelper.sendPacket(pushAction, pushAction.context, ackMessage)
+            pushAction.runtimeObserver.onChannelEvent(
+                container.packageName,
+                "service_profile_id_error_ack_sent",
+                "MIPushAckDispatcher.sendProfileIdMismatchAck",
+            )
+        }
+    }
+
+    @JvmStatic
     fun sendMIUINewAdsAckMessage(pushAction: IPushServiceAction, container: XmPushActionContainer) {
         enqueue(pushAction, "send ack message for unrecognized new miui message.") {
             sendServiceAckWithMarker(

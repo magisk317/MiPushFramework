@@ -6,7 +6,7 @@ import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
 
 class XmPushActionOperator(
-    private val xmPushService: XMPushService
+    private val xmPushService: XMPushServiceCore
 ) {
     val context: Context? get() = xmPushService.applicationContext
 

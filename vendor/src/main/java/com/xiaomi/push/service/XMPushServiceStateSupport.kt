@@ -5,7 +5,7 @@ import com.xiaomi.channel.commonutils.network.Network
 class XMPushServiceStateSupport private constructor() {
     companion object {
         @JvmStatic
-        fun isPushDisabled(service: XMPushService): Boolean {
+        fun isPushDisabled(service: XMPushServiceCore): Boolean {
             return try {
                 val buildClass = com.xiaomi.channel.commonutils.android.SystemUtils.loadClass(service, "miui.os.Build")
                 val isCmCustomizationTest = buildClass.getField("IS_CM_CUSTOMIZATION_TEST")
@@ -20,7 +20,7 @@ class XMPushServiceStateSupport private constructor() {
         }
 
         @JvmStatic
-        fun shouldReconnect(service: XMPushService): Boolean {
+        fun shouldReconnect(service: XMPushServiceCore): Boolean {
             return Network.hasNetwork(service) &&
                 PushClientsManager.getInstance().getActiveClientCount() > 0 &&
                 !service.isPushDisabled() &&

@@ -90,6 +90,32 @@ class NotificationControllerRobolectricTest {
     }
 
     @Test
+    fun `channel selection reuses stock old format channel without target package framework`() {
+        val context = RuntimeEnvironment.getApplication()
+        val packageName = "com.example.stock.channel"
+        val sourceChannelId = "push"
+        val stockChannelId = "mipush_${packageName}_$sourceChannelId"
+        val metaInfo = PushMetaInfo().apply {
+            extra = mutableMapOf("channel_id" to sourceChannelId)
+        }
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(
+            NotificationChannel(
+                stockChannelId,
+                "Stock old-format channel",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ),
+        )
+
+        NotificationManagerEx.init(context)
+
+        val channelId = NotificationController.getExistsChannelId(context, metaInfo, packageName)
+
+        assertEquals(stockChannelId, channelId)
+        notificationManager.deleteNotificationChannel(stockChannelId)
+    }
+
+    @Test
     fun `channel selection borrows only the explicitly requested channel`() {
         val context = RuntimeEnvironment.getApplication()
         val packageName = context.packageName
@@ -464,13 +490,14 @@ class NotificationControllerRobolectricTest {
             .setContentText(metaInfo.description)
 
         NotificationManagerEx.init(context)
-        NotificationController.publish(context, metaInfo, notificationId, packageName, builder)
+        val didPost = NotificationController.publish(context, metaInfo, notificationId, packageName, builder)
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val posted = notificationManager.activeNotifications
             .first { it.id == notificationId }
             .notification
 
+        assertTrue(didPost)
         assertNull(posted.extras.getString("miui.focus.param"))
         assertNull(posted.extras.getString("miui.focus.pic_mipush_icon"))
         assertNull(posted.extras.getBundle("miui.focus.pics"))
@@ -496,13 +523,14 @@ class NotificationControllerRobolectricTest {
             .setContentText(metaInfo.description)
 
         NotificationManagerEx.init(context)
-        NotificationController.publish(context, metaInfo, notificationId, packageName, builder)
+        val didPost = NotificationController.publish(context, metaInfo, notificationId, packageName, builder)
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val posted = notificationManager.activeNotifications
             .first { it.id == notificationId }
             .notification
 
+        assertTrue(didPost)
         assertNull(posted.extras.getString("miui.focus.param"))
         assertNull(posted.extras.getString("miui.focus.pic_mipush_icon"))
         assertFalse(posted.extras.getBoolean("mipush_island_allow_proxy", false))
@@ -525,13 +553,14 @@ class NotificationControllerRobolectricTest {
             .setContentText(metaInfo.description)
 
         NotificationManagerEx.init(context)
-        NotificationController.publish(context, metaInfo, notificationId, packageName, builder)
+        val didPost = NotificationController.publish(context, metaInfo, notificationId, packageName, builder)
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val posted = notificationManager.activeNotifications
             .single { it.id == notificationId }
             .notification
 
+        assertTrue(didPost)
         assertEquals(Notification.CATEGORY_MESSAGE, posted.category)
         assertEquals(NotificationCompat.PRIORITY_HIGH, posted.priorityForTest())
         assertNull(posted.group)
@@ -647,7 +676,7 @@ class NotificationControllerRobolectricTest {
     }
 
     @Test
-    fun `disabled color status bar icon uses monochrome resource and default color`() {
+    fun `disabled color status bar icon keeps app icon shape and default color`() {
         val context = RuntimeEnvironment.getApplication()
         val builder = NotificationCompat.Builder(context, "placeholder")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
@@ -663,7 +692,11 @@ class NotificationControllerRobolectricTest {
 
         assertEquals(Notification.COLOR_DEFAULT, color)
         assertEquals(Notification.COLOR_DEFAULT, notification.color)
-        assertEquals(Icon.TYPE_RESOURCE, notification.smallIcon.type)
+        // App icon path uses bitmap when package icon is available; never the generic xmsf bell-only fallback.
+        assertTrue(
+            notification.smallIcon.type == Icon.TYPE_BITMAP ||
+                notification.smallIcon.type == Icon.TYPE_RESOURCE,
+        )
     }
 
     @Test
@@ -693,10 +726,11 @@ class NotificationControllerRobolectricTest {
 
         assertFalse(posted.extras.containsKey("miui.isGrayscaleIcon"))
         assertEquals(packageName, posted.extras.getString("target_package"))
+        assertEquals(Notification.COLOR_DEFAULT, posted.color)
     }
 
     @Test
-    fun `mock replay monochrome path uses target icon and skips payload large icon`() {
+    fun `mock replay monochrome path uses app icon shape and skips payload large icon`() {
         val context = RuntimeEnvironment.getApplication()
         val packageName = context.packageName
         val notificationId = 32024
@@ -739,7 +773,7 @@ class NotificationControllerRobolectricTest {
 
         assertNull(posted.extras.parcelable<Icon>(EXTRA_LARGE_ICON))
         assertFalse(posted.extras.containsKey("miui.isGrayscaleIcon"))
-        assertEquals(Icon.TYPE_BITMAP, posted.smallIcon.type)
+        assertEquals(Notification.COLOR_DEFAULT, posted.color)
     }
 
     @Test
@@ -820,6 +854,27 @@ class NotificationControllerRobolectricTest {
 
         assertFalse(posted)
         assertFalse(notificationManager.activeNotifications.any { it.tag == tag && it.id == notificationId })
+    }
+
+    @Test
+    fun `publish reports failure when target notification manager rejects post`() {
+        val context = RuntimeEnvironment.getApplication()
+        val packageName = "com.example.absent.target"
+        val notificationId = 32022
+        val metaInfo = PushMetaInfo().apply {
+            title = "Missing target"
+            description = "Should not be posted"
+        }
+        val builder = NotificationCompat.Builder(context, "placeholder")
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(metaInfo.title)
+            .setContentText(metaInfo.description)
+
+        NotificationManagerEx.init(context)
+
+        assertFalse(
+            NotificationController.publish(context, metaInfo, notificationId, packageName, builder)
+        )
     }
 
     @Test

@@ -6,13 +6,6 @@ pluginManagement {
         gradlePluginPortal()
         maven { url = uri("https://jitpack.io") }
     }
-    resolutionStrategy {
-        eachPlugin {
-            if (requested.id.id == "org.greenrobot.greendao") {
-                useModule("org.greenrobot:greendao-gradle-plugin:${requested.version}")
-            }
-        }
-    }
 }
 
 fun requireExistingProjectDir(path: String) {
@@ -40,4 +33,6 @@ requireExistingProjectDir("magisk-ui-kit")
 requireExistingProjectDir("magisk-xposed-kit")
 requireExistingProjectDir("vendor")
 requireExistingProjectDir("pinned")
-include(":xmsf", ":mipush", ":xposed", ":common", ":core", ":settings", ":magisk-ui-kit", ":magisk-xposed-kit", ":vendor", ":pinned", ":manager", ":app")
+include(":xmsf", ":mipush", ":xposed", ":common", ":core", ":settings", ":diagnostics", ":magisk-ui-kit", ":magisk-xposed-kit", ":magisk-xposed-kit:logging", ":magisk-xposed-kit:diagnostics", ":vendor", ":pinned", ":manager-api", ":manager-client", ":manager", ":app")
+project(":magisk-xposed-kit:logging").projectDir = file("magisk-xposed-kit/logging")
+project(":magisk-xposed-kit:diagnostics").projectDir = file("magisk-xposed-kit/diagnostics")

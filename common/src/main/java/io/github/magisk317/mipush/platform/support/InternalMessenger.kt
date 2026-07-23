@@ -59,6 +59,7 @@ open class InternalMessenger(private val context: Context) {
         job?.cancel()
         job = null
         filters.clear()
+        listeners.clear()
     }
 
     fun addListener(listener: MessageListener) {

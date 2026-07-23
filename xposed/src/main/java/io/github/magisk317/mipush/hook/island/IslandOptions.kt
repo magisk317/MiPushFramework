@@ -1,16 +1,3 @@
 package io.github.magisk317.mipush.hook.island
 
-data class IslandOptions(
-    val enabled: Boolean = true,
-    val timeoutSecs: Int = 5,
-    val firstFloat: Boolean = true,
-    val enableFloat: Boolean = true,
-    val showNotification: Boolean = true,
-    val showOriginalNotification: Boolean = true,
-    val focusNotification: Boolean = false,
-    val colorStatusBarIcon: Boolean = false,
-    val colorStatusBarIconGlobal: Boolean = false,
-) {
-    val canInjectFocusPayload: Boolean
-        get() = enabled && focusNotification && enableFloat
-}
+typealias IslandOptions = io.github.magisk317.mipush.common.island.IslandOptions

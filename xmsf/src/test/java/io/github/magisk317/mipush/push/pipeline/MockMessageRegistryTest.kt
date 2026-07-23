@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.push.pipeline
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -12,6 +13,15 @@ class MockMessageRegistryTest {
     @BeforeEach
     fun reset() {
         MockMessageRegistry.clearAllForTests()
+    }
+
+    @Test
+    fun `random replay ids cannot grow registry without bound`() {
+        repeat(MockMessageRegistry.MAX_MARKED_MESSAGES + 100) { index ->
+            MockMessageRegistry.markMessageId("mock-$index")
+        }
+
+        assertEquals(MockMessageRegistry.MAX_MARKED_MESSAGES, MockMessageRegistry.markedMessageCount())
     }
 
     @Test

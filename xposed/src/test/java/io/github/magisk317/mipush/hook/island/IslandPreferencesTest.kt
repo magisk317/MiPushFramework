@@ -34,4 +34,25 @@ class IslandPreferencesTest {
             IslandOptions(enabled = true, focusNotification = true).canInjectFocusPayload
         )
     }
+
+    @Test
+    fun `refresh keeps stale package value until asynchronous replacement arrives`() {
+        val packageName = "example.app"
+        val packageOptions = IslandOptions(enabled = false, showNotification = false)
+        IslandPreferences.cachePackageOptionsForTest(packageName, packageOptions)
+
+        val refresh = IslandPreferences.prepareRefresh()
+
+        assertEquals(packageOptions, IslandPreferences.current(packageName))
+        assertTrue(packageName in refresh.packageNames)
+    }
+
+    @Test
+    fun `uncached package does not inherit globally enabled focus mode`() {
+        IslandPreferences.resetForTest(
+            IslandOptions(enabled = true, enableFloat = true, focusNotification = true)
+        )
+
+        assertFalse(IslandPreferences.current("uncached.app").canInjectFocusPayload)
+    }
 }

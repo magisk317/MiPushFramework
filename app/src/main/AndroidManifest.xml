@@ -4,6 +4,6 @@
     <application
         android:name="com.xiaomi.xmsf.app.MiPushHostApp"
         android:hasFragileUserData="true"
-        android:requestLegacyExternalStorage="true"
-        tools:replace="android:name" />
+        tools:replace="android:name">
+    </application>
 </manifest>

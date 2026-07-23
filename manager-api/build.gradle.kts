@@ -1,0 +1,19 @@
+plugins {
+    id("magisk.android.library")
+    alias(libs.plugins.robolectric.junit5)
+}
+
+android {
+    namespace = "io.github.magisk317.mipush.manager.api"
+
+    buildFeatures {
+        aidl = true
+    }
+}
+
+dependencies {
+    testImplementation(libs.junit.jupiter)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.robolectric.junit5.extension)
+    testRuntimeOnly(libs.junit.platform.launcher)
+}

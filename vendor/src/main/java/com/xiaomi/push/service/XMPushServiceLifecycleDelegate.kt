@@ -11,7 +11,7 @@ import com.xiaomi.tinyData.TinyDataCacheProcessor
 import com.xiaomi.tinyData.TinyDataManager
 
 class XMPushServiceLifecycleDelegate(
-    private val service: XMPushService,
+    private val service: XMPushServiceCore,
 ) {
     private val infrastructure = XMPushServiceLifecycleInfrastructure(service)
 
@@ -70,7 +70,7 @@ class XMPushServiceLifecycleDelegate(
         service.clearNetworkListeners()
         service.jobController.removeAllJobs()
         service.executeJob(
-            object : XMPushService.Job(XMPushServiceJob.TYPE_DISCONNECT) {
+            object : XMPushServiceCore.Job(XMPushServiceJob.TYPE_DISCONNECT) {
                 override fun getDesc(): String = "disconnect for service destroy."
 
                 override fun process() {

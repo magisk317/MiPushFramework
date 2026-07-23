@@ -1,55 +1,29 @@
 package io.github.magisk317.mipush.feature.main
 
 import android.content.Intent
-import android.os.SystemClock
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -58,16 +32,6 @@ import androidx.navigation.NavDestination
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import io.github.magisk317.mipush.manager.R
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.blur.HazeBlurStyle
-import dev.chrisbanes.haze.blur.blurEffect
-import dev.chrisbanes.haze.hazeEffect
-import io.github.magisk317.uikit.surface.AppBottomNavigationBar
-import io.github.magisk317.uikit.surface.AppNavigationItemSpec
-import io.github.magisk317.uikit.surface.AppNavigationRail
-import io.github.magisk317.uikit.surface.DialogAction
-import io.github.magisk317.uikit.surface.DialogActionRow
 import io.github.magisk317.mipush.feature.main.subpage.ApplicationList
 import io.github.magisk317.mipush.feature.main.subpage.ConfigurationEditor
 import io.github.magisk317.mipush.feature.main.subpage.Configurations
@@ -76,82 +40,69 @@ import io.github.magisk317.mipush.feature.main.subpage.Overview
 import io.github.magisk317.mipush.feature.main.subpage.Settings
 import io.github.magisk317.mipush.feature.navigation.AppDestinations
 import io.github.magisk317.mipush.feature.navigation.AppNavHostContent
-import io.github.magisk317.uikit.theme.SystemBarsScrim
-import io.github.magisk317.uikit.scroll.rememberScrollChromeState
+import io.github.magisk317.mipush.manager.R
+import io.github.magisk317.uikit.surface.DialogAction
+import io.github.magisk317.uikit.surface.DialogActionRow
+import io.github.magisk317.uikit.surface.MainTabScaffold
+import io.github.magisk317.uikit.surface.MainTabSpec
+import io.github.magisk317.uikit.surface.rememberIsCompactWidth
+import io.github.magisk317.uikit.surface.rememberMainChromeController
 
-private const val TAB_DOUBLE_TAP_REFRESH_WINDOW_MS = 350L
 private const val MAIN_CHROME_ANIMATION_MILLIS = 160
-private val COMPACT_BOTTOM_BAR_CONTENT_PADDING = 80.dp
 
-internal fun shouldKeepMainChromeVisible(route: String?, chromeVisible: Boolean): Boolean {
+internal fun shouldKeepMainChromeVisible(route: String?): Boolean {
     return route?.startsWith(AppDestinations.Overview.ROUTE) == true ||
         route?.startsWith(AppDestinations.Settings.ROUTE) == true ||
         route?.startsWith(AppDestinations.SettingsSection.ROUTE) == true ||
-        chromeVisible
+        route?.startsWith(AppDestinations.Configs.ROUTE) == true ||
+        route?.startsWith(AppDestinations.ConfigsSearch.ROUTE) == true
 }
 
-internal fun shouldShowBottomGestureScrim(
-    isCompact: Boolean,
-    compactBottomBarAvailable: Boolean,
-    compactBottomBarVisible: Boolean,
-): Boolean {
-    return isCompact && compactBottomBarAvailable && compactBottomBarVisible
-}
-
-@Immutable
-private data class MainTabItem(
-    val labelRes: Int,
-    val icon: ImageVector,
-    val route: String,
-)
 
 @Composable
 fun MainScreen(
     startDestination: String,
     initialRouteOverride: String? = null,
-    hazeState: HazeState,
-    hazeStyle: HazeBlurStyle,
 ) {
     val context = LocalContext.current
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val configuration = LocalConfiguration.current
-    val isCompact = configuration.screenWidthDp < 600
+    val isCompact = rememberIsCompactWidth()
 
     var aboutDialogContent by remember { mutableStateOf<String?>(null) }
     var settingsBackSignal by rememberSaveable { mutableIntStateOf(0) }
     var eventRefreshTrigger by rememberSaveable { mutableIntStateOf(0) }
     var appRefreshTrigger by rememberSaveable { mutableIntStateOf(0) }
     var configRefreshTrigger by rememberSaveable { mutableIntStateOf(0) }
-    val tabLastTapAt = remember { mutableStateMapOf<String, Long>() }
-    val scrollChromeState = rememberScrollChromeState()
 
     val tabs = listOf(
-        MainTabItem(
-            labelRes = R.string.main_overview,
+        MainTabSpec(
+            label = stringResource(R.string.main_overview),
             icon = Icons.Default.Home,
-            route = AppDestinations.Overview.ROUTE,
         ),
-        MainTabItem(
-            labelRes = R.string.main_apps,
+        MainTabSpec(
+            label = stringResource(R.string.main_apps),
             icon = Icons.Default.Apps,
-            route = AppDestinations.AppsList.ROUTE,
         ),
-        MainTabItem(
-            labelRes = R.string.main_event,
+        MainTabSpec(
+            label = stringResource(R.string.main_event),
             icon = Icons.AutoMirrored.Filled.List,
-            route = AppDestinations.EventsList.ROUTE,
         ),
-        MainTabItem(
-            labelRes = R.string.main_configs,
+        MainTabSpec(
+            label = stringResource(R.string.main_configs),
             icon = Icons.Default.Tune,
-            route = AppDestinations.Configs.ROUTE,
         ),
-        MainTabItem(
-            labelRes = R.string.main_settings,
+        MainTabSpec(
+            label = stringResource(R.string.main_settings),
             icon = Icons.Default.Settings,
-            route = AppDestinations.Settings.ROUTE,
         ),
+    )
+    val tabRoutes = listOf(
+        AppDestinations.Overview.ROUTE,
+        AppDestinations.AppsList.ROUTE,
+        AppDestinations.EventsList.ROUTE,
+        AppDestinations.Configs.ROUTE,
+        AppDestinations.Settings.ROUTE,
     )
 
     fun resolveTabIndex(destination: NavDestination?): Int {
@@ -165,10 +116,8 @@ fun MainScreen(
             route.startsWith(AppDestinations.Configs.ROUTE) ||
                 route.startsWith(AppDestinations.ConfigsSearch.ROUTE) ||
                 route.startsWith(AppDestinations.ConfigEditor.ROUTE) -> 3
-
             route.startsWith(AppDestinations.Settings.ROUTE) ||
                 route.startsWith(AppDestinations.SettingsSection.ROUTE) -> 4
-
             else -> 0
         }
     }
@@ -202,24 +151,26 @@ fun MainScreen(
         }
     }
 
-    LaunchedEffect(navBackStackEntry?.destination?.route) {
-        scrollChromeState.animateToTop()
-    }
+    val currentDestination = navBackStackEntry?.destination
+    val currentRoute = currentDestination?.route
+    val selectedIndex = resolveTabIndex(currentDestination)
+    val allowScrollChrome = currentRoute?.let { route ->
+        route.startsWith(AppDestinations.AppsList.ROUTE) ||
+            route.startsWith(AppDestinations.EventsList.ROUTE)
+    } == true
+    val chromeController = rememberMainChromeController(
+        isCompact = isCompact,
+        compactChromeRouteAvailable = shouldShowCompactBottomBar(currentDestination),
+        keepVisible = shouldKeepMainChromeVisible(currentRoute),
+        allowScrollHide = allowScrollChrome,
+        resetKey = currentRoute,
+        animationMillis = MAIN_CHROME_ANIMATION_MILLIS,
+    )
+    val pageScrollChromeState = chromeController.pageScrollChromeState
 
-    fun handleTabClick(tab: MainTabItem, selected: Boolean) {
-        val now = SystemClock.elapsedRealtime()
-        val last = tabLastTapAt[tab.route] ?: 0L
-        tabLastTapAt[tab.route] = now
-
-        if (selected) {
-            if (now - last <= TAB_DOUBLE_TAP_REFRESH_WINDOW_MS) {
-                triggerRefreshForRoute(tab.route)
-            }
-            return
-        }
-
-        scrollChromeState.animateToTop()
-        navController.navigate(tab.route) {
+    fun navigateToTab(index: Int) {
+        val route = tabRoutes.getOrNull(index) ?: return
+        navController.navigate(route) {
             popUpTo(navController.graph.findStartDestination().id) {
                 saveState = true
             }
@@ -228,241 +179,106 @@ fun MainScreen(
         }
     }
 
-    val currentDestination = navBackStackEntry?.destination
-    val currentRoute = currentDestination?.route
-    val compactBottomBarAvailable = isCompact && shouldShowCompactBottomBar(currentDestination)
-    val mainChromeVisible = shouldKeepMainChromeVisible(currentRoute, scrollChromeState.isChromeVisible)
-    val compactBottomBarVisible = compactBottomBarAvailable && mainChromeVisible
-
-    val animatedHeaderOffsetY by animateFloatAsState(
-        targetValue = scrollChromeState.headerOffsetY,
-        animationSpec = if (scrollChromeState.headerOffsetY >= 0f) {
-            tween(MAIN_CHROME_ANIMATION_MILLIS)
-        } else {
-            tween(0)
-        },
-        label = "headerOffsetY",
-    )
-    scrollChromeState.animatedHeaderOffsetY = animatedHeaderOffsetY
-
-    val systemBarAlpha by animateFloatAsState(
-        targetValue = if (mainChromeVisible) 1f else 0f,
-        animationSpec = tween(MAIN_CHROME_ANIMATION_MILLIS),
-        label = "systemBarAlpha",
-    )
-
-    @Composable
-    fun MainContent(contentPadding: androidx.compose.foundation.layout.PaddingValues) {
-        AppNavHostContent(
-            navController = navController,
-            startDestination = startDestination,
-            contentPadding = contentPadding,
-            hazeState = hazeState,
-            hazeStyle = hazeStyle,
-            overviewPage = { padding, hState, hStyle ->
-                Overview(
-                    contentPadding = padding,
-                    onShowAboutDialog = { content -> aboutDialogContent = content },
-                    hazeState = hState,
-                    hazeStyle = hStyle,
-                )
+    Box(modifier = Modifier.fillMaxSize()) {
+        MainTabScaffold(
+            tabs = tabs,
+            selectedIndex = selectedIndex,
+            isCompact = isCompact,
+            chromeController = chromeController,
+            onTabSelected = { index -> navigateToTab(index) },
+            onTabReselected = { index ->
+                tabRoutes.getOrNull(index)?.let(::triggerRefreshForRoute)
             },
-            eventsPage = { q, padding, _, groupByApp, hState, hStyle ->
-                EventList(
-                    query = q,
-                    contentPadding = padding,
-                    refreshSignal = eventRefreshTrigger,
-                    groupByApp = groupByApp,
-                    hazeState = hState,
-                    hazeStyle = hStyle,
-                    scrollChromeState = scrollChromeState,
-                )
-            },
-            appsPage = { q, padding, _, filterMode, hState, hStyle ->
-                ApplicationList(
-                    q,
-                    contentPadding = padding,
-                    refreshSignal = appRefreshTrigger,
-                    filterMode = filterMode,
-                    onAppClick = { pkg ->
-                        context.startActivity(
-                            Intent(context, ApplicationInfoPage::class.java)
-                                .putExtra(ApplicationInfoPage.EXTRA_PACKAGE_NAME, pkg)
-                                .putExtra(ApplicationInfoPage.EXTRA_IGNORE_NOT_REGISTERED, true),
-                        )
-                    },
-                    hazeState = hState,
-                    hazeStyle = hStyle,
-                    scrollChromeState = scrollChromeState,
-                )
-            },
-            configsPage = { initialQuery, padding, refreshSignal, onOpenEditor, hState, hStyle ->
-                Configurations(
-                    initialQuery = initialQuery,
-                    contentPadding = padding,
-                    refreshSignal = configRefreshTrigger + refreshSignal,
-                    onOpenEditor = onOpenEditor,
-                    hazeState = hState,
-                    hazeStyle = hStyle,
-                    scrollChromeState = scrollChromeState,
-                )
-            },
-            configEditorPage = { path, padding, onBack, _, _ ->
-                ConfigurationEditor(
-                    path = path,
-                    onBack = onBack,
-                    contentPadding = padding,
-                )
-            },
-            settingsPage = { padding, onAbout, _, _, hState, hStyle ->
-                Settings(
-                    contentPadding = padding,
-                    onShowAboutDialog = onAbout,
-                    onSectionChanged = {},
-                    onNavigateToConnectionStatus = { navController.navigate(AppDestinations.ConnectionStatus.ROUTE) },
-                    onNavigateToStatusBarIconSettings = {
-                        navController.navigate(AppDestinations.StatusBarIconSettings.ROUTE)
-                    },
-                    sectionBackSignal = settingsBackSignal,
-                    hazeState = hState,
-                    hazeStyle = hStyle,
-                    scrollChromeState = scrollChromeState,
-                )
-            },
-            onAbout = { content -> aboutDialogContent = content },
-            onSectionChanged = {},
-        )
-    }
-
-    Box(
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        if (isCompact) {
-            val compactBottomPadding by animateDpAsState(
-                targetValue = if (compactBottomBarVisible) {
-                    COMPACT_BOTTOM_BAR_CONTENT_PADDING
-                } else {
-                    0.dp
-                },
-                animationSpec = tween(MAIN_CHROME_ANIMATION_MILLIS),
-                label = "compactBottomPadding",
-            )
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)),
-            ) {
-                MainContent(androidx.compose.foundation.layout.PaddingValues(bottom = compactBottomPadding))
-            }
-
-            AnimatedVisibility(
-                visible = compactBottomBarVisible,
-                enter = slideInVertically(
-                    animationSpec = tween(MAIN_CHROME_ANIMATION_MILLIS),
-                    initialOffsetY = { it },
-                ) + fadeIn(animationSpec = tween(MAIN_CHROME_ANIMATION_MILLIS)),
-                exit = slideOutVertically(
-                    animationSpec = tween(MAIN_CHROME_ANIMATION_MILLIS),
-                    targetOffsetY = { it },
-                ) + fadeOut(animationSpec = tween(MAIN_CHROME_ANIMATION_MILLIS)),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp)
-                            .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                            .hazeEffect(hazeState) {
-                                blurEffect { style = hazeStyle }
-                                forceInvalidateOnPreDraw = true
-                            },
-                    ) {
-                        AppBottomNavigationBar(
-                            items = tabs.mapIndexed { index, tab ->
-                                val selected = resolveTabIndex(navBackStackEntry?.destination) == index
-                                AppNavigationItemSpec(
-                                    label = stringResource(tab.labelRes),
-                                    icon = tab.icon,
-                                    selected = selected,
-                                    onClick = { handleTabClick(tab, selected) },
-                                )
-                            },
-                            containerColor = Color.Transparent,
-                            alwaysShowLabel = false,
-                        )
-                    }
-                }
-            }
-        } else {
-            Row(modifier = Modifier.fillMaxSize()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .padding(start = 12.dp, top = 12.dp, bottom = 12.dp)
-                        .clip(RoundedCornerShape(28.dp))
-                        .hazeEffect(hazeState) {
-                            blurEffect { style = hazeStyle }
-                            forceInvalidateOnPreDraw = true
-                        },
+            animationMillis = MAIN_CHROME_ANIMATION_MILLIS,
+            railHeader = {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
-                    AppNavigationRail(
-                        header = {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_notifications_black_24dp),
-                                    contentDescription = null,
-                                    modifier = Modifier.padding(bottom = 8.dp),
-                                )
-                                Text(
-                                    text = stringResource(R.string.app_name),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        },
-                        modifier = Modifier.fillMaxHeight(),
-                        items = tabs.mapIndexed { index, tab ->
-                            val selected = resolveTabIndex(navBackStackEntry?.destination) == index
-                            AppNavigationItemSpec(
-                                label = stringResource(tab.labelRes),
-                                icon = tab.icon,
-                                selected = selected,
-                                onClick = { handleTabClick(tab, selected) },
-                            )
-                        },
-                        alwaysShowLabel = false,
+                    Icon(
+                        painter = painterResource(R.drawable.ic_notifications_black_24dp),
+                        contentDescription = null,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-
-                Box(modifier = Modifier.weight(1f)) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)),
-                    ) {
-                        MainContent(androidx.compose.foundation.layout.PaddingValues(0.dp))
-                    }
-                }
-            }
-        }
-
-        AnimatedVisibility(
-            visible = mainChromeVisible,
-            enter = fadeIn(animationSpec = tween(MAIN_CHROME_ANIMATION_MILLIS)),
-            exit = fadeOut(animationSpec = tween(MAIN_CHROME_ANIMATION_MILLIS)),
-        ) {
-            SystemBarsScrim(
-                hazeState = hazeState,
-                hazeStyle = hazeStyle,
-                statusBarAlpha = systemBarAlpha,
-                navBarAlpha = systemBarAlpha,
+            },
+        ) { contentPadding ->
+            AppNavHostContent(
+                navController = navController,
+                startDestination = startDestination,
+                contentPadding = contentPadding,
+                overviewPage = { padding ->
+                    Overview(
+                        contentPadding = padding,
+                        onShowAboutDialog = { content -> aboutDialogContent = content },
+                        onNavigateToConnectionStatus = {
+                            navController.navigate(AppDestinations.ConnectionStatus.ROUTE)
+                        },
+                    )
+                },
+                eventsPage = { q, padding, _, groupByApp ->
+                    EventList(
+                        query = q,
+                        contentPadding = padding,
+                        refreshSignal = eventRefreshTrigger,
+                        groupByApp = groupByApp,
+                        scrollChromeState = pageScrollChromeState,
+                    )
+                },
+                appsPage = { q, padding, _, filterMode ->
+                    ApplicationList(
+                        q,
+                        contentPadding = padding,
+                        refreshSignal = appRefreshTrigger,
+                        filterMode = filterMode,
+                        onAppClick = { pkg ->
+                            context.startActivity(
+                                Intent(context, ApplicationInfoPage::class.java)
+                                    .putExtra(ApplicationInfoPage.EXTRA_PACKAGE_NAME, pkg)
+                                    .putExtra(ApplicationInfoPage.EXTRA_IGNORE_NOT_REGISTERED, true),
+                            )
+                        },
+                        scrollChromeState = pageScrollChromeState,
+                    )
+                },
+                configsPage = { initialQuery, padding, refreshSignal, onOpenEditor ->
+                    Configurations(
+                        initialQuery = initialQuery,
+                        contentPadding = padding,
+                        refreshSignal = configRefreshTrigger + refreshSignal,
+                        onOpenEditor = onOpenEditor,
+                        scrollChromeState = pageScrollChromeState,
+                    )
+                },
+                configEditorPage = { path, padding, onBack ->
+                    ConfigurationEditor(
+                        path = path,
+                        onBack = onBack,
+                        contentPadding = padding,
+                    )
+                },
+                settingsPage = { padding, onAbout, _, _ ->
+                    Settings(
+                        contentPadding = padding,
+                        onShowAboutDialog = onAbout,
+                        onSectionChanged = {},
+                        onNavigateToConnectionStatus = {
+                            navController.navigate(AppDestinations.ConnectionStatus.ROUTE)
+                        },
+                        onNavigateToStatusBarIconSettings = {
+                            navController.navigate(AppDestinations.StatusBarIconSettings.ROUTE)
+                        },
+                        sectionBackSignal = settingsBackSignal,
+                        scrollChromeState = pageScrollChromeState,
+                    )
+                },
+                onAbout = { content -> aboutDialogContent = content },
+                onSectionChanged = {},
             )
         }
 
@@ -475,9 +291,20 @@ fun MainScreen(
                             DialogAction(
                                 label = stringResource(android.R.string.copy),
                                 onClick = {
-                                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("mipush", aboutDialogContent))
-                                    android.widget.Toast.makeText(context, android.R.string.copy, android.widget.Toast.LENGTH_SHORT).show()
+                                    val clipboard = context.getSystemService(
+                                        android.content.Context.CLIPBOARD_SERVICE,
+                                    ) as android.content.ClipboardManager
+                                    clipboard.setPrimaryClip(
+                                        android.content.ClipData.newPlainText(
+                                            "mipush",
+                                            aboutDialogContent,
+                                        ),
+                                    )
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        android.R.string.copy,
+                                        android.widget.Toast.LENGTH_SHORT,
+                                    ).show()
                                     aboutDialogContent = null
                                 },
                             ),

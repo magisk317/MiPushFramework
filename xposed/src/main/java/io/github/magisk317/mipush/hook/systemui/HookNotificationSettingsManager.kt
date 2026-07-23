@@ -99,11 +99,13 @@ internal object FocusNotificationPermissionPolicy {
         return systemAllowed || miPushAllowed
     }
 
-    fun miPushPreferenceAllows(packageName: String?): Boolean {
-        return if (packageName.isNullOrBlank()) {
-            IslandPreferences.current().canInjectFocusPayload
-        } else {
-            IslandPreferences.current(packageName).canInjectFocusPayload
-        }
-    }
+    /**
+     * The focus-authorization switch is deliberately global. It controls SystemUI's focus
+     * authorization boundary, whereas per-package island options only control this project's
+     * generated payloads.
+     */
+    fun isGlobalBypassEnabled(): Boolean = IslandPreferences.current().focusNotification
+
+    fun miPushPreferenceAllows(@Suppress("UNUSED_PARAMETER") packageName: String?): Boolean =
+        isGlobalBypassEnabled()
 }

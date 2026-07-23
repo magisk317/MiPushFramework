@@ -3,27 +3,101 @@ package com.xiaomi.xmsf.pushprocess
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.xiaomi.push.service.PushConstants
-import com.xiaomi.xmsf.push.service.MiPushFacadeService
-import io.github.magisk317.mipush.runtime.PushRuntime
+import android.os.Bundle
+import android.util.Log
+import org.json.JSONObject
+import java.util.HashMap
 
 class PushInnerReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
-        val sourceIntent = intent ?: return
-        val payload = sourceIntent.getByteArrayExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD)
-            ?: sourceIntent.getByteArrayExtra(PushConstants.EXTRA_PAYLOAD)
-        val packageName = sourceIntent.getStringExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE)
-            ?: sourceIntent.getStringExtra(PushConstants.EXTRA_PACKAGE_NAME)
-        if (payload != null) {
-            PushRuntime.observeInboundMessage(
-                packageName = packageName,
-                action = sourceIntent.action ?: "com.xiaomi.xmsf.inner.PUSH_MESSAGE",
-                messageId = null,
-                source = "PushInnerReceiver.onReceive",
-            )
+        val extras = intent?.extras ?: return
+        val message = parseControlMessage(
+            messageId = extras.getString(EXTRA_MESSAGE_ID),
+            content = extras.getString(EXTRA_CONTENT),
+        ) ?: return
+
+        when (message.type) {
+            TYPE_DELIVERY -> deliverKitMessage(context, message)
+            TYPE_COMMAND -> rejectPrivilegedCommand(message)
+            else -> Log.w(TAG, "Rejected unsupported internal control target")
         }
-        context.startService(
-            Intent(sourceIntent).setClass(context, MiPushFacadeService::class.java),
+    }
+
+    private fun deliverKitMessage(context: Context, message: ControlMessage) {
+        val kitName = message.kitName
+        if (kitName.isNullOrBlank() || !KIT_NAME_PATTERN.matches(kitName)) {
+            Log.w(TAG, "Rejected internal delivery without a valid kit name")
+            return
+        }
+        val nested = Bundle().apply {
+            @Suppress("DEPRECATION")
+            putSerializable(EXTRA_NESTED_MAP, HashMap(message.config))
+        }
+        context.sendBroadcast(
+            Intent("${context.packageName}.$kitName.PUSH_MESSAGE_RECEIVED")
+                .setPackage(context.packageName)
+                .putExtra(EXTRA_DELIVERY_MESSAGE_ID, message.messageId)
+                .putExtra(EXTRA_DELIVERY_BUNDLE, nested),
         )
+    }
+
+    private fun rejectPrivilegedCommand(message: ControlMessage) {
+        val category = when (message.command) {
+            COMMAND_UNINSTALL_XMSF -> COMMAND_UNINSTALL_XMSF
+            COMMAND_UNINSTALL_KIT -> COMMAND_UNINSTALL_KIT
+            else -> "unknown"
+        }
+        // The stock handlers mutate installed XMS/kit modules. This replacement has no
+        // equivalent signed module manager, so accepting the request would be unsafe.
+        Log.w(TAG, "Rejected unsupported privileged control command: $category")
+    }
+
+    internal data class ControlMessage(
+        val messageId: String?,
+        val type: String,
+        val kitName: String?,
+        val command: String?,
+        val config: Map<String, String>,
+    )
+
+    companion object {
+        private const val TAG = "PushInnerReceiver"
+        private const val EXTRA_MESSAGE_ID = "messageId"
+        private const val EXTRA_CONTENT = "content"
+        private const val EXTRA_DELIVERY_MESSAGE_ID = "message_Id"
+        private const val EXTRA_DELIVERY_BUNDLE = "extra"
+        private const val EXTRA_NESTED_MAP = "extra"
+        private const val TYPE_COMMAND = "0"
+        private const val TYPE_DELIVERY = "1"
+        private const val COMMAND_UNINSTALL_XMSF = "uninstallXmsf"
+        private const val COMMAND_UNINSTALL_KIT = "uninstallKit"
+        private val KIT_NAME_PATTERN = Regex("[A-Za-z0-9_.-]{1,128}")
+
+        internal fun parseControlMessage(messageId: String?, content: String?): ControlMessage? {
+            if (content.isNullOrBlank()) return null
+            return runCatching {
+                val root = JSONObject(content)
+                val type = root.optString("type", TYPE_COMMAND)
+                val configObject = root.optJSONObject("configMap")
+                val config = buildMap {
+                    if (configObject != null) {
+                        val keys = configObject.keys()
+                        while (keys.hasNext()) {
+                            val key = keys.next()
+                            put(key, configObject.optString(key))
+                        }
+                    }
+                }
+                ControlMessage(
+                    messageId = messageId,
+                    type = type,
+                    kitName = config["kitName"] ?: root.optString("name").takeIf(String::isNotBlank),
+                    command = config["command"],
+                    config = config,
+                )
+            }.onFailure {
+                Log.w(TAG, "Rejected malformed internal control message")
+            }.getOrNull()
+        }
     }
 }

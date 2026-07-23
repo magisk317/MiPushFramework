@@ -15,7 +15,7 @@ import com.xiaomi.push.service.PushServiceCloseAction
 import com.xiaomi.push.service.PushServiceResetConnectionAction
 
 internal class XMPushServiceIntentDelegate(
-    private val service: XMPushService,
+    private val service: XMPushServiceCore,
     private val packetDelegate: XMPushServicePacketDelegate,
 ) {
     companion object {
@@ -53,19 +53,19 @@ internal class XMPushServiceIntentDelegate(
 
             PushConstants.ACTION_CLOSE_CHANNEL.equals(action, true) -> handleCloseChannel(intent)
             PushConstants.ACTION_SEND_MESSAGE.equals(action, true) -> {
-                observeUplinkIntent(intent, "XMPushService.handleIntent:send_message")
+                observeUplinkIntent(intent, "XMPushServiceCore.handleIntent:send_message")
                 packetDelegate.handleSendMessageIntent(intent)
             }
             PushConstants.ACTION_BATCH_SEND_MESSAGE.equals(action, true) -> {
-                observeUplinkIntent(intent, "XMPushService.handleIntent:batch_send_message")
+                observeUplinkIntent(intent, "XMPushServiceCore.handleIntent:batch_send_message")
                 packetDelegate.handleBatchSendMessageIntent(intent)
             }
             PushConstants.ACTION_SEND_IQ.equals(action, true) -> {
-                observeUplinkIntent(intent, "XMPushService.handleIntent:send_iq")
+                observeUplinkIntent(intent, "XMPushServiceCore.handleIntent:send_iq")
                 packetDelegate.handlePacketIntent(intent, IQ(intent.getBundleExtra(PushConstants.EXTRA_PACKET)))
             }
             PushConstants.ACTION_SEND_PRESENCE.equals(action, true) -> {
-                observeUplinkIntent(intent, "XMPushService.handleIntent:send_presence")
+                observeUplinkIntent(intent, "XMPushServiceCore.handleIntent:send_presence")
                 packetDelegate.handlePacketIntent(intent, Presence(intent.getBundleExtra(PushConstants.EXTRA_PACKET)))
             }
             PushConstants.ACTION_RESET_CONNECTION == action -> handleResetConnection(intent)
@@ -105,12 +105,12 @@ internal class XMPushServiceIntentDelegate(
         val request = requestFromIntent(intent)
         val channelId = request.channelId
         if (request.security.isNullOrEmpty()) {
-            observeOpenChannelState(request, PushChannelState.OpenFailed, "XMPushService.handleIntent:security_empty", 4, "security_empty")
+            observeOpenChannelState(request, PushChannelState.OpenFailed, "XMPushServiceCore.handleIntent:security_empty", 4, "security_empty")
             MyLog.w("security is empty. ignore.")
             return
         }
         if (channelId == null) {
-            service.runtimeObserver.onChannelEvent(request.packageName, "open_channel_missing_id", "XMPushService.handleIntent")
+            service.runtimeObserver.onChannelEvent(request.packageName, "open_channel_missing_id", "XMPushServiceCore.handleIntent")
             MyLog.e("channel id is empty, do nothing!")
             return
         }
@@ -118,7 +118,7 @@ internal class XMPushServiceIntentDelegate(
         val shouldRebind = shouldRebind(existing, request)
         val client = updatePushClient(request)
         val plan = service.runtimeObserver.resolveChannelOpenPlan(Network.hasNetwork(service), service.isConnected, client.status, shouldRebind, request)
-        observeOpenChannelState(request, plan.state, "XMPushService.handleIntent:${plan.sourceSuffix}", plan.reasonCode, plan.reasonMessage)
+        observeOpenChannelState(request, plan.state, "XMPushServiceCore.handleIntent:${plan.sourceSuffix}", plan.reasonCode, plan.reasonMessage)
         when (plan.action) {
             PushChannelOpenAction.OpenFailedNoNetwork -> service.clientEventDispatcher.notifyChannelOpenResult(service, client, false, 2, null)
             PushChannelOpenAction.ScheduleConnect -> service.scheduleConnect(true)
@@ -131,7 +131,7 @@ internal class XMPushServiceIntentDelegate(
     }
 
     private fun handleCloseChannel(intent: Intent) {
-        observeCloseChannelRequest(intent, "XMPushService.handleIntent:close_channel", 2)
+        observeCloseChannelRequest(intent, "XMPushServiceCore.handleIntent:close_channel", 2)
         val packageName = intent.getStringExtra(PushConstants.EXTRA_PACKAGE_NAME)
         val channelId = intent.getStringExtra(PushConstants.EXTRA_CHANNEL_ID)
         val userId = intent.getStringExtra(PushConstants.EXTRA_USER_ID)
@@ -149,7 +149,7 @@ internal class XMPushServiceIntentDelegate(
     }
 
     private fun handleResetConnection(intent: Intent) {
-        observeResetConnectionIntent(intent, "XMPushService.handleIntent:reset_connection")
+        observeResetConnectionIntent(intent, "XMPushServiceCore.handleIntent:reset_connection")
         val channelId = intent.getStringExtra(PushConstants.EXTRA_CHANNEL_ID) ?: return
         MyLog.w("request reset connection from chid = $channelId")
         val client = PushClientsManager.getInstance().getClientLoginInfoByChidAndUserId(channelId, intent.getStringExtra(PushConstants.EXTRA_USER_ID))
@@ -192,9 +192,9 @@ internal class XMPushServiceIntentDelegate(
             result.updatedClientExtra || result.updatedCloudExtra -> "channel_info_updated"
             else -> "channel_info_noop"
         }
-        service.runtimeObserver.onChannelEvent(client?.pkgName, action, "XMPushService.handleIntent:update_channel_info")
+        service.runtimeObserver.onChannelEvent(client?.pkgName, action, "XMPushServiceCore.handleIntent:update_channel_info")
         if (client != null && (result.updatedClientExtra || result.updatedCloudExtra)) {
-            service.runtimeObserver.syncChannelTracker("XMPushService.handleIntent:update_channel_info:sync")
+            service.runtimeObserver.syncChannelTracker("XMPushServiceCore.handleIntent:update_channel_info:sync")
         }
     }
 

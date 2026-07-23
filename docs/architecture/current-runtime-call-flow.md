@@ -121,10 +121,34 @@ Supporting layers:
 - `NotificationController`
 - `NotificationManagerEx`
 - `NotificationIdentityBridge`
-- `IslandPreferenceProvider` in the xmsf process, which exposes HyperIsland display flags to hooked processes through a signature-protected provider.
+- `IslandPreferenceProvider` in the xmsf process, which exposes HyperIsland display flags through caller validation: self/system/root, callers holding the read permission, or the system-installed `com.android.systemui` package.
 - `MiPushIslandHook` in the Xposed `com.android.systemui` process, which posts a separate HyperIsland proxy notification for eligible MiPush notifications before MIUI builds its inner notification bean.
 - `UnlockFocusAuthHook` in the Xposed `com.xiaomi.xmsf` process, which relaxes XMSF focus authorization for generated focus payloads.
 - `IslandPreferences` in the Xposed module, which periodically reads the xmsf provider so SystemUI injection and XMSF authorization share the same runtime flags.
+
+Delegated notification identity and display policy are deliberately separate concerns:
+
+- a delegated post keeps `pkg` as the target application and `opPkg` as `com.xiaomi.xmsf`; the
+  system-server hook resolves the target package's UID for the target user instead of changing the
+  operation package to the system;
+- a remotely configured `miui.focus.param` remains attached to its original notification;
+- a locally generated focus/island proxy is a SystemUI path, and `showNotification=false` controls
+  shade presentation rather than suppressing that proxy path.
+
+Stored-event replay contract:
+
+- The manager calls `ManagerEventGateway.mockMessage(...)` as a suspend operation and receives one
+  of `BlockedByPermission`, `Dispatched`, `Posted`, or `Failed` from the shared `MockReplayOutcome`
+  contract.
+- Modern mock replay runs the notification policy/publish path synchronously on the manager's IO
+  coroutine. `Posted` is returned only after `NotificationController.publish(...)` receives a
+  successful notification-manager post.
+- A blocked application, denied notification operation, or focus filter returns
+  `BlockedByPermission`. A legacy reflection path whose final post cannot be observed returns
+  `Dispatched`; payload/service/publish failures return `Failed`.
+- Runtime observation logs use the same outcome names, and the manager event page presents all four
+  results explicitly. Do not restore the old Boolean contract, which only proved that a payload was
+  parseable and a replay attempt was started.
 
 Key sources:
 
@@ -153,12 +177,43 @@ Key sources:
   - `com.xiaomi.xmsf.pushprocess.PushInnerReceiver`
 - Main work:
   - expose stock provider authorities and service names expected by callers
-  - bridge stock-facing calls into `PushRuntime`, notification helpers, online config, and app DB state
+  - preserve exact stock method names, Bundle shape, result-code type, Binder ABI, caller
+    identity, persistence effect, and downstream consumer rather than accepting same-name
+    components as proof
+  - bridge stock-facing calls into `PushRuntime`, notification helpers, online config, app DB
+    state, and the reduced keep-alive runtime
   - keep subprocess and keepalive coordination inside product-owned glue instead of pushing it down into `vendor`
+
+Important live consumers:
+
+- `StockProfileIdStore` implements the four caller-owned profile calls. Display-message profile
+  mismatches are fenced after decrypt in `MIPushEventProcessor`, which owns the single missing
+  profile acknowledgement; `MiPushRuntimeBridge` has a later storage/notification fence so a
+  rejected payload cannot leak into EventDb or notification allowance.
+- `StockPushSupport` owns the consent-gated Box projection. It exposes only records with the
+  explicit Box opt-in, enabled channel state, and a constructible Activity route; the returned
+  bytes are an Activity `Intent` parcel. Local delete state is tied to an Event row, not a remote
+  message ID.
+- `StockChannelSupport` owns the broker-gated stock channel mapping and permission bitmask.
+  `NotificationController` prefers the resulting provider/legacy channel ID before generating a
+  local fallback channel.
+- `KeepAliveRuntimeAdapter` persists strategy JSON but waits for `ServiceBoxService` to resolve
+  stock `KASwitch=142` before making reduced polling bind/unbind decisions. It reads/persists
+  `OnetrackSwitch=140` separately but does not re-enable stock OneTrack behavior while telemetry
+  remains disabled.
+- Hand-written Binder facades preserve descriptor attachment, local/remote resolution, transaction
+  ordering, and one-way flags. `HttpService` returns stock-shaped local responses instead of
+  forwarding telemetry; `BindMiCloudPushService` consumes `key_to_bind_intent` and invokes the
+  remote worker.
 
 Key source:
 
 - `xmsf/src/main/java/com/xiaomi/xmsf/stock/StockSurfaceSupport.kt`
+- `xmsf/src/main/java/com/xiaomi/xmsf/stock/StockProfileIdStore.kt`
+- `xmsf/src/main/java/com/xiaomi/xmsf/stock/StockPushSupport.kt`
+- `xmsf/src/main/java/com/xiaomi/xmsf/stock/StockChannelSupport.kt`
+- `xmsf/src/main/java/com/xiaomi/xmsf/stock/StockNotificationMetadataBridge.kt`
+- `docs/architecture/stock-dump-contract-audit-2026-07.md`
 
 ## 9. Account / Cloud Bridge
 

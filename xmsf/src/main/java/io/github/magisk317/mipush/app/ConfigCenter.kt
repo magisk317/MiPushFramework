@@ -47,20 +47,6 @@ class ConfigCenter constructor(
     suspend fun shouldStartPushAsForegroundServiceAsync(): Boolean =
         preferenceRepository.startPushAsForegroundService.first()
 
-    suspend fun getHazeBlurRadiusAsync(): Int = preferenceRepository.hazeBlurRadius.first()
-
-    suspend fun setHazeBlurRadiusAsync(radius: Int): Boolean {
-        preferenceRepository.setHazeBlurRadius(radius)
-        return true
-    }
-
-    suspend fun getHazeTintAlphaAsync(): Float = preferenceRepository.hazeTintAlpha.first()
-
-    suspend fun setHazeTintAlphaAsync(alpha: Float): Boolean {
-        preferenceRepository.setHazeTintAlpha(alpha)
-        return true
-    }
-
     fun loadConfigurations(context: Context) {
         // Use a cached directory value to avoid blocking the calling thread.
         // The configuration directory rarely changes and is set explicitly by the user.
@@ -81,7 +67,7 @@ class ConfigCenter constructor(
         val configLoaded = Configurations.getInstance().init(appContext, directory)
         val iconLoaded = Global.iconConfigurations().init(appContext, directory)
         if (!PushControllerUtils.isAppMainProc(appContext)) {
-            val intent = PushRuntimeComponents.newLegacyMainServiceIntent(
+            val intent = PushRuntimeComponents.newCoreServiceIntent(
                 appContext,
                 Constants.CONFIGURATIONS_UPDATE_ACTION
             )

@@ -6,12 +6,10 @@ import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.net.Uri
 import android.util.Base64
-import android.util.Pair
 import androidx.core.app.NotificationCompat
 import androidx.documentfile.provider.DocumentFile
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.Serializable
-import io.github.magisk317.mipush.common.configurations.ConfigJsonException
 import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.app.ConfigCenter
@@ -19,7 +17,8 @@ import io.github.magisk317.mipush.app.ConfigCenter
 class IconConfigurations constructor(
     @Suppress("unused") configCenter: ConfigCenter
 ) {
-    private val iconConfigs = hashMapOf<String, IconConfig>()
+    @Volatile
+    private var iconConfigs: Map<String, IconConfig> = emptyMap()
 
     @Serializable
     class IconConfig {
@@ -49,50 +48,37 @@ class IconConfigurations constructor(
     }
 
     fun init(context: Context?, treeUri: Uri?): Boolean {
-        iconConfigs.clear()
-        do {
-            if (context == null || treeUri == null) {
-                break
-            }
-            val exceptions = mutableListOf<Pair<DocumentFile, ConfigJsonException>>()
-            parseDirectory(context, treeUri, exceptions)
-
-            if (exceptions.isNotEmpty()) {
-                for (pair in exceptions) {
-                    val errmsg = ConfigurationsLoader.getJsonExceptionMessage(context, pair)
-                    logE(errmsg.toString())
-                }
-                break
-            }
-            return true
-        } while (false)
-        return false
+        if (context == null || treeUri == null) {
+            iconConfigs = emptyMap()
+            return false
+        }
+        val loaded = loadDirectory(context, treeUri).getOrElse { error ->
+            logE("Failed to load icon configurations", error)
+            iconConfigs = emptyMap()
+            return false
+        }
+        iconConfigs = loaded
+        return true
     }
 
     fun get(pkg: String): IconConfig? = iconConfigs[pkg]
 
-    private fun parseDirectory(
+    private fun loadDirectory(
         context: Context,
         treeUri: Uri,
-        exceptions: MutableList<Pair<DocumentFile, ConfigJsonException>>
-    ): Boolean {
-        var documentFile = DocumentFile.fromTreeUri(context, treeUri) ?: return true
-        documentFile = documentFile.findFile("icon") ?: return true
-        val files = documentFile.listFiles()
-        for (file in files) {
-            val name = file.name ?: continue
-            if (!name.lowercase().endsWith(".json")) {
-                continue
-            }
-            val json = ConfigurationsLoader.readTextFromUri(context, file.uri)
-            try {
-                parse(json)
-                logI("Successfully loaded icon configuration: ${file.name}")
-            } catch (e: ConfigJsonException) {
-                exceptions.add(Pair(file, e))
+    ): Result<Map<String, IconConfig>> = runCatching {
+        val root = DocumentFile.fromTreeUri(context, treeUri)
+            ?: return@runCatching emptyMap()
+        val iconDirectory = root.findFile("icon")
+            ?: return@runCatching emptyMap()
+        buildMap {
+            for (file in iconDirectory.listFiles()) {
+                val name = file.name ?: continue
+                if (!name.endsWith(".json", ignoreCase = true)) continue
+                putAll(parse(ConfigurationsLoader.readTextFromUri(context, file.uri)))
+                logI("Successfully loaded icon configuration: $name")
             }
         }
-        return false
     }
 
     private val jsonFormat = Json {
@@ -100,12 +86,10 @@ class IconConfigurations constructor(
         coerceInputValues = true
     }
 
-    @Throws(Exception::class)
-    private fun parse(json: String) {
-        val configs = jsonFormat.decodeFromString<List<IconConfig>>(json)
-        for (config in configs) {
-            val pkg = config.packageName ?: continue
-            iconConfigs[pkg] = config
-        }
-    }
+    internal fun parse(json: String): Map<String, IconConfig> =
+        jsonFormat.decodeFromString<List<IconConfig>>(json)
+            .mapNotNull { config ->
+                config.packageName?.takeIf { it.isNotBlank() }?.let { it to config }
+            }
+            .toMap()
 }

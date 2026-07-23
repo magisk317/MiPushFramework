@@ -22,7 +22,7 @@ import com.xiaomi.push.service.PushServiceMiPushPayloadDispatchAction
 import com.xiaomi.push.service.PushServiceMiPushPayloadDispatchPlan
 
 internal class XMPushServicePacketDelegate(
-    private val service: XMPushService,
+    private val service: XMPushServiceCore,
 ) {
     fun handleSendMessageIntent(intent: Intent) {
         val pushClientsManager = PushClientsManager.getInstance()
@@ -93,7 +93,7 @@ internal class XMPushServicePacketDelegate(
                 registerForMiPushApp(repaired.payload, repaired.packageName)
                 return
             }
-            service.runtimeObserver.onRegistrationResult(observedPackageName, false, "XMPushService.registerForMiPushApp", "null_payload")
+            service.runtimeObserver.onRegistrationResult(observedPackageName, false, "XMPushServiceCore.registerForMiPushApp", "null_payload")
             MIPushClientManager.notifyError(service, observedPackageName, byteArrayOf(), 70000003, "null payload")
             MyLog.w("register request without payload")
             return
@@ -105,12 +105,11 @@ internal class XMPushServicePacketDelegate(
                 val registration = XmPushActionRegistration()
                 try {
                     XmPushThriftSerializeUtils.convertByteArrayToThriftObject(registration, container.getPushAction())
-                    MIPushAppAbsentManager.rememberRegisteredPackage(service, container.packageName, registration.appId)
-                    service.runtimeObserver.cacheRegistrationRequest(container.packageName, payload)
+                    service.runtimeObserver.cacheRegistrationRequest(container.packageName, payload, registration.appId)
                     service.runtimeObserver.onRegistrationStateChanged(
                         container.packageName,
                         PushRegistrationState.Registering,
-                        "XMPushService.registerForMiPushApp",
+                        "XMPushServiceCore.registerForMiPushApp",
                         "register_job_enqueued",
                     )
                     service.executeJob(
@@ -132,24 +131,24 @@ internal class XMPushServicePacketDelegate(
                     return
                 } catch (e: TException) {
                     MyLog.e("app register error. $e")
-                    service.runtimeObserver.onRegistrationResult(observedPackageName, false, "XMPushService.registerForMiPushApp", "payload_action_error")
+                    service.runtimeObserver.onRegistrationResult(observedPackageName, false, "XMPushServiceCore.registerForMiPushApp", "payload_action_error")
                     MIPushClientManager.notifyError(service, observedPackageName, payload, 70000003, " data action error.")
                     return
                 }
             }
-            service.runtimeObserver.onRegistrationResult(observedPackageName, false, "XMPushService.registerForMiPushApp", "registration_action_required")
+            service.runtimeObserver.onRegistrationResult(observedPackageName, false, "XMPushServiceCore.registerForMiPushApp", "registration_action_required")
             MIPushClientManager.notifyError(service, observedPackageName, payload, 70000003, " registration action required.")
             MyLog.w("register request with invalid payload")
         } catch (e: TException) {
             MyLog.e("app register fail. $e")
-            service.runtimeObserver.onRegistrationResult(observedPackageName, false, "XMPushService.registerForMiPushApp", "container_decode_error")
+            service.runtimeObserver.onRegistrationResult(observedPackageName, false, "XMPushServiceCore.registerForMiPushApp", "container_decode_error")
             MIPushClientManager.notifyError(service, observedPackageName, payload, 70000003, " data container error.")
         }
     }
 
     fun sendMessage(packageName: String?, payload: ByteArray?, cacheIfUnavailable: Boolean) {
         if (packageName == null || payload == null) {
-            service.runtimeObserver.onChannelEvent(packageName, "mipush_payload_missing", "XMPushService.sendMessage")
+            service.runtimeObserver.onChannelEvent(packageName, "mipush_payload_missing", "XMPushServiceCore.sendMessage")
             return
         }
         val activeClients = PushClientsManager.getInstance().getAllClientLoginInfoByChid("5")
@@ -159,12 +158,12 @@ internal class XMPushServicePacketDelegate(
             client?.status,
             cacheIfUnavailable,
         )
-        service.runtimeObserver.onChannelEvent(packageName, plan.eventAction, "XMPushService.sendMessage")
+        service.runtimeObserver.onChannelEvent(packageName, plan.eventAction, "XMPushServiceCore.sendMessage")
         when (plan.action) {
             PushServiceMiPushPayloadDispatchAction.QueueOnly -> service.runtimeObserver.cachePendingMessage(packageName, payload)
             PushServiceMiPushPayloadDispatchAction.SendNow -> {
                 service.executeJob(
-                    object : XMPushService.Job(4) {
+                    object : XMPushServiceCore.Job(4) {
                         override fun getDesc(): String = "send mi push message"
 
                         override fun process() {

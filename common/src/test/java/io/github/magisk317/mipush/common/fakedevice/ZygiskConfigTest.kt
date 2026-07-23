@@ -28,10 +28,11 @@ class ZygiskConfigTest {
     }
 
     @Test
-    fun `parse drops system and Xiaomi family packages`() {
+    fun `parse keeps Xiaomi family packages and drops invalid names`() {
         val config = ZygiskConfig.parse(
             """
             android
+            not-a-package
             com.android.settings
             com.miui.securitycenter
             com.xiaomi.smarthome
@@ -40,8 +41,18 @@ class ZygiskConfigTest {
             """.trimIndent(),
         )
 
-        assertEquals(setOf("com.example.app"), config.enabledPackages())
-        assertFalse(config.isEnabledForPackage("com.xiaomi.smarthome"))
+        assertEquals(
+            setOf(
+                "com.android.settings",
+                "com.example.app",
+                "com.mipay.wallet",
+                "com.miui.securitycenter",
+                "com.xiaomi.smarthome",
+            ),
+            config.enabledPackages(),
+        )
+        assertTrue(config.isEnabledForPackage("com.xiaomi.smarthome"))
+        assertFalse(config.isEnabledForPackage("android"))
     }
 
     @Test

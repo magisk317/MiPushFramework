@@ -4,6 +4,8 @@ import android.util.Log
 import io.github.magisk317.mipush.xposed.BuildConfig
 import io.github.magisk317.xposed.MethodHookParam
 import io.github.magisk317.xposed.XposedRuntime
+import io.github.magisk317.xposed.logging.DefaultLogSanitizer
+import io.github.magisk317.xposed.logging.LogSanitizerConfig
 import io.github.magisk317.xposed.logging.XposedLogClient
 import java.lang.reflect.Method
 
@@ -46,31 +48,43 @@ object XLog {
     fun MethodHookParam.logMethod(tag: String, stackTrace: Boolean = false) {
         d(tag, "╔═══════════════════════════════════════════════════════")
         d(tag, method.toString())
-        d(tag, "${method.name} called with ${args.contentDeepToString()}")
+        d(tag, "${method.name} called with ${safeArgs(args)}")
         if (stackTrace) {
             d(tag, Log.getStackTraceString(Throwable()))
         }
         if (hasThrowable()) {
             e(tag, "${method.name} thrown", throwable)
         } else if (method is Method && (method as Method).returnType != Void.TYPE) {
-            d(tag, "${method.name} return $result")
+            d(tag, "${method.name} return ${safeArg(result)}")
         }
         d(tag, "╚═══════════════════════════════════════════════════════")
     }
 
     private fun emit(level: String, tag: String, message: String?, throwable: Throwable?) {
+        val safeMessage = DefaultLogSanitizer.sanitizeIfEnabled(message ?: "")
         val priority = priorityFor(level)
-        XposedRuntime.log(priority, tag, "[MiPush][$level][$tag] $message", throwable)
+        XposedRuntime.log(priority, tag, "[MiPush][$level][$tag] $safeMessage", throwable)
         if (level == "T") return
         XposedLogClient.send(
             io.github.magisk317.xposed.logging.XposedLogEvent(
                 source = SOURCE,
                 level = level,
                 tag = tag,
-                message = message ?: "",
+                message = safeMessage,
                 throwable = throwable?.stackTraceToString() ?: "",
             ),
         )
+    }
+
+    private fun safeArgs(args: Array<Any?>?): String {
+        if (args == null) return "null"
+        if (!LogSanitizerConfig.isEnabled()) return args.contentDeepToString()
+        return args.joinToString(prefix = "[", postfix = "]") { DefaultLogSanitizer.redactArg(it) }
+    }
+
+    private fun safeArg(value: Any?): String {
+        if (!LogSanitizerConfig.isEnabled()) return value.toString()
+        return DefaultLogSanitizer.redactArg(value)
     }
 
     private fun priorityFor(level: String): Int = when (level) {

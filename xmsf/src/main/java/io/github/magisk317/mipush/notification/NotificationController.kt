@@ -32,10 +32,13 @@ import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationStyleSupport
 import com.xiaomi.push.service.MyNotificationIconHelper
+import com.xiaomi.push.service.NotificationManagerHelper
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmsf.R
+import com.xiaomi.xmsf.stock.StockNotificationMetadataBridge
 import io.github.magisk317.mipush.common.NotificationStyle
+import io.github.magisk317.mipush.common.notification.NotificationContentSupport
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry
@@ -124,7 +127,7 @@ object NotificationController {
         notificationId: Int,
         packageName: String,
         notificationBuilder: NotificationCompat.Builder
-    ) {
+    ): Boolean {
         val channelId = getExistsChannelId(context, metaInfo, packageName)
         notificationBuilder.setChannelId(channelId)
         notificationBuilder.setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
@@ -141,10 +144,11 @@ object NotificationController {
         val notification = notify(context, notificationId, packageName, notificationBuilder, metaInfo)
         if (notification == null) {
             Napier.d("publish skipped pkg=$packageName id=$notificationId (contentless, channel, or publish issue)", tag = TAG)
-            return
+            return false
         }
         Napier.d("publish posted pkg=$packageName id=$notificationId group=${notification.group} tag=${MyMIPushNotificationHelper.getNotificationTag(packageName)}", tag = TAG)
         updateSummaryNotification(context, metaInfo, packageName, notification.group)
+        return true
     }
 
     @JvmStatic
@@ -160,6 +164,26 @@ object NotificationController {
             logD("getExistsChannelId() requested borrow channel unavailable pkg=$packageName channel=$preferredBorrowed")
         }
         val fallbackChannelId = NotificationChannelManager.getChannelId(metaInfo, packageName)
+        val sourceChannelId = custom.channelId(null)?.takeIf(String::isNotBlank)
+        if (sourceChannelId != null) {
+            val stockManager = NotificationManagerHelper.from(context.applicationContext, packageName)
+            val stockChannelId = stockManager.getMipushChannelId(sourceChannelId)
+            // Use the same stock helper for lookup as for id translation. It selects target-package
+            // framework APIs or the local old-format namespace according to runtime support.
+            val stockChannel = stockManager.getNotificationChannel(stockChannelId)
+            val selectedChannelId = selectProviderCompatibleChannelId(
+                stockChannelId = stockChannelId,
+                stockChannelExists = stockChannel != null,
+                legacyChannelId = fallbackChannelId,
+            )
+            if (selectedChannelId == stockChannelId) {
+                logD(
+                    "getExistsChannelId() reuse stock provider channel pkg=$packageName " +
+                        "source=$sourceChannelId channel=$stockChannelId",
+                )
+                return selectedChannelId
+            }
+        }
         val supportsTargetProvisioning = getNotificationManagerEx().supportsTargetChannelProvisioning(packageName)
         if (supportsTargetProvisioning) {
             NotificationChannelManager.registerChannelIfNeeded(context, metaInfo, packageName)
@@ -169,6 +193,16 @@ object NotificationController {
         NotificationChannelManager.registerChannelIfNeeded(context, metaInfo, packageName)
         logD("getExistsChannelId() fallback to local managed channel pkg=$packageName channel=$fallbackChannelId")
         return fallbackChannelId
+    }
+
+    internal fun selectProviderCompatibleChannelId(
+        stockChannelId: String?,
+        stockChannelExists: Boolean,
+        legacyChannelId: String,
+    ): String = if (!stockChannelId.isNullOrBlank() && stockChannelExists) {
+        stockChannelId
+    } else {
+        legacyChannelId
     }
 
     private fun notify(
@@ -184,8 +218,16 @@ object NotificationController {
         val extras = Bundle()
         extras.putString("target_package", packageName)
         extras.putString("miui.targetPkg", packageName)
+        if (applyPayloadDecorations) {
+            StockNotificationMetadataBridge.apply(metaInfo, extras)
+        }
         notificationBuilder.addExtras(extras)
-        val color = processIcon(context, packageName, notificationBuilder)
+        val color = applyStatusBarIcon(
+            context,
+            packageName,
+            notificationBuilder,
+            islandOptions.colorStatusBarIcon,
+        )
 
         val configuration = XMPushUtils.getConfiguration(metaInfo)
         val largeIcon = if (
@@ -217,10 +259,7 @@ object NotificationController {
             generatedFocusParam = null,
             generatedFocusCandidate = generatedFocusCandidate,
         )
-        val configuredFocusBundle = if (
-            generatedFocusCandidate &&
-            preliminaryFocusPlan.attachMiuiFocusExtras
-        ) {
+        val configuredFocusBundle = if (preliminaryFocusPlan.attachMiuiFocusExtras) {
             buildConfiguredFocusBundle(
                 context = context,
                 packageName = packageName,
@@ -264,6 +303,15 @@ object NotificationController {
                 )
             }
             ?: preliminaryFocusPlan
+        val focusPayloadSource = when {
+            !rawConfiguredFocusParam.isNullOrBlank() -> "configured"
+            generatedFocusBundle != null -> "generated"
+            else -> "none"
+        }
+        logD(
+            "focus payload plan pkg=$packageName id=$notificationId " +
+                "source=$focusPayloadSource reason=${focusPlan.reason}",
+        )
 
         val tag = MyMIPushNotificationHelper.getNotificationTag(packageName)
         val nativeFeature = NativeNotificationFeatureBuilder.apply(
@@ -297,6 +345,14 @@ object NotificationController {
             rawConfiguredFocusParam.takeIf { focusPlan.attachMiuiFocusExtras },
             notificationId
         )
+        attachLiveUpdateDismissCancelIntent(
+            context = context,
+            builder = notificationBuilder,
+            packageName = packageName,
+            notificationId = notificationId,
+            tag = tag,
+            nativeFeature = nativeFeature,
+        )
         if (shouldAutoCancelNotification(metaInfo, notificationBuilder, nativeFeature)) {
             notificationBuilder.setAutoCancel(true)
         }
@@ -307,7 +363,15 @@ object NotificationController {
             NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag)
             return null
         }
-        if (!NotificationContentSupport.hasMeaningfulVisibleText(context, packageName, notification, channel)) {
+        if (
+            !NotificationContentSupport.hasMeaningfulVisibleContent(
+                context = context,
+                packageName = packageName,
+                notification = notification,
+                channelName = channel?.name,
+                channelDescription = channel?.description,
+            )
+        ) {
             logD("drop contentless notification pkg=$packageName id=$notificationId channel=${notification.channelId}")
             NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag)
             return null
@@ -438,13 +502,13 @@ object NotificationController {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return false
         ensureMockReplayReceiptChannel(context, manager, packageName)
         val appName = Global.applicationNameCache().getAppName(context, packageName)
-        val title = firstText(
+        val title = NotificationContentSupport.firstText(
             source.extras,
             Notification.EXTRA_TITLE,
             Notification.EXTRA_TITLE_BIG,
         ) ?: source.tickerText?.toString()
             ?: appName
-        val content = firstText(
+        val content = NotificationContentSupport.firstText(
             source.extras,
             Notification.EXTRA_TEXT,
             Notification.EXTRA_BIG_TEXT,
@@ -483,8 +547,7 @@ object NotificationController {
                 builder.setSmallIcon(iconCompat)
             }
         }
-        val color = processIcon(context, packageName, builder)
-        builder.setColor(if (colorStatusBarIcon) color else Notification.COLOR_DEFAULT)
+        val color = applyStatusBarIcon(context, packageName, builder, colorStatusBarIcon)
         val receipt = ProgressStyleBuilder.buildNotification(context, builder)
         // 使用原始通知的 tag 和 id，使 receipt 替换原始通知
         val receiptTag = originalTag ?: "$MOCK_REPLAY_RECEIPT_TAG_PREFIX$packageName"
@@ -550,7 +613,7 @@ object NotificationController {
         if (!NotificationManagerEx.isHooked) {
             return false
         }
-        val title = firstText(
+        val title = NotificationContentSupport.firstText(
             notification.extras,
             Notification.EXTRA_TITLE,
             Notification.EXTRA_TITLE_BIG,
@@ -558,7 +621,7 @@ object NotificationController {
             ?: metaInfo.title?.takeIf { it.isNotBlank() }
             ?: metaInfo.description?.takeIf { it.isNotBlank() }
             ?: return false
-        val content = firstText(
+        val content = NotificationContentSupport.firstText(
             notification.extras,
             Notification.EXTRA_TEXT,
             Notification.EXTRA_BIG_TEXT,
@@ -853,10 +916,11 @@ object NotificationController {
         notificationBuilder: NotificationCompat.Builder,
         colorStatusBarIcon: Boolean,
     ): Int {
+        val color = processIcon(context, packageName, notificationBuilder)
         if (colorStatusBarIcon) {
-            return processIcon(context, packageName, notificationBuilder)
+            notificationBuilder.setColor(color)
+            return color
         }
-        notificationBuilder.setSmallIcon(R.drawable.ic_notifications_black_24dp)
         notificationBuilder.setColor(Notification.COLOR_DEFAULT)
         return Notification.COLOR_DEFAULT
     }
@@ -870,6 +934,41 @@ object NotificationController {
             ?: return false
         notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(iconBitmap))
         return true
+    }
+
+
+    /**
+     * Native Live Updates (ProgressStyle / PROMOTED_ONGOING) stay active as the island after the
+     * shade row is dismissed on some HyperOS builds. Wire deleteIntent so user dismiss cancels the
+     * same notification identity (target package and local xmsf fallback).
+     */
+    private fun attachLiveUpdateDismissCancelIntent(
+        context: Context,
+        builder: NotificationCompat.Builder,
+        packageName: String,
+        notificationId: Int,
+        tag: String?,
+        nativeFeature: NativeNotificationFeatureBuilder.Result,
+    ) {
+        val isLiveUpdate = nativeFeature.feature == NativeNotificationFeatureBuilder.Feature.PROGRESS ||
+            ProgressStyleBuilder.isLiveUpdate(builder)
+        if (!isLiveUpdate) return
+        val intent = Intent(context, LiveUpdateDismissReceiver::class.java).apply {
+            action = LiveUpdateDismissReceiver.ACTION_LIVE_UPDATE_DISMISSED
+            data = android.net.Uri.parse("mipush-live-update://$packageName/$notificationId/${tag.orEmpty()}")
+            putExtra(LiveUpdateDismissReceiver.EXTRA_PACKAGE_NAME, packageName)
+            putExtra(LiveUpdateDismissReceiver.EXTRA_NOTIFICATION_ID, notificationId)
+            putExtra(LiveUpdateDismissReceiver.EXTRA_NOTIFICATION_TAG, tag)
+        }
+        val requestCode = (packageName.hashCode() * 31) xor notificationId xor (tag?.hashCode() ?: 0)
+        builder.setDeleteIntent(
+            PendingIntent.getBroadcast(
+                context,
+                requestCode,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            ),
+        )
     }
 
     private fun cancelGeneratedIslandProxy(
@@ -890,13 +989,6 @@ object NotificationController {
             )
         }.onFailure {
             Napier.w("cancel island proxy failed pkg=$packageName id=$notificationId: ${it.message}", it, tag = TAG)
-        }
-    }
-
-    private fun firstText(extras: Bundle?, vararg keys: String): String? {
-        if (extras == null) return null
-        return keys.firstNotNullOfOrNull { key ->
-            extras.getCharSequence(key)?.toString()?.takeIf { it.isNotBlank() }
         }
     }
 
@@ -955,8 +1047,7 @@ object NotificationController {
         val id = (System.currentTimeMillis() / 1000L).toInt()
         val builder = NotificationCompat.Builder(context, mockChannelId)
         val colorStatusBarIcon = MiPushIslandPreferences.read(context, packageName).colorStatusBarIcon
-        val color = processIcon(context, packageName, builder)
-        builder.setColor(if (colorStatusBarIcon) color else Notification.COLOR_DEFAULT)
+        val color = applyStatusBarIcon(context, packageName, builder, colorStatusBarIcon)
         builder.setWhen(System.currentTimeMillis())
         builder.setShowWhen(true)
         builder.setAutoCancel(true)
@@ -1143,8 +1234,7 @@ object NotificationController {
                     for (i in steps.indices) {
                         Thread.sleep(3000)
                         val updateBuilder = NotificationCompat.Builder(context, mockChannelId).apply {
-                            val updateColor = processIcon(context, packageName, this)
-                            setColor(if (colorStatusBarIcon) updateColor else Notification.COLOR_DEFAULT)
+                            applyStatusBarIcon(context, packageName, this, colorStatusBarIcon)
                             setWhen(System.currentTimeMillis())
                             setContentTitle(deliveryTitle)
                             setContentText(texts[i])

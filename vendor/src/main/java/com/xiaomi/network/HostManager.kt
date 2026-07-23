@@ -116,7 +116,7 @@ open class HostManager @JvmOverloads constructor(
             val applicationContext = context.applicationContext ?: context
             sAppContext = applicationContext
             if (sInstance == null) {
-                val observer = XMPushService.observer
+                val observer = XMPushServiceCore.observer
                 if (observer != null) {
                     try {
                         val obsInstance = observer.createHostManager(context, hostFilter, httpGet, userId)
@@ -562,7 +562,7 @@ open class HostManager @JvmOverloads constructor(
             sReservedHosts[HOST]?.getHosts(true)?.let { arrayList2.addAll(it) }
         }
         
-        val observer = XMPushService.observer
+        val observer = XMPushServiceCore.observer
         if (observer == null) return null
         val planRequestUrls = observer.planRequestUrls(str3, localFallback?.getUrls(str3), arrayList2)
         val urls = ArrayList(planRequestUrls.urls)
@@ -657,7 +657,7 @@ open class HostManager @JvmOverloads constructor(
                 }
             }
         }
-        val observer = XMPushService.observer
+        val observer = XMPushServiceCore.observer
         if (observer != null) {
             val planRefreshTargets = observer.planRefreshTargets(arrayList, HashSet(arrayList2))
             val arrayList3 = ArrayList(planRefreshTargets.targetHosts)
@@ -671,7 +671,7 @@ open class HostManager @JvmOverloads constructor(
     }
 
     protected open fun requestRemoteFallback(str: String): Fallback? {
-        val observer = XMPushService.observer ?: return null
+        val observer = XMPushServiceCore.observer ?: return null
         val planRemoteFallbackRequest = observer.planRemoteFallbackRequest(System.currentTimeMillis(), lastRemoteRequestTimestamp, remoteRequestFailureCount)
         if (!planRemoteFallbackRequest.shouldRequest) {
             return null

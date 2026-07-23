@@ -4,13 +4,17 @@ import android.content.ContentProvider
 import android.content.ContentValues
 import android.database.Cursor
 import android.net.Uri
+import android.os.Binder
 import android.os.Bundle
 import com.xiaomi.xmsf.stock.StockSurfaceSupport
 
 class PushProfileIdProvider : ContentProvider() {
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle {
         val context = context ?: return Bundle()
-        return StockSurfaceSupport.handleProfileCall(context, method, extras)
+        val callingPackage = runCatching {
+            context.packageManager.getNameForUid(Binder.getCallingUid())
+        }.getOrNull()
+        return StockSurfaceSupport.handleProfileCall(context, method, extras, callingPackage)
     }
 
     override fun onCreate(): Boolean = true
@@ -24,4 +28,5 @@ class PushProfileIdProvider : ContentProvider() {
     override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int = 0
 
     override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<out String>?): Int = 0
+
 }

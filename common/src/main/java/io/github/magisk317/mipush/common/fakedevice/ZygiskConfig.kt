@@ -84,26 +84,16 @@ data class ZygiskConfig(
 }
 
 object ZygiskPackagePolicy {
-    private val deniedPackagePrefixes = listOf(
-        "android.",
-        "com.android.",
-        "com.google.android.",
-        "com.mi.",
-        "com.miui.",
-        "com.milink.",
-        "com.mipay.",
-        "com.xiaomi.",
-        "miui.",
-    )
+    // No vendor/system package denylist: any well-formed package may be configured.
+    // Unwanted apps are handled by per-app blocked flag, not static prefixes.
 
     private val packageNameRegex = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+")
     private val processNameRegex = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+(\\:[A-Za-z0-9_.-]+)?")
 
     fun isManagedPackage(packageName: String): Boolean {
         val normalized = packageName.trim()
-        if (normalized == "android") return false
-        if (!packageNameRegex.matches(normalized)) return false
-        return deniedPackagePrefixes.none { prefix -> normalized.startsWith(prefix) }
+        if (normalized.isEmpty() || normalized == "android") return false
+        return packageNameRegex.matches(normalized)
     }
 
     fun isValidProcessName(packageName: String, processName: String): Boolean {

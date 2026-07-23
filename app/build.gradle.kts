@@ -4,7 +4,7 @@ plugins {
     id("magisk.app.packaging")
 }
 
-extra["mipushArtifactBaseName"] = "xmsf"
+extra["artifactBaseName"] = "xmsf"
 
 val versionNameStr = rootProject.version.toString().ifBlank { libs.versions.versionName.get() }
 val pushVersionCode = libs.versions.pushVersionCode.get().toInt()
@@ -18,7 +18,7 @@ android {
         versionName = versionNameStr
     }
 
-    flavorDimensions.add("version")
+    flavorDimensions += listOf("version", "composition")
 
     productFlavors {
         create("normal") {
@@ -27,6 +27,16 @@ android {
         create("vc105") {
             dimension = "version"
             versionCode = 105
+        }
+        // Default split packaging: runtime-only APK. Manager UI lives in :mipush.
+        create("split") {
+            dimension = "composition"
+            buildConfigField("boolean", "BUNDLED_MANAGER", "false")
+        }
+        // Comparison / regression baseline that still packages manager UI in-process.
+        create("bundled") {
+            dimension = "composition"
+            buildConfigField("boolean", "BUNDLED_MANAGER", "true")
         }
     }
 
@@ -46,9 +56,16 @@ android {
             useLegacyPackaging = true
         }
     }
+
+    buildFeatures {
+        buildConfig = true
+    }
 }
 
 dependencies {
+    implementation(project(":common"))
     implementation(project(":xmsf"))
-    implementation(project(":manager"))
+    "bundledImplementation"(project(":manager"))
+
+    implementation(libs.kotlinx.coroutines.android)
 }

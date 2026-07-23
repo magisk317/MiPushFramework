@@ -20,7 +20,7 @@ import java.net.URL
 import java.util.ArrayList
 
 class PushHostManagerFactory(
-    private val pushService: XMPushService,
+    private val pushService: XMPushServiceCore,
 ) : ServiceConfig.Listener(), HostManager.HostManagerFactory {
 
     inner class GslbHttpGet : HostManager.HttpGet {
@@ -53,7 +53,7 @@ class PushHostManagerFactory(
         private const val VERSION = "2.2"
 
         @JvmStatic
-        fun init(pushService: XMPushService) {
+        fun init(pushService: XMPushServiceCore) {
             val factory = PushHostManagerFactory(pushService)
             ServiceConfig.getInstance().addListener(factory)
             synchronized(HostManager::class.java) {

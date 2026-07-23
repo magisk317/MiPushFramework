@@ -2,6 +2,8 @@ package io.github.magisk317.mipush.hook.fakedevice
 
 import io.github.magisk317.xposed.LoadParam
 import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.DefaultLogSanitizer
+import io.github.magisk317.xposed.logging.LogSanitizerConfig
 import io.github.magisk317.xposed.findClass
 import io.github.magisk317.xposed.hook
 import io.github.magisk317.xposed.hookAllMethods
@@ -405,26 +407,8 @@ open class XGPush : IFakeDevice {
     }
 
     private fun safeValue(value: Any?): String {
-        if (value == null) return "null"
-        val raw = value.toString()
-        val sanitized = raw
-            .replace(Regex("""(?i)(token|regid|reg_id|account|aid|accessid|access_id)=([^,}\]\s]+)""")) {
-                "${it.groupValues[1]}=${redactMiddle(it.groupValues[2])}"
-            }
-            .replace("\n", " ")
-            .replace("\r", " ")
-        val compact = if (sanitized.length > 240) sanitized.take(240) + "..." else sanitized
-        return if (shouldRedactWholeValue(value, compact)) redactMiddle(compact) else compact
-    }
-
-    private fun redactMiddle(value: String): String {
-        if (value.length <= 8) return "<redacted>"
-        return value.take(4) + "..." + value.takeLast(4)
-    }
-
-    private fun shouldRedactWholeValue(value: Any, text: String): Boolean {
-        if (value !is CharSequence) return false
-        return text.length >= 16 && text.none { it.isWhitespace() }
+        // Keep XG diagnostics aligned with the shared neutral sanitizer.
+        return VendorPushHookHelper.sanitizeForLog(value)
     }
 
     private data class XgHookContext(
@@ -483,7 +467,11 @@ open class XGPush : IFakeDevice {
         @Synchronized
         fun tokenForLog(): String {
             if (token.isBlank()) return "blank"
-            return if (token.length <= 8) "<redacted>" else token.take(4) + "..." + token.takeLast(4)
+            return if (!LogSanitizerConfig.isEnabled()) {
+                if (token.length <= 8) "<redacted>" else token.take(4) + "..." + token.takeLast(4)
+            } else {
+                DefaultLogSanitizer.redactArg(token)
+            }
         }
     }
 

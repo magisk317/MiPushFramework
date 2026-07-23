@@ -7,6 +7,7 @@ import android.content.Intent
 import android.text.TextUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.push.service.PushConstants
+import com.xiaomi.push.service.ServiceClientIntentSupport
 import com.xiaomi.push.service.PushServiceConstants
 import com.xiaomi.push.service.ServiceClient
 import com.xiaomi.push.service.timers.Alarm
@@ -28,7 +29,7 @@ class PingReceiver : BroadcastReceiver() {
             MyLog.v("Ping XMChannelService on timer")
             try {
                 val serviceIntent = Intent().apply {
-                    component = ComponentName(context, PushConstants.PUSH_SERVICE_CLASS_NAME_JAR)
+                    component = ComponentName(context, ServiceClientIntentSupport.localServiceClassName(context))
                     putExtra(PushServiceConstants.EXTRA_TIME_STAMP, System.currentTimeMillis())
                     action = PushServiceConstants.ACTION_TIMER
                 }

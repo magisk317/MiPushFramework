@@ -14,7 +14,7 @@ android {
 
 dependencies {
     implementation(project(":common"))
-    api(project(":core"))
+    implementation(project(":core"))
     implementation(project(":pinned"))
 
     implementation(libs.androidx.core.ktx)

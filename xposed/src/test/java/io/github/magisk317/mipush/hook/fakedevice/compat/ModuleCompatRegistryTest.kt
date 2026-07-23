@@ -124,11 +124,6 @@ class ModuleCompatRegistryTest {
         )
     }
 
-    @Test
-    fun `registry excludes Xiaomi family packages from current capability model`() {
-        assertNull(ModuleCompatRegistry.getProfile("com.xiaomi.smarthome"))
-        assertEquals(emptyList<HookPipelineId>(), ModuleCompatRegistry.resolveHookPipelines("com.xiaomi.smarthome"))
-    }
 
     @Test
     fun `registry builds auto force register profile when mipush classes are present`() {
@@ -187,7 +182,7 @@ class ModuleCompatRegistryTest {
     }
 
     @Test
-    fun `registry skips auto force register profile for Xiaomi system packages`() {
+    fun `registry builds auto force register profile for Xiaomi family packages`() {
         val loader = object : ClassLoader() {
             override fun loadClass(name: String?): Class<*> {
                 if (name == "com.xiaomi.mipush.sdk.MiPushClient") {
@@ -197,27 +192,36 @@ class ModuleCompatRegistryTest {
             }
         }
 
-        assertNull(
-            ModuleCompatRegistry.buildAutoForceRegisterProfile(
-                packageName = "com.xiaomi.account",
-                processName = "com.xiaomi.account",
-                classLoader = loader,
-            ),
+        val account = ModuleCompatRegistry.buildAutoForceRegisterProfile(
+            packageName = "com.xiaomi.account",
+            processName = "com.xiaomi.account",
+            classLoader = loader,
         )
-        assertNull(
-            ModuleCompatRegistry.buildAutoForceRegisterProfile(
-                packageName = "com.miui.cloudservice",
-                processName = "com.miui.cloudservice",
-                classLoader = loader,
-            ),
+        assertNotNull(account)
+        assertTrue(account!!.isAutoDetected)
+
+        val cloud = ModuleCompatRegistry.buildAutoForceRegisterProfile(
+            packageName = "com.miui.cloudservice",
+            processName = "com.miui.cloudservice",
+            classLoader = loader,
         )
+        assertNotNull(cloud)
     }
 
     @Test
-    fun `registry filters explicit Xiaomi package profile from current capability model`() {
+    fun `registry keeps explicit Xiaomi package profiles`() {
         val profile = ModuleCompatRegistry.getProfile("com.xiaomi.smarthome")
 
-        assertNull(profile)
+        assertNotNull(profile)
+        assertEquals("com.xiaomi.smarthome", profile!!.packageName)
+        assertEquals(
+            listOf(HookPipelineId.JPUSH, HookPipelineId.VIVO_PUSH, HookPipelineId.OPPO_HEYTAP),
+            profile.hookPipelines,
+        )
+        assertEquals(
+            ModuleCredential(appId = "2882303761517233197", appKey = "5541723310197"),
+            profile.credentialOverride,
+        )
     }
 
     @Test

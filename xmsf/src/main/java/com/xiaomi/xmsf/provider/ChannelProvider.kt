@@ -10,11 +10,8 @@ import com.xiaomi.xmsf.stock.StockSurfaceSupport
 class ChannelProvider : ContentProvider() {
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle {
         val context = context ?: return StockSurfaceSupport.pushSupportResult(3, message = "context_missing")
-        return when (method) {
-            "createChannel" -> StockSurfaceSupport.createChannel(context, extras)
-            "queryChannelState" -> StockSurfaceSupport.queryChannelState(context, extras)
-            else -> StockSurfaceSupport.pushSupportResult(6, message = "unknown_method:$method")
-        }
+        val callingPackage = runCatching { this.callingPackage }.getOrNull()
+        return StockSurfaceSupport.handleChannelCall(context, callingPackage, method, extras)
     }
 
     override fun onCreate(): Boolean = true

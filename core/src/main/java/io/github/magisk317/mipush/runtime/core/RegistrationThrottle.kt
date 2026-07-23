@@ -1,7 +1,5 @@
 package io.github.magisk317.mipush.runtime.core
 
-import java.util.concurrent.ConcurrentHashMap
-
 /**
  * Throttles registration requests per package when the channel is not bound.
  *
@@ -13,8 +11,10 @@ import java.util.concurrent.ConcurrentHashMap
 object RegistrationThrottle {
     /** Minimum interval between registration attempts per package (30 seconds). */
     const val THROTTLE_INTERVAL_MS = 30_000L
+    internal const val MAX_TRACKED_PACKAGES = 512
 
-    private val lastRegistrationTimeMs = ConcurrentHashMap<String, Long>()
+    private val lock = Any()
+    private val lastRegistrationTimeMs = LinkedHashMap<String, Long>(16, 0.75f, true)
 
     /**
      * Checks whether a registration request for [packageName] should be throttled.
@@ -33,12 +33,26 @@ object RegistrationThrottle {
         // Never throttle when channel is bound — normal registration flow
         if (channelBound) return false
 
-        val lastTime = lastRegistrationTimeMs[packageName]
-        if (lastTime != null && (nowMs - lastTime) < THROTTLE_INTERVAL_MS) {
-            return true
+        synchronized(lock) {
+            val iterator = lastRegistrationTimeMs.entries.iterator()
+            while (iterator.hasNext()) {
+                if (nowMs - iterator.next().value >= THROTTLE_INTERVAL_MS) {
+                    iterator.remove()
+                }
+            }
+            val lastTime = lastRegistrationTimeMs[packageName]
+            if (lastTime != null && (nowMs - lastTime) < THROTTLE_INTERVAL_MS) {
+                return true
+            }
+            while (lastRegistrationTimeMs.size >= MAX_TRACKED_PACKAGES) {
+                val eldest = lastRegistrationTimeMs.entries.iterator()
+                if (!eldest.hasNext()) break
+                eldest.next()
+                eldest.remove()
+            }
+            lastRegistrationTimeMs[packageName] = nowMs
+            return false
         }
-        lastRegistrationTimeMs[packageName] = nowMs
-        return false
     }
 
     /**
@@ -46,7 +60,7 @@ object RegistrationThrottle {
      */
     @JvmStatic
     fun reset() {
-        lastRegistrationTimeMs.clear()
+        synchronized(lock) { lastRegistrationTimeMs.clear() }
     }
 
     /**
@@ -54,6 +68,8 @@ object RegistrationThrottle {
      */
     @JvmStatic
     fun reset(packageName: String) {
-        lastRegistrationTimeMs.remove(packageName)
+        synchronized(lock) { lastRegistrationTimeMs.remove(packageName) }
     }
+
+    internal fun trackedPackageCount(): Int = synchronized(lock) { lastRegistrationTimeMs.size }
 }

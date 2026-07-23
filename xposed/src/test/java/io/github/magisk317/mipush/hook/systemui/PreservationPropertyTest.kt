@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
  *
  * These tests verify the scoped SystemUI icon policy. They serve as regression guards:
  * - Non-MiPush notifications are intercepted only by the explicit strong global mode
- * - processSmallIconColor must return early when toggle OFF or the notification is not MiPush-managed,
+ * - processSmallIconColor must force monochrome (setOriginalIconColor(0)) for MiPush/global when toggle OFF,
  *   and process MiPush-managed non-grayscale icons when toggle ON
  * - IconManager.setIcon must only force icon_is_pre_L for MiPush-managed notifications when color mode is ON
  *
@@ -138,6 +138,8 @@ class PreservationPropertyTest {
     sealed class ProcessSmallIconColorResult {
         /** Hook returns early, letting MIUI handle it natively */
         object ReturnEarly : ProcessSmallIconColorResult()
+        /** Hook forces monochrome via setOriginalIconColor(0) when color toggle is OFF */
+        object ForceMonochrome : ProcessSmallIconColorResult()
         /** Hook sets setOriginalIconColor(1) and result=true for non-grayscale icons */
         object SetOriginalIconColor : ProcessSmallIconColorResult()
         /** Hook does nothing (grayscale icon with toggle ON — MIUI handles) */
@@ -145,8 +147,19 @@ class PreservationPropertyTest {
     }
 
     private fun processSmallIconColorDecision(input: ProcessSmallIconColorInput): ProcessSmallIconColorResult {
-        if (!input.colorStatusBarIcon ||
-            !SystemUiNotificationPolicy.shouldProcessSmallIconColor(
+        if (!input.colorStatusBarIcon) {
+            return if (SystemUiNotificationPolicy.shouldForceMonochromeProcessSmallIcon(
+                    colorStatusBarIcon = input.colorStatusBarIcon,
+                    forceGlobalStatusBarIcons = input.forceGlobalStatusBarIcons,
+                    isMiPushManaged = input.isMiPushManaged,
+                )
+            ) {
+                ProcessSmallIconColorResult.ForceMonochrome
+            } else {
+                ProcessSmallIconColorResult.ReturnEarly
+            }
+        }
+        if (!SystemUiNotificationPolicy.shouldProcessSmallIconColor(
                 colorStatusBarIcon = input.colorStatusBarIcon,
                 forceGlobalStatusBarIcons = input.forceGlobalStatusBarIcons,
                 isMiPushManaged = input.isMiPushManaged,
@@ -384,17 +397,28 @@ class PreservationPropertyTest {
      * allowing MIUI's native processSmallIconColor to run.
      */
     @Property(tries = 100)
-    fun `processSmallIconColor returns early when colorStatusBarIcon is false`(
+    fun `processSmallIconColor forces monochrome when colorStatusBarIcon is false`(
         @ForAll("processSmallIconColorInputs") input: ProcessSmallIconColorInput
     ) {
         if (!input.colorStatusBarIcon) {
             val result = processSmallIconColorDecision(input)
+            val expectForce = SystemUiNotificationPolicy.shouldForceMonochromeProcessSmallIcon(
+                colorStatusBarIcon = input.colorStatusBarIcon,
+                forceGlobalStatusBarIcons = input.forceGlobalStatusBarIcons,
+                isMiPushManaged = input.isMiPushManaged,
+            )
+            val expected = if (expectForce) {
+                ProcessSmallIconColorResult.ForceMonochrome
+            } else {
+                ProcessSmallIconColorResult.ReturnEarly
+            }
             assertEquals(
-                ProcessSmallIconColorResult.ReturnEarly,
+                expected,
                 result,
-                "When colorStatusBarIcon=false, processSmallIconColor must return early " +
-                    "to let MIUI's native logic handle it. " +
-                    "isGrayscaleIcon=${input.isGrayscaleIcon}, isMiPushManaged=${input.isMiPushManaged}"
+                "When colorStatusBarIcon=false, MiPush/global monochrome must force " +
+                    "setOriginalIconColor(0); others may return early. " +
+                    "isMiPushManaged=${input.isMiPushManaged}, " +
+                    "forceGlobal=${input.forceGlobalStatusBarIcons}, got=$result"
             )
         }
     }

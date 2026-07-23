@@ -4,7 +4,6 @@ package io.github.magisk317.mipush.feature.main.subpage
 
 import android.content.Intent
 import android.widget.Toast
-import dev.chrisbanes.haze.hazeEffect
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -46,7 +45,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -65,10 +63,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.magisk317.mipush.manager.R
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.blur.HazeBlurStyle
-import dev.chrisbanes.haze.blur.blurEffect
-import dev.chrisbanes.haze.hazeSource
 import io.github.magisk317.uikit.surface.WorkspaceEmptyState
 import java.util.Locale
 import java.time.Instant
@@ -79,6 +73,7 @@ import io.github.magisk317.uikit.surface.OverlayHeaderScaffold
 import io.github.magisk317.uikit.surface.ScrollToTopFAB
 import io.github.magisk317.uikit.surface.WorkspaceSearchField
 import io.github.magisk317.uikit.surface.WorkspaceListItem
+import io.github.magisk317.uikit.surface.chromeTopAppBarColors
 import io.github.magisk317.uikit.scroll.ScrollChromeState
 import io.github.magisk317.uikit.scroll.ReportLazyListScrollToChrome
 import io.github.magisk317.mipush.feature.ui.theme.spacing
@@ -99,8 +94,6 @@ fun Configurations(
     refreshSignal: Int = 0,
     onOpenEditor: (String) -> Unit,
     viewModel: ConfigManagerViewModel = koinViewModel(),
-    hazeState: HazeState? = null,
-    hazeStyle: HazeBlurStyle? = null,
     scrollChromeState: ScrollChromeState? = null,
 ) {
     Page {
@@ -246,32 +239,18 @@ fun Configurations(
             headerOffsetY = scrollChromeState?.animatedHeaderOffsetY ?: 0f,
             onHeaderHeightChanged = { scrollChromeState?.headerHeightPx = it.toFloat() },
             overlayModifier = Modifier
-                .fillMaxWidth()
-                .then(
-                    if (hazeState != null && hazeStyle != null) {
-                        Modifier.hazeEffect(hazeState) {
-                            blurEffect { style = hazeStyle }
-                            forceInvalidateOnPreDraw = true
-                        }
-                    } else {
-                        Modifier
-                    }
-                ),
+                .fillMaxWidth(),
             overlay = {
                 TopAppBar(
                     title = { Text(stringResource(R.string.main_configs)) },
                     windowInsets = WindowInsets.statusBars,
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        scrolledContainerColor = Color.Transparent,
-                    ),
+                    colors = chromeTopAppBarColors(),
                 )
             },
             content = { listPadding ->
                 LazyColumn(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .then(if (hazeState != null) Modifier.hazeSource(hazeState) else Modifier),
+                        .fillMaxSize(),
                     state = listState,
                     contentPadding = PaddingValues(
                         start = MaterialTheme.spacing.medium,
@@ -419,6 +398,7 @@ fun ConfigurationEditor(
                         )
                     }
                 },
+                colors = chromeTopAppBarColors(),
             )
 
             Column(

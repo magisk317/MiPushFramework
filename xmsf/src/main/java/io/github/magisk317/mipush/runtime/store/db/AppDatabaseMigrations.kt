@@ -86,5 +86,15 @@ object AppDatabaseMigrations {
     }
 
     @JvmField
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+    val MIGRATION_5_6: Migration = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // v6: EVENT 表新增 search_text 列(UI 对齐的可搜索快照),老行留 NULL,
+            // 查询侧以 `search_text IS NULL AND dev_info LIKE ?` 回退兼容,保留历史事件。
+            db.execSQL("ALTER TABLE `EVENT` ADD COLUMN `search_text` TEXT")
+        }
+    }
+
+    @JvmField
+    val ALL: Array<Migration> =
+        arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
 }

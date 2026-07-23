@@ -5,11 +5,15 @@ import android.content.ContentValues
 import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
+import com.xiaomi.xmsf.security.ExportedSurfacePolicy
 import com.xiaomi.xmsf.stock.StockSurfaceSupport
 
 class PushCommonProvider : ContentProvider() {
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle {
         val context = context ?: return Bundle()
+        if (!ExportedSurfacePolicy.isPushCommonCallAllowed(method, arg, extras)) {
+            return Bundle().apply { putString(StockSurfaceSupport.KEY_MSG, "invalid_request") }
+        }
         return StockSurfaceSupport.handlePushCommonCall(context, method, extras)
     }
 
