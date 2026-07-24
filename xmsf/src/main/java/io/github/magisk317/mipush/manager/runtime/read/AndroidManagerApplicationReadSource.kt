@@ -92,7 +92,7 @@ class AndroidManagerApplicationReadSource(context: Context) : ManagerApplication
                 PackageManagerCompatBridge.getPackageInfo(packageManager, info.packageName, PACKAGE_INFO_FLAGS)
             }.getOrElse { info }
         }
-    } catch (error: RuntimeException) {
+    } catch (@Suppress("TooGenericExceptionCaught") error: RuntimeException) {
         Napier.e("Failed to load installed packages for manager runtime", error, tag = TAG)
         emptyList()
     }

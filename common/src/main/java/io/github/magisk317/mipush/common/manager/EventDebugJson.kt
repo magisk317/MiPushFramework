@@ -23,6 +23,11 @@ import org.apache.thrift.TBase
  * is present, top-level container fields are decoded via [XMPushUtils].
  */
 object EventDebugJson {
+    private const val PAYLOAD_BASE64_PREVIEW_BYTES = 96
+    private const val BYTE_ARRAY_BASE64_PREVIEW_BYTES = 48
+    private const val COLLECTION_PREVIEW_LIMIT = 64
+    private const val THRIFT_JSON_MAX_DEPTH = 3
+
     private val prettyJson = Json {
         prettyPrint = true
         prettyPrintIndent = "  "
@@ -73,9 +78,9 @@ object EventDebugJson {
                 Base64.encodeToString(
                     payload,
                     0,
-                    minOf(payload.size, 96),
+                    minOf(payload.size, PAYLOAD_BASE64_PREVIEW_BYTES),
                     Base64.NO_WRAP,
-                ) + if (payload.size > 96) "…" else "",
+                ) + if (payload.size > PAYLOAD_BASE64_PREVIEW_BYTES) "…" else "",
             )
             put("container", containerSummary(payload))
         }
@@ -89,7 +94,7 @@ object EventDebugJson {
     }
 
     private fun thriftToJson(base: TBase<*, *>, depth: Int = 0): JsonElement {
-        if (depth > 3) {
+        if (depth > THRIFT_JSON_MAX_DEPTH) {
             return JsonPrimitive(base.toString())
         }
         return buildJsonObject {
@@ -142,21 +147,21 @@ object EventDebugJson {
             "byte[${value.size}]:" + Base64.encodeToString(
                 value,
                 0,
-                minOf(value.size, 48),
+                minOf(value.size, BYTE_ARRAY_BASE64_PREVIEW_BYTES),
                 Base64.NO_WRAP,
-            ) + if (value.size > 48) "…" else "",
+            ) + if (value.size > BYTE_ARRAY_BASE64_PREVIEW_BYTES) "…" else "",
         )
         is TBase<*, *> -> thriftToJson(value, depth)
         is Map<*, *> -> buildJsonObject {
-            value.entries.take(64).forEach { (k, v) ->
+            value.entries.take(COLLECTION_PREVIEW_LIMIT).forEach { (k, v) ->
                 put(k?.toString() ?: "null", valueToJson(v, depth + 1))
             }
         }
         is Iterable<*> -> buildJsonArray {
-            value.take(64).forEach { add(valueToJson(it, depth + 1)) }
+            value.take(COLLECTION_PREVIEW_LIMIT).forEach { add(valueToJson(it, depth + 1)) }
         }
         is Array<*> -> buildJsonArray {
-            value.take(64).forEach { add(valueToJson(it, depth + 1)) }
+            value.take(COLLECTION_PREVIEW_LIMIT).forEach { add(valueToJson(it, depth + 1)) }
         }
         else -> JsonPrimitive(value.toString())
     }

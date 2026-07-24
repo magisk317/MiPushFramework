@@ -485,7 +485,7 @@ class RemoteManagerLogGateway(
                         .filter { it.isNotBlank() }
                         .joinToString("; ")
                     ManagerLogExportResult(file = outFile, details = details)
-                } catch (error: Exception) {
+                } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
                     runCatching { descriptor.close() }
                     runCatching { remoteTmp.delete() }
                     runCatching { outFile.delete() }

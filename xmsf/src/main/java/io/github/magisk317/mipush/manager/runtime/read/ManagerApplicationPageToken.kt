@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.manager.runtime.read
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
+import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.util.Base64
@@ -55,7 +56,7 @@ internal object ManagerApplicationPageToken {
             }
         } catch (error: IllegalArgumentException) {
             throw error
-        } catch (error: Exception) {
+        } catch (error: IOException) {
             throw IllegalArgumentException("Invalid application page token", error)
         }
     }

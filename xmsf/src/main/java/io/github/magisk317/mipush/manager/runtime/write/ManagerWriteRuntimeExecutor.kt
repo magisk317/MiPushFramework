@@ -61,7 +61,7 @@ class ManagerWriteRuntimeExecutor(
             }
             idempotencyStore.complete(result)
             result
-        } catch (error: Throwable) {
+        } catch (@Suppress("TooGenericExceptionCaught") error: Throwable) {
             idempotencyStore.abort(request.requestId)
             throw error
         }

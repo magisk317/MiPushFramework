@@ -112,8 +112,23 @@ val managerKoinModule = module {
         )
     }
 
-    viewModel { SettingsViewModel(get<PreferenceRepository>(), get<SettingsManager>(), get<ManagerPermissionGateway>()) }
-    viewModel { EventListViewModel(get<ComparingEventListSource>(), get<ManagerEventGateway>(), get<SettingsManager>(), get<PreferenceRepository>(), androidContext(), get<ManagerRuntimeClient>()) }
+    viewModel {
+        SettingsViewModel(
+            get<PreferenceRepository>(),
+            get<SettingsManager>(),
+            get<ManagerPermissionGateway>(),
+        )
+    }
+    viewModel {
+        EventListViewModel(
+            get<ComparingEventListSource>(),
+            get<ManagerEventGateway>(),
+            get<SettingsManager>(),
+            get<PreferenceRepository>(),
+            androidContext(),
+            get<ManagerRuntimeClient>(),
+        )
+    }
     viewModel { ZygiskConfigViewModel(get<SettingsManager>(), get<ComparingApplicationListSource>()) }
     viewModel { ConfigManagerViewModel(get(), get(), get(), androidContext(), get()) }
     viewModel { ConfigEditorViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidContext()) }

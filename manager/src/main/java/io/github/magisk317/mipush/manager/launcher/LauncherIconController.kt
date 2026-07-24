@@ -248,7 +248,7 @@ object LauncherIconController {
     }
 
     private fun buildBalAllowedOptions(): android.os.Bundle? {
-        if (Build.VERSION.SDK_INT < 34) return null
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return null
         return runCatching {
             val options = ActivityOptions.makeBasic()
             options.setPendingIntentCreatorBackgroundActivityStartMode(
