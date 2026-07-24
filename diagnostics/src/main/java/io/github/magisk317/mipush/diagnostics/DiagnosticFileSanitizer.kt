@@ -5,22 +5,24 @@ import io.github.magisk317.xposed.diagnostics.DiagnosticTextSanitizer
 import java.io.File
 
 object DiagnosticFileSanitizer {
-    private const val MAX_SANITIZE_FILE_BYTES = 20 * 1024 * 1024L
-
     fun sanitizeDirectory(
         root: File,
-        maxFileBytes: Long = MAX_SANITIZE_FILE_BYTES,
+        maxFileBytes: Long = Long.MAX_VALUE,
         onWarning: (String) -> Unit = {},
+        includeFile: (File) -> Boolean = { true },
+        parallel: Boolean = true,
     ) = DiagnosticTextSanitizer.sanitizeDirectory(
         root = root,
         sanitizeText = DefaultLogSanitizer::sanitizeUnbounded,
         maxFileBytes = maxFileBytes,
         onWarning = onWarning,
+        includeFile = includeFile,
+        parallel = parallel,
     )
 
     internal fun sanitizeTextLogFile(
         file: File,
-        maxFileBytes: Long = MAX_SANITIZE_FILE_BYTES,
+        maxFileBytes: Long = Long.MAX_VALUE,
         onWarning: (String) -> Unit = {},
     ): Boolean = DiagnosticTextSanitizer.sanitizeTextLogFile(
         file = file,

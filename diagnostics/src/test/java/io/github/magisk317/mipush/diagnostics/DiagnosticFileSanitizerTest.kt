@@ -43,19 +43,23 @@ class DiagnosticFileSanitizerTest {
     }
 
     @Test
-    fun sanitizeDirectory_skipsUnsupportedAndRemovesOversizedTextFiles() {
+    fun sanitizeDirectory_skipsUnsupportedAndKeepsFullOversizedTextFiles() {
         val binary = File(tempDir, "image.png").apply { writeText("token=plain") }
-        val oversized = File(tempDir, "large.log").apply { writeText("token=plain") }
+        val oversized = File(tempDir, "large.log").apply {
+            writeText("token=plain-keep-full-content")
+        }
         val warnings = mutableListOf<String>()
 
         DiagnosticFileSanitizer.sanitizeDirectory(
             tempDir,
-            maxFileBytes = oversized.length() - 1,
+            maxFileBytes = 4L,
             onWarning = warnings::add,
         )
 
         assertTrue(binary.readText().contains("token=plain"))
-        assertFalse(oversized.exists())
-        assertTrue(warnings.single().startsWith("Removed oversized diagnostic text file:"))
+        assertTrue(oversized.exists())
+        val text = oversized.readText()
+        assertTrue(text.contains("keep-full-content") || text.contains("token="))
+        assertTrue(warnings.any { it.contains("without truncation") })
     }
 }

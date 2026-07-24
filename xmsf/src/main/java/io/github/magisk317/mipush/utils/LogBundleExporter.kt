@@ -6,9 +6,14 @@ import io.github.magisk317.mipush.common.utils.logW
 
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
 import java.io.File
+import java.util.Collections
 import java.util.Date
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.diagnostics.DiagnosticArchive
 import io.github.magisk317.mipush.diagnostics.DiagnosticFileSanitizer
@@ -19,6 +24,7 @@ import io.github.magisk317.mipush.platform.support.BoundedShellRunner
 object LogBundleExporter {
     private const val EXPORT_FILE_PREFIX = "mipush_logs_"
     private const val STAGING_DIR_PREFIX = ".tmp_mipush_logs_"
+    private const val STAGING_STALE_MAX_AGE_MS = 30L * 60L * 1000L
     private const val XMSF_KEEPER_PACKAGE = "com.xiaomi.xmsfkeeper"
     private const val XMSF_KEEPALIVE_DIAGNOSTICS_FILE = "xmsf_keepalive.txt"
     private const val ROOT_DIAGNOSTICS_TIMEOUT_MS = 6_000L
@@ -69,14 +75,18 @@ object LogBundleExporter {
     }
 
     fun buildLogBundle(context: Context): ExportResult = synchronized(opLock) {
+        val exportStarted = SystemClock.elapsedRealtime()
         val now = Date()
         val timestamp = LogUtils.dateInfo(now)
-        pruneCurrentDayLocalLogs(context, now)
+        val exportDir = getPrivateExportDir(context)
+        // Free disk I/O capacity before a full export: leftover staging can be tens of MB.
+        purgeAllStagingDirs(exportDir)
+        LogUtils.pruneAllLogArtifacts(context, now, force = true)
         val deletedLegacyLogs = LogUtils.deleteLegacyTextLogFiles(context)
         val result = DiagnosticArchive.buildBundle(
             context = context,
             timestamp = timestamp,
-            exportDir = getPrivateExportDir(context),
+            exportDir = exportDir,
             exportFilePrefix = EXPORT_FILE_PREFIX,
             stagingDirPrefix = STAGING_DIR_PREFIX,
             deletePath = ::deleteRecursivelyWithSuFallback,
@@ -84,15 +94,7 @@ object LogBundleExporter {
                 if (deletedLegacyLogs > 0) {
                     details += "legacy runtime text logs cleared: $deletedLegacyLogs"
                 }
-                copyAppLogs(context, stagingDir, details)
-                copyCrashLogs(context, stagingDir, details)
-                copyMiPushSdkLogs(context, stagingDir, details)
-                if (!copyLsposedLogs(stagingDir, details)) {
-                    details += "lsposed log missing or unreadable"
-                }
-                captureXmsfKeepaliveDiagnostics(stagingDir, details)
-                captureLogcat(stagingDir, details)
-                DiagnosticFileSanitizer.sanitizeDirectory(stagingDir, onWarning = { logW(it) })
+                collectWithMaxParallelism(context, stagingDir, details)
             },
             onInfo = { logI(it) },
             onWarning = { logW(it) },
@@ -100,7 +102,93 @@ object LogBundleExporter {
                 if (error == null) logE(message) else logE(message, error)
             },
         )
+        logI(
+            "buildLogBundle finished success=${result.file != null} " +
+                "size=${result.file?.length() ?: -1} " +
+                "totalTookMs=${SystemClock.elapsedRealtime() - exportStarted}",
+        )
         ExportResult(result.file, result.details)
+    }
+
+    /**
+     * Run independent collectors in parallel up to available processors.
+     * Root-backed steps stay sequential after local I/O to avoid saturating su.
+     * Content is never truncated: full runtime/crash/sdk/lsposed/logcat are kept.
+     */
+    private fun collectWithMaxParallelism(
+        context: Context,
+        stagingDir: File,
+        details: MutableList<String>,
+    ) {
+        val safeDetails = Collections.synchronizedList(details)
+        val workers = Runtime.getRuntime().availableProcessors().coerceAtLeast(2).coerceAtMost(6)
+        val pool = Executors.newFixedThreadPool(workers)
+        val error = AtomicReference<Throwable>(null)
+        fun submit(label: String, block: () -> Unit) = pool.submit(
+            Callable {
+                val started = SystemClock.elapsedRealtime()
+                runCatching(block).onFailure { error.compareAndSet(null, it) }
+                val took = SystemClock.elapsedRealtime() - started
+                safeDetails += "$label=${took}ms"
+                logI("LogBundleExporter $label tookMs=$took")
+                null
+            },
+        )
+        try {
+            val localJobs = listOf(
+                submit("copyAppLogs") { copyAppLogs(context, stagingDir, safeDetails) },
+                submit("copyCrashLogs") { copyCrashLogs(context, stagingDir, safeDetails) },
+                submit("copyMiPushSdkLogs") { copyMiPushSdkLogs(context, stagingDir, safeDetails) },
+                submit("captureLogcat") { captureLogcat(stagingDir, safeDetails) },
+            )
+            localJobs.forEach { it.get() }
+            error.get()?.let { throw it }
+
+            // Root-heavy path: sequential.
+            run {
+                val started = SystemClock.elapsedRealtime()
+                if (!copyLsposedLogs(stagingDir, safeDetails)) {
+                    safeDetails += "lsposed log missing or unreadable"
+                }
+                safeDetails += "copyLsposedLogs=${SystemClock.elapsedRealtime() - started}ms"
+                logI("LogBundleExporter copyLsposedLogs tookMs=${SystemClock.elapsedRealtime() - started}")
+            }
+            run {
+                val started = SystemClock.elapsedRealtime()
+                captureXmsfKeepaliveDiagnostics(stagingDir, safeDetails)
+                safeDetails += "keepaliveDiagnostics=${SystemClock.elapsedRealtime() - started}ms"
+                logI("LogBundleExporter keepaliveDiagnostics tookMs=${SystemClock.elapsedRealtime() - started}")
+            }
+
+            val sanitizeStarted = SystemClock.elapsedRealtime()
+            // Runtime jsonl is already sanitized at append time; skip re-scan of multi-MB files.
+            // Other sources (logcat/lsposed/sdk/crash) still get full streaming sanitize in parallel.
+            DiagnosticFileSanitizer.sanitizeDirectory(
+                root = stagingDir,
+                onWarning = { logW(it) },
+                includeFile = { file ->
+                    !(file.name.startsWith("runtime") && file.name.endsWith(".jsonl"))
+                },
+                parallel = true,
+            )
+            safeDetails += "sanitize=${SystemClock.elapsedRealtime() - sanitizeStarted}ms"
+            logI(
+                "LogBundleExporter sanitize tookMs=${SystemClock.elapsedRealtime() - sanitizeStarted}",
+            )
+            safeDetails += "exportParallelWorkers=$workers"
+        } finally {
+            pool.shutdown()
+            runCatching { pool.awaitTermination(2, TimeUnit.MINUTES) }
+        }
+    }
+
+    private fun purgeAllStagingDirs(exportDir: File) {
+        if (!exportDir.exists() || !exportDir.isDirectory) return
+        exportDir.listFiles().orEmpty().forEach { child ->
+            if (!child.name.startsWith(STAGING_DIR_PREFIX)) return@forEach
+            runCatching { deleteRecursivelyWithSuFallback(child) }
+                .onFailure { logW("Failed to purge staging ${child.name}: ${it.message}") }
+        }
     }
 
     fun buildShareIntent(context: Context, file: File): Intent =
@@ -130,12 +218,164 @@ object LogBundleExporter {
 
     fun getCrashDir(context: Context): File = ensurePrivateSubDir(context, PRIVATE_CRASH_DIR_NAME)
 
-    private fun getLegacyCacheLogDir(context: Context): File = File(context.cacheDir, LEGACY_CACHE_LOG_DIR_NAME)
+    internal fun getLegacyCacheLogDir(context: Context): File = File(context.cacheDir, LEGACY_CACHE_LOG_DIR_NAME)
 
-    private fun getPrivateExportDir(context: Context): File = ensurePrivateSubDir(context, PRIVATE_EXPORT_DIR_NAME)
+    internal fun getPrivateExportDir(context: Context): File = ensurePrivateSubDir(context, PRIVATE_EXPORT_DIR_NAME)
 
-    private fun getMiPushSdkLogDir(context: Context): File? =
+    internal fun getMiPushSdkLogDir(context: Context): File? =
         context.getExternalFilesDir(null)?.let { File(it, MI_PUSH_LOG_DIR_NAME) }
+
+    private val exportZipDateRegex = Regex("""^mipush_logs_(\d{4}-\d{2}-\d{2})_\d{2}-\d{2}-\d{2}\.zip$""")
+    private val exportStagingDateRegex = Regex("""^\.tmp_mipush_logs_(\d{4}-\d{2}-\d{2})_\d{2}-\d{2}-\d{2}$""")
+    private val crashDateRegex = Regex("""^Crash_(\d{4}-\d{2}-\d{2})\.txt$""")
+    private val managerCacheZipPattern = Regex("""^runtime-log-.*\.zip$""")
+
+    /**
+     * Delete non-runtime log products older than [cutoffMs] (start-of-day cutoff from retention).
+     * Covers crash, private export zips/staging, legacy cache logs, MiPush SDK logs, and
+     * leftover manager-style cache zips if present under this package.
+     */
+    internal fun pruneExpiredArtifacts(context: Context, cutoffMs: Long) {
+        pruneDatedFiles(
+            dir = getCrashDir(context),
+            dateRegex = crashDateRegex,
+            nameFilter = { crashFilePattern.matches(it) },
+            cutoffMs = cutoffMs,
+        )
+        pruneExportDir(getPrivateExportDir(context), cutoffMs)
+        pruneTreeByMtime(getLegacyCacheLogDir(context), cutoffMs)
+        getMiPushSdkLogDir(context)?.let { pruneTreeByMtime(it, cutoffMs) }
+        // Share/export temp zips written into cacheDir (manager host copies use similar names).
+        pruneFilesInDir(
+            dir = context.cacheDir,
+            cutoffMs = cutoffMs,
+            include = { it.isFile && (managerCacheZipPattern.matches(it.name) || it.name.startsWith(EXPORT_FILE_PREFIX)) },
+        )
+        // Manager-local diagnostic dirs if this code ever runs under the manager package id.
+        listOf("log", "crash", "private_export").forEach { name ->
+            val dir = File(context.filesDir, name)
+            if (dir.absolutePath == getLogDir(context).absolutePath ||
+                dir.absolutePath == getCrashDir(context).absolutePath ||
+                dir.absolutePath == getPrivateExportDir(context).absolutePath
+            ) {
+                return@forEach
+            }
+            if (name == "log") {
+                // best-effort mtime prune for foreign process local log copies
+                pruneTreeByMtime(dir, cutoffMs)
+            } else if (name == "crash") {
+                pruneDatedFiles(dir, crashDateRegex, { crashFilePattern.matches(it) }, cutoffMs)
+            } else {
+                pruneExportDir(dir, cutoffMs)
+            }
+        }
+    }
+
+    private fun pruneExportDir(exportDir: File, cutoffMs: Long) {
+        if (!exportDir.exists() || !exportDir.isDirectory) return
+        val nowMs = System.currentTimeMillis()
+        // Staging is temporary; drop leftovers quickly so a failed export cannot pile up
+        // .tmp_* trees for the full retention window.
+        val stagingStaleBeforeMs = nowMs - STAGING_STALE_MAX_AGE_MS
+        exportDir.listFiles().orEmpty().forEach { child ->
+            val isStaging = child.name.startsWith(STAGING_DIR_PREFIX)
+            val ageMs = artifactAgeMs(child)
+            val pastRetention = ageMs > 0L && ageMs < cutoffMs
+            val stagingStale = isStaging && (
+                child.lastModified() <= 0L || child.lastModified() < stagingStaleBeforeMs
+            )
+            if (!pastRetention && !stagingStale) return@forEach
+            runCatching {
+                if (child.isDirectory) {
+                    deleteRecursivelyWithSuFallback(child)
+                } else {
+                    child.delete()
+                }
+            }
+        }
+    }
+
+    private fun artifactAgeMs(file: File): Long {
+        val name = file.name
+        exportZipDateRegex.find(name)?.groupValues?.getOrNull(1)?.let { day ->
+            LogUtils.parseDayStartMs(day)?.let { return it }
+        }
+        exportStagingDateRegex.find(name)?.groupValues?.getOrNull(1)?.let { day ->
+            LogUtils.parseDayStartMs(day)?.let { return it }
+        }
+        crashDateRegex.find(name)?.groupValues?.getOrNull(1)?.let { day ->
+            LogUtils.parseDayStartMs(day)?.let { return it }
+        }
+        return file.lastModified()
+    }
+
+    private fun pruneDatedFiles(
+        dir: File,
+        dateRegex: Regex,
+        nameFilter: (String) -> Boolean,
+        cutoffMs: Long,
+    ) {
+        if (!dir.exists() || !dir.isDirectory) return
+        dir.listFiles().orEmpty().forEach { file ->
+            if (!file.isFile || !nameFilter(file.name)) {
+                // Still drop unknown leftover files by mtime.
+                if (file.isFile) {
+                    val mtime = file.lastModified()
+                    if (mtime > 0L && mtime < cutoffMs) {
+                        runCatching { file.delete() }
+                    }
+                } else if (file.isDirectory) {
+                    val mtime = file.lastModified()
+                    if (mtime > 0L && mtime < cutoffMs) {
+                        runCatching { deleteRecursivelyWithSuFallback(file) }
+                    }
+                }
+                return@forEach
+            }
+            val day = dateRegex.find(file.name)?.groupValues?.getOrNull(1)
+            val fileTime = day?.let { LogUtils.parseDayStartMs(it) } ?: file.lastModified()
+            if (fileTime > 0L && fileTime < cutoffMs) {
+                runCatching { file.delete() }
+            }
+        }
+    }
+
+    private fun pruneTreeByMtime(root: File, cutoffMs: Long) {
+        if (!root.exists()) return
+        if (root.isFile) {
+            val mtime = root.lastModified()
+            if (mtime > 0L && mtime < cutoffMs) {
+                runCatching { root.delete() }
+            }
+            return
+        }
+        if (!root.isDirectory) return
+        root.walkBottomUp().forEach { file ->
+            if (file == root) return@forEach
+            val mtime = file.lastModified()
+            if (mtime > 0L && mtime < cutoffMs) {
+                runCatching {
+                    if (file.isDirectory) {
+                        if (file.listFiles().isNullOrEmpty()) file.delete()
+                    } else {
+                        file.delete()
+                    }
+                }
+            }
+        }
+        // Drop empty root leftovers only if everything is gone; keep the directory itself.
+    }
+
+    private fun pruneFilesInDir(dir: File?, cutoffMs: Long, include: (File) -> Boolean) {
+        if (dir == null || !dir.exists() || !dir.isDirectory) return
+        dir.listFiles().orEmpty().forEach { file ->
+            if (!include(file)) return@forEach
+            val mtime = file.lastModified()
+            if (mtime > 0L && mtime < cutoffMs) {
+                runCatching { file.delete() }
+            }
+        }
+    }
 
     private fun ensurePrivateSubDir(context: Context, name: String): File {
         val dir = File(context.filesDir, name)
@@ -460,8 +700,7 @@ object LogBundleExporter {
 
     private fun pruneCurrentDayLocalLogs(context: Context, now: Date) {
         runCatching {
-            LogUtils.pruneAppLogsForToday(getLogDir(context), now)
-            LogUtils.pruneDailyFiles(getCrashDir(context), LogUtils.currentDateString(now), crashFilePattern)
+            LogUtils.pruneAllLogArtifacts(context, now, force = true)
         }.onFailure {
             logW("Failed to prune local logs before export: ${it.message ?: it.javaClass.simpleName}")
         }

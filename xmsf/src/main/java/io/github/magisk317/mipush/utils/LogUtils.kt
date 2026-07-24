@@ -30,6 +30,10 @@ object LogUtils {
     private val redundantAppRouteRuntimeLogPattern = Regex("""^runtime\.app\.\d{4}-\d{2}-\d{2}\.jsonl$""")
     private val legacyTextLogPattern = Regex("""^(logs_\d{4}-\d{2}-\d{2}|runtime(?:\.[A-Za-z0-9_.-]+)?)\.(txt|log)$""")
     private val legacyModuleTextLogPattern = Regex("""^[A-Za-z0-9_.-]+_\d{4}-\d{2}-\d{2}\.txt$""")
+    private const val FULL_PRUNE_INTERVAL_MS = 30L * 60L * 1000L
+
+    @Volatile
+    private var lastFullPruneAtMs: Long = 0L
 
     // Unified single-letter level mapping aligned with android.util.Log priorities.
     // Module-side XLog.d/.i/.w/.e writes D/I/W/E through the same content provider,
@@ -103,9 +107,8 @@ object LogUtils {
         appContext = resolved
         Napier.takeLogarithm()
         runCatching {
-            val logDir = LogBundleExporter.getLogDir(resolved)
             deleteLegacyTextLogFiles(resolved)
-            pruneExpiredRuntimeLogs(logDir, Date())
+            pruneAllLogArtifacts(resolved, Date(), force = true)
             Napier.base(FileAntilog(resolved))
         }.onFailure {
             // Do NOT fall back to DebugAntilog in production -- it leaks logs to logcat.
@@ -121,20 +124,20 @@ object LogUtils {
     }
 
     fun setRetentionDays(days: Int) {
-        val logDir = appContext?.let { LogBundleExporter.getLogDir(it) }
-        updateRetentionDays(days, logDir)
+        updateRetentionDays(days, appContext)
     }
 
     internal fun setRetentionDays(context: Context, days: Int) {
         val resolved = context.applicationContext ?: context
         appContext = resolved
-        updateRetentionDays(days, LogBundleExporter.getLogDir(resolved))
+        updateRetentionDays(days, resolved)
     }
 
     internal fun resetForTest() {
         synchronized(writeLock) {
             appContext = null
             retentionDays = DEFAULT_RETENTION_DAYS
+            lastFullPruneAtMs = 0L
         }
         Napier.takeLogarithm()
     }
@@ -206,7 +209,7 @@ object LogUtils {
         synchronized(writeLock) {
             runCatching {
                 if (!logDir.exists()) logDir.mkdirs()
-                pruneExpiredRuntimeLogs(logDir, now)
+                pruneAllLogArtifacts(context, now, force = false)
                 writeLineToFile(File(logDir, "runtime.${currentDateString(now)}.jsonl"), line)
                 val routeName = sanitizeSegment(route)
                 if (routeName != DEFAULT_ROUTE) {
@@ -334,7 +337,40 @@ object LogUtils {
         pruneExpiredRuntimeLogs(moduleLogDir, now)
     }
 
+    /**
+     * Prune every log-related artifact owned by this package under the retention window:
+     * runtime jsonl, crash files, export zips/staging, legacy cache logs, MiPush SDK logs.
+     */
+    internal fun pruneAllLogArtifacts(context: Context, now: Date = Date(), force: Boolean = true) {
+        val resolved = context.applicationContext ?: context
+        val nowMs = now.time
+        if (!force && lastFullPruneAtMs > 0L && nowMs - lastFullPruneAtMs < FULL_PRUNE_INTERVAL_MS) {
+            pruneExpiredRuntimeLogs(LogBundleExporter.getLogDir(resolved), now)
+            return
+        }
+        lastFullPruneAtMs = nowMs
+        pruneExpiredRuntimeLogs(LogBundleExporter.getLogDir(resolved), now)
+        val modulesDir = File(LogBundleExporter.getLogDir(resolved), "modules")
+        if (modulesDir.isDirectory) {
+            pruneExpiredRuntimeLogs(modulesDir, now)
+        }
+        LogBundleExporter.pruneExpiredArtifacts(resolved, retentionCutoffMillis(now))
+    }
+
+    internal fun retentionCutoffMillis(now: Date = Date()): Long {
+        return Calendar.getInstance(Locale.US).apply {
+            time = now
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            add(Calendar.DAY_OF_YEAR, -(retentionDays.coerceAtLeast(MIN_RETENTION_DAYS) - 1))
+        }.timeInMillis
+    }
+
     internal fun pruneDailyFiles(logDir: File, currentDate: String, pattern: Regex) {
+        // Keep behavior for callers that still want "not today" cleanup, but prefer
+        // [pruneAllLogArtifacts] / retention-based prune for production paths.
         runCatching {
             logDir.listFiles()?.forEach { child ->
                 if (child.isFile && pattern.matches(child.name) && !child.name.contains(currentDate)) {
@@ -375,14 +411,8 @@ object LogUtils {
     }
 
     private fun pruneExpiredRuntimeLogs(logDir: File, now: Date) {
-        val cutoff = Calendar.getInstance(Locale.US).apply {
-            time = now
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-            add(Calendar.DAY_OF_YEAR, -(retentionDays.coerceAtLeast(MIN_RETENTION_DAYS) - 1))
-        }.timeInMillis
+        if (!logDir.exists() || !logDir.isDirectory) return
+        val cutoff = retentionCutoffMillis(now)
         logDir.listFiles()
             .orEmpty()
             .forEach { file ->
@@ -391,7 +421,14 @@ object LogUtils {
                     runCatching { file.delete() }
                     return@forEach
                 }
-                if (!dailyRuntimeLogPattern.matches(file.name)) return@forEach
+                if (!dailyRuntimeLogPattern.matches(file.name)) {
+                    // Unknown leftover files under the runtime log dir still respect retention by mtime.
+                    val mtime = file.lastModified()
+                    if (mtime > 0L && mtime < cutoff) {
+                        runCatching { file.delete() }
+                    }
+                    return@forEach
+                }
                 val fileTime = dailyLogDateStartMs(file.name) ?: file.lastModified()
                 if (fileTime > 0L && fileTime < cutoff) {
                     runCatching { file.delete() }
@@ -403,6 +440,10 @@ object LogUtils {
 
     private fun dailyLogDateStartMs(name: String): Long? {
         val date = dailyLogDate(name) ?: return null
+        return parseDayStartMs(date)
+    }
+
+    internal fun parseDayStartMs(date: String): Long? {
         return runCatching {
             LocalDate.parse(date, dailyDateFormatter)
                 .atStartOfDay(ZoneId.systemDefault())
@@ -411,10 +452,10 @@ object LogUtils {
         }.getOrNull()
     }
 
-    private fun updateRetentionDays(days: Int, logDir: File?) {
+    private fun updateRetentionDays(days: Int, context: Context?) {
         synchronized(writeLock) {
             retentionDays = days.coerceAtLeast(MIN_RETENTION_DAYS)
-            logDir?.let { pruneExpiredRuntimeLogs(it, Date()) }
+            context?.let { pruneAllLogArtifacts(it, Date(), force = true) }
         }
     }
 
