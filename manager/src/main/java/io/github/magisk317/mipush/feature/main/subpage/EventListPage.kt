@@ -4,7 +4,11 @@ package io.github.magisk317.mipush.feature.main.subpage
 import android.content.Intent
 import android.net.Uri
 import android.content.Context
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.background
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
@@ -27,6 +31,8 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.WrapText
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -45,6 +51,7 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -64,10 +71,12 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
+import android.util.Log
 import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.manager.R
@@ -78,6 +87,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import io.github.magisk317.mipush.common.cache.ApplicationNameCache
 import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.common.manager.EventDebugJson
 import io.github.magisk317.mipush.common.manager.ManagerEvent
 import io.github.magisk317.mipush.common.manager.ManagerEventResult
 import io.github.magisk317.mipush.common.manager.ManagerEventType
@@ -107,6 +117,7 @@ import java.util.Calendar
 import java.util.Date
 
 import io.github.magisk317.mipush.main.viewmodel.EventListViewModel
+import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
 import org.koin.compose.viewmodel.koinViewModel
 
 private val receiveDateTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
@@ -570,7 +581,9 @@ private fun EventGroupList(
 
     // Seed from VM snapshot on tab re-enter; search/query/refreshSignal miss reloads.
     // Empty-but-loaded snapshots still skip auto-refresh (legitimate empty result).
-    LaunchedEffect(query, refreshSignal) {
+    // runtimeReady invalidates sticky empty after binder recovery.
+    val runtimeReady by viewModel.runtimeReadySignal.collectAsStateWithLifecycle()
+    LaunchedEffect(query, refreshSignal, runtimeReady) {
         val snap = viewModel.getEventListSnapshot(query = query, packageName = "", refreshSignal = refreshSignal)
         if (snap != null) {
             allEvents.clear()
@@ -613,6 +626,12 @@ private fun EventGroupList(
                 lastId = lastId,
                 hasMore = hasMore,
             )
+        } catch (error: RuntimeReadUnavailableException) {
+            Log.w("ManagerRuntime", "EventList loadNextPage unavailable status=${error.status}")
+            // Do not snapshot empty transport failures; keep previous UI if any.
+            if (isRefresh && allEvents.isEmpty()) {
+                viewModel.invalidateEventListSnapshot()
+            }
         } finally {
             isLoading = false
         }
@@ -739,12 +758,16 @@ private fun EventDetailsDialog(
                 ?: buildEventDebugInfo(clickedEvent)
         )
     }
+    var softWrap by rememberSaveable { mutableStateOf(true) }
     val context = LocalContext.current
     val replayScope = rememberCoroutineScope()
     val canReplayNotification = clickedEvent.event.canReplayNotification()
+    val verticalScroll = rememberScrollState()
+    val horizontalScroll = rememberScrollState()
 
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
     val targetHeight = screenHeight * 0.9f
+    val bodyMaxHeight = screenHeight * 0.62f
 
     AlertDialog(
         onDismiss,
@@ -791,8 +814,31 @@ private fun EventDetailsDialog(
             ) {
                 Text(
                     stringResource(R.string.event_detail_developer_info),
-                    style = MaterialTheme.typography.titleLarge
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.weight(1f),
                 )
+                TextButton(onClick = { softWrap = !softWrap }) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.WrapText,
+                        contentDescription = stringResource(R.string.event_detail_soft_wrap_cd),
+                        tint = if (softWrap) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = stringResource(
+                            if (softWrap) {
+                                R.string.event_detail_soft_wrap_on
+                            } else {
+                                R.string.event_detail_soft_wrap_off
+                            }
+                        )
+                    )
+                }
                 IconButton(onClick = { viewModel.startManagePermissions(clickedEvent.packageName) }) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_info_outline_black_24dp),
@@ -803,11 +849,26 @@ private fun EventDetailsDialog(
             }
         },
         text = {
-            Text(
-                text = json,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            SelectionContainer {
+                val textModifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = bodyMaxHeight)
+                    .verticalScroll(verticalScroll)
+                    .then(
+                        if (softWrap) {
+                            Modifier
+                        } else {
+                            Modifier.horizontalScroll(horizontalScroll)
+                        }
+                    )
+                Text(
+                    text = json,
+                    modifier = textModifier,
+                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    softWrap = softWrap,
+                )
+            }
         },
         modifier = Modifier.heightIn(Dp.Unspecified, targetHeight)
     )
@@ -821,18 +882,20 @@ internal fun MockReplayOutcome.feedbackStringRes(): Int = when (this) {
 }
 
 private fun buildEventDebugInfo(event: EventInfoForDisplay): String {
-    return buildString {
-        appendLine("packageName=${event.packageName}")
-        appendLine("appName=${event.appName ?: "<unknown>"}")
-        appendLine("title=${event.title}")
-        appendLine("channel=${event.channel.ifBlank { "<none>" }}")
-        appendLine("configOptions=${event.configOptions.joinToString(",").ifBlank { "<none>" }}")
-        appendLine("receiveDate=${Instant.ofEpochMilli(event.receiveDate.time).atZone(ZoneId.systemDefault()).format(receiveDateTimeFormatter)}")
-        appendLine("type=${event.event.type}")
-        appendLine("result=${event.event.result}")
-        appendLine("info=${event.event.info ?: "<none>"}")
-        appendLine("payloadBytes=${event.event.payload?.size ?: 0}")
-        appendLine("content=${event.content}")
+    return runCatching { EventDebugJson.format(event.event) }.getOrElse {
+        buildString {
+            appendLine("packageName=${event.packageName}")
+            appendLine("appName=${event.appName ?: "<unknown>"}")
+            appendLine("title=${event.title}")
+            appendLine("channel=${event.channel.ifBlank { "<none>" }}")
+            appendLine("configOptions=${event.configOptions.joinToString(",").ifBlank { "<none>" }}")
+            appendLine("receiveDate=${Instant.ofEpochMilli(event.receiveDate.time).atZone(ZoneId.systemDefault()).format(receiveDateTimeFormatter)}")
+            appendLine("type=${event.event.type}")
+            appendLine("result=${event.event.result}")
+            appendLine("info=${event.event.info ?: "<none>"}")
+            appendLine("payloadBytes=${event.event.payload?.size ?: 0}")
+            appendLine("content=${event.content}")
+        }
     }
 }
 
@@ -880,6 +943,7 @@ private fun EventList(
     var isLoading by remember { mutableStateOf(false) }
     var hasMore by remember { mutableStateOf(true) }
     var isNeedRefresh by remember { mutableStateOf(false) }
+    val runtimeReady by viewModel.runtimeReadySignal.collectAsStateWithLifecycle()
 
     fun persistSnapshot() {
         viewModel.putEventListSnapshot(
@@ -893,7 +957,7 @@ private fun EventList(
     }
 
     // Tab re-enter: restore VM snapshot. Search/package/refreshSignal change: reload.
-    LaunchedEffect(query, packageName, refreshSignal) {
+    LaunchedEffect(query, packageName, refreshSignal, runtimeReady) {
         val snap = viewModel.getEventListSnapshot(
             query = query,
             packageName = packageName,
@@ -918,13 +982,21 @@ private fun EventList(
         }
         isLoading = true
         refreshScope.launch {
-            val loaded = getEvents(false)
-            withContext(Dispatchers.Main) {
-                items.appendDistinct(loaded)
-                hasMore = loaded.size >= Constants.PAGE_SIZE
-                persistSnapshot()
-                isLoading = false
-                onRefreshed()
+            try {
+                val loaded = getEvents(false)
+                withContext(Dispatchers.Main) {
+                    items.appendDistinct(loaded)
+                    hasMore = loaded.size >= Constants.PAGE_SIZE
+                    persistSnapshot()
+                    isLoading = false
+                    onRefreshed()
+                }
+            } catch (error: RuntimeReadUnavailableException) {
+                Log.w("ManagerRuntime", "EventList doLoadMore unavailable status=${error.status}")
+                withContext(Dispatchers.Main) {
+                    isLoading = false
+                    onRefreshed()
+                }
             }
         }
     }
@@ -935,15 +1007,27 @@ private fun EventList(
         }
         isLoading = true
         refreshScope.launch {
-            val elements = getEvents(true)
-            withContext(Dispatchers.Main) {
-                items.clear()
-                items.appendDistinct(elements)
-                hasMore = elements.size >= Constants.PAGE_SIZE
-                persistSnapshot()
-                isLoading = false
-                isNeedRefresh = false
-                onRefreshed()
+            try {
+                val elements = getEvents(true)
+                withContext(Dispatchers.Main) {
+                    items.clear()
+                    items.appendDistinct(elements)
+                    hasMore = elements.size >= Constants.PAGE_SIZE
+                    persistSnapshot()
+                    isLoading = false
+                    isNeedRefresh = false
+                    onRefreshed()
+                }
+            } catch (error: RuntimeReadUnavailableException) {
+                Log.w("ManagerRuntime", "EventList doRefresh unavailable status=${error.status}")
+                withContext(Dispatchers.Main) {
+                    if (items.isEmpty()) {
+                        viewModel.invalidateEventListSnapshot()
+                    }
+                    isLoading = false
+                    isNeedRefresh = false
+                    onRefreshed()
+                }
             }
         }
     }
@@ -1183,7 +1267,7 @@ fun EventDetailsDialogPreview() {
 )
 @Composable
 fun EventListPreview() {
-    Napier.base(io.github.aakira.napier.DebugAntilog())
+    // Napier FileAntilog is owned by ManagerRuntimeFileLog.init
     Utils.context = LocalContext.current
 
     val eventListSequence = sequence {

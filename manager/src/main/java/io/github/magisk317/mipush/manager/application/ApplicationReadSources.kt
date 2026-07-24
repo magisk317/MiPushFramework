@@ -15,6 +15,7 @@ import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeResult
+import io.github.magisk317.mipush.common.utils.logW
 import kotlinx.coroutines.CancellationException
 
 data class ApplicationListRequest(
@@ -126,9 +127,15 @@ class RemoteApplicationListSource internal constructor(
                     ApplicationReadStatus.UNSUPPORTED,
                 )
 
-                is ManagerRuntimeResult.Unavailable -> return ApplicationReadResult.Unavailable(
-                    result.availability.toApplicationReadStatus(),
-                )
+                is ManagerRuntimeResult.Unavailable -> {
+                    logW(
+                        "RemoteApplicationListSource unavailable " +
+                            "availability=${result.availability} page=$pageCount",
+                    )
+                    return ApplicationReadResult.Unavailable(
+                        result.availability.toApplicationReadStatus(),
+                    )
+                }
 
                 is ManagerRuntimeResult.Failed -> return ApplicationReadResult.Unavailable(
                     ApplicationReadStatus.FAILED,
@@ -171,13 +178,16 @@ class RemoteApplicationListSource internal constructor(
 class ComparingApplicationListSource internal constructor(
     private val primaryLoader: (ApplicationListRequest) -> ApplicationListSnapshot,
     private val remoteLoader: suspend (ApplicationListRequest) -> ApplicationReadResult<ApplicationListSnapshot>,
+    private val enableRemoteCompare: Boolean = true,
 ) {
     constructor(
         inProcessSource: InProcessApplicationListSource,
         remoteSource: RemoteApplicationListSource,
+        enableRemoteCompare: Boolean = true,
     ) : this(
         primaryLoader = inProcessSource::load,
         remoteLoader = remoteSource::load,
+        enableRemoteCompare = enableRemoteCompare,
     )
 
     fun loadPrimary(request: ApplicationListRequest): ApplicationListSnapshot = primaryLoader(request)
@@ -185,9 +195,12 @@ class ComparingApplicationListSource internal constructor(
     suspend fun compareRemote(
         request: ApplicationListRequest,
         primary: ApplicationListSnapshot,
-    ): ApplicationListComparison = when (val remote = remoteLoader(request)) {
-        is ApplicationReadResult.Available -> compareApplicationLists(primary, remote.value)
-        is ApplicationReadResult.Unavailable -> ApplicationListComparison.Skipped(remote.status)
+    ): ApplicationListComparison {
+        if (!enableRemoteCompare) return ApplicationListComparison.NotStarted
+        return when (val remote = remoteLoader(request)) {
+            is ApplicationReadResult.Available -> compareApplicationLists(primary, remote.value)
+            is ApplicationReadResult.Unavailable -> ApplicationListComparison.Skipped(remote.status)
+        }
     }
 }
 

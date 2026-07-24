@@ -9,6 +9,7 @@ import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeResult
+import io.github.magisk317.mipush.common.utils.logW
 import kotlinx.coroutines.CancellationException
 
 data class EventListRequest(
@@ -73,9 +74,10 @@ class RemoteEventListSource internal constructor(
                 result.value.items.map { it.toManagerEvent() },
             )
             is ManagerRuntimeResult.Unsupported -> EventReadResult.Unavailable(EventReadStatus.UNSUPPORTED)
-            is ManagerRuntimeResult.Unavailable -> EventReadResult.Unavailable(
-                result.availability.toEventReadStatus(),
-            )
+            is ManagerRuntimeResult.Unavailable -> {
+                logW("RemoteEventListSource unavailable availability=${result.availability}")
+                EventReadResult.Unavailable(result.availability.toEventReadStatus())
+            }
             is ManagerRuntimeResult.Failed -> EventReadResult.Unavailable(EventReadStatus.FAILED)
         }
     } catch (error: CancellationException) {
@@ -88,15 +90,19 @@ class RemoteEventListSource internal constructor(
 class ComparingEventListSource(
     private val primarySource: InProcessEventListSource,
     private val remoteSource: RemoteEventListSource,
+    private val enableRemoteCompare: Boolean = true,
 ) {
     fun loadPrimary(request: EventListRequest): List<ManagerEvent> = primarySource.load(request)
 
     suspend fun compareRemote(
         request: EventListRequest,
         primary: List<ManagerEvent>,
-    ): EventListComparison = when (val remote = remoteSource.load(request)) {
-        is EventReadResult.Available -> compareEventLists(primary, remote.value)
-        is EventReadResult.Unavailable -> EventListComparison.Unavailable(remote.status)
+    ): EventListComparison {
+        if (!enableRemoteCompare) return EventListComparison.Matched
+        return when (val remote = remoteSource.load(request)) {
+            is EventReadResult.Available -> compareEventLists(primary, remote.value)
+            is EventReadResult.Unavailable -> EventListComparison.Unavailable(remote.status)
+        }
     }
 }
 

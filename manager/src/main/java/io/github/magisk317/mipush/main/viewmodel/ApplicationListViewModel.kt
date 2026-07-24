@@ -14,6 +14,10 @@ import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.application.ApplicationListComparison
 import io.github.magisk317.mipush.manager.application.ComparingApplicationListSource
+import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
+import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
+import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
+import io.github.magisk317.mipush.common.utils.logW
 import java.util.Date
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -31,6 +35,7 @@ class ApplicationListViewModel constructor(
     private val settingsManager: SettingsManager,
     private val preferenceRepository: PreferenceRepository,
     private val context: Context,
+    private val runtimeClient: ManagerRuntimeClient,
 ) : ViewModel() {
 
     val applicationPageOperation = ApplicationPageOperation(applicationSource)
@@ -60,9 +65,27 @@ class ApplicationListViewModel constructor(
     private var listLoaded: Boolean = false
     private var comparisonJob: Job? = null
 
+    init {
+        viewModelScope.launch {
+            var sawUnavailable = false
+            runtimeClient.availability.collect { availability ->
+                if (availability is ManagerRuntimeAvailability.Available) {
+                    if (sawUnavailable || !listLoaded) {
+                        sawUnavailable = false
+                        loadApplications(query = lastQuery, filterMode = lastFilterMode)
+                    }
+                } else {
+                    sawUnavailable = true
+                }
+            }
+        }
+    }
+
     /** True when [items] matches the given query/filter and was loaded this process. */
     fun hasCachedList(query: String, filterMode: Int): Boolean {
-        return listLoaded && lastQuery == query && lastFilterMode == filterMode
+        if (!listLoaded || lastQuery != query || lastFilterMode != filterMode) return false
+        // Empty + totalPkg=0 after a failed remote read used to stick forever; only cache real results.
+        return true
     }
 
     fun setShowSystemApps(show: Boolean) {
@@ -102,7 +125,14 @@ class ApplicationListViewModel constructor(
                 onRefreshed?.invoke()
             } catch (error: CancellationException) {
                 throw error
-            } catch (_: Exception) {
+            } catch (error: RuntimeReadUnavailableException) {
+                // Transport failure must not stick as a successful empty list cache.
+                listLoaded = false
+                logW("loadApplications unavailable op=${error.operation} status=${error.status}")
+                onRefreshed?.invoke()
+            } catch (error: Exception) {
+                listLoaded = false
+                logW("loadApplications failed: ${error.message}")
                 onRefreshed?.invoke()
             }
         }
@@ -125,10 +155,16 @@ class ApplicationListViewModel constructor(
                 updateInfos(applications)
                 _items.value = applications
                 _stats.value = applications.toApplicationStats()
+                listLoaded = true
                 scheduleRemoteComparison(query, filterMode, includeSystemApps, applications)
             } catch (error: CancellationException) {
                 throw error
-            } catch (_: Exception) {
+            } catch (error: RuntimeReadUnavailableException) {
+                listLoaded = false
+                logW("refreshApplications unavailable op=${error.operation} status=${error.status}")
+            } catch (error: Exception) {
+                listLoaded = false
+                logW("refreshApplications failed: ${error.message}")
             }
         }
     }

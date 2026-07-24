@@ -19,6 +19,7 @@ import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
 import io.github.magisk317.mipush.common.manager.ManagerConfigListSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
 import io.github.magisk317.mipush.common.manager.ManagerEvent
+import io.github.magisk317.mipush.common.manager.EventDebugJson
 import io.github.magisk317.mipush.common.manager.ManagerEventGateway
 import io.github.magisk317.mipush.common.manager.ManagerEventResult
 import io.github.magisk317.mipush.common.manager.ManagerEventType
@@ -205,12 +206,19 @@ class XmsfManagerEventGateway(
 
     override fun getJson(event: ManagerEvent): String? =
         eventRepository.getJson(event.toEvent())?.toString()
+            ?: runCatching { EventDebugJson.format(event) }.getOrNull()
 
     override fun getContent(event: ManagerEvent): String {
+        val payload = event.payload
+        val resolved = if ((payload == null || payload.isEmpty()) && event.id > 0L) {
+            runBlocking { resolveEventForMock(event) } ?: event
+        } else {
+            event
+        }
         val container = io.github.magisk317.mipush.common.configurations.RegSecUtils
-            .getContainerWithRegSec(event.payload, event.regSec)
-            ?: return event.content
-        return eventRepository.getContent(event.toEvent(), container)
+            .getContainerWithRegSec(resolved.payload, resolved.regSec)
+            ?: return resolved.content.ifBlank { event.content }
+        return eventRepository.getContent(resolved.toEvent(), container)
     }
 
     override suspend fun deleteEvent(event: ManagerEvent): Boolean =

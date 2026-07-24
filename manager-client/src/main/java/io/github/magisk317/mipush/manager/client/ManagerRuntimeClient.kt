@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.DeadObjectException
 import android.os.IBinder
 import android.os.RemoteException
+import android.util.Log
 import io.github.magisk317.mipush.manager.api.IManagerRuntimeService
 import io.github.magisk317.mipush.manager.api.ManagerApplicationDetailDto
 import io.github.magisk317.mipush.manager.api.ManagerApplicationDiagnosticsDto
@@ -147,6 +148,7 @@ class ManagerRuntimeClient(
             reconnectJob = null
             BindSession().also {
                 activeSession = it
+                Log.i(TAG, "availability ${_availability.value} -> Binding")
                 _availability.value = ManagerRuntimeAvailability.Binding
             }
         }
@@ -266,6 +268,8 @@ class ManagerRuntimeClient(
 
     suspend fun exportRuntimeLogs(): ManagerRuntimeResult<ManagerLogExportResultDto> = callCapability(
         capability = ManagerProtocol.CAPABILITY_LOG_EXPORT,
+        // Log zip can collect multi-10MB logs + root lsposed/logcat; 8s default is far too short.
+        callTimeoutMillis = LOG_EXPORT_CALL_TIMEOUT_MS,
         validator = { result, _ -> ManagerProtocol.validateLogExportResult(result) },
     ) { it.exportRuntimeLogs() }
 
@@ -302,18 +306,28 @@ class ManagerRuntimeClient(
     private suspend fun <T> callCapability(
         capability: String,
         requestValidator: (ManagerHandshake) -> String? = { null },
+        callTimeoutMillis: Long = this.callTimeoutMillis,
         validator: (T, ManagerHandshake) -> String?,
         block: (IManagerRuntimeService) -> T,
     ): ManagerRuntimeResult<T> {
         val target = currentRemoteTarget()
-            ?: return ManagerRuntimeResult.Unavailable(availability.value)
+        if (target == null) {
+            Log.w(TAG, "call without target capability=$capability availability=${availability.value}")
+            return ManagerRuntimeResult.Unavailable(availability.value)
+        }
         if (capability !in target.handshake.supportedCapabilities) {
             return ManagerRuntimeResult.Unsupported(capability)
         }
         requestValidator(target.handshake)?.let { return ManagerRuntimeResult.Failed(it) }
 
         return try {
-            val value = callRemote(target.session) { block(target.service) }
+            val startedAt = android.os.SystemClock.elapsedRealtime()
+            Log.i(TAG, "call start capability=$capability timeoutMs=$callTimeoutMillis")
+            val value = callRemote(target.session, callTimeoutMillis) { block(target.service) }
+            Log.i(
+                TAG,
+                "call ok capability=$capability tookMs=${android.os.SystemClock.elapsedRealtime() - startedAt}",
+            )
             val validationReason = validator(value, target.handshake)
             if (validationReason != null) {
                 discardOwnedWireResources(value)
@@ -332,11 +346,20 @@ class ManagerRuntimeClient(
                 ManagerRuntimeResult.Unavailable(availability.value)
             }
         } catch (error: RemoteCallTimeoutException) {
+            if (error.permitsExhausted) {
+                // Busy is not a dead session: keep the binder and let callers retry.
+                Log.w(TAG, "remote busy capability=$capability availability=${availability.value}")
+                return@callCapability ManagerRuntimeResult.Unavailable(
+                    ManagerRuntimeAvailability.TemporarilyDisconnected(DisconnectReason.REMOTE_ERROR),
+                )
+            }
+            Log.w(TAG, "remote timed out capability=$capability")
             val timeoutState = ManagerRuntimeAvailability.TimedOut
             val current = releaseSession(target.session, timeoutState)
-            if (current && !error.permitsExhausted) scheduleReconnect()
+            if (current) scheduleReconnect()
             ManagerRuntimeResult.Unavailable(if (current) timeoutState else availability.value)
         } catch (_: DeadObjectException) {
+            Log.w(TAG, "remote dead object capability=$capability")
             val current = releaseSession(
                 target.session,
                 ManagerRuntimeAvailability.TemporarilyDisconnected(DisconnectReason.BINDER_DIED),
@@ -344,6 +367,7 @@ class ManagerRuntimeClient(
             if (current) scheduleReconnect()
             ManagerRuntimeResult.Unavailable(availability.value)
         } catch (_: RemoteException) {
+            Log.w(TAG, "remote exception capability=$capability")
             val current = releaseSession(
                 target.session,
                 ManagerRuntimeAvailability.TemporarilyDisconnected(DisconnectReason.REMOTE_ERROR),
@@ -490,6 +514,7 @@ class ManagerRuntimeClient(
             val nextAvailability = ManagerRuntimeClientPolicy.classifyHandshake(handshake)
             synchronized(lock) {
                 if (!isCurrentLocked(session) || session.service !== service) return
+                Log.i(TAG, "handshake result $nextAvailability")
                 _availability.value = nextAvailability
                 session.handshakeJob = null
                 if (nextAvailability is ManagerRuntimeAvailability.Available) {
@@ -497,8 +522,13 @@ class ManagerRuntimeClient(
                 }
             }
         } catch (error: RemoteCallTimeoutException) {
+            // Handshake never reached Available; release and reconnect for both busy and hard timeout.
+            android.util.Log.w(
+                "ManagerRuntime",
+                if (error.permitsExhausted) "handshake busy" else "handshake timed out",
+            )
             val current = releaseSession(session, ManagerRuntimeAvailability.TimedOut)
-            if (current && !error.permitsExhausted) scheduleReconnect()
+            if (current) scheduleReconnect()
         } catch (error: CancellationException) {
             throw error
         } catch (_: SecurityException) {
@@ -581,6 +611,7 @@ class ManagerRuntimeClient(
             if (current) {
                 activeSession = null
                 if (!closed && nextAvailability != null) {
+                    Log.i(TAG, "availability ${_availability.value} -> $nextAvailability")
                     _availability.value = nextAvailability
                 }
             }
@@ -625,8 +656,21 @@ class ManagerRuntimeClient(
         !closed && !session.released && activeSession === session
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    private suspend fun <T> callRemote(session: BindSession, block: () -> T): T {
-        if (!remoteCallPermits.tryAcquire()) {
+    private suspend fun <T> callRemote(
+        session: BindSession,
+        callTimeoutMillis: Long = this.callTimeoutMillis,
+        block: () -> T,
+    ): T {
+        val acquired = if (remoteCallPermits.tryAcquire()) {
+            true
+        } else {
+            Log.w(TAG, "waiting for remote permit timeoutMs=$callTimeoutMillis")
+            withTimeoutOrNull(callTimeoutMillis) {
+                remoteCallPermits.acquire()
+                true
+            } == true
+        }
+        if (!acquired) {
             throw RemoteCallTimeoutException(permitsExhausted = true)
         }
         val deferred: Deferred<T> = clientScope.async(ioDispatcher, start = CoroutineStart.LAZY) { block() }
@@ -692,7 +736,11 @@ class ManagerRuntimeClient(
     }
 
     private companion object {
-        const val DEFAULT_CALL_TIMEOUT_MS = 3_000L
-        const val MAX_IN_FLIGHT_REMOTE_CALLS = 2
+        private const val TAG = "ManagerRuntime"
+        // Application list paging + concurrent overview/event loads need headroom on mid-range devices.
+        const val DEFAULT_CALL_TIMEOUT_MS = 8_000L
+        // Observed live export ~137s with ~30MB runtime logs + root lsposed/logcat collection.
+        const val LOG_EXPORT_CALL_TIMEOUT_MS = 180_000L
+        const val MAX_IN_FLIGHT_REMOTE_CALLS = 6
     }
 }

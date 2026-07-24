@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.manager.api
 
 object ManagerProtocol {
     const val MAJOR = 1
-    const val MINOR = 5
+    const val MINOR = 6
 
     const val RUNTIME_PACKAGE = "com.xiaomi.xmsf"
     const val MANAGER_PACKAGE = "io.github.magisk317.mipush"
@@ -86,7 +86,27 @@ object ManagerProtocol {
     const val WRITE_OP_RESTART_RUNTIME = "restart_runtime"
     const val WRITE_OP_REBOOT_DEVICE = "reboot_device"
     const val WRITE_OP_RELAUNCH_MANAGER = "relaunch_manager"
+    const val WRITE_OP_COUNT_EVENTS_BY_DAY = "count_events_by_day"
+    const val WRITE_OP_CLEAR_LOG_FOLDERS = "clear_log_folders"
+    const val WRITE_OP_DELETE_NOTIFICATION_CHANNEL = "delete_notification_channel"
+    const val WRITE_OP_ZYGISK_IS_ENABLED = "zygisk_is_enabled"
+    const val WRITE_OP_ZYGISK_GET_CONFIG = "zygisk_get_config"
+    const val WRITE_OP_ZYGISK_SAVE_CONFIG = "zygisk_save_config"
+    const val WRITE_OP_ZYGISK_FORCE_STOP = "zygisk_force_stop"
+    const val WRITE_OP_REPAIR_XSPACE = "repair_xspace"
+    const val WRITE_OP_RESET_TOP_ACTIVITY_CACHE = "reset_top_activity_cache"
+    const val WRITE_OP_GET_EVENT_CONTENT = "get_event_content"
     const val WRITE_DETAIL_RELAUNCH_MANAGER_OK = "relaunch_manager_ok"
+    const val WRITE_DETAIL_COUNT_EVENTS_BY_DAY_OK = "count_events_by_day_ok"
+    const val WRITE_DETAIL_CLEAR_LOG_FOLDERS_OK = "clear_log_folders_ok"
+    const val WRITE_DETAIL_CLEAR_LOG_FOLDERS_FAILED = "clear_log_folders_failed"
+    const val WRITE_DETAIL_DELETE_NOTIFICATION_CHANNEL_OK = "delete_notification_channel_ok"
+    const val WRITE_DETAIL_ZYGISK_OK = "zygisk_ok"
+    const val WRITE_DETAIL_ZYGISK_ROOT_MISSING = "zygisk_root_missing"
+    const val WRITE_DETAIL_ZYGISK_FAILED = "zygisk_failed"
+    const val WRITE_DETAIL_REPAIR_XSPACE_OK = "repair_xspace_ok"
+    const val WRITE_DETAIL_RESET_TOP_ACTIVITY_CACHE_OK = "reset_top_activity_cache_ok"
+    const val WRITE_DETAIL_GET_EVENT_CONTENT_OK = "get_event_content_ok"
     const val WRITE_DETAIL_RELAUNCH_MANAGER_FAILED = "relaunch_manager_failed"
     const val WRITE_DETAIL_REBOOT_DEVICE_OK = "reboot_device_ok"
     const val WRITE_DETAIL_REBOOT_DEVICE_ROOT_MISSING = "reboot_device_root_missing"

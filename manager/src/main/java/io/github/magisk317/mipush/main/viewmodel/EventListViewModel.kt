@@ -16,6 +16,10 @@ import io.github.magisk317.mipush.common.manager.ManagerEvent
 import io.github.magisk317.mipush.common.manager.ManagerDayCount
 import io.github.magisk317.mipush.common.manager.ManagerEventGateway
 import io.github.magisk317.mipush.manager.events.ComparingEventListSource
+import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
+import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
+import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
+import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.manager.events.EventListComparison
 import io.github.magisk317.mipush.manager.events.EventListRequest
 import kotlinx.coroutines.Job
@@ -30,7 +34,8 @@ class EventListViewModel constructor(
     private val eventGateway: ManagerEventGateway,
     private val settingsManager: SettingsManager,
     private val preferenceRepository: PreferenceRepository,
-    private val context: Context
+    private val context: Context,
+    private val runtimeClient: ManagerRuntimeClient,
 ) : ViewModel() {
     private val _events = MutableStateFlow<List<EventInfoForDisplay>>(emptyList())
     val events: StateFlow<List<EventInfoForDisplay>> = _events.asStateFlow()
@@ -38,6 +43,27 @@ class EventListViewModel constructor(
     private val _comparison = MutableStateFlow<EventListComparison?>(null)
     val comparison: StateFlow<EventListComparison?> = _comparison.asStateFlow()
     private var comparisonJob: Job? = null
+
+    /** Bumped when runtime becomes Available after a gap so Event pages reload. */
+    private val _runtimeReadySignal = MutableStateFlow(0)
+    val runtimeReadySignal: StateFlow<Int> = _runtimeReadySignal.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            var sawUnavailable = false
+            runtimeClient.availability.collect { availability ->
+                if (availability is ManagerRuntimeAvailability.Available) {
+                    if (sawUnavailable) {
+                        sawUnavailable = false
+                        invalidateEventListSnapshot()
+                        _runtimeReadySignal.value = _runtimeReadySignal.value + 1
+                    }
+                } else {
+                    sawUnavailable = true
+                }
+            }
+        }
+    }
 
     /**
      * In-memory list snapshot for tab reuse.
@@ -109,16 +135,23 @@ class EventListViewModel constructor(
                 packageName = packageName,
                 query = query,
             )
-            val primary = withContext(Dispatchers.IO) {
-                eventSource.loadPrimary(request)
+            try {
+                val primary = withContext(Dispatchers.IO) {
+                    eventSource.loadPrimary(request)
+                }
+                val loadedEvents = primary.map { toEventInfoForDisplay(it) }
+                if (isRefresh) {
+                    _events.value = loadedEvents
+                } else {
+                    _events.value = _events.value + loadedEvents
+                }
+                scheduleComparison(request, primary)
+            } catch (error: RuntimeReadUnavailableException) {
+                logW("loadEvents unavailable op=${error.operation} status=${error.status}")
+                // Keep previous events; do not replace with empty.
+            } catch (error: Exception) {
+                logW("loadEvents failed: ${error.message}")
             }
-            val loadedEvents = primary.map { toEventInfoForDisplay(it) }
-            if (isRefresh) {
-                _events.value = loadedEvents
-            } else {
-                _events.value = _events.value + loadedEvents
-            }
-            scheduleComparison(request, primary)
         }
     }
 
@@ -185,9 +218,14 @@ class EventListViewModel constructor(
                 packageName = packageName,
                 query = query,
             )
-            val primary = eventSource.loadPrimary(request)
-            scheduleComparison(request, primary)
-            primary.map { toEventInfoForDisplay(it) }
+            try {
+                val primary = eventSource.loadPrimary(request)
+                scheduleComparison(request, primary)
+                primary.map { toEventInfoForDisplay(it) }
+            } catch (error: RuntimeReadUnavailableException) {
+                logW("fetchEvents unavailable op=${error.operation} status=${error.status}")
+                throw error
+            }
         }
     }
 

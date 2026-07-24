@@ -17,6 +17,10 @@ import io.github.magisk317.mipush.common.manager.ManagerEventGateway
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 import io.github.magisk317.mipush.common.manager.ManagerXSpaceRepairStage
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
+import io.github.magisk317.mipush.common.manager.ManagerLogGateway
+import io.github.magisk317.mipush.common.manager.ManagerNotificationGateway
+import io.github.magisk317.mipush.common.manager.ZygiskConfigGateway
+import io.github.magisk317.mipush.common.fakedevice.ZygiskConfig
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.api.ManagerWriteRequestDto
 import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto
@@ -30,6 +34,9 @@ class ManagerWriteRuntimeExecutor(
     private val eventGateway: ManagerEventGateway,
     private val runtimeActions: ManagerRuntimeActions,
     private val permissionGateway: ManagerPermissionGateway,
+    private val logGateway: ManagerLogGateway,
+    private val notificationGateway: ManagerNotificationGateway,
+    private val zygiskConfigGateway: ZygiskConfigGateway,
     private val idempotencyStore: ManagerWriteIdempotencyStore = ManagerWriteIdempotencyStore(),
 ) {
     constructor(context: Context) : this(
@@ -38,6 +45,9 @@ class ManagerWriteRuntimeExecutor(
         eventGateway = AppDependencies.get(context),
         runtimeActions = AppDependencies.get(context),
         permissionGateway = AppDependencies.get(context),
+        logGateway = AppDependencies.get(context),
+        notificationGateway = AppDependencies.get(context),
+        zygiskConfigGateway = AppDependencies.get(context),
     )
 
     fun execute(request: ManagerWriteRequestDto): ManagerWriteResultDto {
@@ -93,6 +103,16 @@ class ManagerWriteRuntimeExecutor(
                 runtimeActions.applyEventRetentionDays(days)
                 success(request.requestId, "event_retention:$days")
             }
+            ManagerProtocol.WRITE_OP_COUNT_EVENTS_BY_DAY -> countEventsByDay(request)
+            ManagerProtocol.WRITE_OP_CLEAR_LOG_FOLDERS -> clearLogFolders(request)
+            ManagerProtocol.WRITE_OP_DELETE_NOTIFICATION_CHANNEL -> deleteNotificationChannel(request)
+            ManagerProtocol.WRITE_OP_ZYGISK_IS_ENABLED -> zygiskIsEnabled(request)
+            ManagerProtocol.WRITE_OP_ZYGISK_GET_CONFIG -> zygiskGetConfig(request)
+            ManagerProtocol.WRITE_OP_ZYGISK_SAVE_CONFIG -> zygiskSaveConfig(request)
+            ManagerProtocol.WRITE_OP_ZYGISK_FORCE_STOP -> zygiskForceStop(request)
+            ManagerProtocol.WRITE_OP_REPAIR_XSPACE -> repairXSpace(request)
+            ManagerProtocol.WRITE_OP_RESET_TOP_ACTIVITY_CACHE -> resetTopActivityCache(request)
+            ManagerProtocol.WRITE_OP_GET_EVENT_CONTENT -> getEventContent(request)
             else -> ManagerWriteResultDto(
                 requestId = request.requestId,
                 status = ManagerProtocol.WRITE_STATUS_UNSUPPORTED,
@@ -432,6 +452,129 @@ class ManagerWriteRuntimeExecutor(
         }, 250L)
         logI("restart_runtime scheduled")
         return success(request.requestId, ManagerProtocol.WRITE_DETAIL_RESTART_RUNTIME_OK)
+    }
+
+
+    private fun countEventsByDay(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        val counts = runBlocking { eventGateway.countEventsByDay() }
+        val encoded = counts.joinToString("\n") { "${it.day}:${it.count}" }
+        val details = encoded.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH)
+        return success(
+            requestId = request.requestId,
+            details = details.ifBlank { ManagerProtocol.WRITE_DETAIL_COUNT_EVENTS_BY_DAY_OK },
+            resultLong = counts.size.toLong(),
+        )
+    }
+
+    private fun clearLogFolders(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        val result = logGateway.clearLogFolders(context)
+        return if (result.success) {
+            success(
+                requestId = request.requestId,
+                details = result.details.ifBlank { ManagerProtocol.WRITE_DETAIL_CLEAR_LOG_FOLDERS_OK }
+                    .take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH),
+            )
+        } else {
+            failed(
+                request.requestId,
+                result.details.ifBlank { ManagerProtocol.WRITE_DETAIL_CLEAR_LOG_FOLDERS_FAILED }
+                    .take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH),
+            )
+        }
+    }
+
+    private fun deleteNotificationChannel(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        val packageName = request.packageName.trim()
+        val channelId = request.argument.trim()
+        if (packageName.isEmpty() || channelId.isEmpty()) {
+            return failed(request.requestId, "missing_package_or_channel")
+        }
+        notificationGateway.deleteNotificationChannel(packageName, channelId)
+        return success(request.requestId, ManagerProtocol.WRITE_DETAIL_DELETE_NOTIFICATION_CHANNEL_OK)
+    }
+
+    private fun zygiskIsEnabled(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        val enabled = zygiskConfigGateway.isZygiskModuleEnabled()
+        return success(
+            requestId = request.requestId,
+            details = ManagerProtocol.WRITE_DETAIL_ZYGISK_OK,
+            resultLong = if (enabled) 1L else 0L,
+        )
+    }
+
+    private fun zygiskGetConfig(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        val content = zygiskConfigGateway.getZygiskConfig().toFileContent()
+        return success(
+            requestId = request.requestId,
+            details = content.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH),
+            resultLong = content.length.toLong(),
+        )
+    }
+
+    private fun zygiskSaveConfig(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        val config = ZygiskConfig.parse(request.argument)
+        val ok = zygiskConfigGateway.saveZygiskConfig(config)
+        return if (ok) {
+            success(request.requestId, ManagerProtocol.WRITE_DETAIL_ZYGISK_OK)
+        } else {
+            failed(request.requestId, ManagerProtocol.WRITE_DETAIL_ZYGISK_FAILED)
+        }
+    }
+
+    private fun zygiskForceStop(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        val packageName = request.packageName.trim().ifBlank { request.argument.trim() }
+        if (packageName.isEmpty()) {
+            return failed(request.requestId, "missing_package")
+        }
+        zygiskConfigGateway.forceStopApp(packageName)
+        return success(request.requestId, ManagerProtocol.WRITE_DETAIL_ZYGISK_OK)
+    }
+
+    private fun repairXSpace(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        val result = permissionGateway.repairXSpaceUserSupport()
+        val details = when (result.stage) {
+            ManagerXSpaceRepairStage.ROOT_MISSING -> ManagerProtocol.WRITE_DETAIL_DUAL_APP_ROOT_MISSING
+            ManagerXSpaceRepairStage.XSPACE_USER_NOT_FOUND -> ManagerProtocol.WRITE_DETAIL_DUAL_APP_XSPACE_MISSING
+            ManagerXSpaceRepairStage.COMPLETED -> ManagerProtocol.WRITE_DETAIL_DUAL_APP_COMPLETED
+            ManagerXSpaceRepairStage.PARTIAL_FAILED -> ManagerProtocol.WRITE_DETAIL_DUAL_APP_PARTIAL_FAILED
+        }
+        val status = if (result.stage == ManagerXSpaceRepairStage.COMPLETED) {
+            ManagerProtocol.WRITE_STATUS_SUCCESS
+        } else {
+            ManagerProtocol.WRITE_STATUS_FAILED
+        }
+        return ManagerWriteResultDto(
+            requestId = request.requestId,
+            status = status,
+            details = result.details.ifBlank { details }.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH),
+            resultLong = if (result.xmsfInstalled) 1L else 0L,
+        )
+    }
+
+    private fun resetTopActivityCache(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        runtimeActions.resetTopActivityCache()
+        return success(request.requestId, ManagerProtocol.WRITE_DETAIL_RESET_TOP_ACTIVITY_CACHE_OK)
+    }
+
+    private fun getEventContent(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        val eventId = request.eventId ?: return failed(request.requestId, "missing_event_id")
+        val content = eventGateway.getContent(
+            ManagerEvent(
+                id = eventId,
+                packageName = request.packageName,
+                configOptions = emptySet(),
+                channel = "",
+                receiveDateMs = request.longArgument,
+                title = "",
+                content = request.argument,
+                type = request.intArgument,
+            ),
+        )
+        return success(
+            requestId = request.requestId,
+            details = content.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH),
+            resultLong = content.length.toLong(),
+        )
     }
 
     private companion object {

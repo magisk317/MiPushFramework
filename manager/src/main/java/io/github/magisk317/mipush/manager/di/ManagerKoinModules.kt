@@ -1,5 +1,7 @@
 package io.github.magisk317.mipush.manager.di
 
+import io.github.magisk317.mipush.manager.logging.ManagerRuntimeFileLog
+
 import android.content.Context
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
 import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
@@ -72,9 +74,11 @@ val managerKoinModule = module {
     single { InProcessConnectionSnapshotSource(get<SettingsManager>()) }
     single { RemoteConnectionSnapshotSource(get<ManagerRuntimeClient>()) }
     single {
+        // Standalone manager is remote-only: primary must be Binder, not SettingsManager empty shell.
         ComparingConnectionSnapshotSource(
-            inProcessSource = get<InProcessConnectionSnapshotSource>(),
+            inProcessSource = get<RemoteConnectionSnapshotSource>(),
             remoteSource = get<RemoteConnectionSnapshotSource>(),
+            enableRemoteCompare = false,
         )
     }
     single { InProcessApplicationListSource(androidContext(), get<ManagerApplicationGateway>()) }
@@ -83,6 +87,8 @@ val managerKoinModule = module {
         ComparingApplicationListSource(
             inProcessSource = get<InProcessApplicationListSource>(),
             remoteSource = get<RemoteApplicationListSource>(),
+            // Primary already goes through RemoteManagerApplicationGateway; skip second remote pass.
+            enableRemoteCompare = false,
         )
     }
     single { InProcessApplicationDetailSource(androidContext(), get<ManagerApplicationGateway>()) }
@@ -90,7 +96,7 @@ val managerKoinModule = module {
 
     single { InProcessEventListSource(get()) }
     single { RemoteEventListSource(get<ManagerRuntimeClient>()) }
-    single { ComparingEventListSource(get(), get()) }
+    single { ComparingEventListSource(get(), get(), enableRemoteCompare = false) }
     single { InProcessNotificationChannelSource(get()) }
     single { RemoteNotificationChannelSource(get<ManagerRuntimeClient>()) }
     single { ComparingNotificationChannelSource(get(), get()) }
@@ -106,13 +112,13 @@ val managerKoinModule = module {
         )
     }
 
-    viewModel { SettingsViewModel(get<PreferenceRepository>(), get<SettingsManager>(), get<ManagerPermissionGateway>(), get()) }
-    viewModel { EventListViewModel(get<ComparingEventListSource>(), get<ManagerEventGateway>(), get<SettingsManager>(), get<PreferenceRepository>(), androidContext()) }
+    viewModel { SettingsViewModel(get<PreferenceRepository>(), get<SettingsManager>(), get<ManagerPermissionGateway>()) }
+    viewModel { EventListViewModel(get<ComparingEventListSource>(), get<ManagerEventGateway>(), get<SettingsManager>(), get<PreferenceRepository>(), androidContext(), get<ManagerRuntimeClient>()) }
     viewModel { ZygiskConfigViewModel(get<SettingsManager>(), get<ComparingApplicationListSource>()) }
     viewModel { ConfigManagerViewModel(get(), get(), get(), androidContext(), get()) }
     viewModel { ConfigEditorViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidContext()) }
     viewModel { ApplicationInfoViewModel(get(), get(), get(), get(), androidContext()) }
-    viewModel { OverviewViewModel(get<ComparingApplicationListSource>()) }
+    viewModel { OverviewViewModel(get<ComparingApplicationListSource>(), get<ManagerRuntimeClient>()) }
     viewModel { ConnectionStatusViewModel(get<ComparingConnectionSnapshotSource>()) }
     viewModel {
         ApplicationListViewModel(
@@ -120,6 +126,7 @@ val managerKoinModule = module {
             get<SettingsManager>(),
             get<PreferenceRepository>(),
             androidContext(),
+            get<ManagerRuntimeClient>(),
         )
     }
     viewModel { RequestPermissionViewModel(get<ManagerPermissionGateway>(), get<PreferenceRepository>(), androidContext()) }
@@ -148,6 +155,8 @@ object ManagerDependencies {
      */
     @Synchronized
     fun startAsRemoteHost(context: Context) {
+        ManagerRuntimeFileLog.init(context)
+
         val appContext = context.applicationContext ?: context
         if (!modulesLoaded) {
             if (GlobalContext.getOrNull() == null) {

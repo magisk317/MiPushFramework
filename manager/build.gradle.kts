@@ -28,6 +28,7 @@ dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
 
     implementation(libs.napier)
+    implementation(project(":magisk-xposed-kit:logging"))
     implementation(libs.kotlinx.serialization.json)
 
     implementation(libs.androidx.compose.foundation)
@@ -39,6 +40,7 @@ dependencies {
 
     implementation(libs.markdown)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.documentfile)
 
     implementation(libs.koin.android)
     implementation(libs.koin.androidx.compose)

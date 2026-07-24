@@ -81,14 +81,17 @@ class RemoteConnectionSnapshotSource internal constructor(
 class ComparingConnectionSnapshotSource(
     private val inProcessSource: ConnectionSnapshotSource,
     private val remoteSource: ConnectionSnapshotSource,
+    private val enableRemoteCompare: Boolean = true,
 ) {
     suspend fun loadPrimary(): ConnectionSnapshotSourceResult = inProcessSource.load()
 
-    suspend fun compareRemote(primary: ManagerConnectionSnapshot): ConnectionSnapshotComparison =
-        when (val remote = remoteSource.load()) {
+    suspend fun compareRemote(primary: ManagerConnectionSnapshot): ConnectionSnapshotComparison {
+        if (!enableRemoteCompare) return ConnectionSnapshotComparison.NotStarted
+        return when (val remote = remoteSource.load()) {
             is ConnectionSnapshotSourceResult.Available -> compareSnapshots(primary, remote.snapshot)
             is ConnectionSnapshotSourceResult.Unavailable -> ConnectionSnapshotComparison.Skipped(remote.status)
         }
+    }
 }
 
 sealed interface ConnectionSnapshotComparison {

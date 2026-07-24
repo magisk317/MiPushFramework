@@ -5,6 +5,9 @@ import android.os.ParcelFileDescriptor
 import io.github.magisk317.mipush.manager.api.ManagerLogExportResultDto
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.utils.LogBundleExporter
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logW
+import android.os.SystemClock
 import java.io.File
 
 /** Builds a runtime log bundle and returns a read-only ParcelFileDescriptor. */
@@ -12,10 +15,16 @@ class ManagerLogExportRuntimeReader(
     private val context: Context,
 ) {
     fun export(): ManagerLogExportResultDto {
+        val started = SystemClock.elapsedRealtime()
+        logI("ManagerRuntime exportRuntimeLogs start")
         val result = LogBundleExporter.buildLogBundle(context)
         val file = result.file
         val details = result.details.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH)
         if (file == null || !file.isFile) {
+            logW(
+                "ManagerRuntime exportRuntimeLogs failed details=${details.ifBlank { "log_export_failed" }} " +
+                    "tookMs=${SystemClock.elapsedRealtime() - started}",
+            )
             return ManagerLogExportResultDto(
                 success = false,
                 details = details.ifBlank { "log_export_failed" },
@@ -23,11 +32,21 @@ class ManagerLogExportRuntimeReader(
             )
         }
         val descriptor = openReadOnly(file)
-            ?: return ManagerLogExportResultDto(
+        if (descriptor == null) {
+            logW(
+                "ManagerRuntime exportRuntimeLogs open_failed file=${file.absolutePath} " +
+                    "tookMs=${SystemClock.elapsedRealtime() - started}",
+            )
+            return ManagerLogExportResultDto(
                 success = false,
                 details = "log_export_open_failed",
                 parcelFileDescriptor = null,
             )
+        }
+        logI(
+            "ManagerRuntime exportRuntimeLogs ok size=${file.length()} " +
+                "tookMs=${SystemClock.elapsedRealtime() - started}",
+        )
         return ManagerLogExportResultDto(
             success = true,
             details = details,

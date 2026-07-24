@@ -289,8 +289,8 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="settings_get_log">Share logs</string>
     <string name="settings_get_log_summary">Build and share a log bundle for debugging.</string>
     <string name="settings_runtime_log_retention_days">Runtime log retention</string>
-    <string name="settings_runtime_log_retention_days_summary">Daily rotation, keep the last %1$d days</string>
-    <string name="settings_runtime_log_retention_days_hint">Retention in days, minimum 1. Default is 2.</string>
+    <string name="settings_runtime_log_retention_days_summary">Keep the last %1$d days of all log artifacts (runtime, crash, export zips, temp files)</string>
+    <string name="settings_runtime_log_retention_days_hint">Days to keep all log products (jsonl, crash, export zips, staging, temp). Minimum 1. Default is 2.</string>
     <string name="settings_runtime_log_retention_days_error">Please enter an integer greater than or equal to 1.</string>
     <string name="runtime_log_export_failed">Export failed: %1$s</string>
     <string name="runtime_log_share_failed">Share failed: %1$s</string>
@@ -528,6 +528,9 @@ This could be the application doing a reverse registration, or the registration 
     <string name="action_update">Check for update</string>
     <string name="update_toast">You can download the latest version of the APK file from the Releases page for installation.</string>
     <string name="event_detail_developer_info">Developer info</string>
+    <string name="event_detail_soft_wrap_cd">Toggle line wrap</string>
+    <string name="event_detail_soft_wrap_off">No wrap</string>
+    <string name="event_detail_soft_wrap_on">Wrap</string>
     <string name="event_empty_title">No activity yet</string>
     <string name="event_empty_summary">Wait for a push event to arrive or trigger a test message manually.</string>
     <string name="help_page_overview_summary">Common questions, troubleshooting articles, and community entries are grouped into a clearer help hub.</string>

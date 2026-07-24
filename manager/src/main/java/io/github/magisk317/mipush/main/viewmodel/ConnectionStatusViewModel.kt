@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import io.github.magisk317.mipush.common.utils.logW
+import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSourceStatus
 import kotlinx.coroutines.withContext
 
 class ConnectionStatusViewModel constructor(
@@ -85,7 +87,17 @@ class ConnectionStatusViewModel constructor(
             is ConnectionSnapshotSourceResult.Unavailable -> {
                 comparisonJob?.cancel()
                 comparisonJob = null
-                _snapshot.value = null
+                logW("connection snapshot unavailable status=${result.status}")
+                val transient = result.status in setOf(
+                    ConnectionSnapshotSourceStatus.BINDING,
+                    ConnectionSnapshotSourceStatus.TIMED_OUT,
+                    ConnectionSnapshotSourceStatus.TEMPORARILY_DISCONNECTED,
+                    ConnectionSnapshotSourceStatus.DISCONNECTED,
+                )
+                // Keep last good snapshot during transient binder gaps; only clear on hard failures.
+                if (!transient) {
+                    _snapshot.value = null
+                }
                 _comparison.value = ConnectionSnapshotComparison.Skipped(result.status)
             }
         }

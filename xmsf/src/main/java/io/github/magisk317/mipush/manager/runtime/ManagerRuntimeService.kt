@@ -8,6 +8,8 @@ import android.os.Binder
 import android.os.IBinder
 import android.os.Process
 import io.github.magisk317.mipush.app.di.AppDependencies
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.manager.api.IManagerRuntimeService
 import io.github.magisk317.mipush.manager.api.ManagerApplicationDetailDto
@@ -76,6 +78,7 @@ class ManagerRuntimeService : Service() {
     private val binder = object : IManagerRuntimeService.Stub() {
         override fun handshake(clientMajor: Int, clientMinor: Int): ManagerHandshake {
             enforceTrustedCaller()
+            val started = android.os.SystemClock.elapsedRealtime()
             return withRuntimeIdentity {
                 val compatibility = ManagerProtocol.evaluateCompatibility(
                     clientMajor = clientMajor,
@@ -95,14 +98,28 @@ class ManagerRuntimeService : Service() {
                     maxPageSize = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
                     maxPayloadBytes = ManagerProtocol.DEFAULT_MAX_PAYLOAD_BYTES,
                     compatibilityReason = compatibility.reason,
-                )
+                ).also { handshake ->
+                    logI(
+                        "ManagerRuntime handshake client=$clientMajor.$clientMinor " +
+                            "compat=${handshake.compatibilityReason} " +
+                            "caps=${handshake.supportedCapabilities.size} " +
+                            "tookMs=${android.os.SystemClock.elapsedRealtime() - started}",
+                    )
+                }
             }
         }
 
         override fun getConnectionSnapshot(): ManagerConnectionSnapshotDto {
             enforceTrustedCaller()
+            val started = android.os.SystemClock.elapsedRealtime()
             return withRuntimeIdentity {
-                runtimeSettingsAdapter.getConnectionSnapshot().toWireDto()
+                runtimeSettingsAdapter.getConnectionSnapshot().toWireDto().also { snapshot ->
+                    logI(
+                        "ManagerRuntime getConnectionSnapshot state=${snapshot.connectionState} " +
+                            "host=${snapshot.serverHost.orEmpty()} " +
+                            "tookMs=${android.os.SystemClock.elapsedRealtime() - started}",
+                    )
+                }
             }
         }
 
@@ -112,12 +129,19 @@ class ManagerRuntimeService : Service() {
                 query = query,
                 negotiatedMaxPageSize = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
             )?.let(::invalidArgument)
+            val started = android.os.SystemClock.elapsedRealtime()
             return withRuntimeIdentity {
                 applicationReader.readPage(query.toReadQuery()).toWireDto().also { page ->
                     ManagerProtocol.validateApplicationPage(
                         page = page,
                         negotiatedMaxPageSize = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
                     )?.let(::invalidArgument)
+                    logI(
+                        "ManagerRuntime getApplicationPage items=${page.items.size} " +
+                            "using=${page.stats.usingMiPush} total=${page.stats.total} " +
+                            "token=${!page.nextPageToken.isNullOrBlank()} " +
+                            "tookMs=${android.os.SystemClock.elapsedRealtime() - started}",
+                    )
                 }
             }
         }
@@ -156,12 +180,18 @@ class ManagerRuntimeService : Service() {
                 query = query,
                 negotiatedMaxPageSize = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
             )?.let(::invalidArgument)
+            val started = android.os.SystemClock.elapsedRealtime()
             return withRuntimeIdentity {
                 eventReader.readPage(query.toReadQuery()).toWireDto().also { page ->
                     ManagerProtocol.validateEventPage(
                         page = page,
                         negotiatedMaxPageSize = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
                     )?.let(::invalidArgument)
+                    logI(
+                        "ManagerRuntime getEventPage items=${page.items.size} " +
+                            "lastId=${query.lastId} pkg=${query.packageName.orEmpty()} " +
+                            "tookMs=${android.os.SystemClock.elapsedRealtime() - started}",
+                    )
                 }
             }
         }

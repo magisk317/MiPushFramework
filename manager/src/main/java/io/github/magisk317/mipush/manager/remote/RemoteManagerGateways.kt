@@ -21,6 +21,7 @@ import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
 import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerDayCount
 import io.github.magisk317.mipush.common.manager.ManagerEvent
+import io.github.magisk317.mipush.common.manager.EventDebugJson
 import io.github.magisk317.mipush.common.manager.ManagerEventGateway
 import io.github.magisk317.mipush.common.manager.ManagerLogClearResult
 import io.github.magisk317.mipush.common.manager.ManagerLogExportResult
@@ -51,9 +52,18 @@ import io.github.magisk317.mipush.manager.notification.NotificationChannelReadRe
 import io.github.magisk317.mipush.manager.notification.RemoteNotificationChannelSource
 import io.github.magisk317.mipush.utils.LocalConfigSummary
 import java.io.File
+import java.util.zip.ZipOutputStream
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipEntry
+import java.util.zip.Deflater
+import java.util.Locale
+import java.util.Date
+import java.text.SimpleDateFormat
+import io.github.magisk317.mipush.manager.logging.ManagerRuntimeFileLog
 import java.io.FileOutputStream
 import java.util.UUID
 import kotlinx.coroutines.flow.first
+import io.github.magisk317.mipush.common.utils.logW
 import kotlinx.coroutines.runBlocking
 
 /**
@@ -83,7 +93,13 @@ class RemoteManagerApplicationGateway(
             )
         ) {
             is ApplicationReadResult.Available -> result.value.applications
-            is ApplicationReadResult.Unavailable -> ManagerApplications()
+            is ApplicationReadResult.Unavailable -> {
+                logW("loadApplications unavailable status=${result.status}")
+                throw RuntimeReadUnavailableException(
+                    status = result.status.name,
+                    operation = "loadApplications",
+                )
+            }
         }
     }
 
@@ -168,7 +184,13 @@ class RemoteManagerEventGateway(
             )
         ) {
             is EventReadResult.Available -> result.value
-            is EventReadResult.Unavailable -> emptyList()
+            is EventReadResult.Unavailable -> {
+                logW("getEventsById unavailable status=${result.status}")
+                throw RuntimeReadUnavailableException(
+                    status = result.status.name,
+                    operation = "getEventsById",
+                )
+            }
         }
     }
 
@@ -181,7 +203,20 @@ class RemoteManagerEventGateway(
     }
 
     override suspend fun startConfigPreview(packageName: String) {
-        // Config editor remains manager-local; open is a no-op when remote-only.
+        val sync = runCatching {
+            org.koin.core.context.GlobalContext.get()
+                .get<io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway>()
+        }.getOrNull()
+        if (sync != null) {
+            sync.openForPackage(packageName)
+            return
+        }
+        val encoded = java.net.URLEncoder.encode(packageName, java.nio.charset.StandardCharsets.UTF_8.name())
+        val route = "configs_search/$encoded"
+        val intent = io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
+            .mainActivityIntent(context = context, startRoute = route)
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { context.startActivity(intent) }
     }
 
     override fun copyToClipboard(content: String) {
@@ -211,9 +246,26 @@ class RemoteManagerEventGateway(
         }
     }
 
-    override fun getJson(event: ManagerEvent): String? = null
+    override fun getJson(event: ManagerEvent): String? = runCatching { EventDebugJson.format(event) }.getOrNull()
 
-    override fun getContent(event: ManagerEvent): String = event.content
+    override fun getContent(event: ManagerEvent): String {
+        val remote = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_GET_EVENT_CONTENT,
+            packageName = event.packageName,
+            eventId = event.id,
+            intArgument = event.type,
+            longArgument = event.receiveDateMs,
+            argument = event.content,
+        )
+        val details = remote?.details
+        if (RemoteWriteSupport.isSuccess(remote) && !details.isNullOrBlank()) {
+            return details
+        }
+        return event.content.ifBlank {
+            runCatching { EventDebugJson.format(event) }.getOrDefault(event.content)
+        }
+    }
 
     override suspend fun deleteEvent(event: ManagerEvent): Boolean =
         RemoteWriteSupport.isSuccess(
@@ -238,7 +290,24 @@ class RemoteManagerEventGateway(
         return if (RemoteWriteSupport.isSuccess(result)) event else null
     }
 
-    override suspend fun countEventsByDay(): List<ManagerDayCount> = emptyList()
+    override suspend fun countEventsByDay(): List<ManagerDayCount> {
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_COUNT_EVENTS_BY_DAY,
+            uniqueRequestId = true,
+        ) ?: return emptyList()
+        if (!RemoteWriteSupport.isSuccess(result)) return emptyList()
+        return result.details.lineSequence()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && ':' in it }
+            .mapNotNull { line ->
+                val day = line.substringBeforeLast(':').trim()
+                val count = line.substringAfterLast(':').trim().toIntOrNull() ?: return@mapNotNull null
+                if (day.isEmpty()) return@mapNotNull null
+                ManagerDayCount(day = day, count = count)
+            }
+            .toList()
+    }
 
     override suspend fun clearHistoryBefore(cutoffMillis: Long): Int {
         val result = RemoteWriteSupport.execute(
@@ -310,7 +379,13 @@ class RemoteManagerNotificationGateway(
         }
 
     override fun deleteNotificationChannel(packageName: String, channelId: String) {
-        // Channel deletion is not in the phase-4 write command set; leave local UI no-op.
+        RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_DELETE_NOTIFICATION_CHANNEL,
+            packageName = packageName,
+            argument = channelId,
+            uniqueRequestId = true,
+        )
     }
 
     override fun isNotificationChannelEnabled(channel: NotificationChannel): Boolean =
@@ -327,15 +402,59 @@ class RemoteManagerNotificationGateway(
 
 class RemoteManagerLogGateway(
     private val client: ManagerRuntimeClient,
+    private val appContext: Context? = null,
 ) : ManagerLogGateway {
     private val exportSource = RemoteLogExportSource(client)
 
     override fun setRetentionDays(days: Int) {
+        val keepDays = days.coerceAtLeast(1)
+        ManagerRuntimeFileLog.setRetentionDays(keepDays)
+        pruneLocalManagerLogArtifacts(keepDays)
         RemoteWriteSupport.execute(
             client = client,
             operation = ManagerProtocol.WRITE_OP_SET_RUNTIME_LOG_RETENTION,
-            intArgument = days.coerceAtLeast(1),
+            intArgument = keepDays,
         )
+    }
+
+    /**
+     * Best-effort local cleanup on the manager package: share temp zips and any residual
+     * diagnostic dirs. Runtime-owned files/xmsf_logs still prune on the xmsf side.
+     */
+    private fun pruneLocalManagerLogArtifacts(keepDays: Int) {
+        val context = appContext ?: return
+        val cutoff = java.util.Calendar.getInstance(java.util.Locale.US).apply {
+            timeInMillis = System.currentTimeMillis()
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+            add(java.util.Calendar.DAY_OF_YEAR, -(keepDays - 1))
+        }.timeInMillis
+        val targets = buildList {
+            add(context.cacheDir)
+            add(File(context.filesDir, "log"))
+            add(File(context.filesDir, "crash"))
+            add(File(context.filesDir, "private_export"))
+            add(File(context.cacheDir, "log"))
+            add(File(context.cacheDir, "logs"))
+        }
+        targets.forEach { root ->
+            if (!root.exists()) return@forEach
+            root.walkBottomUp().forEach { file ->
+                if (file == root && file.isDirectory) return@forEach
+                val mtime = file.lastModified()
+                if (mtime > 0L && mtime < cutoff) {
+                    runCatching {
+                        if (file.isDirectory) {
+                            if (file.listFiles().isNullOrEmpty()) file.delete()
+                        } else {
+                            file.delete()
+                        }
+                    }
+                }
+            }
+        }
     }
 
     override fun buildLogBundle(context: Context): ManagerLogExportResult = runBlocking {
@@ -346,21 +465,90 @@ class RemoteManagerLogGateway(
                 if (!dto.success || descriptor == null) {
                     return@runBlocking ManagerLogExportResult(file = null, details = dto.details)
                 }
-                val outFile = File(context.cacheDir, "runtime-log-${UUID.randomUUID()}.zip")
+                // Restore pre-split share name: mipush_logs_<timestamp>.zip (not UUID).
+                val timestamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(Date())
+                val remoteTmp = File(context.cacheDir, ".runtime-export-$timestamp.zip")
+                val outFile = File(context.cacheDir, "mipush_logs_$timestamp.zip")
                 try {
-                    FileOutputStream(outFile).use { output ->
+                    FileOutputStream(remoteTmp).use { output ->
                         ParcelFileDescriptorAutoClose(descriptor).use { input ->
                             input.copyTo(output)
                         }
                     }
-                    ManagerLogExportResult(file = outFile, details = dto.details)
-                } catch (_: Exception) {
+                    val mergedDetail = mergeRuntimeZipWithManagerLogs(
+                        context = context,
+                        remoteZip = remoteTmp,
+                        outZip = outFile,
+                    )
+                    runCatching { remoteTmp.delete() }
+                    val details = listOf(dto.details, mergedDetail)
+                        .filter { it.isNotBlank() }
+                        .joinToString("; ")
+                    ManagerLogExportResult(file = outFile, details = details)
+                } catch (error: Exception) {
                     runCatching { descriptor.close() }
-                    ManagerLogExportResult(file = null, details = "log_export_copy_failed")
+                    runCatching { remoteTmp.delete() }
+                    runCatching { outFile.delete() }
+                    ManagerLogExportResult(
+                        file = null,
+                        details = "log_export_copy_failed:${error.message ?: error.javaClass.simpleName}",
+                    )
                 }
             }
-            is LogExportReadResult.Unavailable ->
-                ManagerLogExportResult(file = null, details = "runtime_log_export_unavailable")
+            is LogExportReadResult.Unavailable -> {
+                logW("buildLogBundle unavailable status=${result.status}")
+                ManagerLogExportResult(
+                    file = null,
+                    details = "runtime_log_export_unavailable:${result.status.name.lowercase()}",
+                )
+            }
+        }
+    }
+
+    /**
+     * Copy remote zip entries and inject manager-local FileAntilog jsonl under app/log/.
+     * Keeps the historical mipush_logs_* share name and one cohesive bundle.
+     */
+    private fun mergeRuntimeZipWithManagerLogs(
+        context: Context,
+        remoteZip: File,
+        outZip: File,
+    ): String {
+        val managerLogs = ManagerRuntimeFileLog.listExportableLogFiles(context)
+        if (!remoteZip.exists()) {
+            throw IllegalStateException("remote export zip missing")
+        }
+        val seen = linkedSetOf<String>()
+        ZipInputStream(remoteZip.inputStream().buffered()).use { input ->
+            ZipOutputStream(outZip.outputStream().buffered()).use { output ->
+                output.setLevel(Deflater.BEST_SPEED)
+                while (true) {
+                    val entry = input.nextEntry ?: break
+                    val name = entry.name
+                    if (name.isBlank() || name in seen) {
+                        input.closeEntry()
+                        continue
+                    }
+                    seen += name
+                    output.putNextEntry(ZipEntry(name))
+                    input.copyTo(output)
+                    output.closeEntry()
+                    input.closeEntry()
+                }
+                managerLogs.forEach { file ->
+                    val name = "app/log/${file.name}"
+                    if (name in seen) return@forEach
+                    seen += name
+                    output.putNextEntry(ZipEntry(name))
+                    file.inputStream().use { it.copyTo(output) }
+                    output.closeEntry()
+                }
+            }
+        }
+        return if (managerLogs.isEmpty()) {
+            "manager_logs:0"
+        } else {
+            "manager_logs:${managerLogs.size},bytes=${managerLogs.sumOf { it.length() }}"
         }
     }
 
@@ -376,12 +564,41 @@ class RemoteManagerLogGateway(
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
 
-    override fun clearLogFolders(context: Context): ManagerLogClearResult =
-        ManagerLogClearResult(success = false, details = "clear_logs_unsupported_on_remote_host")
+    override fun clearLogFolders(context: Context): ManagerLogClearResult {
+        // Clear manager-local diagnostic dirs best-effort.
+        runCatching {
+            ManagerRuntimeFileLog.clear(context)
+            listOf("log", "crash", "private_export").forEach { name ->
+                File(context.filesDir, name).deleteRecursively()
+            }
+            File(context.cacheDir, "log").deleteRecursively()
+            // Legacy UUID share temps + current mipush_logs share temps.
+            context.cacheDir.listFiles()
+                ?.filter { it.isFile && (it.name.startsWith("runtime-log-") || it.name.startsWith("mipush_logs_") || it.name.startsWith(".runtime-export-")) }
+                ?.forEach { runCatching { it.delete() } }
+        }
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_CLEAR_LOG_FOLDERS,
+            uniqueRequestId = true,
+        )
+        return if (RemoteWriteSupport.isSuccess(result)) {
+            ManagerLogClearResult(
+                success = true,
+                details = result?.details.orEmpty().ifBlank { "clear_log_folders_ok" },
+            )
+        } else {
+            ManagerLogClearResult(
+                success = false,
+                details = result?.details ?: "clear_logs_runtime_unavailable",
+            )
+        }
+    }
 }
 
 class RemoteManagerConfigGateway(
     private val preferenceRepository: PreferenceRepository,
+    private val configSyncGateway: io.github.magisk317.mipush.manager.configuration.sync.LocalManagerConfigSyncGateway,
 ) : ManagerConfigGateway {
     override suspend fun getXmppServer(): String? = preferenceRepository.xmppServer.first()
 
@@ -394,63 +611,16 @@ class RemoteManagerConfigGateway(
     }
 
     override fun loadConfigurations(context: Context) {
-        // Active configuration remains runtime-owned; upload happens through Binder PFD later.
+        // Push local SAF configs into the runtime active snapshot set.
+        Thread {
+            runBlocking {
+                val tree = preferenceRepository.configDirectory.first()?.let(Uri::parse)
+                configSyncGateway.activateAllLocalConfigs(tree)
+            }
+        }.start()
     }
 }
 
-class RemoteManagerConfigSyncGateway : ManagerConfigSyncGateway {
-    override suspend fun loadLocalSnapshot(treeUri: Uri?): ManagerConfigListSnapshot =
-        ManagerConfigListSnapshot(items = emptyList())
-
-    override suspend fun loadRemoteSnapshot(treeUri: Uri?): ManagerConfigListSnapshot =
-        ManagerConfigListSnapshot(
-            items = emptyList(),
-            remoteError = "remote_config_content_manager_local",
-        )
-
-    override suspend fun readLocalEditorSnapshot(
-        treeUri: Uri?,
-        path: String,
-    ): ManagerConfigEditorSnapshot = ManagerConfigEditorSnapshot(path = path)
-
-    override suspend fun readRemoteEditorSnapshot(
-        treeUri: Uri?,
-        path: String,
-    ): ManagerConfigEditorSnapshot = ManagerConfigEditorSnapshot(
-        path = path,
-        remoteError = "remote_config_content_manager_local",
-    )
-
-    override suspend fun pullAll(
-        treeUri: Uri,
-        onProgress: ((current: Int, total: Int, path: String) -> Unit)?,
-    ): Int = 0
-
-    override suspend fun importDocuments(treeUri: Uri, uris: List<Uri>, isIcon: Boolean): Int = 0
-
-    override suspend fun saveLocal(treeUri: Uri, path: String, content: String): LocalConfigSummary =
-        LocalConfigSummary(
-            path = path,
-            name = path.substringAfterLast('/'),
-            sha = "",
-            size = content.length.toLong(),
-            lastModified = System.currentTimeMillis(),
-            isValid = true,
-        )
-
-    override suspend fun resetToRemote(treeUri: Uri, path: String): LocalConfigSummary =
-        LocalConfigSummary(
-            path = path,
-            name = path.substringAfterLast('/'),
-            sha = "",
-            size = 0L,
-            lastModified = 0L,
-            isValid = false,
-            validationError = "reset_to_remote_unsupported",
-        )
-
-    override suspend fun openForPackage(packageName: String) = Unit
-}
 
 class RemoteManagerRuntimeActions(
     private val client: ManagerRuntimeClient,
@@ -471,7 +641,13 @@ class RemoteManagerRuntimeActions(
         )
     }
 
-    override fun resetTopActivityCache() = Unit
+    override fun resetTopActivityCache() {
+        RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_RESET_TOP_ACTIVITY_CACHE,
+            uniqueRequestId = true,
+        )
+    }
 
     override fun sendXmppReconnectRequest(context: Context) {
         RemoteWriteSupport.execute(
@@ -518,7 +694,10 @@ class RemoteManagerRuntimeActions(
     override fun getConnectionSnapshot(): ManagerConnectionSnapshot = runBlocking {
         when (val result = connectionSource.load()) {
             is ConnectionSnapshotSourceResult.Available -> result.snapshot
-            is ConnectionSnapshotSourceResult.Unavailable -> emptyConnectionSnapshot()
+            is ConnectionSnapshotSourceResult.Unavailable -> {
+                logW("getConnectionSnapshot unavailable status=${result.status}")
+                emptyConnectionSnapshot()
+            }
         }
     }
 
@@ -571,8 +750,32 @@ class RemoteManagerPermissionGateway(
 
     override fun requestRootAccess(): Boolean = queryRoot(requestShell = true)
 
-    override fun repairXSpaceUserSupport(): ManagerXSpaceRepairResult =
-        ManagerXSpaceRepairResult(stage = ManagerXSpaceRepairStage.ROOT_MISSING)
+    override fun repairXSpaceUserSupport(): ManagerXSpaceRepairResult {
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_REPAIR_XSPACE,
+            uniqueRequestId = true,
+        ) ?: return ManagerXSpaceRepairResult(
+            stage = ManagerXSpaceRepairStage.PARTIAL_FAILED,
+            details = "runtime_write_unavailable",
+        )
+        val stage = when (result.details) {
+            ManagerProtocol.WRITE_DETAIL_DUAL_APP_COMPLETED -> ManagerXSpaceRepairStage.COMPLETED
+            ManagerProtocol.WRITE_DETAIL_DUAL_APP_ROOT_MISSING -> ManagerXSpaceRepairStage.ROOT_MISSING
+            ManagerProtocol.WRITE_DETAIL_DUAL_APP_XSPACE_MISSING -> ManagerXSpaceRepairStage.XSPACE_USER_NOT_FOUND
+            ManagerProtocol.WRITE_DETAIL_DUAL_APP_PARTIAL_FAILED -> ManagerXSpaceRepairStage.PARTIAL_FAILED
+            else -> if (RemoteWriteSupport.isSuccess(result)) {
+                ManagerXSpaceRepairStage.COMPLETED
+            } else {
+                ManagerXSpaceRepairStage.PARTIAL_FAILED
+            }
+        }
+        return ManagerXSpaceRepairResult(
+            stage = stage,
+            xmsfInstalled = result.resultLong == 1L,
+            details = result.details,
+        )
+    }
 
     override fun setDualAppEnabled(enabled: Boolean): ManagerXSpaceRepairResult {
         val result = RemoteWriteSupport.execute(
@@ -676,12 +879,49 @@ class RemoteManagerPermissionGateway(
     }
 }
 
-class RemoteZygiskConfigGateway : ZygiskConfigGateway {
-    override fun isZygiskModuleEnabled(): Boolean = false
-    override fun getZygiskConfigPath(): String = ""
-    override fun getZygiskConfig(): ZygiskConfig = ZygiskConfig()
-    override fun saveZygiskConfig(config: ZygiskConfig): Boolean = false
-    override fun forceStopApp(packageName: String) = Unit
+class RemoteZygiskConfigGateway(
+    private val client: ManagerRuntimeClient,
+) : ZygiskConfigGateway {
+    override fun isZygiskModuleEnabled(): Boolean {
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_ZYGISK_IS_ENABLED,
+            uniqueRequestId = true,
+        ) ?: return false
+        return RemoteWriteSupport.isSuccess(result) && result.resultLong == 1L
+    }
+
+    override fun getZygiskConfigPath(): String = "/data/adb/mipush_zygisk/app.conf"
+
+    override fun getZygiskConfig(): ZygiskConfig {
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_ZYGISK_GET_CONFIG,
+            uniqueRequestId = true,
+        ) ?: return ZygiskConfig()
+        if (!RemoteWriteSupport.isSuccess(result)) return ZygiskConfig()
+        return ZygiskConfig.parse(result.details)
+    }
+
+    override fun saveZygiskConfig(config: ZygiskConfig): Boolean {
+        val content = config.toFileContent()
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_ZYGISK_SAVE_CONFIG,
+            argument = content,
+            uniqueRequestId = true,
+        ) ?: return false
+        return RemoteWriteSupport.isSuccess(result)
+    }
+
+    override fun forceStopApp(packageName: String) {
+        RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_ZYGISK_FORCE_STOP,
+            packageName = packageName,
+            uniqueRequestId = true,
+        )
+    }
 }
 
 private class ParcelFileDescriptorAutoClose(
