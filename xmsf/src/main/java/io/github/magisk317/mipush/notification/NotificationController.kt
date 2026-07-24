@@ -916,13 +916,59 @@ object NotificationController {
         notificationBuilder: NotificationCompat.Builder,
         colorStatusBarIcon: Boolean,
     ): Int {
-        val color = processIcon(context, packageName, notificationBuilder)
+        // Monochrome mode must not post brand BITMAP small icons from config/app-icon cache.
+        // Those TYPE_BITMAP pixels keep status-bar icons colorful even when Notification.color is
+        // cleared and SystemUI later tries SRC_IN tint. Prefer a tintable RESOURCE (target app
+        // smallIcon / largeIcon, else the built-in monochrome drawable) without converting bitmaps.
+        val color = if (colorStatusBarIcon) {
+            processIcon(context, packageName, notificationBuilder)
+        } else {
+            processMonochromeStatusBarIcon(context, packageName, notificationBuilder)
+        }
         if (colorStatusBarIcon) {
             notificationBuilder.setColor(color)
             return color
         }
         notificationBuilder.setColor(Notification.COLOR_DEFAULT)
         return Notification.COLOR_DEFAULT
+    }
+
+    /**
+     * Build a monochrome-friendly small icon without using config/cache BITMAP brand artwork.
+     * Returns the brand color only for callers that still want it when color mode is on; monochrome
+     * callers discard it via [applyStatusBarIcon].
+     */
+    private fun processMonochromeStatusBarIcon(
+        context: Context,
+        packageName: String,
+        notificationBuilder: NotificationCompat.Builder,
+    ): Int {
+        val color = getIconColor(context, packageName)
+        notificationBuilder.setSmallIcon(R.drawable.ic_notifications_black_24dp)
+        val pkgContext = XMPushUtils.getPackageContext(
+            context,
+            packageName,
+            Context.CONTEXT_IGNORE_SECURITY,
+        )
+        if (pkgContext === context) {
+            // Keep the built-in monochrome resource instead of falling back to app-icon BITMAP.
+            return color
+        }
+        val largeIconId = getIconId(context, packageName, NOTIFICATION_LARGE_ICON)
+        val smallIconId = getIconId(context, packageName, NOTIFICATION_SMALL_ICON)
+        if (largeIconId > 0) {
+            notificationBuilder.setLargeIcon(BitmapFactory.decodeResource(pkgContext.resources, largeIconId))
+        }
+        if (smallIconId > 0) {
+            notificationBuilder.setSmallIcon(IconCompat.createWithResource(pkgContext, smallIconId))
+            return color
+        }
+        if (largeIconId > 0) {
+            notificationBuilder.setSmallIcon(IconCompat.createWithResource(pkgContext, largeIconId))
+            return color
+        }
+        // No target RESOURCE available: keep xmsf monochrome drawable.
+        return color
     }
 
     private fun setAppIconSmallIcon(

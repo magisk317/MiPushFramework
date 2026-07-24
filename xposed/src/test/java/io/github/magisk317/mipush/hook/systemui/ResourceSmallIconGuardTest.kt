@@ -373,6 +373,29 @@ class ResourceSmallIconGuardTest {
             isSystemApp = false,
             canColorize = false,
         )
-        assertTrue(guarded == (base && loadable), "Guard must equal base AND loadable: $input")
+        val monochromeBitmapDeclined =
+            !input.colorStatusBarIcon && input.iconType == ICON_TYPE_BITMAP
+        assertTrue(
+            guarded == (base && loadable && !monochromeBitmapDeclined),
+            "Guard must equal base AND loadable, except monochrome BITMAP which is always declined: $input",
+        )
+    }
+
+    @Test
+    fun `monochrome declines BITMAP intercept even for MiPush managed icons`() {
+        assertFalse(
+            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = true,
+                iconType = ICON_TYPE_BITMAP,
+                resId = 0,
+                resPackage = null,
+                packageName = XMSF_PACKAGE,
+                uid = USER_APP_UID,
+                isSystemApp = false,
+                canColorize = false,
+            ),
+        )
     }
 }

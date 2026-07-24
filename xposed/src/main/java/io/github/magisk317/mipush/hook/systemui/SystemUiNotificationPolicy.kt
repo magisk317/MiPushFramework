@@ -12,6 +12,9 @@ internal object SystemUiNotificationPolicy {
     /** Mirrors [android.graphics.drawable.Icon.TYPE_RESOURCE]. */
     const val ICON_TYPE_RESOURCE = 2
 
+    /** Mirrors [android.graphics.drawable.Icon.TYPE_BITMAP]. */
+    const val ICON_TYPE_BITMAP = 1
+
     /** Package name that owns framework (android.R) resources. */
     private const val FRAMEWORK_RES_PACKAGE = "android"
 
@@ -104,6 +107,13 @@ internal object SystemUiNotificationPolicy {
         isSystemApp: Boolean,
         canColorize: Boolean,
     ): Boolean {
+        // Monochrome + brand BITMAP: never force the colorful bitmap through getSmallIcon.
+        // SRC_IN tint cannot reliably turn multi-color TYPE_BITMAP logos monochrome on HyperOS
+        // status-bar ImageViews, and intercepting also bypasses MIUI's native monochrome path.
+        // RESOURCE icons (including MiPush island proxies) still follow the normal policy.
+        if (!colorStatusBarIcon && iconType == ICON_TYPE_BITMAP) {
+            return false
+        }
         if (!shouldInterceptSmallIcon(colorStatusBarIcon, forceGlobalStatusBarIcons, isMiPushManaged)) {
             return false
         }
@@ -212,10 +222,25 @@ internal object SystemUiNotificationPolicy {
 
     fun globalMonochromeTint(requestedColor: Int, fallbackColor: Int): Int {
         return when {
-            requestedColor != 0 -> requestedColor
-            fallbackColor != 0 -> fallbackColor
+            // Keep only grayscale / white-black system tints. Brand RGB colors must not pass
+            // through as "monochrome" SRC_IN tints — that is exactly why BITMAP app icons stay
+            // full-color on the status bar under strong monochrome mode.
+            isGrayscaleTintColor(requestedColor) -> requestedColor
+            isGrayscaleTintColor(fallbackColor) -> fallbackColor
             else -> DEFAULT_STATUS_BAR_ICON_TINT
         }
+    }
+
+    /**
+     * Status-bar monochrome tints are white/black/gray (incl. alpha). Any channel-imbalanced
+     * RGB is treated as a brand color and must be replaced by [DEFAULT_STATUS_BAR_ICON_TINT].
+     */
+    fun isGrayscaleTintColor(color: Int): Boolean {
+        if (color == 0) return false
+        val r = (color ushr 16) and 0xff
+        val g = (color ushr 8) and 0xff
+        val b = color and 0xff
+        return maxOf(r, g, b) - minOf(r, g, b) <= 8
     }
 
     private fun isApplicationUid(uid: Int): Boolean {

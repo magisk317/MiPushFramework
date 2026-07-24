@@ -379,7 +379,9 @@ class NotificationControllerRobolectricTest {
         assertFalse(posted.extras.getBoolean("mipush_island_allow_proxy", false))
         assertEquals(packageName, posted.extras.getString("target_package"))
         assertFalse(posted.extras.containsKey("miui.isGrayscaleIcon"))
-        assertEquals(Icon.TYPE_BITMAP, posted.smallIcon.type)
+        // Monochrome mode must post a tintable RESOURCE, not a brand BITMAP, so SystemUI can
+        // render a true single-color status-bar icon (see review 15.z).
+        assertEquals(Icon.TYPE_RESOURCE, posted.smallIcon.type)
         assertEquals(Notification.COLOR_DEFAULT, posted.color)
         assertTrue(shadowOf(posted.contentIntent).isActivity)
         assertEquals(
@@ -628,7 +630,8 @@ class NotificationControllerRobolectricTest {
             .notification
 
         assertTrue(posted)
-        assertEquals(Icon.TYPE_BITMAP, receipt.smallIcon.type)
+        // Monochrome replay receipt uses a tintable RESOURCE small icon (see review 15.z).
+        assertEquals(Icon.TYPE_RESOURCE, receipt.smallIcon.type)
         assertEquals(Notification.COLOR_DEFAULT, receipt.color)
         assertEquals(Notification.CATEGORY_MESSAGE, receipt.category)
         assertEquals(NotificationCompat.PRIORITY_HIGH, receipt.priorityForTest())
@@ -676,7 +679,7 @@ class NotificationControllerRobolectricTest {
     }
 
     @Test
-    fun `disabled color status bar icon keeps app icon shape and default color`() {
+    fun `disabled color status bar icon uses monochrome resource and default color`() {
         val context = RuntimeEnvironment.getApplication()
         val builder = NotificationCompat.Builder(context, "placeholder")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
@@ -692,11 +695,8 @@ class NotificationControllerRobolectricTest {
 
         assertEquals(Notification.COLOR_DEFAULT, color)
         assertEquals(Notification.COLOR_DEFAULT, notification.color)
-        // App icon path uses bitmap when package icon is available; never the generic xmsf bell-only fallback.
-        assertTrue(
-            notification.smallIcon.type == Icon.TYPE_BITMAP ||
-                notification.smallIcon.type == Icon.TYPE_RESOURCE,
-        )
+        // Monochrome path must prefer a tintable RESOURCE and avoid brand BITMAP fallback.
+        assertEquals(Icon.TYPE_RESOURCE, notification.smallIcon.type)
     }
 
     @Test

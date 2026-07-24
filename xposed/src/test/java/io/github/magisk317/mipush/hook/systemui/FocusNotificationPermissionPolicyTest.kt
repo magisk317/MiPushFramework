@@ -80,7 +80,83 @@ class FocusNotificationPermissionPolicyTest {
         )
 
         assertTrue(SystemUiNotificationPolicy.globalMonochromeTint(0, 0) != 0)
-        assertTrue(SystemUiNotificationPolicy.globalMonochromeTint(0, 0x123456) == 0x123456)
-        assertTrue(SystemUiNotificationPolicy.globalMonochromeTint(0x654321, 0x123456) == 0x654321)
+        // Brand RGB must not leak through as monochrome SRC_IN tint.
+        assertTrue(
+            SystemUiNotificationPolicy.globalMonochromeTint(0, 0x123456) ==
+                SystemUiNotificationPolicy.globalMonochromeTint(0, 0),
+        )
+        assertTrue(
+            SystemUiNotificationPolicy.globalMonochromeTint(0x654321, 0x123456) ==
+                SystemUiNotificationPolicy.globalMonochromeTint(0, 0),
+        )
+        // Grayscale / white-black system tints stay as-is.
+        assertTrue(SystemUiNotificationPolicy.globalMonochromeTint(0xFF888888.toInt(), 0) == 0xFF888888.toInt())
+        assertTrue(SystemUiNotificationPolicy.globalMonochromeTint(0, 0xFFFFFFFF.toInt()) == 0xFFFFFFFF.toInt())
+        assertTrue(SystemUiNotificationPolicy.isGrayscaleTintColor(0xFF111111.toInt()))
+        assertFalse(SystemUiNotificationPolicy.isGrayscaleTintColor(0xFF1678FF.toInt()))
+    }
+
+    @Test
+    fun `shouldInterceptSmallIcon still selects strong monochrome and color MiPush scopes`() {
+        assertTrue(
+            SystemUiNotificationPolicy.shouldInterceptSmallIcon(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = true,
+            ),
+        )
+        assertTrue(
+            SystemUiNotificationPolicy.shouldInterceptSmallIcon(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = false,
+            ),
+        )
+        assertTrue(
+            SystemUiNotificationPolicy.shouldInterceptSmallIcon(
+                colorStatusBarIcon = true,
+                forceGlobalStatusBarIcons = false,
+                isMiPushManaged = true,
+            ),
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldInterceptSmallIcon(
+                colorStatusBarIcon = true,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `icon guard declines monochrome BITMAP but keeps monochrome RESOURCE intercept`() {
+        assertFalse(
+            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = true,
+                iconType = SystemUiNotificationPolicy.ICON_TYPE_BITMAP,
+                resId = 0,
+                resPackage = null,
+                packageName = "com.example.app",
+                uid = 10123,
+                isSystemApp = false,
+                canColorize = false,
+            ),
+        )
+        assertTrue(
+            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = true,
+                iconType = SystemUiNotificationPolicy.ICON_TYPE_RESOURCE,
+                resId = 0x7f010001,
+                resPackage = "com.xiaomi.xmsf",
+                packageName = "com.android.systemui",
+                uid = 1000,
+                isSystemApp = true,
+                canColorize = false,
+            ),
+        )
     }
 }
