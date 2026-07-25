@@ -9,7 +9,10 @@ import java.security.MessageDigest
 import kotlinx.coroutines.runBlocking
 
 internal object RemoteWriteSupport {
-    fun execute(
+    /**
+     * Preferred write entry for coroutine / suspend call sites (ViewModels, suspend gateways).
+     */
+    suspend fun execute(
         client: ManagerRuntimeClient,
         operation: String,
         packageName: String = "",
@@ -19,7 +22,7 @@ internal object RemoteWriteSupport {
         booleanArgument: Boolean = false,
         argument: String = "",
         uniqueRequestId: Boolean = false,
-    ): ManagerWriteResultDto? = runBlocking {
+    ): ManagerWriteResultDto? {
         when (
             val result = client.executeWrite(
                 ManagerWriteRequestDto(
@@ -46,12 +49,40 @@ internal object RemoteWriteSupport {
                 ),
             )
         ) {
-            is ManagerRuntimeResult.Success -> result.value
+            is ManagerRuntimeResult.Success -> return result.value
             is ManagerRuntimeResult.Unsupported,
             is ManagerRuntimeResult.Unavailable,
             is ManagerRuntimeResult.Failed,
-            -> null
+            -> return null
         }
+    }
+
+    /**
+     * Compatibility bridge for remaining sync `Manager*Gateway` façades.
+     * New code should call [execute] from a coroutine instead.
+     */
+    fun executeBlocking(
+        client: ManagerRuntimeClient,
+        operation: String,
+        packageName: String = "",
+        eventId: Long? = null,
+        intArgument: Int = 0,
+        longArgument: Long = 0L,
+        booleanArgument: Boolean = false,
+        argument: String = "",
+        uniqueRequestId: Boolean = false,
+    ): ManagerWriteResultDto? = runBlocking {
+        execute(
+            client = client,
+            operation = operation,
+            packageName = packageName,
+            eventId = eventId,
+            intArgument = intArgument,
+            longArgument = longArgument,
+            booleanArgument = booleanArgument,
+            argument = argument,
+            uniqueRequestId = uniqueRequestId,
+        )
     }
 
     fun isSuccess(result: ManagerWriteResultDto?): Boolean =
@@ -61,10 +92,6 @@ internal object RemoteWriteSupport {
                     result.status == ManagerProtocol.WRITE_STATUS_DUPLICATE
                 )
 
-    /**
-     * Derives a stable request id from the logical write so Binder-death retries reuse the same id
-     * and hit the runtime idempotency store instead of repeating a destructive action.
-     */
     fun stableRequestId(
         operation: String,
         packageName: String = "",

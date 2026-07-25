@@ -143,7 +143,7 @@ class RemoteManagerApplicationGateway(
     }
 
     override fun updateApplication(application: ManagerApplication) {
-        RemoteWriteSupport.execute(
+        RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_UPDATE_APPLICATION,
             packageName = application.packageName,
@@ -266,7 +266,7 @@ class RemoteManagerEventGateway(
     }
 
     override suspend fun mockMessage(event: ManagerEvent): MockReplayOutcome {
-        val result = RemoteWriteSupport.execute(
+        val result = RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_MOCK_MESSAGE,
             packageName = event.packageName,
@@ -318,7 +318,7 @@ class RemoteManagerEventGateway(
     override fun getJson(event: ManagerEvent): String? = runCatching { EventDebugJson.format(event) }.getOrNull()
 
     override fun getContent(event: ManagerEvent): String {
-        val remote = RemoteWriteSupport.execute(
+        val remote = RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_GET_EVENT_CONTENT,
             packageName = event.packageName,
@@ -338,7 +338,7 @@ class RemoteManagerEventGateway(
 
     override suspend fun deleteEvent(event: ManagerEvent): Boolean {
         val ok = RemoteWriteSupport.isSuccess(
-            RemoteWriteSupport.execute(
+            RemoteWriteSupport.executeBlocking(
                 client = client,
                 operation = ManagerProtocol.WRITE_OP_DELETE_EVENT,
                 packageName = event.packageName,
@@ -356,7 +356,7 @@ class RemoteManagerEventGateway(
     }
 
     override suspend fun restoreEvent(event: ManagerEvent): ManagerEvent? {
-        val result = RemoteWriteSupport.execute(
+        val result = RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_RESTORE_EVENT,
             packageName = event.packageName,
@@ -369,7 +369,7 @@ class RemoteManagerEventGateway(
     }
 
     override suspend fun countEventsByDay(): List<ManagerDayCount> {
-        val result = RemoteWriteSupport.execute(
+        val result = RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_COUNT_EVENTS_BY_DAY,
             uniqueRequestId = true,
@@ -388,7 +388,7 @@ class RemoteManagerEventGateway(
     }
 
     override suspend fun clearHistoryBefore(cutoffMillis: Long): Int {
-        val result = RemoteWriteSupport.execute(
+        val result = RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_CLEAR_HISTORY,
             longArgument = cutoffMillis,
@@ -401,7 +401,7 @@ class RemoteManagerEventGateway(
     }
 
     override suspend fun clearHistoryInRange(startMillis: Long, endMillis: Long): Int {
-        val result = RemoteWriteSupport.execute(
+        val result = RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_CLEAR_HISTORY,
             longArgument = startMillis,
@@ -457,7 +457,7 @@ class RemoteManagerNotificationGateway(
         }
 
     override fun deleteNotificationChannel(packageName: String, channelId: String) {
-        RemoteWriteSupport.execute(
+        RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_DELETE_NOTIFICATION_CHANNEL,
             packageName = packageName,
@@ -488,7 +488,7 @@ class RemoteManagerLogGateway(
         val keepDays = days.coerceAtLeast(1)
         ManagerRuntimeFileLog.setRetentionDays(keepDays)
         pruneLocalManagerLogArtifacts(keepDays)
-        RemoteWriteSupport.execute(
+        RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_SET_RUNTIME_LOG_RETENTION,
             intArgument = keepDays,
@@ -669,7 +669,7 @@ class RemoteManagerLogGateway(
                 ?.filter { it.isFile && (it.name.startsWith("runtime-log-") || it.name.startsWith("mipush_logs_") || it.name.startsWith(".runtime-export-")) }
                 ?.forEach { runCatching { it.delete() } }
         }
-        val result = RemoteWriteSupport.execute(
+        val result = RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_CLEAR_LOG_FOLDERS,
             uniqueRequestId = true,
@@ -727,21 +727,21 @@ class RemoteManagerRuntimeActions(
     private val connectionSource = RemoteConnectionSnapshotSource(client)
 
     override suspend fun clearHistory() {
-        RemoteWriteSupport.execute(
+        RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_CLEAR_HISTORY,
         )
     }
 
     override fun startMiPushServiceAsForegroundService(context: Context) {
-        RemoteWriteSupport.execute(
+        RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_START_FOREGROUND,
         )
     }
 
     override fun resetTopActivityCache() {
-        RemoteWriteSupport.execute(
+        RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_RESET_TOP_ACTIVITY_CACHE,
             uniqueRequestId = true,
@@ -749,14 +749,14 @@ class RemoteManagerRuntimeActions(
     }
 
     override fun sendXmppReconnectRequest(context: Context) {
-        RemoteWriteSupport.execute(
+        RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_XMPP_RECONNECT,
         )
     }
 
     override fun setXmppServer(context: Context, newHost: String) {
-        RemoteWriteSupport.execute(
+        RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_SET_XMPP_SERVER,
             argument = newHost,
@@ -803,7 +803,7 @@ class RemoteManagerRuntimeActions(
     override fun observeNotificationEvent(packageName: String, action: String, source: String) = Unit
 
     override fun setRuntimeLogRetentionDays(days: Int) {
-        RemoteWriteSupport.execute(
+        RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_SET_RUNTIME_LOG_RETENTION,
             intArgument = days.coerceAtLeast(1),
@@ -811,7 +811,7 @@ class RemoteManagerRuntimeActions(
     }
 
     override fun applyEventRetentionDays(days: Int) {
-        RemoteWriteSupport.execute(
+        RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_APPLY_EVENT_RETENTION,
             intArgument = days.coerceAtLeast(1),
@@ -850,7 +850,7 @@ class RemoteManagerPermissionGateway(
     override fun requestRootAccess(): Boolean = queryRoot(requestShell = true)
 
     override fun repairXSpaceUserSupport(): ManagerXSpaceRepairResult {
-        val result = RemoteWriteSupport.execute(
+        val result = RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_REPAIR_XSPACE,
             uniqueRequestId = true,
@@ -877,7 +877,7 @@ class RemoteManagerPermissionGateway(
     }
 
     override fun setDualAppEnabled(enabled: Boolean): ManagerXSpaceRepairResult {
-        val result = RemoteWriteSupport.execute(
+        val result = RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_SET_DUAL_APP,
             booleanArgument = enabled,
@@ -908,7 +908,7 @@ class RemoteManagerPermissionGateway(
                             repo.selectedLauncherIcon.first()
                         }
                     }
-                RemoteWriteSupport.execute(
+                RemoteWriteSupport.executeBlocking(
                     client = client,
                     operation = ManagerProtocol.WRITE_OP_SYNC_LAUNCHER_ICON,
                     argument = iconId,
@@ -920,7 +920,7 @@ class RemoteManagerPermissionGateway(
     }
 
     override fun isDualAppInstalled(): Boolean {
-        val result = RemoteWriteSupport.execute(
+        val result = RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_QUERY_DUAL_APP,
         ) ?: return false
@@ -948,7 +948,7 @@ class RemoteManagerPermissionGateway(
 
     private fun queryRoot(requestShell: Boolean): Boolean {
         // requestShell currently maps to the same runtime ensureRootAccess path.
-        val result = RemoteWriteSupport.execute(
+        val result = RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_QUERY_ROOT,
             booleanArgument = requestShell,
@@ -965,7 +965,7 @@ class RemoteManagerPermissionGateway(
     }
 
     private fun grantSilentPermissions(userId: Int, packageName: String, op: String): Boolean {
-        val result = RemoteWriteSupport.execute(
+        val result = RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_GRANT_SILENT_PERMISSIONS,
             packageName = packageName,
@@ -982,7 +982,7 @@ class RemoteZygiskConfigGateway(
     private val client: ManagerRuntimeClient,
 ) : ZygiskConfigGateway {
     override fun isZygiskModuleEnabled(): Boolean {
-        val result = RemoteWriteSupport.execute(
+        val result = RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_ZYGISK_IS_ENABLED,
             uniqueRequestId = true,
@@ -993,7 +993,7 @@ class RemoteZygiskConfigGateway(
     override fun getZygiskConfigPath(): String = "/data/adb/mipush_zygisk/app.conf"
 
     override fun getZygiskConfig(): ZygiskConfig {
-        val result = RemoteWriteSupport.execute(
+        val result = RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_ZYGISK_GET_CONFIG,
             uniqueRequestId = true,
@@ -1004,7 +1004,7 @@ class RemoteZygiskConfigGateway(
 
     override fun saveZygiskConfig(config: ZygiskConfig): Boolean {
         val content = config.toFileContent()
-        val result = RemoteWriteSupport.execute(
+        val result = RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_ZYGISK_SAVE_CONFIG,
             argument = content,
@@ -1014,7 +1014,7 @@ class RemoteZygiskConfigGateway(
     }
 
     override fun forceStopApp(packageName: String) {
-        RemoteWriteSupport.execute(
+        RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_ZYGISK_FORCE_STOP,
             packageName = packageName,
