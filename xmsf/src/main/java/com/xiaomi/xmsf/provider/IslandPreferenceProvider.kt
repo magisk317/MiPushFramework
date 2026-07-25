@@ -19,6 +19,7 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_FIRST_FLOAT
 import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
+import io.github.magisk317.mipush.common.DUAL_APP_ENABLED_KEY
 import io.github.magisk317.mipush.common.SENSITIVE_DEBUG_LOG_MODE_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_PATH_FLAGS
 import io.github.magisk317.mipush.common.ISLAND_PREF_READ_PERMISSION
@@ -54,6 +55,7 @@ class IslandPreferenceProvider : ContentProvider() {
         ISLAND_PREF_FOCUS_NOTIF,
         COLOR_STATUS_BAR_ICON_KEY,
         COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
+        DUAL_APP_ENABLED_KEY,
         SENSITIVE_DEBUG_LOG_MODE_KEY,
     )
 

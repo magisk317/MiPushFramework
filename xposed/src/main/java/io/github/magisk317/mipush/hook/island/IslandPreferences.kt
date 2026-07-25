@@ -22,6 +22,7 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
+import io.github.magisk317.mipush.common.DUAL_APP_ENABLED_KEY
 import io.github.magisk317.mipush.common.SENSITIVE_DEBUG_LOG_MODE_KEY
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.xposed.logging.LogSanitizerConfig
@@ -43,6 +44,7 @@ object IslandPreferences {
         ISLAND_PREF_FOCUS_NOTIF,
         COLOR_STATUS_BAR_ICON_KEY,
         COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
+        DUAL_APP_ENABLED_KEY,
         SENSITIVE_DEBUG_LOG_MODE_KEY,
     )
 
@@ -102,7 +104,8 @@ object IslandPreferences {
                 "refreshed options: showNotification=${it.showNotification} " +
                     "enableFloat=${it.enableFloat} enabled=${it.enabled} " +
                     "focusNotification=${it.focusNotification} colorStatusBarIcon=${it.colorStatusBarIcon} " +
-                    "colorStatusBarIconGlobal=${it.colorStatusBarIconGlobal}",
+                    "colorStatusBarIconGlobal=${it.colorStatusBarIconGlobal} " +
+                    "dualAppEnabled=${it.dualAppEnabled}",
             )
         }.onFailure {
             XLog.w(TAG, "failed to refresh island prefs: ${it.message}")
@@ -234,6 +237,7 @@ object IslandPreferences {
             focusNotification = values.booleanValue(ISLAND_PREF_FOCUS_NOTIF, false),
             colorStatusBarIcon = values.booleanValue(COLOR_STATUS_BAR_ICON_KEY, false),
             colorStatusBarIconGlobal = values.booleanValue(COLOR_STATUS_BAR_ICON_GLOBAL_KEY, false),
+            dualAppEnabled = values.booleanValue(DUAL_APP_ENABLED_KEY, false),
         )
     }.onFailure {
         LogSanitizerConfig.syncSensitiveDebugMode(null)

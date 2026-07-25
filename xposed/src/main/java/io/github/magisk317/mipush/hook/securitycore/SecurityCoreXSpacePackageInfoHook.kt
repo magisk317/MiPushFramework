@@ -5,6 +5,7 @@ import android.content.pm.ServiceInfo
 import android.os.Binder
 import android.os.Process
 import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.xposed.MethodHookParam
 import io.github.magisk317.xposed.findClass
 import io.github.magisk317.xposed.hook
@@ -71,6 +72,7 @@ object SecurityCoreXSpacePackageInfoHook {
                     flags = flags,
                     userId = userId,
                     alreadyRequired = hasMiPushRequiredSignal(queryPackage, packageInfo),
+                    dualAppEnabled = IslandPreferences.current().dualAppEnabled,
                 )
                 if (!decision.forceRequired) return@doAfter
 
@@ -87,6 +89,7 @@ object SecurityCoreXSpacePackageInfoHook {
         flags: Long,
         userId: Int?,
         alreadyRequired: Boolean,
+        dualAppEnabled: Boolean = false,
     ): SecurityCoreXSpaceMiPushDecision {
         if (!isSecurityCoreCaller(callerProcessName)) {
             return SecurityCoreXSpaceMiPushDecision(forceRequired = false, reason = "caller_not_securitycore")
@@ -101,7 +104,11 @@ object SecurityCoreXSpacePackageInfoHook {
         if (userId != null && userId != OWNER_USER_ID && userId != XSPACE_USER_ID) {
             return SecurityCoreXSpaceMiPushDecision(forceRequired = false, reason = "unsupported_user")
         }
-        return SecurityCoreXSpaceMiPushPolicy.decide(queryPackage, originalRequired = alreadyRequired)
+        return SecurityCoreXSpaceMiPushPolicy.decide(
+            queryPackage,
+            originalRequired = alreadyRequired,
+            dualAppEnabled = dualAppEnabled,
+        )
     }
 
     internal fun hasMiPushRequiredSignal(packageName: String, packageInfo: PackageInfo): Boolean {

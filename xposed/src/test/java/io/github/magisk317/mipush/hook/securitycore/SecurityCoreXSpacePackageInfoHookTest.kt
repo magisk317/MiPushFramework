@@ -25,6 +25,7 @@ class SecurityCoreXSpacePackageInfoHookTest {
                 flags = GET_SERVICES or GET_PERMISSIONS,
                 userId = 999,
                 alreadyRequired = false,
+                dualAppEnabled = true,
             ).forceRequired
         )
         assertTrue(
@@ -34,6 +35,7 @@ class SecurityCoreXSpacePackageInfoHookTest {
                 flags = GET_SERVICES or GET_PERMISSIONS,
                 userId = 0,
                 alreadyRequired = false,
+                dualAppEnabled = true,
             ).forceRequired,
             "the dumped SecurityCore path reads MiPush manifest signals from owner user 0",
         )
@@ -45,6 +47,7 @@ class SecurityCoreXSpacePackageInfoHookTest {
                 flags = GET_SERVICES or GET_PERMISSIONS,
                 userId = 999,
                 alreadyRequired = false,
+                dualAppEnabled = true,
             ).forceRequired
         )
         assertFalse(
@@ -54,6 +57,7 @@ class SecurityCoreXSpacePackageInfoHookTest {
                 flags = GET_SERVICES or GET_PERMISSIONS,
                 userId = 999,
                 alreadyRequired = false,
+                dualAppEnabled = true,
             ).forceRequired
         )
         assertFalse(
@@ -63,6 +67,7 @@ class SecurityCoreXSpacePackageInfoHookTest {
                 flags = GET_SERVICES,
                 userId = 999,
                 alreadyRequired = false,
+                dualAppEnabled = true,
             ).forceRequired
         )
         assertFalse(
@@ -72,6 +77,7 @@ class SecurityCoreXSpacePackageInfoHookTest {
                 flags = GET_SERVICES or GET_PERMISSIONS,
                 userId = 999,
                 alreadyRequired = false,
+                dualAppEnabled = true,
             ).forceRequired
         )
         assertFalse(
@@ -81,6 +87,7 @@ class SecurityCoreXSpacePackageInfoHookTest {
                 flags = GET_SERVICES or GET_PERMISSIONS,
                 userId = 10,
                 alreadyRequired = false,
+                dualAppEnabled = true,
             ).forceRequired
         )
     }
@@ -121,5 +128,19 @@ class SecurityCoreXSpacePackageInfoHookTest {
     private companion object {
         private const val GET_SERVICES = 0x00000004L
         private const val GET_PERMISSIONS = 0x00001000L
+    }
+
+    @Test
+    fun `dual app disabled skips force retention even for mipush module`() {
+        assertFalse(
+            SecurityCoreXSpacePackageInfoHook.decidePackageInfoPatch(
+                callerProcessName = "com.miui.securitycore",
+                queryPackage = "io.github.magisk317.mipush",
+                flags = GET_SERVICES or GET_PERMISSIONS,
+                userId = 999,
+                alreadyRequired = false,
+                dualAppEnabled = false,
+            ).forceRequired
+        )
     }
 }

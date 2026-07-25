@@ -8,6 +8,7 @@ import android.net.Uri
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.app.MiPushFrameworkApp
+import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.fakedevice.ZygiskConfig
 import io.github.magisk317.mipush.common.manager.ManagerApplication
@@ -406,6 +407,8 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
                 runBlocking {
                     PreferenceRepository(context.dataStore).setDualAppEnabled(enabled)
                 }
+                // Notify SystemUI / system_server IslandPreferences caches immediately.
+                context.sendBroadcast(android.content.Intent(ACTION_PREF_CHANGED))
             }
             if (enabled) {
                 // Root-grant silent permissions for primary + dual-space (xmsf + manager).

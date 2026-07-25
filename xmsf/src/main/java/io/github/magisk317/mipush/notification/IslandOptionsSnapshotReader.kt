@@ -55,6 +55,7 @@ internal object IslandOptionsSnapshotReader {
                 (!packageScoped || appFocusNotification == true),
             colorStatusBarIcon = settings.colorStatusBarIcon,
             colorStatusBarIconGlobal = settings.colorStatusBarIconGlobal,
+            dualAppEnabled = settings.dualAppEnabled,
         ),
         sensitiveDebugLogMode = settings.sensitiveDebugLogMode,
     )

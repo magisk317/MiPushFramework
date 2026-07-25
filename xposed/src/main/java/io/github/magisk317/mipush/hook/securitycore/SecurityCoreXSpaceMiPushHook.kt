@@ -3,6 +3,7 @@ import io.github.magisk317.xposed.BaseHook
 import io.github.magisk317.xposed.LoadParam
 
 import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.xposed.findClass
 import io.github.magisk317.xposed.hook
 import java.lang.reflect.Method
@@ -20,7 +21,11 @@ class SecurityCoreXSpaceMiPushHook : BaseHook() {
                 doAfter {
                     val packageName = args.getOrNull(PACKAGE_NAME_ARG_INDEX) as? String
                     val originalRequired = result as? Boolean
-                    val decision = SecurityCoreXSpaceMiPushPolicy.decide(packageName, originalRequired)
+                    val decision = SecurityCoreXSpaceMiPushPolicy.decide(
+                        packageName,
+                        originalRequired,
+                        dualAppEnabled = IslandPreferences.current().dualAppEnabled,
+                    )
                     if (!decision.forceRequired) return@doAfter
 
                     result = true

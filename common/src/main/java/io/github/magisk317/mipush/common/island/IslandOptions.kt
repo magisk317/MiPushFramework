@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.common.island
 
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
+import io.github.magisk317.mipush.common.DUAL_APP_ENABLED_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLE_FLOAT
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLED
@@ -21,6 +22,7 @@ data class IslandOptions(
     val focusNotification: Boolean = false,
     val colorStatusBarIcon: Boolean = false,
     val colorStatusBarIconGlobal: Boolean = false,
+    val dualAppEnabled: Boolean = false,
 ) {
     val canInjectFocusPayload: Boolean
         get() = enabled && focusNotification && enableFloat
@@ -38,6 +40,7 @@ data class IslandOptions(
         ISLAND_PREF_FOCUS_NOTIF to focusNotification.toFlagValue(),
         COLOR_STATUS_BAR_ICON_KEY to colorStatusBarIcon.toFlagValue(),
         COLOR_STATUS_BAR_ICON_GLOBAL_KEY to colorStatusBarIconGlobal.toFlagValue(),
+        DUAL_APP_ENABLED_KEY to dualAppEnabled.toFlagValue(),
         SENSITIVE_DEBUG_LOG_MODE_KEY to sensitiveDebugLogMode.toFlagValue(),
     )
 

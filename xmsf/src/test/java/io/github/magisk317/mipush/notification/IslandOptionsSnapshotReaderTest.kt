@@ -90,6 +90,7 @@ class IslandOptionsSnapshotReaderTest {
         focusNotification: Boolean = false,
         colorStatusBarIcon: Boolean = false,
         colorStatusBarIconGlobal: Boolean = false,
+        dualAppEnabled: Boolean = false,
         sensitiveDebugLogMode: Boolean = false,
     ) = IslandSettingsSnapshot(
         enabled = enabled,
@@ -101,6 +102,7 @@ class IslandOptionsSnapshotReaderTest {
         focusNotification = focusNotification,
         colorStatusBarIcon = colorStatusBarIcon,
         colorStatusBarIconGlobal = colorStatusBarIconGlobal,
+        dualAppEnabled = dualAppEnabled,
         sensitiveDebugLogMode = sensitiveDebugLogMode,
     )
 }

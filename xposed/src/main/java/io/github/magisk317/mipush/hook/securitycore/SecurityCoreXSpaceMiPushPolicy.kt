@@ -9,10 +9,17 @@ object SecurityCoreXSpaceMiPushPolicy {
         "com.xiaomi.xmsf",
     )
 
-    internal fun decide(packageName: String?, originalRequired: Boolean?): SecurityCoreXSpaceMiPushDecision {
+    internal fun decide(
+        packageName: String?,
+        originalRequired: Boolean?,
+        dualAppEnabled: Boolean = false,
+    ): SecurityCoreXSpaceMiPushDecision {
         val normalizedPackageName = packageName?.trim().orEmpty()
         if (originalRequired == true) {
             return SecurityCoreXSpaceMiPushDecision(forceRequired = false, reason = "already_required")
+        }
+        if (!dualAppEnabled) {
+            return SecurityCoreXSpaceMiPushDecision(forceRequired = false, reason = "dual_app_disabled")
         }
         if (normalizedPackageName.isBlank()) {
             return SecurityCoreXSpaceMiPushDecision(forceRequired = false, reason = "blank_package")
