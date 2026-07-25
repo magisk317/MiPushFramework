@@ -1,10 +1,11 @@
 package io.github.magisk317.mipush.feature.wizard
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
+import io.github.magisk317.mipush.feature.main.MainActivity
 import io.github.magisk317.mipush.feature.main.WelcomeIslandNotifier
-import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 import io.github.magisk317.mipush.feature.wizard.support.WizardSPUtils
 import kotlinx.coroutines.launch
 
@@ -26,18 +27,22 @@ open class WelcomeActivity : ComponentActivity() {
     }
 
     private fun jumpToRequestPermissionPage() {
-        startActivity(LegacyUiEntryPoints.requestPermissionIntent(this))
+        startActivity(Intent(this, RequestPermissionPage::class.java))
     }
 
     private fun jumpToMainActivity() {
-        val startRoute = intent?.getStringExtra("extra_start_route")
-        val startTab = intent?.getStringExtra("extra_start_tab")
+        val startRoute = intent?.getStringExtra(MainActivity.EXTRA_START_ROUTE)
+        val startTab = intent?.getStringExtra(MainActivity.EXTRA_START_TAB)
         startActivity(
-            LegacyUiEntryPoints.mainActivityIntent(
-                context = this,
-                startRoute = startRoute,
-                startTab = startTab,
-            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+            Intent(this, MainActivity::class.java).apply {
+                if (!startRoute.isNullOrBlank()) {
+                    putExtra(MainActivity.EXTRA_START_ROUTE, startRoute)
+                }
+                if (!startTab.isNullOrBlank()) {
+                    putExtra(MainActivity.EXTRA_START_TAB, startTab)
+                }
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            },
         )
     }
 }

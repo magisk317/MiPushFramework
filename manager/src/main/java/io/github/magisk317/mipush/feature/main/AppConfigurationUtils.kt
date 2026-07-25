@@ -6,6 +6,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import android.text.TextUtils
 import io.github.magisk317.mipush.common.Constants
@@ -14,7 +15,6 @@ import io.github.magisk317.mipush.common.manager.ManagerNotificationGateway
 import io.github.magisk317.mipush.common.utils.NotificationUtils
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.manager.R
-import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 
 class AppConfigurationUtils(
     private val context: Context,
@@ -46,10 +46,8 @@ class AppConfigurationUtils(
 
     fun gotoRecentEventsPage() {
         context.startActivity(
-            LegacyUiEntryPoints.recentEventListIntent(
-                context = context,
-                packageName = application.packageName,
-            ),
+            Intent(context, RecentEventListPage::class.java)
+                .setData(Uri.parse(application.packageName)),
         )
     }
 

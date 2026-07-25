@@ -1,10 +1,11 @@
 package io.github.magisk317.mipush.feature.wizard.support
 
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.lifecycleScope
 import io.github.magisk317.mipush.data.PreferenceRepository
-import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
+import io.github.magisk317.mipush.feature.main.MainActivity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -24,7 +25,7 @@ internal object WizardSPUtils {
         context.lifecycleScope.launch {
             setShouldShowWizard(false)
             ActivityCompat.finishAffinity(context)
-            context.startActivity(LegacyUiEntryPoints.mainActivityIntent(context))
+            context.startActivity(Intent(context, MainActivity::class.java))
         }
     }
 }

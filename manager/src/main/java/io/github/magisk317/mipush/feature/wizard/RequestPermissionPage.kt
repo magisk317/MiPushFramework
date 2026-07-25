@@ -83,7 +83,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.mutableIntStateOf
 import io.github.magisk317.mipush.manager.di.ManagerDependencies
-import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
+import io.github.magisk317.mipush.feature.main.MainActivity
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -203,7 +203,7 @@ fun PermissionMainActivity(
                         (context as? ComponentActivity)?.finish()
                     } else {
                         WizardSPUtils.finishWizard(context as ComponentActivity)
-                        context.startActivity(LegacyUiEntryPoints.mainActivityIntent(context))
+                        context.startActivity(Intent(context, MainActivity::class.java))
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -273,7 +273,7 @@ fun PermissionItem(
 @Composable
 private fun JumpToMainActivity() {
     val context = LocalContext.current
-    context.startActivity(LegacyUiEntryPoints.mainActivityIntent(context))
+    context.startActivity(Intent(context, MainActivity::class.java))
 }
 
 private fun getPermissionInfos(context: Context): List<PermissionInfo> {

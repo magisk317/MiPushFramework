@@ -10,6 +10,7 @@ import android.net.Uri
 import android.os.Build
 import androidx.core.content.FileProvider
 import io.github.magisk317.mipush.common.fakedevice.ZygiskConfig
+import io.github.magisk317.mipush.feature.main.MainActivity
 import io.github.magisk317.mipush.common.manager.ManagerApplication
 import io.github.magisk317.mipush.common.manager.ManagerApplicationDiagnostics
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
@@ -252,9 +253,9 @@ class RemoteManagerEventGateway(
         }
         val encoded = java.net.URLEncoder.encode(packageName, java.nio.charset.StandardCharsets.UTF_8.name())
         val route = "configs_search/$encoded"
-        val intent = io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
-            .mainActivityIntent(context = context, startRoute = route)
-            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        val intent = Intent(context, MainActivity::class.java)
+            .putExtra(MainActivity.EXTRA_START_ROUTE, route)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         runCatching { context.startActivity(intent) }
     }
 

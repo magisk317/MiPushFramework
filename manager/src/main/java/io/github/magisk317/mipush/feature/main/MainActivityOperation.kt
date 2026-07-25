@@ -7,8 +7,7 @@ import android.net.Uri
 import java.util.Locale
 import io.github.magisk317.mipush.common.BuildConfig
 import io.github.magisk317.mipush.common.VERSION_CODE
-import io.github.magisk317.mipush.manager.R
-import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
+import io.github.magisk317.mipush.platform.support.LegacyComponentNames
 
 class MainActivityOperation(private val context: Context) {
     private fun openUrl(url: String) {
@@ -19,7 +18,11 @@ class MainActivityOperation(private val context: Context) {
     }
 
     fun gotoHelpActivity() {
-        context.startActivity(LegacyUiEntryPoints.helpPageIntent(context))
+        // HelpPage activity class was removed from sources; keep same-package component target
+        // for any remaining menu wiring until a replacement surface lands.
+        context.startActivity(
+            Intent().setClassName(context, LegacyComponentNames.HELP_PAGE),
+        )
     }
 
     fun showAboutDialog(onShow: (String) -> Unit) {

@@ -1,17 +1,18 @@
 package io.github.magisk317.mipush.manager.configuration.sync
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import io.github.magisk317.mipush.common.manager.ManagerConfigEditorSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerConfigListSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
 import io.github.magisk317.mipush.data.PreferenceRepository
+import io.github.magisk317.mipush.feature.main.MainActivity
 import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadRequestDto
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeResult
-import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 import io.github.magisk317.mipush.utils.LocalConfigSummary
 import java.io.File
 import java.nio.charset.StandardCharsets
@@ -97,8 +98,9 @@ class LocalManagerConfigSyncGateway(
         } else {
             "configs_search/$encoded"
         }
-        val intent = LegacyUiEntryPoints.mainActivityIntent(context = context, startRoute = route)
-            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        val intent = Intent(context, MainActivity::class.java)
+            .putExtra(MainActivity.EXTRA_START_ROUTE, route)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         runCatching { context.startActivity(intent) }
     }
 

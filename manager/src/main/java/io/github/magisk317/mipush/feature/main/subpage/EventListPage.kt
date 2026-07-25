@@ -1,6 +1,8 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 package io.github.magisk317.mipush.feature.main.subpage
 
+import io.github.magisk317.mipush.feature.main.RecentEventListPage
+
 import android.content.Intent
 import android.net.Uri
 import android.content.Context
@@ -103,7 +105,6 @@ import io.github.magisk317.uikit.surface.OverlayHeaderScaffold
 import io.github.magisk317.uikit.surface.WorkspaceTopBarSearchOverlay
 import io.github.magisk317.uikit.surface.WorkspaceEmptyState
 import io.github.magisk317.uikit.surface.WorkspaceListItem
-import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 import io.github.magisk317.uikit.scroll.ScrollChromeState
 import io.github.magisk317.uikit.surface.AppBottomSheet
 import io.github.magisk317.uikit.preference.StateSwitchItem
@@ -696,10 +697,8 @@ private fun EventGroupList(
                     containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.06f),
                     onClick = {
                         context.startActivity(
-                            LegacyUiEntryPoints.recentEventListIntent(
-                                context = context,
-                                packageName = group.packageName,
-                            ),
+                            Intent(context, RecentEventListPage::class.java)
+                                .setData(Uri.parse(group.packageName)),
                         )
                     },
                     leadingContent = {

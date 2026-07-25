@@ -13,6 +13,7 @@
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <!-- Component-name compatibility aliases only. No LAUNCHER: desktop icon lives on manager package. -->
+        <!-- Welcome exported=true is legacy deep-link/compat only; not a desktop launcher entry. -->
         <activity-alias
             android:name="io.github.magisk317.mipush.feature.wizard.WelcomeActivity"
             android:exported="true"

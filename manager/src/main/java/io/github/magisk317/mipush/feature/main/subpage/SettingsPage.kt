@@ -98,6 +98,7 @@ import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.process.BoundedProcessRunner
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.feature.main.MainActivityOperation
+import io.github.magisk317.mipush.feature.wizard.RequestPermissionPage
 import io.github.magisk317.uikit.scroll.ScrollChromeState
 import io.github.magisk317.uikit.preference.DialogItem as SettingsDialogItem
 import io.github.magisk317.uikit.surface.DialogAction
@@ -108,7 +109,6 @@ import io.github.magisk317.uikit.preference.StateSwitchItem as SettingsSwitchIte
 import io.github.magisk317.uikit.surface.OverlayHeaderScaffold
 import io.github.magisk317.uikit.surface.SectionColumn
 import io.github.magisk317.uikit.surface.chromeTopAppBarColors
-import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 import io.github.magisk317.mipush.feature.ui.theme.Theme
 import io.github.magisk317.mipush.feature.ui.theme.spacing
 import kotlinx.coroutines.Dispatchers
@@ -429,7 +429,10 @@ private fun ConnectionServiceBlock(viewModel: SettingsViewModel, snackbarHostSta
         title = stringResource(R.string.settings_permission_check),
         summary = stringResource(R.string.settings_permission_check_summary),
     ) {
-        context.startActivity(LegacyUiEntryPoints.requestPermissionIntent(context, recheckOnly = true))
+        context.startActivity(
+            Intent(context, RequestPermissionPage::class.java)
+                .putExtra(RequestPermissionPage.EXTRA_RECHECK_ONLY, true),
+        )
     }
 }
 

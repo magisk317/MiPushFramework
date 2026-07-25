@@ -4,6 +4,13 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 
+/**
+ * Cross-package UI entry intents for callers that do **not** ship manager Activities
+ * (primarily `:xmsf` / runtime → `:mipush` manager package).
+ *
+ * Manager-module in-process navigation should use explicit
+ * `Intent(context, XxxActivity::class.java)` instead of this helper.
+ */
 object LegacyUiEntryPoints {
     private const val EXTRA_START_ROUTE = "extra_start_route"
     private const val EXTRA_START_TAB = "extra_start_tab"
@@ -12,8 +19,8 @@ object LegacyUiEntryPoints {
     private const val EXTRA_RECHECK_ONLY = "extra_recheck_only"
 
     /**
-     * Prefer the local package when it still packages the manager UI (bundled baseline).
-     * Otherwise open the standalone manager package.
+     * Resolve the package that hosts manager UI.
+     * Same-package when the caller already is the manager app; otherwise the standalone manager package.
      */
     fun managerUiPackage(context: Context): String {
         return if (hasLocalManagerUi(context)) {
