@@ -44,6 +44,7 @@ class ConnectionSnapshotSourcesTest {
                 remoteLoads += 1
                 ConnectionSnapshotSourceResult.Unavailable(ConnectionSnapshotSourceStatus.TIMED_OUT)
             },
+            enableRemoteCompare = true,
         )
 
         val result = source.loadPrimary()
@@ -152,6 +153,7 @@ class ConnectionSnapshotSourcesTest {
             ConnectionSnapshotSourceResult.Available(domainSnapshot())
         },
         remoteSource = ConnectionSnapshotSource { remoteResult },
+        enableRemoteCompare = true,
     )
 
     private fun domainSnapshot() = ManagerConnectionSnapshot(

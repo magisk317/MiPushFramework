@@ -71,14 +71,17 @@ class RemoteConfigurationCatalogSource internal constructor(
 
 class ComparingConfigurationCatalogSource(
     private val remoteSource: RemoteConfigurationCatalogSource,
+    private val enableRemoteCompare: Boolean = false,
 ) {
     /** Primary path still uses the existing config sync gateway/local cache; remote is comparison only. */
-    suspend fun compareRemote(primary: ConfigurationCatalogSnapshot): ConfigurationCatalogComparison =
-        when (val remote = remoteSource.load()) {
+    suspend fun compareRemote(primary: ConfigurationCatalogSnapshot): ConfigurationCatalogComparison {
+        if (!enableRemoteCompare) return ConfigurationCatalogComparison.Matched
+        return when (val remote = remoteSource.load()) {
             is ConfigurationCatalogReadResult.Available -> compareCatalogs(primary, remote.value)
             is ConfigurationCatalogReadResult.Unavailable ->
                 ConfigurationCatalogComparison.Unavailable(remote.status)
         }
+    }
 }
 
 fun RemoteConfigCatalog.toConfigurationCatalogSnapshot(): ConfigurationCatalogSnapshot =

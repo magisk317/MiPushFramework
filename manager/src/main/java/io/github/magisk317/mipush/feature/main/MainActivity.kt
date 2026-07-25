@@ -118,7 +118,7 @@ open class MainActivity : ComponentActivity() {
     private val mainActivityUtils by lazy { MainActivityUtils(settingsManager) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        ManagerDependencies.start(this)
+        ManagerDependencies.ensureStarted(this)
         super.onCreate(savedInstanceState)
         WelcomeIslandNotifier.notifyAfterInstallOrUpdate(this)
         enableEdgeToEdge()

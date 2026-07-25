@@ -119,7 +119,7 @@ open class ApplicationInfoPage : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        ManagerDependencies.start(this)
+        ManagerDependencies.ensureStarted(this)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val app = getRegisteredApplication()

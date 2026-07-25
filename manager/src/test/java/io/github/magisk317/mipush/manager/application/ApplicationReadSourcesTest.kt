@@ -29,6 +29,7 @@ class ApplicationReadSourcesTest {
                 remoteLoads += 1
                 ApplicationReadResult.Unavailable(ApplicationReadStatus.UNSUPPORTED)
             },
+            enableRemoteCompare = true,
         )
 
         assertEquals(primary, source.loadPrimary(ApplicationListRequest()))
@@ -64,6 +65,7 @@ class ApplicationReadSourcesTest {
                 diagnosticsLoads += 1
                 ApplicationReadResult.Unavailable(ApplicationReadStatus.PERMISSION_DENIED)
             },
+            enableRemoteCompare = true,
         )
 
         assertEquals(primary, source.loadPrimary("example.app", false))

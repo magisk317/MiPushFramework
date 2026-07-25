@@ -90,7 +90,7 @@ class RemoteEventListSource internal constructor(
 class ComparingEventListSource(
     private val primarySource: InProcessEventListSource,
     private val remoteSource: RemoteEventListSource,
-    private val enableRemoteCompare: Boolean = true,
+    private val enableRemoteCompare: Boolean = false,
 ) {
     fun loadPrimary(request: EventListRequest): List<ManagerEvent> = primarySource.load(request)
 

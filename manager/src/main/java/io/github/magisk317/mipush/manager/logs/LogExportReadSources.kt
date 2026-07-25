@@ -97,14 +97,17 @@ class RemoteLogExportSource internal constructor(
 class ComparingLogExportSource(
     private val primarySource: InProcessLogExportSource,
     private val remoteSource: RemoteLogExportSource,
+    private val enableRemoteCompare: Boolean = false,
 ) {
     fun exportPrimary(context: Context): ManagerLogExportResult = primarySource.export(context)
 
-    suspend fun compareRemote(primary: LogExportSnapshot): LogExportComparison =
-        when (val remote = remoteSource.snapshot()) {
+    suspend fun compareRemote(primary: LogExportSnapshot): LogExportComparison {
+        if (!enableRemoteCompare) return LogExportComparison.Matched
+        return when (val remote = remoteSource.snapshot()) {
             is LogExportReadResult.Available -> compare(primary, remote.value)
             is LogExportReadResult.Unavailable -> LogExportComparison.Unavailable(remote.status)
         }
+    }
 }
 
 private fun compare(primary: LogExportSnapshot, remote: LogExportSnapshot): LogExportComparison {

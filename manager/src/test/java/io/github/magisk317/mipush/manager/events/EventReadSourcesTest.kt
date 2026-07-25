@@ -70,6 +70,7 @@ class EventReadSourcesTest {
         val comparing = ComparingEventListSource(
             primarySource = InProcessEventListSource(FakeEventGateway(primary)),
             remoteSource = remote,
+            enableRemoteCompare = true,
         )
         val comparison = comparing.compareRemote(EventListRequest(), primary)
         assertTrue(comparison is EventListComparison.Mismatched)

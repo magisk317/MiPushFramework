@@ -172,19 +172,22 @@ class RemoteNotificationChannelSource internal constructor(
 }
 
 class ComparingNotificationChannelSource(
-
     private val primarySource: InProcessNotificationChannelSource,
     private val remoteSource: RemoteNotificationChannelSource,
+    private val enableRemoteCompare: Boolean = false,
 ) {
     fun loadPrimary(packageName: String): NotificationChannelSnapshot = primarySource.load(packageName)
 
     suspend fun compareRemote(
         packageName: String,
         primary: NotificationChannelSnapshot,
-    ): NotificationChannelComparison = when (val remote = remoteSource.load(packageName)) {
-        is NotificationChannelReadResult.Available -> compareSnapshots(primary, remote.value)
-        is NotificationChannelReadResult.Unavailable ->
-            NotificationChannelComparison.Unavailable(remote.status)
+    ): NotificationChannelComparison {
+        if (!enableRemoteCompare) return NotificationChannelComparison.Matched
+        return when (val remote = remoteSource.load(packageName)) {
+            is NotificationChannelReadResult.Available -> compareSnapshots(primary, remote.value)
+            is NotificationChannelReadResult.Unavailable ->
+                NotificationChannelComparison.Unavailable(remote.status)
+        }
     }
 }
 

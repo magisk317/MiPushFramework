@@ -178,12 +178,12 @@ class RemoteApplicationListSource internal constructor(
 class ComparingApplicationListSource internal constructor(
     private val primaryLoader: (ApplicationListRequest) -> ApplicationListSnapshot,
     private val remoteLoader: suspend (ApplicationListRequest) -> ApplicationReadResult<ApplicationListSnapshot>,
-    private val enableRemoteCompare: Boolean = true,
+    private val enableRemoteCompare: Boolean = false,
 ) {
     constructor(
         inProcessSource: InProcessApplicationListSource,
         remoteSource: RemoteApplicationListSource,
-        enableRemoteCompare: Boolean = true,
+        enableRemoteCompare: Boolean = false,
     ) : this(
         primaryLoader = inProcessSource::load,
         remoteLoader = remoteSource::load,
@@ -252,15 +252,18 @@ class ComparingApplicationDetailSource internal constructor(
     private val primaryDiagnosticsLoader: (String, Int) -> ManagerApplicationDiagnostics,
     private val remoteLoader: suspend (String, Boolean) -> ApplicationReadResult<ManagerApplication?>,
     private val remoteDiagnosticsLoader: suspend (String, Int) -> ApplicationReadResult<ManagerApplicationDiagnostics>,
+    private val enableRemoteCompare: Boolean = false,
 ) {
     constructor(
         inProcessSource: InProcessApplicationDetailSource,
         remoteSource: RemoteApplicationDetailSource,
+        enableRemoteCompare: Boolean = false,
     ) : this(
         primaryLoader = inProcessSource::load,
         primaryDiagnosticsLoader = inProcessSource::loadDiagnostics,
         remoteLoader = remoteSource::load,
         remoteDiagnosticsLoader = remoteSource::loadDiagnostics,
+        enableRemoteCompare = enableRemoteCompare,
     )
 
     fun loadPrimary(packageName: String, ignoreNotRegistered: Boolean): ManagerApplication? =
@@ -273,20 +276,24 @@ class ComparingApplicationDetailSource internal constructor(
         packageName: String,
         ignoreNotRegistered: Boolean,
         primary: ManagerApplication?,
-    ): ApplicationDetailComparison = when (val remote = remoteLoader(packageName, ignoreNotRegistered)) {
-        is ApplicationReadResult.Available -> compareApplicationDetails(primary, remote.value)
-        is ApplicationReadResult.Unavailable -> ApplicationDetailComparison.Skipped(remote.status)
+    ): ApplicationDetailComparison {
+        if (!enableRemoteCompare) return ApplicationDetailComparison.NotStarted
+        return when (val remote = remoteLoader(packageName, ignoreNotRegistered)) {
+            is ApplicationReadResult.Available -> compareApplicationDetails(primary, remote.value)
+            is ApplicationReadResult.Unavailable -> ApplicationDetailComparison.Skipped(remote.status)
+        }
     }
 
     suspend fun compareRemoteDiagnostics(
         packageName: String,
         registeredType: Int,
         primary: ManagerApplicationDiagnostics,
-    ): ApplicationDiagnosticsComparison = when (
-        val remote = remoteDiagnosticsLoader(packageName, registeredType)
-    ) {
-        is ApplicationReadResult.Available -> compareApplicationDiagnostics(primary, remote.value)
-        is ApplicationReadResult.Unavailable -> ApplicationDiagnosticsComparison.Skipped(remote.status)
+    ): ApplicationDiagnosticsComparison {
+        if (!enableRemoteCompare) return ApplicationDiagnosticsComparison.NotStarted
+        return when (val remote = remoteDiagnosticsLoader(packageName, registeredType)) {
+            is ApplicationReadResult.Available -> compareApplicationDiagnostics(primary, remote.value)
+            is ApplicationReadResult.Unavailable -> ApplicationDiagnosticsComparison.Skipped(remote.status)
+        }
     }
 }
 

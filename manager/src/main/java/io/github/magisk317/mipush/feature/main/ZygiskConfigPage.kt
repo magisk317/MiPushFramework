@@ -68,7 +68,7 @@ class ZygiskConfigPage : ComponentActivity() {
     private val viewModel: ZygiskConfigViewModel by viewModel()
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        ManagerDependencies.start(this)
+        ManagerDependencies.ensureStarted(this)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {

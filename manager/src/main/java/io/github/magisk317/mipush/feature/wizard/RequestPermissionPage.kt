@@ -96,7 +96,7 @@ open class RequestPermissionPage : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        ManagerDependencies.start(this)
+        ManagerDependencies.ensureStarted(this)
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val recheckOnly = intent?.getBooleanExtra(EXTRA_RECHECK_ONLY, false) ?: false

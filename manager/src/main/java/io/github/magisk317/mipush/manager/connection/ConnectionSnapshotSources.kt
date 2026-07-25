@@ -81,7 +81,7 @@ class RemoteConnectionSnapshotSource internal constructor(
 class ComparingConnectionSnapshotSource(
     private val inProcessSource: ConnectionSnapshotSource,
     private val remoteSource: ConnectionSnapshotSource,
-    private val enableRemoteCompare: Boolean = true,
+    private val enableRemoteCompare: Boolean = false,
 ) {
     suspend fun loadPrimary(): ConnectionSnapshotSourceResult = inProcessSource.load()
 

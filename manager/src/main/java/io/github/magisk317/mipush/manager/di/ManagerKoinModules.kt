@@ -71,44 +71,61 @@ val managerKoinModule = module {
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
         ).apply { connect() }
     }
-    single { InProcessConnectionSnapshotSource(get<SettingsManager>()) }
-    single { RemoteConnectionSnapshotSource(get<ManagerRuntimeClient>()) }
+    // Production manager is remote-only: gateway/Binder is the primary path and dual-source
+    // compare stays off. Comparing* wrappers remain for ViewModel API stability.
     single {
-        // Standalone manager is remote-only: primary must be Binder, not SettingsManager empty shell.
+        val remote = RemoteConnectionSnapshotSource(get<ManagerRuntimeClient>())
         ComparingConnectionSnapshotSource(
-            inProcessSource = get<RemoteConnectionSnapshotSource>(),
-            remoteSource = get<RemoteConnectionSnapshotSource>(),
+            inProcessSource = remote,
+            remoteSource = remote,
             enableRemoteCompare = false,
         )
     }
-    single { InProcessApplicationListSource(androidContext(), get<ManagerApplicationGateway>()) }
-    single { RemoteApplicationListSource(get<ManagerRuntimeClient>()) }
     single {
         ComparingApplicationListSource(
-            inProcessSource = get<InProcessApplicationListSource>(),
-            remoteSource = get<RemoteApplicationListSource>(),
-            // Primary already goes through RemoteManagerApplicationGateway; skip second remote pass.
+            inProcessSource = InProcessApplicationListSource(
+                androidContext(),
+                get<ManagerApplicationGateway>(),
+            ),
+            remoteSource = RemoteApplicationListSource(get<ManagerRuntimeClient>()),
             enableRemoteCompare = false,
         )
     }
-    single { InProcessApplicationDetailSource(androidContext(), get<ManagerApplicationGateway>()) }
-    single { RemoteApplicationDetailSource(get<ManagerRuntimeClient>()) }
-
-    single { InProcessEventListSource(get()) }
-    single { RemoteEventListSource(get<ManagerRuntimeClient>()) }
-    single { ComparingEventListSource(get(), get(), enableRemoteCompare = false) }
-    single { InProcessNotificationChannelSource(get()) }
-    single { RemoteNotificationChannelSource(get<ManagerRuntimeClient>()) }
-    single { ComparingNotificationChannelSource(get(), get()) }
-    single { RemoteConfigurationCatalogSource(get<ManagerRuntimeClient>()) }
-    single { ComparingConfigurationCatalogSource(get()) }
-    single { InProcessLogExportSource(get()) }
-    single { RemoteLogExportSource(get<ManagerRuntimeClient>()) }
-    single { ComparingLogExportSource(get(), get()) }
     single {
         ComparingApplicationDetailSource(
-            inProcessSource = get<InProcessApplicationDetailSource>(),
-            remoteSource = get<RemoteApplicationDetailSource>(),
+            inProcessSource = InProcessApplicationDetailSource(
+                androidContext(),
+                get<ManagerApplicationGateway>(),
+            ),
+            remoteSource = RemoteApplicationDetailSource(get<ManagerRuntimeClient>()),
+            enableRemoteCompare = false,
+        )
+    }
+    single {
+        ComparingEventListSource(
+            primarySource = InProcessEventListSource(get()),
+            remoteSource = RemoteEventListSource(get<ManagerRuntimeClient>()),
+            enableRemoteCompare = false,
+        )
+    }
+    single {
+        ComparingNotificationChannelSource(
+            primarySource = InProcessNotificationChannelSource(get()),
+            remoteSource = RemoteNotificationChannelSource(get<ManagerRuntimeClient>()),
+            enableRemoteCompare = false,
+        )
+    }
+    single {
+        ComparingConfigurationCatalogSource(
+            remoteSource = RemoteConfigurationCatalogSource(get<ManagerRuntimeClient>()),
+            enableRemoteCompare = false,
+        )
+    }
+    single {
+        ComparingLogExportSource(
+            primarySource = InProcessLogExportSource(get()),
+            remoteSource = RemoteLogExportSource(get<ManagerRuntimeClient>()),
+            enableRemoteCompare = false,
         )
     }
 
@@ -152,16 +169,12 @@ object ManagerDependencies {
     private var modulesLoaded = false
 
     /**
-     * XMSF-packaged host path: the runtime Koin container must already expose manager gateways.
+     * Preferred entry for manager UI surfaces. Always boots the remote-host Koin graph.
+     * Safe to call repeatedly from activities after [startAsRemoteHost] in Application.
      */
     @Synchronized
-    fun start(context: Context) {
-        if (modulesLoaded) {
-            return
-        }
-        requireHostKoin(context)
-        loadKoinModules(managerKoinModule)
-        modulesLoaded = true
+    fun ensureStarted(context: Context) {
+        startAsRemoteHost(context)
     }
 
     /**
@@ -173,6 +186,7 @@ object ManagerDependencies {
         ManagerRuntimeFileLog.init(context)
 
         val appContext = context.applicationContext ?: context
+        // Idempotent: activity/widget re-entry after App.onCreate must not restart Koin or re-connect.
         if (!modulesLoaded) {
             if (GlobalContext.getOrNull() == null) {
                 startKoin {
@@ -200,17 +214,4 @@ object ManagerDependencies {
     }
 
     inline fun <reified T : Any> get(): T = GlobalContext.get().get()
-
-    private fun requireHostKoin(context: Context) {
-        if (GlobalContext.getOrNull() != null) {
-            return
-        }
-        val process = runCatching { android.app.Application.getProcessName() }.getOrNull() ?: "unknown"
-        error(
-            "Koin host container is not started for manager dependencies " +
-                "(process=$process, package=${context.packageName}). " +
-                "MiPushFrameworkApp must call AppDependencies.start() before ManagerDependencies.start(), " +
-                "or the mipush host must call ManagerDependencies.startAsRemoteHost()."
-        )
-    }
 }
