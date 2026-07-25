@@ -13,7 +13,6 @@ import android.os.Build
 import android.service.notification.StatusBarNotification
 import android.view.View
 import android.widget.ImageView
-import android.widget.RemoteViews
 import io.github.magisk317.mipush.common.notification.SinglePackageNotificationGroupPolicy
 import io.github.magisk317.mipush.common.notification.StatusBarMonochromeIconPolicy
 import io.github.magisk317.mipush.hook.XLog
@@ -101,6 +100,18 @@ class HookSystemUI : BaseHook() {
                                 return@doBefore
                             }
                         }
+                        if (SystemUiNotificationPolicy.shouldReplaceBitmapWithPackageMonochrome(
+                                colorStatusBarIcon = options.colorStatusBarIcon,
+                                isMiPushManaged = isMiPushManaged,
+                                iconType = iconType,
+                            )
+                        ) {
+                            val fallback = monochromeFallback()
+                            if (fallback != null) {
+                                result = fallback
+                                return@doBefore
+                            }
+                        }
                         // Strong monochrome: replace multi-color RESOURCE logos with a white
                         // package silhouette. Keep grayscale glyphs (Messaging stat_notify_sms)
                         // so launcher adaptive badges do not become status-bar white blocks.
@@ -134,6 +145,7 @@ class HookSystemUI : BaseHook() {
                                 uid = sbn.uid,
                                 isSystemApp = isSystemApp,
                                 canColorize = canColorize,
+                                hasMonochromeResource = isGrayscaleIcon,
                             )
                         ) {
                             result = smallIcon
@@ -153,6 +165,16 @@ class HookSystemUI : BaseHook() {
                     classLoader.findClass("com.android.systemui.statusbar.notification.utils.NotifImageUtil")
                 notifImageUtilClass.hookAllMethods("shouldSubstituteSmallIcon") {
                     doBefore {
+                        // Only override on the status-bar path (StatusBarIconView.updateIconColor).
+                        // Notification-shade header/expanded rows also call this; forcing false there
+                        // suppresses the colored app icon and turns expanded rows / group summaries
+                        // white. Whitelist the StatusBarIconView stack frame to stay status-bar only.
+                        if (!SystemUiNotificationPolicy.isStatusBarSubstitutionContext(
+                                Thread.currentThread().stackTrace.map { it.className }
+                            )
+                        ) {
+                            return@doBefore
+                        }
                         val options = IslandPreferences.current()
                         val sbn = args.firstOrNull() as? StatusBarNotification ?: return@doBefore
                         val isMiPushManaged = SystemUiNotificationPolicy.isMiPushManagedNotification(
@@ -199,6 +221,10 @@ class HookSystemUI : BaseHook() {
                                     uid = sbn.uid,
                                     isSystemApp = isSystemApplication(iconView.context, sbn.packageName),
                                     canColorize = notification?.canColorize() ?: false,
+                                    hasMonochromeResource = isGrayscaleSmallIcon(
+                                        iconView.context,
+                                        notification?.smallIcon,
+                                    ),
                                 )
                                 applyNotificationStatusBarIconTint(iconView, shouldTint)
                             }
@@ -230,80 +256,6 @@ class HookSystemUI : BaseHook() {
                 }
         }
 
-        try {
-            Notification.Builder::class.java.hookAllMethods("processSmallIconColor") {
-                doBefore {
-                    runCatching {
-                        val builder = thisObject ?: return@doBefore
-                        val context: Context = builder["mContext"] ?: return@doBefore
-                        val smallIcon = args[0] as? Icon ?: return@doBefore
-                        val contentView = args[1] as? RemoteViews ?: return@doBefore
-                        val p = args[2]
-
-                        val options = IslandPreferences.current()
-                        val colorStatusBarIcon = options.colorStatusBarIcon
-                        val forceGlobalStatusBarIcons = options.colorStatusBarIconGlobal
-                        val notification = runCatching {
-                            builder.callMethod("build") as? Notification
-                                ?: builder["mN"] as? Notification
-                        }.getOrNull()
-                        val isMiPushManaged = SystemUiNotificationPolicy.isMiPushManagedNotification(
-                            notification?.extras
-                        )
-                        // Toggle OFF: force monochrome for MiPush (and global strong mode).
-                        // Letting MIUI native run keeps TYPE_BITMAP app icons colored.
-                        if (!colorStatusBarIcon) {
-                            if (SystemUiNotificationPolicy.shouldForceMonochromeProcessSmallIcon(
-                                    colorStatusBarIcon = colorStatusBarIcon,
-                                    forceGlobalStatusBarIcons = forceGlobalStatusBarIcons,
-                                    isMiPushManaged = isMiPushManaged,
-                                )
-                            ) {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                                    contentView.setInt(android.R.id.icon, "setOriginalIconColor", 0)
-                                }
-                                result = true
-                            }
-                            return@doBefore
-                        }
-
-                        if (!SystemUiNotificationPolicy.shouldProcessSmallIconColor(
-                                colorStatusBarIcon = colorStatusBarIcon,
-                                forceGlobalStatusBarIcons = forceGlobalStatusBarIcons,
-                                isMiPushManaged = isMiPushManaged,
-                            )
-                        ) {
-                            return@doBefore
-                        }
-
-                        val colorUtil = builder.callMethod("getColorUtil") ?: return@doBefore
-                        val isGrayscaleIcon = colorUtil.callMethod("isGrayscaleIcon", context, smallIcon) as? Boolean ?: return@doBefore
-
-                        if (SystemUiNotificationPolicy.shouldApplySmallIconColor(
-                                colorStatusBarIcon = colorStatusBarIcon,
-                                forceGlobalStatusBarIcons = forceGlobalStatusBarIcons,
-                                isMiPushManaged = isMiPushManaged,
-                                isGrayscaleIcon = isGrayscaleIcon,
-                            )
-                        ) {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                val bgColor = builder.callMethod("getBackgroundColor", p) as? Int ?: 0
-                                contentView.setInt(android.R.id.icon, "setBackgroundColor", bgColor)
-                            }
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                                contentView.setInt(android.R.id.icon, "setOriginalIconColor", 1)
-                            }
-                            result = true
-                        }
-                    }.onFailure {
-                        XLog.e(TAG, "processSmallIconColor hook failed", it)
-                    }
-                }
-            }
-            XLog.i(TAG, "processSmallIconColor hook installed successfully")
-        } catch (e: Exception) {
-            XLog.e(TAG, "Failed to install processSmallIconColor hook", e)
-        }
     }
 
     private fun statusBarNotificationFromEntry(entry: Any?): StatusBarNotification? {

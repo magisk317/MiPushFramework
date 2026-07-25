@@ -12,7 +12,6 @@ import android.service.notification.StatusBarNotification
 import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.common.utils.ImgUtils
-import io.github.magisk317.mipush.common.notification.StatusBarMonochromeIconPolicy
 import io.github.magisk317.mipush.common.notification.SinglePackageNotificationGroupPolicy
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.island.IslandPreferences
@@ -208,17 +207,10 @@ object SystemNotificationManager {
         // One shade group per app for MiPush posts, regardless of color/monochrome mode.
         SinglePackageNotificationGroupPolicy.ensurePackageGroup(packageName, notification)
         if (!colorMode) {
-            // MiPush monochrome posts: always replace multi-color smallIcon with white silhouette.
-            runCatching {
-                val app = currentApplication()
-                if (app != null) {
-                    StatusBarMonochromeIconPolicy.apply(app, packageName, notification)
-                }
-            }.onFailure {
-                XLog.w(TAG, "monochrome silhouette apply failed pkg=$packageName: ${it.message}")
-            }
+            // Keep the posted smallIcon intact. SystemUI owns the status-bar-only monochrome
+            // conversion; mutating this object makes expanded shade rows render white icons too.
             prepareMonochromeTargetNotification(packageName, notification)
-            XLog.d(TAG, "Applied monochrome smallIcon silhouette pkg=$packageName")
+            XLog.d(TAG, "Kept original smallIcon for status-bar-only monochrome pkg=$packageName")
             return
         }
         try {

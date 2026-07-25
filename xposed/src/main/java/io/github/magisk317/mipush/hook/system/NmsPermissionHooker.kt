@@ -8,8 +8,6 @@ import android.os.Binder
 import android.os.Build
 import android.os.Process
 import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
-import io.github.magisk317.mipush.hook.island.IslandPreferences
-import io.github.magisk317.mipush.common.notification.StatusBarMonochromeIconPolicy
 import io.github.magisk317.mipush.common.notification.SinglePackageNotificationGroupPolicy
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.hook.XLog
@@ -145,20 +143,13 @@ object NmsPermissionHooker {
      */
 
     /**
-     * System-wide package group collapse + optional global monochrome smallIcon rewrite.
+     * System-wide package group collapse.
      * Runs on every NMS enqueue so native and MiPush posts share one shade stack per app.
+     * Status-bar monochrome is applied in SystemUI and must not mutate the posted Notification.
      */
     private fun rewriteNotificationEnqueueArgs(args: Array<Any?>) {
         runCatching {
-            val options = IslandPreferences.current()
             SinglePackageNotificationGroupPolicy.applyToNmsEnqueueArgs(args)
-            val app = currentApplication() ?: return@runCatching
-            StatusBarMonochromeIconPolicy.applyToNmsEnqueueArgs(
-                context = app,
-                args = args,
-                colorStatusBarIcon = options.colorStatusBarIcon,
-                forceGlobalStatusBarIcons = options.colorStatusBarIconGlobal,
-            )
         }.onFailure {
             XLog.w(TAG, "notification enqueue rewrite failed: ${it.message}")
         }

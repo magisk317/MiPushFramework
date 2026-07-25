@@ -23,8 +23,6 @@ import org.junit.jupiter.api.Assertions.assertFalse
  *
  * These tests verify the scoped SystemUI icon policy. They serve as regression guards:
  * - Non-MiPush notifications are intercepted only by the explicit strong global mode
- * - processSmallIconColor must force monochrome (setOriginalIconColor(0)) for MiPush/global when toggle OFF,
- *   and process MiPush-managed non-grayscale icons when toggle ON
  * - IconManager.setIcon must only force icon_is_pre_L for MiPush-managed notifications when color mode is ON
  *
  * The important invariant is that non-MiPush notifications are left to native SystemUI behavior
@@ -78,16 +76,6 @@ class PreservationPropertyTest {
         }
     }
 
-    /**
-     * Represents the inputs for processSmallIconColor decision logic.
-     */
-    data class ProcessSmallIconColorInput(
-        val colorStatusBarIcon: Boolean,
-        val forceGlobalStatusBarIcons: Boolean,
-        val isGrayscaleIcon: Boolean,
-        val isMiPushManaged: Boolean,
-    )
-
     // ─── Pure Logic Simulation ───────────────────────────────────────────────────
 
     /**
@@ -116,67 +104,6 @@ class PreservationPropertyTest {
             forceGlobalStatusBarIcons = forceGlobalStatusBarIcons,
             isMiPushManaged = isMiPushManagedNotification(extras),
         )
-    }
-
-    /**
-     * Replicates the processSmallIconColor hook's doBefore decision logic.
-     *
-     * From HookSystemUI.kt:
-     * ```
-     * if (!IslandPreferences.current().colorStatusBarIcon) {
-     *     return@doBefore  // Toggle OFF: let MIUI's native processSmallIconColor run
-     * }
-     * ...
-     * if (!isGrayscaleIcon) {
-     *     contentView.setInt(android.R.id.icon, "setOriginalIconColor", 1)
-     *     result = true
-     * }
-     * ```
-     *
-     * Returns a sealed result representing the hook's action.
-     */
-    sealed class ProcessSmallIconColorResult {
-        /** Hook returns early, letting MIUI handle it natively */
-        object ReturnEarly : ProcessSmallIconColorResult()
-        /** Hook forces monochrome via setOriginalIconColor(0) when color toggle is OFF */
-        object ForceMonochrome : ProcessSmallIconColorResult()
-        /** Hook sets setOriginalIconColor(1) and result=true for non-grayscale icons */
-        object SetOriginalIconColor : ProcessSmallIconColorResult()
-        /** Hook does nothing (grayscale icon with toggle ON — MIUI handles) */
-        object NoAction : ProcessSmallIconColorResult()
-    }
-
-    private fun processSmallIconColorDecision(input: ProcessSmallIconColorInput): ProcessSmallIconColorResult {
-        if (!input.colorStatusBarIcon) {
-            return if (SystemUiNotificationPolicy.shouldForceMonochromeProcessSmallIcon(
-                    colorStatusBarIcon = input.colorStatusBarIcon,
-                    forceGlobalStatusBarIcons = input.forceGlobalStatusBarIcons,
-                    isMiPushManaged = input.isMiPushManaged,
-                )
-            ) {
-                ProcessSmallIconColorResult.ForceMonochrome
-            } else {
-                ProcessSmallIconColorResult.ReturnEarly
-            }
-        }
-        if (!SystemUiNotificationPolicy.shouldProcessSmallIconColor(
-                colorStatusBarIcon = input.colorStatusBarIcon,
-                forceGlobalStatusBarIcons = input.forceGlobalStatusBarIcons,
-                isMiPushManaged = input.isMiPushManaged,
-            )
-        ) {
-            return ProcessSmallIconColorResult.ReturnEarly
-        }
-        if (SystemUiNotificationPolicy.shouldApplySmallIconColor(
-                colorStatusBarIcon = input.colorStatusBarIcon,
-                forceGlobalStatusBarIcons = input.forceGlobalStatusBarIcons,
-                isMiPushManaged = input.isMiPushManaged,
-                isGrayscaleIcon = input.isGrayscaleIcon,
-            )
-        ) {
-            return ProcessSmallIconColorResult.SetOriginalIconColor
-        }
-        return ProcessSmallIconColorResult.NoAction
     }
 
     /**
@@ -328,21 +255,6 @@ class PreservationPropertyTest {
         }
     }
 
-    /**
-     * Generates random processSmallIconColor inputs.
-     */
-    @Provide
-    fun processSmallIconColorInputs(): Arbitrary<ProcessSmallIconColorInput> {
-        return Combinators.combine(
-            Arbitraries.of(true, false), // colorStatusBarIcon
-            Arbitraries.of(true, false), // forceGlobalStatusBarIcons
-            Arbitraries.of(true, false), // isGrayscaleIcon
-            Arbitraries.of(true, false), // isMiPushManaged
-        ).`as` { color, global, grayscale, isMiPushManaged ->
-            ProcessSmallIconColorInput(color, global, grayscale, isMiPushManaged)
-        }
-    }
-
     // ─── Property Tests ──────────────────────────────────────────────────────────
 
     /**
@@ -385,83 +297,6 @@ class PreservationPropertyTest {
                 "package=${notification.packageName}, " +
                 "extras keys=${notification.genericExtras.keys}"
         )
-    }
-
-    /**
-     * Property: processSmallIconColor returns early (lets MIUI handle) when toggle is OFF.
-     *
-     * **Validates: Requirements 3.4**
-     *
-     * When colorStatusBarIcon is false, the hook's guard condition
-     * `if (!colorStatusBarIcon) { return@doBefore }` causes an early return,
-     * allowing MIUI's native processSmallIconColor to run.
-     */
-    @Property(tries = 100)
-    fun `processSmallIconColor forces monochrome when colorStatusBarIcon is false`(
-        @ForAll("processSmallIconColorInputs") input: ProcessSmallIconColorInput
-    ) {
-        if (!input.colorStatusBarIcon) {
-            val result = processSmallIconColorDecision(input)
-            val expectForce = SystemUiNotificationPolicy.shouldForceMonochromeProcessSmallIcon(
-                colorStatusBarIcon = input.colorStatusBarIcon,
-                forceGlobalStatusBarIcons = input.forceGlobalStatusBarIcons,
-                isMiPushManaged = input.isMiPushManaged,
-            )
-            val expected = if (expectForce) {
-                ProcessSmallIconColorResult.ForceMonochrome
-            } else {
-                ProcessSmallIconColorResult.ReturnEarly
-            }
-            assertEquals(
-                expected,
-                result,
-                "When colorStatusBarIcon=false, MiPush/global monochrome must force " +
-                    "setOriginalIconColor(0); others may return early. " +
-                    "isMiPushManaged=${input.isMiPushManaged}, " +
-                    "forceGlobal=${input.forceGlobalStatusBarIcons}, got=$result"
-            )
-        }
-    }
-
-    /**
-     * Property: processSmallIconColor sets setOriginalIconColor(1) for non-grayscale icons
-     * when toggle is ON.
-     *
-     * **Validates: Requirements 3.1, 3.2**
-     *
-     * When colorStatusBarIcon is true and the icon is NOT grayscale, the hook
-     * calls `setOriginalIconColor(1)` to preserve color.
-     * When the icon IS grayscale, the hook does nothing (lets MIUI handle).
-     */
-    @Property(tries = 100)
-    fun `processSmallIconColor handles icons correctly when colorStatusBarIcon is true`(
-        @ForAll("processSmallIconColorInputs") input: ProcessSmallIconColorInput
-    ) {
-        if (input.colorStatusBarIcon) {
-            val result = processSmallIconColorDecision(input)
-            if (!input.isMiPushManaged && !input.forceGlobalStatusBarIcons) {
-                assertEquals(
-                    ProcessSmallIconColorResult.ReturnEarly,
-                    result,
-                    "When colorStatusBarIcon=true but notification is outside scoped handling, " +
-                        "processSmallIconColor must return early"
-                )
-            } else if (!input.isGrayscaleIcon) {
-                assertEquals(
-                    ProcessSmallIconColorResult.SetOriginalIconColor,
-                    result,
-                    "When colorStatusBarIcon=true and icon is NOT grayscale, " +
-                        "processSmallIconColor must set setOriginalIconColor(1)"
-                )
-            } else {
-                assertEquals(
-                    ProcessSmallIconColorResult.NoAction,
-                    result,
-                    "When colorStatusBarIcon=true and icon IS grayscale, " +
-                        "processSmallIconColor must do nothing (let MIUI handle)"
-                )
-            }
-        }
     }
 
     /**

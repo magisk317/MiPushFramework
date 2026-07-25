@@ -155,6 +155,10 @@ object IslandPreferences {
                             app.registerReceiver(receiver, filter, ISLAND_PREF_READ_PERMISSION, null)
                         }
                         registered = true
+                        // The initial refresh can run before ActivityThread exposes Application,
+                        // which otherwise leaves SystemUI on defaults until the 60-second poll.
+                        // Application is known-good here, so immediately retry the provider read.
+                        refreshNow()
                     }
                     if (!registered) {
                         try {

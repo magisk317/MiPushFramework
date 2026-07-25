@@ -183,6 +183,24 @@ internal object SystemUiNotificationPolicy {
     }
 
     /**
+     * MiPush-managed posts can carry the target app launcher bitmap as `smallIcon`.
+     *
+     * StatusBarIconView tints that bitmap in monochrome mode; if the launcher asset has an opaque
+     * background the status bar becomes a white block. Replace it on the status-bar getSmallIcon
+     * path only. The posted Notification object stays untouched so shade/header app icons keep
+     * native colored rendering.
+     */
+    fun shouldReplaceBitmapWithPackageMonochrome(
+        colorStatusBarIcon: Boolean,
+        isMiPushManaged: Boolean,
+        iconType: Int,
+    ): Boolean {
+        if (iconType != ICON_TYPE_BITMAP) return false
+        if (colorStatusBarIcon) return false
+        return isMiPushManaged
+    }
+
+    /**
      * Intercept decision for the getSmallIcon hook that also guards against forcing a broken
      * RESOURCE icon into the status bar. When the base policy would intercept but the icon is not
      * loadable, we decline so MIUI's native fallback can substitute the posting app's icon.
@@ -198,11 +216,11 @@ internal object SystemUiNotificationPolicy {
         uid: Int,
         isSystemApp: Boolean,
         canColorize: Boolean,
+        hasMonochromeResource: Boolean = false,
     ): Boolean {
-        // Monochrome BITMAP must still be intercepted. MiPush posts white-alpha silhouettes as
-        // TYPE_BITMAP; if we decline getSmallIcon, MIUI substitutes the multi-color app logo and
-        // the status bar stays full-color. Intercepting keeps the posted monochrome pixels and
-        // lets IconManager apply SRC_IN grayscale tint.
+        // Monochrome BITMAP must still be intercepted. The getSmallIcon hook replaces MiPush
+        // launcher bitmaps with a status-bar-only package fallback before this guard; if fallback
+        // creation fails, intercepting still prevents MIUI from re-substituting a color app icon.
         if (!shouldInterceptSmallIcon(colorStatusBarIcon, forceGlobalStatusBarIcons, isMiPushManaged)) {
             return false
         }
@@ -215,30 +233,17 @@ internal object SystemUiNotificationPolicy {
                 uid = uid,
                 isSystemApp = isSystemApp,
                 canColorize = canColorize,
+                hasMonochromeResource = hasMonochromeResource,
             )
         ) {
             return false
         }
+        // A successful grayscale check proves that SystemUI can load this RESOURCE even when its
+        // framework id is tagged with a system/server package (for example Telecom). In that case
+        // keep the posted glyph and tint it instead of declining to MIUI's colored fallback.
+        if (iconType == ICON_TYPE_RESOURCE && hasMonochromeResource) return true
         return isResourceSmallIconLoadable(iconType, resId, resPackage)
     }
-
-    fun shouldApplySmallIconColor(
-        colorStatusBarIcon: Boolean,
-        forceGlobalStatusBarIcons: Boolean,
-        isMiPushManaged: Boolean,
-        isGrayscaleIcon: Boolean,
-    ): Boolean = colorStatusBarIcon &&
-        shouldProcessSmallIconColor(colorStatusBarIcon, forceGlobalStatusBarIcons, isMiPushManaged) &&
-        !isGrayscaleIcon
-
-    fun shouldProcessSmallIconColor(
-        colorStatusBarIcon: Boolean,
-        forceGlobalStatusBarIcons: Boolean,
-        isMiPushManaged: Boolean,
-    ): Boolean = colorStatusBarIcon && shouldHandleStatusBarIcon(
-        forceGlobalStatusBarIcons = forceGlobalStatusBarIcons,
-        isMiPushManaged = isMiPushManaged,
-    )
 
     fun statusBarIconPreLTagOverride(
         colorStatusBarIcon: Boolean,
@@ -259,15 +264,6 @@ internal object SystemUiNotificationPolicy {
         forceGlobalStatusBarIcons: Boolean,
     ): Boolean = forceGlobalStatusBarIcons && !colorStatusBarIcon
 
-    fun shouldForceMonochromeProcessSmallIcon(
-        colorStatusBarIcon: Boolean,
-        forceGlobalStatusBarIcons: Boolean,
-        isMiPushManaged: Boolean,
-    ): Boolean {
-        if (colorStatusBarIcon) return false
-        return isMiPushManaged || forceGlobalStatusBarIcons
-    }
-
     fun shouldApplyMonochromeTintToNotification(
         colorStatusBarIcon: Boolean,
         forceGlobalStatusBarIcons: Boolean,
@@ -276,6 +272,7 @@ internal object SystemUiNotificationPolicy {
         uid: Int,
         isSystemApp: Boolean,
         canColorize: Boolean,
+        hasMonochromeResource: Boolean = false,
     ): Boolean {
         if (colorStatusBarIcon) return false
         if (isMiPushManaged) return true
@@ -287,6 +284,7 @@ internal object SystemUiNotificationPolicy {
             uid = uid,
             isSystemApp = isSystemApp,
             canColorize = canColorize,
+            hasMonochromeResource = hasMonochromeResource,
         )
     }
 
@@ -298,6 +296,7 @@ internal object SystemUiNotificationPolicy {
         uid: Int,
         isSystemApp: Boolean,
         canColorize: Boolean,
+        hasMonochromeResource: Boolean = false,
     ): Boolean {
         if (!shouldForceGlobalMonochrome(colorStatusBarIcon, forceGlobalStatusBarIcons)) {
             return false
@@ -305,10 +304,10 @@ internal object SystemUiNotificationPolicy {
         if (isMiPushManaged) return true
         // SecurityCenter keeps OEM colorized glyphs; do not hard-mono it.
         if (packageName == SECURITY_CENTER_PACKAGE) return false
-        // Skip pure system/server uids. Privileged user-facing system apps (Messaging, etc.)
-        // use application uids and must follow strong monochrome like third-party icons —
-        // otherwise SMS stays full-color next to white MiPush silhouettes.
-        if (!isApplicationUid(uid)) return false
+        // Pure system/server uids are eligible only when the posted smallIcon was positively
+        // identified as a loadable grayscale resource. Never synthesize a launcher silhouette for
+        // them: if no native monochrome glyph exists, preserve the OEM rendering unchanged.
+        if (!isApplicationUid(uid)) return hasMonochromeResource
         // Note: do not skip FLAG_CAN_COLORIZE or isSystemApp. HyperOS otherwise keeps multi-color
         // logos on the status bar under "strong monochrome".
         return true
@@ -328,6 +327,27 @@ internal object SystemUiNotificationPolicy {
     ): Boolean {
         if (colorStatusBarIcon) return false
         return isMiPushManaged || forceGlobalStatusBarIcons
+    }
+
+    /** Status-bar icon view class whose [updateIconColor] is the only status-bar caller of
+     * [NotifImageUtil.shouldSubstituteSmallIcon]. */
+    const val STATUS_BAR_ICON_VIEW_CLASS = "com.android.systemui.statusbar.StatusBarIconView"
+
+    /**
+     * Whether a [NotifImageUtil.shouldSubstituteSmallIcon] call originates from the status bar.
+     *
+     * `shouldSubstituteSmallIcon` is called from exactly three sites on CN HyperOS:
+     * - `StatusBarIconView.updateIconColor()` — the status-bar path we must force to false so MIUI
+     *   does not clear the color filter and re-colorize BITMAP app logos.
+     * - `NotificationHeaderViewWrapper.resolveHeaderViews()` and `NotificationViewWrapper.<init>()`
+     *   — notification-shade header/expanded rows, which must keep native behavior (colored app
+     *   icon via `applyAppIconAllowCustom`).
+     *
+     * Forcing false on the shade paths is what turns expanded rows / group-summary headers white.
+     * We whitelist only the [STATUS_BAR_ICON_VIEW_CLASS] frame so the override stays status-bar only.
+     */
+    fun isStatusBarSubstitutionContext(stackClassNames: Iterable<String>): Boolean {
+        return stackClassNames.any { it == STATUS_BAR_ICON_VIEW_CLASS }
     }
 
     fun globalMonochromeTint(requestedColor: Int, fallbackColor: Int): Int {

@@ -280,6 +280,72 @@ class ResourceSmallIconGuardTest {
     }
 
     @Test
+    fun `strong monochrome covers system uid only with a native monochrome resource`() {
+        assertFalse(
+            SystemUiNotificationPolicy.shouldApplyGlobalMonochromeToNotification(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = false,
+                packageName = "com.android.server.telecom",
+                uid = SYSTEM_UID,
+                isSystemApp = true,
+                canColorize = true,
+                hasMonochromeResource = false,
+            ),
+            "A system notification without a proven monochrome smallIcon must keep OEM rendering.",
+        )
+        assertTrue(
+            SystemUiNotificationPolicy.shouldApplyGlobalMonochromeToNotification(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = false,
+                packageName = "com.android.server.telecom",
+                uid = SYSTEM_UID,
+                isSystemApp = true,
+                canColorize = true,
+                hasMonochromeResource = true,
+            ),
+            "A loadable grayscale Telecom smallIcon can safely follow status-bar tint.",
+        )
+    }
+
+    @Test
+    fun `native monochrome proof keeps framework resource from system package`() {
+        assertTrue(
+            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = false,
+                iconType = ICON_TYPE_RESOURCE,
+                resId = 0x0108007f,
+                resPackage = "com.android.server.telecom",
+                packageName = "com.android.server.telecom",
+                uid = SYSTEM_UID,
+                isSystemApp = true,
+                canColorize = true,
+                hasMonochromeResource = true,
+            ),
+            "Successful grayscale detection also proves the system resource is loadable.",
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = false,
+                iconType = ICON_TYPE_RESOURCE,
+                resId = 0x0108007f,
+                resPackage = "com.android.server.telecom",
+                packageName = "com.android.server.telecom",
+                uid = SYSTEM_UID,
+                isSystemApp = true,
+                canColorize = true,
+                hasMonochromeResource = false,
+            ),
+            "Without monochrome proof, preserve the native system fallback.",
+        )
+    }
+
+    @Test
     fun `monochrome blocks MIUI small-icon substitution for MiPush and strong global`() {
         assertTrue(
             SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
@@ -474,6 +540,38 @@ class ResourceSmallIconGuardTest {
     }
 
     @Test
+    fun `monochrome replaces MiPush bitmap launcher icons with package fallback`() {
+        assertTrue(
+            SystemUiNotificationPolicy.shouldReplaceBitmapWithPackageMonochrome(
+                colorStatusBarIcon = false,
+                isMiPushManaged = true,
+                iconType = ICON_TYPE_BITMAP,
+            ),
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldReplaceBitmapWithPackageMonochrome(
+                colorStatusBarIcon = true,
+                isMiPushManaged = true,
+                iconType = ICON_TYPE_BITMAP,
+            ),
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldReplaceBitmapWithPackageMonochrome(
+                colorStatusBarIcon = false,
+                isMiPushManaged = false,
+                iconType = ICON_TYPE_BITMAP,
+            ),
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldReplaceBitmapWithPackageMonochrome(
+                colorStatusBarIcon = false,
+                isMiPushManaged = true,
+                iconType = ICON_TYPE_RESOURCE,
+            ),
+        )
+    }
+
+    @Test
     fun `zero resource small icon is replaced instead of forced or declined`() {
         assertTrue(
             SystemUiNotificationPolicy.shouldReplaceBrokenResourceSmallIcon(
@@ -625,7 +723,7 @@ class ResourceSmallIconGuardTest {
                 isGrayscaleIcon = false,
             ),
         )
-        // BITMAP silhouettes are already monochrome pixels — do not re-replace.
+        // BITMAP launcher icons use the separate status-bar-only fallback path.
         assertFalse(
             SystemUiNotificationPolicy.shouldReplaceResourceWithPackageMonochrome(
                 colorStatusBarIcon = false,

@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
  *
  * When colorStatusBarIcon is false (monochrome) and the notification is MiPush-managed,
  * SystemUI must intercept getSmallIcon so MIUI cannot substitute the multi-color app logo
- * over MiPush's white-alpha silhouette BITMAP / monochrome RESOURCE.
+ * over the status-bar-only monochrome fallback / monochrome RESOURCE.
  */
 class GetSmallIconHookBugConditionTest {
 
