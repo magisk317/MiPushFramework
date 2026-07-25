@@ -15,6 +15,7 @@ import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.xposed.MethodHookParam
 import io.github.magisk317.xposed.findClass
 import io.github.magisk317.xposed.hook
+import io.github.magisk317.xposed.logging.MagiskOtel
 import java.lang.reflect.Method
 import java.util.Collections
 
@@ -148,6 +149,18 @@ class MiPushComponentVisibility : IFakeDevice {
         if (installed) {
             XLog.i(TAG, "installed MiPush component visibility hooks for pkg=$packageName proc=$processName")
         }
+        MagiskOtel.event(
+            name = "hook.load",
+            attributes = mapOf(
+                "result" to if (installed) "ok" else "skip",
+                "duration_ms" to "0",
+                "process" to "hook",
+                "stage" to "component_visibility",
+                "reason" to if (installed) "installed" else "no_hook",
+                "target_package" to packageName.ifBlank { "unknown" },
+            ),
+            statusOk = true,
+        )
         return installed
     }
 

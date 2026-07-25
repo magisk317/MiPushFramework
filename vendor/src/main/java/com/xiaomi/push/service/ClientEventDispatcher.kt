@@ -3,6 +3,7 @@ package com.xiaomi.push.service
 import android.content.Context
 import com.xiaomi.slim.Blob
 import com.xiaomi.smack.packet.Packet
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 class ClientEventDispatcher {
     private val pushEventProcessor = MIPushEventProcessor()
@@ -13,6 +14,18 @@ class ClientEventDispatcher {
         reason: Int
     ) {
         ClientEventDispatcherChannelSupport.notifyChannelClosed(pushAction.context, pushAction.runtimeObserver, clientLoginInfo, reason)
+        MagiskOtel.event(
+            name = "push.network",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "push",
+                "stage" to "channel_closed",
+                "reason" to reason.toString(),
+                "target_package" to clientLoginInfo.pkgName,
+            ),
+            statusOk = true,
+        )
     }
 
     fun notifyChannelOpenResult(
@@ -31,6 +44,23 @@ class ClientEventDispatcher {
             reasonMessage,
             pushEventProcessor
         )
+        MagiskOtel.event(
+            name = "push.network",
+            attributes = mapOf(
+                "result" to if (succeeded) "ok" else "error",
+                "duration_ms" to "0",
+                "process" to "push",
+                "stage" to "channel_open",
+                "reason" to reason.toString(),
+                "reason_token" to when (reasonMessage) {
+                    null, "" -> "none"
+                    "token-expired" -> "token_expired"
+                    else -> "other"
+                },
+                "target_package" to clientLoginInfo.pkgName,
+            ),
+            statusOk = succeeded,
+        )
     }
 
     fun notifyKickedByServer(
@@ -40,6 +70,18 @@ class ClientEventDispatcher {
         kickReason: String?
     ) {
         ClientEventDispatcherChannelSupport.notifyKickedByServer(pushAction.context, pushAction.runtimeObserver, clientLoginInfo, kickType, kickReason)
+        MagiskOtel.event(
+            name = "push.network",
+            attributes = mapOf(
+                "result" to "skip",
+                "duration_ms" to "0",
+                "process" to "push",
+                "stage" to "channel_kick",
+                "reason" to (kickType?.takeIf { it.length <= 32 } ?: "kick"),
+                "target_package" to clientLoginInfo.pkgName,
+            ),
+            statusOk = true,
+        )
     }
 
     fun notifyPacketArrival(pushAction: IPushServiceAction, chid: String, blob: Blob) {
@@ -52,5 +94,16 @@ class ClientEventDispatcher {
 
     fun notifyServiceStarted(context: Context, observer: IPushRuntimeObserver) {
         ClientEventDispatcherChannelSupport.notifyServiceStarted(context, observer)
+        MagiskOtel.event(
+            name = "push.lifecycle",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "push",
+                "stage" to "client_event_service_started",
+                "package_name" to context.packageName.orEmpty(),
+            ),
+            statusOk = true,
+        )
     }
 }

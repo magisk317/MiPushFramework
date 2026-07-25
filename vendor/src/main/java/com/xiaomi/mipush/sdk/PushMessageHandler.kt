@@ -17,6 +17,7 @@ import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 /*
  * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
@@ -91,9 +92,24 @@ class PushMessageHandler : BaseService() {
 
         @JvmStatic
         fun onHandleIntent(context: Context, intent: Intent) {
+            fun emit(result: String, reason: String, statusOk: Boolean = true) {
+                MagiskOtel.event(
+                    name = "push.receive",
+                    attributes = mapOf(
+                        "result" to result,
+                        "duration_ms" to "0",
+                        "process" to "sdk",
+                        "stage" to "push_message_handler",
+                        "reason" to reason,
+                        "target_package" to context.packageName.orEmpty().ifBlank { "unknown" },
+                    ),
+                    statusOk = statusOk,
+                )
+            }
             try {
                 if (PushConstants.ACTION_WAKEUP == intent.action) {
                     AwakeHelper.doAWork(context, intent, null)
+                    emit(result = "ok", reason = "wakeup")
                 } else if (PushConstants.MIPUSH_ACTION_SEND_TINYDATA == intent.action) {
                     val clientUploadDataItem = ClientUploadDataItem()
                     XmPushThriftSerializeUtils.convertByteArrayToThriftObject(
@@ -102,13 +118,18 @@ class PushMessageHandler : BaseService() {
                     )
                     MyLog.v("PushMessageHandler.onHandleIntent ${clientUploadDataItem.id}")
                     MiTinyDataClient.upload(context, clientUploadDataItem)
+                    emit(result = "ok", reason = "tinydata")
                 } else if (PushMessageHelper.getPushMode(context) == 1) {
                     if (isCallbackEmpty()) {
                         MyLog.e("receive a message before application calling initialize")
+                        emit(result = "skip", reason = "callback_empty")
                     } else {
                         val pushMessageInterface = com.xiaomi.push.service.XMPushServiceCore.observer?.processMIPushIntent(intent) as? PushMessageInterface
                         if (pushMessageInterface != null) {
                             processMessageForCallback(context, pushMessageInterface)
+                            emit(result = "ok", reason = "callback_mode")
+                        } else {
+                            emit(result = "skip", reason = "null_interface")
                         }
                     }
                 } else if (PushServiceConstants.ACTION_SYNC_LOG != intent.action) {
@@ -129,18 +150,24 @@ class PushMessageHandler : BaseService() {
                         }
                         if (next != null) {
                             handleNewMessage(context, intent2, next)
+                            emit(result = "ok", reason = "broadcast_receiver")
                         } else {
                             MyLog.e("cannot find the receiver to handler this message, check your manifest")
                             PushClientReportManager.getInstance(context).reportEvent4ERROR(context.packageName, intent, "11")
+                            emit(result = "error", reason = "receiver_missing", statusOk = false)
                         }
                     } catch (e: Exception) {
                         MyLog.e(e)
                         PushClientReportManager.getInstance(context).reportEvent4ERROR(context.packageName, intent, "9")
+                        emit(result = "error", reason = e.javaClass.simpleName, statusOk = false)
                     }
+                } else {
+                    emit(result = "skip", reason = "sync_log")
                 }
             } catch (th: Throwable) {
                 MyLog.e(th)
                 PushClientReportManager.getInstance(context).reportEvent4ERROR(context.packageName, intent, "10")
+                emit(result = "error", reason = th.javaClass.simpleName, statusOk = false)
             }
         }
 

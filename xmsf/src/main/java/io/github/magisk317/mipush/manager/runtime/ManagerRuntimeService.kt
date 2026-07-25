@@ -51,6 +51,7 @@ import io.github.magisk317.mipush.manager.runtime.read.ManagerPreferenceRuntimeR
 import io.github.magisk317.mipush.manager.api.ManagerWriteRequestDto
 import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto
 import io.github.magisk317.mipush.manager.runtime.write.ManagerWriteRuntimeExecutor
+import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.manager.runtime.read.ManagerNotificationChannelReadPage
 import io.github.magisk317.mipush.manager.runtime.read.ManagerNotificationChannelReadQuery
 import io.github.magisk317.mipush.manager.runtime.read.ManagerNotificationChannelRuntimeReader
@@ -99,11 +100,24 @@ class ManagerRuntimeService : Service() {
                     maxPayloadBytes = ManagerProtocol.DEFAULT_MAX_PAYLOAD_BYTES,
                     compatibilityReason = compatibility.reason,
                 ).also { handshake ->
+                    val durationMs = android.os.SystemClock.elapsedRealtime() - started
                     logI(
                         "ManagerRuntime handshake client=$clientMajor.$clientMinor " +
                             "compat=${handshake.compatibilityReason} " +
                             "caps=${handshake.supportedCapabilities.size} " +
-                            "tookMs=${android.os.SystemClock.elapsedRealtime() - started}",
+                            "tookMs=$durationMs",
+                    )
+                    MagiskOtel.event(
+                        name = "push.manager",
+                        attributes = mapOf(
+                            "result" to if (compatibility.isCompatible) "ok" else "skip",
+                            "duration_ms" to durationMs.toString(),
+                            "process" to "xmsf",
+                            "stage" to "handshake",
+                            "reason" to (handshake.compatibilityReason?.ifBlank { "handshake" } ?: "handshake"),
+                            "found_count" to handshake.supportedCapabilities.size.toString(),
+                        ),
+                        statusOk = true,
                     )
                 }
             }
@@ -228,6 +242,17 @@ class ManagerRuntimeService : Service() {
             return withRuntimeIdentity {
                 logExportReader.export().also { result ->
                     ManagerProtocol.validateLogExportResult(result)?.let(::invalidArgument)
+                    MagiskOtel.event(
+                        name = "app.monitor",
+                        attributes = mapOf(
+                            "result" to "ok",
+                            "duration_ms" to "0",
+                            "process" to "xmsf",
+                            "stage" to "log_bundle_export",
+                            "reason" to "manager_export",
+                        ),
+                        statusOk = true,
+                    )
                 }
             }
         }
@@ -275,9 +300,22 @@ class ManagerRuntimeService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? {
         val expectedComponent = ComponentName(packageName, ManagerProtocol.RUNTIME_SERVICE_CLASS)
-        return binder.takeIf {
+        val bound = binder.takeIf {
             intent?.action == ManagerProtocol.SERVICE_ACTION && intent.component == expectedComponent
         }
+        MagiskOtel.event(
+            name = "push.manager",
+            attributes = mapOf(
+                "result" to if (bound != null) "ok" else "skip",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "service_bind",
+                "reason" to if (bound != null) "bound" else "rejected",
+                "action" to (intent?.action ?: "null"),
+            ),
+            statusOk = true,
+        )
+        return bound
     }
 
     @Suppress("DEPRECATION")

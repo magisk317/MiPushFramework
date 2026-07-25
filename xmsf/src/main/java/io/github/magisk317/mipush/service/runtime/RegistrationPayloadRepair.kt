@@ -21,6 +21,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 object RegistrationPayloadRepair {
     private const val COMPAT_PROFILES_ASSET = "compat-profiles.json"
@@ -37,20 +38,66 @@ object RegistrationPayloadRepair {
 
     @JvmStatic
     fun repair(context: Context, packageName: String): PushRegistrationPayloadRepairResult? {
-        if (packageName.isBlank()) return null
-        val credential = credentialForPackage(context, packageName) ?: return null
+        if (packageName.isBlank()) {
+            emitRepair(result = "skip", reason = "blank_package", statusOk = false)
+            return null
+        }
+        val credential = credentialForPackage(context, packageName)
+        if (credential == null) {
+            emitRepair(
+                result = "skip",
+                reason = "no_credential",
+                statusOk = false,
+                extra = mapOf("target_package" to packageName),
+            )
+            return null
+        }
         val payload = buildRegistrationPayload(
             context = context,
             packageName = packageName,
             appId = credential.appId,
             appToken = credential.appKey,
-        ) ?: return null
+        )
+        if (payload == null) {
+            emitRepair(
+                result = "error",
+                reason = "payload_build_failed",
+                statusOk = false,
+                extra = mapOf("target_package" to packageName),
+            )
+            return null
+        }
+        emitRepair(
+            result = "ok",
+            reason = "repaired",
+            extra = mapOf(
+                "target_package" to packageName,
+                "payload_size" to payload.size.toString(),
+            ),
+        )
         return PushRegistrationPayloadRepairResult(
             packageName = packageName,
             appId = credential.appId,
             appToken = credential.appKey,
             payload = payload,
         )
+    }
+
+    private fun emitRepair(
+        result: String,
+        reason: String,
+        statusOk: Boolean = true,
+        extra: Map<String, String> = emptyMap(),
+    ) {
+        val attrs = linkedMapOf(
+            "result" to result,
+            "duration_ms" to "0",
+            "process" to "app",
+            "stage" to "registration_repair",
+            "reason" to reason,
+        )
+        attrs.putAll(extra)
+        MagiskOtel.event(name = "push.register", attributes = attrs, statusOk = statusOk)
     }
 
     internal fun parseCredentialOverrides(jsonText: String): Map<String, Pair<String, String>> {

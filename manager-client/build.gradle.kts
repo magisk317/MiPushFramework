@@ -10,6 +10,7 @@ android {
 dependencies {
     api(project(":manager-api"))
     implementation(libs.kotlinx.coroutines.android)
+    implementation(project(":magisk-xposed-kit:logging"))
 
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.robolectric)

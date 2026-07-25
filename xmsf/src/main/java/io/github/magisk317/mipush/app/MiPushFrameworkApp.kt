@@ -78,10 +78,14 @@ open class MiPushFrameworkApp : Application() {
         }
 
         AppDependencies.start(this)
+        val analyticsPrefEnabled = runCatching {
+            runBlocking { preferenceRepository.isAnalyticsEnabled.first() }
+        }.getOrDefault(true)
+        val systemOtelEnabled =
+            System.getProperty("magisk.otel.enabled")?.equals("true", ignoreCase = true) == true
         MagiskOtel.configure(
             MagiskOtel.Config(
-                enabled = BuildConfig.DEBUG ||
-                    (System.getProperty("magisk.otel.enabled")?.equals("true", ignoreCase = true) == true),
+                enabled = BuildConfig.DEBUG || analyticsPrefEnabled || systemOtelEnabled,
                 serviceName = "mipushframework",
                 serviceVersion = VERSION_NAME,
                 projectId = "83955143",

@@ -65,12 +65,38 @@ import java.util.UUID
 import kotlinx.coroutines.flow.first
 import io.github.magisk317.mipush.common.utils.logW
 import kotlinx.coroutines.runBlocking
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 /**
  * Binder-backed gateways used when the manager UI runs in the standalone `:mipush` process.
  * Supported reads/writes go through [ManagerRuntimeClient]; unsupported capabilities stay local
  * no-ops so individual screens degrade without blocking the rest of the host.
  */
+private fun emitManager(
+    stage: String,
+    result: String,
+    reason: String,
+    statusOk: Boolean = true,
+    targetPackage: String? = null,
+) {
+    val attrs = mutableMapOf(
+        "result" to result,
+        "duration_ms" to "0",
+        "process" to "manager",
+        "stage" to stage,
+        "reason" to reason,
+    )
+    if (!targetPackage.isNullOrBlank()) {
+        attrs["target_package"] = targetPackage
+    }
+    MagiskOtel.event(
+        name = "app.monitor",
+        attributes = attrs,
+        statusOk = statusOk,
+    )
+}
+
+
 class RemoteManagerApplicationGateway(
     private val client: ManagerRuntimeClient,
 ) : ManagerApplicationGateway {
@@ -151,13 +177,26 @@ class RemoteManagerApplicationGateway(
         registeredType: Int,
     ): String {
         val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
-            ?: return "launch_unavailable"
-        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        return if (runCatching { context.startActivity(launchIntent) }.isSuccess) {
-            "launched_without_force_register"
-        } else {
-            "launch_failed"
+        if (launchIntent == null) {
+            emitManager(
+                stage = "manager_force_register",
+                result = "skip",
+                reason = "launch_unavailable",
+                targetPackage = packageName,
+            )
+            return "launch_unavailable"
         }
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val launched = runCatching { context.startActivity(launchIntent) }.isSuccess
+        val reason = if (launched) "launched_without_force_register" else "launch_failed"
+        emitManager(
+            stage = "manager_force_register",
+            result = if (launched) "ok" else "error",
+            reason = reason,
+            statusOk = launched,
+            targetPackage = packageName,
+        )
+        return reason
     }
 }
 
@@ -232,8 +271,18 @@ class RemoteManagerEventGateway(
             eventId = event.id,
             intArgument = event.type,
             longArgument = event.receiveDateMs,
-        ) ?: return MockReplayOutcome.Failed
-        return when (result.details) {
+        )
+        if (result == null) {
+            emitManager(
+                stage = "manager_mock_replay",
+                result = "error",
+                reason = "null_response",
+                statusOk = false,
+                targetPackage = event.packageName,
+            )
+            return MockReplayOutcome.Failed
+        }
+        val outcome = when (result.details) {
             ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_POSTED -> MockReplayOutcome.Posted
             ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_DISPATCHED -> MockReplayOutcome.Dispatched
             ManagerProtocol.WRITE_DETAIL_MOCK_REPLAY_BLOCKED -> MockReplayOutcome.BlockedByPermission
@@ -244,6 +293,24 @@ class RemoteManagerEventGateway(
                 MockReplayOutcome.Failed
             }
         }
+        val statusOk = outcome != MockReplayOutcome.Failed && outcome != MockReplayOutcome.BlockedByPermission
+        emitManager(
+            stage = "manager_mock_replay",
+            result = when (outcome) {
+                MockReplayOutcome.Failed -> "error"
+                MockReplayOutcome.BlockedByPermission -> "skip"
+                else -> "ok"
+            },
+            reason = when (outcome) {
+                MockReplayOutcome.Posted -> "posted"
+                MockReplayOutcome.Dispatched -> "dispatched"
+                MockReplayOutcome.BlockedByPermission -> "blocked_by_permission"
+                MockReplayOutcome.Failed -> "failed"
+            },
+            statusOk = statusOk,
+            targetPackage = event.packageName,
+        )
+        return outcome
     }
 
     override fun getJson(event: ManagerEvent): String? = runCatching { EventDebugJson.format(event) }.getOrNull()
@@ -267,8 +334,8 @@ class RemoteManagerEventGateway(
         }
     }
 
-    override suspend fun deleteEvent(event: ManagerEvent): Boolean =
-        RemoteWriteSupport.isSuccess(
+    override suspend fun deleteEvent(event: ManagerEvent): Boolean {
+        val ok = RemoteWriteSupport.isSuccess(
             RemoteWriteSupport.execute(
                 client = client,
                 operation = ManagerProtocol.WRITE_OP_DELETE_EVENT,
@@ -276,6 +343,15 @@ class RemoteManagerEventGateway(
                 eventId = event.id,
             ),
         )
+        emitManager(
+            stage = "manager_event_delete",
+            result = if (ok) "ok" else "error",
+            reason = if (ok) "deleted" else "delete_failed",
+            statusOk = ok,
+            targetPackage = event.packageName,
+        )
+        return ok
+    }
 
     override suspend fun restoreEvent(event: ManagerEvent): ManagerEvent? {
         val result = RemoteWriteSupport.execute(
@@ -458,12 +534,19 @@ class RemoteManagerLogGateway(
     }
 
     override fun buildLogBundle(context: Context): ManagerLogExportResult = runBlocking {
-        when (val result = exportSource.export()) {
+        val export = when (val result = exportSource.export()) {
             is LogExportReadResult.Available -> {
                 val dto = result.value
                 val descriptor = dto.parcelFileDescriptor
                 if (!dto.success || descriptor == null) {
-                    return@runBlocking ManagerLogExportResult(file = null, details = dto.details)
+                    return@runBlocking ManagerLogExportResult(file = null, details = dto.details).also {
+                        emitManager(
+                            stage = "manager_log_export",
+                            result = "error",
+                            reason = "descriptor_missing",
+                            statusOk = false,
+                        )
+                    }
                 }
                 // Restore pre-split share name: mipush_logs_<timestamp>.zip (not UUID).
                 val timestamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(Date())
@@ -503,6 +586,13 @@ class RemoteManagerLogGateway(
                 )
             }
         }
+        emitManager(
+            stage = "manager_log_export",
+            result = if (export.file != null) "ok" else "error",
+            reason = if (export.file != null) "exported" else "export_failed",
+            statusOk = export.file != null,
+        )
+        export
     }
 
     /**
@@ -582,7 +672,7 @@ class RemoteManagerLogGateway(
             operation = ManagerProtocol.WRITE_OP_CLEAR_LOG_FOLDERS,
             uniqueRequestId = true,
         )
-        return if (RemoteWriteSupport.isSuccess(result)) {
+        val clearResult = if (RemoteWriteSupport.isSuccess(result)) {
             ManagerLogClearResult(
                 success = true,
                 details = result?.details.orEmpty().ifBlank { "clear_log_folders_ok" },
@@ -593,6 +683,13 @@ class RemoteManagerLogGateway(
                 details = result?.details ?: "clear_logs_runtime_unavailable",
             )
         }
+        emitManager(
+            stage = "manager_log_clear",
+            result = if (clearResult.success) "ok" else "error",
+            reason = if (clearResult.success) "cleared" else "clear_failed",
+            statusOk = clearResult.success,
+        )
+        return clearResult
     }
 }
 

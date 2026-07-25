@@ -210,9 +210,21 @@ open class MiPushFacadeService : Service() {
         val acceptedIntent = result.intent
         if (acceptedIntent == null) {
             logRejectedExternalIntent(sourceIntent, result.rejectionReason.orEmpty())
+            emitExternalIngress(
+                result = "skip",
+                reason = result.rejectionReason.orEmpty().ifBlank { "rejected" },
+                intent = sourceIntent,
+                statusOk = true,
+            )
             return
         }
         PushRuntime.submitBridgeIntent(acceptedIntent)
+        emitExternalIngress(
+            result = "ok",
+            reason = "accepted",
+            intent = acceptedIntent,
+            statusOk = true,
+        )
     }
 
     private fun logRejectedExternalIntent(intent: Intent?, reason: String) {
@@ -220,6 +232,27 @@ open class MiPushFacadeService : Service() {
             "Rejected intent on exported MiPush compatibility entry: " +
                 "action=${intent?.action} reason=$reason",
         )
+    }
+
+    private fun emitExternalIngress(
+        result: String,
+        reason: String,
+        intent: Intent?,
+        statusOk: Boolean,
+    ) {
+        val packageName = intent?.getStringExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE)
+            ?: intent?.getStringExtra(PushConstants.EXTRA_PACKAGE_NAME)
+        val attrs = mutableMapOf(
+            "result" to result,
+            "duration_ms" to "0",
+            "process" to "xmsf",
+            "stage" to "external_ingress",
+            "reason" to reason,
+        )
+        if (!packageName.isNullOrBlank()) {
+            attrs["target_package"] = packageName
+        }
+        MagiskOtel.event(name = "push.receive", attributes = attrs, statusOk = statusOk)
     }
 
     private fun observeRuntimeRouting(intent: Intent) {

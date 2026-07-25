@@ -6,6 +6,7 @@ import io.github.magisk317.mipush.hook.compat.legacyhuawei.LegacyHuaweiSignature
 import io.github.magisk317.mipush.hook.fakedevice.compat.HookPipelineId
 import io.github.magisk317.mipush.hook.fakedevice.compat.ModuleCompatRegistry
 import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 object FakeDevice {
     private const val TAG = "FakeDevice"
@@ -34,19 +35,34 @@ object FakeDevice {
     fun fake(lpparam: LoadParam) {
         val packageName = lpparam.packageName.orEmpty()
         val processName = lpparam.processName.orEmpty()
+        fun emit(result: String, reason: String, statusOk: Boolean = true, pipelineCount: Int? = null) {
+            val attrs = mutableMapOf(
+                "result" to result,
+                "duration_ms" to "0",
+                "process" to "hook",
+                "stage" to "fake_device",
+                "reason" to reason,
+            )
+            if (packageName.isNotBlank()) attrs["target_package"] = packageName
+            if (pipelineCount != null) attrs["found_count"] = pipelineCount.toString()
+            MagiskOtel.event(name = "hook.load", attributes = attrs, statusOk = statusOk)
+        }
         XLog.d(TAG, "fake() called with: packageName = $packageName, processName = $processName")
         if (packageName == "com.google.android.webview") {
             XLog.d(TAG, "fake() called, ignore $packageName")
+            emit(result = "skip", reason = "webview")
             return
         }
         if (processName.isBlank()) {
             XLog.w(TAG, "skip fake() for package without processName: $packageName")
+            emit(result = "skip", reason = "blank_process")
             return
         }
 
         val profile = ModuleCompatRegistry.resolveProfile(packageName, processName, lpparam.classLoader)
         if (profile == null) {
             XLog.d(TAG, "skip fake() without profile for $packageName in process=$processName")
+            emit(result = "skip", reason = "no_profile")
             return
         }
         if (profile.isAutoDetected) {
@@ -63,18 +79,22 @@ object FakeDevice {
         val pipelines = profile.hookPipelines
         if (pipelines.isEmpty()) {
             XLog.d(TAG, "registration-only profile active for $packageName in process=$processName")
+            emit(result = "ok", reason = "registration_only", pipelineCount = 0)
             return
         }
 
         if (android.os.Build.BRAND.equals("Xiaomi", ignoreCase = true) || android.os.Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true)) {
             XLog.i(TAG, "Zygisk spoofing detected (or native Xiaomi device) for $packageName, skipping FakeDevice pipelines")
+            emit(result = "skip", reason = "xiaomi_device", pipelineCount = pipelines.size)
             return
         }
 
         LegacyHuaweiSignatureCompat.hook(lpparam)
-        pipelines.distinct().forEach { pipelineId ->
+        val distinctPipelines = pipelines.distinct()
+        distinctPipelines.forEach { pipelineId ->
             createPipelineHook(pipelineId).fake(lpparam)
         }
+        emit(result = "ok", reason = "pipelines_installed", pipelineCount = distinctPipelines.size)
     }
 }
 

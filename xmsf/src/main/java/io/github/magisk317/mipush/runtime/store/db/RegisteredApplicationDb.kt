@@ -11,6 +11,7 @@ import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.platform.support.Global
 import kotlinx.coroutines.runBlocking
+import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.common.BuildConfig.DEBUG
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.store.DatabaseUtils.registeredApplicationDao
@@ -25,9 +26,23 @@ object RegisteredApplicationDb {
 
     @JvmStatic
     fun registerApplication(pkg: String): RegisteredApplication {
+        val startedAt = System.nanoTime()
         logD("registerApplication() called for: $pkg")
         val registeredApplication = getRegisteredApplication(pkg)
-        return registeredApplication ?: create(pkg)
+        val app = registeredApplication ?: create(pkg)
+        MagiskOtel.event(
+            name = "push.register",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                "process" to "push",
+                "stage" to "app_db_register",
+                "reason" to if (registeredApplication != null) "existing" else "created",
+                "target_package" to pkg,
+            ),
+            statusOk = true,
+        )
+        return app
     }
 
     @JvmStatic
@@ -107,11 +122,52 @@ object RegisteredApplicationDb {
 
     @JvmStatic
     fun markUnregistered(pkg: String): Boolean = runBlocking {
-        val application = registeredApplicationDao.getByPackageName(pkg) ?: return@runBlocking false
+        val startedAt = System.nanoTime()
+        val application = registeredApplicationDao.getByPackageName(pkg)
+        if (application == null) {
+            MagiskOtel.event(
+                name = "push.register",
+                attributes = mapOf(
+                    "result" to "skip",
+                    "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                    "process" to "push",
+                    "stage" to "app_db_unregister",
+                    "reason" to "missing",
+                    "target_package" to pkg,
+                ),
+                statusOk = true,
+            )
+            return@runBlocking false
+        }
         if (application.registeredType == RegisteredApplication.RegisteredType.Unregistered) {
+            MagiskOtel.event(
+                name = "push.register",
+                attributes = mapOf(
+                    "result" to "skip",
+                    "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                    "process" to "push",
+                    "stage" to "app_db_unregister",
+                    "reason" to "already_unregistered",
+                    "target_package" to pkg,
+                ),
+                statusOk = true,
+            )
             return@runBlocking false
         }
         application.registeredType = RegisteredApplication.RegisteredType.Unregistered
-        registeredApplicationDao.update(application) > 0
+        val ok = registeredApplicationDao.update(application) > 0
+        MagiskOtel.event(
+            name = "push.register",
+            attributes = mapOf(
+                "result" to if (ok) "ok" else "error",
+                "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                "process" to "push",
+                "stage" to "app_db_unregister",
+                "reason" to if (ok) "updated" else "update_failed",
+                "target_package" to pkg,
+            ),
+            statusOk = ok,
+        )
+        ok
     }
 }

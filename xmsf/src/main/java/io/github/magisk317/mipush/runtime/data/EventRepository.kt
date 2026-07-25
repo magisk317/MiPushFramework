@@ -43,6 +43,7 @@ import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 import io.github.magisk317.mipush.service.PushServiceStarter
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.delay
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 class EventRepository constructor(
     private val context: Context,
@@ -354,6 +355,33 @@ class EventRepository constructor(
             MockReplayOutcome.Failed -> "mock_replay_failed"
         }
         PushRuntime.observeNotificationEvent(packageName, action, "EventRepository.mockMessage")
+        val statusOk = outcome == MockReplayOutcome.Dispatched || outcome == MockReplayOutcome.Posted
+        emitMockReplay(
+            packageName = packageName,
+            result = if (statusOk) "ok" else if (outcome == MockReplayOutcome.BlockedByPermission) "skip" else "error",
+            reason = action,
+            statusOk = statusOk,
+        )
+    }
+
+    private fun emitMockReplay(
+        packageName: String,
+        result: String,
+        reason: String,
+        statusOk: Boolean = true,
+    ) {
+        MagiskOtel.event(
+            name = "push.event",
+            attributes = mapOf(
+                "result" to result,
+                "duration_ms" to "0",
+                "process" to "app",
+                "stage" to "mock_replay",
+                "reason" to reason,
+                "target_package" to packageName,
+            ),
+            statusOk = statusOk,
+        )
     }
 
     fun containerToJson(container: XmPushActionContainer, regSec: String?): CharSequence {

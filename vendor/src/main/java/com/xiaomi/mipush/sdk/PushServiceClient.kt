@@ -17,6 +17,7 @@ import android.os.RemoteException
 import android.text.TextUtils
 import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
+import io.github.magisk317.xposed.logging.MagiskOtel
 import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.channel.commonutils.network.Network
 import com.xiaomi.channel.commonutils.string.MD5
@@ -435,10 +436,22 @@ class PushServiceClient private constructor(context: Context) {
     }
 
     fun closePush() {
+        val startedAt = System.nanoTime()
         val intent = createServiceIntent().apply {
             action = PushConstants.MIPUSH_ACTION_DISABLE_PUSH
         }
         callService(intent)
+        MagiskOtel.event(
+            name = "push.control",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                "process" to "push",
+                "stage" to "client_close",
+                "package_name" to mContext.packageName.orEmpty(),
+            ),
+            statusOk = true,
+        )
     }
 
     fun isProvisioned(): Boolean {
@@ -485,6 +498,7 @@ class PushServiceClient private constructor(context: Context) {
     }
 
     fun processRegisterTask() {
+        val startedAt = System.nanoTime()
         val intent = registerTask
         registerTask = null
         if (intent != null) {
@@ -494,9 +508,22 @@ class PushServiceClient private constructor(context: Context) {
             )
         }
         XMPushServiceCore.observer?.dispatchRegistrationTasks("PushServiceClient.processRegisterTask")
+        MagiskOtel.event(
+            name = "push.register",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                "process" to "push",
+                "stage" to "client_process_register_task",
+                "reason" to if (intent != null) "cached_task" else "no_cached_task",
+                "package_name" to mContext.packageName.orEmpty(),
+            ),
+            statusOk = true,
+        )
     }
 
     fun register(xmPushActionRegistration: XmPushActionRegistration, z: Boolean) {
+        val startedAt = System.nanoTime()
         PushClientReportManager.getInstance(mContext.applicationContext).reportEvent(
             mContext.packageName, ReportConstants.REGISTER_EVENT_CHAIN_INTERFACE_ID,
             xmPushActionRegistration.id, ReportConstants.REGISTER_TYPE_CONSTRUCT_MSG, null
@@ -513,6 +540,18 @@ class PushServiceClient private constructor(context: Context) {
         )
         if (bArr == null) {
             MyLog.w("register fail, because msgBytes is null.")
+            MagiskOtel.event(
+                name = "push.register",
+                attributes = mapOf(
+                    "result" to "error",
+                    "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                    "process" to "push",
+                    "stage" to "client_register",
+                    "reason" to "msg_bytes_null",
+                    "package_name" to mContext.packageName.orEmpty(),
+                ),
+                statusOk = false,
+            )
             return
         }
         intent.action = PushConstants.MIPUSH_ACTION_REGISTER_APP
@@ -521,17 +560,34 @@ class PushServiceClient private constructor(context: Context) {
         intent.putExtra(PushConstants.MIPUSH_EXTRA_SESSION, mSession)
         intent.putExtra(PushConstants.MIPUSH_EXTRA_ENV_CHANAGE, z)
         intent.putExtra(PushConstants.MIPUSH_EXTRA_ENV_TYPE, AppInfoHolder.getInstance(mContext).envType)
-        if (Network.hasNetwork(mContext) && isProvisioned()) {
+        val reason = if (Network.hasNetwork(mContext) && isProvisioned()) {
             XMPushServiceCore.observer?.clearRegistrationTasks(mContext.packageName)
             XMPushServiceCore.observer?.onAccountEvent(mContext.packageName, "call_service")
             callService(intent)
+            "call_service"
         } else {
+            val cacheReason = if (Network.hasNetwork(mContext)) "device_unprovisioned" else "network_unavailable"
             XMPushServiceCore.observer?.cacheRegistrationTask(
                 mContext.packageName, intent, "PushServiceClient.register",
-                if (Network.hasNetwork(mContext)) "device_unprovisioned" else "network_unavailable",
+                cacheReason,
                 System.currentTimeMillis()
             )
+            cacheReason
         }
+        MagiskOtel.event(
+            name = "push.register",
+            attributes = mapOf(
+                "result" to if (reason == "call_service") "ok" else "skip",
+                "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                "process" to "push",
+                "stage" to "client_register",
+                "reason" to reason,
+                "env_changed" to z.toString(),
+                "package_name" to mContext.packageName.orEmpty(),
+                "payload_size" to bArr.size.toString(),
+            ),
+            statusOk = true,
+        )
     }
 
     fun send3rdPushHint(i: Int, str: String) {
@@ -671,11 +727,24 @@ class PushServiceClient private constructor(context: Context) {
     }
 
     fun unregister(xmPushActionUnRegistration: XmPushActionUnRegistration) {
+        val startedAt = System.nanoTime()
         val bArr = XmPushThriftSerializeUtils.convertThriftObjectToBytes(
             PushContainerHelper.generateRequestContainer(mContext, xmPushActionUnRegistration, ActionType.UnRegistration)
         )
         if (bArr == null) {
             MyLog.w("unregister fail, because msgBytes is null.")
+            MagiskOtel.event(
+                name = "push.register",
+                attributes = mapOf(
+                    "result" to "error",
+                    "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                    "process" to "push",
+                    "stage" to "client_unregister",
+                    "reason" to "msg_bytes_null",
+                    "package_name" to mContext.packageName.orEmpty(),
+                ),
+                statusOk = false,
+            )
             return
         }
         val intent = createServiceIntent().apply {
@@ -684,5 +753,17 @@ class PushServiceClient private constructor(context: Context) {
             putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, bArr)
         }
         callService(intent)
+        MagiskOtel.event(
+            name = "push.register",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                "process" to "push",
+                "stage" to "client_unregister",
+                "package_name" to mContext.packageName.orEmpty(),
+                "payload_size" to bArr.size.toString(),
+            ),
+            statusOk = true,
+        )
     }
 }

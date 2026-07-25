@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.notification
 
+import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.common.utils.logI
@@ -318,20 +319,34 @@ object NotificationManagerEx {
         logD("notify() attribution pkg=$packageName isHooked=$isHooked id=$id channel=${notification.channelId}")
         if (!isTargetPackageAvailable(packageName)) {
             logD("drop notification for absent target package pkg=$packageName tag=$tag id=$id channel=${notification.channelId}")
+            emitNotify(
+                result = "skip",
+                reason = "target_absent",
+                packageName = packageName,
+            )
             return false
         }
         markLocalTargetPackage(packageName, notification)
         if (shouldUseModernIdentityStrategy(packageName)) {
             if (shouldNotifyAsPackage(packageName, notification)) {
                 if (NotificationIdentityBridge.notifyAsTargetPackage(appContext, packageName, tag, id, notification)) {
+                    emitNotify(result = "ok", reason = "identity_target", packageName = packageName)
                     return true
                 }
                 if (maybeRetryNotifyAsTargetAfterAppOpsGrant(packageName, tag, id, notification)) {
+                    emitNotify(result = "ok", reason = "identity_retry", packageName = packageName)
                     return true
                 }
                 maybeLogDiagnosticsOnce("identity-notify-fallback", packageName, notification.channelId, notification.group)
             }
-            return notifyLocally(tag, id, notification)
+            val local = notifyLocally(tag, id, notification)
+            emitNotify(
+                result = if (local) "ok" else "error",
+                reason = "local_fallback",
+                packageName = packageName,
+                statusOk = local,
+            )
+            return local
         }
         if (shouldNotifyAsPackage(packageName, notification)) {
             try {
@@ -343,12 +358,40 @@ object NotificationManagerEx {
                     Notification::class.java
                 )
                 method.invoke(notificationManager, packageName, tag, id, notification)
+                emitNotify(result = "ok", reason = "notify_as_package", packageName = packageName)
                 return true
             } catch (e: Exception) {
                 logE("Failed to invoke notifyAsPackage", e)
             }
         }
-        return notifyLocally(tag, id, notification)
+        val local = notifyLocally(tag, id, notification)
+        emitNotify(
+            result = if (local) "ok" else "error",
+            reason = "local",
+            packageName = packageName,
+            statusOk = local,
+        )
+        return local
+    }
+
+    private fun emitNotify(
+        result: String,
+        reason: String,
+        packageName: String,
+        statusOk: Boolean = true,
+    ) {
+        MagiskOtel.event(
+            name = "push.dispatch",
+            attributes = mapOf(
+                "result" to result,
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "notify_publish",
+                "reason" to reason,
+                "target_package" to packageName,
+            ),
+            statusOk = statusOk,
+        )
     }
 
 

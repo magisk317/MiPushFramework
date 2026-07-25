@@ -79,6 +79,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
+import io.github.magisk317.xposed.logging.MagiskOtel
+import io.github.magisk317.mipush.common.BuildConfig
+import io.github.magisk317.mipush.common.VERSION_NAME
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.preference.NonNegativeIntegerInputDialog
 import io.github.magisk317.uikit.preference.RuntimeLogDiagnosticsCallbacks
@@ -697,6 +700,7 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
     val scope = rememberCoroutineScope()
     val debugMode by viewModel.debugMode.collectAsStateWithLifecycle()
     val sensitiveDebugLogMode by viewModel.sensitiveDebugLogMode.collectAsStateWithLifecycle()
+    val analyticsEnabled by viewModel.analyticsEnabled.collectAsStateWithLifecycle()
     val runtimeLogRetentionDays by viewModel.runtimeLogRetentionDays.collectAsStateWithLifecycle()
     val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
     var showClearConfirmDialog by remember { mutableStateOf(false) }
@@ -752,6 +756,29 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
     }
 
     val debugModeTitle = stringResource(R.string.settings_debug_mode)
+    val analyticsTitle = stringResource(R.string.settings_enable_analytics)
+    if (!BuildConfig.DEBUG) {
+        SettingsSwitchItem(
+            title = analyticsTitle,
+            summary = stringResource(R.string.settings_enable_analytics_summary),
+            checked = analyticsEnabled,
+        ) { enabled ->
+            viewModel.setAnalyticsEnabled(enabled)
+            MagiskOtel.configure(
+                MagiskOtel.Config(
+                    enabled = BuildConfig.DEBUG || enabled ||
+                        (System.getProperty("magisk.otel.enabled")?.equals("true", ignoreCase = true) == true),
+                    serviceName = "mipushframework",
+                    serviceVersion = VERSION_NAME,
+                    projectId = "83955143",
+                    projectName = "MiPushFramework",
+                    environment = if (BuildConfig.DEBUG) "debug" else "release",
+                ),
+            )
+            notifyPrefChanged(context)
+            showSwitchFeedback(analyticsTitle, enabled)
+        }
+    }
     val sensitiveDebugTitle = stringResource(R.string.settings_sensitive_debug_log_mode)
     RuntimeLogDiagnosticsItems(
         labels = RuntimeLogDiagnosticsLabels(

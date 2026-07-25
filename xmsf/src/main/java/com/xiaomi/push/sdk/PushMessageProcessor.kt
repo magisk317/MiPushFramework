@@ -23,6 +23,7 @@ import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.platform.activity.AccessMode
 import io.github.magisk317.mipush.platform.activity.ITopActivity
 import io.github.magisk317.mipush.platform.activity.TopActivityFactory
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 class PushMessageProcessor constructor(
     private val configurations: Configurations
@@ -159,7 +160,23 @@ class PushMessageProcessor constructor(
         payload: ByteArray,
         notifyRuntime: Boolean
     ): ApplicationDeliveryResult {
-        val container = XMPushUtils.packToContainer(payload) ?: return ApplicationDeliveryResult()
+        val startedAt = System.nanoTime()
+        val container = XMPushUtils.packToContainer(payload)
+        if (container == null) {
+            MagiskOtel.event(
+                name = "push.dispatch",
+                attributes = mapOf(
+                    "result" to "error",
+                    "duration_ms" to "0",
+                    "process" to "app",
+                    "stage" to "app_delivery",
+                    "reason" to "invalid_payload",
+                    "payload_size" to payload.size.toString(),
+                ),
+                statusOk = false,
+            )
+            return ApplicationDeliveryResult()
+        }
         val targetPackage = container.packageName
 
         if (notifyRuntime) {
@@ -168,7 +185,24 @@ class PushMessageProcessor constructor(
 
         // Use unified dispatch logic from XMPushUtils
         val result = XMPushUtils.dispatchToApplicationResult(context, targetPackage, payload, fromNotification = true)
-        logD("$tag forwardToTargetApplication pkg=$targetPackage dispatch result=${dispatchResultTag(result)}")
+        val resultTag = dispatchResultTag(result)
+        logD("$tag forwardToTargetApplication pkg=$targetPackage dispatch result=$resultTag")
+        val durationMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
+        val delivered = result is XMPushUtils.DispatchResult.ServiceStarted ||
+            result is XMPushUtils.DispatchResult.BroadcastSent
+        MagiskOtel.event(
+            name = "push.dispatch",
+            attributes = mapOf(
+                "result" to if (delivered) "ok" else "error",
+                "duration_ms" to durationMs.toString(),
+                "process" to "app",
+                "stage" to "app_delivery",
+                "reason" to resultTag,
+                "target_package" to targetPackage.orEmpty(),
+                "payload_size" to payload.size.toString(),
+            ),
+            statusOk = delivered,
+        )
         return when (result) {
             is XMPushUtils.DispatchResult.ServiceStarted ->
                 ApplicationDeliveryResult(serviceComponent = ComponentName(targetPackage, Constants.PUSH_MESSAGE_HANDLER_CLASS))

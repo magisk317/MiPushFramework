@@ -28,6 +28,7 @@ import android.content.pm.PackageManager
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.runtime.android.AndroidPushRuntime
 import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.entities.Event
@@ -330,11 +331,26 @@ class RegistrationHelper(
             val plan = inspectForceRegisterPlan(packageName)
             if (!plan.supportsReceiverFallback && !plan.supportsServiceDispatch && plan.bridgeCandidates.isEmpty()) {
                 logW("skip force register fallback for $packageName: ${plan.summary()}")
+                emitHelperRegister(
+                    result = "skip",
+                    reason = "unsupported_fallback",
+                    packageName = packageName,
+                    stage = "force_helper_fallback",
+                )
                 return false
             }
             val msgBytes = runCatching {
                 XMPushUtils.packToBytes(createForceRegisterMessage(packageName))
-            }.getOrNull() ?: return false
+            }.getOrNull() ?: run {
+                emitHelperRegister(
+                    result = "error",
+                    reason = "pack_failed",
+                    packageName = packageName,
+                    stage = "force_helper_fallback",
+                    statusOk = false,
+                )
+                return false
+            }
             
             val dispatched = XMPushUtils.dispatchToApplication(Utils.getApplication() ?: return false, packageName, msgBytes)
             if (dispatched) {
@@ -348,8 +364,21 @@ class RegistrationHelper(
                     EventDb.insertEventAsync(Event.ResultType.OK, RegistrationType("force_trigger_fallback", packageName, null))
                 }
                 logI("force register fallback for $packageName dispatched")
+                emitHelperRegister(
+                    result = "ok",
+                    reason = "force_trigger_fallback",
+                    packageName = packageName,
+                    stage = "force_helper_fallback",
+                )
             } else {
                 logW("force register fallback for $packageName failed")
+                emitHelperRegister(
+                    result = "error",
+                    reason = "dispatch_failed_fallback",
+                    packageName = packageName,
+                    stage = "force_helper_fallback",
+                    statusOk = false,
+                )
             }
             return dispatched
         }
@@ -359,6 +388,12 @@ class RegistrationHelper(
             val app = Utils.getApplication() ?: return false
             val plan = inspectForceRegisterPlan(packageName)
             if (!plan.supportsServiceDispatch) {
+                emitHelperRegister(
+                    result = "skip",
+                    reason = "unsupported_service",
+                    packageName = packageName,
+                    stage = "force_helper",
+                )
                 throw UnsupportedOperationException("force register unsupported for $packageName: ${plan.summary()}")
             }
 
@@ -377,10 +412,45 @@ class RegistrationHelper(
                     EventDb.insertEventAsync(Event.ResultType.OK, RegistrationType("force_trigger", packageName, null))
                 }
                 logI("force register for $packageName dispatched")
+                emitHelperRegister(
+                    result = "ok",
+                    reason = "force_trigger",
+                    packageName = packageName,
+                    stage = "force_helper",
+                )
             } else {
                 logW("force register for $packageName failed to dispatch")
+                emitHelperRegister(
+                    result = "error",
+                    reason = "dispatch_failed",
+                    packageName = packageName,
+                    stage = "force_helper",
+                    statusOk = false,
+                )
             }
             return dispatched
+        }
+
+
+        private fun emitHelperRegister(
+            result: String,
+            reason: String,
+            packageName: String,
+            stage: String,
+            statusOk: Boolean = true,
+        ) {
+            MagiskOtel.event(
+                name = "push.register",
+                attributes = mapOf(
+                    "result" to result,
+                    "duration_ms" to "0",
+                    "process" to "xmsf",
+                    "stage" to stage,
+                    "reason" to reason,
+                    "target_package" to packageName,
+                ),
+                statusOk = statusOk,
+            )
         }
 
         @JvmStatic

@@ -1,6 +1,7 @@
 package com.xiaomi.mipush.sdk
 
 import com.xiaomi.channel.commonutils.logger.MyLog
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 import android.content.Context
 import android.content.pm.PackageInfo
@@ -192,8 +193,35 @@ object MiTinyDataClient {
 
         fun processUploadRequest(clientUploadDataItem: ClientUploadDataItem?): Boolean {
             synchronized(this) {
-                if (clientUploadDataItem == null) return false
-                if (TinyDataHelper.verify(clientUploadDataItem, true)) return false
+                val startedAt = System.nanoTime()
+                if (clientUploadDataItem == null) {
+                    MagiskOtel.event(
+                        name = "push.control",
+                        attributes = mapOf(
+                            "result" to "skip",
+                            "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                            "process" to "push",
+                            "stage" to "tinydata_upload",
+                            "reason" to "null_item",
+                        ),
+                        statusOk = true,
+                    )
+                    return false
+                }
+                if (TinyDataHelper.verify(clientUploadDataItem, true)) {
+                    MagiskOtel.event(
+                        name = "push.control",
+                        attributes = mapOf(
+                            "result" to "skip",
+                            "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                            "process" to "push",
+                            "stage" to "tinydata_upload",
+                            "reason" to "verify_reject",
+                        ),
+                        statusOk = true,
+                    )
+                    return false
+                }
                 val z2 = TextUtils.isEmpty(clientUploadDataItem.channel) && TextUtils.isEmpty(mChannel)
                 val z3 = !alreadyInit()
                 val context = mContext
@@ -212,7 +240,24 @@ object MiTinyDataClient {
                     if (clientUploadDataItem.timestamp <= 0) {
                         clientUploadDataItem.timestamp = System.currentTimeMillis()
                     }
-                    return upload(clientUploadDataItem)
+                    val ok = upload(clientUploadDataItem)
+                    MagiskOtel.event(
+                        name = "push.control",
+                        attributes = mapOf(
+                            "result" to if (ok) "ok" else "error",
+                            "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                            "process" to "push",
+                            "stage" to "tinydata_upload",
+                            "reason" to if (ok) "immediate" else "upload_failed",
+                        ),
+                        statusOk = ok,
+                    )
+                    return ok
+                }
+                val pendingReason = when {
+                    z2 -> PENDING_REASON_CHANNEL
+                    z3 -> PENDING_REASON_INIT
+                    else -> PENDING_REASON_APPID
                 }
                 if (z2) {
                     MyLog.v("MiTinyDataClient Pending ${clientUploadDataItem.name} reason is $PENDING_REASON_CHANNEL")
@@ -222,6 +267,17 @@ object MiTinyDataClient {
                     MyLog.v("MiTinyDataClient Pending ${clientUploadDataItem.name} reason is $PENDING_REASON_APPID")
                 }
                 addToPendingList(clientUploadDataItem)
+                MagiskOtel.event(
+                    name = "push.control",
+                    attributes = mapOf(
+                        "result" to "skip",
+                        "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                        "process" to "push",
+                        "stage" to "tinydata_upload",
+                        "reason" to "pending_$pendingReason",
+                    ),
+                    statusOk = true,
+                )
                 return true
             }
         }

@@ -14,6 +14,7 @@ import android.os.IBinder
 import android.os.Looper
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import io.github.magisk317.mipush.diagnostics.RateLimitedWarnLogger
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 class MiuiPushActivateService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
@@ -44,21 +45,49 @@ class MiuiPushActivateService : Service() {
 
         private fun scanTrustedPackages(context: Context) {
             var delay = 0L
+            var scheduledCount = 0
             for (packageName in getTrustedPushPackages(context)) {
                 if (isPackageRegistered(context, packageName)) continue
                 delay += SCAN_DELAY_STEP_MS
+                scheduledCount += 1
                 handler.postDelayed({
                     startTargetService(context, packageName, ACTION_SCAN, "scan")
                 }, delay)
             }
+            MagiskOtel.event(
+                name = "push.service",
+                attributes = mapOf(
+                    "result" to "ok",
+                    "duration_ms" to "0",
+                    "process" to "xmsf",
+                    "stage" to "activate_scan",
+                    "reason" to "scan",
+                    "found_count" to scheduledCount.toString(),
+                    "action" to ACTION_SCAN,
+                ),
+                statusOk = true,
+            )
         }
 
         private fun notifyAccountChanged(context: Context) {
-            getTrustedPushPackages(context)
+            val packages = getTrustedPushPackages(context)
                 .filter { isPackageRegistered(context, it) }
-                .forEach { packageName ->
-                    startTargetService(context, packageName, ACTION_ACCOUNT_CHANGE, "account_change")
-                }
+            packages.forEach { packageName ->
+                startTargetService(context, packageName, ACTION_ACCOUNT_CHANGE, "account_change")
+            }
+            MagiskOtel.event(
+                name = "push.account",
+                attributes = mapOf(
+                    "result" to "ok",
+                    "duration_ms" to "0",
+                    "process" to "xmsf",
+                    "stage" to "activate_account",
+                    "reason" to "account_change",
+                    "found_count" to packages.size.toString(),
+                    "action" to ACTION_ACCOUNT_CHANGE,
+                ),
+                statusOk = true,
+            )
         }
 
         private fun startTargetService(context: Context, packageName: String, action: String, source: String) {
@@ -72,6 +101,20 @@ class MiuiPushActivateService : Service() {
                     throwable = throwable,
                 )
                 logE("unable to start service: ${throwable.message}")
+                MagiskOtel.event(
+                    name = "push.service",
+                    attributes = mapOf(
+                        "result" to "error",
+                        "duration_ms" to "0",
+                        "process" to "xmsf",
+                        "stage" to "activate_awake",
+                        "reason" to source,
+                        "target_package" to packageName,
+                        "error_class" to throwable.javaClass.simpleName,
+                        "action" to action,
+                    ),
+                    statusOk = false,
+                )
             }
         }
 

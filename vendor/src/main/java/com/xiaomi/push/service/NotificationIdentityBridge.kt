@@ -17,6 +17,7 @@ import android.service.notification.StatusBarNotification
 import com.xiaomi.channel.commonutils.android.DeviceInfo
 import com.xiaomi.channel.commonutils.android.MIUIUtils
 import io.github.aakira.napier.Napier
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 object NotificationIdentityBridge {
     private const val TAG = "NotificationIdentityBridge"
@@ -291,6 +292,7 @@ object NotificationIdentityBridge {
         id: Int,
         notification: Notification
     ): Boolean {
+        val startedAt = System.nanoTime()
         val strategy = resolveStrategy(context, packageName)
         val channelId = notification.channelId
         val compatEligible = isMiuiXmsfCompatEligible(context, packageName)
@@ -298,7 +300,7 @@ object NotificationIdentityBridge {
             "notifyAsTargetPackage attempt strategy=$strategy compatEligible=$compatEligible " +
                 "pkg=$packageName tag=$tag id=$id channelId=$channelId"
         )
-        return when (strategy) {
+        val ok = when (strategy) {
             Strategy.FRAMEWORK -> runCatching {
                 NotificationManagerPlatformSupport.notify(packageName, id, notification)
                 logD("notifyAsTargetPackage success strategy=$strategy pkg=$packageName id=$id channelId=$channelId")
@@ -345,7 +347,25 @@ object NotificationIdentityBridge {
                 }
             }
         }
+        emitIdentity(
+            result = when {
+                ok -> "ok"
+                strategy == Strategy.UNSUPPORTED && !compatEligible -> "skip"
+                else -> "error"
+            },
+            stage = "identity_notify",
+            strategy = strategy,
+            packageName = packageName,
+            durationMs = elapsedMs(startedAt),
+            statusOk = ok || (strategy == Strategy.UNSUPPORTED && !compatEligible),
+            extra = mapOf(
+                "compat_eligible" to compatEligible.toString(),
+                "channel_id_present" to (!channelId.isNullOrBlank()).toString(),
+            ),
+        )
+        return ok
     }
+
 
     fun dumpPostedNotificationSnapshot(
         context: Context,
@@ -400,13 +420,14 @@ object NotificationIdentityBridge {
         tag: String?,
         id: Int
     ): Boolean {
+        val startedAt = System.nanoTime()
         val strategy = resolveStrategy(context, packageName)
         val compatEligible = isMiuiXmsfCompatEligible(context, packageName)
         logD(
             "cancelAsTargetPackage attempt strategy=$strategy compatEligible=$compatEligible " +
                 "pkg=$packageName tag=$tag id=$id"
         )
-        return when (strategy) {
+        val ok = when (strategy) {
             Strategy.FRAMEWORK -> runCatching {
                 NotificationManagerPlatformSupport.cancel(packageName, id)
                 logD("cancelAsTargetPackage success strategy=$strategy pkg=$packageName id=$id")
@@ -451,7 +472,22 @@ object NotificationIdentityBridge {
                 }
             }
         }
+        emitIdentity(
+            result = when {
+                ok -> "ok"
+                strategy == Strategy.UNSUPPORTED && !compatEligible -> "skip"
+                else -> "error"
+            },
+            stage = "identity_cancel",
+            strategy = strategy,
+            packageName = packageName,
+            durationMs = elapsedMs(startedAt),
+            statusOk = ok || (strategy == Strategy.UNSUPPORTED && !compatEligible),
+            extra = mapOf("compat_eligible" to compatEligible.toString()),
+        )
+        return ok
     }
+
 
     fun dumpDiagnostics(
         context: Context,
@@ -535,4 +571,30 @@ object NotificationIdentityBridge {
     } catch (t: Throwable) {
         "${t.javaClass.simpleName}:${t.message}"
     }
+
+    private fun emitIdentity(
+        result: String,
+        stage: String,
+        strategy: Strategy,
+        packageName: String,
+        durationMs: Long,
+        statusOk: Boolean,
+        extra: Map<String, String> = emptyMap(),
+    ) {
+        val attrs = mutableMapOf(
+            "result" to result,
+            "duration_ms" to durationMs.toString(),
+            "process" to "push",
+            "stage" to stage,
+            "strategy" to strategy.name.lowercase(),
+            "target_package" to packageName,
+        )
+        attrs.putAll(extra)
+        MagiskOtel.event(name = "notify.identity", attributes = attrs, statusOk = statusOk)
+    }
+
+    private fun elapsedMs(startedAt: Long): Long {
+        return ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
+    }
+
 }

@@ -609,4 +609,6 @@
     <string name="settings_migrate_prefs_summary">把仍保存在推送服务包内的界面偏好复制到管理器</string>
     <string name="settings_migrate_prefs_done">已导入 %1$d 项偏好</string>
 
+    <string name="settings_enable_analytics">统计数据</string>
+    <string name="settings_enable_analytics_summary">允许开发者匿名分析通道使用情况、成功率、崩溃等技术细节</string>
 </resources>

@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.service.runtime
 
+import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.common.utils.logI
@@ -235,6 +236,20 @@ internal object MyMIPushNotificationIntentSupport {
 
     private fun logClickRoute(route: String, packageName: String?, notificationId: Int) {
         logD("$TAG click route=$route pkg=$packageName notificationId=$notificationId")
+        MagiskOtel.event(
+            name = "push.dispatch",
+            attributes = buildMap {
+                put("result", "ok")
+                put("duration_ms", "0")
+                put("process", "xmsf")
+                put("stage", "click_route")
+                put("reason", route)
+                if (!packageName.isNullOrBlank()) {
+                    put("target_package", packageName)
+                }
+            },
+            statusOk = true,
+        )
     }
 
     internal fun shouldUseSdkActivityClick(sdkIntentAvailable: Boolean): Boolean = sdkIntentAvailable

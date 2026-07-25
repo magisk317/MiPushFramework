@@ -14,6 +14,7 @@ import io.github.magisk317.xposed.findClass
 import io.github.magisk317.xposed.getOrNull
 import io.github.magisk317.xposed.hookMethod
 import io.github.magisk317.xposed.set
+import io.github.magisk317.xposed.logging.MagiskOtel
 import java.lang.reflect.InvocationTargetException
 
 object HookPushNC {
@@ -47,6 +48,17 @@ object HookPushNC {
                 TAG,
                 "NotificationManagerEx hook api mismatch: expected=$ExpectedHookApiVersion actual=$managerHookApiVersion",
                 null
+            )
+            MagiskOtel.event(
+                name = "notify.intercept",
+                attributes = mapOf(
+                    "result" to "error",
+                    "duration_ms" to "0",
+                    "process" to "hook",
+                    "stage" to "hook_install",
+                    "reason" to "api_mismatch",
+                ),
+                statusOk = false,
             )
             return
         }
@@ -300,6 +312,17 @@ object HookPushNC {
 
         hookIdentityBridge(classLoader)
         XLog.i(TAG, "host notification takeover hooks installed")
+        MagiskOtel.event(
+            name = "notify.intercept",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "hook",
+                "stage" to "hook_install",
+                "reason" to "installed",
+            ),
+            statusOk = true,
+        )
     }
 
     private fun hookIdentityBridge(classLoader: ClassLoader) {

@@ -10,6 +10,7 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_COLUMN_VALUE
 import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
 import io.github.magisk317.mipush.common.ISLAND_PREF_PATH_FLAGS
 import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.xposed.BaseHook
 import io.github.magisk317.xposed.HookHandle
 import io.github.magisk317.xposed.LoadParam
@@ -37,8 +38,33 @@ class AmapNavigationLiveViewHook : BaseHook() {
 
         runCatching {
             AmapNavigationLiveViewBridge(param.classLoader).install()
+            MagiskOtel.event(
+                name = "push.island",
+                attributes = mapOf(
+                    "result" to "ok",
+                    "duration_ms" to "0",
+                    "process" to "hook",
+                    "stage" to "amap_liveview",
+                    "reason" to "installed",
+                    "target_package" to AMAP_PACKAGE,
+                ),
+                statusOk = true,
+            )
         }.onFailure {
             XLog.e(TAG, "install AMap drive live-view bridge failed: ${it.message}", it)
+            MagiskOtel.event(
+                name = "push.island",
+                attributes = mapOf(
+                    "result" to "error",
+                    "duration_ms" to "0",
+                    "process" to "hook",
+                    "stage" to "amap_liveview",
+                    "reason" to "install_failed",
+                    "target_package" to AMAP_PACKAGE,
+                    "error_class" to it.javaClass.simpleName,
+                ),
+                statusOk = false,
+            )
         }
     }
 

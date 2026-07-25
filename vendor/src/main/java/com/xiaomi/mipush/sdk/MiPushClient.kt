@@ -43,6 +43,7 @@ import com.xiaomi.xmpush.thrift.XmPushActionSubscription
 import com.xiaomi.xmpush.thrift.XmPushActionUnRegistration
 import com.xiaomi.xmpush.thrift.XmPushActionUnSubscription
 import java.util.TimeZone
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 /*
  * Current override reference: com.xiaomi.xmsf 0.3.17-20260410000745 (versionCode 1003003000),
@@ -625,6 +626,7 @@ abstract class MiPushClient {
             alias: String?,
             callbackResult: ICallbackResult<*>?,
         ) {
+            val startedAt = System.nanoTime()
             checkNotNull(context, "context")
             checkNotNull(appId, "appID")
             checkNotNull(appToken, "appToken")
@@ -639,6 +641,19 @@ abstract class MiPushClient {
             ScheduledJobManager.getInstance(actualContext).addOneShootJob {
                 initialize(sContext, appId, appToken, null, alias, callbackResult)
             }
+            MagiskOtel.event(
+                name = "push.register",
+                attributes = mapOf(
+                    "result" to "ok",
+                    "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                    "process" to "push",
+                    "stage" to "sdk_register",
+                    "alias_present" to (!alias.isNullOrBlank()).toString(),
+                    "callback_present" to (callbackResult != null).toString(),
+                    "package_name" to actualContext.packageName.orEmpty(),
+                ),
+                statusOk = true,
+            )
         }
 
         @JvmStatic
@@ -1025,9 +1040,11 @@ abstract class MiPushClient {
 
         @JvmStatic
         fun unregisterPush(context: Context) {
+            val startedAt = System.nanoTime()
             AssemblePushHelper.unregisterAssemblePush(context)
             OnlineConfig.getInstance(context).clearCallbacks()
-            if (AppInfoHolder.getInstance(context).checkAppInfo()) {
+            val appInfoReady = AppInfoHolder.getInstance(context).checkAppInfo()
+            if (appInfoReady) {
                 val unRegistration = XmPushActionUnRegistration().apply {
                     id = PacketHelper.generatePacketID()
                     setAppId(AppInfoHolder.getInstance(context).appID)
@@ -1043,6 +1060,18 @@ abstract class MiPushClient {
                 clearNotification(context)
                 clearExtras(context)
             }
+            MagiskOtel.event(
+                name = "push.register",
+                attributes = mapOf(
+                    "result" to if (appInfoReady) "ok" else "skip",
+                    "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                    "process" to "push",
+                    "stage" to "sdk_unregister",
+                    "reason" to if (appInfoReady) "unregistered" else "app_info_missing",
+                    "package_name" to context.packageName.orEmpty(),
+                ),
+                statusOk = true,
+            )
         }
 
         @JvmStatic

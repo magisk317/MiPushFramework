@@ -16,6 +16,7 @@ import com.xiaomi.smack.packet.Packet
 import com.xiaomi.smack.util.TrafficUtils
 import com.xiaomi.stats.StatsHelper
 import java.util.Date
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 class PacketSync(
     private val pushAction: IPushServiceAction,
@@ -176,12 +177,39 @@ class PacketSync(
     }
 
     fun onBlobReceive(blob: Blob) {
+        val startedAt = System.nanoTime()
         if (blob.channelId != 5) {
             dispatchNetFlow(blob)
         }
         try {
             handleBlob(blob)
+            MagiskOtel.event(
+                name = "push.network",
+                attributes = mapOf(
+                    "result" to "ok",
+                    "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                    "process" to "push",
+                    "stage" to "packet_sync",
+                    "reason" to "blob",
+                    "channel_id" to blob.channelId.toString(),
+                    "cmd_present" to (!blob.cmd.isNullOrBlank()).toString(),
+                ),
+                statusOk = true,
+            )
         } catch (e: Exception) {
+            MagiskOtel.event(
+                name = "push.network",
+                attributes = mapOf(
+                    "result" to "error",
+                    "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                    "process" to "push",
+                    "stage" to "packet_sync",
+                    "reason" to "blob",
+                    "error_class" to e.javaClass.simpleName,
+                    "channel_id" to blob.channelId.toString(),
+                ),
+                statusOk = false,
+            )
             MyLog.e(
                 "handle Blob chid = ${blob.channelId} cmd = ${blob.cmd} packetid = ${blob.packetID} failure ",
                 e,
@@ -190,6 +218,7 @@ class PacketSync(
     }
 
     fun onPacketReceive(packet: Packet) {
+        val startedAt = System.nanoTime()
         if (packet.channelId != "5") {
             dispatchNetFlow(packet)
         }
@@ -201,11 +230,25 @@ class PacketSync(
         if (channelId == Blob.CLIENT_PING_ID) {
             MyLog.w("Received wrong packet with chid = 0 : ${packet.toXML()}")
         }
+        var reason = "packet"
         when (packet) {
             is IQ -> {
                 val extension = packet.getExtension("kick")
                 if (extension != null) {
                     handleKick(channelId ?: "1", packet.to, extension.getAttributeValue("type"), extension.getAttributeValue("reason"))
+                    reason = "kick"
+                    MagiskOtel.event(
+                        name = "push.network",
+                        attributes = mapOf(
+                            "result" to "ok",
+                            "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                            "process" to "push",
+                            "stage" to "packet_sync",
+                            "reason" to reason,
+                            "channel_id" to (channelId ?: "1"),
+                        ),
+                        statusOk = true,
+                    )
                     return
                 }
             }
@@ -215,12 +258,37 @@ class PacketSync(
                     if (extension != null) {
                         processRedirectMessage(extension)
                     }
+                    reason = "redir"
+                    MagiskOtel.event(
+                        name = "push.network",
+                        attributes = mapOf(
+                            "result" to "ok",
+                            "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                            "process" to "push",
+                            "stage" to "packet_sync",
+                            "reason" to reason,
+                            "channel_id" to (channelId ?: "1"),
+                        ),
+                        statusOk = true,
+                    )
                     return
                 }
             }
         }
         // Original code used internal onPacketSync and clientEventDispatcher. 
         // We'll keep it as is, assuming those components are available.
+        MagiskOtel.event(
+            name = "push.network",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                "process" to "push",
+                "stage" to "packet_sync",
+                "reason" to reason,
+                "channel_id" to (channelId ?: "1"),
+            ),
+            statusOk = true,
+        )
     }
 
     private fun handleServerBlob(blob: Blob, cmd: String?) {

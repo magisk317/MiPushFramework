@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.hook.fakedevice
 import android.app.Application
 import io.github.magisk317.xposed.LoadParam
 import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.xposed.logging.DefaultLogSanitizer
 import io.github.magisk317.xposed.logging.LogSanitizerConfig
 import io.github.magisk317.xposed.findClass
@@ -69,6 +70,19 @@ internal object VendorPushHookHelper {
         } else {
             XLog.d(TAG, "deferred ${spec.id} vendor hooks for pkg=$packageName proc=$processName")
         }
+        MagiskOtel.event(
+            name = "hook.load",
+            attributes = mapOf(
+                "result" to if (installed) "ok" else "skip",
+                "duration_ms" to "0",
+                "process" to "hook",
+                "stage" to "vendor_hook",
+                "reason" to if (installed) "installed" else "deferred",
+                "target_package" to packageName,
+                "source" to spec.id,
+            ),
+            statusOk = true,
+        )
         return installed
     }
 

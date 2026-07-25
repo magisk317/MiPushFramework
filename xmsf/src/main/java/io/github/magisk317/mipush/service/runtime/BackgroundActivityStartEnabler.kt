@@ -20,6 +20,7 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import io.github.magisk317.mipush.service.ForegroundHelper.Companion.CHANNEL_STATUS
 import com.xiaomi.xmsf.R
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 @RequiresApi(29)
 object BackgroundActivityStartEnabler {
@@ -50,10 +51,37 @@ object BackgroundActivityStartEnabler {
 
     @JvmStatic
     fun initialize(context: Context) {
-        val nm = context.getSystemService(NotificationManager::class.java) ?: return
-        val channelId = tryGetValidPushStatusChannelId(context, nm) ?: return
+        val nm = context.getSystemService(NotificationManager::class.java)
+        if (nm == null) {
+            emitBg(result = "error", reason = "no_notification_manager", statusOk = false)
+            return
+        }
+        val channelId = tryGetValidPushStatusChannelId(context, nm)
+        if (channelId == null) {
+            emitBg(result = "error", reason = "no_channel", statusOk = false)
+            return
+        }
         notifyPushStatusInitializing(context, channelId, nm)
         scheduleCapture(nm, 5)
+        emitBg(result = "ok", reason = "initialized")
+    }
+
+    private fun emitBg(
+        result: String,
+        reason: String,
+        statusOk: Boolean = true,
+    ) {
+        MagiskOtel.event(
+            name = "push.lifecycle",
+            attributes = mapOf(
+                "result" to result,
+                "duration_ms" to "0",
+                "process" to "app",
+                "stage" to "bg_activity_start_enabler",
+                "reason" to reason,
+            ),
+            statusOk = statusOk,
+        )
     }
 
     private fun notifyPushStatusInitializing(

@@ -20,6 +20,7 @@ import io.github.magisk317.mipush.diagnostics.DiagnosticFileSanitizer
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.platform.support.BoundedShellResult
 import io.github.magisk317.mipush.platform.support.BoundedShellRunner
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 object LogBundleExporter {
     private const val EXPORT_FILE_PREFIX = "mipush_logs_"
@@ -106,6 +107,19 @@ object LogBundleExporter {
             "buildLogBundle finished success=${result.file != null} " +
                 "size=${result.file?.length() ?: -1} " +
                 "totalTookMs=${SystemClock.elapsedRealtime() - exportStarted}",
+        )
+        val durationMs = (SystemClock.elapsedRealtime() - exportStarted).coerceAtLeast(0L)
+        MagiskOtel.event(
+            name = "app.monitor",
+            attributes = mapOf(
+                "result" to if (result.file != null) "ok" else "error",
+                "duration_ms" to durationMs.toString(),
+                "process" to "main",
+                "stage" to "log_bundle_export",
+                "reason" to if (result.file != null) "exported" else "export_failed",
+                "found_count" to if (result.details.isBlank()) "0" else result.details.count { it == ';' }.plus(1).toString(),
+            ),
+            statusOk = result.file != null,
         )
         ExportResult(result.file, result.details)
     }
@@ -210,6 +224,18 @@ object LogBundleExporter {
             ),
             deletePath = ::deleteRecursivelyWithSuFallback,
             onWarning = { logW(it) },
+        )
+        MagiskOtel.event(
+            name = "app.monitor",
+            attributes = mapOf(
+                "result" to if (result.success) "ok" else "error",
+                "duration_ms" to "0",
+                "process" to "main",
+                "stage" to "log_bundle_clear",
+                "reason" to if (result.success) "cleared" else "clear_failed",
+                "found_count" to if (result.details.isBlank()) "0" else result.details.count { it == ';' }.plus(1).toString(),
+            ),
+            statusOk = result.success,
         )
         ClearResult(result.success, result.details)
     }

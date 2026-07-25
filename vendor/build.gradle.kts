@@ -16,6 +16,7 @@ dependencies {
     implementation(project(":common"))
     implementation(project(":core"))
     implementation(project(":pinned"))
+    implementation(project(":magisk-xposed-kit:logging"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.napier)

@@ -8,6 +8,7 @@ import io.github.magisk317.xposed.MethodHookParam
 import io.github.magisk317.xposed.currentApplication
 import io.github.magisk317.xposed.findMethodExact
 import io.github.magisk317.xposed.hook
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 object ShortcutPermissionHooker {
     @Volatile private var xmsfUid = -1
@@ -53,6 +54,7 @@ object ShortcutPermissionHooker {
     }
 
     fun hook(classShortcutService: Class<*>) {
+        val startedAt = System.nanoTime()
         //    void pushDynamicShortcut(String packageName, in ShortcutInfo shortcut, int userId);
         findMethodExact(classShortcutService, "pushDynamicShortcut", String::class.java, ShortcutInfo::class.java, Int::class.java)
             .hook(hookPermission(0))
@@ -60,6 +62,18 @@ object ShortcutPermissionHooker {
         //    int getMaxShortcutCountPerActivity(String packageName, int userId);
         findMethodExact(classShortcutService, "getMaxShortcutCountPerActivity", String::class.java, Int::class.java)
             .hook(hookPermission(0))
+
+        MagiskOtel.event(
+            name = "hook.load",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                "process" to "hook",
+                "stage" to "shortcut_permission",
+                "reason" to "hooked",
+            ),
+            statusOk = true,
+        )
 
         // verifyCaller 已被移除：该方法会在 securitymanager 进程未初始化时被触发，
         // 导致 b0.a<clinit> 里 Context 为 null，引发 NoClassDefFoundError，

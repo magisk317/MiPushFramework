@@ -43,6 +43,7 @@ import io.github.magisk317.mipush.platform.activity.ITopActivity
 import io.github.magisk317.mipush.platform.activity.TopActivityFactory
 import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 class MyPushMessageHandler : Service() {
     private val job = SupervisorJob()
@@ -72,17 +73,36 @@ class MyPushMessageHandler : Service() {
         }
         if (styleTargetIntent != null) {
             styleTargetIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            runCatching { startActivity(styleTargetIntent) }
-                .onFailure { logE("failed to start style target intent", it) }
+            val started = runCatching { startActivity(styleTargetIntent) }
+            started.onFailure { logE("failed to start style target intent", it) }
+            emitMessageHandler(
+                result = if (started.isSuccess) "ok" else "error",
+                reason = if (started.isSuccess) "style_target" else "style_target_failed",
+                statusOk = started.isSuccess,
+                errorClass = started.exceptionOrNull()?.javaClass?.simpleName,
+            )
             return
         }
 
         val payload = intent.getByteArrayExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD)
         if (payload == null) {
             logE("mipush_payload is null")
+            emitMessageHandler(
+                result = "error",
+                reason = "payload_null",
+                statusOk = false,
+            )
             return
         }
-        val container = XMPushUtils.packToContainer(payload) ?: return
+        val container = XMPushUtils.packToContainer(payload) ?: run {
+            emitMessageHandler(
+                result = "error",
+                reason = "container_null",
+                payloadSize = payload.size,
+                statusOk = false,
+            )
+            return
+        }
         MiPushRuntimeBridge.onPayloadFromServer(
             this,
             payload,
@@ -111,10 +131,59 @@ class MyPushMessageHandler : Service() {
                         source = "MyPushMessageHandler.onHandleIntent"
                     )
                 }
+                emitMessageHandler(
+                    result = "ok",
+                    reason = "dispatched",
+                    targetPackage = container.packageName,
+                    payloadSize = payload.size,
+                )
+            } else {
+                emitMessageHandler(
+                    result = "skip",
+                    reason = "not_dispatched",
+                    targetPackage = container.packageName,
+                    payloadSize = payload.size,
+                )
             }
         } catch (e: Exception) {
             logE(e.localizedMessage ?: "error", e)
+            emitMessageHandler(
+                result = "error",
+                reason = "dispatch_exception",
+                targetPackage = container.packageName,
+                payloadSize = payload.size,
+                statusOk = false,
+                errorClass = e.javaClass.simpleName,
+            )
         }
+    }
+
+    private fun emitMessageHandler(
+        result: String,
+        reason: String,
+        targetPackage: String? = null,
+        payloadSize: Int? = null,
+        statusOk: Boolean = true,
+        errorClass: String? = null,
+    ) {
+        val attrs = mutableMapOf(
+            "result" to result,
+            "duration_ms" to "0",
+            "process" to "xmsf",
+            "stage" to "message_handler",
+            "reason" to reason,
+            "source" to "MyPushMessageHandler",
+        )
+        if (!targetPackage.isNullOrBlank()) {
+            attrs["target_package"] = targetPackage
+        }
+        if (payloadSize != null) {
+            attrs["payload_size"] = payloadSize.toString()
+        }
+        if (!errorClass.isNullOrBlank()) {
+            attrs["error_class"] = errorClass
+        }
+        MagiskOtel.event(name = "push.dispatch", attributes = attrs, statusOk = statusOk)
     }
 
     override fun onDestroy() {

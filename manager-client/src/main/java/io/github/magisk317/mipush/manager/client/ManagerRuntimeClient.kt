@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.manager.client
 
+import io.github.magisk317.xposed.logging.MagiskOtel
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -313,12 +314,17 @@ class ManagerRuntimeClient(
         val target = currentRemoteTarget()
         if (target == null) {
             Log.w(TAG, "call without target capability=$capability availability=${availability.value}")
+            emitClientCall(result = "skip", reason = "no_target", capability = capability)
             return ManagerRuntimeResult.Unavailable(availability.value)
         }
         if (capability !in target.handshake.supportedCapabilities) {
+            emitClientCall(result = "skip", reason = "unsupported", capability = capability)
             return ManagerRuntimeResult.Unsupported(capability)
         }
-        requestValidator(target.handshake)?.let { return ManagerRuntimeResult.Failed(it) }
+        requestValidator(target.handshake)?.let {
+            emitClientCall(result = "error", reason = "invalid_request", capability = capability, statusOk = false)
+            return ManagerRuntimeResult.Failed(it)
+        }
 
         return try {
             val startedAt = android.os.SystemClock.elapsedRealtime()
@@ -331,11 +337,14 @@ class ManagerRuntimeClient(
             val validationReason = validator(value, target.handshake)
             if (validationReason != null) {
                 discardOwnedWireResources(value)
+                emitClientCall(result = "error", reason = "validation_failed", capability = capability, statusOk = false)
                 ManagerRuntimeResult.Failed(validationReason)
             } else if (isCurrentTarget(target)) {
+                emitClientCall(result = "ok", reason = "success", capability = capability)
                 ManagerRuntimeResult.Success(value)
             } else {
                 discardOwnedWireResources(value)
+                emitClientCall(result = "skip", reason = "stale_target", capability = capability)
                 ManagerRuntimeResult.Unavailable(availability.value)
             }
         } catch (_: SecurityException) {
@@ -388,6 +397,27 @@ class ManagerRuntimeClient(
             ManagerRuntimeResult.Failed("runtime_operation_failed")
         }
     }
+
+    private fun emitClientCall(
+        result: String,
+        reason: String,
+        capability: String,
+        statusOk: Boolean = true,
+    ) {
+        MagiskOtel.event(
+            name = "push.manager",
+            attributes = mapOf(
+                "result" to result,
+                "duration_ms" to "0",
+                "process" to "manager",
+                "stage" to "client_call",
+                "reason" to reason,
+                "operation" to capability,
+            ),
+            statusOk = statusOk,
+        )
+    }
+
 
     private fun currentRemoteTarget(): RemoteTarget? = synchronized(lock) {
         val state = _availability.value
@@ -444,6 +474,29 @@ class ManagerRuntimeClient(
             if (current && failureState is ManagerRuntimeAvailability.TemporarilyDisconnected) {
                 scheduleReconnect()
             }
+            MagiskOtel.event(
+                name = "push.manager",
+                attributes = mapOf(
+                    "result" to "error",
+                    "duration_ms" to "0",
+                    "process" to "manager",
+                    "stage" to "client_bind",
+                    "reason" to (failureState?.javaClass?.simpleName ?: "bind_failed"),
+                ),
+                statusOk = false,
+            )
+        } else if (accepted) {
+            MagiskOtel.event(
+                name = "push.manager",
+                attributes = mapOf(
+                    "result" to "ok",
+                    "duration_ms" to "0",
+                    "process" to "manager",
+                    "stage" to "client_bind",
+                    "reason" to "accepted",
+                ),
+                statusOk = true,
+            )
         }
     }
 
@@ -521,6 +574,17 @@ class ManagerRuntimeClient(
                     reconnectAttempt = 0
                 }
             }
+            MagiskOtel.event(
+                name = "push.manager",
+                attributes = mapOf(
+                    "result" to if (nextAvailability is ManagerRuntimeAvailability.Available) "ok" else "skip",
+                    "duration_ms" to "0",
+                    "process" to "manager",
+                    "stage" to "client_handshake",
+                    "reason" to nextAvailability.javaClass.simpleName,
+                ),
+                statusOk = true,
+            )
         } catch (error: RemoteCallTimeoutException) {
             // Handshake never reached Available; release and reconnect for both busy and hard timeout.
             android.util.Log.w(
@@ -529,24 +593,79 @@ class ManagerRuntimeClient(
             )
             val current = releaseSession(session, ManagerRuntimeAvailability.TimedOut)
             if (current) scheduleReconnect()
+            MagiskOtel.event(
+                name = "push.manager",
+                attributes = mapOf(
+                    "result" to "error",
+                    "duration_ms" to "0",
+                    "process" to "manager",
+                    "stage" to "client_handshake",
+                    "reason" to if (error.permitsExhausted) "busy" else "timeout",
+                ),
+                statusOk = false,
+            )
         } catch (error: CancellationException) {
             throw error
         } catch (_: SecurityException) {
             releaseSession(session, ManagerRuntimeAvailability.PermissionDenied)
+            MagiskOtel.event(
+                name = "push.manager",
+                attributes = mapOf(
+                    "result" to "error",
+                    "duration_ms" to "0",
+                    "process" to "manager",
+                    "stage" to "client_handshake",
+                    "reason" to "permission_denied",
+                ),
+                statusOk = false,
+            )
         } catch (_: DeadObjectException) {
             val current = releaseSession(
                 session,
                 ManagerRuntimeAvailability.TemporarilyDisconnected(DisconnectReason.BINDER_DIED),
             )
             if (current) scheduleReconnect()
+            MagiskOtel.event(
+                name = "push.manager",
+                attributes = mapOf(
+                    "result" to "error",
+                    "duration_ms" to "0",
+                    "process" to "manager",
+                    "stage" to "client_handshake",
+                    "reason" to "binder_died",
+                ),
+                statusOk = false,
+            )
         } catch (_: RemoteException) {
             val current = releaseSession(
                 session,
                 ManagerRuntimeAvailability.TemporarilyDisconnected(DisconnectReason.REMOTE_ERROR),
             )
             if (current) scheduleReconnect()
+            MagiskOtel.event(
+                name = "push.manager",
+                attributes = mapOf(
+                    "result" to "error",
+                    "duration_ms" to "0",
+                    "process" to "manager",
+                    "stage" to "client_handshake",
+                    "reason" to "remote_error",
+                ),
+                statusOk = false,
+            )
         } catch (_: RuntimeException) {
             releaseSession(session, ManagerRuntimeAvailability.Failed("handshake_failed"))
+            MagiskOtel.event(
+                name = "push.manager",
+                attributes = mapOf(
+                    "result" to "error",
+                    "duration_ms" to "0",
+                    "process" to "manager",
+                    "stage" to "client_handshake",
+                    "reason" to "handshake_failed",
+                ),
+                statusOk = false,
+            )
         }
     }
 

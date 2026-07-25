@@ -16,6 +16,7 @@ import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionAckMessage
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 class MIPushEventProcessor {
     fun processChannelOpenResult(
@@ -130,9 +131,22 @@ class MIPushEventProcessor {
         }
 
         private fun processMIPushMessage(pushAction: IPushServiceAction, payload: ByteArray, trafficBytes: Long) {
+            val startedAt = System.nanoTime()
             val container = buildContainer(payload)
             if (container == null) {
                 pushAction.runtimeObserver.processMIPushMessage(payload, trafficBytes)
+                MagiskOtel.event(
+                    name = "push.dispatch",
+                    attributes = mapOf(
+                        "result" to "ok",
+                        "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                        "process" to "push",
+                        "stage" to "event_process",
+                        "reason" to "container_null_fallback",
+                        "payload_size" to trafficBytes.toString(),
+                    ),
+                    statusOk = true,
+                )
                 return
             }
             if (shouldCheckProfile(container) && !pushAction.runtimeObserver.shouldAcceptProfile(container)) {
@@ -146,10 +160,37 @@ class MIPushEventProcessor {
                     "profile_id_mismatch_drop",
                     "MIPushEventProcessor.processMIPushMessage",
                 )
+                MagiskOtel.event(
+                    name = "push.dispatch",
+                    attributes = mapOf(
+                        "result" to "skip",
+                        "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                        "process" to "push",
+                        "stage" to "event_process",
+                        "reason" to "profile_id_mismatch_drop",
+                        "target_package" to container.packageName.orEmpty(),
+                        "payload_size" to trafficBytes.toString(),
+                    ),
+                    statusOk = true,
+                )
                 return
             }
             pushAction.runtimeObserver.processMIPushMessage(payload, trafficBytes)
             maybeAckInboundSendMessage(pushAction, container)
+            MagiskOtel.event(
+                name = "push.dispatch",
+                attributes = mapOf(
+                    "result" to "ok",
+                    "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                    "process" to "push",
+                    "stage" to "event_process",
+                    "reason" to "processed",
+                    "target_package" to container.packageName.orEmpty(),
+                    "payload_size" to trafficBytes.toString(),
+                    "action_type" to (container.action?.name ?: "unknown"),
+                ),
+                statusOk = true,
+            )
         }
 
         /**

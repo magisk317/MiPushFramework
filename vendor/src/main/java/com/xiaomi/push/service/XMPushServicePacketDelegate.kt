@@ -20,10 +20,39 @@ import org.apache.thrift.TException
 import com.xiaomi.push.service.PushRegistrationState
 import com.xiaomi.push.service.PushServiceMiPushPayloadDispatchAction
 import com.xiaomi.push.service.PushServiceMiPushPayloadDispatchPlan
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 internal class XMPushServicePacketDelegate(
     private val service: XMPushServiceCore,
 ) {
+    private fun emitPacket(
+        stage: String,
+        result: String,
+        reason: String,
+        statusOk: Boolean = true,
+        targetPackage: String? = null,
+        payloadSize: Int? = null,
+    ) {
+        val attrs = mutableMapOf(
+            "result" to result,
+            "duration_ms" to "0",
+            "process" to "xmsf",
+            "stage" to stage,
+            "reason" to reason,
+        )
+        if (!targetPackage.isNullOrBlank()) {
+            attrs["target_package"] = targetPackage
+        }
+        if (payloadSize != null) {
+            attrs["payload_size"] = payloadSize.toString()
+        }
+        MagiskOtel.event(
+            name = "push.register",
+            attributes = attrs,
+            statusOk = statusOk,
+        )
+    }
+
     fun handleSendMessageIntent(intent: Intent) {
         val pushClientsManager = PushClientsManager.getInstance()
         val packageName = intent.getStringExtra(PushConstants.EXTRA_PACKAGE_NAME)
@@ -96,6 +125,13 @@ internal class XMPushServicePacketDelegate(
             service.runtimeObserver.onRegistrationResult(observedPackageName, false, "XMPushServiceCore.registerForMiPushApp", "null_payload")
             MIPushClientManager.notifyError(service, observedPackageName, byteArrayOf(), 70000003, "null payload")
             MyLog.w("register request without payload")
+            emitPacket(
+                stage = "packet_register",
+                result = "error",
+                reason = "null_payload",
+                statusOk = false,
+                targetPackage = observedPackageName,
+            )
             return
         }
         val container = XmPushActionContainer()
@@ -128,27 +164,65 @@ internal class XMPushServicePacketDelegate(
                         ReportConstants.REGISTER_TYPE_SEND_TO_SERVER,
                         null,
                     )
+                    emitPacket(
+                        stage = "packet_register",
+                        result = "ok",
+                        reason = "register_job_enqueued",
+                        targetPackage = container.packageName,
+                        payloadSize = payload.size,
+                    )
                     return
                 } catch (e: TException) {
                     MyLog.e("app register error. $e")
                     service.runtimeObserver.onRegistrationResult(observedPackageName, false, "XMPushServiceCore.registerForMiPushApp", "payload_action_error")
                     MIPushClientManager.notifyError(service, observedPackageName, payload, 70000003, " data action error.")
+                    emitPacket(
+                        stage = "packet_register",
+                        result = "error",
+                        reason = "payload_action_error",
+                        statusOk = false,
+                        targetPackage = observedPackageName,
+                        payloadSize = payload.size,
+                    )
                     return
                 }
             }
             service.runtimeObserver.onRegistrationResult(observedPackageName, false, "XMPushServiceCore.registerForMiPushApp", "registration_action_required")
             MIPushClientManager.notifyError(service, observedPackageName, payload, 70000003, " registration action required.")
             MyLog.w("register request with invalid payload")
+            emitPacket(
+                stage = "packet_register",
+                result = "error",
+                reason = "registration_action_required",
+                statusOk = false,
+                targetPackage = observedPackageName,
+                payloadSize = payload.size,
+            )
         } catch (e: TException) {
             MyLog.e("app register fail. $e")
             service.runtimeObserver.onRegistrationResult(observedPackageName, false, "XMPushServiceCore.registerForMiPushApp", "container_decode_error")
             MIPushClientManager.notifyError(service, observedPackageName, payload, 70000003, " data container error.")
+            emitPacket(
+                stage = "packet_register",
+                result = "error",
+                reason = "container_decode_error",
+                statusOk = false,
+                targetPackage = observedPackageName,
+                payloadSize = payload.size,
+            )
         }
     }
 
     fun sendMessage(packageName: String?, payload: ByteArray?, cacheIfUnavailable: Boolean) {
         if (packageName == null || payload == null) {
             service.runtimeObserver.onChannelEvent(packageName, "mipush_payload_missing", "XMPushServiceCore.sendMessage")
+            emitPacket(
+                stage = "packet_send",
+                result = "error",
+                reason = "mipush_payload_missing",
+                statusOk = false,
+                targetPackage = packageName,
+            )
             return
         }
         val activeClients = PushClientsManager.getInstance().getAllClientLoginInfoByChid("5")
@@ -159,6 +233,13 @@ internal class XMPushServicePacketDelegate(
             cacheIfUnavailable,
         )
         service.runtimeObserver.onChannelEvent(packageName, plan.eventAction, "XMPushServiceCore.sendMessage")
+        emitPacket(
+            stage = "packet_send",
+            result = "ok",
+            reason = plan.eventAction,
+            targetPackage = packageName,
+            payloadSize = payload.size,
+        )
         when (plan.action) {
             PushServiceMiPushPayloadDispatchAction.QueueOnly -> service.runtimeObserver.cachePendingMessage(packageName, payload)
             PushServiceMiPushPayloadDispatchAction.SendNow -> {

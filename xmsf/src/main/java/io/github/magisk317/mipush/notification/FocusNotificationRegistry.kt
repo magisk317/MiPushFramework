@@ -7,6 +7,7 @@ import io.github.magisk317.mipush.platform.support.BoundedShellRunner
 import io.github.magisk317.mipush.platform.support.DefaultBoundedShellRunner
 import io.github.magisk317.mipush.platform.support.ShellCommandMode
 import org.json.JSONArray
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 object FocusNotificationRegistry {
     private const val TAG = "FocusNotificationRegistry"
@@ -49,6 +50,12 @@ object FocusNotificationRegistry {
         val availability = isWriteAvailable(context)
         if (availability == WriteAvailability.NONE) {
             Napier.d("skip focus registry: no write access", tag = TAG)
+            emitFocus(
+                result = "skip",
+                reason = "no_write_access",
+                statusOk = false,
+                operation = resolveOperation(add, remove, removeIdentity),
+            )
             return false
         }
         val current = readCurrentKeys(context)
@@ -58,9 +65,57 @@ object FocusNotificationRegistry {
         }
         if (remove != null) modified.remove(remove)
         if (add != null) modified.add(add)
-        if (modified == current) return true
+        if (modified == current) {
+            emitFocus(
+                result = "ok",
+                reason = "unchanged",
+                operation = resolveOperation(add, remove, removeIdentity),
+                extra = mapOf("write_mode" to availability.name.lowercase()),
+            )
+            return true
+        }
         val json = JSONArray(modified.toList()).toString()
-        return writeKeys(context, json, availability)
+        val ok = writeKeys(context, json, availability)
+        emitFocus(
+            result = if (ok) "ok" else "error",
+            reason = if (ok) "written" else "write_failed",
+            statusOk = ok,
+            operation = resolveOperation(add, remove, removeIdentity),
+            extra = mapOf(
+                "write_mode" to availability.name.lowercase(),
+                "key_count" to modified.size.toString(),
+            ),
+        )
+        return ok
+    }
+
+    private fun resolveOperation(add: String?, remove: String?, removeIdentity: String?): String {
+        return when {
+            add != null && removeIdentity != null -> "register_replace"
+            add != null -> "register"
+            removeIdentity != null -> "unregister_variants"
+            remove != null -> "unregister"
+            else -> "modify"
+        }
+    }
+
+    private fun emitFocus(
+        result: String,
+        reason: String,
+        statusOk: Boolean = true,
+        operation: String,
+        extra: Map<String, String> = emptyMap(),
+    ) {
+        val attrs = linkedMapOf(
+            "result" to result,
+            "duration_ms" to "0",
+            "process" to "app",
+            "stage" to "focus_registry",
+            "reason" to reason,
+            "operation" to operation,
+        )
+        attrs.putAll(extra)
+        MagiskOtel.event(name = "push.island", attributes = attrs, statusOk = statusOk)
     }
 
     private fun sameNotificationIdentity(left: String, right: String): Boolean {

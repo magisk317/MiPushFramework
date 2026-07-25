@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.runtime.android
 
+import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.common.utils.logI
@@ -257,6 +258,19 @@ object AndroidPushRuntime {
         val frameworkTriggered = requestFrameworkRegistration(source, "boot_completed")
         val connectionTriggered = requestConnection(source, "boot_completed")
         val replayed = replayPendingApplicationRegistrations(source, reason = "boot_completed")
+        MagiskOtel.event(
+            name = "push.boot",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "runtime_boot",
+                "reason" to "boot_completed",
+                "source" to source,
+                "pending_count" to replayed.toString(),
+            ),
+            statusOk = true,
+        )
         return PushRuntimeRegistrationDispatchResult(
             frameworkRegistrationTriggered = frameworkTriggered,
             pendingAppReplayCount = replayed,
@@ -308,13 +322,53 @@ object AndroidPushRuntime {
 
     @JvmStatic
     fun requestConnection(source: String, reason: String? = null): Boolean {
-        val host = synchronized(lock) { executionHost } ?: return false
-        return runCatching {
+        val host = synchronized(lock) { executionHost } ?: run {
+            MagiskOtel.event(
+                name = "push.lifecycle",
+                attributes = mapOf(
+                    "result" to "skip",
+                    "duration_ms" to "0",
+                    "process" to "xmsf",
+                    "stage" to "runtime_connection",
+                    "reason" to "no_host",
+                    "source" to source,
+                ),
+                statusOk = true,
+            )
+            return false
+        }
+        val ok = runCatching {
             host.ensureConnection(reason = buildReason(source, reason))
         }.getOrElse {
             logE("ensureConnection failed", it)
-            false
+            MagiskOtel.event(
+                name = "push.lifecycle",
+                attributes = mapOf(
+                    "result" to "error",
+                    "duration_ms" to "0",
+                    "process" to "xmsf",
+                    "stage" to "runtime_connection",
+                    "reason" to (reason ?: "ensure_failed"),
+                    "source" to source,
+                    "error_class" to it.javaClass.simpleName,
+                ),
+                statusOk = false,
+            )
+            return false
         }
+        MagiskOtel.event(
+            name = "push.lifecycle",
+            attributes = mapOf(
+                "result" to if (ok) "ok" else "skip",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "runtime_connection",
+                "reason" to (reason ?: "ensure"),
+                "source" to source,
+            ),
+            statusOk = true,
+        )
+        return ok
     }
 
     @JvmStatic
@@ -337,7 +391,22 @@ object AndroidPushRuntime {
         source: String,
         launchApp: Boolean
     ): PushRuntimeApplicationDispatchResult {
-        val host = synchronized(lock) { executionHost } ?: return PushRuntimeApplicationDispatchResult()
+        val host = synchronized(lock) { executionHost } ?: run {
+            MagiskOtel.event(
+                name = "push.dispatch",
+                attributes = mapOf(
+                    "result" to "skip",
+                    "duration_ms" to "0",
+                    "process" to "xmsf",
+                    "stage" to "runtime_dispatch",
+                    "reason" to "no_host",
+                    "source" to source,
+                    "payload_size" to payload.size.toString(),
+                ) + (packageName?.let { mapOf("target_package" to it) } ?: emptyMap()),
+                statusOk = true,
+            )
+            return PushRuntimeApplicationDispatchResult()
+        }
         val result = runCatching {
             host.dispatchDownstreamPayload(
                 payload = payload,
@@ -346,6 +415,20 @@ object AndroidPushRuntime {
             )
         }.getOrElse {
             logE("dispatchDownstreamPayload failed", it)
+            MagiskOtel.event(
+                name = "push.dispatch",
+                attributes = mapOf(
+                    "result" to "error",
+                    "duration_ms" to "0",
+                    "process" to "xmsf",
+                    "stage" to "runtime_dispatch",
+                    "reason" to "dispatch_exception",
+                    "source" to source,
+                    "payload_size" to payload.size.toString(),
+                    "error_class" to it.javaClass.simpleName,
+                ) + (packageName?.let { mapOf("target_package" to it) } ?: emptyMap()),
+                statusOk = false,
+            )
             PushRuntimeApplicationDispatchResult()
         }
         if (result.dispatched) {
@@ -361,6 +444,23 @@ object AndroidPushRuntime {
                 broadcastFallbackDeliveryCount += 1
             }
         }
+        MagiskOtel.event(
+            name = "push.dispatch",
+            attributes = mapOf(
+                "result" to if (result.dispatched) "ok" else "skip",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "runtime_dispatch",
+                "reason" to when {
+                    result.deliveredByBroadcastFallback -> "broadcast_fallback"
+                    result.dispatched -> if (launchApp) "launch_app" else "direct_deliver"
+                    else -> "not_dispatched"
+                },
+                "source" to source,
+                "payload_size" to payload.size.toString(),
+            ) + (packageName?.let { mapOf("target_package" to it) } ?: emptyMap()),
+            statusOk = true,
+        )
         return result
     }
 
@@ -696,12 +796,39 @@ object AndroidPushRuntime {
         synchronized(lock) {
             if (activeRegistrationDispatches.contains(packageName)) {
                 logD("skip reentrant application registration package=$packageName source=$source reason=$reason")
+                MagiskOtel.event(
+                    name = "push.register",
+                    attributes = mapOf(
+                        "result" to "skip",
+                        "duration_ms" to "0",
+                        "process" to "xmsf",
+                        "stage" to "runtime_force",
+                        "reason" to "reentrant",
+                        "target_package" to packageName,
+                        "source" to source,
+                    ),
+                    statusOk = true,
+                )
                 return false
             }
             recentRegistrationReplays.remove(packageName)
             recentPackageActions.remove("$packageName:registration:Registering")
         }
-        return requestApplicationRegistration(packageName, source, reason)
+        val triggered = requestApplicationRegistration(packageName, source, reason)
+        MagiskOtel.event(
+            name = "push.register",
+            attributes = mapOf(
+                "result" to if (triggered) "ok" else "skip",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "runtime_force",
+                "reason" to (reason ?: "force"),
+                "target_package" to packageName,
+                "source" to source,
+            ),
+            statusOk = true,
+        )
+        return triggered
     }
 
     @JvmStatic

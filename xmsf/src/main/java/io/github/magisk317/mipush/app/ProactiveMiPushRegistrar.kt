@@ -8,6 +8,7 @@ import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.platform.support.LegacyComponentNames
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
+import io.github.magisk317.xposed.logging.MagiskOtel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -76,6 +77,7 @@ object ProactiveMiPushRegistrar {
     }
 
     private fun scanAndRegister(context: Context) {
+        val startedAt = System.nanoTime()
         val pm = context.packageManager
         val packages = pm.getInstalledPackages(PackageManager.GET_META_DATA or PackageManager.GET_SERVICES)
         var registered = 0
@@ -108,6 +110,19 @@ object ProactiveMiPushRegistrar {
         } else {
             logD("no new apps to register")
         }
+        val durationMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
+        MagiskOtel.event(
+            name = "push.register",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to durationMs.toString(),
+                "process" to "main",
+                "stage" to "proactive",
+                "reason" to if (registered > 0) "triggered" else "none",
+                "found_count" to registered.toString(),
+            ),
+            statusOk = true,
+        )
     }
 
     private fun hasMiPushCredentials(pkgInfo: android.content.pm.PackageInfo): Boolean {

@@ -26,6 +26,7 @@ import io.github.magisk317.mipush.notification.NotificationController.getBitmapF
 import io.github.magisk317.mipush.notification.NotificationController.getLargeIcon
 import io.github.magisk317.mipush.notification.NotificationController.roundLargeIconIfConfigured
 import java.util.LinkedHashMap
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 internal object MyMIPushNotificationStyleSupport {
     private const val TAG = "MyNotificationStyle"
@@ -73,6 +74,23 @@ internal object MyMIPushNotificationStyleSupport {
         val renderedDescription = SweetTagHandler.renderFtHtmlIfNeeded(description)
         val bigPic = getBigPic(context, metaInfo)
 
+        val styleReason = when {
+            bigPic != null -> "big_picture"
+            description.length > NOTIFICATION_BIG_STYLE_MIN_LEN -> "big_text"
+            else -> "normal"
+        }
+        MagiskOtel.event(
+            name = "push.event",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "app",
+                "stage" to "style_path",
+                "reason" to styleReason,
+                "target_package" to packageName,
+            ),
+            statusOk = true,
+        )
         return NotificationCompat.Builder(context, "xmsf.default").apply {
             if (bigPic != null) {
                 val style = NotificationCompat.BigPictureStyle()
@@ -105,6 +123,18 @@ internal object MyMIPushNotificationStyleSupport {
         pkgCtx: Context
     ): NotificationCompat.Builder {
         val packageName = container.packageName
+        MagiskOtel.event(
+            name = "push.event",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "app",
+                "stage" to "style_path",
+                "reason" to "messaging",
+                "target_package" to packageName.orEmpty(),
+            ),
+            statusOk = true,
+        )
         val metaInfo = container.metaInfo
         val conversation = getConversationFor(context, metaInfo, packageName)
         val groupConversation = isGroupConversation(metaInfo)

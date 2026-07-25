@@ -1,5 +1,6 @@
 package com.xiaomi.push.service
 
+import io.github.magisk317.xposed.logging.MagiskOtel
 import android.content.Context
 import android.content.Intent
 import com.xiaomi.channel.commonutils.logger.MyLog
@@ -29,21 +30,21 @@ object MIPushAckDispatcher {
 
     @JvmStatic
     fun sendAckMessage(pushAction: IPushServiceAction, container: XmPushActionContainer) {
-        enqueue(pushAction, "send ack message for message.") {
+        enqueue(pushAction, "send ack message for message.", reason = "service_ack") {
             sendServiceAck(pushAction, pushAction.context, container)
         }
     }
 
     @JvmStatic
     fun sendAppAbsentAck(pushAction: IPushServiceAction, container: XmPushActionContainer, targetPackage: String) {
-        enqueue(pushAction, "send app absent ack message for message.") {
+        enqueue(pushAction, "send app absent ack message for message.", reason = "app_absent_ack") {
             sendServiceAppAbsentAck(pushAction, pushAction.context, container, targetPackage)
         }
     }
 
     @JvmStatic
     fun sendAppNotInstallNotification(pushAction: IPushServiceAction, container: XmPushActionContainer, targetPackage: String) {
-        enqueue(pushAction, "send app absent message.") {
+        enqueue(pushAction, "send app absent message.", reason = "app_absent") {
             MIPushHelper.sendPacket(
                 pushAction,
                 pushAction.context,
@@ -58,7 +59,7 @@ object MIPushAckDispatcher {
         container: XmPushActionContainer,
         notification: XmPushActionNotification,
     ) {
-        enqueue(pushAction, "send ack message for clear push message.") {
+        enqueue(pushAction, "send ack message for clear push message.", reason = "clear_push_ack") {
             sendServiceClearNotificationAck(pushAction, pushAction.context, container, notification)
         }
     }
@@ -70,14 +71,14 @@ object MIPushAckDispatcher {
         error: String,
         reason: String,
     ) {
-        enqueue(pushAction, "send wrong message ack for message.") {
+        enqueue(pushAction, "send wrong message ack for message.", reason = "error_ack") {
             sendServiceErrorAck(pushAction, pushAction.context, container, error, reason)
         }
     }
 
     @JvmStatic
     fun sendProfileIdMismatchAck(pushAction: IPushServiceAction, container: XmPushActionContainer) {
-        enqueue(pushAction, "send ack message for checking profileId error ack message.") {
+        enqueue(pushAction, "send ack message for checking profileId error ack message.", reason = "profile_id_mismatch") {
             val reason = "Profile ID is missing"
             val ackMessage = MIPushEventProcessor.constructAckMessage(pushAction.context, container)
             ackMessage.metaInfo?.apply {
@@ -96,7 +97,7 @@ object MIPushAckDispatcher {
 
     @JvmStatic
     fun sendMIUINewAdsAckMessage(pushAction: IPushServiceAction, container: XmPushActionContainer) {
-        enqueue(pushAction, "send ack message for unrecognized new miui message.") {
+        enqueue(pushAction, "send ack message for unrecognized new miui message.", reason = "miui_new_ads") {
             sendServiceAckWithMarker(
                 pushAction,
                 pushAction.context,
@@ -110,7 +111,7 @@ object MIPushAckDispatcher {
 
     @JvmStatic
     fun sendMIUIOldAdsAckMessage(pushAction: IPushServiceAction, container: XmPushActionContainer) {
-        enqueue(pushAction, "send ack message for obsleted message.") {
+        enqueue(pushAction, "send ack message for obsleted message.", reason = "miui_old_ads") {
             sendServiceAckWithMarker(
                 pushAction,
                 pushAction.context,
@@ -122,15 +123,44 @@ object MIPushAckDispatcher {
         }
     }
 
-    private fun enqueue(pushAction: IPushServiceAction, description: String, ackAction: AckAction) {
+    private fun enqueue(
+        pushAction: IPushServiceAction,
+        description: String,
+        reason: String,
+        ackAction: AckAction,
+    ) {
         pushAction.executeJob(
             object : XMPushServiceJob(TYPE_SEND_MSG) {
                 override fun getDesc(): String = description
 
                 override fun process() {
+                    val startedAt = System.nanoTime()
                     try {
                         ackAction.process()
+                        MagiskOtel.event(
+                            name = "push.dispatch",
+                            attributes = mapOf(
+                                "result" to "ok",
+                                "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                                "process" to "push",
+                                "stage" to "ack_send",
+                                "reason" to reason,
+                            ),
+                            statusOk = true,
+                        )
                     } catch (e: Exception) {
+                        MagiskOtel.event(
+                            name = "push.dispatch",
+                            attributes = mapOf(
+                                "result" to "error",
+                                "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                                "process" to "push",
+                                "stage" to "ack_send",
+                                "reason" to reason,
+                                "error_class" to e.javaClass.simpleName,
+                            ),
+                            statusOk = false,
+                        )
                         MyLog.e(e)
                         if (e is XMPPException) {
                             pushAction.disconnect(10, e)

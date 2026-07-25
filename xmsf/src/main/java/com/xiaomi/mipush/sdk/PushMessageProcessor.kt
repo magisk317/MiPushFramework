@@ -53,6 +53,7 @@ import java.util.TimeZone
 import android.content.pm.PackageManager
 import org.apache.thrift.TBase
 import org.apache.thrift.TException
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 /*
  * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
@@ -114,6 +115,25 @@ class PushMessageProcessor private constructor(context: Context) {
             TextUtils.equals(action, Constants.EXTRA_VALUE_PLATFORM_MESSAGE)
     }
 
+    private fun emitProcessEvent(
+        name: String,
+        result: String,
+        stage: String,
+        reason: String,
+        statusOk: Boolean = true,
+        extra: Map<String, String> = emptyMap(),
+    ) {
+        val attrs = linkedMapOf(
+            "result" to result,
+            "duration_ms" to "0",
+            "process" to "app",
+            "stage" to stage,
+            "reason" to reason,
+        )
+        attrs.putAll(extra)
+        MagiskOtel.event(name = name, attributes = attrs, statusOk = statusOk)
+    }
+
     private fun processMessage(
         container: XmPushActionContainer,
         fromNotification: Boolean,
@@ -131,6 +151,17 @@ class PushMessageProcessor private constructor(context: Context) {
                     messageId ?: "",
                     ReportConstants.ERROR_UN_RECOGNIZED_MSG
                 )
+                emitProcessEvent(
+                    name = "push.event",
+                    result = "error",
+                    stage = "message_processor",
+                    reason = "unrecognized",
+                    statusOk = false,
+                    extra = mapOf(
+                        "msg_type" to (container.action?.name ?: "unknown"),
+                        "target_package" to (container.packageName ?: sAppContext.packageName),
+                    ),
+                )
                 return null
             }
             val action = container.action
@@ -147,9 +178,29 @@ class PushMessageProcessor private constructor(context: Context) {
 
                 ActionType.Registration -> processRegistrationResult(body as XmPushActionRegistrationResult, messageId, eventMessageType)
                 ActionType.UnRegistration -> {
-                    if ((body as XmPushActionUnRegistrationResult).errorCode == 0L) {
+                    val unreg = body as XmPushActionUnRegistrationResult
+                    if (unreg.errorCode == 0L) {
                         AppInfoHolder.getInstance(sAppContext).clear()
                         MiPushClient.clearExtras(sAppContext)
+                        emitProcessEvent(
+                            name = "push.register",
+                            result = "ok",
+                            stage = "unregistration_result",
+                            reason = "success",
+                            extra = mapOf("target_package" to sAppContext.packageName),
+                        )
+                    } else {
+                        emitProcessEvent(
+                            name = "push.register",
+                            result = "error",
+                            stage = "unregistration_result",
+                            reason = "error_code",
+                            statusOk = false,
+                            extra = mapOf(
+                                "target_package" to sAppContext.packageName,
+                                "error_code" to unreg.errorCode.toString(),
+                            ),
+                        )
                     }
                     PushMessageHandler.removeAllPushCallbackClass()
                     null
@@ -170,6 +221,17 @@ class PushMessageProcessor private constructor(context: Context) {
                 messageId ?: "",
                 ReportConstants.ERROR_DECRYPT_MSG_FAILED
             )
+            emitProcessEvent(
+                name = "push.event",
+                result = "error",
+                stage = "message_processor",
+                reason = "decrypt_failed",
+                statusOk = false,
+                extra = mapOf(
+                    "msg_type" to (container.action?.name ?: "unknown"),
+                    "target_package" to (container.packageName ?: sAppContext.packageName),
+                ),
+            )
             return null
         } catch (e: TException) {
             MyLog.e(e)
@@ -179,6 +241,17 @@ class PushMessageProcessor private constructor(context: Context) {
                 PushClientReportHelper.getInterfaceIdByType(eventMessageType),
                 messageId ?: "",
                 ReportConstants.ERROR_DESERIALIZE_MSG_T_EXCEPTION
+            )
+            emitProcessEvent(
+                name = "push.event",
+                result = "error",
+                stage = "message_processor",
+                reason = "deserialize_failed",
+                statusOk = false,
+                extra = mapOf(
+                    "msg_type" to (container.action?.name ?: "unknown"),
+                    "target_package" to (container.packageName ?: sAppContext.packageName),
+                ),
             )
             return null
         }
@@ -355,6 +428,14 @@ class PushMessageProcessor private constructor(context: Context) {
                 messageId ?: "",
                 ReportConstants.ERROR_BAD_REGISTRATION_RESULT
             )
+            emitProcessEvent(
+                name = "push.register",
+                result = "error",
+                stage = "registration_result",
+                reason = "bad_request_id",
+                statusOk = false,
+                extra = mapOf("target_package" to sAppContext.packageName),
+            )
             return null
         }
         appInfoHolder.appRegRequestId = null
@@ -368,6 +449,16 @@ class PushMessageProcessor private constructor(context: Context) {
                 ReportConstants.REGISTER_TYPE_APP_SUCCESS,
                 ReportConstants.REGISTER_SUCCESS
             )
+            emitProcessEvent(
+                name = "push.register",
+                result = "ok",
+                stage = "registration_result",
+                reason = "success",
+                extra = mapOf(
+                    "target_package" to sAppContext.packageName,
+                    "region_present" to (!TextUtils.isEmpty(result.region)).toString(),
+                ),
+            )
         } else {
             MyLog.w(
                 "registration result failed errorCode=${result.errorCode} reason=${result.reason} " +
@@ -379,6 +470,17 @@ class PushMessageProcessor private constructor(context: Context) {
                 messageId ?: "",
                 ReportConstants.REGISTER_TYPE,
                 ReportConstants.REGISTER_FAIL
+            )
+            emitProcessEvent(
+                name = "push.register",
+                result = "error",
+                stage = "registration_result",
+                reason = "error_code",
+                statusOk = false,
+                extra = mapOf(
+                    "target_package" to sAppContext.packageName,
+                    "error_code" to result.errorCode.toString(),
+                ),
             )
         }
         val args = if (!TextUtils.isEmpty(result.regId)) arrayListOf(result.regId) else null
@@ -449,6 +551,20 @@ class PushMessageProcessor private constructor(context: Context) {
             }
         }
         MyLog.persist("resp-cmd:$cmdName, " + result.id)
+        val cmdToken = cmdName?.takeIf { it.isNotBlank() } ?: "unknown"
+        val ok = result.errorCode == 0L
+        emitProcessEvent(
+            name = "push.control",
+            result = if (ok) "ok" else "error",
+            stage = "command_result",
+            reason = if (ok) "success" else "error_code",
+            statusOk = ok,
+            extra = mapOf(
+                "target_package" to sAppContext.packageName,
+                "operation" to cmdToken,
+                "error_code" to result.errorCode.toString(),
+            ),
+        )
         return PushMessageHelper.generateCommandMessage(
             cmdName,
             cmdArgs,
@@ -465,11 +581,41 @@ class PushMessageProcessor private constructor(context: Context) {
     ): PushMessageInterface? {
         PerfMessageHelper.collectPerfData(sAppContext.packageName, sAppContext, body, ActionType.Notification, payload.size)
         if (body is XmPushActionAckNotification) {
+            emitProcessEvent(
+                name = "push.event",
+                result = "ok",
+                stage = "notification_process",
+                reason = "ack",
+                extra = mapOf(
+                    "target_package" to (container.packageName ?: sAppContext.packageName),
+                    "msg_type" to "ack_notification",
+                ),
+            )
             return processAckNotification(body)
         }
         if (body !is XmPushActionNotification) {
+            emitProcessEvent(
+                name = "push.event",
+                result = "skip",
+                stage = "notification_process",
+                reason = "unsupported_body",
+                extra = mapOf(
+                    "target_package" to (container.packageName ?: sAppContext.packageName),
+                ),
+            )
             return null
         }
+        emitProcessEvent(
+            name = "push.event",
+            result = "ok",
+            stage = "notification_process",
+            reason = "notification",
+            extra = mapOf(
+                "target_package" to (container.packageName ?: sAppContext.packageName),
+                "msg_type" to "notification",
+                "payload_size" to payload.size.toString(),
+            ),
+        )
         return processNotificationMessage(container, body)
     }
 

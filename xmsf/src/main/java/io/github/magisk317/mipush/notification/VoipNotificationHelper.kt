@@ -9,6 +9,7 @@ import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.aakira.napier.Napier
 import com.xiaomi.xmsf.R
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 /**
  * Handles VoIP call notification styles.
@@ -59,6 +60,18 @@ object VoipNotificationHelper {
             val previous = sequenceCache[packageName] ?: 0L
             if (previous > sequence) {
                 Napier.d("drop stale VoIP notification pkg=$packageName sequence=$sequence previous=$previous", tag = TAG)
+                MagiskOtel.event(
+                    name = "push.event",
+                    attributes = mapOf(
+                        "result" to "skip",
+                        "duration_ms" to "0",
+                        "process" to "app",
+                        "stage" to "voip_stale_drop",
+                        "reason" to "stale_sequence",
+                        "target_package" to packageName,
+                    ),
+                    statusOk = true,
+                )
                 return true
             }
             sequenceCache[packageName] = sequence

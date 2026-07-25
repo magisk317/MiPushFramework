@@ -19,6 +19,7 @@ import io.github.magisk317.xposed.findMethodExact
 import io.github.magisk317.xposed.hook
 import io.github.magisk317.xposed.hookAllMethods
 import io.github.magisk317.xposed.hookMethod
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 object NmsPermissionHooker {
     private const val TAG = "NmsPermissionHooker"
@@ -207,6 +208,7 @@ object NmsPermissionHooker {
 
     fun hook(classINotificationManager: Class<*>) {
         XLog.i(TAG, "installing NMS permission hooks on ${classINotificationManager.name}")
+        try {
         installAmapNavigationFocusBridge(classINotificationManager.classLoader)
         val preserveNotificationDelegateIdentity =
             installNotificationDelegateResolver(classINotificationManager.classLoader)
@@ -336,5 +338,31 @@ object NmsPermissionHooker {
         }
 
         XLog.i(TAG, "NMS permission hooks installed")
+        MagiskOtel.event(
+            name = "hook.load",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "system_server",
+                "stage" to "nms_permission",
+                "reason" to "installed",
+            ),
+            statusOk = true,
+        )
+        } catch (error: Throwable) {
+            XLog.e(TAG, "NMS permission hooks install failed", error)
+            MagiskOtel.event(
+                name = "hook.load",
+                attributes = mapOf(
+                    "result" to "error",
+                    "duration_ms" to "0",
+                    "process" to "system_server",
+                    "stage" to "nms_permission",
+                    "reason" to error.javaClass.simpleName,
+                ),
+                statusOk = false,
+            )
+            throw error
+        }
     }
 }

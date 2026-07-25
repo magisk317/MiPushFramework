@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.utils
 
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
+import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
@@ -31,6 +32,7 @@ object MockMIPushMessage {
         pushService: XMPushServiceCore,
         container: XmPushActionContainer,
     ): MockReplayOutcome {
+        val startedAt = System.nanoTime()
         val replayContainer = prepareReplayContainer(container)
         val payload = XMPushUtils.packToBytes(replayContainer)
         val messageId = MessageIdentity.fromContainer(replayContainer)
@@ -74,7 +76,7 @@ object MockMIPushMessage {
                         "action=${replayContainer.action} messageId=$messageId payloadSize=${payload.size}",
                     it
                 )
-            }.getOrDefault(MockReplayOutcome.Failed)
+            }.getOrDefault(MockReplayOutcome.Failed).also { emitMockReplayOutcome(it, startedAt) }
         }
         try {
             invokeProcessMiPushMessage(pushService, replayContainer, payload)
@@ -87,6 +89,7 @@ object MockMIPushMessage {
                 "mockProcessMIPushMessage legacy invoke completed pkg=${replayContainer.packageName} " +
                     "action=${replayContainer.action} messageId=$messageId"
             )
+            emitMockReplayOutcome(MockReplayOutcome.Dispatched, startedAt)
             return MockReplayOutcome.Dispatched
         } catch (e: Exception) {
             if (shouldFallbackWithModernHelper(e)) {
@@ -108,6 +111,7 @@ object MockMIPushMessage {
                             "mockProcessMIPushMessage fallback modern helper completed pkg=${replayContainer.packageName} " +
                                 "action=${replayContainer.action} messageId=$messageId outcome=$outcome"
                         )
+                        emitMockReplayOutcome(outcome, startedAt)
                         return outcome
                     }
                     .onFailure { fallbackError ->
@@ -129,6 +133,7 @@ object MockMIPushMessage {
                     "messageId=$messageId payloadSize=${payload.size}",
                 e
             )
+            emitMockReplayOutcome(MockReplayOutcome.Failed, startedAt)
             return MockReplayOutcome.Failed
         }
     }
@@ -191,6 +196,34 @@ object MockMIPushMessage {
             "processMIPushMessage invoked payloadSize=${mockDecryptedContent.size} " +
                 "resultType=${result.javaClass.name ?: "void"} result=$result"
         )
+    }
+
+    private fun emitMockReplay(result: String, statusOk: Boolean, reason: String, startedAt: Long) {
+        val durationMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
+        MagiskOtel.event(
+            name = "push.dispatch",
+            attributes = mapOf(
+                "result" to result,
+                "duration_ms" to durationMs.toString(),
+                "process" to "main",
+                "stage" to "mock_replay",
+                "reason" to reason,
+            ),
+            statusOk = statusOk,
+        )
+    }
+
+    private fun emitMockReplayOutcome(outcome: MockReplayOutcome, startedAt: Long) {
+        when (outcome) {
+            MockReplayOutcome.BlockedByPermission ->
+                emitMockReplay(result = "skip", statusOk = true, reason = "blocked_by_permission", startedAt = startedAt)
+            MockReplayOutcome.Dispatched ->
+                emitMockReplay(result = "ok", statusOk = true, reason = "dispatched", startedAt = startedAt)
+            MockReplayOutcome.Posted ->
+                emitMockReplay(result = "ok", statusOk = true, reason = "posted", startedAt = startedAt)
+            MockReplayOutcome.Failed ->
+                emitMockReplay(result = "error", statusOk = false, reason = "failed", startedAt = startedAt)
+        }
     }
 
     private fun observeReplayEvent(container: XmPushActionContainer, action: String, source: String) {

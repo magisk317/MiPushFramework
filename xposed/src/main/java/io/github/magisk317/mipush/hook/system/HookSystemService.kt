@@ -20,6 +20,7 @@ import io.github.magisk317.xposed.findHookClass
 import io.github.magisk317.xposed.get
 import io.github.magisk317.xposed.hookAllMethods
 import io.github.magisk317.xposed.hookMethod
+import io.github.magisk317.xposed.logging.MagiskOtel
 import java.lang.reflect.Method
 import java.util.Collections
 
@@ -68,6 +69,20 @@ class HookSystemService : BaseHook() {
             return VisibilityDecision(allow = false, reason = "target_not_mipush_visible", caller = caller)
         }
 
+        private fun emitSystemService(result: String, reason: String, statusOk: Boolean = true) {
+            MagiskOtel.event(
+                name = "hook.load",
+                attributes = mapOf(
+                    "result" to result,
+                    "duration_ms" to "0",
+                    "process" to "system_server",
+                    "stage" to "system_service",
+                    "reason" to reason,
+                ),
+                statusOk = statusOk,
+            )
+        }
+
         private fun hookGlobalVisibility(classLoader: ClassLoader) {
             runCatching {
                 val packageStateClass = findHookClass("com.android.server.pm.pkg.PackageState", classLoader)
@@ -88,8 +103,10 @@ class HookSystemService : BaseHook() {
                     }
                 }
                 XLog.d(TAG, "installed scoped xmsf visibility hook")
+                emitSystemService(result = "ok", reason = "visibility_installed")
             }.onFailure {
                 XLog.e(TAG, "install xmsf global visibility hook failed", it)
+                emitSystemService(result = "error", reason = it.javaClass.simpleName, statusOk = false)
             }
         }
 
@@ -219,12 +236,14 @@ class HookSystemService : BaseHook() {
                 val service = owner.get<Any?>("mService")
                 if (service == null) {
                     XLog.w(TAG, "skip system notification hook install because mService is null")
+                    emitSystemService(result = "skip", reason = "mservice_null")
                     return@doAfter
                 }
                 val stubClass = service.javaClass
                 hookPermission(stubClass)
                 hookSystemReadyFlag(stubClass)
                 XLog.i(TAG, "system notification hooks installed")
+                emitSystemService(result = "ok", reason = "nms_installed")
             }
         }
 

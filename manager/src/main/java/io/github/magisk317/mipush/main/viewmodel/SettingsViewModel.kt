@@ -49,6 +49,9 @@ class SettingsViewModel constructor(
     val sensitiveDebugLogMode: StateFlow<Boolean> = preferenceRepository.sensitiveDebugLogMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val analyticsEnabled: StateFlow<Boolean> = preferenceRepository.analyticsEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
     val runtimeLogRetentionDays: StateFlow<Int> = preferenceRepository.runtimeLogRetentionDays
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 7)
 
@@ -153,6 +156,10 @@ class SettingsViewModel constructor(
 
     fun setSensitiveDebugLogMode(enabled: Boolean) {
         viewModelScope.launch { preferenceRepository.setSensitiveDebugLogMode(enabled) }
+    }
+
+    fun setAnalyticsEnabled(enabled: Boolean) {
+        viewModelScope.launch { preferenceRepository.setAnalyticsEnabled(enabled) }
     }
 
     fun setShowAllEvents(enabled: Boolean) {

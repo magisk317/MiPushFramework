@@ -11,6 +11,7 @@ import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.platform.override.AppOpsManagerOverride
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 /**
  * Root-backed silent permission grants for both [Constants.SERVICE_APP_NAME] (xmsf) and
@@ -45,6 +46,23 @@ object PermissionUtils {
     )
 
     @JvmStatic
+    private fun emitPermission(
+        result: String,
+        reason: String,
+        statusOk: Boolean = true,
+        extra: Map<String, String> = emptyMap(),
+    ) {
+        val attrs = linkedMapOf(
+            "result" to result,
+            "duration_ms" to "0",
+            "process" to "app",
+            "stage" to "permission_grant",
+            "reason" to reason,
+        )
+        attrs.putAll(extra)
+        MagiskOtel.event(name = "app.monitor", attributes = attrs, statusOk = statusOk)
+    }
+
     fun hasRootAccess(): Boolean = AppRootAccessFacade.refreshRootAccessIfGranted()
 
     @JvmStatic
@@ -81,6 +99,15 @@ object PermissionUtils {
         )
         val ok = commands.any { AppRootAccessFacade.runRootCommand(it).isSuccess }
         logI("allowPermission user=$userId pkg=$packageName op=$permission ok=$ok")
+        emitPermission(
+            result = if (ok) "ok" else "error",
+            reason = if (ok) "appops_allow" else "appops_failed",
+            statusOk = ok,
+            extra = mapOf(
+                "target_package" to packageName,
+                "operation" to permission,
+            ),
+        )
         return ok
     }
 
@@ -95,6 +122,12 @@ object PermissionUtils {
     ): Boolean {
         if (!ensureRootAccess()) {
             logI("grantSilentPermissions skip no-root pkg=$packageName user=$userId")
+            emitPermission(
+                result = "skip",
+                reason = "no_root",
+                statusOk = false,
+                extra = mapOf("target_package" to packageName),
+            )
             return false
         }
         var anySuccess = false
@@ -121,6 +154,12 @@ object PermissionUtils {
             "dumpsys deviceidle whitelist +$packageName",
         ).forEach { AppRootAccessFacade.runRootCommand(it) }
         logI("grantSilentPermissions done pkg=$packageName user=$userId anySuccess=$anySuccess")
+        emitPermission(
+            result = if (anySuccess) "ok" else "error",
+            reason = if (anySuccess) "silent_suite" else "silent_suite_failed",
+            statusOk = anySuccess,
+            extra = mapOf("target_package" to packageName),
+        )
         return anySuccess
     }
 
@@ -133,7 +172,10 @@ object PermissionUtils {
         userId: Int = USER_AUTO,
         packages: Collection<String> = FRAMEWORK_PACKAGES,
     ): Boolean {
-        if (!ensureRootAccess()) return false
+        if (!ensureRootAccess()) {
+            emitPermission(result = "skip", reason = "no_root_framework", statusOk = false)
+            return false
+        }
         val users = resolveUsers(userId)
         var ok = false
         for (user in users) {
@@ -209,9 +251,11 @@ object PermissionUtils {
     @JvmStatic
     fun grantNotificationPermission(context: Context): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            emitPermission(result = "ok", reason = "pre_tiramisu")
             return true
         }
         if (!ensureRootAccess()) {
+            emitPermission(result = "skip", reason = "no_root", statusOk = false)
             return false
         }
         val packages = linkedSetOf(context.packageName, Constants.SERVICE_APP_NAME, Constants.MANAGER_APP_NAME)
@@ -225,10 +269,17 @@ object PermissionUtils {
                 allowPermission("android:post_notification", pkg, user)
             }
         }
-        return ContextCompat.checkSelfPermission(
+        val granted = ContextCompat.checkSelfPermission(
             context,
             android.Manifest.permission.POST_NOTIFICATIONS,
         ) == android.content.pm.PackageManager.PERMISSION_GRANTED || hasCachedRootAccess()
+        emitPermission(
+            result = if (granted) "ok" else "error",
+            reason = if (granted) "notification_permission" else "notification_permission_failed",
+            statusOk = granted,
+            extra = mapOf("target_package" to context.packageName),
+        )
+        return granted
     }
 
     private fun resolveUsers(userId: Int): List<Int> {

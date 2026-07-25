@@ -621,4 +621,6 @@ This could be the application doing a reverse registration, or the registration 
     <string name="settings_migrate_prefs_summary">Copy UI preferences saved in the push service package</string>
     <string name="settings_migrate_prefs_done">Imported %1$d preferences</string>
 
+    <string name="settings_enable_analytics">Analytics</string>
+    <string name="settings_enable_analytics_summary">Allow anonymous analytics for channel usage, success rates, crashes and technical diagnostics.</string>
 </resources>
