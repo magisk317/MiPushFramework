@@ -1,15 +1,15 @@
 include:
   - project: magisk3171/magisk-ci-toolkit
-    ref: be19abe86ebf69044451e9ed1c803c01fa557131
+    ref: 633fdb1373198e20a46b3a1ace84a084300e3c4c
     file: /.gitlab/ci/android.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: be19abe86ebf69044451e9ed1c803c01fa557131
+    ref: 633fdb1373198e20a46b3a1ace84a084300e3c4c
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: be19abe86ebf69044451e9ed1c803c01fa557131
+    ref: 633fdb1373198e20a46b3a1ace84a084300e3c4c
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: be19abe86ebf69044451e9ed1c803c01fa557131
+    ref: 633fdb1373198e20a46b3a1ace84a084300e3c4c
     file: /.gitlab/ci/renovate.yml
 
 workflow:
@@ -37,7 +37,7 @@ stages:
   - maintenance
 
 variables:
-  MAGISK_CI_TOOLKIT_REF: "be19abe86ebf69044451e9ed1c803c01fa557131"
+  MAGISK_CI_TOOLKIT_REF: "633fdb1373198e20a46b3a1ace84a084300e3c4c"
   GIT_DEPTH: "0"
   GIT_SUBMODULE_STRATEGY: recursive
   GIT_SUBMODULE_DEPTH: "0"
@@ -228,9 +228,11 @@ telegram:ci:
       *arm64-v8a*.apk
       arm64-v8a_*.zip
   needs:
+    # Non-optional: schedule/renovate-only pipelines skip android:build, so telegram:ci
+    # must be skipped too instead of sending a text-only "success" without APKs.
     - job: android:build
       artifacts: true
-      optional: true
+      optional: false
     - job: zygisk:build
       artifacts: true
       optional: true
