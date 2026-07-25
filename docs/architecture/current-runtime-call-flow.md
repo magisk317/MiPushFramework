@@ -4,36 +4,48 @@ This document captures the current product-owned runtime chain after the `core`,
 
 It is the reference for future stock-XMSF ports: new compatibility features should attach to one of these stages instead of bypassing the runtime spine.
 
-## 1. App Init
+## 1. App Init (dual package)
 
-- Entry point: packaged host `MiPushHostApp`, which extends `MiPushFrameworkApp`
-- Main work:
+Shipping shape is **two APKs**. Do not bootstrap manager UI from the XMSF host.
+
+### 1a. XMSF runtime package (`com.xiaomi.xmsf`)
+
+- Entry point: packaged host `MiPushHostApp` → `MiPushFrameworkApp`
+- `MiPushHostApp` is an **empty shell** on purpose: no manager Koin, no `ManagerDependencies`
+- Main work (in `MiPushFrameworkApp` / xmsf modules only):
   - initialize DB and app context
   - install logger and crash logger
-  - install hook layer
-  - initialize notification compatibility
-  - attach runtime execution bridge
-  - attach channel tracker
+  - install hook layer / notification compatibility
+  - attach runtime execution bridge and channel tracker
   - enable push controller and wake activation service
-  - register manager Koin modules from the app shell after xmsf app dependencies are ready
-  - keep manager bootstrap owned by the packaged host app instead of the manager UI itself
-  - avoid duplicating `MiPushFrameworkApp.onCreate()` in the app shell; host-specific work should
-    use the dedicated post-dependency hook instead
-
-Cold-start trap:
-
-- `MainActivity` injects `SettingsManager` during launch, so `MiPushHostApp` must register
-  `ManagerDependencies` as soon as the xmsf root Koin container is ready.
-- A June 18 2026 regression showed that guarding this registration with a fragile early-process
-  heuristic can skip the manager module during cold start and crash launch with Koin
-  `NoDefinitionFoundException` for `SettingsManager`.
-- Process-sensitive runtime work can still use `PushControllerUtils.isAppMainProc(...)`, but that
-  helper itself now needs stable current-process-name APIs rather than `runningAppProcesses`.
+  - expose `ManagerRuntimeService` (Binder) for the manager package
+- Process-sensitive runtime work may use `PushControllerUtils.isAppMainProc(...)` with stable
+  current-process-name APIs (avoid `runningAppProcesses`)
 
 Key source:
 
-- `xmsf/src/main/java/io/github/magisk317/mipush/app/MiPushFrameworkApp.kt`
 - `app/src/main/java/com/xiaomi/xmsf/app/MiPushHostApp.kt`
+- `xmsf/src/main/java/io/github/magisk317/mipush/app/MiPushFrameworkApp.kt`
+
+### 1b. Manager package (`io.github.magisk317.mipush`)
+
+- Entry point: `:mipush` `App` / `ManagerLauncherActivity` / widgets
+- Bootstrap: **`ManagerDependencies.startAsRemoteHost()`** (also via `ensureStarted()`)
+- Loads manager Koin with **remote-primary** data plane (`Remote*Source` / `ManagerRuntimeClient`)
+- Talks to XMSF only through signature-permission Binder (`ManagerRuntimeService`)
+- Xposed module is packaged with `:mipush`, not with `:app`
+
+Key source:
+
+- `mipush/src/main/java/io/github/magisk317/mipush/app/App.kt`
+- `manager/.../di/ManagerDependencies.kt`
+- `common/.../LegacyComponentNames.kt` (cross-package component names / redirects)
+
+### 1c. Explicit non-goals / regressions to avoid
+
+- Do **not** register manager Koin from `MiPushHostApp`
+- Do **not** call bare in-process `ManagerDependencies.start()` as the production path
+- Legacy XMSF activity names resolve through thin aliases → `ManagerUiRedirectActivity` → manager package
 
 ## 2. Bridge Entry
 

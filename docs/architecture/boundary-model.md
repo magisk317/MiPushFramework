@@ -175,7 +175,7 @@ graph.
   entrypoints must not own a second bootstrap world, must not start the XMSF Koin host, and must
   not reintroduce bundled-era host-Koin `ManagerDependencies.start()` as a second bootstrap world.
   UI entrypoints call `ensureStarted()`; host Application keeps `startAsRemoteHost()`.
-- Manager data plane target is remote-primary (`Remote*Source` → ViewModel). `Comparing*` /
+- Manager data plane **is** remote-primary (`Remote*Source` → ViewModel). `Comparing*` /
   fake `InProcess*` wrappers are migration scaffolding and should not be re-expanded.
 - Manager main chrome collapse/expand is intentionally shared across `EventList`, `ApplicationList`,
   `Configurations`, and `Settings`, while `Overview` keeps its own always-visible treatment. A June
@@ -223,3 +223,19 @@ the default verification path while still preserving an opt-in coverage gate.
 
 The package-by-package Java-to-Kotlin port and old `push/` split are complete. The retained history
 and ownership notes are recorded in `docs/architecture/push-module-split.md`.
+
+
+## Data-plane idiom (authoritative)
+
+Chosen production shape after the app split:
+
+| Concern | API | Notes |
+| --- | --- | --- |
+| Read | `Remote*Source` + `ManagerRuntimeClient` | Suspend; map missing/binding/denied to typed statuses |
+| Write | `RemoteWriteSupport.execute` (suspend) | Preferred from ViewModels / coroutines; allowlisted keys |
+| Write bridge | `RemoteWriteSupport.executeBlocking` | Only for remaining sync `Manager*Gateway` façades |
+| Legacy façade | `Manager*Gateway` → `RemoteManager*Gateway` | Same Binder underneath; prefer Source/Client in new code |
+| Test harness | `Comparing*` + `Gateway*` | **Test source set only**; not registered in production Koin |
+
+Do not reintroduce in-process primary reads in `:mipush`. Do not bootstrap manager from `:app`.
+
