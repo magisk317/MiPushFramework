@@ -10,7 +10,7 @@ import com.xiaomi.xmsf.app.R
 import io.github.magisk317.mipush.platform.support.LegacyComponentNames
 
 /**
- * Thin XMSF-side compatibility entry used by the default split packaging.
+ * Thin XMSF-side compatibility entry for the runtime-only app package.
  * Forwards legacy launcher / component names into the standalone manager package.
  *
  * Manager UI Activities in :mipush are not exported; only [ManagerLauncherActivity] is a safe

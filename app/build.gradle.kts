@@ -18,7 +18,7 @@ android {
         versionName = versionNameStr
     }
 
-    flavorDimensions += listOf("version", "composition")
+    flavorDimensions += "version"
 
     productFlavors {
         create("normal") {
@@ -27,16 +27,6 @@ android {
         create("vc105") {
             dimension = "version"
             versionCode = 105
-        }
-        // Default split packaging: runtime-only APK. Manager UI lives in :mipush.
-        create("split") {
-            dimension = "composition"
-            buildConfigField("boolean", "BUNDLED_MANAGER", "false")
-        }
-        // Comparison / regression baseline that still packages manager UI in-process.
-        create("bundled") {
-            dimension = "composition"
-            buildConfigField("boolean", "BUNDLED_MANAGER", "true")
         }
     }
 
@@ -56,16 +46,11 @@ android {
             useLegacyPackaging = true
         }
     }
-
-    buildFeatures {
-        buildConfig = true
-    }
 }
 
 dependencies {
     implementation(project(":common"))
     implementation(project(":xmsf"))
-    "bundledImplementation"(project(":manager"))
 
     implementation(libs.kotlinx.coroutines.android)
 }

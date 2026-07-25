@@ -854,7 +854,7 @@ class ManagerRuntimeClient(
         }
     }
 
-    private companion object {
+    internal companion object {
         private const val TAG = "ManagerRuntime"
         // Application list paging + concurrent overview/event loads need headroom on mid-range devices.
         const val DEFAULT_CALL_TIMEOUT_MS = 8_000L

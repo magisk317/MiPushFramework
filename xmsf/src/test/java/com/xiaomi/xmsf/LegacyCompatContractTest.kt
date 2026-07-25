@@ -41,10 +41,10 @@ class LegacyCompatContractTest {
     }
 
     @Test
-    fun `split packaging keeps thin compatibility aliases for legacy component names`() {
+    fun `runtime app packaging keeps thin compatibility aliases for legacy component names`() {
         val document = parseManifest(
-            "src/split/AndroidManifest.xml",
-            "app/src/split/AndroidManifest.xml",
+            "app/src/main/AndroidManifest.xml",
+            "app/src/main/AndroidManifest.xml",
         )
         val aliases = findApplicationNodes(document, "activity-alias")
             .mapNotNull { it.getAttributeNS(ANDROID_NS, "name").takeIf(String::isNotBlank) }
@@ -52,23 +52,15 @@ class LegacyCompatContractTest {
             .toSet()
         assertTrue(
             aliases.containsAll(LegacyComponentNames.manifestActivities),
-            "Missing split compatibility aliases: ${LegacyComponentNames.manifestActivities - aliases}",
+            "Missing runtime compatibility aliases: ${LegacyComponentNames.manifestActivities - aliases}",
         )
-    }
-
-    @Test
-    fun `bundled packaging still declares real manager activities`() {
-        val document = parseManifest(
-            "src/bundled/AndroidManifest.xml",
-            "app/src/bundled/AndroidManifest.xml",
-        )
-        val activities = findApplicationNodes(document, "activity")
+        val redirectActivities = findApplicationNodes(document, "activity")
             .mapNotNull { it.getAttributeNS(ANDROID_NS, "name").takeIf(String::isNotBlank) }
             .map(::normalizeManifestClassName)
             .toSet()
         assertTrue(
-            activities.containsAll(LegacyComponentNames.manifestActivities),
-            "Missing bundled manager activities: ${LegacyComponentNames.manifestActivities - activities}",
+            "com.xiaomi.xmsf.app.compat.ManagerUiRedirectActivity" in redirectActivities,
+            "Runtime packaging must declare ManagerUiRedirectActivity",
         )
     }
 

@@ -403,7 +403,8 @@ Maintain an all-in-one build variant as a regression baseline until split builds
 matrix. Decide later, from device evidence, whether that variant remains a supported fallback or is
 retired.
 
-Status: `:app` now has a `composition` flavor dimension. The default `split` composition depends on
+Status (historical): `:app` previously had a `composition` flavor dimension.
+Update: composition flavors removed; runtime packaging is always split-style and task names are `:app:compileNormalDebugKotlin` / `:app:assembleNormalDebug`. Earlier status: `:app` now has a `composition` flavor dimension. The default `split` composition depends on
 runtime modules only, gates manager bootstrap off, and exposes `activity-alias` compatibility
 launchers that forward into the standalone manager package. The `bundled` composition keeps `:manager` and real manager Activities as the all-in-one
 comparison baseline. Widgets live on `:mipush` for both compositions.

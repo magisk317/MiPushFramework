@@ -22,23 +22,25 @@ class MipushManifestContractTest {
 
     @Test
     fun `manager launcher is exported for LSPosed and launcher entrypoints`() {
-        val activities = parseManifest().getElementsByTagName("activity")
+        val document = parseManifest()
+        val activities = document.getElementsByTagName("activity")
         val launcher = (0 until activities.length)
             .map { activities.item(it) }
             .first { node ->
                 node.attributes.getNamedItemNS(ANDROID_NS, "name")?.nodeValue ==
                     "io.github.magisk317.mipush.app.ManagerLauncherActivity"
-        }
+            }
 
         assertEquals("true", launcher.attributes.getNamedItemNS(ANDROID_NS, "exported").nodeValue)
         assertEquals("true", launcher.attributes.getNamedItemNS(ANDROID_NS, "excludeFromRecents").nodeValue)
         assertEquals("true", launcher.attributes.getNamedItemNS(ANDROID_NS, "noHistory").nodeValue)
-        val intentFilters = launcher.childNodes.let { children ->
+
+        val activityFilters = launcher.childNodes.let { children ->
             (0 until children.length)
                 .map(children::item)
                 .filter { it.nodeName == "intent-filter" }
         }
-        val declarations = intentFilters.map { intentFilter ->
+        val activityDeclarations = activityFilters.map { intentFilter ->
             (0 until intentFilter.childNodes.length)
                 .map(intentFilter.childNodes::item)
                 .filter { it.nodeName == "action" || it.nodeName == "category" }
@@ -46,19 +48,47 @@ class MipushManifestContractTest {
                     node.nodeName to node.attributes.getNamedItemNS(ANDROID_NS, "name").nodeValue
                 }
         }
-
         assertTrue(
-            declarations.any { filter ->
+            activityDeclarations.any { filter ->
+                filter["action"] == "android.intent.action.MAIN" &&
+                    filter["category"] == "de.robv.android.xposed.category.MODULE_SETTINGS"
+            },
+        )
+        assertFalse(
+            activityDeclarations.any { filter ->
+                filter["category"] == "android.intent.category.LAUNCHER"
+            },
+            "LAUNCHER must live on activity-aliases so desktop icons can be switched",
+        )
+
+        val aliases = document.getElementsByTagName("activity-alias")
+        val launcherAliases = (0 until aliases.length)
+            .map { aliases.item(it) }
+            .filter { node ->
+                node.attributes.getNamedItemNS(ANDROID_NS, "targetActivity")?.nodeValue ==
+                    "io.github.magisk317.mipush.app.ManagerLauncherActivity"
+            }
+        val aliasDeclarations = launcherAliases.flatMap { alias ->
+            (0 until alias.childNodes.length)
+                .map(alias.childNodes::item)
+                .filter { it.nodeName == "intent-filter" }
+                .map { intentFilter ->
+                    (0 until intentFilter.childNodes.length)
+                        .map(intentFilter.childNodes::item)
+                        .filter { it.nodeName == "action" || it.nodeName == "category" }
+                        .associate { node ->
+                            node.nodeName to node.attributes.getNamedItemNS(ANDROID_NS, "name").nodeValue
+                        }
+                }
+        }
+        assertTrue(
+            aliasDeclarations.any { filter ->
                 filter["action"] == "android.intent.action.MAIN" &&
                     filter["category"] == "android.intent.category.LAUNCHER"
             },
+            "At least one ManagerLauncherActivity alias must declare LAUNCHER",
         )
-        assertTrue(
-            declarations.any { filter ->
-                filter["action"] == "android.intent.action.MAIN" &&
-                    filter["category"] == "de.robv.android.xposed.category.MODULE_SETTINGS"
-            }
-        )
+
         val launcherSource = resolveFile(
             "src/main/java/io/github/magisk317/mipush/app/ManagerLauncherActivity.kt",
         ).readText()

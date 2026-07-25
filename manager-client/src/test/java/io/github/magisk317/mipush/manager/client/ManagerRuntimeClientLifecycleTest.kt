@@ -495,10 +495,12 @@ class ManagerRuntimeClientLifecycleTest {
 
     @Test
     fun `exhausted remote call permits still produce a typed handshake timeout`() = runBlocking {
-        val handshakeStarted = List(3) { CountDownLatch(1) }
-        val releaseHandshake = List(3) { CountDownLatch(1) }
-        val handshakeCompleted = List(3) { CountDownLatch(1) }
-        val services = List(3) { index ->
+        val permitLimit = ManagerRuntimeClient.MAX_IN_FLIGHT_REMOTE_CALLS
+        val serviceCount = permitLimit + 1
+        val handshakeStarted = List(serviceCount) { CountDownLatch(1) }
+        val releaseHandshake = List(serviceCount) { CountDownLatch(1) }
+        val handshakeCompleted = List(serviceCount) { CountDownLatch(1) }
+        val services = List(serviceCount) { index ->
             FakeRuntimeService(
                 runtimeVersionName = "blocked-$index",
                 handshakeStarted = handshakeStarted[index],
@@ -509,7 +511,7 @@ class ManagerRuntimeClientLifecycleTest {
         val context = FakeServiceContext(
             serviceProvider = { bindIndex -> services[bindIndex - 1] },
         )
-        val dispatcher = Executors.newFixedThreadPool(3).asCoroutineDispatcher()
+        val dispatcher = Executors.newFixedThreadPool(serviceCount).asCoroutineDispatcher()
         val client = client(
             context = context,
             ioDispatcher = dispatcher,
@@ -518,7 +520,7 @@ class ManagerRuntimeClientLifecycleTest {
         )
 
         try {
-            repeat(2) { index ->
+            repeat(permitLimit) { index ->
                 client.connect()
                 assertTrue(handshakeStarted[index].await(1, TimeUnit.SECONDS))
                 withTimeout(1_000L) {
@@ -531,17 +533,18 @@ class ManagerRuntimeClientLifecycleTest {
                 client.availability.first { it == ManagerRuntimeAvailability.TimedOut }
             }
 
-            assertEquals(0, services[2].handshakeCount)
-            assertEquals(3, context.bindCount)
-            assertEquals(3, context.unbindCount)
+            assertEquals(0, services[permitLimit].handshakeCount)
+            assertEquals(serviceCount, context.bindCount)
+            assertEquals(serviceCount, context.unbindCount)
 
             client.close()
             assertEquals(ManagerRuntimeAvailability.Disconnected, client.availability.value)
-            assertEquals(3, context.unbindCount)
+            assertEquals(serviceCount, context.unbindCount)
         } finally {
             releaseHandshake.forEach(CountDownLatch::countDown)
-            assertTrue(handshakeCompleted[0].await(1, TimeUnit.SECONDS))
-            assertTrue(handshakeCompleted[1].await(1, TimeUnit.SECONDS))
+            for (index in 0 until permitLimit) {
+                assertTrue(handshakeCompleted[index].await(1, TimeUnit.SECONDS))
+            }
             client.close()
             dispatcher.close()
         }
