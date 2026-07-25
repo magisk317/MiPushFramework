@@ -11,6 +11,8 @@ import io.github.magisk317.xposed.hook
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 object ShortcutPermissionHooker {
+    private const val NANOS_PER_MILLI = 1_000_000L
+
     @Volatile private var xmsfUid = -1
     private fun getXmsfUid(): Int {
         if (xmsfUid == -1) {
@@ -67,7 +69,7 @@ object ShortcutPermissionHooker {
             name = "hook.load",
             attributes = mapOf(
                 "result" to "ok",
-                "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                "duration_ms" to (((System.nanoTime() - startedAt) / NANOS_PER_MILLI).coerceAtLeast(0L)).toString(),
                 "process" to "hook",
                 "stage" to "shortcut_permission",
                 "reason" to "hooked",
