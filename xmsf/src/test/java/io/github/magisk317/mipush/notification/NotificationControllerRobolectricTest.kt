@@ -34,6 +34,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import tech.apter.junit.jupiter.robolectric.RobolectricExtension
+import io.github.magisk317.mipush.common.notification.SinglePackageNotificationGroupPolicy
 
 @ExtendWith(RobolectricExtension::class)
 @Config(sdk = [28])
@@ -888,7 +889,7 @@ class NotificationControllerRobolectricTest {
     }
 
     @Test
-    fun `grouped notifications stay off island proxy on non MIUI without package summary`() {
+    fun `grouped notifications stay off island proxy on non MIUI with monochrome package summary`() {
         val context = RuntimeEnvironment.getApplication()
         val packageName = context.packageName
         val groupId = "focus-group"
@@ -917,10 +918,18 @@ class NotificationControllerRobolectricTest {
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val active = notificationManager.activeNotifications.associateBy { it.id }
 
-        // Package-wide single group: no MiPush synthetic summary is posted for either the
-        // original custom groupId or the rewritten package group key.
+        // Custom payload group is collapsed; package-key monochrome summary is posted instead of
+        // relying on HyperOS AUTOGROUP_SUMMARY (RESOURCE resId=0 white block).
         assertFalse(active.containsKey(groupId.hashCode()))
-        assertFalse(active.containsKey(packageName.hashCode()))
+        val packageSummary = active.getValue(packageName.hashCode()).notification
+        assertTrue(packageSummary.flags and Notification.FLAG_GROUP_SUMMARY != 0)
+        assertTrue(
+            packageSummary.extras.getBoolean(
+                SinglePackageNotificationGroupPolicy.EXTRA_PACKAGE_GROUP_SUMMARY,
+                false,
+            ),
+        )
+        assertEquals(packageName, packageSummary.group)
         assertEquals("通知汇总", active.getValue(33000).notification.extras.getCharSequence(Notification.EXTRA_SUB_TEXT).toString())
         assertEquals("通知汇总", active.getValue(33001).notification.extras.getCharSequence(Notification.EXTRA_SUB_TEXT).toString())
         assertNotNull(active.getValue(33000).notification.extras.parcelable<Icon>(EXTRA_LARGE_ICON))

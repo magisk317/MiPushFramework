@@ -82,27 +82,49 @@ object NotificationController {
         if (groupId == null) {
             return
         }
-        // Package-wide single group: never inject a MiPush synthetic summary. Native summaries (if
-        // any) stay the only header; pure-MiPush children still stack by group key alone.
-        if (groupId == SinglePackageNotificationGroupPolicy.canonicalGroupKey(packageName)) {
-            cancelMiPushPackageGroupSummaries(packageName, groupId)
+        val isPackageGroup =
+            groupId == SinglePackageNotificationGroupPolicy.canonicalGroupKey(packageName)
+        // Children only — never count our own / system summaries or the threshold oscillates.
+        val groupCount = getNotificationCountOfGroup(packageName, groupId)
+        Napier.d(
+            "updateSummaryNotification pkg=$packageName groupId=$groupId groupCount=$groupCount " +
+                "packageGroup=$isPackageGroup summaryId=${groupId.hashCode()}",
+            tag = TAG,
+        )
+        if (groupCount <= 1) {
             Napier.d(
-                "updateSummaryNotification skip package-group summary pkg=$packageName groupId=$groupId",
+                "updateSummaryNotification cancel summary pkg=$packageName summaryId=${groupId.hashCode()} groupCount=$groupCount",
                 tag = TAG,
             )
+            if (isPackageGroup) {
+                cancelMiPushPackageGroupSummaries(packageName, groupId)
+            } else {
+                getNotificationManagerEx().cancel(packageName, null, groupId.hashCode())
+            }
             return
         }
-        val groupCount = getNotificationCountOfGroup(packageName, groupId)
-        Napier.d("updateSummaryNotification pkg=$packageName groupId=$groupId groupCount=$groupCount summaryId=${groupId.hashCode()}", tag = TAG)
-        if (groupCount <= 1) {
-            Napier.d("updateSummaryNotification cancel summary pkg=$packageName summaryId=${groupId.hashCode()} groupCount=$groupCount", tag = TAG)
-            getNotificationManagerEx().cancel(packageName, null, groupId.hashCode())
+        // Package-wide single group: post an intentional monochrome summary so HyperOS does not
+        // invent AUTOGROUP_SUMMARY with RESOURCE resId=0 (white status-bar block). If a native
+        // non-MiPush summary already owns the header, stay out to avoid "Duplicate summary".
+        if (isPackageGroup && hasForeignGroupSummary(packageName, groupId)) {
+            cancelMiPushPackageGroupSummaries(packageName, groupId)
+            Napier.d(
+                "updateSummaryNotification skip package-group summary; foreign header present " +
+                    "pkg=$packageName groupId=$groupId",
+                tag = TAG,
+            )
             return
         }
         val builder = NotificationCompat.Builder(context, getExistsChannelId(context, metaInfo, packageName))
         builder.setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
         builder.setCategory(Notification.CATEGORY_EVENT).setGroupSummary(true).setGroup(groupId)
         builder.setContentTitle(context.getString(R.string.group_summary_title, groupCount))
+        if (isPackageGroup) {
+            builder.extras.putBoolean(
+                SinglePackageNotificationGroupPolicy.EXTRA_PACKAGE_GROUP_SUMMARY,
+                true,
+            )
+        }
         notify(
             context,
             groupId.hashCode(),
@@ -159,13 +181,46 @@ object NotificationController {
         var notificationCntInGroup = 0
         for (statusBarNotification in activeNotifications) {
             val safeNotification = statusBarNotification ?: continue
-            val n = safeNotification.notification
+            val n = safeNotification.notification ?: continue
+            // Summaries (ours or AUTOGROUP) must not inflate the child count.
+            if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) continue
             val inGroup = groupId == n.group
             if (inGroup) notificationCntInGroup++
             logD("getNotificationCountOfGroup pkg=$packageName id=${safeNotification.id} tag=${safeNotification.tag} group=${n.group} targetGroup=$groupId match=$inGroup")
         }
         Napier.d("getNotificationCountOfGroup result pkg=$packageName groupId=$groupId total=${activeNotifications.size} inGroup=$notificationCntInGroup", tag = TAG)
         return notificationCntInGroup
+    }
+
+    /**
+     * True when a non-MiPush group header already owns [groupId]. Posting our package summary on
+     * top would thrash SystemUI with "Duplicate summary for group".
+     */
+    @RequiresApi(Build.VERSION_CODES.M)
+    private fun hasForeignGroupSummary(packageName: String, groupId: String): Boolean {
+        val activeNotifications = getNotificationManagerEx().getActiveNotifications(packageName) ?: return false
+        for (statusBarNotification in activeNotifications) {
+            val safe = statusBarNotification ?: continue
+            val notification = safe.notification ?: continue
+            if (notification.flags and Notification.FLAG_GROUP_SUMMARY == 0) continue
+            val group = notification.group
+            if (!group.isNullOrBlank() &&
+                group != groupId &&
+                !SinglePackageNotificationGroupPolicy.isAggregateGroupKey(group)
+            ) {
+                continue
+            }
+            if (SinglePackageNotificationGroupPolicy.isPackageGroupSummary(notification.extras)) {
+                continue
+            }
+            val tag = safe.tag
+            val isMiPushTag = !tag.isNullOrBlank() && tag.startsWith("mipush_")
+            val isDelegated = SinglePackageNotificationGroupPolicy.isMiPushDelegated(notification.extras)
+            // Leftover MiPush synthetics are cancelled separately; they are not a native header.
+            if (isMiPushTag || isDelegated) continue
+            return true
+        }
+        return false
     }
 
     @JvmStatic

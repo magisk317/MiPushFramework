@@ -176,4 +176,32 @@ class SinglePackageNotificationGroupPolicyTest {
         )
         assertEquals(0, notification.flags and Notification.FLAG_GROUP_SUMMARY)
     }
+
+    @Test
+    fun `keeps intentional package group summary marked for monochrome header`() {
+        val context = RuntimeEnvironment.getApplication()
+        val notification = NotificationCompat.Builder(context, "ch")
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setGroup("com.ruanmei.ithome")
+            .setGroupSummary(true)
+            .setContentTitle("package summary")
+            .build()
+        notification.extras.putString("target_package", "com.ruanmei.ithome")
+        notification.extras.putBoolean(
+            SinglePackageNotificationGroupPolicy.EXTRA_PACKAGE_GROUP_SUMMARY,
+            true,
+        )
+        assertTrue(SinglePackageNotificationGroupPolicy.isPackageGroupSummary(notification.extras))
+        assertFalse(
+            SinglePackageNotificationGroupPolicy.demoteDelegatedGroupSummary(
+                postingPackage = "com.xiaomi.xmsf",
+                notification = notification,
+            ),
+        )
+        assertTrue((notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0)
+        // apply() must also preserve the intentional header while keeping the package group key.
+        assertFalse(SinglePackageNotificationGroupPolicy.apply("com.xiaomi.xmsf", notification))
+        assertTrue((notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0)
+        assertEquals("com.ruanmei.ithome", notification.group)
+    }
 }

@@ -19,6 +19,12 @@ object SinglePackageNotificationGroupPolicy {
     const val EXTRA_HYPERISLAND_SOURCE_PACKAGE = "hyperisland_source_pkg"
     const val EXTRA_ISLAND_OWNER = "hyperisland.owner"
     const val ISLAND_OWNER_MARKER = "io.github.magisk317.mipush"
+    /**
+     * Marks an intentional MiPush package-wide GROUP_SUMMARY with a monochrome-capable smallIcon.
+     * These must not be demoted; demotion forces HyperOS AUTOGROUP_SUMMARY with RESOURCE resId=0
+     * and a white status-bar block when 2+ children share the package group.
+     */
+    const val EXTRA_PACKAGE_GROUP_SUMMARY = "mipush.package_group_summary"
 
     private const val EXTRA_SUPPORT_GROUP_KEY = "android.support.groupKey"
     private const val EXTRA_GROUP_KEY = "android.groupKey"
@@ -65,9 +71,15 @@ object SinglePackageNotificationGroupPolicy {
         ).any { !it.isNullOrBlank() }
     }
 
+    @JvmStatic
+    fun isPackageGroupSummary(extras: Bundle?): Boolean {
+        return extras?.getBoolean(EXTRA_PACKAGE_GROUP_SUMMARY, false) == true
+    }
+
     /**
-     * Drop MiPush synthetic group summaries. Children keep the package group key; native summaries
-     * (if any) remain the sole header. Pure-MiPush stacks still group by key without a second header.
+     * Drop accidental MiPush synthetic group summaries so they do not fight native headers.
+     * Intentional [EXTRA_PACKAGE_GROUP_SUMMARY] rows are kept: they carry a monochrome smallIcon
+     * and prevent HyperOS AUTOGROUP_SUMMARY (RESOURCE resId=0) white status-bar blocks.
      */
     @JvmStatic
     fun demoteDelegatedGroupSummary(notification: Notification): Boolean {
@@ -82,6 +94,8 @@ object SinglePackageNotificationGroupPolicy {
     fun demoteDelegatedGroupSummary(postingPackage: String, notification: Notification): Boolean {
         if (notification.flags and Notification.FLAG_GROUP_SUMMARY == 0) return false
         if (isIslandProxy(notification.extras)) return false
+        // Keep monochrome package summaries; stripping them recreates AUTOGROUP white-blocks.
+        if (isPackageGroupSummary(notification.extras)) return false
         val fromXmsf = postingPackage == "com.xiaomi.xmsf"
         if (!fromXmsf && !isMiPushDelegated(notification.extras)) return false
         notification.flags = notification.flags and Notification.FLAG_GROUP_SUMMARY.inv()
