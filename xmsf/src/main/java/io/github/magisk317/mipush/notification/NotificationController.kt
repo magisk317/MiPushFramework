@@ -1,4 +1,5 @@
 package io.github.magisk317.mipush.notification
+import io.github.magisk317.mipush.common.notification.SinglePackageNotificationGroupPolicy
 
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
@@ -81,6 +82,16 @@ object NotificationController {
         if (groupId == null) {
             return
         }
+        // Package-wide single group: never inject a MiPush synthetic summary. Native summaries (if
+        // any) stay the only header; pure-MiPush children still stack by group key alone.
+        if (groupId == SinglePackageNotificationGroupPolicy.canonicalGroupKey(packageName)) {
+            cancelMiPushPackageGroupSummaries(packageName, groupId)
+            Napier.d(
+                "updateSummaryNotification skip package-group summary pkg=$packageName groupId=$groupId",
+                tag = TAG,
+            )
+            return
+        }
         val groupCount = getNotificationCountOfGroup(packageName, groupId)
         Napier.d("updateSummaryNotification pkg=$packageName groupId=$groupId groupCount=$groupCount summaryId=${groupId.hashCode()}", tag = TAG)
         if (groupCount <= 1) {
@@ -100,6 +111,42 @@ object NotificationController {
             metaInfo,
             applyPayloadDecorations = false,
         )
+    }
+
+    /**
+     * Cancel leftover MiPush synthetic GROUP_SUMMARY rows for the package group.
+     * Live HyperOS thrash looks like:
+     *   Duplicate summary ... "…|mipush_$pkg|…" vs. "…|null|…"
+     * The hashCode(null-tag) cancel alone misses the tagged mipush_* summary ids.
+     */
+    @RequiresApi(Build.VERSION_CODES.M)
+    private fun cancelMiPushPackageGroupSummaries(packageName: String, groupId: String) {
+        val nm = getNotificationManagerEx()
+        nm.cancel(packageName, null, groupId.hashCode())
+        val mipushTag = MyMIPushNotificationHelper.getNotificationTag(packageName)
+        nm.cancel(packageName, mipushTag, groupId.hashCode())
+        val active = nm.getActiveNotifications(packageName) ?: return
+        for (sbn in active) {
+            val safe = sbn ?: continue
+            val notification = safe.notification ?: continue
+            if (notification.flags and Notification.FLAG_GROUP_SUMMARY == 0) continue
+            val tag = safe.tag
+            val isMiPushTag = !tag.isNullOrBlank() && tag.startsWith("mipush_")
+            val isDelegated = SinglePackageNotificationGroupPolicy.isMiPushDelegated(notification.extras)
+            if (!isMiPushTag && !isDelegated) continue
+            val group = notification.group
+            if (!group.isNullOrBlank() &&
+                group != groupId &&
+                !SinglePackageNotificationGroupPolicy.isAggregateGroupKey(group)
+            ) {
+                continue
+            }
+            nm.cancel(packageName, tag, safe.id)
+            Napier.d(
+                "cancelMiPushPackageGroupSummaries pkg=$packageName tag=$tag id=${safe.id} group=$group",
+                tag = TAG,
+            )
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.M)
@@ -244,6 +291,11 @@ object NotificationController {
             StockNotificationMetadataBridge.apply(metaInfo, extras)
         }
         notificationBuilder.addExtras(extras)
+        // One shade group per app: collapse custom/MiPush groups so native + MiPush share a stack.
+        // NMS SinglePackageNotificationGroupPolicy performs the same rewrite for all apps system-wide.
+        notificationBuilder.setGroup(
+            SinglePackageNotificationGroupPolicy.canonicalGroupKey(packageName),
+        )
         val color = applyStatusBarIcon(
             context,
             packageName,
@@ -360,12 +412,18 @@ object NotificationController {
             )
         }
 
+        val focusParamForDelete = when {
+            focusPlan.attachMiuiFocusExtras -> rawConfiguredFocusParam
+            generatedFocusBundle != null -> generatedFocusBundle.getString(FOCUS_PARAM)
+            else -> null
+        }
         NotificationSortFilter.attachDeleteIntentIfNeeded(
             context,
             notificationBuilder,
             packageName,
-            rawConfiguredFocusParam.takeIf { focusPlan.attachMiuiFocusExtras },
-            notificationId
+            focusParamForDelete,
+            notificationId,
+            notificationTag = tag,
         )
         attachLiveUpdateDismissCancelIntent(
             context = context,
@@ -823,10 +881,15 @@ object NotificationController {
         val tag = MyMIPushNotificationHelper.getNotificationTag(container)
         NativeNotificationFeatureBuilder.releaseMediaSession(container.packageName, notificationId, tag)
         cancelGeneratedIslandProxy(context, container.packageName, notificationId, tag)
-        getNotificationManagerEx().cancel(container.packageName, tag, notificationId)
-        FocusNotificationRegistry.unregisterAllUidVariants(
-            context,
-            focusNotificationKey(context, container.packageName, notificationId, tag)
+        // Full focus/AOD teardown: cancel + unregister updatable_focus_notifs + record deleted.
+        FocusNotificationLifecycle.end(
+            context = context,
+            packageName = container.packageName,
+            notificationId = notificationId,
+            tag = tag,
+            cancelNotification = true,
+            recordDeleted = true,
+            unregisterFocus = true,
         )
         if (clearGroup) {
             getNotificationManagerEx().cancel(
@@ -938,10 +1001,9 @@ object NotificationController {
         notificationBuilder: NotificationCompat.Builder,
         colorStatusBarIcon: Boolean,
     ): Int {
-        // Monochrome mode must not post brand BITMAP small icons from config/app-icon cache.
-        // Those TYPE_BITMAP pixels keep status-bar icons colorful even when Notification.color is
-        // cleared and SystemUI later tries SRC_IN tint. Prefer a tintable RESOURCE (target app
-        // smallIcon / largeIcon, else the built-in monochrome drawable) without converting bitmaps.
+        // Monochrome mode must not post multi-color brand BITMAP/RESOURCE logos as smallIcon.
+        // HyperOS SRC_IN cannot desaturate multi-color pixels. Prefer a white-alpha silhouette
+        // BITMAP from IconCache/raw app icon; the Material bell is last-resort only.
         val color = if (colorStatusBarIcon) {
             processIcon(context, packageName, notificationBuilder)
         } else {
@@ -966,30 +1028,42 @@ object NotificationController {
         notificationBuilder: NotificationCompat.Builder,
     ): Int {
         val color = getIconColor(context, packageName)
-        notificationBuilder.setSmallIcon(R.drawable.ic_notifications_black_24dp)
         val pkgContext = XMPushUtils.getPackageContext(
             context,
             packageName,
             Context.CONTEXT_IGNORE_SECURITY,
         )
-        if (pkgContext === context) {
-            // Keep the built-in monochrome resource instead of falling back to app-icon BITMAP.
+        // Shade avatars stay on largeIcon. Status-bar smallIcon must already be monochrome pixels:
+        // multi-color launcher RESOURCE logos stay full-color on HyperOS even with SRC_IN tint.
+        if (pkgContext !== context) {
+            val largeIconId = getIconId(context, packageName, NOTIFICATION_LARGE_ICON)
+            if (largeIconId > 0) {
+                notificationBuilder.setLargeIcon(
+                    BitmapFactory.decodeResource(pkgContext.resources, largeIconId),
+                )
+            }
+        }
+        // Prefer package white-alpha silhouette. Never seed Material bell first — that seed became
+        // the status-bar icon for WeWork/xinyi when IconCache missed.
+        val whiteStatusBarIcon = Global.iconCache().getIconCache(
+            context,
+            packageName,
+            object : io.github.magisk317.mipush.common.cache.IconCache.Converter<Bitmap, IconCompat> {
+                override fun convert(ctx: Context, b: Bitmap): IconCompat = IconCompat.createWithBitmap(b)
+            },
+        )
+        if (whiteStatusBarIcon != null) {
+            notificationBuilder.setSmallIcon(whiteStatusBarIcon)
             return color
         }
-        val largeIconId = getIconId(context, packageName, NOTIFICATION_LARGE_ICON)
-        val smallIconId = getIconId(context, packageName, NOTIFICATION_SMALL_ICON)
-        if (largeIconId > 0) {
-            notificationBuilder.setLargeIcon(BitmapFactory.decodeResource(pkgContext.resources, largeIconId))
-        }
-        if (smallIconId > 0) {
-            notificationBuilder.setSmallIcon(IconCompat.createWithResource(pkgContext, smallIconId))
+        val rawIcon = Global.iconCache().getRawIconBitmap(context, packageName)
+        if (rawIcon != null) {
+            val white = ImgUtils.convertToTransparentAndWhite(rawIcon)
+            notificationBuilder.setSmallIcon(IconCompat.createWithBitmap(white))
             return color
         }
-        if (largeIconId > 0) {
-            notificationBuilder.setSmallIcon(IconCompat.createWithResource(pkgContext, largeIconId))
-            return color
-        }
-        // No target RESOURCE available: keep xmsf monochrome drawable.
+        // Absolute last resort only (package icon unavailable).
+        notificationBuilder.setSmallIcon(IconCompat.createWithResource(context, R.drawable.ic_notifications_black_24dp))
         return color
     }
 
@@ -1528,8 +1602,7 @@ object NotificationController {
     }
 
     private fun focusNotificationKey(context: Context, packageName: String, notificationId: Int, tag: String?): String {
-        val uid = resolveNotificationUid(context, packageName)
-        return "0|$packageName|$notificationId|$tag|$uid"
+        return FocusNotificationLifecycle.focusKey(context, packageName, notificationId, tag)
     }
 
     private fun resolveNotificationUid(context: Context, packageName: String): Int {

@@ -94,6 +94,33 @@ class HookSystemUI : BaseHook() {
             }
 
             try {
+                // CN HyperOS substitutes multi-color app logos when miuiOptimization is on.
+                // Block that substitution under monochrome so white-alpha BITMAP silhouettes stick.
+                val notifImageUtilClass =
+                    classLoader.findClass("com.android.systemui.statusbar.notification.utils.NotifImageUtil")
+                notifImageUtilClass.hookAllMethods("shouldSubstituteSmallIcon") {
+                    doBefore {
+                        val options = IslandPreferences.current()
+                        val sbn = args.firstOrNull() as? StatusBarNotification ?: return@doBefore
+                        val isMiPushManaged = SystemUiNotificationPolicy.isMiPushManagedNotification(
+                            sbn.notification?.extras
+                        )
+                        if (SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
+                                colorStatusBarIcon = options.colorStatusBarIcon,
+                                forceGlobalStatusBarIcons = options.colorStatusBarIconGlobal,
+                                isMiPushManaged = isMiPushManaged,
+                            )
+                        ) {
+                            result = false
+                        }
+                    }
+                }
+                XLog.i(TAG, "hooked NotifImageUtil.shouldSubstituteSmallIcon for monochrome")
+            } catch (e: Exception) {
+                XLog.e(TAG, "Failed to hook NotifImageUtil.shouldSubstituteSmallIcon", e)
+            }
+
+            try {
                 classLoader.findClass("com.android.systemui.statusbar.notification.icon.IconManager")
                     .hookAllMethods("setIcon") {
                         doAfter {

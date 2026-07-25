@@ -250,6 +250,68 @@ class ResourceSmallIconGuardTest {
     }
 
     @Test
+    fun `strong monochrome applies to colorizable third-party posts`() {
+        assertTrue(
+            SystemUiNotificationPolicy.shouldApplyGlobalMonochromeToNotification(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = false,
+                packageName = ALIPAY_PACKAGE,
+                uid = USER_APP_UID,
+                isSystemApp = false,
+                canColorize = true,
+            ),
+            "FLAG_CAN_COLORIZE must not exempt third-party icons from strong monochrome.",
+        )
+        assertTrue(
+            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = false,
+                iconType = ICON_TYPE_BITMAP,
+                resId = 0,
+                resPackage = null,
+                packageName = ALIPAY_PACKAGE,
+                uid = USER_APP_UID,
+                isSystemApp = false,
+                canColorize = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `monochrome blocks MIUI small-icon substitution for MiPush and strong global`() {
+        assertTrue(
+            SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = false,
+                isMiPushManaged = true,
+            ),
+        )
+        assertTrue(
+            SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = false,
+            ),
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
+                colorStatusBarIcon = true,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = true,
+            ),
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldBlockSmallIconSubstitution(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = false,
+                isMiPushManaged = false,
+            ),
+        )
+    }
+
+    @Test
     fun `strong monochrome keeps MiPush island proxy eligible even when posted by SystemUI`() {
         assertTrue(
             SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
@@ -373,17 +435,29 @@ class ResourceSmallIconGuardTest {
             isSystemApp = false,
             canColorize = false,
         )
-        val monochromeBitmapDeclined =
-            !input.colorStatusBarIcon && input.iconType == ICON_TYPE_BITMAP
         assertTrue(
-            guarded == (base && loadable && !monochromeBitmapDeclined),
-            "Guard must equal base AND loadable, except monochrome BITMAP which is always declined: $input",
+            guarded == (base && loadable),
+            "Guard must equal base AND loadable for all icon types including monochrome BITMAP: $input",
         )
     }
 
     @Test
-    fun `monochrome declines BITMAP intercept even for MiPush managed icons`() {
-        assertFalse(
+    fun `monochrome intercepts BITMAP for MiPush managed icons`() {
+        assertTrue(
+            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = false,
+                isMiPushManaged = true,
+                iconType = ICON_TYPE_BITMAP,
+                resId = 0,
+                resPackage = null,
+                packageName = XMSF_PACKAGE,
+                uid = USER_APP_UID,
+                isSystemApp = false,
+                canColorize = false,
+            ),
+        )
+        assertTrue(
             SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
                 colorStatusBarIcon = false,
                 forceGlobalStatusBarIcons = true,

@@ -11,29 +11,14 @@ import net.jqwik.api.Property
 import net.jqwik.api.Provide
 import net.jqwik.api.lifecycle.AfterProperty
 import net.jqwik.api.lifecycle.BeforeProperty
-import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 
 /**
- * Bug Condition Exploration Test — Property-Based
+ * Monochrome getSmallIcon intercept contract.
  *
- * **Validates: Requirements 1.1, 2.1**
- *
- * Property 1: Bug Condition — Monochrome Icons Incorrectly Intercepted When Toggle OFF
- *
- * This test encodes the EXPECTED (correct) behavior:
- * - When `colorStatusBarIcon` is `false` (monochrome desired) AND the notification is MiPush-managed,
- *   the `NotifImageUtil.getSmallIcon` hook's `doBefore` logic SHALL NOT intercept (shall not set `result`).
- * - This allows MIUI's native monochrome tinting pipeline to process the icon normally.
- *
- * On UNFIXED code, this test FAILS because:
- * - The guard `if (IslandPreferences.current().colorStatusBarIcon) return@doBefore` means
- *   "skip when toggle ON" — so when toggle is OFF, the guard does NOT return early.
- * - Execution continues, `isMiPushManagedNotification(sbn)` returns true, and
- *   `result = notification.smallIcon` is set (hook intercepts incorrectly).
- *
- * The property generates random MiPush-managed notification configurations with
- * various combinations of MiPush extras and asserts the hook does NOT intercept.
- * Test failure confirms the bug: the hook intercepts when it should not.
+ * When colorStatusBarIcon is false (monochrome) and the notification is MiPush-managed,
+ * SystemUI must intercept getSmallIcon so MIUI cannot substitute the multi-color app logo
+ * over MiPush's white-alpha silhouette BITMAP / monochrome RESOURCE.
  */
 class GetSmallIconHookBugConditionTest {
 
@@ -45,10 +30,6 @@ class GetSmallIconHookBugConditionTest {
         private const val EXTRA_MOCK_REPLAY_SOURCE_PACKAGE = "mipush_mock_replay_source_package"
     }
 
-    /**
-     * Represents the extras present in a notification Bundle — used as a pure-data
-     * abstraction that avoids depending on Android's Bundle class at test runtime.
-     */
     data class NotificationExtras(
         val strings: Map<String, String> = emptyMap(),
         val booleans: Map<String, Boolean> = emptyMap(),
@@ -58,10 +39,6 @@ class GetSmallIconHookBugConditionTest {
         fun getString(key: String): String? = strings[key]
     }
 
-    /**
-     * Data class representing a MiPush-managed notification's relevant properties.
-     * This is the input domain for the property test.
-     */
     data class MiPushNotificationInput(
         val packageName: String,
         val hasTargetPackage: Boolean,
@@ -75,7 +52,6 @@ class GetSmallIconHookBugConditionTest {
         fun toExtras(): NotificationExtras {
             val strings = mutableMapOf<String, String>()
             val booleans = mutableMapOf<String, Boolean>()
-
             if (hasTargetPackage) strings[EXTRA_TARGET_PACKAGE] = packageName
             if (hasMiuiTargetPkg) strings[EXTRA_MIUI_TARGET_PACKAGE] = packageName
             if (hasXmsfTargetPackage) strings[EXTRA_XMSF_TARGET_PACKAGE] = packageName
@@ -83,11 +59,9 @@ class GetSmallIconHookBugConditionTest {
             if (hasMockReplaySourcePackage) strings[EXTRA_MOCK_REPLAY_SOURCE_PACKAGE] = packageName
             if (hasSourcePackage) strings[IslandDispatchContract.SOURCE_PACKAGE] = packageName
             if (hasOwnerMarker) strings[IslandDispatchContract.OWNER] = IslandDispatchContract.OWNER_MARKER
-
             return NotificationExtras(strings, booleans)
         }
 
-        /** Human-readable description of active extras for failure messages */
         fun activeExtrasDescription(): String {
             val active = mutableListOf<String>()
             if (hasTargetPackage) active += "target_package"
@@ -101,54 +75,33 @@ class GetSmallIconHookBugConditionTest {
         }
     }
 
-    /**
-     * Replicates `HookSystemUI.isMiPushManagedNotification` using our pure-data [NotificationExtras].
-     */
     private fun isMiPushManagedNotification(extras: NotificationExtras): Boolean {
-        return extras.containsKey(EXTRA_TARGET_PACKAGE) ||
-            extras.containsKey(EXTRA_MIUI_TARGET_PACKAGE) ||
-            extras.containsKey(EXTRA_XMSF_TARGET_PACKAGE) ||
-            extras.getBoolean(EXTRA_MOCK_REPLAY_RECEIPT, false) ||
-            extras.getString(EXTRA_MOCK_REPLAY_SOURCE_PACKAGE)?.isNotBlank() == true ||
-            extras.getString(IslandDispatchContract.SOURCE_PACKAGE)?.isNotBlank() == true ||
-            extras.getString(IslandDispatchContract.OWNER) == IslandDispatchContract.OWNER_MARKER
+        return SystemUiNotificationPolicy.hasMiPushManagementMarker(
+            containsKey = extras::containsKey,
+            getBoolean = extras::getBoolean,
+            getString = extras::getString,
+        )
     }
 
-    /**
-     * Replicates the hook's `doBefore` decision logic faithfully from FIXED code.
-     * Returns whether the hook intercepts (sets result) or not.
-     *
-     * This mirrors the FIXED code in HookSystemUI.kt:
-     * ```
-     * doBefore {
-     *     if (!IslandPreferences.current().colorStatusBarIcon) return@doBefore  // guard
-     *     val sbn = args[1] as? StatusBarNotification ?: return@doBefore
-     *     val notification = sbn.notification ?: return@doBefore
-     *     if (isMiPushManagedNotification(sbn)) {
-     *         result = notification.smallIcon   // <-- INTERCEPTS
-     *         return@doBefore
-     *     }
-     * }
-     * ```
-     *
-     * @return true if the hook would intercept (set result = notification.smallIcon), false otherwise
-     */
     private fun hookIntercepts(colorStatusBarIcon: Boolean, extras: NotificationExtras): Boolean {
-        // Replicate the guard condition from FIXED code
-        if (!colorStatusBarIcon) return false // guard returns early when toggle OFF (fixed logic)
-
-        // In the real code, if sbn or notification is null, hook returns early.
-        // Our test always provides valid extras so we proceed.
-
-        if (isMiPushManagedNotification(extras)) {
-            return true // hook intercepts: sets result = notification.smallIcon
-        }
-        return false // hook does not intercept
+        val isMiPushManaged = isMiPushManagedNotification(extras)
+        // Mirror the live guard: monochrome + MiPush (or strong global) still intercepts BITMAP/RESOURCE.
+        return SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
+            colorStatusBarIcon = colorStatusBarIcon,
+            forceGlobalStatusBarIcons = false,
+            isMiPushManaged = isMiPushManaged,
+            iconType = SystemUiNotificationPolicy.ICON_TYPE_BITMAP,
+            resId = 0,
+            resPackage = null,
+            packageName = "com.example.app",
+            uid = 10123,
+            isSystemApp = false,
+            canColorize = false,
+        )
     }
 
     @BeforeProperty
     fun setup() {
-        // Set preferences to colorStatusBarIcon = false (monochrome desired — the bug condition)
         IslandPreferences.resetForTest(IslandOptions(colorStatusBarIcon = false))
     }
 
@@ -157,27 +110,20 @@ class GetSmallIconHookBugConditionTest {
         IslandPreferences.resetForTest()
     }
 
-    /**
-     * Generates random package names for MiPush-managed notifications.
-     */
     @Provide
     fun packageNames(): Arbitrary<String> = Arbitraries.of(
-        "com.tencent.mm",         // WeChat
-        "com.taobao.taobao",     // Taobao
-        "com.eg.android.AlipayGphone", // Alipay
-        "com.jingdong.app.mall", // JD
-        "com.sina.weibo",        // Weibo
-        "com.zhihu.android",     // Zhihu
-        "com.netease.cloudmusic", // NetEase Music
-        "com.ss.android.ugc.aweme", // Douyin
-        "tv.danmaku.bili",       // Bilibili
-        "com.example.randomapp"  // generic app
+        "com.tencent.mm",
+        "com.taobao.taobao",
+        "com.eg.android.AlipayGphone",
+        "com.jingdong.app.mall",
+        "com.sina.weibo",
+        "com.zhihu.android",
+        "com.netease.cloudmusic",
+        "com.ss.android.ugc.aweme",
+        "tv.danmaku.bili",
+        "com.example.randomapp",
     )
 
-    /**
-     * Generates random MiPush notification inputs with at least one MiPush extra present.
-     * This ensures every generated input represents a valid MiPush-managed notification.
-     */
     @Provide
     fun miPushNotificationInputs(): Arbitrary<MiPushNotificationInput> {
         return Combinators.combine(
@@ -188,52 +134,27 @@ class GetSmallIconHookBugConditionTest {
             Arbitraries.of(true, false),
             Arbitraries.of(true, false),
             Arbitraries.of(true, false),
-            Arbitraries.of(true, false)
+            Arbitraries.of(true, false),
         ).filter { _, tp, miui, xmsf, replay, replaySource, source, owner ->
-            // At least one MiPush extra must be present to be a MiPush-managed notification
             tp || miui || xmsf || replay || replaySource || source || owner
         }.`as` { pkg, tp, miui, xmsf, replay, replaySource, source, owner ->
             MiPushNotificationInput(pkg, tp, miui, xmsf, replay, replaySource, source, owner)
         }
     }
 
-    /**
-     * Property 1: Bug Condition — Monochrome Icons Incorrectly Intercepted When Toggle OFF
-     *
-     * **Validates: Requirements 1.1, 2.1**
-     *
-     * For ANY MiPush-managed notification when `colorStatusBarIcon` is `false` (monochrome desired),
-     * the `getSmallIcon` hook SHALL NOT intercept (shall not set result).
-     *
-     * On UNFIXED code, this property FAILS because the hook's guard condition is inverted:
-     * `if (colorStatusBarIcon) return@doBefore` does NOT return early when toggle is OFF,
-     * so the hook continues execution and sets `result = notification.smallIcon`.
-     *
-     * EXPECTED OUTCOME on unfixed code: FAILS for every generated input.
-     */
     @Property(tries = 100)
-    fun `hook must not intercept MiPush notifications when monochrome desired`(
-        @ForAll("miPushNotificationInputs") input: MiPushNotificationInput
+    fun `hook must intercept MiPush notifications when monochrome desired`(
+        @ForAll("miPushNotificationInputs") input: MiPushNotificationInput,
     ) {
-        // Bug condition: colorStatusBarIcon = false (set in @BeforeProperty)
         val colorStatusBarIcon = IslandPreferences.current().colorStatusBarIcon
         val extras = input.toExtras()
-
-        // Simulate the hook's doBefore decision on current code.
         val intercepted = hookIntercepts(colorStatusBarIcon, extras)
-
-        // Expected behavior: hook does NOT intercept (intercepted == false)
-        // Bug: hook DOES intercept (intercepted == true, result = notification.smallIcon)
-        assertNull(
-            if (intercepted) "INTERCEPTED" else null,
-            "When colorStatusBarIcon=false (monochrome desired) and notification is MiPush-managed " +
-                "(package=${input.packageName}, " +
-                "active extras: [${input.activeExtrasDescription()}]), " +
-                "the getSmallIcon hook must NOT intercept (must not set result). " +
-                "Bug: the hook incorrectly sets result=notification.smallIcon, " +
-                "bypassing MIUI's native monochrome tinting pipeline. " +
-                "The guard condition `if (colorStatusBarIcon) return@doBefore` does not return " +
-                "when colorStatusBarIcon=false, so the hook proceeds to intercept."
+        assertTrue(
+            intercepted,
+            "When colorStatusBarIcon=false (monochrome) and notification is MiPush-managed " +
+                "(package=${input.packageName}, active extras: [${input.activeExtrasDescription()}]), " +
+                "getSmallIcon must intercept so MIUI cannot replace the monochrome silhouette " +
+                "with the multi-color app logo.",
         )
     }
 }

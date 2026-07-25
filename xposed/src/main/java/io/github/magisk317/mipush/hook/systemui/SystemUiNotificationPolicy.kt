@@ -55,8 +55,13 @@ internal object SystemUiNotificationPolicy {
         forceGlobalStatusBarIcons: Boolean,
         isMiPushManaged: Boolean,
     ): Boolean {
+        // Strong monochrome: intercept every eligible notification so MIUI cannot swap in
+        // multi-color app logos for either RESOURCE or BITMAP small icons.
         if (forceGlobalStatusBarIcons && !colorStatusBarIcon) return true
-        return colorStatusBarIcon && isMiPushManaged
+        // MiPush-managed notifications: intercept for both color and monochrome modes.
+        // Monochrome posts white-alpha BITMAP silhouettes; declining getSmallIcon lets HyperOS
+        // replace them with the multi-color launcher icon and the status bar stays full-color.
+        return isMiPushManaged
     }
 
     /**
@@ -107,13 +112,10 @@ internal object SystemUiNotificationPolicy {
         isSystemApp: Boolean,
         canColorize: Boolean,
     ): Boolean {
-        // Monochrome + brand BITMAP: never force the colorful bitmap through getSmallIcon.
-        // SRC_IN tint cannot reliably turn multi-color TYPE_BITMAP logos monochrome on HyperOS
-        // status-bar ImageViews, and intercepting also bypasses MIUI's native monochrome path.
-        // RESOURCE icons (including MiPush island proxies) still follow the normal policy.
-        if (!colorStatusBarIcon && iconType == ICON_TYPE_BITMAP) {
-            return false
-        }
+        // Monochrome BITMAP must still be intercepted. MiPush posts white-alpha silhouettes as
+        // TYPE_BITMAP; if we decline getSmallIcon, MIUI substitutes the multi-color app logo and
+        // the status bar stays full-color. Intercepting keeps the posted monochrome pixels and
+        // lets IconManager apply SRC_IN grayscale tint.
         if (!shouldInterceptSmallIcon(colorStatusBarIcon, forceGlobalStatusBarIcons, isMiPushManaged)) {
             return false
         }
@@ -216,8 +218,25 @@ internal object SystemUiNotificationPolicy {
         if (isMiPushManaged) return true
         if (packageName == SECURITY_CENTER_PACKAGE) return false
         if (isSystemApp || !isApplicationUid(uid)) return false
-        if (canColorize) return false
+        // Note: do not skip FLAG_CAN_COLORIZE. Many third-party posts set it and HyperOS then
+        // keeps multi-color app logos on the status bar under "strong monochrome".
         return true
+    }
+
+    /**
+     * Whether MIUI must NOT substitute the multi-color launcher icon for status-bar rendering.
+     *
+     * On CN HyperOS, [NotifImageUtil.shouldSubstituteSmallIcon] is true whenever MIUI optimization
+     * is on. [StatusBarIconView.updateIconColor] then clears the color filter so BITMAP app logos
+     * stay full-color — defeating monochrome even when getSmallIcon is intercepted.
+     */
+    fun shouldBlockSmallIconSubstitution(
+        colorStatusBarIcon: Boolean,
+        forceGlobalStatusBarIcons: Boolean,
+        isMiPushManaged: Boolean,
+    ): Boolean {
+        if (colorStatusBarIcon) return false
+        return isMiPushManaged || forceGlobalStatusBarIcons
     }
 
     fun globalMonochromeTint(requestedColor: Int, fallbackColor: Int): Int {

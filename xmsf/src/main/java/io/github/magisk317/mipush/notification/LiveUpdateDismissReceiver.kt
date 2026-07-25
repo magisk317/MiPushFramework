@@ -10,8 +10,9 @@ import io.github.magisk317.xposed.logging.MagiskOtel
  * Ensures native Live Update / promoted-ongoing notifications are fully cancelled when the user
  * dismisses them from the shade (or island dismiss paths that fire deleteIntent).
  *
- * HyperOS may keep the island chip while the shade row is gone if cancel is not synchronized across
- * target-package and local xmsf identities.
+ * HyperOS may keep the island chip / AOD focus while the shade row is gone if cancel is not
+ * synchronized across target-package identity, local xmsf posts, and
+ * Settings.Secure updatable_focus_notifs.
  */
 class LiveUpdateDismissReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
@@ -47,18 +48,15 @@ class LiveUpdateDismissReceiver : BroadcastReceiver() {
             "live-update dismiss cancel pkg=$packageName id=$notificationId tag=$tag",
             tag = TAG,
         )
-        // Cancel both target identity and local fallback (tag/id as posted by xmsf).
-        runCatching {
-            NotificationManagerEx.cancel(packageName, tag, notificationId)
-        }.onFailure {
-            Napier.w("live-update target cancel failed: ${it.message}", it, tag = TAG)
-        }
-        runCatching {
-            val nm = context.getSystemService(android.app.NotificationManager::class.java)
-            nm?.cancel(tag, notificationId)
-        }.onFailure {
-            Napier.w("live-update local cancel failed: ${it.message}", it, tag = TAG)
-        }
+        FocusNotificationLifecycle.end(
+            context = context,
+            packageName = packageName,
+            notificationId = notificationId,
+            tag = tag,
+            cancelNotification = true,
+            recordDeleted = true,
+            unregisterFocus = true,
+        )
         MagiskOtel.event(
             name = "push.event",
             attributes = mapOf(

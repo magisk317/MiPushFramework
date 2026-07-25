@@ -12,6 +12,7 @@ import android.app.NotificationManager
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import io.github.magisk317.mipush.common.notification.NotificationContentSupport
+import io.github.magisk317.mipush.common.utils.ImgUtils
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.island.IslandDispatchContract
 import io.github.magisk317.mipush.hook.island.IslandDispatcher
@@ -137,6 +138,12 @@ class MiPushIslandHook : BaseHook() {
         notification: Notification,
         extras: Bundle,
     ): Icon {
+        // Monochrome mode must not feed multi-color TYPE_BITMAP logos into the island proxy
+        // smallIcon. Prefer an already-white silhouette BITMAP or convert the app logo to white
+        // alpha so SystemUI monochrome SRC_IN tint stays single-color.
+        if (!IslandPreferences.current().colorStatusBarIcon) {
+            monochromeStatusBarIcon(context, packageName, notification)?.let { return it }
+        }
         extractLargeIcon(notification, extras)?.let { return it }
         return runCatching {
             val drawable = context.packageManager.getApplicationIcon(packageName)
@@ -154,6 +161,24 @@ class MiPushIslandHook : BaseHook() {
         }.getOrElse {
             notification.smallIcon ?: Icon.createWithResource(context, android.R.drawable.sym_def_app_icon)
         }
+    }
+
+    private fun monochromeStatusBarIcon(
+        context: Context,
+        packageName: String,
+        notification: Notification,
+    ): Icon? {
+        val smallIcon = notification.smallIcon
+        // MiPush monochrome posts already convert app logos to white-alpha BITMAP silhouettes.
+        if (smallIcon != null && smallIcon.type == Icon.TYPE_BITMAP) {
+            return smallIcon
+        }
+        return runCatching {
+            val drawable = context.packageManager.getApplicationIcon(packageName)
+            val raw = ImgUtils.drawableToBitmap(drawable)
+            val white = ImgUtils.convertToTransparentAndWhite(raw)
+            Icon.createWithBitmap(white)
+        }.getOrNull() ?: smallIcon
     }
 
     private fun extractLargeIcon(notification: Notification, extras: Bundle): Icon? {

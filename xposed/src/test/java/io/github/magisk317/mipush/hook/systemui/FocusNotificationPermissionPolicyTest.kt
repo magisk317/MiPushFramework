@@ -119,6 +119,21 @@ class FocusNotificationPermissionPolicyTest {
                 isMiPushManaged = true,
             ),
         )
+        // Scoped monochrome (global off): still intercept MiPush-managed icons.
+        assertTrue(
+            SystemUiNotificationPolicy.shouldInterceptSmallIcon(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = false,
+                isMiPushManaged = true,
+            ),
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldInterceptSmallIcon(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = false,
+                isMiPushManaged = false,
+            ),
+        )
         assertFalse(
             SystemUiNotificationPolicy.shouldInterceptSmallIcon(
                 colorStatusBarIcon = true,
@@ -129,8 +144,8 @@ class FocusNotificationPermissionPolicyTest {
     }
 
     @Test
-    fun `icon guard declines monochrome BITMAP but keeps monochrome RESOURCE intercept`() {
-        assertFalse(
+    fun `icon guard keeps monochrome BITMAP and RESOURCE intercept`() {
+        assertTrue(
             SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
                 colorStatusBarIcon = false,
                 forceGlobalStatusBarIcons = true,

@@ -79,6 +79,20 @@ class NotificationSortFilterTest {
         assertTrue(NotificationSortFilter.shouldFilter(null, focusParam, "pkg", 42, nowMs = 2_000L))
     }
 
+
+    @Test
+    fun `handleFocusDeleted records focus deletion without context`() {
+        val metaInfo = focusMeta("close")
+        NotificationSortFilter.handleFocusDeleted(
+            context = null,
+            packageName = "pkg",
+            notificationId = 42,
+            tag = "mipush_pkg",
+            nowMs = 1_000L,
+        )
+        assertTrue(NotificationSortFilter.shouldFilter(metaInfo, "pkg", 42, nowMs = 2_000L))
+    }
+
     private fun focusMeta(reopen: String): PushMetaInfo {
         return PushMetaInfo().apply {
             extra = mutableMapOf("miui.focus.param" to """{"updatable":true,"reopen":"$reopen"}""")

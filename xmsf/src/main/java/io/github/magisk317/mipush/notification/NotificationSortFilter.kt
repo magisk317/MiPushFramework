@@ -28,6 +28,7 @@ object NotificationSortFilter {
     private const val PREFS_NAME = "mipush_focus_deleted_notifications"
     private const val EXTRA_PACKAGE_NAME = "package_name"
     private const val EXTRA_NOTIFICATION_ID = "notification_id"
+    private const val EXTRA_NOTIFICATION_TAG = "notification_tag"
     private const val ACTION_FOCUS_DELETED = "io.github.magisk317.mipush.notification.FOCUS_DELETED"
 
     private var storeInstalled = false
@@ -100,7 +101,8 @@ object NotificationSortFilter {
         builder: NotificationCompat.Builder,
         packageName: String,
         focusParam: String?,
-        notificationId: Int
+        notificationId: Int,
+        notificationTag: String? = null,
     ) {
         val focus = FocusNotificationCache.parseFocusParam(focusParam) ?: return
         if (!focus.updatable) return
@@ -111,6 +113,9 @@ object NotificationSortFilter {
             data = Uri.parse("mipush-focus-delete://$key")
             putExtra(EXTRA_PACKAGE_NAME, packageName)
             putExtra(EXTRA_NOTIFICATION_ID, notificationId)
+            if (!notificationTag.isNullOrBlank()) {
+                putExtra(EXTRA_NOTIFICATION_TAG, notificationTag)
+            }
         }
         builder.setDeleteIntent(
             PendingIntent.getBroadcast(
@@ -127,7 +132,34 @@ object NotificationSortFilter {
         val packageName = intent.getStringExtra(EXTRA_PACKAGE_NAME) ?: return
         val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, Int.MIN_VALUE)
         if (notificationId == Int.MIN_VALUE) return
-        onFocusDeleted(context, packageName, notificationId, nowMs)
+        val tag = intent.getStringExtra(EXTRA_NOTIFICATION_TAG)
+        handleFocusDeleted(context, packageName, notificationId, tag, nowMs)
+    }
+
+    /**
+     * Pure delete path used by [handleDeleteIntent] and tests. With a Context, also clears
+     * Settings.Secure `updatable_focus_notifs` so HyperOS AOD cannot keep a zombie focus card.
+     */
+    internal fun handleFocusDeleted(
+        context: Context?,
+        packageName: String,
+        notificationId: Int,
+        tag: String? = null,
+        nowMs: Long = System.currentTimeMillis(),
+    ) {
+        if (context != null) {
+            FocusNotificationLifecycle.end(
+                context = context,
+                packageName = packageName,
+                notificationId = notificationId,
+                tag = tag,
+                cancelNotification = true,
+                recordDeleted = true,
+                unregisterFocus = true,
+            )
+        } else {
+            onFocusDeleted(null, packageName, notificationId, nowMs)
+        }
     }
 
     internal fun resetForTest() {

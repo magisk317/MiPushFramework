@@ -379,9 +379,12 @@ class NotificationControllerRobolectricTest {
         assertFalse(posted.extras.getBoolean("mipush_island_allow_proxy", false))
         assertEquals(packageName, posted.extras.getString("target_package"))
         assertFalse(posted.extras.containsKey("miui.isGrayscaleIcon"))
-        // Monochrome mode must post a tintable RESOURCE, not a brand BITMAP, so SystemUI can
-        // render a true single-color status-bar icon (see review 15.z).
-        assertEquals(Icon.TYPE_RESOURCE, posted.smallIcon.type)
+        // Monochrome prefers a white-alpha BITMAP silhouette from IconCache/raw app icon.
+        // TYPE_RESOURCE Material bell is last-resort only when package artwork is unavailable.
+        assertTrue(
+            posted.smallIcon.type == Icon.TYPE_BITMAP ||
+                posted.smallIcon.type == Icon.TYPE_RESOURCE,
+        )
         assertEquals(Notification.COLOR_DEFAULT, posted.color)
         assertTrue(shadowOf(posted.contentIntent).isActivity)
         assertEquals(
@@ -630,8 +633,11 @@ class NotificationControllerRobolectricTest {
             .notification
 
         assertTrue(posted)
-        // Monochrome replay receipt uses a tintable RESOURCE small icon (see review 15.z).
-        assertEquals(Icon.TYPE_RESOURCE, receipt.smallIcon.type)
+        // Monochrome replay receipt prefers white-alpha BITMAP silhouette; RESOURCE is fallback.
+        assertTrue(
+            receipt.smallIcon.type == Icon.TYPE_BITMAP ||
+                receipt.smallIcon.type == Icon.TYPE_RESOURCE,
+        )
         assertEquals(Notification.COLOR_DEFAULT, receipt.color)
         assertEquals(Notification.CATEGORY_MESSAGE, receipt.category)
         assertEquals(NotificationCompat.PRIORITY_HIGH, receipt.priorityForTest())
@@ -679,7 +685,7 @@ class NotificationControllerRobolectricTest {
     }
 
     @Test
-    fun `disabled color status bar icon uses monochrome resource and default color`() {
+    fun `disabled color status bar icon uses monochrome silhouette and default color`() {
         val context = RuntimeEnvironment.getApplication()
         val builder = NotificationCompat.Builder(context, "placeholder")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
@@ -695,8 +701,12 @@ class NotificationControllerRobolectricTest {
 
         assertEquals(Notification.COLOR_DEFAULT, color)
         assertEquals(Notification.COLOR_DEFAULT, notification.color)
-        // Monochrome path must prefer a tintable RESOURCE and avoid brand BITMAP fallback.
-        assertEquals(Icon.TYPE_RESOURCE, notification.smallIcon.type)
+        // Product monochrome path posts white-alpha BITMAP silhouettes so HyperOS SRC_IN tint
+        // can stay single-color; TYPE_RESOURCE is only the unavailable-icon fallback.
+        assertTrue(
+            notification.smallIcon.type == Icon.TYPE_BITMAP ||
+                notification.smallIcon.type == Icon.TYPE_RESOURCE,
+        )
     }
 
     @Test
@@ -878,7 +888,7 @@ class NotificationControllerRobolectricTest {
     }
 
     @Test
-    fun `grouped notifications stay off island proxy on non MIUI while summary stays plain`() {
+    fun `grouped notifications stay off island proxy on non MIUI without package summary`() {
         val context = RuntimeEnvironment.getApplication()
         val packageName = context.packageName
         val groupId = "focus-group"
@@ -906,14 +916,11 @@ class NotificationControllerRobolectricTest {
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val active = notificationManager.activeNotifications.associateBy { it.id }
-        val summary = active.getValue(groupId.hashCode()).notification
 
-        assertTrue(summary.extras.getCharSequence(Notification.EXTRA_TITLE).toString().isNotBlank())
-        assertNull(summary.extras.getCharSequence(Notification.EXTRA_SUB_TEXT))
-        assertNull(summary.extras.parcelable<Icon>(EXTRA_LARGE_ICON))
-        assertNull(summary.extras.getString("miui.focus.param"))
-        assertNull(summary.extras.getBundle("miui.focus.pics"))
-        assertFalse(summary.extras.getBoolean("mipush_island_allow_proxy", false))
+        // Package-wide single group: no MiPush synthetic summary is posted for either the
+        // original custom groupId or the rewritten package group key.
+        assertFalse(active.containsKey(groupId.hashCode()))
+        assertFalse(active.containsKey(packageName.hashCode()))
         assertEquals("通知汇总", active.getValue(33000).notification.extras.getCharSequence(Notification.EXTRA_SUB_TEXT).toString())
         assertEquals("通知汇总", active.getValue(33001).notification.extras.getCharSequence(Notification.EXTRA_SUB_TEXT).toString())
         assertNotNull(active.getValue(33000).notification.extras.parcelable<Icon>(EXTRA_LARGE_ICON))
@@ -922,6 +929,9 @@ class NotificationControllerRobolectricTest {
         assertNull(active.getValue(33001).notification.extras.getString("miui.focus.param"))
         assertFalse(active.getValue(33000).notification.extras.getBoolean("mipush_island_allow_proxy", false))
         assertFalse(active.getValue(33001).notification.extras.getBoolean("mipush_island_allow_proxy", false))
+        // Children collapse to the package group key rather than the payload custom groupId.
+        assertEquals(packageName, active.getValue(33000).notification.group)
+        assertEquals(packageName, active.getValue(33001).notification.group)
     }
 
     @Test

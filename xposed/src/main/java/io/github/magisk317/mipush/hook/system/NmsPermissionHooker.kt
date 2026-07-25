@@ -8,6 +8,9 @@ import android.os.Binder
 import android.os.Build
 import android.os.Process
 import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
+import io.github.magisk317.mipush.hook.island.IslandPreferences
+import io.github.magisk317.mipush.common.notification.StatusBarMonochromeIconPolicy
+import io.github.magisk317.mipush.common.notification.SinglePackageNotificationGroupPolicy
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.xposed.HookCallback
@@ -108,6 +111,7 @@ object NmsPermissionHooker {
     private fun hookNotificationEnqueue(preserveDelegateIdentity: Boolean): HookCallback = {
         replace {
             var token: Long? = null
+            rewriteNotificationEnqueueArgs(args)
             if (AmapNavigationFocusCompat.attachIfEligibleFromNmsArguments(args)) {
                 XLog.d(TAG, "attached native focus payload to AMap navigation notification")
             }
@@ -139,6 +143,27 @@ object NmsPermissionHooker {
      * than BinderService.enqueueNotificationWithTag. Hook the shared NMS implementation so the
      * narrow AMap compatibility bridge sees both routes.
      */
+
+    /**
+     * System-wide package group collapse + optional global monochrome smallIcon rewrite.
+     * Runs on every NMS enqueue so native and MiPush posts share one shade stack per app.
+     */
+    private fun rewriteNotificationEnqueueArgs(args: Array<Any?>) {
+        runCatching {
+            val options = IslandPreferences.current()
+            SinglePackageNotificationGroupPolicy.applyToNmsEnqueueArgs(args)
+            val app = currentApplication() ?: return@runCatching
+            StatusBarMonochromeIconPolicy.applyToNmsEnqueueArgs(
+                context = app,
+                args = args,
+                colorStatusBarIcon = options.colorStatusBarIcon,
+                forceGlobalStatusBarIcons = options.colorStatusBarIconGlobal,
+            )
+        }.onFailure {
+            XLog.w(TAG, "notification enqueue rewrite failed: ${it.message}")
+        }
+    }
+
     private fun installAmapNavigationFocusBridge(classLoader: ClassLoader?) {
         runCatching {
             val notificationManagerService = findClass(
@@ -147,6 +172,7 @@ object NmsPermissionHooker {
             )
             val hooks = notificationManagerService.hookAllMethods("enqueueNotificationInternal") {
                 doBefore {
+                    rewriteNotificationEnqueueArgs(args)
                     if (AmapNavigationFocusCompat.attachIfEligibleFromForegroundServiceNmsArguments(args)) {
                         XLog.d(TAG, "attached native focus payload to AMap navigation notification via NMS internal enqueue")
                     }

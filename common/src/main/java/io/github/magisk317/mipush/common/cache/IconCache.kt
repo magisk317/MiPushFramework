@@ -78,7 +78,10 @@ object IconCache {
     class WhiteIconProcess : Converter<Bitmap, Bitmap> {
         override fun convert(ctx: Context, b: Bitmap): Bitmap {
             val dip2px = dip2px(ctx, 64f)
-            return ImgUtils.scaleImage(ImgUtils.convertToTransparentAndWhite(b), dip2px, dip2px) ?: b
+            // Always return the white-alpha silhouette. Falling back to the original [b] would
+            // reintroduce multi-color launcher pixels (HyperOS status-bar color leak).
+            val white = ImgUtils.convertToTransparentAndWhite(b)
+            return ImgUtils.scaleImage(white, dip2px, dip2px) ?: white
         }
     }
 
