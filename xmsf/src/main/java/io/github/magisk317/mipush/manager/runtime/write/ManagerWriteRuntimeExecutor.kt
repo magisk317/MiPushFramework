@@ -9,6 +9,18 @@ import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
+import io.github.magisk317.mipush.common.SENSITIVE_DEBUG_LOG_MODE_KEY
+import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
+import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
+import io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS
+import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
+import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
+import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
+import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
+import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
+import io.github.magisk317.mipush.common.ISLAND_PREF_FIRST_FLOAT
+import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLED
+import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLE_FLOAT
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
 import io.github.magisk317.mipush.common.manager.ManagerEvent
@@ -127,6 +139,7 @@ class ManagerWriteRuntimeExecutor(
             ManagerProtocol.WRITE_OP_QUERY_ROOT -> queryRoot(request)
             ManagerProtocol.WRITE_OP_SYNC_LAUNCHER_ICON -> syncLauncherIcon(request)
             ManagerProtocol.WRITE_OP_SET_RUNTIME_BOOLEAN -> setRuntimeBoolean(request)
+            ManagerProtocol.WRITE_OP_SET_RUNTIME_INT -> setRuntimeInt(request)
             ManagerProtocol.WRITE_OP_RESTART_RUNTIME -> restartRuntime(request)
             ManagerProtocol.WRITE_OP_REBOOT_DEVICE -> rebootDevice(request)
             ManagerProtocol.WRITE_OP_RELAUNCH_MANAGER -> relaunchManager(request)
@@ -423,6 +436,21 @@ class ManagerWriteRuntimeExecutor(
             when (key) {
                 COLOR_STATUS_BAR_ICON_KEY -> repo.setColorStatusBarIcon(enabled)
                 COLOR_STATUS_BAR_ICON_GLOBAL_KEY -> repo.setColorStatusBarIconGlobal(enabled)
+                "debug_mode" -> repo.setDebugMode(enabled)
+                SENSITIVE_DEBUG_LOG_MODE_KEY -> repo.setSensitiveDebugLogMode(enabled)
+                "show_all_events" -> repo.setShowAllEvents(enabled)
+                "start_foreground" -> repo.setIsStartForeground(enabled)
+                "start_push_as_foreground_service" -> repo.setStartPushAsForegroundService(enabled)
+                KEEPALIVE_PREF_OOM_ADJ -> repo.setKeepAliveOomAdj(enabled)
+                KEEPALIVE_PREF_ANTI_KILL -> repo.setKeepAliveAntiKill(enabled)
+                KEEPALIVE_PREF_STANDBY_BYPASS -> repo.setKeepAliveStandbyBypass(enabled)
+                KEEPALIVE_PREF_DOZE_BYPASS -> repo.setKeepAliveDozeBypass(enabled)
+                ISLAND_PREF_ENABLED -> repo.setIslandEnabled(enabled)
+                ISLAND_PREF_FIRST_FLOAT -> repo.setIslandFirstFloat(enabled)
+                ISLAND_PREF_ENABLE_FLOAT -> repo.setIslandEnableFloat(enabled)
+                ISLAND_PREF_SHOW_NOTIFICATION -> repo.setIslandShowNotification(enabled)
+                ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION -> repo.setIslandShowOriginalNotification(enabled)
+                ISLAND_PREF_FOCUS_NOTIF -> repo.setIslandFocusNotification(enabled)
                 else -> error("unreachable runtime boolean key=$key")
             }
         }
@@ -431,6 +459,24 @@ class ManagerWriteRuntimeExecutor(
         }
         logI("set_runtime_boolean key=$key value=$enabled")
         return success(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_BOOLEAN_OK)
+    }
+
+    private fun setRuntimeInt(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        val key = request.argument.trim()
+        if (key !in ALLOWED_RUNTIME_INT_KEYS) {
+            return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_INT_UNKNOWN_KEY)
+        }
+        val value = request.intArgument
+        runBlocking {
+            val repo = PreferenceRepository()
+            when (key) {
+                ISLAND_PREF_TIMEOUT -> repo.setIslandTimeout(value)
+                else -> error("unreachable runtime int key=$key")
+            }
+        }
+        runCatching { context.sendBroadcast(Intent(ACTION_PREF_CHANGED)) }
+        logI("set_runtime_int key=$key value=$value")
+        return success(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_INT_OK)
     }
 
 
@@ -629,6 +675,25 @@ class ManagerWriteRuntimeExecutor(
         val ALLOWED_RUNTIME_BOOLEAN_KEYS = setOf(
             COLOR_STATUS_BAR_ICON_KEY,
             COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
+            "debug_mode",
+            SENSITIVE_DEBUG_LOG_MODE_KEY,
+            "show_all_events",
+            "start_foreground",
+            "start_push_as_foreground_service",
+            KEEPALIVE_PREF_OOM_ADJ,
+            KEEPALIVE_PREF_ANTI_KILL,
+            KEEPALIVE_PREF_STANDBY_BYPASS,
+            KEEPALIVE_PREF_DOZE_BYPASS,
+            ISLAND_PREF_ENABLED,
+            ISLAND_PREF_FIRST_FLOAT,
+            ISLAND_PREF_ENABLE_FLOAT,
+            ISLAND_PREF_SHOW_NOTIFICATION,
+            ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION,
+            ISLAND_PREF_FOCUS_NOTIF,
+        )
+
+        val ALLOWED_RUNTIME_INT_KEYS = setOf(
+            ISLAND_PREF_TIMEOUT,
         )
     }
 

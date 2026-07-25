@@ -151,11 +151,20 @@ class SettingsViewModel constructor(
     }
 
     fun setDebugMode(enabled: Boolean) {
-        viewModelScope.launch { preferenceRepository.setDebugMode(enabled) }
+        viewModelScope.launch {
+            preferenceRepository.setDebugMode(enabled)
+            pushRuntimeBoolean(key = "debug_mode", value = enabled)
+        }
     }
 
     fun setSensitiveDebugLogMode(enabled: Boolean) {
-        viewModelScope.launch { preferenceRepository.setSensitiveDebugLogMode(enabled) }
+        viewModelScope.launch {
+            preferenceRepository.setSensitiveDebugLogMode(enabled)
+            pushRuntimeBoolean(
+                key = io.github.magisk317.mipush.common.SENSITIVE_DEBUG_LOG_MODE_KEY,
+                value = enabled,
+            )
+        }
     }
 
     fun setAnalyticsEnabled(enabled: Boolean) {
@@ -163,61 +172,78 @@ class SettingsViewModel constructor(
     }
 
     fun setShowAllEvents(enabled: Boolean) {
-        viewModelScope.launch { preferenceRepository.setShowAllEvents(enabled) }
+        viewModelScope.launch {
+            preferenceRepository.setShowAllEvents(enabled)
+            pushRuntimeBoolean(key = "show_all_events", value = enabled)
+        }
     }
 
     fun setStartForeground(enabled: Boolean) {
-        viewModelScope.launch { preferenceRepository.setIsStartForeground(enabled) }
+        viewModelScope.launch {
+            preferenceRepository.setIsStartForeground(enabled)
+            pushRuntimeBoolean(key = "start_foreground", value = enabled)
+        }
     }
 
     fun setKeepAliveOomAdj(value: Boolean) = viewModelScope.launch {
         preferenceRepository.setKeepAliveOomAdj(value)
+        pushRuntimeBoolean(key = io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ, value = value)
     }
 
     fun setKeepAliveAntiKill(value: Boolean) = viewModelScope.launch {
         preferenceRepository.setKeepAliveAntiKill(value)
+        pushRuntimeBoolean(key = io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL, value = value)
     }
 
     fun setKeepAliveStandbyBypass(value: Boolean) = viewModelScope.launch {
         preferenceRepository.setKeepAliveStandbyBypass(value)
+        pushRuntimeBoolean(key = io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS, value = value)
     }
 
     fun setKeepAliveDozeBypass(value: Boolean) = viewModelScope.launch {
         preferenceRepository.setKeepAliveDozeBypass(value)
+        pushRuntimeBoolean(key = io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS, value = value)
     }
 
     fun setIslandEnabled(value: Boolean, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
         preferenceRepository.setIslandEnabled(value)
+        pushRuntimeBoolean(key = io.github.magisk317.mipush.common.ISLAND_PREF_ENABLED, value = value)
         onUpdated?.invoke()
     }
 
     fun setIslandTimeout(value: Int, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
         preferenceRepository.setIslandTimeout(value)
+        pushRuntimeInt(key = io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT, value = value)
         onUpdated?.invoke()
     }
 
     fun setIslandFirstFloat(value: Boolean, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
         preferenceRepository.setIslandFirstFloat(value)
+        pushRuntimeBoolean(key = io.github.magisk317.mipush.common.ISLAND_PREF_FIRST_FLOAT, value = value)
         onUpdated?.invoke()
     }
 
     fun setIslandEnableFloat(value: Boolean, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
         preferenceRepository.setIslandEnableFloat(value)
+        pushRuntimeBoolean(key = io.github.magisk317.mipush.common.ISLAND_PREF_ENABLE_FLOAT, value = value)
         onUpdated?.invoke()
     }
 
     fun setIslandShowNotification(value: Boolean, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
         preferenceRepository.setIslandShowNotification(value)
+        pushRuntimeBoolean(key = io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION, value = value)
         onUpdated?.invoke()
     }
 
     fun setIslandShowOriginalNotification(value: Boolean, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
         preferenceRepository.setIslandShowOriginalNotification(value)
+        pushRuntimeBoolean(key = io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION, value = value)
         onUpdated?.invoke()
     }
 
     fun setIslandFocusNotification(value: Boolean, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
         preferenceRepository.setIslandFocusNotification(value)
+        pushRuntimeBoolean(key = io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF, value = value)
         onUpdated?.invoke()
     }
 
@@ -297,6 +323,22 @@ class SettingsViewModel constructor(
                 client = client,
                 operation = io.github.magisk317.mipush.manager.api.ManagerProtocol.WRITE_OP_SET_RUNTIME_BOOLEAN,
                 booleanArgument = value,
+                argument = key,
+                uniqueRequestId = true,
+            )
+        }
+    }
+
+    private suspend fun pushRuntimeInt(key: String, value: Int) {
+        withContext(Dispatchers.IO) {
+            val client = runCatching {
+                org.koin.core.context.GlobalContext.get()
+                    .get<io.github.magisk317.mipush.manager.client.ManagerRuntimeClient>()
+            }.getOrNull() ?: return@withContext
+            io.github.magisk317.mipush.manager.remote.RemoteWriteSupport.execute(
+                client = client,
+                operation = io.github.magisk317.mipush.manager.api.ManagerProtocol.WRITE_OP_SET_RUNTIME_INT,
+                intArgument = value,
                 argument = key,
                 uniqueRequestId = true,
             )
