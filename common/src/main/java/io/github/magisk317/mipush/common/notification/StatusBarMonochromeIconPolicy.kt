@@ -87,6 +87,16 @@ object StatusBarMonochromeIconPolicy {
         whiteIconCache.clear()
     }
 
+    /**
+     * White-alpha package silhouette for status-bar use. Safe from SystemUI hot path when the
+     * posted smallIcon is unusable (RESOURCE resId=0 AUTOGROUP summaries).
+     */
+    @JvmStatic
+    fun whiteIconForPackageOrNull(context: Context, packageName: String): Icon? {
+        if (packageName.isBlank()) return null
+        return whiteIconForPackage(context, packageName)
+    }
+
     private fun whiteIconForPackage(context: Context, packageName: String): Icon? {
         whiteIconCache[packageName]?.let { return it }
         val created = runCatching {

@@ -14,6 +14,8 @@ import android.service.notification.StatusBarNotification
 import android.view.View
 import android.widget.ImageView
 import android.widget.RemoteViews
+import io.github.magisk317.mipush.common.notification.SinglePackageNotificationGroupPolicy
+import io.github.magisk317.mipush.common.notification.StatusBarMonochromeIconPolicy
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.xposed.callMethod
@@ -71,6 +73,29 @@ class HookSystemUI : BaseHook() {
                         )
                         val smallIcon = notification.smallIcon
                         val (iconType, resId, resPackage) = readIconResourceFields(smallIcon)
+                        // AUTOGROUP/system summaries often use RESOURCE resId=0 → white status-bar
+                        // block. Replace with a package monochrome silhouette before the normal
+                        // intercept path (which would either force the broken icon or decline).
+                        if (SystemUiNotificationPolicy.shouldReplaceBrokenResourceSmallIcon(
+                                iconType = iconType,
+                                resId = resId,
+                            )
+                        ) {
+                            val owner = SinglePackageNotificationGroupPolicy.resolveGroupOwnerPackage(
+                                sbn.packageName,
+                                notification.extras,
+                            )
+                            val fallback =
+                                StatusBarMonochromeIconPolicy.whiteIconForPackageOrNull(context, owner)
+                                    ?: StatusBarMonochromeIconPolicy.whiteIconForPackageOrNull(
+                                        context,
+                                        sbn.packageName,
+                                    )
+                            if (fallback != null) {
+                                result = fallback
+                                return@doBefore
+                            }
+                        }
                         if (SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
                                 colorStatusBarIcon = options.colorStatusBarIcon,
                                 forceGlobalStatusBarIcons = options.colorStatusBarIconGlobal,

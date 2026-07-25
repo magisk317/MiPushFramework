@@ -95,6 +95,23 @@ internal object SystemUiNotificationPolicy {
         return true
     }
 
+    /** HyperOS AUTOGROUP_SUMMARY often ships RESOURCE smallIcon with resId=0. */
+    fun isZeroResourceSmallIcon(iconType: Int, resId: Int): Boolean {
+        return iconType == ICON_TYPE_RESOURCE && resId == 0
+    }
+
+    /**
+     * Whether getSmallIcon should replace a broken RESOURCE icon instead of declining to MIUI.
+     *
+     * Framework/package mismatches still decline (MIUI substitutes the app logo correctly).
+     * Zero-res AUTOGROUP/summary icons do not — MIUI leaves a white status-bar block — so we
+     * supply a package monochrome silhouette from the hook.
+     */
+    fun shouldReplaceBrokenResourceSmallIcon(
+        iconType: Int,
+        resId: Int,
+    ): Boolean = isZeroResourceSmallIcon(iconType, resId)
+
     /**
      * Intercept decision for the getSmallIcon hook that also guards against forcing a broken
      * RESOURCE icon into the status bar. When the base policy would intercept but the icon is not

@@ -472,4 +472,41 @@ class ResourceSmallIconGuardTest {
             ),
         )
     }
+
+    @Test
+    fun `zero resource small icon is replaced instead of forced or declined`() {
+        assertTrue(
+            SystemUiNotificationPolicy.shouldReplaceBrokenResourceSmallIcon(
+                iconType = ICON_TYPE_RESOURCE,
+                resId = 0,
+            ),
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldReplaceBrokenResourceSmallIcon(
+                iconType = ICON_TYPE_RESOURCE,
+                resId = APP_RES_ID,
+            ),
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldReplaceBrokenResourceSmallIcon(
+                iconType = ICON_TYPE_BITMAP,
+                resId = 0,
+            ),
+        )
+        // Guard still declines forcing the broken zero-res icon itself; hook replaces separately.
+        assertFalse(
+            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = false,
+                iconType = ICON_TYPE_RESOURCE,
+                resId = 0,
+                resPackage = ALIPAY_PACKAGE,
+                packageName = ALIPAY_PACKAGE,
+                uid = USER_APP_UID,
+                isSystemApp = false,
+                canColorize = false,
+            ),
+        )
+    }
 }
