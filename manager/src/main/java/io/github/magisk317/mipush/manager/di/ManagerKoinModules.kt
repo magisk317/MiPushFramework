@@ -45,7 +45,6 @@ import io.github.magisk317.mipush.manager.launcher.LauncherIconController
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import io.github.magisk317.mipush.manager.connection.ComparingConnectionSnapshotSource
-import io.github.magisk317.mipush.manager.connection.InProcessConnectionSnapshotSource
 import io.github.magisk317.mipush.manager.connection.RemoteConnectionSnapshotSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

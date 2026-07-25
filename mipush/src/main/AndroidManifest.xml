@@ -97,10 +97,6 @@
             android:name="io.github.magisk317.mipush.feature.main.RecentEventListPage"
             android:exported="false"
             android:theme="@style/AppTheme" />
-        <activity
-            android:name="io.github.magisk317.mipush.feature.main.HelpPage"
-            android:exported="false"
-            android:theme="@style/AppTheme" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

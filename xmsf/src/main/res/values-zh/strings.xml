@@ -224,15 +224,8 @@
     <string name="action_clear">清空</string>
     <string name="action_delete">删除</string>
     <string name="action_undo">撤销</string>
-    <string name="helplib_action_about">关于</string>
     <string name="action_back">返回</string>
 
-    <string name="helplib_action_issue">问题反馈</string>
-    <string name="helplib_action_telegram_group">加入 Telegram 群组</string>
-    <string name="helplib_action_qq_group">加入 QQ 频道</string>
-    <string name="helplib_title">帮助和支持</string>
-    <string name="helplib_title_contact">联系我们</string>
-    <string name="helplib_title_faq">常见问题</string>
     <string name="recent_activity_view">查看近期活动</string>
     <string name="recent_activity_title">近期活动</string>
     <string name="recent_activity_grouped_summary">按应用查看近期事件历史。</string>
@@ -258,7 +251,6 @@
     <string name="recent_activity_filter_status_denied">已拒绝</string>
     <string name="recent_activity_deleted">记录已删除</string>
     <string name="recent_activity_delete_failed">删除记录失败</string>
-    <string name="action_help">帮助</string>
 
 
     <!-- Recent Activity -->
@@ -296,9 +288,6 @@
     <string name="status_app_registered_error_title">注册异常</string>
 
     <string name="settings_debug">调试</string>
-    <string name="help_article_can_not_receive_push">无法收到推送</string>
-    <string name="help_article_register_error">注册异常</string>
-    <string name="help_article_no_register">注册列表为空</string>
     <string name="settings_manage_app_notifications">管理通知</string>
     <string name="settings_manage_app_notifications_summary">控制本应用所发通知的声音、重要度等细节。</string>
     <string-array name="register_types">
@@ -432,17 +421,6 @@
     <string name="event_detail_soft_wrap_on">换行</string>
     <string name="event_empty_title">暂时还没有活动</string>
     <string name="event_empty_summary">等待应用收到推送事件，或者手动触发一次测试消息。</string>
-    <string name="help_page_overview_summary">把常见问题、排障文章和社区入口整理成更清晰的知识页，便于快速定位问题。</string>
-    <string name="help_page_article_title">帮助文章</string>
-    <string name="help_page_article_summary">阅读详细说明前，可以先从首页的常见问题入口快速定位主题。</string>
-    <string name="help_page_faq_summary">优先覆盖最常见的注册、通知和兼容性问题。</string>
-    <string name="help_page_article_card_summary">点击查看完整说明与处理建议。</string>
-    <string name="help_page_contact_summary">如果文档里没有覆盖，可以直接去社区或 issue 区继续排查。</string>
-    <string name="help_page_workspace_hint">先看下面的 FAQ 卡片，再根据情况进入社区群组做实时排查。</string>
-    <string name="help_page_article_workspace_hint">先读完这篇说明，再回到帮助首页继续查相关问题。</string>
-    <string name="help_page_contact_qq_summary">适合在中文社区里快速补充背景和追踪问题。</string>
-    <string name="help_page_contact_telegram_summary">更适合实时讨论、多设备排查和同步进展。</string>
-    <string name="help_page_contact_issue_summary">适合附带日志、截图和稳定复现步骤做正式跟踪。</string>
     <string name="notification_channels_group_summary">检查这一组通知渠道，并继续钻取具体 channel 的行为差异。</string>
     <string name="group_summary_title">%d 条新消息</string>
     <string name="wizard_title_ignore_battery_optimizations_permission">忽略电池优化</string>

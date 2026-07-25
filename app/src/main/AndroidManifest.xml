@@ -34,9 +34,5 @@
             android:name="io.github.magisk317.mipush.feature.main.RecentEventListPage"
             android:exported="false"
             android:targetActivity="com.xiaomi.xmsf.app.compat.ManagerUiRedirectActivity" />
-        <activity-alias
-            android:name="io.github.magisk317.mipush.feature.main.HelpPage"
-            android:exported="false"
-            android:targetActivity="com.xiaomi.xmsf.app.compat.ManagerUiRedirectActivity" />
     </application>
 </manifest>

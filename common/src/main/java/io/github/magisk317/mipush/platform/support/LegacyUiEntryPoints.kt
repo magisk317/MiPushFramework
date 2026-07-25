@@ -65,10 +65,6 @@ object LegacyUiEntryPoints {
             .putExtra(EXTRA_IGNORE_NOT_REGISTERED, ignoreNotRegistered)
     }
 
-    fun helpPageIntent(context: Context): Intent {
-        return managerUiIntent(context, LegacyComponentNames.HELP_PAGE)
-    }
-
     fun recentEventListIntent(
         context: Context,
         packageName: String,
