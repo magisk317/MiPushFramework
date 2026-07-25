@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.main.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
+import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSource
 import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSourceResult
@@ -75,14 +76,16 @@ class ConnectionStatusViewModel constructor(
             }
 
             is ConnectionSnapshotSourceResult.Unavailable -> {
-                logW("connection snapshot unavailable status=${result.status}")
                 val transient = result.status in setOf(
                     ConnectionSnapshotSourceStatus.BINDING,
                     ConnectionSnapshotSourceStatus.TIMED_OUT,
                     ConnectionSnapshotSourceStatus.TEMPORARILY_DISCONNECTED,
                     ConnectionSnapshotSourceStatus.DISCONNECTED,
                 )
-                if (!transient) {
+                if (transient) {
+                    logD("connection snapshot unavailable status=${result.status}")
+                } else {
+                    logW("connection snapshot unavailable status=${result.status}")
                     _snapshot.value = null
                 }
             }

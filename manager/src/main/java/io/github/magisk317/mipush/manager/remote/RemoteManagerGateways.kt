@@ -64,6 +64,7 @@ import io.github.magisk317.mipush.manager.logging.ManagerRuntimeFileLog
 import java.io.FileOutputStream
 import java.util.UUID
 import kotlinx.coroutines.flow.first
+import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logW
 import kotlinx.coroutines.runBlocking
 import io.github.magisk317.xposed.logging.MagiskOtel
@@ -121,7 +122,7 @@ class RemoteManagerApplicationGateway(
         ) {
             is ApplicationReadResult.Available -> result.value.applications
             is ApplicationReadResult.Unavailable -> {
-                logW("loadApplications unavailable status=${result.status}")
+                RemoteRuntimeLog.unavailable("loadApplications", result.status)
                 throw RuntimeReadUnavailableException(
                     status = result.status.name,
                     operation = "loadApplications",
@@ -225,7 +226,7 @@ class RemoteManagerEventGateway(
         ) {
             is EventReadResult.Available -> result.value
             is EventReadResult.Unavailable -> {
-                logW("getEventsById unavailable status=${result.status}")
+                RemoteRuntimeLog.unavailable("getEventsById", result.status)
                 throw RuntimeReadUnavailableException(
                     status = result.status.name,
                     operation = "getEventsById",
@@ -580,7 +581,7 @@ class RemoteManagerLogGateway(
                 }
             }
             is LogExportReadResult.Unavailable -> {
-                logW("buildLogBundle unavailable status=${result.status}")
+                RemoteRuntimeLog.unavailable("buildLogBundle", result.status)
                 ManagerLogExportResult(
                     file = null,
                     details = "runtime_log_export_unavailable:${result.status.name.lowercase()}",
@@ -793,7 +794,7 @@ class RemoteManagerRuntimeActions(
         when (val result = connectionSource.load()) {
             is ConnectionSnapshotSourceResult.Available -> result.snapshot
             is ConnectionSnapshotSourceResult.Unavailable -> {
-                logW("getConnectionSnapshot unavailable status=${result.status}")
+                RemoteRuntimeLog.unavailable("getConnectionSnapshot", result.status)
                 emptyConnectionSnapshot()
             }
         }
@@ -1019,6 +1020,20 @@ class RemoteZygiskConfigGateway(
             packageName = packageName,
             uniqueRequestId = true,
         )
+    }
+}
+
+
+private object RemoteRuntimeLog {
+    // Startup/bind races are expected after force-stop or dual-APK process churn.
+    fun unavailable(operation: String, status: Enum<*>) {
+        when (status.name) {
+            "BINDING",
+            "DISCONNECTED",
+            "TEMPORARILY_DISCONNECTED",
+            -> logD("$operation unavailable status=$status")
+            else -> logW("$operation unavailable status=$status")
+        }
     }
 }
 

@@ -477,7 +477,13 @@ object SystemNotificationManager {
                 }
         }
         return runSystemCall("getNotificationChannels", packageName, fallback = { error ->
-            XLog.w(TAG, "getNotificationChannels fallback pkg=$packageName uid=$uid err=${error.message}")
+            // Previously-blocked path is expected on HyperOS without STATUS_BAR_SERVICE; keep it quiet.
+            val previouslyBlocked = error.message?.contains("previously blocked") == true
+            if (previouslyBlocked) {
+                XLog.d(TAG, "getNotificationChannels fallback cached-block pkg=$packageName uid=$uid")
+            } else {
+                XLog.w(TAG, "getNotificationChannels fallback pkg=$packageName uid=$uid err=${error.message}")
+            }
             val root = RootNotificationHelper.getNotificationChannels(packageName)
             XLog.d(TAG, "getNotificationChannels root fallback count=${root?.size} pkg=$packageName")
             root
