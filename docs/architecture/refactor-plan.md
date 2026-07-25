@@ -187,13 +187,11 @@ Remaining:
 
 - Continue moving manager helper/state acquisition toward narrower, testable injected seams so the
   manager module relies on xmsf Koin startup details in fewer places.
-- Keep `ManagerDependencies.start()` as host-container module registration, not a hidden fallback
-  container. The current host bootstrap lives in `app`'s `MiPushHostApp` via the
-  `MiPushFrameworkApp.onAppDependenciesStarted()` extension point and is gated to the main app
-  process. `MainActivity` also calls `ManagerDependencies.start(this)` before injecting manager
-  objects; that is an idempotent guard against an already-started xmsf host container, not ownership
-  of the host bootstrap. If the manager ever needs to run standalone, that should be a separate,
-  explicit bootstrap path rather than a silent reintroduction of partial self-start.
+- Manager packaging is already dual-APK: `:mipush` owns remote-host bootstrap
+  (`ManagerDependencies.startAsRemoteHost` / `ensureStarted`), while `:app`/`MiPushHostApp`
+  stays runtime-only. Do not revive bundled-era in-process manager registration on XMSF.
+- Use `ensureStarted`/`startAsRemoteHost` only. Collapse Comparing/InProcess data-plane scaffolding
+  toward remote-primary sources (`enableRemoteCompare=false` in production wiring).
 - Continue shrinking manager references to xmsf-owned classes until the remaining dependencies are
   clearly intentional compatibility bridges rather than namespace drift.
 
@@ -203,26 +201,22 @@ Already-debugged traps:
   That route fails both architecturally and mechanically: `xmsf` does not depend on `manager`, so
   adding `SettingsManager` or manager ViewModels there breaks compilation and weakens the intended
   module ownership boundary.
-- Do not turn `MainActivity`'s `ManagerDependencies.start(...)` guard into a fallback container
-  starter. The packaged host requirement must stay explicit: `AppDependencies.start(...)` owns the
-  xmsf Koin host and `MiPushHostApp` owns eager manager-module loading in the main process.
-- Do not treat subclassing `MiPushFrameworkApp` as free. The packaged host path originally failed
-  because `MiPushFrameworkApp` was final; the stable fix is an explicit
-  `MiPushFrameworkApp.onAppDependenciesStarted()` hook plus an open base class, not a duplicated
-  `onCreate()` or ad hoc host-side reimplementation of xmsf initialization.
-- Do not forget the process model. `xmsf` manifest entrypoints include a `:services` subprocess, so
-  manager bootstrap must stay gated to `PushControllerUtils.isAppMainProc(...)`.
+- Do not turn manager UI entrypoints into a fallback container starter. Production manager startup
+  is `:mipush` remote-host only; `AppDependencies.start(...)` owns the XMSF runtime Koin host and
+  must not be coupled to manager UI module loading.
+- Do not reintroduce manager bootstrap into `MiPushHostApp.onAppDependenciesStarted()`. That hook
+  remains available for runtime-only host work, not for loading `:manager` UI modules.
+- Do not forget the process model. `xmsf` manifest entrypoints include a `:services` subprocess;
+  manager UI code must not be registered or assumed there.
 - Do not use reflective `Class.forName("com.xiaomi...")` probes in manager/settings to recover
   runtime details. Add a shared contract in `common` and implement it behind xmsf adapters, as was
   done for `ManagerRuntimeEnvironmentSnapshot`.
-- Do not gate `ManagerDependencies.start(...)` behind a cold-start `runningAppProcesses` check in
-  `MiPushHostApp`. The manager UI needs `SettingsManager` during its first launch, so the host app
-  must load the manager module eagerly once the xmsf Koin host exists; if process-specific work is
-  still needed, move that decision inside the work item rather than skipping module registration.
+- Do not gate manager remote-host bootstrap behind fragile cold-start process probes. `:mipush`
+  Application / launcher / widget should ensure remote-host startup directly; process-specific work
+  belongs inside the work item, not as a reason to skip DI registration.
 - Do not rely on `ActivityManager.runningAppProcesses` as the primary source of truth for the
   current process name. `Application.getProcessName()` with an `ActivityThread.currentProcessName()`
-  fallback is the safer pattern for early app startup, and it avoids repeating the June 2026 cold
-  start crash where manager Koin never loaded and `MainActivity` failed on `SettingsManager`.
+  fallback remains the safer pattern for early process checks on the XMSF side.
 
 ## Notification Rule Chain
 

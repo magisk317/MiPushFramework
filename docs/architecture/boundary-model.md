@@ -55,12 +55,16 @@ MiPushFramework is a system-package-compatible app split into explicit Gradle mo
      state belongs to manager-level navigation behavior rather than ui-kit. Keep route-reset policy
      in `manager/MainScreen` and keep ui-kit scaffolds defensive against transient negative offsets.
 
-6. **app / manager**
-   - `app` is the application shell that produces the device-installable `com.xiaomi.xmsf` APK and
-     owns manager bootstrap via `MiPushHostApp.onAppDependenciesStarted()`.
-   - `manager` is the management UI surface packaged through `app`; it is not a standalone runtime
-     container. Do not move manager bootstrap into manager UI entrypoints or into `xmsf` Koin modules
-     as the ownership root.
+6. **app / manager / mipush**
+   - `app` is the thin application shell that produces the device-installable `com.xiaomi.xmsf`
+     runtime APK. `MiPushHostApp` must stay a no-manager shell: no `ManagerDependencies` bootstrap
+     and no `:manager` dependency.
+   - `mipush` is the standalone manager host package. It owns manager UI process startup via
+     `ManagerDependencies.startAsRemoteHost()` / `ensureStarted()` (ensure always means remote host).
+     Manager reaches XMSF only through signature-authenticated Binder (`manager-api` /
+     `ManagerRuntimeClient`).
+   - `manager` is a UI/library surface packaged by `:mipush`, not by `:app`. Do not move manager
+     bootstrap into `xmsf` Koin modules or back into `MiPushHostApp`.
    - `xmsf` remains an Android library module. Prefer `:app:assembleNormalDebug` when validating the
      installable runtime; `:xmsf:assembleNormalDebug` only packages the library surface.
 
@@ -161,23 +165,18 @@ graph.
   and then apply it to an `XmPushActionContainer`.
 - `ConfigCenter.loadConfigurations()` remains asynchronous for UI callers. Code paths that need a
   deterministic reload can use `loadConfigurationsNow(...)`.
-- `manager` is still runtime-hosted by `xmsf`: the gateway implementations live in xmsf Koin
-  modules, while manager-side code now consumes them through explicit injection or helper
-  construction rather than a manager-local global lookup shim. The recent package cleanup moved
-  manager-local helpers from
-  `io.github.magisk317.mipush.app.*` into `io.github.magisk317.mipush.manager.*`, but the remaining
-  cross-module DI startup path is still a real architecture debt until the shared gateway contract
-  is made more explicit. Runtime environment diagnostics in the manager UI now flow through
-  `ManagerRuntimeEnvironmentSnapshot` from xmsf instead of reflective `com.xiaomi.*` lookups, which
-  closes one common path for boundary drift but does not remove the larger host-container coupling.
-  The current packaged host is `app`'s `MiPushHostApp`, which subclasses `MiPushFrameworkApp` and
-  loads `ManagerDependencies` only after `AppDependencies.start(...)` has completed in the main app
-  process.
-- `MainActivity` injects `SettingsManager` on first launch, so the host app must register manager
-  Koin eagerly once the xmsf root container exists. `MainActivity` still calls
-  `ManagerDependencies.start(this)` as an idempotent launch guard, but that path must not start the
-  xmsf host container, copy manager bindings into xmsf modules, or become the owner of manager
-  bootstrap. Do not move host-side registration behind a cold-start process-name heuristic.
+- Manager UI is package-hosted by `:mipush`, not by `:app`/`xmsf`. XMSF still owns runtime
+  gateways and Binder service implementations inside the `com.xiaomi.xmsf` process; manager-side
+  code consumes them through `manager-api` / `ManagerRuntimeClient` rather than sharing an in-process
+  Koin container with XMSF. Runtime environment diagnostics flow through
+  `ManagerRuntimeEnvironmentSnapshot` instead of reflective `com.xiaomi.*` lookups.
+- Production manager bootstrap is remote-host only: `:mipush` Application / launcher / widget call
+  `ManagerDependencies.startAsRemoteHost(...)` / `ensureStarted(...)`. Manager UI
+  entrypoints must not own a second bootstrap world, must not start the XMSF Koin host, and must
+  not reintroduce bundled-era host-Koin `ManagerDependencies.start()` as a second bootstrap world.
+  UI entrypoints call `ensureStarted()`; host Application keeps `startAsRemoteHost()`.
+- Manager data plane target is remote-primary (`Remote*Source` → ViewModel). `Comparing*` /
+  fake `InProcess*` wrappers are migration scaffolding and should not be re-expanded.
 - Manager main chrome collapse/expand is intentionally shared across `EventList`, `ApplicationList`,
   `Configurations`, and `Settings`, while `Overview` keeps its own always-visible treatment. A June
   2026 regression showed that route switches during half-expanded animation can leak a negative
@@ -188,10 +187,10 @@ graph.
 - The following routes are treated as resolved traps and should not be reintroduced:
   - do not copy manager bindings (`SettingsManager`, manager ViewModels, manager Koin module
     contents) into `xmsfCoreKoinModule`; `xmsf` must not depend on `manager`
-  - do not make `MainActivity` or other manager UI entrypoints create a fallback Koin host or own
-    manager bootstrap; their `ManagerDependencies.start(...)` call may only load/check the manager
-    module against an already-started host container
-  - do not load manager UI modules from the `:services` subprocess
+  - do not make `MainActivity` or other manager UI entrypoints create a second Koin host or own
+    manager bootstrap; production startup belongs to `:mipush` remote-host bootstrap only
+  - do not reintroduce manager UI bootstrap into `MiPushHostApp` / `:app`
+  - do not load manager UI modules from the XMSF `:services` subprocess
   - do not use reflective `com.xiaomi.*` lookups in manager/settings as a substitute for runtime
     adapter contracts
 - The previously parallel `protocol` module (a compile-only superset that duplicated `pinned`'s

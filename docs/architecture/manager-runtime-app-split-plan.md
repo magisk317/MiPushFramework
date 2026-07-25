@@ -23,6 +23,17 @@ component names on the XMSF package resolve through thin `activity-alias` entrie
 This document keeps the historical phase plan for context. Where Status lines conflict with the
 paragraph above, **prefer the Current packaging block**.
 
+**Post-split cleanup (in progress, code owned separately from packaging docs):**
+
+- Unify manager startup on `:mipush` remote-host only (`startAsRemoteHost` / `ensureStarted`).
+  Do not bootstrap manager from `MiPushHostApp`.
+- Collapse Comparing/InProcess data-plane scaffolding to remote-primary sources.
+- Keep XMSF `WelcomeActivity` alias `exported=true` as legacy component-name compat only
+  (not a desktop LAUNCHER entry).
+- Prefer explicit same-package Activity intents inside `:manager`/`:mipush`; keep
+  `LegacyUiEntryPoints` for cross-package/redirect compatibility rather than ordinary in-app
+  navigation.
+
 ## Implementation Status
 
 The Phase 1 transport implementation now exists without changing application packaging:
