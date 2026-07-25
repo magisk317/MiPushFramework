@@ -133,7 +133,7 @@ class ConnectionSnapshotSourcesTest {
 
     @Test
     fun `in-process failure is represented without exception details`() = runBlocking {
-        val source = InProcessConnectionSnapshotSource {
+        val source = GatewayConnectionSnapshotSource {
             error("sensitive-in-process-error")
         }
 

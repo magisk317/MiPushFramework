@@ -15,14 +15,13 @@ import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.manager.ManagerEvent
 import io.github.magisk317.mipush.common.manager.ManagerDayCount
 import io.github.magisk317.mipush.common.manager.ManagerEventGateway
-import io.github.magisk317.mipush.manager.events.ComparingEventListSource
+import io.github.magisk317.mipush.manager.events.RemoteEventListSource
 import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
 import io.github.magisk317.mipush.common.utils.logW
-import io.github.magisk317.mipush.manager.events.EventListComparison
 import io.github.magisk317.mipush.manager.events.EventListRequest
-import kotlinx.coroutines.Job
+import io.github.magisk317.mipush.manager.events.EventReadResult
 import io.github.magisk317.mipush.common.notification.MockReplayOutcome
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.feature.main.subpage.EventInfoForDisplay
@@ -30,7 +29,7 @@ import java.util.Date
 import io.github.magisk317.mipush.manager.SettingsManager
 
 class EventListViewModel constructor(
-    private val eventSource: ComparingEventListSource,
+    private val eventSource: RemoteEventListSource,
     private val eventGateway: ManagerEventGateway,
     private val settingsManager: SettingsManager,
     private val preferenceRepository: PreferenceRepository,
@@ -40,9 +39,6 @@ class EventListViewModel constructor(
     private val _events = MutableStateFlow<List<EventInfoForDisplay>>(emptyList())
     val events: StateFlow<List<EventInfoForDisplay>> = _events.asStateFlow()
 
-    private val _comparison = MutableStateFlow<EventListComparison?>(null)
-    val comparison: StateFlow<EventListComparison?> = _comparison.asStateFlow()
-    private var comparisonJob: Job? = null
 
     /** Bumped when runtime becomes Available after a gap so Event pages reload. */
     private val _runtimeReadySignal = MutableStateFlow(0)
@@ -137,7 +133,7 @@ class EventListViewModel constructor(
             )
             try {
                 val primary = withContext(Dispatchers.IO) {
-                    eventSource.loadPrimary(request)
+                    loadEventsRemote(request)
                 }
                 val loadedEvents = primary.map { toEventInfoForDisplay(it) }
                 if (isRefresh) {
@@ -145,7 +141,6 @@ class EventListViewModel constructor(
                 } else {
                     _events.value = _events.value + loadedEvents
                 }
-                scheduleComparison(request, primary)
             } catch (error: RuntimeReadUnavailableException) {
                 logW("loadEvents unavailable op=${error.operation} status=${error.status}")
                 // Keep previous events; do not replace with empty.
@@ -155,19 +150,14 @@ class EventListViewModel constructor(
         }
     }
 
-    private fun scheduleComparison(request: EventListRequest, primary: List<ManagerEvent>) {
-        comparisonJob?.cancel()
-        comparisonJob = viewModelScope.launch {
-            _comparison.value = withContext(Dispatchers.IO) {
-                eventSource.compareRemote(request, primary)
-            }
-        }
-    }
 
-    override fun onCleared() {
-        comparisonJob?.cancel()
-        comparisonJob = null
-        super.onCleared()
+
+
+    private suspend fun loadEventsRemote(request: EventListRequest): List<ManagerEvent> {
+        return when (val result = eventSource.load(request)) {
+            is EventReadResult.Available -> result.value
+            is EventReadResult.Unavailable -> emptyList()
+        }
     }
 
     private fun toEventInfoForDisplay(it: ManagerEvent): EventInfoForDisplay {
@@ -219,9 +209,7 @@ class EventListViewModel constructor(
                 query = query,
             )
             try {
-                val primary = eventSource.loadPrimary(request)
-                scheduleComparison(request, primary)
-                primary.map { toEventInfoForDisplay(it) }
+                loadEventsRemote(request).map { toEventInfoForDisplay(it) }
             } catch (error: RuntimeReadUnavailableException) {
                 logW("fetchEvents unavailable op=${error.operation} status=${error.status}")
                 throw error

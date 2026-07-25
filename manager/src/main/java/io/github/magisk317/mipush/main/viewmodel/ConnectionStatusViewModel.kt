@@ -3,9 +3,10 @@ package io.github.magisk317.mipush.main.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
-import io.github.magisk317.mipush.manager.connection.ComparingConnectionSnapshotSource
-import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotComparison
+import io.github.magisk317.mipush.common.utils.logW
+import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSource
 import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSourceResult
+import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSourceStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -14,12 +15,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import io.github.magisk317.mipush.common.utils.logW
-import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSourceStatus
 import kotlinx.coroutines.withContext
 
 class ConnectionStatusViewModel constructor(
-    private val snapshotSource: ComparingConnectionSnapshotSource,
+    private val snapshotSource: ConnectionSnapshotSource,
 ) : ViewModel() {
 
     private companion object {
@@ -36,13 +35,7 @@ class ConnectionStatusViewModel constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
-    private val _comparison = MutableStateFlow<ConnectionSnapshotComparison>(
-        ConnectionSnapshotComparison.NotStarted,
-    )
-    val comparison: StateFlow<ConnectionSnapshotComparison> = _comparison.asStateFlow()
-
     private var autoRefreshJob: Job? = null
-    private var comparisonJob: Job? = null
 
     fun refresh() {
         viewModelScope.launch {
@@ -73,20 +66,15 @@ class ConnectionStatusViewModel constructor(
     override fun onCleared() {
         super.onCleared()
         stopAutoRefresh()
-        comparisonJob?.cancel()
-        comparisonJob = null
     }
 
     private suspend fun refreshPrimarySnapshot() {
-        when (val result = withContext(Dispatchers.IO) { snapshotSource.loadPrimary() }) {
+        when (val result = withContext(Dispatchers.IO) { snapshotSource.load() }) {
             is ConnectionSnapshotSourceResult.Available -> {
                 _snapshot.value = result.snapshot
-                scheduleRemoteComparison(result.snapshot)
             }
 
             is ConnectionSnapshotSourceResult.Unavailable -> {
-                comparisonJob?.cancel()
-                comparisonJob = null
                 logW("connection snapshot unavailable status=${result.status}")
                 val transient = result.status in setOf(
                     ConnectionSnapshotSourceStatus.BINDING,
@@ -94,23 +82,11 @@ class ConnectionStatusViewModel constructor(
                     ConnectionSnapshotSourceStatus.TEMPORARILY_DISCONNECTED,
                     ConnectionSnapshotSourceStatus.DISCONNECTED,
                 )
-                // Keep last good snapshot during transient binder gaps; only clear on hard failures.
                 if (!transient) {
                     _snapshot.value = null
                 }
-                _comparison.value = ConnectionSnapshotComparison.Skipped(result.status)
             }
         }
         _tick.value += 1
-    }
-
-    private fun scheduleRemoteComparison(primary: ManagerConnectionSnapshot) {
-        comparisonJob?.cancel()
-        _comparison.value = ConnectionSnapshotComparison.Comparing
-        comparisonJob = viewModelScope.launch {
-            _comparison.value = withContext(Dispatchers.IO) {
-                snapshotSource.compareRemote(primary)
-            }
-        }
     }
 }

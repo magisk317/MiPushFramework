@@ -22,29 +22,18 @@ import io.github.magisk317.mipush.main.viewmodel.RequestPermissionViewModel
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.main.viewmodel.ZygiskConfigViewModel
 import io.github.magisk317.mipush.manager.SettingsManager
-import io.github.magisk317.mipush.manager.application.ComparingApplicationDetailSource
-import io.github.magisk317.mipush.manager.application.ComparingApplicationListSource
-import io.github.magisk317.mipush.manager.application.InProcessApplicationDetailSource
-import io.github.magisk317.mipush.manager.application.InProcessApplicationListSource
 import io.github.magisk317.mipush.manager.application.RemoteApplicationDetailSource
 import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
-import io.github.magisk317.mipush.manager.configuration.ComparingConfigurationCatalogSource
 import io.github.magisk317.mipush.manager.configuration.RemoteConfigurationCatalogSource
-import io.github.magisk317.mipush.manager.events.ComparingEventListSource
-import io.github.magisk317.mipush.manager.events.InProcessEventListSource
 import io.github.magisk317.mipush.manager.events.RemoteEventListSource
-import io.github.magisk317.mipush.manager.logs.ComparingLogExportSource
-import io.github.magisk317.mipush.manager.logs.InProcessLogExportSource
 import io.github.magisk317.mipush.manager.logs.RemoteLogExportSource
-import io.github.magisk317.mipush.manager.notification.ComparingNotificationChannelSource
-import io.github.magisk317.mipush.manager.notification.InProcessNotificationChannelSource
 import io.github.magisk317.mipush.manager.notification.RemoteNotificationChannelSource
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
+import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSource
 import io.github.magisk317.mipush.manager.migration.ManagerPreferenceMigration
 import io.github.magisk317.mipush.manager.launcher.LauncherIconController
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import io.github.magisk317.mipush.manager.connection.ComparingConnectionSnapshotSource
 import io.github.magisk317.mipush.manager.connection.RemoteConnectionSnapshotSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -70,63 +59,15 @@ val managerKoinModule = module {
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
         ).apply { connect() }
     }
-    // Production manager is remote-only: gateway/Binder is the primary path and dual-source
-    // compare stays off. Comparing* wrappers remain for ViewModel API stability.
-    single {
-        val remote = RemoteConnectionSnapshotSource(get<ManagerRuntimeClient>())
-        ComparingConnectionSnapshotSource(
-            inProcessSource = remote,
-            remoteSource = remote,
-            enableRemoteCompare = false,
-        )
-    }
-    single {
-        ComparingApplicationListSource(
-            inProcessSource = InProcessApplicationListSource(
-                androidContext(),
-                get<ManagerApplicationGateway>(),
-            ),
-            remoteSource = RemoteApplicationListSource(get<ManagerRuntimeClient>()),
-            enableRemoteCompare = false,
-        )
-    }
-    single {
-        ComparingApplicationDetailSource(
-            inProcessSource = InProcessApplicationDetailSource(
-                androidContext(),
-                get<ManagerApplicationGateway>(),
-            ),
-            remoteSource = RemoteApplicationDetailSource(get<ManagerRuntimeClient>()),
-            enableRemoteCompare = false,
-        )
-    }
-    single {
-        ComparingEventListSource(
-            primarySource = InProcessEventListSource(get()),
-            remoteSource = RemoteEventListSource(get<ManagerRuntimeClient>()),
-            enableRemoteCompare = false,
-        )
-    }
-    single {
-        ComparingNotificationChannelSource(
-            primarySource = InProcessNotificationChannelSource(get()),
-            remoteSource = RemoteNotificationChannelSource(get<ManagerRuntimeClient>()),
-            enableRemoteCompare = false,
-        )
-    }
-    single {
-        ComparingConfigurationCatalogSource(
-            remoteSource = RemoteConfigurationCatalogSource(get<ManagerRuntimeClient>()),
-            enableRemoteCompare = false,
-        )
-    }
-    single {
-        ComparingLogExportSource(
-            primarySource = InProcessLogExportSource(get()),
-            remoteSource = RemoteLogExportSource(get<ManagerRuntimeClient>()),
-            enableRemoteCompare = false,
-        )
-    }
+    // Production manager is remote-only: ViewModels consume Remote* sources directly.
+    single { RemoteConnectionSnapshotSource(get<ManagerRuntimeClient>()) }
+    single<ConnectionSnapshotSource> { get<RemoteConnectionSnapshotSource>() }
+    single { RemoteApplicationListSource(get<ManagerRuntimeClient>()) }
+    single { RemoteApplicationDetailSource(get<ManagerRuntimeClient>()) }
+    single { RemoteEventListSource(get<ManagerRuntimeClient>()) }
+    single { RemoteNotificationChannelSource(get<ManagerRuntimeClient>()) }
+    single { RemoteConfigurationCatalogSource(get<ManagerRuntimeClient>()) }
+    single { RemoteLogExportSource(get<ManagerRuntimeClient>()) }
 
     viewModel {
         SettingsViewModel(
@@ -137,7 +78,7 @@ val managerKoinModule = module {
     }
     viewModel {
         EventListViewModel(
-            get<ComparingEventListSource>(),
+            get<RemoteEventListSource>(),
             get<ManagerEventGateway>(),
             get<SettingsManager>(),
             get<PreferenceRepository>(),
@@ -145,15 +86,15 @@ val managerKoinModule = module {
             get<ManagerRuntimeClient>(),
         )
     }
-    viewModel { ZygiskConfigViewModel(get<SettingsManager>(), get<ComparingApplicationListSource>()) }
+    viewModel { ZygiskConfigViewModel(get<SettingsManager>(), get<RemoteApplicationListSource>()) }
     viewModel { ConfigManagerViewModel(get(), get(), get(), androidContext(), get()) }
     viewModel { ConfigEditorViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidContext()) }
     viewModel { ApplicationInfoViewModel(get(), get(), get(), get(), androidContext()) }
-    viewModel { OverviewViewModel(get<ComparingApplicationListSource>(), get<ManagerRuntimeClient>()) }
-    viewModel { ConnectionStatusViewModel(get<ComparingConnectionSnapshotSource>()) }
+    viewModel { OverviewViewModel(get<RemoteApplicationListSource>(), get<ManagerRuntimeClient>()) }
+    viewModel { ConnectionStatusViewModel(get<ConnectionSnapshotSource>()) }
     viewModel {
         ApplicationListViewModel(
-            get<ComparingApplicationListSource>(),
+            get<RemoteApplicationListSource>(),
             get<SettingsManager>(),
             get<PreferenceRepository>(),
             androidContext(),

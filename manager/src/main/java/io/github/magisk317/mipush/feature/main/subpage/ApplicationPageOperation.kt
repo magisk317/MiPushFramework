@@ -2,13 +2,14 @@ package io.github.magisk317.mipush.feature.main.subpage
 
 import io.github.magisk317.mipush.common.manager.ManagerApplication
 import io.github.magisk317.mipush.manager.R
-import io.github.magisk317.mipush.manager.application.ApplicationListComparison
 import io.github.magisk317.mipush.manager.application.ApplicationListRequest
 import io.github.magisk317.mipush.manager.application.ApplicationListSnapshot
-import io.github.magisk317.mipush.manager.application.ComparingApplicationListSource
+import io.github.magisk317.mipush.manager.application.ApplicationReadResult
+import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
+import kotlinx.coroutines.runBlocking
 
 class ApplicationPageOperation(
-    private val applicationSource: ComparingApplicationListSource,
+    private val applicationSource: RemoteApplicationListSource,
 ) {
     fun getMiPushApplications(includeSystemApps: Boolean = false): MiPushApplications {
         return getMiPushApplications(query = "", filterMode = 0, includeSystemApps = includeSystemApps)
@@ -22,16 +23,6 @@ class ApplicationPageOperation(
         return getMiPushApplications(query, filterMode, includeSystemApps)
     }
 
-    suspend fun compareRemote(
-        query: String,
-        filterMode: Int,
-        includeSystemApps: Boolean,
-        primary: MiPushApplications,
-    ): ApplicationListComparison = applicationSource.compareRemote(
-        request = ApplicationListRequest(query, filterMode, includeSystemApps),
-        primary = primary.toSnapshot(),
-    )
-
     fun getNotSupportHint(context: android.content.Context, notUseMiPushCount: Int): String =
         context.getString(R.string.footer_app_ignored_not_registered, notUseMiPushCount.toString())
 
@@ -40,35 +31,31 @@ class ApplicationPageOperation(
         filterMode: Int,
         includeSystemApps: Boolean = false,
     ): MiPushApplications {
-        val snapshot = applicationSource.loadPrimary(
-            ApplicationListRequest(query, filterMode, includeSystemApps),
-        ).applications
+        val result = runBlocking {
+            applicationSource.load(ApplicationListRequest(query, filterMode, includeSystemApps))
+        }
+        val snapshot = when (result) {
+            is ApplicationReadResult.Available -> result.value
+            is ApplicationReadResult.Unavailable -> ApplicationListSnapshot(
+                applications = io.github.magisk317.mipush.common.manager.ManagerApplications(
+                    registeredPkgs = emptyMap(),
+                    items = emptyList(),
+                    totalPkg = 0,
+                ),
+                stats = io.github.magisk317.mipush.manager.application.ApplicationListStats(
+                    total = 0,
+                    usingMiPush = 0,
+                    notUsingMiPush = 0,
+                    registered = 0,
+                    notRegistered = 0,
+                ),
+            )
+        }
         return MiPushApplications().apply {
-            registeredPkgs.putAll(snapshot.registeredPkgs)
-            res = snapshot.items.toMutableList()
-            totalPkg = snapshot.totalPkg
+            registeredPkgs.putAll(snapshot.applications.registeredPkgs)
+            res = snapshot.applications.items.toMutableList()
+            totalPkg = snapshot.applications.totalPkg
         }
-    }
-
-    private fun MiPushApplications.toSnapshot(): ApplicationListSnapshot {
-        val usingMiPush = res.size
-        val registered = res.count {
-            it.registeredType == ManagerApplication.RegisteredType.REGISTERED
-        }
-        return ApplicationListSnapshot(
-            applications = io.github.magisk317.mipush.common.manager.ManagerApplications(
-                registeredPkgs = registeredPkgs,
-                items = res,
-                totalPkg = totalPkg,
-            ),
-            stats = io.github.magisk317.mipush.manager.application.ApplicationListStats(
-                total = totalPkg,
-                usingMiPush = usingMiPush,
-                notUsingMiPush = (totalPkg - usingMiPush).coerceAtLeast(0),
-                registered = registered,
-                notRegistered = (usingMiPush - registered).coerceAtLeast(0),
-            ),
-        )
     }
 
     class MiPushApplications {

@@ -58,7 +58,7 @@ sealed interface NotificationChannelComparison {
     data class Unavailable(val status: NotificationChannelReadStatus) : NotificationChannelComparison
 }
 
-class InProcessNotificationChannelSource(
+class GatewayNotificationChannelSource(
     private val notificationGateway: ManagerNotificationGateway,
 ) {
     fun load(packageName: String): NotificationChannelSnapshot {
@@ -172,7 +172,7 @@ class RemoteNotificationChannelSource internal constructor(
 }
 
 class ComparingNotificationChannelSource(
-    private val primarySource: InProcessNotificationChannelSource,
+    private val primarySource: GatewayNotificationChannelSource,
     private val remoteSource: RemoteNotificationChannelSource,
     private val enableRemoteCompare: Boolean = false,
 ) {

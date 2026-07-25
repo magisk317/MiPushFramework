@@ -54,7 +54,8 @@ enum class ApplicationReadStatus {
     FAILED,
 }
 
-class InProcessApplicationListSource(
+/** Gateway-backed list source (ManagerApplicationGateway; remote under standalone host). */
+class GatewayApplicationListSource(
     context: Context,
     private val applicationGateway: ManagerApplicationGateway,
 ) {
@@ -181,7 +182,7 @@ class ComparingApplicationListSource internal constructor(
     private val enableRemoteCompare: Boolean = false,
 ) {
     constructor(
-        inProcessSource: InProcessApplicationListSource,
+        inProcessSource: GatewayApplicationListSource,
         remoteSource: RemoteApplicationListSource,
         enableRemoteCompare: Boolean = false,
     ) : this(
@@ -204,7 +205,7 @@ class ComparingApplicationListSource internal constructor(
     }
 }
 
-class InProcessApplicationDetailSource(
+class GatewayApplicationDetailSource(
     context: Context,
     private val applicationGateway: ManagerApplicationGateway,
 ) {
@@ -255,7 +256,7 @@ class ComparingApplicationDetailSource internal constructor(
     private val enableRemoteCompare: Boolean = false,
 ) {
     constructor(
-        inProcessSource: InProcessApplicationDetailSource,
+        inProcessSource: GatewayApplicationDetailSource,
         remoteSource: RemoteApplicationDetailSource,
         enableRemoteCompare: Boolean = false,
     ) : this(

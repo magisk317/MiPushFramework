@@ -12,8 +12,7 @@ import io.github.magisk317.mipush.feature.main.subpage.friendlyDateString
 import io.github.magisk317.mipush.feature.main.subpage.toApplicationStats
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.manager.SettingsManager
-import io.github.magisk317.mipush.manager.application.ApplicationListComparison
-import io.github.magisk317.mipush.manager.application.ComparingApplicationListSource
+import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
 import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
@@ -21,7 +20,6 @@ import io.github.magisk317.mipush.common.utils.logW
 import java.util.Date
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -31,7 +29,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class ApplicationListViewModel constructor(
-    applicationSource: ComparingApplicationListSource,
+    applicationSource: RemoteApplicationListSource,
     private val settingsManager: SettingsManager,
     private val preferenceRepository: PreferenceRepository,
     private val context: Context,
@@ -49,11 +47,6 @@ class ApplicationListViewModel constructor(
     private val _stats = MutableStateFlow(ApplicationStats())
     val stats: StateFlow<ApplicationStats> = _stats.asStateFlow()
 
-    private val _comparison = MutableStateFlow<ApplicationListComparison>(
-        ApplicationListComparison.NotStarted,
-    )
-    val comparison: StateFlow<ApplicationListComparison> = _comparison.asStateFlow()
-
     val showSystemApps: StateFlow<Boolean> = preferenceRepository.showSystemApps
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
@@ -63,8 +56,6 @@ class ApplicationListViewModel constructor(
     private var lastFilterMode: Int = 0
     @Volatile
     private var listLoaded: Boolean = false
-    private var comparisonJob: Job? = null
-
     init {
         viewModelScope.launch {
             var sawUnavailable = false
@@ -121,7 +112,6 @@ class ApplicationListViewModel constructor(
                 _items.value = applications
                 _stats.value = applications.toApplicationStats()
                 listLoaded = true
-                scheduleRemoteComparison(query, filterMode, includeSystemApps, applications)
                 onRefreshed?.invoke()
             } catch (error: CancellationException) {
                 throw error
@@ -156,7 +146,6 @@ class ApplicationListViewModel constructor(
                 _items.value = applications
                 _stats.value = applications.toApplicationStats()
                 listLoaded = true
-                scheduleRemoteComparison(query, filterMode, includeSystemApps, applications)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: RuntimeReadUnavailableException) {
@@ -189,29 +178,5 @@ class ApplicationListViewModel constructor(
         _itemsInfo.value = infoMap
     }
 
-    override fun onCleared() {
-        comparisonJob?.cancel()
-        comparisonJob = null
-        super.onCleared()
-    }
 
-    private fun scheduleRemoteComparison(
-        query: String,
-        filterMode: Int,
-        includeSystemApps: Boolean,
-        primary: ApplicationPageOperation.MiPushApplications,
-    ) {
-        comparisonJob?.cancel()
-        _comparison.value = ApplicationListComparison.Comparing
-        comparisonJob = viewModelScope.launch {
-            _comparison.value = withContext(Dispatchers.IO) {
-                applicationPageOperation.compareRemote(
-                    query = query,
-                    filterMode = filterMode,
-                    includeSystemApps = includeSystemApps,
-                    primary = primary,
-                )
-            }
-        }
-    }
 }

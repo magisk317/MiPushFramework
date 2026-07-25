@@ -5,7 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
-import io.github.magisk317.mipush.manager.configuration.ComparingConfigurationCatalogSource
+import io.github.magisk317.mipush.manager.configuration.RemoteConfigurationCatalogSource
 import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.utils.ConfigDefaults
@@ -25,7 +25,7 @@ class ConfigManagerViewModel constructor(
     private val syncGateway: ManagerConfigSyncGateway,
     private val configGateway: ManagerConfigGateway,
     private val context: Context,
-    private val configurationCatalogSource: ComparingConfigurationCatalogSource,
+    private val configurationCatalogSource: RemoteConfigurationCatalogSource,
 ) : ViewModel() {
     data class UiState(
         val directoryUri: String? = null,
@@ -271,7 +271,6 @@ class ConfigManagerViewModel constructor(
                         remoteError = null,
                     )
                 }
-                scheduleCatalogComparison(snapshot.items, remoteSource)
             }
             .onFailure { error ->
                 if (generation != refreshGeneration) return
@@ -280,30 +279,6 @@ class ConfigManagerViewModel constructor(
             }
     }
 
-    private fun scheduleCatalogComparison(
-        items: List<ConfigListItem>,
-        remoteSource: ConfigRemoteSource,
-    ) {
-        val remoteFiles = items.mapNotNull { it.remote }
-        if (remoteFiles.isEmpty()) return
-        val primary = io.github.magisk317.mipush.manager.configuration.ConfigurationCatalogSnapshot(
-            sourceRepo = remoteSource.repository,
-            branch = remoteSource.branch,
-            generatedAt = "",
-            files = remoteFiles.map {
-                io.github.magisk317.mipush.manager.configuration.ConfigurationCatalogEntry(
-                    path = it.path,
-                    name = it.name,
-                    sha = it.sha,
-                    size = it.size,
-                    updatedAt = it.updatedAt,
-                )
-            },
-        )
-        viewModelScope.launch(Dispatchers.IO) {
-            configurationCatalogSource.compareRemote(primary)
-        }
-    }
 
     private fun remoteSourceKey(remoteSource: ConfigRemoteSource): String {
         return "${remoteSource.cacheKey}|${remoteSource.accelerator.trim()}"

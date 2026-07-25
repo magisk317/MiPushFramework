@@ -78,9 +78,11 @@ import io.github.magisk317.mipush.common.manager.ManagerApplication
 import io.github.magisk317.mipush.common.manager.ManagerApplicationDiagnostics
 import io.github.magisk317.mipush.common.manager.ManagerNotificationGateway
 import io.github.magisk317.mipush.main.viewmodel.ApplicationInfoViewModel
-import io.github.magisk317.mipush.manager.application.ComparingApplicationDetailSource
+import io.github.magisk317.mipush.manager.application.ApplicationReadResult
+import io.github.magisk317.mipush.manager.application.RemoteApplicationDetailSource
 import io.github.magisk317.mipush.manager.R
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.uikit.surface.AppIconImage
@@ -107,7 +109,7 @@ open class ApplicationInfoPage : ComponentActivity() {
         const val EXTRA_IGNORE_NOT_REGISTERED: String = "EXTRA_IGNORE_NOT_REGISTERED"
     }
 
-    private val applicationSource: ComparingApplicationDetailSource by inject()
+    private val applicationSource: RemoteApplicationDetailSource by inject()
     private val notificationGateway: ManagerNotificationGateway by inject()
     private val infoViewModel: ApplicationInfoViewModel by viewModel()
 
@@ -144,10 +146,13 @@ open class ApplicationInfoPage : ComponentActivity() {
     private fun getRegisteredApplication(): ManagerApplication? {
         if (!intent.hasExtra(EXTRA_PACKAGE_NAME)) return null
         val pkg = intent.getStringExtra(EXTRA_PACKAGE_NAME) ?: return null
-        return applicationSource.loadPrimary(
-            packageName = pkg,
-            ignoreNotRegistered = intent.getBooleanExtra(EXTRA_IGNORE_NOT_REGISTERED, false),
-        )
+        val ignoreNotRegistered = intent.getBooleanExtra(EXTRA_IGNORE_NOT_REGISTERED, false)
+        return runBlocking {
+            when (val result = applicationSource.load(pkg, ignoreNotRegistered)) {
+                is ApplicationReadResult.Available -> result.value
+                is ApplicationReadResult.Unavailable -> null
+            }
+        }
     }
 
     @Composable

@@ -34,7 +34,8 @@ enum class ConnectionSnapshotSourceStatus {
     FAILED,
 }
 
-class InProcessConnectionSnapshotSource internal constructor(
+/** Gateway/Settings-backed snapshot source retained for tests and non-remote harnesses. */
+class GatewayConnectionSnapshotSource internal constructor(
     private val snapshotLoader: () -> ManagerConnectionSnapshot,
 ) : ConnectionSnapshotSource {
     constructor(settingsManager: SettingsManager) : this(settingsManager::getConnectionSnapshot)

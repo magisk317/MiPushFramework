@@ -68,7 +68,7 @@ class EventReadSourcesTest {
             )
         }
         val comparing = ComparingEventListSource(
-            primarySource = InProcessEventListSource(FakeEventGateway(primary)),
+            primarySource = GatewayEventListSource(FakeEventGateway(primary)),
             remoteSource = remote,
             enableRemoteCompare = true,
         )

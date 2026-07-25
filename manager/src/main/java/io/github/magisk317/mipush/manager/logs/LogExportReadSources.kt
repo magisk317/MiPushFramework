@@ -41,7 +41,7 @@ sealed interface LogExportComparison {
     data class Unavailable(val status: LogExportReadStatus) : LogExportComparison
 }
 
-class InProcessLogExportSource(
+class GatewayLogExportSource(
     private val logGateway: ManagerLogGateway,
 ) {
     fun export(context: Context): ManagerLogExportResult = logGateway.buildLogBundle(context)
@@ -95,7 +95,7 @@ class RemoteLogExportSource internal constructor(
 }
 
 class ComparingLogExportSource(
-    private val primarySource: InProcessLogExportSource,
+    private val primarySource: GatewayLogExportSource,
     private val remoteSource: RemoteLogExportSource,
     private val enableRemoteCompare: Boolean = false,
 ) {

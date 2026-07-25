@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.feature.main.subpage
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import io.github.magisk317.mipush.manager.application.ComparingApplicationListSource
+import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
 import io.github.magisk317.mipush.feature.main.RegistrationStateStyle
 
 data class ApplicationStats(
@@ -26,7 +26,7 @@ fun ApplicationPageOperation.MiPushApplications.toApplicationStats(): Applicatio
 }
 
 suspend fun loadApplicationStats(
-    applicationSource: ComparingApplicationListSource,
+    applicationSource: RemoteApplicationListSource,
 ): ApplicationStats = withContext(Dispatchers.IO) {
     val operation = ApplicationPageOperation(applicationSource)
     val applications = operation.getMiPushApplicationsThatQueryMatched(query = "", filterMode = 0)

@@ -42,7 +42,7 @@ sealed interface EventListComparison {
     data class Unavailable(val status: EventReadStatus) : EventListComparison
 }
 
-class InProcessEventListSource(
+class GatewayEventListSource(
     private val eventGateway: ManagerEventGateway,
 ) {
     fun load(request: EventListRequest): List<ManagerEvent> =
@@ -88,7 +88,7 @@ class RemoteEventListSource internal constructor(
 }
 
 class ComparingEventListSource(
-    private val primarySource: InProcessEventListSource,
+    private val primarySource: GatewayEventListSource,
     private val remoteSource: RemoteEventListSource,
     private val enableRemoteCompare: Boolean = false,
 ) {
