@@ -45,6 +45,7 @@ class HookSystemUI : BaseHook() {
         XLog.i(TAG, "HookSystemUI.hook() called")
         MiuiHeaderAppIconHook().hook(classLoader)
         MiPushFocusStatusBarIconHook().hook(classLoader)
+        GroupCoalescerRankingSafetyHook().hook(classLoader)
         hookGlobalStatusBarIconTint(classLoader)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

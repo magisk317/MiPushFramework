@@ -4,11 +4,12 @@ import android.app.Notification
 import android.os.Bundle
 
 /**
- * Force every non-island notification of a package into one shade group.
+ * Force app-set notification groups of a package into one shade group key.
  *
- * Native posts, MiPush delegated posts, and system auto-group leftovers otherwise use different
- * group keys (app group vs Aggregate_*), which splits one app into multiple shade stacks.
- * The NMS enqueue path is the choke point for all apps; this policy is the pure rewrite core.
+ * Native and MiPush posts may use different app group keys and split one app into multiple stacks.
+ * This policy collapses app-set groups onto a package canonical key at NMS enqueue.
+ * System auto-groups (Aggregate_* or ranker_group) are intentionally left alone to avoid
+ * RankingMap/GroupCoalescer desync crashes in SystemUI.
  */
 object SinglePackageNotificationGroupPolicy {
     const val EXTRA_TARGET_PACKAGE = "target_package"
@@ -102,9 +103,11 @@ object SinglePackageNotificationGroupPolicy {
     ): Boolean {
         if (postingPackage.isBlank()) return false
         if (isIslandProxy(extras)) return false
+        // Never fight HyperOS/system auto-groups. Rewriting Aggregate_* or ranker_group
+        // desyncs StatusBarNotification keys from RankingMap and crashes GroupCoalescer.
+        if (isAggregateGroupKey(currentGroup)) return false
         val owner = resolveGroupOwnerPackage(postingPackage, extras)
         if (owner.isBlank()) return false
-        if (isAggregateGroupKey(currentGroup)) return true
         return currentGroup != canonicalGroupKey(owner)
     }
 
@@ -116,6 +119,13 @@ object SinglePackageNotificationGroupPolicy {
     fun apply(postingPackage: String, notification: Notification): Boolean {
         val extras = notification.extras
         var changed = false
+        // Belt-and-suspenders: never rewrite when either group or override is system auto-group.
+        if (isAggregateGroupKey(notification.group) || isAggregateGroupKey(readOverrideGroupKey(notification))) {
+            if (demoteDelegatedGroupSummary(postingPackage, notification)) {
+                return true
+            }
+            return false
+        }
         if (needsRewrite(postingPackage, notification.group, extras)) {
             val owner = resolveGroupOwnerPackage(postingPackage, extras)
             val group = canonicalGroupKey(owner)
@@ -130,12 +140,16 @@ object SinglePackageNotificationGroupPolicy {
     }
 
     /**
-     * Ensure package group even when [needsRewrite] is false (used before clearing Aggregate override).
+     * Ensure package group even when [needsRewrite] is false (app groups only).
      */
     @JvmStatic
     fun ensurePackageGroup(postingPackage: String, notification: Notification): String? {
         if (postingPackage.isBlank()) return null
         if (isIslandProxy(notification.extras)) return null
+        // Leave system auto-group stacks alone (same rule as needsRewrite).
+        if (isAggregateGroupKey(notification.group) || isAggregateGroupKey(readOverrideGroupKey(notification))) {
+            return notification.group
+        }
         val owner = resolveGroupOwnerPackage(postingPackage, notification.extras)
         if (owner.isBlank()) return null
         val group = canonicalGroupKey(owner)
@@ -179,7 +193,7 @@ object SinglePackageNotificationGroupPolicy {
                 wrote = true
             }
         }
-        // HyperOS Aggregate_* stacks often live on overrideGroupKey. Clear it so package group wins.
+        // Clear non-system overrideGroupKey leftovers so the package group wins.
         clearOverrideGroupKey(notification)
         // Compat extras used by some builders / OEM paths.
         runCatching {
@@ -191,6 +205,9 @@ object SinglePackageNotificationGroupPolicy {
     }
 
     private fun clearOverrideGroupKey(notification: Notification) {
+        val override = readOverrideGroupKey(notification)
+        // Preserve HyperOS Aggregate_* or ranker overrides so RankingMap keys stay stable.
+        if (isAggregateGroupKey(override)) return
         runCatching {
             val method = Notification::class.java.methods.firstOrNull {
                 it.name == "setOverrideGroupKey" &&
@@ -203,5 +220,20 @@ object SinglePackageNotificationGroupPolicy {
             field.isAccessible = true
             field.set(notification, null)
         }
+    }
+
+    private fun readOverrideGroupKey(notification: Notification): String? {
+        runCatching {
+            val method = Notification::class.java.methods.firstOrNull {
+                it.name == "getOverrideGroupKey" && it.parameterTypes.isEmpty()
+            }
+            val value = method?.invoke(notification) as? String
+            if (!value.isNullOrBlank()) return value
+        }
+        return runCatching {
+            val field = Notification::class.java.getDeclaredField("mOverrideGroupKey")
+            field.isAccessible = true
+            field.get(notification) as? String
+        }.getOrNull()
     }
 }

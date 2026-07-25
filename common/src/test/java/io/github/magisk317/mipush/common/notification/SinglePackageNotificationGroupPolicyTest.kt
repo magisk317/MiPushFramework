@@ -59,7 +59,7 @@ class SinglePackageNotificationGroupPolicyTest {
             "com.tencent.wework",
             SinglePackageNotificationGroupPolicy.resolveGroupOwnerPackage("com.xiaomi.xmsf", extras),
         )
-        assertTrue(
+        assertFalse(
             SinglePackageNotificationGroupPolicy.needsRewrite(
                 postingPackage = "com.xiaomi.xmsf",
                 currentGroup = "Aggregate_AlertingSection",
@@ -122,12 +122,20 @@ class SinglePackageNotificationGroupPolicyTest {
     }
 
     @Test
-    fun `aggregate group key always needs rewrite`() {
+    fun `aggregate group key is detected but never rewritten`() {
         assertTrue(SinglePackageNotificationGroupPolicy.isAggregateGroupKey("0|com.tencent.wework|g:Aggregate_AlertingSection"))
-        assertTrue(
+        assertTrue(SinglePackageNotificationGroupPolicy.isAggregateGroupKey("Aggregate_AlertingSection"))
+        assertFalse(
             SinglePackageNotificationGroupPolicy.needsRewrite(
                 postingPackage = "com.tencent.wework",
                 currentGroup = "Aggregate_AlertingSection",
+                extras = null,
+            ),
+        )
+        assertFalse(
+            SinglePackageNotificationGroupPolicy.needsRewrite(
+                postingPackage = "com.android.mms",
+                currentGroup = "0|com.android.mms|g:Aggregate_AlertingSection",
                 extras = null,
             ),
         )
