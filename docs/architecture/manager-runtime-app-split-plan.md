@@ -12,12 +12,16 @@ applications while keeping one repository:
   container.
 
 This reuses the two APKs that the project already builds. It does not introduce a third application.
-The current all-in-one composition remains a transition and compatibility baseline until the split
-has device evidence across supported ROMs.
 
-The current architecture documents remain authoritative for shipped behavior until the packaging
-switch phase is complete. This document describes the target and migration path, not current
-runtime behavior.
+**Current packaging (shipped default):** `:app` is runtime-only (`com.xiaomi.xmsf`); manager UI and
+the Xposed module live in `:mipush` (`io.github.magisk317.mipush`). There is no Gradle
+`composition` / `bundled` / `split` flavor dimension anymore. Task names are
+`:app:assembleNormalDebug` / `:app:assembleNormalRelease` (plus `vc105*` variants). Legacy
+component names on the XMSF package resolve through thin `activity-alias` entries into
+`ManagerUiRedirectActivity`, which forwards into the manager package.
+
+This document keeps the historical phase plan for context. Where Status lines conflict with the
+paragraph above, **prefer the Current packaging block**.
 
 ## Implementation Status
 
@@ -65,10 +69,10 @@ Each of these screens still uses its existing in-process gateway as the primary 
 Binder result asynchronously. Missing, unsupported, timed-out, or malformed remote responses stay local
 to that capability and do not block other manager pages.
 
-The manager UI still uses the existing in-process gateways as its primary path when packaged inside
-XMSF. Gradle unit tests, detekt, and the bundled app compilation cover the local Phase 1–4 contracts.
-Cross-package device and ROM evidence remains pending under the current no-device-test policy, so the
-all-in-one path remains a comparison baseline. Phase 3 preference/configuration ownership now has a
+The manager UI production host is the standalone `:mipush` package (remote Binder gateways).
+In-process comparison paths remain useful in tests where both codepaths are still wired. Gradle unit
+tests and detekt cover the local Phase 1–4 contracts; cross-package device and ROM evidence remains
+pending under the current no-device-test policy. Phase 3 preference/configuration ownership now has a
 complete key catalog, runtime preference snapshot export, manager migration snapshot export, and
 configuration content upload that both merges into the live loader and persists under
 `filesDir/manager_runtime_active_config/`, reapplied as an overlay after each SAF tree load.
@@ -76,8 +80,8 @@ Phase 4 write commands use stable request IDs derived from operation material (n
 single-flight in-process idempotency reservations, data-level restore-by-original-id, and
 argument-aware clear-history. Phase 5 hosts the manager Compose UI in `:mipush` with a manager-owned
 Koin container and Binder-backed remote gateways. Phase 6 makes the default XMSF APK runtime-only
-(`split` composition) while retaining a `bundled` comparison composition that still packages the
-manager UI and widgets.
+(no manager UI dependency); manager UI and widgets ship only with `:mipush`. The temporary
+`composition` / `bundled` product flavors have been removed.
 
 Residual honesty notes after the 2026-07-22 review remediation:
 
@@ -381,7 +385,8 @@ Exit criteria:
 
 Add `:manager` and `:manager-client` to `:mipush`, start a manager-owned Koin container, move manager
 Activity declarations and widgets, and switch internal navigation to explicit package-scoped
-actions. Keep the XMSF-packaged manager enabled as an internal comparison build.
+actions. (Historical note: an XMSF-packaged manager comparison build existed during migration; it is
+no longer a product flavor.)
 
 Status: `:mipush` depends on `:manager`, starts `ManagerDependencies.startAsRemoteHost()`, declares
 manager Activities in its manifest, and opens `WelcomeActivity` from the launcher instead of
@@ -399,16 +404,18 @@ Exit criteria:
 Remove `:manager` from `:app`, remove `ManagerDependencies` bootstrap from `MiPushHostApp`, and move
 the current XMSF widgets to `:mipush`. Keep a thin compatibility launcher for one transition cycle.
 
-Maintain an all-in-one build variant as a regression baseline until split builds pass the ROM
-matrix. Decide later, from device evidence, whether that variant remains a supported fallback or is
-retired.
+Status: **done for default packaging.**
 
-Status (historical): `:app` previously had a `composition` flavor dimension.
-Update: composition flavors removed; runtime packaging is always split-style and task names are `:app:compileNormalDebugKotlin` / `:app:assembleNormalDebug`. Earlier status: `:app` now has a `composition` flavor dimension. The default `split` composition depends on
-runtime modules only, gates manager bootstrap off, and exposes `activity-alias` compatibility
-launchers that forward into the standalone manager package. The `bundled` composition keeps `:manager` and real manager Activities as the all-in-one
-comparison baseline. Widgets live on `:mipush` for both compositions.
-`LegacyUiEntryPoints` resolves the manager UI package by classpath so both compositions keep working.
+- `:app` depends only on `:common` + `:xmsf` (no `bundledImplementation(:manager)`).
+- `MiPushHostApp` is a thin `MiPushFrameworkApp` shell; it does not bootstrap manager UI.
+- Widgets and manager Activities live on `:mipush`.
+- XMSF keeps thin compatibility `activity-alias` entries targeting
+  `com.xiaomi.xmsf.app.compat.ManagerUiRedirectActivity`, which forwards into
+  `io.github.magisk317.mipush` (see `LegacyComponentNames` + `ManagerUiRedirectActivity`).
+- Gradle no longer has a `composition` flavor dimension (`split` / `bundled` product flavors
+  removed). Build with `:app:assembleNormalDebug` / `:app:assembleNormalRelease`.
+- An all-in-one / bundled comparison APK is **not** maintained as a product variant. Cross-ROM
+  evidence still uses the two-APK layout (runtime + manager).
 
 ## Verification Matrix
 
@@ -418,7 +425,7 @@ The split is not complete from JVM tests alone. Each phase needs:
 - Binder instrumentation tests with process death and rebind;
 - unauthorized UID/certificate tests;
 - transaction-size, pagination, timeout, and file-descriptor lifecycle tests;
-- upgrade tests from the last bundled release;
+- upgrade tests from the last dual-package release (and any remaining single-APK historical builds);
 - normal and vc105 XMSF builds;
 - manager builds with and without the optional Xposed/market variant;
 - representative AOSP, MIUI/HyperOS, and ROMs known to restrict background or cross-app binding.
@@ -446,4 +453,5 @@ reference comparison before the project commits to the expensive migration steps
 - Moving stock XMSF ABI or vendored runtime behavior into the manager.
 - Letting the manager access XMSF private files or databases directly.
 - Making an unsupported manager capability block the push runtime or unrelated manager features.
-- Removing the all-in-one comparison build before cross-ROM evidence exists.
+- Re-introducing a bundled all-in-one product flavor without a documented product need.
+- Dropping XMSF compatibility aliases / redirect before legacy deep-links are proven unused.
