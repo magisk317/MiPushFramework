@@ -22,6 +22,7 @@ import io.github.magisk317.xposed.getHookObjectField
 import io.github.magisk317.xposed.hookAllMethods
 import io.github.magisk317.xposed.setHookIntField
 import java.lang.reflect.Method
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 class KeepAliveHook : BaseHook() {
     companion object {
@@ -59,6 +60,17 @@ class KeepAliveHook : BaseHook() {
         hookKillProcess(classLoader)
         hookAppStandbyController(classLoader)
         hookDeviceIdleController(classLoader)
+        MagiskOtel.event(
+            name = "push.keepalive",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "system_server",
+                "stage" to "hook_install",
+                "reason" to "installed",
+            ),
+            statusOk = true,
+        )
     }
 
     private fun startPreferenceRefreshLoop() {
@@ -211,25 +223,48 @@ class KeepAliveHook : BaseHook() {
     }
 
     private fun shouldSkipKill(param: MethodHookParam): Boolean {
+        var skip = false
         for (arg in param.args) {
             if (arg == null) continue
             if (arg is String && arg == XMSF_PACKAGE_NAME) {
-                return true
+                skip = true
+                break
             }
             try {
                 val processName = getHookObjectField(arg, "processName") as? String
-                if (processName == XMSF_PACKAGE_NAME) return true
+                if (processName == XMSF_PACKAGE_NAME) {
+                    skip = true
+                    break
+                }
             } catch (_: Throwable) { }
 
             try {
                 val info = getHookObjectField(arg, "info")
                 if (info != null) {
                     val pkgName = getHookObjectField(info, "packageName") as? String
-                    if (pkgName == XMSF_PACKAGE_NAME) return true
+                    if (pkgName == XMSF_PACKAGE_NAME) {
+                        skip = true
+                        break
+                    }
                 }
             } catch (_: Throwable) { }
         }
-        return false
+        // Only emit when protecting target to avoid kill-path spam.
+        if (skip) {
+            MagiskOtel.event(
+                name = "push.keepalive",
+                attributes = mapOf(
+                    "result" to "skip",
+                    "duration_ms" to "0",
+                    "process" to "system_server",
+                    "stage" to "kill_guard",
+                    "reason" to "target_protected",
+                    "target_package" to XMSF_PACKAGE_NAME,
+                ),
+                statusOk = true,
+            )
+        }
+        return skip
     }
 
     private fun hookAppStandbyController(classLoader: ClassLoader) {

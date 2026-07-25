@@ -9,6 +9,7 @@ import android.os.Build
 import io.github.magisk317.mipush.common.NotificationClassifier
 import io.github.magisk317.mipush.hook.XLog
 import java.util.concurrent.TimeUnit
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 internal object IslandDispatcherNotifier {
     private const val TAG = "IslandDispatcherNotifier"
@@ -42,8 +43,31 @@ internal object IslandDispatcherNotifier {
                 manager.cancel(request.notificationId)
             }
             manager.notify(request.notificationId, notification)
+            MagiskOtel.event(
+                name = "push.island",
+                attributes = mapOf(
+                    "result" to "ok",
+                    "duration_ms" to "0",
+                    "process" to "hook",
+                    "stage" to "post",
+                    "target_package" to (request.sourcePackage.orEmpty()),
+                ),
+                statusOk = true,
+            )
         }.onFailure {
             XLog.e(TAG, "post failed: ${it.message}", it)
+            MagiskOtel.event(
+                name = "push.island",
+                attributes = mapOf(
+                    "result" to "error",
+                    "duration_ms" to "0",
+                    "process" to "hook",
+                    "stage" to "post",
+                    "reason" to it.javaClass.simpleName,
+                    "target_package" to (request.sourcePackage.orEmpty()),
+                ),
+                statusOk = false,
+            )
         }
     }
 
@@ -88,8 +112,29 @@ internal object IslandDispatcherNotifier {
     fun cancel(context: Context, notificationId: Int) {
         runCatching {
             context.getSystemService(NotificationManager::class.java)?.cancel(notificationId)
+            MagiskOtel.event(
+                name = "push.island",
+                attributes = mapOf(
+                    "result" to "ok",
+                    "duration_ms" to "0",
+                    "process" to "hook",
+                    "stage" to "cancel",
+                ),
+                statusOk = true,
+            )
         }.onFailure {
             XLog.e(TAG, "cancel failed: ${it.message}", it)
+            MagiskOtel.event(
+                name = "push.island",
+                attributes = mapOf(
+                    "result" to "error",
+                    "duration_ms" to "0",
+                    "process" to "hook",
+                    "stage" to "cancel",
+                    "reason" to it.javaClass.simpleName,
+                ),
+                statusOk = false,
+            )
         }
     }
 

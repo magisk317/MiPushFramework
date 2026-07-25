@@ -27,6 +27,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.drawable.IconCompat
 import io.github.aakira.napier.Napier
+import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
@@ -128,6 +129,25 @@ object NotificationController {
         packageName: String,
         notificationBuilder: NotificationCompat.Builder
     ): Boolean {
+        val startedAt = System.nanoTime()
+        fun emit(result: String, statusOk: Boolean = true, reason: String? = null) {
+            val durationMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
+            val attrs = mutableMapOf(
+                "result" to result,
+                "duration_ms" to durationMs.toString(),
+                "process" to "main",
+                "target_package" to packageName,
+            )
+            if (reason != null) {
+                attrs["reason"] = reason
+            }
+            MagiskOtel.event(
+                name = "push.dispatch",
+                attributes = attrs,
+                statusOk = statusOk,
+            )
+        }
+
         val channelId = getExistsChannelId(context, metaInfo, packageName)
         notificationBuilder.setChannelId(channelId)
         notificationBuilder.setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
@@ -144,10 +164,12 @@ object NotificationController {
         val notification = notify(context, notificationId, packageName, notificationBuilder, metaInfo)
         if (notification == null) {
             Napier.d("publish skipped pkg=$packageName id=$notificationId (contentless, channel, or publish issue)", tag = TAG)
+            emit(result = "skip", reason = "notify_null")
             return false
         }
         Napier.d("publish posted pkg=$packageName id=$notificationId group=${notification.group} tag=${MyMIPushNotificationHelper.getNotificationTag(packageName)}", tag = TAG)
         updateSummaryNotification(context, metaInfo, packageName, notification.group)
+        emit(result = "ok")
         return true
     }
 

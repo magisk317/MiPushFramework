@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.runtime.android
 
 import android.content.Context
 import java.util.LinkedHashMap
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 object PushRuntimeDuplicateStore {
     private const val PREF_NAME = "push_message_ids"
@@ -42,6 +43,18 @@ object PushRuntimeDuplicateStore {
                     source = "PushRuntimeDuplicateStore.isDuplicateMessage"
                 )
             }
+            MagiskOtel.event(
+                name = "push.receive",
+                attributes = mapOf(
+                    "result" to if (duplicated) "skip" else "ok",
+                    "duration_ms" to "0",
+                    "process" to "main",
+                    "stage" to "duplicate_check",
+                    "reason" to if (duplicated) "duplicate" else "unique",
+                    "target_package" to packageName,
+                ),
+                statusOk = true,
+            )
             sharedPreferences.edit()
                 .putString(packageName, serializeStoredEntries(entries))
                 .apply()

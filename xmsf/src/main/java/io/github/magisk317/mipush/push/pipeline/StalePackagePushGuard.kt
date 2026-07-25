@@ -11,6 +11,7 @@ import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import io.github.magisk317.mipush.service.runtime.RegistrationIntentDeduper
 import com.xiaomi.xmsf.stock.StockProfileIdStore
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 object StalePackagePushGuard {
     private const val TAG = "StalePackagePushGuard"
@@ -26,6 +27,19 @@ object StalePackagePushGuard {
         val targetPackage = resolveTargetPackage(container) ?: return false
         if (!isPackageAbsent(context, targetPackage)) return false
         markPackageAbsent(context, targetPackage, source, clearLastReceiveTime = false)
+        MagiskOtel.event(
+            name = "push.package",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "stale_drop",
+                "target_package" to targetPackage,
+                "source" to source,
+                "reason" to "drop_inbound",
+            ),
+            statusOk = true,
+        )
         return true
     }
 
@@ -34,6 +48,19 @@ object StalePackagePushGuard {
         val targetPackage = resolveTargetPackage(container) ?: return false
         if (!isPackageAbsent(context, targetPackage)) return false
         markPackageAbsent(context, targetPackage, source, clearLastReceiveTime = false)
+        MagiskOtel.event(
+            name = "push.package",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "stale_drop",
+                "target_package" to targetPackage,
+                "source" to source,
+                "reason" to "drop_notification",
+            ),
+            statusOk = true,
+        )
         return true
     }
 
@@ -83,5 +110,18 @@ object StalePackagePushGuard {
             reason = "package_absent"
         )
         Napier.i("marked absent package pkg=$packageName source=$source", tag = TAG)
+        MagiskOtel.event(
+            name = "push.package",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "stale",
+                "target_package" to packageName,
+                "source" to source,
+                "reason" to "package_absent",
+            ),
+            statusOk = true,
+        )
     }
 }

@@ -10,6 +10,7 @@ import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.utils.ActiveConfigurationSnapshotStore
 import io.github.magisk317.mipush.utils.Configurations
 import java.nio.charset.StandardCharsets
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 /**
  * Accepts a validated configuration document from the manager and atomically replaces the runtime
@@ -19,17 +20,22 @@ class ManagerConfigurationUploadRuntimeWriter(
     private val context: Context,
 ) {
     fun upload(request: ManagerConfigurationUploadRequestDto): ManagerConfigurationUploadResultDto {
+        val startedAt = System.nanoTime()
         val descriptor = request.parcelFileDescriptor
-            ?: return fail("configuration_upload_missing_descriptor")
+            ?: return emitUploadFail(startedAt, "configuration_upload_missing_descriptor")
         return try {
             val path = request.path.substringAfterLast('/').ifBlank { request.path }
             if (!path.endsWith(".json", ignoreCase = true)) {
-                return fail("configuration_upload_not_json")
+                return emitUploadFail(startedAt, "configuration_upload_not_json")
             }
             val content = readLimited(descriptor, request.contentLength)
-                ?: return fail("configuration_upload_read_failed")
+                ?: return emitUploadFail(startedAt, "configuration_upload_read_failed")
             if (content.size > ManagerProtocol.MAX_CONFIGURATION_UPLOAD_BYTES) {
-                return fail("configuration_upload_too_large")
+                return emitUploadFail(
+                    startedAt,
+                    "configuration_upload_too_large",
+                    payloadSize = content.size,
+                )
             }
             val text = content.toString(StandardCharsets.UTF_8)
             val configurations = Configurations.getInstance()
@@ -41,17 +47,41 @@ class ManagerConfigurationUploadRuntimeWriter(
                 configurations.load(text)
             } catch (_: ConfigJsonException) {
                 restore(configurations, previous)
-                return fail("configuration_upload_invalid_json")
+                return emitUploadFail(
+                    startedAt,
+                    "configuration_upload_invalid_json",
+                    payloadSize = content.size,
+                )
             } catch (_: Exception) {
                 restore(configurations, previous)
-                return fail("configuration_upload_invalid_json")
+                return emitUploadFail(
+                    startedAt,
+                    "configuration_upload_invalid_json",
+                    payloadSize = content.size,
+                )
             }
 
             if (!ActiveConfigurationSnapshotStore.persist(context, path, content)) {
                 restore(configurations, previous)
-                return fail("configuration_upload_persist_failed")
+                return emitUploadFail(
+                    startedAt,
+                    "configuration_upload_persist_failed",
+                    payloadSize = content.size,
+                )
             }
 
+            MagiskOtel.event(
+                name = "push.control",
+                attributes = mapOf(
+                    "result" to "ok",
+                    "duration_ms" to elapsedMs(startedAt).toString(),
+                    "process" to "main",
+                    "stage" to "config_upload",
+                    "reason" to "activated",
+                    "payload_size" to content.size.toString(),
+                ),
+                statusOk = true,
+            )
             ManagerConfigurationUploadResultDto(
                 success = true,
                 activated = true,
@@ -61,6 +91,28 @@ class ManagerConfigurationUploadRuntimeWriter(
             runCatching { descriptor.close() }
         }
     }
+
+    private fun emitUploadFail(
+        startedAt: Long,
+        reason: String,
+        payloadSize: Int? = null,
+    ): ManagerConfigurationUploadResultDto {
+        val attrs = mutableMapOf(
+            "result" to "error",
+            "duration_ms" to elapsedMs(startedAt).toString(),
+            "process" to "main",
+            "stage" to "config_upload",
+            "reason" to reason,
+        )
+        if (payloadSize != null) {
+            attrs["payload_size"] = payloadSize.toString()
+        }
+        MagiskOtel.event(name = "push.control", attributes = attrs, statusOk = false)
+        return fail(reason)
+    }
+
+    private fun elapsedMs(startedAt: Long): Long =
+        ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
 
     private fun restore(
         configurations: Configurations,

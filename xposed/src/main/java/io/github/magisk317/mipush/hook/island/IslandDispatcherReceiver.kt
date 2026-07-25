@@ -7,29 +7,74 @@ import android.content.IntentFilter
 import android.os.Build
 import io.github.magisk317.mipush.common.ISLAND_PREF_READ_PERMISSION
 import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 internal object IslandDispatcherReceiver {
     private const val TAG = "IslandDispatcherReceiver"
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
+            val startedAt = System.nanoTime()
             val appContext = context.applicationContext ?: context
             when (intent.action) {
                 IslandDispatchContract.ACTION_SHOW -> {
                     runCatching {
                         IslandDispatcher.post(appContext, IslandRequest.fromIntent(intent))
-                    }.onFailure {
-                        XLog.e(TAG, "show request failed: ${it.message}", it)
-                    }
+                    }.fold(
+                        onSuccess = {
+                            emitIsland(startedAt, result = "ok", reason = "show")
+                        },
+                        onFailure = {
+                            XLog.e(TAG, "show request failed: ${it.message}", it)
+                            emitIsland(
+                                startedAt,
+                                result = "error",
+                                statusOk = false,
+                                reason = it.javaClass.simpleName,
+                            )
+                        },
+                    )
                 }
                 IslandDispatchContract.ACTION_CANCEL -> {
                     val notificationId = intent.getIntExtra(
                         IslandDispatchContract.EXTRA_NOTIFICATION_ID,
                         IslandDispatchContract.DEFAULT_NOTIFICATION_ID,
                     )
-                    IslandDispatcher.cancel(appContext, notificationId)
+                    runCatching {
+                        IslandDispatcher.cancel(appContext, notificationId)
+                    }.fold(
+                        onSuccess = {
+                            emitIsland(startedAt, result = "ok", reason = "cancel")
+                        },
+                        onFailure = {
+                            emitIsland(
+                                startedAt,
+                                result = "error",
+                                statusOk = false,
+                                reason = it.javaClass.simpleName,
+                            )
+                        },
+                    )
                 }
+                else -> emitIsland(startedAt, result = "skip", reason = "unhandled_action")
             }
+        }
+
+        private fun emitIsland(
+            startedAt: Long,
+            result: String,
+            statusOk: Boolean = true,
+            reason: String? = null,
+        ) {
+            val durationMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
+            val attrs = mutableMapOf(
+                "result" to result,
+                "duration_ms" to durationMs.toString(),
+                "process" to "hook",
+                "stage" to "broadcast_receive",
+            )
+            if (reason != null) attrs["reason"] = reason
+            MagiskOtel.event(name = "push.island", attributes = attrs, statusOk = statusOk)
         }
     }
 

@@ -14,6 +14,7 @@ import org.apache.thrift.TBase
 import io.github.magisk317.mipush.common.utils.CustomConfiguration
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.common.configurations.XMPushUtils as CoreXMPushUtils
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 /**
  * XM 推送工具类
@@ -116,7 +117,32 @@ object XMPushUtils {
         payload: ByteArray,
         fromNotification: Boolean = false
     ): DispatchResult {
-        if (packageName.isBlank()) return DispatchResult.Failed
+        val startedAt = System.nanoTime()
+        fun finish(result: DispatchResult): DispatchResult {
+            val reason = when (result) {
+                is DispatchResult.ServiceStarted -> "service_started"
+                is DispatchResult.BroadcastSent -> if (result.explicit) "broadcast_explicit" else "broadcast_generic"
+                is DispatchResult.ServiceBlocked -> "service_blocked"
+                DispatchResult.Failed -> "failed"
+            }
+            MagiskOtel.event(
+                name = "push.dispatch",
+                attributes = mapOf(
+                    "result" to if (result.dispatched) "ok" else "error",
+                    "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                    "process" to "xmsf",
+                    "stage" to "app_dispatch",
+                    "reason" to reason,
+                    "target_package" to packageName.ifBlank { "unknown" },
+                    "payload_size" to payload.size.toString(),
+                    "source" to if (fromNotification) "notification" else "payload",
+                ),
+                statusOk = result.dispatched,
+            )
+            return result
+        }
+
+        if (packageName.isBlank()) return finish(DispatchResult.Failed)
 
         val intent = Intent("com.xiaomi.mipush.RECEIVE_MESSAGE").apply {
             `package` = packageName
@@ -139,7 +165,7 @@ object XMPushUtils {
         val serviceStart = runCatching { context.startService(serviceIntent) }
         val startedComponent = serviceStart.getOrNull()
         if (startedComponent != null) {
-            return DispatchResult.ServiceStarted
+            return finish(DispatchResult.ServiceStarted)
         }
         val serviceStartError = serviceStart.exceptionOrNull()
 
@@ -175,7 +201,7 @@ object XMPushUtils {
                 dispatched = dispatched || delivered
             }
             if (dispatched) {
-                return DispatchResult.BroadcastSent(explicit = true)
+                return finish(DispatchResult.BroadcastSent(explicit = true))
             }
         }
 
@@ -184,10 +210,12 @@ object XMPushUtils {
             context.sendBroadcast(intent)
             true
         }.getOrDefault(false)
-        return if (genericSent) {
-            DispatchResult.BroadcastSent(explicit = false)
-        } else {
-            DispatchResult.ServiceBlocked(serviceStartError)
-        }
+        return finish(
+            if (genericSent) {
+                DispatchResult.BroadcastSent(explicit = false)
+            } else {
+                DispatchResult.ServiceBlocked(serviceStartError)
+            }
+        )
     }
 }

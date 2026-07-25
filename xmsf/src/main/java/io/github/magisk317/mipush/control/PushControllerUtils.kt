@@ -30,6 +30,7 @@ import io.github.magisk317.mipush.receiver.BootReceiver
 import io.github.magisk317.mipush.receiver.KeepAliveReceiver
 import java.util.Objects
 import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 @SuppressLint("WrongConstant")
 object PushControllerUtils {
@@ -43,6 +44,17 @@ object PushControllerUtils {
         val intervalMs = if (i < length) retryInterval[i] else retryInterval[length - 1]
         logI("for make sure xmsf register push succ, schedule register after ${intervalMs / 1000} sec")
         Handler(Looper.getMainLooper()).postDelayed(RetryRegister(context, i), intervalMs.toLong())
+        MagiskOtel.event(
+            name = "push.register",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "main",
+                "reason" to "scheduled",
+                "retry_index" to i.toString(),
+            ),
+            statusOk = true,
+        )
     }
 
     @JvmStatic
@@ -70,6 +82,7 @@ object PushControllerUtils {
 
     @JvmStatic
     fun setServiceEnable(enable: Boolean, context: Context) {
+        val startedAt = System.nanoTime()
         if (enable) {
             logD("Starting...")
             if (isAppMainProc(context)) {
@@ -114,6 +127,17 @@ object PushControllerUtils {
                 context.stopService(Intent(context, serviceClass))
             }
         }
+        val durationMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
+        MagiskOtel.event(
+            name = "push.service",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to durationMs.toString(),
+                "process" to "main",
+                "reason" to if (enable) "enable" else "disable",
+            ),
+            statusOk = true,
+        )
     }
 
     @JvmStatic

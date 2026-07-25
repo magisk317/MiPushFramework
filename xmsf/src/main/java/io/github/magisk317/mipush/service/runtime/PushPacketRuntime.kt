@@ -4,6 +4,7 @@ import com.xiaomi.slim.Blob
 import com.xiaomi.smack.packet.Packet
 
 import io.github.magisk317.mipush.common.utils.logW
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 object PushPacketRuntime {
     @JvmStatic
@@ -17,11 +18,14 @@ object PushPacketRuntime {
         val packageChannels = pushClientsManager.queryChannelIdByPackage(packageName)
         if (packageChannels.isEmpty()) {
             safeWarn("open channel should be called first before sending a packet, pkg=$packageName")
-            return PushPacketPreparationResult(
-                action = PushPacketRouteAction.DropNoChannel,
-                packet = null,
-                client = null,
-                reason = "no_channel"
+            return emitPacketResult(
+                packageName = packageName,
+                result = PushPacketPreparationResult(
+                    action = PushPacketRouteAction.DropNoChannel,
+                    packet = null,
+                    client = null,
+                    reason = "no_channel"
+                ),
             )
         }
 
@@ -32,37 +36,69 @@ object PushPacketRuntime {
         val client = pushClientsManager.getClientLoginInfoByChidAndUserId(resolvedChannelId, packet.from)
         if (!connected) {
             safeWarn("drop a packet as the channel is not connected, chid=$resolvedChannelId")
-            return PushPacketPreparationResult(
-                action = PushPacketRouteAction.DropDisconnected,
-                packet = null,
-                client = client,
-                reason = "channel_not_connected"
+            return emitPacketResult(
+                packageName = packageName,
+                result = PushPacketPreparationResult(
+                    action = PushPacketRouteAction.DropDisconnected,
+                    packet = null,
+                    client = client,
+                    reason = "channel_not_connected"
+                ),
             )
         }
         if (client == null || client.status != PushClientsManager.ClientStatus.binded) {
             safeWarn("drop a packet as the channel is not opened, chid=$resolvedChannelId")
-            return PushPacketPreparationResult(
-                action = PushPacketRouteAction.DropUnbound,
-                packet = null,
-                client = client,
-                reason = "channel_not_opened"
+            return emitPacketResult(
+                packageName = packageName,
+                result = PushPacketPreparationResult(
+                    action = PushPacketRouteAction.DropUnbound,
+                    packet = null,
+                    client = client,
+                    reason = "channel_not_opened"
+                ),
             )
         }
         if (session != client.session) {
             safeWarn("invalid session. $session")
-            return PushPacketPreparationResult(
-                action = PushPacketRouteAction.DropInvalidSession,
-                packet = null,
-                client = client,
-                reason = "invalid_session"
+            return emitPacketResult(
+                packageName = packageName,
+                result = PushPacketPreparationResult(
+                    action = PushPacketRouteAction.DropInvalidSession,
+                    packet = null,
+                    client = client,
+                    reason = "invalid_session"
+                ),
             )
         }
-        return PushPacketPreparationResult(
-            action = PushPacketRouteAction.Ready,
-            packet = packet,
-            client = client,
-            reason = "ready"
+        return emitPacketResult(
+            packageName = packageName,
+            result = PushPacketPreparationResult(
+                action = PushPacketRouteAction.Ready,
+                packet = packet,
+                client = client,
+                reason = "ready"
+            ),
         )
+    }
+
+    private fun emitPacketResult(
+        packageName: String,
+        result: PushPacketPreparationResult,
+    ): PushPacketPreparationResult {
+        val ok = result.action == PushPacketRouteAction.Ready
+        MagiskOtel.event(
+            name = "push.receive",
+            attributes = mapOf(
+                "result" to if (ok) "ok" else "skip",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "packet_prepare",
+                "reason" to result.reason,
+                "target_package" to packageName,
+            ),
+            statusOk = true,
+        )
+        return result
     }
 
     @JvmStatic

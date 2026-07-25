@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import io.github.magisk317.xposed.logging.MagiskOtel
 import kotlinx.serialization.json.Json
 import io.github.magisk317.mipush.utils.ConfigSyncRecord
 import io.github.magisk317.mipush.utils.ConfigRemoteSource
@@ -44,12 +45,25 @@ class ConfigSyncStateStore constructor(
     }
 
     suspend fun upsertAll(directoryUri: String, records: Iterable<ConfigSyncRecord>) = withContext(Dispatchers.IO) {
+        val list = records.toList()
         stateLock.withLock {
             val state = loadState()
             val current = state.directories[directoryUri].orEmpty().toMutableMap()
-            records.forEach { record -> current[record.path] = record }
+            list.forEach { record -> current[record.path] = record }
             saveState(state.copy(directories = state.directories + (directoryUri to current)))
         }
+        MagiskOtel.event(
+            name = "push.control",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "config_sync",
+                "reason" to "upsert_all",
+                "found_count" to list.size.toString(),
+            ),
+            statusOk = true,
+        )
     }
 
     suspend fun cacheCatalog(remoteSource: ConfigRemoteSource, catalog: RemoteConfigCatalog) = withContext(Dispatchers.IO) {

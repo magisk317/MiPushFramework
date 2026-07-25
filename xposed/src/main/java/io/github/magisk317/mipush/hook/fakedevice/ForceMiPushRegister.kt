@@ -16,6 +16,7 @@ import io.github.magisk317.xposed.currentApplication
 import io.github.magisk317.xposed.findClass
 import io.github.magisk317.xposed.hookAllMethods
 import io.github.magisk317.xposed.hookMethod
+import io.github.magisk317.xposed.logging.MagiskOtel
 import java.util.Collections
 
 object ForceMiPushRegister {
@@ -124,6 +125,12 @@ object ForceMiPushRegister {
         } catch (_: Throwable) {
             XLog.d(TAG, "MiPushClient not found for $packageName in process=$processName")
             scheduleRetry(app, packageName, processName)
+            emitForceRegister(
+                result = "skip",
+                reason = "client_missing",
+                packageName = packageName,
+                retry = true,
+            )
             return
         }
 
@@ -131,6 +138,11 @@ object ForceMiPushRegister {
         if (credential == null) {
             XLog.d(TAG, "meta-data appId/appKey not found for $packageName, skip force register")
             triedPackages.add(processKey)
+            emitForceRegister(
+                result = "skip",
+                reason = "credential_missing",
+                packageName = packageName,
+            )
             return
         }
 
@@ -144,10 +156,21 @@ object ForceMiPushRegister {
                     "skip force register for $packageName in process=$processName, " +
                         "regId already available=${existingRegId.take(24)}"
                 )
+                emitForceRegister(
+                    result = "skip",
+                    reason = "regid_present",
+                    packageName = packageName,
+                )
                 return
             }
             if (regIdRetryCounts.containsKey(processKey)) {
                 XLog.d(TAG, "skip force register for $packageName in process=$processName, regId check already scheduled")
+                emitForceRegister(
+                    result = "skip",
+                    reason = "regid_check_pending",
+                    packageName = packageName,
+                    retry = true,
+                )
                 return
             }
             classMiPushClient.callStaticMethod(
@@ -163,13 +186,54 @@ object ForceMiPushRegister {
             )
             if (regId.isNotBlank()) {
                 markRegistered(processKey)
+                emitForceRegister(
+                    result = "ok",
+                    reason = "register_push",
+                    packageName = packageName,
+                )
             } else {
                 scheduleRegIdCheck(app, packageName, processName, classMiPushClient, appContext)
+                emitForceRegister(
+                    result = "ok",
+                    reason = "register_push_pending_regid",
+                    packageName = packageName,
+                    retry = true,
+                )
             }
         } catch (e: Throwable) {
             XLog.e(TAG, "force registerPush failed for $packageName in process=$processName", e)
             triedPackages.add(processKey)
+            emitForceRegister(
+                result = "error",
+                reason = "register_push_failed",
+                packageName = packageName,
+                errorClass = e.javaClass.simpleName,
+                statusOk = false,
+            )
         }
+    }
+
+    private fun emitForceRegister(
+        result: String,
+        reason: String,
+        packageName: String,
+        retry: Boolean = false,
+        errorClass: String? = null,
+        statusOk: Boolean = true,
+    ) {
+        val attrs = mutableMapOf(
+            "result" to result,
+            "duration_ms" to "0",
+            "process" to "hook",
+            "stage" to "force",
+            "reason" to reason,
+            "target_package" to packageName,
+            "retry" to retry.toString(),
+        )
+        if (!errorClass.isNullOrBlank()) {
+            attrs["error_class"] = errorClass
+        }
+        MagiskOtel.event(name = "push.register", attributes = attrs, statusOk = statusOk)
     }
 
     private fun traceRegisterCalls(packageName: String, classLoader: ClassLoader) {

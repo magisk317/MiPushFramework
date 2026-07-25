@@ -13,6 +13,7 @@ import com.xiaomi.push.service.PushClientsManager.ClientLoginInfo
 import com.xiaomi.push.service.PushClientsManager.ClientStatus
 import com.xiaomi.smack.Connection
 import io.github.aakira.napier.Napier
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 object PushRuntimeChannelTracker {
     private val lock = Any()
@@ -26,17 +27,35 @@ object PushRuntimeChannelTracker {
 
     @JvmStatic
     fun attach(context: Context) {
-        synchronized(lock) {
-            if (attached) return
-            PushClientsManager.getInstance().addClientChangeListener(clientChangeListener)
-            attached = true
+        val alreadyAttached = synchronized(lock) {
+            if (attached) {
+                true
+            } else {
+                PushClientsManager.getInstance().addClientChangeListener(clientChangeListener)
+                attached = true
+                false
+            }
         }
-        syncNow("PushRuntimeChannelTracker.attach")
-        logD("channel tracker attached pkg=${context.packageName}")
+        MagiskOtel.event(
+            name = "push.lifecycle",
+            attributes = mapOf(
+                "result" to if (alreadyAttached) "skip" else "ok",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "channel_tracker",
+                "reason" to if (alreadyAttached) "already_attached" else "attached",
+            ),
+            statusOk = true,
+        )
+        if (!alreadyAttached) {
+            syncNow("PushRuntimeChannelTracker.attach")
+            logD("channel tracker attached pkg=${context.packageName}")
+        }
     }
 
     @JvmStatic
     fun syncNow(source: String) {
+        val startedAt = System.nanoTime()
         runCatching {
             val service = XMPushServiceLifecycleBridge.withService { it }
             val connectionState = when {
@@ -65,8 +84,34 @@ object PushRuntimeChannelTracker {
                 source = source,
                 nowMs = nowMs
             )
+            MagiskOtel.event(
+                name = "push.lifecycle",
+                attributes = mapOf(
+                    "result" to "ok",
+                    "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                    "process" to "xmsf",
+                    "stage" to "channel_sync",
+                    "reason" to connectionState.name.lowercase(),
+                    "source" to source,
+                    "found_count" to records.size.toString(),
+                ),
+                statusOk = true,
+            )
         }.onFailure {
             logE("syncNow failed source=$source", it)
+            MagiskOtel.event(
+                name = "push.lifecycle",
+                attributes = mapOf(
+                    "result" to "error",
+                    "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                    "process" to "xmsf",
+                    "stage" to "channel_sync",
+                    "reason" to "sync_failed",
+                    "source" to source,
+                    "error_class" to it.javaClass.simpleName,
+                ),
+                statusOk = false,
+            )
         }
     }
 
@@ -83,6 +128,19 @@ object PushRuntimeChannelTracker {
             2 -> PushConnectionState.Disconnected
             else -> PushConnectionState.Idle
         }
+        MagiskOtel.event(
+            name = "push.network",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "connection_state",
+                "reason" to state.name.lowercase(),
+                "source" to source,
+                "change_count" to reason.toString(),
+            ),
+            statusOk = true,
+        )
         PushRuntime.observeConnectionState(
             state = state,
             source = source,

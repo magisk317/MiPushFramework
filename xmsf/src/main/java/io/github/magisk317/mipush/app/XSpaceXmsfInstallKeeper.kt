@@ -12,10 +12,12 @@ import io.github.magisk317.mipush.platform.support.BoundedShellResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 object XSpaceXmsfInstallKeeper {
     private const val XSPACE_USER_ID = 999
@@ -24,9 +26,16 @@ object XSpaceXmsfInstallKeeper {
     private const val PACKAGE_LIST_TIMEOUT_MS = 5_000L
     private const val INSTALL_TIMEOUT_MS = 15_000L
     private const val UNINSTALL_TIMEOUT_MS = 15_000L
+    private const val ROOT_RETRY_ATTEMPTS = 4
+    private const val ROOT_RETRY_DELAY_MS = 15_000L
 
     private val running = AtomicBoolean(false)
     private val lastCheckAtMs = AtomicLong(0L)
+
+    fun scheduleForced(context: Context, source: String) {
+        lastCheckAtMs.set(0L)
+        schedule(context, source)
+    }
 
     fun schedule(context: Context, source: String) {
         val appContext = context.applicationContext ?: context
@@ -42,15 +51,42 @@ object XSpaceXmsfInstallKeeper {
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val isDualAppEnabled = readDualAppEnabled(appContext)
-                val result = repairNow(
-                    hasRootAccess = { AppRootAccessFacade.refreshRootAccessIfGranted() },
-                    runRootCommand = { command, timeoutMs ->
-                        AppRootAccessFacade.runRootCommand(command, timeoutMs = timeoutMs)
-                    },
-                    isDualAppEnabled = isDualAppEnabled,
-                )
+                // Boot/update can race Magisk grant. Retry a few times so a disabled dual-app
+                // toggle still purges zombie user-999 packages after reboot/reinstall.
+                var attempt = 0
+                var result: RepairResult
+                while (true) {
+                    attempt += 1
+                    val isDualAppEnabled = readDualAppEnabled(appContext)
+                    result = repairNow(
+                        hasRootAccess = { AppRootAccessFacade.refreshRootAccessIfGranted() },
+                        runRootCommand = { command, timeoutMs ->
+                            AppRootAccessFacade.runRootCommand(command, timeoutMs = timeoutMs)
+                        },
+                        isDualAppEnabled = isDualAppEnabled,
+                    )
+                    val shouldRetry = result.stage == Stage.ROOT_MISSING && attempt < ROOT_RETRY_ATTEMPTS
+                    if (!shouldRetry) break
+                    logW(
+                        "XSpace xmsf install keeper root missing, retry $attempt/$ROOT_RETRY_ATTEMPTS " +
+                            "source=$source",
+                    )
+                    delay(ROOT_RETRY_DELAY_MS)
+                }
                 logResult(appContext, source, result)
+                val failed = result.stage.name.contains("FAILED") || result.stage == Stage.ROOT_MISSING
+                MagiskOtel.event(
+                    name = "push.xspace",
+                    attributes = mapOf(
+                        "result" to if (failed) "error" else "ok",
+                        "duration_ms" to "0",
+                        "process" to "xmsf",
+                        "stage" to "repair",
+                        "reason" to result.stage.name.lowercase(),
+                        "source" to source,
+                    ),
+                    statusOk = !failed,
+                )
             } finally {
                 running.set(false)
             }

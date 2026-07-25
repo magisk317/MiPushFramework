@@ -7,6 +7,7 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import com.xiaomi.xmsf.stock.StockSurfaceSupport
 import io.github.magisk317.mipush.service.runtime.KeepAliveRuntimeAdapter
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 class ServiceBoxService : Service() {
     private var mainProcBridge: IMainProcBridge? = null
@@ -32,12 +33,32 @@ class ServiceBoxService : Service() {
     override fun onCreate() {
         super.onCreate()
         bindService(Intent(this, MainProcBridgeService::class.java), connection, BIND_AUTO_CREATE)
+        MagiskOtel.event(
+            name = "push.servicebox",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "create",
+            ),
+            statusOk = true,
+        )
     }
 
     override fun onDestroy() {
         runCatching { unbindService(connection) }
         mainProcBridge = null
         KeepAliveRuntimeAdapter.shutdown()
+        MagiskOtel.event(
+            name = "push.servicebox",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "destroy",
+            ),
+            statusOk = true,
+        )
         super.onDestroy()
     }
 

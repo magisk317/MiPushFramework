@@ -94,6 +94,7 @@ import io.github.magisk317.mipush.service.runtime.NetworkCheckupRuntime
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.service.runtime.PushPacketSyncRuntime
 import java.io.IOException
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeObserver {
     private val appContext: Context = context.applicationContext ?: context
@@ -519,8 +520,38 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
 
     override val notificationHandler: IPushNotificationHandler = object : IPushNotificationHandler {
         override fun handleNotification(packageName: String, payload: ByteArray): Boolean {
-            MyMIPushNotificationHelper.notifyPushMessage(appContext, payload)
-            return true
+            val startedAt = System.nanoTime()
+            fun emit(result: String, statusOk: Boolean = true, reason: String? = null) {
+                val durationMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
+                val attrs = mutableMapOf(
+                    "result" to result,
+                    "duration_ms" to durationMs.toString(),
+                    "process" to "main",
+                    "target_package" to packageName,
+                    "payload_size" to payload.size.toString(),
+                )
+                if (reason != null) {
+                    attrs["reason"] = reason
+                }
+                MagiskOtel.event(
+                    name = "push.receive",
+                    attributes = attrs,
+                    statusOk = statusOk,
+                )
+            }
+
+            return try {
+                MyMIPushNotificationHelper.notifyPushMessage(appContext, payload)
+                emit(result = "ok")
+                true
+            } catch (error: RuntimeException) {
+                emit(
+                    result = "error",
+                    statusOk = false,
+                    reason = error.javaClass.simpleName,
+                )
+                throw error
+            }
         }
 
         override fun clearNotification(packageName: String, notifyId: Int) {

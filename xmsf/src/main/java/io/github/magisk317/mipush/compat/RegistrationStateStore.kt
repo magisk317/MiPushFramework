@@ -10,6 +10,7 @@ import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 object RegistrationStateStore {
 
@@ -32,6 +33,19 @@ object RegistrationStateStore {
         RegisteredApplicationDb.update(application)
         logI(
             "registration state changed pkg=${application.packageName}, ${labelOf(oldType)} -> ${labelOf(nextType)}, source=$source"
+        )
+        MagiskOtel.event(
+            name = "push.register",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "state_store",
+                "reason" to "${labelOf(oldType)}_to_${labelOf(nextType)}",
+                "target_package" to application.packageName,
+                "source" to source.name.lowercase(),
+            ),
+            statusOk = true,
         )
         return true
     }

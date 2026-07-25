@@ -14,6 +14,7 @@ import io.github.aakira.napier.Napier
 import com.xiaomi.push.service.PushServiceConstants
 import io.github.magisk317.mipush.service.PushServiceStarter
 import io.github.magisk317.mipush.runtime.PushRuntimeComponents
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 /**
  * @author zts
@@ -23,9 +24,20 @@ class KeepAliveReceiver : BroadcastReceiver() {
     private var lastActive: Long = System.currentTimeMillis()
 
     override fun onReceive(context: Context, intent: Intent?) {
+        val startedAt = System.nanoTime()
         try {
             val now = System.currentTimeMillis()
             if (now - lastActive < 1000 * 60 * 2) {
+                MagiskOtel.event(
+                    name = "push.keepalive",
+                    attributes = mapOf(
+                        "result" to "skip",
+                        "duration_ms" to "0",
+                        "process" to "main",
+                        "reason" to "throttled",
+                    ),
+                    statusOk = true,
+                )
                 return
             }
 
@@ -35,8 +47,31 @@ class KeepAliveReceiver : BroadcastReceiver() {
             localIntent.putExtra(PushServiceConstants.EXTRA_TIME_STAMP, now)
             localIntent.action = PushServiceConstants.ACTION_CHECK_ALIVE
             PushServiceStarter.start(context, localIntent)
+            val durationMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
+            MagiskOtel.event(
+                name = "push.keepalive",
+                attributes = mapOf(
+                    "result" to "ok",
+                    "duration_ms" to durationMs.toString(),
+                    "process" to "main",
+                    "reason" to "check_alive",
+                    "action" to (intent?.action ?: "unknown"),
+                ),
+                statusOk = true,
+            )
         } catch (localException: Throwable) {
             logE(localException.message ?: "error", localException)
+            val durationMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
+            MagiskOtel.event(
+                name = "push.keepalive",
+                attributes = mapOf(
+                    "result" to "error",
+                    "duration_ms" to durationMs.toString(),
+                    "process" to "main",
+                    "reason" to localException.javaClass.simpleName,
+                ),
+                statusOk = false,
+            )
         }
     }
 }

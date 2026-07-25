@@ -12,6 +12,7 @@ import android.os.Looper
 import android.util.Log
 import com.xiaomi.xmsf.services.IMainProcBridge
 import org.json.JSONObject
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 /**
  * Reduced, polling-based stock keep-alive runtime.
@@ -122,6 +123,17 @@ object KeepAliveRuntimeAdapter {
             reconcileNow()
         }
         scheduleReconcile()
+        MagiskOtel.event(
+            name = "push.keepalive",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "main",
+                "stage" to "bind",
+                "reason" to "binding_trigger",
+            ),
+            statusOk = true,
+        )
         return true
     }
 
@@ -133,6 +145,17 @@ object KeepAliveRuntimeAdapter {
             pollScheduled = false
         }
         handler.post { unbindAll() }
+        MagiskOtel.event(
+            name = "push.keepalive",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "main",
+                "stage" to "shutdown",
+                "reason" to "adapter_shutdown",
+            ),
+            statusOk = true,
+        )
     }
 
     internal fun snapshot(): Snapshot = synchronized(lock) {

@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.service.runtime
 
 import com.xiaomi.push.service.*
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 object PushConnectionStatusRuntime {
     private const val STATUS_CONNECTING = 0
@@ -12,7 +13,7 @@ object PushConnectionStatusRuntime {
         currentStatus: Int,
         newStatus: Int
     ): PushConnectionStatusPlan {
-        return when (newStatus) {
+        val plan = when (newStatus) {
             STATUS_CONNECTED -> PushConnectionStatusPlan(
                 eventAction = "connection_status_connected",
                 shouldRemoveConnectingTimeout = true,
@@ -50,5 +51,18 @@ object PushConnectionStatusRuntime {
                 warningMessage = null
             )
         }
+        MagiskOtel.event(
+            name = "push.lifecycle",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "connection_status",
+                "reason" to plan.eventAction,
+                "source" to currentStatus.toString(),
+            ),
+            statusOk = true,
+        )
+        return plan
     }
 }

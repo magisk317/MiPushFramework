@@ -15,6 +15,7 @@ import com.xiaomi.mipush.sdk.MiPushCommandMessage
 import com.xiaomi.mipush.sdk.MiPushMessage
 import com.xiaomi.mipush.sdk.PushMessageReceiver
 import io.github.magisk317.mipush.runtime.PushRuntime
+import io.github.magisk317.xposed.logging.MagiskOtel
 import com.xiaomi.xmsf.push.service.XMAccountManager
 
 class MiuiPushMessageReceiver : PushMessageReceiver() {
@@ -31,10 +32,44 @@ class MiuiPushMessageReceiver : PushMessageReceiver() {
                     source = "MiuiPushMessageReceiver.onCommandResult"
                 )
                 XMAccountManager.getInstance(context).setAccountAsAlias()
+                MagiskOtel.event(
+                    name = "push.register",
+                    attributes = mapOf(
+                        "result" to "ok",
+                        "duration_ms" to "0",
+                        "process" to "main",
+                        "stage" to "miui_command",
+                        "reason" to "register_ok",
+                    ),
+                    statusOk = true,
+                )
+            } else {
+                MagiskOtel.event(
+                    name = "push.control",
+                    attributes = mapOf(
+                        "result" to "ok",
+                        "duration_ms" to "0",
+                        "process" to "main",
+                        "stage" to "miui_command",
+                        "reason" to (command ?: "unknown"),
+                    ),
+                    statusOk = true,
+                )
             }
             return
         }
         logE(miPushCommandMessage.toString())
+        MagiskOtel.event(
+            name = "push.control",
+            attributes = mapOf(
+                "result" to "error",
+                "duration_ms" to "0",
+                "process" to "main",
+                "stage" to "miui_command",
+                "reason" to "command_failed",
+            ),
+            statusOk = false,
+        )
     }
 
     override fun onReceivePassThroughMessage(context: Context, miPushMessage: MiPushMessage) {
@@ -49,6 +84,18 @@ class MiuiPushMessageReceiver : PushMessageReceiver() {
         logI("onReceiveMessage -> $miPushMessage")
         val pkg = miPushMessage.extra?.get("miui_package_name")
         if (!pkg.isNullOrBlank()) {
+            MagiskOtel.event(
+                name = "push.receive",
+                attributes = mapOf(
+                    "result" to "ok",
+                    "duration_ms" to "0",
+                    "process" to "main",
+                    "stage" to "miui_route",
+                    "reason" to if (isNotified) "click" else "passthrough",
+                    "target_package" to pkg,
+                ),
+                statusOk = true,
+            )
             PushRuntime.observeNotificationEvent(
                 packageName = pkg,
                 action = if (isNotified) "miui_click_message" else "miui_receive_message",

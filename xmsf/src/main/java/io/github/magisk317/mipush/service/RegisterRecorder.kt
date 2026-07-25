@@ -21,6 +21,7 @@ import io.github.magisk317.mipush.runtime.store.entities.Event
 import io.github.magisk317.mipush.runtime.store.event.type.RegistrationType
 import io.github.magisk317.mipush.service.runtime.RegistrationIntentDeduper
 import kotlinx.coroutines.runBlocking
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 class RegisterRecorder(private val context: Context) {
 
@@ -29,37 +30,72 @@ class RegisterRecorder(private val context: Context) {
         try {
             if (!isRegisterAppRequest(intent)) {
                 logD("Not a register app request")
+                emitRegister(result = "skip", reason = "not_register_request")
                 return
             }
 
             val pkg = intent?.getStringExtra(Constants.EXTRA_MI_PUSH_PACKAGE)
             if (pkg == null) {
                 logE("Package name is NULL!")
+                emitRegister(result = "error", reason = "missing_package", statusOk = false)
                 return
             }
 
             if (!Utils.isUserApplication(context.applicationContext, pkg)) {
                 logD("skip system application registration pkg=$pkg")
+                emitRegister(result = "skip", reason = "system_app", packageName = pkg)
                 return
             }
 
             if (RegisteredApplicationDb.isBlocked(pkg)) {
                 logD("skip blocked application registration pkg=$pkg")
+                emitRegister(result = "skip", reason = "blocked", packageName = pkg)
                 return
             }
 
             RegisteredApplicationDb.registerApplication(pkg)
             if (RegistrationIntentDeduper.shouldDrop("register_recorder", intent)) {
                 logD("skip duplicate register record pkg=$pkg")
+                emitRegister(result = "skip", reason = "duplicate", packageName = pkg)
                 return
             }
 
             logD("onHandleIntent -> A application want to register push")
             saveRegisterAppRecord(pkg)
+            emitRegister(result = "ok", reason = "recorded", packageName = pkg)
         } catch (e: RuntimeException) {
             logE("XMPushService::onHandleIntent: ", e)
             toastErrorMessage(e)
+            emitRegister(
+                result = "error",
+                reason = "exception",
+                statusOk = false,
+                errorClass = e.javaClass.simpleName,
+            )
         }
+    }
+
+    private fun emitRegister(
+        result: String,
+        reason: String,
+        statusOk: Boolean = true,
+        packageName: String? = null,
+        errorClass: String? = null,
+    ) {
+        val attrs = mutableMapOf(
+            "result" to result,
+            "duration_ms" to "0",
+            "process" to "main",
+            "stage" to "record",
+            "reason" to reason,
+        )
+        if (!packageName.isNullOrBlank()) {
+            attrs["target_package"] = packageName
+        }
+        if (!errorClass.isNullOrBlank()) {
+            attrs["error_class"] = errorClass
+        }
+        MagiskOtel.event(name = "push.register", attributes = attrs, statusOk = statusOk)
     }
 
     fun toastErrorMessage(e: RuntimeException) {

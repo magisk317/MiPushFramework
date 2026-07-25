@@ -20,6 +20,7 @@ import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.runtime.core.PushConnectionState
 import io.github.magisk317.mipush.runtime.android.AndroidPushRuntime
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 // removed PushAccountRuntime
 
@@ -110,6 +111,18 @@ class XMPushServiceLifecycleRuntime(
         XMPushServiceLifecycleBridge.onConnectionStatusChanged(XMPushServiceListener.ConnectionStatus.disconnected)
         val plan = PushServiceConnectionRuntime.planConnectionClosed(service.shouldFalldown())
         AndroidPushRuntime.observeChannelEvent(null, plan.eventAction, "XMPushServiceLifecycleRuntime.connectionClosed")
+        MagiskOtel.event(
+            name = "push.network",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "main",
+                "stage" to "connection_closed",
+                "reason" to plan.eventAction,
+                "network_available" to "false",
+            ),
+            statusOk = true,
+        )
         if (plan.shouldScheduleReconnect) {
             service.scheduleConnect(false)
         }
@@ -119,6 +132,17 @@ class XMPushServiceLifecycleRuntime(
         logV("begin to connect...")
         XMPushServiceLifecycleBridge.onConnectionStatusChanged(XMPushServiceListener.ConnectionStatus.connecting)
         AndroidPushRuntime.observeConnectionState(PushConnectionState.Connecting, "XMPushServiceLifecycleRuntime.connectionStarted", connection.host, "listener_started")
+        MagiskOtel.event(
+            name = "push.network",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "main",
+                "stage" to "connection_started",
+                "reason" to "connecting",
+            ),
+            statusOk = true,
+        )
         StatsHandler.getContext()?.connectionStarted(connection)
     }
 
@@ -127,6 +151,18 @@ class XMPushServiceLifecycleRuntime(
         XMPushServiceLifecycleBridge.onConnectionStatusChanged(XMPushServiceListener.ConnectionStatus.disconnected)
         val plan = PushServiceConnectionRuntime.planReconnectionFailure(service.shouldFalldown())
         AndroidPushRuntime.observeChannelEvent(null, plan.eventAction, "XMPushServiceLifecycleRuntime.reconnectionFailed")
+        MagiskOtel.event(
+            name = "push.network",
+            attributes = mapOf(
+                "result" to "error",
+                "duration_ms" to "0",
+                "process" to "main",
+                "stage" to "reconnect_failed",
+                "reason" to plan.eventAction,
+                "error_class" to error.javaClass.simpleName,
+            ),
+            statusOk = false,
+        )
         if (plan.shouldBroadcastUnavailable) {
             service.broadcastNetworkAvailable(false)
         }
@@ -140,6 +176,18 @@ class XMPushServiceLifecycleRuntime(
         XMPushServiceLifecycleBridge.onConnectionStatusChanged(XMPushServiceListener.ConnectionStatus.connected)
         val plan = PushServiceConnectionRuntime.planReconnectionSuccess(Alarm.isAlive(), service.shouldFalldown())
         AndroidPushRuntime.observeChannelEvent(null, plan.eventAction, "XMPushServiceLifecycleRuntime.reconnectionSuccessful")
+        MagiskOtel.event(
+            name = "push.network",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "main",
+                "stage" to "reconnect_success",
+                "reason" to plan.eventAction,
+                "network_available" to "true",
+            ),
+            statusOk = true,
+        )
         val resolvedIp = (connection as? com.xiaomi.smack.SocketConnection)?.resolvedIp
         AndroidPushRuntime.observeConnectionState(
             state = PushConnectionState.Connected,

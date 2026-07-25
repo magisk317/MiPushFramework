@@ -34,6 +34,7 @@ import io.github.magisk317.mipush.runtime.store.event.type.TypeFactory
 import com.xiaomi.xmsf.stock.StockSurfaceSupport
 import kotlinx.coroutines.runBlocking
 import java.util.LinkedHashMap
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 object MiPushRuntimeBridge {
     internal data class ConfirmedRegistrationTransition(
@@ -95,6 +96,22 @@ object MiPushRuntimeBridge {
 
     @JvmStatic
     fun onNotificationDispatch(context: Context, container: XmPushActionContainer?, payload: ByteArray?): Boolean {
+        val startedAt = System.nanoTime()
+        fun finish(allowed: Boolean, reason: String, targetPackage: String = ""): Boolean {
+            val attrs = mutableMapOf(
+                "result" to if (allowed) "ok" else "skip",
+                "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                "process" to "xmsf",
+                "stage" to "notify_dispatch",
+                "reason" to reason,
+            )
+            if (targetPackage.isNotBlank()) {
+                attrs["target_package"] = targetPackage
+            }
+            MagiskOtel.event(name = "push.dispatch", attributes = attrs, statusOk = true)
+            return allowed
+        }
+
         val resolvedContainer = container ?: payload?.let(XMPushUtils::packToContainer)
         val actionName = resolvedContainer?.action?.name ?: "Unknown"
         val messageId = MessageIdentity.fromContainer(resolvedContainer)
@@ -110,7 +127,11 @@ object MiPushRuntimeBridge {
                 "drop notification dispatch for absent package pkg=${StalePackagePushGuard.resolveTargetPackage(resolvedContainer)} " +
                     "action=$actionName messageId=$messageId"
             )
-            return false
+            return finish(
+                allowed = false,
+                reason = "stale_package",
+                targetPackage = StalePackagePushGuard.resolveTargetPackage(resolvedContainer).orEmpty(),
+            )
         }
         if (payload != null && resolvedContainer != null && !isMockReplay) {
             val allowed = consumeNotificationDispatchAllowance(
@@ -123,7 +144,11 @@ object MiPushRuntimeBridge {
                     "skip notification dispatch without allowance pkg=${resolvedContainer.packageName} " +
                         "action=$actionName messageId=$messageId source=MiPushRuntimeBridge.onNotificationDispatch"
                 )
-                return false
+                return finish(
+                    allowed = false,
+                    reason = "no_allowance",
+                    targetPackage = resolvedContainer.packageName.orEmpty(),
+                )
             }
         }
         if (resolvedContainer?.packageName in diagnosticPackages) {
@@ -138,8 +163,13 @@ object MiPushRuntimeBridge {
             source = "MiPushRuntimeBridge.onNotificationDispatch"
         )
         onTransferToApplication(resolvedContainer)
-        return true
+        return finish(
+            allowed = true,
+            reason = "allowed",
+            targetPackage = resolvedContainer?.packageName.orEmpty(),
+        )
     }
+
 
     @JvmStatic
     fun onPayloadFromServer(

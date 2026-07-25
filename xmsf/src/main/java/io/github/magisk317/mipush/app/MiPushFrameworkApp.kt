@@ -58,6 +58,8 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import io.github.magisk317.mipush.common.BuildConfig
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 open class MiPushFrameworkApp : Application() {
     private val preferenceRepository: PreferenceRepository by lazy { AppDependencies.get(this) }
@@ -76,11 +78,29 @@ open class MiPushFrameworkApp : Application() {
         }
 
         AppDependencies.start(this)
+        MagiskOtel.configure(
+            MagiskOtel.Config(
+                enabled = BuildConfig.DEBUG ||
+                    (System.getProperty("magisk.otel.enabled")?.equals("true", ignoreCase = true) == true),
+                serviceName = "mipushframework",
+                serviceVersion = VERSION_NAME,
+                projectId = "83955143",
+                projectName = "MiPushFramework",
+                environment = if (BuildConfig.DEBUG) "debug" else "release",
+            ),
+        )
+        MagiskOtel.event(
+            name = "app.boot",
+            attributes = mapOf(
+                "result" to "ok",
+                "process" to "main",
+            ),
+        )
         initBasicLogger()
         CrashHandler.installCrashLogger()
         DatabaseUtils.init(this)
         onAppDependenciesStarted()
-        XSpaceXmsfInstallKeeper.schedule(this, "MiPushFrameworkApp.onCreate")
+        XSpaceXmsfInstallKeeper.scheduleForced(this, "MiPushFrameworkApp.onCreate")
         scheduleSilentPermissionGrants()
         ProactiveMiPushRegistrar.schedule(this)
 

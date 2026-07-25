@@ -1,5 +1,7 @@
 package io.github.magisk317.mipush.runtime.android
 
+import io.github.magisk317.xposed.logging.MagiskOtel
+
 data class PendingPacketEntry(
     val packageName: String,
     val payload: ByteArray
@@ -21,23 +23,53 @@ object PushRuntimePendingPacketStore {
 
     @JvmStatic
     fun addPendingMessage(packageName: String, payload: ByteArray) {
-        synchronized(lock) {
+        val pendingCount = synchronized(lock) {
             pendingMessages.add(PendingPacketEntry(packageName, payload.copyOf()))
             if (pendingMessages.size > MAX_PENDING_MESSAGES) {
                 pendingMessages.removeAt(0)
             }
+            pendingMessages.size
         }
+        MagiskOtel.event(
+            name = "push.receive",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "main",
+                "stage" to "pending_cache",
+                "reason" to "message_queued",
+                "target_package" to packageName,
+                "payload_size" to payload.size.toString(),
+                "pending_count" to pendingCount.toString(),
+            ),
+            statusOk = true,
+        )
     }
 
     @JvmStatic
     fun cacheRegistrationRequest(packageName: String, payload: ByteArray) {
-        synchronized(lock) {
+        val pendingCount = synchronized(lock) {
             pendingRegistrationRequests[packageName] = payload.copyOf()
+            pendingRegistrationRequests.size
         }
         AndroidPushRuntime.observeRegistrationRequest(
             packageName = packageName,
             source = "PushRuntimePendingPacketStore.cacheRegistrationRequest",
             reason = "awaiting_connection"
+        )
+        MagiskOtel.event(
+            name = "push.register",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "main",
+                "stage" to "pending_cache",
+                "reason" to "awaiting_connection",
+                "target_package" to packageName,
+                "payload_size" to payload.size.toString(),
+                "pending_count" to pendingCount.toString(),
+            ),
+            statusOk = true,
         )
     }
 
@@ -69,6 +101,18 @@ object PushRuntimePendingPacketStore {
                 source = source
             )
         }
+        MagiskOtel.event(
+            name = "push.receive",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "main",
+                "stage" to "pending_flush",
+                "reason" to source,
+                "pending_count" to sent.toString(),
+            ),
+            statusOk = true,
+        )
         return sent
     }
 
@@ -101,6 +145,18 @@ object PushRuntimePendingPacketStore {
                 source = source
             )
         }
+        MagiskOtel.event(
+            name = "push.register",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "main",
+                "stage" to "pending_flush",
+                "reason" to source,
+                "pending_count" to sent.toString(),
+            ),
+            statusOk = true,
+        )
         return sent
     }
 
@@ -123,6 +179,18 @@ object PushRuntimePendingPacketStore {
                 reason = errorMessage
             )
         }
+        MagiskOtel.event(
+            name = "push.register",
+            attributes = mapOf(
+                "result" to "error",
+                "duration_ms" to "0",
+                "process" to "main",
+                "stage" to "notify_error",
+                "reason" to "register_error",
+                "pending_count" to queued.size.toString(),
+            ),
+            statusOk = false,
+        )
         return queued.size
     }
 

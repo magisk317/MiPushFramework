@@ -11,6 +11,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
 import io.github.aakira.napier.Napier
+import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.platform.support.Global
 import com.xiaomi.xmsf.R
 import kotlinx.coroutines.CoroutineScope
@@ -27,6 +28,17 @@ class ForegroundHelper(private val service: Service) {
         createNotificationGroupForPushStatus()
         // Always satisfy startForegroundService contract first, then apply keep-alive policy.
         showForegroundNotificationToKeepAlive()
+        MagiskOtel.event(
+            name = "push.keepalive",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "foreground",
+                "reason" to "started",
+            ),
+            statusOk = true,
+        )
         // Check keep-alive preference asynchronously to avoid blocking the main thread.
         CoroutineScope(Dispatchers.Main.immediate).launch {
             try {
@@ -35,12 +47,35 @@ class ForegroundHelper(private val service: Service) {
                 }
             } catch (t: Throwable) {
                 Napier.e("Failed to check foreground service preference", t, tag = "ForegroundHelper")
+                MagiskOtel.event(
+                    name = "push.keepalive",
+                    attributes = mapOf(
+                        "result" to "error",
+                        "duration_ms" to "0",
+                        "process" to "xmsf",
+                        "stage" to "foreground",
+                        "reason" to "pref_check_failed",
+                        "error_class" to t.javaClass.simpleName,
+                    ),
+                    statusOk = false,
+                )
             }
         }
     }
 
     fun stopForegroundNotification() {
         ServiceCompat.stopForeground(service, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        MagiskOtel.event(
+            name = "push.keepalive",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "foreground",
+                "reason" to "stopped",
+            ),
+            statusOk = true,
+        )
     }
 
     internal fun showForegroundNotificationToKeepAlive() {

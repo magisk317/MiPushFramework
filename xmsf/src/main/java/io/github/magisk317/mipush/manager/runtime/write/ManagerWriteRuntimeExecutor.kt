@@ -27,6 +27,7 @@ import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.utils.LogUtils
 import kotlinx.coroutines.runBlocking
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 class ManagerWriteRuntimeExecutor(
     private val context: Context,
@@ -52,19 +53,66 @@ class ManagerWriteRuntimeExecutor(
 
     fun execute(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         when (val begin = idempotencyStore.begin(request.requestId)) {
-            is ManagerWriteIdempotencyStore.BeginResult.Duplicate -> return begin.result
+            is ManagerWriteIdempotencyStore.BeginResult.Duplicate -> {
+                emitWrite(request, begin.result, duplicate = true)
+                return begin.result
+            }
             ManagerWriteIdempotencyStore.BeginResult.Execute -> Unit
         }
         return try {
+            val startedAt = System.nanoTime()
             val result = runCatching { dispatch(request) }.getOrElse {
                 failed(request.requestId, "runtime_operation_failed")
             }
             idempotencyStore.complete(result)
+            emitWrite(request, result, duplicate = false, startedAt = startedAt)
             result
         } catch (@Suppress("TooGenericExceptionCaught") error: Throwable) {
             idempotencyStore.abort(request.requestId)
+            MagiskOtel.event(
+                name = "push.manager",
+                attributes = mapOf(
+                    "result" to "error",
+                    "duration_ms" to "0",
+                    "process" to "main",
+                    "stage" to "write",
+                    "reason" to "aborted",
+                    "operation" to request.operation.ifBlank { "unknown" },
+                    "error_class" to error.javaClass.simpleName,
+                ),
+                statusOk = false,
+            )
             throw error
         }
+    }
+
+    private fun emitWrite(
+        request: ManagerWriteRequestDto,
+        result: ManagerWriteResultDto,
+        duplicate: Boolean,
+        startedAt: Long = System.nanoTime(),
+    ) {
+        val durationMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
+        val statusOk = result.status == ManagerProtocol.WRITE_STATUS_SUCCESS ||
+            result.status == ManagerProtocol.WRITE_STATUS_DUPLICATE
+        val resultToken = when (result.status) {
+            ManagerProtocol.WRITE_STATUS_SUCCESS -> "ok"
+            ManagerProtocol.WRITE_STATUS_DUPLICATE -> "skip"
+            ManagerProtocol.WRITE_STATUS_UNSUPPORTED -> "skip"
+            else -> "error"
+        }
+        MagiskOtel.event(
+            name = "push.manager",
+            attributes = mapOf(
+                "result" to resultToken,
+                "duration_ms" to durationMs.toString(),
+                "process" to "main",
+                "stage" to if (duplicate) "duplicate" else "write",
+                "reason" to result.details.ifBlank { result.status }.take(64),
+                "operation" to request.operation.ifBlank { "unknown" },
+            ),
+            statusOk = statusOk,
+        )
     }
 
     private fun dispatch(request: ManagerWriteRequestDto): ManagerWriteResultDto =

@@ -37,6 +37,7 @@ import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.app.di.AppDependencies
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 open class MiPushFacadeService : Service() {
     /** Set only on manifest-declared components intended for third-party MiPush SDK traffic. */
@@ -89,6 +90,16 @@ open class MiPushFacadeService : Service() {
         HookTraceCompat.onBridgeServiceCreate()
         PushHealthSnapshotLogger.log(this, "XMPushService.onCreate")
         PushRuntime.attachBridgeHost(runtimeHost)
+        MagiskOtel.event(
+            name = "push.facade",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "create",
+            ),
+            statusOk = true,
+        )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -108,6 +119,16 @@ open class MiPushFacadeService : Service() {
     override fun onDestroy() {
         PushRuntime.detachBridgeHost(runtimeHost)
         HookTraceCompat.onBridgeServiceDestroy()
+        MagiskOtel.event(
+            name = "push.facade",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "destroy",
+            ),
+            statusOk = true,
+        )
         super.onDestroy()
     }
 

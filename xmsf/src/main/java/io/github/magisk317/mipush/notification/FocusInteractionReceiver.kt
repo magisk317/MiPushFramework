@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.service.notification.StatusBarNotification
 import io.github.aakira.napier.Napier
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 class FocusInteractionReceiver : BroadcastReceiver() {
     companion object {
@@ -18,7 +19,23 @@ class FocusInteractionReceiver : BroadcastReceiver() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != ACTION) return
+        val startedAt = System.nanoTime()
+        fun emit(result: String, statusOk: Boolean = true, reason: String? = null) {
+            val durationMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
+            val attrs = mutableMapOf(
+                "result" to result,
+                "duration_ms" to durationMs.toString(),
+                "process" to "xmsf",
+                "stage" to "interaction",
+                "action" to (intent.action.orEmpty()),
+            )
+            if (reason != null) attrs["reason"] = reason
+            MagiskOtel.event(name = "push.island", attributes = attrs, statusOk = statusOk)
+        }
+        if (intent.action != ACTION) {
+            emit(result = "skip", reason = "action_mismatch")
+            return
+        }
         val type = intent.getIntExtra(EXTRA_TYPE, -1)
         @Suppress("DEPRECATION")
         val sbn = intent.getParcelableExtra<StatusBarNotification>(EXTRA_SBN)
@@ -26,6 +43,12 @@ class FocusInteractionReceiver : BroadcastReceiver() {
         val id = sbn?.id ?: -1
         val tag = sbn?.tag
 
+        val interaction = when (type) {
+            TYPE_CLICK -> "click"
+            TYPE_PULL_DOWN -> "pull_down"
+            TYPE_PANEL_ACTION -> "panel_action"
+            else -> "unknown"
+        }
         when (type) {
             TYPE_CLICK -> {
                 Napier.i("focus notification click pkg=$pkg id=$id tag=$tag", tag = TAG)
@@ -41,5 +64,17 @@ class FocusInteractionReceiver : BroadcastReceiver() {
                 Napier.d("focus interaction unknown type=$type pkg=$pkg", tag = TAG)
             }
         }
+        MagiskOtel.event(
+            name = "push.island",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
+                "process" to "xmsf",
+                "stage" to "interaction",
+                "action" to interaction,
+                "target_package" to pkg,
+            ),
+            statusOk = true,
+        )
     }
 }

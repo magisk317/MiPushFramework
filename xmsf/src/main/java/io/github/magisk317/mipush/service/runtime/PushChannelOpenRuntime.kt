@@ -7,6 +7,7 @@ import androidx.core.content.IntentCompat
 import com.xiaomi.channel.commonutils.string.MD5
 import com.xiaomi.push.service.*
 import io.github.magisk317.mipush.common.utils.logW
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 object PushChannelOpenRuntime {
     @JvmStatic
@@ -75,7 +76,7 @@ object PushChannelOpenRuntime {
         shouldRebind: Boolean
     ): PushChannelOpenPlan {
         val effectiveStatus = clientStatus ?: PushClientsManager.ClientStatus.unbind
-        return when {
+        val plan = when {
             !hasNetwork -> PushChannelOpenPlan(
                 action = PushChannelOpenAction.OpenFailedNoNetwork,
                 state = PushChannelState.OpenFailed,
@@ -114,6 +115,19 @@ object PushChannelOpenRuntime {
                 sourceSuffix = "noop"
             )
         }
+        MagiskOtel.event(
+            name = "push.lifecycle",
+            attributes = mapOf(
+                "result" to if (plan.action == PushChannelOpenAction.OpenFailedNoNetwork) "error" else "ok",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "channel_open_plan",
+                "reason" to plan.sourceSuffix,
+                "source" to plan.action.name,
+            ),
+            statusOk = plan.action != PushChannelOpenAction.OpenFailedNoNetwork,
+        )
+        return plan
     }
 
     @JvmStatic

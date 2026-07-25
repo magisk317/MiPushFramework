@@ -39,6 +39,7 @@ import io.github.magisk317.xposed.hookAllMethods
 import io.github.magisk317.xposed.hookMethod
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 class LibXposedEntry : BaseLibXposedEntry {
 
@@ -64,11 +65,35 @@ class LibXposedEntry : BaseLibXposedEntry {
         XLog.configure()
         // Pull sensitive-debug pref into LogSanitizerConfig for hook processes.
         IslandPreferences.startRefreshLoop()
+        MagiskOtel.event(
+            name = "hook.load",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "hook",
+                "stage" to "module_runtime",
+                "reason" to "installed",
+                "source" to "mipush",
+            ),
+            statusOk = true,
+        )
     }
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
         super.onModuleLoaded(param)
         installTaxAttachFallbackHook()
+        MagiskOtel.event(
+            name = "hook.load",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to if (param.isSystemServer) "system_server" else "hook",
+                "stage" to "module_loaded",
+                "reason" to "loaded",
+                "source" to param.processName.ifBlank { "unknown" },
+            ),
+            statusOk = true,
+        )
     }
 
     override fun postDispatch(loadParam: LoadParam) {

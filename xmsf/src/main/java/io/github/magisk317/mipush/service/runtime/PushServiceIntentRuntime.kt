@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.service.runtime
 import com.xiaomi.push.service.*
+import io.github.magisk317.xposed.logging.MagiskOtel
 import com.xiaomi.smack.packet.*
 import com.xiaomi.smack.*
 import com.xiaomi.slim.*
@@ -77,7 +78,7 @@ object PushServiceIntentRuntime {
         clientStatus: PushClientsManager.ClientStatus?,
         cacheIfUnavailable: Boolean
     ): PushServiceMiPushPayloadDispatchPlan {
-        return when {
+        val plan = when {
             hasActiveChannel && clientStatus == PushClientsManager.ClientStatus.binded -> {
                 PushServiceMiPushPayloadDispatchPlan(
                     action = PushServiceMiPushPayloadDispatchAction.SendNow,
@@ -105,6 +106,22 @@ object PushServiceIntentRuntime {
                 )
             }
         }
+        MagiskOtel.event(
+            name = "push.dispatch",
+            attributes = mapOf(
+                "result" to when (plan.action) {
+                    PushServiceMiPushPayloadDispatchAction.SendNow -> "ok"
+                    PushServiceMiPushPayloadDispatchAction.QueueOnly -> "skip"
+                    PushServiceMiPushPayloadDispatchAction.Drop -> "skip"
+                },
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "payload_dispatch_plan",
+                "reason" to plan.eventAction,
+            ),
+            statusOk = plan.action != PushServiceMiPushPayloadDispatchAction.Drop,
+        )
+        return plan
     }
 
     @JvmStatic

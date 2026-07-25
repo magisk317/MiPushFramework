@@ -12,6 +12,7 @@ import io.github.magisk317.mipush.hook.XLog
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 object XSpacePackageSyncHook {
     private const val USER_ID_DIVISOR = 100_000
@@ -46,6 +47,16 @@ object XSpacePackageSyncHook {
         runCatching {
             registerReceiverForAllUsers(context, receiver, filter)
             XLog.i(TAG, "installed XSpace package sync receiver")
+            MagiskOtel.event(
+                name = "push.xspace",
+                attributes = mapOf(
+                    "result" to "ok",
+                    "duration_ms" to "0",
+                    "process" to "hook",
+                    "stage" to "install",
+                ),
+                statusOk = true,
+            )
         }.onFailure { throwable ->
             installed.set(false)
             val isEarlyBootNpe = throwable is java.lang.reflect.InvocationTargetException &&
@@ -70,15 +81,87 @@ object XSpacePackageSyncHook {
         val packageName = intent.data?.encodedSchemeSpecificPart ?: return
         if (packageName != Constants.MANAGER_APP_NAME) return
         val userId = resolveUserId(intent)
-        if (userId != XSPACE_USER_ID) return
-        if (intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)) return
+        if (userId != XSPACE_USER_ID) {
+            emitXspace(
+                result = "skip",
+                stage = "package_change",
+                reason = "non_xspace_user",
+                targetPackage = packageName,
+                packageAction = intent.action.orEmpty(),
+            )
+            return
+        }
+        if (intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)) {
+            emitXspace(
+                result = "skip",
+                stage = "package_change",
+                reason = "replacing",
+                targetPackage = packageName,
+                packageAction = intent.action.orEmpty(),
+            )
+            return
+        }
 
         val action = when (intent.action) {
-            Intent.ACTION_PACKAGE_ADDED -> installXmsfAction()
+            Intent.ACTION_PACKAGE_ADDED -> {
+                // Never auto-install xmsf into user 999.
+                // Dual-app enable is an explicit settings action (setDualAppEnabled).
+                // Auto install-existing here resurrected zombie dual-space xmsf after
+                // reboot/reinstall whenever manager was present in XSpace while the
+                // dual_app_enabled preference stayed false.
+                XLog.i(
+                    TAG,
+                    "ignore manager PACKAGE_ADDED in XSpace; dual-app install is explicit only",
+                )
+                emitXspace(
+                    result = "skip",
+                    stage = "package_change",
+                    reason = "added_explicit_only",
+                    targetPackage = packageName,
+                    packageAction = intent.action.orEmpty(),
+                )
+                return
+            }
             Intent.ACTION_PACKAGE_REMOVED -> uninstallXmsfAction()
-            else -> return
+            else -> {
+                emitXspace(
+                    result = "skip",
+                    stage = "package_change",
+                    reason = "unhandled_action",
+                    targetPackage = packageName,
+                    packageAction = intent.action.orEmpty(),
+                )
+                return
+            }
         }
+        emitXspace(
+            result = "ok",
+            stage = "package_change",
+            reason = "scheduled",
+            targetPackage = packageName,
+            packageAction = action.name,
+        )
         executor.execute { runPackageSync(context, action, intent.action.orEmpty()) }
+    }
+
+    private fun emitXspace(
+        result: String,
+        stage: String,
+        reason: String? = null,
+        targetPackage: String? = null,
+        packageAction: String? = null,
+        statusOk: Boolean = true,
+    ) {
+        val attrs = mutableMapOf(
+            "result" to result,
+            "duration_ms" to "0",
+            "process" to "hook",
+            "stage" to stage,
+        )
+        if (reason != null) attrs["reason"] = reason
+        if (!targetPackage.isNullOrBlank()) attrs["target_package"] = targetPackage
+        if (!packageAction.isNullOrBlank()) attrs["package_action"] = packageAction
+        MagiskOtel.event(name = "push.xspace", attributes = attrs, statusOk = statusOk)
     }
 
     internal fun resolveUserId(intent: Intent): Int? {

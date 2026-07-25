@@ -7,19 +7,87 @@ import android.os.Bundle
 import android.util.Log
 import org.json.JSONObject
 import java.util.HashMap
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 class PushInnerReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
-        val extras = intent?.extras ?: return
+        val extras = intent?.extras
+        if (extras == null) {
+            MagiskOtel.event(
+                name = "push.control",
+                attributes = mapOf(
+                    "result" to "skip",
+                    "duration_ms" to "0",
+                    "process" to "xmsf",
+                    "stage" to "inner",
+                    "reason" to "no_extras",
+                ),
+                statusOk = true,
+            )
+            return
+        }
         val message = parseControlMessage(
             messageId = extras.getString(EXTRA_MESSAGE_ID),
             content = extras.getString(EXTRA_CONTENT),
-        ) ?: return
+        )
+        if (message == null) {
+            MagiskOtel.event(
+                name = "push.control",
+                attributes = mapOf(
+                    "result" to "skip",
+                    "duration_ms" to "0",
+                    "process" to "xmsf",
+                    "stage" to "inner",
+                    "reason" to "malformed",
+                ),
+                statusOk = true,
+            )
+            return
+        }
 
         when (message.type) {
-            TYPE_DELIVERY -> deliverKitMessage(context, message)
-            TYPE_COMMAND -> rejectPrivilegedCommand(message)
-            else -> Log.w(TAG, "Rejected unsupported internal control target")
+            TYPE_DELIVERY -> {
+                deliverKitMessage(context, message)
+                MagiskOtel.event(
+                    name = "push.control",
+                    attributes = mapOf(
+                        "result" to "ok",
+                        "duration_ms" to "0",
+                        "process" to "xmsf",
+                        "stage" to "inner",
+                        "reason" to "delivery",
+                    ),
+                    statusOk = true,
+                )
+            }
+            TYPE_COMMAND -> {
+                rejectPrivilegedCommand(message)
+                MagiskOtel.event(
+                    name = "push.control",
+                    attributes = mapOf(
+                        "result" to "skip",
+                        "duration_ms" to "0",
+                        "process" to "xmsf",
+                        "stage" to "inner",
+                        "reason" to "command_rejected",
+                    ),
+                    statusOk = true,
+                )
+            }
+            else -> {
+                Log.w(TAG, "Rejected unsupported internal control target")
+                MagiskOtel.event(
+                    name = "push.control",
+                    attributes = mapOf(
+                        "result" to "skip",
+                        "duration_ms" to "0",
+                        "process" to "xmsf",
+                        "stage" to "inner",
+                        "reason" to "unsupported_type",
+                    ),
+                    statusOk = true,
+                )
+            }
         }
     }
 

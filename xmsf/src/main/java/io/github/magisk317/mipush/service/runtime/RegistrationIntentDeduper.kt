@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.service.runtime
 import android.content.Intent
 import com.xiaomi.push.service.PushConstants
 import java.util.concurrent.ConcurrentHashMap
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 object RegistrationIntentDeduper {
     const val DEDUP_WINDOW_MS = 30_000L
@@ -38,7 +39,21 @@ object RegistrationIntentDeduper {
     ): Boolean {
         if (packageName.isNullOrBlank()) return false
         val previous = lastSeenAtMs.put("$scope:$packageName", nowMs)
-        return previous != null && nowMs - previous < DEDUP_WINDOW_MS
+        val drop = previous != null && nowMs - previous < DEDUP_WINDOW_MS
+        MagiskOtel.event(
+            name = "push.register",
+            attributes = mapOf(
+                "result" to if (drop) "skip" else "ok",
+                "duration_ms" to "0",
+                "process" to "main",
+                "stage" to "dedupe",
+                "reason" to if (drop) "duplicate_window" else "unique",
+                "target_package" to packageName,
+                "source" to scope,
+            ),
+            statusOk = true,
+        )
+        return drop
     }
 
     @JvmStatic

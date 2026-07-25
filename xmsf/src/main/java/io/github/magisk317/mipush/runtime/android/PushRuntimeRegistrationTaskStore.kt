@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.runtime.android
 
 import android.content.Intent
 import io.github.magisk317.mipush.runtime.core.PushRegistrationState
+import io.github.magisk317.xposed.logging.MagiskOtel
 
 fun interface RegistrationIntentDispatcher {
     fun dispatch(packageName: String, intent: Intent): Boolean
@@ -51,6 +52,19 @@ object PushRuntimeRegistrationTaskStore {
             reason = reason ?: "queued_register_task",
             nowMs = nowMs
         )
+        MagiskOtel.event(
+            name = "push.register",
+            attributes = mapOf(
+                "result" to "ok",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "cache",
+                "target_package" to packageName,
+                "source" to source,
+                "reason" to (reason ?: "queued_register_task"),
+            ),
+            statusOk = true,
+        )
         return task
     }
 
@@ -65,6 +79,18 @@ object PushRuntimeRegistrationTaskStore {
             }.also { pendingTasks.clear() }
         }
         if (snapshot.isEmpty()) {
+            MagiskOtel.event(
+                name = "push.register",
+                attributes = mapOf(
+                    "result" to "skip",
+                    "duration_ms" to "0",
+                    "process" to "xmsf",
+                    "stage" to "dispatch_cached",
+                    "source" to source,
+                    "reason" to "empty",
+                ),
+                statusOk = true,
+            )
             return 0
         }
 
@@ -101,6 +127,18 @@ object PushRuntimeRegistrationTaskStore {
             }
         }
 
+        MagiskOtel.event(
+            name = "push.register",
+            attributes = mapOf(
+                "result" to if (dispatched > 0) "ok" else "error",
+                "duration_ms" to "0",
+                "process" to "xmsf",
+                "stage" to "dispatch_cached",
+                "source" to source,
+                "reason" to ("dispatched_" + dispatched + "_failed_" + failed.size),
+            ),
+            statusOk = failed.isEmpty(),
+        )
         return dispatched
     }
 
