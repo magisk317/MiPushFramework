@@ -11,6 +11,10 @@ permissions:
   security-events: read
   checks: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   janitor:
     name: Automated Security Dependency Fixes
