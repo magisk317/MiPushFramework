@@ -3,7 +3,7 @@ name: Sync README Badges
 on:
   push:
     branches:
-      - dev
+      - beta
     paths:
       - gradle/libs.versions.toml
       - gradle/wrapper/gradle-wrapper.properties

@@ -5,7 +5,7 @@ on:
     - cron: "0 0 * * 1"  # Weekly on Monday at midnight
   push:
     branches:
-      - dev
+      - beta
   workflow_dispatch:
   issues:
     types:
@@ -14,7 +14,7 @@ on:
     types:
       - edited
     branches:
-      - dev
+      - beta
 
 concurrency:
   group: renovate
@@ -34,7 +34,7 @@ jobs:
       ) ||
       (
         github.event_name == 'push' &&
-        github.ref_name == 'dev' &&
+        github.ref_name == 'beta' &&
         github.event.head_commit != null &&
         startsWith(github.event.head_commit.message, 'Merge pull request #') &&
         (
@@ -44,7 +44,7 @@ jobs:
       ) ||
       (
         github.event_name == 'pull_request_target' &&
-        github.event.pull_request.base.ref == 'dev' &&
+        github.event.pull_request.base.ref == 'beta' &&
         github.event.pull_request.user.login == 'magisk317' &&
         startsWith(github.event.pull_request.head.ref, 'renovate/') &&
         github.event.changes.body != null &&

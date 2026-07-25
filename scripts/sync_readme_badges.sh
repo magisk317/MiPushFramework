@@ -29,7 +29,7 @@ xposed_level="${xposed%%.*}"
 
 # --- Platform / status badges (MiPush GitHub Actions specialties) ---
 REPO="magisk317/MiPushFramework"
-platform="[![CI](https://img.shields.io/github/actions/workflow/status/${REPO}/ci.yml?branch=dev&style=flat-square&label=CI&logo=github-actions&logoColor=white)](https://github.com/${REPO}/actions/workflows/ci.yml)"
+platform="[![CI](https://img.shields.io/github/actions/workflow/status/${REPO}/ci.yml?branch=beta&style=flat-square&label=CI&logo=github-actions&logoColor=white)](https://github.com/${REPO}/actions/workflows/ci.yml)"
 platform="$platform [![Release](https://img.shields.io/github/actions/workflow/status/${REPO}/release.yml?style=flat-square&label=Release&logo=github-actions&logoColor=white)](https://github.com/${REPO}/actions/workflows/release.yml)"
 platform="$platform [![Latest Release](https://img.shields.io/github/v/release/${REPO}?include_prereleases&style=flat-square&logo=github)](https://github.com/${REPO}/releases)"
 platform="$platform [![License](https://img.shields.io/github/license/${REPO}?style=flat-square)](LICENSE)"

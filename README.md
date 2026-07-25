@@ -1,7 +1,7 @@
 # MiPushFramework
 
 <!-- badges:platform:start -->
-[![CI](https://img.shields.io/github/actions/workflow/status/magisk317/MiPushFramework/ci.yml?branch=dev&style=flat-square&label=CI&logo=github-actions&logoColor=white)](https://github.com/magisk317/MiPushFramework/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/actions/workflow/status/magisk317/MiPushFramework/release.yml?style=flat-square&label=Release&logo=github-actions&logoColor=white)](https://github.com/magisk317/MiPushFramework/actions/workflows/release.yml) [![Latest Release](https://img.shields.io/github/v/release/magisk317/MiPushFramework?include_prereleases&style=flat-square&logo=github)](https://github.com/magisk317/MiPushFramework/releases) [![License](https://img.shields.io/github/license/magisk317/MiPushFramework?style=flat-square)](LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/magisk317/MiPushFramework/ci.yml?branch=beta&style=flat-square&label=CI&logo=github-actions&logoColor=white)](https://github.com/magisk317/MiPushFramework/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/actions/workflow/status/magisk317/MiPushFramework/release.yml?style=flat-square&label=Release&logo=github-actions&logoColor=white)](https://github.com/magisk317/MiPushFramework/actions/workflows/release.yml) [![Latest Release](https://img.shields.io/github/v/release/magisk317/MiPushFramework?include_prereleases&style=flat-square&logo=github)](https://github.com/magisk317/MiPushFramework/releases) [![License](https://img.shields.io/github/license/magisk317/MiPushFramework?style=flat-square)](LICENSE)
 <!-- badges:platform:end -->
 
 <!-- badges:tech:start -->
