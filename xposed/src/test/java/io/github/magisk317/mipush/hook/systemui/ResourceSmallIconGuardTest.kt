@@ -509,4 +509,134 @@ class ResourceSmallIconGuardTest {
             ),
         )
     }
+
+    @Test
+    fun `autogroup summary framework glyph is replaced for group headers`() {
+        val summaryFlags = SystemUiNotificationPolicy.FLAG_GROUP_SUMMARY
+        assertTrue(
+            SystemUiNotificationPolicy.shouldReplaceBrokenResourceSmallIcon(
+                iconType = ICON_TYPE_RESOURCE,
+                resId = SystemUiNotificationPolicy.FRAMEWORK_AUTOGROUP_SUMMARY_ICON_ID,
+                resPackage = "android",
+                notificationFlags = summaryFlags,
+            ),
+            "Alipay-style AUTOGROUP summary uses ic_notification_summary_auto; replace it.",
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldReplaceBrokenResourceSmallIcon(
+                iconType = ICON_TYPE_RESOURCE,
+                resId = SystemUiNotificationPolicy.FRAMEWORK_AUTOGROUP_SUMMARY_ICON_ID,
+                resPackage = "android",
+                notificationFlags = 0,
+            ),
+            "Non-summary posts must not treat the framework id as a summary replacement trigger.",
+        )
+        assertTrue(
+            SystemUiNotificationPolicy.isFrameworkAutogroupSummaryIcon(
+                iconType = ICON_TYPE_RESOURCE,
+                resId = SystemUiNotificationPolicy.FRAMEWORK_AUTOGROUP_SUMMARY_ICON_ID,
+                resPackage = "android",
+            ),
+        )
+    }
+
+    @Test
+    fun `strong monochrome includes messaging system app but not security center`() {
+        assertTrue(
+            SystemUiNotificationPolicy.shouldApplyGlobalMonochromeToNotification(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = false,
+                packageName = "com.android.mms",
+                uid = USER_APP_UID,
+                isSystemApp = true,
+                canColorize = false,
+            ),
+            "SMS is a user-facing system app and must follow strong monochrome.",
+        )
+        // Multi-color RESOURCE logos still become package silhouettes.
+        assertTrue(
+            SystemUiNotificationPolicy.shouldReplaceResourceWithPackageMonochrome(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = false,
+                iconType = ICON_TYPE_RESOURCE,
+                packageName = "com.android.mms",
+                uid = USER_APP_UID,
+                isSystemApp = true,
+                canColorize = false,
+                isGrayscaleIcon = false,
+            ),
+            "Multi-color Messaging RESOURCE logos may still use package monochrome.",
+        )
+        // stat_notify_sms is already a grayscale status glyph — keep it.
+        assertFalse(
+            SystemUiNotificationPolicy.shouldReplaceResourceWithPackageMonochrome(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = false,
+                iconType = ICON_TYPE_RESOURCE,
+                packageName = "com.android.mms",
+                uid = USER_APP_UID,
+                isSystemApp = true,
+                canColorize = false,
+                isGrayscaleIcon = true,
+            ),
+            "Grayscale stat_notify_sms must not be replaced by the green launcher badge silhouette.",
+        )
+        // Inconclusive grayscale detection defaults to keep-original at the hook; policy mirrors
+        // that when callers pass isGrayscaleIcon=true.
+        assertTrue(
+            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = false,
+                iconType = ICON_TYPE_RESOURCE,
+                resId = 0x7f0806c4,
+                resPackage = "com.android.mms",
+                packageName = "com.android.mms",
+                uid = USER_APP_UID,
+                isSystemApp = true,
+                canColorize = false,
+            ),
+            "SMS glyph still intercepts getSmallIcon so MIUI cannot swap in AppIconsManager color.",
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldApplyGlobalMonochromeToNotification(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = false,
+                packageName = SECURITY_CENTER_PACKAGE,
+                uid = SYSTEM_UID,
+                isSystemApp = true,
+                canColorize = true,
+            ),
+        )
+        assertFalse(
+            SystemUiNotificationPolicy.shouldReplaceResourceWithPackageMonochrome(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = false,
+                iconType = ICON_TYPE_RESOURCE,
+                packageName = SECURITY_CENTER_PACKAGE,
+                uid = SYSTEM_UID,
+                isSystemApp = true,
+                canColorize = true,
+                isGrayscaleIcon = false,
+            ),
+        )
+        // BITMAP silhouettes are already monochrome pixels — do not re-replace.
+        assertFalse(
+            SystemUiNotificationPolicy.shouldReplaceResourceWithPackageMonochrome(
+                colorStatusBarIcon = false,
+                forceGlobalStatusBarIcons = true,
+                isMiPushManaged = true,
+                iconType = ICON_TYPE_BITMAP,
+                packageName = ALIPAY_PACKAGE,
+                uid = USER_APP_UID,
+                isSystemApp = false,
+                canColorize = false,
+            ),
+        )
+    }
 }

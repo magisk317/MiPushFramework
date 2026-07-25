@@ -15,6 +15,15 @@ internal object SystemUiNotificationPolicy {
     /** Mirrors [android.graphics.drawable.Icon.TYPE_BITMAP]. */
     const val ICON_TYPE_BITMAP = 1
 
+    /** Mirrors [android.app.Notification.FLAG_GROUP_SUMMARY]. */
+    const val FLAG_GROUP_SUMMARY = 0x00000200
+
+    /**
+     * HyperOS/AOSP auto-group summary glyph
+     * (`com.android.internal.R.drawable.ic_notification_summary_auto`).
+     */
+    const val FRAMEWORK_AUTOGROUP_SUMMARY_ICON_ID = 0x010805a6
+
     /** Package name that owns framework (android.R) resources. */
     private const val FRAMEWORK_RES_PACKAGE = "android"
 
@@ -100,17 +109,78 @@ internal object SystemUiNotificationPolicy {
         return iconType == ICON_TYPE_RESOURCE && resId == 0
     }
 
+    fun isGroupSummary(notificationFlags: Int): Boolean {
+        return notificationFlags and FLAG_GROUP_SUMMARY != 0
+    }
+
     /**
-     * Whether getSmallIcon should replace a broken RESOURCE icon instead of declining to MIUI.
+     * Framework auto-group header icons (e.g. [FRAMEWORK_AUTOGROUP_SUMMARY_ICON_ID]) are not the
+     * owning app's status-bar glyph. Forcing them under monochrome looks like a broken/wrong mark.
+     */
+    fun isFrameworkAutogroupSummaryIcon(
+        iconType: Int,
+        resId: Int,
+        resPackage: String?,
+    ): Boolean {
+        if (iconType != ICON_TYPE_RESOURCE || resId == 0) return false
+        if (resId == FRAMEWORK_AUTOGROUP_SUMMARY_ICON_ID) return true
+        val packageIdSegment = (resId ushr 24) and 0xff
+        if (packageIdSegment != FRAMEWORK_PACKAGE_ID) return false
+        val declaredPackage = resPackage?.takeIf { it.isNotBlank() }
+        return declaredPackage == null || declaredPackage == FRAMEWORK_RES_PACKAGE
+    }
+
+    /**
+     * Whether getSmallIcon should replace a broken/generic RESOURCE icon instead of forcing it.
      *
-     * Framework/package mismatches still decline (MIUI substitutes the app logo correctly).
-     * Zero-res AUTOGROUP/summary icons do not — MIUI leaves a white status-bar block — so we
-     * supply a package monochrome silhouette from the hook.
+     * - resId=0 AUTOGROUP → white status-bar block
+     * - GROUP_SUMMARY + android autogroup glyph → wrong generic mark (Alipay aggregate case)
+     * Framework/package *mismatches* still decline via the normal guard (MIUI substitutes OK).
      */
     fun shouldReplaceBrokenResourceSmallIcon(
         iconType: Int,
         resId: Int,
-    ): Boolean = isZeroResourceSmallIcon(iconType, resId)
+        resPackage: String? = null,
+        notificationFlags: Int = 0,
+    ): Boolean {
+        if (isZeroResourceSmallIcon(iconType, resId)) return true
+        if (!isGroupSummary(notificationFlags)) return false
+        return isFrameworkAutogroupSummaryIcon(iconType, resId, resPackage)
+    }
+
+    /**
+     * Under monochrome, multi-color RESOURCE smallIcons (app logos) should become a white
+     * package silhouette rather than relying on SRC_IN over multi-color assets.
+     *
+     * Already-grayscale status glyphs (e.g. Messaging `stat_notify_sms`) must be kept: replacing
+     * them with the launcher white silhouette turns solid adaptive badges into status-bar white
+     * blocks. Callers pass [isGrayscaleIcon]=true for those glyphs (or when detection is
+     * inconclusive and keeping the original RESOURCE is safer than a launcher square).
+     */
+    fun shouldReplaceResourceWithPackageMonochrome(
+        colorStatusBarIcon: Boolean,
+        forceGlobalStatusBarIcons: Boolean,
+        isMiPushManaged: Boolean,
+        iconType: Int,
+        packageName: String?,
+        uid: Int,
+        isSystemApp: Boolean,
+        canColorize: Boolean,
+        isGrayscaleIcon: Boolean = false,
+    ): Boolean {
+        if (iconType != ICON_TYPE_RESOURCE) return false
+        if (colorStatusBarIcon) return false
+        if (isGrayscaleIcon) return false
+        return shouldApplyMonochromeTintToNotification(
+            colorStatusBarIcon = colorStatusBarIcon,
+            forceGlobalStatusBarIcons = forceGlobalStatusBarIcons,
+            isMiPushManaged = isMiPushManaged,
+            packageName = packageName,
+            uid = uid,
+            isSystemApp = isSystemApp,
+            canColorize = canColorize,
+        )
+    }
 
     /**
      * Intercept decision for the getSmallIcon hook that also guards against forcing a broken
@@ -233,10 +303,14 @@ internal object SystemUiNotificationPolicy {
             return false
         }
         if (isMiPushManaged) return true
+        // SecurityCenter keeps OEM colorized glyphs; do not hard-mono it.
         if (packageName == SECURITY_CENTER_PACKAGE) return false
-        if (isSystemApp || !isApplicationUid(uid)) return false
-        // Note: do not skip FLAG_CAN_COLORIZE. Many third-party posts set it and HyperOS then
-        // keeps multi-color app logos on the status bar under "strong monochrome".
+        // Skip pure system/server uids. Privileged user-facing system apps (Messaging, etc.)
+        // use application uids and must follow strong monochrome like third-party icons —
+        // otherwise SMS stays full-color next to white MiPush silhouettes.
+        if (!isApplicationUid(uid)) return false
+        // Note: do not skip FLAG_CAN_COLORIZE or isSystemApp. HyperOS otherwise keeps multi-color
+        // logos on the status bar under "strong monochrome".
         return true
     }
 

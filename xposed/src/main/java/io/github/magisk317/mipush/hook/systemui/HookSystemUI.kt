@@ -73,24 +73,51 @@ class HookSystemUI : BaseHook() {
                         )
                         val smallIcon = notification.smallIcon
                         val (iconType, resId, resPackage) = readIconResourceFields(smallIcon)
-                        // AUTOGROUP/system summaries often use RESOURCE resId=0 → white status-bar
-                        // block. Replace with a package monochrome silhouette before the normal
-                        // intercept path (which would either force the broken icon or decline).
+                        val isSystemApp = isSystemApplication(context, sbn.packageName)
+                        val canColorize = notification.canColorize()
+                        val owner = SinglePackageNotificationGroupPolicy.resolveGroupOwnerPackage(
+                            sbn.packageName,
+                            notification.extras,
+                        )
+                        fun monochromeFallback(): Icon? {
+                            return StatusBarMonochromeIconPolicy.whiteIconForPackageOrNull(context, owner)
+                                ?: StatusBarMonochromeIconPolicy.whiteIconForPackageOrNull(
+                                    context,
+                                    sbn.packageName,
+                                )
+                        }
+                        // AUTOGROUP/system summaries: resId=0 white-block, or android
+                        // ic_notification_summary_auto generic glyph (Alipay aggregate case).
                         if (SystemUiNotificationPolicy.shouldReplaceBrokenResourceSmallIcon(
                                 iconType = iconType,
                                 resId = resId,
+                                resPackage = resPackage,
+                                notificationFlags = notification.flags,
                             )
                         ) {
-                            val owner = SinglePackageNotificationGroupPolicy.resolveGroupOwnerPackage(
-                                sbn.packageName,
-                                notification.extras,
+                            val fallback = monochromeFallback()
+                            if (fallback != null) {
+                                result = fallback
+                                return@doBefore
+                            }
+                        }
+                        // Strong monochrome: replace multi-color RESOURCE logos with a white
+                        // package silhouette. Keep grayscale glyphs (Messaging stat_notify_sms)
+                        // so launcher adaptive badges do not become status-bar white blocks.
+                        val isGrayscaleIcon = isGrayscaleSmallIcon(context, smallIcon)
+                        if (SystemUiNotificationPolicy.shouldReplaceResourceWithPackageMonochrome(
+                                colorStatusBarIcon = options.colorStatusBarIcon,
+                                forceGlobalStatusBarIcons = options.colorStatusBarIconGlobal,
+                                isMiPushManaged = isMiPushManaged,
+                                iconType = iconType,
+                                packageName = sbn.packageName,
+                                uid = sbn.uid,
+                                isSystemApp = isSystemApp,
+                                canColorize = canColorize,
+                                isGrayscaleIcon = isGrayscaleIcon,
                             )
-                            val fallback =
-                                StatusBarMonochromeIconPolicy.whiteIconForPackageOrNull(context, owner)
-                                    ?: StatusBarMonochromeIconPolicy.whiteIconForPackageOrNull(
-                                        context,
-                                        sbn.packageName,
-                                    )
+                        ) {
+                            val fallback = monochromeFallback()
                             if (fallback != null) {
                                 result = fallback
                                 return@doBefore
@@ -105,8 +132,8 @@ class HookSystemUI : BaseHook() {
                                 resPackage = resPackage,
                                 packageName = sbn.packageName,
                                 uid = sbn.uid,
-                                isSystemApp = isSystemApplication(context, sbn.packageName),
-                                canColorize = notification.canColorize(),
+                                isSystemApp = isSystemApp,
+                                canColorize = canColorize,
                             )
                         ) {
                             result = smallIcon
@@ -388,6 +415,26 @@ class HookSystemUI : BaseHook() {
         )
         imageView.setColorFilter(tint, PorterDuff.Mode.SRC_IN)
         imageView.drawable?.mutate()?.setTint(tint)
+    }
+
+
+    /**
+     * True when [icon] is already a monochrome status glyph (or detection failed).
+     * Fail-open to true so we keep the posted RESOURCE instead of swapping in a launcher
+     * white square (SMS regression). Multi-color logos still get package silhouettes when
+     * ContrastColorUtil reports false.
+     */
+    private fun isGrayscaleSmallIcon(context: Context, icon: Icon?): Boolean {
+        if (icon == null) return true
+        val detected = runCatching {
+            val utilClass = Class.forName("com.android.internal.util.ContrastColorUtil")
+            val instance = utilClass.getMethod("getInstance", Context::class.java).invoke(null, context)
+            utilClass
+                .getMethod("isGrayscaleIcon", Context::class.java, Icon::class.java)
+                .invoke(instance, context, icon) as? Boolean
+        }.getOrNull()
+        // null/failure => keep original RESOURCE (safer than launcher white-block).
+        return detected ?: true
     }
 
     private fun isSystemApplication(context: Context?, packageName: String?): Boolean {
