@@ -1,6 +1,7 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 package io.github.magisk317.mipush.feature.main.subpage
 
+import io.github.magisk317.mipush.common.R as CommonR
 import io.github.magisk317.mipush.feature.main.RecentEventListPage
 
 import android.content.Intent
@@ -237,7 +238,7 @@ fun EventList(
                         if (packageName.isEmpty()) {
                             IconButton(onClick = { showListSettingsSheet = true }) {
                                 Icon(
-                                    painter = painterResource(R.drawable.ic_settings_black_24dp),
+                                    painter = painterResource(CommonR.drawable.ic_settings_black_24dp),
                                     contentDescription = stringResource(R.string.action_list_settings),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -706,7 +707,7 @@ private fun EventGroupList(
                     },
                     trailingContent = {
                         Icon(
-                            painter = painterResource(R.drawable.ic_keyboard_arrow_right_black_24dp),
+                            painter = painterResource(CommonR.drawable.ic_keyboard_arrow_right_black_24dp),
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -840,7 +841,7 @@ private fun EventDetailsDialog(
                 }
                 IconButton(onClick = { viewModel.startManagePermissions(clickedEvent.packageName) }) {
                     Icon(
-                        painter = painterResource(id = R.drawable.ic_info_outline_black_24dp),
+                        painter = painterResource(id = CommonR.drawable.ic_info_outline_black_24dp),
                         contentDescription = stringResource(R.string.action_app_info),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1241,7 +1242,7 @@ fun EmptyEventState(modifier: Modifier = Modifier) {
         modifier = modifier,
         icon = {
             Icon(
-                painter = painterResource(id = R.drawable.ic_event_note_black_24dp),
+                painter = painterResource(id = CommonR.drawable.ic_event_note_black_24dp),
                 contentDescription = null,
                 modifier = Modifier.size(80.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),

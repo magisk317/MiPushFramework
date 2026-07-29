@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.feature.main
 
+import io.github.magisk317.mipush.common.R as CommonR
 import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
 import android.content.ClipData
@@ -30,7 +31,7 @@ class AppConfigurationUtils(
     }
 
     fun isBlacklistMatches(pkg: String): Boolean {
-        val pkgsContains = context.resources.getStringArray(R.array.fake_blacklist_contains)
+        val pkgsContains = context.resources.getStringArray(CommonR.array.fake_blacklist_contains)
         for (p in pkgsContains) {
             if (pkg.contains(p)) {
                 return true
@@ -40,7 +41,7 @@ class AppConfigurationUtils(
     }
 
     fun isBlacklistContaines(pkg: String): Boolean {
-        val pkgsEqual = context.resources.getStringArray(R.array.fake_blacklist_equals).toList()
+        val pkgsEqual = context.resources.getStringArray(CommonR.array.fake_blacklist_equals).toList()
         return pkgsEqual.contains(pkg)
     }
 

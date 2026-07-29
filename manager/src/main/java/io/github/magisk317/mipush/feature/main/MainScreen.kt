@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.feature.main
 
+import io.github.magisk317.mipush.common.R as CommonR
 import android.content.Intent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -196,7 +197,7 @@ fun MainScreen(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
                     Icon(
-                        painter = painterResource(R.drawable.ic_notifications_black_24dp),
+                        painter = painterResource(CommonR.drawable.ic_notifications_black_24dp),
                         contentDescription = null,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )

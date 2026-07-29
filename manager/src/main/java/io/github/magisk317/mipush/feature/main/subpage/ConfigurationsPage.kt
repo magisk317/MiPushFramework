@@ -2,6 +2,7 @@
 
 package io.github.magisk317.mipush.feature.main.subpage
 
+import io.github.magisk317.mipush.common.R as CommonR
 import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -305,7 +306,7 @@ fun Configurations(
                                 onClick = { expandedCategory = null },
                                 leadingContent = {
                                     Icon(
-                                        painter = painterResource(R.drawable.ic_arrow_back_black_24dp),
+                                        painter = painterResource(CommonR.drawable.ic_arrow_back_black_24dp),
                                         contentDescription = "返回"
                                     )
                                 }
@@ -393,7 +394,7 @@ fun ConfigurationEditor(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            painter = painterResource(R.drawable.ic_arrow_back_black_24dp),
+                            painter = painterResource(CommonR.drawable.ic_arrow_back_black_24dp),
                             contentDescription = stringResource(android.R.string.cancel),
                         )
                     }
@@ -896,9 +897,9 @@ private fun statusColor(status: ConfigSyncStatus): Color {
 
 private fun statusIcon(status: ConfigSyncStatus): Int {
     return when (status) {
-        ConfigSyncStatus.IN_SYNC -> R.drawable.ic_check_circle_black_24dp
-        ConfigSyncStatus.INVALID_LOCAL -> R.drawable.ic_error_outline_black_24dp
-        else -> R.drawable.ic_tune_24dp
+        ConfigSyncStatus.IN_SYNC -> CommonR.drawable.ic_check_circle_black_24dp
+        ConfigSyncStatus.INVALID_LOCAL -> CommonR.drawable.ic_error_outline_black_24dp
+        else -> CommonR.drawable.ic_tune_24dp
     }
 }
 

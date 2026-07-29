@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.config
+package io.github.magisk317.mipush.configuration
 
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.dataStore

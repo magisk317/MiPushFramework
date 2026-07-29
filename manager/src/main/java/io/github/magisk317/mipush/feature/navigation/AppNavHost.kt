@@ -10,6 +10,8 @@ import io.github.magisk317.uikit.surface.tabExitTransition
 import io.github.magisk317.uikit.surface.tabForwardDirection
 import io.github.magisk317.uikit.surface.tabPopEnterTransition
 import io.github.magisk317.uikit.surface.tabPopExitTransition
+import io.github.magisk317.uikit.surface.tabPredictivePopEnterTransition
+import io.github.magisk317.uikit.surface.tabPredictivePopExitTransition
 import io.github.magisk317.uikit.surface.tabTransitionDirection
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
@@ -113,22 +115,10 @@ fun AppNavHostContent(
             )
         },
         predictivePopEnterTransition = { _ ->
-            tabEnterTransition(
-                rankDirection(
-                    initialState.destination.route,
-                    targetState.destination.route,
-                    isPop = true,
-                ),
-            )
+            tabPredictivePopEnterTransition()
         },
-        predictivePopExitTransition = { _ ->
-            tabExitTransition(
-                rankDirection(
-                    initialState.destination.route,
-                    targetState.destination.route,
-                    isPop = true,
-                ),
-            )
+        predictivePopExitTransition = { swipeEdge ->
+            tabPredictivePopExitTransition(swipeEdge)
         },
     ) {
         composable(

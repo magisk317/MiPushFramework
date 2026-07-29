@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.feature.main.subpage
 
+import io.github.magisk317.mipush.common.R as CommonR
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.common.utils.logI
@@ -189,7 +190,7 @@ fun ApplicationList(
                     actions = {
                         IconButton(onClick = { showListSettingsSheet = true }) {
                             Icon(
-                                painter = painterResource(R.drawable.ic_settings_black_24dp),
+                                painter = painterResource(CommonR.drawable.ic_settings_black_24dp),
                                 contentDescription = stringResource(R.string.action_list_settings),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -346,7 +347,7 @@ private fun ApplicationItem(item: ManagerApplication, onAppClick: (String) -> Un
         },
         trailingContent = {
             Icon(
-                painter = painterResource(R.drawable.ic_keyboard_arrow_right_black_24dp),
+                painter = painterResource(CommonR.drawable.ic_keyboard_arrow_right_black_24dp),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )

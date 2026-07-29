@@ -7,6 +7,10 @@ import android.os.ParcelFileDescriptor
 import io.github.magisk317.mipush.common.manager.ManagerConfigEditorSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerConfigListSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
+import io.github.magisk317.mipush.configuration.ConfigEditorSnapshot
+import io.github.magisk317.mipush.configuration.ConfigSyncRepository
+import io.github.magisk317.mipush.configuration.LocalConfigRepository
+import io.github.magisk317.mipush.configuration.toSummary
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.feature.main.MainActivity
 import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadRequestDto

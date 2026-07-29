@@ -767,7 +767,8 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
             checked = analyticsEnabled,
         ) { enabled ->
             viewModel.setAnalyticsEnabled(enabled)
-            MagiskOtel.configure(
+            MagiskOtel.configureForInstallation(
+                context,
                 MagiskOtel.Config(
                     enabled = BuildConfig.DEBUG || enabled ||
                         (System.getProperty("magisk.otel.enabled")?.equals("true", ignoreCase = true) == true),

@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.feature.wizard
 
+import io.github.magisk317.mipush.common.R as CommonR
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.common.utils.logI
@@ -234,13 +235,13 @@ fun PermissionItem(
         leadingContent = {
             if (isGranted) {
                 Icon(
-                    painter = painterResource(R.drawable.ic_check_circle_black_24dp),
+                    painter = painterResource(CommonR.drawable.ic_check_circle_black_24dp),
                     contentDescription = stringResource(id = R.string.status_granted),
                     tint = COLOR_GRANTED
                 )
             } else {
                 Icon(
-                    painter = painterResource(R.drawable.ic_radio_button_unchecked_black_24dp),
+                    painter = painterResource(CommonR.drawable.ic_radio_button_unchecked_black_24dp),
                     contentDescription = stringResource(id = R.string.status_pending),
                     tint = MaterialTheme.colorScheme.outline
                 )

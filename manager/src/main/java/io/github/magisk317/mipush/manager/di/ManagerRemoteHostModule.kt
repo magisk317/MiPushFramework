@@ -13,10 +13,10 @@ import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
 import io.github.magisk317.mipush.common.manager.ZygiskConfigGateway
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.dataStore
-import io.github.magisk317.mipush.manager.configuration.sync.ConfigCatalogService
-import io.github.magisk317.mipush.manager.configuration.sync.ConfigSyncRepository
-import io.github.magisk317.mipush.manager.configuration.sync.ConfigSyncStateStore
-import io.github.magisk317.mipush.manager.configuration.sync.LocalConfigRepository
+import io.github.magisk317.mipush.configuration.ConfigCatalogService
+import io.github.magisk317.mipush.configuration.ConfigSyncRepository
+import io.github.magisk317.mipush.configuration.ConfigSyncStateStore
+import io.github.magisk317.mipush.configuration.LocalConfigRepository
 import io.github.magisk317.mipush.manager.configuration.sync.LocalManagerConfigSyncGateway
 import io.github.magisk317.mipush.manager.remote.RemoteManagerApplicationGateway
 import io.github.magisk317.mipush.manager.remote.RemoteManagerConfigGateway

@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.manager.configuration.sync
+package io.github.magisk317.mipush.configuration
 
 import android.net.Uri
 import io.github.magisk317.mipush.utils.ConfigListItem as CoreConfigListItem

@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.config
+package io.github.magisk317.mipush.configuration
 
 internal data class ConfigLocalPath(
     val segments: List<String>,

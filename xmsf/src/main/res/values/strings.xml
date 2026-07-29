@@ -435,7 +435,6 @@ This could be the application doing a reverse registration, or the registration 
     <string name="event_empty_title">No activity yet</string>
     <string name="event_empty_summary">Wait for a push event to arrive or trigger a test message manually.</string>
     <string name="notification_channels_group_summary">Inspect this notification group and drill into each channel if behavior differs.</string>
-    <string name="group_summary_title">%d new messages</string>
     <string name="permission_notifications_denied">Please grant notification permission to test this feature.</string>
     <string-array name="theme_mode_entries">
         <item>@string/theme_follow_system</item>

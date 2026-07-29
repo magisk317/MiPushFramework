@@ -422,7 +422,6 @@
     <string name="event_empty_title">暂时还没有活动</string>
     <string name="event_empty_summary">等待应用收到推送事件，或者手动触发一次测试消息。</string>
     <string name="notification_channels_group_summary">检查这一组通知渠道，并继续钻取具体 channel 的行为差异。</string>
-    <string name="group_summary_title">%d 条新消息</string>
     <string name="wizard_title_ignore_battery_optimizations_permission">忽略电池优化</string>
     <string name="wizard_title_ignore_battery_optimizations_text">您需要授予“忽略电池优化”权限，否则您可能将无法在后台运行mipush服务。</string>
     <string name="wizard_title_notification_permission">通知权限</string>

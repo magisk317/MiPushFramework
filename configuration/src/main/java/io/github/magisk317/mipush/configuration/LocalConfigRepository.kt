@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.config
+package io.github.magisk317.mipush.configuration
 
 import android.content.Context
 import android.database.Cursor

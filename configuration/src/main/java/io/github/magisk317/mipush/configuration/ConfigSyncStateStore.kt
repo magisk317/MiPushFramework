@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.manager.configuration.sync
+package io.github.magisk317.mipush.configuration
 
 import android.content.Context
 import android.util.AtomicFile
@@ -18,6 +18,7 @@ import io.github.magisk317.mipush.common.utils.Utils
 
 class ConfigSyncStateStore constructor(
     private val context: Context,
+    private val observer: ConfigSyncObserver = ConfigSyncObserver.None,
 ) {
     constructor() : this(Utils.getApplication()!!)
 
@@ -44,12 +45,14 @@ class ConfigSyncStateStore constructor(
     }
 
     suspend fun upsertAll(directoryUri: String, records: Iterable<ConfigSyncRecord>) = withContext(Dispatchers.IO) {
+        val list = records.toList()
         stateLock.withLock {
             val state = loadState()
             val current = state.directories[directoryUri].orEmpty().toMutableMap()
-            records.forEach { record -> current[record.path] = record }
+            list.forEach { record -> current[record.path] = record }
             saveState(state.copy(directories = state.directories + (directoryUri to current)))
         }
+        observer.onRecordsUpserted(list.size)
     }
 
     suspend fun cacheCatalog(remoteSource: ConfigRemoteSource, catalog: RemoteConfigCatalog) = withContext(Dispatchers.IO) {
@@ -95,5 +98,13 @@ class ConfigSyncStateStore constructor(
     companion object {
         private const val MAX_STATE_FILE_BYTES = 8L * 1024L * 1024L
         private val stateLock = Mutex()
+    }
+}
+
+fun interface ConfigSyncObserver {
+    fun onRecordsUpserted(count: Int)
+
+    data object None : ConfigSyncObserver {
+        override fun onRecordsUpserted(count: Int) = Unit
     }
 }

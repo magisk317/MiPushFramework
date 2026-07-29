@@ -173,9 +173,8 @@ private fun OverviewScreen(
 
             io.github.magisk317.uikit.surface.OverviewLinksCard(
                 onCheckUpdate = { mainActivityOperation.gotoGitHubReleasePage() },
-                onJoinQQ = { mainActivityOperation.gotoQQGroup() },
                 onJoinTelegram = { mainActivityOperation.gotoTelegramGroup() },
-                onSourceCode = { mainActivityOperation.gotoGitHubProjectPage() },
+                onSourceCode = { mainActivityOperation.gotoGitLabProjectPage() },
                 onDonate = { showDonateDialog = true },
             )
         }

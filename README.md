@@ -136,7 +136,7 @@ Xposed 模块不再固定三方应用作用域。需要伪装增强的主应用�
 - 问题涉及的目标应用和大致复现步骤。
 - 设置页“获取日志”导出的日志包。
 
-日志会自动按天轮转，默认保留 7 天，最低可设置为 1 天。导出包会清理旧文本日志，并对 token 等敏感字段脱敏。分享前仍建议在预览弹窗中确认内容。
+日志会自动按天轮转，默认保留 2 天，最低可设置为 1 天。导出包会清理旧文本日志，并对 token 等敏感字段脱敏。分享前仍建议在预览弹窗中确认内容。
 
 ## 开发入口
 
@@ -144,11 +144,7 @@ Xposed 模块不再固定三方应用作用域。需要伪装增强的主应用�
 
 - [模块边界](docs/architecture/boundary-model.md)
 - [运行时调用链](docs/architecture/current-runtime-call-flow.md)
-- [管理器与运行时应用拆分方案](docs/architecture/manager-runtime-app-split-plan.md)
 - [Xposed 通知边界](docs/architecture/xposed-notification-boundary.md)
-- [Stock dump 契约审计（2026-07）](docs/architecture/stock-dump-contract-audit-2026-07.md)
-- [重构与通知集成计划](docs/architecture/refactor-plan.md)
-- [旧 push 拆分与 Kotlin 迁移记录](docs/architecture/push-module-split.md)
 
 常用验证命令直接通过 Gradle wrapper 运行：
 
