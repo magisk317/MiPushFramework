@@ -7,7 +7,6 @@ import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
 import android.service.notification.StatusBarNotification
 import android.text.TextUtils
-import android.util.Pair
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.push.service.clientReport.ReportConstants
 import com.xiaomi.xmpush.thrift.ActionType
@@ -24,7 +23,6 @@ object MIPushNotificationHelper {
     const val EXTRA_PARAM_SHOW_AT_TAIL = "miui.showAtTail"
     const val FROM_NOTIFICATION = "mipush_notified"
     const val MAX_DOWNLOAD_ONLINE_PICTURE_WAIT = 180
-    const val MAX_NOTIFY_ID_CACHE_SIZE = 100
     private const val MESSAGE_TYPE_INDEX = "satuigmo"
     const val MIUI_PACKAGE_NAME = "miui_package_name"
     const val NOTIFICATION_CUSTOM_BUILDER_SET_TITLE = "custom_builder_set_title"
@@ -40,7 +38,6 @@ object MIPushNotificationHelper {
     const val NOTIFY_INTERVAL = 10_000L
     const val NO_NOTIFY_ID = -2
     private const val PREF_KEY_NOTIFY_TYPE = "pref_notify_type"
-    private val notifyContainerCache = LinkedList<Pair<Int, XmPushActionContainer>>()
 
     @JvmField
     var lastNotify: Long = 0
@@ -67,17 +64,20 @@ object MIPushNotificationHelper {
 
     @JvmStatic
     fun clearNotification(context: Context, packageName: String) {
-        MIPushNotificationCacheSupport.clearNotification(context, packageName, notifyContainerCache)
+        // Stock 7.4.67-C t0.b/c resolves clear candidates from active notifications. The
+        // pinned 3.7.9 100-entry process cache was removed because it became write-only
+        // after this migration and lost all records whenever XMSF restarted.
+        MIPushNotificationCacheSupport.clearNotification(context, packageName)
     }
 
     @JvmStatic
     fun clearNotification(context: Context, packageName: String, notificationId: Int) {
-        MIPushNotificationCacheSupport.clearNotification(context, packageName, notificationId, notifyContainerCache)
+        MIPushNotificationCacheSupport.clearNotification(context, packageName, notificationId)
     }
 
     @JvmStatic
     fun clearNotification(context: Context, packageName: String, title: String?, description: String?) {
-        MIPushNotificationCacheSupport.clearNotification(context, packageName, title.orEmpty(), description.orEmpty(), notifyContainerCache)
+        MIPushNotificationCacheSupport.clearNotification(context, packageName, title.orEmpty(), description.orEmpty())
     }
 
     @JvmStatic
@@ -157,7 +157,7 @@ object MIPushNotificationHelper {
     @JvmStatic
     fun notifyPushMessage(context: Context, pushAction: IPushServiceAction?, container: XmPushActionContainer, payload: ByteArray): NotifyPushMessageInfo {
         if (shouldUseLegacyPublishChain(context, container)) {
-            return MIPushNotificationPublishSupport.notifyPushMessage(context, container, payload, notifyContainerCache)
+            return MIPushNotificationPublishSupport.notifyPushMessage(context, container, payload)
         }
         return NotifyPushMessageInfo().apply {
             targetPkgName = getTargetPackage(container)

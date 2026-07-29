@@ -122,7 +122,32 @@ object NotificationManagerPlatformSupport {
     @JvmStatic
     @Throws(Exception::class)
     fun cancel(packageName: String, notificationId: Int) {
-        JavaCalls.callMethodOrThrow(nms, "cancelNotificationWithTag", packageName, null, notificationId, DeviceInfo.getSpaceId())
+        val service = nms ?: throw IllegalStateException("NotificationManager service unavailable")
+        val userId = DeviceInfo.getSpaceId()
+        if (Build.VERSION.SDK_INT >= 30) {
+            // Stock 7.4.67-C g1.a uses the API 30+ five-argument signature. The
+            // posting package is opPkg; omitting it can miss the delegated record.
+            val operationPackage = appContext?.packageName
+                ?: throw IllegalStateException("NotificationManagerPlatformSupport.init must be called first")
+            JavaCalls.callMethodOrThrow(
+                service,
+                "cancelNotificationWithTag",
+                packageName,
+                operationPackage,
+                null,
+                notificationId,
+                userId,
+            )
+        } else {
+            JavaCalls.callMethodOrThrow(
+                service,
+                "cancelNotificationWithTag",
+                packageName,
+                null,
+                notificationId,
+                userId,
+            )
+        }
     }
 
     @JvmStatic
@@ -255,12 +280,15 @@ object NotificationManagerPlatformSupport {
 
     @JvmStatic
     fun filterLocalActiveNotifications(packageName: String, notifications: Array<StatusBarNotification>?): List<StatusBarNotification> {
-        val isMiui = MIUIUtils.isMIUI()
         if (notifications.isNullOrEmpty()) {
             return emptyList()
         }
+        // Stock 7.4.67-C g1.h filters locally posted XMSF records by the embedded target
+        // package. The old local code skipped this outside MIUI, exposing every XMSF post
+        // to one app's clear request; applying the stock scope also covers our non-MIUI
+        // standard/live-update fallback, where delegated identity is carried in extras.
         return notifications.filter { notification ->
-            !isMiui || packageName == NotificationUtils.getTargetPackage(notification.notification)
+            packageName == NotificationUtils.getTargetPackage(notification.notification)
         }
     }
 

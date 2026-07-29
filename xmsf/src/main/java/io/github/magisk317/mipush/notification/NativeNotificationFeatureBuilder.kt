@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.notification
 
+import io.github.magisk317.mipush.common.R as CommonR
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
@@ -241,9 +242,9 @@ internal object NativeNotificationFeatureBuilder {
         builder.setShowWhen(false)
         builder.priority = NotificationCompat.PRIORITY_HIGH
         if (contentIntent != null) {
-            builder.addAction(R.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_media_prev), contentIntent)
-            builder.addAction(R.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_media_pause), contentIntent)
-            builder.addAction(R.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_media_next), contentIntent)
+            builder.addAction(CommonR.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_media_prev), contentIntent)
+            builder.addAction(CommonR.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_media_pause), contentIntent)
+            builder.addAction(CommonR.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_media_next), contentIntent)
         }
         return notificationKey?.let {
             mediaSessionToken(context, it, packageName, metaInfo, contentIntent)

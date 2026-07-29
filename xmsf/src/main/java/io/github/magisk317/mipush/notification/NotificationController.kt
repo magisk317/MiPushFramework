@@ -1,5 +1,5 @@
 package io.github.magisk317.mipush.notification
-import io.github.magisk317.mipush.common.notification.SinglePackageNotificationGroupPolicy
+import io.github.magisk317.mipush.common.R as CommonR
 
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
@@ -7,7 +7,6 @@ import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
 
-import android.annotation.TargetApi
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -21,9 +20,7 @@ import android.graphics.Color
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
-import android.service.notification.StatusBarNotification
 import android.text.TextUtils
-import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.drawable.IconCompat
@@ -33,8 +30,12 @@ import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationStyleSupport
+import io.github.magisk317.mipush.service.runtime.ExtensionNotificationContract
 import com.xiaomi.push.service.MyNotificationIconHelper
+import com.xiaomi.push.service.MIPushNotificationHelper
+import com.xiaomi.push.service.NotificationGroupHelper
 import com.xiaomi.push.service.NotificationManagerHelper
+import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmsf.R
@@ -44,8 +45,6 @@ import io.github.magisk317.mipush.common.notification.NotificationContentSupport
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry
-import io.github.magisk317.mipush.utils.Configurations
-import io.github.magisk317.mipush.utils.IconConfigurations
 import io.github.magisk317.mipush.utils.ColorUtil
 import io.github.magisk317.mipush.common.utils.CustomConfiguration
 import io.github.magisk317.mipush.common.utils.ImgUtils
@@ -71,157 +70,6 @@ object NotificationController {
 
     @JvmStatic
     fun getNotificationManagerEx(): NotificationManagerEx = NotificationManagerEx
-
-    @TargetApi(Build.VERSION_CODES.N)
-    private fun updateSummaryNotification(
-        context: Context,
-        metaInfo: PushMetaInfo,
-        packageName: String,
-        groupId: String?
-    ) {
-        if (groupId == null) {
-            return
-        }
-        val isPackageGroup =
-            groupId == SinglePackageNotificationGroupPolicy.canonicalGroupKey(packageName)
-        // Children only — never count our own / system summaries or the threshold oscillates.
-        val groupCount = getNotificationCountOfGroup(packageName, groupId)
-        Napier.d(
-            "updateSummaryNotification pkg=$packageName groupId=$groupId groupCount=$groupCount " +
-                "packageGroup=$isPackageGroup summaryId=${groupId.hashCode()}",
-            tag = TAG,
-        )
-        if (groupCount <= 1) {
-            Napier.d(
-                "updateSummaryNotification cancel summary pkg=$packageName summaryId=${groupId.hashCode()} groupCount=$groupCount",
-                tag = TAG,
-            )
-            if (isPackageGroup) {
-                cancelMiPushPackageGroupSummaries(packageName, groupId)
-            } else {
-                getNotificationManagerEx().cancel(packageName, null, groupId.hashCode())
-            }
-            return
-        }
-        // Package-wide single group: post an intentional monochrome summary so HyperOS does not
-        // invent AUTOGROUP_SUMMARY with RESOURCE resId=0 (white status-bar block). If a native
-        // non-MiPush summary already owns the header, stay out to avoid "Duplicate summary".
-        if (isPackageGroup && hasForeignGroupSummary(packageName, groupId)) {
-            cancelMiPushPackageGroupSummaries(packageName, groupId)
-            Napier.d(
-                "updateSummaryNotification skip package-group summary; foreign header present " +
-                    "pkg=$packageName groupId=$groupId",
-                tag = TAG,
-            )
-            return
-        }
-        val builder = NotificationCompat.Builder(context, getExistsChannelId(context, metaInfo, packageName))
-        builder.setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
-        builder.setCategory(Notification.CATEGORY_EVENT).setGroupSummary(true).setGroup(groupId)
-        builder.setContentTitle(context.getString(R.string.group_summary_title, groupCount))
-        if (isPackageGroup) {
-            builder.extras.putBoolean(
-                SinglePackageNotificationGroupPolicy.EXTRA_PACKAGE_GROUP_SUMMARY,
-                true,
-            )
-        }
-        notify(
-            context,
-            groupId.hashCode(),
-            packageName,
-            builder,
-            metaInfo,
-            applyPayloadDecorations = false,
-        )
-    }
-
-    /**
-     * Cancel leftover MiPush synthetic GROUP_SUMMARY rows for the package group.
-     * Live HyperOS thrash looks like:
-     *   Duplicate summary ... "…|mipush_$pkg|…" vs. "…|null|…"
-     * The hashCode(null-tag) cancel alone misses the tagged mipush_* summary ids.
-     */
-    @RequiresApi(Build.VERSION_CODES.M)
-    private fun cancelMiPushPackageGroupSummaries(packageName: String, groupId: String) {
-        val nm = getNotificationManagerEx()
-        nm.cancel(packageName, null, groupId.hashCode())
-        val mipushTag = MyMIPushNotificationHelper.getNotificationTag(packageName)
-        nm.cancel(packageName, mipushTag, groupId.hashCode())
-        val active = nm.getActiveNotifications(packageName) ?: return
-        for (sbn in active) {
-            val safe = sbn ?: continue
-            val notification = safe.notification ?: continue
-            if (notification.flags and Notification.FLAG_GROUP_SUMMARY == 0) continue
-            val tag = safe.tag
-            val isMiPushTag = !tag.isNullOrBlank() && tag.startsWith("mipush_")
-            val isDelegated = SinglePackageNotificationGroupPolicy.isMiPushDelegated(notification.extras)
-            if (!isMiPushTag && !isDelegated) continue
-            val group = notification.group
-            if (!group.isNullOrBlank() &&
-                group != groupId &&
-                !SinglePackageNotificationGroupPolicy.isAggregateGroupKey(group)
-            ) {
-                continue
-            }
-            nm.cancel(packageName, tag, safe.id)
-            Napier.d(
-                "cancelMiPushPackageGroupSummaries pkg=$packageName tag=$tag id=${safe.id} group=$group",
-                tag = TAG,
-            )
-        }
-    }
-
-    @RequiresApi(Build.VERSION_CODES.M)
-    private fun needGroupOfNotifications(packageName: String, groupId: String): Boolean =
-        getNotificationCountOfGroup(packageName, groupId) > 1
-
-    @RequiresApi(Build.VERSION_CODES.M)
-    private fun getNotificationCountOfGroup(packageName: String, groupId: String): Int {
-        val activeNotifications = getNotificationManagerEx().getActiveNotifications(packageName) ?: return 0
-        var notificationCntInGroup = 0
-        for (statusBarNotification in activeNotifications) {
-            val safeNotification = statusBarNotification ?: continue
-            val n = safeNotification.notification ?: continue
-            // Summaries (ours or AUTOGROUP) must not inflate the child count.
-            if (n.flags and Notification.FLAG_GROUP_SUMMARY != 0) continue
-            val inGroup = groupId == n.group
-            if (inGroup) notificationCntInGroup++
-            logD("getNotificationCountOfGroup pkg=$packageName id=${safeNotification.id} tag=${safeNotification.tag} group=${n.group} targetGroup=$groupId match=$inGroup")
-        }
-        Napier.d("getNotificationCountOfGroup result pkg=$packageName groupId=$groupId total=${activeNotifications.size} inGroup=$notificationCntInGroup", tag = TAG)
-        return notificationCntInGroup
-    }
-
-    /**
-     * True when a non-MiPush group header already owns [groupId]. Posting our package summary on
-     * top would thrash SystemUI with "Duplicate summary for group".
-     */
-    @RequiresApi(Build.VERSION_CODES.M)
-    private fun hasForeignGroupSummary(packageName: String, groupId: String): Boolean {
-        val activeNotifications = getNotificationManagerEx().getActiveNotifications(packageName) ?: return false
-        for (statusBarNotification in activeNotifications) {
-            val safe = statusBarNotification ?: continue
-            val notification = safe.notification ?: continue
-            if (notification.flags and Notification.FLAG_GROUP_SUMMARY == 0) continue
-            val group = notification.group
-            if (!group.isNullOrBlank() &&
-                group != groupId &&
-                !SinglePackageNotificationGroupPolicy.isAggregateGroupKey(group)
-            ) {
-                continue
-            }
-            if (SinglePackageNotificationGroupPolicy.isPackageGroupSummary(notification.extras)) {
-                continue
-            }
-            val tag = safe.tag
-            val isMiPushTag = !tag.isNullOrBlank() && tag.startsWith("mipush_")
-            val isDelegated = SinglePackageNotificationGroupPolicy.isMiPushDelegated(notification.extras)
-            // Leftover MiPush synthetics are cancelled separately; they are not a native header.
-            if (isMiPushTag || isDelegated) continue
-            return true
-        }
-        return false
-    }
 
     @JvmStatic
     fun publish(
@@ -270,7 +118,13 @@ object NotificationController {
             return false
         }
         Napier.d("publish posted pkg=$packageName id=$notificationId group=${notification.group} tag=${MyMIPushNotificationHelper.getNotificationTag(packageName)}", tag = TAG)
-        updateSummaryNotification(context, metaInfo, packageName, notification.group)
+        if (MIUIUtils.isMIUI() && MIUIUtils.isXMSF(context) && !metaInfo.isMockReplay()) {
+            NotificationGroupHelper.getInstance().onNotificationNotify(
+                context,
+                notificationId,
+                notification,
+            )
+        }
         emit(result = "ok")
         return true
     }
@@ -287,46 +141,55 @@ object NotificationController {
             }
             logD("getExistsChannelId() requested borrow channel unavailable pkg=$packageName channel=$preferredBorrowed")
         }
-        val fallbackChannelId = NotificationChannelManager.getChannelId(metaInfo, packageName)
+        val stockChannelId = NotificationChannelManager.getChannelId(context, metaInfo, packageName)
+        // Before the stock 7.4.67-C channel alignment this path created ch_* IDs. Probe
+        // both identities so existing channels retain user settings, while a missing
+        // channel is always provisioned with the stock-owned ID used by clear semantics.
+        val legacyChannelId = NotificationChannelManager.getLegacyChannelId(metaInfo, packageName)
         val sourceChannelId = custom.channelId(null)?.takeIf(String::isNotBlank)
-        if (sourceChannelId != null) {
-            val stockManager = NotificationManagerHelper.from(context.applicationContext, packageName)
-            val stockChannelId = stockManager.getMipushChannelId(sourceChannelId)
-            // Use the same stock helper for lookup as for id translation. It selects target-package
-            // framework APIs or the local old-format namespace according to runtime support.
-            val stockChannel = stockManager.getNotificationChannel(stockChannelId)
-            val selectedChannelId = selectProviderCompatibleChannelId(
-                stockChannelId = stockChannelId,
-                stockChannelExists = stockChannel != null,
-                legacyChannelId = fallbackChannelId,
+        val stockManager = NotificationManagerHelper.from(context.applicationContext, packageName)
+        val stockChannelExists = stockManager.getNotificationChannel(stockChannelId) != null
+        val legacyChannelExists = getNotificationManagerEx()
+            .getNotificationChannel(packageName, legacyChannelId) != null
+        val selectedChannelId = selectManagedChannelId(
+            stockChannelId = stockChannelId,
+            stockChannelExists = stockChannelExists,
+            legacyChannelId = legacyChannelId,
+            legacyChannelExists = legacyChannelExists,
+        )
+        if (stockChannelExists || legacyChannelExists) {
+            // Reuse a pre-migration ch_* channel only when it already exists. This preserves
+            // user importance/sound choices while all newly provisioned channels move to the
+            // stock namespace used by notification ownership and clear semantics.
+            logD(
+                "getExistsChannelId() reuse managed channel pkg=$packageName " +
+                    "source=$sourceChannelId channel=$selectedChannelId legacy=${selectedChannelId == legacyChannelId}",
             )
-            if (selectedChannelId == stockChannelId) {
-                logD(
-                    "getExistsChannelId() reuse stock provider channel pkg=$packageName " +
-                        "source=$sourceChannelId channel=$stockChannelId",
-                )
-                return selectedChannelId
-            }
+            return selectedChannelId
         }
         val supportsTargetProvisioning = getNotificationManagerEx().supportsTargetChannelProvisioning(packageName)
         if (supportsTargetProvisioning) {
             NotificationChannelManager.registerChannelIfNeeded(context, metaInfo, packageName)
-            logD("getExistsChannelId() use managed target channel pkg=$packageName channel=$fallbackChannelId")
-            return fallbackChannelId
+            logD("getExistsChannelId() use stock target channel pkg=$packageName channel=$stockChannelId")
+            return stockChannelId
         }
         NotificationChannelManager.registerChannelIfNeeded(context, metaInfo, packageName)
-        logD("getExistsChannelId() fallback to local managed channel pkg=$packageName channel=$fallbackChannelId")
-        return fallbackChannelId
+        logD("getExistsChannelId() fallback to local stock channel pkg=$packageName channel=$stockChannelId")
+        return stockChannelId
     }
 
-    internal fun selectProviderCompatibleChannelId(
-        stockChannelId: String?,
+    internal fun selectManagedChannelId(
+        stockChannelId: String,
         stockChannelExists: Boolean,
         legacyChannelId: String,
-    ): String = if (!stockChannelId.isNullOrBlank() && stockChannelExists) {
-        stockChannelId
-    } else {
-        legacyChannelId
+        legacyChannelExists: Boolean,
+    ): String = when {
+        // Prefer stock when both exist so future posts converge without deleting the legacy
+        // channel. Android channel settings are ID-scoped, so deleting or renaming it here
+        // would discard user choices and can cause an unexpected alerting behavior change.
+        stockChannelExists -> stockChannelId
+        legacyChannelExists -> legacyChannelId
+        else -> stockChannelId
     }
 
     private fun notify(
@@ -346,11 +209,6 @@ object NotificationController {
             StockNotificationMetadataBridge.apply(metaInfo, extras)
         }
         notificationBuilder.addExtras(extras)
-        // One shade group per app: collapse custom/MiPush groups so native + MiPush share a stack.
-        // NMS SinglePackageNotificationGroupPolicy performs the same rewrite for all apps system-wide.
-        notificationBuilder.setGroup(
-            SinglePackageNotificationGroupPolicy.canonicalGroupKey(packageName),
-        )
         val color = applyStatusBarIcon(
             context,
             packageName,
@@ -364,7 +222,11 @@ object NotificationController {
             shouldAttachPayloadLargeIcon(isMockReplay, islandOptions.colorStatusBarIcon)
         ) {
             val iconUri = configuration.notificationLargeIconUri(null)
-            getLargeIcon(context, metaInfo, iconUri)
+            // Stock 7.4.67-C t0 gives the extension callback's in-memory `temp_large_icon`
+            // precedence over the original URI. The old product builder ignored this stock key,
+            // so app-supplied extension artwork was lost even after restoring the Binder path.
+            ExtensionNotificationContract.decodeTemporaryLargeIcon(metaInfo)
+                ?: getLargeIcon(context, metaInfo, iconUri)
         } else {
             null
         }
@@ -452,10 +314,6 @@ object NotificationController {
             contentIntent = previewNotification.contentIntent,
             notificationKey = NativeNotificationFeatureBuilder.notificationKey(packageName, notificationId, tag),
         )
-        if (isMockReplay) {
-            applyMockReplayVisibility(notificationBuilder, packageName, notificationId)
-        }
-
         if (configuredFocusBundle != null && focusPlan.attachMiuiFocusExtras) {
             notificationBuilder.addExtras(configuredFocusBundle)
             notificationBuilder.priority = NotificationCompat.PRIORITY_HIGH
@@ -466,28 +324,31 @@ object NotificationController {
                 }
             )
         }
-
-        val focusParamForDelete = when {
-            focusPlan.attachMiuiFocusExtras -> rawConfiguredFocusParam
-            generatedFocusBundle != null -> generatedFocusBundle.getString(FOCUS_PARAM)
-            else -> null
-        }
-        NotificationSortFilter.attachDeleteIntentIfNeeded(
-            context,
-            notificationBuilder,
-            packageName,
-            focusParamForDelete,
-            notificationId,
-            notificationTag = tag,
-        )
-        attachLiveUpdateDismissCancelIntent(
+        // Stock 7.4.67-C t0.l applies top priority after style selection. Keep this after native
+        // progress/message and focus translation because those product builders write HIGH.
+        SweetNotificationCoordinator.applyIfEligible(
             context = context,
-            builder = notificationBuilder,
             packageName = packageName,
             notificationId = notificationId,
-            tag = tag,
-            nativeFeature = nativeFeature,
+            metaInfo = metaInfo,
+            builder = notificationBuilder,
         )
+        // Stock 7.4.67-C t0 uses one local post timestamp for Notification.when and
+        // mipush_org_when. The old product path sampled the clock again inside the coordinator,
+        // which made the visible record and bounded lifecycle start at different instants.
+        TopNotificationCoordinator.applyIfEligible(
+            context,
+            metaInfo,
+            notificationBuilder,
+            originalWhenMs = previewNotification.`when`,
+        )
+        if (isMockReplay) {
+            applyMockReplayVisibility(notificationBuilder, packageName, notificationId)
+        }
+
+        // Stock 7.4.67-C sort.c/d observes removals through NotificationListenerService and never
+        // replaces a notification's deleteIntent. The old focus/live-update receivers overwrote
+        // caller cleanup callbacks, so preserve the builder's existing deleteIntent unchanged.
         if (shouldAutoCancelNotification(metaInfo, notificationBuilder, nativeFeature)) {
             notificationBuilder.setAutoCancel(true)
         }
@@ -510,12 +371,6 @@ object NotificationController {
             logD("drop contentless notification pkg=$packageName id=$notificationId channel=${notification.channelId}")
             NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag)
             return null
-        }
-        if (configuredFocusBundle != null && focusPlan.attachMiuiFocusExtras) {
-            FocusNotificationRegistry.registerReplacingUidVariants(
-                context,
-                focusNotificationKey(context, packageName, notificationId, tag)
-            )
         }
         val notificationToPost = if (focusPlan.allowIslandProxy &&
             generatedFocusBundle != null &&
@@ -542,6 +397,15 @@ object NotificationController {
         } else {
             notification
         }
+        // Stock 7.4.67-C t$b.e clears/replaces the prior sweet timeout after the final build but
+        // before any agent or NotificationManager publish attempt. Preserve that failure ordering.
+        SweetNotificationCoordinator.onNotificationBuilt(
+            context = context,
+            packageName = packageName,
+            notificationId = notificationId,
+            metaInfo = metaInfo,
+            notification = notificationToPost,
+        )
         if (!islandOptions.showOriginalNotification) {
             Napier.d(
                 "skip original notification post pkg=$packageName id=$notificationId " +
@@ -556,7 +420,15 @@ object NotificationController {
             NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag)
             return null
         }
-        if (!getNotificationManagerEx().notify(packageName, tag, notificationId, notificationToPost)) {
+        val posted = TopNotificationCoordinator.postNotification(
+            context = context,
+            packageName = packageName,
+            tag = tag,
+            notificationId = notificationId,
+            messageId = metaInfo.id,
+            notification = notificationToPost,
+        )
+        if (!posted) {
             Napier.w(
                 "publish failed pkg=$packageName id=$notificationId tag=$tag channel=${notificationToPost.channelId}",
                 tag = TAG
@@ -565,6 +437,12 @@ object NotificationController {
             NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag)
             return null
         }
+        SweetNotificationCoordinator.onNotificationPosted(
+            context = context,
+            packageName = packageName,
+            notificationId = notificationId,
+            notification = notificationToPost,
+        )
         if (shouldPostMockReplayVisibleReceipt(isMockReplay, islandOptions)) {
             postMockReplayVisibleReceipt(
                 context,
@@ -572,6 +450,7 @@ object NotificationController {
                 notificationId,
                 tag,
                 notificationToPost,
+                replaceOriginal = true,
                 colorStatusBarIcon = islandOptions.colorStatusBarIcon,
             )
         }
@@ -632,6 +511,7 @@ object NotificationController {
         notificationId: Int,
         originalTag: String? = null,
         source: Notification,
+        replaceOriginal: Boolean = false,
         colorStatusBarIcon: Boolean = MiPushIslandPreferences.read(context).colorStatusBarIcon,
     ): Boolean {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return false
@@ -657,7 +537,7 @@ object NotificationController {
             field.get(source) as? android.graphics.drawable.Icon
         }.getOrNull()
         val builder = NotificationCompat.Builder(context, MOCK_REPLAY_RECEIPT_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notifications_black_24dp)
+            .setSmallIcon(CommonR.drawable.ic_notifications_black_24dp)
             .setContentTitle(title)
             .setContentText(content)
             .setStyle(NotificationCompat.BigTextStyle().bigText(content))
@@ -684,13 +564,8 @@ object NotificationController {
         }
         val color = applyStatusBarIcon(context, packageName, builder, colorStatusBarIcon)
         val receipt = ProgressStyleBuilder.buildNotification(context, builder)
-        // 使用原始通知的 tag 和 id，使 receipt 替换原始通知
-        val receiptTag = originalTag ?: "$MOCK_REPLAY_RECEIPT_TAG_PREFIX$packageName"
-        val receiptId = if (originalTag != null) {
-            notificationId
-        } else {
-            mockReplayReceiptNotificationId(packageName)
-        }
+        val receiptTag = if (replaceOriginal) originalTag else "$MOCK_REPLAY_RECEIPT_TAG_PREFIX$packageName"
+        val receiptId = if (replaceOriginal) notificationId else mockReplayReceiptNotificationId(packageName)
         return runCatching {
             val postedAsTarget = NotificationManagerEx.isHooked &&
                 getNotificationManagerEx().notify(packageName, receiptTag, receiptId, receipt)
@@ -932,37 +807,24 @@ object NotificationController {
         notificationGroup: String?,
         clearGroup: Boolean
     ) {
-        MyMIPushNotificationStyleSupport.clearConversationHistory(container.packageName, notificationId)
+        val packageName = MIPushNotificationHelper.getTargetPackage(container)
+        MyMIPushNotificationStyleSupport.clearConversationHistory(packageName, notificationId)
         val tag = MyMIPushNotificationHelper.getNotificationTag(container)
-        NativeNotificationFeatureBuilder.releaseMediaSession(container.packageName, notificationId, tag)
-        cancelGeneratedIslandProxy(context, container.packageName, notificationId, tag)
-        // Full focus/AOD teardown: cancel + unregister updatable_focus_notifs + record deleted.
+        NativeNotificationFeatureBuilder.releaseMediaSession(packageName, notificationId, tag)
+        cancelGeneratedIslandProxy(context, packageName, notificationId, tag)
         FocusNotificationLifecycle.end(
             context = context,
-            packageName = container.packageName,
+            packageName = packageName,
             notificationId = notificationId,
             tag = tag,
             cancelNotification = true,
-            recordDeleted = true,
-            unregisterFocus = true,
         )
         if (clearGroup) {
             getNotificationManagerEx().cancel(
-                container.packageName,
+                packageName,
                 MyMIPushNotificationHelper.getNotificationTag(container),
-                notificationGroup?.hashCode() ?: 0
+                notificationGroup?.let { ("GroupSummary" + packageName + it).hashCode() } ?: 0
             )
-            return
-        }
-        if (notificationGroup != null) {
-            val copy = container.deepCopy()
-            try {
-                Configurations.getInstance().handle(container.packageName, copy)
-            } catch (e: Throwable) {
-                io.github.aakira.napier.Napier.e("NotificationController: handle config failed for ${container.packageName}", e, tag = "NotificationController")
-            }
-            val copyMeta = copy.metaInfo ?: return
-            updateSummaryNotification(context, copyMeta, container.packageName, notificationGroup)
         }
     }
 
@@ -990,7 +852,7 @@ object NotificationController {
     @JvmStatic
     fun processIcon(context: Context, packageName: String, notificationBuilder: NotificationCompat.Builder): Int {
         var color = getIconColor(context, packageName)
-        notificationBuilder.setSmallIcon(R.drawable.ic_notifications_black_24dp)
+        notificationBuilder.setSmallIcon(CommonR.drawable.ic_notifications_black_24dp)
         val pkgContext = XMPushUtils.getPackageContext(
             context,
             packageName,
@@ -1118,7 +980,7 @@ object NotificationController {
             return color
         }
         // Absolute last resort only (package icon unavailable).
-        notificationBuilder.setSmallIcon(IconCompat.createWithResource(context, R.drawable.ic_notifications_black_24dp))
+        notificationBuilder.setSmallIcon(IconCompat.createWithResource(context, CommonR.drawable.ic_notifications_black_24dp))
         return color
     }
 
@@ -1133,40 +995,6 @@ object NotificationController {
         return true
     }
 
-
-    /**
-     * Native Live Updates (ProgressStyle / PROMOTED_ONGOING) stay active as the island after the
-     * shade row is dismissed on some HyperOS builds. Wire deleteIntent so user dismiss cancels the
-     * same notification identity (target package and local xmsf fallback).
-     */
-    private fun attachLiveUpdateDismissCancelIntent(
-        context: Context,
-        builder: NotificationCompat.Builder,
-        packageName: String,
-        notificationId: Int,
-        tag: String?,
-        nativeFeature: NativeNotificationFeatureBuilder.Result,
-    ) {
-        val isLiveUpdate = nativeFeature.feature == NativeNotificationFeatureBuilder.Feature.PROGRESS ||
-            ProgressStyleBuilder.isLiveUpdate(builder)
-        if (!isLiveUpdate) return
-        val intent = Intent(context, LiveUpdateDismissReceiver::class.java).apply {
-            action = LiveUpdateDismissReceiver.ACTION_LIVE_UPDATE_DISMISSED
-            data = android.net.Uri.parse("mipush-live-update://$packageName/$notificationId/${tag.orEmpty()}")
-            putExtra(LiveUpdateDismissReceiver.EXTRA_PACKAGE_NAME, packageName)
-            putExtra(LiveUpdateDismissReceiver.EXTRA_NOTIFICATION_ID, notificationId)
-            putExtra(LiveUpdateDismissReceiver.EXTRA_NOTIFICATION_TAG, tag)
-        }
-        val requestCode = (packageName.hashCode() * 31) xor notificationId xor (tag?.hashCode() ?: 0)
-        builder.setDeleteIntent(
-            PendingIntent.getBroadcast(
-                context,
-                requestCode,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            ),
-        )
-    }
 
     private fun cancelGeneratedIslandProxy(
         context: Context,
@@ -1319,9 +1147,9 @@ object NotificationController {
                 builder.setContentTitle(title)
                 builder.setContentText(context.getString(R.string.mock_media_now_playing, description))
                 builder.setOngoing(true)
-                builder.addAction(R.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_media_prev), notifyPendingIntent)
-                builder.addAction(R.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_media_pause), notifyPendingIntent)
-                builder.addAction(R.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_media_next), notifyPendingIntent)
+                builder.addAction(CommonR.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_media_prev), notifyPendingIntent)
+                builder.addAction(CommonR.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_media_pause), notifyPendingIntent)
+                builder.addAction(CommonR.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_media_next), notifyPendingIntent)
             }
             io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.PROGRESS -> {
                 builder.setContentTitle(title)
@@ -1396,8 +1224,8 @@ object NotificationController {
                 voipExtras.putString("msg_busi_type", "voip")
                 voipExtras.putString("voip_type", "1")
                 builder.addExtras(voipExtras)
-                builder.addAction(R.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_voip_accept), notifyPendingIntent)
-                builder.addAction(R.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_voip_decline), notifyPendingIntent)
+                builder.addAction(CommonR.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_voip_accept), notifyPendingIntent)
+                builder.addAction(CommonR.drawable.ic_notifications_black_24dp, context.getString(R.string.mock_voip_decline), notifyPendingIntent)
             }
             io.github.magisk317.mipush.feature.diagnostic.MockNotificationKind.LIVE_UPDATE_DELIVERY -> {
                 val deliveryTitle = context.getString(R.string.mock_live_update_delivery_title)
@@ -1654,10 +1482,6 @@ object NotificationController {
                 putExtra("smallOnly", smallOnly)
             },
         )
-    }
-
-    private fun focusNotificationKey(context: Context, packageName: String, notificationId: Int, tag: String?): String {
-        return FocusNotificationLifecycle.focusKey(context, packageName, notificationId, tag)
     }
 
     private fun resolveNotificationUid(context: Context, packageName: String): Int {

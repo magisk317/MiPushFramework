@@ -5,7 +5,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.os.Build
 import android.text.TextUtils
-import android.util.Pair
 import android.widget.RemoteViews
 import com.xiaomi.channel.commonutils.android.AppInfoUtils
 import com.xiaomi.channel.commonutils.android.MIUIUtils
@@ -16,7 +15,6 @@ import com.xiaomi.push.service.clientReport.PushClientReportManager
 import com.xiaomi.push.service.clientReport.ReportConstants
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
-import java.util.LinkedList
 
 /**
  * Legacy MIUI notification publish chain retained for rollback/reference only.
@@ -33,7 +31,6 @@ object MIPushNotificationPublishSupport {
         context: Context,
         container: XmPushActionContainer,
         payload: ByteArray,
-        cachedNotifications: LinkedList<Pair<Int, XmPushActionContainer>>,
     ): MIPushNotificationHelper.NotifyPushMessageInfo {
         val notifyInfo = MIPushNotificationHelper.NotifyPushMessageInfo()
         if (isBlockedByAppNotificationOp(context, container)) {
@@ -97,7 +94,6 @@ object MIPushNotificationPublishSupport {
             targetPackage,
             notificationId,
             notificationManager,
-            cachedNotifications,
         )
         return notifyInfo
     }
@@ -129,7 +125,6 @@ object MIPushNotificationPublishSupport {
         packageName: String,
         notificationId: Int,
         notificationManager: NotificationManagerHelper,
-        cachedNotifications: LinkedList<Pair<Int, XmPushActionContainer>>,
     ) {
         if (MIUIUtils.isMIUI() && MIUIUtils.isXMSF(context)) {
             NotificationGroupHelper.getInstance().onNotificationNotify(context, notificationId, notification)
@@ -164,7 +159,6 @@ object MIPushNotificationPublishSupport {
                 )
         }
         scheduleTimeoutIfNeeded(context, pushMetaInfo, notificationId, notificationManager)
-        MIPushNotificationCacheSupport.cacheNotification(Pair(notificationId, container), cachedNotifications)
     }
 
     private fun scheduleTimeoutIfNeeded(

@@ -2,12 +2,17 @@ package com.xiaomi.push.service
 
 import android.app.Notification
 import android.app.NotificationChannel
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import android.service.notification.StatusBarNotification
+import android.text.SpannableString
+import android.text.Spanned
 import android.text.TextUtils
+import android.text.style.ForegroundColorSpan
 import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.reflect.JavaCalls
@@ -20,6 +25,10 @@ object NotificationGroupHelper {
     private const val GROUP_MASK_FORMAT = "pushmask_%s_%s"
     private const val GROUP_SUMMARY_CHANNEL_ID = "groupSummary"
     private const val GROUP_SUMMARY_TITLE = "GroupSummary"
+    private const val GROUP_SUMMARY_VISIBLE_TITLE = "新消息"
+    private const val GROUP_SUMMARY_VISIBLE_TEXT = "你有一条新消息"
+
+    private var summaryTitle: SpannableString? = null
 
     private class AutoGroupItem(
         val childList: MutableList<NotificationInfo> = ArrayList(),
@@ -37,11 +46,17 @@ object NotificationGroupHelper {
     fun getInstance(): NotificationGroupHelper = this
 
     fun maskGroup(context: Context, builder: BuilderCompat, group: String): String {
+        return maskGroup(context, builder.getExtras(), group)
+    }
+
+    // Stock 7.4.67-C d1.h writes the source group into the builder extras before replacing
+    // it with a one-shot mask. The Bundle overload lets the current framework Builder use
+    // that same restore lifecycle instead of maintaining a second grouping implementation.
+    fun maskGroup(context: Context, extras: Bundle, group: String): String {
         if (!isSupportPlatform() || !isEnableLatestNotificationNotIntoGroup(context)) {
             return group
         }
         val now = System.currentTimeMillis()
-        val extras = builder.getExtras()
         extras.putString(EXTRA_SRC_GROUP_NAME, group)
         extras.putLong(EXTRA_SRC_GROUP_TIME, now)
         return GROUP_MASK_FORMAT.format(now, group)
@@ -127,6 +142,19 @@ object NotificationGroupHelper {
                     }
                 } else if (childCount <= 0) {
                     cancelGroupSummary(context, targetPackage, groupKey!!)
+                } else if (
+                    // Stock 7.4.67-C d1.d refreshes the generated summary timestamp when
+                    // config 141 is enabled. The 3.7.9 helper had no update branch, leaving
+                    // an existing summary ordered at the time its first children arrived.
+                    OnlineConfig.getInstance(context).getBooleanValue(
+                        ConfigKey.NotificationGroupUpdateTimeSwitch.value,
+                        false,
+                    )
+                ) {
+                    groupItem.summaryList.firstOrNull()?.notification?.let { summary ->
+                        summary.`when` = System.currentTimeMillis()
+                        showGroupSummary(context, targetPackage, groupKey!!, summary)
+                    }
                 }
             }
         }
@@ -218,18 +246,23 @@ object NotificationGroupHelper {
             }
             suppressNotificationEffects(builder, true)
             val summary = builder
-                .setContentTitle(GROUP_SUMMARY_TITLE)
-                .setContentText(GROUP_SUMMARY_TITLE)
+                // Stock 7.4.67-C d1.a replaced the 3.7.9 literal title and
+                // miui.showAtTail flag with a user-visible title plus a transparent
+                // GroupSummary suffix. Keep that internal marker without displaying it.
+                .setContentTitle(getSummaryTitle(context))
+                .setContentText(GROUP_SUMMARY_VISIBLE_TEXT)
                 .setSmallIcon(Icon.createWithResource(packageName, iconId))
                 .setAutoCancel(true)
                 .setGroup(group)
                 .setGroupSummary(true)
                 .build()
+            if (Build.VERSION.SDK_INT >= 31) {
+                // Stock 7.4.67-C d1.k adds the target launch intent on S+. Without it,
+                // tapping this synthesized summary has no destination on current Android.
+                summary.contentIntent = getLaunchPendingIntent(context, packageName)
+            }
             if (!MIUIUtils.isXMS() && PushConstants.PUSH_SERVICE_PACKAGE_NAME == context.packageName) {
                 NotificationUtils.setTargetPackage(summary, packageName)
-            }
-            if (!MIUIUtils.isGlobalRegion()) {
-                summary.extras.putBoolean("miui.showAtTail", true)
             }
             val summaryId = getGroupSummaryNotifyId(packageName, group)
             notificationManager.notify(summaryId, summary)
@@ -256,6 +289,38 @@ object NotificationGroupHelper {
         } else {
             MyLog.i("not support setGroupAlertBehavior")
             false
+        }
+    }
+
+    private fun getLaunchPendingIntent(context: Context, packageName: String): PendingIntent? {
+        return runCatching {
+            val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName) ?: return null
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            PendingIntent.getActivity(context, 0, launchIntent, PendingIntent.FLAG_IMMUTABLE)
+        }.getOrNull()
+    }
+
+    private fun getSummaryTitle(context: Context): SpannableString {
+        summaryTitle?.let { return it }
+        val displayMetrics = context.resources?.displayMetrics
+        val blankCount = displayMetrics
+            ?.let { maxOf(it.heightPixels, it.widthPixels) }
+            ?.takeIf { it > 0 }
+            ?.div(16)
+            ?: 200
+        val text = buildString(GROUP_SUMMARY_VISIBLE_TITLE.length + blankCount + GROUP_SUMMARY_TITLE.length) {
+            append(GROUP_SUMMARY_VISIBLE_TITLE)
+            repeat(blankCount) { append(' ') }
+            append(GROUP_SUMMARY_TITLE)
+        }
+        return SpannableString(text).also { title ->
+            title.setSpan(
+                ForegroundColorSpan(0),
+                GROUP_SUMMARY_VISIBLE_TITLE.length,
+                title.length,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+            summaryTitle = title
         }
     }
 }

@@ -12,7 +12,6 @@ import android.service.notification.StatusBarNotification
 import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.common.utils.ImgUtils
-import io.github.magisk317.mipush.common.notification.SinglePackageNotificationGroupPolicy
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.xposed.callMethod
@@ -204,8 +203,6 @@ object SystemNotificationManager {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
         val colorMode = IslandPreferences.current().colorStatusBarIcon
         XLog.d(TAG, "injectAppIcons pkg=$packageName colorStatusBarIcon=$colorMode")
-        // One shade group per app for MiPush posts, regardless of color/monochrome mode.
-        SinglePackageNotificationGroupPolicy.ensurePackageGroup(packageName, notification)
         if (!colorMode) {
             // Keep the posted smallIcon intact. SystemUI owns the status-bar-only monochrome
             // conversion; mutating this object makes expanded shade rows render white icons too.

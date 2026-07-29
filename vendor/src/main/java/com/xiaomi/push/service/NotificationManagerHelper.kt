@@ -8,6 +8,7 @@ import android.content.Context
 import android.os.Build
 import android.service.notification.StatusBarNotification
 import com.xiaomi.channel.commonutils.logger.MyLog
+import com.xiaomi.channel.commonutils.reflect.JavaCalls
 import java.util.WeakHashMap
 
 class NotificationManagerHelper private constructor(
@@ -68,6 +69,23 @@ class NotificationManagerHelper private constructor(
         } catch (e: Exception) {
             outLog("getActiveNotifications error $e")
             null
+        }
+    }
+
+    fun getManagedActiveNotifications(): List<StatusBarNotification> {
+        // Stock 7.4.67-C g1.g applies g1.u after target scoping in g1.h. Keep that
+        // ordering so a clear command cannot inspect another delegated package first.
+        return getActiveNotifications().orEmpty().filter { statusBarNotification ->
+            val notification = statusBarNotification.notification ?: return@filter false
+            val operationPackage = JavaCalls.callMethod(statusBarNotification, "getOpPkg")?.toString()
+            isManagedNotificationIdentity(
+                messageId = notification.extras?.getString(EXTRA_MESSAGE_ID),
+                operationPackage = operationPackage,
+                statusPackage = statusBarNotification.packageName,
+                targetPackage = targetPackage,
+                markedTargetPackage = NotificationUtils.getTargetPackage(notification),
+                channelId = notification.channelId,
+            )
         }
     }
 
@@ -158,9 +176,54 @@ class NotificationManagerHelper private constructor(
 
     companion object {
         const val DEFAULT_ID = "default"
+        private const val EXTRA_MESSAGE_ID = "message_id"
         private const val NEW_FORMAT_PREFIX = "mipush|%s|%s"
         private const val OLD_FORMAT_PREFIX = "mipush_%s_%s"
+        private const val LEGACY_PRODUCT_PREFIX = "ch_"
         private val cache = WeakHashMap<String, NotificationManagerHelper>()
+
+        @JvmStatic
+        fun isManagedNotificationIdentity(
+            messageId: String?,
+            operationPackage: String?,
+            statusPackage: String?,
+            targetPackage: String?,
+            markedTargetPackage: String?,
+            channelId: String?,
+        ): Boolean {
+            if (operationPackage != PushConstants.PUSH_SERVICE_PACKAGE_NAME || channelId.isNullOrEmpty()) {
+                return false
+            }
+            // Stock 7.4.67-C g1.u requires message_id, XMSF as opPkg, and a channel prefix
+            // derived from StatusBarNotification.packageName. Our non-MIUI fallback posts
+            // locally as XMSF while embedding the delegated target, so it also checks
+            // targetPackage; otherwise standard/live-update notifications could never be
+            // cleared outside Xiaomi ROMs. Both stock prefixes are accepted because runtime
+            // framework support can change across an OS update and must not strand records.
+            val stockOwned = !messageId.isNullOrEmpty() && listOfNotNull(statusPackage, targetPackage)
+                .distinct()
+                .any { packageName -> isStockChannelId(packageName, channelId) }
+            if (stockOwned) {
+                return true
+            }
+            // MiPushFramework releases before this stock-channel migration created
+            // ch_<package>_* channels and did not always write message_id. Keep those existing
+            // user-configured records clearable, but require both the embedded target marker
+            // and XMSF opPkg so unrelated local notifications cannot enter the stock clear set.
+            return targetPackage == markedTargetPackage &&
+                !targetPackage.isNullOrEmpty() &&
+                isLegacyProductChannelId(targetPackage, channelId)
+        }
+
+        private fun isStockChannelId(packageName: String, channelId: String): Boolean {
+            return channelId.startsWith(NEW_FORMAT_PREFIX.format(packageName, "")) ||
+                channelId.startsWith(OLD_FORMAT_PREFIX.format(packageName, ""))
+        }
+
+        private fun isLegacyProductChannelId(packageName: String, channelId: String): Boolean {
+            val prefix = LEGACY_PRODUCT_PREFIX + packageName
+            return channelId == prefix || channelId.startsWith(prefix + "_")
+        }
 
         @JvmStatic
         fun from(context: Context, packageName: String): NotificationManagerHelper {

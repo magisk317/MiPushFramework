@@ -11,6 +11,7 @@ import android.os.Build
 import android.text.TextUtils
 import androidx.annotation.RequiresApi
 import io.github.magisk317.mipush.notification.NotificationManagerEx
+import com.xiaomi.push.service.NotificationManagerHelper
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
@@ -27,6 +28,7 @@ object NotificationChannelManager {
     ): NotificationChannelGroup = NotificationChannelGroup(getGroupIdByPkg(packageName), appName)
 
     private fun createChannelWithPackage(
+        context: Context,
         metaInfo: PushMetaInfo,
         packageName: String
     ): NotificationChannel? {
@@ -36,7 +38,7 @@ object NotificationChannelManager {
         val sound = configuration.soundUrl(null)
 
         val channel = NotificationChannel(
-            getChannelId(metaInfo, packageName),
+            getChannelId(context, metaInfo, packageName),
             channelName,
             NotificationManager.IMPORTANCE_HIGH
         )
@@ -51,7 +53,23 @@ object NotificationChannelManager {
     }
 
     @JvmStatic
-    fun getChannelId(metaInfo: PushMetaInfo, packageName: String): String {
+    fun getChannelId(context: Context, metaInfo: PushMetaInfo, packageName: String): String {
+        val configuration = XMPushUtils.getConfiguration(metaInfo)
+        val sourceChannelId = configuration.channelId(null)
+            ?.takeIf(String::isNotBlank)
+            ?: NotificationManagerHelper.DEFAULT_ID
+        // Stock 7.4.67-C g1.i/m namespaces channels as mipush|pkg|source when
+        // belong-to-app is available and mipush_pkg_source otherwise. The old
+        // ch_<package>_<source> name was invisible to stock g1.u ownership checks, so all
+        // newly provisioned channels use the stock identity required by active clear.
+        return NotificationManagerHelper.from(context.applicationContext, packageName)
+            .getMipushChannelId(sourceChannelId)
+    }
+
+    internal fun getLegacyChannelId(metaInfo: PushMetaInfo, packageName: String): String {
+        // This is lookup-only migration support for channels created before the stock
+        // 7.4.67-C naming alignment. Reusing an existing ID preserves the user's channel
+        // importance and sound; channel creation must continue through getChannelId().
         val configuration = XMPushUtils.getConfiguration(metaInfo)
         return getChannelIdByPkg(packageName) + "_" + configuration.channelId("")
     }
@@ -82,10 +100,11 @@ object NotificationChannelManager {
         packageName: String
     ): NotificationChannel? {
         val appName = Global.applicationNameCache().getAppName(context, packageName) ?: return null
-        return createNotificationChannel(metaInfo, packageName, appName)
+        return createNotificationChannel(context, metaInfo, packageName, appName)
     }
 
     private fun createNotificationChannel(
+        context: Context,
         metaInfo: PushMetaInfo,
         packageName: String,
         appName: CharSequence
@@ -96,7 +115,7 @@ object NotificationChannelManager {
             listOf(notificationChannelGroup)
         )
 
-        val notificationChannel = createChannelWithPackage(metaInfo, packageName)
+        val notificationChannel = createChannelWithPackage(context, metaInfo, packageName)
         if (notificationChannel != null) {
             notificationChannel.group = notificationChannelGroup.id
             getNotificationManagerEx().createNotificationChannels(

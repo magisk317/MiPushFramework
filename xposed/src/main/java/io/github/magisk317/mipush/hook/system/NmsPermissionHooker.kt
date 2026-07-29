@@ -8,7 +8,6 @@ import android.os.Binder
 import android.os.Build
 import android.os.Process
 import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
-import io.github.magisk317.mipush.common.notification.SinglePackageNotificationGroupPolicy
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.xposed.HookCallback
@@ -109,7 +108,6 @@ object NmsPermissionHooker {
     private fun hookNotificationEnqueue(preserveDelegateIdentity: Boolean): HookCallback = {
         replace {
             var token: Long? = null
-            rewriteNotificationEnqueueArgs(args)
             if (AmapNavigationFocusCompat.attachIfEligibleFromNmsArguments(args)) {
                 XLog.d(TAG, "attached native focus payload to AMap navigation notification")
             }
@@ -142,19 +140,6 @@ object NmsPermissionHooker {
      * narrow AMap compatibility bridge sees both routes.
      */
 
-    /**
-     * System-wide package group collapse.
-     * Runs on every NMS enqueue so native and MiPush posts share one shade stack per app.
-     * Status-bar monochrome is applied in SystemUI and must not mutate the posted Notification.
-     */
-    private fun rewriteNotificationEnqueueArgs(args: Array<Any?>) {
-        runCatching {
-            SinglePackageNotificationGroupPolicy.applyToNmsEnqueueArgs(args)
-        }.onFailure {
-            XLog.w(TAG, "notification enqueue rewrite failed: ${it.message}")
-        }
-    }
-
     private fun installAmapNavigationFocusBridge(classLoader: ClassLoader?) {
         runCatching {
             val notificationManagerService = findClass(
@@ -163,7 +148,6 @@ object NmsPermissionHooker {
             )
             val hooks = notificationManagerService.hookAllMethods("enqueueNotificationInternal") {
                 doBefore {
-                    rewriteNotificationEnqueueArgs(args)
                     if (AmapNavigationFocusCompat.attachIfEligibleFromForegroundServiceNmsArguments(args)) {
                         XLog.d(TAG, "attached native focus payload to AMap navigation notification via NMS internal enqueue")
                     }

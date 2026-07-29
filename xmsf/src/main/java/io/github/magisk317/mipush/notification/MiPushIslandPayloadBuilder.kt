@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.notification
 
+import io.github.magisk317.mipush.common.R as CommonR
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
@@ -143,7 +144,7 @@ internal object MiPushIslandPayloadBuilder {
         notificationIcon?.let { return it }
         return largeIcon?.let(Icon::createWithBitmap)
             ?: resolveAppIcon(context, packageName)
-            ?: Icon.createWithResource(context, R.drawable.ic_notifications_black_24dp)
+            ?: Icon.createWithResource(context, CommonR.drawable.ic_notifications_black_24dp)
     }
 
     /**

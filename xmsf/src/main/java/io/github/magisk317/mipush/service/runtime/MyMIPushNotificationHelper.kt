@@ -6,9 +6,11 @@ import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
 
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Bundle
 import android.os.PowerManager
 import android.widget.Toast
 import androidx.annotation.NonNull
@@ -23,20 +25,26 @@ import io.github.magisk317.mipush.push.pipeline.StalePackagePushGuard
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import com.xiaomi.channel.commonutils.android.AppInfoUtils
+import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.mipush.sdk.PushMessageProcessor
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmsf.R
+import com.xiaomi.xmsf.stock.StockNotificationPresentationBridge
 import com.xiaomi.xmsf.stock.StockSurfaceSupport
 import com.xiaomi.push.service.MIPushNotificationHelper
 import com.xiaomi.push.service.MIPushEventProcessor
+import com.xiaomi.push.service.MIPushHelper
+import com.xiaomi.push.service.NotificationGroupHelper
 import com.xiaomi.push.service.PushConstants
+import com.xiaomi.push.service.clientReport.ReportConstants
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.notification.NotificationController
+import io.github.magisk317.mipush.notification.AndroidWGroupStrategy
 import io.github.magisk317.mipush.notification.LiveUpdateDetector
-import io.github.magisk317.mipush.notification.NotificationSortFilter
 import io.github.magisk317.mipush.notification.VoipNotificationHelper
+import io.github.magisk317.mipush.notification.SweetNotificationCoordinator
 import io.github.magisk317.mipush.utils.Configurations
 import io.github.magisk317.mipush.utils.IconConfigurations
 import io.github.magisk317.mipush.utils.PackageConfig
@@ -66,8 +74,9 @@ class MyMIPushNotificationHelper {
         private const val TAG = "MyNotificationHelper"
 
         const val CLASS_NAME_PUSH_MESSAGE_HANDLER = Constants.PUSH_MESSAGE_HANDLER_CLASS
-        private const val GROUP_TYPE_MIPUSH_GROUP = "#group#"
-        private const val GROUP_TYPE_PASS_THROUGH = "#pass_through#"
+        private const val NOTIFICATION_GROUP_DISABLE_DEFAULT = "notification_group_disable_default"
+        private const val NOTIFICATION_IS_SUMMARY = "notification_is_summary"
+        private const val NOTIFICATION_MESSAGE_ID = "message_id"
         private const val NON_DISPLAY_DISPATCH_WINDOW_MS = 30_000L
         private const val CONFIGURATION_RETRY_DELAY_MS = 30_000L
 
@@ -87,7 +96,11 @@ class MyMIPushNotificationHelper {
         }
 
         @JvmStatic
-        fun notifyPushMessage(context: Context, decryptedContent: ByteArray): MockReplayOutcome {
+        fun notifyPushMessage(
+            context: Context,
+            decryptedContent: ByteArray,
+            dispatchMessageArrived: Boolean = false,
+        ): MockReplayOutcome {
             val startedAt = System.nanoTime()
             fun finish(outcome: MockReplayOutcome, reason: String, targetPackage: String = ""): MockReplayOutcome {
                 val result = when (outcome) {
@@ -188,10 +201,22 @@ class MyMIPushNotificationHelper {
                         MIPushNotificationHelper.getTargetPackage(container) +
                         "'s notification messageId=$messageId mockReplay=$isMockReplay"
                 )
+                // Stock 3.7.9 and 7.4.67-C still send MESSAGE_ARRIVED after their notification
+                // helper returns an empty result for a blocked post. The callback lets a running
+                // target such as Weather render its own native notification surface.
+                if (dispatchMessageArrived && !isMockReplay) {
+                    dispatchMessageArrivedIfNeeded(context, container, decryptedContent)
+                }
                 return finish(MockReplayOutcome.BlockedByPermission, "notification_blocked", container.packageName.orEmpty())
             }
             loadConfigurationsOnce(context)
-            val outcome = handleNotificationByConfigurations(context, decryptedContent, container.packageName, container)
+            val outcome = handleNotificationByConfigurations(
+                context,
+                decryptedContent,
+                container.packageName,
+                container,
+                dispatchMessageArrived = dispatchMessageArrived && !isMockReplay,
+            )
             return finish(outcome, "configured", container.packageName.orEmpty())
         }
 
@@ -200,7 +225,8 @@ class MyMIPushNotificationHelper {
             context: Context,
             decryptedContent: ByteArray,
             packageName: String,
-            container: XmPushActionContainer
+            container: XmPushActionContainer,
+            dispatchMessageArrived: Boolean,
         ): MockReplayOutcome {
             return try {
                 val messageId = MessageIdentity.fromContainer(container)
@@ -237,7 +263,12 @@ class MyMIPushNotificationHelper {
                                     "policy_notify dispatch start pkg=$packageName action=${container.action} " +
                                         "messageId=$messageId"
                                 )
-                                doNotifyPushMessage(context, container, decryptedContent)
+                                doNotifyPushMessage(
+                                    context = context,
+                                    container = container,
+                                    decryptedContent = decryptedContent,
+                                    dispatchMessageArrived = dispatchMessageArrived,
+                                )
                             } catch (e: Exception) {
                                 logE(
                                     "policy_notify dispatch failed pkg=$packageName action=${container.action} " +
@@ -254,6 +285,11 @@ class MyMIPushNotificationHelper {
                         action = "policy_ignore",
                         source = "MyMIPushNotificationHelper.handleNotificationByConfigurations"
                     )
+                    // PackageConfig ignore is product-only display policy. Stock 3.7.9 and
+                    // 7.4.67-C do not use it to suppress the target app's arrival callback.
+                    if (dispatchMessageArrived) {
+                        dispatchMessageArrivedIfNeeded(context, container, decryptedContent)
+                    }
                     MockReplayOutcome.BlockedByPermission
                 }
                 if (operations.contains(PackageConfig.OPERATION_OPEN)) {
@@ -314,6 +350,91 @@ class MyMIPushNotificationHelper {
                         (!metaInfo.title.isNullOrBlank() || !metaInfo.description.isNullOrBlank())
                 }
                 else -> false
+            }
+        }
+
+        internal fun shouldDispatchMessageArrived(
+            container: XmPushActionContainer,
+            dispatchRequested: Boolean,
+        ): Boolean {
+            return dispatchRequested &&
+                !MockMessageRegistry.isMarked(container) &&
+                MIPushEventProcessor.shouldCheckProfile(container) &&
+                !MIPushNotificationHelper.isBusinessMessage(container)
+        }
+
+        internal fun shouldSuppressForegroundNotification(
+            extra: Map<String, String>?,
+            isMiui: Boolean,
+            isTargetForeground: Boolean,
+        ): Boolean {
+            return isMiui &&
+                !MIPushNotificationHelper.isNotifyForeground(extra) &&
+                isTargetForeground
+        }
+
+        internal fun dispatchMessageArrivedIfNeeded(
+            context: Context,
+            container: XmPushActionContainer,
+            decryptedContent: ByteArray,
+            dispatchRequested: Boolean = true,
+        ): Boolean {
+            if (!shouldDispatchMessageArrived(container, dispatchRequested)) return false
+
+            val metaInfo = container.metaInfo
+            if (!MIPushNotificationHelper.isNotifyForeground(metaInfo?.extra) &&
+                MIPushNotificationHelper.isApplicationForeground(context, container.packageName)
+            ) {
+                // Stock 3.7.9 and 7.4.67-C keep MESSAGE_ARRIVED inside the same display branch as
+                // notify_foreground. When that branch is suppressed, normal app delivery owns it.
+                logD("skip message arrived for foreground target pkg=${container.packageName}")
+                return false
+            }
+
+            val targetPackage = MIPushNotificationHelper.getTargetPackage(container)
+            if (targetPackage.isBlank() || !isTargetRunningForMessageArrived(context, targetPackage)) {
+                logD("skip message arrived because target is not running pkg=$targetPackage")
+                return false
+            }
+            val intent = Intent(PushConstants.MIPUSH_ACTION_MESSAGE_ARRIVED).apply {
+                setPackage(targetPackage)
+                putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, decryptedContent)
+            }
+            return try {
+                if (context.packageManager.queryBroadcastReceivers(intent, 0).isNullOrEmpty()) {
+                    logD("skip message arrived because receiver is absent pkg=$targetPackage")
+                    false
+                } else {
+                    context.sendBroadcast(intent, MIPushHelper.getReceiverPermission(targetPackage))
+                    PushRuntime.observeNotificationEvent(
+                        packageName = targetPackage,
+                        action = "message_arrived_broadcast",
+                        source = "MyMIPushNotificationHelper.dispatchMessageArrivedIfNeeded",
+                    )
+                    logI("message arrived broadcast sent pkg=$targetPackage")
+                    true
+                }
+            } catch (t: Exception) {
+                PushRuntime.observeNotificationEvent(
+                    packageName = targetPackage,
+                    action = "message_arrived_broadcast_failed",
+                    source = "MyMIPushNotificationHelper.dispatchMessageArrivedIfNeeded",
+                )
+                logE("message arrived broadcast failed pkg=$targetPackage", t)
+                false
+            }
+        }
+
+        private fun isTargetRunningForMessageArrived(context: Context, targetPackage: String): Boolean {
+            val processes = runCatching {
+                (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).runningAppProcesses
+            }.getOrNull() ?: return false
+            val extensionProcess = "$targetPackage:pushExtensionService"
+            // Stock 7.4.67-C i0.a delegates to c.n/p9.b.e with this process excluded. This is
+            // newer than SDK 3.7.9's broad isAppRunning check and prevents an idle SDK extension
+            // process from making XMSF wake the application's MESSAGE_ARRIVED receiver.
+            return processes.any { process ->
+                process.processName != extensionProcess && process.pkgList?.contains(targetPackage) == true
             }
         }
 
@@ -432,55 +553,172 @@ class MyMIPushNotificationHelper {
             context: Context,
             container: XmPushActionContainer,
             decryptedContent: ByteArray,
+            dispatchMessageArrived: Boolean = false,
         ): MockReplayOutcome {
             val metaInfo = container.metaInfo
             val messageId = MessageIdentity.fromContainer(container)
             val isMockReplay = MockMessageRegistry.isMarked(container)
             if (metaInfo == null) {
                 logW("doNotifyPushMessage: metaInfo is null, skip notification pkg=${container.packageName} messageId=$messageId")
-                return MockReplayOutcome.Failed
+                return finishNotificationDispatch(
+                    context,
+                    container,
+                    decryptedContent,
+                    MockReplayOutcome.Failed,
+                    dispatchMessageArrived,
+                )
+            }
+            val targetPackage = MIPushNotificationHelper.getTargetPackage(container)
+            val isMiui = MIUIUtils.isMIUI()
+            if (shouldSuppressForegroundNotification(
+                    extra = metaInfo.extra,
+                    isMiui = isMiui,
+                    isTargetForeground = isMiui &&
+                        MIPushNotificationHelper.isApplicationForeground(context, container.packageName),
+                )
+            ) {
+                // Stock 7.4.67-C i0 skips t0 entirely on MIUI when notify_foreground is not 1
+                // and the target app is foreground. The old product path applied this condition
+                // only to MESSAGE_ARRIVED, so it still posted a notification the server suppressed.
+                logI("skip foreground notification pkg=$targetPackage messageId=$messageId")
+                PushRuntime.observeNotificationEvent(
+                    packageName = targetPackage,
+                    action = "foreground_notification_suppressed",
+                    source = "MyMIPushNotificationHelper.doNotifyPushMessage",
+                )
+                return finishNotificationDispatch(
+                    context,
+                    container,
+                    decryptedContent,
+                    MockReplayOutcome.Dispatched,
+                    dispatchMessageArrived,
+                )
             }
             val notificationId = getNotificationId(container)
-            logD("doNotifyPushMessage pkg=${container.packageName} messageId=$messageId notificationId=$notificationId mockReplay=$isMockReplay messageTs=${metaInfo.messageTs} notifyId=${metaInfo.notifyId}")
-            if (VoipNotificationHelper.shouldDropStale(metaInfo, container.packageName)) {
-                logD("skip stale voip notification pkg=${container.packageName} messageId=$messageId")
+            logD("doNotifyPushMessage pkg=$targetPackage messageId=$messageId notificationId=$notificationId mockReplay=$isMockReplay messageTs=${metaInfo.messageTs} notifyId=${metaInfo.notifyId}")
+            // Stock 7.4.67-C t0 invokes sweet reminder filtering before its VoIP sequence filter.
+            // The retained 3.7.9 helper has no remind_status lifecycle, so keep the newer behavior
+            // in the product dispatch path instead of modifying pinned SDK sources.
+            if (SweetNotificationCoordinator.shouldSuppress(context, targetPackage, notificationId, metaInfo)) {
+                logD("skip repeated sweet notification pkg=$targetPackage messageId=$messageId")
                 PushRuntime.observeNotificationEvent(
-                    packageName = container.packageName,
+                    packageName = targetPackage,
+                    action = "sweet_notification_drop",
+                    source = "MyMIPushNotificationHelper.doNotifyPushMessage",
+                )
+                return finishNotificationDispatch(
+                    context,
+                    container,
+                    decryptedContent,
+                    MockReplayOutcome.Failed,
+                    dispatchMessageArrived,
+                )
+            }
+            if (VoipNotificationHelper.shouldDropStale(metaInfo, targetPackage)) {
+                logD("skip stale voip notification pkg=$targetPackage messageId=$messageId")
+                PushRuntime.observeNotificationEvent(
+                    packageName = targetPackage,
                     action = "voip_sequence_drop",
                     source = "MyMIPushNotificationHelper.doNotifyPushMessage"
                 )
-                return MockReplayOutcome.Failed
+                return finishNotificationDispatch(
+                    context,
+                    container,
+                    decryptedContent,
+                    MockReplayOutcome.Failed,
+                    dispatchMessageArrived,
+                )
             }
             if (VoipNotificationHelper.isVoipEndEvent(metaInfo)) {
-                logD("cancel voip notification pkg=${container.packageName} messageId=$messageId notificationId=$notificationId")
+                logD("cancel voip notification pkg=$targetPackage messageId=$messageId notificationId=$notificationId")
                 NotificationController.cancel(context, container, notificationId, null, clearGroup = false)
                 PushRuntime.observeNotificationEvent(
-                    packageName = container.packageName,
+                    packageName = targetPackage,
                     action = "voip_cancel",
                     source = "MyMIPushNotificationHelper.doNotifyPushMessage"
                 )
+                return finishNotificationDispatch(
+                    context,
+                    container,
+                    decryptedContent,
+                    MockReplayOutcome.Dispatched,
+                    dispatchMessageArrived,
+                )
+            }
+            // Stock 7.4.67-C i0/p0 intercepts an eligible hyper_type=1 notification after
+            // duplicate/profile checks but before t0 builds the ordinary notification. The old
+            // product path posted immediately, bypassing the target app's extension service.
+            if (ExtensionNotificationCoordinator.handleIfEligible(
+                    context = context,
+                    container = container,
+                    payload = decryptedContent,
+                    publish = { resolvedContainer, resolvedPayload ->
+                        val outcome = postNotification(context, resolvedContainer, resolvedPayload)
+                        // Stock 7.4.67-C returns from the original i0 branch, then invokes i0.f
+                        // from ExtensionMessageHandleCenter after callback/fallback. The first
+                        // implementation let the outer scope send MESSAGE_ARRIVED immediately
+                        // with the old payload, including when the app suppressed notification.
+                        finishNotificationDispatch(
+                            context,
+                            resolvedContainer,
+                            resolvedPayload,
+                            outcome,
+                            dispatchMessageArrived,
+                        )
+                    },
+                )
+            ) {
+                PushRuntime.observeNotificationEvent(
+                    packageName = targetPackage,
+                    action = "extension_notification_intercepted",
+                    source = "MyMIPushNotificationHelper.doNotifyPushMessage",
+                )
                 return MockReplayOutcome.Dispatched
             }
-            val focusParam = focusParamForSortFilter(metaInfo)
-            if (NotificationSortFilter.shouldFilter(context, focusParam, container.packageName, notificationId)) {
-                logD("skip focus-filtered notification pkg=${container.packageName} action=${container.action} messageId=$messageId")
-                PushRuntime.observeNotificationEvent(
-                    packageName = container.packageName,
-                    action = "focus_filter_drop",
-                    source = "MyMIPushNotificationHelper.doNotifyPushMessage"
-                )
-                return MockReplayOutcome.BlockedByPermission
+            // Stock 7.4.67-C t0 publishes without consulting com.xiaomi.push.sort; that filter is
+            // owned by notification collection. The old pre-publish check turned collection state
+            // into a user-visible delivery block, so publishing must remain independent here.
+            return finishNotificationDispatch(
+                context,
+                container,
+                decryptedContent,
+                postNotification(context, container, decryptedContent),
+                dispatchMessageArrived,
+            )
+        }
+
+        private fun finishNotificationDispatch(
+            context: Context,
+            container: XmPushActionContainer,
+            decryptedContent: ByteArray,
+            outcome: MockReplayOutcome,
+            dispatchMessageArrived: Boolean,
+        ): MockReplayOutcome {
+            if (dispatchMessageArrived) {
+                dispatchMessageArrivedIfNeeded(context, container, decryptedContent)
             }
+            return outcome
+        }
+
+        private fun postNotification(
+            context: Context,
+            container: XmPushActionContainer,
+            decryptedContent: ByteArray,
+        ): MockReplayOutcome {
+            val metaInfo = container.metaInfo ?: return MockReplayOutcome.Failed
+            val targetPackage = MIPushNotificationHelper.getTargetPackage(container)
+            val messageId = MessageIdentity.fromContainer(container)
+            val notificationId = getNotificationId(container)
             val result = getNotificationFor(context, container, decryptedContent, notificationId)
             logD(
-                "doNotifyPushMessage publish start pkg=${container.packageName} action=${container.action} " +
+                "doNotifyPushMessage publish start pkg=$targetPackage action=${container.action} " +
                     "messageId=$messageId notificationId=${result.notificationId}"
             )
             val posted = NotificationController.publish(
                 context,
                 metaInfo,
                 result.notificationId,
-                container.packageName,
+                targetPackage,
                 result.notificationBuilder
             )
             return if (posted) MockReplayOutcome.Posted else MockReplayOutcome.Failed
@@ -494,14 +732,25 @@ class MyMIPushNotificationHelper {
             notificationId: Int
         ): NotificationInfo {
             val metaInfo = container.metaInfo
-            val packageName = container.packageName
+            val packageName = MIPushNotificationHelper.getTargetPackage(container)
 
             val pkgCtx = XMPushUtils.getPackageContext(context, packageName)
             val message = MyMIPushNotificationStyleSupport.createMessage(context, container, pkgCtx)
             val custom = XMPushUtils.getConfiguration(metaInfo)
             val useMessagingStyle = message != null && custom.useMessagingStyle(false)
 
-            val group = getGroupName(context, container)
+            val sourceGroup = getSourceGroup(metaInfo)
+            // Stock 7.4.67-C t0 keeps delegated notifications under the target package's
+            // default group. Only a non-MIUI payload that explicitly disables that default
+            // retains its source group, so use the same identity before click/group handling.
+            val group = resolveStockGroup(
+                targetPackage = packageName,
+                sourceGroup = sourceGroup,
+                disableDefault = metaInfo.extra
+                    ?.get(NOTIFICATION_GROUP_DISABLE_DEFAULT)
+                    ?.toBoolean() == true,
+                isMiui = MIUIUtils.isMIUI(),
+            )
             val intentExtra = Intent()
             intentExtra.putExtra(Constants.INTENT_NOTIFICATION_ID, notificationId)
             intentExtra.putExtra(Constants.INTENT_NOTIFICATION_GROUP, group)
@@ -516,7 +765,7 @@ class MyMIPushNotificationHelper {
 
             val voipBuilder = if (VoipNotificationHelper.isVoipNotification(metaInfo)) {
                 VoipNotificationHelper.buildVoipNotification(
-                    context, container, metaInfo, notificationId, localPendingIntent
+                    context, packageName, metaInfo, notificationId, localPendingIntent
                 )
             } else null
 
@@ -542,9 +791,26 @@ class MyMIPushNotificationHelper {
                 )
             }
 
-            notificationBuilder.setWhen(metaInfo.messageTs)
-            notificationBuilder.setShowWhen(true)
-            notificationBuilder.setGroup(group)
+            StockNotificationPresentationBridge.apply(metaInfo, notificationBuilder)
+
+            if (MIUIUtils.isMIUI()) {
+                // Stock 7.4.67-C t0 writes these fields into each MIUI notification so
+                // active-notification clear and reporting can identify delegated records.
+                // This custom builder bypasses t0, so it must restore that metadata here.
+                val stockExtras = Bundle().apply {
+                    buildStockMiuiIdentityExtras(container, packageName).forEach(::putString)
+                }
+                notificationBuilder.addExtras(stockExtras)
+            }
+            AndroidWGroupStrategy.applyIfEligible(context, sourceGroup, notificationBuilder.extras)
+            val effectiveGroup = group?.let {
+                NotificationGroupHelper.maskGroup(context, notificationBuilder.extras, it)
+            }
+
+            notificationBuilder.setGroup(effectiveGroup)
+            notificationBuilder.setGroupSummary(
+                metaInfo.extra?.get(NOTIFICATION_IS_SUMMARY)?.toBoolean() == true
+            )
 
             if (localPendingIntent != null) {
                 notificationBuilder.setContentIntent(localPendingIntent)
@@ -561,83 +827,75 @@ class MyMIPushNotificationHelper {
         @JvmStatic
         fun getNotificationId(container: XmPushActionContainer): Int {
             val packageName = MIPushNotificationHelper.getTargetPackage(container)
-            val metaInfo = container.metaInfo ?: return "${packageName}_0".hashCode()
+            val metaInfo = container.metaInfo
             val messageId = MessageIdentity.fromContainer(container)
             val isMockReplay = MockMessageRegistry.isMarked(container)
-            val stableId = shouldUseStableNotifyId(container)
-            
-            val focusParam = XMPushUtils.getConfiguration(metaInfo).focusParam(null)
-            val orderId = extractOrderId(focusParam)
-
-            val id = when {
-                isMockReplay -> mockReplayNotificationIdentity(messageId, metaInfo)
-                orderId != null -> orderId
-                stableId -> metaInfo.notifyId.toString()
-                !messageId.isNullOrEmpty() -> messageId
-                !metaInfo.id.isNullOrEmpty() -> metaInfo.id
-                metaInfo.isSetNotifyId() -> metaInfo.notifyId.toString()
-                else -> "0"
+            if (isMockReplay && metaInfo != null) {
+                val sourceId = metaInfo.extra?.get(MockMessageRegistry.EXTRA_MOCK_REPLAY_SOURCE_ID)
+                    ?.takeIf { it.isNotBlank() }
+                    ?: messageId?.takeIf { it.isNotBlank() }
+                    ?: metaInfo.id?.takeIf { it.isNotBlank() }
+                    ?: metaInfo.notifyId.toString()
+                return "${packageName}_mock_replay:$sourceId".hashCode()
             }
-            val result = "${packageName}_$id".hashCode()
-            logD("getNotificationId pkg=$packageName id=$id stableId=$stableId mockReplay=$isMockReplay messageId=$messageId notifyId=${metaInfo.notifyId} metaInfoId=${metaInfo.id} orderId=$orderId result=$result")
+            val notifyId = metaInfo?.notifyId ?: 0
+            val result = (packageName.hashCode() / 10) * 10 + notifyId
+            logD("getNotificationId pkg=$packageName notifyId=$notifyId mockReplay=$isMockReplay messageId=$messageId result=$result")
             return result
         }
 
-        private fun extractOrderId(focusParam: String?): String? {
-            if (focusParam == null) return null
-            return Regex(""""orderId"\s*:\s*"([^"]+)"""").find(focusParam)?.groupValues?.get(1)
-        }
-
-        private fun mockReplayNotificationIdentity(messageId: String?, metaInfo: PushMetaInfo): String {
-            val sourceId = metaInfo.extra?.get(MockMessageRegistry.EXTRA_MOCK_REPLAY_SOURCE_ID)
-                ?.takeIf { it.isNotBlank() }
-                ?: messageId?.takeIf { it.isNotBlank() }
-                ?: metaInfo.id?.takeIf { it.isNotBlank() }
-                ?: metaInfo.notifyId.toString()
-            return "mock_replay:$sourceId"
-        }
-
-        private fun shouldUseStableNotifyId(container: XmPushActionContainer): Boolean {
-            val metaInfo = container.metaInfo ?: return false
-            if (!metaInfo.isSetNotifyId()) {
-                return false
-            }
-            if (VoipNotificationHelper.isVoipNotification(metaInfo) || VoipNotificationHelper.isVoipEndEvent(metaInfo)) {
-                return true
-            }
-            if (XMPushUtils.getConfiguration(metaInfo).focusParam(null) != null) {
-                return true
-            }
-            return LiveUpdateDetector.isPotentialLiveUpdate(metaInfo)
-        }
-
-        internal fun focusParamForSortFilter(metaInfo: PushMetaInfo): String? {
-            return XMPushUtils.getConfiguration(metaInfo).focusParam(null)
-        }
+        @JvmStatic
+        fun getNotificationTag(packageName: String): String? = null
 
         @JvmStatic
-        fun getNotificationTag(packageName: String): String {
-            return "mipush_$packageName"
-        }
-
-        @JvmStatic
-        fun getNotificationTag(container: XmPushActionContainer): String {
+        fun getNotificationTag(container: XmPushActionContainer): String? {
             return getNotificationTag(container.packageName)
         }
 
-        private fun getGroupName(xmPushService: Context, buildContainer: XmPushActionContainer): String {
-            val metaInfo = buildContainer.metaInfo
-            val packageName = buildContainer.packageName
-            val configuration = XMPushUtils.getConfiguration(metaInfo)
-            var group = configuration.notificationGroup(null)
-            group = if (group != null) {
-                "${packageName}_${GROUP_TYPE_MIPUSH_GROUP}_$group"
-            } else if (metaInfo.passThrough == 1) {
-                "${packageName}_${GROUP_TYPE_PASS_THROUGH}"
-            } else {
-                packageName
+        internal fun resolveStockGroup(
+            targetPackage: String,
+            sourceGroup: String?,
+            disableDefault: Boolean,
+            isMiui: Boolean,
+        ): String? {
+            val group = sourceGroup?.takeIf { it.isNotBlank() } ?: return null
+            return if (!isMiui && disableDefault) group else targetPackage
+        }
+
+        internal fun shouldSkipForceGroup(sourceGroup: String?, strategy: Int): Boolean {
+            return AndroidWGroupStrategy.shouldSkipForceGroup(sourceGroup, strategy)
+        }
+
+        internal fun buildStockMiuiIdentityExtras(
+            container: XmPushActionContainer,
+            targetPackage: String = MIPushNotificationHelper.getTargetPackage(container),
+        ): Map<String, String> {
+            val metaInfo = container.metaInfo
+            val messageType = when {
+                MIPushNotificationHelper.isNormalNotificationMessage(container) -> 1000
+                MIPushNotificationHelper.isBusinessMessage(container) -> 3000
+                else -> -1
             }
-            return group
+            return buildStockMiuiIdentityExtras(targetPackage, metaInfo?.id, messageType)
+        }
+
+        internal fun buildStockMiuiIdentityExtras(
+            targetPackage: String,
+            messageId: String?,
+            eventMessageType: Int,
+        ): Map<String, String> {
+            val extras = linkedMapOf(
+                MIPushNotificationHelper.NOTIFICATION_EXTRA_TARGET_PACKAGE_STRING to targetPackage,
+            )
+            messageId?.takeIf(String::isNotEmpty)?.let { extras[NOTIFICATION_MESSAGE_ID] = it }
+            extras[ReportConstants.EVENT_MESSAGE_TYPE] = eventMessageType.toString()
+            return extras
+        }
+
+        private fun getSourceGroup(metaInfo: PushMetaInfo): String? {
+            return XMPushUtils.getConfiguration(metaInfo)
+                .notificationGroup(null)
+                ?.takeIf { it.isNotBlank() }
         }
 
         @JvmStatic

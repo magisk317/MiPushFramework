@@ -114,11 +114,11 @@ object NotificationManagerEx {
         packageName: String,
         activeNotifications: Array<StatusBarNotification>
     ): Array<StatusBarNotification?> {
-        if (!MIUIUtils.isMIUI()) {
-            return activeNotifications.map { it as StatusBarNotification? }.toTypedArray()
-        }
-        return activeNotifications
-            .filter { packageName == NotificationUtils.getTargetPackage(it.notification) }
+        // Stock 7.4.67-C g1.h scopes local XMSF records by target_package on every ROM.
+        // The old non-MIUI bypass returned all delegated posts and made package-specific
+        // clear unsafe once focus notifications began falling back to native live updates.
+        return NotificationManagerPlatformSupport
+            .filterLocalActiveNotifications(packageName, activeNotifications)
             .map { it as StatusBarNotification? }
             .toTypedArray()
     }

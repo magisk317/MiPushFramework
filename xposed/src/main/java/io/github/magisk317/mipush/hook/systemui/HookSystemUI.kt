@@ -13,7 +13,7 @@ import android.os.Build
 import android.service.notification.StatusBarNotification
 import android.view.View
 import android.widget.ImageView
-import io.github.magisk317.mipush.common.notification.SinglePackageNotificationGroupPolicy
+import io.github.magisk317.mipush.common.notification.NotificationOwnerResolver
 import io.github.magisk317.mipush.common.notification.StatusBarMonochromeIconPolicy
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.island.IslandPreferences
@@ -45,8 +45,6 @@ class HookSystemUI : BaseHook() {
         val classLoader = param.classLoader
         XLog.i(TAG, "HookSystemUI.hook() called")
         MiuiHeaderAppIconHook().hook(classLoader)
-        MiPushFocusStatusBarIconHook().hook(classLoader)
-        GroupCoalescerRankingSafetyHook().hook(classLoader)
         hookGlobalStatusBarIconTint(classLoader)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -74,7 +72,7 @@ class HookSystemUI : BaseHook() {
                         val (iconType, resId, resPackage) = readIconResourceFields(smallIcon)
                         val isSystemApp = isSystemApplication(context, sbn.packageName)
                         val canColorize = notification.canColorize()
-                        val owner = SinglePackageNotificationGroupPolicy.resolveGroupOwnerPackage(
+                        val owner = NotificationOwnerResolver.resolve(
                             sbn.packageName,
                             notification.extras,
                         )

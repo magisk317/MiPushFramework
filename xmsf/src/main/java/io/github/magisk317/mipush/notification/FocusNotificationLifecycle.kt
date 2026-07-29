@@ -1,28 +1,20 @@
 package io.github.magisk317.mipush.notification
 
 import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Build
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
 
 /**
- * Single exit path for MIUI focus / Live Update notifications.
+ * Single programmatic cancellation path for MIUI focus and native Live Update notifications.
+ * SystemUI owns its focus snapshot; this class only removes the real notification identity.
  *
- * HyperOS AOD keeps rendering focus cards while [FocusNotificationRegistry] still lists the key in
- * Settings.Secure `updatable_focus_notifs`, even after the shade row and island chip are gone.
- * DeleteIntent previously only recorded [NotificationSortFilter.onFocusDeleted] (blocks reopen for
- * 24h) and never unregistered that secure list — matching "island/shade gone, AOD stuck for hours,
- * no re-post".
+ * Stock 7.4.67-C `com.xiaomi.push.sort.c/d` learns user removals from
+ * `NotificationListenerService`, not from notification `deleteIntent` callbacks. The old
+ * `recordDeleted` branch was removed because it mixed cancellation with collection state and
+ * could suppress a later user-visible push.
  */
 object FocusNotificationLifecycle {
     private const val TAG = "FocusNotificationLifecycle"
-
-    @JvmStatic
-    fun focusKey(context: Context, packageName: String, notificationId: Int, tag: String?): String {
-        val uid = resolveUid(context, packageName)
-        return "0|$packageName|$notificationId|$tag|$uid"
-    }
 
     @JvmStatic
     fun end(
@@ -31,11 +23,9 @@ object FocusNotificationLifecycle {
         notificationId: Int,
         tag: String? = MyMIPushNotificationHelper.getNotificationTag(packageName),
         cancelNotification: Boolean = true,
-        recordDeleted: Boolean = true,
-        unregisterFocus: Boolean = true,
     ) {
         val appContext = context.applicationContext ?: context
-        val resolvedTag = tag ?: MyMIPushNotificationHelper.getNotificationTag(packageName)
+        val resolvedTag = tag
         if (cancelNotification) {
             runCatching {
                 NotificationManagerEx.cancel(packageName, resolvedTag, notificationId)
@@ -48,33 +38,6 @@ object FocusNotificationLifecycle {
             }.onFailure {
                 Napier.w("focus end local cancel failed pkg=$packageName id=$notificationId: ${it.message}", it, tag = TAG)
             }
-        }
-        if (unregisterFocus) {
-            val key = focusKey(appContext, packageName, notificationId, resolvedTag)
-            val ok = FocusNotificationRegistry.unregisterAllUidVariants(appContext, key)
-            Napier.d(
-                "focus end unregister key=$key ok=$ok pkg=$packageName id=$notificationId tag=$resolvedTag",
-                tag = TAG,
-            )
-        }
-        if (recordDeleted) {
-            NotificationSortFilter.onFocusDeleted(appContext, packageName, notificationId)
-        }
-    }
-
-    private fun resolveUid(context: Context, packageName: String): Int {
-        return runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.packageManager.getApplicationInfo(
-                    packageName,
-                    PackageManager.ApplicationInfoFlags.of(0),
-                ).uid
-            } else {
-                @Suppress("DEPRECATION")
-                context.packageManager.getApplicationInfo(packageName, 0).uid
-            }
-        }.getOrElse {
-            if (packageName == context.packageName) android.os.Process.myUid() else 0
         }
     }
 }
