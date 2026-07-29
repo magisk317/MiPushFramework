@@ -3,7 +3,12 @@ package io.github.magisk317.mipush.common.notification
 import android.os.Bundle
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
+import org.robolectric.annotation.Config
+import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
+@ExtendWith(RobolectricExtension::class)
+@Config(sdk = [28])
 class NotificationOwnerResolverTest {
     @Test
     fun `delegated notification resolves target package without changing notification semantics`() {
