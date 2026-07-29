@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.feature.main.subpage.ApplicationPageOperation
+import io.github.magisk317.mipush.feature.main.subpage.ApplicationListLoadOutcome
 import io.github.magisk317.mipush.feature.main.subpage.ApplicationStats
 import io.github.magisk317.mipush.feature.main.subpage.toApplicationStats
 import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
@@ -50,8 +51,16 @@ class OverviewViewModel constructor(
                 val result = withContext(Dispatchers.IO) {
                     applicationPageOperation.getMiPushApplicationsThatQueryMatched(query = "", filterMode = 0)
                 }
-                _stats.value = result.toApplicationStats()
-                statsLoaded = true
+                when (result) {
+                    is ApplicationListLoadOutcome.Ready -> {
+                        _stats.value = result.applications.toApplicationStats()
+                        statsLoaded = true
+                    }
+                    is ApplicationListLoadOutcome.Unavailable -> {
+                        statsLoaded = false
+                        logW("loadStats unavailable status=${result.status}")
+                    }
+                }
             } catch (error: RuntimeReadUnavailableException) {
                 logW("loadStats unavailable op=${error.operation} status=${error.status}")
             } catch (error: Exception) {

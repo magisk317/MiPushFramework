@@ -28,6 +28,7 @@ import io.github.magisk317.mipush.manager.remote.RemoteManagerRuntimeActions
 import io.github.magisk317.mipush.manager.remote.RemoteZygiskConfigGateway
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
+import io.github.magisk317.mipush.manager.root.ManagerRootAccess
 
 /**
  * Host-side dependencies for the standalone `:mipush` manager process.
@@ -57,6 +58,7 @@ val managerRemoteHostModule = module {
     single<ManagerLogGateway> { RemoteManagerLogGateway(client = get(), appContext = androidContext()) }
     single<ManagerConfigGateway> { RemoteManagerConfigGateway(get(), get()) }
     single<ManagerRuntimeActions> { RemoteManagerRuntimeActions(get()) }
-    single<ManagerPermissionGateway> { RemoteManagerPermissionGateway(get()) }
+    single { ManagerRootAccess() }
+    single<ManagerPermissionGateway> { RemoteManagerPermissionGateway(get(), get()) }
     single<ZygiskConfigGateway> { RemoteZygiskConfigGateway(get()) }
 }

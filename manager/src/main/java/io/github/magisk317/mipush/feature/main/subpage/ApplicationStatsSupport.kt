@@ -29,6 +29,8 @@ suspend fun loadApplicationStats(
     applicationSource: RemoteApplicationListSource,
 ): ApplicationStats = withContext(Dispatchers.IO) {
     val operation = ApplicationPageOperation(applicationSource)
-    val applications = operation.getMiPushApplicationsThatQueryMatched(query = "", filterMode = 0)
-    applications.toApplicationStats()
+    when (val result = operation.getMiPushApplicationsThatQueryMatched(query = "", filterMode = 0)) {
+        is ApplicationListLoadOutcome.Ready -> result.applications.toApplicationStats()
+        is ApplicationListLoadOutcome.Unavailable -> ApplicationStats()
+    }
 }

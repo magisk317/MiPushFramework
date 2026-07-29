@@ -13,7 +13,7 @@ import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
-import io.github.magisk317.mipush.common.SENSITIVE_DEBUG_LOG_MODE_KEY
+import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
 
 /**
  * Classifies every preference key owned by the current shared DataStore so the manager/runtime
@@ -40,9 +40,9 @@ object PreferenceOwnership {
         PreferenceOwnershipEntry("access_mode", PreferenceOwner.RUNTIME, "Push access mode"),
         PreferenceOwnershipEntry("debug_mode", PreferenceOwner.RUNTIME, "Runtime debug mode"),
         PreferenceOwnershipEntry(
-            SENSITIVE_DEBUG_LOG_MODE_KEY,
+            LOG_SANITIZATION_ENABLED_KEY,
             PreferenceOwner.RUNTIME,
-            "Sensitive runtime debug logging",
+            "Runtime log sanitization",
         ),
         PreferenceOwnershipEntry("show_all_events", PreferenceOwner.RUNTIME, "Event type filter policy"),
         PreferenceOwnershipEntry("start_foreground", PreferenceOwner.RUNTIME, "Foreground service start"),

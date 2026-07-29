@@ -242,10 +242,10 @@ open class MiPushFrameworkApp : Application() {
         LegacyLoggerBridge.setDebugLoggingEnabled(initialDebugMode)
         LogUtils.setMinLogLevel(if (initialDebugMode) LogLevel.VERBOSE else LogLevel.INFO)
         HookTrace.enabled = initialDebugMode
-        val initialSensitiveDebugLog = runCatching {
-            runBlocking { preferenceRepository.isSensitiveDebugLogMode.first() }
+        val initialLogSanitization = runCatching {
+            runBlocking { preferenceRepository.isLogSanitizationEnabled.first() }
         }.getOrNull()
-        LogSanitizerConfig.syncSensitiveDebugMode(initialSensitiveDebugLog)
+        LogSanitizerConfig.syncSanitizationEnabled(initialLogSanitization)
         // 收集后续变更，确保设置页开关拨动后实时生效
         applicationScope.launch {
             preferenceRepository.isDebugMode.collect { enabled ->
@@ -255,9 +255,9 @@ open class MiPushFrameworkApp : Application() {
             }
         }
         applicationScope.launch {
-            preferenceRepository.isSensitiveDebugLogMode
-                .catch { LogSanitizerConfig.syncSensitiveDebugMode(null) }
-                .collect { LogSanitizerConfig.syncSensitiveDebugMode(it) }
+            preferenceRepository.isLogSanitizationEnabled
+                .catch { LogSanitizerConfig.syncSanitizationEnabled(null) }
+                .collect { LogSanitizerConfig.syncSanitizationEnabled(it) }
         }
         logI("App starts: $VERSION_NAME, debugMode=$initialDebugMode")
     }

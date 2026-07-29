@@ -23,7 +23,7 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
 import io.github.magisk317.mipush.common.DUAL_APP_ENABLED_KEY
-import io.github.magisk317.mipush.common.SENSITIVE_DEBUG_LOG_MODE_KEY
+import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
 import io.github.magisk317.mipush.common.ENABLE_ANALYTICS_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import io.github.magisk317.mipush.common.utils.Utils
@@ -43,7 +43,7 @@ data class IslandSettingsSnapshot(
     val colorStatusBarIcon: Boolean,
     val colorStatusBarIconGlobal: Boolean,
     val dualAppEnabled: Boolean,
-    val sensitiveDebugLogMode: Boolean,
+    val logSanitizationEnabled: Boolean,
 )
 
 data class OwnedPreferenceValue(
@@ -65,7 +65,7 @@ class PreferenceRepository constructor(
     private val XMPP_SERVER = stringPreferencesKey("xmpp_server")
     private val CONFIG_DIRECTORY = stringPreferencesKey("config_directory")
     private val DEBUG_MODE = booleanPreferencesKey("debug_mode")
-    private val SENSITIVE_DEBUG_LOG_MODE = booleanPreferencesKey(SENSITIVE_DEBUG_LOG_MODE_KEY)
+    private val LOG_SANITIZATION_ENABLED = booleanPreferencesKey(LOG_SANITIZATION_ENABLED_KEY)
     private val ENABLE_ANALYTICS = booleanPreferencesKey(ENABLE_ANALYTICS_KEY)
     private val SHOW_ALL_EVENTS = booleanPreferencesKey("show_all_events")
     private val START_FOREGROUND = booleanPreferencesKey("start_foreground")
@@ -107,7 +107,7 @@ class PreferenceRepository constructor(
     val xmppServer: Flow<String?> = dataStore.data.map { it[XMPP_SERVER] }
     val configDirectory: Flow<String?> = dataStore.data.map { it[CONFIG_DIRECTORY] }
     val isDebugMode: Flow<Boolean> = dataStore.data.map { it[DEBUG_MODE] ?: false }
-    val isSensitiveDebugLogMode: Flow<Boolean> = dataStore.data.map { it[SENSITIVE_DEBUG_LOG_MODE] ?: false }
+    val isLogSanitizationEnabled: Flow<Boolean> = dataStore.data.map { it[LOG_SANITIZATION_ENABLED] ?: false }
     val isAnalyticsEnabled: Flow<Boolean> = dataStore.data.map { it[ENABLE_ANALYTICS] ?: true }
     val isShowAllEvents: Flow<Boolean> = dataStore.data.map { it[SHOW_ALL_EVENTS] ?: false }
     val isStartForeground: Flow<Boolean> = dataStore.data.map { it[START_FOREGROUND] ?: true }
@@ -161,7 +161,7 @@ class PreferenceRepository constructor(
     }
 
     val debugMode: Flow<Boolean> = isDebugMode
-    val sensitiveDebugLogMode: Flow<Boolean> = isSensitiveDebugLogMode
+    val logSanitizationEnabled: Flow<Boolean> = isLogSanitizationEnabled
     val analyticsEnabled: Flow<Boolean> = isAnalyticsEnabled
     val showAllEvents: Flow<Boolean> = isShowAllEvents
 
@@ -178,7 +178,7 @@ class PreferenceRepository constructor(
             colorStatusBarIcon = preferences[COLOR_STATUS_BAR_ICON] ?: false,
             colorStatusBarIconGlobal = preferences[COLOR_STATUS_BAR_ICON_GLOBAL] ?: false,
             dualAppEnabled = preferences[DUAL_APP_ENABLED] ?: false,
-            sensitiveDebugLogMode = preferences[SENSITIVE_DEBUG_LOG_MODE] ?: false,
+            logSanitizationEnabled = preferences[LOG_SANITIZATION_ENABLED] ?: false,
         )
     }
 
@@ -191,8 +191,8 @@ class PreferenceRepository constructor(
         dataStore.edit { it[DEBUG_MODE] = debug }
     }
 
-    suspend fun setSensitiveDebugLogMode(enabled: Boolean) {
-        dataStore.edit { it[SENSITIVE_DEBUG_LOG_MODE] = enabled }
+    suspend fun setLogSanitizationEnabled(enabled: Boolean) {
+        dataStore.edit { it[LOG_SANITIZATION_ENABLED] = enabled }
     }
 
     suspend fun setAnalyticsEnabled(enabled: Boolean) {

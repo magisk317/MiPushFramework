@@ -40,8 +40,8 @@ const val COLOR_STATUS_BAR_ICON_GLOBAL_KEY = "pref_color_status_bar_icon_global"
 const val DUAL_APP_ENABLED_KEY = "dual_app_enabled"
 const val ACTION_PREF_CHANGED = "io.github.magisk317.mipush.action.PREF_CHANGED"
 
-/** When true, disable deep log sanitization (plaintext secrets for debug). Default false. */
-const val SENSITIVE_DEBUG_LOG_MODE_KEY = "pref_sensitive_debug_log_mode"
+/** When true, sanitize sensitive runtime log content. Default false. */
+const val LOG_SANITIZATION_ENABLED_KEY = "pref_log_sanitization_enabled"
 const val ENABLE_ANALYTICS_KEY = "pref_enable_analytics"
 
 @Suppress("MaxLineLength")

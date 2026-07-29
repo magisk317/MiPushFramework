@@ -7,6 +7,7 @@ import io.github.magisk317.mipush.common.fakedevice.ZygiskPackagePolicy
 import io.github.magisk317.mipush.common.manager.ManagerApplication
 import io.github.magisk317.mipush.common.manager.ManagerApplicationDiagnostics
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
+import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.application.RemoteApplicationDetailSource
 import io.github.magisk317.mipush.manager.notification.RemoteNotificationChannelSource
@@ -66,6 +67,7 @@ class ApplicationInfoViewModel constructor(
     private val applicationSource: RemoteApplicationDetailSource,
     private val notificationChannelSource: RemoteNotificationChannelSource,
     private val settingsManager: SettingsManager,
+    private val permissionGateway: ManagerPermissionGateway,
     private val context: Context,
 ) : ViewModel() {
 
@@ -104,6 +106,8 @@ class ApplicationInfoViewModel constructor(
                 return@launch
             }
             val enabled = withContext(Dispatchers.IO) {
+                // Magisk needs an interactive grant; request before reading zygisk config.
+                permissionGateway.requestRootAccess()
                 settingsManager.isZygiskSpoofEnabled(packageName)
             }
             _isZygiskEnabledForApp.value = enabled
@@ -116,6 +120,8 @@ class ApplicationInfoViewModel constructor(
         if (current.blocked || !ZygiskPackagePolicy.isManagedPackage(packageName)) return
         viewModelScope.launch {
             val success = withContext(Dispatchers.IO) {
+                // Magisk cannot pre-grant like KernelSU; request root before writing config.
+                permissionGateway.requestRootAccess()
                 settingsManager.setZygiskSpoofEnabled(packageName, enabled)
             }
             if (success) {

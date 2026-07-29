@@ -14,7 +14,7 @@ class IslandOptionsSnapshotReaderTest {
                 timeoutSecs = 0,
                 colorStatusBarIcon = true,
                 colorStatusBarIconGlobal = true,
-                sensitiveDebugLogMode = true,
+                logSanitizationEnabled = true,
             ),
             appEnabled = null,
             appFocusNotification = null,
@@ -23,7 +23,7 @@ class IslandOptionsSnapshotReaderTest {
         assertEquals(1, snapshot.options.timeoutSecs)
         assertTrue(snapshot.options.colorStatusBarIcon)
         assertTrue(snapshot.options.colorStatusBarIconGlobal)
-        assertTrue(snapshot.sensitiveDebugLogMode)
+        assertTrue(snapshot.logSanitizationEnabled)
     }
 
     @Test
@@ -91,7 +91,7 @@ class IslandOptionsSnapshotReaderTest {
         colorStatusBarIcon: Boolean = false,
         colorStatusBarIconGlobal: Boolean = false,
         dualAppEnabled: Boolean = false,
-        sensitiveDebugLogMode: Boolean = false,
+        logSanitizationEnabled: Boolean = false,
     ) = IslandSettingsSnapshot(
         enabled = enabled,
         timeoutSecs = timeoutSecs,
@@ -103,6 +103,6 @@ class IslandOptionsSnapshotReaderTest {
         colorStatusBarIcon = colorStatusBarIcon,
         colorStatusBarIconGlobal = colorStatusBarIconGlobal,
         dualAppEnabled = dualAppEnabled,
-        sensitiveDebugLogMode = sensitiveDebugLogMode,
+        logSanitizationEnabled = logSanitizationEnabled,
     )
 }

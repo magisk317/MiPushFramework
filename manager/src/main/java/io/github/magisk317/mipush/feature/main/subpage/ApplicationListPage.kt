@@ -31,6 +31,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -57,6 +58,7 @@ import io.github.aakira.napier.Napier
 import io.github.aakira.napier.DebugAntilog
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.main.viewmodel.ApplicationListViewModel
+import io.github.magisk317.mipush.manager.application.ApplicationReadStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -108,6 +110,7 @@ fun ApplicationList(
     val items by listViewModel.items.collectAsState()
     val itemsInfo by listViewModel.itemsInfo.collectAsState()
     val stats by listViewModel.stats.collectAsState()
+    val unavailableStatus by listViewModel.unavailableStatus.collectAsState()
     val showSystemApps by listViewModel.showSystemApps.collectAsState()
     val context = LocalContext.current
     var showListSettingsSheet by rememberSaveable { mutableStateOf(false) }
@@ -174,6 +177,14 @@ fun ApplicationList(
                     modifier = Modifier.fillMaxSize(),
                     listState = listState,
                 ) {
+                    unavailableStatus?.let { status ->
+                        item(key = "application-list-unavailable") {
+                            ApplicationListUnavailable(
+                                status = status,
+                                onRetry = { isNeedRefresh = true },
+                            )
+                        }
+                    }
                     items(items.res, { it.packageName }) {
                         ApplicationItem(it, onAppClick, itemsInfo)
                     }
@@ -252,6 +263,58 @@ fun ApplicationList(
         }
     }
 }
+
+@Composable
+private fun ApplicationListUnavailable(
+    status: ApplicationReadStatus,
+    onRetry: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = MaterialTheme.spacing.medium, vertical = MaterialTheme.spacing.small)
+            .background(
+                color = MaterialTheme.colorScheme.errorContainer,
+                shape = RoundedCornerShape(16.dp),
+            )
+            .padding(MaterialTheme.spacing.medium),
+    ) {
+        Text(
+            text = stringResource(R.string.app_list_unavailable_title),
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onErrorContainer,
+        )
+        Text(
+            text = applicationListUnavailableMessage(status),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onErrorContainer,
+            modifier = Modifier.padding(top = MaterialTheme.spacing.extraSmall),
+        )
+        TextButton(
+            onClick = onRetry,
+            modifier = Modifier.align(Alignment.End),
+        ) {
+            Text(stringResource(R.string.retry))
+        }
+    }
+}
+
+@Composable
+private fun applicationListUnavailableMessage(status: ApplicationReadStatus): String = stringResource(
+    when (status) {
+        ApplicationReadStatus.RUNTIME_MISSING -> R.string.app_list_unavailable_runtime_missing
+        ApplicationReadStatus.PERMISSION_DENIED -> R.string.app_list_unavailable_permission_denied
+        ApplicationReadStatus.BINDING -> R.string.app_list_unavailable_binding
+        ApplicationReadStatus.INCOMPATIBLE,
+        ApplicationReadStatus.UNSUPPORTED,
+        -> R.string.app_list_unavailable_incompatible
+        ApplicationReadStatus.DISCONNECTED,
+        ApplicationReadStatus.TIMED_OUT,
+        ApplicationReadStatus.TEMPORARILY_DISCONNECTED,
+        -> R.string.app_list_unavailable_disconnected
+        ApplicationReadStatus.FAILED -> R.string.app_list_unavailable_failed
+    },
+)
 
 @Composable
 private fun ApplicationHeaderPills(

@@ -23,7 +23,7 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
 import io.github.magisk317.mipush.common.DUAL_APP_ENABLED_KEY
-import io.github.magisk317.mipush.common.SENSITIVE_DEBUG_LOG_MODE_KEY
+import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.xposed.logging.LogSanitizerConfig
 import io.github.magisk317.xposed.currentApplication
@@ -45,7 +45,7 @@ object IslandPreferences {
         COLOR_STATUS_BAR_ICON_KEY,
         COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
         DUAL_APP_ENABLED_KEY,
-        SENSITIVE_DEBUG_LOG_MODE_KEY,
+        LOG_SANITIZATION_ENABLED_KEY,
     )
 
     @Volatile
@@ -228,8 +228,8 @@ object IslandPreferences {
         }.orEmpty()
 
         // Reuse the single provider query above instead of a second readFlag round-trip.
-        val sensitiveDebug = values.booleanValue(SENSITIVE_DEBUG_LOG_MODE_KEY, false)
-        LogSanitizerConfig.syncSensitiveDebugMode(sensitiveDebug)
+        val logSanitizationEnabled = values.booleanValue(LOG_SANITIZATION_ENABLED_KEY, false)
+        LogSanitizerConfig.syncSanitizationEnabled(logSanitizationEnabled)
 
         IslandOptions(
             enabled = values.booleanValue(ISLAND_PREF_ENABLED, true),
@@ -244,7 +244,7 @@ object IslandPreferences {
             dualAppEnabled = values.booleanValue(DUAL_APP_ENABLED_KEY, false),
         )
     }.onFailure {
-        LogSanitizerConfig.syncSensitiveDebugMode(null)
+        LogSanitizerConfig.syncSanitizationEnabled(null)
     }
 
     private fun Map<String, String>.booleanValue(key: String, default: Boolean): Boolean {

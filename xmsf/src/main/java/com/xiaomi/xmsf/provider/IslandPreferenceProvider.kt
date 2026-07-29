@@ -20,7 +20,7 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
 import io.github.magisk317.mipush.common.DUAL_APP_ENABLED_KEY
-import io.github.magisk317.mipush.common.SENSITIVE_DEBUG_LOG_MODE_KEY
+import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_PATH_FLAGS
 import io.github.magisk317.mipush.common.ISLAND_PREF_READ_PERMISSION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
@@ -56,7 +56,7 @@ class IslandPreferenceProvider : ContentProvider() {
         COLOR_STATUS_BAR_ICON_KEY,
         COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
         DUAL_APP_ENABLED_KEY,
-        SENSITIVE_DEBUG_LOG_MODE_KEY,
+        LOG_SANITIZATION_ENABLED_KEY,
     )
 
     override fun onCreate(): Boolean = true
@@ -93,7 +93,7 @@ class IslandPreferenceProvider : ContentProvider() {
 
         return MatrixCursor(arrayOf(ISLAND_PREF_COLUMN_KEY, ISLAND_PREF_COLUMN_VALUE)).apply {
             val snapshot = IslandOptionsSnapshotReader.read(appContext, packageName)
-            val flags = snapshot.options.toPreferenceFlags(snapshot.sensitiveDebugLogMode)
+            val flags = snapshot.options.toPreferenceFlags(snapshot.logSanitizationEnabled)
             requestedKeys.forEach { key ->
                 addRow(arrayOf(key, flags.getValue(key)))
             }

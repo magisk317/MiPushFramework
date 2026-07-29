@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.manager.di
 
 import io.github.magisk317.mipush.manager.logging.ManagerRuntimeFileLog
+import io.github.magisk317.xposed.logging.LogSanitizerConfig
 
 import android.content.Context
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
@@ -33,6 +34,7 @@ import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSource
 import io.github.magisk317.mipush.manager.migration.ManagerPreferenceMigration
 import io.github.magisk317.mipush.manager.launcher.LauncherIconController
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import io.github.magisk317.mipush.manager.connection.RemoteConnectionSnapshotSource
 import kotlinx.coroutines.CoroutineScope
@@ -86,10 +88,10 @@ val managerKoinModule = module {
             get<ManagerRuntimeClient>(),
         )
     }
-    viewModel { ZygiskConfigViewModel(get<SettingsManager>(), get<RemoteApplicationListSource>()) }
+    viewModel { ZygiskConfigViewModel(get<SettingsManager>(), get<RemoteApplicationListSource>(), get()) }
     viewModel { ConfigManagerViewModel(get(), get(), get(), androidContext(), get()) }
     viewModel { ConfigEditorViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidContext()) }
-    viewModel { ApplicationInfoViewModel(get(), get(), get(), get(), androidContext()) }
+    viewModel { ApplicationInfoViewModel(get(), get(), get(), get(), get(), androidContext()) }
     viewModel { OverviewViewModel(get<RemoteApplicationListSource>(), get<ManagerRuntimeClient>()) }
     viewModel { ConnectionStatusViewModel(get<ConnectionSnapshotSource>()) }
     viewModel {
@@ -107,6 +109,9 @@ val managerKoinModule = module {
 object ManagerDependencies {
     @Volatile
     private var modulesLoaded = false
+
+    @Volatile
+    private var logSanitizationSyncStarted = false
 
     /**
      * Preferred entry for manager UI surfaces. Always boots the remote-host Koin graph.
@@ -140,6 +145,14 @@ object ManagerDependencies {
         }
         val koin = GlobalContext.get()
         val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        if (!logSanitizationSyncStarted) {
+            logSanitizationSyncStarted = true
+            appScope.launch {
+                koin.get<PreferenceRepository>().isLogSanitizationEnabled
+                    .catch { LogSanitizerConfig.syncSanitizationEnabled(null) }
+                    .collect { LogSanitizerConfig.syncSanitizationEnabled(it) }
+            }
+        }
         ManagerPreferenceMigration.schedule(
             scope = appScope,
             client = koin.get(),

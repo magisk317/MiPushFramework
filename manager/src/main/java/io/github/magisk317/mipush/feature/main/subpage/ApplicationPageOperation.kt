@@ -4,14 +4,17 @@ import io.github.magisk317.mipush.common.manager.ManagerApplication
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.manager.application.ApplicationListRequest
 import io.github.magisk317.mipush.manager.application.ApplicationListSnapshot
+import io.github.magisk317.mipush.manager.application.ApplicationListStats
 import io.github.magisk317.mipush.manager.application.ApplicationReadResult
+import io.github.magisk317.mipush.manager.application.ApplicationReadStatus
 import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
+import io.github.magisk317.mipush.common.manager.ManagerApplications
 import kotlinx.coroutines.runBlocking
 
 class ApplicationPageOperation(
     private val applicationSource: RemoteApplicationListSource,
 ) {
-    fun getMiPushApplications(includeSystemApps: Boolean = false): MiPushApplications {
+    fun getMiPushApplications(includeSystemApps: Boolean = false): ApplicationListLoadOutcome {
         return getMiPushApplications(query = "", filterMode = 0, includeSystemApps = includeSystemApps)
     }
 
@@ -19,7 +22,7 @@ class ApplicationPageOperation(
         query: String,
         filterMode: Int = 0,
         includeSystemApps: Boolean = false,
-    ): MiPushApplications {
+    ): ApplicationListLoadOutcome {
         return getMiPushApplications(query, filterMode, includeSystemApps)
     }
 
@@ -30,33 +33,29 @@ class ApplicationPageOperation(
         query: String,
         filterMode: Int,
         includeSystemApps: Boolean = false,
-    ): MiPushApplications {
+    ): ApplicationListLoadOutcome {
         val result = runBlocking {
             applicationSource.load(ApplicationListRequest(query, filterMode, includeSystemApps))
         }
-        val snapshot = when (result) {
-            is ApplicationReadResult.Available -> result.value
-            is ApplicationReadResult.Unavailable -> ApplicationListSnapshot(
-                applications = io.github.magisk317.mipush.common.manager.ManagerApplications(
-                    registeredPkgs = emptyMap(),
-                    items = emptyList(),
-                    totalPkg = 0,
-                ),
-                stats = io.github.magisk317.mipush.manager.application.ApplicationListStats(
-                    total = 0,
-                    usingMiPush = 0,
-                    notUsingMiPush = 0,
-                    registered = 0,
-                    notRegistered = 0,
-                ),
-            )
-        }
-        return MiPushApplications().apply {
-            registeredPkgs.putAll(snapshot.applications.registeredPkgs)
-            res = snapshot.applications.items.toMutableList()
-            totalPkg = snapshot.applications.totalPkg
+        return when (result) {
+            is ApplicationReadResult.Available -> {
+                val snapshot = result.value
+                ApplicationListLoadOutcome.Ready(
+                    applications = snapshot.toMiPushApplications(),
+                    stats = snapshot.stats,
+                )
+            }
+            is ApplicationReadResult.Unavailable ->
+                ApplicationListLoadOutcome.Unavailable(result.status)
         }
     }
+
+    private fun ApplicationListSnapshot.toMiPushApplications(): MiPushApplications =
+        MiPushApplications().apply {
+            registeredPkgs.putAll(applications.registeredPkgs)
+            res = applications.items.toMutableList()
+            totalPkg = applications.totalPkg
+        }
 
     class MiPushApplications {
         @JvmField
@@ -68,4 +67,15 @@ class ApplicationPageOperation(
         @JvmField
         var totalPkg: Int = 0
     }
+}
+
+sealed interface ApplicationListLoadOutcome {
+    data class Ready(
+        val applications: ApplicationPageOperation.MiPushApplications,
+        val stats: ApplicationListStats,
+    ) : ApplicationListLoadOutcome
+
+    data class Unavailable(
+        val status: ApplicationReadStatus,
+    ) : ApplicationListLoadOutcome
 }

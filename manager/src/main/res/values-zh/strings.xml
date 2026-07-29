@@ -74,8 +74,8 @@
     <string name="debug_test_content">这是%1$s测试内容</string>
     <string name="settings_debug_mode">启用调试模式</string>
     <string name="settings_debug_mode_summary">通知中展示调试动作，打印完整日志</string>
-    <string name="settings_sensitive_debug_log_mode">敏感调试日志</string>
-    <string name="settings_sensitive_debug_log_mode_summary">开启后日志可能输出 token、regId、设备标识等明文。默认关闭（脱敏）。</string>
+    <string name="settings_log_sanitization">日志脱敏</string>
+    <string name="settings_log_sanitization_summary">开启后隐藏 token、regId、设备标识等敏感内容。默认关闭。</string>
     <string name="settings_show_all_events">事件列表中展示所有事件</string>
     <string name="pref_color_status_bar_icon_title">状态栏彩色图标</string>
     <string name="pref_color_status_bar_icon_summary">配置 MiPush 相关通知和全局状态栏图标颜色策略</string>
@@ -98,6 +98,13 @@
 
     <!-- Preference -->
     <string name="retry">重试</string>
+    <string name="app_list_unavailable_title">应用列表不可用</string>
+    <string name="app_list_unavailable_runtime_missing">未安装 XMSF 运行时，或当前无法访问。</string>
+    <string name="app_list_unavailable_permission_denied">管理器没有读取 XMSF 运行时应用列表的授权。</string>
+    <string name="app_list_unavailable_binding">正在连接 XMSF 运行时，请稍后重试。</string>
+    <string name="app_list_unavailable_incompatible">管理器与 XMSF 运行时版本不兼容。</string>
+    <string name="app_list_unavailable_disconnected">当前无法连接 XMSF 运行时。</string>
+    <string name="app_list_unavailable_failed">XMSF 运行时未能加载应用列表。</string>
     <string name="exit">退出</string>
     <string name="preference_title">推送设置</string>
     <string name="main_event">记录</string>
@@ -168,7 +175,7 @@
     <string name="wizard_title_accessibility_text">启用辅助模式前台检测。与“使用情况统计”二选一即可，兼容性更好但性能稍差。</string>
 
     <string name="wizard_title_root_permission">Root 权限</string>
-    <string name="wizard_title_root_permission_text">可选但推荐。授予 Root 后，系统可自动补齐使用情况统计、悬浮窗、忽略电池优化和通知等可静默授予的权限。</string>
+    <string name="wizard_title_root_permission_text">可选但推荐。Magisk 会分别询问 MiPush 管理器和 XMSF，请两项都授权。之后可自动补齐使用情况统计、悬浮窗、忽略电池优化、通知及 Zygisk 配置。</string>
 
     <string name="wizard_title_alert_window_permission">显示在其他应用上层</string>
     <string name="wizard_title_alert_window_text">您需要授予“显示在其他应用上层”权限，否则您无法通过配置自动调起应用。</string>

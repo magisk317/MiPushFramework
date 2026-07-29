@@ -42,6 +42,7 @@ class LogUtilsRobolectricTest {
     @AfterEach
     fun tearDown() {
         LogUtils.resetForTest()
+        LogSanitizerConfig.setEnabled(false)
         LogBundleExporter.resetRootCommandAccessForTest()
         LogBundleExporter.clearLogFolders(context)
     }

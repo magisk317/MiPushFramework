@@ -10,7 +10,7 @@ import kotlinx.coroutines.runBlocking
 
 internal data class IslandOptionsSnapshot(
     val options: IslandOptions,
-    val sensitiveDebugLogMode: Boolean,
+    val logSanitizationEnabled: Boolean,
 )
 
 internal object IslandOptionsSnapshotReader {
@@ -31,7 +31,7 @@ internal object IslandOptionsSnapshotReader {
         }.getOrElse {
             IslandOptionsSnapshot(
                 options = IslandOptions(),
-                sensitiveDebugLogMode = false,
+                logSanitizationEnabled = false,
             )
         }
     }
@@ -57,6 +57,6 @@ internal object IslandOptionsSnapshotReader {
             colorStatusBarIconGlobal = settings.colorStatusBarIconGlobal,
             dualAppEnabled = settings.dualAppEnabled,
         ),
-        sensitiveDebugLogMode = settings.sensitiveDebugLogMode,
+        logSanitizationEnabled = settings.logSanitizationEnabled,
     )
 }

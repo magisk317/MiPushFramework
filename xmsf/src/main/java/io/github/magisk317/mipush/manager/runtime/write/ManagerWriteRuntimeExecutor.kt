@@ -9,7 +9,7 @@ import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
-import io.github.magisk317.mipush.common.SENSITIVE_DEBUG_LOG_MODE_KEY
+import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS
@@ -437,7 +437,7 @@ class ManagerWriteRuntimeExecutor(
                 COLOR_STATUS_BAR_ICON_KEY -> repo.setColorStatusBarIcon(enabled)
                 COLOR_STATUS_BAR_ICON_GLOBAL_KEY -> repo.setColorStatusBarIconGlobal(enabled)
                 "debug_mode" -> repo.setDebugMode(enabled)
-                SENSITIVE_DEBUG_LOG_MODE_KEY -> repo.setSensitiveDebugLogMode(enabled)
+                LOG_SANITIZATION_ENABLED_KEY -> repo.setLogSanitizationEnabled(enabled)
                 "show_all_events" -> repo.setShowAllEvents(enabled)
                 "start_foreground" -> repo.setIsStartForeground(enabled)
                 "start_push_as_foreground_service" -> repo.setStartPushAsForegroundService(enabled)
@@ -606,6 +606,10 @@ class ManagerWriteRuntimeExecutor(
     }
 
     private fun zygiskSaveConfig(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        // Magisk needs an interactive grant; ensureRootAccess() prompts when not yet authorized.
+        if (!io.github.magisk317.mipush.platform.support.PermissionUtils.ensureRootAccess()) {
+            return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_ZYGISK_ROOT_MISSING)
+        }
         val config = ZygiskConfig.parse(request.argument)
         val ok = zygiskConfigGateway.saveZygiskConfig(config)
         return if (ok) {
@@ -676,7 +680,7 @@ class ManagerWriteRuntimeExecutor(
             COLOR_STATUS_BAR_ICON_KEY,
             COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
             "debug_mode",
-            SENSITIVE_DEBUG_LOG_MODE_KEY,
+            LOG_SANITIZATION_ENABLED_KEY,
             "show_all_events",
             "start_foreground",
             "start_push_as_foreground_service",

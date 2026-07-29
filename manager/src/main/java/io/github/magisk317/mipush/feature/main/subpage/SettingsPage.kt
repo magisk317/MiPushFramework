@@ -702,7 +702,7 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val debugMode by viewModel.debugMode.collectAsStateWithLifecycle()
-    val sensitiveDebugLogMode by viewModel.sensitiveDebugLogMode.collectAsStateWithLifecycle()
+    val logSanitizationEnabled by viewModel.logSanitizationEnabled.collectAsStateWithLifecycle()
     val analyticsEnabled by viewModel.analyticsEnabled.collectAsStateWithLifecycle()
     val runtimeLogRetentionDays by viewModel.runtimeLogRetentionDays.collectAsStateWithLifecycle()
     val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
@@ -783,7 +783,7 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
             showSwitchFeedback(analyticsTitle, enabled)
         }
     }
-    val sensitiveDebugTitle = stringResource(R.string.settings_sensitive_debug_log_mode)
+    val logSanitizationTitle = stringResource(R.string.settings_log_sanitization)
     RuntimeLogDiagnosticsItems(
         labels = RuntimeLogDiagnosticsLabels(
             shareLogTitle = stringResource(R.string.settings_get_log),
@@ -797,12 +797,12 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
             ),
             clearLogTitle = stringResource(R.string.runtime_log_clear_confirm_title),
             clearLogSummary = stringResource(R.string.runtime_log_clear_summary),
-            sensitiveLogTitle = sensitiveDebugTitle,
-            sensitiveLogSummary = stringResource(R.string.settings_sensitive_debug_log_mode_summary),
+            sensitiveLogTitle = logSanitizationTitle,
+            sensitiveLogSummary = stringResource(R.string.settings_log_sanitization_summary),
         ),
         state = RuntimeLogDiagnosticsState(
             verboseLogEnabled = debugMode,
-            sensitiveLogEnabled = sensitiveDebugLogMode,
+            sensitiveLogEnabled = logSanitizationEnabled,
         ),
         callbacks = RuntimeLogDiagnosticsCallbacks(
             onShareLog = ::shareRuntimeLogBundle,
@@ -813,9 +813,9 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
             onRetentionClick = { showRuntimeLogRetentionDialog = true },
             onClearLogClick = { showClearConfirmDialog = true },
             onSensitiveLogEnabledChange = { enabled ->
-                viewModel.setSensitiveDebugLogMode(enabled)
+                viewModel.setLogSanitizationEnabled(enabled)
                 context.sendBroadcast(Intent(ACTION_PREF_CHANGED))
-                showSwitchFeedback(sensitiveDebugTitle, enabled)
+                showSwitchFeedback(logSanitizationTitle, enabled)
             },
         ),
         layout = RuntimeLogDiagnosticsLayout(

@@ -7,12 +7,14 @@ import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.feature.main.RegistrationStateStyle
 import io.github.magisk317.mipush.feature.main.subpage.AppInfoForDisplay
 import io.github.magisk317.mipush.feature.main.subpage.ApplicationPageOperation
+import io.github.magisk317.mipush.feature.main.subpage.ApplicationListLoadOutcome
 import io.github.magisk317.mipush.feature.main.subpage.ApplicationStats
 import io.github.magisk317.mipush.feature.main.subpage.friendlyDateString
 import io.github.magisk317.mipush.feature.main.subpage.toApplicationStats
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
+import io.github.magisk317.mipush.manager.application.ApplicationReadStatus
 import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
@@ -46,6 +48,9 @@ class ApplicationListViewModel constructor(
 
     private val _stats = MutableStateFlow(ApplicationStats())
     val stats: StateFlow<ApplicationStats> = _stats.asStateFlow()
+
+    private val _unavailableStatus = MutableStateFlow<ApplicationReadStatus?>(null)
+    val unavailableStatus: StateFlow<ApplicationReadStatus?> = _unavailableStatus.asStateFlow()
 
     val showSystemApps: StateFlow<Boolean> = preferenceRepository.showSystemApps
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
@@ -101,17 +106,14 @@ class ApplicationListViewModel constructor(
         lastFilterMode = filterMode
         viewModelScope.launch {
             try {
-                val applications = withContext(Dispatchers.IO) {
+                val outcome = withContext(Dispatchers.IO) {
                     applicationPageOperation.getMiPushApplicationsThatQueryMatched(
                         query = query,
                         filterMode = filterMode,
                         includeSystemApps = includeSystemApps,
                     )
                 }
-                updateInfos(applications)
-                _items.value = applications
-                _stats.value = applications.toApplicationStats()
-                listLoaded = true
+                applyLoadOutcome(outcome)
                 onRefreshed?.invoke()
             } catch (error: CancellationException) {
                 throw error
@@ -135,17 +137,14 @@ class ApplicationListViewModel constructor(
     ) {
         viewModelScope.launch {
             try {
-                val applications = withContext(Dispatchers.IO) {
+                val outcome = withContext(Dispatchers.IO) {
                     applicationPageOperation.getMiPushApplicationsThatQueryMatched(
                         query = query,
                         filterMode = filterMode,
                         includeSystemApps = includeSystemApps,
                     )
                 }
-                updateInfos(applications)
-                _items.value = applications
-                _stats.value = applications.toApplicationStats()
-                listLoaded = true
+                applyLoadOutcome(outcome)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: RuntimeReadUnavailableException) {
@@ -158,9 +157,26 @@ class ApplicationListViewModel constructor(
         }
     }
 
+    private suspend fun applyLoadOutcome(outcome: ApplicationListLoadOutcome) {
+        when (outcome) {
+            is ApplicationListLoadOutcome.Ready -> {
+                updateInfos(outcome.applications)
+                _items.value = outcome.applications
+                _stats.value = outcome.applications.toApplicationStats()
+                _unavailableStatus.value = null
+                listLoaded = true
+            }
+            is ApplicationListLoadOutcome.Unavailable -> {
+                _unavailableStatus.value = outcome.status
+                listLoaded = false
+                logW("application list unavailable status=${outcome.status}")
+            }
+        }
+    }
+
     private suspend fun updateInfos(applications: ApplicationPageOperation.MiPushApplications) {
         val zygiskPackages = withContext(Dispatchers.IO) {
-            settingsManager.getZygiskSpoofPackages()
+            runCatching { settingsManager.getZygiskSpoofPackages() }.getOrDefault(emptySet())
         }
         val infoMap = emptyMap<String, AppInfoForDisplay>().toMutableMap()
         applications.res.forEach {

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.common.fakedevice.ZygiskConfig
 import io.github.magisk317.mipush.common.fakedevice.ZygiskPackagePolicy
 import io.github.magisk317.mipush.common.manager.ManagerApplication
+import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.application.ApplicationListRequest
 import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
@@ -25,6 +26,7 @@ data class ZygiskConfigState(
 class ZygiskConfigViewModel(
     private val settingsManager: SettingsManager,
     private val applicationSource: RemoteApplicationListSource,
+    private val permissionGateway: ManagerPermissionGateway,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ZygiskConfigState())
@@ -33,8 +35,18 @@ class ZygiskConfigViewModel(
     fun load() {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true)
-            
-            val isZygiskEnabled = settingsManager.isZygiskModuleEnabled()
+
+            // Magisk cannot pre-authorize like KernelSU; request root when entering Zygisk UI
+            // so the user can grant before toggling spoof packages.
+            val hasRoot = withContext(Dispatchers.IO) {
+                permissionGateway.requestRootAccess() ||
+                    permissionGateway.refreshRootAccessIfGranted() ||
+                    permissionGateway.hasCachedRootAccess()
+            }
+
+            val isZygiskEnabled = withContext(Dispatchers.IO) {
+                if (!hasRoot) false else settingsManager.isZygiskModuleEnabled()
+            }
 
             val applications = withContext(Dispatchers.IO) {
                 when (val result = applicationSource.load(ApplicationListRequest())) {
@@ -52,14 +64,15 @@ class ZygiskConfigViewModel(
             }
 
             val zygiskConfig = withContext(Dispatchers.IO) {
-                settingsManager.getZygiskConfig()
+                if (!hasRoot) ZygiskConfig() else settingsManager.getZygiskConfig()
             }
 
             _state.value = _state.value.copy(
                 isLoading = false,
                 isZygiskEnabled = isZygiskEnabled,
+                hasRootAccess = hasRoot,
                 spoofPackages = zygiskConfig.enabledPackages() - blockedPackages,
-                installedApps = appsList
+                installedApps = appsList,
             )
         }
     }

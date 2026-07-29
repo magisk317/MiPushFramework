@@ -61,6 +61,7 @@ import java.util.Locale
 import java.util.Date
 import java.text.SimpleDateFormat
 import io.github.magisk317.mipush.manager.logging.ManagerRuntimeFileLog
+import io.github.magisk317.mipush.manager.root.ManagerRootAccess
 import java.io.FileOutputStream
 import java.util.UUID
 import kotlinx.coroutines.flow.first
@@ -839,15 +840,25 @@ class RemoteManagerRuntimeActions(
 
 class RemoteManagerPermissionGateway(
     private val client: ManagerRuntimeClient,
+    private val managerRootAccess: ManagerRootAccess,
 ) : ManagerPermissionGateway {
     @Volatile
     private var rootCached: Boolean? = null
 
-    override fun hasCachedRootAccess(): Boolean = rootCached == true
+    override fun hasCachedRootAccess(): Boolean =
+        managerRootAccess.hasCachedRootAccess() && rootCached == true
 
-    override fun refreshRootAccessIfGranted(): Boolean = queryRoot(requestShell = false)
+    override fun refreshRootAccessIfGranted(): Boolean {
+        val managerGranted = managerRootAccess.refreshRootAccessIfGranted()
+        val runtimeGranted = queryRoot(requestShell = false)
+        return managerGranted && runtimeGranted
+    }
 
-    override fun requestRootAccess(): Boolean = queryRoot(requestShell = true)
+    override fun requestRootAccess(): Boolean {
+        val managerGranted = managerRootAccess.requestRootAccess()
+        val runtimeGranted = queryRoot(requestShell = true)
+        return managerGranted && runtimeGranted
+    }
 
     override fun repairXSpaceUserSupport(): ManagerXSpaceRepairResult {
         val result = RemoteWriteSupport.executeBlocking(

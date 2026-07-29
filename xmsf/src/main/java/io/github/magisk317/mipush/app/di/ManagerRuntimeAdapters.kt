@@ -803,14 +803,19 @@ class XmsfZygiskConfigGateway : io.github.magisk317.mipush.common.manager.Zygisk
         private const val ZYGISK_CONFIG_PATH = "/data/adb/mipush_zygisk/app.conf"
     }
 
+    /**
+     * Magisk requires an interactive root grant. Use [PermissionUtils.ensureRootAccess]
+     * (request if not already granted) rather than refresh-only checks so Magisk can prompt
+     * ahead of Zygisk config read/write. KernelSU may already be pre-authorized; ensure is still safe.
+     */
+    private fun ensureRootForZygisk(): Boolean =
+        io.github.magisk317.mipush.platform.support.PermissionUtils.ensureRootAccess()
+
     override fun isZygiskModuleEnabled(): Boolean {
-        if (!io.github.magisk317.mipush.platform.support.PermissionUtils.hasCachedRootAccess() &&
-            !io.github.magisk317.mipush.platform.support.PermissionUtils.refreshRootAccessIfGranted()
-        ) {
-            return false
-        }
+        if (!ensureRootForZygisk()) return false
         return try {
-            val getPropMethod = Class.forName("android.os.SystemProperties").getMethod("get", String::class.java, String::class.java)
+            val getPropMethod = Class.forName("android.os.SystemProperties")
+                .getMethod("get", String::class.java, String::class.java)
             val result = getPropMethod.invoke(null, "mipush.zygisk.enabled", "false") as String
             result == "true"
         } catch (_: Exception) {
@@ -821,17 +826,18 @@ class XmsfZygiskConfigGateway : io.github.magisk317.mipush.common.manager.Zygisk
     override fun getZygiskConfigPath(): String = ZYGISK_CONFIG_PATH
 
     override fun getZygiskConfig(): ZygiskConfig {
-        if (!io.github.magisk317.mipush.platform.support.PermissionUtils.refreshRootAccessIfGranted()) return ZygiskConfig()
+        if (!ensureRootForZygisk()) return ZygiskConfig()
         val result = io.github.magisk317.mipush.platform.support.AppRootAccessFacade.runRootCommand(
             "cat $ZYGISK_CONFIG_PATH",
-            timeoutMs = 5_000L
+            timeoutMs = 5_000L,
+            requestAuthorization = true,
         )
         if (!result.isSuccess) return ZygiskConfig()
         return ZygiskConfig.parse(result.stdout.joinToString("\n"))
     }
 
     override fun saveZygiskConfig(config: ZygiskConfig): Boolean {
-        if (!io.github.magisk317.mipush.platform.support.PermissionUtils.refreshRootAccessIfGranted()) return false
+        if (!ensureRootForZygisk()) return false
         val content = config.toFileContent()
         val command = listOf(
             "mkdir -p /data/adb/mipush_zygisk",
@@ -841,14 +847,19 @@ class XmsfZygiskConfigGateway : io.github.magisk317.mipush.common.manager.Zygisk
         ).joinToString(" && ")
         val result = io.github.magisk317.mipush.platform.support.AppRootAccessFacade.runRootCommand(
             command,
-            timeoutMs = 5_000L
+            timeoutMs = 5_000L,
+            requestAuthorization = true,
         )
         return result.isSuccess
     }
 
     override fun forceStopApp(packageName: String) {
-        if (!io.github.magisk317.mipush.platform.support.PermissionUtils.refreshRootAccessIfGranted()) return
-        io.github.magisk317.mipush.platform.support.AppRootAccessFacade.runRootCommand("am force-stop $packageName", timeoutMs = 5_000L)
+        if (!ensureRootForZygisk()) return
+        io.github.magisk317.mipush.platform.support.AppRootAccessFacade.runRootCommand(
+            "am force-stop $packageName",
+            timeoutMs = 5_000L,
+            requestAuthorization = true,
+        )
     }
 
     private fun shellQuote(value: String): String = "'" + value.replace("'", "'\"'\"'") + "'"

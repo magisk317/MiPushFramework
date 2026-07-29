@@ -10,7 +10,7 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
-import io.github.magisk317.mipush.common.SENSITIVE_DEBUG_LOG_MODE_KEY
+import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
 
 data class IslandOptions(
     val enabled: Boolean = true,
@@ -30,7 +30,7 @@ data class IslandOptions(
     val canBuildFocusPayload: Boolean
         get() = canInjectFocusPayload
 
-    fun toPreferenceFlags(sensitiveDebugLogMode: Boolean = false): Map<String, String> = mapOf(
+    fun toPreferenceFlags(logSanitizationEnabled: Boolean = false): Map<String, String> = mapOf(
         ISLAND_PREF_ENABLED to enabled.toFlagValue(),
         ISLAND_PREF_TIMEOUT to timeoutSecs.coerceAtLeast(1).toString(),
         ISLAND_PREF_FIRST_FLOAT to firstFloat.toFlagValue(),
@@ -41,7 +41,7 @@ data class IslandOptions(
         COLOR_STATUS_BAR_ICON_KEY to colorStatusBarIcon.toFlagValue(),
         COLOR_STATUS_BAR_ICON_GLOBAL_KEY to colorStatusBarIconGlobal.toFlagValue(),
         DUAL_APP_ENABLED_KEY to dualAppEnabled.toFlagValue(),
-        SENSITIVE_DEBUG_LOG_MODE_KEY to sensitiveDebugLogMode.toFlagValue(),
+        LOG_SANITIZATION_ENABLED_KEY to logSanitizationEnabled.toFlagValue(),
     )
 
     private fun Boolean.toFlagValue(): String = if (this) "1" else "0"

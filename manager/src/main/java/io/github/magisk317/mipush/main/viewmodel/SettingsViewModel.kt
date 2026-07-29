@@ -46,7 +46,7 @@ class SettingsViewModel constructor(
     val showAllEvents: StateFlow<Boolean> = preferenceRepository.showAllEvents
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    val sensitiveDebugLogMode: StateFlow<Boolean> = preferenceRepository.sensitiveDebugLogMode
+    val logSanitizationEnabled: StateFlow<Boolean> = preferenceRepository.logSanitizationEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val analyticsEnabled: StateFlow<Boolean> = preferenceRepository.analyticsEnabled
@@ -157,11 +157,11 @@ class SettingsViewModel constructor(
         }
     }
 
-    fun setSensitiveDebugLogMode(enabled: Boolean) {
+    fun setLogSanitizationEnabled(enabled: Boolean) {
         viewModelScope.launch {
-            preferenceRepository.setSensitiveDebugLogMode(enabled)
+            preferenceRepository.setLogSanitizationEnabled(enabled)
             pushRuntimeBoolean(
-                key = io.github.magisk317.mipush.common.SENSITIVE_DEBUG_LOG_MODE_KEY,
+                key = io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY,
                 value = enabled,
             )
         }
