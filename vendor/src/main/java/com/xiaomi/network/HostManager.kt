@@ -498,8 +498,37 @@ open class HostManager @JvmOverloads constructor(
                 return fallbackRequestRemoteFallback
             }
         }
-        return Fallback(str).apply {
-            localFallback?.let { ip = it.ip }
+        // MiPush SDK 3.7.9 HostManager.2 and stock 7.4.67-C y7.h return an ineffective
+        // proxy when no current bucket exists. The prior Kotlin port returned a fresh effective
+        // Fallback, which prevented SocketConnection from ever scheduling a remote bucket refresh
+        // and also dropped reserved hosts and access-history forwarding.
+        return object : Fallback(str) {
+            init {
+                localFallback?.let { ip = it.ip }
+            }
+
+            override fun accessHost(str: String, accessHistory: AccessHistory) {
+                synchronized(this) {
+                    localFallback?.accessHost(str, accessHistory)
+                }
+            }
+
+            override fun getHosts(z: Boolean): ArrayList<String> {
+                synchronized(this) {
+                    val hosts = ArrayList<String>()
+                    localFallback?.getHosts(true)?.let(hosts::addAll)
+                    synchronized(sReservedHosts) {
+                        sReservedHosts[str]?.getHosts(true)?.forEach { reservedHost ->
+                            if (!hosts.contains(reservedHost)) hosts.add(reservedHost)
+                        }
+                    }
+                    hosts.remove(str)
+                    hosts.add(str)
+                    return hosts
+                }
+            }
+
+            override fun isEffective(): Boolean = false
         }
     }
 

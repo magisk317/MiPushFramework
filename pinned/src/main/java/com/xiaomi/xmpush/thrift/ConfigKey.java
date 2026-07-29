@@ -111,12 +111,41 @@ public enum ConfigKey implements TEnum {
     DCJobUploadRepeatedInterval(110),
     LauncherAppListCollectionSwitch(111),
     LauncherAppListCollectionFrequency(112),
+    // Added from stock XMSF 7.4.67-C za.f. The pinned 3.7.9 enum predates the intelligent
+    // heartbeat online-config surface, so the vendor stable heartbeat strategy (stock
+    // com.xiaomi.push.service.u) could not read these IDs and always fell back to the fixed
+    // 600s ping interval. 116-119/143/145 gate and tune the per-network adaptive ping interval;
+    // 130 bounds how long a learned short interval stays effective. The data-collect switch
+    // (117) is decoded for completeness but stays wired only to disabled telemetry.
+    IntelligentHeartbeatSwitchBoolean(116),
+    IntelligentHeartbeatDataCollectSwitchBoolean(117),
+    IntelligentHeartbeatNATCountInt(118),
+    IntelligentHeartbeatUseInMobileNetworkBoolean(119),
     StatDataUploadFrequency(120),
     StatDataUploadNum(121),
     StatDataProcessFrequency(122),
     StatDataSwitch(123),
     StatDataUploadWay(124),
     StatDataDeleteFrequency(125),
+    // Stock XMSF 7.4.67-C za.f: how long (ms) a learned short heartbeat interval stays
+    // effective for a network id before the stable strategy discards it (stock default 90 days).
+    ShortHeartbeatEffectivePeriodMsLong(130),
+    // Added from stock XMSF 7.4.67-C za.f because the pinned 3.7.9 enum stopped at the
+    // older online-config surface. 140/142 gate ServiceBox telemetry and keep-alive,
+    // 141 lets an existing generated group summary move with newly posted children,
+    // and 208 controls Android 16's platform force-group opt-out.
+    OnetrackSwitch(140),
+    NotificationGroupUpdateTimeSwitch(141),
+    KASwitch(142),
+    // Stock XMSF 7.4.67-C za.f intelligent-heartbeat tuning: 143 keeps the adaptive interval
+    // active on WiFi networks whose digest is unsupported; 145 selects the heartbeat strategy.
+    IntelligentHeartbeatForUnsupportWifiDigestBoolean(143),
+    IntelligentHeartbeatStrategy(145),
+    // Stock XMSF 7.4.67-C za.f: when true on API 35+, a live non-WiFi long connection is reset
+    // after the device moves onto WiFi (stock XMPushService network-change branch).
+    ResetConnectionSwitch(149),
+    AndroidWGroupStrategy(208),
+    // Stock za.f maps 209 to SleepMonitorSwitch; do not invent MaskGroupPackages here.
     CollectionDataPluginVersion(1001),
     CollectionPluginDownloadUrl(1002),
     CollectionPluginMd5(1003),
@@ -344,6 +373,16 @@ public enum ConfigKey implements TEnum {
                 return LauncherAppListCollectionSwitch;
             case 112:
                 return LauncherAppListCollectionFrequency;
+            // Stock XMSF 7.4.67-C za.f intelligent-heartbeat online-config IDs, absent from the
+            // pinned 3.7.9 enum; decoded so remote OC updates reach the vendor stable strategy.
+            case 116:
+                return IntelligentHeartbeatSwitchBoolean;
+            case 117:
+                return IntelligentHeartbeatDataCollectSwitchBoolean;
+            case 118:
+                return IntelligentHeartbeatNATCountInt;
+            case 119:
+                return IntelligentHeartbeatUseInMobileNetworkBoolean;
             case 120:
                 return StatDataUploadFrequency;
             case 121:
@@ -356,6 +395,24 @@ public enum ConfigKey implements TEnum {
                 return StatDataUploadWay;
             case 125:
                 return StatDataDeleteFrequency;
+            case 130:
+                return ShortHeartbeatEffectivePeriodMsLong;
+            // Decode the stock 7.4.67-C additions as real enum members; otherwise remote
+            // online-config updates for these IDs are silently treated as unknown values.
+            case 140:
+                return OnetrackSwitch;
+            case 141:
+                return NotificationGroupUpdateTimeSwitch;
+            case 142:
+                return KASwitch;
+            case 143:
+                return IntelligentHeartbeatForUnsupportWifiDigestBoolean;
+            case 145:
+                return IntelligentHeartbeatStrategy;
+            case 149:
+                return ResetConnectionSwitch;
+            case 208:
+                return AndroidWGroupStrategy;
             case 1001:
                 return CollectionDataPluginVersion;
             case 1002:

@@ -7,6 +7,7 @@ import androidx.core.content.IntentCompat
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.channel.commonutils.network.Network
 import com.xiaomi.push.service.timers.Alarm
+import com.xiaomi.push.service.heartbeat.HeartbeatStrategyManager
 import com.xiaomi.smack.packet.IQ
 import com.xiaomi.smack.packet.Presence
 import com.xiaomi.push.service.PushChannelOpenAction
@@ -98,6 +99,10 @@ internal class XMPushServiceIntentDelegate(
             PushConstants.ACTION_CLIENT_REPORT_CONFIG == action -> appIntentDelegate.handleClientReportConfig(intent)
             PushConstants.ACTION_AWAKE_APP_LOGIC == action -> service.doAWLogic(intent)
             PushConstants.ACTION_AWAKE_APP_PING == action -> appIntentDelegate.handleAwakePing(intent)
+            PushServiceConstants.ACTION_WIFI_DIGEST_INFORMATION_CHANGED == action ->
+                handleWifiDigestChanged(intent)
+            PushServiceConstants.ACTION_USE_INTELLIGENT_HB == action ->
+                handleUseIntelligentHb(intent)
         }
     }
 
@@ -248,6 +253,29 @@ internal class XMPushServiceIntentDelegate(
         }
     }
     
+    private fun handleWifiDigestChanged(intent: Intent) {
+        // Stock XMPushService DIGEST_INFORMATION_CHANGED: extras.digest -> v.m(digest).
+        val digest = intent.extras?.getString(PushServiceConstants.EXTRA_WIFI_DIGEST)
+        if (digest.isNullOrEmpty()) {
+            return
+        }
+        HeartbeatStrategyManager.getInstance(service).onWifiDigest(digest)
+        Alarm.refreshPingInterval()
+    }
+
+    private fun handleUseIntelligentHb(intent: Intent) {
+        // Stock XMPushService USE_INTELLIGENT_HB: effectivePeriod days in (0, 604800].
+        val days = intent.extras?.getInt(
+            PushServiceConstants.EXTRA_INTELLIGENT_HB_EFFECTIVE_PERIOD,
+            0,
+        ) ?: 0
+        if (days <= 0 || days > 604_800) {
+            return
+        }
+        HeartbeatStrategyManager.getInstance(service).keepShortHeartbeatEffectiveDays(days)
+        Alarm.refreshPingInterval()
+    }
+
     private fun observeOpenChannelState(request: PushChannelOpenRequest, state: PushChannelState, source: String, reasonCode: Int?, reasonMessage: String?) {
         val channelId = request.channelId ?: return
         service.runtimeObserver.onChannelStateChanged(request.packageName, channelId, request.userId, request.session, state, source, reasonCode, reasonMessage)

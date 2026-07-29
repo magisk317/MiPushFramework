@@ -36,16 +36,12 @@ internal class BlobReader(
         val blob = read()
         if (Blob.CMD_CONN == blob.cmd) {
             val from = ChannelMessage.XMMsgConnResp.parseFrom(blob.payload)
-            val observer = XMPushServiceProxy.get()?.runtimeObserver
             val hasChallenge = from.hasChallenge() && from.challenge.isNotEmpty()
-            val hasConfigMessage = from.hasPsc()
-            val handshakePlan = observer?.planSlimHandshake(hasChallenge, hasConfigMessage) ?: PushSlimHandshakePlan(true, "slim_handshake_sent", false)
-            MyLog.w("[slim] ${handshakePlan.eventAction}")
-            valid = handshakePlan.valid
-            if (handshakePlan.valid) {
+            if (hasChallenge) {
                 mConnection.onChallengeReceived(from.challenge, "BlobReader.loop")
+                valid = true
             }
-            if (handshakePlan.shouldEmitConfigBlob) {
+            if (from.hasPsc()) {
                 val psc = from.psc
                 val blob2 = Blob().apply {
                     setCmd(Blob.CMD_SYNC, Blob.SUBCMD_CONF)
@@ -54,7 +50,6 @@ internal class BlobReader(
                 mConnection.notifyDataArrived(blob2)
             }
             MyLog.w("[Slim] CONN: host = ${from.host}")
-            mConnection.notifyDataArrived(blob)
         }
         if (!valid) {
             MyLog.w("[Slim] Invalid CONN")

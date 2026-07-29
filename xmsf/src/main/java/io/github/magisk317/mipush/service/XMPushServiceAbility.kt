@@ -7,7 +7,6 @@ class XMPushServiceAbility(pushService: XMPushServiceCore) : XMPushServiceListen
 
     init {
         Napier.d("Initializing with service: $pushService", tag = "XMPushServiceAbility")
-        XMPushServiceAbilityAssembler.prepare(pushService)
         XMPushServiceAbilityAssembler.createListeners(pushService).forEach(::addListener)
     }
 }

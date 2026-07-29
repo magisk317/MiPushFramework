@@ -1,17 +1,11 @@
 package io.github.magisk317.mipush.service
 
 import android.os.Build
-import io.github.magisk317.mipush.platform.support.Global
 import com.xiaomi.push.revival.NotificationsRevivalForSelfUpdated
 import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.push.service.XMPushServiceMessenger
 
 object XMPushServiceAbilityAssembler {
-    @JvmStatic
-    fun prepare(pushService: XMPushServiceCore) {
-        Global.registrationRecorder().initContext(pushService)
-    }
-
     @JvmStatic
     fun createListeners(pushService: XMPushServiceCore): List<XMPushServiceListener> {
         val listeners = ArrayList<XMPushServiceListener>()
@@ -26,7 +20,9 @@ object XMPushServiceAbilityAssembler {
                 NotificationsRevivalForSelfUpdated(pushService) { sbn -> sbn.tag == null }
             )
         }
-        listeners += PullAllApplicationDataAbility(pushService)
+        // Stock XMSF 7.4.67-C has no fake_pull connection listener. The older product assembler
+        // inherited this extension and sent a pull notification for every registered package after
+        // each reconnect; exclude it because notification-pull and telemetry collection are off.
         return listeners
     }
 }

@@ -28,6 +28,8 @@ object TrafficUtils {
     private var lastRxTs = System.currentTimeMillis()
     private val lock = Any()
     private val trafficList: MutableList<TrafficInfo> = Collections.synchronizedList(ArrayList())
+    @Volatile
+    private var trafficCollectionEnabled = true
     private var imsi = ""
     private var dbHelper: TrafficDatabaseHelper? = null
 
@@ -63,8 +65,43 @@ object TrafficUtils {
 
     @JvmStatic
     fun distributionTraffic(context: Context?, packageName: String?, bytes: Long, rcv: Boolean, encrypted: Boolean, timestamp: Long) {
+        if (!trafficCollectionEnabled) {
+            return
+        }
         saveTraffic(context, packageName, getTraffic(getNetworkType(context), bytes, rcv, timestamp, encrypted), rcv, timestamp)
     }
+
+    /**
+     * Stock XMSF 7.4.67-C `va.g.e(...)` always collects per-package traffic and flushes it to
+     * `traffic.db`. The older retained runtime therefore kept collecting even after xmsf disabled
+     * OnlineConfig telemetry switches. Keep stock behavior as the vendor default, while allowing
+     * the product-owned telemetry policy to disable collection in every XMSF process and purge
+     * data retained by older builds.
+     */
+    @JvmStatic
+    fun configureTrafficCollection(context: Context?, enabled: Boolean) {
+        trafficCollectionEnabled = enabled
+        if (enabled) {
+            return
+        }
+        synchronized(lock) {
+            trafficList.clear()
+        }
+        synchronized(TrafficUtils::class.java) {
+            imsi = ""
+        }
+        synchronized(TrafficDatabaseHelper.DataBaseLock) {
+            runCatching { dbHelper?.close() }.onFailure(MyLog::e)
+            dbHelper = null
+            if (context != null) {
+                runCatching { context.deleteDatabase(TrafficDatabaseHelper.DATABASE_NAME) }
+                    .onFailure(MyLog::e)
+            }
+        }
+    }
+
+    @JvmStatic
+    fun isTrafficCollectionEnabled(): Boolean = trafficCollectionEnabled
 
     private fun getActiveNetworkType(context: Context?): Int {
         return try {
@@ -112,8 +149,14 @@ object TrafficUtils {
 
     @JvmStatic
     fun insertTraffic(context: Context, list: List<TrafficInfo>) {
+        if (!trafficCollectionEnabled) {
+            return
+        }
         try {
             synchronized(TrafficDatabaseHelper.DataBaseLock) {
+                if (!trafficCollectionEnabled) {
+                    return
+                }
                 val writableDatabase = getTrafficDatabaseHelper(context).writableDatabase
                 writableDatabase.beginTransaction()
                 try {
@@ -154,6 +197,7 @@ object TrafficUtils {
 
     private fun saveTraffic(context: Context?, packageName: String?, bytes: Long, rcv: Boolean, timestamp: Long) {
         if (
+            !trafficCollectionEnabled ||
             context == null ||
             TextUtils.isEmpty(packageName) ||
             context.packageName != "com.xiaomi.xmsf" ||
@@ -202,6 +246,9 @@ object TrafficUtils {
 
     @JvmStatic
     fun updateIMSI(str: String?) {
+        if (!trafficCollectionEnabled) {
+            return
+        }
         synchronized(TrafficUtils::class.java) {
             if (!MIUIUtils.isGlobalRegion() && !TextUtils.isEmpty(str)) {
                 imsi = str.orEmpty()

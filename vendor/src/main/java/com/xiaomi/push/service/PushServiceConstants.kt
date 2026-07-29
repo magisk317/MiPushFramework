@@ -8,6 +8,13 @@ class PushServiceConstants private constructor() {
         const val ACTION_CHECK_ALIVE = "com.xiaomi.push.check_alive"
         const val ACTION_COMPOSING_RECEIVED = "com.xiaomi.channel.push.composing_received"
         const val ACTION_NETWORK_STATUS_CHANGED = "com.xiaomi.push.network_status_changed"
+        // Stock XMSF 7.4.67-C XMPushService: MIUI wifi-digest broadcast and short-HB keep window.
+        const val ACTION_WIFI_DIGEST_INFORMATION_CHANGED = "miui.net.wifi.DIGEST_INFORMATION_CHANGED"
+        const val ACTION_USE_INTELLIGENT_HB = "com.xiaomi.xmsf.USE_INTELLIGENT_HB"
+        const val EXTRA_WIFI_DIGEST = "digest"
+        const val EXTRA_INTELLIGENT_HB_EFFECTIVE_PERIOD = "effectivePeriod"
+        const val PERMISSION_ACCESS_WIFI_DIGEST_INFO = "miui.net.wifi.permission.ACCESS_WIFI_DIGEST_INFO"
+        const val PERMISSION_INTELLIGENT_HB = "com.xiaomi.xmsf.permission.INTELLIGENT_HB"
         const val ACTION_RESPOND_MSG = "com.xiaomi.channel.respondmsg"
         const val ACTION_SEND_IQ_MSG = "com.xiaomi.channel.push.send_iq_msg"
         const val ACTION_SEND_MSG = "com.xiaomi.channel.push.send_msg"

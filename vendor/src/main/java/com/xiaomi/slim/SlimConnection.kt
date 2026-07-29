@@ -103,11 +103,11 @@ class SlimConnection(
                 if (mDerivedKey == null && !challenge.isNullOrEmpty()) {
                     val deviceUuid = ServiceConfig.getDeviceUUID()
                     if (!deviceUuid.isNullOrEmpty()) {
-                        val c = challenge!!
+                        val c = challenge
                         val challengeTail = c.substring(c.length / 2)
                         val deviceUuidTail = deviceUuid.substring(deviceUuid.length / 2)
                         mDerivedKey = RC4Cryption.encrypt(
-                            challenge!!.toByteArray(),
+                            c.toByteArray(),
                             (challengeTail + deviceUuidTail).toByteArray(),
                         )
                         if (mDerivedKey != null) {
@@ -147,10 +147,6 @@ class SlimConnection(
             MyLog.w("[Slim] RCV ping id=${blob.packetID}")
         }
         
-        if (inboundPlan.action == PushSlimInboundAction.ChallengeReceived) {
-            onChallengeReceived(extractChallenge(blob), "SlimConnection.notifyDataArrived")
-        }
-        
         inboundPlan.eventAction?.let { eventAction ->
             mPushAction.runtimeObserver.onChannelEvent(null, eventAction, "SlimConnection.notifyDataArrived")
         }
@@ -168,61 +164,25 @@ class SlimConnection(
         super.notifyDataArrived(blob)
     }
 
-    override fun notifyConnectionError(reason: Int, exc: Exception?) {
-        if (isShuttingDown) return
-        mPushAction.executeJob(object : com.xiaomi.push.service.XMPushServiceJob(2) {
-            override fun getDesc(): String = "shutdown the connection. $reason, $exc"
-            override fun process() {
-                mPushAction.disconnect(reason, exc)
-            }
-        })
-    }
-
     internal fun notifyDataArrived(packet: Packet?) {
         if (packet == null) return
         super.notifyDataArrived(packet)
     }
 
-    private fun extractChallenge(blob: Blob): String? {
-        if (blob.cmd == Blob.CMD_CONN) {
-            return runCatching {
-                ChannelMessage.XMMsgConnResp.parseFrom(blob.payload).challenge
-            }.getOrNull()
-        }
-        return runCatching { String(blob.payload) }.getOrNull()
-    }
-
     internal fun onChallengeReceived(receivedChallenge: String?, source: String) {
-        val shouldRebind = synchronized(this) {
+        synchronized(this) {
             if (receivedChallenge.isNullOrEmpty()) {
                 MyLog.w("[Slim] RCV challenge missing in CONN response from $source")
                 return
             }
+            if (isConnecting) {
+                mDerivedKey = null
+            }
+            setChallenge(receivedChallenge)
             if (challenge == receivedChallenge) {
-                return
+                MyLog.w("[Slim] RCV challenge accepted from $source")
             }
-            challenge = receivedChallenge
-            mDerivedKey = null
-            true
         }
-        MyLog.w("[Slim] RCV challenge=$receivedChallenge")
-        if (shouldRebind) {
-            rebindClientsAfterChallenge()
-        }
-    }
-
-    private fun rebindClientsAfterChallenge() {
-        mPushAction.executeJob(object : com.xiaomi.push.service.XMPushServiceJob(0) {
-            override fun getDesc(): String = "re-bind after challenge"
-            override fun process() {
-                PushClientsManager.getInstance().getAllClients().forEach { client ->
-                    if (client.status == PushClientsManager.ClientStatus.unbind || client.status == PushClientsManager.ClientStatus.binding) {
-                        MyLog.w("[Slim] auto bind chid=${client.chid} after challenge")
-                        mPushAction.executeJob(com.xiaomi.push.service.BindJob(mPushAction, client))
-                    }
-                }
-            }
-        })
     }
 
     override fun send(blob: Blob) {
@@ -277,7 +237,7 @@ class SlimConnection(
     }
 
     @Throws(XMPPException::class)
-    override fun sendPing(isServerPing: Boolean) {
+    override fun sendPingInternal(isServerPing: Boolean) {
         val ping = getPing(isServerPing)
         val pingPlan = mPushAction.runtimeObserver.resolveSlimSendPingPlan()
         MyLog.w("[Slim] SND ping id=${ping.packetID}")

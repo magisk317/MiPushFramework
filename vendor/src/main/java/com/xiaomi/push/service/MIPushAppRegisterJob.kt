@@ -45,7 +45,11 @@ class MIPushAppRegisterJob(
             activeClients.iterator().next()
         }
         MyLog.w("[MIPushAppRegisterJob] client info ready, status=${client.status}")
-        if (!pushService.isConnected) {
+        val connected = pushService.isConnected
+        if (shouldCacheRegistrationPayload(connected, client.status)) {
+            cacheRegistrationPayload()
+        }
+        if (!connected) {
             pushService.runtimeObserver.onChannelStateChanged(
                 packageName,
                 client.chid,
@@ -92,5 +96,19 @@ class MIPushAppRegisterJob(
             pushService.runtimeObserver.onRegistrationResult(packageName, false, "MIPushAppRegisterJob.process", "send_packet_failed")
             pushService.disconnect(10, e)
         }
+    }
+
+    private fun cacheRegistrationPayload() {
+        // Stock XMSF 7.4.67-C f0 caches through h0.d only while disconnected or chid 5 is
+        // unbound. The older shared SDK 3.7.9 cached every request before this job, which left a
+        // directly sent payload queued for the next bind; this runtime follows the newer XMSF path.
+        pushService.runtimeObserver.cacheRegistrationRequest(packageName, payload)
+    }
+
+    companion object {
+        internal fun shouldCacheRegistrationPayload(
+            connected: Boolean,
+            clientStatus: PushClientsManager.ClientStatus,
+        ): Boolean = !connected || clientStatus == PushClientsManager.ClientStatus.unbind
     }
 }

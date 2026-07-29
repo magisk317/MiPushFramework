@@ -55,26 +55,16 @@ open class Fallback(str: String) {
         accessHost(str, AccessHistory(i, j, j2, exc))
     }
 
-    fun accessHost(str: String, accessHistory: AccessHistory) {
+    open fun accessHost(str: String, accessHistory: AccessHistory) {
         synchronized(this) {
-            for (next in fallbackHosts) {
-                if (TextUtils.equals(str, next.host)) {
-                    // Reflection access for private method? 
-                    // No, WeightedHost is in the same package and I made it open/public.
-                    // But I need to call addAccessHistory which might be protected.
-                    // Accessing protected method from sibling class in same package is fine in Java, 
-                    // and in Kotlin if they are in same module.
-                }
-            }
-            // Logic fix: searching for host and adding history
-            val target = fallbackHosts.find { TextUtils.equals(str, it.host) }
-            // To call protected method from sibling, I'll use a public bridge if needed,
-            // but in Kotlin/JVM same package usually works for protected.
+            // MiPush SDK 3.7.9 Fallback.accessHost records the history on the matching weighted
+            // host. The previous Kotlin port found the entry but never applied it, so successful
+            // and failed stock socket attempts could not change fallback ordering.
+            fallbackHosts
+                .firstOrNull { TextUtils.equals(str, it.host) }
+                ?.addAccessHistory(accessHistory)
         }
     }
-
-    // Since I'm converting to Kotlin, I'll make the access more direct if possible.
-    // I will modify WeightedHost.addAccessHistory to be internal or public.
 
     open fun addHost(weightedHost: WeightedHost) {
         synchronized(this) {
@@ -148,7 +138,7 @@ open class Fallback(str: String) {
         return synchronized(this) { getHosts(false) }
     }
 
-    fun getHosts(z: Boolean): ArrayList<String> {
+    open fun getHosts(z: Boolean): ArrayList<String> {
         synchronized(this) {
             val weightedHostArr = fallbackHosts.toTypedArray()
             Arrays.sort(weightedHostArr)
@@ -206,7 +196,7 @@ open class Fallback(str: String) {
         return fallbackHosts
     }
 
-    fun isEffective(): Boolean {
+    open fun isEffective(): Boolean {
         return System.currentTimeMillis() - timestamp < effectiveDuration
     }
 

@@ -11,7 +11,6 @@ class ResetConnectJob(
     override fun getDesc(): String = "reset connection"
 
     override fun process() {
-        pushAction.postOnCreate()
         pushAction.runtimeObserver.onChannelEvent(
             packageName = null,
             event = "reset_connect_refresh",

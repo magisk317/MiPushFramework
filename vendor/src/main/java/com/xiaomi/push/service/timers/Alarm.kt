@@ -4,6 +4,8 @@ import android.content.Context
 import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.push.service.XMJobService
+import com.xiaomi.push.service.heartbeat.HeartbeatStrategyManager
+import com.xiaomi.push.service.heartbeat.StableIntelligentHeartbeatStrategy
 
 /*
  * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
@@ -25,6 +27,8 @@ object Alarm {
         fun isAlive(): Boolean
         fun registerPing(force: Boolean)
         fun stop()
+        /** Stock ia.a.a: re-register when the heartbeat interval provider changes. */
+        fun refreshPingInterval() {}
     }
 
     @JvmStatic
@@ -49,7 +53,17 @@ object Alarm {
     @JvmStatic
     fun initialize(context: Context) {
         val applicationContext = context.applicationContext
-        sAlarmInstance = createProductAlarm(applicationContext) ?: AlarmV21(applicationContext)
+        // Stock 7.4.67-C ia.b selects the AlarmManager-backed ia.c for com.xiaomi.xmsf. The older
+        // fallback selected JobScheduler when the product adapter could not be resolved, changing
+        // heartbeat timing and alarm identity after shrinking or class-loading failures.
+        sAlarmInstance = createProductAlarm(applicationContext)
+            ?: StockAlarmManagerTimer(applicationContext)
+        // Stock ia.c interval provider is v, which prepares the current network identity up front.
+        runCatching {
+            HeartbeatStrategyManager.getInstance(applicationContext).onNetworkChanged(
+                StableIntelligentHeartbeatStrategy.currentNetworkSnapshot(applicationContext),
+            )
+        }
     }
 
     @JvmStatic
@@ -77,6 +91,17 @@ object Alarm {
                 MyLog.v("stop alarm.")
                 it.stop()
             }
+        }
+    }
+
+    /**
+     * Stock ia.b.e: refresh the registered ping when the heartbeat strategy interval changes.
+     * Older code had no equivalent, so learned short intervals only applied after a full stop/start.
+     */
+    @JvmStatic
+    fun refreshPingInterval() {
+        synchronized(this) {
+            sAlarmInstance?.refreshPingInterval()
         }
     }
 

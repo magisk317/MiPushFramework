@@ -6,10 +6,6 @@ import com.xiaomi.channel.commonutils.logger.MyLog
 import com.xiaomi.measite.smack.AndroidDebugger
 import com.xiaomi.push.service.IPushServiceAction
 import com.xiaomi.push.service.PushClientsManager
-import com.xiaomi.push.service.XMPushServiceProxy
-import com.xiaomi.push.service.PushConnectionStatusPlan
-import com.xiaomi.push.service.PushConnectionListenerEvent
-import com.xiaomi.push.service.PushConstants
 import com.xiaomi.slim.Blob
 import com.xiaomi.smack.debugger.SmackDebugger
 import com.xiaomi.smack.filter.PacketFilter
@@ -17,8 +13,9 @@ import com.xiaomi.smack.packet.Packet
 import java.io.Reader
 import java.io.Writer
 import java.util.LinkedList
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CancellationException
-import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CopyOnWriteArraySet
 import java.util.concurrent.atomic.AtomicInteger
 
 /*
@@ -33,28 +30,41 @@ abstract class Connection(
     open var config: ConnectionConfiguration,
 ) {
     var connectionCounterValue: Int = connectionCounter.getAndIncrement()
-    protected val connectionListeners = CopyOnWriteArrayList<ConnectionListener>()
-    protected val recvListeners = LinkedHashMap<PacketListener, ListenerWrapper>()
-    protected val sendListeners = LinkedHashMap<PacketListener, ListenerWrapper>()
+    protected val connectionListeners = CopyOnWriteArraySet<ConnectionListener>()
+    protected val recvListeners = ConcurrentHashMap<PacketListener, ListenerWrapper>()
+    protected val sendListeners = ConcurrentHashMap<PacketListener, ListenerWrapper>()
     protected var debugger: SmackDebugger? = null
     protected var reader: Reader? = null
     protected var writer: Writer? = null
-    
-    var challenge: String? = null
-    var connectStatus = 0
-    var errorCode = 0
-    var exc: Exception? = null
-    
-    var readAlive: Long = 0L
-    var writeAlive: Long = 0L
+    protected var connTimes: Int = 0
+    protected var connectTime: Long = -1L
+    protected var connectionPoint: String = ""
 
-    open val isConnected: Boolean get() = false
-    open val isConnecting: Boolean get() = false
+    var challenge: String = ""
+        private set
+    var connectStatus: Int = ConnectionConfiguration.CONNECT_STATUS_DISCONNECT
+        private set
+    var errorCode: Int = 0
+        private set
+    var exc: Exception? = null
+        private set
+
+    private val cachedStatus = LinkedList<Pair<Int, Long>>()
+    private var readAlive: Long = 0L
+    protected var writeAlive: Long = 0L
+
+    open val isConnected: Boolean
+        get() = connectStatus == ConnectionConfiguration.CONNECT_STATUS_CONNECTED
+
+    open val isConnecting: Boolean
+        get() = connectStatus == ConnectionConfiguration.CONNECT_STATUS_CONNECTING
+
+    init {
+        initDebugger()
+    }
 
     fun addConnectionListener(connectionListener: ConnectionListener) {
-        if (!connectionListeners.contains(connectionListener)) {
-            connectionListeners.add(connectionListener)
-        }
+        connectionListeners.add(connectionListener)
     }
 
     fun removeConnectionListener(connectionListener: ConnectionListener) {
@@ -63,28 +73,20 @@ abstract class Connection(
 
     fun addPacketListener(packetListener: PacketListener, packetFilter: PacketFilter?) {
         val listenerWrapper = ListenerWrapper(packetListener, packetFilter)
-        synchronized(recvListeners) {
-            recvListeners.put(packetListener, listenerWrapper)
-        }
+        recvListeners[packetListener] = listenerWrapper
     }
 
     fun removePacketListener(packetListener: PacketListener) {
-        synchronized(recvListeners) {
-            recvListeners.remove(packetListener)
-        }
+        recvListeners.remove(packetListener)
     }
 
     fun addPacketSendingListener(packetListener: PacketListener, packetFilter: PacketFilter?) {
         val listenerWrapper = ListenerWrapper(packetListener, packetFilter)
-        synchronized(sendListeners) {
-            sendListeners.put(packetListener, listenerWrapper)
-        }
+        sendListeners[packetListener] = listenerWrapper
     }
 
     fun removePacketSendingListener(packetListener: PacketListener) {
-        synchronized(sendListeners) {
-            sendListeners.remove(packetListener)
-        }
+        sendListeners.remove(packetListener)
     }
 
     abstract fun connect()
@@ -97,7 +99,9 @@ abstract class Connection(
     abstract fun unbind(chid: String, userId: String)
 
     fun clearCachedStatus() {
-        // The legacy runtime does not retain Java's status history list yet; keep the public ABI for callers.
+        synchronized(cachedStatus) {
+            cachedStatus.clear()
+        }
     }
 
     open fun send(blob: Blob) {}
@@ -109,87 +113,175 @@ abstract class Connection(
     open val key: ByteArray? get() = null
     open val host: String? get() = null
 
-    open fun getConnTryTimes(): Int = 0
-    open fun getLastPingRecv(): Long = 0L
+    open fun getConnTryTimes(): Int = connTimes
+    open fun getLastPingRecv(): Long = readAlive
 
+    fun resetConnTryTimes() {
+        connTimes = 0
+    }
+
+    fun resetConnectTime() {
+        connectTime = -1L
+    }
+
+    fun isAlwaysFailed(): Boolean {
+        synchronized(cachedStatus) {
+            val cutoff = System.currentTimeMillis() - EFFECTIVE_STATUS_MS
+            cachedStatus.removeAll { (_, timestamp) -> timestamp < cutoff }
+            return cachedStatus.size >= MAX_STATUS_COUNT
+        }
+    }
+
+    @Synchronized
     fun setReadAlive() {
-        readAlive = System.currentTimeMillis()
+        readAlive = android.os.SystemClock.elapsedRealtime()
+    }
+
+    @Synchronized
+    protected fun resetReadAlive() {
+        readAlive = 0L
     }
 
     fun setWriteAlive() {
-        writeAlive = System.currentTimeMillis()
+        writeAlive = android.os.SystemClock.elapsedRealtime()
     }
 
-    fun isReadAlive(thresholdMs: Long): Boolean {
-        return (System.currentTimeMillis() - readAlive) < thresholdMs
+    @Synchronized
+    fun isReadAlive(sinceElapsedRealtime: Long): Boolean {
+        return readAlive >= sinceElapsedRealtime
     }
 
     fun notifyDataArrived(packet: Packet) {
-        synchronized(recvListeners) {
-            for (wrapper in recvListeners.values) {
-                wrapper.notifyListener(packet)
-            }
+        for (wrapper in recvListeners.values) {
+            wrapper.notifyListener(packet)
         }
     }
 
     fun notifyDataArrived(blob: Blob) {
-        synchronized(recvListeners) {
-            for (wrapper in recvListeners.values) {
-                wrapper.notifyListener(blob)
-            }
+        for (wrapper in recvListeners.values) {
+            wrapper.notifyListener(blob)
         }
     }
 
     protected fun notifyPacketSent(packet: Packet) {
-        synchronized(sendListeners) {
-            for (wrapper in sendListeners.values) {
-                wrapper.notifyListener(packet)
-            }
+        for (wrapper in sendListeners.values) {
+            wrapper.notifyListener(packet)
         }
     }
 
     protected fun notifyPacketSent(blob: Blob) {
-        synchronized(sendListeners) {
-            for (wrapper in sendListeners.values) {
-                wrapper.notifyListener(blob)
+        for (wrapper in sendListeners.values) {
+            wrapper.notifyListener(blob)
+        }
+    }
+
+    @Synchronized
+    fun setChallenge(value: String) {
+        if (connectStatus == ConnectionConfiguration.CONNECT_STATUS_CONNECTING) {
+            val digest = MD5.MD5_32(value)?.take(8).orEmpty()
+            MyLog.w("setChallenge hash = $digest")
+            challenge = value
+            setConnectionStatus(ConnectionConfiguration.CONNECT_STATUS_CONNECTED, 0, null)
+        } else {
+            MyLog.w("ignore setChallenge because connection was disconnected")
+        }
+    }
+
+    fun setConnectionStatus(status: Int, reason: Int, error: Exception?) {
+        val previousStatus = connectStatus
+        if (status != previousStatus) {
+            MyLog.w(
+                "update the connection status. ${statusDescription(previousStatus)} -> " +
+                    "${statusDescription(status)} : $reason",
+            )
+        }
+
+        if (Network.hasNetwork(mContext)) {
+            synchronized(cachedStatus) {
+                if (status == ConnectionConfiguration.CONNECT_STATUS_CONNECTED) {
+                    cachedStatus.clear()
+                } else {
+                    cachedStatus.add(status to System.currentTimeMillis())
+                    if (cachedStatus.size > MAX_STATUS_COUNT) {
+                        cachedStatus.removeFirst()
+                    }
+                }
+            }
+        }
+
+        when (status) {
+            ConnectionConfiguration.CONNECT_STATUS_CONNECTED -> {
+                mPushAction.removeJobs(CONNECTING_TIMEOUT_JOB_TYPE)
+                if (previousStatus != ConnectionConfiguration.CONNECT_STATUS_CONNECTING) {
+                    MyLog.w("try set connected while not connecting.")
+                }
+                connectStatus = status
+                connectionListeners.forEach { it.reconnectionSuccessful(this) }
+            }
+
+            ConnectionConfiguration.CONNECT_STATUS_CONNECTING -> {
+                if (previousStatus != ConnectionConfiguration.CONNECT_STATUS_DISCONNECT) {
+                    MyLog.w("try set connecting while not disconnected.")
+                }
+                connectStatus = status
+                connectionListeners.forEach { it.connectionStarted(this) }
+            }
+
+            ConnectionConfiguration.CONNECT_STATUS_DISCONNECT -> {
+                mPushAction.removeJobs(CONNECTING_TIMEOUT_JOB_TYPE)
+                when (previousStatus) {
+                    ConnectionConfiguration.CONNECT_STATUS_CONNECTING -> {
+                        val failure = error
+                            ?: CancellationException("disconnect while connecting")
+                        connectionListeners.forEach { it.reconnectionFailed(this, failure) }
+                    }
+
+                    ConnectionConfiguration.CONNECT_STATUS_CONNECTED -> {
+                        connectionListeners.forEach { it.connectionClosed(this, reason, error) }
+                    }
+                }
+                connectStatus = status
+            }
+        }
+
+        errorCode = reason
+        exc = error
+    }
+
+    protected fun clearChallenge() {
+        challenge = ""
+    }
+
+    protected open fun shutdown(reason: Int, error: Exception?) {
+        setConnectionStatus(ConnectionConfiguration.CONNECT_STATUS_DISCONNECT, reason, error)
+    }
+
+    private fun initDebugger() {
+        if (!config.isDebuggerEnabled() || debugger != null) return
+
+        val debuggerClass = runCatching {
+            System.getProperty("smack.debuggerClass")?.let { className ->
+                Class.forName(className)
+            }
+        }.getOrNull()
+        debugger = if (debuggerClass == null) {
+            AndroidDebugger(this)
+        } else {
+            try {
+                debuggerClass
+                    .getConstructor(Connection::class.java, Writer::class.java, Reader::class.java)
+                    .newInstance(this) as SmackDebugger
+            } catch (error: Exception) {
+                throw IllegalArgumentException("Can't initialize the configured debugger!", error)
             }
         }
     }
 
-    fun notifyConnectionEvent(event: PushConnectionListenerEvent) {
-        val plan = mPushAction.runtimeObserver.planConnectionEvent(event)
-        MyLog.w("[Connection] Event ${event.name}: ${plan.eventAction}")
-    }
-
-    protected open fun shutdown(reason: Int, error: Exception?) {
-        connectStatus = 2
-        errorCode = reason
-        exc = error
-        notifyConnectionEvent(PushConnectionListenerEvent.ConnectionClosed)
-        for (listener in connectionListeners) {
-            listener.connectionClosed(this, reason, error)
-        }
-    }
-
-    protected fun notifyConnectionStarted() {
-        notifyConnectionEvent(PushConnectionListenerEvent.Connected)
-        for (listener in connectionListeners) {
-            listener.connectionStarted(this)
-        }
-    }
-
-    protected fun notifyReconnectionSuccessful() {
-        notifyConnectionEvent(PushConnectionListenerEvent.Connected)
-        for (listener in connectionListeners) {
-            listener.reconnectionSuccessful(this)
-        }
-    }
-
-    protected fun notifyReconnectionFailed(error: Exception) {
-        notifyConnectionEvent(PushConnectionListenerEvent.ReconnectionFailed)
-        for (listener in connectionListeners) {
-            listener.reconnectionFailed(this, error)
-        }
+    private fun statusDescription(status: Int): String = when (status) {
+        ConnectionConfiguration.CONNECT_STATUS_CONNECTED -> "connected"
+        ConnectionConfiguration.CONNECT_STATUS_CONNECTING -> "connecting"
+        ConnectionConfiguration.CONNECT_STATUS_DISCONNECT -> "disconnected"
+        else -> "unknown"
     }
 
     class ListenerWrapper(
@@ -210,6 +302,10 @@ abstract class Connection(
     companion object {
         private val connectionCounter = AtomicInteger(0)
         var DEBUG_ENABLED = false
+
+        private const val CONNECTING_TIMEOUT_JOB_TYPE = 10
+        private const val EFFECTIVE_STATUS_MS = 1_800_000L
+        private const val MAX_STATUS_COUNT = 6
 
         const val ERR_BOSH = 499
         const val ERR_TCP_BROKEN_PIPE = 110

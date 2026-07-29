@@ -23,8 +23,8 @@ class XMPushServiceConnectionDelegate(
                 }
         )
         val plan = service.runtimeObserver.resolveConnectionAttemptPlan(
-            currentConnection?.isConnecting == true,
-            currentConnection?.isConnected == true,
+            isConnected = currentConnection?.isConnected == true,
+            isConnecting = currentConnection?.isConnecting == true,
         )
         service.runtimeObserver.onChannelEvent(null, plan.eventAction, "XMPushServiceConnectionDelegate.connect")
         when (plan.action) {
@@ -150,7 +150,10 @@ class XMPushServiceConnectionDelegate(
 
     private fun connectBySlim() {
         try {
-            val slimConnection = service.recreateSlimConnection()
+            // MiPush SDK 3.7.9 and stock XMSF 7.4.67-C create one service-owned SlimConnection and
+            // reuse it across reconnects. Recreating it here discarded stock's short-connection
+            // count and cached failure history before either could influence host selection.
+            val slimConnection = service.slimConnection
             MyLog.w("connectBySlim using=${slimConnection.hashCode()} current=${service.currentConnection?.hashCode()}")
             slimConnection.addPacketListener(
                 service.servicePacketListener,

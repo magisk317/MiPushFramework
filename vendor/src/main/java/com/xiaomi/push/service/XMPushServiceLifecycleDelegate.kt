@@ -14,6 +14,7 @@ class XMPushServiceLifecycleDelegate(
     private val service: XMPushServiceCore,
 ) {
     private val infrastructure = XMPushServiceLifecycleInfrastructure(service)
+    private val stockLifecycle = XMPushServiceStockLifecycle(service)
 
     fun onCreate() {
         MyLog.init(service.applicationContext)
@@ -39,7 +40,11 @@ class XMPushServiceLifecycleDelegate(
         CommonPacketExtensionProvider().register()
         StatsHandler.getInstance().init(service)
         service.jobController = JobScheduler("Connection Controller Thread")
-        service.runtimeObserver.configureClientChangeListener(service, PushClientsManager.getInstance())
+        val clientsManager = PushClientsManager.getInstance()
+        stockLifecycle.configureClientChangeListener(clientsManager)
+        // Product observers may append bookkeeping listeners after the stock listener is installed,
+        // but must not replace or reimplement the stock transport listener.
+        service.runtimeObserver.configureClientChangeListener(service, clientsManager)
         if (service.canOpenForegroundService()) {
             service.enableForegroundService()
         }
@@ -54,6 +59,7 @@ class XMPushServiceLifecycleDelegate(
             infrastructure.installPowerModeObservers()
             infrastructure.installFalldownReceiver()
         }
+        service.ensureStockHeartbeatReceivers()
         service.runtimeObserver.persistCreationLog(service)
     }
 
@@ -66,6 +72,13 @@ class XMPushServiceLifecycleDelegate(
             service.unregisterReceiverSafely(it)
             service.clearScreenStateReceiver()
         }
+        service.wifiDigestReceiver?.let {
+            service.unregisterReceiverSafely(it)
+        }
+        service.intelligentHbReceiver?.let {
+            service.unregisterReceiverSafely(it)
+        }
+        service.clearStockHeartbeatReceivers()
         infrastructure.unregisterPowerModeObservers()
         service.clearNetworkListeners()
         service.jobController.removeAllJobs()
@@ -132,11 +145,16 @@ class XMPushServiceLifecycleDelegate(
     }
 
     fun networkChanged() {
-        service.runtimeObserver.networkChanged()
+        stockLifecycle.networkChanged()
     }
 
     fun connectionClosed(connection: com.xiaomi.smack.Connection, reason: Int, error: Exception?) {
         service.runtimeObserver.connectionClosed(connection, reason, error)
+        // MiPush SDK 3.7.9 XMPushService.connectionClosed and stock 7.4.67-C
+        // XMPushService.a both reconnect unless the service is in its fall-down window.
+        if (!service.shouldFalldown()) {
+            service.scheduleConnect(false)
+        }
     }
 
     fun connectionStarted(connection: com.xiaomi.smack.Connection) {
@@ -144,14 +162,32 @@ class XMPushServiceLifecycleDelegate(
     }
 
     fun postOnCreate() {
-        service.runtimeObserver.postOnCreate()
+        stockLifecycle.postOnCreate()
     }
 
     fun reconnectionFailed(connection: com.xiaomi.smack.Connection, error: Exception) {
         service.runtimeObserver.reconnectionFailed(connection, error)
+        // Stock broadcasts the unavailable state before deciding whether fall-down suppresses the
+        // next reconnect. This is service behavior, not an observer/product policy.
+        service.broadcastNetworkAvailable(false)
+        if (!service.shouldFalldown()) {
+            service.scheduleConnect(false)
+        }
     }
 
     fun reconnectionSuccessful(connection: com.xiaomi.smack.Connection) {
         service.runtimeObserver.reconnectionSuccessful(connection)
+        // MiPush SDK 3.7.9 and stock XMSF 7.4.67-C perform these actions only after qa.b accepts
+        // the server challenge: publish network availability, reset backoff, reactivate the alarm,
+        // and enqueue one bind for every retained client.
+        service.broadcastNetworkAvailable(true)
+        service.reconnectionManager.onConnectSucceeded()
+        if (!Alarm.isAlive() && !service.shouldFalldown()) {
+            MyLog.w("reconnection successful, reactivate alarm.")
+            Alarm.registerPing(true)
+        }
+        PushClientsManager.getInstance().getAllClients().forEach { client ->
+            service.executeJob(BindJob(service, client))
+        }
     }
 }

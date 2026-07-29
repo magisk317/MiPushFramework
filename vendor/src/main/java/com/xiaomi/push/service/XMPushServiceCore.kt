@@ -3,9 +3,11 @@ package com.xiaomi.push.service
 import android.app.Notification
 import android.app.Service
 import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.database.ContentObserver
+import android.os.Build
 import android.os.IBinder
 import android.os.Messenger
 import com.xiaomi.channel.commonutils.logger.MyLog
@@ -13,6 +15,7 @@ import com.xiaomi.channel.commonutils.network.Network
 import com.xiaomi.mipush.sdk.stat.db.MessageInfoContract
 import com.xiaomi.network.HostManager
 import com.xiaomi.push.service.timers.Alarm
+import com.xiaomi.push.service.heartbeat.HeartbeatStrategyManager
 import com.xiaomi.slim.Blob
 import com.xiaomi.slim.SlimConnection
 import com.xiaomi.smack.Connection
@@ -40,6 +43,9 @@ open class XMPushServiceCore : Service(), ConnectionListener, IPushServiceAction
     override lateinit var serviceMessenger: Messenger
     var connectionChangeReceiver: ConnectionChangeReceiver? = null
     var lastAliveAt: Long = 0L
+
+    var wifiDigestReceiver: WifiDigestReceiver? = null
+    var intelligentHbReceiver: IntelligentHbReceiver? = null
 
     override val runtimeObserver: IPushRuntimeObserver
         get() = observer ?: throw IllegalStateException("runtimeObserver not initialized")
@@ -192,7 +198,6 @@ open class XMPushServiceCore : Service(), ConnectionListener, IPushServiceAction
 
     override fun postOnCreate() {
         lifecycleDelegate.postOnCreate()
-        runtimeObserver.postOnCreate()
     }
 
     fun preparePacket(packet: com.xiaomi.smack.packet.Packet, packageName: String, session: String?): com.xiaomi.smack.packet.Packet? {
@@ -285,26 +290,6 @@ open class XMPushServiceCore : Service(), ConnectionListener, IPushServiceAction
         currentConnection = null
     }
 
-    fun recreateSlimConnection(): SlimConnection {
-        val previous = runCatching { slimConnection }.getOrNull()
-        MyLog.w(
-            "recreateSlimConnection previous=" +
-                if (previous == null) {
-                    "null"
-                } else {
-                    "${previous.hashCode()} connected=${previous.isConnected} connecting=${previous.isConnecting}"
-                }
-        )
-        runCatching {
-            slimConnection.removeConnectionListener(this)
-        }
-        return SlimConnection(this, this, connectionConfiguration).also { connection ->
-            connection.addConnectionListener(this)
-            slimConnection = connection
-            MyLog.w("recreateSlimConnection created=${connection.hashCode()} host=${connection.host}")
-        }
-    }
-
     fun clearConnectionChangeReceiver() {
         connectionChangeReceiver = null
     }
@@ -353,6 +338,69 @@ open class XMPushServiceCore : Service(), ConnectionListener, IPushServiceAction
         }
     }
 
+    /**
+     * Stock XMSF 7.4.67-C registers DIGEST_INFORMATION_CHANGED and USE_INTELLIGENT_HB only for
+     * package com.xiaomi.xmsf. Older code never listened, so WiFi digest never reached the HB
+     * strategy and short-interval keep windows from system callers were ignored.
+     *
+     * Both broadcasts come from outside this process, so stock passes export flag 2
+     * (`Context.RECEIVER_EXPORTED`). Registering them as not-exported would silently drop every
+     * digest/keep-window update on API 34+.
+     */
+    fun ensureStockHeartbeatReceivers() {
+        if (packageName != PushConstants.PUSH_SERVICE_PACKAGE_NAME) {
+            return
+        }
+        if (wifiDigestReceiver == null) {
+            val receiver = WifiDigestReceiver(this)
+            runCatching {
+                registerExportedReceiver(
+                    receiver,
+                    PushServiceConstants.ACTION_WIFI_DIGEST_INFORMATION_CHANGED,
+                    PushServiceConstants.PERMISSION_ACCESS_WIFI_DIGEST_INFO,
+                )
+            }.onSuccess {
+                // Only own the field after a successful register so onDestroy never unregisters an
+                // unregistered receiver and a later onCreate can retry.
+                wifiDigestReceiver = receiver
+            }.onFailure { error ->
+                MyLog.w("register wifi digest receiver failed: ${error.message}")
+            }
+        }
+        if (intelligentHbReceiver == null) {
+            val receiver = IntelligentHbReceiver(this)
+            runCatching {
+                registerExportedReceiver(
+                    receiver,
+                    PushServiceConstants.ACTION_USE_INTELLIGENT_HB,
+                    PushServiceConstants.PERMISSION_INTELLIGENT_HB,
+                )
+            }.onSuccess {
+                intelligentHbReceiver = receiver
+            }.onFailure { error ->
+                MyLog.w("register intelligent HB receiver failed: ${error.message}")
+            }
+        }
+    }
+
+    private fun registerExportedReceiver(
+        receiver: BroadcastReceiver,
+        action: String,
+        permission: String,
+    ) {
+        val filter = IntentFilter(action)
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(receiver, filter, permission, null, Context.RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(receiver, filter, permission, null)
+        }
+    }
+
+    fun clearStockHeartbeatReceivers() {
+        wifiDigestReceiver = null
+        intelligentHbReceiver = null
+    }
+
     override fun onCreate() {
         super.onCreate()
         XMPushServiceProxy.set(this)
@@ -366,6 +414,9 @@ open class XMPushServiceCore : Service(), ConnectionListener, IPushServiceAction
     }
 
     override fun onPong() {
+        // Stock connection path eventually hits v.l() / u.d after healthy traffic. Keep only the
+        // local consecutive-timeout reset; telemetry upload stays inert.
+        runCatching { HeartbeatStrategyManager.getInstance(this).onPingSuccessOrReport() }
         XMPushServicePingSupport.onPong(pingCallBacks)
     }
 

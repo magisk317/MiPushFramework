@@ -44,7 +44,6 @@ internal object ClientEventDispatcherPacketSupport {
     }
 
     fun notifyPacketArrival(pushAction: IPushServiceAction, chid: String, blob: Blob, pushEventProcessor: MIPushEventProcessor) {
-        pushAction.postOnCreate() // Replacing XMPushServiceLifecycleBridge.ensureCreated(pushService)
         pushAction.runtimeObserver.notifyPacketArrival(chid, blob)
         val clientLoginInfo = getClientLoginInfo(blob)
         if (clientLoginInfo == null) {
@@ -83,7 +82,6 @@ internal object ClientEventDispatcherPacketSupport {
     }
 
     fun notifyPacketArrival(pushAction: IPushServiceAction, chid: String, packet: Packet, pushEventProcessor: MIPushEventProcessor) {
-        pushAction.postOnCreate() // Replacing XMPushServiceLifecycleBridge.ensureCreated(pushService)
         pushAction.runtimeObserver.notifyPacketArrival(chid, packet)
         val clientLoginInfo = getClientLoginInfo(packet)
         if (clientLoginInfo == null) {

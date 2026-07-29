@@ -141,7 +141,10 @@ internal class XMPushServicePacketDelegate(
                 val registration = XmPushActionRegistration()
                 try {
                     XmPushThriftSerializeUtils.convertByteArrayToThriftObject(registration, container.getPushAction())
-                    service.runtimeObserver.cacheRegistrationRequest(container.packageName, payload, registration.appId)
+                    // Stock XMSF 7.4.67-C K/f0 does not queue the wire payload at decode time.
+                    // Keep the project-only pending appId for data-clear lifecycle decisions, while
+                    // MIPushAppRegisterJob applies the stock connection/channel queue condition.
+                    service.runtimeObserver.rememberPendingRegistration(container.packageName, registration.appId)
                     service.runtimeObserver.onRegistrationStateChanged(
                         container.packageName,
                         PushRegistrationState.Registering,
