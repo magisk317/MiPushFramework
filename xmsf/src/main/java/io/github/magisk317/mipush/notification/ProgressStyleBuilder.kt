@@ -114,6 +114,10 @@ object ProgressStyleBuilder {
             .setStyle(style)
             .setOngoing(true)
             .setAutoCancel(false)
+        // Android 16 / HyperOS OS3.0.315 NotificationManagerService checks
+        // POST_PROMOTED_NOTIFICATIONS against the final delegated pkg + notificationUid. Request
+        // promotion here, but keep the same ProgressStyle notification as the standard ongoing
+        // fallback when the target app has not been granted that permission.
         requestPromotedOngoingIfAvailable(platformBuilder)
         return platformBuilder
             .build()
@@ -175,12 +179,14 @@ object ProgressStyleBuilder {
     ): NotificationCompat.Builder {
         Napier.d("Applying fallback progress style for Android ${Build.VERSION.SDK_INT}", tag = TAG)
 
-        // Set as ongoing for progress notifications
+        // Android 16 / HyperOS OS3.0.315 promotes only eligible, authorized notifications. These
+        // compat fields intentionally remain useful on every ROM when promotion is unavailable.
         builder.setOngoing(true)
         builder.setAutoCancel(false)
         builder.setRequestPromotedOngoing(true)
 
-        // Apply standard progress bar
+        // Preserve a continuously updateable standard progress notification as the cross-ROM
+        // fallback selected for non-MIUI devices and denied promoted-notification permission.
         result.progressPercent?.let { percent ->
             builder.setProgress(100, percent, false)
         } ?: run {

@@ -18,6 +18,7 @@ import androidx.core.graphics.drawable.IconCompat
 import com.xiaomi.push.service.MIPushNotificationViewSupport
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.notification.SweetTagHandler
+import io.github.magisk317.mipush.notification.SweetNotificationCoordinator
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.XMPushUtils
 import com.xiaomi.xmpush.thrift.PushMetaInfo
@@ -69,12 +70,18 @@ internal object MyMIPushNotificationStyleSupport {
         metaInfo: PushMetaInfo,
         packageName: String
     ): NotificationCompat.Builder {
-        val title = metaInfo.title.orEmpty()
-        val description = metaInfo.description.orEmpty()
+        // Stock 7.4.67-C adds style 5 after the retained 3.7.9 SDK and renders it with Xiaomi-only
+        // RemoteViews. Use the same payload fields in a standard notification so the card remains
+        // readable when those private layouts are unavailable.
+        val sweetCard = SweetNotificationCoordinator.resolveCardContent(metaInfo.extra)
+        val title = sweetCard?.title ?: metaInfo.title.orEmpty()
+        val description = sweetCard?.text ?: metaInfo.description.orEmpty()
+        val renderedTitle = SweetTagHandler.renderFtHtmlIfNeeded(title)
         val renderedDescription = SweetTagHandler.renderFtHtmlIfNeeded(description)
-        val bigPic = getBigPic(context, metaInfo)
+        val bigPic = getBigPic(context, metaInfo, sweetCard?.backgroundUri)
 
         val styleReason = when {
+            sweetCard != null -> "sweet_standard"
             bigPic != null -> "big_picture"
             description.length > NOTIFICATION_BIG_STYLE_MIN_LEN -> "big_text"
             else -> "normal"
@@ -95,17 +102,24 @@ internal object MyMIPushNotificationStyleSupport {
             if (bigPic != null) {
                 val style = NotificationCompat.BigPictureStyle()
                 style.bigPicture(bigPic)
-                style.setBigContentTitle(title)
+                style.setBigContentTitle(renderedTitle)
                 setStyle(style)
             } else if (description.length > NOTIFICATION_BIG_STYLE_MIN_LEN) {
                 val style = NotificationCompat.BigTextStyle()
                 style.bigText(renderedDescription)
-                style.setBigContentTitle(title)
+                style.setBigContentTitle(renderedTitle)
                 setStyle(style)
             }
 
-            val titleAndDesp = determineTitleAndDespByDIP(context, metaInfo)
-            setContentTitle(titleAndDesp[0])
+            val titleAndDesp = if (sweetCard != null) {
+                arrayOf(title, description)
+            } else {
+                determineTitleAndDespByDIP(context, metaInfo)
+            }
+            // Stock 7.4.67-C sweetnotification.e renders alert, left, and right through its
+            // SweetTagHandler. The first standard fallback rendered only the joined body and left
+            // alert markup visible, so use the rendered title for style 5 as well.
+            setContentTitle(if (sweetCard != null) renderedTitle else titleAndDesp[0])
             setContentText(SweetTagHandler.renderFtHtmlIfNeeded(titleAndDesp[1]))
 
             val smallIconId = MIPushNotificationViewSupport.getIdForSmallIcon(context, packageName)
@@ -169,9 +183,13 @@ internal object MyMIPushNotificationStyleSupport {
     ) = MyMIPushNotificationIntentSupport.getSdkIntent(context, container)
         ?: context.packageManager.getLaunchIntentForPackage(packageName)
 
-    private fun getBigPic(context: Context, metaInfo: PushMetaInfo): Bitmap? {
+    private fun getBigPic(
+        context: Context,
+        metaInfo: PushMetaInfo,
+        preferredUri: String? = null,
+    ): Bitmap? {
         val configuration = XMPushUtils.getConfiguration(metaInfo)
-        val bigPicUri = configuration.notificationBigPicUri(null)
+        val bigPicUri = preferredUri ?: configuration.notificationBigPicUri(null)
         return Global.iconCache().getBitmap(
             context,
             bigPicUri,
