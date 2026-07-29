@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.drawable.Icon
@@ -34,7 +35,6 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import tech.apter.junit.jupiter.robolectric.RobolectricExtension
-import io.github.magisk317.mipush.common.notification.SinglePackageNotificationGroupPolicy
 
 @ExtendWith(RobolectricExtension::class)
 @Config(sdk = [28])
@@ -87,7 +87,7 @@ class NotificationControllerRobolectricTest {
 
         val channelId = NotificationController.getExistsChannelId(context, metaInfo, packageName)
 
-        assertEquals(NotificationChannelManager.getChannelId(metaInfo, packageName), channelId)
+        assertEquals(NotificationChannelManager.getChannelId(context, metaInfo, packageName), channelId)
     }
 
     @Test
@@ -114,6 +114,32 @@ class NotificationControllerRobolectricTest {
 
         assertEquals(stockChannelId, channelId)
         notificationManager.deleteNotificationChannel(stockChannelId)
+    }
+
+    @Test
+    fun `channel selection preserves an existing pre migration managed channel`() {
+        val context = RuntimeEnvironment.getApplication()
+        val packageName = "com.example.legacy.channel"
+        val legacyChannelId = "ch_${packageName}_push"
+        val metaInfo = PushMetaInfo().apply {
+            extra = mutableMapOf("channel_id" to "push")
+        }
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(
+            NotificationChannel(
+                legacyChannelId,
+                "Legacy managed channel",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ),
+        )
+
+        NotificationManagerEx.init(context)
+
+        assertEquals(
+            legacyChannelId,
+            NotificationController.getExistsChannelId(context, metaInfo, packageName),
+        )
+        notificationManager.deleteNotificationChannel(legacyChannelId)
     }
 
     @Test
@@ -191,7 +217,6 @@ class NotificationControllerRobolectricTest {
         assertTrue(focusParam!!.contains(""""param_v2""""))
         assertTrue(focusParam.contains(""""mipush_framework_push""""))
         assertFocusSequenceEnabled(focusParam)
-        assertEquals(true to "close", NotificationSortFilter.parseFocusParamForTest(focusParam))
         assertEquals("miui.focus.pic_mipush_icon", focusBundle.getString("miui.focus.pic_mipush_icon"))
         val pics = focusBundle.getBundle("miui.focus.pics")
         assertNotNull(pics)
@@ -836,6 +861,43 @@ class NotificationControllerRobolectricTest {
     }
 
     @Test
+    fun `native progress translation preserves caller delete intent`() {
+        val context = RuntimeEnvironment.getApplication()
+        val packageName = context.packageName
+        val notificationId = 32024
+        val deleteIntent = PendingIntent.getBroadcast(
+            context,
+            notificationId,
+            Intent("com.example.notification.DELETE").setPackage(packageName),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val metaInfo = PushMetaInfo().apply {
+            title = "Configured progress"
+            description = "Downloading update"
+            extra = mutableMapOf(
+                "miui.focus.param" to
+                    """{"param_v2":{"progressBar":{"progress":65}}}""",
+            )
+        }
+        val builder = NotificationCompat.Builder(context, "placeholder")
+            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setContentTitle(metaInfo.title)
+            .setContentText(metaInfo.description)
+            .setDeleteIntent(deleteIntent)
+
+        NotificationManagerEx.init(context)
+        NotificationController.publish(context, metaInfo, notificationId, packageName, builder)
+
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val posted = notificationManager.activeNotifications
+            .first { it.id == notificationId }
+            .notification
+
+        assertTrue(posted.extras.getBoolean("xmsf.live_update", false))
+        assertEquals(deleteIntent, posted.deleteIntent)
+    }
+
+    @Test
     fun `notification manager does not publish local fallback for absent target package`() {
         val context = RuntimeEnvironment.getApplication()
         val channelId = "missing-target"
@@ -889,7 +951,7 @@ class NotificationControllerRobolectricTest {
     }
 
     @Test
-    fun `grouped notifications stay off island proxy on non MIUI with monochrome package summary`() {
+    fun `non MIUI grouped notifications do not create a synthetic summary`() {
         val context = RuntimeEnvironment.getApplication()
         val packageName = context.packageName
         val groupId = "focus-group"
@@ -918,18 +980,7 @@ class NotificationControllerRobolectricTest {
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val active = notificationManager.activeNotifications.associateBy { it.id }
 
-        // Custom payload group is collapsed; package-key monochrome summary is posted instead of
-        // relying on HyperOS AUTOGROUP_SUMMARY (RESOURCE resId=0 white block).
         assertFalse(active.containsKey(groupId.hashCode()))
-        val packageSummary = active.getValue(packageName.hashCode()).notification
-        assertTrue(packageSummary.flags and Notification.FLAG_GROUP_SUMMARY != 0)
-        assertTrue(
-            packageSummary.extras.getBoolean(
-                SinglePackageNotificationGroupPolicy.EXTRA_PACKAGE_GROUP_SUMMARY,
-                false,
-            ),
-        )
-        assertEquals(packageName, packageSummary.group)
         assertEquals("通知汇总", active.getValue(33000).notification.extras.getCharSequence(Notification.EXTRA_SUB_TEXT).toString())
         assertEquals("通知汇总", active.getValue(33001).notification.extras.getCharSequence(Notification.EXTRA_SUB_TEXT).toString())
         assertNotNull(active.getValue(33000).notification.extras.parcelable<Icon>(EXTRA_LARGE_ICON))
@@ -938,9 +989,8 @@ class NotificationControllerRobolectricTest {
         assertNull(active.getValue(33001).notification.extras.getString("miui.focus.param"))
         assertFalse(active.getValue(33000).notification.extras.getBoolean("mipush_island_allow_proxy", false))
         assertFalse(active.getValue(33001).notification.extras.getBoolean("mipush_island_allow_proxy", false))
-        // Children collapse to the package group key rather than the payload custom groupId.
-        assertEquals(packageName, active.getValue(33000).notification.group)
-        assertEquals(packageName, active.getValue(33001).notification.group)
+        assertEquals(groupId, active.getValue(33000).notification.group)
+        assertEquals(groupId, active.getValue(33001).notification.group)
     }
 
     @Test

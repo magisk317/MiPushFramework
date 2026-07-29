@@ -39,25 +39,6 @@ class PushRuntimeTest {
     }
 
     @Test
-    fun `account changed dispatches alias sync and pending app replays`() {
-        AndroidPushRuntime.clearStateForTests()
-        val host = TestExecutionHost()
-        AndroidPushRuntime.attachExecutionHost(host)
-        try {
-            AndroidPushRuntime.observeRegistrationRequest("com.example.pending", "test")
-
-            val result = AndroidPushRuntime.handleAccountChanged("test")
-
-            assertTrue(result.accountSyncTriggered)
-            assertEquals(1, result.pendingAppReplayCount)
-            assertEquals(1, host.accountSyncReasons.size)
-            assertEquals(listOf("com.example.pending"), host.replayedPackages)
-        } finally {
-            AndroidPushRuntime.detachExecutionHost(host)
-        }
-    }
-
-    @Test
     fun `downstream dispatch and notification cancel update runtime counters`() {
         AndroidPushRuntime.clearStateForTests()
         val host = TestExecutionHost(
@@ -323,7 +304,6 @@ class PushRuntimeTest {
         assertTrue(capabilities.capabilities.contains(PushRuntimeCapability.CHANNEL_LIFECYCLE_TRACKING))
         assertTrue(capabilities.capabilities.contains(PushRuntimeCapability.CONNECTION_SESSION_RUNTIME))
         assertTrue(capabilities.capabilities.contains(PushRuntimeCapability.STOCK_SURFACE_COMPATIBILITY))
-        assertTrue(capabilities.capabilities.contains(PushRuntimeCapability.ACCOUNT_CLOUD_BRIDGE))
     }
 
     private fun testHost(processedIntents: MutableList<Intent>): PushRuntimeBridgeHost {
@@ -345,7 +325,6 @@ class PushRuntimeTest {
         val frameworkRegistrationReasons = mutableListOf<String>()
         val replayedPackages = mutableListOf<String>()
         val processRegisterTaskReasons = mutableListOf<String>()
-        val accountSyncReasons = mutableListOf<String>()
         val connectionEnsureReasons = mutableListOf<String>()
         val connectionResetReasons = mutableListOf<String>()
         val downstreamDispatches = mutableListOf<String>()
@@ -363,11 +342,6 @@ class PushRuntimeTest {
 
         override fun processPendingRegisterTasks(reason: String): Boolean {
             processRegisterTaskReasons += reason
-            return true
-        }
-
-        override fun syncAccountAlias(reason: String): Boolean {
-            accountSyncReasons += reason
             return true
         }
 

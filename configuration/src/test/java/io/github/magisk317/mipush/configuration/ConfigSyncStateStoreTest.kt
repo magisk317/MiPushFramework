@@ -1,4 +1,4 @@
-package io.github.magisk317.mipush.config
+package io.github.magisk317.mipush.configuration
 
 import android.app.Application
 import io.github.magisk317.mipush.utils.ConfigSyncRecord

@@ -64,4 +64,28 @@ class PushRuntimePendingPacketStoreTest {
         assertEquals("com.example.two", flushed.single().first)
         assertArrayEquals(second, flushed.single().second)
     }
+
+    @Test
+    fun `failed registration flush preserves newer same-package request`() {
+        PushRuntimePendingPacketStore.clearForTests()
+        val packageName = "com.example.target"
+        val oldPayload = byteArrayOf(1)
+        val newPayload = byteArrayOf(2)
+        PushRuntimePendingPacketStore.cacheRegistrationRequest(packageName, oldPayload)
+
+        runCatching {
+            PushRuntimePendingPacketStore.processPendingRegistrationRequests("test") { _, _ ->
+                PushRuntimePendingPacketStore.cacheRegistrationRequest(packageName, newPayload)
+                throw IllegalStateException("boom")
+            }
+        }
+
+        val flushed = mutableListOf<ByteArray>()
+        val count = PushRuntimePendingPacketStore.processPendingRegistrationRequests("retry") { _, payload ->
+            flushed += payload
+        }
+
+        assertEquals(1, count)
+        assertArrayEquals(newPayload, flushed.single())
+    }
 }

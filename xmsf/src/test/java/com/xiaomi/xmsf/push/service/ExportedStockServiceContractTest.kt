@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.robolectric.Robolectric
@@ -32,7 +31,8 @@ class ExportedStockServiceContractTest {
     }
 
     @Test
-    fun `activate service ignores forged registration and external actions`() {
+    @Suppress("DEPRECATION")
+    fun `activate service preserves stock no op behavior`() {
         val context: Application = RuntimeEnvironment.getApplication()
         val preferences = context.getSharedPreferences("pref_registered_pkg_names", Context.MODE_PRIVATE)
         preferences.edit().clear().commit()
@@ -48,9 +48,6 @@ class ExportedStockServiceContractTest {
         )
 
         assertFalse(preferences.contains("attacker.package"))
-        assertFalse(MiuiPushActivateService.isInternalActionSupported("com.xiaomi.xmsf.push.APP_REGISTERED"))
-        assertTrue(MiuiPushActivateService.isInternalActionSupported("com.xiaomi.xmsf.push.SCAN"))
-        assertTrue(MiuiPushActivateService.isInternalActionSupported("com.xiaomi.xmsf.push.ACCOUNT_CHANGE"))
 
         controller.destroy()
     }

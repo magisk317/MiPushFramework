@@ -3,6 +3,7 @@ package com.xiaomi.xmsf
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.w3c.dom.Element
@@ -12,25 +13,14 @@ import javax.xml.parsers.DocumentBuilderFactory
 class ManifestContractTest {
 
     @Test
-    fun `http service requires signature permission`() {
+    fun `http service preserves unpermissioned stock bind contract`() {
         val document = parseManifest()
         val service = findApplicationNodeByAndroidName(document = document, tagName = "service", androidName = ".push.service.HttpService")
 
         assertNotNull(service)
-        assertEquals(
-            "com.xiaomi.xmsf.permission.BIND_HTTP_SERVICE",
-            service!!.getAttributeNS(ANDROID_NS, "permission"),
-        )
+        assertEquals("", service!!.getAttributeNS(ANDROID_NS, "permission"))
         assertEquals("true", service.getAttributeNS(ANDROID_NS, "exported"))
-    }
-
-    @Test
-    fun `bind http permission is signature protected`() {
-        val document = parseManifest()
-        val permission = findNodeByAndroidName(document = document, tagName = "permission", androidName = "com.xiaomi.xmsf.permission.BIND_HTTP_SERVICE")
-
-        assertNotNull(permission)
-        assertEquals("signature", permission!!.getAttributeNS(ANDROID_NS, "protectionLevel"))
+        assertNull(findNodeByAndroidName(document, "permission", "com.xiaomi.xmsf.permission.BIND_HTTP_SERVICE"))
     }
 
     @Test
@@ -87,6 +77,40 @@ class ManifestContractTest {
     }
 
     @Test
+    fun `keep alive process observer requests the stock activity watcher permission`() {
+        val document = parseManifest()
+
+        assertNotNull(
+            findNodeByAndroidName(
+                document,
+                "uses-permission",
+                "android.permission.SET_ACTIVITY_WATCHER",
+            ),
+            "Stock XMSF 7.4.67-C requests SET_ACTIVITY_WATCHER for ProcessMonitor callbacks",
+        )
+    }
+
+    @Test
+    fun `package lifecycle receiver subscribes to stock data clear`() {
+        val document = parseManifest()
+        val receiver = findApplicationNodeByAndroidName(
+            document,
+            "receiver",
+            "io.github.magisk317.mipush.receiver.PkgUninstallReceiver",
+        )
+
+        assertNotNull(receiver)
+        val actions = receiver!!.getElementsByTagName("action")
+        assertTrue(
+            (0 until actions.length).any { index ->
+                (actions.item(index) as? Element)?.getAttributeNS(ANDROID_NS, "name") ==
+                    "android.intent.action.PACKAGE_DATA_CLEARED"
+            },
+            "Stock 7.4.67-C package data-clear cleanup must be reachable from the system broadcast",
+        )
+    }
+
+    @Test
     fun `only gated mipush compatibility ingress services are exported`() {
         val document = parseManifest()
 
@@ -104,13 +128,23 @@ class ManifestContractTest {
             "exported",
             "true",
         )
-        listOf(
-            ".push.service.MiPushFacadeService",
-            "com.xiaomi.xmsf.push.service.CompatXMPushService",
+        assertApplicationNodeAttribute(
+            document,
+            "service",
             "com.xiaomi.push.service.XMPushServiceCore",
-        ).forEach { serviceName ->
-            assertApplicationNodeAttribute(document, "service", serviceName, "exported", "false")
-        }
+            "exported",
+            "false",
+        )
+        assertNull(
+            findApplicationNodeByAndroidName(document, "service", ".push.service.MiPushFacadeService"),
+        )
+        assertNull(
+            findApplicationNodeByAndroidName(
+                document,
+                "service",
+                "com.xiaomi.xmsf.push.service.CompatXMPushService",
+            ),
+        )
     }
 
     @Test
@@ -165,7 +199,7 @@ class ManifestContractTest {
     }
 
     @Test
-    fun `inert compatibility services are internal only`() {
+    fun `inert compatibility services expose only stock safe routes`() {
         val document = parseManifest()
 
         assertApplicationNodeAttribute(
@@ -173,14 +207,14 @@ class ManifestContractTest {
             "service",
             "com.xiaomi.xmsf.push.service.StatService",
             "exported",
-            "false",
+            "true",
         )
         assertApplicationNodeAttribute(
             document,
             "service",
             ".push.service.MiuiPushActivateService",
             "exported",
-            "false",
+            "true",
         )
     }
 
@@ -191,12 +225,21 @@ class ManifestContractTest {
         listOf(".ShareLogActivity", ".RemoveDozeActivity").forEach { activityName ->
             assertApplicationNodeAttribute(document, "activity", activityName, "exported", "false")
         }
-        listOf(
-            "com.xiaomi.mipush.sdk.PushServiceReceiver",
-            "io.github.magisk317.mipush.receiver.MiuiPushMessageReceiver",
-        ).forEach { receiverName ->
-            assertApplicationNodeAttribute(document, "receiver", receiverName, "exported", "false")
-        }
+        assertApplicationNodeAttribute(
+            document,
+            "receiver",
+            "com.xiaomi.xmsf.push.service.receivers.MiuiPushMessageReceiver",
+            "exported",
+            "false",
+        )
+        assertNull(
+            findApplicationNodeByAndroidName(
+                document,
+                "receiver",
+                "com.xiaomi.mipush.sdk.PushServiceReceiver",
+            ),
+            "Stock XMSF does not declare the client PushServiceReceiver alongside its own receiver.",
+        )
     }
 
     @Test

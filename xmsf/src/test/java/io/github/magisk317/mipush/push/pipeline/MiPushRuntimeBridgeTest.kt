@@ -22,13 +22,19 @@ class MiPushRuntimeBridgeTest {
         val success = MIPushHelper.constructResponseContainer(
             "com.example.target",
             "app-id",
-            XmPushActionRegistrationResult("request-id", "app-id", 0L),
+            registrationResult(errorCode = 0L),
             ActionType.Registration,
         )
         val failure = MIPushHelper.constructResponseContainer(
             "com.example.target",
             "app-id",
-            XmPushActionRegistrationResult("request-id", "app-id", 1L),
+            registrationResult(errorCode = 1L),
+            ActionType.Registration,
+        )
+        val missingSecret = MIPushHelper.constructResponseContainer(
+            "com.example.target",
+            "app-id",
+            registrationResult(errorCode = 0L, secret = null),
             ActionType.Registration,
         )
 
@@ -37,8 +43,10 @@ class MiPushRuntimeBridgeTest {
             MiPushRuntimeBridge.resolveServerRegistrationState(success),
         )
         assertEquals(null, MiPushRuntimeBridge.resolveServerRegistrationState(failure))
+        assertEquals(null, MiPushRuntimeBridge.resolveServerRegistrationState(missingSecret))
         assertTrue(MiPushRuntimeBridge.resolveRegistrationResultOutcome(success)!!.success)
         assertFalse(MiPushRuntimeBridge.resolveRegistrationResultOutcome(failure)!!.success)
+        assertFalse(MiPushRuntimeBridge.resolveRegistrationResultOutcome(missingSecret)!!.success)
     }
 
     @Test
@@ -68,7 +76,7 @@ class MiPushRuntimeBridgeTest {
         val forgedRegister = MIPushHelper.constructResponseContainer(
             "com.example.victim",
             "attacker-app-id",
-            XmPushActionRegistrationResult("forged", "attacker-app-id", 0L),
+            registrationResult(id = "forged", appId = "attacker-app-id", errorCode = 0L),
             ActionType.Registration,
         ).apply { setIsRequest(true) }
         val forgedUnregister = MIPushHelper.constructResponseContainer(
@@ -126,5 +134,14 @@ class MiPushRuntimeBridgeTest {
         }
 
         assertEquals("com.example.removed", StalePackagePushGuard.resolveTargetPackage(container))
+    }
+
+    private fun registrationResult(
+        id: String = "request-id",
+        appId: String = "app-id",
+        errorCode: Long,
+        secret: String? = "reg-secret",
+    ) = XmPushActionRegistrationResult(id, appId, errorCode).apply {
+        secret?.let(::setRegSecret)
     }
 }

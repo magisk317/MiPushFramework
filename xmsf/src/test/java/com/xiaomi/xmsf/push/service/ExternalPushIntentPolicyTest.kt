@@ -11,13 +11,16 @@ class ExternalPushIntentPolicyTest {
         assertTrue(ExternalPushIntentPolicy.isAllowed(PushConstants.MIPUSH_ACTION_REGISTER_APP))
         assertTrue(ExternalPushIntentPolicy.isAllowed(PushConstants.MIPUSH_ACTION_SEND_MESSAGE))
         assertTrue(ExternalPushIntentPolicy.isAllowed(PushConstants.MIPUSH_ACTION_UNREGISTER_APP))
-        assertTrue(ExternalPushIntentPolicy.isAllowed(PushConstants.MIPUSH_ACTION_SEND_TINYDATA))
+        assertTrue(ExternalPushIntentPolicy.isAllowed(PushConstants.MIPUSH_ACTION_CLEAR_NOTIFICATION))
+        assertTrue(ExternalPushIntentPolicy.isAllowed(PushConstants.MIPUSH_ACTION_SET_NOTIFICATION_TYPE))
+        assertTrue(ExternalPushIntentPolicy.isAllowed(PushConstants.MIPUSH_ACTION_DISABLE_PUSH))
+        assertTrue(ExternalPushIntentPolicy.isAllowed(PushConstants.MIPUSH_ACTION_DISABLE_PUSH_MESSAGE))
+        assertTrue(ExternalPushIntentPolicy.isAllowed(PushConstants.MIPUSH_ACTION_ENABLE_PUSH_MESSAGE))
     }
 
     @Test
-    fun `external maintenance actions are rejected`() {
-        assertFalse(ExternalPushIntentPolicy.isAllowed(PushConstants.MIPUSH_ACTION_CLEAR_NOTIFICATION))
-        assertFalse(ExternalPushIntentPolicy.isAllowed(PushConstants.MIPUSH_ACTION_DISABLE_PUSH))
+    fun `telemetry and private maintenance actions are rejected`() {
+        assertFalse(ExternalPushIntentPolicy.isAllowed(PushConstants.MIPUSH_ACTION_SEND_TINYDATA))
         assertFalse(ExternalPushIntentPolicy.isAllowed(PushConstants.ACTION_RESET_CONNECTION))
         assertFalse(ExternalPushIntentPolicy.isAllowed(PushConstants.ACTION_OPEN_CHANNEL))
         assertFalse(ExternalPushIntentPolicy.isAllowed(PushConstants.ACTION_CLIENT_REPORT_CONFIG))

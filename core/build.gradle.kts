@@ -22,8 +22,6 @@ android {
 
 dependencies {
     implementation(libs.napier)
-    implementation(libs.kotlinx.serialization.json)
-
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.mockk)
     testRuntimeOnly(libs.junit.platform.launcher)

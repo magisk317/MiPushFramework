@@ -77,7 +77,6 @@ style:
     maxLineLength: 180
     excludes:
       - '**/vendor/**'
-      - '**/MiuiPushActivateService.kt'
       - '**/MiPushIslandPayloadBuilder.kt'
       - '**/MyMIPushNotificationHelper.kt'
 
@@ -127,14 +126,12 @@ exceptions:
       - '**/utils/**'
       - '**/NotificationManagerEx.kt'
       - '**/PushMessageProcessor.kt'
-      - '**/MiuiPushActivateService.kt'
       - '**/PushControllerUtils.kt'
       - '**/EventRepository.kt'
       - '**/PushRuntimePendingPacketStore.kt'
       - '**/MiPushFrameworkApp.kt'
       - '**/ManagerRuntimeAdapters.kt'
       - '**/MiPushRuntimeObserverBridge.kt'
-      - '**/FocusNotificationRegistry.kt'
       - '**/NotificationController.kt'
       - '**/ProgressStyleBuilder.kt'
       - '**/ForegroundHelper.kt'

@@ -20,6 +20,7 @@ android {
     }
 
     buildFeatures {
+        aidl = true
         buildConfig = true
     }
 
@@ -69,8 +70,12 @@ tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
         "-Xshare:off",
         "--enable-native-access=ALL-UNNAMED",
         "--sun-misc-unsafe-memory-access=allow",
+        "-Xmx4g",
     )
     useJUnitPlatform()
+    // Prevent Robolectric FileSystemAlreadyExistsException caused by
+    // concurrent native runtime loader initialization across parallel forks.
+    maxParallelForks = 1
 }
 
 dependencies {
@@ -79,6 +84,7 @@ dependencies {
     implementation(project(":core"))
     implementation(project(":settings"))
     implementation(project(":common"))
+    implementation(project(":configuration"))
     implementation(project(":vendor"))
     implementation(project(":pinned"))
     implementation(project(":magisk-xposed-kit"))
@@ -96,6 +102,7 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.robolectric)
     testImplementation(libs.robolectric.junit5.extension)
+    testImplementation(libs.jqwik)
     testRuntimeOnly(libs.junit.platform.launcher)
 
     implementation(libs.palette)

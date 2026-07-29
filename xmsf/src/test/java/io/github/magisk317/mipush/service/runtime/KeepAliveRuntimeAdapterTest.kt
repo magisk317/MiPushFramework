@@ -17,6 +17,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import tech.apter.junit.jupiter.robolectric.RobolectricExtension
+import java.util.concurrent.TimeUnit
 
 @ExtendWith(RobolectricExtension::class)
 @Config(sdk = [28], application = Application::class)
@@ -143,28 +144,56 @@ class KeepAliveRuntimeAdapterTest {
                   "class":"com.example.target.KeepAliveService",
                   "process":"com.example.target:remote",
                   "app_list":["com.example.trigger"],
-                  "bind_even_alive":false
+                  "bind_even_alive":false,
+                  "men_std":3072,
+                  "mem_usage_rate":45,
+                  "battery_low_rate":30,
+                  "max_temperature":43.5,
+                  "dev_black_list":["other-device"],
+                  "need_stat":false,
+                  "ignore_miui_lite":true,
+                  "calm_down_period":2500
                 }
             """.trimIndent(),
         )
 
         requireNotNull(strategy)
         assertEquals("com.example.target", strategy.targetPackage)
+        assertEquals(3_072, strategy.memoryStandardMb)
+        assertEquals(45, strategy.memoryUsageRate)
+        assertEquals(30, strategy.batteryLowRate)
+        assertEquals(43.5f, strategy.maxTemperatureCelsius)
+        assertEquals(setOf("other-device"), strategy.deviceBlackList)
+        assertFalse(strategy.needStat)
+        assertTrue(strategy.ignoreMiuiLite)
+        assertEquals(2_500, strategy.calmDownPeriodMs)
         assertEquals(
             "com.example.trigger",
-            KeepAliveRuntimeAdapter.bindingTrigger(strategy, setOf("com.example.trigger")),
+            KeepAliveRuntimeAdapter.bindingTrigger(
+                strategy,
+                processSnapshot(
+                    all = setOf("com.example.trigger"),
+                    foreground = setOf("com.example.trigger"),
+                ),
+            ),
         )
         assertNull(
             KeepAliveRuntimeAdapter.bindingTrigger(
                 strategy,
-                setOf("com.example.trigger", "com.example.target:remote"),
+                processSnapshot(
+                    all = setOf("com.example.trigger", "com.example.target:remote"),
+                    foreground = setOf("com.example.trigger"),
+                ),
             ),
         )
         assertEquals(
             "com.example.trigger",
             KeepAliveRuntimeAdapter.bindingTrigger(
                 strategy,
-                setOf("com.example.trigger", "com.example.target:remote"),
+                processSnapshot(
+                    all = setOf("com.example.trigger", "com.example.target:remote"),
+                    foreground = setOf("com.example.trigger"),
+                ),
                 alreadyBound = true,
             ),
         )
@@ -189,9 +218,71 @@ class KeepAliveRuntimeAdapterTest {
             "com.example.trigger",
             KeepAliveRuntimeAdapter.bindingTrigger(
                 strategy,
-                setOf("com.example.trigger", "com.example.target"),
+                processSnapshot(
+                    all = setOf("com.example.trigger", "com.example.target"),
+                    foreground = setOf("com.example.trigger"),
+                ),
             ),
         )
+    }
+
+    @Test
+    fun `stock bind intent prefers action and preserves xmsf wake source`() {
+        val strategy = requireNotNull(
+            KeepAliveRuntimeAdapter.parseStrategy(
+                """
+                    {
+                      "package":"com.example.target",
+                      "class":"com.example.target.FallbackService",
+                      "action":"com.example.target.KEEP_ALIVE",
+                      "app_list":["com.example.trigger"]
+                    }
+                """.trimIndent(),
+            ),
+        )
+
+        val intent = KeepAliveRuntimeAdapter.buildBindIntent(strategy, "com.example.trigger")
+
+        assertEquals("com.example.target.KEEP_ALIVE", intent.action)
+        assertNull(intent.component)
+        assertEquals("com.example.target", intent.`package`)
+        assertEquals("com.example.trigger", intent.getStringExtra("trigger_pkg"))
+        assertEquals("com.xiaomi.xmsf", intent.getStringExtra("WakeUpSource"))
+    }
+
+    @Test
+    fun `background trigger process does not request binding`() {
+        val strategy = requireNotNull(
+            KeepAliveRuntimeAdapter.parseStrategy(
+                """
+                    {
+                      "package":"com.example.target",
+                      "action":"com.example.target.KEEP_ALIVE",
+                      "app_list":["com.example.trigger"]
+                    }
+                """.trimIndent(),
+            ),
+        )
+
+        assertNull(
+            KeepAliveRuntimeAdapter.bindingTrigger(
+                strategy,
+                processSnapshot(
+                    all = setOf("com.example.trigger"),
+                    foreground = emptySet(),
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun `stock calm down and retry constants preserve dex behavior`() {
+        assertEquals(5_000L, KeepAliveRuntimeAdapter.effectiveCalmDownMs(0))
+        assertEquals(5_000L, KeepAliveRuntimeAdapter.effectiveCalmDownMs(1_999))
+        assertEquals(2_000L, KeepAliveRuntimeAdapter.effectiveCalmDownMs(2_000))
+        assertEquals(7_500L, KeepAliveRuntimeAdapter.effectiveCalmDownMs(7_500))
+        assertEquals(5_000L, KeepAliveRuntimeAdapter.BIND_RETRY_INTERVAL_MS)
+        assertEquals(3, KeepAliveRuntimeAdapter.MAX_BIND_RETRY_COUNT)
     }
 
     @Test
@@ -236,6 +327,7 @@ class KeepAliveRuntimeAdapterTest {
 
             KeepAliveRuntimeAdapter.updateOnlineConfig(context, keepAliveEnabled = true, oneTrackEnabled = false)
             invokeReconcileNow()
+            advanceAdapterHandlerBy(5_000L)
             assertTrue(KeepAliveRuntimeAdapter.snapshot().active)
             assertTrue(applicationShadow.boundServiceConnections.size > boundCount)
         } finally {
@@ -245,7 +337,7 @@ class KeepAliveRuntimeAdapterTest {
     }
 
     @Test
-    fun `accepted strategy is consumed by the reduced polling binder`() {
+    fun `accepted strategy is consumed by the keep alive runtime`() {
         val context: Application = RuntimeEnvironment.getApplication()
         val target = ComponentName("com.example.bound", "com.example.bound.KeepAliveService")
         val activityManager = context.getSystemService(ActivityManager::class.java)
@@ -269,10 +361,12 @@ class KeepAliveRuntimeAdapterTest {
             ),
         )
         invokeReconcileNow()
+        advanceAdapterHandlerBy(5_000L)
 
         assertTrue(applicationShadow.boundServiceConnections.isNotEmpty())
         shadowOf(activityManager).setProcesses(emptyList())
         invokeReconcileNow()
+        advanceAdapterHandlerBy(5_000L)
         assertTrue(applicationShadow.unboundServiceConnections.isNotEmpty())
         KeepAliveRuntimeAdapter.shutdown()
     }
@@ -308,6 +402,8 @@ class KeepAliveRuntimeAdapterTest {
             KeepAliveRuntimeAdapter.updateOnlineConfig(context, keepAliveEnabled = true, oneTrackEnabled = false)
             assertTrue(KeepAliveRuntimeAdapter.updateStrategy(context, accepted))
             invokeReconcileNow()
+            advanceAdapterHandlerBy(5_000L)
+            applicationShadow.boundServiceConnections.single().onServiceConnected(target, Binder())
             assertTrue(packageName in KeepAliveRuntimeAdapter.snapshot().boundTargetPackages)
             val boundCount = applicationShadow.boundServiceConnections.size
             val unboundCount = applicationShadow.unboundServiceConnections.size
@@ -320,6 +416,61 @@ class KeepAliveRuntimeAdapterTest {
             assertFalse(packageName in KeepAliveRuntimeAdapter.snapshot().boundTargetPackages)
             assertTrue(applicationShadow.unboundServiceConnections.size > unboundCount)
             assertTrue(applicationShadow.boundServiceConnections.size < boundCount)
+        } finally {
+            KeepAliveRuntimeAdapter.shutdown()
+            idleAdapterHandler()
+        }
+    }
+
+    @Test
+    fun `new foreground trigger takes ownership and only that owner can unbind`() {
+        val context: Application = RuntimeEnvironment.getApplication()
+        val packageName = "com.example.owner.${System.nanoTime()}"
+        val target = ComponentName(packageName, "$packageName.KeepAliveService")
+        val activityManager = context.getSystemService(ActivityManager::class.java)
+        val applicationShadow = shadowOf(context)
+        applicationShadow.setComponentNameAndServiceForBindService(target, Binder())
+        val triggerOne = "com.example.trigger.one"
+        val triggerTwo = "com.example.trigger.two"
+
+        try {
+            shadowOf(activityManager).setProcesses(listOf(foregroundProcess(triggerOne, 1101)))
+            KeepAliveRuntimeAdapter.updateOnlineConfig(context, keepAliveEnabled = true, oneTrackEnabled = false)
+            assertTrue(
+                KeepAliveRuntimeAdapter.updateStrategy(
+                    context,
+                    """
+                        {
+                          "package":"$packageName",
+                          "class":"$packageName.KeepAliveService",
+                          "app_list":["$triggerOne","$triggerTwo"],
+                          "calm_down_period":2000
+                        }
+                    """.trimIndent(),
+                ),
+            )
+            invokeReconcileNow()
+            advanceAdapterHandlerBy(2_000L)
+            applicationShadow.boundServiceConnections.single().onServiceConnected(target, Binder())
+            assertEquals(triggerOne, KeepAliveRuntimeAdapter.snapshot().bindingOwners[packageName])
+
+            shadowOf(activityManager).setProcesses(
+                listOf(foregroundProcess(triggerOne, 1101), foregroundProcess(triggerTwo, 1102)),
+            )
+            invokeReconcileNow()
+            assertEquals(triggerTwo, KeepAliveRuntimeAdapter.snapshot().bindingOwners[packageName])
+
+            shadowOf(activityManager).setProcesses(listOf(foregroundProcess(triggerTwo, 1102)))
+            invokeReconcileNow()
+            advanceAdapterHandlerBy(2_000L)
+            assertTrue(packageName in KeepAliveRuntimeAdapter.snapshot().boundTargetPackages)
+
+            shadowOf(activityManager).setProcesses(emptyList())
+            invokeReconcileNow()
+            advanceAdapterHandlerBy(1_999L)
+            assertTrue(packageName in KeepAliveRuntimeAdapter.snapshot().boundTargetPackages)
+            advanceAdapterHandlerBy(1L)
+            assertFalse(packageName in KeepAliveRuntimeAdapter.snapshot().boundTargetPackages)
         } finally {
             KeepAliveRuntimeAdapter.shutdown()
             idleAdapterHandler()
@@ -348,5 +499,26 @@ class KeepAliveRuntimeAdapterTest {
             .apply { isAccessible = true }
             .invoke(KeepAliveRuntimeAdapter) as Handler
         shadowOf(handler.looper).idle()
+    }
+
+    private fun advanceAdapterHandlerBy(durationMs: Long) {
+        val handler = KeepAliveRuntimeAdapter::class.java.getDeclaredMethod("getHandler")
+            .apply { isAccessible = true }
+            .invoke(KeepAliveRuntimeAdapter) as Handler
+        shadowOf(handler.looper).idleFor(durationMs, TimeUnit.MILLISECONDS)
+    }
+
+    private fun processSnapshot(
+        all: Set<String>,
+        foreground: Set<String>,
+    ) = KeepAliveRuntimeAdapter.ProcessSnapshot(
+        allProcessNames = all,
+        foregroundActivityProcessNames = foreground,
+    )
+
+    private fun foregroundProcess(name: String, pid: Int): ActivityManager.RunningAppProcessInfo {
+        return ActivityManager.RunningAppProcessInfo(name, pid, emptyArray()).apply {
+            importance = ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+        }
     }
 }

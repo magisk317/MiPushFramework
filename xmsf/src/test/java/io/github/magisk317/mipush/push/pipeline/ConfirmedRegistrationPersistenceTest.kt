@@ -42,6 +42,30 @@ class ConfirmedRegistrationPersistenceTest {
         )
 
         assertEquals("app-id", preferences.getString(packageName, null))
+        assertEquals(
+            "reg-secret",
+            context.getSharedPreferences("mipush_apps_scrt", Context.MODE_PRIVATE)
+                .getString(packageName, null),
+        )
+    }
+
+    @Test
+    fun `registration without secret remains unconfirmed`() {
+        val context: Application = RuntimeEnvironment.getApplication()
+        val packageName = "com.example.target"
+        val registered = context.getSharedPreferences(PushServiceConstants.PREF_KEY_REGISTERED_PKGS, Context.MODE_PRIVATE)
+        val secrets = context.getSharedPreferences("mipush_apps_scrt", Context.MODE_PRIVATE)
+        registered.edit().clear().commit()
+        secrets.edit().clear().commit()
+
+        val persisted = MiPushRuntimeBridge.persistConfirmedRegistrationStateFromContainer(
+            context,
+            registrationContainer(errorCode = 0L, secret = null),
+        )
+
+        assertFalse(persisted)
+        assertFalse(registered.contains(packageName))
+        assertFalse(secrets.contains(packageName))
     }
 
     @Test
@@ -83,10 +107,15 @@ class ConfirmedRegistrationPersistenceTest {
         assertNull(MIPushAppAbsentManager.getPendingRegistrationAppId(context, packageName))
     }
 
-    private fun registrationContainer(errorCode: Long) = MIPushHelper.constructResponseContainer(
+    private fun registrationContainer(
+        errorCode: Long,
+        secret: String? = "reg-secret",
+    ) = MIPushHelper.constructResponseContainer(
         "com.example.target",
         "app-id",
-        XmPushActionRegistrationResult("request-id", "app-id", errorCode),
+        XmPushActionRegistrationResult("request-id", "app-id", errorCode).apply {
+            secret?.let(::setRegSecret)
+        },
         ActionType.Registration,
     )
 }

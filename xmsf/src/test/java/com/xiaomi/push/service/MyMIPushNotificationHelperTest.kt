@@ -1,6 +1,7 @@
 package com.xiaomi.push.service
 
 import com.xiaomi.xmpush.thrift.ActionType
+import com.xiaomi.xmpush.thrift.ConfigKey
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry
@@ -97,6 +98,45 @@ class MyMIPushNotificationHelperTest {
     }
 
     @Test
+    fun `foreground display suppression is limited to MIUI payloads that opt out`() {
+        assertTrue(
+            MyMIPushNotificationHelper.shouldSuppressForegroundNotification(
+                extra = mapOf("notify_foreground" to "0"),
+                isMiui = true,
+                isTargetForeground = true,
+            ),
+        )
+        assertFalse(
+            MyMIPushNotificationHelper.shouldSuppressForegroundNotification(
+                extra = mapOf("notify_foreground" to "1"),
+                isMiui = true,
+                isTargetForeground = true,
+            ),
+        )
+        assertFalse(
+            MyMIPushNotificationHelper.shouldSuppressForegroundNotification(
+                extra = emptyMap(),
+                isMiui = true,
+                isTargetForeground = true,
+            ),
+        )
+        assertFalse(
+            MyMIPushNotificationHelper.shouldSuppressForegroundNotification(
+                extra = mapOf("notify_foreground" to "0"),
+                isMiui = false,
+                isTargetForeground = true,
+            ),
+        )
+        assertFalse(
+            MyMIPushNotificationHelper.shouldSuppressForegroundNotification(
+                extra = mapOf("notify_foreground" to "0"),
+                isMiui = true,
+                isTargetForeground = false,
+            ),
+        )
+    }
+
+    @Test
     fun `shouldDropReplayNotification drops messages older than replay window`() {
         val sixHoursMs = 6 * 60 * 60 * 1000L
         val container = XmPushActionContainer().apply {
@@ -141,13 +181,13 @@ class MyMIPushNotificationHelperTest {
     }
 
     @Test
-    fun `getNotificationId uses message identity for regular notifications even when notifyId repeats`() {
+    fun `getNotificationId preserves stock replacement semantics when notifyId repeats`() {
         val first = notificationContainer("job-123")
         val second = notificationContainer("job-456")
+        val expected = ("com.ruanmei.ithome".hashCode() / 10) * 10 + 42
 
-        assertEquals("com.ruanmei.ithome_job-123".hashCode(), MyMIPushNotificationHelper.getNotificationId(first))
-        assertEquals("com.ruanmei.ithome_job-456".hashCode(), MyMIPushNotificationHelper.getNotificationId(second))
-        assertNotEquals(MyMIPushNotificationHelper.getNotificationId(first), MyMIPushNotificationHelper.getNotificationId(second))
+        assertEquals(expected, MyMIPushNotificationHelper.getNotificationId(first))
+        assertEquals(expected, MyMIPushNotificationHelper.getNotificationId(second))
     }
 
     @Test
@@ -167,7 +207,7 @@ class MyMIPushNotificationHelperTest {
     }
 
     @Test
-    fun `getNotificationId falls back to message identity when notifyId absent`() {
+    fun `getNotificationId uses stock zero notifyId when notifyId absent`() {
         val container = XmPushActionContainer().apply {
             packageName = "com.example.app"
             metaInfo = PushMetaInfo().apply {
@@ -176,7 +216,7 @@ class MyMIPushNotificationHelperTest {
             }
         }
 
-        val expected = "com.example.app_job-123".hashCode()
+        val expected = ("com.example.app".hashCode() / 10) * 10
         assertEquals(expected, MyMIPushNotificationHelper.getNotificationId(container))
     }
 
@@ -194,27 +234,88 @@ class MyMIPushNotificationHelperTest {
             metaInfo.description = "骑手正在配送中，预计5分钟送达"
         }
 
-        val expected = "com.ruanmei.ithome_42".hashCode()
+        val expected = ("com.ruanmei.ithome".hashCode() / 10) * 10 + 42
         assertEquals(expected, MyMIPushNotificationHelper.getNotificationId(voip))
         assertEquals(expected, MyMIPushNotificationHelper.getNotificationId(focus))
         assertEquals(expected, MyMIPushNotificationHelper.getNotificationId(liveUpdate))
     }
 
     @Test
-    fun `focus sort filter only uses explicit focus param`() {
-        val regular = PushMetaInfo().apply {
-            title = "regular title"
-            description = "regular body"
-        }
-        val focus = PushMetaInfo().apply {
-            putToExtra("miui.focus.param", """{"updatable":true,"reopen":"close"}""")
-        }
-
-        assertEquals(null, MyMIPushNotificationHelper.focusParamForSortFilter(regular))
+    fun `stock group remains absent when payload does not request grouping`() {
         assertEquals(
-            """{"updatable":true,"reopen":"close"}""",
-            MyMIPushNotificationHelper.focusParamForSortFilter(focus),
+            null,
+            MyMIPushNotificationHelper.resolveStockGroup(
+                targetPackage = "com.example.target",
+                sourceGroup = null,
+                disableDefault = false,
+                isMiui = true,
+            ),
         )
+    }
+
+    @Test
+    fun `stock group uses target package by default and preserves source only when disabled off MIUI`() {
+        assertEquals(
+            "com.example.target",
+            MyMIPushNotificationHelper.resolveStockGroup(
+                targetPackage = "com.example.target",
+                sourceGroup = "orders",
+                disableDefault = false,
+                isMiui = true,
+            ),
+        )
+        assertEquals(
+            "com.example.target",
+            MyMIPushNotificationHelper.resolveStockGroup(
+                targetPackage = "com.example.target",
+                sourceGroup = "orders",
+                disableDefault = false,
+                isMiui = false,
+            ),
+        )
+        assertEquals(
+            "orders",
+            MyMIPushNotificationHelper.resolveStockGroup(
+                targetPackage = "com.example.target",
+                sourceGroup = "orders",
+                disableDefault = true,
+                isMiui = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `Android W group strategy follows stock dex control flow`() {
+        assertTrue(MyMIPushNotificationHelper.shouldSkipForceGroup("orders", strategy = 1))
+        assertFalse(MyMIPushNotificationHelper.shouldSkipForceGroup(null, strategy = 1))
+        assertTrue(MyMIPushNotificationHelper.shouldSkipForceGroup(null, strategy = 2))
+        assertFalse(MyMIPushNotificationHelper.shouldSkipForceGroup("orders", strategy = 3))
+        assertTrue(MyMIPushNotificationHelper.shouldSkipForceGroup("orders", strategy = 99))
+    }
+
+    @Test
+    fun `stock 7x notification config ids are pinned`() {
+        assertEquals(140, ConfigKey.OnetrackSwitch.value)
+        assertEquals(141, ConfigKey.NotificationGroupUpdateTimeSwitch.value)
+        assertEquals(142, ConfigKey.KASwitch.value)
+        assertEquals(208, ConfigKey.AndroidWGroupStrategy.value)
+        assertEquals(ConfigKey.OnetrackSwitch, ConfigKey.findByValue(140))
+        assertEquals(ConfigKey.NotificationGroupUpdateTimeSwitch, ConfigKey.findByValue(141))
+        assertEquals(ConfigKey.KASwitch, ConfigKey.findByValue(142))
+        assertEquals(ConfigKey.AndroidWGroupStrategy, ConfigKey.findByValue(208))
+    }
+
+    @Test
+    fun `stock MIUI identity extras include target message id and event type`() {
+        val extras = MyMIPushNotificationHelper.buildStockMiuiIdentityExtras(
+            targetPackage = "com.ruanmei.ithome",
+            messageId = "s123456789012345678901",
+            eventMessageType = 1000,
+        )
+
+        assertEquals("com.ruanmei.ithome", extras["target_package"])
+        assertEquals("s123456789012345678901", extras["message_id"])
+        assertEquals("1000", extras["eventMessageType"])
     }
 
     private fun notificationContainer(jobKey: String): XmPushActionContainer {

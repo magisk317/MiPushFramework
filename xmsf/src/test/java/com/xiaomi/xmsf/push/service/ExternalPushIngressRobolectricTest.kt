@@ -2,15 +2,17 @@ package com.xiaomi.xmsf.push.service
 
 import android.app.Application
 import android.content.Intent
-import android.os.Message
 import android.os.Handler
 import android.os.Looper
+import android.os.Message
 import android.os.Messenger
 import com.xiaomi.push.service.AppRegionStorage
 import com.xiaomi.push.service.MIPushHelper
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.ActionType
-import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
+import com.xiaomi.xmpush.thrift.XmPushActionContainer
+import com.xiaomi.xmpush.thrift.XmPushActionNotification
+import com.xiaomi.xmpush.thrift.XmPushActionRegistration
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -26,14 +28,28 @@ import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 @Config(sdk = [28], application = Application::class)
 class ExternalPushIngressRobolectricTest {
     @Test
-    fun `legacy start transport admits only approved registration and send requests`() {
+    fun `legacy start transport admits stock wake registration send and local controls`() {
         val context: Application = RuntimeEnvironment.getApplication()
 
+        assertNotNull(ExternalPushIngress.validateStart(context, wakeIntent(context)).intent)
         assertNotNull(ExternalPushIngress.validateStart(context, registrationIntent(context)).intent)
         assertNotNull(ExternalPushIngress.validateStart(context, sendIntent(context)).intent)
+        assertNotNull(ExternalPushIngress.validateStart(context, clearNotificationIntent(context)).intent)
+        assertEquals(
+            "telemetry_disabled",
+            ExternalPushIngress.validateStart(
+                context,
+                Intent(PushConstants.MIPUSH_ACTION_SEND_TINYDATA).apply {
+                    putExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE, context.packageName)
+                },
+            ).rejectionReason,
+        )
         assertEquals(
             "action_not_public",
-            ExternalPushIngress.validateStart(context, Intent(PushConstants.ACTION_CLIENT_REPORT_CONFIG)).rejectionReason,
+            ExternalPushIngress.validateStart(
+                context,
+                Intent(PushConstants.ACTION_CLIENT_REPORT_CONFIG),
+            ).rejectionReason,
         )
         assertEquals(
             "action_not_public",
@@ -124,28 +140,55 @@ class ExternalPushIngressRobolectricTest {
     private fun registrationIntent(context: Application): Intent = intentFor(
         context = context,
         action = PushConstants.MIPUSH_ACTION_REGISTER_APP,
-        containerAction = ActionType.Registration,
+        container = MIPushHelper.generateRequestContainer(
+            context.packageName,
+            "app-id",
+            XmPushActionRegistration("request-id", "app-id", "token").apply {
+                packageName = context.packageName
+            },
+            ActionType.Registration,
+        ),
     )
 
     private fun sendIntent(context: Application): Intent = intentFor(
         context = context,
         action = PushConstants.MIPUSH_ACTION_SEND_MESSAGE,
-        containerAction = ActionType.Notification,
+        container = MIPushHelper.generateRequestContainer(
+            context.packageName,
+            "app-id",
+            XmPushActionNotification().apply {
+                setId("message-id")
+                setAppId("app-id")
+                setType("command")
+                setRequireAck(false)
+            },
+            ActionType.Notification,
+        ),
     )
 
-    private fun intentFor(context: Application, action: String, containerAction: ActionType): Intent {
+    private fun wakeIntent(context: Application) = Intent().apply {
+        putExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE, context.packageName)
+    }
+
+    private fun clearNotificationIntent(context: Application) =
+        Intent(PushConstants.MIPUSH_ACTION_CLEAR_NOTIFICATION).apply {
+            putExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE, context.packageName)
+            putExtra(PushConstants.EXTRA_PACKAGE_NAME, context.packageName)
+            putExtra(PushConstants.EXTRA_NOTIFY_ID, 7)
+        }
+
+    private fun intentFor(
+        context: Application,
+        action: String,
+        container: XmPushActionContainer,
+    ): Intent {
         val packageName = context.packageName
-        val payload = XmPushThriftSerializeUtils.convertThriftObjectToBytes(
-            MIPushHelper.constructResponseContainer(
-                packageName,
-                "app-id",
-                XmPushActionRegistrationResult("request-id", "app-id", 0L),
-                containerAction,
-            ),
+        val payloadBytes = XmPushThriftSerializeUtils.convertThriftObjectToBytes(
+            container,
         )
         return Intent(action).apply {
             putExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE, packageName)
-            putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, payload)
+            putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, payloadBytes)
         }
     }
 }

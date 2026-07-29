@@ -3,7 +3,6 @@ package com.xiaomi.xmsf.provider
 import android.app.Application
 import android.content.ContentValues
 import android.net.Uri
-import android.os.Process
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -61,6 +60,12 @@ class MiCloudSettingsProviderTest {
         }
 
         assertEquals(uri, provider.insert(uri, values))
+        assertEquals(
+            "1",
+            RuntimeEnvironment.getApplication()
+                .getSharedPreferences(MiCloudSettingsProvider.SETTINGS_FILE_NAME, 0)
+                .getString(MiCloudSettingsProvider.MICLOUD_NETWORK_AVAILABILITY_KEY, null),
+        )
 
         val cursor = provider.query(
             uri,
@@ -73,6 +78,34 @@ class MiCloudSettingsProviderTest {
             assertTrue(it.moveToFirst())
             assertEquals("1", it.getString(0))
         }
+    }
+
+    @Test
+    fun `unauthorized query returns one null row instead of throwing`() {
+        val values = ContentValues().apply {
+            put(MiCloudSettingsProvider.MICLOUD_SETTINGS_KEY, MiCloudSettingsProvider.MICLOUD_NETWORK_AVAILABILITY_KEY)
+            put(MiCloudSettingsProvider.MICLOUD_SETTINGS_VALUE, "private")
+        }
+        assertEquals(uri, provider.insert(uri, values))
+        val cursor = provider.queryWithAuthorization(
+            projection = arrayOf(MiCloudSettingsProvider.MICLOUD_NETWORK_AVAILABILITY_KEY),
+            selection = null,
+            selectionArgs = null,
+            sortOrder = null,
+            callerAllowed = false,
+        )
+
+        cursor!!.use {
+            assertTrue(it.moveToFirst())
+            assertNull(it.getString(0))
+            assertFalse(it.moveToNext())
+        }
+    }
+
+    @Test
+    fun `provider does not expose non stock account call methods`() {
+        assertNull(provider.call("getAvailability", null, null))
+        assertNull(provider.call("getServiceToken", null, null))
     }
 
     @Test
@@ -117,51 +150,23 @@ class MiCloudSettingsProviderTest {
     }
 
     @Test
-    fun `service token caller must be privileged or hold cloud manager permission`() {
+    fun `query caller must hold cloud manager or match the platform signature`() {
         assertTrue(
             MiCloudSettingsProvider.isSensitiveCallerAllowed(
-                callingUid = Process.SYSTEM_UID,
-                appUid = 20_001,
                 hasCloudManagerPermission = false,
+                signatureMatchesSystem = true,
             ),
         )
         assertTrue(
             MiCloudSettingsProvider.isSensitiveCallerAllowed(
-                callingUid = 20_001,
-                appUid = 20_001,
-                hasCloudManagerPermission = false,
-            ),
-        )
-        assertTrue(
-            MiCloudSettingsProvider.isSensitiveCallerAllowed(
-                callingUid = 30_001,
-                appUid = 20_001,
                 hasCloudManagerPermission = true,
+                signatureMatchesSystem = false,
             ),
         )
         assertFalse(
             MiCloudSettingsProvider.isSensitiveCallerAllowed(
-                callingUid = 30_001,
-                appUid = 20_001,
                 hasCloudManagerPermission = false,
-            ),
-        )
-    }
-
-    @Test
-    fun `settings reads use the same trusted caller policy`() {
-        assertTrue(
-            MiCloudSettingsProvider.isSensitiveCallerAllowed(
-                callingUid = Process.ROOT_UID,
-                appUid = 20_001,
-                hasCloudManagerPermission = false,
-            ),
-        )
-        assertFalse(
-            MiCloudSettingsProvider.isSensitiveCallerAllowed(
-                callingUid = 30_001,
-                appUid = 20_001,
-                hasCloudManagerPermission = false,
+                signatureMatchesSystem = false,
             ),
         )
     }

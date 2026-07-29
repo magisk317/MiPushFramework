@@ -19,6 +19,7 @@ android {
 
 dependencies {
     implementation(project(":common"))
+    implementation(project(":configuration"))
     implementation(project(":manager-client"))
     implementation(project(":settings"))
     api(project(":magisk-ui-kit"))

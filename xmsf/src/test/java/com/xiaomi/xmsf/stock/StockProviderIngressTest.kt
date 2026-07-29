@@ -2,14 +2,18 @@ package com.xiaomi.xmsf.stock
 
 import android.app.Application
 import android.content.ContentProvider
+import android.content.ContentValues
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageInfo
+import android.net.Uri
 import android.os.Bundle
+import com.xiaomi.push.provider.PushCommonProvider
 import com.xiaomi.push.provider.PushSupportProvider
 import com.xiaomi.push.service.MIPushHelper
 import com.xiaomi.xmsf.provider.ChannelProvider
 import com.xiaomi.xmsf.provider.PushProfileIdProvider
+import com.xiaomi.xmsf.pushcontrol.PushControlProvider
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.PushMetaInfo
 import com.xiaomi.xmpush.thrift.XmPushActionSendMessage
@@ -22,6 +26,7 @@ import io.github.magisk317.mipush.runtime.store.entities.Event
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -108,6 +113,64 @@ class StockProviderIngressTest {
         assertEquals(0, set.getInt(StockSurfaceSupport.KEY_CODE))
         assertTrue(requireNotNull(get.getBundle(StockSurfaceSupport.KEY_DATA)).getBoolean("privacyStatus"))
         assertNull(get.getBundle("result"))
+    }
+
+    @Test
+    fun `push common transport ignores arg and unrelated extras`() {
+        val provider = Robolectric.setupContentProvider(PushCommonProvider::class.java)
+
+        val supported = transportCall(
+            provider,
+            "com.example.caller",
+            "is_push_support",
+            Bundle().apply {
+                putInt("push_support_flag", 4)
+                putString("unrelated", "ignored")
+            },
+            arg = "ignored-by-stock",
+        )
+        val malformed = transportCall(
+            provider,
+            "com.example.caller",
+            "is_push_support",
+            Bundle().apply { putString("push_support_flag", "not-an-int") },
+        )
+        val unknown = transportCall(provider, "com.example.caller", "unknown", Bundle())
+
+        assertTrue(supported.getBoolean("is_supported"))
+        assertFalse(malformed.getBoolean("is_supported"))
+        assertTrue(unknown.keySet().isEmpty())
+    }
+
+    @Test
+    fun `push control transport preserves fixed read only stock shape`() {
+        val provider = Robolectric.setupContentProvider(PushControlProvider::class.java)
+        val noncanonicalUri = Uri.parse("content://unrelated.authority/not-control?unexpected=1")
+
+        val cursor = provider.query(
+            noncanonicalUri,
+            arrayOf("not-a-column"),
+            "1=1",
+            arrayOf("ignored"),
+            "ignored",
+        )
+
+        cursor.use {
+            assertEquals(
+                listOf("control_mode", "key_words", "special_pkg_names", "control_switch"),
+                it.columnNames.toList(),
+            )
+            assertTrue(it.moveToFirst())
+            assertEquals(-1, it.getInt(0))
+            assertEquals("", it.getString(1))
+            assertEquals("", it.getString(2))
+            assertEquals(0, it.getInt(3))
+            assertFalse(it.moveToNext())
+        }
+        assertEquals(
+            noncanonicalUri,
+            provider.insert(noncanonicalUri, ContentValues().apply { put("ignored", "value") }),
+        )
     }
 
     @Test
@@ -205,6 +268,7 @@ class StockProviderIngressTest {
         callingPackage: String,
         method: String,
         extras: Bundle?,
+        arg: String? = null,
     ): Bundle {
         val transport = ContentProvider::class.java
             .getDeclaredMethod("getIContentProvider")
@@ -213,6 +277,6 @@ class StockProviderIngressTest {
         val call = transport.javaClass.methods.first { candidate ->
             candidate.name == "call" && candidate.parameterTypes.size == 4
         }
-        return requireNotNull(call.invoke(transport, callingPackage, method, null, extras) as? Bundle)
+        return requireNotNull(call.invoke(transport, callingPackage, method, arg, extras) as? Bundle)
     }
 }

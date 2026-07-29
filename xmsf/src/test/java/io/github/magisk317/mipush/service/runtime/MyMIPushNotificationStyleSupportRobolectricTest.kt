@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.service.runtime
 
+import io.github.magisk317.mipush.common.R as CommonR
 import android.app.Notification
 import androidx.core.app.NotificationCompat
 import com.xiaomi.xmpush.thrift.ActionType
@@ -45,7 +46,7 @@ class MyMIPushNotificationStyleSupportRobolectricTest {
             message = message!!,
             pkgCtx = context,
         )
-            .setSmallIcon(R.drawable.ic_notifications_black_24dp)
+            .setSmallIcon(CommonR.drawable.ic_notifications_black_24dp)
             .build()
 
         val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)
@@ -81,7 +82,7 @@ class MyMIPushNotificationStyleSupportRobolectricTest {
             message = message!!,
             pkgCtx = context,
         )
-            .setSmallIcon(R.drawable.ic_notifications_black_24dp)
+            .setSmallIcon(CommonR.drawable.ic_notifications_black_24dp)
             .build()
 
         val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)
@@ -106,11 +107,37 @@ class MyMIPushNotificationStyleSupportRobolectricTest {
             metaInfo,
             context.packageName
         )
-        builder.setSmallIcon(R.drawable.ic_notifications_black_24dp)
+        builder.setSmallIcon(CommonR.drawable.ic_notifications_black_24dp)
         val notification = builder.build()
 
         assertFalse(notification.extras.getCharSequence(Notification.EXTRA_TEXT).toString().contains("<ft"))
         assertFalse(notification.extras.getCharSequence(Notification.EXTRA_BIG_TEXT).toString().contains("<ft"))
+    }
+
+    @Test
+    fun `style five falls back to standard card title and text`() {
+        val context = RuntimeEnvironment.getApplication()
+        val metaInfo = PushMetaInfo().apply {
+            title = "Fallback title"
+            description = "Fallback text"
+            extra = mutableMapOf(
+                "notification_style_type" to "5",
+                "notify_style_5_alert" to """<ft color="#ff0000">Delivery</ft>""",
+                "notify_style_5_left" to "Rider nearby",
+                "notify_style_5_right" to "2 min",
+            )
+        }
+
+        val notification = MyMIPushNotificationStyleSupport.normalStyleNotificationBuilder(
+            context,
+            metaInfo,
+            context.packageName,
+        )
+            .setSmallIcon(CommonR.drawable.ic_notifications_black_24dp)
+            .build()
+
+        assertEquals("Delivery", notification.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
+        assertEquals("Rider nearby  2 min", notification.extras.getCharSequence(Notification.EXTRA_TEXT))
     }
 
     private fun messagingContainer(

@@ -54,17 +54,27 @@ class StockProviderContractTest {
     @Test
     fun `notification metadata maps stock HyperOS controls and collection fields`() {
         val metaInfo = PushMetaInfo().apply {
+            id = "s123456789012345678901"
             putToExtra("hyper_nms_skip_assistants", "true")
             putToExtra("hyper_skip_group_opt", "false")
             putToExtra("use_clicked_activity", "1")
             putToExtra("high_priority_event", "high")
             putToExtra("msg_busi_type", "business")
             putToExtra("simplify_pull_type", "simple")
+            putToExtra("message_count", "7")
+            putToExtra("miui.showAtTail", "true")
+            putToExtra("miui.fold.timeout", "45")
+            putToExtra("enable_keyguard", "true")
+            putToExtra("enable_float", "false")
+            putToExtra("section_is_prr", "1")
+            putToExtra("section_prr_cl", "3")
+            putToExtra("disable_notification_flags", "5")
         }
         val extras = Bundle()
 
-        StockNotificationMetadataBridge.apply(metaInfo, extras)
+        StockNotificationMetadataBridge.apply(metaInfo, extras, isMiui = true)
 
+        assertEquals(metaInfo.id, extras.getString("message_id"))
         assertTrue(extras.getBoolean("skip_assistants"))
         assertTrue(extras.containsKey("miui_skip_group_opt"))
         assertFalse(extras.getBoolean("miui_skip_group_opt"))
@@ -72,6 +82,56 @@ class StockProviderContractTest {
         assertEquals("high", extras.getString("xmsf.stat.highPriorityEvent"))
         assertEquals("business", extras.getString("xmsf.stat.msgBusiType"))
         assertEquals("simple", extras.getString("xmsf.stat.sPullType"))
+        assertEquals(7, extras.getInt("miui.messageCount"))
+        assertTrue(extras.getBoolean("miui.showAtTail"))
+        assertEquals(45_000L, extras.getLong("miui.fold.timeout"))
+        assertTrue(extras.getBoolean("miui.enableKeyguard"))
+        assertTrue(extras.containsKey("miui.enableFloat"))
+        assertFalse(extras.getBoolean("miui.enableFloat"))
+        assertEquals(1, extras.getInt("is_priority"))
+        assertEquals(3, extras.getInt("mipush_class"))
+        assertEquals("5", extras.getString("disable_notification_flags"))
+    }
+
+    @Test
+    fun `notification metadata ignores malformed numeric controls without reporting`() {
+        val metaInfo = PushMetaInfo().apply {
+            putToExtra("message_count", "many")
+            putToExtra("miui.fold.timeout", "never")
+            putToExtra("section_is_prr", "priority")
+            putToExtra("section_prr_cl", "3")
+            putToExtra("enable_keyguard", "invalid")
+        }
+        val extras = Bundle()
+
+        StockNotificationMetadataBridge.apply(metaInfo, extras, isMiui = true)
+
+        assertFalse(extras.containsKey("miui.messageCount"))
+        assertFalse(extras.containsKey("miui.fold.timeout"))
+        assertFalse(extras.containsKey("is_priority"))
+        assertFalse(extras.containsKey("mipush_class"))
+        assertTrue(extras.containsKey("miui.enableKeyguard"))
+        assertFalse(extras.getBoolean("miui.enableKeyguard"))
+    }
+
+    @Test
+    fun `notification metadata omits MIUI-only policy fields off MIUI`() {
+        val metaInfo = PushMetaInfo().apply {
+            putToExtra("message_count", "7")
+            putToExtra("miui.showAtTail", "true")
+            putToExtra("disable_notification_flags", "5")
+            putToExtra("miui.fold.timeout", "45")
+            putToExtra("enable_float", "true")
+        }
+        val extras = Bundle()
+
+        StockNotificationMetadataBridge.apply(metaInfo, extras, isMiui = false)
+
+        assertFalse(extras.containsKey("miui.messageCount"))
+        assertFalse(extras.containsKey("miui.showAtTail"))
+        assertFalse(extras.containsKey("disable_notification_flags"))
+        assertEquals(45_000L, extras.getLong("miui.fold.timeout"))
+        assertTrue(extras.getBoolean("miui.enableFloat"))
     }
 
     @Test
@@ -376,18 +436,29 @@ class StockProviderContractTest {
         assertFalse(StockPushSupport.isNotificationBrokerAllowed(null))
         assertEquals(
             "mipush|com.example.owner|news",
-            NotificationController.selectProviderCompatibleChannelId(
+            NotificationController.selectManagedChannelId(
                 stockChannelId = "mipush|com.example.owner|news",
                 stockChannelExists = true,
                 legacyChannelId = "ch_com.example.owner_news",
+                legacyChannelExists = true,
             ),
         )
         assertEquals(
             "ch_com.example.owner_news",
-            NotificationController.selectProviderCompatibleChannelId(
+            NotificationController.selectManagedChannelId(
                 stockChannelId = "mipush|com.example.owner|news",
                 stockChannelExists = false,
                 legacyChannelId = "ch_com.example.owner_news",
+                legacyChannelExists = true,
+            ),
+        )
+        assertEquals(
+            "mipush|com.example.owner|news",
+            NotificationController.selectManagedChannelId(
+                stockChannelId = "mipush|com.example.owner|news",
+                stockChannelExists = false,
+                legacyChannelId = "ch_com.example.owner_news",
+                legacyChannelExists = false,
             ),
         )
     }
