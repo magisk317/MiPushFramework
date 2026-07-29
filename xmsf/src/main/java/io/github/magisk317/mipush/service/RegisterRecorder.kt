@@ -19,7 +19,7 @@ import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import io.github.magisk317.mipush.runtime.store.entities.Event
 import io.github.magisk317.mipush.runtime.store.event.type.RegistrationType
-import io.github.magisk317.mipush.service.runtime.RegistrationIntentDeduper
+import io.github.magisk317.mipush.service.runtime.RegistrationRecordDeduper
 import kotlinx.coroutines.runBlocking
 import io.github.magisk317.xposed.logging.MagiskOtel
 
@@ -54,7 +54,7 @@ class RegisterRecorder(private val context: Context) {
             }
 
             RegisteredApplicationDb.registerApplication(pkg)
-            if (RegistrationIntentDeduper.shouldDrop("register_recorder", intent)) {
+            if (RegistrationRecordDeduper.shouldSkip(pkg)) {
                 logD("skip duplicate register record pkg=$pkg")
                 emitRegister(result = "skip", reason = "duplicate", packageName = pkg)
                 return

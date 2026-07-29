@@ -3,6 +3,7 @@ package com.xiaomi.mipush.sdk
 import android.os.Bundle
 import com.xiaomi.mipush.sdk.PushMessageHandler.PushMessageInterface
 import java.io.Serializable
+import java.util.HashMap
 
 /*
  * Stock reference: com.xiaomi.xmsf 7.4.67-C (versionCode 70004067),
@@ -11,6 +12,8 @@ import java.io.Serializable
  * Current override same-path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/mipush/sdk/MiPushMessage.java
  */
 class MiPushMessage : PushMessageInterface, Serializable {
+    private var arrived: Boolean = false
+
     var alias: String? = null
     var category: String? = null
     var content: String? = null
@@ -24,7 +27,10 @@ class MiPushMessage : PushMessageInterface, Serializable {
     var title: String? = null
     var topic: String? = null
     var userAccount: String? = null
-    var extra: Map<String, String>? = null
+    var extra: Map<String, String>? = HashMap()
+        set(value) {
+            field = value?.let { entries -> HashMap(entries) }
+        }
 
     companion object {
         private const val KEY_ALIAS = "alias"
@@ -39,9 +45,15 @@ class MiPushMessage : PushMessageInterface, Serializable {
         private const val KEY_PASS_THROUGH = "passThrough"
         private const val KEY_TITLE = "title"
         private const val KEY_TOPIC = "topic"
-        private const val KEY_USER_ACCOUNT = "userAccount"
+        private const val KEY_USER_ACCOUNT = "user_account"
+        private const val LEGACY_KEY_USER_ACCOUNT = "userAccount"
         private const val KEY_EXTRA = "extra"
         private const val serialVersionUID: Long = 1
+
+        const val MESSAGE_TYPE_REG = 0
+        const val MESSAGE_TYPE_ALIAS = 1
+        const val MESSAGE_TYPE_TOPIC = 2
+        const val MESSAGE_TYPE_ACCOUNT = 3
 
         @JvmStatic
         fun fromBundle(bundle: Bundle): MiPushMessage {
@@ -58,40 +70,58 @@ class MiPushMessage : PushMessageInterface, Serializable {
                 passThrough = bundle.getInt(KEY_PASS_THROUGH)
                 title = bundle.getString(KEY_TITLE)
                 topic = bundle.getString(KEY_TOPIC)
+                // Stock 3.7.9 and 7.4.67-C both use `user_account` and a Serializable HashMap.
+                // Older MiPushFramework builds emitted `userAccount` plus a nested Bundle, so
+                // keep read-only migration support while all new output follows the stock wire.
                 userAccount = bundle.getString(KEY_USER_ACCOUNT)
-                bundle.getBundle(KEY_EXTRA)?.let {
-                    extra = it.keySet().associateWith { key -> it.getString(key) ?: "" }
-                }
+                    ?: bundle.getString(LEGACY_KEY_USER_ACCOUNT)
+                extra = readExtra(bundle)
+            }
+        }
+
+        @Suppress("DEPRECATION")
+        private fun readExtra(bundle: Bundle): Map<String, String>? {
+            val stockValue = bundle.getSerializable(KEY_EXTRA)
+            if (stockValue is Map<*, *>) {
+                return stockValue.entries.mapNotNull { (key, value) ->
+                    val stringKey = key as? String ?: return@mapNotNull null
+                    val stringValue = value as? String ?: return@mapNotNull null
+                    stringKey to stringValue
+                }.toMap()
+            }
+            return bundle.getBundle(KEY_EXTRA)?.keySet()?.associateWith { key ->
+                bundle.getBundle(KEY_EXTRA)?.getString(key).orEmpty()
             }
         }
     }
 
-    fun isArrivedMessage(): Boolean = false
+    fun isArrivedMessage(): Boolean = arrived
     fun isBusinessMessage(): Boolean = false
     fun isPassThrough(): Boolean = passThrough == 1
 
-    fun setArrivedMessage(value: Boolean) {}
+    fun setArrivedMessage(value: Boolean) {
+        arrived = value
+    }
+
     fun setBusinessMessage(value: Boolean) {}
 
     fun toBundle(): Bundle {
         return Bundle().apply {
-            putString(KEY_ALIAS, alias)
-            putString(KEY_CATEGORY, category)
+            alias?.takeIf(String::isNotEmpty)?.let { putString(KEY_ALIAS, it) }
+            category?.takeIf(String::isNotEmpty)?.let { putString(KEY_CATEGORY, it) }
             putString(KEY_CONTENT, content)
-            putString(KEY_DESCRIPTION, description)
+            description?.takeIf(String::isNotEmpty)?.let { putString(KEY_DESCRIPTION, it) }
             putBoolean(KEY_IS_NOTIFIED, isNotified)
             putString(KEY_MESSAGE_ID, messageId)
             putInt(KEY_MESSAGE_TYPE, messageType)
             putInt(KEY_NOTIFY_ID, notifyId)
             putInt(KEY_NOTIFY_TYPE, notifyType)
             putInt(KEY_PASS_THROUGH, passThrough)
-            putString(KEY_TITLE, title)
-            putString(KEY_TOPIC, topic)
-            putString(KEY_USER_ACCOUNT, userAccount)
+            title?.takeIf(String::isNotEmpty)?.let { putString(KEY_TITLE, it) }
+            topic?.takeIf(String::isNotEmpty)?.let { putString(KEY_TOPIC, it) }
+            userAccount?.takeIf(String::isNotEmpty)?.let { putString(KEY_USER_ACCOUNT, it) }
             extra?.let {
-                putBundle(KEY_EXTRA, Bundle().apply {
-                    it.forEach { (k, v) -> putString(k, v) }
-                })
+                putSerializable(KEY_EXTRA, HashMap(it))
             }
         }
     }

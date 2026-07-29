@@ -55,14 +55,12 @@ object PushRuntimeCapability {
     const val CHANNEL_LIFECYCLE_TRACKING = "channel_lifecycle_tracking"
     const val CONNECTION_SESSION_RUNTIME = "connection_session_runtime"
     const val STOCK_SURFACE_COMPATIBILITY = "stock_surface_compatibility"
-    const val ACCOUNT_CLOUD_BRIDGE = "account_cloud_bridge"
 }
 
 data class PushRuntimeRegistrationDispatchResult(
     val frameworkRegistrationTriggered: Boolean = false,
     val pendingAppReplayCount: Int = 0,
     val processRegisterTaskTriggered: Boolean = false,
-    val accountSyncTriggered: Boolean = false,
     val connectionEnsureTriggered: Boolean = false
 )
 
@@ -98,8 +96,6 @@ interface PushRuntimeExecutionHost {
     fun requestApplicationRegistration(packageName: String, reason: String): Boolean
 
     fun processPendingRegisterTasks(reason: String): Boolean
-
-    fun syncAccountAlias(reason: String): Boolean
 
     fun dispatchDownstreamPayload(
         payload: ByteArray,

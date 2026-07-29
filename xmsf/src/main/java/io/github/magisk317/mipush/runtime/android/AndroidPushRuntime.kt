@@ -302,25 +302,6 @@ object AndroidPushRuntime {
     }
 
     @JvmStatic
-    fun handleAccountChanged(source: String): PushRuntimeRegistrationDispatchResult {
-        val host = synchronized(lock) { executionHost }
-        val accountTriggered = if (host == null) {
-            false
-        } else {
-            runCatching { host.syncAccountAlias(buildReason(source, "account_changed")) }
-                .getOrElse {
-                    logE("syncAccountAlias failed", it)
-                    false
-                }
-        }
-        val replayed = replayPendingApplicationRegistrations(source, reason = "account_changed")
-        return PushRuntimeRegistrationDispatchResult(
-            pendingAppReplayCount = replayed,
-            accountSyncTriggered = accountTriggered
-        )
-    }
-
-    @JvmStatic
     fun requestConnection(source: String, reason: String? = null): Boolean {
         val host = synchronized(lock) { executionHost } ?: run {
             MagiskOtel.event(
@@ -786,7 +767,6 @@ object AndroidPushRuntime {
                 PushRuntimeCapability.CHANNEL_LIFECYCLE_TRACKING,
                 PushRuntimeCapability.CONNECTION_SESSION_RUNTIME,
                 PushRuntimeCapability.STOCK_SURFACE_COMPATIBILITY,
-                PushRuntimeCapability.ACCOUNT_CLOUD_BRIDGE,
             )
         )
     }

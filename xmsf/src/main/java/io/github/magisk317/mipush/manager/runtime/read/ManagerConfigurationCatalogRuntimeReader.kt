@@ -1,8 +1,8 @@
 package io.github.magisk317.mipush.manager.runtime.read
 
 import io.github.magisk317.mipush.app.di.AppDependencies
-import io.github.magisk317.mipush.config.ConfigCatalogService
-import io.github.magisk317.mipush.config.ConfigSyncStateStore
+import io.github.magisk317.mipush.configuration.ConfigCatalogService
+import io.github.magisk317.mipush.configuration.ConfigSyncStateStore
 import io.github.magisk317.mipush.manager.api.ManagerConfigurationCatalogDto
 import io.github.magisk317.mipush.manager.api.ManagerConfigurationCatalogEntryDto
 import io.github.magisk317.mipush.manager.api.ManagerProtocol

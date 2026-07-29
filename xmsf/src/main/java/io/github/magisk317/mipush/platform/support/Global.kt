@@ -6,7 +6,6 @@ import io.github.magisk317.mipush.common.cache.ApplicationNameCache
 import io.github.magisk317.mipush.common.cache.IconCache
 import io.github.magisk317.mipush.push.hook.ModernHookHandler
 import io.github.magisk317.mipush.MiPushEventListener
-import io.github.magisk317.mipush.service.RegistrationRecorder
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.app.di.AppDependencies
 
@@ -22,9 +21,6 @@ object Global {
 
     @JvmStatic
     fun miPushEventListener(): MiPushEventListener = AppDependencies.get(MiPushEventListener::class)
-
-    @JvmStatic
-    fun registrationRecorder(): RegistrationRecorder = AppDependencies.get(RegistrationRecorder::class)
 
     @JvmStatic
     fun configValueConverter(): ConfigValueConverter = AppDependencies.get(ConfigValueConverter::class)

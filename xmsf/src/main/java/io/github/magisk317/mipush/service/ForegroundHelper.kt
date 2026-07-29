@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.service
 
+import io.github.magisk317.mipush.common.R as CommonR
 import android.app.Notification
 import android.app.NotificationManager
 import android.app.Service
@@ -81,7 +82,7 @@ class ForegroundHelper(private val service: Service) {
     internal fun showForegroundNotificationToKeepAlive() {
         val notification: Notification = NotificationCompat.Builder(service, CHANNEL_STATUS)
             .setContentTitle(service.getString(R.string.notification_alive))
-            .setSmallIcon(R.drawable.ic_notifications_black_24dp)
+            .setSmallIcon(CommonR.drawable.ic_notifications_black_24dp)
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setOngoing(true)
             .setShowWhen(true)

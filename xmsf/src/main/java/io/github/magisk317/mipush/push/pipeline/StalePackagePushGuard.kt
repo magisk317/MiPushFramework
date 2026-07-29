@@ -9,7 +9,7 @@ import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
-import io.github.magisk317.mipush.service.runtime.RegistrationIntentDeduper
+import io.github.magisk317.mipush.service.runtime.RegistrationRecordDeduper
 import com.xiaomi.xmsf.stock.StockProfileIdStore
 import io.github.magisk317.xposed.logging.MagiskOtel
 
@@ -102,7 +102,7 @@ object StalePackagePushGuard {
         if (clearLastReceiveTime) {
             Utils.removeLastReceiveTime(packageName)
         }
-        RegistrationIntentDeduper.reset(packageName)
+        RegistrationRecordDeduper.reset(packageName)
         MIPushNotificationHelper.clearNotification(context, packageName)
         PushRuntime.observeUnregistration(
             packageName = packageName,

@@ -9,9 +9,6 @@
             android:name="com.xiaomi.xmsf.permission.NOTIFICATION_ACTIVE"
             android:protectionLevel="signatureOrSystem" />
     <permission
-            android:name="com.xiaomi.xmsf.permission.BIND_HTTP_SERVICE"
-            android:protectionLevel="signature" />
-    <permission
             android:name="com.xiaomi.xmsf.permission.LOG_PROVIDER"
             android:protectionLevel="signature" />
     <permission
@@ -41,19 +38,23 @@
     <permission
             android:name="com.xiaomi.xmsf.permission.BIND_MANAGER_RUNTIME"
             android:protectionLevel="signature" />
+    <!-- Stock XMSF 7.4.67-C declares this permission for the USE_INTELLIGENT_HB broadcast so only
+         system/signature callers can request a short heartbeat keep window. XMPushService registers
+         its receiver with this permission, so the package must both declare and use it. -->
+    <permission
+            android:name="com.xiaomi.xmsf.permission.INTELLIGENT_HB"
+            android:protectionLevel="signatureOrSystem" />
 
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="com.xiaomi.xmsf.permission.MIPUSH_RECEIVE" />
     <uses-permission android:name="com.xiaomi.xmsf.permission.NOTIFICATION_ACTIVE" />
     <uses-permission android:name="com.xiaomi.xmsf.permission.USE_XMSF_UPLOAD" />
     <uses-permission android:name="com.xiaomi.xmsf.permission.READ_ISLAND_PREFS" />
+    <uses-permission android:name="com.xiaomi.xmsf.permission.INTELLIGENT_HB" />
     <uses-permission android:name="com.xiaomi.permission.SEND_PUSH" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission
             android:name="android.permission.POST_PROMOTED_NOTIFICATIONS"
-            tools:ignore="ProtectedPermissions" />
-    <uses-permission
-            android:name="android.permission.WRITE_SECURE_SETTINGS"
             tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
@@ -74,6 +75,12 @@
 
     <uses-permission
             android:name="android.permission.UPDATE_APP_OPS_STATS"
+            tools:ignore="ProtectedPermissions" />
+
+    <!-- Stock XMSF 7.4.67-C requests this signature permission for ProcessMonitor. The observer
+         adapter falls back to 60-second polling when the installed package is not granted it. -->
+    <uses-permission
+            android:name="android.permission.SET_ACTIVITY_WATCHER"
             tools:ignore="ProtectedPermissions" />
 
     <uses-permission
@@ -125,12 +132,6 @@
                 android:exported="false" />
         <activity
                 android:name=".RemoveDozeActivity"
-                android:exported="false" />
-
-        <!-- Internal compatibility entry; external SDK traffic uses the gated XMPushService below. -->
-        <service
-                android:name="com.xiaomi.xmsf.push.service.CompatXMPushService"
-                android:foregroundServiceType="remoteMessaging"
                 android:exported="false" />
 
         <provider
@@ -219,15 +220,12 @@
         </receiver>
 
         <receiver
-                android:name="io.github.magisk317.mipush.receiver.MiPushPingReceiver"
+                android:name="com.xiaomi.push.service.receivers.PingReceiver"
                 android:exported="false">
             <intent-filter>
                 <action android:name="com.xiaomi.push.PING_TIMER" />
             </intent-filter>
         </receiver>
-        <receiver
-                android:name="io.github.magisk317.mipush.notification.NotificationFocusDeleteReceiver"
-                android:exported="false" />
         <receiver
                 android:name="io.github.magisk317.mipush.notification.FocusInteractionReceiver"
                 android:exported="true"
@@ -237,26 +235,27 @@
             </intent-filter>
         </receiver>
 
+        <!-- Stock XMSF 7.4.67-C registers PkgActionsReceiver for package add/remove/data-clear
+             events. MiPushFramework keeps add/remove for its existing XSpace and uninstall paths
+             and adds data-clear for registration cleanup. PACKAGE_CHANGED, PACKAGE_REPLACED, and
+             PACKAGE_RESTARTED only refresh stock OnePush/extension state, which is not restored. -->
         <receiver
                 android:name="io.github.magisk317.mipush.receiver.PkgUninstallReceiver"
                 android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.PACKAGE_ADDED" />
                 <action android:name="android.intent.action.PACKAGE_REMOVED" />
+                <action android:name="android.intent.action.PACKAGE_DATA_CLEARED" />
 
                 <data android:scheme="package" />
             </intent-filter>
         </receiver>
 
-        <!-- Fixed ManifestChecker crash: Add PushServiceReceiver -->
         <receiver
-                android:name="com.xiaomi.mipush.sdk.PushServiceReceiver"
+                android:name="com.xiaomi.xmsf.push.service.receivers.MiuiPushMessageReceiver"
                 android:exported="false">
             <intent-filter>
                 <action android:name="com.xiaomi.mipush.RECEIVE_MESSAGE" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="com.xiaomi.mipush.MESSAGE_ARRIVED" />
             </intent-filter>
             <intent-filter>
                 <action android:name="com.xiaomi.mipush.ERROR" />
@@ -264,21 +263,7 @@
         </receiver>
 
         <receiver
-                android:name="io.github.magisk317.mipush.receiver.MiuiPushMessageReceiver"
-                android:exported="false">
-            <intent-filter>
-                <action android:name="com.xiaomi.mipush.RECEIVE_MESSAGE" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="com.xiaomi.mipush.MESSAGE_ARRIVED" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="com.xiaomi.mipush.ERROR" />
-            </intent-filter>
-        </receiver>
-
-        <receiver
-                android:name="io.github.magisk317.mipush.receiver.AccountChangedReceiver"
+                android:name="com.xiaomi.xmsf.push.service.receivers.AccountChangedReceiver"
                 android:exported="true">
             <intent-filter>
                 <action android:name="android.accounts.LOGIN_ACCOUNTS_CHANGED" />
@@ -286,14 +271,7 @@
         </receiver>
 
         <receiver
-                android:name="io.github.magisk317.mipush.notification.LiveUpdateDismissReceiver"
-                android:exported="false">
-            <intent-filter>
-                <action android:name="io.github.magisk317.mipush.action.LIVE_UPDATE_DISMISSED" />
-            </intent-filter>
-        </receiver>
-        <receiver
-                android:name="io.github.magisk317.mipush.receiver.NotificationEventReceiver"
+                android:name="com.xiaomi.xmsf.push.service.receivers.NotificationEventReceiver"
                 android:exported="true"
                 android:permission="com.xiaomi.xmsf.permission.NOTIFICATION_ACTIVE">
             <intent-filter>
@@ -326,13 +304,22 @@
         <receiver
                 android:name="com.xiaomi.push.revival.NotificationsRevivalForSelfUpdated"
                 android:exported="false" />
+        <!--
+          Stock XMSF 7.4.67-C exports HttpService without a bind permission. The older project
+          added a signature permission that rejected ordinary stock clients. The implementation
+          remains telemetry-safe: it returns only local canned MiStat responses and never uploads.
+        -->
         <service
                 android:name=".push.service.HttpService"
-                android:permission="com.xiaomi.xmsf.permission.BIND_HTTP_SERVICE"
                 android:exported="true" />
+        <!--
+          Stock XMSF 7.4.67-C exports StatService while returning null from onBind. The older
+          project made it internal; exporting the inert service restores discovery without
+          accepting, persisting, or forwarding telemetry.
+        -->
         <service
                 android:name="com.xiaomi.xmsf.push.service.StatService"
-                android:exported="false" />
+                android:exported="true" />
         <service
                 android:name="com.xiaomi.xmsf.push.service.notificationcollection.NotificationListener"
                 android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
@@ -353,6 +340,12 @@
                 <action android:name="io.github.magisk317.mipush.action.BIND_MANAGER_RUNTIME" />
             </intent-filter>
         </service>
+        <!--
+          Stock XMSF 7.4.67-C exports ServiceBoxService, but its confirmed caller (dc.e) is in the
+          XMSF package and binds explicitly across processes. Keep the project service internal:
+          its Binder refreshes online-config/keepalive state, so external exposure adds a denial
+          surface without a known compatibility consumer.
+        -->
         <service
                 android:name="com.xiaomi.xmsf.services.ServiceBoxService"
                 android:exported="false"
@@ -376,10 +369,6 @@
             </intent-filter>
         </service>
 
-        <service
-                android:name=".push.service.MiPushFacadeService"
-                android:foregroundServiceType="remoteMessaging"
-                android:exported="false" />
         <service
                 android:name=".push.service.XMPushService"
                 android:foregroundServiceType="remoteMessaging"
@@ -413,9 +402,14 @@
                 android:exported="false"
                 android:permission="android.permission.BIND_JOB_SERVICE" />
 
+        <!--
+          Stock XMSF 7.4.67-C exports MiuiPushActivateService, whose onHandleIntent is empty. The
+          older project kept it internal while separately invoking a non-stock package scan.
+          Export the inert compatibility service after removing that scan and its target launches.
+        -->
         <service
                 android:name=".push.service.MiuiPushActivateService"
-                android:exported="false" />
+                android:exported="true" />
 
         <service
                 android:name="com.xiaomi.push.sdk.MyPushMessageHandler"

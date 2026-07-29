@@ -40,11 +40,13 @@ object MiPushRuntimeBridge {
     internal data class ConfirmedRegistrationTransition(
         val registeredType: Int,
         val appId: String? = null,
+        val regSecret: String? = null,
     )
 
     internal data class RegistrationResultOutcome(
         val success: Boolean,
         val appId: String? = null,
+        val regSecret: String? = null,
     )
 
     private val diagnosticPackages = setOf("com.ss.android.ugc.aweme")
@@ -224,12 +226,6 @@ object MiPushRuntimeBridge {
                 actionName = actionName,
                 messageId = messageId
             )
-        }
-        runCatching {
-            Global.registrationRecorder().initContext(context.applicationContext)
-            Global.registrationRecorder().recordRegSec(container)
-        }.onFailure {
-            logE("recordRegSec failed source=$source", it)
         }
         runCatching {
             Global.miPushEventListener().receiveFromServer(container)
@@ -474,14 +470,17 @@ object MiPushRuntimeBridge {
         }.getOrNull() ?: return null
         return when (result) {
             is XmPushActionRegistrationResult -> {
-                result.appId
-                    ?.takeIf { result.errorCode == 0L && it.isNotBlank() }
-                    ?.let { appId ->
-                        ConfirmedRegistrationTransition(
-                            registeredType = RegisteredApplication.RegisteredType.Registered,
-                            appId = appId,
-                        )
-                    }
+                val appId = result.appId?.takeIf { it.isNotBlank() }
+                val regSecret = result.regSecret?.takeIf { it.isNotBlank() }
+                if (result.errorCode == 0L && appId != null && regSecret != null) {
+                    ConfirmedRegistrationTransition(
+                        registeredType = RegisteredApplication.RegisteredType.Registered,
+                        appId = appId,
+                        regSecret = regSecret,
+                    )
+                } else {
+                    null
+                }
             }
             is XmPushActionUnRegistrationResult -> {
                 ConfirmedRegistrationTransition(RegisteredApplication.RegisteredType.Unregistered)
@@ -498,9 +497,12 @@ object MiPushRuntimeBridge {
         val result = runCatching {
             ConvertUtils.getResponseMessageBodyFromContainer(container, RegSecUtils.getRegSec(container))
         }.getOrNull() as? XmPushActionRegistrationResult ?: return null
+        val appId = result.appId?.takeIf { it.isNotBlank() }
+        val regSecret = result.regSecret?.takeIf { it.isNotBlank() }
         return RegistrationResultOutcome(
-            success = result.errorCode == 0L && !result.appId.isNullOrBlank(),
-            appId = result.appId?.takeIf { it.isNotBlank() },
+            success = result.errorCode == 0L && appId != null && regSecret != null,
+            appId = appId,
+            regSecret = regSecret,
         )
     }
 
@@ -523,8 +525,15 @@ object MiPushRuntimeBridge {
         transition: ConfirmedRegistrationTransition,
     ) {
         when (transition.registeredType) {
-            RegisteredApplication.RegisteredType.Registered ->
-                MIPushAppAbsentManager.rememberRegisteredPackage(context, packageName, transition.appId)
+            RegisteredApplication.RegisteredType.Registered -> {
+                val appId = transition.appId ?: return
+                val regSecret = transition.regSecret ?: return
+                // Stock XMSF 7.4.67-C i0 accepts registration only when errorCode is zero and
+                // regSecret is non-empty, then persists appId and secret as one confirmed result.
+                // The old split recorder could confirm appId without a usable decryption secret.
+                MIPushAppAbsentManager.rememberRegisteredPackage(context, packageName, appId)
+                Utils.setRegSec(context, packageName, regSecret)
+            }
             RegisteredApplication.RegisteredType.Unregistered ->
                 MIPushAppAbsentManager.forgetRegisteredPackage(context, packageName)
         }

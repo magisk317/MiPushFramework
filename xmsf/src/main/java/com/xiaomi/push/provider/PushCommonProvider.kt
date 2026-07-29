@@ -5,16 +5,13 @@ import android.content.ContentValues
 import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
-import com.xiaomi.xmsf.security.ExportedSurfacePolicy
 import com.xiaomi.xmsf.stock.StockSurfaceSupport
 
 class PushCommonProvider : ContentProvider() {
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle {
-        val context = context ?: return Bundle()
-        if (!ExportedSurfacePolicy.isPushCommonCallAllowed(method, arg, extras)) {
-            return Bundle().apply { putString(StockSurfaceSupport.KEY_MSG, "invalid_request") }
-        }
-        return StockSurfaceSupport.handlePushCommonCall(context, method, extras)
+        // Stock XMSF 7.4.67-C ignores arg and unrelated extras. The older project rejected both,
+        // which changed the public capability-probe contract without protecting mutable state.
+        return StockSurfaceSupport.handlePushCommonCall(method, extras)
     }
 
     override fun onCreate(): Boolean = true

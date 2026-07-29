@@ -33,7 +33,7 @@ import io.github.magisk317.mipush.runtime.android.AndroidPushRuntime
 import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.entities.Event
 import io.github.magisk317.mipush.runtime.store.event.type.RegistrationType
-import io.github.magisk317.mipush.service.runtime.RegistrationIntentDeduper
+import io.github.magisk317.mipush.service.runtime.RegistrationRecordDeduper
 import kotlinx.coroutines.runBlocking
 
 class RegistrationHelper(
@@ -359,7 +359,7 @@ class RegistrationHelper(
                     "RegistrationHelper.tryForceRegisterFallback",
                     "force_trigger_fallback"
                 )
-                RegistrationIntentDeduper.markRegister("register_recorder", packageName)
+                RegistrationRecordDeduper.markRecorded(packageName)
                 runBlocking {
                     EventDb.insertEventAsync(Event.ResultType.OK, RegistrationType("force_trigger_fallback", packageName, null))
                 }
@@ -407,7 +407,7 @@ class RegistrationHelper(
                     "RegistrationHelper.tryForceRegister",
                     "force_trigger"
                 )
-                RegistrationIntentDeduper.markRegister("register_recorder", packageName)
+                RegistrationRecordDeduper.markRecorded(packageName)
                 runBlocking {
                     EventDb.insertEventAsync(Event.ResultType.OK, RegistrationType("force_trigger", packageName, null))
                 }

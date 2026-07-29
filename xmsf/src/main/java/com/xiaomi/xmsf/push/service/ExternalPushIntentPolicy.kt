@@ -2,10 +2,12 @@ package com.xiaomi.xmsf.push.service
 
 import android.content.Context
 import android.content.Intent
-import com.xiaomi.xmpush.thrift.ActionType
-import com.xiaomi.xmpush.thrift.ClientUploadDataItem
+import com.xiaomi.channel.commonutils.string.MD5
 import com.xiaomi.push.service.PushConstants
+import com.xiaomi.xmpush.thrift.ActionType
+import com.xiaomi.xmpush.thrift.NotificationType
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
+import com.xiaomi.xmpush.thrift.XmPushActionNotification
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
 import io.github.magisk317.mipush.common.utils.Utils
 
@@ -13,13 +15,20 @@ import io.github.magisk317.mipush.common.utils.Utils
 internal object ExternalPushIntentPolicy {
     private const val MAX_PACKAGE_NAME_LENGTH = 255
     private const val MAX_PAYLOAD_BYTES = 512 * 1024
+    private const val EXTRA_MESSAGE_CACHE_COLLECTION = "mipush_message_cache_collection"
+    private const val CACHE_COLLECTION_DEFAULT = 0
+    private const val CACHE_COLLECTION_NOTIFICATION_EXPOSURE = 1
     private val packageNamePattern = Regex("^[A-Za-z][A-Za-z0-9_]*(?:\\.[A-Za-z0-9_]+)+$")
 
     private val externallyAllowedActions = setOf(
         PushConstants.MIPUSH_ACTION_REGISTER_APP,
         PushConstants.MIPUSH_ACTION_SEND_MESSAGE,
         PushConstants.MIPUSH_ACTION_UNREGISTER_APP,
-        PushConstants.MIPUSH_ACTION_SEND_TINYDATA,
+        PushConstants.MIPUSH_ACTION_CLEAR_NOTIFICATION,
+        PushConstants.MIPUSH_ACTION_SET_NOTIFICATION_TYPE,
+        PushConstants.MIPUSH_ACTION_DISABLE_PUSH,
+        PushConstants.MIPUSH_ACTION_DISABLE_PUSH_MESSAGE,
+        PushConstants.MIPUSH_ACTION_ENABLE_PUSH_MESSAGE,
     )
 
     internal data class ValidationResult(
@@ -36,8 +45,11 @@ internal object ExternalPushIntentPolicy {
         callingPackages: Array<String>? = null,
     ): ValidationResult {
         val normalizedIntent = normalizeExternalIntent(intent) ?: return rejected("action_not_public")
-        val action = normalizedIntent.action ?: return rejected("action_not_public")
-        if (!isAllowed(action)) return rejected("action_not_public")
+        val action = normalizedIntent.action
+        if (action == PushConstants.MIPUSH_ACTION_SEND_TINYDATA || isNotificationExposure(normalizedIntent)) {
+            return rejected("telemetry_disabled")
+        }
+        if (action != null && !isAllowed(action)) return rejected("action_not_public")
         val packageName = runCatching {
             normalizedIntent.getStringExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE)
         }.getOrNull()
@@ -51,14 +63,28 @@ internal object ExternalPushIntentPolicy {
                 return rejected("caller_package_mismatch")
             }
         }
-        val payload = runCatching {
-            normalizedIntent.getByteArrayExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD)
-        }.getOrElse { return rejected("invalid_payload") }
-        if (payload == null || !isPayloadSizeAllowed(payload.size)) return rejected("invalid_payload_size")
 
         val rejectionReason = when (action) {
-            PushConstants.MIPUSH_ACTION_SEND_TINYDATA -> tinyDataRejectionReason(packageName, payload)
-            else -> containerRejectionReason(action, packageName, payload)
+            null -> wakeRequestRejectionReason(normalizedIntent)
+            PushConstants.MIPUSH_ACTION_REGISTER_APP,
+            PushConstants.MIPUSH_ACTION_SEND_MESSAGE,
+            PushConstants.MIPUSH_ACTION_UNREGISTER_APP,
+            PushConstants.MIPUSH_ACTION_DISABLE_PUSH_MESSAGE,
+            PushConstants.MIPUSH_ACTION_ENABLE_PUSH_MESSAGE -> payloadRejectionReason(
+                normalizedIntent,
+                action,
+                packageName,
+            )
+            PushConstants.MIPUSH_ACTION_CLEAR_NOTIFICATION -> clearNotificationRejectionReason(
+                normalizedIntent,
+                packageName,
+            )
+            PushConstants.MIPUSH_ACTION_SET_NOTIFICATION_TYPE -> notificationTypeRejectionReason(
+                normalizedIntent,
+                packageName,
+            )
+            PushConstants.MIPUSH_ACTION_DISABLE_PUSH -> null
+            else -> "action_not_public"
         }
         return if (rejectionReason == null) {
             ValidationResult(intent = sanitizedCopy(normalizedIntent))
@@ -84,6 +110,10 @@ internal object ExternalPushIntentPolicy {
 
     internal fun isPayloadSizeAllowed(size: Int): Boolean = size in 1..MAX_PAYLOAD_BYTES
 
+    internal fun isTelemetryDisabled(intent: Intent): Boolean {
+        return intent.action == PushConstants.MIPUSH_ACTION_SEND_TINYDATA || isNotificationExposure(intent)
+    }
+
     internal fun isCallerPackageAllowed(context: Context, callingUid: Int, packageName: String): Boolean {
         if (callingUid < 0) return false
         return runCatching {
@@ -96,14 +126,20 @@ internal object ExternalPushIntentPolicy {
     }
 
     /**
-     * Some legacy SDKs perform an action-less bootstrap. Only convert it when the wire payload
-     * independently proves that it is a registration request for the claimed package.
+     * SDK 3.7.9 and stock 7.4.67-C e0.i() use an action-less, payload-less XMSF wake. The old
+     * product policy accepted only action-less registration payloads, so a normal SDK wake could
+     * not bootstrap the connection. Keep the older registration normalization as a narrow fallback.
      */
     private fun normalizeExternalIntent(intent: Intent): Intent? {
         if (intent.action != null) return intent
         val packageName = runCatching {
             intent.getStringExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE)
         }.getOrNull() ?: return null
+        if (!intent.hasExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD)) {
+            return Intent().apply {
+                putExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE, packageName)
+            }
+        }
         val payload = runCatching {
             intent.getByteArrayExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD)
         }.getOrNull() ?: return null
@@ -122,6 +158,14 @@ internal object ExternalPushIntentPolicy {
             copyBooleanExtra(intent, this, PushConstants.MIPUSH_EXTRA_ENV_CHANAGE)
             copyIntExtra(intent, this, PushConstants.MIPUSH_EXTRA_ENV_TYPE)
         }
+    }
+
+    private fun payloadRejectionReason(intent: Intent, action: String, packageName: String): String? {
+        val payload = runCatching {
+            intent.getByteArrayExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD)
+        }.getOrElse { return "invalid_payload" }
+        if (payload == null || !isPayloadSizeAllowed(payload.size)) return "invalid_payload_size"
+        return containerRejectionReason(action, packageName, payload)
     }
 
     private fun containerRejectionReason(action: String, packageName: String, payload: ByteArray): String? {
@@ -145,24 +189,71 @@ internal object ExternalPushIntentPolicy {
                     null
                 }
             }
+            PushConstants.MIPUSH_ACTION_DISABLE_PUSH_MESSAGE -> notificationTypeRejectionReason(
+                container,
+                NotificationType.DisablePushMessage.value,
+            )
+            PushConstants.MIPUSH_ACTION_ENABLE_PUSH_MESSAGE -> notificationTypeRejectionReason(
+                container,
+                NotificationType.EnablePushMessage.value,
+            )
             else -> "action_not_public"
         }
     }
 
-    private fun tinyDataRejectionReason(packageName: String, payload: ByteArray): String? {
-        val item = runCatching {
-            ClientUploadDataItem().also { tinyData ->
-                XmPushThriftSerializeUtils.convertByteArrayToThriftObject(tinyData, payload)
-            }
-        }.getOrNull() ?: return "invalid_tinydata"
-        val embeddedPackage = item.pkgName?.takeIf { it.isNotBlank() }
-        if (embeddedPackage != null && embeddedPackage != packageName) {
-            return "tinydata_package_mismatch"
+    private fun notificationTypeRejectionReason(container: XmPushActionContainer, expectedType: String): String? {
+        if (container.action != ActionType.Notification || container.isEncryptAction) {
+            return "container_action_mismatch"
         }
-        val sourcePackage = item.sourcePackage?.takeIf { it.isNotBlank() }
-        return if (sourcePackage != null && sourcePackage != packageName) {
-            "tinydata_source_package_mismatch"
-        } else null
+        val notification = runCatching {
+            XmPushActionNotification().also {
+                XmPushThriftSerializeUtils.convertByteArrayToThriftObject(it, container.getPushAction())
+            }
+        }.getOrNull() ?: return "invalid_notification"
+        return if (notification.type == expectedType) null else "notification_type_mismatch"
+    }
+
+    private fun wakeRequestRejectionReason(intent: Intent): String? {
+        return if (intent.hasExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD)) "invalid_wake_request" else null
+    }
+
+    private fun localPackageRejectionReason(intent: Intent, packageName: String): String? {
+        val localPackage = runCatching { intent.getStringExtra(PushConstants.EXTRA_PACKAGE_NAME) }.getOrNull()
+        return if (localPackage == packageName) null else "package_mismatch"
+    }
+
+    private fun clearNotificationRejectionReason(intent: Intent, packageName: String): String? {
+        localPackageRejectionReason(intent, packageName)?.let { return it }
+        if (intent.hasExtra(PushConstants.EXTRA_NOTIFY_ID)) {
+            typedExtra<Int>(intent, PushConstants.EXTRA_NOTIFY_ID)
+                ?: return "invalid_notification_id"
+        }
+        return null
+    }
+
+    private fun notificationTypeRejectionReason(intent: Intent, packageName: String): String? {
+        localPackageRejectionReason(intent, packageName)?.let { return it }
+        val signature = runCatching { intent.getStringExtra(PushConstants.EXTRA_SIG) }.getOrNull()
+        val expected = if (intent.hasExtra(PushConstants.EXTRA_NOTIFY_TYPE)) {
+            val notificationType = typedExtra<Int>(intent, PushConstants.EXTRA_NOTIFY_TYPE)
+                ?: return "invalid_notification_type"
+            MD5.MD5_16(packageName + notificationType)
+        } else {
+            MD5.MD5_16(packageName)
+        }
+        return if (signature == expected) null else "invalid_notification_signature"
+    }
+
+    private fun isNotificationExposure(intent: Intent): Boolean {
+        if (intent.action != PushConstants.MIPUSH_ACTION_SEND_MESSAGE) return false
+        if (!intent.hasExtra(EXTRA_MESSAGE_CACHE_COLLECTION)) {
+            return CACHE_COLLECTION_DEFAULT == CACHE_COLLECTION_NOTIFICATION_EXPOSURE
+        }
+        val collection = typedExtra<Int>(intent, EXTRA_MESSAGE_CACHE_COLLECTION)
+            ?: CACHE_COLLECTION_NOTIFICATION_EXPOSURE
+        // Stock 7.4.67-C currently defines 0=normal and 1=notification exposure. Treat unknown
+        // future collection values as disabled too, so they cannot fall through as ordinary uplink.
+        return collection != CACHE_COLLECTION_DEFAULT
     }
 
     private fun decodeContainer(payload: ByteArray): XmPushActionContainer? {
@@ -175,23 +266,42 @@ internal object ExternalPushIntentPolicy {
 
     /** Rebuild an exported request before it reaches the private XMPushServiceCore component. */
     internal fun copyAllowedExtras(source: Intent, target: Intent) {
+        copyStringExtra(source, target, PushConstants.MIPUSH_EXTRA_APP_PACKAGE)
         val action = source.action ?: return
         target.action = action
-        copyStringExtra(source, target, PushConstants.MIPUSH_EXTRA_APP_PACKAGE)
-        source.getByteArrayExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD)
-            ?.copyOf()
-            ?.let { target.putExtra(PushConstants.MIPUSH_EXTRA_PAYLOAD, it) }
         when (action) {
             PushConstants.MIPUSH_ACTION_REGISTER_APP -> {
+                copyByteArrayExtra(source, target, PushConstants.MIPUSH_EXTRA_PAYLOAD)
                 copyStringExtra(source, target, PushConstants.MIPUSH_EXTRA_APP_ID)
                 copyStringExtra(source, target, PushConstants.MIPUSH_EXTRA_SESSION)
                 copyBooleanExtra(source, target, PushConstants.MIPUSH_EXTRA_ENV_CHANAGE)
                 copyIntExtra(source, target, PushConstants.MIPUSH_EXTRA_ENV_TYPE)
             }
-            PushConstants.MIPUSH_ACTION_SEND_MESSAGE,
-            PushConstants.MIPUSH_ACTION_UNREGISTER_APP -> {
-                copyStringExtra(source, target, PushConstants.MIPUSH_EXTRA_APP_ID)
+            PushConstants.MIPUSH_ACTION_SEND_MESSAGE -> {
+                copyByteArrayExtra(source, target, PushConstants.MIPUSH_EXTRA_PAYLOAD)
                 copyBooleanExtra(source, target, PushConstants.MIPUSH_EXTRA_MESSAGE_CACHE)
+            }
+            PushConstants.MIPUSH_ACTION_UNREGISTER_APP -> {
+                copyByteArrayExtra(source, target, PushConstants.MIPUSH_EXTRA_PAYLOAD)
+                copyStringExtra(source, target, PushConstants.MIPUSH_EXTRA_APP_ID)
+            }
+            PushConstants.MIPUSH_ACTION_DISABLE_PUSH_MESSAGE,
+            PushConstants.MIPUSH_ACTION_ENABLE_PUSH_MESSAGE -> {
+                copyByteArrayExtra(source, target, PushConstants.MIPUSH_EXTRA_PAYLOAD)
+                copyStringExtra(source, target, PushConstants.MIPUSH_EXTRA_APP_ID)
+                copyStringExtra(source, target, PushConstants.MIPUSH_EXTRA_APP_TOKEN)
+                copyBooleanExtra(source, target, PushConstants.MIPUSH_EXTRA_MESSAGE_CACHE)
+            }
+            PushConstants.MIPUSH_ACTION_CLEAR_NOTIFICATION -> {
+                copyStringExtra(source, target, PushConstants.EXTRA_PACKAGE_NAME)
+                copyIntExtra(source, target, PushConstants.EXTRA_NOTIFY_ID)
+                copyStringExtra(source, target, PushConstants.EXTRA_NOTIFY_TITLE)
+                copyStringExtra(source, target, PushConstants.EXTRA_NOTIFY_DESCRIPTION)
+            }
+            PushConstants.MIPUSH_ACTION_SET_NOTIFICATION_TYPE -> {
+                copyStringExtra(source, target, PushConstants.EXTRA_PACKAGE_NAME)
+                copyIntExtra(source, target, PushConstants.EXTRA_NOTIFY_TYPE)
+                copyStringExtra(source, target, PushConstants.EXTRA_SIG)
             }
         }
     }
@@ -206,16 +316,28 @@ internal object ExternalPushIntentPolicy {
             ?.let { target.putExtra(key, it) }
     }
 
+    private fun copyByteArrayExtra(source: Intent, target: Intent, key: String) {
+        typedExtra<ByteArray>(source, key)
+            ?.copyOf()
+            ?.let { target.putExtra(key, it) }
+    }
+
     private fun copyBooleanExtra(source: Intent, target: Intent, key: String) {
         if (source.hasExtra(key)) {
-            target.putExtra(key, source.getBooleanExtra(key, false))
+            typedExtra<Boolean>(source, key)
+                ?.let { target.putExtra(key, it) }
         }
     }
 
     private fun copyIntExtra(source: Intent, target: Intent, key: String) {
         if (source.hasExtra(key)) {
-            target.putExtra(key, source.getIntExtra(key, 1))
+            typedExtra<Int>(source, key)
+                ?.let { target.putExtra(key, it) }
         }
+    }
+
+    private inline fun <reified T> typedExtra(source: Intent, key: String): T? {
+        return runCatching { source.extras?.get(key) as? T }.getOrNull()
     }
 
     private fun rejected(reason: String): ValidationResult = ValidationResult(rejectionReason = reason)

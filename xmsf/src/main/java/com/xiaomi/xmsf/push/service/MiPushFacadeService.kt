@@ -30,7 +30,7 @@ import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.PushRegistrationState
 import io.github.magisk317.mipush.runtime.PushRuntimeBridgeHost
 import io.github.magisk317.mipush.runtime.PushRuntimeComponents
-import io.github.magisk317.mipush.service.runtime.RegistrationIntentDeduper
+import io.github.magisk317.mipush.service.runtime.StockMiPushPayloadDeduper
 import io.github.magisk317.mipush.utils.ConvertUtils
 import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.common.Constants
@@ -133,9 +133,13 @@ open class MiPushFacadeService : Service() {
     }
 
     private fun handleRuntimeIntent(intent: Intent) {
-        if (RegistrationIntentDeduper.shouldDrop("facade_forward", intent)) {
-            val packageName = RegistrationIntentDeduper.packageName(intent).orEmpty()
-            logD("drop duplicate register intent before legacy forward pkg=$packageName")
+        if (ExternalPushIntentPolicy.isTelemetryDisabled(intent)) {
+            logD("drop disabled telemetry ingress action=${intent.action}")
+            return
+        }
+        if (StockMiPushPayloadDeduper.shouldDrop(intent)) {
+            val packageName = intent.getStringExtra(PushConstants.MIPUSH_EXTRA_APP_PACKAGE).orEmpty()
+            logD("drop duplicate stock MiPush payload pkg=$packageName action=${intent.action}")
             return
         }
         if (intent.component?.className == PushRuntimeComponents.CORE_SERVICE_CLASS) {
@@ -325,7 +329,7 @@ open class MiPushFacadeService : Service() {
     }
 
     private fun forwardToPushServiceMain(intent: Intent) {
-        val intent2 = PushRuntimeComponents.newCoreServiceIntent(this, intent.action ?: "com.xiaomi.push.service.ACTION_START").apply {
+        val intent2 = PushRuntimeComponents.newCoreServiceIntent(this, intent.action).apply {
             if (isExternalIngress) {
                 ExternalPushIntentPolicy.copyAllowedExtras(intent, this)
             } else {

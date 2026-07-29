@@ -213,12 +213,17 @@ object Utils {
 
     @JvmStatic
     fun setRegSec(pkgName: String, regSec: String?) {
+        val app = getApplication() ?: return
+        setRegSec(app, pkgName, regSec)
+    }
+
+    @JvmStatic
+    fun setRegSec(context: Context, pkgName: String, regSec: String?) {
         if (regSec.isNullOrEmpty()) {
             return
         }
-        val app = getApplication() ?: return
         for (prefName in listOf(PREF_REGISTERED_PKG_NAMES_SEC, PREF_MIPUSH_APPS_SECRET)) {
-            val secEditor = app.getSharedPreferences(prefName, 0)?.edit()
+            val secEditor = context.getSharedPreferences(prefName, 0)?.edit()
             secEditor?.putString(pkgName, regSec)
             secEditor?.apply()
         }

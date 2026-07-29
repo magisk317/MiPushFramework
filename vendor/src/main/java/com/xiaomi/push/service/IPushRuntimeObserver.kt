@@ -25,10 +25,8 @@ interface IPushRuntimeObserver {
     
     // --- Lifecycle & System ---
     fun onServiceCreated(service: android.app.Service) {}
-    fun postOnCreate() {}
     fun onServiceDestroy() {}
     fun onPackageDataCleared(packageName: String) {}
-    fun networkChanged() {}
     fun startForegroundService() {}
     fun getMIID(): String?
     fun isMiuiStableVersion(): Boolean? = null
@@ -49,7 +47,9 @@ interface IPushRuntimeObserver {
     fun onRegistrationStateChanged(packageName: String, state: PushRegistrationState, reason: String, message: String)
     fun onRegistrationResult(packageName: String, success: Boolean, source: String, reason: String) {}
     fun repairRegistrationPayload(context: Context, packageName: String): PushRegistrationPayloadRepairResult? = null
-    fun cacheRegistrationRequest(packageName: String, payload: ByteArray, appId: String? = null)
+    // Product lifecycle metadata is separate from the stock transport's pending wire-payload map.
+    fun rememberPendingRegistration(packageName: String, appId: String?) {}
+    fun cacheRegistrationRequest(packageName: String, payload: ByteArray)
     fun clearAccount(context: Context, packageName: String) {}
     fun observeUnregistration(packageName: String, state: PushRegistrationState) {}
     fun cacheRegistrationTask(packageName: String, intent: Intent, source: String, reason: String, timestampMs: Long) {}
@@ -75,6 +75,7 @@ interface IPushRuntimeObserver {
     // --- Client Monitoring ---
     fun shouldNotifyClient(client: PushClientsManager.ClientLoginInfo, type: Int, reasonCode: Int, reasonMessage: String? = null, errorType: String? = null): Boolean = true
     fun computeNotifyDelay(client: PushClientsManager.ClientLoginInfo, type: Int = 0, reasonCode: Int = 0, reasonMessage: String? = null, errorType: String? = null): Long = 0L
+    /** Adds product bookkeeping after the stock service listener has been installed. */
     fun configureClientChangeListener(context: Context, manager: PushClientsManager) {}
 
     // --- Message Processing ---

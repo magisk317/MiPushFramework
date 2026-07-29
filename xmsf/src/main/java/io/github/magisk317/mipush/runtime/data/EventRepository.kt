@@ -26,7 +26,6 @@ import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.utils.Configurations
 import io.github.magisk317.mipush.utils.RegSecUtils
 import com.xiaomi.push.service.XMPushServiceCore as SdkXMPushService
-import com.xiaomi.xmsf.push.service.MiPushFacadeService as AppXMPushService
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.utils.ConvertUtils
 import io.github.aakira.napier.Napier
@@ -256,7 +255,11 @@ class EventRepository constructor(
                 logD("runtime observer bridge was missing, installed MiPushRuntimeObserverBridge")
             }
             runCatching {
-                PushServiceStarter.start(context, Intent(context, AppXMPushService::class.java))
+                // Stock 7.4.67-C exposes two public XMPushService facades. The previous correction
+                // started one with an empty internal Intent, but that exported facade correctly
+                // rejected it at the external-ingress gate. Start the product-owned private core
+                // directly so replay bootstrap needs no extra facade component or gate bypass.
+                PushServiceStarter.start(context, runtimeServiceIntent(context))
             }.onFailure {
                 PushRuntime.observeNotificationEvent(
                     containerWithRegSec.packageName,
@@ -429,5 +432,9 @@ class EventRepository constructor(
     companion object {
         private const val MOCK_REPLAY_MAX_WAIT_MS = 5_000L
         private const val MOCK_REPLAY_POLL_MS = 100L
+
+        internal fun runtimeServiceIntent(context: Context): Intent {
+            return Intent(context, SdkXMPushService::class.java)
+        }
     }
 }

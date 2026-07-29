@@ -65,19 +65,21 @@ import com.xiaomi.smack.Connection
 import com.xiaomi.smack.packet.Packet
 import io.github.magisk317.mipush.common.compat.NotificationCompatBridge
 import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.push.hook.HookTraceCompat
 import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
 import io.github.magisk317.mipush.push.pipeline.MiPushRuntimeBridge
+import io.github.magisk317.mipush.push.pipeline.PackageDataClearedCoordinator
 import com.xiaomi.push.sdk.PushMessageProcessor
 import com.xiaomi.xmsf.stock.StockSurfaceSupport
-import com.xiaomi.xmsf.stock.StockProfileIdStore
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
 import io.github.magisk317.mipush.runtime.PushRuntimePendingPacketStore
 import io.github.magisk317.mipush.runtime.PushRuntimeRegistrationTaskStore
 import io.github.magisk317.mipush.service.ForegroundHelper
 import io.github.magisk317.mipush.service.runtime.MIPushAccountUtilsRuntime
+import io.github.magisk317.mipush.service.runtime.XMPushServiceLifecycleRuntime
 import io.github.magisk317.mipush.service.runtime.PushChannelInfoRuntime
 import io.github.magisk317.mipush.service.runtime.PushChannelOpenRuntime
 import io.github.magisk317.mipush.service.runtime.PushClientsStateSupport
@@ -97,7 +99,16 @@ import java.io.IOException
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeObserver {
+    private data class ServiceRuntimeBinding(
+        val service: XMPushServiceCore,
+        val runtime: XMPushServiceLifecycleRuntime,
+    )
+
     private val appContext: Context = context.applicationContext ?: context
+    @Volatile
+    private var serviceRuntimeBinding: ServiceRuntimeBinding? = null
+    @Volatile
+    private var activeConnection: Connection? = null
 
     init {
         XMPushServiceCore.observer = this
@@ -115,6 +126,31 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         return AppDependencies.get<PushMessageProcessor>(appContext)
     }
 
+    private fun currentServiceLifecycleRuntime(service: XMPushServiceCore?):
+        XMPushServiceLifecycleRuntime? {
+        val binding = serviceRuntimeBinding ?: return null
+        return binding.runtime.takeIf { service === binding.service }
+    }
+
+    private fun activeServiceFor(connection: Connection): XMPushServiceCore? = synchronized(this) {
+        val service = serviceRuntimeBinding?.service ?: return@synchronized null
+        val ownsConnection = activeConnection === connection || runCatching {
+            service.currentConnection === connection || service.slimConnection === connection
+        }.getOrDefault(false)
+        service.takeIf { ownsConnection }
+    }
+
+    private fun releaseConnection(connection: Connection) {
+        synchronized(this) {
+            if (activeConnection === connection) activeConnection = null
+        }
+    }
+
+    private fun publishConnectionStatus(status: ConnectionStatus) {
+        io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
+            .onConnectionStatusChanged(status)
+    }
+
     private fun toRuntimeConnectionState(stateName: String): PushConnectionState {
         return when (stateName) {
             "Connected", ConnectionStatus.connected.name -> PushConnectionState.Connected
@@ -127,11 +163,32 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     override fun onServiceCreated(service: android.app.Service) {
         if (service is com.xiaomi.push.service.XMPushServiceCore) {
             io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge.ensureCreated(service)
+            synchronized(this) {
+                // The product listener is bound to the live Service instance. The older lazy lookup
+                // used XMPushServiceProxy, which is not cleared on destruction, so a late callback
+                // could recreate bookkeeping against a destroyed Service.
+                serviceRuntimeBinding?.runtime?.close()
+                activeConnection = null
+                serviceRuntimeBinding = ServiceRuntimeBinding(
+                    service = service,
+                    runtime = XMPushServiceLifecycleRuntime(),
+                )
+            }
         }
     }
 
     override fun onServiceDestroy() {
+        synchronized(this) {
+            activeConnection = null
+            serviceRuntimeBinding?.runtime?.close()
+            serviceRuntimeBinding = null
+        }
         io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge.onDestroy(null)
+    }
+
+    override fun configureClientChangeListener(context: Context, manager: PushClientsManager) {
+        currentServiceLifecycleRuntime(context as? XMPushServiceCore)
+            ?.configureClientChangeListener(manager)
     }
 
     override fun onConnectionStateChanged(stateName: String, reason: String, host: String?, message: String) {
@@ -154,6 +211,12 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun reconnectionFailed(connection: Connection, error: Exception) {
+        if (activeServiceFor(connection) == null) {
+            logW("ignore reconnection failure from stale connection")
+            return
+        }
+        releaseConnection(connection)
+        publishConnectionStatus(ConnectionStatus.disconnected)
         PushRuntime.observeChannelEvent(null, "reconnect_failed", "MiPushRuntimeObserverBridge.reconnectionFailed")
         PushRuntime.observeConnectionState(
             state = PushConnectionState.Disconnected,
@@ -164,17 +227,35 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun reconnectionSuccessful(connection: Connection) {
-        PushRuntime.observeChannelEvent(null, "reconnect_success", "MiPushRuntimeObserverBridge.reconnectionSuccessful")
-        MyMIPushNotificationHelper.markNotificationSessionStarted("MiPushRuntimeObserverBridge.reconnectionSuccessful")
+        if (activeServiceFor(connection) == null) {
+            logW("ignore reconnect success from stale connection")
+            return
+        }
+        synchronized(this) { activeConnection = connection }
+        publishConnectionStatus(ConnectionStatus.connected)
+        PushRuntime.observeChannelEvent(
+            null,
+            "reconnect_success",
+            "MiPushRuntimeObserverBridge.reconnectionSuccessful",
+        )
+        MyMIPushNotificationHelper.markNotificationSessionStarted(
+            "MiPushRuntimeObserverBridge.reconnectionSuccessful",
+        )
         PushRuntime.observeConnectionState(
             state = PushConnectionState.Connected,
             source = "MiPushRuntimeObserverBridge.reconnectionSuccessful",
             host = connection.host,
-            reason = "reconnected"
+            reason = "reconnected",
         )
     }
 
     override fun connectionClosed(connection: Connection, reason: Int, error: Exception?) {
+        if (activeServiceFor(connection) == null) {
+            logW("ignore close from stale connection reason=$reason")
+            return
+        }
+        releaseConnection(connection)
+        publishConnectionStatus(ConnectionStatus.disconnected)
         PushRuntime.observeChannelEvent(null, "connection_closed", "MiPushRuntimeObserverBridge.connectionClosed")
         PushRuntime.observeConnectionState(
             state = PushConnectionState.Disconnected,
@@ -182,25 +263,20 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
             host = connection.host,
             reason = error?.message ?: reason.toString()
         )
-        val service = XMPushServiceProxy.get()
-        val shouldFalldown = (service as? XMPushServiceCore)?.shouldFalldown() ?: false
-        val plan = PushServiceConnectionRuntime.planConnectionClosed(shouldFalldown)
-        PushRuntime.observeChannelEvent(null, plan.eventAction, "MiPushRuntimeObserverBridge.connectionClosed")
-        if (plan.shouldScheduleReconnect) {
-            if (service != null) {
-                service.scheduleConnect(false)
-            } else {
-                PushRuntime.requestConnection(
-                    source = "MiPushRuntimeObserverBridge.connectionClosed",
-                    reason = "connection_closed_no_service_proxy"
-                )
-            }
-        }
     }
 
     override fun connectionStarted(connection: Connection) {
+        if (activeServiceFor(connection) == null) {
+            logW("ignore start from stale connection")
+            return
+        }
+        synchronized(this) { activeConnection = connection }
+        publishConnectionStatus(ConnectionStatus.connecting)
+
+        // Stock XMSF 7.4.67-C keeps qa.b in Connecting after the TCP socket opens and changes it to
+        // Connected only when setChallenge accepts a non-empty CONN challenge. The older bridge
+        // also reset the notification session here, so an invalid handshake looked connected.
         PushRuntime.observeChannelEvent(null, "connection_started", "MiPushRuntimeObserverBridge.connectionStarted")
-        MyMIPushNotificationHelper.markNotificationSessionStarted("MiPushRuntimeObserverBridge.connectionStarted")
         PushRuntime.observeConnectionState(
             state = PushConnectionState.Connecting,
             source = "MiPushRuntimeObserverBridge.connectionStarted",
@@ -300,7 +376,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun onPackageDataCleared(packageName: String) {
-        StockProfileIdStore.clear(appContext, packageName)
+        PackageDataClearedCoordinator.handle(appContext, packageName)
     }
 
     override fun onRegistrationResult(packageName: String, success: Boolean, source: String, reason: String) {
@@ -312,9 +388,13 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         return RegistrationPayloadRepair.repair(context, packageName)
     }
 
-    override fun cacheRegistrationRequest(packageName: String, payload: ByteArray, appId: String?) {
+    override fun rememberPendingRegistration(packageName: String, appId: String?) {
         if (!Utils.isUserApplication(appContext, packageName)) return
         MIPushAppAbsentManager.rememberPendingRegistration(appContext, packageName, appId)
+    }
+
+    override fun cacheRegistrationRequest(packageName: String, payload: ByteArray) {
+        if (!Utils.isUserApplication(appContext, packageName)) return
         PushRuntimePendingPacketStore.cacheRegistrationRequest(packageName, payload)
     }
 
@@ -385,12 +465,14 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun notifyRegisterError(errorCode: Int, errorMessage: String, notifier: IPendingPacketErrorNotifier) {
+        // Stock XMSF 7.4.67-C h0.c sends one payload-bearing error to each package in the pending
+        // registration map. The old fallback also targeted context.packageName (com.xiaomi.xmsf),
+        // creating one unrelated self-broadcast after the package-specific errors.
         PushRuntimePendingPacketStore.notifyRegisterError(
             errorCode = errorCode,
             errorMessage = errorMessage,
             notifier = { packageName, payload, code, message ->
                 com.xiaomi.push.service.MIPushClientManager.notifyError(appContext, packageName, payload, code, message)
-                notifier.notifyError(code, message)
             }
         )
     }
@@ -453,7 +535,11 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         // via ClientEventDispatcher.notifyPacketArrival, which marks the message as seen.
         // Re-entering would cause shouldProcessPayloadIdentity to return false (duplicate),
         // so notifyPushMessage would never be called.
-        MyMIPushNotificationHelper.notifyPushMessage(appContext, payload)
+        MyMIPushNotificationHelper.notifyPushMessage(
+            context = appContext,
+            decryptedContent = payload,
+            dispatchMessageArrived = true,
+        )
     }
 
     override fun postProcessMIPushMessage(targetPackage: String, payload: ByteArray, intent: Intent) {

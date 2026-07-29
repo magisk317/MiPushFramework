@@ -11,11 +11,12 @@ import io.github.magisk317.mipush.common.manager.ManagerLogGateway
 import io.github.magisk317.mipush.common.manager.ManagerNotificationGateway
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
-import io.github.magisk317.mipush.config.ConfigCatalogService
+import io.github.magisk317.mipush.configuration.ConfigCatalogService
+import io.github.magisk317.mipush.configuration.ConfigSyncObserver
+import io.github.magisk317.mipush.configuration.ConfigSyncRepository
+import io.github.magisk317.mipush.configuration.ConfigSyncStateStore
+import io.github.magisk317.mipush.configuration.LocalConfigRepository
 import io.github.magisk317.mipush.config.ConfigNavigationHelper
-import io.github.magisk317.mipush.config.ConfigSyncRepository
-import io.github.magisk317.mipush.config.ConfigSyncStateStore
-import io.github.magisk317.mipush.config.LocalConfigRepository
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.dataStore
 import io.github.magisk317.mipush.runtime.data.EventRepository
@@ -25,11 +26,11 @@ import io.github.magisk317.mipush.service.runtime.RuntimeProcessorBindings
 import io.github.magisk317.mipush.service.runtime.RuntimeSettingsAdapter
 import io.github.magisk317.mipush.MiPushEventListener
 import io.github.magisk317.mipush.push.hook.ModernHookHandler
-import io.github.magisk317.mipush.service.RegistrationRecorder
 import io.github.magisk317.mipush.utils.ConfigValueConverter
 import io.github.magisk317.mipush.utils.Configurations
 import io.github.magisk317.mipush.utils.ConfigurationsLoader
 import io.github.magisk317.mipush.utils.IconConfigurations
+import io.github.magisk317.xposed.logging.MagiskOtel
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
@@ -58,11 +59,26 @@ val xmsfCoreKoinModule = module {
     single { ConfigValueConverter() }
     single { ModernHookHandler() }
     single { MiPushEventListener() }
-    single { RegistrationRecorder() }
     single { RuntimeProcessorBindings.createPushMessageProcessor(get()) }
     single { RuntimeSettingsAdapter(androidContext(), get(), get()) }
     single<ManagerRuntimeActions> { XmsfManagerRuntimeActions(get()) }
-    single { ConfigSyncStateStore(androidContext()) }
+    single<ConfigSyncObserver> {
+        ConfigSyncObserver { count ->
+            MagiskOtel.event(
+                name = "push.control",
+                attributes = mapOf(
+                    "result" to "ok",
+                    "duration_ms" to "0",
+                    "process" to "xmsf",
+                    "stage" to "config_sync",
+                    "reason" to "upsert_all",
+                    "found_count" to count.toString(),
+                ),
+                statusOk = true,
+            )
+        }
+    }
+    single { ConfigSyncStateStore(androidContext(), get()) }
     single { LocalConfigRepository(androidContext()) }
     single { ConfigCatalogService(get()) }
     single { ConfigSyncRepository(get(), get(), get(), get()) }

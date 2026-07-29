@@ -11,6 +11,11 @@ import java.io.Serializable
  * Current override same-path: com.xiaomi.xmsf/current/base/sources/com/xiaomi/mipush/sdk/MiPushCommandMessage.java
  */
 class MiPushCommandMessage : PushMessageInterface, Serializable {
+    /**
+     * Added by stock 7.x after the 3.7.9 shared SDK baseline. XMSF uses this registration-result
+     * list to initialize notification badge state for newly registered target packages.
+     */
+    var autoMarkPkgs: List<String>? = null
     var category: String? = null
     var command: String? = null
     var commandArguments: List<String>? = null
@@ -19,6 +24,7 @@ class MiPushCommandMessage : PushMessageInterface, Serializable {
 
     companion object {
         private const val KEY_CATEGORY = "category"
+        private const val KEY_AUTO_MARK_PKGS = "autoMarkPkgs"
         private const val KEY_COMMAND = "command"
         private const val KEY_COMMAND_ARGUMENTS = "commandArguments"
         private const val KEY_REASON = "reason"
@@ -33,6 +39,7 @@ class MiPushCommandMessage : PushMessageInterface, Serializable {
                 reason = bundle.getString(KEY_REASON)
                 commandArguments = bundle.getStringArrayList(KEY_COMMAND_ARGUMENTS)
                 category = bundle.getString(KEY_CATEGORY)
+                autoMarkPkgs = bundle.getStringArrayList(KEY_AUTO_MARK_PKGS)
             }
         }
     }
@@ -46,6 +53,9 @@ class MiPushCommandMessage : PushMessageInterface, Serializable {
                 putStringArrayList(KEY_COMMAND_ARGUMENTS, ArrayList(it))
             }
             putString(KEY_CATEGORY, category)
+            autoMarkPkgs?.let {
+                putStringArrayList(KEY_AUTO_MARK_PKGS, ArrayList(it))
+            }
         }
     }
 

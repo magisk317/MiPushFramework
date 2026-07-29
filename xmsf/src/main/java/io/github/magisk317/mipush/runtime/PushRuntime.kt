@@ -49,10 +49,6 @@ object PushRuntime {
         AndroidPushRuntime.handleNetworkAvailable(source)
 
     @JvmStatic
-    fun handleAccountChanged(source: String): PushRuntimeRegistrationDispatchResult =
-        AndroidPushRuntime.handleAccountChanged(source)
-
-    @JvmStatic
     fun requestConnection(source: String, reason: String? = null): Boolean =
         AndroidPushRuntime.requestConnection(source, reason)
 

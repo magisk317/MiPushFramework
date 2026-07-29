@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import io.github.magisk317.mipush.app.ConfigCenter
+import io.github.magisk317.mipush.configuration.ConfigSyncRepository
 import io.github.magisk317.mipush.platform.support.LegacyUiEntryPoints
 
 class ConfigNavigationHelper constructor(

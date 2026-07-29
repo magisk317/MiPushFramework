@@ -17,7 +17,6 @@ import com.xiaomi.mipush.sdk.MiPushClient
 import com.xiaomi.mipush.sdk.PushServiceClient
 import com.xiaomi.push.sdk.PushMessageProcessor
 import com.xiaomi.push.service.ResetConnectJob
-import com.xiaomi.xmsf.push.service.XMAccountManager
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.app.di.AppDependencies
@@ -152,40 +151,6 @@ object PushRuntimeExecutionBridge : PushRuntimeExecutionHost {
                 reason = "exception",
                 durationMs = elapsedMs(startedAt),
                 statusOk = false,
-            )
-            false
-        }
-    }
-
-    override fun syncAccountAlias(reason: String): Boolean {
-        val context = appContext ?: return false
-        val startedAt = System.nanoTime()
-        return runCatching {
-            PushHealthSnapshotLogger.log(
-                context,
-                "PushRuntimeExecutionBridge.syncAccountAlias",
-                "reason=$reason"
-            )
-            XMAccountManager.getInstance(context).setAccountAsAlias()
-            logD("syncAccountAlias reason=$reason")
-            emitBridge(
-                name = "push.account",
-                result = "ok",
-                stage = "runtime_sync_account_alias",
-                reason = reason.ifBlank { "sync" },
-                durationMs = elapsedMs(startedAt),
-            )
-            true
-        }.getOrElse {
-            logE("syncAccountAlias failed reason=$reason", it)
-            emitBridge(
-                name = "push.account",
-                result = "error",
-                stage = "runtime_sync_account_alias",
-                reason = "exception",
-                durationMs = elapsedMs(startedAt),
-                statusOk = false,
-                extra = mapOf("source" to reason.ifBlank { "sync" }),
             )
             false
         }

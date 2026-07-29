@@ -7,6 +7,11 @@ data class PendingPacketEntry(
     val payload: ByteArray
 )
 
+data class DiscardedPendingPackets(
+    val registrationRequests: Int,
+    val messages: Int,
+)
+
 fun interface PendingPacketSender {
     fun send(packageName: String, payload: ByteArray)
 }
@@ -170,14 +175,21 @@ object PushRuntimePendingPacketStore {
             pendingRegistrationRequests.map { PendingPacketEntry(it.key, it.value.copyOf()) }
                 .also { pendingRegistrationRequests.clear() }
         }
-        queued.forEach { entry ->
-            notifier.notify(entry.packageName, entry.payload.copyOf(), errorCode, errorMessage)
-            AndroidPushRuntime.observeRegistrationResult(
-                packageName = entry.packageName,
-                success = false,
-                source = "PushRuntimePendingPacketStore.notifyRegisterError",
-                reason = errorMessage
-            )
+        var notified = 0
+        try {
+            queued.forEach { entry ->
+                notifier.notify(entry.packageName, entry.payload.copyOf(), errorCode, errorMessage)
+                notified += 1
+                AndroidPushRuntime.observeRegistrationResult(
+                    packageName = entry.packageName,
+                    success = false,
+                    source = "PushRuntimePendingPacketStore.notifyRegisterError",
+                    reason = errorMessage
+                )
+            }
+        } catch (t: Throwable) {
+            requeueRegistrations(queued.drop(notified))
+            throw t
         }
         MagiskOtel.event(
             name = "push.register",
@@ -187,11 +199,11 @@ object PushRuntimePendingPacketStore {
                 "process" to "main",
                 "stage" to "notify_error",
                 "reason" to "register_error",
-                "pending_count" to queued.size.toString(),
+                "pending_count" to notified.toString(),
             ),
             statusOk = false,
         )
-        return queued.size
+        return notified
     }
 
     @JvmStatic
@@ -199,6 +211,17 @@ object PushRuntimePendingPacketStore {
 
     @JvmStatic
     fun pendingRegistrationCount(): Int = synchronized(lock) { pendingRegistrationRequests.size }
+
+    @JvmStatic
+    fun discardPackage(packageName: String): DiscardedPendingPackets = synchronized(lock) {
+        val registrationRequests = if (pendingRegistrationRequests.remove(packageName) != null) 1 else 0
+        val previousMessageCount = pendingMessages.size
+        pendingMessages = ArrayList(pendingMessages.filterNot { it.packageName == packageName })
+        DiscardedPendingPackets(
+            registrationRequests = registrationRequests,
+            messages = previousMessageCount - pendingMessages.size,
+        )
+    }
 
     @JvmStatic
     fun clearForTests() {
@@ -222,7 +245,10 @@ object PushRuntimePendingPacketStore {
         if (entries.isEmpty()) return
         synchronized(lock) {
             entries.forEach { entry ->
-                pendingRegistrationRequests[entry.packageName] = entry.payload.copyOf()
+                // Stock XMSF 7.4.67-C h0.f holds the registration-map lock while flushing. A
+                // newer same-package put therefore runs after the failed flush and wins. Our
+                // snapshot-based flush must preserve that ordering when it restores the old tail.
+                pendingRegistrationRequests.putIfAbsent(entry.packageName, entry.payload.copyOf())
             }
         }
     }

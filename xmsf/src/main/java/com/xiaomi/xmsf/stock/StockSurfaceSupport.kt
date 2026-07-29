@@ -1,13 +1,10 @@
 package com.xiaomi.xmsf.stock
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Bundle
 import androidx.core.content.edit
 import android.database.MatrixCursor
 import com.xiaomi.push.service.OnlineConfig
-import com.xiaomi.xmsf.account.DefaultAccountCloudBridge
-import com.xiaomi.xmsf.push.service.XMAccountManager
 import com.xiaomi.xmpush.thrift.ConfigKey
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import io.github.magisk317.mipush.notification.NotificationManagerEx
@@ -26,8 +23,6 @@ object StockSurfaceSupport {
     private const val SUPPORT_FLAG_PROFILE_ID = 4
     private const val SUPPORT_FLAG_EXTENSION_NOTIFICATION = 262144
     private const val SUPPORT_FLAG_CALLKIT = 524288
-
-    private const val CODE_UNKNOWN_METHOD = 6
 
     data class PushControlSnapshot(
         val controlMode: Int,
@@ -50,12 +45,16 @@ object StockSurfaceSupport {
     }
 
     @JvmStatic
-    fun handlePushCommonCall(context: Context, method: String?, extras: Bundle?): Bundle {
+    fun handlePushCommonCall(method: String?, extras: Bundle?): Bundle {
         return when (method) {
             "is_push_support" -> Bundle().apply {
-                putBoolean("is_supported", isPushSupport(extras?.getInt("push_support_flag") ?: 0))
+                // Stock XMSF 7.4.67-C z9.b treats missing, invalid, and malformed flags as false.
+                // The older provider rejected their whole call with an invented msg field.
+                val flag = runCatching { extras?.getInt("push_support_flag", 0) ?: 0 }.getOrDefault(0)
+                putBoolean("is_supported", isPushSupport(flag))
             }
-            else -> pushSupportResult(CODE_UNKNOWN_METHOD, message = "unknown_method:$method")
+            // Stock PushCommonProvider returns an empty Bundle for unknown methods.
+            else -> Bundle()
         }
     }
 
@@ -163,23 +162,6 @@ object StockSurfaceSupport {
             source = "StockSurfaceSupport.recordNotificationEvent",
         )
         recordStatEvent(context, "notification:$action:${packageName.orEmpty()}")
-    }
-
-    @JvmStatic
-    @SuppressLint("StaticFieldLeak")
-    fun accountAvailabilityBundle(context: Context): Bundle {
-        val availability = DefaultAccountCloudBridge.getInstance(context).availability()
-        return Bundle().apply {
-            putBoolean("xiaomiAccountPresent", availability.xiaomiAccountPresent)
-            putBoolean("accountPackagePresent", availability.accountPackagePresent)
-            putBoolean("cloudServicePackagePresent", availability.cloudServicePackagePresent)
-        }
-    }
-
-    @JvmStatic
-    fun serviceTokenBundle(context: Context, sid: String): Bundle {
-        val result = XMAccountManager.getInstance(context).getServiceToken(sid)
-        return DefaultAccountCloudBridge.toBundle(result)
     }
 
     @JvmStatic

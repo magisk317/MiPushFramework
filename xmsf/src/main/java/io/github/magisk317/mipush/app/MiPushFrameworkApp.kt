@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.app
 
+import io.github.magisk317.mipush.common.R as CommonR
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logE
 import io.github.magisk317.mipush.common.utils.logI
@@ -33,13 +34,14 @@ import io.github.magisk317.mipush.push.hook.HookTrace
 import io.github.magisk317.mipush.bridge.LegacyLoggerBridge
 import io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge
 import io.github.magisk317.mipush.notification.NotificationManagerEx
+import io.github.magisk317.mipush.notification.SweetNotificationCoordinator
+import io.github.magisk317.mipush.notification.LegacyNotificationIdentityMigration
 import io.github.magisk317.mipush.utils.Hooker
 import io.github.magisk317.mipush.control.PushControllerUtils
 import io.github.magisk317.mipush.control.PushControllerUtils.isAppMainProc
 import io.github.magisk317.mipush.notification.NotificationController.CHANNEL_WARN
 import io.github.magisk317.mipush.platform.support.PermissionUtils
 import io.github.magisk317.mipush.platform.support.CrashHandler
-import com.xiaomi.xmsf.push.service.MiuiPushActivateService
 import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
 import io.github.magisk317.mipush.runtime.PushRuntimeExecutionBridge
 import com.xiaomi.xmsf.R
@@ -83,7 +85,8 @@ open class MiPushFrameworkApp : Application() {
         }.getOrDefault(true)
         val systemOtelEnabled =
             System.getProperty("magisk.otel.enabled")?.equals("true", ignoreCase = true) == true
-        MagiskOtel.configure(
+        MagiskOtel.configureForInstallation(
+            this,
             MagiskOtel.Config(
                 enabled = BuildConfig.DEBUG || analyticsPrefEnabled || systemOtelEnabled,
                 serviceName = "mipushframework",
@@ -111,6 +114,14 @@ open class MiPushFrameworkApp : Application() {
         Hooker.setLogger(PushControllerUtils.wrapContext(this))
         Hooker.hook(this)
         NotificationManagerEx.init(applicationContext)
+        // Stock XMSF 7.4.67-C installs a process-lifetime screen receiver for style-5 reminder
+        // cleanup. The older 3.7.9 runtime has no equivalent, so initialize the product coordinator
+        // only from the main app shell after notification identity is ready.
+        SweetNotificationCoordinator.initialize(applicationContext)
+        applicationScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching { LegacyNotificationIdentityMigration.runOnce(this@MiPushFrameworkApp) }
+                .onFailure { logW("legacy notification identity migration failed: ${it.message}") }
+        }
         registerPrefChangeReceiver()
         // Initialize the runtime observer bridge before any service start.
         // BootReceiver normally does this, but it may not exist in the manifest
@@ -119,7 +130,6 @@ open class MiPushFrameworkApp : Application() {
         PushRuntimeExecutionBridge.attach(this)
         PushRuntimeChannelTracker.attach(this)
         PushControllerUtils.setAllEnable(true, this)
-        awakePushActivateServiceOnMainProc(PushControllerUtils.wrapContext(this))
         StockSurfaceBootstrap.bootstrap(this)
         requestDozeWhiteList()
         // Android 17: Check for memory limit warnings
@@ -223,18 +233,6 @@ open class MiPushFrameworkApp : Application() {
         }
     }
 
-    private fun awakePushActivateServiceOnMainProc(context: Context) {
-        if (isAppMainProc(this)) {
-            val currentTimeMillis = System.currentTimeMillis()
-            val elapsedMs = currentTimeMillis - getLastStartupTime()
-            val fiveMinutesMs = 300_000
-            if (elapsedMs > fiveMinutesMs || elapsedMs < 0) {
-                setStartupTime(currentTimeMillis)
-                MiuiPushActivateService.awakePushActivateService(context, "com.xiaomi.xmsf.push.SCAN")
-            }
-        }
-    }
-
     private fun initBasicLogger() {
         LogUtils.init(this)
         // 读取初始 debugMode 并立即同步到 MyLog，避免启动阶段 DEBUG 日志被错误过滤
@@ -280,7 +278,7 @@ open class MiPushFrameworkApp : Application() {
             .setContentTitle(getString(R.string.wizard_title_doze_whitelist))
             .setContentText(getString(R.string.wizard_descr_doze_whitelist))
             .setTicker(getString(R.string.wizard_descr_doze_whitelist))
-            .setSmallIcon(R.drawable.ic_notifications_black_24dp)
+            .setSmallIcon(CommonR.drawable.ic_notifications_black_24dp)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setContentIntent(pendingIntent)
             .setShowWhen(true)
@@ -301,28 +299,6 @@ open class MiPushFrameworkApp : Application() {
         manager.createNotificationChannelGroup(notificationChannelGroup)
         channel.setGroup(notificationChannelGroup.id)
         manager.createNotificationChannel(channel.build())
-    }
-
-    private fun getLastStartupTime(): Long {
-        // Use cached value from SharedPreferences to avoid blocking main thread.
-        // DataStore-backed preferences are eventually consistent; SharedPreferences
-        // provides a synchronous fallback that is safe on Application.onCreate.
-        return try {
-            val prefs = getSharedPreferences("mipush_startup", Context.MODE_PRIVATE)
-            prefs.getLong("last_startup_time", 0L)
-        } catch (_: Throwable) {
-            0L
-        }
-    }
-
-    private fun setStartupTime(value: Long) {
-        try {
-            getSharedPreferences("mipush_startup", Context.MODE_PRIVATE)
-                .edit().putLong("last_startup_time", value).apply()
-        } catch (_: Throwable) {}
-        applicationScope.launch {
-            preferenceRepository.setLastStartupTime(value)
-        }
     }
 
     companion object {

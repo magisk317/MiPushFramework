@@ -28,7 +28,7 @@ class PkgUninstallReceiver : BroadcastReceiver() {
                 "result" to result,
                 "duration_ms" to durationMs.toString(),
                 "process" to "xmsf",
-                "stage" to "uninstall",
+                "stage" to "package_lifecycle",
                 "action" to (intent?.action.orEmpty()),
             )
             if (reason != null) attrs["reason"] = reason
@@ -36,23 +36,48 @@ class PkgUninstallReceiver : BroadcastReceiver() {
             MagiskOtel.event(name = "push.package", attributes = attrs, statusOk = statusOk)
         }
 
-        if (intent == null || intent.extras == null || !isPackageChangeAction(intent.action)) {
+        if (intent == null || !isPackageChangeAction(intent.action)) {
             emit(result = "skip", reason = "ignored")
             return
         }
 
-        val replacing = intent.extras?.getBoolean("android.intent.extra.REPLACING") ?: false
         val data = intent.data
-        if (data == null || replacing) {
-            emit(result = "skip", reason = if (replacing) "replacing" else "missing_data")
+        if (data == null) {
+            emit(result = "skip", reason = "missing_data")
             return
         }
 
         try {
             val packageName = data.encodedSchemeSpecificPart
-            if (packageName == Constants.MANAGER_APP_NAME) {
+            if (packageName.isNullOrBlank()) {
+                emit(result = "skip", reason = "missing_package")
+                return
+            }
+
+            val replacing = intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)
+            if (intent.action == Intent.ACTION_PACKAGE_REMOVED && replacing) {
+                emit(result = "skip", reason = "replacing", targetPackage = packageName)
+                return
+            }
+
+            if (packageName == Constants.MANAGER_APP_NAME &&
+                (intent.action == Intent.ACTION_PACKAGE_ADDED || intent.action == Intent.ACTION_PACKAGE_REMOVED)
+            ) {
                 XSpaceXmsfInstallKeeper.schedule(context, "PkgUninstallReceiver.${intent.action}")
             }
+
+            if (intent.action == Intent.ACTION_PACKAGE_DATA_CLEARED) {
+                // Stock 7.4.67-C PkgActionsReceiver forwards this exact action/key pair. The older
+                // project receiver subscribed only to add/remove, so its existing service handler
+                // was unreachable from the system broadcast.
+                val serviceIntent = Intent(context, com.xiaomi.push.service.XMPushServiceCore::class.java)
+                serviceIntent.action = PushServiceConstants.ACTION_PACKAGE_DATA_CLEARED
+                serviceIntent.putExtra(PushServiceConstants.EXTRA_DATA_CLEARED_PKG_NAME, packageName)
+                PushServiceStarter.start(context, serviceIntent)
+                emit(result = "ok", reason = "data_clear_forwarded", targetPackage = packageName)
+                return
+            }
+
             if (intent.action != Intent.ACTION_PACKAGE_REMOVED) {
                 emit(result = "skip", reason = "non_remove", targetPackage = packageName)
                 return
@@ -78,5 +103,7 @@ class PkgUninstallReceiver : BroadcastReceiver() {
     }
 
     private fun isPackageChangeAction(action: String?): Boolean =
-        action == Intent.ACTION_PACKAGE_ADDED || action == Intent.ACTION_PACKAGE_REMOVED
+        action == Intent.ACTION_PACKAGE_ADDED ||
+            action == Intent.ACTION_PACKAGE_REMOVED ||
+            action == Intent.ACTION_PACKAGE_DATA_CLEARED
 }

@@ -35,8 +35,9 @@ import io.github.magisk317.mipush.common.manager.ManagerXSpaceRepairResult
 import io.github.magisk317.mipush.common.manager.ManagerXSpaceRepairStage
 import io.github.magisk317.mipush.common.notification.MockReplayOutcome
 import io.github.magisk317.mipush.config.ConfigNavigationHelper
-import io.github.magisk317.mipush.config.ConfigSyncRepository
-import io.github.magisk317.mipush.config.toSummary
+import io.github.magisk317.mipush.configuration.ConfigEditorSnapshot
+import io.github.magisk317.mipush.configuration.ConfigSyncRepository
+import io.github.magisk317.mipush.configuration.toSummary
 import io.github.magisk317.mipush.common.utils.ElapsedTimer
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.common.utils.logI
@@ -138,7 +139,7 @@ class XmsfManagerConfigSyncGateway(
         configNavigationHelper.openForPackage(packageName)
     }
 
-    private fun io.github.magisk317.mipush.config.ConfigEditorSnapshot.toManagerConfigEditorSnapshot() =
+    private fun ConfigEditorSnapshot.toManagerConfigEditorSnapshot() =
         ManagerConfigEditorSnapshot(
             path = path,
             local = local,

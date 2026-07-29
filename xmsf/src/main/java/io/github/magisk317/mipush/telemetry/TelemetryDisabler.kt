@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.telemetry
 import android.content.Context
 import android.util.Pair
 import com.xiaomi.push.service.OnlineConfig
+import com.xiaomi.smack.util.TrafficUtils
 
 /**
  * Disables all telemetry / data-collection switches by writing `custom_oc_` overrides
@@ -24,6 +25,10 @@ object TelemetryDisabler {
      * values immediately.
      */
     fun disableAll(context: Context) {
+        // Stock XMSF 7.4.67-C `va.g.e(...)` has no OnlineConfig gate and records package traffic,
+        // network type, byte counts, and cellular IMSI in `traffic.db`. Older project builds only
+        // disabled OnlineConfig collectors, so stop this separate path and remove retained rows.
+        TrafficUtils.configureTrafficCollection(context.applicationContext, enabled = false)
         val config = OnlineConfig.getInstance(context)
         @Suppress("DEPRECATION")
         val pairs = listOf<Pair<Int, Any?>>(
