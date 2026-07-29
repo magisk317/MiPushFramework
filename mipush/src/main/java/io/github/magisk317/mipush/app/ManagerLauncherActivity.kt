@@ -29,7 +29,7 @@ class ManagerLauncherActivity : Activity() {
         val component = when (targetClass) {
             null, LegacyComponentNames.WELCOME_ACTIVITY -> WelcomeActivity::class.java
             LegacyComponentNames.MAIN_ACTIVITY -> MainActivity::class.java
-            else -> runCatching { Class.forName(targetClass) as Class<out Activity> }
+            else -> runCatching { Class.forName(targetClass).asSubclass(Activity::class.java) }
                 .getOrDefault(WelcomeActivity::class.java)
         }
         return Intent(this, component)
