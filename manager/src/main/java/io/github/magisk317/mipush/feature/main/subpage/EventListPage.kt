@@ -558,7 +558,7 @@ private fun EventGroupList(
     val groupedItems = remember { mutableStateListOf<EventGroupForDisplay>() }
     val allEvents = remember { mutableStateListOf<EventInfoForDisplay>() }
     var lastId by remember { mutableStateOf<Long?>(null) }
-    var hasMore by remember { mutableStateOf(true) }
+    var hasMore by remember { mutableStateOf(false) }
     var isNeedRefresh by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
 
@@ -758,7 +758,7 @@ private fun EventDetailsDialog(
                 ?: buildEventDebugInfo(clickedEvent)
         )
     }
-    var softWrap by rememberSaveable { mutableStateOf(true) }
+    var softWrap by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
     val replayScope = rememberCoroutineScope()
     val canReplayNotification = clickedEvent.event.canReplayNotification()
@@ -941,7 +941,7 @@ private fun EventList(
     val refreshScope = rememberCoroutineScope()
     val actionScope = rememberCoroutineScope()
     var isLoading by remember { mutableStateOf(false) }
-    var hasMore by remember { mutableStateOf(true) }
+    var hasMore by remember { mutableStateOf(false) }
     var isNeedRefresh by remember { mutableStateOf(false) }
     val runtimeReady by viewModel.runtimeReadySignal.collectAsStateWithLifecycle()
 
