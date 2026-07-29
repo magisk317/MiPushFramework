@@ -80,8 +80,9 @@ graph.
 - Internal structure may change as long as external contracts remain stable: package/component
   names, manifest entrypoints, broadcast actions, intent extras, binder contracts, and wire behavior.
 - Stock-facing compatibility work must also preserve caller identity, Bundle value types, result
-  code type, persistence effects, and the real runtime consumer. The evidence and current limits
-  are maintained in `docs/architecture/stock-dump-contract-audit-2026-07.md`.
+  code type, persistence effects, Binder transaction/flags, and the real runtime consumer. Matching
+  a component or method name is not compatibility proof; contract tests and installed-device
+  evidence must exercise the real ingress and downstream effect.
 
 ## Layering Rules
 
@@ -146,15 +147,25 @@ graph.
 
 ## Current Architecture Debts
 
-- `KeepAliveRuntimeAdapter` deliberately implements a reduced polling binder rather than stock's
-  process-observer runtime. Strategy updates remain inert until ServiceBox resolves
-  `KASwitch=142`; `OnetrackSwitch=140` is observed/persisted but intentionally does not re-enable
-  stock OneTrack behavior while telemetry is disabled. Its JSON parser and bind/unbind behavior
-  have deterministic tests, but cadence and lifecycle behavior still require device evidence. Do
-  not describe it as a full stock keep-alive implementation.
+- Android 17 rejects reflective writes to `static final` fields. `Hooker.hookField(...)` still
+  writes `SmackConfiguration.pingInterval`; this path needs an API 37 replacement or an explicit
+  non-final-field guard before Android 17 compatibility can be claimed.
+- Android 17 memory limiting still needs a device baseline. Diagnose limiter exits through
+  `ApplicationExitInfo` and validate the runtime under the platform memory limiter before making
+  stability claims.
+- `KeepAliveRuntimeAdapter` aligns stock 7.4.67-C foreground trigger ownership, target-process
+  checks, calm-down timing, connection retries, and strategy environment gates. It attempts a
+  runtime-resolved `IProcessObserver` registration and falls back to 60-second process polling when
+  hidden API access or `SET_ACTIVITY_WATCHER` is unavailable. Strategy updates remain inert until
+  ServiceBox resolves `KASwitch=142`; `OnetrackSwitch=140` and `need_stat` are observed/persisted but
+  intentionally do not re-enable stock OneTrack behavior. Installed-device evidence is still
+  required before claiming observer permission/registration and a real third-party service bind.
 - System-only permissions and notification/XSpace behavior are similarly bounded by platform
   policy. Unit/build evidence proves our adapters; installed-device `dumpsys` and hook evidence are
   required for final visible-UI claims.
+- Full cloned/999-user support remains a data-model migration: application, registration,
+  notification preference, diagnostics, event, and UI identities are still package-name based.
+  Do not describe static LSPosed scope support as independent per-user registration/configuration.
 
 - The configuration stack lives only in `xmsf/.../utils` (`Configurations`, `ConfigurationsLoader`,
   `ConfigValueConverter`, `IconConfigurations`, `PackageConfig`). The duplicate, unused copies that
@@ -219,12 +230,6 @@ when `-PenableKover=true` is supplied. The ordinary `check` path stays on Detekt
 checks, and `verifyModuleBoundaries`; this keeps Kover's current Gradle 10 deprecation warning out of
 the default verification path while still preserving an opt-in coverage gate.
 
-## Refactor Record
-
-The package-by-package Java-to-Kotlin port and old `push/` split are complete. The retained history
-and ownership notes are recorded in `docs/architecture/push-module-split.md`.
-
-
 ## Data-plane idiom (authoritative)
 
 Chosen production shape after the app split:
@@ -238,4 +243,3 @@ Chosen production shape after the app split:
 | Test harness | `Comparing*` + `Gateway*` | **Test source set only**; not registered in production Koin |
 
 Do not reintroduce in-process primary reads in `:mipush`. Do not bootstrap manager from `:app`.
-

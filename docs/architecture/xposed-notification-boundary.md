@@ -59,6 +59,10 @@ selection, and app/runtime logging.
 
 ## XSpace Identity Boundary
 
+- The packaged static scope contains only hook-required platform/companion packages: system,
+  SystemUI, SecurityCore, DocumentsUI, XMSF and explicitly supported system integrations. Ordinary
+  target apps, including cloned or user-999 instances, are selected by the user in LSPosed rather
+  than being hard-coded into `scope.list`.
 - The SecurityCore package-info fallback only synthesizes the observed module result for the
   SecurityCore caller, required manifest-query flags, and query users `0` or `999`. It rejects all
   other users.
@@ -66,6 +70,9 @@ selection, and app/runtime logging.
   overwrite correct delegated notification identity.
 - `SecurityCoreAdd.apk` has not been re-captured in the curated archive. Its behavior is historical
   live-device evidence, not a reproducible raw-artifact claim.
+- Static scope reachability is not full multi-user ownership. Current registration, event and UI
+  models do not consistently carry `userId`; package-name-only state can therefore conflate owner
+  and cloned instances until a dedicated identity migration lands.
 
 ## Verification
 

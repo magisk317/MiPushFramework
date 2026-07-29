@@ -9,6 +9,19 @@
 - 版本：`versionCode 10` / `versionName 0.7.0`（manager/mipush）；XMSF 仍用 `pushVersionCode 1003003000`。
 - `[feat(manager/runtime)]` 拆分管理器包与 XMSF 运行时：远程读写、偏好迁移、图标切换、root 权限补齐与分身支持。
 - `[feat(notification)]` Live Update 身份修复（`UPDATE_APP_OPS_STATS`）、substName 兜底、划掉通知栏同步 cancel 岛。
+- `[fix(push)]` 恢复 stock `MESSAGE_ARRIVED` 到达回调，使天气等运行中的应用可在 XMSF
+  通知被系统或本地展示策略拦截时继续生成自己的原生通知表面。
+- `[feat(notification)]` 对齐 stock XMSF 7.4.67-C 的扩展通知回调、VoIP 独立样式/业务
+  判定及有界置顶通知生命周期；置顶到期保留原 channel，并避免旧任务覆盖新通知。
+- `[fix(notification)]` 对齐前台展示抑制、本地投递时间、show-when、ticker、timeout 与
+  MIUI 类型化策略 extras；置顶通知的 `when` 和 `mipush_org_when` 复用同一时间值。
+- `[refactor(xmsf)]` 内部重放直接启动私有 `XMPushServiceCore`，避免空内部 Intent 被导出
+  facade 的外部入口校验拒绝；移除两个冗余私有 service 组件，同时保留 facade 实现基类。
+- `[feat(notification)]` 恢复 stock XMSF 7.4.67-C 的 sweet notification 生命周期，包括
+  style 5 标准卡片降级、`<ft>` 标题/正文、状态与序列抑制、180--7200 秒超时、点击状态、
+  `remind_end` 清理及亮屏锁屏策略恢复；显式 keyguard/float payload 策略保持最高优先级。
+- `[fix(keepalive)]` 对齐 stock 7.4.67-C 的前台活动触发、绑定 owner、冷静期、重试与环境
+  门槛；动态注册进程 observer，并在权限或隐藏 API 不可用时保留 60 秒轮询降级。
 - `[fix(systemui)]` 状态栏单色图标恢复强单色；Live Update 移除时 `cancelNotification(key)`。
 - `[feat(ui)]` 管理器图标预览资源、ElevatedSnackbarHost 统一 snackbar、杂项/双开相关交互修复。
 
