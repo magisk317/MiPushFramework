@@ -24,8 +24,9 @@ workflow:
 
 default:
   interruptible: true
+  # AGP 9.3.1 / Android 37 host tools used here require the AMD64 runner.
   tags:
-    - magisk-linux
+    - magisk-amd64-linux
 
 stages:
   - build
