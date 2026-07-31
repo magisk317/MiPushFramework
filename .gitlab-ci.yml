@@ -114,7 +114,7 @@ android:build:
 
 zygisk:build:
   extends: .mipush_package_rules
-  image: "rust:1-bookworm"
+  image: "rust:1.97.1-bookworm"
   stage: build
   variables:
     CARGO_HOME: "$CI_PROJECT_DIR/.cargo"
@@ -226,6 +226,8 @@ telegram:ci:
     - .mipush_android_rules
   stage: notify
   allow_failure: true
+  tags:
+    - magisk-remote-linux
   variables:
     MAGISK_TELEGRAM_PROJECT_TAG: "📌 #MiPushFramework"
     MAGISK_TELEGRAM_PROJECT_NAME: "MiPushFramework"
@@ -366,6 +368,8 @@ telegram:release:
   resource_group: mipush-android-release-publish
   stage: release-publish
   allow_failure: true
+  tags:
+    - magisk-remote-linux
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
     - when: never
