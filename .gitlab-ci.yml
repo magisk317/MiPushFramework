@@ -25,7 +25,7 @@ workflow:
 default:
   interruptible: true
   tags:
-    - magisk-local-linux
+    - magisk-linux
 
 stages:
   - build
@@ -116,6 +116,8 @@ zygisk:build:
   extends: .mipush_package_rules
   image: "rust:1.97.1-bookworm"
   stage: build
+  tags:
+    - magisk-local-linux
   variables:
     CARGO_HOME: "$CI_PROJECT_DIR/.cargo"
     ANDROID_NDK_HOME: "$MIPUSH_ZYGISK_NDK_HOME"
