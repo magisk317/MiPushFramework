@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.manager.remote
 
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto
+import java.util.UUID
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
@@ -42,37 +43,21 @@ class RemoteWriteSupportTest {
     }
 
     @Test
-    fun `stableRequestId is deterministic for identical write material`() {
-        val first = RemoteWriteSupport.stableRequestId(
-            operation = ManagerProtocol.WRITE_OP_DELETE_EVENT,
-            packageName = "com.example.app",
-            eventId = 42L,
-        )
-        val second = RemoteWriteSupport.stableRequestId(
-            operation = ManagerProtocol.WRITE_OP_DELETE_EVENT,
-            packageName = "com.example.app",
-            eventId = 42L,
-        )
-        assertEquals(first, second)
+    fun `default request IDs are unique UUIDs`() {
+        val first = RemoteWriteSupport.resolveRequestId()
+        val second = RemoteWriteSupport.resolveRequestId()
+
+        UUID.fromString(first)
+        UUID.fromString(second)
+        assertNotEquals(first, second)
         assertTrue(first.isNotBlank())
         assertTrue(first.length <= ManagerProtocol.MAX_WRITE_REQUEST_ID_LENGTH)
     }
 
     @Test
-    fun `stableRequestId changes when logical arguments change`() {
-        val base = RemoteWriteSupport.stableRequestId(
-            operation = ManagerProtocol.WRITE_OP_CLEAR_HISTORY,
-            longArgument = 100L,
-        )
-        val differentCutoff = RemoteWriteSupport.stableRequestId(
-            operation = ManagerProtocol.WRITE_OP_CLEAR_HISTORY,
-            longArgument = 200L,
-        )
-        val differentOp = RemoteWriteSupport.stableRequestId(
-            operation = ManagerProtocol.WRITE_OP_DELETE_EVENT,
-            longArgument = 100L,
-        )
-        assertNotEquals(base, differentCutoff)
-        assertNotEquals(base, differentOp)
+    fun `explicit request ID is reused for transport retry`() {
+        val requestId = "same-transfer-retry"
+
+        assertEquals(requestId, RemoteWriteSupport.resolveRequestId(requestId))
     }
 }

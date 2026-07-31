@@ -78,9 +78,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
-import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.magisk317.mipush.common.BuildConfig
-import io.github.magisk317.mipush.common.VERSION_NAME
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.preference.NonNegativeIntegerInputDialog
 import io.github.magisk317.uikit.preference.RuntimeLogDiagnosticsCallbacks
@@ -252,8 +250,9 @@ private fun SettingsScreen(
                         summary = "",
                         checked = showAllEvents,
                         onCheckedChange = { enabled ->
-                            viewModel.setShowAllEvents(enabled)
-                            showSwitchFeedback(showAllEventsTitle, enabled)
+                            viewModel.setShowAllEvents(enabled) { success ->
+                                showSwitchFeedback(showAllEventsTitle, enabled, success)
+                            }
                         }
                     )
 
@@ -396,13 +395,18 @@ private fun SettingsSectionCard(
 }
 
 @Composable
-private fun rememberSwitchFeedback(snackbarHostState: SnackbarHostState): (String, Boolean) -> Unit {
+private fun rememberSwitchFeedback(snackbarHostState: SnackbarHostState): (String, Boolean, Boolean) -> Unit {
     val scope = rememberCoroutineScope()
     val enabledTemplate = stringResource(R.string.settings_switch_enabled_feedback)
     val disabledTemplate = stringResource(R.string.settings_switch_disabled_feedback)
-    return remember(snackbarHostState, scope, enabledTemplate, disabledTemplate) {
-        { title, enabled ->
-            val template = if (enabled) enabledTemplate else disabledTemplate
+    val failedTemplate = stringResource(R.string.settings_runtime_preference_update_failed)
+    return remember(snackbarHostState, scope, enabledTemplate, disabledTemplate, failedTemplate) {
+        { title, enabled, success ->
+            val template = when {
+                !success -> failedTemplate
+                enabled -> enabledTemplate
+                else -> disabledTemplate
+            }
             scope.launch {
                 snackbarHostState.currentSnackbarData?.dismiss()
                 snackbarHostState.showSnackbar(
@@ -473,9 +477,9 @@ private fun KeepAliveBlock(viewModel: SettingsViewModel, snackbarHostState: Snac
         summary = stringResource(R.string.settings_start_foreground_service_summary),
         checked = isStartForeground,
     ) { enabled ->
-        viewModel.setStartForeground(enabled)
-        viewModel.startMiPushServiceAsForegroundService(context)
-        showSwitchFeedback(startForegroundTitle, enabled)
+        viewModel.setStartForeground(enabled) { success ->
+            showSwitchFeedback(startForegroundTitle, enabled, success)
+        }
     }
 
     // Sub-switches only visible when master switch is on
@@ -486,8 +490,9 @@ private fun KeepAliveBlock(viewModel: SettingsViewModel, snackbarHostState: Snac
             summary = stringResource(R.string.pref_keepalive_oom_adj_summary),
             checked = keepAliveOomAdj,
         ) { enabled ->
-            viewModel.setKeepAliveOomAdj(enabled)
-            showSwitchFeedback(keepAliveOomAdjTitle, enabled)
+            viewModel.setKeepAliveOomAdj(enabled) { success ->
+                showSwitchFeedback(keepAliveOomAdjTitle, enabled, success)
+            }
         }
 
         val keepAliveAntiKillTitle = stringResource(R.string.pref_keepalive_anti_kill_title)
@@ -496,8 +501,9 @@ private fun KeepAliveBlock(viewModel: SettingsViewModel, snackbarHostState: Snac
             summary = stringResource(R.string.pref_keepalive_anti_kill_summary),
             checked = keepAliveAntiKill,
         ) { enabled ->
-            viewModel.setKeepAliveAntiKill(enabled)
-            showSwitchFeedback(keepAliveAntiKillTitle, enabled)
+            viewModel.setKeepAliveAntiKill(enabled) { success ->
+                showSwitchFeedback(keepAliveAntiKillTitle, enabled, success)
+            }
         }
 
         val keepAliveStandbyBypassTitle = stringResource(R.string.pref_keepalive_standby_bypass_title)
@@ -506,8 +512,9 @@ private fun KeepAliveBlock(viewModel: SettingsViewModel, snackbarHostState: Snac
             summary = stringResource(R.string.pref_keepalive_standby_bypass_summary),
             checked = keepAliveStandbyBypass,
         ) { enabled ->
-            viewModel.setKeepAliveStandbyBypass(enabled)
-            showSwitchFeedback(keepAliveStandbyBypassTitle, enabled)
+            viewModel.setKeepAliveStandbyBypass(enabled) { success ->
+                showSwitchFeedback(keepAliveStandbyBypassTitle, enabled, success)
+            }
         }
 
         val keepAliveDozeBypassTitle = stringResource(R.string.pref_keepalive_doze_bypass_title)
@@ -516,8 +523,9 @@ private fun KeepAliveBlock(viewModel: SettingsViewModel, snackbarHostState: Snac
             summary = stringResource(R.string.pref_keepalive_doze_bypass_summary),
             checked = keepAliveDozeBypass,
         ) { enabled ->
-            viewModel.setKeepAliveDozeBypass(enabled)
-            showSwitchFeedback(keepAliveDozeBypassTitle, enabled)
+            viewModel.setKeepAliveDozeBypass(enabled) { success ->
+                showSwitchFeedback(keepAliveDozeBypassTitle, enabled, success)
+            }
         }
 
         SettingsSwitchItem(
@@ -573,10 +581,10 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
         summary = stringResource(R.string.pref_island_enabled_summary),
         checked = islandEnabled,
     ) { enabled ->
-        viewModel.setIslandEnabled(enabled) {
-            notifyPrefChanged(context)
+        viewModel.setIslandEnabled(enabled) { success ->
+            if (success) notifyPrefChanged(context)
+            showSwitchFeedback(islandEnabledTitle, enabled, success)
         }
-        showSwitchFeedback(islandEnabledTitle, enabled)
     }
 
     SettingsItem(
@@ -595,10 +603,10 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
         checked = islandFirstFloat,
         enabled = islandEnabled,
     ) { enabled ->
-        viewModel.setIslandFirstFloat(enabled) {
-            notifyPrefChanged(context)
+        viewModel.setIslandFirstFloat(enabled) { success ->
+            if (success) notifyPrefChanged(context)
+            showSwitchFeedback(islandFirstFloatTitle, enabled, success)
         }
-        showSwitchFeedback(islandFirstFloatTitle, enabled)
     }
 
     val islandEnableFloatTitle = stringResource(R.string.pref_island_enable_float_title)
@@ -608,10 +616,10 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
         checked = islandEnableFloat,
         enabled = islandEnabled,
     ) { enabled ->
-        viewModel.setIslandEnableFloat(enabled) {
-            notifyPrefChanged(context)
+        viewModel.setIslandEnableFloat(enabled) { success ->
+            if (success) notifyPrefChanged(context)
+            showSwitchFeedback(islandEnableFloatTitle, enabled, success)
         }
-        showSwitchFeedback(islandEnableFloatTitle, enabled)
     }
 
     val islandShowNotificationTitle = stringResource(R.string.pref_island_show_notification_title)
@@ -621,10 +629,10 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
         checked = islandShowNotification,
         enabled = islandEnabled,
     ) { enabled ->
-        viewModel.setIslandShowNotification(enabled) {
-            notifyPrefChanged(context)
+        viewModel.setIslandShowNotification(enabled) { success ->
+            if (success) notifyPrefChanged(context)
+            showSwitchFeedback(islandShowNotificationTitle, enabled, success)
         }
-        showSwitchFeedback(islandShowNotificationTitle, enabled)
     }
 
     val islandShowOriginalNotificationTitle = stringResource(R.string.pref_island_show_original_notification_title)
@@ -634,10 +642,10 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
         checked = islandShowOriginalNotification,
         enabled = islandEnabled,
     ) { enabled ->
-        viewModel.setIslandShowOriginalNotification(enabled) {
-            notifyPrefChanged(context)
+        viewModel.setIslandShowOriginalNotification(enabled) { success ->
+            if (success) notifyPrefChanged(context)
+            showSwitchFeedback(islandShowOriginalNotificationTitle, enabled, success)
         }
-        showSwitchFeedback(islandShowOriginalNotificationTitle, enabled)
     }
 
     val islandFocusNotificationTitle = stringResource(R.string.pref_island_focus_notif_title)
@@ -647,10 +655,10 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
         checked = islandFocusNotification,
         enabled = islandEnabled,
     ) { enabled ->
-        viewModel.setIslandFocusNotification(enabled) {
-            notifyPrefChanged(context)
+        viewModel.setIslandFocusNotification(enabled) { success ->
+            if (success) notifyPrefChanged(context)
+            showSwitchFeedback(islandFocusNotificationTitle, enabled, success)
         }
-        showSwitchFeedback(islandFocusNotificationTitle, enabled)
     }
 
     if (showIslandTimeoutDialog) {
@@ -676,8 +684,13 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
                                 snackbarHostState.showSnackbar(islandTimeoutError)
                             }
                         } else {
-                            viewModel.setIslandTimeout(days) {
-                                notifyPrefChanged(context)
+                            viewModel.setIslandTimeout(days) { success ->
+                                if (success) notifyPrefChanged(context)
+                                showSwitchFeedback(
+                                    context.getString(R.string.pref_island_timeout_title),
+                                    true,
+                                    success,
+                                )
                             }
                             showIslandTimeoutDialog = false
                         }
@@ -768,21 +781,10 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
             summary = stringResource(R.string.settings_enable_analytics_summary),
             checked = analyticsEnabled,
         ) { enabled ->
-            viewModel.setAnalyticsEnabled(enabled)
-            MagiskOtel.configureForInstallation(
-                context,
-                MagiskOtel.Config(
-                    enabled = BuildConfig.DEBUG || enabled ||
-                        (System.getProperty("magisk.otel.enabled")?.equals("true", ignoreCase = true) == true),
-                    serviceName = "mipushframework",
-                    serviceVersion = VERSION_NAME,
-                    projectId = "83955143",
-                    projectName = "MiPushFramework",
-                    environment = if (BuildConfig.DEBUG) "debug" else "release",
-                ),
-            )
-            notifyPrefChanged(context)
-            showSwitchFeedback(analyticsTitle, enabled)
+            viewModel.setAnalyticsEnabled(enabled) { success ->
+                if (success) notifyPrefChanged(context)
+                showSwitchFeedback(analyticsTitle, enabled, success)
+            }
         }
     }
     val logSanitizationTitle = stringResource(R.string.settings_log_sanitization)
@@ -809,15 +811,17 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
         callbacks = RuntimeLogDiagnosticsCallbacks(
             onShareLog = ::shareRuntimeLogBundle,
             onVerboseLogEnabledChange = { enabled ->
-                viewModel.setDebugMode(enabled)
-                showSwitchFeedback(debugModeTitle, enabled)
+                viewModel.setDebugMode(enabled) { success ->
+                    showSwitchFeedback(debugModeTitle, enabled, success)
+                }
             },
             onRetentionClick = { showRuntimeLogRetentionDialog = true },
             onClearLogClick = { showClearConfirmDialog = true },
             onSensitiveLogEnabledChange = { enabled ->
-                viewModel.setLogSanitizationEnabled(enabled)
-                context.sendBroadcast(Intent(ACTION_PREF_CHANGED))
-                showSwitchFeedback(logSanitizationTitle, enabled)
+                viewModel.setLogSanitizationEnabled(enabled) { success ->
+                    if (success) context.sendBroadcast(Intent(ACTION_PREF_CHANGED))
+                    showSwitchFeedback(logSanitizationTitle, enabled, success)
+                }
             },
         ),
         layout = RuntimeLogDiagnosticsLayout(
@@ -855,8 +859,17 @@ private fun DiagnosticsBlock(viewModel: SettingsViewModel, snackbarHostState: Sn
             minimumValue = 1,
             supportingText = stringResource(R.string.settings_runtime_log_retention_days_hint),
         ) { days ->
-            viewModel.setRuntimeLogRetentionDays(days)
-            showRuntimeLogRetentionDialog = false
+            viewModel.setRuntimeLogRetentionDays(days) { success ->
+                if (success) {
+                    showRuntimeLogRetentionDialog = false
+                } else {
+                    showSwitchFeedback(
+                        context.getString(R.string.settings_runtime_log_retention_days),
+                        true,
+                        false,
+                    )
+                }
+            }
         }
     }
 }

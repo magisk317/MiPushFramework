@@ -26,6 +26,7 @@ import io.github.magisk317.mipush.manager.remote.RemoteManagerNotificationGatewa
 import io.github.magisk317.mipush.manager.remote.RemoteManagerPermissionGateway
 import io.github.magisk317.mipush.manager.remote.RemoteManagerRuntimeActions
 import io.github.magisk317.mipush.manager.remote.RemoteZygiskConfigGateway
+import io.github.magisk317.mipush.manager.preferences.RuntimePreferenceGateway
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 import io.github.magisk317.mipush.manager.root.ManagerRootAccess
@@ -56,7 +57,13 @@ val managerRemoteHostModule = module {
     single<ManagerEventGateway> { RemoteManagerEventGateway(androidContext(), get()) }
     single<ManagerNotificationGateway> { RemoteManagerNotificationGateway(get()) }
     single<ManagerLogGateway> { RemoteManagerLogGateway(client = get(), appContext = androidContext()) }
-    single<ManagerConfigGateway> { RemoteManagerConfigGateway(get(), get(), get()) }
+    single<ManagerConfigGateway> {
+        RemoteManagerConfigGateway(
+            preferenceRepository = get(),
+            configSyncGateway = get(),
+            runtimePreferenceGateway = get<RuntimePreferenceGateway>(),
+        )
+    }
     single<ManagerRuntimeActions> { RemoteManagerRuntimeActions(get()) }
     single { ManagerRootAccess() }
     single<ManagerPermissionGateway> { RemoteManagerPermissionGateway(androidContext(), get(), get()) }

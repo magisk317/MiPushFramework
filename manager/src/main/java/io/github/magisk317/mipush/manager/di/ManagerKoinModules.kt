@@ -4,6 +4,8 @@ import io.github.magisk317.mipush.manager.logging.ManagerRuntimeFileLog
 import io.github.magisk317.xposed.logging.LogSanitizerConfig
 
 import android.content.Context
+import io.github.magisk317.mipush.common.BuildConfig
+import io.github.magisk317.mipush.common.VERSION_NAME
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
 import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
 import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
@@ -35,6 +37,8 @@ import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSource
 import io.github.magisk317.mipush.manager.connection.ConnectionReconnectRequester
 import io.github.magisk317.mipush.manager.migration.ManagerPreferenceMigration
 import io.github.magisk317.mipush.manager.launcher.LauncherIconController
+import io.github.magisk317.mipush.manager.preferences.RuntimePreferenceGateway
+import io.github.magisk317.xposed.logging.MagiskOtel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
@@ -64,6 +68,7 @@ val managerKoinModule = module {
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
         ).apply { connect() }
     }
+    single { RuntimePreferenceGateway(get<ManagerRuntimeClient>(), get<PreferenceRepository>()) }
     // Production manager is remote-only: ViewModels consume Remote* sources directly.
     single { RemoteConnectionSnapshotSource(get<ManagerRuntimeClient>()) }
     single<ConnectionSnapshotSource> { get<RemoteConnectionSnapshotSource>() }
@@ -81,6 +86,8 @@ val managerKoinModule = module {
             get<PreferenceRepository>(),
             get<SettingsManager>(),
             get<ManagerPermissionGateway>(),
+            get<RuntimePreferenceGateway>(),
+            get<ManagerRuntimeClient>(),
         )
     }
     viewModel { XmppServerViewModel(get<ManagerConfigGateway>()) }
@@ -92,6 +99,7 @@ val managerKoinModule = module {
             get<PreferenceRepository>(),
             androidContext(),
             get<ManagerRuntimeClient>(),
+            get<RuntimePreferenceGateway>(),
         )
     }
     viewModel { ZygiskConfigViewModel(get<SettingsManager>(), get<RemoteApplicationListSource>(), get()) }
@@ -123,6 +131,12 @@ object ManagerDependencies {
 
     @Volatile
     private var logSanitizationSyncStarted = false
+
+    @Volatile
+    private var runtimePreferenceSyncStarted = false
+
+    @Volatile
+    private var analyticsSyncStarted = false
 
     /**
      * Preferred entry for manager UI surfaces. Always boots the remote-host Koin graph.
@@ -164,6 +178,18 @@ object ManagerDependencies {
                     .collect { LogSanitizerConfig.syncSanitizationEnabled(it) }
             }
         }
+        if (!runtimePreferenceSyncStarted) {
+            runtimePreferenceSyncStarted = true
+            koin.get<RuntimePreferenceGateway>().startReconnectSync(appScope)
+        }
+        if (!analyticsSyncStarted) {
+            analyticsSyncStarted = true
+            appScope.launch {
+                koin.get<PreferenceRepository>().isAnalyticsEnabled.collect { enabled ->
+                    configureAnalytics(appContext, enabled)
+                }
+            }
+        }
         ManagerPreferenceMigration.schedule(
             scope = appScope,
             client = koin.get(),
@@ -178,4 +204,20 @@ object ManagerDependencies {
     }
 
     inline fun <reified T : Any> get(): T = GlobalContext.get().get()
+
+    private fun configureAnalytics(context: Context, enabled: Boolean) {
+        val systemOtelEnabled =
+            System.getProperty("magisk.otel.enabled")?.equals("true", ignoreCase = true) == true
+        MagiskOtel.configureForInstallation(
+            context,
+            MagiskOtel.Config(
+                enabled = BuildConfig.DEBUG || enabled || systemOtelEnabled,
+                serviceName = "mipushframework",
+                serviceVersion = VERSION_NAME,
+                projectId = "83955143",
+                projectName = "MiPushFramework",
+                environment = if (BuildConfig.DEBUG) "debug" else "release",
+            ),
+        )
+    }
 }

@@ -146,11 +146,16 @@ fun EventList(
         var groupMode by rememberSaveable(groupByApp, packageName) { mutableStateOf(groupByApp) }
         val showGroupedByApp = packageName.isEmpty() && groupMode
         val snackbarHostState = remember { SnackbarHostState() }
+        val scope = rememberCoroutineScope()
         val eventRetentionDays by viewModel.eventRetentionDays.collectAsState()
         var showListSettingsSheet by rememberSaveable { mutableStateOf(false) }
         var showRetentionDialog by rememberSaveable { mutableStateOf(false) }
         var showCleanupDialog by rememberSaveable { mutableStateOf(false) }
         val retentionError = stringResource(R.string.event_retention_dialog_error)
+        val retentionUpdateFailed = stringResource(
+            R.string.settings_runtime_preference_update_failed,
+            stringResource(R.string.recent_activity_action_retention),
+        )
         val resolvedTitle = remember(packageName) {
             if (packageName.isBlank()) {
                 null
@@ -307,8 +312,17 @@ fun EventList(
                         if (days == null || days < 1) retentionError else null
                     },
                 ) { input ->
-                    input.toIntOrNull()?.takeIf { it >= 1 }?.let { viewModel.setEventRetentionDays(it) }
-                    showRetentionDialog = false
+                    input.toIntOrNull()?.takeIf { it >= 1 }?.let { days ->
+                        viewModel.setEventRetentionDays(days) { success ->
+                            if (success) {
+                                showRetentionDialog = false
+                            } else {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(retentionUpdateFailed)
+                                }
+                            }
+                        }
+                    }
                 }
             }
 

@@ -19,6 +19,7 @@ import io.github.magisk317.mipush.manager.events.RemoteEventListSource
 import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
+import io.github.magisk317.mipush.manager.preferences.RuntimePreferenceGateway
 import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.manager.events.EventListRequest
 import io.github.magisk317.mipush.manager.events.EventReadResult
@@ -35,6 +36,7 @@ class EventListViewModel constructor(
     private val preferenceRepository: PreferenceRepository,
     private val context: Context,
     private val runtimeClient: ManagerRuntimeClient,
+    private val runtimePreferenceGateway: RuntimePreferenceGateway,
 ) : ViewModel() {
     private val _events = MutableStateFlow<List<EventInfoForDisplay>>(emptyList())
     val events: StateFlow<List<EventInfoForDisplay>> = _events.asStateFlow()
@@ -110,16 +112,14 @@ class EventListViewModel constructor(
     val eventRetentionDays: StateFlow<Int> = preferenceRepository.eventRetentionDays
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 7)
 
-    /**
-     * 写入新的保留天数并立即触发一次清理。
-     * DataStore 由本方法写入,App 层的 collect 会同步更新 [EventRetentionManager] 的
-     * provider 缓存;这里再触发一次即时清理,让改小后的窗口立刻生效。
-     */
-    fun setEventRetentionDays(days: Int) {
+    /** Runtime-first update; the local DataStore is only a mirror for manager UI state. */
+    fun setEventRetentionDays(days: Int, onResult: ((Boolean) -> Unit)? = null) {
         val coerced = days.coerceAtLeast(1)
         viewModelScope.launch {
-            preferenceRepository.setEventRetentionDays(coerced)
-            settingsManager.applyEventRetentionDays(coerced)
+            val success = withContext(Dispatchers.IO) {
+                runtimePreferenceGateway.setEventRetentionDays(coerced)
+            }
+            onResult?.invoke(success)
         }
     }
 

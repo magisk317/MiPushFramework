@@ -65,8 +65,10 @@
     <string name="pref_color_status_bar_icon_restart_title">Device reboot required</string>
     <string name="pref_color_status_bar_icon_restart_message">Changing this switch reboots the device so the status-bar icon policy takes effect system-wide.</string>
     <string name="pref_color_status_bar_icon_restart_confirm">Apply and reboot</string>
+    <string name="pref_color_status_bar_icon_reboot_failed">The preference was saved, but the device could not reboot. Check Root access.</string>
     <string name="settings_switch_enabled_feedback">%1$s enabled</string>
     <string name="settings_switch_disabled_feedback">%1$s disabled</string>
+    <string name="settings_runtime_preference_update_failed">Could not update %1$s. Check that the push service is connected.</string>
     <string name="settings_start_foreground_service">Keep MiPush alive</string>
     <string name="settings_start_foreground_service_summary">Controls whether to keep showing the keep-alive foreground notification; startup still performs foreground promotion for system compatibility.</string>
 

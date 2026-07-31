@@ -86,8 +86,10 @@
     <string name="pref_color_status_bar_icon_restart_title">需要重启手机</string>
     <string name="pref_color_status_bar_icon_restart_message">修改此项会重启手机，否则状态栏彩色图标策略不会在系统侧完整生效。</string>
     <string name="pref_color_status_bar_icon_restart_confirm">应用并重启手机</string>
+    <string name="pref_color_status_bar_icon_reboot_failed">设置已保存，但设备重启失败，请检查 Root 权限</string>
     <string name="settings_switch_enabled_feedback">%1$s：已开启</string>
     <string name="settings_switch_disabled_feedback">%1$s：已关闭</string>
+    <string name="settings_runtime_preference_update_failed">无法更新%1$s，请确认推送服务已连接</string>
     <string name="settings_start_foreground_service">推送服务保活</string>
     <string name="settings_start_foreground_service_summary">控制是否持续显示保活前台通知；服务启动阶段仍会先完成前台化以保证系统兼容性</string>
 

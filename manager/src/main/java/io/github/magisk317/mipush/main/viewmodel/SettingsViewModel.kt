@@ -2,7 +2,26 @@ package io.github.magisk317.mipush.main.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
+import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
+import io.github.magisk317.mipush.common.ENABLE_ANALYTICS_KEY
+import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLE_FLOAT
+import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLED
+import io.github.magisk317.mipush.common.ISLAND_PREF_FIRST_FLOAT
+import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
+import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
+import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
+import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
+import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
+import io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS
+import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
+import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
+import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
 import io.github.magisk317.mipush.data.PreferenceRepository
+import io.github.magisk317.mipush.manager.api.ManagerProtocol
+import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
+import io.github.magisk317.mipush.manager.preferences.RuntimePreferenceGateway
+import io.github.magisk317.mipush.manager.remote.RemoteWriteSupport
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 import io.github.magisk317.mipush.common.manager.ManagerXSpaceRepairStage
@@ -23,6 +42,8 @@ class SettingsViewModel constructor(
     private val preferenceRepository: PreferenceRepository,
     private val settingsManager: SettingsManager,
     private val permissionGateway: ManagerPermissionGateway,
+    private val runtimePreferenceGateway: RuntimePreferenceGateway,
+    private val runtimeClient: ManagerRuntimeClient,
     currentUserIdProvider: () -> Int = { Utils.myUserId() },
 ) : ViewModel() {
     data class ThemeState(
@@ -51,10 +72,10 @@ class SettingsViewModel constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     val runtimeLogRetentionDays: StateFlow<Int> = preferenceRepository.runtimeLogRetentionDays
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 7)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 2)
 
     val isStartForeground: StateFlow<Boolean> = preferenceRepository.isStartForeground
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     val keepAliveOomAdj: StateFlow<Boolean> = preferenceRepository.keepAliveOomAdj
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
@@ -129,11 +150,6 @@ class SettingsViewModel constructor(
                 }
             }
         }
-        viewModelScope.launch {
-            preferenceRepository.runtimeLogRetentionDays.collect { days ->
-                settingsManager.setRuntimeLogRetentionDays(days)
-            }
-        }
     }
 
     fun updateConfigDirectory(uri: String) {
@@ -142,162 +158,83 @@ class SettingsViewModel constructor(
         }
     }
 
-    fun setDebugMode(enabled: Boolean) {
-        viewModelScope.launch {
-            preferenceRepository.setDebugMode(enabled)
-            pushRuntimeBoolean(key = "debug_mode", value = enabled)
-        }
-    }
+    fun setDebugMode(enabled: Boolean, onResult: ((Boolean) -> Unit)? = null) =
+        updateRuntimeBoolean("debug_mode", enabled, onResult)
 
-    fun setLogSanitizationEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            preferenceRepository.setLogSanitizationEnabled(enabled)
-            pushRuntimeBoolean(
-                key = io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY,
-                value = enabled,
-            )
-        }
-    }
+    fun setLogSanitizationEnabled(enabled: Boolean, onResult: ((Boolean) -> Unit)? = null) =
+        updateRuntimeBoolean(LOG_SANITIZATION_ENABLED_KEY, enabled, onResult)
 
-    fun setAnalyticsEnabled(enabled: Boolean) {
-        viewModelScope.launch { preferenceRepository.setAnalyticsEnabled(enabled) }
-    }
+    fun setAnalyticsEnabled(enabled: Boolean, onResult: ((Boolean) -> Unit)? = null) =
+        updateRuntimeBoolean(ENABLE_ANALYTICS_KEY, enabled, onResult)
 
-    fun setShowAllEvents(enabled: Boolean) {
-        viewModelScope.launch {
-            preferenceRepository.setShowAllEvents(enabled)
-            pushRuntimeBoolean(key = "show_all_events", value = enabled)
-        }
-    }
+    fun setShowAllEvents(enabled: Boolean, onResult: ((Boolean) -> Unit)? = null) =
+        updateRuntimeBoolean("show_all_events", enabled, onResult)
 
-    fun setStartForeground(enabled: Boolean) {
-        viewModelScope.launch {
-            preferenceRepository.setIsStartForeground(enabled)
-            pushRuntimeBoolean(key = "start_foreground", value = enabled)
-        }
-    }
+    fun setStartForeground(enabled: Boolean, onResult: ((Boolean) -> Unit)? = null) =
+        updateRuntimeBoolean("start_foreground", enabled, onResult)
 
-    fun setKeepAliveOomAdj(value: Boolean) = viewModelScope.launch {
-        preferenceRepository.setKeepAliveOomAdj(value)
-        pushRuntimeBoolean(key = io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ, value = value)
-    }
+    fun setKeepAliveOomAdj(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
+        updateRuntimeBoolean(KEEPALIVE_PREF_OOM_ADJ, value, onResult)
 
-    fun setKeepAliveAntiKill(value: Boolean) = viewModelScope.launch {
-        preferenceRepository.setKeepAliveAntiKill(value)
-        pushRuntimeBoolean(key = io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL, value = value)
-    }
+    fun setKeepAliveAntiKill(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
+        updateRuntimeBoolean(KEEPALIVE_PREF_ANTI_KILL, value, onResult)
 
-    fun setKeepAliveStandbyBypass(value: Boolean) = viewModelScope.launch {
-        preferenceRepository.setKeepAliveStandbyBypass(value)
-        pushRuntimeBoolean(key = io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS, value = value)
-    }
+    fun setKeepAliveStandbyBypass(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
+        updateRuntimeBoolean(KEEPALIVE_PREF_STANDBY_BYPASS, value, onResult)
 
-    fun setKeepAliveDozeBypass(value: Boolean) = viewModelScope.launch {
-        preferenceRepository.setKeepAliveDozeBypass(value)
-        pushRuntimeBoolean(key = io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS, value = value)
-    }
+    fun setKeepAliveDozeBypass(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
+        updateRuntimeBoolean(KEEPALIVE_PREF_DOZE_BYPASS, value, onResult)
 
-    fun setIslandEnabled(value: Boolean, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
-        preferenceRepository.setIslandEnabled(value)
-        pushRuntimeBoolean(key = io.github.magisk317.mipush.common.ISLAND_PREF_ENABLED, value = value)
-        onUpdated?.invoke()
-    }
+    fun setIslandEnabled(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
+        updateRuntimeBoolean(ISLAND_PREF_ENABLED, value, onResult)
 
-    fun setIslandTimeout(value: Int, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
-        preferenceRepository.setIslandTimeout(value)
-        pushRuntimeInt(key = io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT, value = value)
-        onUpdated?.invoke()
-    }
+    fun setIslandTimeout(value: Int, onResult: ((Boolean) -> Unit)? = null) =
+        updateRuntimeInt(ISLAND_PREF_TIMEOUT, value.coerceAtLeast(1), onResult)
 
-    fun setIslandFirstFloat(value: Boolean, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
-        preferenceRepository.setIslandFirstFloat(value)
-        pushRuntimeBoolean(key = io.github.magisk317.mipush.common.ISLAND_PREF_FIRST_FLOAT, value = value)
-        onUpdated?.invoke()
-    }
+    fun setIslandFirstFloat(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
+        updateRuntimeBoolean(ISLAND_PREF_FIRST_FLOAT, value, onResult)
 
-    fun setIslandEnableFloat(value: Boolean, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
-        preferenceRepository.setIslandEnableFloat(value)
-        pushRuntimeBoolean(key = io.github.magisk317.mipush.common.ISLAND_PREF_ENABLE_FLOAT, value = value)
-        onUpdated?.invoke()
-    }
+    fun setIslandEnableFloat(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
+        updateRuntimeBoolean(ISLAND_PREF_ENABLE_FLOAT, value, onResult)
 
-    fun setIslandShowNotification(value: Boolean, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
-        preferenceRepository.setIslandShowNotification(value)
-        pushRuntimeBoolean(key = io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION, value = value)
-        onUpdated?.invoke()
-    }
+    fun setIslandShowNotification(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
+        updateRuntimeBoolean(ISLAND_PREF_SHOW_NOTIFICATION, value, onResult)
 
-    fun setIslandShowOriginalNotification(value: Boolean, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
-        preferenceRepository.setIslandShowOriginalNotification(value)
-        pushRuntimeBoolean(key = io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION, value = value)
-        onUpdated?.invoke()
-    }
+    fun setIslandShowOriginalNotification(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
+        updateRuntimeBoolean(ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION, value, onResult)
 
-    fun setIslandFocusNotification(value: Boolean, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
-        preferenceRepository.setIslandFocusNotification(value)
-        pushRuntimeBoolean(key = io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF, value = value)
-        onUpdated?.invoke()
-    }
+    fun setIslandFocusNotification(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
+        updateRuntimeBoolean(ISLAND_PREF_FOCUS_NOTIF, value, onResult)
 
-    fun setColorStatusBarIcon(value: Boolean, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
-        preferenceRepository.setColorStatusBarIcon(value)
-        pushRuntimeBoolean(
-            key = io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY,
-            value = value,
-        )
-        onUpdated?.invoke()
-    }
+    fun setColorStatusBarIcon(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
+        updateRuntimeBoolean(COLOR_STATUS_BAR_ICON_KEY, value, onResult)
 
-    fun setColorStatusBarIconGlobal(value: Boolean, onUpdated: (() -> Unit)? = null) = viewModelScope.launch {
-        preferenceRepository.setColorStatusBarIconGlobal(value)
-        pushRuntimeBoolean(
-            key = io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
-            value = value,
-        )
-        onUpdated?.invoke()
-    }
+    fun setColorStatusBarIconGlobal(value: Boolean, onResult: ((Boolean) -> Unit)? = null) =
+        updateRuntimeBoolean(COLOR_STATUS_BAR_ICON_GLOBAL_KEY, value, onResult)
 
     /**
      * Apply color-status-bar preference, push to runtime (xmsf), then **reboot the device**.
      * Status-bar / SystemUI coloring needs a full reboot; manager-only exit is not enough.
      */
     fun applyColorStatusBarIconWithRestart(
-        context: android.content.Context,
         managed: Boolean? = null,
         global: Boolean? = null,
-        onPrepared: (() -> Unit)? = null,
+        onPrepared: ((Boolean) -> Unit)? = null,
         onRebootFailed: ((String) -> Unit)? = null,
     ) = viewModelScope.launch {
-        if (managed != null) {
-            preferenceRepository.setColorStatusBarIcon(managed)
-            pushRuntimeBoolean(
-                key = io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY,
-                value = managed,
-            )
+        val preferenceUpdated = withContext(Dispatchers.IO) {
+            (managed == null || runtimePreferenceGateway.setBoolean(COLOR_STATUS_BAR_ICON_KEY, managed)) &&
+                (global == null || runtimePreferenceGateway.setBoolean(COLOR_STATUS_BAR_ICON_GLOBAL_KEY, global))
         }
-        if (global != null) {
-            preferenceRepository.setColorStatusBarIconGlobal(global)
-            pushRuntimeBoolean(
-                key = io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
-                value = global,
-            )
-        }
-        onPrepared?.invoke()
+        onPrepared?.invoke(preferenceUpdated)
+        if (!preferenceUpdated) return@launch
         val rebootResult = withContext(Dispatchers.IO) {
-            val client = runCatching {
-                org.koin.core.context.GlobalContext.get()
-                    .get<io.github.magisk317.mipush.manager.client.ManagerRuntimeClient>()
-            }.getOrNull()
-            if (client == null) {
-                return@withContext null
-            }
-            io.github.magisk317.mipush.manager.remote.RemoteWriteSupport.execute(
-                client = client,
-                operation = io.github.magisk317.mipush.manager.api.ManagerProtocol.WRITE_OP_REBOOT_DEVICE,
-                uniqueRequestId = true,
+            RemoteWriteSupport.execute(
+                client = runtimeClient,
+                operation = ManagerProtocol.WRITE_OP_REBOOT_DEVICE,
             )
         }
-        val ok = io.github.magisk317.mipush.manager.remote.RemoteWriteSupport.isSuccess(rebootResult)
+        val ok = RemoteWriteSupport.isSuccess(rebootResult)
         if (!ok) {
             val detail = rebootResult?.details.orEmpty().ifBlank { "reboot_unavailable" }
             onRebootFailed?.invoke(detail)
@@ -305,36 +242,26 @@ class SettingsViewModel constructor(
         // Device should reboot shortly; do not exitOnly — reboot is the intended restart.
     }
 
-    private suspend fun pushRuntimeBoolean(key: String, value: Boolean) {
-        withContext(Dispatchers.IO) {
-            val client = runCatching {
-                org.koin.core.context.GlobalContext.get()
-                    .get<io.github.magisk317.mipush.manager.client.ManagerRuntimeClient>()
-            }.getOrNull() ?: return@withContext
-            io.github.magisk317.mipush.manager.remote.RemoteWriteSupport.execute(
-                client = client,
-                operation = io.github.magisk317.mipush.manager.api.ManagerProtocol.WRITE_OP_SET_RUNTIME_BOOLEAN,
-                booleanArgument = value,
-                argument = key,
-                uniqueRequestId = true,
-            )
+    private fun updateRuntimeBoolean(
+        key: String,
+        value: Boolean,
+        onResult: ((Boolean) -> Unit)?,
+    ) = viewModelScope.launch {
+        val success = withContext(Dispatchers.IO) {
+            runtimePreferenceGateway.setBoolean(key, value)
         }
+        onResult?.invoke(success)
     }
 
-    private suspend fun pushRuntimeInt(key: String, value: Int) {
-        withContext(Dispatchers.IO) {
-            val client = runCatching {
-                org.koin.core.context.GlobalContext.get()
-                    .get<io.github.magisk317.mipush.manager.client.ManagerRuntimeClient>()
-            }.getOrNull() ?: return@withContext
-            io.github.magisk317.mipush.manager.remote.RemoteWriteSupport.execute(
-                client = client,
-                operation = io.github.magisk317.mipush.manager.api.ManagerProtocol.WRITE_OP_SET_RUNTIME_INT,
-                intArgument = value,
-                argument = key,
-                uniqueRequestId = true,
-            )
+    private fun updateRuntimeInt(
+        key: String,
+        value: Int,
+        onResult: ((Boolean) -> Unit)?,
+    ) = viewModelScope.launch {
+        val success = withContext(Dispatchers.IO) {
+            runtimePreferenceGateway.setInt(key, value)
         }
+        onResult?.invoke(success)
     }
 
     fun setDualAppEnabled(enabled: Boolean, onResult: ((Boolean, String) -> Unit)? = null) {
@@ -407,13 +334,10 @@ class SettingsViewModel constructor(
                         // Binder → xmsf root: pm enable/disable --user 0/999
                         kotlinx.coroutines.runBlocking(Dispatchers.IO) {
                             runCatching {
-                                val client = org.koin.core.context.GlobalContext.get()
-                                    .get<io.github.magisk317.mipush.manager.client.ManagerRuntimeClient>()
-                                io.github.magisk317.mipush.manager.remote.RemoteWriteSupport.execute(
-                                    client = client,
-                                    operation = io.github.magisk317.mipush.manager.api.ManagerProtocol.WRITE_OP_SYNC_LAUNCHER_ICON,
+                                RemoteWriteSupport.execute(
+                                    client = runtimeClient,
+                                    operation = ManagerProtocol.WRITE_OP_SYNC_LAUNCHER_ICON,
                                     argument = normalized,
-                                    uniqueRequestId = true,
                                 )
                             }
                         }
@@ -422,13 +346,10 @@ class SettingsViewModel constructor(
                         // Primary relaunch: xmsf schedules root `am start` after manager dies.
                         kotlinx.coroutines.runBlocking(Dispatchers.IO) {
                             runCatching {
-                                val client = org.koin.core.context.GlobalContext.get()
-                                    .get<io.github.magisk317.mipush.manager.client.ManagerRuntimeClient>()
-                                io.github.magisk317.mipush.manager.remote.RemoteWriteSupport.execute(
-                                    client = client,
-                                    operation = io.github.magisk317.mipush.manager.api.ManagerProtocol.WRITE_OP_RELAUNCH_MANAGER,
+                                RemoteWriteSupport.execute(
+                                    client = runtimeClient,
+                                    operation = ManagerProtocol.WRITE_OP_RELAUNCH_MANAGER,
                                     argument = route,
-                                    uniqueRequestId = true,
                                 )
                             }
                         }
@@ -442,23 +363,20 @@ class SettingsViewModel constructor(
         viewModelScope.launch(Dispatchers.IO) {
             // Force re-import of missing keys even if previously marked applied.
             preferenceRepository.setManagerMigrationApplied(false)
-            val client = runCatching {
-                org.koin.core.context.GlobalContext.get().get<io.github.magisk317.mipush.manager.client.ManagerRuntimeClient>()
-            }.getOrNull()
-            val written = if (client != null) {
-                io.github.magisk317.mipush.manager.migration.ManagerPreferenceMigration.maybeMigrate(
-                    client = client,
-                    preferenceRepository = preferenceRepository,
-                )
-            } else 0
+            val written = io.github.magisk317.mipush.manager.migration.ManagerPreferenceMigration.maybeMigrate(
+                client = runtimeClient,
+                preferenceRepository = preferenceRepository,
+            )
             withContext(Dispatchers.Main) { onDone(written) }
         }
     }
 
-    fun setRuntimeLogRetentionDays(days: Int) {
+    fun setRuntimeLogRetentionDays(days: Int, onResult: ((Boolean) -> Unit)? = null) {
         viewModelScope.launch {
-            preferenceRepository.setRuntimeLogRetentionDays(days)
-            settingsManager.setRuntimeLogRetentionDays(days)
+            val success = withContext(Dispatchers.IO) {
+                runtimePreferenceGateway.setRuntimeLogRetentionDays(days)
+            }
+            onResult?.invoke(success)
         }
     }
 

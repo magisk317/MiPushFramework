@@ -69,6 +69,8 @@ fun StatusBarIconSettingsPage(
     val colorStatusBarIconGlobal by viewModel.colorStatusBarIconGlobal.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val showSwitchFeedback = rememberStatusBarIconSwitchFeedback(snackbarHostState)
+    val scope = rememberCoroutineScope()
+    val rebootFailedMessage = stringResource(R.string.pref_color_status_bar_icon_reboot_failed)
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     var pendingToggle by remember { mutableStateOf<PendingStatusBarToggle?>(null) }
 
@@ -165,15 +167,17 @@ fun StatusBarIconSettingsPage(
                         val target = pending
                         pendingToggle = null
                         viewModel.applyColorStatusBarIconWithRestart(
-                            context = context,
                             managed = target.managed,
                             global = target.global,
-                            onPrepared = {
-                                notifyStatusBarIconPreferenceChanged(context)
+                            onPrepared = { success ->
+                                if (success) notifyStatusBarIconPreferenceChanged(context)
+                                showSwitchFeedback(target.title, target.enabled, success)
                             },
-                            onRebootFailed = { detail ->
-                                // Keep feedback if reboot cannot be scheduled (e.g. no root).
-                                showSwitchFeedback(target.title, target.enabled)
+                            onRebootFailed = {
+                                scope.launch {
+                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                    snackbarHostState.showSnackbar(rebootFailedMessage)
+                                }
                             },
                         )
                     },
@@ -197,13 +201,18 @@ private fun notifyStatusBarIconPreferenceChanged(context: Context) {
 @Composable
 private fun rememberStatusBarIconSwitchFeedback(
     snackbarHostState: SnackbarHostState,
-): (String, Boolean) -> Unit {
+): (String, Boolean, Boolean) -> Unit {
     val scope = rememberCoroutineScope()
     val enabledTemplate = stringResource(R.string.settings_switch_enabled_feedback)
     val disabledTemplate = stringResource(R.string.settings_switch_disabled_feedback)
-    return remember(snackbarHostState, scope, enabledTemplate, disabledTemplate) {
-        { title, enabled ->
-            val template = if (enabled) enabledTemplate else disabledTemplate
+    val failedTemplate = stringResource(R.string.settings_runtime_preference_update_failed)
+    return remember(snackbarHostState, scope, enabledTemplate, disabledTemplate, failedTemplate) {
+        { title, enabled, success ->
+            val template = when {
+                !success -> failedTemplate
+                enabled -> enabledTemplate
+                else -> disabledTemplate
+            }
             scope.launch {
                 snackbarHostState.currentSnackbarData?.dismiss()
                 snackbarHostState.showSnackbar(

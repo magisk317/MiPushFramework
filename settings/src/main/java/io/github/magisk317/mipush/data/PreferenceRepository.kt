@@ -408,8 +408,18 @@ class PreferenceRepository constructor(
      */
     suspend fun exportOwnedPreferences(owner: PreferenceOwner): List<OwnedPreferenceValue> {
         val prefs = dataStore.data.first()
-        val wanted = PreferenceOwnership.entries.filter { it.owner == owner }.map { it.key }.toSet()
-        val out = mutableListOf<OwnedPreferenceValue>()
+        val ownedEntries = PreferenceOwnership.entries.filter { it.owner == owner }
+        val wanted = ownedEntries.map { it.key }.toSet()
+        val out = ownedEntries.mapNotNull { entry ->
+            entry.defaultValue?.let { defaultValue ->
+                OwnedPreferenceValue(
+                    key = entry.key,
+                    type = defaultValue.type,
+                    value = defaultValue.value,
+                    owner = owner,
+                )
+            }
+        }.associateByTo(linkedMapOf()) { it.key }
         prefs.asMap().forEach { (key, value) ->
             val name = key.name
             if (name !in wanted) return@forEach
@@ -420,14 +430,14 @@ class PreferenceRepository constructor(
                 is Float -> "float"
                 else -> "string"
             }
-            out += OwnedPreferenceValue(
+            out[name] = OwnedPreferenceValue(
                 key = name,
                 type = type,
                 value = value.toString(),
                 owner = owner,
             )
         }
-        return out.sortedBy { it.key }
+        return out.values.sortedBy { it.key }
     }
 
     private companion object {

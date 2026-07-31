@@ -48,6 +48,7 @@ import io.github.magisk317.mipush.manager.application.ApplicationReadResult
 import io.github.magisk317.mipush.manager.application.RemoteApplicationDetailSource
 import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
+import io.github.magisk317.mipush.manager.preferences.RuntimePreferenceGateway
 import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSourceResult
 import io.github.magisk317.mipush.manager.connection.RemoteConnectionSnapshotSource
 import io.github.magisk317.mipush.manager.events.EventListRequest
@@ -379,7 +380,6 @@ class RemoteManagerEventGateway(
         val result = RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_COUNT_EVENTS_BY_DAY,
-            uniqueRequestId = true,
         ) ?: return emptyList()
         if (!RemoteWriteSupport.isSuccess(result)) return emptyList()
         return result.details.lineSequence()
@@ -469,7 +469,6 @@ class RemoteManagerNotificationGateway(
             operation = ManagerProtocol.WRITE_OP_DELETE_NOTIFICATION_CHANNEL,
             packageName = packageName,
             argument = channelId,
-            uniqueRequestId = true,
         )
     }
 
@@ -679,7 +678,6 @@ class RemoteManagerLogGateway(
         val result = RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_CLEAR_LOG_FOLDERS,
-            uniqueRequestId = true,
         )
         val clearResult = if (RemoteWriteSupport.isSuccess(result)) {
             ManagerLogClearResult(
@@ -705,22 +703,12 @@ class RemoteManagerLogGateway(
 class RemoteManagerConfigGateway(
     private val preferenceRepository: PreferenceRepository,
     private val configSyncGateway: io.github.magisk317.mipush.manager.configuration.sync.LocalManagerConfigSyncGateway,
-    private val client: ManagerRuntimeClient,
+    private val runtimePreferenceGateway: RuntimePreferenceGateway,
 ) : ManagerConfigGateway {
     override suspend fun getXmppServer(): String? = preferenceRepository.xmppServer.first()
 
     override suspend fun setXmppServer(host: String): Boolean {
-        val normalizedHost = host.trim()
-        val result = RemoteWriteSupport.execute(
-            client = client,
-            operation = ManagerProtocol.WRITE_OP_SET_XMPP_SERVER,
-            argument = normalizedHost,
-            uniqueRequestId = true,
-        )
-        if (!RemoteWriteSupport.isSuccess(result)) return false
-        return runCatching {
-            preferenceRepository.setXmppServer(normalizedHost)
-        }.isSuccess
+        return runtimePreferenceGateway.setXmppServer(host)
     }
 
     override suspend fun getConfigurationDirectory(): Uri? =
@@ -766,7 +754,6 @@ class RemoteManagerRuntimeActions(
         RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_RESET_TOP_ACTIVITY_CACHE,
-            uniqueRequestId = true,
         )
     }
 
@@ -775,7 +762,6 @@ class RemoteManagerRuntimeActions(
             RemoteWriteSupport.executeBlocking(
                 client = client,
                 operation = ManagerProtocol.WRITE_OP_XMPP_RECONNECT,
-                uniqueRequestId = true,
             ),
         )
 
@@ -907,7 +893,6 @@ class RemoteManagerPermissionGateway(
         val result = RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_REPAIR_XSPACE,
-            uniqueRequestId = true,
         ) ?: return ManagerXSpaceRepairResult(
             stage = ManagerXSpaceRepairStage.PARTIAL_FAILED,
             details = "runtime_write_unavailable",
@@ -970,7 +955,6 @@ class RemoteManagerPermissionGateway(
                     client = client,
                     operation = ManagerProtocol.WRITE_OP_SYNC_LAUNCHER_ICON,
                     argument = iconId,
-                    uniqueRequestId = true,
                 )
             }
         }
@@ -1009,7 +993,6 @@ class RemoteManagerPermissionGateway(
             client = client,
             operation = ManagerProtocol.WRITE_OP_QUERY_ROOT,
             booleanArgument = requestAuthorization,
-            uniqueRequestId = true,
         )
         return resolveRuntimeRootAccessState(result).also { runtimeRootState = it }
     }
@@ -1045,7 +1028,6 @@ class RemoteManagerPermissionGateway(
             packageName = packageName,
             intArgument = userId,
             argument = op,
-            uniqueRequestId = true,
         ) ?: return false
         return RemoteWriteSupport.isSuccess(result) ||
             result.details == ManagerProtocol.WRITE_DETAIL_GRANT_SILENT_OK
@@ -1082,7 +1064,6 @@ class RemoteZygiskConfigGateway(
         val result = RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_ZYGISK_IS_ENABLED,
-            uniqueRequestId = true,
         ) ?: return false
         return RemoteWriteSupport.isSuccess(result) && result.resultLong == 1L
     }
@@ -1093,7 +1074,6 @@ class RemoteZygiskConfigGateway(
         val result = RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_ZYGISK_GET_CONFIG,
-            uniqueRequestId = true,
         ) ?: return ZygiskConfig()
         if (!RemoteWriteSupport.isSuccess(result)) return ZygiskConfig()
         return ZygiskConfig.parse(result.details)
@@ -1105,7 +1085,6 @@ class RemoteZygiskConfigGateway(
             client = client,
             operation = ManagerProtocol.WRITE_OP_ZYGISK_SAVE_CONFIG,
             argument = content,
-            uniqueRequestId = true,
         ) ?: return false
         return RemoteWriteSupport.isSuccess(result)
     }
@@ -1115,7 +1094,6 @@ class RemoteZygiskConfigGateway(
             client = client,
             operation = ManagerProtocol.WRITE_OP_ZYGISK_FORCE_STOP,
             packageName = packageName,
-            uniqueRequestId = true,
         )
     }
 }

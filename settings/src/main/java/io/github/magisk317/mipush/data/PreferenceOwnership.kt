@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.data
 
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
+import io.github.magisk317.mipush.common.ENABLE_ANALYTICS_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLE_FLOAT
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLED
 import io.github.magisk317.mipush.common.ISLAND_PREF_FIRST_FLOAT
@@ -32,74 +33,77 @@ data class PreferenceOwnershipEntry(
     val key: String,
     val owner: PreferenceOwner,
     val description: String,
+    val defaultValue: PreferenceDefaultValue? = null,
+)
+
+data class PreferenceDefaultValue(
+    val type: String,
+    val value: String,
 )
 
 object PreferenceOwnership {
     val entries: List<PreferenceOwnershipEntry> = listOf(
-        PreferenceOwnershipEntry("xmpp_server", PreferenceOwner.RUNTIME, "XMPP host override"),
-        PreferenceOwnershipEntry("access_mode", PreferenceOwner.RUNTIME, "Push access mode"),
-        PreferenceOwnershipEntry("debug_mode", PreferenceOwner.RUNTIME, "Runtime debug mode"),
-        PreferenceOwnershipEntry(
+        runtimeString("xmpp_server", "XMPP host override", ""),
+        runtimeString("access_mode", "Push access mode", "0"),
+        runtimeBoolean("debug_mode", "Runtime debug mode", false),
+        runtimeBoolean(
             LOG_SANITIZATION_ENABLED_KEY,
-            PreferenceOwner.RUNTIME,
             "Runtime log sanitization",
+            false,
         ),
-        PreferenceOwnershipEntry("show_all_events", PreferenceOwner.RUNTIME, "Event type filter policy"),
-        PreferenceOwnershipEntry("start_foreground", PreferenceOwner.RUNTIME, "Foreground service start"),
-        PreferenceOwnershipEntry(
+        runtimeBoolean(ENABLE_ANALYTICS_KEY, "Runtime analytics", true),
+        runtimeBoolean("show_all_events", "Event type filter policy", false),
+        runtimeBoolean("start_foreground", "Foreground service start", true),
+        runtimeBoolean(
             "start_push_as_foreground_service",
-            PreferenceOwner.RUNTIME,
             "Push service foreground policy",
+            true,
         ),
-        PreferenceOwnershipEntry(KEEPALIVE_PREF_OOM_ADJ, PreferenceOwner.RUNTIME, "Keepalive oom adj"),
-        PreferenceOwnershipEntry(KEEPALIVE_PREF_ANTI_KILL, PreferenceOwner.RUNTIME, "Keepalive anti-kill"),
-        PreferenceOwnershipEntry(
+        runtimeBoolean(KEEPALIVE_PREF_OOM_ADJ, "Keepalive oom adj", false),
+        runtimeBoolean(KEEPALIVE_PREF_ANTI_KILL, "Keepalive anti-kill", false),
+        runtimeBoolean(
             KEEPALIVE_PREF_STANDBY_BYPASS,
-            PreferenceOwner.RUNTIME,
             "Keepalive standby bypass",
+            false,
         ),
-        PreferenceOwnershipEntry(
+        runtimeBoolean(
             KEEPALIVE_PREF_DOZE_BYPASS,
-            PreferenceOwner.RUNTIME,
             "Keepalive doze bypass",
+            false,
         ),
-        PreferenceOwnershipEntry(ISLAND_PREF_ENABLED, PreferenceOwner.RUNTIME, "Island master switch"),
-        PreferenceOwnershipEntry(ISLAND_PREF_TIMEOUT, PreferenceOwner.RUNTIME, "Island timeout"),
-        PreferenceOwnershipEntry(ISLAND_PREF_FIRST_FLOAT, PreferenceOwner.RUNTIME, "Island first float"),
-        PreferenceOwnershipEntry(ISLAND_PREF_ENABLE_FLOAT, PreferenceOwner.RUNTIME, "Island float"),
-        PreferenceOwnershipEntry(
+        runtimeBoolean(ISLAND_PREF_ENABLED, "Island master switch", true),
+        runtimeInt(ISLAND_PREF_TIMEOUT, "Island timeout", 5),
+        runtimeBoolean(ISLAND_PREF_FIRST_FLOAT, "Island first float", true),
+        runtimeBoolean(ISLAND_PREF_ENABLE_FLOAT, "Island float", true),
+        runtimeBoolean(
             ISLAND_PREF_SHOW_NOTIFICATION,
-            PreferenceOwner.RUNTIME,
             "Island notification visibility",
+            true,
         ),
-        PreferenceOwnershipEntry(
+        runtimeBoolean(
             ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION,
-            PreferenceOwner.RUNTIME,
             "Island original notification",
+            true,
         ),
-        PreferenceOwnershipEntry(
+        runtimeBoolean(
             ISLAND_PREF_FOCUS_NOTIF,
-            PreferenceOwner.RUNTIME,
             "Island focus notification",
+            false,
         ),
-        PreferenceOwnershipEntry(
+        runtimeBoolean(
             COLOR_STATUS_BAR_ICON_KEY,
-            PreferenceOwner.RUNTIME,
             "Status bar icon color",
+            false,
         ),
-        PreferenceOwnershipEntry(
+        runtimeBoolean(
             COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
-            PreferenceOwner.RUNTIME,
             "Global status bar icon color",
+            false,
         ),
-        PreferenceOwnershipEntry(
-            "runtime_log_retention_days",
-            PreferenceOwner.RUNTIME,
-            "Runtime log retention",
-        ),
-        PreferenceOwnershipEntry("event_retention_days", PreferenceOwner.RUNTIME, "Event retention"),
-        PreferenceOwnershipEntry("last_startup_time", PreferenceOwner.RUNTIME, "Runtime startup marker"),
-        PreferenceOwnershipEntry("dual_app_enabled", PreferenceOwner.RUNTIME, "Dual-app / XSpace support"),
+        runtimeInt("runtime_log_retention_days", "Runtime log retention", 2),
+        runtimeInt("event_retention_days", "Event retention", 7),
+        runtimeLong("last_startup_time", "Runtime startup marker", 0L),
+        runtimeBoolean("dual_app_enabled", "Dual-app / XSpace support", false),
 
         PreferenceOwnershipEntry(
             "config_directory",
@@ -153,4 +157,40 @@ object PreferenceOwnership {
 
     fun managerKeys(): Set<String> =
         entries.filter { it.owner == PreferenceOwner.MANAGER }.mapTo(linkedSetOf()) { it.key }
+
+    private fun runtimeBoolean(
+        key: String,
+        description: String,
+        defaultValue: Boolean,
+    ) = runtime(key, description, "boolean", defaultValue.toString())
+
+    private fun runtimeInt(
+        key: String,
+        description: String,
+        defaultValue: Int,
+    ) = runtime(key, description, "int", defaultValue.toString())
+
+    private fun runtimeLong(
+        key: String,
+        description: String,
+        defaultValue: Long,
+    ) = runtime(key, description, "long", defaultValue.toString())
+
+    private fun runtimeString(
+        key: String,
+        description: String,
+        defaultValue: String,
+    ) = runtime(key, description, "string", defaultValue)
+
+    private fun runtime(
+        key: String,
+        description: String,
+        type: String,
+        defaultValue: String,
+    ) = PreferenceOwnershipEntry(
+        key = key,
+        owner = PreferenceOwner.RUNTIME,
+        description = description,
+        defaultValue = PreferenceDefaultValue(type, defaultValue),
+    )
 }

@@ -17,7 +17,6 @@ class RemoteConnectionReconnectRequester internal constructor(
             RemoteWriteSupport.execute(
                 client = client,
                 operation = ManagerProtocol.WRITE_OP_XMPP_RECONNECT,
-                uniqueRequestId = true,
             )
         },
     )
