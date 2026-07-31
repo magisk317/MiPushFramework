@@ -127,6 +127,56 @@ class PushRuntimeTest {
     }
 
     @Test
+    fun `channel synchronization corrects stale connection state without double counting sessions`() {
+        AndroidPushRuntime.clearStateForTests()
+        AndroidPushRuntime.observeConnectionState(
+            state = PushConnectionState.Disconnected,
+            source = "stale",
+            nowMs = 100L,
+        )
+
+        AndroidPushRuntime.synchronizeChannels(
+            connectionState = PushConnectionState.Connected,
+            host = "resolver.msg.xiaomi.net",
+            channels = emptyList(),
+            source = "sync",
+            nowMs = 200L,
+        )
+        AndroidPushRuntime.synchronizeChannels(
+            connectionState = PushConnectionState.Connected,
+            host = "resolver.msg.xiaomi.net",
+            channels = emptyList(),
+            source = "sync-again",
+            nowMs = 300L,
+        )
+
+        val connected = AndroidPushRuntime.connectionSnapshot()
+        assertEquals("Connected", connected.connectionState)
+        assertEquals(200L, connected.connectedAtMs)
+        assertEquals(1L, connected.connectionSessionCount)
+
+        AndroidPushRuntime.synchronizeChannels(
+            connectionState = PushConnectionState.Disconnected,
+            host = null,
+            channels = emptyList(),
+            source = "disconnect",
+            nowMs = 400L,
+        )
+        AndroidPushRuntime.synchronizeChannels(
+            connectionState = PushConnectionState.Disconnected,
+            host = null,
+            channels = emptyList(),
+            source = "disconnect-again",
+            nowMs = 500L,
+        )
+
+        val disconnected = AndroidPushRuntime.connectionSnapshot()
+        assertEquals("Disconnected", disconnected.connectionState)
+        assertEquals(400L, disconnected.lastDisconnectedAtMs)
+        assertEquals(1L, disconnected.connectionSessionCount)
+    }
+
+    @Test
     fun `registration state transitions are tracked in snapshot`() {
         AndroidPushRuntime.clearStateForTests()
 

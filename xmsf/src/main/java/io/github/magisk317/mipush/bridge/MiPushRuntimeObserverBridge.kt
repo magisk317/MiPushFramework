@@ -116,9 +116,17 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
 
     companion object {
         fun ensureInstalled(context: Context): Boolean {
-            if (XMPushServiceCore.observer != null) return false
-            MiPushRuntimeObserverBridge(context)
-            return true
+            return synchronized(XMPushServiceCore::class.java) {
+                if (XMPushServiceCore.observer != null) return@synchronized false
+                MiPushRuntimeObserverBridge(context)
+                true
+            }
+        }
+
+        fun getOrInstall(context: Context): IPushRuntimeObserver {
+            return synchronized(XMPushServiceCore::class.java) {
+                XMPushServiceCore.observer ?: MiPushRuntimeObserverBridge(context)
+            }
         }
     }
 
@@ -442,7 +450,22 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun attachAccountClient(client: Any) {
-        // Obsolete, managed dynamically by the product layer now
+        val account = client as? MIPushAccount ?: return
+        val service = synchronized(this) { serviceRuntimeBinding?.service }
+            ?: io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge.peekService()
+            ?: return
+        val created = attachMIPushAccountClient(
+            account = account,
+            service = service,
+            manager = PushClientsManager.getInstance(),
+        )
+        PushRuntimeChannelTracker.syncNow(
+            if (created) {
+                "MiPushRuntimeObserverBridge.attachAccountClient:created"
+            } else {
+                "MiPushRuntimeObserverBridge.attachAccountClient:existing"
+            },
+        )
     }
 
     override fun onChannelEvent(packageName: String?, event: String, reason: String) {
@@ -888,4 +911,19 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         @Suppress("UNCHECKED_CAST")
         PushClientsStateSupport.resetAllClients(clients as Iterable<HashMap<String?, PushClientsManager.ClientLoginInfo>>, reason)
     }
+}
+
+internal fun attachMIPushAccountClient(
+    account: MIPushAccount,
+    service: XMPushServiceCore,
+    manager: PushClientsManager,
+): Boolean = synchronized(manager) {
+    if (manager.getAllClientLoginInfoByChid(PushConstants.MIPUSH_CHANNEL).isNotEmpty()) {
+        return@synchronized false
+    }
+    account.toClientLoginInfo(service, service).also { loginInfo ->
+        MIPushHelper.prepareClientLoginInfo(service, loginInfo)
+        manager.addActiveClient(loginInfo)
+    }
+    true
 }

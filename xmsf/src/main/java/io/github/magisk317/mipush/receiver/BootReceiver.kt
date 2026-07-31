@@ -38,7 +38,7 @@ class BootReceiver : BroadcastReceiver() {
                     XSpaceXmsfInstallKeeper.scheduleForced(context, "BootReceiver.BOOT_COMPLETED")
                     ClientEventDispatcher().notifyServiceStarted(
                         context,
-                        io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge(context),
+                        io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge.getOrInstall(context),
                     )
                     PushRuntime.handleBootCompleted("BootReceiver.onReceive")
                 }.fold(

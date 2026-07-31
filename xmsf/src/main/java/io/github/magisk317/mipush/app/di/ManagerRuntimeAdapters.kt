@@ -83,8 +83,13 @@ import java.util.Locale
 
 class XmsfManagerConfigGateway(
     private val configCenter: ConfigCenter,
+    private val runtimeSettingsAdapter: RuntimeSettingsAdapter,
 ) : ManagerConfigGateway {
     override suspend fun getXmppServer(): String? = configCenter.getXMPPServerAsync()
+
+    override suspend fun setXmppServer(host: String): Boolean = runCatching {
+        runtimeSettingsAdapter.setXmppServer(newHost = host)
+    }.isSuccess
 
     override suspend fun getConfigurationDirectory(): Uri? = configCenter.getConfigurationDirectoryAsync()
 
@@ -799,15 +804,12 @@ class XmsfManagerRuntimeActions(
         runtimeSettingsAdapter.resetTopActivityCache()
     }
 
-    override fun sendXmppReconnectRequest(context: Context) {
-        runtimeSettingsAdapter.sendXmppReconnectRequest(context)
-    }
+    override fun sendXmppReconnectRequest(context: Context): Boolean =
+        runtimeSettingsAdapter.sendXmppReconnectRequest()
 
     override fun setXmppServer(context: Context, newHost: String) {
         runtimeSettingsAdapter.setXmppServer(context, newHost)
     }
-
-    override fun getXmppServerHint(): String = runtimeSettingsAdapter.getXmppServerHint()
 
     override fun getRuntimeEnvironmentSnapshot(context: Context): ManagerRuntimeEnvironmentSnapshot {
         return runtimeSettingsAdapter.getRuntimeEnvironmentSnapshot(context)

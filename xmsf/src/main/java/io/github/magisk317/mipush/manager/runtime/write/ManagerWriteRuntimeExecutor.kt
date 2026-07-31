@@ -156,8 +156,11 @@ class ManagerWriteRuntimeExecutor(
                 success(request.requestId, "foreground_started")
             }
             ManagerProtocol.WRITE_OP_XMPP_RECONNECT -> {
-                runtimeActions.sendXmppReconnectRequest(context)
-                success(request.requestId, "xmpp_reconnect_requested")
+                if (runtimeActions.sendXmppReconnectRequest(context)) {
+                    success(request.requestId, "xmpp_reconnect_requested")
+                } else {
+                    failed(request.requestId, "xmpp_reconnect_unavailable")
+                }
             }
             ManagerProtocol.WRITE_OP_APPLY_EVENT_RETENTION -> {
                 val days = request.intArgument.coerceAtLeast(1)
@@ -429,9 +432,11 @@ class ManagerWriteRuntimeExecutor(
 
     private fun setXmppServer(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         val host = request.argument.trim()
-        if (host.isBlank()) return failed(request.requestId, "missing_xmpp_host")
         runtimeActions.setXmppServer(context, host)
-        return success(request.requestId, "xmpp_server_set")
+        return success(
+            requestId = request.requestId,
+            details = if (host.isEmpty()) "xmpp_server_reset" else "xmpp_server_set",
+        )
     }
 
 

@@ -5,9 +5,7 @@ import android.content.Intent
 import com.xiaomi.channel.commonutils.android.DeviceInfo
 import com.xiaomi.channel.commonutils.android.MIUIUtils
 import com.xiaomi.push.sdk.PushMessageProcessor
-import com.xiaomi.push.service.PushConstants
 import com.xiaomi.push.service.PushServiceConstants
-import com.xiaomi.push.service.XMPushServiceProxy
 import com.xiaomi.smack.ConnectionConfiguration
 import com.xiaomi.smack.SmackConfiguration
 import com.xiaomi.smack.SocketConnection
@@ -18,6 +16,8 @@ import io.github.magisk317.mipush.network.NetworkPolicyCompat
 import io.github.magisk317.mipush.platform.support.InternalMessenger
 import io.github.magisk317.mipush.platform.support.PushServiceBroadcastActions
 import io.github.magisk317.mipush.runtime.PushRuntime
+import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
+import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
 import com.xiaomi.mipush.sdk.MiPushClient
 import kotlinx.coroutines.runBlocking
 
@@ -30,18 +30,16 @@ class RuntimeSettingsAdapter constructor(
         InternalMessenger(context).send(Intent(PushServiceBroadcastActions.START_FOREGROUND))
     }
 
-    fun sendXmppReconnectRequest(context: Context = appContext) {
-        InternalMessenger(context).send(Intent(PushConstants.ACTION_RESET_CONNECTION))
-    }
+    fun sendXmppReconnectRequest(): Boolean =
+        PushRuntime.requestConnectionReset(
+            source = "RuntimeSettingsAdapter.sendXmppReconnectRequest",
+            reason = "manager_force_reconnect",
+        )
 
     fun setXmppServer(context: Context = appContext, newHost: String) {
         runBlocking { configCenter.setXMPPServerAsync(newHost) }
         NetworkPolicyCompat.applyXmppHostOverride(context.applicationContext)
-        sendXmppReconnectRequest(context)
-    }
-
-    fun getXmppServerHint(): String {
-        return ConnectionConfiguration.getXmppServerHost() + ":" + PushServiceConstants.XMPP_SERVER_PORT
+        sendXmppReconnectRequest()
     }
 
     fun getRuntimeEnvironmentSnapshot(context: Context = appContext): ManagerRuntimeEnvironmentSnapshot {
@@ -59,6 +57,7 @@ class RuntimeSettingsAdapter constructor(
     }
 
     fun getConnectionSnapshot(): ManagerConnectionSnapshot {
+        PushRuntimeChannelTracker.syncIfChanged("RuntimeSettingsAdapter.getConnectionSnapshot")
         val snapshot = PushRuntime.connectionSnapshot()
         val sanitizedLastDisconnected = if (
             snapshot.connectionState == "Connected" &&
@@ -70,7 +69,7 @@ class RuntimeSettingsAdapter constructor(
             snapshot.lastDisconnectedAtMs
         }
         val resolvedIp = snapshot.resolvedIp ?: runCatching {
-            val service = XMPushServiceProxy.get()
+            val service = XMPushServiceLifecycleBridge.peekService()
             val connection = service?.currentConnection
             (connection as? SocketConnection)?.resolvedIp
         }.getOrNull()

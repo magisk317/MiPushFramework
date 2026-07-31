@@ -16,6 +16,12 @@ import io.github.aakira.napier.Napier
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 object PushRuntimeChannelTracker {
+    private data class LiveSnapshot(
+        val connectionState: PushConnectionState,
+        val host: String?,
+        val records: List<PushChannelRecord>,
+    )
+
     private val lock = Any()
     private var attached = false
     private val clientChangeListener = PushClientsManager.ClientChangeListener {
@@ -55,32 +61,26 @@ object PushRuntimeChannelTracker {
 
     @JvmStatic
     fun syncNow(source: String) {
+        synchronize(source, onlyIfChanged = false)
+    }
+
+    @JvmStatic
+    fun syncIfChanged(source: String): Boolean {
+        return synchronize(source, onlyIfChanged = true)
+    }
+
+    private fun synchronize(source: String, onlyIfChanged: Boolean): Boolean {
         val startedAt = System.nanoTime()
-        runCatching {
-            val service = XMPushServiceLifecycleBridge.withService { it }
-            val connectionState = when {
-                service?.isConnected == true -> PushConnectionState.Connected
-                service?.isConnecting == true -> PushConnectionState.Connecting
-                service != null -> PushConnectionState.Disconnected
-                else -> PushConnectionState.Idle
+        return runCatching {
+            val liveSnapshot = captureLiveSnapshot(source)
+            if (onlyIfChanged && !needsSynchronization(liveSnapshot)) {
+                return@runCatching false
             }
-            val host = service?.currentConnection?.host
             val nowMs = System.currentTimeMillis()
-            val records = PushClientsManager.getInstance().getAllClients().map { client ->
-                PushChannelRecord(
-                    packageName = client.pkgName,
-                    channelId = client.chid,
-                    userId = client.userId,
-                    session = client.session,
-                    state = readClientState(client),
-                    updatedAtMs = nowMs,
-                    source = source
-                )
-            }
             PushRuntime.synchronizeChannels(
-                connectionState = connectionState,
-                host = host,
-                channels = records,
+                connectionState = liveSnapshot.connectionState,
+                host = liveSnapshot.host,
+                channels = liveSnapshot.records,
                 source = source,
                 nowMs = nowMs
             )
@@ -91,13 +91,14 @@ object PushRuntimeChannelTracker {
                     "duration_ms" to (((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)).toString(),
                     "process" to "xmsf",
                     "stage" to "channel_sync",
-                    "reason" to connectionState.name.lowercase(),
+                    "reason" to liveSnapshot.connectionState.name.lowercase(),
                     "source" to source,
-                    "found_count" to records.size.toString(),
+                    "found_count" to liveSnapshot.records.size.toString(),
                 ),
                 statusOk = true,
             )
-        }.onFailure {
+            true
+        }.getOrElse {
             logE("syncNow failed source=$source", it)
             MagiskOtel.event(
                 name = "push.lifecycle",
@@ -112,7 +113,43 @@ object PushRuntimeChannelTracker {
                 ),
                 statusOk = false,
             )
+            false
         }
+    }
+
+    private fun captureLiveSnapshot(source: String): LiveSnapshot {
+        val service = XMPushServiceLifecycleBridge.withService { it }
+        val connectionState = when {
+            service?.isConnected == true -> PushConnectionState.Connected
+            service?.isConnecting == true -> PushConnectionState.Connecting
+            service != null -> PushConnectionState.Disconnected
+            else -> PushConnectionState.Idle
+        }
+        val nowMs = System.currentTimeMillis()
+        val records = PushClientsManager.getInstance().getAllClients().map { client ->
+            PushChannelRecord(
+                packageName = client.pkgName,
+                channelId = client.chid,
+                userId = client.userId,
+                session = client.session,
+                state = readClientState(client),
+                updatedAtMs = nowMs,
+                source = source
+            )
+        }
+        return LiveSnapshot(
+            connectionState = connectionState,
+            host = service?.currentConnection?.host,
+            records = records,
+        )
+    }
+
+    private fun needsSynchronization(liveSnapshot: LiveSnapshot): Boolean {
+        val cached = PushRuntime.connectionSnapshot()
+        return cached.connectionState != liveSnapshot.connectionState.name ||
+            cached.serverHost != liveSnapshot.host ||
+            cached.trackedChannelCount != liveSnapshot.records.size ||
+            cached.boundChannelCount != liveSnapshot.records.count { it.state == PushChannelState.Bound }
     }
 
     @JvmStatic

@@ -5,8 +5,11 @@ import android.content.Intent
 import com.xiaomi.mipush.sdk.AppInfoHolder
 import com.xiaomi.mipush.sdk.MiPushCommandMessage
 import com.xiaomi.push.service.MIPushHelper
+import com.xiaomi.push.service.MIPushAccount
 import com.xiaomi.push.service.IPendingPacketErrorNotifier
 import com.xiaomi.push.service.PushConstants
+import com.xiaomi.push.service.PushClientsManager
+import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.xmpush.thrift.ActionType
 import com.xiaomi.xmpush.thrift.XmPushActionRegistrationResult
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
@@ -17,9 +20,12 @@ import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertSame
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.Robolectric
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import tech.apter.junit.jupiter.robolectric.RobolectricExtension
@@ -27,6 +33,39 @@ import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 @ExtendWith(RobolectricExtension::class)
 @Config(sdk = [28], application = Application::class)
 class MiPushRuntimeObserverBridgeTest {
+    @Test
+    fun `getOrInstall preserves the installed observer`() {
+        val context: Application = RuntimeEnvironment.getApplication()
+        val installed = MiPushRuntimeObserverBridge(context)
+
+        val resolved = MiPushRuntimeObserverBridge.getOrInstall(context)
+
+        assertSame(installed, resolved)
+    }
+
+    @Test
+    fun `attaching the MiPush account client restores chid 5 only once`() {
+        val service = Robolectric.buildService(XMPushServiceCore::class.java).get()
+        val manager = PushClientsManager.getInstance()
+        val account = MIPushAccount(
+            account = "account@xiaomi.com/resource",
+            token = "token",
+            security = "security",
+            appId = "app-id",
+            appToken = "app-token",
+            packageName = service.packageName,
+            envType = 1,
+        )
+        manager.removeActiveClients()
+        try {
+            assertTrue(attachMIPushAccountClient(account, service, manager))
+            assertFalse(attachMIPushAccountClient(account, service, manager))
+            assertEquals(1, manager.getAllClientLoginInfoByChid(PushConstants.MIPUSH_CHANNEL).size)
+        } finally {
+            manager.removeActiveClients()
+        }
+    }
+
     @Test
     fun `registration response is processed and stored for xmsf itself`() {
         val context: Application = RuntimeEnvironment.getApplication()

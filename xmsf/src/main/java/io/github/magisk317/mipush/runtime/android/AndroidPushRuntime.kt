@@ -707,16 +707,19 @@ object AndroidPushRuntime {
     ) {
         val incomingKeys = channels.mapTo(linkedSetOf()) { channelIdentity(it) }
         synchronized(lock) {
+            val previousState = connectionRecord.state
             connectionRecord = PushConnectionRecord(
                 state = connectionState,
                 updatedAtMs = nowMs,
                 source = source,
                 host = host
             )
-            // Backfill timestamps if first observation of Connected state
-            if (connectionState == PushConnectionState.Connected && connectedAtMs == 0L) {
+            if (connectionState == PushConnectionState.Connected && previousState != PushConnectionState.Connected) {
                 connectedAtMs = nowMs
                 connectionSessionCount += 1
+            }
+            if (connectionState == PushConnectionState.Disconnected && previousState != PushConnectionState.Disconnected) {
+                lastDisconnectedAtMs = nowMs
             }
             val iterator = channelRecords.entries.iterator()
             while (iterator.hasNext()) {
@@ -828,6 +831,10 @@ object AndroidPushRuntime {
                 updatedAtMs = 0L,
                 source = "test_reset"
             )
+            connectedAtMs = 0L
+            lastDisconnectedAtMs = 0L
+            connectionSessionCount = 0L
+            lastResolvedIp = null
             downstreamMessageCount = 0
             deliveredToAppCount = 0
             duplicateMessageCount = 0

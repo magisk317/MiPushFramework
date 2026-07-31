@@ -75,6 +75,7 @@ tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
     useJUnitPlatform()
     // Prevent Robolectric native runtime races within and across XMSF flavor tests.
     maxParallelForks = 1
+    forkEvery = 1
 }
 
 tasks.configureEach {
