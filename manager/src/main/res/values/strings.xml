@@ -264,6 +264,9 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="settings_configuration_directory">Change configuration directory</string>
     <string name="settings_XMPP_server">Set XMPP server</string>
     <string name="settings_XMPP_server_summary">Set send/receive message server</string>
+    <string name="settings_XMPP_server_hint">Host or host:port</string>
+    <string name="settings_XMPP_server_saved">XMPP server updated</string>
+    <string name="settings_XMPP_server_save_failed">Could not update XMPP server</string>
     <string name="settings_permission_check">Permission check</string>
     <string name="settings_permission_check_summary">Re-open the permission guide and grant missing permissions.</string>
     <string name="settings_connection_status">Connection status</string>
@@ -271,6 +274,10 @@ Please grant the <b>Run in the background or wake up</b> permissions.
 
     <string name="connection_status_title">Connection Status</string>
     <string name="connection_status_loading">Loading…</string>
+    <string name="connection_status_refresh">Refresh connection status</string>
+    <string name="connection_status_force_reconnect">Force reconnect</string>
+    <string name="connection_status_reconnect_requested">Reconnect requested</string>
+    <string name="connection_status_reconnect_failed">Unable to request reconnect</string>
     <string name="connection_status_session_count">Session #%1$d</string>
     <string name="connection_status_section_server">Server</string>
     <string name="connection_status_host">Host</string>

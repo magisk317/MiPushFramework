@@ -5,6 +5,7 @@ import android.net.Uri
 
 interface ManagerConfigGateway {
     suspend fun getXmppServer(): String?
+    suspend fun setXmppServer(host: String): Boolean
     suspend fun getConfigurationDirectory(): Uri?
     suspend fun setConfigurationDirectory(uri: Uri): Boolean
     fun loadConfigurations(context: Context)
@@ -40,9 +41,8 @@ interface ManagerRuntimeActions {
     suspend fun clearHistory()
     fun startMiPushServiceAsForegroundService(context: Context)
     fun resetTopActivityCache()
-    fun sendXmppReconnectRequest(context: Context)
+    fun sendXmppReconnectRequest(context: Context): Boolean
     fun setXmppServer(context: Context, newHost: String)
-    fun getXmppServerHint(): String
     fun getRuntimeEnvironmentSnapshot(context: Context): ManagerRuntimeEnvironmentSnapshot
     fun getConnectionSnapshot(): ManagerConnectionSnapshot
     fun observeNotificationEvent(packageName: String, action: String, source: String)

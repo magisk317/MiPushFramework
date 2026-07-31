@@ -8,37 +8,56 @@ import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSource
 import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSourceResult
 import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSourceStatus
+import io.github.magisk317.mipush.manager.connection.ConnectionReconnectRequester
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 class ConnectionStatusViewModel constructor(
     private val snapshotSource: ConnectionSnapshotSource,
+    private val reconnectRequester: ConnectionReconnectRequester,
+    private val currentTimeMillis: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
 
     private companion object {
         const val AUTO_REFRESH_INTERVAL_MILLIS = 5_000L
+        const val CLOCK_INTERVAL_MILLIS = 1_000L
+        const val RECONNECT_REFRESH_ATTEMPTS = 10
     }
 
     private val _snapshot = MutableStateFlow<ManagerConnectionSnapshot?>(null)
     val snapshot: StateFlow<ManagerConnectionSnapshot?> = _snapshot.asStateFlow()
 
-    /** Monotonically increasing tick to force recomposition even when snapshot data is unchanged. */
-    private val _tick = MutableStateFlow(0L)
-    val tick: StateFlow<Long> = _tick.asStateFlow()
+    private val _currentTimeMs = MutableStateFlow(currentTimeMillis())
+    val currentTimeMs: StateFlow<Long> = _currentTimeMs.asStateFlow()
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+    private val _isReconnecting = MutableStateFlow(false)
+    val isReconnecting: StateFlow<Boolean> = _isReconnecting.asStateFlow()
+
+    private val _reconnectFeedback = MutableSharedFlow<ReconnectFeedback>()
+    val reconnectFeedback: SharedFlow<ReconnectFeedback> = _reconnectFeedback.asSharedFlow()
+
+    private val refreshMutex = Mutex()
     private var autoRefreshJob: Job? = null
+    private var clockJob: Job? = null
 
     fun refresh() {
+        _currentTimeMs.value = currentTimeMillis()
+        if (_isRefreshing.value) return
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
@@ -57,11 +76,43 @@ class ConnectionStatusViewModel constructor(
                 delay(AUTO_REFRESH_INTERVAL_MILLIS)
             }
         }
+        clockJob = viewModelScope.launch {
+            while (isActive) {
+                _currentTimeMs.value = currentTimeMillis()
+                delay(CLOCK_INTERVAL_MILLIS)
+            }
+        }
     }
 
     fun stopAutoRefresh() {
         autoRefreshJob?.cancel()
         autoRefreshJob = null
+        clockJob?.cancel()
+        clockJob = null
+    }
+
+    fun forceReconnect() {
+        if (_isReconnecting.value) return
+        viewModelScope.launch {
+            _isReconnecting.value = true
+            try {
+                val requested = withContext(Dispatchers.IO) {
+                    reconnectRequester.requestReconnect()
+                }
+                _reconnectFeedback.emit(
+                    if (requested) ReconnectFeedback.REQUESTED else ReconnectFeedback.FAILED,
+                )
+                if (requested) {
+                    repeat(RECONNECT_REFRESH_ATTEMPTS) {
+                        delay(CLOCK_INTERVAL_MILLIS)
+                        _currentTimeMs.value = currentTimeMillis()
+                        refreshPrimarySnapshot()
+                    }
+                }
+            } finally {
+                _isReconnecting.value = false
+            }
+        }
     }
 
     override fun onCleared() {
@@ -69,11 +120,9 @@ class ConnectionStatusViewModel constructor(
         stopAutoRefresh()
     }
 
-    private suspend fun refreshPrimarySnapshot() {
+    private suspend fun refreshPrimarySnapshot() = refreshMutex.withLock {
         when (val result = withContext(Dispatchers.IO) { snapshotSource.load() }) {
-            is ConnectionSnapshotSourceResult.Available -> {
-                _snapshot.value = result.snapshot
-            }
+            is ConnectionSnapshotSourceResult.Available -> _snapshot.value = result.snapshot
 
             is ConnectionSnapshotSourceResult.Unavailable -> {
                 val transient = result.status in setOf(
@@ -90,6 +139,10 @@ class ConnectionStatusViewModel constructor(
                 }
             }
         }
-        _tick.value += 1
     }
+}
+
+enum class ReconnectFeedback {
+    REQUESTED,
+    FAILED,
 }

@@ -21,6 +21,7 @@ import io.github.magisk317.mipush.main.viewmodel.OverviewViewModel
 import io.github.magisk317.mipush.main.viewmodel.ConnectionStatusViewModel
 import io.github.magisk317.mipush.main.viewmodel.RequestPermissionViewModel
 import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
+import io.github.magisk317.mipush.main.viewmodel.XmppServerViewModel
 import io.github.magisk317.mipush.main.viewmodel.ZygiskConfigViewModel
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.application.RemoteApplicationDetailSource
@@ -31,12 +32,14 @@ import io.github.magisk317.mipush.manager.logs.RemoteLogExportSource
 import io.github.magisk317.mipush.manager.notification.RemoteNotificationChannelSource
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSource
+import io.github.magisk317.mipush.manager.connection.ConnectionReconnectRequester
 import io.github.magisk317.mipush.manager.migration.ManagerPreferenceMigration
 import io.github.magisk317.mipush.manager.launcher.LauncherIconController
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import io.github.magisk317.mipush.manager.connection.RemoteConnectionSnapshotSource
+import io.github.magisk317.mipush.manager.connection.RemoteConnectionReconnectRequester
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -64,6 +67,8 @@ val managerKoinModule = module {
     // Production manager is remote-only: ViewModels consume Remote* sources directly.
     single { RemoteConnectionSnapshotSource(get<ManagerRuntimeClient>()) }
     single<ConnectionSnapshotSource> { get<RemoteConnectionSnapshotSource>() }
+    single { RemoteConnectionReconnectRequester(get<ManagerRuntimeClient>()) }
+    single<ConnectionReconnectRequester> { get<RemoteConnectionReconnectRequester>() }
     single { RemoteApplicationListSource(get<ManagerRuntimeClient>()) }
     single { RemoteApplicationDetailSource(get<ManagerRuntimeClient>()) }
     single { RemoteEventListSource(get<ManagerRuntimeClient>()) }
@@ -78,6 +83,7 @@ val managerKoinModule = module {
             get<ManagerPermissionGateway>(),
         )
     }
+    viewModel { XmppServerViewModel(get<ManagerConfigGateway>()) }
     viewModel {
         EventListViewModel(
             get<RemoteEventListSource>(),
@@ -93,7 +99,12 @@ val managerKoinModule = module {
     viewModel { ConfigEditorViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidContext()) }
     viewModel { ApplicationInfoViewModel(get(), get(), get(), get(), get(), androidContext()) }
     viewModel { OverviewViewModel(get<RemoteApplicationListSource>(), get<ManagerRuntimeClient>(), get<PreferenceRepository>()) }
-    viewModel { ConnectionStatusViewModel(get<ConnectionSnapshotSource>()) }
+    viewModel {
+        ConnectionStatusViewModel(
+            get<ConnectionSnapshotSource>(),
+            get<ConnectionReconnectRequester>(),
+        )
+    }
     viewModel {
         ApplicationListViewModel(
             get<RemoteApplicationListSource>(),

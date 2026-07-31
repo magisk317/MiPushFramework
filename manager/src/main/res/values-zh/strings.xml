@@ -241,6 +241,9 @@
     <string name="settings_configuration_directory">设置配置目录</string>
     <string name="settings_XMPP_server">设置 XMPP 服务器</string>
     <string name="settings_XMPP_server_summary">设置 发送/接收 消息的服务器</string>
+    <string name="settings_XMPP_server_hint">主机名或主机名:端口</string>
+    <string name="settings_XMPP_server_saved">XMPP 服务器已更新</string>
+    <string name="settings_XMPP_server_save_failed">XMPP 服务器更新失败</string>
     <string name="settings_permission_check">权限检查</string>
     <string name="settings_permission_check_summary">重新打开权限引导页，补齐未授权权限。</string>
     <string name="settings_connection_status">连接状态</string>
@@ -248,6 +251,10 @@
 
     <string name="connection_status_title">连接状态</string>
     <string name="connection_status_loading">加载中…</string>
+    <string name="connection_status_refresh">刷新连接状态</string>
+    <string name="connection_status_force_reconnect">强制重连</string>
+    <string name="connection_status_reconnect_requested">已请求重新连接</string>
+    <string name="connection_status_reconnect_failed">无法请求重新连接</string>
     <string name="connection_status_session_count">会话 #%1$d</string>
     <string name="connection_status_section_server">服务器</string>
     <string name="connection_status_host">主机</string>

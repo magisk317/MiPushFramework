@@ -41,7 +41,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -100,9 +99,6 @@ import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.feature.main.MainActivityOperation
 import io.github.magisk317.mipush.feature.wizard.RequestPermissionPage
 import io.github.magisk317.uikit.scroll.ScrollChromeState
-import io.github.magisk317.uikit.preference.DialogItem as SettingsDialogItem
-import io.github.magisk317.uikit.surface.DialogAction
-import io.github.magisk317.uikit.surface.DialogActionRow
 import io.github.magisk317.uikit.surface.ScrollToTopFAB
 import io.github.magisk317.uikit.preference.Item as SettingsItem
 import io.github.magisk317.uikit.preference.StateSwitchItem as SettingsSwitchItem
@@ -422,7 +418,7 @@ private fun rememberSwitchFeedback(snackbarHostState: SnackbarHostState): (Strin
 private fun ConnectionServiceBlock(viewModel: SettingsViewModel, snackbarHostState: SnackbarHostState, onNavigateToConnectionStatus: () -> Unit) {
     val context = LocalContext.current
 
-    SetXMPPServer(viewModel)
+    SetXMPPServer()
 
     SettingsItem(
         title = stringResource(R.string.settings_connection_status),
@@ -904,61 +900,16 @@ private fun isKeepAliveAccessibilityServiceEnabled(context: Context): Boolean {
 }
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
-private fun SetXMPPServer(viewModel: SettingsViewModel) {
-    val savedXmppServer by viewModel.xmppServer.collectAsStateWithLifecycle()
-    var text by remember { mutableStateOf(savedXmppServer ?: "") }
-    var shouldShowDialog by remember { mutableStateOf(false) }
-
-    LaunchedEffect(shouldShowDialog) {
-        if (shouldShowDialog) {
-            text = savedXmppServer ?: ""
-        }
+private fun SetXMPPServer() {
+    XmppServerEditor { uiState, onEdit ->
+        SettingsItem(
+            title = stringResource(R.string.settings_XMPP_server),
+            summary = uiState.configuredServer?.takeIf(String::isNotBlank)
+                ?: stringResource(R.string.settings_XMPP_server_summary),
+            enabled = uiState.isLoaded && !uiState.isSaving,
+            onClick = onEdit,
+        )
     }
-
-    SettingsDialogItem(
-        title = stringResource(R.string.settings_XMPP_server),
-        summary = if (savedXmppServer.isNullOrEmpty()) {
-            stringResource(R.string.settings_XMPP_server_summary)
-        } else {
-            savedXmppServer!!
-        },
-        shouldShowDialog = shouldShowDialog,
-        onDismiss = {
-            shouldShowDialog = false
-            text = ""
-        },
-        onClick = { shouldShowDialog = true },
-        confirmButton = {},
-        dismissButton = {
-            DialogActionRow(
-                actions = listOf(
-                    DialogAction(
-                        label = stringResource(android.R.string.cancel),
-                        onClick = {
-                            shouldShowDialog = false
-                            text = ""
-                        },
-                    ),
-                    DialogAction(
-                        label = stringResource(android.R.string.ok),
-                        onClick = {
-                            viewModel.updateXmppServer(text)
-                            shouldShowDialog = false
-                        },
-                    ),
-                )
-            )
-        },
-        content = {
-            TextField(
-                value = text,
-                onValueChange = { text = it },
-                placeholder = { Text(viewModel.getXMPPServerHint()) },
-                singleLine = true,
-            )
-        },
-    )
 }
 
 @Preview(showBackground = true)

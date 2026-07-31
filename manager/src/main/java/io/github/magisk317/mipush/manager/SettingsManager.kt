@@ -70,17 +70,8 @@ class SettingsManager constructor(
         return logGateway.clearLogFolders(context)
     }
 
-    fun sendXMPPReconnectRequest(context: Context) {
+    fun sendXMPPReconnectRequest(context: Context): Boolean =
         runtimeActions.sendXmppReconnectRequest(context)
-    }
-
-    fun setXMPPServer(context: Context, newHost: String) {
-        runtimeActions.setXmppServer(context, newHost)
-    }
-
-    fun getXMPPServerHint(): String {
-        return runtimeActions.getXmppServerHint()
-    }
 
     fun getRuntimeEnvironmentSnapshot(context: Context): ManagerRuntimeEnvironmentSnapshot {
         return runtimeActions.getRuntimeEnvironmentSnapshot(context)

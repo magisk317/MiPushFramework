@@ -2,7 +2,9 @@
 
 package io.github.magisk317.mipush.feature.main.subpage
 
+import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +23,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -32,11 +37,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -44,6 +49,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.feature.ui.theme.spacing
 import io.github.magisk317.mipush.main.viewmodel.ConnectionStatusViewModel
+import io.github.magisk317.mipush.main.viewmodel.ReconnectFeedback
 import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.surface.DetailSectionCard
 import io.github.magisk317.uikit.surface.OverlayHeaderScaffold
@@ -56,11 +62,22 @@ fun ConnectionStatusPage(
     onBack: () -> Unit,
 ) {
     val snapshot by viewModel.snapshot.collectAsStateWithLifecycle()
-    @Suppress("UNUSED_VARIABLE")
-    val tick by viewModel.tick.collectAsStateWithLifecycle() // forces recomposition for duration updates
+    val currentTimeMs by viewModel.currentTimeMs.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val isReconnecting by viewModel.isReconnecting.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
         viewModel.startAutoRefresh()
+    }
+    LaunchedEffect(viewModel) {
+        viewModel.reconnectFeedback.collect { feedback ->
+            val message = when (feedback) {
+                ReconnectFeedback.REQUESTED -> R.string.connection_status_reconnect_requested
+                ReconnectFeedback.FAILED -> R.string.connection_status_reconnect_failed
+            }
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
     }
     DisposableEffect(Unit) {
         onDispose { viewModel.stopAutoRefresh() }
@@ -82,8 +99,37 @@ fun ConnectionStatusPage(
                         }
                     },
                     actions = {
-                        IconButton(onClick = { viewModel.refresh() }) {
-                            Icon(Icons.Default.Refresh, contentDescription = null)
+                        IconButton(
+                            onClick = viewModel::forceReconnect,
+                            enabled = !isReconnecting,
+                        ) {
+                            if (isReconnecting) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Default.RestartAlt,
+                                    contentDescription = stringResource(R.string.connection_status_force_reconnect),
+                                )
+                            }
+                        }
+                        IconButton(
+                            onClick = viewModel::refresh,
+                            enabled = !isRefreshing,
+                        ) {
+                            if (isRefreshing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Default.Refresh,
+                                    contentDescription = stringResource(R.string.connection_status_refresh),
+                                )
+                            }
                         }
                     },
                     windowInsets = WindowInsets.statusBars,
@@ -112,8 +158,15 @@ fun ConnectionStatusPage(
                         )
                     } else {
                         ConnectionStateHeader(data)
-                        ServerSection(data)
-                        TimingSection(data)
+                        XmppServerEditor { uiState, onEditHost ->
+                            ServerSection(
+                                data = data,
+                                onEditHost = onEditHost.takeIf {
+                                    uiState.isLoaded && !uiState.isSaving
+                                },
+                            )
+                        }
+                        TimingSection(data, currentTimeMs)
                         HeartbeatSection(data)
                         MessagesSection(data)
                         ChannelsSection(data)
@@ -122,6 +175,7 @@ fun ConnectionStatusPage(
             },
         )
     }
+
 }
 
 @Composable
@@ -161,13 +215,17 @@ private fun ConnectionStateHeader(data: ManagerConnectionSnapshot) {
 }
 
 @Composable
-private fun ServerSection(data: ManagerConnectionSnapshot) {
+private fun ServerSection(
+    data: ManagerConnectionSnapshot,
+    onEditHost: (() -> Unit)?,
+) {
     val na = stringResource(R.string.connection_status_not_available)
     DetailSectionCard(title = stringResource(R.string.connection_status_section_server)) {
         InfoRow(
             label = stringResource(R.string.connection_status_host),
             value = data.serverHost ?: na,
             summary = stringResource(R.string.connection_status_host_summary),
+            onClick = onEditHost,
         )
         InfoRow(
             label = stringResource(R.string.connection_status_ip),
@@ -178,7 +236,7 @@ private fun ServerSection(data: ManagerConnectionSnapshot) {
 }
 
 @Composable
-private fun TimingSection(data: ManagerConnectionSnapshot) {
+private fun TimingSection(data: ManagerConnectionSnapshot, currentTimeMs: Long) {
     val na = stringResource(R.string.connection_status_not_available)
     DetailSectionCard(title = stringResource(R.string.connection_status_section_timing)) {
         InfoRow(
@@ -187,7 +245,7 @@ private fun TimingSection(data: ManagerConnectionSnapshot) {
             summary = stringResource(R.string.connection_status_connected_at_summary),
         )
         if (data.connectedAtMs > 0 && data.connectionState == "Connected") {
-            val durationMs = System.currentTimeMillis() - data.connectedAtMs
+            val durationMs = currentTimeMs - data.connectedAtMs
             InfoRow(
                 label = stringResource(R.string.connection_status_session_duration),
                 value = formatDuration(durationMs),
@@ -275,6 +333,7 @@ private fun InfoRow(
     label: String,
     value: String,
     summary: String,
+    onClick: (() -> Unit)? = null,
 ) {
     ListItem(
         supportingContent = {
@@ -285,13 +344,27 @@ private fun InfoRow(
             )
         },
         trailingContent = {
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small),
+            ) {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                if (onClick != null) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = stringResource(R.string.settings_XMPP_server),
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
         },
+        modifier = if (onClick == null) Modifier else Modifier.clickable(onClick = onClick),
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
     ) {
         Text(

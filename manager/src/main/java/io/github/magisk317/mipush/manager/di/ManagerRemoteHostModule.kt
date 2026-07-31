@@ -56,7 +56,7 @@ val managerRemoteHostModule = module {
     single<ManagerEventGateway> { RemoteManagerEventGateway(androidContext(), get()) }
     single<ManagerNotificationGateway> { RemoteManagerNotificationGateway(get()) }
     single<ManagerLogGateway> { RemoteManagerLogGateway(client = get(), appContext = androidContext()) }
-    single<ManagerConfigGateway> { RemoteManagerConfigGateway(get(), get()) }
+    single<ManagerConfigGateway> { RemoteManagerConfigGateway(get(), get(), get()) }
     single<ManagerRuntimeActions> { RemoteManagerRuntimeActions(get()) }
     single { ManagerRootAccess() }
     single<ManagerPermissionGateway> { RemoteManagerPermissionGateway(androidContext(), get(), get()) }

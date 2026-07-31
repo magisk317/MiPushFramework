@@ -705,8 +705,23 @@ class RemoteManagerLogGateway(
 class RemoteManagerConfigGateway(
     private val preferenceRepository: PreferenceRepository,
     private val configSyncGateway: io.github.magisk317.mipush.manager.configuration.sync.LocalManagerConfigSyncGateway,
+    private val client: ManagerRuntimeClient,
 ) : ManagerConfigGateway {
     override suspend fun getXmppServer(): String? = preferenceRepository.xmppServer.first()
+
+    override suspend fun setXmppServer(host: String): Boolean {
+        val normalizedHost = host.trim()
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_SET_XMPP_SERVER,
+            argument = normalizedHost,
+            uniqueRequestId = true,
+        )
+        if (!RemoteWriteSupport.isSuccess(result)) return false
+        return runCatching {
+            preferenceRepository.setXmppServer(normalizedHost)
+        }.isSuccess
+    }
 
     override suspend fun getConfigurationDirectory(): Uri? =
         preferenceRepository.configDirectory.first()?.let(Uri::parse)
@@ -755,12 +770,14 @@ class RemoteManagerRuntimeActions(
         )
     }
 
-    override fun sendXmppReconnectRequest(context: Context) {
-        RemoteWriteSupport.executeBlocking(
-            client = client,
-            operation = ManagerProtocol.WRITE_OP_XMPP_RECONNECT,
+    override fun sendXmppReconnectRequest(context: Context): Boolean =
+        RemoteWriteSupport.isSuccess(
+            RemoteWriteSupport.executeBlocking(
+                client = client,
+                operation = ManagerProtocol.WRITE_OP_XMPP_RECONNECT,
+                uniqueRequestId = true,
+            ),
         )
-    }
 
     override fun setXmppServer(context: Context, newHost: String) {
         RemoteWriteSupport.executeBlocking(
@@ -770,9 +787,9 @@ class RemoteManagerRuntimeActions(
         )
     }
 
-    override fun getXmppServerHint(): String = runBlocking {
+    private fun getXmppServerHint(): String = runBlocking {
         when (val result = connectionSource.load()) {
-            is io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSourceResult.Available -> {
+            is ConnectionSnapshotSourceResult.Available -> {
                 val host = result.snapshot.serverHost.orEmpty()
                 val ip = result.snapshot.serverIp.orEmpty()
                 when {
@@ -782,7 +799,7 @@ class RemoteManagerRuntimeActions(
                     else -> ""
                 }
             }
-            is io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSourceResult.Unavailable -> ""
+            is ConnectionSnapshotSourceResult.Unavailable -> ""
         }
     }
 

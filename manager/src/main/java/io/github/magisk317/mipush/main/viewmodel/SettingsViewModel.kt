@@ -35,9 +35,6 @@ class SettingsViewModel constructor(
     private val _themeState = MutableStateFlow(ThemeState(0))
     val themeState: StateFlow<ThemeState> = _themeState.asStateFlow()
 
-    val xmppServer: StateFlow<String?> = preferenceRepository.xmppServer
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-
     val configDirectory: StateFlow<String?> = preferenceRepository.configDirectory
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
@@ -135,15 +132,6 @@ class SettingsViewModel constructor(
         viewModelScope.launch {
             preferenceRepository.runtimeLogRetentionDays.collect { days ->
                 settingsManager.setRuntimeLogRetentionDays(days)
-            }
-        }
-    }
-
-    fun updateXmppServer(host: String) {
-        viewModelScope.launch {
-            preferenceRepository.setXmppServer(host)
-            Utils.getApplication()?.let { app ->
-                settingsManager.setXMPPServer(app, host)
             }
         }
     }
@@ -497,5 +485,4 @@ class SettingsViewModel constructor(
         settingsManager.shareLogs(context)
     }
 
-    fun getXMPPServerHint(): String = settingsManager.getXMPPServerHint()
 }
