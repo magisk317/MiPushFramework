@@ -73,9 +73,14 @@ tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
         "-Xmx4g",
     )
     useJUnitPlatform()
-    // Prevent Robolectric FileSystemAlreadyExistsException caused by
-    // concurrent native runtime loader initialization across parallel forks.
+    // Prevent Robolectric native runtime races within and across XMSF flavor tests.
     maxParallelForks = 1
+}
+
+tasks.configureEach {
+    if (name == "testVc105DebugUnitTest") {
+        mustRunAfter("testNormalDebugUnitTest")
+    }
 }
 
 dependencies {
