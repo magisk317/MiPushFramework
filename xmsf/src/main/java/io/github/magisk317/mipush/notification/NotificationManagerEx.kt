@@ -137,7 +137,7 @@ object NotificationManagerEx {
                 val appLabel = runCatching {
                     val pm = appContext.packageManager
                     val info = pm.getApplicationInfo(packageName, 0)
-                    pm.getApplicationLabel(info)?.toString()
+                    pm.getApplicationLabel(info).toString()
                 }.getOrNull()?.takeIf { it.isNotBlank() }
                 if (!appLabel.isNullOrBlank()) {
                     notification.extras.putString(EXTRA_SUBSTITUTE_APP_NAME, appLabel)

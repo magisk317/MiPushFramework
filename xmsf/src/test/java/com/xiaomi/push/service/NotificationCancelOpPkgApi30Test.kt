@@ -61,8 +61,7 @@ class NotificationCancelOpPkgApi30Test {
             } answers {
                 val varargArray = args.last()
                 if (varargArray is Array<*>) {
-                    @Suppress("UNCHECKED_CAST")
-                    capturedArgs.add(varargArray as Array<out Any?>)
+                    capturedArgs.add(varargArray)
                 }
                 null
             }

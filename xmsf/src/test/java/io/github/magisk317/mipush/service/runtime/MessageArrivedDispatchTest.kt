@@ -2,9 +2,10 @@ package io.github.magisk317.mipush.service.runtime
 
 import android.app.ActivityManager
 import android.app.Application
+import android.content.ComponentName
 import android.content.ContextWrapper
 import android.content.Intent
-import android.content.pm.ResolveInfo
+import android.content.IntentFilter
 import com.xiaomi.push.service.MIPushNotificationHelper
 import com.xiaomi.push.service.PushConstants
 import com.xiaomi.xmpush.thrift.ActionType
@@ -34,10 +35,7 @@ class MessageArrivedDispatchTest {
     fun `running app with receiver gets exact stock message arrived broadcast`() {
         val application: Application = RuntimeEnvironment.getApplication()
         setRunningPackages(application, listOf(TARGET_PACKAGE))
-        shadowOf(application.packageManager).addResolveInfoForIntent(
-            Intent(PushConstants.MIPUSH_ACTION_MESSAGE_ARRIVED).setPackage(TARGET_PACKAGE),
-            ResolveInfo(),
-        )
+        registerMessageArrivedReceiver(application)
         val context = CapturingContext(application)
         val payload = byteArrayOf(1, 2, 3)
 
@@ -72,10 +70,7 @@ class MessageArrivedDispatchTest {
     fun `stock target package owns receiver and permission for delegated payload`() {
         val application: Application = RuntimeEnvironment.getApplication()
         setRunningPackages(application, listOf(TARGET_PACKAGE))
-        shadowOf(application.packageManager).addResolveInfoForIntent(
-            Intent(PushConstants.MIPUSH_ACTION_MESSAGE_ARRIVED).setPackage(TARGET_PACKAGE),
-            ResolveInfo(),
-        )
+        registerMessageArrivedReceiver(application)
         val context = CapturingContext(application)
         val container = displayContainer().apply {
             packageName = PushConstants.PUSH_SERVICE_PACKAGE_NAME
@@ -90,10 +85,7 @@ class MessageArrivedDispatchTest {
     @Test
     fun `push extension service alone does not make target eligible`() {
         val application: Application = RuntimeEnvironment.getApplication()
-        shadowOf(application.packageManager).addResolveInfoForIntent(
-            Intent(PushConstants.MIPUSH_ACTION_MESSAGE_ARRIVED).setPackage(TARGET_PACKAGE),
-            ResolveInfo(),
-        )
+        registerMessageArrivedReceiver(application)
         val context = CapturingContext(application)
 
         setRunningPackages(
@@ -110,10 +102,7 @@ class MessageArrivedDispatchTest {
     @Test
     fun `notify foreground policy suppresses callback only while target is foreground`() {
         val application: Application = RuntimeEnvironment.getApplication()
-        shadowOf(application.packageManager).addResolveInfoForIntent(
-            Intent(PushConstants.MIPUSH_ACTION_MESSAGE_ARRIVED).setPackage(TARGET_PACKAGE),
-            ResolveInfo(),
-        )
+        registerMessageArrivedReceiver(application)
         val context = CapturingContext(application)
         val container = displayContainer().apply {
             metaInfo.putToExtra(MIPushNotificationHelper.EXTRA_PARAM_NOTIFY_FOREGROUND, "0")
@@ -138,6 +127,17 @@ class MessageArrivedDispatchTest {
 
         MockMessageRegistry.mark(display)
         assertFalse(MyMIPushNotificationHelper.shouldDispatchMessageArrived(display, dispatchRequested = true))
+    }
+
+    private fun registerMessageArrivedReceiver(application: Application) {
+        val component = ComponentName(TARGET_PACKAGE, "$TARGET_PACKAGE.MessageArrivedReceiver")
+        shadowOf(application.packageManager).apply {
+            addReceiverIfNotPresent(component)
+            addIntentFilterForReceiver(
+                component,
+                IntentFilter(PushConstants.MIPUSH_ACTION_MESSAGE_ARRIVED),
+            )
+        }
     }
 
     private fun displayContainer(): XmPushActionContainer {

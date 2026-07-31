@@ -24,8 +24,9 @@ class NotificationListener : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         super.onNotificationPosted(sbn)
-        if (!acceptsUser(sbn.userId)) {
-            Napier.d("skip notification from another user key=${sbn.key} user=${sbn.userId}", tag = TAG)
+        val eventUserId = sbn.user.hashCode()
+        if (!acceptsUser(eventUserId)) {
+            Napier.d("skip notification from another user key=${sbn.key} user=$eventUserId", tag = TAG)
             return
         }
         // Stock 7.4.67-C schedules sweet reminder expiry from its posted callback. Keep this in
@@ -42,14 +43,14 @@ class NotificationListener : NotificationListenerService() {
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         super.onNotificationRemoved(sbn)
-        if (!acceptsUser(sbn.userId)) return
+        if (!acceptsUser(sbn.user.hashCode())) return
         // Pre-21 callbacks do not include a removal reason. Stock 7.4.67-C leaves focus-sort state
         // untouched on this overload, so preserve existing top-notification cleanup only.
         recordRemoval(sbn)
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification, rankingMap: RankingMap, reason: Int) {
-        if (!acceptsUser(sbn.userId)) return
+        if (!acceptsUser(sbn.user.hashCode())) return
         // NotificationListenerService's default three-argument method delegates to the one-argument
         // overload. Calling super here would run product cleanup twice, so handle the reason-aware
         // stock path once and stop at this boundary.

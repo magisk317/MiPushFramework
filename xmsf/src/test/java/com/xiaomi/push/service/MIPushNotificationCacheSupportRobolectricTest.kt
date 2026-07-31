@@ -201,8 +201,7 @@ class MIPushNotificationCacheSupportRobolectricTest {
                 // For Kotlin vararg, the third arg is the vararg array
                 val varargArray = args.last()
                 if (varargArray is Array<*>) {
-                    @Suppress("UNCHECKED_CAST")
-                    capturedArgs.add(varargArray as Array<out Any?>)
+                    capturedArgs.add(varargArray)
                 }
                 null
             }

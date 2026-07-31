@@ -76,7 +76,7 @@ class MiCloudSettingsProvider : ContentProvider() {
         require(values?.containsKey(MICLOUD_SETTINGS_KEY) == true) {
             "Please use MiCloud SDK APIs to insert settings."
         }
-        val key = values?.getAsString(MICLOUD_SETTINGS_KEY)
+        val key = values.getAsString(MICLOUD_SETTINGS_KEY)
         require(!key.isNullOrBlank()) { "Do not insert a null key." }
         require(allowInsert(key)) { "Key $key is not allowed to insert." }
 

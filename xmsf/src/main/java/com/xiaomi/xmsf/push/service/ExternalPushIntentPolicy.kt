@@ -336,6 +336,7 @@ internal object ExternalPushIntentPolicy {
         }
     }
 
+    @Suppress("DEPRECATION")
     private inline fun <reified T> typedExtra(source: Intent, key: String): T? {
         return runCatching { source.extras?.get(key) as? T }.getOrNull()
     }
