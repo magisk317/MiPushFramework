@@ -60,6 +60,7 @@ jobs:
     env:
       GRADLE_OPTS: -Dorg.gradle.warning.mode=all
       MAGISK_BUILD_TYPE: debug
+      HAS_RELEASE_SIGNING: ${{ secrets.RELEASE_KEYSTORE != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -73,12 +74,21 @@ jobs:
         uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
         with:
           checkout: 'false'
+      - name: Decode Keystore
+        if: env.HAS_RELEASE_SIGNING == 'true'
+        run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > app/release.jks
       - name: Build
+        if: env.HAS_RELEASE_SIGNING == 'true'
         uses: ./.magisk-ci-toolkit/.github/actions/run-gradle-with-retry
         with:
           arguments: --warning-mode all :app:assembleDebug :mipush:assembleDebug -PbuildSplits -PminifyDebug -Pkotlin.incremental=false
+        env:
+          KEYSTORE_FILE: release.jks
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       - name: Write build summary
-        if: always()
+        if: always() && env.HAS_RELEASE_SIGNING == 'true'
         run: |
           {
             echo "## Debug APK summary"
@@ -96,91 +106,91 @@ jobs:
             done < <(find app/build/outputs/apk mipush/build/outputs/apk -path '*/debug/*.apk' -not -path '*/androidTest/*' | sort)
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload XMSF Normal Debug APK (arm64-v8a)
-        if: always()
+        if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: xmsf-normal-debug-arm64-v8a
           path: app/build/outputs/apk/normal/debug/**/*arm64-v8a*.apk
       - name: Upload XMSF vc105 Debug APK (arm64-v8a)
-        if: always()
+        if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: xmsf-vc105-debug-arm64-v8a
           path: app/build/outputs/apk/vc105/debug/**/*arm64-v8a*.apk
       - name: Upload XMSF Normal Debug APK (armeabi-v7a)
-        if: always()
+        if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: xmsf-normal-debug-armeabi-v7a
           path: app/build/outputs/apk/normal/debug/**/*armeabi-v7a*.apk
       - name: Upload XMSF Normal Debug APK (x86)
-        if: always()
+        if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: xmsf-normal-debug-x86
           path: app/build/outputs/apk/normal/debug/**/*x86_*.apk
       - name: Upload XMSF Normal Debug APK (x86_64)
-        if: always()
+        if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: xmsf-normal-debug-x86_64
           path: app/build/outputs/apk/normal/debug/**/*x86_64*.apk
       - name: Upload XMSF Normal Debug APK (universal)
-        if: always()
+        if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: xmsf-normal-debug-universal
           path: app/build/outputs/apk/normal/debug/**/*universal*.apk
       - name: Upload XMSF vc105 Debug APK (armeabi-v7a)
-        if: always()
+        if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: xmsf-vc105-debug-armeabi-v7a
           path: app/build/outputs/apk/vc105/debug/**/*armeabi-v7a*.apk
       - name: Upload XMSF vc105 Debug APK (x86)
-        if: always()
+        if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: xmsf-vc105-debug-x86
           path: app/build/outputs/apk/vc105/debug/**/*x86_*.apk
       - name: Upload XMSF vc105 Debug APK (x86_64)
-        if: always()
+        if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: xmsf-vc105-debug-x86_64
           path: app/build/outputs/apk/vc105/debug/**/*x86_64*.apk
       - name: Upload XMSF vc105 Debug APK (universal)
-        if: always()
+        if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: xmsf-vc105-debug-universal
           path: app/build/outputs/apk/vc105/debug/**/*universal*.apk
       - name: Upload MiPush Debug APK (arm64-v8a)
-        if: always()
+        if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: MiPush-debug-arm64-v8a
           path: mipush/build/outputs/apk/debug/**/*arm64-v8a*.apk
       - name: Upload MiPush Debug APK (armeabi-v7a)
-        if: always()
+        if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: MiPush-debug-armeabi-v7a
           path: mipush/build/outputs/apk/debug/**/*armeabi-v7a*.apk
       - name: Upload MiPush Debug APK (x86)
-        if: always()
+        if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: MiPush-debug-x86
           path: mipush/build/outputs/apk/debug/**/*x86_*.apk
       - name: Upload MiPush Debug APK (x86_64)
-        if: always()
+        if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: MiPush-debug-x86_64
           path: mipush/build/outputs/apk/debug/**/*x86_64*.apk
       - name: Upload MiPush Debug APK (universal)
-        if: always()
+        if: always() && env.HAS_RELEASE_SIGNING == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: MiPush-debug-universal
