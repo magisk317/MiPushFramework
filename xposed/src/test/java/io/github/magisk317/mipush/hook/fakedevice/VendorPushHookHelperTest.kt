@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.hook.fakedevice
 
+import io.github.magisk317.xposed.logging.LogSanitizerConfig
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -63,17 +64,22 @@ class VendorPushHookHelperTest {
 
     @Test
     fun `sensitive values are redacted in logs`() {
-        val value = VendorPushHookHelper.sanitizeForLog(
-            "token=abcdef1234567890 appId=2882303761517999999 account=user@example.com",
-        )
+        try {
+            LogSanitizerConfig.setEnabled(true)
+            val value = VendorPushHookHelper.sanitizeForLog(
+                "token=abcdef1234567890 appId=2882303761517999999 account=user@example.com",
+            )
 
-        // Neutral kit redacts key/value secrets to "***" and never leaves raw identifiers.
-        assertTrue(value.contains("token="))
-        assertTrue(value.contains("appId="))
-        assertTrue(value.contains("account="))
-        assertFalse(value.contains("abcdef1234567890"))
-        assertFalse(value.contains("2882303761517999999"))
-        assertFalse(value.contains("user@example.com"))
+            // Neutral kit redacts key/value secrets to "***" and never leaves raw identifiers.
+            assertTrue(value.contains("token="))
+            assertTrue(value.contains("appId="))
+            assertTrue(value.contains("account="))
+            assertFalse(value.contains("abcdef1234567890"))
+            assertFalse(value.contains("2882303761517999999"))
+            assertFalse(value.contains("user@example.com"))
+        } finally {
+            LogSanitizerConfig.setEnabled(false)
+        }
     }
 
     @Test
