@@ -40,11 +40,7 @@ class RequestPermissionViewModel constructor(
 
     suspend fun evaluatePermissionStates(permissionInfos: List<PermissionInfo>): Map<Int, Boolean> {
         return withContext(Dispatchers.IO) {
-            permissionInfos.mapIndexed { index, info ->
-                index to runCatching {
-                    info.permissionOperator.isPermissionGranted(permissionGateway)
-                }.getOrDefault(false)
-            }.toMap()
+            evaluatePermissionStatesNow(permissionInfos, permissionGateway)
         }
     }
 
@@ -82,7 +78,11 @@ class RequestPermissionViewModel constructor(
                 if (info is UsageStatsPermissionInfo) {
                     requestUsageStats(info)
                 } else {
-                    info.permissionOperator.requestPermission(permissionGateway)
+                    _permissionStates.value = requestPermissionAndEvaluateStates(
+                        permissionInfo = info,
+                        permissionInfos = permissionInfos,
+                        permissionGateway = permissionGateway,
+                    )
                 }
                 break
             }
@@ -91,16 +91,20 @@ class RequestPermissionViewModel constructor(
 
     fun requestPermission(
         info: PermissionInfo,
-        onDone: () -> Unit,
+        onDone: (Boolean) -> Unit,
     ) {
         viewModelScope.launch {
             val handledSilently = info.permissionOperator.requestPermissionSilently(permissionGateway)
-            if (!handledSilently) {
-                withContext(Dispatchers.IO) {
-                    info.permissionOperator.requestPermission(permissionGateway)
-                }
+            val isGranted = if (handledSilently) {
+                evaluatePermissionStates(listOf(info))[0] == true
+            } else {
+                requestPermissionAndEvaluateStates(
+                    permissionInfo = info,
+                    permissionInfos = listOf(info),
+                    permissionGateway = permissionGateway,
+                )[0] == true
             }
-            onDone()
+            onDone(isGranted)
         }
     }
 
@@ -144,4 +148,24 @@ class RequestPermissionViewModel constructor(
         }
         return true
     }
+}
+
+internal fun evaluatePermissionStatesNow(
+    permissionInfos: List<PermissionInfo>,
+    permissionGateway: ManagerPermissionGateway,
+): Map<Int, Boolean> {
+    return permissionInfos.mapIndexed { index, info ->
+        index to runCatching {
+            info.permissionOperator.isPermissionGranted(permissionGateway)
+        }.getOrDefault(false)
+    }.toMap()
+}
+
+internal suspend fun requestPermissionAndEvaluateStates(
+    permissionInfo: PermissionInfo,
+    permissionInfos: List<PermissionInfo>,
+    permissionGateway: ManagerPermissionGateway,
+): Map<Int, Boolean> = withContext(Dispatchers.IO) {
+    permissionInfo.permissionOperator.requestPermission(permissionGateway)
+    evaluatePermissionStatesNow(permissionInfos, permissionGateway)
 }

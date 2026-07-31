@@ -18,6 +18,7 @@ import io.github.magisk317.mipush.network.NetworkPolicyCompat
 import io.github.magisk317.mipush.platform.support.InternalMessenger
 import io.github.magisk317.mipush.platform.support.PushServiceBroadcastActions
 import io.github.magisk317.mipush.runtime.PushRuntime
+import com.xiaomi.mipush.sdk.MiPushClient
 import kotlinx.coroutines.runBlocking
 
 class RuntimeSettingsAdapter constructor(
@@ -90,6 +91,7 @@ class RuntimeSettingsAdapter constructor(
             registeredPackageCount = snapshot.registeredPackageCount,
             trackedChannelCount = snapshot.trackedChannelCount,
             boundChannelCount = snapshot.boundChannelCount,
+            frameworkRegistered = runCatching { MiPushClient.getRegId(appContext).isNotBlank() }.getOrDefault(false),
         )
     }
 }

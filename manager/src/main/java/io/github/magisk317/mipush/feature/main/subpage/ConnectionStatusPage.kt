@@ -248,6 +248,11 @@ private fun MessagesSection(data: ManagerConnectionSnapshot) {
 private fun ChannelsSection(data: ManagerConnectionSnapshot) {
     DetailSectionCard(title = stringResource(R.string.connection_status_section_channels)) {
         InfoRow(
+            label = stringResource(R.string.connection_status_framework_registered),
+            value = if (data.frameworkRegistered) "✓" else "✗",
+            summary = stringResource(R.string.connection_status_framework_registered_summary),
+        )
+        InfoRow(
             label = stringResource(R.string.connection_status_registered_packages),
             value = "${data.registeredPackageCount}",
             summary = stringResource(R.string.connection_status_registered_packages_summary),

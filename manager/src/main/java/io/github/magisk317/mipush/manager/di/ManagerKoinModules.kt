@@ -92,7 +92,7 @@ val managerKoinModule = module {
     viewModel { ConfigManagerViewModel(get(), get(), get(), androidContext(), get()) }
     viewModel { ConfigEditorViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidContext()) }
     viewModel { ApplicationInfoViewModel(get(), get(), get(), get(), get(), androidContext()) }
-    viewModel { OverviewViewModel(get<RemoteApplicationListSource>(), get<ManagerRuntimeClient>()) }
+    viewModel { OverviewViewModel(get<RemoteApplicationListSource>(), get<ManagerRuntimeClient>(), get<PreferenceRepository>()) }
     viewModel { ConnectionStatusViewModel(get<ConnectionSnapshotSource>()) }
     viewModel {
         ApplicationListViewModel(

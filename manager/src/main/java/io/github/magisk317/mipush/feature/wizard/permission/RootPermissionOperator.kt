@@ -7,7 +7,9 @@ class RootPermissionOperator : PermissionOperator {
         return permissionGateway?.hasCachedRootAccess() == true
     }
 
-    override fun requestPermissionSilently(permissionGateway: ManagerPermissionGateway?): Boolean = false
+    override fun requestPermissionSilently(permissionGateway: ManagerPermissionGateway?): Boolean {
+        return permissionGateway?.refreshRootAccessIfGranted() == true
+    }
 
     override fun requestPermission(permissionGateway: ManagerPermissionGateway?) {
         permissionGateway?.requestRootAccess()

@@ -8,10 +8,12 @@ import io.github.magisk317.mipush.feature.main.subpage.ApplicationListLoadOutcom
 import io.github.magisk317.mipush.feature.main.subpage.ApplicationStats
 import io.github.magisk317.mipush.feature.main.subpage.toApplicationStats
 import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
+import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,6 +23,7 @@ import kotlinx.coroutines.withContext
 class OverviewViewModel constructor(
     applicationSource: RemoteApplicationListSource,
     private val runtimeClient: ManagerRuntimeClient,
+    private val preferenceRepository: PreferenceRepository,
 ) : ViewModel() {
     private val applicationPageOperation = ApplicationPageOperation(applicationSource)
 
@@ -48,8 +51,9 @@ class OverviewViewModel constructor(
     fun loadStats() {
         viewModelScope.launch {
             try {
+                val showSystem = withContext(Dispatchers.IO) { preferenceRepository.showSystemApps.first() }
                 val result = withContext(Dispatchers.IO) {
-                    applicationPageOperation.getMiPushApplicationsThatQueryMatched(query = "", filterMode = 0)
+                    loadOverviewApplications(applicationPageOperation, showSystem)
                 }
                 when (result) {
                     is ApplicationListLoadOutcome.Ready -> {
@@ -68,4 +72,15 @@ class OverviewViewModel constructor(
             }
         }
     }
+}
+
+internal fun loadOverviewApplications(
+    applicationPageOperation: ApplicationPageOperation,
+    includeSystemApps: Boolean,
+): ApplicationListLoadOutcome {
+    return applicationPageOperation.getMiPushApplicationsThatQueryMatched(
+        query = "",
+        filterMode = 0,
+        includeSystemApps = includeSystemApps,
+    )
 }

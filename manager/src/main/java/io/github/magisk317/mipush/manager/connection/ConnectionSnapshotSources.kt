@@ -96,6 +96,7 @@ private fun ManagerConnectionSnapshotDto.toManagerConnectionSnapshot(): ManagerC
         registeredPackageCount = registeredPackageCount,
         trackedChannelCount = trackedChannelCount,
         boundChannelCount = boundChannelCount,
+        frameworkRegistered = frameworkRegistered,
     )
 
 private fun ManagerRuntimeAvailability.toConnectionSnapshotSourceStatus(): ConnectionSnapshotSourceStatus =

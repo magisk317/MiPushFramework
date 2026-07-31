@@ -60,6 +60,7 @@ import io.github.magisk317.mipush.feature.wizard.permission.PermissionInfo
 import io.github.magisk317.mipush.feature.wizard.permission.RequestIgnoreBatteryOptimizationsPermissionInfo
 import io.github.magisk317.mipush.feature.wizard.permission.NotificationPermissionInfo
 import io.github.magisk317.mipush.feature.wizard.permission.RootPermissionInfo
+import io.github.magisk317.mipush.feature.wizard.permission.RootPermissionOperator
 import io.github.magisk317.mipush.feature.wizard.permission.UsageStatsPermissionInfo
 import io.github.magisk317.mipush.feature.wizard.permission.requirementGroupKey
 import io.github.magisk317.mipush.feature.ui.theme.Theme
@@ -189,8 +190,19 @@ fun PermissionMainActivity(
                         info = info,
                         isGranted = isPermissionRequirementSatisfied(index, permissionInfos, permissionStates),
                     ) {
-                        permissionViewModel.requestPermission(info) {
+                        permissionViewModel.requestPermission(info) { isGranted ->
                             checkTrigger++
+                            if (info.permissionOperator is RootPermissionOperator) {
+                                Toast.makeText(
+                                    context,
+                                    if (isGranted) {
+                                        R.string.wizard_root_permission_granted_toast
+                                    } else {
+                                        R.string.wizard_root_permission_denied_toast
+                                    },
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
                         }
                     }
                 }
@@ -231,7 +243,6 @@ fun PermissionItem(
     onPermissionStateChanged: () -> Unit
 ) {
     ListItem(
-        supportingContent = { Text(text = info.permissionDescription) },
         leadingContent = {
             if (isGranted) {
                 Icon(
@@ -249,7 +260,7 @@ fun PermissionItem(
         },
         modifier = Modifier
             .clickable {
-                if (!isGranted) {
+                if (!isGranted || info.permissionOperator is RootPermissionOperator) {
                     onPermissionStateChanged()
                 }
             }

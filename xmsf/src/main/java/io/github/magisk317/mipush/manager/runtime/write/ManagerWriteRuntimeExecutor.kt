@@ -270,7 +270,7 @@ class ManagerWriteRuntimeExecutor(
         } else {
             listOf(request.packageName)
         }
-        if (!io.github.magisk317.mipush.platform.support.PermissionUtils.ensureRootAccess()) {
+        if (!permissionGateway.refreshRootAccessIfGranted()) {
             return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_GRANT_SILENT_ROOT_MISSING)
         }
         val op = request.argument.trim()
@@ -307,7 +307,15 @@ class ManagerWriteRuntimeExecutor(
     }
 
     private fun queryRoot(request: ManagerWriteRequestDto): ManagerWriteResultDto {
-        val available = io.github.magisk317.mipush.platform.support.PermissionUtils.ensureRootAccess()
+        val available = resolveRootAccess(
+            requestAuthorization = request.booleanArgument,
+            refreshAccess = {
+                io.github.magisk317.mipush.platform.support.PermissionUtils.refreshRootAccessIfGranted()
+            },
+            requestAccess = {
+                io.github.magisk317.mipush.platform.support.PermissionUtils.requestRootAccess()
+            },
+        )
         return success(
             requestId = request.requestId,
             details = if (available) {
@@ -718,3 +726,9 @@ class ManagerWriteRuntimeExecutor(
         details = details,
     )
 }
+
+internal fun resolveRootAccess(
+    requestAuthorization: Boolean,
+    refreshAccess: () -> Boolean,
+    requestAccess: () -> Boolean,
+): Boolean = refreshAccess() || (requestAuthorization && requestAccess())

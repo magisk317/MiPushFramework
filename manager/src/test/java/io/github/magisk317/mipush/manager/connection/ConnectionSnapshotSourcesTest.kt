@@ -172,6 +172,7 @@ class ConnectionSnapshotSourcesTest {
         registeredPackageCount = 20,
         trackedChannelCount = 21,
         boundChannelCount = 22,
+        frameworkRegistered = true,
     )
 
     private fun wireSnapshot() = ManagerConnectionSnapshotDto(
@@ -190,5 +191,6 @@ class ConnectionSnapshotSourcesTest {
         registeredPackageCount = 20,
         trackedChannelCount = 21,
         boundChannelCount = 22,
+        frameworkRegistered = true,
     )
 }

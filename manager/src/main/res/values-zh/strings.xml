@@ -176,6 +176,8 @@
 
     <string name="wizard_title_root_permission">Root 权限</string>
     <string name="wizard_title_root_permission_text">可选但推荐。Magisk 会分别询问 MiPush 管理器和 XMSF，请两项都授权。之后可自动补齐使用情况统计、悬浮窗、忽略电池优化、通知及 Zygisk 配置。</string>
+    <string name="wizard_root_permission_granted_toast">Root 权限已授权</string>
+    <string name="wizard_root_permission_denied_toast">Root 权限未授权</string>
 
     <string name="wizard_title_alert_window_permission">显示在其他应用上层</string>
     <string name="wizard_title_alert_window_text">您需要授予“显示在其他应用上层”权限，否则您无法通过配置自动调起应用。</string>
@@ -261,6 +263,8 @@
     <string name="connection_status_acks">确认</string>
     <string name="connection_status_acks_summary">已向服务器发送确认回执的消息数</string>
     <string name="connection_status_section_channels">通道与注册</string>
+    <string name="connection_status_framework_registered">框架注册</string>
+    <string name="connection_status_framework_registered_summary">xmsf 自身是否已向小米推送服务器注册</string>
     <string name="connection_status_registered_packages">已注册包</string>
     <string name="connection_status_registered_packages_summary">已向小米推送服务器注册的应用数</string>
     <string name="connection_status_tracked_channels">已追踪通道</string>

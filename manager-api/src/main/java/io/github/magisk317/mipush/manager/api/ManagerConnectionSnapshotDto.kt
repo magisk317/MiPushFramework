@@ -21,6 +21,7 @@ data class ManagerConnectionSnapshotDto(
     val registeredPackageCount: Int,
     val trackedChannelCount: Int,
     val boundChannelCount: Int,
+    val frameworkRegistered: Boolean = false,
 ) : Parcelable {
     override fun writeToParcel(destination: Parcel, flags: Int) {
         destination.writeWireFrame {
@@ -40,6 +41,7 @@ data class ManagerConnectionSnapshotDto(
             writeInt(registeredPackageCount)
             writeInt(trackedChannelCount)
             writeInt(boundChannelCount)
+            writeBoolean(frameworkRegistered)
         }
     }
 
@@ -67,6 +69,7 @@ data class ManagerConnectionSnapshotDto(
                         registeredPackageCount = readInt(),
                         trackedChannelCount = readInt(),
                         boundChannelCount = readInt(),
+                        frameworkRegistered = readBoolean(false),
                     )
                 }
 

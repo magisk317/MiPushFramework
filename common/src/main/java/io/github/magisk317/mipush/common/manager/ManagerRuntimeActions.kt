@@ -33,6 +33,7 @@ data class ManagerConnectionSnapshot(
     val registeredPackageCount: Int,
     val trackedChannelCount: Int,
     val boundChannelCount: Int,
+    val frameworkRegistered: Boolean = false,
 )
 
 interface ManagerRuntimeActions {

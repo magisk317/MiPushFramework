@@ -391,6 +391,7 @@ internal fun ManagerConnectionSnapshot.toWireDto(): ManagerConnectionSnapshotDto
         registeredPackageCount = registeredPackageCount,
         trackedChannelCount = trackedChannelCount,
         boundChannelCount = boundChannelCount,
+        frameworkRegistered = frameworkRegistered,
     )
 
 private fun ManagerApplicationQueryDto.toReadQuery(): ManagerApplicationReadQuery =

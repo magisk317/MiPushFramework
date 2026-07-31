@@ -850,13 +850,13 @@ class RemoteManagerPermissionGateway(
 
     override fun refreshRootAccessIfGranted(): Boolean {
         val managerGranted = managerRootAccess.refreshRootAccessIfGranted()
-        val runtimeGranted = queryRoot(requestShell = false)
+        val runtimeGranted = queryRoot(requestAuthorization = false)
         return managerGranted && runtimeGranted
     }
 
     override fun requestRootAccess(): Boolean {
         val managerGranted = managerRootAccess.requestRootAccess()
-        val runtimeGranted = queryRoot(requestShell = true)
+        val runtimeGranted = queryRoot(requestAuthorization = true)
         return managerGranted && runtimeGranted
     }
 
@@ -957,12 +957,11 @@ class RemoteManagerPermissionGateway(
         return grantSilentPermissions(userId = -1, packageName = "", op = "all")
     }
 
-    private fun queryRoot(requestShell: Boolean): Boolean {
-        // requestShell currently maps to the same runtime ensureRootAccess path.
+    private fun queryRoot(requestAuthorization: Boolean): Boolean {
         val result = RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_QUERY_ROOT,
-            booleanArgument = requestShell,
+            booleanArgument = requestAuthorization,
             uniqueRequestId = true,
         ) ?: run {
             rootCached = false
