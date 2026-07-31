@@ -23,6 +23,7 @@ class SettingsViewModel constructor(
     private val preferenceRepository: PreferenceRepository,
     private val settingsManager: SettingsManager,
     private val permissionGateway: ManagerPermissionGateway,
+    currentUserIdProvider: () -> Int = { Utils.myUserId() },
 ) : ViewModel() {
     data class ThemeState(
         val mode: Int,
@@ -102,9 +103,12 @@ class SettingsViewModel constructor(
 
     private val _dualAppProcessing = MutableStateFlow(false)
     val dualAppProcessing: StateFlow<Boolean> = _dualAppProcessing.asStateFlow()
+    val currentUserId: Int = currentUserIdProvider()
+    val canManageDualApp: Boolean = currentUserId == 0
 
     /** Align manager toggle with packages actually installed for user 999. */
     fun refreshDualAppFromRuntime() {
+        if (!canManageDualApp) return
         viewModelScope.launch(Dispatchers.IO) {
             val installed = runCatching { permissionGateway.isDualAppInstalled() }.getOrDefault(false)
             preferenceRepository.setDualAppEnabled(installed)
@@ -346,6 +350,10 @@ class SettingsViewModel constructor(
     }
 
     fun setDualAppEnabled(enabled: Boolean, onResult: ((Boolean, String) -> Unit)? = null) {
+        if (!canManageDualApp) {
+            onResult?.invoke(false, "请在主空间（User 0）管理双开")
+            return
+        }
         viewModelScope.launch {
             _dualAppProcessing.value = true
             try {
@@ -360,6 +368,7 @@ class SettingsViewModel constructor(
                     ManagerXSpaceRepairStage.COMPLETED ->
                         if (enabled) "双开已启用" else "双开已关闭"
                     ManagerXSpaceRepairStage.ROOT_MISSING -> "需要 Root 权限（请给推送服务 com.xiaomi.xmsf 授权）"
+                    ManagerXSpaceRepairStage.PRIMARY_USER_REQUIRED -> "请在主空间（User 0）管理双开"
                     ManagerXSpaceRepairStage.XSPACE_USER_NOT_FOUND -> "未找到分身用户 999"
                     ManagerXSpaceRepairStage.PARTIAL_FAILED -> when (result.details) {
                         "runtime_write_unavailable" -> "运行时未连接，请确认推送服务已启动"

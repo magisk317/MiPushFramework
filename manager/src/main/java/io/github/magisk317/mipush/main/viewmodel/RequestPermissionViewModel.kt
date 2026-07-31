@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
+import io.github.magisk317.mipush.common.manager.ManagerRootAccessSnapshot
+import io.github.magisk317.mipush.common.manager.ManagerRootTarget
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.feature.wizard.permission.PermissionInfo
 import io.github.magisk317.mipush.feature.wizard.permission.UsageStatsPermissionInfo
@@ -25,13 +27,18 @@ class RequestPermissionViewModel constructor(
     private val _permissionStates = MutableStateFlow<Map<Int, Boolean>>(emptyMap())
     val permissionStates: StateFlow<Map<Int, Boolean>> = _permissionStates.asStateFlow()
 
+    private val _rootAccessSnapshot = MutableStateFlow(
+        permissionGateway.getRootAccessSnapshot(refresh = false),
+    )
+    val rootAccessSnapshot: StateFlow<ManagerRootAccessSnapshot> = _rootAccessSnapshot.asStateFlow()
+
     private val _autoRequestCompleted = MutableStateFlow(false)
     val autoRequestCompleted: StateFlow<Boolean> = _autoRequestCompleted.asStateFlow()
 
     fun evaluatePermissions(permissionInfos: List<PermissionInfo>) {
         viewModelScope.launch {
             val refreshedStates = withContext(Dispatchers.IO) {
-                permissionGateway.refreshRootAccessIfGranted()
+                _rootAccessSnapshot.value = permissionGateway.getRootAccessSnapshot(refresh = true)
                 evaluatePermissionStates(permissionInfos)
             }
             _permissionStates.value = refreshedStates
@@ -50,7 +57,7 @@ class RequestPermissionViewModel constructor(
     ) {
         viewModelScope.launch {
             val refreshedStates = withContext(Dispatchers.IO) {
-                permissionGateway.refreshRootAccessIfGranted()
+                _rootAccessSnapshot.value = permissionGateway.getRootAccessSnapshot(refresh = true)
                 evaluatePermissionStates(permissionInfos)
             }
             _permissionStates.value = refreshedStates
@@ -105,6 +112,19 @@ class RequestPermissionViewModel constructor(
                 )[0] == true
             }
             onDone(isGranted)
+        }
+    }
+
+    fun requestRootAccess(
+        target: ManagerRootTarget,
+        onDone: (Boolean) -> Unit,
+    ) {
+        viewModelScope.launch {
+            val snapshot = withContext(Dispatchers.IO) {
+                permissionGateway.requestRootAccess(target)
+            }
+            _rootAccessSnapshot.value = snapshot
+            onDone(snapshot.status(target).isGranted)
         }
     }
 

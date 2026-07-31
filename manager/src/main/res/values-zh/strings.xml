@@ -175,9 +175,22 @@
     <string name="wizard_title_accessibility_text">启用辅助模式前台检测。与“使用情况统计”二选一即可，兼容性更好但性能稍差。</string>
 
     <string name="wizard_title_root_permission">Root 权限</string>
-    <string name="wizard_title_root_permission_text">可选但推荐。Magisk 会分别询问 MiPush 管理器和 XMSF，请两项都授权。之后可自动补齐使用情况统计、悬浮窗、忽略电池优化、通知及 Zygisk 配置。</string>
+    <string name="wizard_title_root_permission_text">Root 按 Android 用户和应用分别授权。当前空间的运行时操作需要授权 XMSF，MiPush 管理器状态单独显示。</string>
     <string name="wizard_root_permission_granted_toast">Root 权限已授权</string>
     <string name="wizard_root_permission_denied_toast">Root 权限未授权</string>
+    <string name="wizard_root_permission_target_granted_toast">%1$s Root 权限已授权</string>
+    <string name="wizard_root_permission_target_denied_toast">%1$s Root 权限未授权</string>
+    <string name="wizard_root_space_primary">当前空间：主空间（User 0）</string>
+    <string name="wizard_root_space_dual">当前空间：应用分身（User 999）</string>
+    <string name="wizard_root_space_other">当前空间：User %1$d</string>
+    <string name="wizard_root_manager_title">MiPush 管理器</string>
+    <string name="wizard_root_manager_summary">当前实现中为可选项，管理器本地 Root 操作独立使用。</string>
+    <string name="wizard_root_runtime_title">XMSF 推送服务</string>
+    <string name="wizard_root_runtime_summary">当前 Android 用户中的运行时命令需要此授权。</string>
+    <string name="wizard_root_status_granted">已授权</string>
+    <string name="wizard_root_status_not_granted">未授权</string>
+    <string name="wizard_root_status_unavailable">不可用</string>
+    <string name="wizard_root_request">授权</string>
 
     <string name="wizard_title_alert_window_permission">显示在其他应用上层</string>
     <string name="wizard_title_alert_window_text">您需要授予“显示在其他应用上层”权限，否则您无法通过配置自动调起应用。</string>
@@ -429,6 +442,7 @@
     <string name="settings_home_misc_title">其他杂项</string>
     <string name="settings_dual_app_title">启用双开</string>
     <string name="settings_dual_app_summary">将 xmsf 和 MiPush 安装到分身空间（用户 999）。需要 Root 权限。</string>
+    <string name="settings_dual_app_primary_user_only_summary">双开安装由主空间（User 0）管理；当前分身只显示自身运行状态。</string>
     <string name="pref_choose_theme_title">主题</string>
     <string name="pref_choose_theme_summary">跟随系统、浅色、深色或纯黑</string>
     <string name="pref_ui_kit_style_title">界面风格</string>

@@ -327,9 +327,15 @@ private fun SettingsScreen(
                     val dualAppTitle = stringResource(R.string.settings_dual_app_title)
                     SettingsSwitchItem(
                         title = dualAppTitle,
-                        summary = stringResource(R.string.settings_dual_app_summary),
+                        summary = stringResource(
+                            if (viewModel.canManageDualApp) {
+                                R.string.settings_dual_app_summary
+                            } else {
+                                R.string.settings_dual_app_primary_user_only_summary
+                            },
+                        ),
                         checked = dualAppEnabled,
-                        enabled = !dualAppProcessing,
+                        enabled = viewModel.canManageDualApp && !dualAppProcessing,
                         onCheckedChange = { enabled ->
                             viewModel.setDualAppEnabled(enabled) { success, message ->
                                 scope.launch {

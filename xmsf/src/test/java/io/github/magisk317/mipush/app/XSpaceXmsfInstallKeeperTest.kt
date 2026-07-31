@@ -9,6 +9,27 @@ import org.junit.jupiter.api.Test
 
 class XSpaceXmsfInstallKeeperTest {
     @Test
+    fun `secondary user skips without probing root or running package commands`() {
+        val runner = RecordingRootRunner()
+        var rootProbeCount = 0
+
+        val result = XSpaceXmsfInstallKeeper.repairNow(
+            hasRootAccess = {
+                rootProbeCount += 1
+                true
+            },
+            runRootCommand = runner::run,
+            currentUserId = 999,
+        )
+
+        assertEquals(XSpaceXmsfInstallKeeper.Stage.PRIMARY_USER_REQUIRED, result.stage)
+        assertEquals(0, rootProbeCount)
+        assertEquals(emptyList<String>(), runner.commands)
+        assertTrue(XSpaceXmsfInstallKeeper.canManageXSpaceFromUser(0))
+        assertFalse(XSpaceXmsfInstallKeeper.canManageXSpaceFromUser(999))
+    }
+
+    @Test
     fun `root missing skips without package commands`() {
         val runner = RecordingRootRunner()
 

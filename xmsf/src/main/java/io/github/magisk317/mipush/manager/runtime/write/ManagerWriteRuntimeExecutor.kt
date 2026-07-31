@@ -230,6 +230,8 @@ class ManagerWriteRuntimeExecutor(
         val details = when (result.stage) {
             ManagerXSpaceRepairStage.COMPLETED -> ManagerProtocol.WRITE_DETAIL_DUAL_APP_COMPLETED
             ManagerXSpaceRepairStage.ROOT_MISSING -> ManagerProtocol.WRITE_DETAIL_DUAL_APP_ROOT_MISSING
+            ManagerXSpaceRepairStage.PRIMARY_USER_REQUIRED ->
+                ManagerProtocol.WRITE_DETAIL_DUAL_APP_PRIMARY_USER_REQUIRED
             ManagerXSpaceRepairStage.XSPACE_USER_NOT_FOUND -> ManagerProtocol.WRITE_DETAIL_DUAL_APP_XSPACE_MISSING
             ManagerXSpaceRepairStage.PARTIAL_FAILED -> ManagerProtocol.WRITE_DETAIL_DUAL_APP_PARTIAL_FAILED
         }
@@ -640,6 +642,8 @@ class ManagerWriteRuntimeExecutor(
         val result = permissionGateway.repairXSpaceUserSupport()
         val details = when (result.stage) {
             ManagerXSpaceRepairStage.ROOT_MISSING -> ManagerProtocol.WRITE_DETAIL_DUAL_APP_ROOT_MISSING
+            ManagerXSpaceRepairStage.PRIMARY_USER_REQUIRED ->
+                ManagerProtocol.WRITE_DETAIL_DUAL_APP_PRIMARY_USER_REQUIRED
             ManagerXSpaceRepairStage.XSPACE_USER_NOT_FOUND -> ManagerProtocol.WRITE_DETAIL_DUAL_APP_XSPACE_MISSING
             ManagerXSpaceRepairStage.COMPLETED -> ManagerProtocol.WRITE_DETAIL_DUAL_APP_COMPLETED
             ManagerXSpaceRepairStage.PARTIAL_FAILED -> ManagerProtocol.WRITE_DETAIL_DUAL_APP_PARTIAL_FAILED

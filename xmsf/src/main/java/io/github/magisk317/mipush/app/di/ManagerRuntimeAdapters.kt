@@ -5,6 +5,7 @@ import android.app.NotificationChannelGroup
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Process
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.app.ConfigCenter
 import io.github.magisk317.mipush.app.MiPushFrameworkApp
@@ -29,6 +30,10 @@ import io.github.magisk317.mipush.common.manager.ManagerLogExportResult
 import io.github.magisk317.mipush.common.manager.ManagerLogGateway
 import io.github.magisk317.mipush.common.manager.ManagerNotificationGateway
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
+import io.github.magisk317.mipush.common.manager.ManagerRootAccessSnapshot
+import io.github.magisk317.mipush.common.manager.ManagerRootAccessState
+import io.github.magisk317.mipush.common.manager.ManagerRootSubjectStatus
+import io.github.magisk317.mipush.common.manager.ManagerRootTarget
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeEnvironmentSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerXSpaceRepairResult
@@ -314,6 +319,32 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
         )
     }
 
+    override fun getRootAccessSnapshot(refresh: Boolean): ManagerRootAccessSnapshot {
+        val granted = if (refresh) {
+            PermissionUtils.refreshRootAccessIfGranted()
+        } else {
+            PermissionUtils.hasCachedRootAccess()
+        }
+        return rootSnapshot(
+            runtimeState = if (granted) {
+                ManagerRootAccessState.GRANTED
+            } else {
+                ManagerRootAccessState.NOT_GRANTED
+            },
+        )
+    }
+
+    override fun requestRootAccess(target: ManagerRootTarget): ManagerRootAccessSnapshot {
+        val runtimeState = if (target == ManagerRootTarget.RUNTIME && PermissionUtils.requestRootAccess()) {
+            ManagerRootAccessState.GRANTED
+        } else if (PermissionUtils.refreshRootAccessIfGranted()) {
+            ManagerRootAccessState.GRANTED
+        } else {
+            ManagerRootAccessState.NOT_GRANTED
+        }
+        return rootSnapshot(runtimeState)
+    }
+
     override fun hasCachedRootAccess(): Boolean = PermissionUtils.hasCachedRootAccess()
 
     override fun refreshRootAccessIfGranted(): Boolean = PermissionUtils.refreshRootAccessIfGranted()
@@ -321,6 +352,12 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
     override fun requestRootAccess(): Boolean = PermissionUtils.requestRootAccess()
 
     override fun repairXSpaceUserSupport(): ManagerXSpaceRepairResult {
+        if (!canManageDualAppFromUser(Utils.myUserId())) {
+            return ManagerXSpaceRepairResult(
+                stage = ManagerXSpaceRepairStage.PRIMARY_USER_REQUIRED,
+                details = "currentUserId=${Utils.myUserId()}",
+            )
+        }
         if (!PermissionUtils.refreshRootAccessIfGranted()) {
             return ManagerXSpaceRepairResult(stage = ManagerXSpaceRepairStage.ROOT_MISSING)
         }
@@ -376,6 +413,12 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
     }
 
     override fun setDualAppEnabled(enabled: Boolean): ManagerXSpaceRepairResult {
+        if (!canManageDualAppFromUser(Utils.myUserId())) {
+            return ManagerXSpaceRepairResult(
+                stage = ManagerXSpaceRepairStage.PRIMARY_USER_REQUIRED,
+                details = "currentUserId=${Utils.myUserId()}",
+            )
+        }
         // refreshRootAccessIfGranted() returns false while Shell grant state is still null
         // (unknown). requestRootAccess() forces Shell init + probe so Magisk-granted apps work.
         if (!PermissionUtils.refreshRootAccessIfGranted() && !PermissionUtils.requestRootAccess()) {
@@ -436,6 +479,7 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
     }
 
     override fun isDualAppInstalled(): Boolean {
+        if (!canManageDualAppFromUser(Utils.myUserId())) return false
         if (!PermissionUtils.hasCachedRootAccess() &&
             !PermissionUtils.refreshRootAccessIfGranted() &&
             !PermissionUtils.requestRootAccess()
@@ -475,6 +519,30 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
 
     override fun grantNotificationPermission(context: Context): Boolean =
         PermissionUtils.grantNotificationPermission(context)
+
+    private fun rootSnapshot(runtimeState: ManagerRootAccessState): ManagerRootAccessSnapshot {
+        val userId = Utils.myUserId()
+        val managerUid = Utils.context?.packageManager?.let { packageManager ->
+            runCatching { packageManager.getPackageUid(Constants.MANAGER_APP_NAME, 0) }.getOrNull()
+        }
+        return ManagerRootAccessSnapshot(
+            userId = userId,
+            manager = ManagerRootSubjectStatus(
+                target = ManagerRootTarget.MANAGER,
+                packageName = Constants.MANAGER_APP_NAME,
+                userId = userId,
+                uid = managerUid,
+                state = ManagerRootAccessState.UNAVAILABLE,
+            ),
+            runtime = ManagerRootSubjectStatus(
+                target = ManagerRootTarget.RUNTIME,
+                packageName = Constants.SERVICE_APP_NAME,
+                userId = userId,
+                uid = Process.myUid(),
+                state = runtimeState,
+            ),
+        )
+    }
 
     private fun installExistingForUser(packageName: String) {
         runRootCommand(
@@ -522,6 +590,8 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
             }
         }
 }
+
+internal fun canManageDualAppFromUser(userId: Int): Boolean = userId == PermissionUtils.USER_PRIMARY
 
 class XmsfManagerApplicationGateway : ManagerApplicationGateway {
 

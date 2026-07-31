@@ -63,6 +63,7 @@ object ManagerProtocol {
     const val WRITE_DETAIL_MOCK_REPLAY_BLOCKED = "mock_replay_blocked_by_permission"
     const val WRITE_DETAIL_DUAL_APP_COMPLETED = "dual_app_completed"
     const val WRITE_DETAIL_DUAL_APP_ROOT_MISSING = "dual_app_root_missing"
+    const val WRITE_DETAIL_DUAL_APP_PRIMARY_USER_REQUIRED = "dual_app_primary_user_required"
     const val WRITE_DETAIL_DUAL_APP_XSPACE_MISSING = "dual_app_xspace_user_not_found"
     const val WRITE_DETAIL_DUAL_APP_PARTIAL_FAILED = "dual_app_partial_failed"
     const val WRITE_DETAIL_DUAL_APP_INSTALLED = "dual_app_installed"

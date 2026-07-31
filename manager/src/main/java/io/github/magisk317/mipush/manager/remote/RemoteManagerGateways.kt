@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.Process
 import androidx.core.content.FileProvider
 import io.github.magisk317.mipush.common.fakedevice.ZygiskConfig
 import io.github.magisk317.mipush.feature.main.MainActivity
@@ -29,6 +30,10 @@ import io.github.magisk317.mipush.common.manager.ManagerLogExportResult
 import io.github.magisk317.mipush.common.manager.ManagerLogGateway
 import io.github.magisk317.mipush.common.manager.ManagerNotificationGateway
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
+import io.github.magisk317.mipush.common.manager.ManagerRootAccessSnapshot
+import io.github.magisk317.mipush.common.manager.ManagerRootAccessState
+import io.github.magisk317.mipush.common.manager.ManagerRootSubjectStatus
+import io.github.magisk317.mipush.common.manager.ManagerRootTarget
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeEnvironmentSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerXSpaceRepairResult
@@ -37,6 +42,7 @@ import io.github.magisk317.mipush.common.manager.ZygiskConfigGateway
 import io.github.magisk317.mipush.common.notification.MockReplayOutcome
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
+import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto
 import io.github.magisk317.mipush.manager.application.ApplicationListRequest
 import io.github.magisk317.mipush.manager.application.ApplicationReadResult
 import io.github.magisk317.mipush.manager.application.RemoteApplicationDetailSource
@@ -839,25 +845,45 @@ class RemoteManagerRuntimeActions(
 }
 
 class RemoteManagerPermissionGateway(
+    private val context: Context,
     private val client: ManagerRuntimeClient,
     private val managerRootAccess: ManagerRootAccess,
 ) : ManagerPermissionGateway {
     @Volatile
-    private var rootCached: Boolean? = null
+    private var runtimeRootState: ManagerRootAccessState = ManagerRootAccessState.UNAVAILABLE
 
-    override fun hasCachedRootAccess(): Boolean =
-        managerRootAccess.hasCachedRootAccess() && rootCached == true
+    override fun getRootAccessSnapshot(refresh: Boolean): ManagerRootAccessSnapshot {
+        val managerGranted = if (refresh) {
+            managerRootAccess.refreshRootAccessIfGranted()
+        } else {
+            managerRootAccess.cachedGrantState()
+        }
+        val runtimeState = if (refresh) queryRootState(requestAuthorization = false) else runtimeRootState
+        return rootSnapshot(
+            managerState = managerGranted.toRootAccessState(),
+            runtimeState = runtimeState,
+        )
+    }
+
+    override fun requestRootAccess(target: ManagerRootTarget): ManagerRootAccessSnapshot {
+        val managerState = when (target) {
+            ManagerRootTarget.MANAGER -> managerRootAccess.requestRootAccess()
+            ManagerRootTarget.RUNTIME -> managerRootAccess.refreshRootAccessIfGranted()
+        }.toRootAccessState()
+        val runtimeState = queryRootState(
+            requestAuthorization = target == ManagerRootTarget.RUNTIME,
+        )
+        return rootSnapshot(managerState = managerState, runtimeState = runtimeState)
+    }
+
+    override fun hasCachedRootAccess(): Boolean = runtimeRootState == ManagerRootAccessState.GRANTED
 
     override fun refreshRootAccessIfGranted(): Boolean {
-        val managerGranted = managerRootAccess.refreshRootAccessIfGranted()
-        val runtimeGranted = queryRoot(requestAuthorization = false)
-        return managerGranted && runtimeGranted
+        return queryRootState(requestAuthorization = false) == ManagerRootAccessState.GRANTED
     }
 
     override fun requestRootAccess(): Boolean {
-        val managerGranted = managerRootAccess.requestRootAccess()
-        val runtimeGranted = queryRoot(requestAuthorization = true)
-        return managerGranted && runtimeGranted
+        return queryRootState(requestAuthorization = true) == ManagerRootAccessState.GRANTED
     }
 
     override fun repairXSpaceUserSupport(): ManagerXSpaceRepairResult {
@@ -872,6 +898,8 @@ class RemoteManagerPermissionGateway(
         val stage = when (result.details) {
             ManagerProtocol.WRITE_DETAIL_DUAL_APP_COMPLETED -> ManagerXSpaceRepairStage.COMPLETED
             ManagerProtocol.WRITE_DETAIL_DUAL_APP_ROOT_MISSING -> ManagerXSpaceRepairStage.ROOT_MISSING
+            ManagerProtocol.WRITE_DETAIL_DUAL_APP_PRIMARY_USER_REQUIRED ->
+                ManagerXSpaceRepairStage.PRIMARY_USER_REQUIRED
             ManagerProtocol.WRITE_DETAIL_DUAL_APP_XSPACE_MISSING -> ManagerXSpaceRepairStage.XSPACE_USER_NOT_FOUND
             ManagerProtocol.WRITE_DETAIL_DUAL_APP_PARTIAL_FAILED -> ManagerXSpaceRepairStage.PARTIAL_FAILED
             else -> if (RemoteWriteSupport.isSuccess(result)) {
@@ -899,6 +927,8 @@ class RemoteManagerPermissionGateway(
         val stage = when (result.details) {
             ManagerProtocol.WRITE_DETAIL_DUAL_APP_COMPLETED -> ManagerXSpaceRepairStage.COMPLETED
             ManagerProtocol.WRITE_DETAIL_DUAL_APP_ROOT_MISSING -> ManagerXSpaceRepairStage.ROOT_MISSING
+            ManagerProtocol.WRITE_DETAIL_DUAL_APP_PRIMARY_USER_REQUIRED ->
+                ManagerXSpaceRepairStage.PRIMARY_USER_REQUIRED
             ManagerProtocol.WRITE_DETAIL_DUAL_APP_XSPACE_MISSING -> ManagerXSpaceRepairStage.XSPACE_USER_NOT_FOUND
             ManagerProtocol.WRITE_DETAIL_DUAL_APP_PARTIAL_FAILED -> ManagerXSpaceRepairStage.PARTIAL_FAILED
             else -> if (RemoteWriteSupport.isSuccess(result)) {
@@ -957,21 +987,38 @@ class RemoteManagerPermissionGateway(
         return grantSilentPermissions(userId = -1, packageName = "", op = "all")
     }
 
-    private fun queryRoot(requestAuthorization: Boolean): Boolean {
+    private fun queryRootState(requestAuthorization: Boolean): ManagerRootAccessState {
         val result = RemoteWriteSupport.executeBlocking(
             client = client,
             operation = ManagerProtocol.WRITE_OP_QUERY_ROOT,
             booleanArgument = requestAuthorization,
             uniqueRequestId = true,
-        ) ?: run {
-            rootCached = false
-            return false
-        }
-        val available = result.resultLong == 1L ||
-            result.details == ManagerProtocol.WRITE_DETAIL_ROOT_AVAILABLE ||
-            RemoteWriteSupport.isSuccess(result) && result.details != ManagerProtocol.WRITE_DETAIL_ROOT_MISSING
-        rootCached = available
-        return available
+        )
+        return resolveRuntimeRootAccessState(result).also { runtimeRootState = it }
+    }
+
+    private fun rootSnapshot(
+        managerState: ManagerRootAccessState,
+        runtimeState: ManagerRootAccessState,
+    ): ManagerRootAccessSnapshot {
+        val userId = Process.myUid() / PER_USER_RANGE
+        return ManagerRootAccessSnapshot(
+            userId = userId,
+            manager = ManagerRootSubjectStatus(
+                target = ManagerRootTarget.MANAGER,
+                packageName = ManagerProtocol.MANAGER_PACKAGE,
+                userId = userId,
+                uid = Process.myUid(),
+                state = managerState,
+            ),
+            runtime = ManagerRootSubjectStatus(
+                target = ManagerRootTarget.RUNTIME,
+                packageName = ManagerProtocol.RUNTIME_PACKAGE,
+                userId = userId,
+                uid = context.packageUidOrNull(ManagerProtocol.RUNTIME_PACKAGE),
+                state = runtimeState,
+            ),
+        )
     }
 
     private fun grantSilentPermissions(userId: Int, packageName: String, op: String): Boolean {
@@ -987,6 +1034,29 @@ class RemoteManagerPermissionGateway(
             result.details == ManagerProtocol.WRITE_DETAIL_GRANT_SILENT_OK
     }
 }
+
+internal fun resolveRuntimeRootAccessState(result: ManagerWriteResultDto?): ManagerRootAccessState {
+    if (result == null) return ManagerRootAccessState.UNAVAILABLE
+    if (result.resultLong == 1L || result.details == ManagerProtocol.WRITE_DETAIL_ROOT_AVAILABLE) {
+        return ManagerRootAccessState.GRANTED
+    }
+    if (RemoteWriteSupport.isSuccess(result) && result.details == ManagerProtocol.WRITE_DETAIL_ROOT_MISSING) {
+        return ManagerRootAccessState.NOT_GRANTED
+    }
+    return ManagerRootAccessState.UNAVAILABLE
+}
+
+private fun Boolean?.toRootAccessState(): ManagerRootAccessState = when (this) {
+    true -> ManagerRootAccessState.GRANTED
+    false -> ManagerRootAccessState.NOT_GRANTED
+    null -> ManagerRootAccessState.UNAVAILABLE
+}
+
+private fun Context.packageUidOrNull(packageName: String): Int? = runCatching {
+    packageManager.getPackageUid(packageName, 0)
+}.getOrNull()
+
+private const val PER_USER_RANGE = 100_000
 
 class RemoteZygiskConfigGateway(
     private val client: ManagerRuntimeClient,

@@ -2,6 +2,10 @@ package io.github.magisk317.mipush.main.viewmodel
 
 import android.content.Context
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
+import io.github.magisk317.mipush.common.manager.ManagerRootAccessSnapshot
+import io.github.magisk317.mipush.common.manager.ManagerRootAccessState
+import io.github.magisk317.mipush.common.manager.ManagerRootSubjectStatus
+import io.github.magisk317.mipush.common.manager.ManagerRootTarget
 import io.github.magisk317.mipush.common.manager.ManagerXSpaceRepairResult
 import io.github.magisk317.mipush.common.manager.ManagerXSpaceRepairStage
 import io.github.magisk317.mipush.feature.wizard.permission.PermissionInfo
@@ -40,6 +44,21 @@ class RequestPermissionViewModelTest {
         assertTrue(states.getValue(0))
     }
 
+    @Test
+    fun `manager and runtime root requests stay independent`() {
+        val gateway = FakePermissionGateway()
+
+        val managerSnapshot = gateway.requestRootAccess(ManagerRootTarget.MANAGER)
+
+        assertTrue(managerSnapshot.manager.isGranted)
+        assertFalse(managerSnapshot.runtime.isGranted)
+
+        val runtimeSnapshot = gateway.requestRootAccess(ManagerRootTarget.RUNTIME)
+
+        assertTrue(runtimeSnapshot.manager.isGranted)
+        assertTrue(runtimeSnapshot.runtime.isGranted)
+    }
+
     private fun permissionInfo(operator: PermissionOperator): PermissionInfo = object : PermissionInfo {
         override val permissionOperator: PermissionOperator = operator
         override val permissionTitle: String = "Root"
@@ -50,6 +69,17 @@ class RequestPermissionViewModelTest {
         var rootRefreshCount = 0
         var rootRequestCount = 0
         private var rootGranted = false
+        private var managerRootGranted = false
+
+        override fun getRootAccessSnapshot(refresh: Boolean): ManagerRootAccessSnapshot = snapshot()
+
+        override fun requestRootAccess(target: ManagerRootTarget): ManagerRootAccessSnapshot {
+            when (target) {
+                ManagerRootTarget.MANAGER -> managerRootGranted = true
+                ManagerRootTarget.RUNTIME -> rootGranted = true
+            }
+            return snapshot()
+        }
 
         override fun hasCachedRootAccess(): Boolean = rootGranted
 
@@ -79,5 +109,27 @@ class RequestPermissionViewModelTest {
         override fun grantNotificationPermission(context: Context): Boolean = false
 
         private fun unsupportedRepair() = ManagerXSpaceRepairResult(ManagerXSpaceRepairStage.ROOT_MISSING)
+
+        private fun snapshot() = ManagerRootAccessSnapshot(
+            userId = 999,
+            manager = ManagerRootSubjectStatus(
+                target = ManagerRootTarget.MANAGER,
+                packageName = "io.github.magisk317.mipush",
+                userId = 999,
+                state = managerRootGranted.toState(),
+            ),
+            runtime = ManagerRootSubjectStatus(
+                target = ManagerRootTarget.RUNTIME,
+                packageName = "com.xiaomi.xmsf",
+                userId = 999,
+                state = rootGranted.toState(),
+            ),
+        )
+
+        private fun Boolean.toState() = if (this) {
+            ManagerRootAccessState.GRANTED
+        } else {
+            ManagerRootAccessState.NOT_GRANTED
+        }
     }
 }

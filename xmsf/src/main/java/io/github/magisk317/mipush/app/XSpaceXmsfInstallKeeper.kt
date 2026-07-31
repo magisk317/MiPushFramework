@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.app
 
 import android.content.Context
 import io.github.magisk317.mipush.common.Constants
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logW
@@ -9,6 +10,7 @@ import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.dataStore
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.platform.support.BoundedShellResult
+import io.github.magisk317.mipush.platform.support.PermissionUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -33,12 +35,26 @@ object XSpaceXmsfInstallKeeper {
     private val lastCheckAtMs = AtomicLong(0L)
 
     fun scheduleForced(context: Context, source: String) {
-        lastCheckAtMs.set(0L)
-        schedule(context, source)
+        schedule(context, source, forced = true)
     }
 
     fun schedule(context: Context, source: String) {
+        schedule(context, source, forced = false)
+    }
+
+    private fun schedule(context: Context, source: String, forced: Boolean) {
         val appContext = context.applicationContext ?: context
+        val currentUserId = Utils.myUserId()
+        if (!canManageXSpaceFromUser(currentUserId)) {
+            logD(
+                "skip XSpace xmsf install keeper source=$source pkg=${appContext.packageName} " +
+                    "userId=$currentUserId reason=primary_user_required",
+            )
+            return
+        }
+        if (forced) {
+            lastCheckAtMs.set(0L)
+        }
         val nowMs = System.currentTimeMillis()
         if (!markCheckAllowed(nowMs)) {
             logD("skip XSpace xmsf install keeper source=$source pkg=${appContext.packageName} reason=rate_limited")
@@ -64,6 +80,7 @@ object XSpaceXmsfInstallKeeper {
                             AppRootAccessFacade.runRootCommand(command, timeoutMs = timeoutMs)
                         },
                         isDualAppEnabled = isDualAppEnabled,
+                        currentUserId = currentUserId,
                     )
                     val shouldRetry = result.stage == Stage.ROOT_MISSING && attempt < ROOT_RETRY_ATTEMPTS
                     if (!shouldRetry) break
@@ -104,7 +121,11 @@ object XSpaceXmsfInstallKeeper {
         hasRootAccess: () -> Boolean,
         runRootCommand: (String, Long) -> BoundedShellResult,
         isDualAppEnabled: Boolean = false,
+        currentUserId: Int = PermissionUtils.USER_PRIMARY,
     ): RepairResult {
+        if (!canManageXSpaceFromUser(currentUserId)) {
+            return RepairResult(Stage.PRIMARY_USER_REQUIRED)
+        }
         if (!hasRootAccess()) {
             return RepairResult(Stage.ROOT_MISSING)
         }
@@ -198,6 +219,7 @@ object XSpaceXmsfInstallKeeper {
             Stage.ALREADY_SYNCHRONIZED,
             Stage.XSPACE_USER_NOT_FOUND,
             Stage.MODULE_ABSENT_XMSF_ABSENT,
+            Stage.PRIMARY_USER_REQUIRED,
             Stage.ROOT_MISSING -> logD(message)
             Stage.INSTALL_EXISTING_SUCCEEDED,
             Stage.UNINSTALL_SUCCEEDED -> logI(message)
@@ -215,6 +237,7 @@ object XSpaceXmsfInstallKeeper {
     )
 
     enum class Stage {
+        PRIMARY_USER_REQUIRED,
         ROOT_MISSING,
         USER_LIST_FAILED,
         XSPACE_USER_NOT_FOUND,
@@ -227,4 +250,7 @@ object XSpaceXmsfInstallKeeper {
         UNINSTALL_FAILED,
         UNINSTALL_VERIFY_FAILED,
     }
+
+    internal fun canManageXSpaceFromUser(userId: Int): Boolean =
+        userId == PermissionUtils.USER_PRIMARY
 }

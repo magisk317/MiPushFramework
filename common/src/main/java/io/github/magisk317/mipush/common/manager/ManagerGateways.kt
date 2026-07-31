@@ -90,6 +90,8 @@ interface ManagerLogGateway {
 }
 
 interface ManagerPermissionGateway {
+    fun getRootAccessSnapshot(refresh: Boolean = false): ManagerRootAccessSnapshot
+    fun requestRootAccess(target: ManagerRootTarget): ManagerRootAccessSnapshot
     fun hasCachedRootAccess(): Boolean
     fun refreshRootAccessIfGranted(): Boolean
     fun requestRootAccess(): Boolean
@@ -102,8 +104,42 @@ interface ManagerPermissionGateway {
     fun grantNotificationPermission(context: Context): Boolean
 }
 
+enum class ManagerRootTarget {
+    MANAGER,
+    RUNTIME,
+}
+
+enum class ManagerRootAccessState {
+    GRANTED,
+    NOT_GRANTED,
+    UNAVAILABLE,
+}
+
+data class ManagerRootSubjectStatus(
+    val target: ManagerRootTarget,
+    val packageName: String,
+    val userId: Int,
+    val uid: Int? = null,
+    val state: ManagerRootAccessState = ManagerRootAccessState.UNAVAILABLE,
+) {
+    val isGranted: Boolean
+        get() = state == ManagerRootAccessState.GRANTED
+}
+
+data class ManagerRootAccessSnapshot(
+    val userId: Int,
+    val manager: ManagerRootSubjectStatus,
+    val runtime: ManagerRootSubjectStatus,
+) {
+    fun status(target: ManagerRootTarget): ManagerRootSubjectStatus = when (target) {
+        ManagerRootTarget.MANAGER -> manager
+        ManagerRootTarget.RUNTIME -> runtime
+    }
+}
+
 enum class ManagerXSpaceRepairStage {
     ROOT_MISSING,
+    PRIMARY_USER_REQUIRED,
     XSPACE_USER_NOT_FOUND,
     COMPLETED,
     PARTIAL_FAILED,

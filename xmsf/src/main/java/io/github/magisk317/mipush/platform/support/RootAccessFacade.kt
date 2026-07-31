@@ -1,6 +1,9 @@
 package io.github.magisk317.mipush.platform.support
 
+import android.os.Process
 import com.topjohnwu.superuser.Shell
+import io.github.magisk317.mipush.common.utils.logI
+import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.utils.PrivilegeElevator
 import java.util.concurrent.atomic.AtomicReference
 
@@ -31,12 +34,13 @@ class RootAccessFacade(
         if (cached != null && System.currentTimeMillis() - lastProbeAt.get() < PROBE_TTL_MS) {
             return cached
         }
-        return probeRootAccess()
+        return probeRootAccess(source = "refresh")
     }
 
     fun requestRootAccess(): Boolean {
         runCatching { requestRootGrant() }
-        return probeRootAccess()
+            .onFailure { this.logW("root_request role=xmsf error=${it.javaClass.simpleName}") }
+        return probeRootAccess(source = "request")
     }
 
     fun runRootCommand(
@@ -64,16 +68,31 @@ class RootAccessFacade(
         timeoutMs: Long = BoundedShellRunner.DEFAULT_TIMEOUT_MS,
     ): BoundedShellResult = runner.run(command, ShellCommandMode.USER, timeoutMs)
 
-    private fun probeRootAccess(): Boolean {
+    private fun probeRootAccess(source: String): Boolean {
         val result = runner.run("id -u", ShellCommandMode.ROOT, timeoutMs = 3_000L)
         val available = result.isSuccess && result.stdout.firstOrNull()?.trim() == "0"
         rootAccessCache.set(available)
         lastProbeAt.set(System.currentTimeMillis())
+        val uid = runCatching { Process.myUid() }.getOrDefault(UNKNOWN_UID)
+        val userId = if (uid >= 0) uid / PER_USER_RANGE else UNKNOWN_USER_ID
+        val stderr = result.stderrText
+            .replace('\n', ' ')
+            .take(MAX_LOGGED_STDERR_LENGTH)
+            .ifBlank { "none" }
+        this.logI(
+            "root_probe role=xmsf source=$source userId=$userId uid=$uid " +
+                "grantState=${rootGrantState()} available=$available exitCode=${result.exitCode} " +
+                "timeout=${result.timedOut} skipped=${result.skipped} stderr=$stderr",
+        )
         return available
     }
 
     companion object {
         private const val PROBE_TTL_MS = 10_000L
+        private const val PER_USER_RANGE = 100_000
+        private const val MAX_LOGGED_STDERR_LENGTH = 160
+        private const val UNKNOWN_UID = -1
+        private const val UNKNOWN_USER_ID = -1
     }
 }
 

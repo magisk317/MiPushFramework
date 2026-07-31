@@ -16,6 +16,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,7 +40,9 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -64,14 +67,19 @@ import io.github.magisk317.mipush.feature.wizard.permission.RootPermissionOperat
 import io.github.magisk317.mipush.feature.wizard.permission.UsageStatsPermissionInfo
 import io.github.magisk317.mipush.feature.wizard.permission.requirementGroupKey
 import io.github.magisk317.mipush.feature.ui.theme.Theme
-import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
+import io.github.magisk317.mipush.common.manager.ManagerRootAccessSnapshot
+import io.github.magisk317.mipush.common.manager.ManagerRootAccessState
+import io.github.magisk317.mipush.common.manager.ManagerRootSubjectStatus
+import io.github.magisk317.mipush.common.manager.ManagerRootTarget
 import io.github.magisk317.mipush.main.viewmodel.RequestPermissionViewModel
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -86,7 +94,6 @@ import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.mutableIntStateOf
 import io.github.magisk317.mipush.manager.di.ManagerDependencies
 import io.github.magisk317.mipush.feature.main.MainActivity
-import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 private val TAG = "WizardPermission"
@@ -119,7 +126,6 @@ fun PermissionMainActivity(
     recheckOnly: Boolean = false
 ) {
     val context = LocalContext.current
-    val permissionGateway: ManagerPermissionGateway = koinInject()
     val permissionViewModel: RequestPermissionViewModel = koinViewModel()
     Box(
         modifier = modifier
@@ -139,6 +145,7 @@ fun PermissionMainActivity(
             getPermissionInfos(context).filter { it !is DisplayOnlyPhonyPermissionInfo }
         }
         val permissionStates by permissionViewModel.permissionStates.collectAsState()
+        val rootAccessSnapshot by permissionViewModel.rootAccessSnapshot.collectAsState()
 
         var checkTrigger by remember { mutableIntStateOf(0) }
         val lifecycleOwner = LocalLifecycleOwner.current
@@ -186,22 +193,42 @@ fun PermissionMainActivity(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 itemsIndexed(permissionInfos) { index, info ->
-                    PermissionItem(
-                        info = info,
-                        isGranted = isPermissionRequirementSatisfied(index, permissionInfos, permissionStates),
-                    ) {
-                        permissionViewModel.requestPermission(info) { isGranted ->
-                            checkTrigger++
-                            if (info.permissionOperator is RootPermissionOperator) {
-                                Toast.makeText(
-                                    context,
-                                    if (isGranted) {
-                                        R.string.wizard_root_permission_granted_toast
-                                    } else {
-                                        R.string.wizard_root_permission_denied_toast
-                                    },
-                                    Toast.LENGTH_SHORT,
-                                ).show()
+                    if (info is RootPermissionInfo) {
+                        RootPermissionItem(
+                            info = info,
+                            snapshot = rootAccessSnapshot,
+                            onRequest = { target ->
+                                permissionViewModel.requestRootAccess(target) { isGranted ->
+                                    checkTrigger++
+                                    val targetName = context.getString(
+                                        if (target == ManagerRootTarget.MANAGER) {
+                                            R.string.wizard_root_manager_title
+                                        } else {
+                                            R.string.wizard_root_runtime_title
+                                        },
+                                    )
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(
+                                            if (isGranted) {
+                                                R.string.wizard_root_permission_target_granted_toast
+                                            } else {
+                                                R.string.wizard_root_permission_target_denied_toast
+                                            },
+                                            targetName,
+                                        ),
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                }
+                            },
+                        )
+                    } else {
+                        PermissionItem(
+                            info = info,
+                            isGranted = isPermissionRequirementSatisfied(index, permissionInfos, permissionStates),
+                        ) {
+                            permissionViewModel.requestPermission(info) {
+                                checkTrigger++
                             }
                         }
                     }
@@ -235,6 +262,125 @@ fun PermissionMainActivity(
 }
 
 private val COLOR_GRANTED = Color(0xFF4CAF50) // Green 500
+
+@Composable
+private fun RootPermissionItem(
+    info: RootPermissionInfo,
+    snapshot: ManagerRootAccessSnapshot,
+    onRequest: (ManagerRootTarget) -> Unit,
+) {
+    val spaceLabel = when (snapshot.userId) {
+        0 -> stringResource(R.string.wizard_root_space_primary)
+        999 -> stringResource(R.string.wizard_root_space_dual)
+        else -> stringResource(R.string.wizard_root_space_other, snapshot.userId)
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = MaterialTheme.shapes.medium,
+            ),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Text(
+                text = info.permissionTitle,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = spaceLabel,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = info.permissionDescription,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        RootSubjectItem(
+            title = stringResource(R.string.wizard_root_manager_title),
+            summary = stringResource(R.string.wizard_root_manager_summary),
+            subject = snapshot.manager,
+            onRequest = onRequest,
+        )
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant,
+            modifier = Modifier.padding(start = 56.dp),
+        )
+        RootSubjectItem(
+            title = stringResource(R.string.wizard_root_runtime_title),
+            summary = stringResource(R.string.wizard_root_runtime_summary),
+            subject = snapshot.runtime,
+            onRequest = onRequest,
+        )
+    }
+}
+
+@Composable
+private fun RootSubjectItem(
+    title: String,
+    summary: String,
+    subject: ManagerRootSubjectStatus,
+    onRequest: (ManagerRootTarget) -> Unit,
+) {
+    val granted = subject.state == ManagerRootAccessState.GRANTED
+    val statusText = when (subject.state) {
+        ManagerRootAccessState.GRANTED -> stringResource(R.string.wizard_root_status_granted)
+        ManagerRootAccessState.NOT_GRANTED -> stringResource(R.string.wizard_root_status_not_granted)
+        ManagerRootAccessState.UNAVAILABLE -> stringResource(R.string.wizard_root_status_unavailable)
+    }
+    val details = buildString {
+        append(summary)
+        append('\n')
+        append(subject.packageName)
+        subject.uid?.let {
+            append(" · UID ")
+            append(it)
+        }
+    }
+    ListItem(
+        supportingContent = {
+            Text(text = details)
+        },
+        leadingContent = {
+            Icon(
+                painter = painterResource(
+                    if (granted) {
+                        CommonR.drawable.ic_check_circle_black_24dp
+                    } else {
+                        CommonR.drawable.ic_radio_button_unchecked_black_24dp
+                    },
+                ),
+                contentDescription = statusText,
+                tint = if (granted) COLOR_GRANTED else MaterialTheme.colorScheme.outline,
+                modifier = Modifier.size(24.dp),
+            )
+        },
+        trailingContent = {
+            if (subject.state == ManagerRootAccessState.NOT_GRANTED) {
+                TextButton(onClick = { onRequest(subject.target) }) {
+                    Text(stringResource(R.string.wizard_root_request))
+                }
+            }
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(text = title, fontWeight = FontWeight.Medium)
+            Text(
+                text = statusText,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (granted) COLOR_GRANTED else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
 
 @Composable
 fun PermissionItem(

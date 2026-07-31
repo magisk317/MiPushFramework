@@ -154,9 +154,22 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="wizard_title_accessibility_text">Enable Accessibility foreground detection. Either this or Usage Stats is enough; it is more compatible but may be less efficient.</string>
 
     <string name="wizard_title_root_permission">Root access</string>
-    <string name="wizard_title_root_permission_text">Optional but recommended. Magisk will ask separately for MiPush Manager and XMSF; grant both. Root can then complete Usage Stats, overlay, battery optimization whitelist, notifications, and Zygisk configuration.</string>
+    <string name="wizard_title_root_permission_text">Root is scoped to each Android user and app. Grant XMSF in the current space for runtime operations; MiPush Manager is shown separately.</string>
     <string name="wizard_root_permission_granted_toast">Root access granted</string>
     <string name="wizard_root_permission_denied_toast">Root access not granted</string>
+    <string name="wizard_root_permission_target_granted_toast">%1$s root access granted</string>
+    <string name="wizard_root_permission_target_denied_toast">%1$s root access not granted</string>
+    <string name="wizard_root_space_primary">Current space: Primary (User 0)</string>
+    <string name="wizard_root_space_dual">Current space: Dual app (User 999)</string>
+    <string name="wizard_root_space_other">Current space: User %1$d</string>
+    <string name="wizard_root_manager_title">MiPush Manager</string>
+    <string name="wizard_root_manager_summary">Optional for the current implementation; kept separate for manager-local operations.</string>
+    <string name="wizard_root_runtime_title">XMSF push service</string>
+    <string name="wizard_root_runtime_summary">Required for runtime commands in this Android user.</string>
+    <string name="wizard_root_status_granted">Granted</string>
+    <string name="wizard_root_status_not_granted">Not granted</string>
+    <string name="wizard_root_status_unavailable">Unavailable</string>
+    <string name="wizard_root_request">Grant</string>
 
     <string name="wizard_title_alert_window_permission">Display over other apps</string>
     <string name="wizard_title_alert_window_text">You need to grant \"Display over other apps\" permission or you will not be able to auto open app by configuration.</string>
@@ -442,6 +455,7 @@ This could be the application doing a reverse registration, or the registration 
     <string name="settings_home_misc_title">Miscellaneous</string>
     <string name="settings_dual_app_title">Enable dual app</string>
     <string name="settings_dual_app_summary">Install xmsf and MiPush to the dual-app space (user 999). Requires root access.</string>
+    <string name="settings_dual_app_primary_user_only_summary">Dual-app installation is managed from the primary space (User 0). This clone only shows its own runtime status.</string>
     <string name="pref_choose_theme_title">Theme</string>
     <string name="pref_choose_theme_summary">Follow System, Light, Dark or Pure Black</string>
     <string name="pref_ui_kit_style_title">UI style</string>
