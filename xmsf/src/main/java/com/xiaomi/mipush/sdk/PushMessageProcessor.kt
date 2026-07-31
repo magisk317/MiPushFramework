@@ -441,6 +441,12 @@ class PushMessageProcessor private constructor(context: Context) {
         appInfoHolder.appRegRequestId = null
         if (result.errorCode == 0L) {
             appInfoHolder.putRegIDAndSecret(result.regId, result.regSecret, result.region)
+            PushRuntime.observeRegistrationResult(
+                packageName = sAppContext.packageName,
+                success = true,
+                source = "PushMessageProcessor.processRegistrationResult",
+                reason = "server_result",
+            )
             MyLog.w("registration result stored " + appInfoHolder.registrationStateSummary(result.appId, appInfoHolder.appToken))
             PushClientReportManager.getInstance(sAppContext).reportEvent(
                 sAppContext.packageName,
@@ -460,6 +466,12 @@ class PushMessageProcessor private constructor(context: Context) {
                 ),
             )
         } else {
+            PushRuntime.observeRegistrationResult(
+                packageName = sAppContext.packageName,
+                success = false,
+                source = "PushMessageProcessor.processRegistrationResult",
+                reason = "error_code:${result.errorCode}",
+            )
             MyLog.w(
                 "registration result failed errorCode=${result.errorCode} reason=${result.reason} " +
                     appInfoHolder.registrationStateSummary(result.appId, appInfoHolder.appToken)

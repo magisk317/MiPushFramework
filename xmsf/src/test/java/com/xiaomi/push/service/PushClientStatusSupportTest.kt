@@ -43,4 +43,41 @@ class PushClientStatusSupportTest {
         client.hasPeerSupport = false
         assertTrue(PushClientStatusSupport.shouldNotifyClient(client, 1, 0, null))
     }
+
+    @Test
+    fun `pending registration flushes only on chid 5 transition to bound`() {
+        assertTrue(
+            shouldFlushPendingRegistration(
+                previousStatus = PushClientsManager.ClientStatus.binding,
+                currentStatus = PushClientsManager.ClientStatus.binded,
+                chid = PushConstants.MIPUSH_CHANNEL,
+            ),
+        )
+        assertFalse(
+            shouldFlushPendingRegistration(
+                previousStatus = PushClientsManager.ClientStatus.binded,
+                currentStatus = PushClientsManager.ClientStatus.binded,
+                chid = PushConstants.MIPUSH_CHANNEL,
+            ),
+        )
+        assertFalse(
+            shouldFlushPendingRegistration(
+                previousStatus = PushClientsManager.ClientStatus.binding,
+                currentStatus = PushClientsManager.ClientStatus.binded,
+                chid = "9",
+            ),
+        )
+    }
+
+    private fun shouldFlushPendingRegistration(
+        previousStatus: PushClientsManager.ClientStatus,
+        currentStatus: PushClientsManager.ClientStatus,
+        chid: String,
+    ): Boolean {
+        val companion = PushClientsManager::class.java.getField("Companion").get(null)
+        val method = companion.javaClass.methods.single {
+            it.name.startsWith("shouldFlushPendingRegistration$")
+        }
+        return method.invoke(companion, previousStatus, currentStatus, chid) as Boolean
+    }
 }

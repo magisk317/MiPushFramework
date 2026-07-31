@@ -108,6 +108,15 @@ class PushClientsManager private constructor() {
                 )
                 status = clientStatus
             }
+            if (shouldFlushPendingRegistration(previousStatus, clientStatus, chid)) {
+                // Flush registration/message payloads cached while the channel was unbound. This
+                // has to sit here rather than in a ClientStatusListener: listeners are notified
+                // above with the *previous* status still in the field, so a flush driven from a
+                // listener sees chid 5 as binding and backs off. Queueing after the field update
+                // covers every bind source (register, reconnect, rebind) without depending on job
+                // ordering, and the flush is a no-op when there is nothing pending.
+                pushAction?.let { it.executeJob(FlushPendingRegistrationJob(it, pkgName)) }
+            }
             val dispatcher = mClientEventDispatcher
             if (dispatcher == null) {
                 MyLog.e("status changed while the client dispatcher is missing")
@@ -329,6 +338,16 @@ class PushClientsManager private constructor() {
             }
             val index = userId!!.indexOf("@")
             return if (index > 0) userId.substring(0, index) else userId
+        }
+
+        internal fun shouldFlushPendingRegistration(
+            previousStatus: ClientStatus,
+            currentStatus: ClientStatus,
+            chid: String,
+        ): Boolean {
+            return previousStatus != currentStatus &&
+                currentStatus == ClientStatus.binded &&
+                chid == PushConstants.MIPUSH_CHANNEL
         }
     }
 }

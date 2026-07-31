@@ -122,6 +122,17 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         }
     }
 
+    // The registration/channel observers below only want to track packages the framework serves,
+    // which is why they filter out system packages. But xmsf itself is an updated system app
+    // (flags carry SYSTEM | UPDATED_SYSTEM_APP), so a plain isUserApplication check also rejected
+    // the push host's own registration. That silently dropped xmsf's cached registration payload,
+    // leaving the request stranded with no way to reach the server after chid 5 bound.
+    private fun isTrackedPackage(packageName: String): Boolean {
+        return packageName == PushConstants.PUSH_SERVICE_PACKAGE_NAME ||
+            packageName == appContext.packageName ||
+            Utils.isUserApplication(appContext, packageName)
+    }
+
     private fun frameworkProcessor(): PushMessageProcessor {
         return AppDependencies.get<PushMessageProcessor>(appContext)
     }
@@ -367,7 +378,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun onRegistrationStateChanged(packageName: String, state: PushRegistrationState, reason: String, message: String) {
-        if (!Utils.isUserApplication(appContext, packageName)) return
+        if (!isTrackedPackage(packageName)) return
         PushRuntime.observeRegistrationState(packageName, state, reason, message)
     }
 
@@ -380,7 +391,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun onRegistrationResult(packageName: String, success: Boolean, source: String, reason: String) {
-        if (!Utils.isUserApplication(appContext, packageName)) return
+        if (!isTrackedPackage(packageName)) return
         PushRuntime.observeRegistrationResult(packageName, success, source, reason)
     }
 
@@ -389,12 +400,12 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun rememberPendingRegistration(packageName: String, appId: String?) {
-        if (!Utils.isUserApplication(appContext, packageName)) return
+        if (!isTrackedPackage(packageName)) return
         MIPushAppAbsentManager.rememberPendingRegistration(appContext, packageName, appId)
     }
 
     override fun cacheRegistrationRequest(packageName: String, payload: ByteArray) {
-        if (!Utils.isUserApplication(appContext, packageName)) return
+        if (!isTrackedPackage(packageName)) return
         PushRuntimePendingPacketStore.cacheRegistrationRequest(packageName, payload)
     }
 
@@ -404,12 +415,12 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun observeUnregistration(packageName: String, state: PushRegistrationState) {
-        if (!Utils.isUserApplication(appContext, packageName)) return
+        if (!isTrackedPackage(packageName)) return
         PushRuntime.observeUnregistration(packageName, "MiPushRuntimeObserverBridge.observeUnregistration", state.name)
     }
 
     override fun cacheRegistrationTask(packageName: String, intent: Intent, source: String, reason: String, timestampMs: Long) {
-        if (!Utils.isUserApplication(appContext, packageName)) return
+        if (!isTrackedPackage(packageName)) return
         PushRuntimeRegistrationTaskStore.cache(packageName, intent, source, reason, timestampMs)
     }
 
@@ -600,8 +611,7 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun processMIPushIntent(intent: Intent): Any? {
-        // Intent processing is routed differently in XMPushUtils now
-        return null
+        return com.xiaomi.mipush.sdk.PushMessageProcessor.getInstance(appContext).processIntent(intent)
     }
 
     override val notificationHandler: IPushNotificationHandler = object : IPushNotificationHandler {

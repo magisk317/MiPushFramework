@@ -86,6 +86,8 @@ class MIPushAppRegisterJob(
                         null,
                         "bind_for_register",
                     )
+                    // The cached payload is flushed once the channel reaches binded; see
+                    // PushClientsManager.ClientLoginInfo.setStatus.
                     pushService.executeJob(BindJob(pushService, client))
                 }
 
@@ -110,5 +112,36 @@ class MIPushAppRegisterJob(
             connected: Boolean,
             clientStatus: PushClientsManager.ClientStatus,
         ): Boolean = !connected || clientStatus == PushClientsManager.ClientStatus.unbind
+    }
+}
+
+/**
+ * Flushes registration payloads cached by [MIPushAppRegisterJob] once chid 5 is bound.
+ *
+ * Queued from [PushClientsManager.ClientLoginInfo.setStatus] right after the status field flips to
+ * [PushClientsManager.ClientStatus.binded], so it covers every bind source. The binded guard below
+ * is kept as a cheap sanity check: the channel can be torn down again between the enqueue and this
+ * job running, in which case the payload stays queued for the next binded transition.
+ */
+class FlushPendingRegistrationJob(
+    private val pushAction: IPushServiceAction,
+    private val packageName: String,
+) : XMPushServiceCore.Job(XMPushServiceJob.TYPE_BIND_UNBIND) {
+    override fun getDesc(): String = "flush pending registration for $packageName"
+
+    override fun process() {
+        if (!pushAction.isConnected) {
+            MyLog.w("[FlushPendingRegistrationJob] skip flush, not connected. pkg=$packageName")
+            return
+        }
+        val bound = PushClientsManager.getInstance()
+            .getAllClientLoginInfoByChid(PushConstants.MIPUSH_CHANNEL)
+            .any { it.status == PushClientsManager.ClientStatus.binded }
+        if (!bound) {
+            MyLog.w("[FlushPendingRegistrationJob] skip flush, chid 5 not binded. pkg=$packageName")
+            return
+        }
+        MyLog.w("[FlushPendingRegistrationJob] flushing pending registration for $packageName")
+        MIPushClientManager.processPendingRegistrationRequest(pushAction, pushAction.context)
     }
 }
