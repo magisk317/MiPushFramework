@@ -40,7 +40,6 @@ import io.github.magisk317.mipush.utils.Hooker
 import io.github.magisk317.mipush.control.PushControllerUtils
 import io.github.magisk317.mipush.control.PushControllerUtils.isAppMainProc
 import io.github.magisk317.mipush.notification.NotificationController.CHANNEL_WARN
-import io.github.magisk317.mipush.platform.support.PermissionUtils
 import io.github.magisk317.mipush.platform.support.CrashHandler
 import io.github.magisk317.mipush.runtime.PushRuntimeChannelTracker
 import io.github.magisk317.mipush.runtime.PushRuntimeExecutionBridge
@@ -83,19 +82,10 @@ open class MiPushFrameworkApp : Application() {
         val analyticsPrefEnabled = runCatching {
             runBlocking { preferenceRepository.isAnalyticsEnabled.first() }
         }.getOrDefault(true)
-        val systemOtelEnabled =
-            System.getProperty("magisk.otel.enabled")?.equals("true", ignoreCase = true) == true
-        MagiskOtel.configureForInstallation(
-            this,
-            MagiskOtel.Config(
-                enabled = BuildConfig.DEBUG || analyticsPrefEnabled || systemOtelEnabled,
-                serviceName = "mipushframework",
-                serviceVersion = VERSION_NAME,
-                projectId = "83955143",
-                projectName = "MiPushFramework",
-                environment = if (BuildConfig.DEBUG) "debug" else "release",
-            ),
-        )
+        configureAnalytics(analyticsPrefEnabled)
+        applicationScope.launch {
+            preferenceRepository.isAnalyticsEnabled.collect(::configureAnalytics)
+        }
         MagiskOtel.event(
             name = "app.boot",
             attributes = mapOf(
@@ -108,7 +98,6 @@ open class MiPushFrameworkApp : Application() {
         DatabaseUtils.init(this)
         onAppDependenciesStarted()
         XSpaceXmsfInstallKeeper.scheduleForced(this, "MiPushFrameworkApp.onCreate")
-        scheduleSilentPermissionGrants()
         ProactiveMiPushRegistrar.schedule(this)
 
         Hooker.setLogger(PushControllerUtils.wrapContext(this))
@@ -138,28 +127,28 @@ open class MiPushFrameworkApp : Application() {
         PushHealthSnapshotLogger.log(this, "MiPushFrameworkApp.onCreate")
     }
 
+    private fun configureAnalytics(enabled: Boolean) {
+        val systemOtelEnabled =
+            System.getProperty("magisk.otel.enabled")?.equals("true", ignoreCase = true) == true
+        MagiskOtel.configureForInstallation(
+            this,
+            MagiskOtel.Config(
+                enabled = BuildConfig.DEBUG || enabled || systemOtelEnabled,
+                serviceName = "mipushframework",
+                serviceVersion = VERSION_NAME,
+                projectId = "83955143",
+                projectName = "MiPushFramework",
+                environment = if (BuildConfig.DEBUG) "debug" else "release",
+            ),
+        )
+    }
+
     /**
      * 接线事件记录的保留期限清理:
      * - 向 [EventRetentionManager] 注入保留天数 provider(从 [PreferenceRepository] 缓存回传);
      * - 启动时触发一次清理,把长期无上界增长的事件表拉回保留窗口内。
      * 仅在主进程执行,避免多进程重复清理。
      */
-
-    /**
-     * Best-effort root grant of silent permissions for xmsf + manager (primary and dual-space).
-     * Settings special-access lists often omit dual-space clones; root appops is the reliable path.
-     */
-    private fun scheduleSilentPermissionGrants() {
-        applicationScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            runCatching {
-                PermissionUtils.grantSilentPermissionsForFramework(
-                    userId = PermissionUtils.USER_AUTO,
-                )
-            }.onFailure {
-                logW("silent permission grant failed: ${it.message}")
-            }
-        }
-    }
 
     private fun initEventRetention() {
         val cachedRetentionDays = java.util.concurrent.atomic.AtomicInteger(7)

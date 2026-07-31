@@ -36,12 +36,9 @@ class ZygiskConfigViewModel(
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true)
 
-            // Magisk cannot pre-authorize like KernelSU; request root when entering Zygisk UI
-            // so the user can grant before toggling spoof packages.
             val hasRoot = withContext(Dispatchers.IO) {
-                permissionGateway.requestRootAccess() ||
-                    permissionGateway.refreshRootAccessIfGranted() ||
-                    permissionGateway.hasCachedRootAccess()
+                permissionGateway.hasCachedRootAccess() ||
+                    permissionGateway.refreshRootAccessIfGranted()
             }
 
             val isZygiskEnabled = withContext(Dispatchers.IO) {
@@ -89,9 +86,14 @@ class ZygiskConfigViewModel(
 
     fun saveConfig(onSuccess: () -> Unit, onError: () -> Unit) {
         viewModelScope.launch {
-            val success = withContext(Dispatchers.IO) {
-                settingsManager.saveZygiskConfig(ZygiskConfig.fromPackages(_state.value.spoofPackages))
+            val (hasRoot, success) = withContext(Dispatchers.IO) {
+                val granted = permissionGateway.requestRootAccess()
+                val saved = granted && settingsManager.saveZygiskConfig(
+                    ZygiskConfig.fromPackages(_state.value.spoofPackages),
+                )
+                granted to saved
             }
+            _state.value = _state.value.copy(hasRootAccess = hasRoot)
             if (success) {
                 onSuccess()
             } else {

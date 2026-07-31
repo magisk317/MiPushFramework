@@ -106,9 +106,9 @@ class ApplicationInfoViewModel constructor(
                 return@launch
             }
             val enabled = withContext(Dispatchers.IO) {
-                // Magisk needs an interactive grant; request before reading zygisk config.
-                permissionGateway.requestRootAccess()
-                settingsManager.isZygiskSpoofEnabled(packageName)
+                val hasRoot = permissionGateway.hasCachedRootAccess() ||
+                    permissionGateway.refreshRootAccessIfGranted()
+                hasRoot && settingsManager.isZygiskSpoofEnabled(packageName)
             }
             _isZygiskEnabledForApp.value = enabled
         }
@@ -120,8 +120,7 @@ class ApplicationInfoViewModel constructor(
         if (current.blocked || !ZygiskPackagePolicy.isManagedPackage(packageName)) return
         viewModelScope.launch {
             val success = withContext(Dispatchers.IO) {
-                // Magisk cannot pre-grant like KernelSU; request root before writing config.
-                permissionGateway.requestRootAccess()
+                if (!permissionGateway.requestRootAccess()) return@withContext false
                 settingsManager.setZygiskSpoofEnabled(packageName, enabled)
             }
             if (success) {
@@ -152,7 +151,11 @@ class ApplicationInfoViewModel constructor(
             _isZygiskEnabledForApp.value = false
             viewModelScope.launch {
                 withContext(Dispatchers.IO) {
-                    settingsManager.setZygiskSpoofEnabled(current.packageName, false)
+                    val hasRoot = permissionGateway.hasCachedRootAccess() ||
+                        permissionGateway.refreshRootAccessIfGranted()
+                    if (hasRoot) {
+                        settingsManager.setZygiskSpoofEnabled(current.packageName, false)
+                    }
                 }
             }
         } else {

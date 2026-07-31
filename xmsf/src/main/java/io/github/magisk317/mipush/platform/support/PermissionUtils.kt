@@ -75,12 +75,8 @@ object PermissionUtils {
     fun requestRootAccess(): Boolean = AppRootAccessFacade.requestRootAccess()
 
     @JvmStatic
-    fun ensureRootAccess(): Boolean =
-        refreshRootAccessIfGranted() || requestRootAccess()
-
-    @JvmStatic
     fun canAssignPermissionViaAppOps(): Boolean {
-        return Utils.isAppOpsInstalled() || hasCachedRootAccess() || ensureRootAccess()
+        return Utils.isAppOpsInstalled() || hasExistingRootAccess()
     }
 
     /**
@@ -92,7 +88,7 @@ object PermissionUtils {
         packageName: String = Constants.SERVICE_APP_NAME,
         userId: Int = Utils.myUserId(),
     ): Boolean {
-        if (!ensureRootAccess()) return false
+        if (!hasExistingRootAccess()) return false
         val commands = listOf(
             "appops set --user $userId $packageName $permission allow",
             "cmd appops set --user $userId $packageName $permission allow",
@@ -120,7 +116,7 @@ object PermissionUtils {
         packageName: String,
         userId: Int = USER_PRIMARY,
     ): Boolean {
-        if (!ensureRootAccess()) {
+        if (!hasExistingRootAccess()) {
             logI("grantSilentPermissions skip no-root pkg=$packageName user=$userId")
             emitPermission(
                 result = "skip",
@@ -172,7 +168,7 @@ object PermissionUtils {
         userId: Int = USER_AUTO,
         packages: Collection<String> = FRAMEWORK_PACKAGES,
     ): Boolean {
-        if (!ensureRootAccess()) {
+        if (!hasExistingRootAccess()) {
             emitPermission(result = "skip", reason = "no_root_framework", statusOk = false)
             return false
         }
@@ -195,7 +191,7 @@ object PermissionUtils {
     @JvmStatic
     fun lunchAppOps(context: Context, permission: String, tips: CharSequence): Boolean {
         // Prefer root grant for both framework packages (main user + dual if present).
-        if (ensureRootAccess()) {
+        if (requestRootForUserAction()) {
             val targetPackages = linkedSetOf(
                 context.packageName,
                 Constants.SERVICE_APP_NAME,
@@ -233,7 +229,7 @@ object PermissionUtils {
 
     @JvmStatic
     fun requestIgnoreBatteryOptimizations(context: Context): Boolean {
-        if (!ensureRootAccess()) {
+        if (!requestRootForUserAction()) {
             return false
         }
         val packages = linkedSetOf(context.packageName, Constants.SERVICE_APP_NAME, Constants.MANAGER_APP_NAME)
@@ -254,7 +250,7 @@ object PermissionUtils {
             emitPermission(result = "ok", reason = "pre_tiramisu")
             return true
         }
-        if (!ensureRootAccess()) {
+        if (!requestRootForUserAction()) {
             emitPermission(result = "skip", reason = "no_root", statusOk = false)
             return false
         }
@@ -301,6 +297,12 @@ object PermissionUtils {
         return result.stdout.any { it.trim() == needle || it.contains(needle) }
     }
 
+    private fun hasExistingRootAccess(): Boolean =
+        hasCachedRootAccess() || refreshRootAccessIfGranted()
+
+    private fun requestRootForUserAction(): Boolean =
+        hasExistingRootAccess() || requestRootAccess()
+
     /**
      * Sync manager launcher activity-aliases for [userIds] (desktop icon per user).
      * PackageManager.setComponentEnabledSetting only affects the calling user; dual-space
@@ -314,7 +316,7 @@ object PermissionUtils {
         iconId: String,
         userIds: Collection<Int> = listOf(USER_PRIMARY, USER_XSPACE),
     ): Boolean {
-        if (!ensureRootAccess()) {
+        if (!hasExistingRootAccess()) {
             logI("syncLauncherIconAliases skip no-root iconId=$iconId")
             return false
         }

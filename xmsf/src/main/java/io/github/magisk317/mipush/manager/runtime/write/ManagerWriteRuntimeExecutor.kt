@@ -9,6 +9,7 @@ import io.github.magisk317.mipush.app.di.AppDependencies
 import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_GLOBAL_KEY
 import io.github.magisk317.mipush.common.COLOR_STATUS_BAR_ICON_KEY
+import io.github.magisk317.mipush.common.ENABLE_ANALYTICS_KEY
 import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
@@ -36,6 +37,8 @@ import io.github.magisk317.mipush.common.fakedevice.ZygiskConfig
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.api.ManagerWriteRequestDto
 import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto
+import io.github.magisk317.mipush.service.ForegroundHelper
+import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.utils.LogUtils
 import kotlinx.coroutines.runBlocking
@@ -147,6 +150,7 @@ class ManagerWriteRuntimeExecutor(
             ManagerProtocol.WRITE_OP_CLEAR_HISTORY -> clearHistory(request)
             ManagerProtocol.WRITE_OP_SET_RUNTIME_LOG_RETENTION -> {
                 val days = request.intArgument.coerceAtLeast(1)
+                runBlocking { PreferenceRepository().setRuntimeLogRetentionDays(days) }
                 runtimeActions.setRuntimeLogRetentionDays(days)
                 LogUtils.setRetentionDays(days)
                 success(request.requestId, "runtime_log_retention:$days")
@@ -164,6 +168,7 @@ class ManagerWriteRuntimeExecutor(
             }
             ManagerProtocol.WRITE_OP_APPLY_EVENT_RETENTION -> {
                 val days = request.intArgument.coerceAtLeast(1)
+                runBlocking { PreferenceRepository().setEventRetentionDays(days) }
                 runtimeActions.applyEventRetentionDays(days)
                 success(request.requestId, "event_retention:$days")
             }
@@ -334,7 +339,7 @@ class ManagerWriteRuntimeExecutor(
 
     private fun syncLauncherIcon(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         val iconId = request.argument.ifBlank { "default" }
-        if (!io.github.magisk317.mipush.platform.support.PermissionUtils.ensureRootAccess()) {
+        if (!io.github.magisk317.mipush.platform.support.PermissionUtils.refreshRootAccessIfGranted()) {
             return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_SYNC_LAUNCHER_ICON_ROOT_MISSING)
         }
         val ok = io.github.magisk317.mipush.platform.support.PermissionUtils.syncLauncherIconAliases(iconId)
@@ -453,8 +458,12 @@ class ManagerWriteRuntimeExecutor(
                 COLOR_STATUS_BAR_ICON_GLOBAL_KEY -> repo.setColorStatusBarIconGlobal(enabled)
                 "debug_mode" -> repo.setDebugMode(enabled)
                 LOG_SANITIZATION_ENABLED_KEY -> repo.setLogSanitizationEnabled(enabled)
+                ENABLE_ANALYTICS_KEY -> repo.setAnalyticsEnabled(enabled)
                 "show_all_events" -> repo.setShowAllEvents(enabled)
-                "start_foreground" -> repo.setIsStartForeground(enabled)
+                "start_foreground" -> {
+                    repo.setIsStartForeground(enabled)
+                    applyForegroundServicePolicy(enabled)
+                }
                 "start_push_as_foreground_service" -> repo.setStartPushAsForegroundService(enabled)
                 KEEPALIVE_PREF_OOM_ADJ -> repo.setKeepAliveOomAdj(enabled)
                 KEEPALIVE_PREF_ANTI_KILL -> repo.setKeepAliveAntiKill(enabled)
@@ -474,6 +483,16 @@ class ManagerWriteRuntimeExecutor(
         }
         logI("set_runtime_boolean key=$key value=$enabled")
         return success(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_BOOLEAN_OK)
+    }
+
+    private fun applyForegroundServicePolicy(enabled: Boolean) {
+        if (enabled) {
+            runtimeActions.startMiPushServiceAsForegroundService(context)
+        } else {
+            XMPushServiceLifecycleBridge.peekService()?.let { service ->
+                ForegroundHelper(service).stopForegroundNotification()
+            }
+        }
     }
 
     private fun setRuntimeInt(request: ManagerWriteRequestDto): ManagerWriteResultDto {
@@ -535,7 +554,7 @@ class ManagerWriteRuntimeExecutor(
     }
 
     private fun rebootDevice(request: ManagerWriteRequestDto): ManagerWriteResultDto {
-        if (!io.github.magisk317.mipush.platform.support.PermissionUtils.ensureRootAccess()) {
+        if (!io.github.magisk317.mipush.platform.support.PermissionUtils.requestRootAccess()) {
             return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_REBOOT_DEVICE_ROOT_MISSING)
         }
         // Return success first so Binder can complete before the device reboots.
@@ -621,8 +640,7 @@ class ManagerWriteRuntimeExecutor(
     }
 
     private fun zygiskSaveConfig(request: ManagerWriteRequestDto): ManagerWriteResultDto {
-        // Magisk needs an interactive grant; ensureRootAccess() prompts when not yet authorized.
-        if (!io.github.magisk317.mipush.platform.support.PermissionUtils.ensureRootAccess()) {
+        if (!io.github.magisk317.mipush.platform.support.PermissionUtils.refreshRootAccessIfGranted()) {
             return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_ZYGISK_ROOT_MISSING)
         }
         val config = ZygiskConfig.parse(request.argument)
@@ -698,6 +716,7 @@ class ManagerWriteRuntimeExecutor(
             COLOR_STATUS_BAR_ICON_GLOBAL_KEY,
             "debug_mode",
             LOG_SANITIZATION_ENABLED_KEY,
+            ENABLE_ANALYTICS_KEY,
             "show_all_events",
             "start_foreground",
             "start_push_as_foreground_service",
