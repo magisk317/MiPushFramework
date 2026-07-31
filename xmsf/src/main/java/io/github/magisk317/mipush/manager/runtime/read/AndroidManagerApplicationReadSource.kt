@@ -99,7 +99,7 @@ class AndroidManagerApplicationReadSource(context: Context) : ManagerApplication
 
     private fun isListCandidate(info: PackageInfo, includeSystemApps: Boolean): Boolean {
         val applicationInfo = info.applicationInfo ?: return false
-        if ((applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_INSTALLED) == 0) {
+        if (!Utils.isAppInstalled(applicationInfo)) {
             return false
         }
         return includeSystemApps || Utils.isUserApplication(applicationInfo)

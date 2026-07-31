@@ -189,15 +189,16 @@ class EventRepository constructor(
                 "messageId=${io.github.magisk317.mipush.push.pipeline.MessageIdentity.fromContainer(containerWithRegSec)} " +
                 "isEncrypt=${containerWithRegSec.isEncryptAction} isRequest=${containerWithRegSec.isRequest}"
         )
-        val regSec = RegSecUtils.getRegSec(containerWithRegSec)
-        if (containerWithRegSec.isEncryptAction && regSec.isNullOrBlank()) {
+        if (containerWithRegSec.isEncryptAction && RegSecUtils.getRegSec(containerWithRegSec).isNullOrBlank()) {
             PushRuntime.observeNotificationEvent(
                 containerWithRegSec.packageName,
-                "mock_replay_missing_regsec",
+                "mock_replay_missing_regsec_continue",
                 "EventRepository.mockMessage",
             )
-            logW("mock replay rejected: encrypted payload has no regSec pkg=${containerWithRegSec.packageName}")
-            return MockReplayOutcome.Failed
+            logW(
+                "mock replay continuing with raw encrypted payload because regSec is unavailable " +
+                    "pkg=${containerWithRegSec.packageName}"
+            )
         }
 
         // Preflight diagnostics: if framework cannot even resolve receiver, replay will be dropped silently.

@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logW
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.platform.support.LegacyComponentNames
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
@@ -85,6 +86,8 @@ object ProactiveMiPushRegistrar {
         for (pkg in packages) {
             val packageName = pkg.packageName
             if (packageName == context.packageName) continue
+            val applicationInfo = pkg.applicationInfo ?: continue
+            if (!Utils.isAppInstalled(applicationInfo)) continue
             if (!isUserApplication(pkg)) continue
             if (RegisteredApplicationDb.isBlocked(packageName)) continue
 

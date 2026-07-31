@@ -69,10 +69,21 @@ object Utils {
     @JvmStatic
     fun isAppInstalled(context: Context, packageName: String): Boolean {
         return try {
-            getPackageInfoCompat(context, packageName, 0) != null
+            getPackageInfoCompat(context, packageName, 0)
+                ?.applicationInfo
+                ?.let(::isAppInstalled) == true
         } catch (_: PackageManager.NameNotFoundException) {
             false
         }
+    }
+
+    /**
+     * Xiaomi XSpace can expose owner-user package metadata to user 999 even when the package is not
+     * assigned to that user. FLAG_INSTALLED is the package-user state carried by that metadata.
+     */
+    @JvmStatic
+    fun isAppInstalled(applicationInfo: ApplicationInfo): Boolean {
+        return (applicationInfo.flags and ApplicationInfo.FLAG_INSTALLED) != 0
     }
 
     @JvmStatic

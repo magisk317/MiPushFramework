@@ -8,23 +8,38 @@ import io.github.magisk317.mipush.common.utils.logW
 
 import android.os.SystemClock
 import io.github.aakira.napier.Napier
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.platform.support.AppRootAccessFacade
 import io.github.magisk317.mipush.platform.support.BoundedShellResult
 import io.github.magisk317.mipush.platform.support.PermissionUtils
+import java.io.StringReader
+import java.util.concurrent.ConcurrentHashMap
+import javax.xml.parsers.DocumentBuilderFactory
+import org.xml.sax.InputSource
 
 object RegistrationStateCompat {
     private val diagnosticPackages = setOf("com.ss.android.ugc.aweme")
     private const val VALID_PATTERN = "name=\"valid\" value=\"true\""
     private const val REG_ID_TAG_PATTERN = "name=\"regId\">"
     private const val REG_ID_VALUE_PATTERN = "name=\"regId\" value=\""
+    private const val REG_SEC_TAG_PATTERN = "name=\"regSec\">"
+    private const val REG_SEC_VALUE_PATTERN = "name=\"regSec\" value=\""
     private const val KEVA_VALID_PATTERN = "valid"
     private const val KEVA_REG_ID_PATTERN = "regId"
+    private const val KEVA_REG_SEC_PATTERN = "regSec"
     private const val KEVA_APP_TOKEN_PATTERN = "appToken"
     private const val ROOT_CAPABILITY_TTL_MS = 60_000L
     private const val PROBE_TIME_BUDGET_MS = 500L
+    private const val REG_SEC_RECOVERY_TIMEOUT_MS = 1_000L
+    private const val REG_SEC_RECOVERY_MISS_TTL_MS = 60_000L
+    private const val MAX_REGISTRATION_XML_LENGTH = 256 * 1_024
+    private const val MAX_REG_SEC_LENGTH = 1_024
+    private val SAFE_PACKAGE_NAME = Regex("[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+")
 
     @Volatile
     private var rootCapabilityCache: RootCapability? = null
+    private val regSecRecoveryMisses = ConcurrentHashMap<String, Long>()
+    private val regSecRecoveryLock = Any()
 
     private data class RootCapability(
         val available: Boolean,
@@ -34,8 +49,10 @@ object RegistrationStateCompat {
     private data class RegistrationMarkers(
         val hasXmlValid: Boolean,
         val hasXmlRegId: Boolean,
+        val hasXmlRegSec: Boolean,
         val hasKevaValid: Boolean,
         val hasKevaRegId: Boolean,
+        val hasKevaRegSec: Boolean,
         val hasKevaAppToken: Boolean,
         val regId: String?,
         val appToken: String?
@@ -118,9 +135,11 @@ object RegistrationStateCompat {
         val cmd =
             "[ -f $path ] && " +
                 "(" +
-                "(grep -aq '$VALID_PATTERN' $path && (grep -aq '$REG_ID_TAG_PATTERN' $path || grep -aq '$REG_ID_VALUE_PATTERN' $path))" +
+                "(grep -aq '$VALID_PATTERN' $path && " +
+                "(grep -aq '$REG_ID_TAG_PATTERN' $path || grep -aq '$REG_ID_VALUE_PATTERN' $path))" +
                 " || " +
-                "(grep -aq '$KEVA_VALID_PATTERN' $path && grep -aq '$KEVA_REG_ID_PATTERN' $path && grep -aq '$KEVA_APP_TOKEN_PATTERN' $path)" +
+                "(grep -aq '$KEVA_VALID_PATTERN' $path && grep -aq '$KEVA_REG_ID_PATTERN' $path && " +
+                "grep -aq '$KEVA_APP_TOKEN_PATTERN' $path)" +
                 ") && " +
                 "echo true || echo false"
         val result = if (useSu) {
@@ -177,7 +196,8 @@ object RegistrationStateCompat {
 
     @JvmStatic
     fun findPackagesWithValidLocalRegistration(packages: Collection<String>): Set<String> {
-        logD("find local registration start: queried=${packages.size}")
+        val userId = Utils.myUserId()
+        logD("find local registration start: queried=${packages.size} userId=$userId")
         if (packages.isEmpty()) return emptySet()
         val result = linkedSetOf<String>()
         val uid = if (PermissionUtils.hasCachedRootAccess()) "cached_root" else null
@@ -200,27 +220,10 @@ object RegistrationStateCompat {
             }
             chunkIdx++
             logD("find local registration processing chunk=$chunkIdx")
-            val safePackages = chunk.filter { it.matches(Regex("[A-Za-z0-9._]+")) }
+            val safePackages = chunk.filter { it.matches(SAFE_PACKAGE_NAME) }
             if (safePackages.isEmpty()) continue
-            val script = buildString {
-                append("for pkg in ")
-                append(safePackages.joinToString(" "))
-                append("; do ")
-                append("for base in /data/user/0 /data_mirror/data_ce/null/0; do ")
-                append("f_xml=\\\"${'$'}base/${'$'}pkg/shared_prefs/mipush.xml\\\"; ")
-                append("f_keva=\\\"${'$'}base/${'$'}pkg/files/keva/repo/mipush/mipush.blk\\\"; ")
-                append("if [ -f \\\"${'$'}f_xml\\\" ] && ")
-                append("grep -aq 'name=\"valid\" value=\"true\"' \\\"${'$'}f_xml\\\" && ")
-                append("(grep -aq 'name=\"regId\">' \\\"${'$'}f_xml\\\" || grep -aq 'name=\"regId\" value=\"' \\\"${'$'}f_xml\\\"); then ")
-                append("echo ${'$'}pkg; break; fi; ")
-                append("if [ -f \\\"${'$'}f_keva\\\" ] && ")
-                append("grep -aq 'valid' \\\"${'$'}f_keva\\\" && ")
-                append("grep -aq 'regId' \\\"${'$'}f_keva\\\" && ")
-                append("grep -aq 'appToken' \\\"${'$'}f_keva\\\"; then ")
-                append("echo ${'$'}pkg; break; fi; ")
-                append("done; ")
-                append("done")
-            }
+            val script = buildBatchProbeScript(safePackages, userId)
+            if (script.isBlank()) continue
             val out = runAsRoot(script)
             if (out != null && out.isSuccess) {
                 result += out.stdout.map { it.trim() }.filter { it.isNotEmpty() }
@@ -249,6 +252,90 @@ object RegistrationStateCompat {
         return result
     }
 
+    internal fun buildBatchProbeScript(packages: Collection<String>, userId: Int): String {
+        val safePackages = packages.filter { it.matches(SAFE_PACKAGE_NAME) }
+        val bases = registrationBasePathsForUser(userId)
+        if (safePackages.isEmpty() || bases.isEmpty()) return ""
+        return buildString {
+            append("for pkg in ")
+            append(safePackages.joinToString(" "))
+            append("; do ")
+            append("for base in ")
+            append(bases.joinToString(" "))
+            append("; do ")
+            append("f_xml=\"${'$'}base/${'$'}pkg/shared_prefs/mipush.xml\"; ")
+            append("f_keva=\"${'$'}base/${'$'}pkg/files/keva/repo/mipush/mipush.blk\"; ")
+            append("if [ -f \"${'$'}f_xml\" ] && ")
+            append("grep -aq 'name=\"valid\" value=\"true\"' \"${'$'}f_xml\" && ")
+            append("(grep -aq 'name=\"regId\">' \"${'$'}f_xml\" || grep -aq 'name=\"regId\" value=\"' \"${'$'}f_xml\"); then ")
+            append("echo ${'$'}pkg; break; fi; ")
+            append("if [ -f \"${'$'}f_keva\" ] && ")
+            append("grep -aq 'valid' \"${'$'}f_keva\" && ")
+            append("grep -aq 'regId' \"${'$'}f_keva\" && ")
+            append("grep -aq 'appToken' \"${'$'}f_keva\"; then ")
+            append("echo ${'$'}pkg; break; fi; ")
+            append("done; ")
+            append("done")
+        }
+    }
+
+    @JvmStatic
+    fun recoverLocalRegSec(packageName: String): String? {
+        if (!packageName.matches(SAFE_PACKAGE_NAME)) return null
+        Utils.getRegSec(packageName)?.let { return it }
+        if (!getRootCapability().available) return null
+
+        val now = SystemClock.elapsedRealtime()
+        val lastMiss = regSecRecoveryMisses[packageName]
+        if (lastMiss != null && now - lastMiss in 0 until REG_SEC_RECOVERY_MISS_TTL_MS) {
+            return null
+        }
+
+        synchronized(regSecRecoveryLock) {
+            Utils.getRegSec(packageName)?.let { return it }
+            val currentMiss = regSecRecoveryMisses[packageName]
+            if (currentMiss != null && now - currentMiss in 0 until REG_SEC_RECOVERY_MISS_TTL_MS) {
+                return null
+            }
+
+            val userId = Utils.myUserId()
+            val secret = registrationArtifactPathsForUser(packageName, userId)
+                .asSequence()
+                .filter { it.endsWith("/shared_prefs/mipush.xml") }
+                .mapNotNull { path ->
+                    AppRootAccessFacade.runRootCommand(
+                        command = "[ -f $path ] && cat $path || true",
+                        timeoutMs = REG_SEC_RECOVERY_TIMEOUT_MS,
+                    ).takeIf { it.isSuccess }
+                        ?.stdout
+                        ?.joinToString("\n")
+                        ?.let(::extractRegSecFromRegistrationXml)
+                }
+                .firstOrNull()
+
+            if (secret != null) {
+                Utils.setRegSec(packageName, secret)
+                regSecRecoveryMisses.remove(packageName)
+                logI("recovered local regSec pkg=$packageName userId=$userId")
+                return secret
+            }
+
+            regSecRecoveryMisses[packageName] = now
+            logD("local regSec unavailable pkg=$packageName userId=$userId")
+            return null
+        }
+    }
+
+    internal fun extractRegSecFromRegistrationXml(content: String): String? {
+        val values = parseRegistrationXml(content) ?: return null
+        return values["regSec"]
+            ?.takeIf { value ->
+                value.length in 8..MAX_REG_SEC_LENGTH && value.all { char ->
+                    char.isLetterOrDigit() || char in "+/=_-"
+                }
+            }
+    }
+
     private fun logRegistrationMarkers(packageName: String, path: String, useSu: Boolean) {
         if (packageName !in diagnosticPackages) return
         val cmd = "[ -f $path ] && cat $path || true"
@@ -265,9 +352,10 @@ object RegistrationStateCompat {
         val markers = parseRegistrationMarkers(content)
         logI(
             "local registration details pkg=$packageName mode=${if (useSu) "su" else "shell"} path=$path " +
-                "xmlValid=${markers.hasXmlValid} xmlRegId=${markers.hasXmlRegId} " +
-                "kevaValid=${markers.hasKevaValid} kevaRegId=${markers.hasKevaRegId} kevaAppToken=${markers.hasKevaAppToken} " +
-                "regId=${markers.regId ?: "missing"} appToken=${markers.appToken ?: "missing"}"
+                "xmlValid=${markers.hasXmlValid} xmlRegId=${markers.hasXmlRegId} xmlRegSec=${markers.hasXmlRegSec} " +
+                "kevaValid=${markers.hasKevaValid} kevaRegId=${markers.hasKevaRegId} " +
+                "kevaRegSec=${markers.hasKevaRegSec} kevaAppToken=${markers.hasKevaAppToken} " +
+                "regIdPresent=${markers.regId != null} appTokenPresent=${markers.appToken != null}"
         )
     }
 
@@ -275,14 +363,18 @@ object RegistrationStateCompat {
         val sanitized = content.toPrintableDiagnosticText()
         val hasXmlValid = content.contains(VALID_PATTERN)
         val hasXmlRegId = content.contains(REG_ID_TAG_PATTERN) || content.contains(REG_ID_VALUE_PATTERN)
+        val hasXmlRegSec = content.contains(REG_SEC_TAG_PATTERN) || content.contains(REG_SEC_VALUE_PATTERN)
         val hasKevaValid = content.contains(KEVA_VALID_PATTERN)
         val hasKevaRegId = content.contains(KEVA_REG_ID_PATTERN)
+        val hasKevaRegSec = content.contains(KEVA_REG_SEC_PATTERN)
         val hasKevaAppToken = content.contains(KEVA_APP_TOKEN_PATTERN)
         return RegistrationMarkers(
             hasXmlValid = hasXmlValid,
             hasXmlRegId = hasXmlRegId,
+            hasXmlRegSec = hasXmlRegSec,
             hasKevaValid = hasKevaValid,
             hasKevaRegId = hasKevaRegId,
+            hasKevaRegSec = hasKevaRegSec,
             hasKevaAppToken = hasKevaAppToken,
             regId = extractRegistrationValue(content, sanitized, "regId"),
             appToken = extractRegistrationValue(content, sanitized, "appToken")
@@ -290,15 +382,7 @@ object RegistrationStateCompat {
     }
 
     private fun extractRegistrationValue(content: String, sanitized: String, key: String): String? {
-        val xmlPatterns = listOf(
-            Regex("""name="$key"\s+value="([^"]+)""""),
-            Regex("""name="$key">([^<\n\r]+)""")
-        )
-        xmlPatterns.forEach { regex ->
-            regex.find(content)?.groupValues?.getOrNull(1)?.trim()?.takeIf { it.isNotEmpty() }?.let {
-                return it.truncateForDiagnostic()
-            }
-        }
+        extractXmlRegistrationValue(content, key)?.let { return it.truncateForDiagnostic() }
         Regex("""\b$key\b[^A-Za-z0-9]{0,24}([A-Za-z0-9._:-]{6,128})""")
             .find(sanitized)
             ?.groupValues
@@ -307,6 +391,45 @@ object RegistrationStateCompat {
             ?.takeIf { it.isNotEmpty() }
             ?.let { return it.truncateForDiagnostic() }
         return null
+    }
+
+    private fun extractXmlRegistrationValue(content: String, key: String): String? {
+        val xmlPatterns = listOf(
+            Regex("""name="$key"\s+value="([^"]+)""""),
+            Regex("""name="$key"\s*>([^<\n\r]+)</string>""")
+        )
+        return xmlPatterns.firstNotNullOfOrNull { regex ->
+            regex.find(content)
+                ?.groupValues
+                ?.getOrNull(1)
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+        }
+    }
+
+    private fun parseRegistrationXml(content: String): Map<String, String>? {
+        if (content.isBlank() || content.length > MAX_REGISTRATION_XML_LENGTH || content.contains("<!DOCTYPE", ignoreCase = true)) {
+            return null
+        }
+        return runCatching {
+            val factory = DocumentBuilderFactory.newInstance().apply {
+                isNamespaceAware = false
+                isExpandEntityReferences = false
+                runCatching { setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) }
+                runCatching { setFeature("http://xml.org/sax/features/external-general-entities", false) }
+                runCatching { setFeature("http://xml.org/sax/features/external-parameter-entities", false) }
+            }
+            val document = factory.newDocumentBuilder().parse(InputSource(StringReader(content)))
+            val values = linkedMapOf<String, String>()
+            val nodes = document.documentElement?.childNodes ?: return@runCatching emptyMap()
+            for (index in 0 until nodes.length) {
+                val node = nodes.item(index)
+                val name = node.attributes?.getNamedItem("name")?.nodeValue ?: continue
+                val value = node.attributes?.getNamedItem("value")?.nodeValue ?: node.textContent
+                values[name] = value.trim()
+            }
+            values
+        }.getOrNull()
     }
 
     private fun String.toPrintableDiagnosticText(): String {
@@ -322,11 +445,24 @@ object RegistrationStateCompat {
     }
 
     private fun registrationArtifactPaths(packageName: String): List<String> {
+        return registrationArtifactPathsForUser(packageName, Utils.myUserId())
+    }
+
+    internal fun registrationArtifactPathsForUser(packageName: String, userId: Int): List<String> {
+        if (!packageName.matches(SAFE_PACKAGE_NAME)) return emptyList()
+        return registrationBasePathsForUser(userId).flatMap { base ->
+            listOf(
+                "$base/$packageName/shared_prefs/mipush.xml",
+                "$base/$packageName/files/keva/repo/mipush/mipush.blk",
+            )
+        }
+    }
+
+    private fun registrationBasePathsForUser(userId: Int): List<String> {
+        if (userId < 0) return emptyList()
         return listOf(
-            "/data/user/0/$packageName/shared_prefs/mipush.xml",
-            "/data_mirror/data_ce/null/0/$packageName/shared_prefs/mipush.xml",
-            "/data/user/0/$packageName/files/keva/repo/mipush/mipush.blk",
-            "/data_mirror/data_ce/null/0/$packageName/files/keva/repo/mipush/mipush.blk"
+            "/data/user/$userId",
+            "/data_mirror/data_ce/null/$userId",
         )
     }
 }

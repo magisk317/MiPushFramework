@@ -48,6 +48,7 @@ import io.github.magisk317.mipush.notification.SweetNotificationCoordinator
 import io.github.magisk317.mipush.utils.Configurations
 import io.github.magisk317.mipush.utils.IconConfigurations
 import io.github.magisk317.mipush.utils.PackageConfig
+import io.github.magisk317.mipush.utils.RegSecUtils
 import io.github.magisk317.mipush.app.ConfigCenter
 import java.util.LinkedHashMap
 import io.github.magisk317.mipush.common.Constants
@@ -217,8 +218,41 @@ class MyMIPushNotificationHelper {
                 container,
                 dispatchMessageArrived = dispatchMessageArrived && !isMockReplay,
             )
+            if (shouldFallbackToRawEncryptedDispatch(container.isEncryptAction, outcome)) {
+                val packageName = MIPushNotificationHelper.getTargetPackage(container)
+                val dispatched = packageName.isNotBlank() && XMPushUtils.dispatchToApplication(
+                    context = context,
+                    packageName = packageName,
+                    payload = decryptedContent,
+                    fromNotification = true,
+                )
+                val candidateCount = RegSecUtils.getCandidateRegSecs(container).size
+                logW(
+                    "encrypted notification processing failed; raw payload fallback " +
+                        "pkg=$packageName candidates=$candidateCount dispatched=$dispatched"
+                )
+                PushRuntime.observeNotificationEvent(
+                    packageName = packageName,
+                    action = if (dispatched) {
+                        "encrypted_raw_payload_dispatched"
+                    } else {
+                        "encrypted_raw_payload_failed"
+                    },
+                    source = "MyMIPushNotificationHelper.notifyPushMessage",
+                )
+                return finish(
+                    if (dispatched) MockReplayOutcome.Dispatched else MockReplayOutcome.Failed,
+                    if (dispatched) "encrypted_raw_fallback" else "encrypted_raw_fallback_failed",
+                    packageName,
+                )
+            }
             return finish(outcome, "configured", container.packageName.orEmpty())
         }
+
+        internal fun shouldFallbackToRawEncryptedDispatch(
+            isEncrypted: Boolean,
+            outcome: MockReplayOutcome,
+        ): Boolean = isEncrypted && outcome == MockReplayOutcome.Failed
 
 
         private fun handleNotificationByConfigurations(

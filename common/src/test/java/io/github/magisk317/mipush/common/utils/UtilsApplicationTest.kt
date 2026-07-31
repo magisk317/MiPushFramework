@@ -21,4 +21,14 @@ class UtilsApplicationTest {
         }
         assertFalse(Utils.isUserApplication(updatedSystemApp))
     }
+
+    @Test
+    fun `installed application requires package user installed flag`() {
+        assertFalse(Utils.isAppInstalled(ApplicationInfo()))
+
+        val installed = ApplicationInfo().apply {
+            flags = ApplicationInfo.FLAG_INSTALLED
+        }
+        assertTrue(Utils.isAppInstalled(installed))
+    }
 }
