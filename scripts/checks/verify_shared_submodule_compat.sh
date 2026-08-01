@@ -18,4 +18,4 @@ bash "$TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" \
   :xmsf:testVc105DebugUnitTest \
   :manager:compileDebugKotlin \
   :app:compileNormalDebugKotlin \
-  :mipush:compileDebugKotlin
+  :mipush:compileGithubDebugKotlin

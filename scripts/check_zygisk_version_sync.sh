@@ -80,8 +80,10 @@ if [[ ! -f "$build_script" || ! -f "$cargo_toml" || ! -f "$module_prop" ]]; then
 fi
 
 fail=0
+supports_version_injection=false
 
 if grep -Fq "MIPUSH_ZYGISK_VERSION_NAME" "$build_script" && grep -Fq "MIPUSH_ZYGISK_VERSION_CODE" "$build_script"; then
+  supports_version_injection=true
   echo "PASS: Zygisk build script accepts MiPush version injection"
 else
   echo "FAIL: Zygisk build script does not accept MIPUSH_ZYGISK_VERSION_NAME/MIPUSH_ZYGISK_VERSION_CODE" >&2
@@ -93,25 +95,29 @@ module_version="$(read_prop_value "version" "$module_prop")"
 module_code="$(read_prop_value "versionCode" "$module_prop")"
 expected_module_version="v$expected_version_name"
 
-if [[ "$cargo_version" == "$expected_version_name" ]]; then
-  echo "PASS: Zygisk Cargo version matches $expected_version_name"
+if [[ "$supports_version_injection" == true ]]; then
+  echo "INFO: source defaults to Cargo $cargo_version/module.prop $module_version ($module_code); release builds inject $expected_version_name/$expected_version_code"
 else
-  echo "FAIL: Zygisk Cargo version mismatch. got '$cargo_version', expected '$expected_version_name'" >&2
-  fail=1
-fi
+  if [[ "$cargo_version" == "$expected_version_name" ]]; then
+    echo "PASS: Zygisk Cargo version matches $expected_version_name"
+  else
+    echo "FAIL: Zygisk Cargo version mismatch. got '$cargo_version', expected '$expected_version_name'" >&2
+    fail=1
+  fi
 
-if [[ "$module_version" == "$expected_module_version" ]]; then
-  echo "PASS: Zygisk module.prop version matches $expected_module_version"
-else
-  echo "FAIL: Zygisk module.prop version mismatch. got '$module_version', expected '$expected_module_version'" >&2
-  fail=1
-fi
+  if [[ "$module_version" == "$expected_module_version" ]]; then
+    echo "PASS: Zygisk module.prop version matches $expected_module_version"
+  else
+    echo "FAIL: Zygisk module.prop version mismatch. got '$module_version', expected '$expected_module_version'" >&2
+    fail=1
+  fi
 
-if [[ "$module_code" == "$expected_version_code" ]]; then
-  echo "PASS: Zygisk module.prop versionCode matches $expected_version_code"
-else
-  echo "FAIL: Zygisk module.prop versionCode mismatch. got '$module_code', expected '$expected_version_code'" >&2
-  fail=1
+  if [[ "$module_code" == "$expected_version_code" ]]; then
+    echo "PASS: Zygisk module.prop versionCode matches $expected_version_code"
+  else
+    echo "FAIL: Zygisk module.prop versionCode mismatch. got '$module_code', expected '$expected_version_code'" >&2
+    fail=1
+  fi
 fi
 
 if (( fail != 0 )); then
