@@ -16,6 +16,7 @@ concurrency:
 jobs:
   validate-release:
     name: Validate Release Metadata
+    if: ${{ vars.RELEASE_OWNER == '' || vars.RELEASE_OWNER == 'github' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -135,7 +136,7 @@ jobs:
         if: env.HAS_RELEASE_SIGNING == 'true'
         uses: ./.magisk-ci-toolkit/.github/actions/run-gradle-with-retry
         with:
-          arguments: :mipush:assembleRelease -PbuildSplits=true -Pkotlin.incremental=false
+          arguments: :mipush:assembleGithubRelease -PbuildSplits=true -Pkotlin.incremental=false
         env:
           KEYSTORE_FILE: release.jks
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
@@ -147,7 +148,49 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: apks-mipush
-          path: mipush/build/outputs/apk/release/**/*.apk
+          path: mipush/build/outputs/apk/github/release/**/*.apk
+
+  build-mipush-aab:
+    name: Build MiPush Play Bundle
+    needs: [validate-release]
+    runs-on: ubuntu-latest
+    env:
+      HAS_RELEASE_SIGNING: ${{ secrets.RELEASE_KEYSTORE != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Resolve CI toolkit
+        run: bash scripts/resolve_ci_toolkit.sh
+      - name: Setup Android CI
+        uses: ./.magisk-ci-toolkit/.github/actions/setup-android-ci
+        with:
+          checkout: 'false'
+      - name: Decode Keystore
+        if: env.HAS_RELEASE_SIGNING == 'true'
+        run: echo "${{ secrets.RELEASE_KEYSTORE }}" | base64 --decode > app/release.jks
+      - name: Skip unsupported release signing
+        if: env.HAS_RELEASE_SIGNING != 'true'
+        run: echo "SKIP Play bundle; complete signing credentials are not configured."
+      - name: Build MiPush Play bundle
+        if: env.HAS_RELEASE_SIGNING == 'true'
+        uses: ./.magisk-ci-toolkit/.github/actions/run-gradle-with-retry
+        with:
+          arguments: :mipush:bundlePlayRelease -Pkotlin.incremental=false
+        env:
+          KEYSTORE_FILE: release.jks
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      - name: Upload MiPush Play bundle
+        if: env.HAS_RELEASE_SIGNING == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: apks-mipush-play
+          path: |
+            mipush/build/outputs/bundle/playRelease/*.aab
+            mipush/build/outputs/mapping/**/mapping.txt
 
   build-zygisk-module:
     name: Build Zygisk Module
@@ -206,7 +249,7 @@ jobs:
 
   create-release:
     name: Create Release
-    needs: [build-xmsf-apk, build-mipush-apk, build-zygisk-module]
+    needs: [build-xmsf-apk, build-mipush-apk, build-mipush-aab, build-zygisk-module]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -242,7 +285,7 @@ jobs:
             scripts/publish_mipush_release.sh release-notes
 
           mapfile -d '' release_assets < <(
-            find artifacts/apks -type f \( -name '*.apk' -o -name '*.zip' -o -name '*.txt' \) -print0 | sort -z
+            find artifacts/apks -type f \( -name '*.apk' -o -name '*.aab' -o -name '*.zip' -o -name '*.txt' \) -print0 | sort -z
           )
           if [[ ${#release_assets[@]} == 0 ]]; then
             echo "ERROR: no release assets found under artifacts/apks" >&2
@@ -329,3 +372,76 @@ jobs:
           fi
         env:
           GH_TOKEN: ${{ secrets.XPOSED_MODULES_REPO_TOKEN }}
+
+  publish-play:
+    name: Publish MiPush Manager to Google Play
+    needs: [create-release, build-mipush-aab]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    env:
+      HAS_GOOGLE_PLAY_CREDENTIALS: ${{ secrets.ANDROID_PUBLISHER_CREDENTIALS != '' }}
+      HAS_RELEASE_SIGNING: ${{ secrets.RELEASE_KEYSTORE != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
+    steps:
+      - uses: actions/download-artifact@v8
+        if: env.HAS_RELEASE_SIGNING == 'true'
+        with:
+          name: apks-mipush-play
+          path: artifacts/bundle
+      - name: Resolve Play bundle
+        if: env.HAS_RELEASE_SIGNING == 'true'
+        id: resolve_play
+        shell: bash
+        run: |
+          set -euo pipefail
+          aab_file="$(find artifacts/bundle -type f -name '*.aab' | sort | head -n 1)"
+          if [[ -z "$aab_file" ]]; then
+            echo "ERROR: no MiPush manager AAB found" >&2
+            exit 1
+          fi
+          echo "aab_file=$aab_file" >> "$GITHUB_OUTPUT"
+          mapping_file="$(find artifacts/bundle -type f -name mapping.txt | sort | head -n 1 || true)"
+          if [[ -n "$mapping_file" ]]; then
+            echo "has_mapping=true" >> "$GITHUB_OUTPUT"
+            echo "mapping_file=$mapping_file" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_mapping=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Set up Ruby
+        if: env.HAS_RELEASE_SIGNING == 'true' && env.HAS_GOOGLE_PLAY_CREDENTIALS == 'true'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 'ruby'
+      - name: Install fastlane
+        if: env.HAS_RELEASE_SIGNING == 'true' && env.HAS_GOOGLE_PLAY_CREDENTIALS == 'true'
+        run: |
+          gem_user_dir="$(ruby -r rubygems -e 'print Gem.user_dir')"
+          echo "$gem_user_dir/bin" >> "$GITHUB_PATH"
+          gem install --user-install multi_json fastlane --no-document
+      - name: Publish to Google Play
+        if: env.HAS_RELEASE_SIGNING == 'true' && env.HAS_GOOGLE_PLAY_CREDENTIALS == 'true'
+        env:
+          ANDROID_PUBLISHER_CREDENTIALS: ${{ secrets.ANDROID_PUBLISHER_CREDENTIALS }}
+          FASTLANE_SKIP_UPDATE_CHECK: '1'
+          FASTLANE_DISABLE_COLORS: '1'
+          CI: 'true'
+        run: |
+          set -euo pipefail
+          gem_user_bin="$(ruby -r rubygems -e 'print Gem.user_dir')/bin"
+          cmd=(
+            "$gem_user_bin/fastlane" supply
+            --aab "${{ steps.resolve_play.outputs.aab_file }}"
+            --package_name "io.github.magisk317.mipush"
+            --track "production"
+            --release_status "completed"
+            --json_key_data "$ANDROID_PUBLISHER_CREDENTIALS"
+            --skip_upload_metadata true
+            --skip_upload_images true
+            --skip_upload_screenshots true
+          )
+          if [[ "${{ steps.resolve_play.outputs.has_mapping }}" == "true" ]]; then
+            cmd+=(--mapping "${{ steps.resolve_play.outputs.mapping_file }}")
+          fi
+          "${cmd[@]}"
+      - name: Skip Google Play publication
+        if: env.HAS_RELEASE_SIGNING != 'true' || env.HAS_GOOGLE_PLAY_CREDENTIALS != 'true'
+        run: echo "SKIP Google Play publication; signing or publisher credentials are not configured."

@@ -48,7 +48,7 @@ variables:
   MAGISK_ANDROID_SDK_PACKAGES: "platform-tools build-tools;37.0.0"
   MAGISK_GRADLE_ARGS: "--warning-mode all"
   MAGISK_ANDROID_RELEASE_PACKAGE_NAME: "io.github.magisk317.mipush"
-  MAGISK_ANDROID_RELEASE_PUBLISH_PLAY: "false"
+  MAGISK_ANDROID_RELEASE_PUBLISH_PLAY: "true"
   MAGISK_RENOVATE_REPOSITORY: "magisk3171/MiPushFramework"
   MIPUSH_ZYGISK_REPOSITORY: "https://gitlab.com/magisk3171/MiPushZygisk.git"
   # Pin the external source so an old tag cannot change when MiPushZygisk/main advances.
@@ -107,7 +107,7 @@ android:build:
     MAGISK_BUILD_TIMESTAMP: "$CI_PIPELINE_CREATED_AT"
     MAGISK_ANDROID_BUILD_TASKS: >-
       :app:assembleDebug
-      :mipush:assembleDebug
+      :mipush:assembleGithubDebug
       -PbuildSplits
       -PminifyDebug
       -Pkotlin.incremental=false
@@ -338,7 +338,7 @@ android:release:apk:
   variables:
     MAGISK_ANDROID_RELEASE_APK_TASKS: >-
       :app:assembleRelease
-      :mipush:assembleRelease
+      :mipush:assembleGithubRelease
       -PbuildSplits=true
       -Pkotlin.incremental=false
   needs:
@@ -353,6 +353,44 @@ android:release:apk:
       - app/build/outputs/native-debug-symbols/**/native-debug-symbols.zip
       - app/build/outputs/mapping/**/mapping.txt
       - mipush/build/outputs/apk/**/release/*.apk
+
+android:release:play-bundle:
+  extends:
+    - .magisk_android_base
+    - .magisk_android_release_tag_rules
+  resource_group: mipush-android-release-play
+  stage: release-build
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
+    - when: never
+  needs:
+    - job: android:release:guard
+      artifacts: false
+  script:
+    - |
+      set -euo pipefail
+      : "${MAGISK_GRADLE_ARGS:=--warning-mode all}"
+      : "${RELEASE_KEYSTORE:?RELEASE_KEYSTORE is required}"
+      : "${STORE_PASSWORD:?STORE_PASSWORD is required}"
+      : "${KEY_ALIAS:?KEY_ALIAS is required}"
+      : "${KEY_PASSWORD:?KEY_PASSWORD is required}"
+
+      keystore_path="$CI_PROJECT_DIR/app/release.jks"
+      printf '%s' "$RELEASE_KEYSTORE" | base64 --decode > "$keystore_path"
+      chmod 0600 "$keystore_path"
+      KEYSTORE_FILE="$keystore_path" \
+      STORE_PASSWORD="$STORE_PASSWORD" \
+      KEY_ALIAS="$KEY_ALIAS" \
+      KEY_PASSWORD="$KEY_PASSWORD" \
+        bash "$MAGISK_CI_TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" $MAGISK_GRADLE_ARGS :mipush:bundlePlayRelease
+  artifacts:
+    name: "MiPushFramework-release-bundle-$CI_COMMIT_TAG"
+    when: always
+    expire_in: 30 days
+    paths:
+      - mipush/build/outputs/bundle/**/*.aab
+      - mipush/build/outputs/mapping/**/mapping.txt
+      - mipush/build/outputs/native-debug-symbols/**/native-debug-symbols.zip
 
 android:release:gitlab:
   extends: .magisk_android_base
@@ -371,6 +409,29 @@ android:release:gitlab:
       set -euo pipefail
       chmod +x scripts/publish_mipush_release.sh
       scripts/publish_mipush_release.sh gitlab-release
+
+android:release:play:
+  extends: .magisk_android_publish_play
+  resource_group: mipush-android-release-play
+  stage: release-publish
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
+    - when: never
+  before_script:
+    - !reference [.magisk_android_base, before_script]
+    - |
+      set -euo pipefail
+      mkdir -p app/build/outputs
+      ln -s "$CI_PROJECT_DIR/mipush/build/outputs/bundle" app/build/outputs/bundle
+      if [ -d "$CI_PROJECT_DIR/mipush/build/outputs/mapping" ]; then
+        ln -s "$CI_PROJECT_DIR/mipush/build/outputs/mapping" app/build/outputs/mapping
+      fi
+      if [ -d "$CI_PROJECT_DIR/mipush/build/outputs/native-debug-symbols" ]; then
+        ln -s "$CI_PROJECT_DIR/mipush/build/outputs/native-debug-symbols" app/build/outputs/native-debug-symbols
+      fi
+  needs:
+    - job: android:release:play-bundle
+      artifacts: true
 
 telegram:release:
   extends: .magisk_telegram_release
