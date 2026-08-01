@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.platform.support
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import androidx.core.net.toUri
 
 /**
  * Cross-package UI entry intents for callers that do **not** ship manager Activities
@@ -70,7 +70,7 @@ object LegacyUiEntryPoints {
         packageName: String,
     ): Intent {
         return managerUiIntent(context, LegacyComponentNames.RECENT_EVENT_LIST_PAGE)
-            .setData(Uri.parse(packageName))
+            .setData(packageName.toUri())
     }
 
     fun requestPermissionIntent(

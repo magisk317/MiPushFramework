@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.common.compat
 
+import android.annotation.SuppressLint
 import android.content.ComponentName
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
@@ -69,6 +70,7 @@ object PackageManagerCompatBridge {
     }
 
     @Suppress("UNCHECKED_CAST")
+    @SuppressLint("QueryPermissionsNeeded")
     fun getInstalledPackages(packageManager: PackageManager, flags: Int): List<PackageInfo> {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             return packageManager.getInstalledPackages(

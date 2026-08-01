@@ -3,7 +3,8 @@ package io.github.magisk317.mipush.common.utils
 import android.graphics.*
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
-import androidx.annotation.NonNull
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.get
 import java.util.*
 import kotlin.math.max
 import kotlin.math.min
@@ -29,7 +30,7 @@ object ImgUtils {
         val finalWidth = radius
         val finalHeight = radius
 
-        val bmOut = Bitmap.createBitmap(finalWidth, finalHeight, Bitmap.Config.ARGB_8888)
+        val bmOut = createBitmap(finalWidth, finalHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmOut)
 
         val paint = Paint().apply {
@@ -102,7 +103,6 @@ object ImgUtils {
         return cropTransparent(width, height, pixels)
     }
 
-    @NonNull
     @JvmStatic
     private fun cropTransparent(width: Int, height: Int, pixels: IntArray): Bitmap {
         var topPadding = height
@@ -150,7 +150,7 @@ object ImgUtils {
             }
         }
 
-        val newBmp = Bitmap.createBitmap(cropWidth + padding * 2, cropHeight + padding * 2, Bitmap.Config.ARGB_8888)
+        val newBmp = createBitmap(cropWidth + padding * 2, cropHeight + padding * 2, Bitmap.Config.ARGB_8888)
         newBmp.setPixels(newPix, 0, cropWidth, padding, padding, cropWidth, cropHeight)
 
         return newBmp
@@ -233,7 +233,7 @@ object ImgUtils {
         val height = bitmap.height
         for (x in 0 until width) {
             for (y in 0 until height) {
-                val dot = bitmap.getPixel(x, y)
+                val dot = bitmap[x, y]
                 val red = (dot and 0x00FF0000) shr 16
                 val green = (dot and 0x0000FF00) shr 8
                 val blue = dot and 0x000000FF
@@ -267,7 +267,7 @@ object ImgUtils {
 
         trimImgToCircle(Color.WHITE, width, height, pixels, 0)
 
-        val newBmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val newBmp = createBitmap(width, height, Bitmap.Config.ARGB_8888)
         newBmp.setPixels(pixels, 0, width, 0, 0, width, height)
 
         val histogram = IntArray(NUM_256)
@@ -370,7 +370,7 @@ object ImgUtils {
         } else {
             val w = if (drawable.intrinsicWidth <= 0) 1 else drawable.intrinsicWidth
             val h = if (drawable.intrinsicHeight <= 0) 1 else drawable.intrinsicHeight
-            val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            val bitmap = createBitmap(w, h, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
             drawable.setBounds(0, 0, canvas.width, canvas.height)
             drawable.draw(canvas)

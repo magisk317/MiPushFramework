@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.common.utils.rom.miui
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
@@ -45,6 +46,8 @@ internal object MiuiFileUtils {
         return getAppDataApkPath(packageName) ?: getSystemApkPath(systemApkName)
     }
 
+    // This fallback is used by root-facing code when no Context is available.
+    @SuppressLint("SdCardPath")
     private fun getLibPathInternal(packageName: String): String {
         return "/data/data/$packageName/lib/"
     }

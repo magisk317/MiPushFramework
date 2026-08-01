@@ -1,8 +1,6 @@
 package io.github.magisk317.mipush.platform.override
 
-import android.annotation.TargetApi
 import android.app.AppOpsManager
-import android.os.Build
 
 /**
  * Created by Trumeet on 2018/2/5.
@@ -15,7 +13,6 @@ object AppOpsManagerOverride {
     const val MODE_FOREGROUND = 4
 
     /** Control whether an application is allowed to run in the background. */
-    @TargetApi(Build.VERSION_CODES.N)
     const val OP_RUN_IN_BACKGROUND = 63
 
     const val OP_POST_NOTIFICATION = 11

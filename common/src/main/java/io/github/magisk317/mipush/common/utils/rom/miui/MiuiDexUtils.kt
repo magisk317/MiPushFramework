@@ -1,7 +1,6 @@
 package io.github.magisk317.mipush.common.utils.rom.miui
 
 import android.content.Context
-import android.os.Build
 import dalvik.system.BaseDexClassLoader
 import dalvik.system.DexClassLoader
 import dalvik.system.PathClassLoader
@@ -61,11 +60,7 @@ internal object MiuiDexUtils {
 
     @Throws(NoSuchFieldException::class, IllegalAccessException::class, ClassNotFoundException::class)
     private fun expandNativeLibraries(targetPathList: Any, extraPathList: Any, libraryPath: String) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            mergeArray(targetPathList, extraPathList, "nativeLibraryPathElements")
-        } else {
-            mergeFileArray(targetPathList, libraryPath)
-        }
+        mergeArray(targetPathList, extraPathList, "nativeLibraryPathElements")
     }
 
     @Throws(NoSuchFieldException::class, IllegalAccessException::class, ClassNotFoundException::class)
@@ -114,10 +109,6 @@ internal object MiuiDexUtils {
             val targetPathList = getDexPathList(classLoader)
             val finalDexPath: String = if (dexPath != null) {
                 dexPath
-            } else if (Build.VERSION.SDK_INT < 23) {
-                val nativePath = librarySearchPath ?: return false
-                mergeFileArray(targetPathList, nativePath)
-                return true
             } else {
                 val safeContext = context ?: return false
                 safeContext.applicationInfo.sourceDir

@@ -1,6 +1,5 @@
 package io.github.magisk317.mipush.platform.activity
 
-import android.os.Build
 import io.github.magisk317.mipush.platform.activity.impl.ActivityAccessibilityImpl
 import io.github.magisk317.mipush.platform.activity.impl.ActivityUsageStatsImpl
 import io.github.magisk317.mipush.platform.activity.impl.FakeImpl
@@ -11,10 +10,6 @@ import io.github.magisk317.mipush.platform.activity.impl.FakeImpl
 object TopActivityFactory {
     @JvmStatic
     fun newInstance(accessMode: Int): ITopActivity {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            return ActivityAccessibilityImpl()
-        }
-
         if (accessMode == AccessMode.ACCESSIBILITY) {
             return ActivityAccessibilityImpl()
         }

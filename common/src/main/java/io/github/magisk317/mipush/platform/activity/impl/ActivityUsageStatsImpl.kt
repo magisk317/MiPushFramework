@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.platform.activity.impl
 
+import android.annotation.SuppressLint
 import android.app.ActivityManager
 import android.app.AppOpsManager
 import android.app.usage.UsageEvents
@@ -21,6 +22,7 @@ import io.github.magisk317.mipush.platform.override.AppOpsManagerOverride
  */
 class ActivityUsageStatsImpl : ITopActivity {
 
+    @SuppressLint("MissingPermission")
     override fun isEnabled(context: Context): Boolean {
         return try {
             val packageManager = context.packageManager
@@ -125,6 +127,7 @@ class ActivityUsageStatsImpl : ITopActivity {
         }
 
         @Synchronized
+        @SuppressLint("MissingPermission")
         private fun queryForegroundPackage(context: Context): String? {
             val usageStatsManager =
                 context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return null
@@ -164,6 +167,7 @@ class ActivityUsageStatsImpl : ITopActivity {
             return lastForegroundPackage
         }
 
+        @SuppressLint("MissingPermission")
         private fun bootstrapForegroundFromUsageStats(
             usageStatsManager: UsageStatsManager,
             begin: Long,

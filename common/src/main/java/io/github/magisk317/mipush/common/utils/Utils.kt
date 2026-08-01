@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.common.utils
 
+import android.annotation.SuppressLint
 import android.app.AppOpsManager
 import android.content.Context
 import android.content.pm.ApplicationInfo
@@ -9,14 +10,15 @@ import android.os.Looper
 import android.os.Process
 import android.text.Html
 import android.widget.Toast
+import androidx.core.content.edit
 import androidx.annotation.ColorInt
-import androidx.annotation.NonNull
 import androidx.annotation.StringRes
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import io.github.magisk317.mipush.platform.override.AppOpsManagerOverride
 import java.util.*
 
+@SuppressLint("StaticFieldLeak")
 object Utils {
     private const val PREF_REGISTERED_PKG_NAMES_SEC = "pref_registered_pkg_names_sec"
     private const val PREF_MIPUSH_APPS_SECRET = "mipush_apps_scrt"
@@ -107,7 +109,7 @@ object Utils {
     @JvmStatic
     fun getString(
         @StringRes id: Int,
-        @NonNull context: Context,
+        context: Context,
         vararg formatArgs: Any?
     ): CharSequence {
         return toHtml(context.getString(id, *formatArgs))
@@ -234,9 +236,9 @@ object Utils {
             return
         }
         for (prefName in listOf(PREF_REGISTERED_PKG_NAMES_SEC, PREF_MIPUSH_APPS_SECRET)) {
-            val secEditor = context.getSharedPreferences(prefName, 0)?.edit()
-            secEditor?.putString(pkgName, regSec)
-            secEditor?.apply()
+            context.getSharedPreferences(prefName, 0).edit {
+                putString(pkgName, regSec)
+            }
         }
     }
 
@@ -244,10 +246,9 @@ object Utils {
     fun removeRegSec(pkgName: String) {
         val app = getApplication() ?: return
         for (prefName in REG_SEC_PREFS) {
-            app.getSharedPreferences(prefName, 0)
-                ?.edit()
-                ?.remove(pkgName)
-                ?.apply()
+            app.getSharedPreferences(prefName, 0).edit {
+                remove(pkgName)
+            }
         }
     }
 
@@ -263,14 +264,16 @@ object Utils {
     @JvmStatic
     fun setLastReceiveTime(pkgName: String, time: Long) {
         val secSp = getApplication()?.getSharedPreferences("last_receive_time", 0)
-        val secEditor = secSp?.edit()
-        secEditor?.putLong(pkgName, time)
-        secEditor?.apply()
+        secSp?.edit {
+            putLong(pkgName, time)
+        }
     }
 
     @JvmStatic
     fun removeLastReceiveTime(pkgName: String) {
         val secSp = getApplication()?.getSharedPreferences("last_receive_time", 0)
-        secSp?.edit()?.remove(pkgName)?.apply()
+        secSp?.edit {
+            remove(pkgName)
+        }
     }
 }
