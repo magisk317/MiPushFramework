@@ -142,6 +142,7 @@ Xposed 模块不再固定三方应用作用域。需要伪装增强的主应用�
 
 项目当前使用多模块 Gradle 结构。模块边界、运行时链路和重构记录见：
 
+- [隐私政策](docs/PRIVACY.md)
 - [模块边界](docs/architecture/boundary-model.md)
 - [运行时调用链](docs/architecture/current-runtime-call-flow.md)
 - [Xposed 通知边界](docs/architecture/xposed-notification-boundary.md)
