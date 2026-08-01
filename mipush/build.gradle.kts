@@ -1,4 +1,3 @@
-import com.android.build.api.variant.FilterConfiguration
 import org.gradle.api.provider.Provider
 
 plugins {
@@ -52,20 +51,6 @@ android {
     buildFeatures {
         buildConfig = true
         compose = true
-    }
-}
-
-androidComponents {
-    onVariants(selector().withBuildType("release").withFlavor("distribution" to "github")) { variant ->
-        variant.outputs.forEach { output ->
-            val abi = output.filters.find { filter ->
-                filter.filterType == FilterConfiguration.FilterType.ABI
-            }?.identifier ?: "universal"
-            val outputFileName = output.javaClass.getMethod("getOutputFileName").invoke(output)
-            outputFileName.javaClass
-                .getMethod("set", Any::class.java)
-                .invoke(outputFileName, "${abi}_MiPush_v${managerVersionName}_release.apk")
-        }
     }
 }
 
