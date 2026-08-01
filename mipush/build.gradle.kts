@@ -1,3 +1,4 @@
+import com.android.build.api.variant.FilterConfiguration
 import org.gradle.api.provider.Provider
 
 plugins {
@@ -10,19 +11,31 @@ plugins {
 
 extra["artifactBaseName"] = "MiPush"
 
+@Suppress("UNCHECKED_CAST")
+val managerVersionName = (rootProject.extra["gitVersionName"] as Provider<String>).get()
+
 android {
     namespace = "io.github.magisk317.mipush.app"
+
+    flavorDimensions += "distribution"
+
+    productFlavors {
+        create("play") {
+            dimension = "distribution"
+        }
+        create("github") {
+            dimension = "distribution"
+        }
+    }
 
     defaultConfig {
         applicationId = rootProject.extra["APPLICATION_ID"] as String
 
         @Suppress("UNCHECKED_CAST")
-        val verName = (rootProject.extra["gitVersionName"] as Provider<String>).get()
-        @Suppress("UNCHECKED_CAST")
         val verCode = (rootProject.extra["gitVersionCode"] as Provider<Int>).get()
 
         versionCode = verCode
-        versionName = verName
+        versionName = managerVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         missingDimensionStrategy("version", "normal")
@@ -42,6 +55,20 @@ android {
     }
 }
 
+androidComponents {
+    onVariants(selector().withBuildType("release").withFlavor("distribution" to "github")) { variant ->
+        variant.outputs.forEach { output ->
+            val abi = output.filters.find { filter ->
+                filter.filterType == FilterConfiguration.FilterType.ABI
+            }?.identifier ?: "universal"
+            val outputFileName = output.javaClass.getMethod("getOutputFileName").invoke(output)
+            outputFileName.javaClass
+                .getMethod("set", Any::class.java)
+                .invoke(outputFileName, "${abi}_MiPush_v${managerVersionName}_release.apk")
+        }
+    }
+}
+
 dependencies {
     implementation(project(":common"))
     implementation(project(":manager"))
@@ -50,6 +77,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.koin.android)
     implementation(libs.androidx.datastore.preferences)
+    add("playImplementation", project(":magisk-ui-kit:billing"))
 
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)

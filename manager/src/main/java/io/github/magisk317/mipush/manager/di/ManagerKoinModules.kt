@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.manager.di
 import io.github.magisk317.mipush.manager.logging.ManagerRuntimeFileLog
 import io.github.magisk317.xposed.logging.LogSanitizerConfig
 
+import android.app.Application
 import android.content.Context
 import io.github.magisk317.mipush.common.BuildConfig
 import io.github.magisk317.mipush.common.VERSION_NAME
@@ -39,6 +40,7 @@ import io.github.magisk317.mipush.manager.migration.ManagerPreferenceMigration
 import io.github.magisk317.mipush.manager.launcher.LauncherIconController
 import io.github.magisk317.mipush.manager.preferences.RuntimePreferenceGateway
 import io.github.magisk317.xposed.logging.MagiskOtel
+import io.github.magisk317.uikit.shell.AppInitializer
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
@@ -51,6 +53,7 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.GlobalContext
 import org.koin.core.context.loadKoinModules
 import org.koin.core.context.startKoin
+import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
@@ -130,6 +133,12 @@ object ManagerDependencies {
     private var modulesLoaded = false
 
     @Volatile
+    private var hostModulesLoaded = false
+
+    @Volatile
+    private var appInitializersStarted = false
+
+    @Volatile
     private var logSanitizationSyncStarted = false
 
     @Volatile
@@ -152,23 +161,37 @@ object ManagerDependencies {
      * through the authenticated Binder client.
      */
     @Synchronized
-    fun startAsRemoteHost(context: Context) {
+    fun startAsRemoteHost(context: Context, vararg hostModules: Module) {
         ManagerRuntimeFileLog.init(context)
 
         val appContext = context.applicationContext ?: context
         // Idempotent: activity/widget re-entry after App.onCreate must not restart Koin or re-connect.
         if (!modulesLoaded) {
+            val initialModules = listOf(managerRemoteHostModule, managerKoinModule) + hostModules
             if (GlobalContext.getOrNull() == null) {
                 startKoin {
                     androidContext(appContext)
-                    modules(managerRemoteHostModule, managerKoinModule)
+                    modules(initialModules)
                 }
             } else {
-                loadKoinModules(listOf(managerRemoteHostModule, managerKoinModule))
+                loadKoinModules(initialModules)
             }
+            hostModulesLoaded = hostModules.isNotEmpty()
             modulesLoaded = true
+        } else if (!hostModulesLoaded && hostModules.isNotEmpty()) {
+            loadKoinModules(hostModules.toList())
+            hostModulesLoaded = true
         }
         val koin = GlobalContext.get()
+        if (!appInitializersStarted && hostModulesLoaded) {
+            val application = appContext as? Application
+            if (application != null) {
+                appInitializersStarted = true
+                koin.getAll<AppInitializer>().forEach { initializer ->
+                    initializer.init(application)
+                }
+            }
+        }
         val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         if (!logSanitizationSyncStarted) {
             logSanitizationSyncStarted = true

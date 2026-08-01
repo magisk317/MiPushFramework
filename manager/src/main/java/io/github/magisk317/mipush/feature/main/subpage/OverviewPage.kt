@@ -2,6 +2,7 @@
 
 package io.github.magisk317.mipush.feature.main.subpage
 
+import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -80,6 +81,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import io.github.magisk317.mipush.common.compat.PackageManagerCompatBridge
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
 import io.github.magisk317.mipush.manager.R
+import io.github.magisk317.mipush.manager.billing.BillingProvider
 import io.github.magisk317.mipush.main.viewmodel.OverviewViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -123,7 +125,9 @@ private fun OverviewScreen(
     onNavigateToConnectionStatus: () -> Unit,
 ) {
     val context = LocalContext.current
+    val activity = context as? Activity
     val overviewViewModel: OverviewViewModel = koinViewModel()
+    val billingProvider: BillingProvider = koinInject()
     val mainActivityOperation = MainActivityOperation(context)
     var showDonateDialog by remember { mutableStateOf(false) }
     var showQRCodeDialog by remember { mutableStateOf<Pair<Int, String>?>(null) }
@@ -208,7 +212,11 @@ private fun OverviewScreen(
                 showDonateDialog = false
                 showQRCodeDialog = UiKitR.drawable.wx to "wechat"
             },
-            showPlayDonations = false,
+            showPlayDonations = billingProvider.supportsPlayDonations,
+            onDonate099 = { activity?.let { billingProvider.launchDonation(it, "donate_099") } },
+            onDonate200 = { activity?.let { billingProvider.launchDonation(it, "donate_200") } },
+            onDonate999 = { activity?.let { billingProvider.launchDonation(it, "donate_999") } },
+            onDonate1999 = { activity?.let { billingProvider.launchDonation(it, "donate_1999") } },
         )
     }
 
