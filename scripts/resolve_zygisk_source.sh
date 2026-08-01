@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ZYGISK_DIR="${1:-${MIPUSH_ZYGISK_SOURCE_DIR:-${ROOT_DIR}/MiPushZygisk}}"
 ZYGISK_REPOSITORY="${MIPUSH_ZYGISK_REPOSITORY:-https://gitlab.com/magisk3171/MiPushZygisk.git}"
-ZYGISK_REF="${MIPUSH_ZYGISK_REF:-10f155adebc4f0bef474bff121c39225591dba3a}"
+ZYGISK_REF="${MIPUSH_ZYGISK_REF:-3085c59d43c4e328369eadbcf6c1c079479b0d8f}"
 
 if [[ -z "$ZYGISK_REF" ]]; then
   echo "ERROR: MIPUSH_ZYGISK_REF must be a branch, tag, or commit SHA" >&2

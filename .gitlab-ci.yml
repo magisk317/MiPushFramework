@@ -30,6 +30,7 @@ default:
 
 stages:
   - build
+  - package
   - quality
   - notify
   - release-validate
@@ -52,7 +53,7 @@ variables:
   MAGISK_RENOVATE_REPOSITORY: "magisk3171/MiPushFramework"
   MIPUSH_ZYGISK_REPOSITORY: "https://gitlab.com/magisk3171/MiPushZygisk.git"
   # Pin the external source so an old tag cannot change when MiPushZygisk/main advances.
-  MIPUSH_ZYGISK_REF: "10f155adebc4f0bef474bff121c39225591dba3a"
+  MIPUSH_ZYGISK_REF: "3085c59d43c4e328369eadbcf6c1c079479b0d8f"
   MIPUSH_ZYGISK_NDK_VERSION: "r27d"
   MIPUSH_ZYGISK_NDK_HOME: "$CI_PROJECT_DIR/.android/android-ndk-r27d"
   # Public SHA-256 fingerprint of the production APK signing certificate.
@@ -120,17 +121,16 @@ android:build:
       - app/build/outputs/apk/**/debug/*.apk
       - mipush/build/outputs/apk/**/debug/*.apk
 
-zygisk:build:
+.mipush_zygisk_build:
   extends: .mipush_package_rules
   image: "rust:1.97.1-bookworm"
   stage: build
-  tags:
-    - magisk-amd64-linux
   variables:
     CARGO_HOME: "$CI_PROJECT_DIR/.cargo"
     ANDROID_NDK_HOME: "$MIPUSH_ZYGISK_NDK_HOME"
+    MIPUSH_ZYGISK_PACKAGE_UNIVERSAL: "false"
   cache:
-    key: "zygisk-cargo-$CI_COMMIT_REF_SLUG-$MIPUSH_ZYGISK_REF"
+    key: "zygisk-cargo-$MIPUSH_ZYGISK_RUNNER_GROUP-$CI_COMMIT_REF_SLUG-$MIPUSH_ZYGISK_REF"
     paths:
       - .cargo/registry/
       - .cargo/git/
@@ -183,26 +183,24 @@ zygisk:build:
       else
         apt-get update
       fi
-    - apt-get install -y --no-install-recommends ca-certificates curl git unzip zip
+    - apt-get install -y --no-install-recommends ca-certificates clang curl git lld unzip zip
     - |
       set -euo pipefail
       mkdir -p "$CARGO_HOME"
-      cargo_registry="sparse+https://index.crates.io/"
+      cat > "$CARGO_HOME/config.toml" <<'EOF'
+      [net]
+      git-fetch-with-cli = true
+      EOF
       if [[ "$use_mirror" == "true" ]]; then
-        cargo_registry="sparse+https://mirrors.tuna.tsinghua.edu.cn/crates.io-index/"
-      else
-        cargo_registry="sparse+https://index.crates.io/"
-      fi
-      cat > "$CARGO_HOME/config.toml" <<EOF
+        cat >> "$CARGO_HOME/config.toml" <<'EOF'
+
       [source.crates-io]
       replace-with = "tuna"
 
       [source.tuna]
-      registry = "$cargo_registry"
-
-      [net]
-      git-fetch-with-cli = true
+      registry = "sparse+https://mirrors.tuna.tsinghua.edu.cn/crates.io-index/"
       EOF
+      fi
     - |
       set -euo pipefail
       if [[ "$use_mirror" == "true" ]]; then
@@ -212,11 +210,11 @@ zygisk:build:
         export RUSTUP_DIST_SERVER="https://static.rust-lang.org"
         export RUSTUP_UPDATE_ROOT="https://static.rust-lang.org/rustup"
       fi
-      if ! rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android; then
+      if ! rustup target add $MIPUSH_ZYGISK_RUST_TARGETS; then
         echo "Rustup mirror failed, falling back to official server" >&2
         export RUSTUP_DIST_SERVER="https://static.rust-lang.org"
         export RUSTUP_UPDATE_ROOT="https://static.rust-lang.org/rustup"
-        rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+        rustup target add $MIPUSH_ZYGISK_RUST_TARGETS
       fi
     - mkdir -p .android
     - |
@@ -241,11 +239,89 @@ zygisk:build:
       cd MiPushZygisk
       ./build.sh
   artifacts:
-    name: "MiPushFramework-zygisk-$CI_COMMIT_REF_SLUG"
+    name: "MiPushFramework-zygisk-$MIPUSH_ZYGISK_RUNNER_GROUP-$CI_COMMIT_REF_SLUG"
     when: always
     expire_in: 14 days
     paths:
       - MiPushZygisk/build/*.zip
+      - MiPushZygisk/magisk/zygisk/*.so
+      - MiPushZygisk/build/.zygisk-skip
+
+zygisk:build:arm:
+  extends: .mipush_zygisk_build
+  tags:
+    - magisk-arm64-linux
+  variables:
+    MIPUSH_ZYGISK_RUNNER_GROUP: "arm"
+    MIPUSH_ZYGISK_BUILD_ABIS: "arm64-v8a armeabi-v7a"
+    MIPUSH_ZYGISK_RUST_TARGETS: "aarch64-linux-android armv7-linux-androideabi"
+
+zygisk:build:x86:
+  extends: .mipush_zygisk_build
+  tags:
+    - magisk-amd64-linux
+  variables:
+    MIPUSH_ZYGISK_RUNNER_GROUP: "x86"
+    MIPUSH_ZYGISK_BUILD_ABIS: "x86 x86_64"
+    MIPUSH_ZYGISK_RUST_TARGETS: "i686-linux-android x86_64-linux-android"
+
+zygisk:package:universal:
+  extends:
+    - .magisk_linux_base
+    - .mipush_package_rules
+  stage: package
+  tags:
+    - magisk-arm64-linux
+  variables:
+    MAGISK_LINUX_APT_PACKAGES: "zip"
+  needs:
+    - job: zygisk:build:arm
+      artifacts: true
+    - job: zygisk:build:x86
+      artifacts: true
+  script:
+    - |
+      set -euo pipefail
+      zygisk_dir="$CI_PROJECT_DIR/MiPushZygisk"
+      skip_marker="$zygisk_dir/build/.zygisk-skip"
+      mapfile -t split_zips < <(find "$zygisk_dir/build" -maxdepth 1 -type f -name '*.zip' 2>/dev/null | sort)
+      mapfile -t split_libraries < <(find "$zygisk_dir/magisk/zygisk" -maxdepth 1 -type f -name '*.so' 2>/dev/null | sort)
+
+      if [[ -f "$skip_marker" ]]; then
+        if [[ "${#split_zips[@]}" -ne 0 || "${#split_libraries[@]}" -ne 0 ]]; then
+          echo "ERROR: partial Zygisk build produced assets together with a skip marker" >&2
+          exit 1
+        fi
+        echo "SKIP Zygisk universal package; source was unavailable to both build jobs."
+        exit 0
+      fi
+      if [[ "${#split_zips[@]}" -ne 4 || "${#split_libraries[@]}" -ne 4 ]]; then
+        echo "ERROR: expected four split Zygisk ZIPs and libraries before universal packaging" >&2
+        exit 1
+      fi
+
+      library_tmp="$(mktemp -d)"
+      cp "${split_libraries[@]}" "$library_tmp/"
+      scripts/resolve_zygisk_source.sh "$zygisk_dir" >/dev/null
+      mkdir -p "$zygisk_dir/magisk/zygisk"
+      cp "$library_tmp"/*.so "$zygisk_dir/magisk/zygisk/"
+
+      if [[ -n "${CI_COMMIT_TAG:-}" ]]; then
+        export MAGISK_BUILD_TYPE=release
+        unset MAGISK_BUILD_TIMESTAMP
+      else
+        export MAGISK_BUILD_TYPE=debug
+        export MAGISK_BUILD_TIMESTAMP="$CI_PIPELINE_CREATED_AT"
+      fi
+      source scripts/resolve_zygisk_version_env.sh
+      cd "$zygisk_dir"
+      MIPUSH_ZYGISK_SKIP_BUILD=true MIPUSH_ZYGISK_PACKAGE_UNIVERSAL=true ./build.sh
+  artifacts:
+    name: "MiPushFramework-zygisk-universal-$CI_COMMIT_REF_SLUG"
+    when: always
+    expire_in: 14 days
+    paths:
+      - MiPushZygisk/build/universal_*.zip
       - MiPushZygisk/build/.zygisk-skip
 
 telegram:ci:
@@ -267,7 +343,7 @@ telegram:ci:
     - job: android:build
       artifacts: true
       optional: false
-    - job: zygisk:build
+    - job: zygisk:build:arm
       artifacts: true
       optional: true
 
@@ -276,6 +352,8 @@ android:detekt:
     - .magisk_android_detekt
     - .mipush_android_rules
   stage: quality
+  tags:
+    - magisk-arm64-linux
   needs: []
   variables:
     MAGISK_ANDROID_DETEKT_TASKS: >-
@@ -428,7 +506,11 @@ android:release:gitlab:
   needs:
     - job: android:release:apk
       artifacts: true
-    - job: zygisk:build
+    - job: zygisk:build:arm
+      artifacts: true
+    - job: zygisk:build:x86
+      artifacts: true
+    - job: zygisk:package:universal
       artifacts: true
   script:
     - |
@@ -480,7 +562,7 @@ telegram:release:
   needs:
     - job: android:release:apk
       artifacts: true
-    - job: zygisk:build
+    - job: zygisk:build:arm
       artifacts: true
     - job: android:release:gitlab
       artifacts: false
