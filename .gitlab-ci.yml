@@ -1,15 +1,15 @@
 include:
   - project: magisk3171/magisk-ci-toolkit
-    ref: 5bf4300fe276f07921e389a90c17a7fcb556c516
+    ref: f7f01cd8b4bfb7c541dbab9b17cf84e10930ab79
     file: /.gitlab/ci/android.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: 5bf4300fe276f07921e389a90c17a7fcb556c516
+    ref: f7f01cd8b4bfb7c541dbab9b17cf84e10930ab79
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: 5bf4300fe276f07921e389a90c17a7fcb556c516
+    ref: f7f01cd8b4bfb7c541dbab9b17cf84e10930ab79
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: 5bf4300fe276f07921e389a90c17a7fcb556c516
+    ref: f7f01cd8b4bfb7c541dbab9b17cf84e10930ab79
     file: /.gitlab/ci/renovate.yml
 
 workflow:
@@ -38,7 +38,7 @@ stages:
   - maintenance
 
 variables:
-  MAGISK_CI_TOOLKIT_REF: "5bf4300fe276f07921e389a90c17a7fcb556c516"
+  MAGISK_CI_TOOLKIT_REF: "f7f01cd8b4bfb7c541dbab9b17cf84e10930ab79"
   GIT_DEPTH: "0"
   GIT_SUBMODULE_STRATEGY: recursive
   GIT_SUBMODULE_DEPTH: "0"
@@ -56,7 +56,8 @@ variables:
   MIPUSH_ZYGISK_NDK_VERSION: "r27d"
   MIPUSH_ZYGISK_NDK_HOME: "$CI_PROJECT_DIR/.android/android-ndk-r27d"
   # Public SHA-256 fingerprint of the production APK signing certificate.
-  MIPUSH_RELEASE_CERT_SHA256: "027b936e1d82a606d83599548b8b11e49a2c8ae2588c4a9fbe8311e2c54f103a"
+  MAGISK_ANDROID_RELEASE_CERT_SHA256: "027b936e1d82a606d83599548b8b11e49a2c8ae2588c4a9fbe8311e2c54f103a"
+  MAGISK_ANDROID_RELEASE_APK_ROOTS: "app/build/outputs/apk mipush/build/outputs/apk"
 
 .mipush_android_rules:
   rules:
@@ -128,8 +129,6 @@ zygisk:build:
   variables:
     CARGO_HOME: "$CI_PROJECT_DIR/.cargo"
     ANDROID_NDK_HOME: "$MIPUSH_ZYGISK_NDK_HOME"
-    RUSTUP_DIST_SERVER: "https://mirrors.tuna.tsinghua.edu.cn/rustup"
-    RUSTUP_UPDATE_ROOT: "https://mirrors.tuna.tsinghua.edu.cn/rustup/rustup"
   cache:
     key: "zygisk-cargo-$CI_COMMIT_REF_SLUG-$MIPUSH_ZYGISK_REF"
     paths:
@@ -161,38 +160,58 @@ zygisk:build:
       fi
 
       export DEBIAN_FRONTEND=noninteractive
-      sed -i \
-        -e 's#http://deb.debian.org/debian-security#https://mirrors.tuna.tsinghua.edu.cn/debian-security#g' \
-        -e 's#http://security.debian.org/debian-security#https://mirrors.tuna.tsinghua.edu.cn/debian-security#g' \
-        -e 's#http://deb.debian.org/debian#https://mirrors.tuna.tsinghua.edu.cn/debian#g' \
-        -e 's#http://archive.ubuntu.com/ubuntu#https://mirrors.tuna.tsinghua.edu.cn/ubuntu#g' \
-        -e 's#http://security.ubuntu.com/ubuntu#https://mirrors.tuna.tsinghua.edu.cn/ubuntu#g' \
-        /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
-      if ! apt-get update; then
-        echo "Mirror apt-get update failed, falling back to official sources" >&2
+      use_mirror="${MAGISK_LINUX_USE_MIRROR:-true}"
+      if [[ "$use_mirror" == "true" ]]; then
         sed -i \
-          -e 's#https://mirrors.tuna.tsinghua.edu.cn/debian-security#http://deb.debian.org/debian-security#g' \
-          -e 's#https://mirrors.tuna.tsinghua.edu.cn/debian#http://deb.debian.org/debian#g' \
-          -e 's#https://mirrors.tuna.tsinghua.edu.cn/ubuntu#http://archive.ubuntu.com/ubuntu#g' \
+          -e 's#http://deb.debian.org/debian-security#https://mirrors.tuna.tsinghua.edu.cn/debian-security#g' \
+          -e 's#http://security.debian.org/debian-security#https://mirrors.tuna.tsinghua.edu.cn/debian-security#g' \
+          -e 's#http://deb.debian.org/debian#https://mirrors.tuna.tsinghua.edu.cn/debian#g' \
+          -e 's#http://archive.ubuntu.com/ubuntu#https://mirrors.tuna.tsinghua.edu.cn/ubuntu#g' \
+          -e 's#http://security.ubuntu.com/ubuntu#https://mirrors.tuna.tsinghua.edu.cn/ubuntu#g' \
           /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
+      fi
+      if [[ "$use_mirror" == "true" ]]; then
+        if ! apt-get update; then
+          echo "Mirror apt-get update failed, falling back to official sources" >&2
+          sed -i \
+            -e 's#https://mirrors.tuna.tsinghua.edu.cn/debian-security#http://deb.debian.org/debian-security#g' \
+            -e 's#https://mirrors.tuna.tsinghua.edu.cn/debian#http://deb.debian.org/debian#g' \
+            -e 's#https://mirrors.tuna.tsinghua.edu.cn/ubuntu#http://archive.ubuntu.com/ubuntu#g' \
+            /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
+          apt-get update
+        fi
+      else
         apt-get update
       fi
     - apt-get install -y --no-install-recommends ca-certificates curl git unzip zip
     - |
       set -euo pipefail
       mkdir -p "$CARGO_HOME"
-      cat > "$CARGO_HOME/config.toml" <<'EOF'
+      cargo_registry="sparse+https://index.crates.io/"
+      if [[ "$use_mirror" == "true" ]]; then
+        cargo_registry="sparse+https://mirrors.tuna.tsinghua.edu.cn/crates.io-index/"
+      else
+        cargo_registry="sparse+https://index.crates.io/"
+      fi
+      cat > "$CARGO_HOME/config.toml" <<EOF
       [source.crates-io]
       replace-with = "tuna"
 
       [source.tuna]
-      registry = "sparse+https://mirrors.tuna.tsinghua.edu.cn/crates.io-index/"
+      registry = "$cargo_registry"
 
       [net]
       git-fetch-with-cli = true
       EOF
     - |
       set -euo pipefail
+      if [[ "$use_mirror" == "true" ]]; then
+        export RUSTUP_DIST_SERVER="https://mirrors.tuna.tsinghua.edu.cn/rustup"
+        export RUSTUP_UPDATE_ROOT="https://mirrors.tuna.tsinghua.edu.cn/rustup/rustup"
+      else
+        export RUSTUP_DIST_SERVER="https://static.rust-lang.org"
+        export RUSTUP_UPDATE_ROOT="https://static.rust-lang.org/rustup"
+      fi
       if ! rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android; then
         echo "Rustup mirror failed, falling back to official server" >&2
         export RUSTUP_DIST_SERVER="https://static.rust-lang.org"
@@ -283,6 +302,7 @@ android:test:
       set -euo pipefail
       : "${MAGISK_GRADLE_ARGS:=--warning-mode all}"
       bash "$MAGISK_CI_TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" $MAGISK_GRADLE_ARGS \
+        --no-parallel \
         :common:check \
         :xmsf:testNormalDebugUnitTest \
         :xmsf:testVc105DebugUnitTest \
@@ -318,9 +338,11 @@ android:shared-compat:
 
 android:release:guard:
   extends:
-    - .magisk_android_base
+    - .magisk_linux_base
     - .magisk_android_release_tag_rules
   stage: release-validate
+  tags:
+    - magisk-arm64-linux
   script:
     - |
       set -euo pipefail
@@ -393,9 +415,13 @@ android:release:play-bundle:
       - mipush/build/outputs/native-debug-symbols/**/native-debug-symbols.zip
 
 android:release:gitlab:
-  extends: .magisk_android_base
+  extends:
+    - .magisk_linux_base
+    - .magisk_android_release_owner_rules
   resource_group: mipush-android-release-publish
   stage: release-publish
+  tags:
+    - magisk-arm64-linux
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $RELEASE_KEYSTORE != "" && $STORE_PASSWORD != "" && $KEY_ALIAS != "" && $KEY_PASSWORD != ""'
     - when: never
@@ -414,11 +440,13 @@ android:release:play:
   extends: .magisk_android_publish_play
   resource_group: mipush-android-release-play
   stage: release-publish
+  tags:
+    - magisk-arm64-linux
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+[.][0-9]+[.][0-9]+.*$/ && $RELEASE_OWNER == "gitlab" && $MAGISK_ANDROID_RELEASE_PUBLISH_PLAY == "true" && $ANDROID_PUBLISHER_CREDENTIALS != ""'
     - when: never
   before_script:
-    - !reference [.magisk_android_base, before_script]
+    - !reference [.magisk_linux_base, before_script]
     - |
       set -euo pipefail
       mkdir -p app/build/outputs

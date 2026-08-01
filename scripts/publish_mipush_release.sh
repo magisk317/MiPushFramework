@@ -29,7 +29,7 @@ Usage:
 
 Modes:
   release-notes   Extract the current tag section from docs/CHANGELOG.md.
-  validate-assets Validate the required APK/optional Zygisk asset set and APK signers.
+  validate-assets Validate the required APK/optional Zygisk asset set.
   gitlab-release  Publish XMSF APK, MiPush APK, Zygisk zip, and debug files to GitLab Release.
 EOF
 }
@@ -226,65 +226,6 @@ collect_and_validate_release_assets() {
   )
 }
 
-resolve_apksigner() {
-  if command -v apksigner >/dev/null 2>&1; then
-    command -v apksigner
-    return
-  fi
-
-  local sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
-  local -a candidates=()
-  if [[ -n "$sdk_root" && -d "$sdk_root/build-tools" ]]; then
-    mapfile -t candidates < <(find "$sdk_root/build-tools" -type f -name apksigner | sort -V)
-  fi
-  if [[ "${#candidates[@]}" -eq 0 ]]; then
-    echo "ERROR: apksigner is required to validate release APKs" >&2
-    return 1
-  fi
-  printf '%s\n' "${candidates[-1]}"
-}
-
-normalize_sha256() {
-  printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]'
-}
-
-validate_apk_signers() {
-  local expected_sha256 apksigner_path apk signer_output signer_sha256 actual_sha256
-  local -a signer_sha256_values=()
-  local -A signer_sha256_set=()
-  expected_sha256="$(normalize_sha256 "${MIPUSH_RELEASE_CERT_SHA256:-}")"
-  if [[ ! "$expected_sha256" =~ ^[0-9a-f]{64}$ ]]; then
-    echo "ERROR: MIPUSH_RELEASE_CERT_SHA256 must contain one SHA-256 certificate fingerprint" >&2
-    return 1
-  fi
-  apksigner_path="$(resolve_apksigner)" || return 1
-
-  for apk in "$@"; do
-    if ! signer_output="$("$apksigner_path" verify --print-certs "$apk")"; then
-      echo "ERROR: APK signature verification failed: $apk" >&2
-      return 1
-    fi
-    signer_sha256_values=()
-    signer_sha256_set=()
-    mapfile -t signer_sha256_values < <(
-      printf '%s\n' "$signer_output" \
-        | sed -nE 's/.*certificate SHA-256 digest:[[:space:]]*([0-9A-Fa-f:]+).*/\1/p'
-    )
-    for signer_sha256 in "${signer_sha256_values[@]}"; do
-      signer_sha256="$(normalize_sha256 "$signer_sha256")"
-      if [[ "$signer_sha256" =~ ^[0-9a-f]{64}$ ]]; then
-        signer_sha256_set["$signer_sha256"]=1
-      fi
-    done
-    if [[ "${#signer_sha256_set[@]}" -ne 1 || -z "${signer_sha256_set[$expected_sha256]:-}" ]]; then
-      actual_sha256="$(printf '%s\n' "${!signer_sha256_set[@]}" | sort | paste -sd, -)"
-      echo "ERROR: unexpected APK signer set for $apk (got ${actual_sha256:-missing})" >&2
-      return 1
-    fi
-  done
-  echo "Validated ${#@} release APK signatures against the pinned certificate fingerprint."
-}
-
 copy_assets() {
   local output_dir="$1"
   shift
@@ -361,7 +302,7 @@ publish_gitlab_release() {
   fi
 
   local tag_name notes_file asset_dir package_name encoded_project encoded_tag encoded_package
-  local upload_response
+  local links_json payload_json update_json upload_response
   tag_name="$(release_tag)"
   notes_file="${MAGISK_RELEASE_NOTES_FILE:-release-notes.md}"
   asset_dir="${MAGISK_GITLAB_RELEASE_ASSET_DIR:-release-assets}"
@@ -370,7 +311,6 @@ publish_gitlab_release() {
   generate_release_notes "$tag_name" "$notes_file" gitlab
 
   collect_and_validate_release_assets "$tag_name"
-  validate_apk_signers "${xmsf_release_assets[@]}" "${mipush_release_assets[@]}"
   copy_assets "$asset_dir" "${release_assets[@]}"
 
   encoded_project="$(urlencode "$CI_PROJECT_ID")"
@@ -547,7 +487,6 @@ case "$mode" in
   validate-assets)
     current_tag="$(release_tag)"
     collect_and_validate_release_assets "$current_tag"
-    validate_apk_signers "${xmsf_release_assets[@]}" "${mipush_release_assets[@]}"
     echo "Validated release asset set: $current_tag"
     ;;
   gitlab-release)

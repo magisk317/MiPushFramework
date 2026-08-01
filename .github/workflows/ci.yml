@@ -53,7 +53,7 @@ jobs:
       - name: Test
         uses: ./.magisk-ci-toolkit/.github/actions/run-gradle-with-retry
         with:
-          arguments: --warning-mode all :common:check :xmsf:testNormalDebugUnitTest :xmsf:testVc105DebugUnitTest testDebugUnitTest qualityGateKoverVerify -PminifyDebug -Pkotlin.incremental=false -x detekt -x qualityGateDetekt
+          arguments: --warning-mode all --no-parallel :common:check :xmsf:testNormalDebugUnitTest :xmsf:testVc105DebugUnitTest testDebugUnitTest qualityGateKoverVerify -PminifyDebug -Pkotlin.incremental=false -x detekt -x qualityGateDetekt
 
   build:
     runs-on: ubuntu-latest
