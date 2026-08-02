@@ -3,6 +3,7 @@
 package io.github.magisk317.mipush.feature.main.subpage
 
 import android.app.Activity
+import android.widget.Toast
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -98,6 +99,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import io.github.magisk317.uikit.surface.DonateDialog
 import io.github.magisk317.uikit.surface.QRCodeDialog
 import io.github.magisk317.uikit.surface.saveImageToGalleryAsync
+import io.github.magisk317.uikit.surface.startAlipayPlatformDonate
 import io.github.magisk317.uikit.surface.chromeTopAppBarColors
 import io.github.magisk317.uikit.R as UiKitR
 
@@ -206,7 +208,18 @@ private fun OverviewScreen(
             onDismiss = { showDonateDialog = false },
             onAlipay = {
                 showDonateDialog = false
-                showQRCodeDialog = UiKitR.drawable.alipay to "alipay"
+                Toast.makeText(
+                    context,
+                    UiKitR.string.alipay_platform_opening,
+                    Toast.LENGTH_SHORT,
+                ).show()
+                scope.launch {
+                    val error = startAlipayPlatformDonate(context)
+                    if (error != null) {
+                        Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+                        showQRCodeDialog = UiKitR.drawable.alipay to "alipay"
+                    }
+                }
             },
             onWechat = {
                 showDonateDialog = false

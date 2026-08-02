@@ -28,8 +28,27 @@ The Play variant includes Google Play Billing. The GitHub variant registers a no
 
 Use `RELEASE_OWNER=github` or `RELEASE_OWNER=gitlab` consistently so only one pipeline publishes a tag.
 
+## Client Permission Checklist
+
+Play builds must merge `com.android.vending.BILLING` (declared in `mipush/src/play/AndroidManifest.xml` and `:magisk-ui-kit:billing`). Without this permission, BillingClient setup fails even if in-app products already exist in Play Console.
+
+## Play Console Product Checklist
+
+Use package `io.github.magisk317.mipush` and create active one-time products with these exact IDs (must match `ProductConfig.DONATION_IDS`):
+
+| Product ID | Suggested price |
+|---|---|
+| `donate_099` | $0.99 |
+| `donate_200` | $2.00 |
+| `donate_999` | $9.99 |
+| `donate_1999` | $19.99 |
+
+Product type: managed / one-time, consumable. Status must be **Active** before the Play app can query details.
+
 ## Backend Requirement
 
-The current donation products are consumable one-time purchases with no entitlement. Purchases are completed and consumed through Google Play Billing on the device, so no project-operated purchase backend is required.
+The current donation products are consumable one-time purchases with no entitlement. Purchases are completed and consumed through Google Play Billing on the device, so no project-operated purchase backend is required for Play donations.
 
 A backend becomes necessary only if a future release adds subscriptions, durable paid entitlements, cross-device purchase restoration outside Google Play's normal purchase query, server-controlled benefits, fraud-sensitive verification, or Real-time Developer Notifications.
+
+Alipay donations use the separate 46-code-pay platform (`/Epay/mapi`) and do not depend on Play Console products.
