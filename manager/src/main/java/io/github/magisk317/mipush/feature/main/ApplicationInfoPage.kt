@@ -648,11 +648,13 @@ open class ApplicationInfoPage : ComponentActivity() {
                         NotificationChannelSectionKind.NATIVE ->
                             stringResource(R.string.notification_channels_native_badge)
                     }
+                    val disabledBadge = stringResource(R.string.notification_channels_disabled_badge)
                     val channelTitle = AppConfigurationUtils.getNotificationTitle(channel)
-                    val dialogTitle = "[$badge] $channelTitle"
                     val summary = AppConfigurationUtils.getNotificationSummary(channel)
                     NotificationChannelRow(
                         badge = badge,
+                        disabledBadge = disabledBadge,
+                        enabled = channel.enabled,
                         title = channelTitle,
                         summary = summary,
                         showDivider = channelIndex < section.channels.lastIndex ||
@@ -663,12 +665,27 @@ open class ApplicationInfoPage : ComponentActivity() {
                         AlertDialog(
                             onDismissRequest = { shouldShowDialog = false },
                             title = {
-                                Text(
-                                    text = dialogTitle,
+                                Column(
                                     modifier = Modifier.fillMaxWidth(),
-                                    softWrap = true,
-                                    overflow = TextOverflow.Clip,
-                                )
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        NotificationChannelBadge(text = badge)
+                                        if (!channel.enabled) {
+                                            NotificationChannelBadge(
+                                                text = disabledBadge,
+                                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                            )
+                                        }
+                                    }
+                                    Text(
+                                        text = channelTitle,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        softWrap = true,
+                                        overflow = TextOverflow.Clip,
+                                    )
+                                }
                             },
                             text = {
                                 Text(
@@ -786,30 +803,44 @@ private fun NotificationChannelSectionHeader(
     if (showTopDivider) {
         DetailDivider()
     }
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(
-                start = MaterialTheme.spacing.large,
-                end = MaterialTheme.spacing.large,
-                top = MaterialTheme.spacing.medium,
-                bottom = MaterialTheme.spacing.small,
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                        MaterialTheme.colorScheme.secondary.copy(alpha = 0.10f),
+                        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.08f),
+                    ),
+                ),
             ),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        if (summary.isNotBlank()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = MaterialTheme.spacing.large,
+                    end = MaterialTheme.spacing.large,
+                    top = MaterialTheme.spacing.medium,
+                    bottom = MaterialTheme.spacing.small,
+                ),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
             Text(
-                text = summary,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.fillMaxWidth(),
             )
+            if (summary.isNotBlank()) {
+                Text(
+                    text = summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
     }
 }
@@ -817,6 +848,8 @@ private fun NotificationChannelSectionHeader(
 @Composable
 private fun NotificationChannelRow(
     badge: String,
+    disabledBadge: String,
+    enabled: Boolean,
     title: String,
     summary: String,
     showDivider: Boolean,
@@ -837,17 +870,12 @@ private fun NotificationChannelRow(
             verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Surface(
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                shape = RoundedCornerShape(6.dp),
-            ) {
-                Text(
-                    text = badge,
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                    softWrap = false,
-                    maxLines = 1,
+            NotificationChannelBadge(text = badge)
+            if (!enabled) {
+                NotificationChannelBadge(
+                    text = disabledBadge,
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
                 )
             }
             Text(
@@ -876,6 +904,27 @@ private fun NotificationChannelRow(
     }
     if (showDivider) {
         DetailDivider()
+    }
+}
+
+@Composable
+private fun NotificationChannelBadge(
+    text: String,
+    containerColor: Color = MaterialTheme.colorScheme.secondaryContainer,
+    contentColor: Color = MaterialTheme.colorScheme.onSecondaryContainer,
+) {
+    Surface(
+        color = containerColor,
+        contentColor = contentColor,
+        shape = RoundedCornerShape(6.dp),
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+            softWrap = false,
+            maxLines = 1,
+        )
     }
 }
 

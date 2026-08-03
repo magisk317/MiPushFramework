@@ -75,7 +75,7 @@ class AppConfigurationUtilsTest {
             description = "description",
         )
 
-        assertEquals("[disable]channel-id", AppConfigurationUtils.getNotificationTitle(channel))
+        assertEquals("channel-id", AppConfigurationUtils.getNotificationTitle(channel))
         assertEquals("id: channel-id\ndescription", AppConfigurationUtils.getNotificationSummary(channel))
     }
 

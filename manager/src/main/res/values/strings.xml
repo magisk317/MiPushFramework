@@ -502,6 +502,7 @@ This could be the application doing a reverse registration, or the registration 
     <string name="notification_channels_section_native_summary">Channels owned by the target app itself.</string>
     <string name="notification_channels_managed_badge">MiPush</string>
     <string name="notification_channels_native_badge">Native</string>
+    <string name="notification_channels_disabled_badge">Disabled</string>
     <string name="notification_channels_loading">Loading notification channels…</string>
     <string name="notification_channels_empty_title">No notification channels</string>
     <string name="notification_channels_empty_summary">There are no notification channels to display.</string>

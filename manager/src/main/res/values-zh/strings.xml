@@ -489,6 +489,7 @@
     <string name="notification_channels_section_native_summary">目标应用自身拥有的通知渠道。</string>
     <string name="notification_channels_managed_badge">MiPush</string>
     <string name="notification_channels_native_badge">原生</string>
+    <string name="notification_channels_disabled_badge">已禁用</string>
     <string name="notification_channels_loading">正在加载通知渠道…</string>
     <string name="notification_channels_empty_title">暂无通知渠道</string>
     <string name="notification_channels_empty_summary">当前没有可显示的通知渠道。</string>

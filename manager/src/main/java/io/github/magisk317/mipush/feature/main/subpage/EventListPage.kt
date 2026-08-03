@@ -595,11 +595,28 @@ private fun EventGroupList(
         groupedItems.addAll(grouped)
     }
 
-    // Seed from VM snapshot on tab re-enter; search/query/refreshSignal miss reloads.
-    // Empty-but-loaded snapshots still skip auto-refresh (legitimate empty result).
-    // runtimeReady invalidates sticky empty after binder recovery.
+    // Cache-first: on open / tab re-enter, restore from the persistent cache
+    // (or in-memory snapshot) and paint immediately. We do NOT proactively hit
+    // the runtime on open; remote is only used on cache miss, user pull-to-refresh,
+    // or a background silent refresh.
     val runtimeReady by viewModel.runtimeReadySignal.collectAsStateWithLifecycle()
-    LaunchedEffect(query, refreshSignal, runtimeReady) {
+    LaunchedEffect(query, refreshSignal) {
+        // Cache-first: serve from the persistent store (or in-memory snapshot)
+        // immediately so the page paints without a 3s+ remote round-trip.
+        // We do NOT proactively hit the runtime here; remote is only used on
+        // a genuine cache miss, user pull-to-refresh, or background silent refresh.
+        if (viewModel.loadFromCacheIfPresent(query, "", refreshSignal)) {
+            val cached = viewModel.getEventListSnapshot(query = query, packageName = "", refreshSignal = refreshSignal)
+            if (cached != null) {
+                allEvents.clear()
+                allEvents.addAll(cached.events)
+                lastId = cached.lastId
+                hasMore = cached.hasMore
+                isNeedRefresh = false
+                rebuildGroups()
+                return@LaunchedEffect
+            }
+        }
         val snap = viewModel.getEventListSnapshot(query = query, packageName = "", refreshSignal = refreshSignal)
         if (snap != null) {
             allEvents.clear()
@@ -609,11 +626,19 @@ private fun EventGroupList(
             isNeedRefresh = false
             rebuildGroups()
         } else {
+            // Genuine cold start with no cache: let the refresh container pull.
             allEvents.clear()
             lastId = null
             hasMore = true
             isNeedRefresh = true
             rebuildGroups()
+        }
+    }
+    // Idle silent refresh: after the page is painted from cache, warm the cache
+    // in the background without disturbing the visible list.
+    LaunchedEffect(query, refreshSignal, runtimeReady) {
+        if (runtimeReady > 0) {
+            viewModel.triggerSilentRefresh(query, "", refreshSignal)
         }
     }
 
@@ -970,8 +995,25 @@ private fun EventList(
         )
     }
 
-    // Tab re-enter: restore VM snapshot. Search/package/refreshSignal change: reload.
-    LaunchedEffect(query, packageName, refreshSignal, runtimeReady) {
+    // Cache-first: on open / tab re-enter, restore from the persistent store
+    // (or in-memory snapshot) and paint immediately so we skip the 3s+ remote
+    // round-trip on cold start. Remote is only hit on a genuine cache miss,
+    // user pull-to-refresh, or a background silent refresh.
+    LaunchedEffect(query, packageName, refreshSignal) {
+        if (viewModel.loadFromCacheIfPresent(query, packageName, refreshSignal)) {
+            val cached = viewModel.getEventListSnapshot(
+                query = query,
+                packageName = packageName,
+                refreshSignal = refreshSignal,
+            )
+            if (cached != null) {
+                items.clear()
+                items.appendDistinct(cached.events)
+                hasMore = cached.hasMore
+                isNeedRefresh = false
+                return@LaunchedEffect
+            }
+        }
         val snap = viewModel.getEventListSnapshot(
             query = query,
             packageName = packageName,
@@ -986,6 +1028,14 @@ private fun EventList(
             items.clear()
             hasMore = true
             isNeedRefresh = true
+        }
+    }
+
+    // Idle silent refresh: after the page is painted from cache, warm the cache
+    // in the background without disturbing the visible list.
+    LaunchedEffect(query, packageName, refreshSignal, runtimeReady) {
+        if (runtimeReady > 0) {
+            viewModel.triggerSilentRefresh(query, packageName, refreshSignal)
         }
     }
 
@@ -1061,12 +1111,12 @@ private fun EventList(
             val result = snackbarHostState.showSnackbar(
                 message = recentActivityDeletedMessage,
                 actionLabel = actionUndoLabel,
-                duration = SnackbarDuration.Long,
+                duration = SnackbarDuration.Indefinite,
             )
             if (result == SnackbarResult.ActionPerformed) {
-                viewModel.restoreEvent(item)?.let { restored ->
+                viewModel.restoreEvent(item)?.let {
                     val idx = insertAt.coerceIn(0, items.size)
-                    items.add(idx, restored)
+                    items.add(idx, it)
                     persistSnapshot()
                 }
             }
@@ -1110,11 +1160,24 @@ private fun SwipeToDeleteEventItem(
     onDelete: (EventInfoForDisplay) -> Unit,
     onClick: (EventInfoForDisplay) -> Unit,
 ) {
-    val dismissState = rememberSwipeToDismissBoxState()
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value != SwipeToDismissBoxValue.Settled) {
+                onDelete(item)
+            }
+            true
+        },
+    )
+
+    // When an item is restored (re-added after undo), this composable may be
+    // reused by LazyColumn with dismissState still at EndToStart.  Reset it
+    // once on first composition so the foreground content is visible again.
+    var autoReset by remember { mutableStateOf(true) }
     LaunchedEffect(dismissState.currentValue) {
-        if (dismissState.currentValue == SwipeToDismissBoxValue.Settled) return@LaunchedEffect
-        onDelete(item)
-        dismissState.reset()
+        if (autoReset && dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
+            autoReset = false
+            dismissState.snapTo(SwipeToDismissBoxValue.Settled)
+        }
     }
 
     SwipeToDismissBox(
@@ -1154,7 +1217,7 @@ private fun EventItem(
     val disabled = item.isDisabled()
     val denied = item.event.result != ManagerEventResult.OK
     val appName = item.appName?.takeIf { it.isNotBlank() } ?: item.packageName
-    val titleText = if (disabled) "[disable] ${item.title}" else item.title
+    val titleText = item.title
     val metaLine = if (item.channel.isNotBlank()) {
         "$appName · ${item.channel}"
     } else {
@@ -1162,7 +1225,6 @@ private fun EventItem(
     }
     val surface = MaterialTheme.colorScheme.surface
     val containerColor = when {
-        disabled -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.22f).compositeOver(surface)
         denied -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.18f).compositeOver(surface)
         else -> surface
     }
@@ -1209,7 +1271,13 @@ private fun EventItem(
                 maxLines = 1,
                 modifier = Modifier.weight(1f),
             )
-            if (denied) {
+            if (disabled) {
+                InfoPill(
+                    text = stringResource(R.string.notification_channels_disabled_badge),
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            } else if (denied) {
                 InfoPill(
                     text = stringResource(R.string.recent_activity_filter_status_denied),
                     containerColor = MaterialTheme.colorScheme.tertiaryContainer,
@@ -1230,17 +1298,24 @@ private fun EventItem(
 @Composable
 private fun DeleteCountdownSnackbar(data: androidx.compose.material3.SnackbarData) {
     var secondsLeft by remember { mutableIntStateOf(5) }
+    var settled by remember { mutableStateOf(false) }
     LaunchedEffect(data) {
         repeat(5) {
             delay(1_000L)
             secondsLeft--
         }
-        data.dismiss()
+        if (!settled) {
+            data.dismiss()
+        }
     }
     Snackbar(
         action = {
-            TextButton(onClick = { data.performAction() }) {
-                Text("${data.visuals.actionLabel} (${secondsLeft}s)")
+            TextButton(onClick = {
+                settled = true
+                data.performAction()
+                data.dismiss()
+            }) {
+                Text("${data.visuals.actionLabel} (${secondsLeft.coerceAtLeast(0)}s)")
             }
         },
     ) {

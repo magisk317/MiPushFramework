@@ -27,6 +27,7 @@ import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.main.viewmodel.XmppServerViewModel
 import io.github.magisk317.mipush.main.viewmodel.ZygiskConfigViewModel
 import io.github.magisk317.mipush.manager.SettingsManager
+import io.github.magisk317.mipush.manager.events.EventListCacheStore
 import io.github.magisk317.mipush.manager.application.RemoteApplicationDetailSource
 import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
 import io.github.magisk317.mipush.manager.configuration.RemoteConfigurationCatalogSource
@@ -105,8 +106,10 @@ val managerKoinModule = module {
             androidContext(),
             get<ManagerRuntimeClient>(),
             get<RuntimePreferenceGateway>(),
+            get<EventListCacheStore>(),
         )
     }
+    single { EventListCacheStore(androidContext()) }
     viewModel { ZygiskConfigViewModel(get<SettingsManager>(), get<RemoteApplicationListSource>(), get()) }
     viewModel { ConfigManagerViewModel(get(), get(), get(), androidContext(), get()) }
     viewModel { ConfigEditorViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidContext()) }

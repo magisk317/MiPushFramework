@@ -124,7 +124,6 @@ class AppConfigurationUtils(
         @JvmStatic
         fun getNotificationTitle(channel: NotificationChannelSummary): String =
             channel.name.trim().ifEmpty { channel.id }
-                .let { if (channel.enabled) it else "[disable]$it" }
 
         @JvmStatic
         fun getNotificationSummary(channel: NotificationChannelSummary): String {

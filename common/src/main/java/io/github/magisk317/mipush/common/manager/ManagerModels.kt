@@ -1,7 +1,11 @@
 package io.github.magisk317.mipush.common.manager
 
 import java.io.File
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
+@Serializable
 data class ManagerApplication(
     val id: Long? = null,
     val packageName: String = "",
@@ -58,6 +62,7 @@ object ManagerEventResult {
     const val DENY_USER = 2
 }
 
+@Serializable
 data class ManagerEvent(
     val id: Long,
     val packageName: String,
@@ -70,7 +75,7 @@ data class ManagerEvent(
     val type: Int = 0,
     val result: Int = ManagerEventResult.OK,
     val info: String? = null,
-    val payload: ByteArray? = null,
+    @Transient val payload: ByteArray? = null,
     val regSec: String? = null,
 ) {
     override fun equals(other: Any?): Boolean {
