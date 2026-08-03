@@ -6,22 +6,36 @@ import io.github.magisk317.mipush.common.utils.NotificationUtils
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.notification.NotificationChannelManager
 import io.github.magisk317.mipush.notification.NotificationManagerEx
+import io.github.magisk317.mipush.notification.RuntimeNotificationChannelNameEnricher
 
 class ManagerNotificationChannelRuntimeReader(
     private val maxPageSize: Int = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
+    private val isHookedProvider: () -> Boolean = { NotificationManagerEx.isHooked },
+    private val channelProvider: (String) -> List<NotificationChannel?>? =
+        NotificationManagerEx::getNotificationChannels,
+    private val groupProvider: (String) -> List<NotificationChannelGroup?>? =
+        NotificationManagerEx::getNotificationChannelGroups,
+    private val channelEnricher: (String, List<NotificationChannel>) -> List<NotificationChannel> =
+        RuntimeNotificationChannelNameEnricher::enrich,
 ) {
     fun readPage(query: ManagerNotificationChannelReadQuery): ManagerNotificationChannelReadPage {
         val pageSize = query.pageSize.coerceIn(1, maxPageSize)
         val packageName = query.packageName
-        val isHooked = NotificationManagerEx.isHooked
-        val rawChannels = NotificationManagerEx.getNotificationChannels(packageName)
+        val isHooked = isHookedProvider()
+        val rawChannels = channelEnricher(
+            packageName,
+            channelProvider(packageName)
+                ?.filterNotNull()
+                .orEmpty(),
+        ).sortedBy { it.id.orEmpty() }
+        val rawGroups = groupProvider(packageName)
             ?.filterNotNull()
             .orEmpty()
-            .sortedBy { it.id.orEmpty() }
-        val rawGroups = NotificationManagerEx.getNotificationChannelGroups(packageName)
-            ?.filterNotNull()
-            .orEmpty()
-            .sortedBy { it.id.orEmpty() }
+            // HyperOS adds a null-ID container for ungrouped channels; it is not a real group.
+            .mapNotNull { group ->
+                group.id?.takeIf(String::isNotBlank)?.let { groupId -> group to groupId }
+            }
+            .sortedBy { (_, groupId) -> groupId }
 
         val startAfter = query.pageToken
             ?.takeIf { it.isNotBlank() }
@@ -50,7 +64,9 @@ class ManagerNotificationChannelRuntimeReader(
             packageName = packageName,
             isHooked = isHooked,
             items = pageItems.map { it.toReadSummary(packageName) },
-            groups = rawGroups.map { it.toGroupSummary(packageName) },
+            groups = rawGroups.map { (group, groupId) ->
+                group.toGroupSummary(packageName, groupId)
+            },
             nextPageToken = nextToken,
         )
     }
@@ -71,8 +87,8 @@ class ManagerNotificationChannelRuntimeReader(
 
     private fun NotificationChannelGroup.toGroupSummary(
         packageName: String,
+        groupId: String,
     ): ManagerNotificationChannelGroupReadSummary {
-        val groupId = id.orEmpty()
         return ManagerNotificationChannelGroupReadSummary(
             id = groupId,
             name = name?.toString().orEmpty(),

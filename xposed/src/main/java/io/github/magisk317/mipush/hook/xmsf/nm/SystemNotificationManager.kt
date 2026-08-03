@@ -12,6 +12,7 @@ import android.service.notification.StatusBarNotification
 import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.common.utils.ImgUtils
+import io.github.magisk317.mipush.common.notification.ChannelNameEnricher
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.xposed.callMethod
@@ -420,7 +421,7 @@ object SystemNotificationManager {
                 }
         }
         return runSystemCall("getNotificationChannel", packageName, fallback = {
-            RootNotificationHelper.getNotificationChannel(packageName, channelId)
+            RootNotificationHelper.getNotificationChannel(packageName, channelId, uid)
                 ?: if (isCurrentPackage(packageName) && !channelId.isNullOrEmpty()) {
                     localNotificationManager()?.getNotificationChannel(channelId)
                 } else {
@@ -456,7 +457,7 @@ object SystemNotificationManager {
         XLog.d(TAG, "getNotificationChannels() called with: packageName = $packageName hasNms=${notificationManager != null}")
         val uid = resolveUid(packageName, "getNotificationChannels")
         if (uid == null) {
-            val root = RootNotificationHelper.getNotificationChannels(packageName)
+            val root = RootNotificationHelper.getNotificationChannels(packageName, uid)
             XLog.d(TAG, "getNotificationChannels uid-null pkg=$packageName rootCount=${root?.size}")
             return root
                 ?: if (isCurrentPackage(packageName)) {
@@ -473,7 +474,7 @@ object SystemNotificationManager {
             } else {
                 XLog.w(TAG, "getNotificationChannels fallback pkg=$packageName uid=$uid err=${error.message}")
             }
-            val root = RootNotificationHelper.getNotificationChannels(packageName)
+            val root = RootNotificationHelper.getNotificationChannels(packageName, uid)
             XLog.d(TAG, "getNotificationChannels root fallback count=${root?.size} pkg=$packageName")
             root
                 ?: if (isCurrentPackage(packageName)) {
@@ -487,8 +488,60 @@ object SystemNotificationManager {
             @Suppress("UNCHECKED_CAST")
             val list = parceledListSlice?.callMethod("getList") as List<NotificationChannel?>?
             XLog.d(TAG, "getNotificationChannels nms count=${list?.size} pkg=$packageName uid=$uid")
-            list
+            // HyperOS may redact foreign-package channel names via NMS ("订阅今...").
+            // Prefer full names from dumpsys when available.
+            enrichChannelNamesFromRoot(packageName, uid, list)
         }
+    }
+
+    /**
+     * HyperOS/NMS may return redacted channel names for cross-package queries (e.g. "订阅今...").
+     * Merge full names parsed from root dumpsys by channel id when they look better.
+     */
+    private fun enrichChannelNamesFromRoot(
+        packageName: String,
+        packageUid: Int,
+        channels: List<NotificationChannel?>?,
+    ): List<NotificationChannel?>? {
+        if (channels.isNullOrEmpty()) return channels
+        val rootNames = runCatching {
+            RootNotificationHelper.getNotificationChannels(packageName, packageUid)
+                ?.filterNotNull()
+                ?.associate { it.id to it.name?.toString().orEmpty() }
+                .orEmpty()
+        }.getOrDefault(emptyMap())
+        if (rootNames.isEmpty()) return channels
+
+        var enriched = 0
+        val result = channels.map { channel ->
+            if (channel == null) return@map null
+            val fullName = ChannelNameEnricher.resolveName(packageName, channel.id, rootNames).orEmpty()
+            if (fullName.isBlank()) return@map channel
+            val current = channel.name?.toString().orEmpty()
+            if (!shouldPreferRootChannelName(current, fullName)) return@map channel
+            enriched++
+            NotificationChannel(channel.id, fullName, channel.importance).apply {
+                description = channel.description
+                if (!channel.group.isNullOrBlank()) {
+                    group = channel.group
+                }
+            }
+        }
+        if (enriched > 0) {
+            XLog.d(TAG, "enrichChannelNamesFromRoot pkg=$packageName enriched=$enriched/${channels.size}")
+        }
+        return result
+    }
+
+    private fun shouldPreferRootChannelName(current: String, rootName: String): Boolean {
+        if (rootName.isBlank() || rootName == current) return false
+        if (looksEllipsizedChannelName(current)) return true
+        return rootName.length > current.length
+    }
+
+    private fun looksEllipsizedChannelName(name: String): Boolean {
+        val trimmed = name.trim()
+        return trimmed.endsWith("...") || trimmed.endsWith("…")
     }
 
     fun findPreferredTargetChannel(
@@ -595,7 +648,7 @@ object SystemNotificationManager {
                 }
         }
         return runSystemCall("getNotificationChannelGroup", packageName, fallback = {
-            RootNotificationHelper.getNotificationChannelGroup(packageName, groupId)
+            RootNotificationHelper.getNotificationChannelGroup(packageName, groupId, uid)
                 ?: if (isCurrentPackage(packageName)) {
                     localNotificationManager()?.getNotificationChannelGroup(groupId)
                 } else {
@@ -620,7 +673,7 @@ object SystemNotificationManager {
                 }
         }
         return runSystemCall("getNotificationChannelGroups", packageName, fallback = {
-            RootNotificationHelper.getNotificationChannelGroups(packageName)
+            RootNotificationHelper.getNotificationChannelGroups(packageName, uid)
                 ?: if (isCurrentPackage(packageName)) {
                     localNotificationManager()?.notificationChannelGroups
                 } else {

@@ -1,7 +1,5 @@
 package io.github.magisk317.mipush.common.manager
 
-import android.app.NotificationChannel
-import android.app.NotificationChannelGroup
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -21,12 +19,8 @@ interface ManagerApplicationGateway {
     suspend fun launchTargetAppAndForceRegister(context: Context, packageName: String, registeredType: Int): String
 }
 
-interface ManagerNotificationGateway {
-    val isHooked: Boolean
-    fun getNotificationChannels(packageName: String): List<NotificationChannel>
-    fun getNotificationChannelGroups(packageName: String): List<NotificationChannelGroup>
+interface ManagerNotificationChannelCommandGateway {
     fun deleteNotificationChannel(packageName: String, channelId: String)
-    fun isNotificationChannelEnabled(channel: NotificationChannel): Boolean
 }
 
 data class ManagerConfigListSnapshot(

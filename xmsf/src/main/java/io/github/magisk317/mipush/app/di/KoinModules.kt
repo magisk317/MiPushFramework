@@ -8,7 +8,7 @@ import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
 import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
 import io.github.magisk317.mipush.common.manager.ManagerEventGateway
 import io.github.magisk317.mipush.common.manager.ManagerLogGateway
-import io.github.magisk317.mipush.common.manager.ManagerNotificationGateway
+import io.github.magisk317.mipush.common.manager.ManagerNotificationChannelCommandGateway
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
 import io.github.magisk317.mipush.configuration.ConfigCatalogService
@@ -48,7 +48,7 @@ val xmsfCoreKoinModule = module {
     single<ManagerConfigGateway> { XmsfManagerConfigGateway(get(), get()) }
     single<ManagerConfigSyncGateway> { XmsfManagerConfigSyncGateway(get(), get()) }
     single<ManagerApplicationGateway> { XmsfManagerApplicationGateway() }
-    single<ManagerNotificationGateway> { XmsfManagerNotificationGateway() }
+    single<ManagerNotificationChannelCommandGateway> { XmsfManagerNotificationChannelCommandGateway() }
     single<ManagerEventGateway> { XmsfManagerEventGateway(androidContext(), get()) }
     single<ManagerLogGateway> { XmsfManagerLogGateway() }
     single<ManagerPermissionGateway> { XmsfManagerPermissionGateway() }

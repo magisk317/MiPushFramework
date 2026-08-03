@@ -49,6 +49,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowLog
 import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
 @ExtendWith(RobolectricExtension::class)
@@ -226,6 +227,7 @@ class ManagerRuntimeClientLifecycleTest {
 
     @Test
     fun `runtime operation errors are sanitized and remain feature local`() = runBlocking {
+        ShadowLog.clear()
         val service = FakeRuntimeService(
             capabilities = listOf(
                 ManagerProtocol.CAPABILITY_APPLICATION_DETAIL,
@@ -244,7 +246,30 @@ class ManagerRuntimeClientLifecycleTest {
         assertTrue(snapshot is ManagerRuntimeResult.Success)
         assertEquals(0, context.unbindCount)
         assertTrue(client.availability.value is ManagerRuntimeAvailability.Available)
+        val runtimeLogs = ShadowLog.getLogsForTag("ManagerRuntime").map { it.msg }
+        assertTrue(
+            runtimeLogs.any {
+                it.contains("capability=${ManagerProtocol.CAPABILITY_APPLICATION_DETAIL}") &&
+                    it.contains("type=IllegalArgumentException") &&
+                    it.contains("reason=redacted")
+            },
+        )
+        assertTrue(runtimeLogs.none { it.contains("private runtime path") })
         client.close()
+    }
+
+    @Test
+    fun `runtime exception diagnostics preserve bounded machine reasons only`() {
+        assertEquals(
+            "invalid_notification_channel_group_id",
+            runtimeExceptionDiagnosticReason(
+                IllegalArgumentException("invalid_notification_channel_group_id"),
+            ),
+        )
+        assertEquals(
+            "redacted",
+            runtimeExceptionDiagnosticReason(IllegalArgumentException("private runtime path")),
+        )
     }
 
     @Test

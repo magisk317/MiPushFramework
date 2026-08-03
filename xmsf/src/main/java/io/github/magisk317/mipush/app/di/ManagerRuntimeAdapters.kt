@@ -1,7 +1,5 @@
 package io.github.magisk317.mipush.app.di
 
-import android.app.NotificationChannel
-import android.app.NotificationChannelGroup
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -28,7 +26,7 @@ import io.github.magisk317.mipush.common.manager.ManagerEventType
 import io.github.magisk317.mipush.common.manager.ManagerLogClearResult
 import io.github.magisk317.mipush.common.manager.ManagerLogExportResult
 import io.github.magisk317.mipush.common.manager.ManagerLogGateway
-import io.github.magisk317.mipush.common.manager.ManagerNotificationGateway
+import io.github.magisk317.mipush.common.manager.ManagerNotificationChannelCommandGateway
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 import io.github.magisk317.mipush.common.manager.ManagerRootAccessSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerRootAccessState
@@ -50,7 +48,6 @@ import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.dataStore
 import io.github.magisk317.mipush.compat.RegistrationStateCompat
 import io.github.magisk317.mipush.compat.RegistrationStateStore
-import io.github.magisk317.mipush.notification.NotificationChannelManager
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.platform.support.Global
 import io.github.magisk317.mipush.platform.support.PermissionUtils
@@ -160,23 +157,10 @@ class XmsfManagerConfigSyncGateway(
         )
 }
 
-class XmsfManagerNotificationGateway : ManagerNotificationGateway {
-    override val isHooked: Boolean
-        get() = NotificationManagerEx.isHooked
-
-    // filterNotNull/orEmpty: Ex layer may return nullable list/elements; manager UI expects non-null.
-    override fun getNotificationChannels(packageName: String): List<NotificationChannel> =
-        NotificationManagerEx.getNotificationChannels(packageName)?.filterNotNull().orEmpty()
-
-    override fun getNotificationChannelGroups(packageName: String): List<NotificationChannelGroup> =
-        NotificationManagerEx.getNotificationChannelGroups(packageName)?.filterNotNull().orEmpty()
-
+class XmsfManagerNotificationChannelCommandGateway : ManagerNotificationChannelCommandGateway {
     override fun deleteNotificationChannel(packageName: String, channelId: String) {
         NotificationManagerEx.deleteNotificationChannel(packageName, channelId)
     }
-
-    override fun isNotificationChannelEnabled(channel: NotificationChannel): Boolean =
-        NotificationChannelManager.isNotificationChannelEnabled(channel)
 }
 
 class XmsfManagerEventGateway(

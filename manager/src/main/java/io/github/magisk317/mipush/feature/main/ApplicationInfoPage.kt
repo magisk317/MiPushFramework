@@ -1,8 +1,6 @@
 package io.github.magisk317.mipush.feature.main
 
 import android.annotation.SuppressLint
-import android.app.NotificationChannel
-import android.app.NotificationChannelGroup
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -41,6 +39,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
@@ -66,7 +65,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.fromHtml
@@ -76,17 +74,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.magisk317.mipush.common.manager.ManagerApplication
 import io.github.magisk317.mipush.common.manager.ManagerApplicationDiagnostics
-import io.github.magisk317.mipush.common.manager.ManagerNotificationGateway
 import io.github.magisk317.mipush.main.viewmodel.ApplicationInfoViewModel
 import io.github.magisk317.mipush.manager.application.ApplicationReadResult
 import io.github.magisk317.mipush.manager.application.RemoteApplicationDetailSource
+import io.github.magisk317.mipush.manager.notification.NotificationChannelReadStatus
+import io.github.magisk317.mipush.manager.notification.NotificationChannelSnapshot
 import io.github.magisk317.mipush.manager.R
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.uikit.surface.AppIconImage
-import io.github.magisk317.uikit.preference.Item as SettingsItem
 import io.github.magisk317.uikit.surface.DialogAction
 import io.github.magisk317.uikit.surface.DialogActionRow
 import io.github.magisk317.uikit.surface.DetailDivider
@@ -110,7 +108,6 @@ open class ApplicationInfoPage : ComponentActivity() {
     }
 
     private val applicationSource: RemoteApplicationDetailSource by inject()
-    private val notificationGateway: ManagerNotificationGateway by inject()
     private val infoViewModel: ApplicationInfoViewModel by viewModel()
 
     private lateinit var applicationInfo: ManagerApplication
@@ -134,8 +131,7 @@ open class ApplicationInfoPage : ComponentActivity() {
             info = app,
             ignoreNotRegistered = intent.getBooleanExtra(EXTRA_IGNORE_NOT_REGISTERED, false),
         )
-        infoViewModel.scheduleNotificationComparison(app.packageName)
-        appConfigurationUtils = AppConfigurationUtils(this, app, notificationGateway)
+        appConfigurationUtils = AppConfigurationUtils(this, app)
         setContent {
             Theme {
                 SettingsApp()
@@ -375,8 +371,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                         ) {
                             Text(
                                 text = stringResource(R.string.app_detail_force_register),
-                                maxLines = 1,
-                                softWrap = false,
+                                maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
@@ -385,8 +380,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                         ) {
                             Text(
                                 text = stringResource(R.string.app_detail_open_system_settings),
-                                maxLines = 1,
-                                softWrap = false,
+                                maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
@@ -482,6 +476,26 @@ open class ApplicationInfoPage : ComponentActivity() {
                 showSwitchFeedback(blockTitle, enabled)
             }
 
+            val redirectClickTitle = stringResource(R.string.app_detail_redirect_click)
+            val redirectInDevelopment = stringResource(R.string.app_detail_redirect_click_in_development)
+            val scope = rememberCoroutineScope()
+            SettingSwitchRow(
+                title = redirectClickTitle,
+                summary = stringResource(R.string.app_detail_redirect_click_summary),
+                checked = false,
+                enabled = false,
+                showDivider = true,
+                onClickWhenDisabled = {
+                    scope.launch {
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        snackbarHostState.showSnackbar(
+                            message = redirectInDevelopment,
+                            duration = SnackbarDuration.Short,
+                        )
+                    }
+                },
+            ) { _ -> }
+
             ActionSummaryRow(
                 title = stringResource(R.string.recent_activity_view),
                 summary = stringResource(R.string.app_detail_recent_activity_summary),
@@ -536,131 +550,332 @@ open class ApplicationInfoPage : ComponentActivity() {
     @Composable
     private fun NotificationSection() {
         val isPreview = LocalInspectionMode.current
+        val channelState by infoViewModel.notificationChannels.collectAsStateWithLifecycle()
+        val snapshot = channelState.snapshot
+        val isHooked = snapshot?.isHooked == true
+        val sections = if (snapshot == null) {
+            emptyList()
+        } else {
+            AppConfigurationUtils.notificationChannelSections(snapshot)
+        }
 
         DetailSectionCard(
             title = stringResource(R.string.app_detail_notifications),
             summary = stringResource(R.string.settings_manage_app_notifications_summary),
         ) {
-            if (!isPreview) {
-                NotificationChannelGroups()
-            } else {
+            if (isPreview) {
                 ActionSummaryRow(
                     title = stringResource(R.string.settings_manage_app_notifications),
                     summary = stringResource(R.string.settings_manage_app_notifications_summary),
                     actionLabel = stringResource(R.string.settings_manage_app_notifications),
                 ) {
-                    appConfigurationUtils.gotoNotificationSettingPage()
+                    appConfigurationUtils.gotoNotificationSettingPage(isHooked)
+                }
+                return@DetailSectionCard
+            }
+
+            if (channelState.isLoading) {
+                NotificationChannelsLoadingRow(showDivider = snapshot != null)
+                if (snapshot == null) return@DetailSectionCard
+            }
+
+            channelState.unavailableStatus?.let { status ->
+                ActionSummaryRow(
+                    title = stringResource(R.string.notification_channels_unavailable_title),
+                    summary = notificationChannelsUnavailableMessage(status),
+                    actionLabel = stringResource(R.string.retry),
+                    showDivider = snapshot != null,
+                    onClick = infoViewModel::refreshNotificationChannels,
+                )
+                if (snapshot == null) return@DetailSectionCard
+            }
+
+            if (snapshot == null) {
+                NotificationChannelsLoadingRow(showDivider = false)
+                return@DetailSectionCard
+            }
+
+            when (notificationChannelContentKind(snapshot, sections)) {
+                NotificationChannelContentKind.EMPTY -> {
+                    ActionSummaryRow(
+                        title = stringResource(R.string.notification_channels_empty_title),
+                        summary = stringResource(R.string.notification_channels_empty_summary),
+                        actionLabel = stringResource(R.string.settings_manage_app_notifications),
+                        enabled = applicationInfo.registeredType == ManagerApplication.RegisteredType.NOT_REGISTERED,
+                    ) {
+                        appConfigurationUtils.gotoNotificationSettingPage(isHooked)
+                    }
+                    return@DetailSectionCard
+                }
+                NotificationChannelContentKind.HIDDEN -> {
+                    ActionSummaryRow(
+                        title = stringResource(R.string.notification_channels_native_only_title),
+                        summary = stringResource(R.string.notification_channels_native_only_summary),
+                        actionLabel = stringResource(R.string.settings_manage_app_notifications),
+                    ) {
+                        appConfigurationUtils.gotoTargetNotificationSettingPage()
+                    }
+                    return@DetailSectionCard
+                }
+                NotificationChannelContentKind.VISIBLE -> Unit
+            }
+
+            sections.forEachIndexed { sectionIndex, section ->
+                val sectionTitle = when (section.kind) {
+                    NotificationChannelSectionKind.MIPUSH ->
+                        stringResource(R.string.notification_channels_section_mipush)
+                    NotificationChannelSectionKind.NATIVE -> {
+                        val baseTitle = stringResource(R.string.notification_channels_section_native)
+                        section.group?.let { "$baseTitle: ${it.name} (${it.id})" } ?: baseTitle
+                    }
+                }
+                val sectionSummary = when (section.kind) {
+                    NotificationChannelSectionKind.MIPUSH ->
+                        stringResource(R.string.notification_channels_section_mipush_summary)
+                    NotificationChannelSectionKind.NATIVE ->
+                        stringResource(R.string.notification_channels_section_native_summary)
+                }
+                NotificationChannelSectionHeader(
+                    title = sectionTitle,
+                    summary = sectionSummary,
+                    showTopDivider = sectionIndex > 0,
+                )
+                section.channels.forEachIndexed { channelIndex, channel ->
+                    var shouldShowDialog by remember(channel.id) { mutableStateOf(false) }
+                    val badge = when (section.kind) {
+                        NotificationChannelSectionKind.MIPUSH ->
+                            stringResource(R.string.notification_channels_managed_badge)
+                        NotificationChannelSectionKind.NATIVE ->
+                            stringResource(R.string.notification_channels_native_badge)
+                    }
+                    val channelTitle = AppConfigurationUtils.getNotificationTitle(channel)
+                    val dialogTitle = "[$badge] $channelTitle"
+                    val summary = AppConfigurationUtils.getNotificationSummary(channel)
+                    NotificationChannelRow(
+                        badge = badge,
+                        title = channelTitle,
+                        summary = summary,
+                        showDivider = channelIndex < section.channels.lastIndex ||
+                            sectionIndex < sections.lastIndex,
+                        onClick = { shouldShowDialog = true },
+                    )
+                    if (shouldShowDialog) {
+                        AlertDialog(
+                            onDismissRequest = { shouldShowDialog = false },
+                            title = {
+                                Text(
+                                    text = dialogTitle,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    softWrap = true,
+                                    overflow = TextOverflow.Clip,
+                                )
+                            },
+                            text = {
+                                Text(
+                                    text = summary,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            },
+                            confirmButton = {
+                                DialogActionRow(
+                                    actions = listOf(
+                                        DialogAction(
+                                            label = stringResource(R.string.notification_channels_setting),
+                                            onClick = {
+                                                appConfigurationUtils.gotoNotificationChannelSettingPage(
+                                                    channel,
+                                                    isHooked,
+                                                )
+                                                shouldShowDialog = false
+                                            },
+                                        ),
+                                        DialogAction(
+                                            label = stringResource(R.string.notification_channels_copy_id),
+                                            onClick = {
+                                                appConfigurationUtils.copyToClipboard(channel)
+                                                shouldShowDialog = false
+                                            },
+                                        ),
+                                        DialogAction(
+                                            label = stringResource(R.string.notification_channels_delete),
+                                            onClick = {
+                                                infoViewModel.deleteNotificationChannel(channel.id)
+                                                shouldShowDialog = false
+                                            },
+                                            style = io.github.magisk317.uikit.surface.DialogActionStyle.Danger,
+                                        ),
+                                    ),
+                                )
+                            },
+                        )
+                    }
                 }
             }
         }
     }
+}
 
-    @Composable
-    private fun NotificationChannelGroups() {
-        val isPreview = LocalInspectionMode.current
-        val sections: List<NotificationChannelSection>
-        val currentNotificationGateway by rememberUpdatedState(notificationGateway)
+internal enum class NotificationChannelContentKind {
+    EMPTY,
+    HIDDEN,
+    VISIBLE,
+}
 
-        if (isPreview) {
-            sections = emptyList()
-        } else {
-            sections = appConfigurationUtils.notificationChannelSections()
-        }
+internal fun notificationChannelContentKind(
+    snapshot: NotificationChannelSnapshot,
+    sections: List<NotificationChannelSection>,
+): NotificationChannelContentKind = when {
+    snapshot.channels.isEmpty() -> NotificationChannelContentKind.EMPTY
+    sections.isEmpty() -> NotificationChannelContentKind.HIDDEN
+    else -> NotificationChannelContentKind.VISIBLE
+}
 
-        if (sections.isEmpty()) {
-            ActionSummaryRow(
-                title = stringResource(R.string.settings_manage_app_notifications),
-                summary = stringResource(R.string.settings_manage_app_notifications_summary),
-                actionLabel = stringResource(R.string.settings_manage_app_notifications),
-                enabled = applicationInfo.registeredType == ManagerApplication.RegisteredType.NOT_REGISTERED,
-            ) {
-                appConfigurationUtils.gotoNotificationSettingPage()
-            }
-            return
-        }
+@Composable
+private fun NotificationChannelsLoadingRow(showDivider: Boolean) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = MaterialTheme.spacing.large, vertical = MaterialTheme.spacing.medium),
+        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.medium),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(20.dp),
+            strokeWidth = 2.dp,
+        )
+        Text(
+            text = stringResource(R.string.notification_channels_loading),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+    }
+    if (showDivider) {
+        DetailDivider()
+    }
+}
 
-        sections.forEach { section ->
-            NotificationCategoryCard(
-                categoryName = section.title,
-                channels = section.channels,
-                sectionKind = section.kind,
+@Composable
+private fun notificationChannelsUnavailableMessage(status: NotificationChannelReadStatus): String =
+    stringResource(
+        when (status) {
+            NotificationChannelReadStatus.RUNTIME_MISSING ->
+                R.string.notification_channels_unavailable_runtime_missing
+            NotificationChannelReadStatus.PERMISSION_DENIED ->
+                R.string.notification_channels_unavailable_permission_denied
+            NotificationChannelReadStatus.BINDING ->
+                R.string.notification_channels_unavailable_binding
+            NotificationChannelReadStatus.INCOMPATIBLE,
+            NotificationChannelReadStatus.UNSUPPORTED,
+            -> R.string.notification_channels_unavailable_incompatible
+            NotificationChannelReadStatus.DISCONNECTED,
+            NotificationChannelReadStatus.TIMED_OUT,
+            NotificationChannelReadStatus.TEMPORARILY_DISCONNECTED,
+            -> R.string.notification_channels_unavailable_disconnected
+            NotificationChannelReadStatus.FAILED -> R.string.notification_channels_unavailable_failed
+        },
+    )
+
+
+@Composable
+private fun NotificationChannelSectionHeader(
+    title: String,
+    summary: String,
+    showTopDivider: Boolean,
+) {
+    if (showTopDivider) {
+        DetailDivider()
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                start = MaterialTheme.spacing.large,
+                end = MaterialTheme.spacing.large,
+                top = MaterialTheme.spacing.medium,
+                bottom = MaterialTheme.spacing.small,
+            ),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (summary.isNotBlank()) {
+            Text(
+                text = summary,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
     }
+}
 
-    @Composable
-    private fun NotificationCategoryCard(
-        categoryName: String,
-        channels: List<NotificationChannel>,
-        sectionKind: NotificationChannelSectionKind = NotificationChannelSectionKind.MIPUSH,
+@Composable
+private fun NotificationChannelRow(
+    badge: String,
+    title: String,
+    summary: String,
+    showDivider: Boolean,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(
+                horizontal = MaterialTheme.spacing.large,
+                vertical = MaterialTheme.spacing.medium,
+            ),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        val currentNotificationGateway by rememberUpdatedState(notificationGateway)
-        val sectionSummary = when (sectionKind) {
-            NotificationChannelSectionKind.MIPUSH ->
-                stringResource(R.string.notification_channels_section_mipush_summary)
-            NotificationChannelSectionKind.NATIVE ->
-                stringResource(R.string.notification_channels_section_native_summary)
-        }
-        DetailSectionCard(
-            title = categoryName,
-            summary = sectionSummary,
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            channels.forEach { channel ->
-                var shouldShowDialog by remember { mutableStateOf(false) }
-                val badge = when (sectionKind) {
-                    NotificationChannelSectionKind.MIPUSH ->
-                        stringResource(R.string.notification_channels_managed_badge)
-                    NotificationChannelSectionKind.NATIVE ->
-                        stringResource(R.string.notification_channels_native_badge)
-                }
-                val title = "[$badge] " + AppConfigurationUtils.getNotificationTitle(
-                    channel,
-                    currentNotificationGateway,
-                ).toString()
-                SettingsItem(
-                    title = title,
-                    summary = AppConfigurationUtils.getNotificationSummary(channel),
-                    onClick = { shouldShowDialog = true },
+            Surface(
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                shape = RoundedCornerShape(6.dp),
+            ) {
+                Text(
+                    text = badge,
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                    softWrap = false,
+                    maxLines = 1,
                 )
-                if (shouldShowDialog) {
-                    AlertDialog(
-                        onDismissRequest = { shouldShowDialog = false },
-                        title = { Text(title) },
-                        text = {
-                            Text(AppConfigurationUtils.getNotificationSummary(channel))
-                        },
-                        confirmButton = {
-                            DialogActionRow(
-                                actions = listOf(
-                                    DialogAction(
-                                        label = stringResource(R.string.notification_channels_setting),
-                                        onClick = {
-                                            appConfigurationUtils.gotoNotificationChannelSettingPage(channel)
-                                            shouldShowDialog = false
-                                        },
-                                    ),
-                                    DialogAction(
-                                        label = stringResource(R.string.notification_channels_copy_id),
-                                        onClick = {
-                                            appConfigurationUtils.copyToClipboard(channel)
-                                            shouldShowDialog = false
-                                        },
-                                    ),
-                                    DialogAction(
-                                        label = stringResource(R.string.notification_channels_delete),
-                                        onClick = {
-                                            appConfigurationUtils.deleteNotificationChannel(channel)
-                                            shouldShowDialog = false
-                                        },
-                                        style = io.github.magisk317.uikit.surface.DialogActionStyle.Danger,
-                                    ),
-                                ),
-                            )
-                        },
-                    )
-                }
             }
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                softWrap = true,
+                overflow = TextOverflow.Clip,
+                maxLines = 8,
+            )
         }
+        if (summary.isNotBlank()) {
+            Text(
+                text = summary,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
+                softWrap = true,
+                overflow = TextOverflow.Clip,
+                maxLines = 8,
+            )
+        }
+    }
+    if (showDivider) {
+        DetailDivider()
     }
 }
 
@@ -683,11 +898,13 @@ private fun ActionSummaryRow(
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.fillMaxWidth(),
             )
             Text(
                 text = summary,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
         Spacer(Modifier.width(MaterialTheme.spacing.medium))
@@ -739,11 +956,18 @@ private fun SettingSwitchRow(
             )
         }
         Spacer(Modifier.width(MaterialTheme.spacing.medium))
-        Switch(
-            checked = checked,
-            onCheckedChange = if (enabled) onCheckedChange else null,
-            enabled = enabled,
-        )
+        val switchModifier = if (!enabled && onClickWhenDisabled != null) {
+            Modifier.clickable(onClick = onClickWhenDisabled)
+        } else {
+            Modifier
+        }
+        Box(modifier = switchModifier) {
+            Switch(
+                checked = checked,
+                onCheckedChange = if (enabled) onCheckedChange else null,
+                enabled = enabled,
+            )
+        }
     }
     if (showDivider) {
         DetailDivider()

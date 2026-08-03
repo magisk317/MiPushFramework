@@ -1,9 +1,5 @@
 package io.github.magisk317.mipush.manager.notification
 
-import android.app.NotificationChannel
-import android.app.NotificationChannelGroup
-import io.github.magisk317.mipush.common.manager.ManagerNotificationGateway
-import io.github.magisk317.mipush.common.utils.NotificationUtils
 import io.github.magisk317.mipush.manager.api.ManagerNotificationChannelPageDto
 import io.github.magisk317.mipush.manager.api.ManagerNotificationChannelQueryDto
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
@@ -50,25 +46,6 @@ enum class NotificationChannelReadStatus {
     INCOMPATIBLE,
     TEMPORARILY_DISCONNECTED,
     FAILED,
-}
-
-class GatewayNotificationChannelSource(
-    private val notificationGateway: ManagerNotificationGateway,
-) {
-    fun load(packageName: String): NotificationChannelSnapshot {
-        val channels = notificationGateway.getNotificationChannels(packageName)
-            .map { it.toSummary(packageName, notificationGateway) }
-            .sortedBy { it.id }
-        val groups = notificationGateway.getNotificationChannelGroups(packageName)
-            .map { it.toGroupSummary(packageName) }
-            .sortedBy { it.id }
-        return NotificationChannelSnapshot(
-            packageName = packageName,
-            isHooked = notificationGateway.isHooked,
-            channels = channels,
-            groups = groups,
-        )
-    }
 }
 
 class RemoteNotificationChannelSource internal constructor(
@@ -163,32 +140,6 @@ class RemoteNotificationChannelSource internal constructor(
     private companion object {
         private const val MAX_PAGE_REQUESTS = 64
     }
-}
-
-private fun NotificationChannel.toSummary(
-    packageName: String,
-    gateway: ManagerNotificationGateway,
-): NotificationChannelSummary {
-    val channelId = id.orEmpty()
-    return NotificationChannelSummary(
-        id = channelId,
-        name = name?.toString().orEmpty(),
-        importance = importance,
-        groupId = group,
-        description = description,
-        enabled = gateway.isNotificationChannelEnabled(this),
-        managedByMiPush = NotificationUtils.isMiPushManagedChannelId(packageName, channelId) ||
-            NotificationUtils.isMiPushManagedGroupId(packageName, group),
-    )
-}
-
-private fun NotificationChannelGroup.toGroupSummary(packageName: String): NotificationChannelGroupSummary {
-    val groupId = id.orEmpty()
-    return NotificationChannelGroupSummary(
-        id = groupId,
-        name = name?.toString().orEmpty(),
-        managedByMiPush = NotificationUtils.isMiPushManagedGroupId(packageName, groupId),
-    )
 }
 
 private fun ManagerRuntimeAvailability.toNotificationChannelReadStatus(): NotificationChannelReadStatus =

@@ -39,6 +39,9 @@ Key source:
   state from `RuntimeSettingsAdapter` / `PushRuntime.connectionSnapshot()`.
 - Remote read failures are failures, not successful empty snapshots. UI callers keep the last
   successful value and retry after runtime availability returns.
+- Notification-channel pages remain Binder DTOs until `RemoteNotificationChannelSource` maps them
+  into manager domain summaries. The UI consumes that snapshot directly, and deletion sends only
+  the package/channel identity command; no manager path reconstructs framework channel objects.
 
 Key source:
 
@@ -182,6 +185,9 @@ Supporting layers:
 - `NotificationController`
 - `ExtensionNotificationCoordinator`
 - `NotificationManagerEx`
+- `NotificationDumpCommandContract`, which owns noredact-first/plain-fallback command order while
+  each process validates the dump formats it can actually parse. Runtime silent name probing is an
+  explicit opt-in and is not part of the default read path.
 - `NotificationIdentityBridge`
 - `IslandPreferenceProvider` in the xmsf process, which exposes HyperIsland display flags through caller validation: self/system/root, callers holding the read permission, or the system-installed `com.android.systemui` package.
 - `MiPushIslandHook` in the Xposed `com.android.systemui` process, which posts a separate HyperIsland proxy notification for eligible MiPush notifications before MIUI builds its inner notification bean.

@@ -124,6 +124,79 @@ if [ -s "$tmp_forbidden_deps" ]; then
   echo "Manager UI may use shared contracts; manager-api/client must stay independent of runtime implementations." >&2
   echo >&2
   cat "$tmp_forbidden_deps" >&2
+    exit 1
+fi
+
+manager_notification_framework="$({
+  rg -n 'android\.app\.NotificationChannel(Group)?' "manager/src/main/java" || true
+})"
+if [ -n "$manager_notification_framework" ]; then
+  echo "Manager notification UI must consume DTO/domain models, not Android notification channels." >&2
+  echo >&2
+  printf '%s\n' "$manager_notification_framework" >&2
+  exit 1
+fi
+
+app_host="app/src/main/java/com/xiaomi/xmsf/app/MiPushHostApp.kt"
+mipush_host="mipush/src/main/java/io/github/magisk317/mipush/app/App.kt"
+framework_host="xmsf/src/main/java/io/github/magisk317/mipush/app/MiPushFrameworkApp.kt"
+
+require_bootstrap_contract() {
+  local pattern="$1"
+  local file="$2"
+  local message="$3"
+  if ! rg -q "$pattern" "$file"; then
+    echo "Manager bootstrap contract violation: $message" >&2
+    exit 1
+  fi
+}
+
+require_bootstrap_contract \
+  'implementation\(project\(\":manager\"\)\)' \
+  "app/build.gradle.kts" \
+  ":app must package the manager bootstrap implementation."
+require_bootstrap_contract \
+  'override fun onAppDependenciesStarted\(\)' \
+  "$app_host" \
+  "MiPushHostApp must use the post-AppDependencies startup hook."
+require_bootstrap_contract \
+  'PushControllerUtils\.isAppMainProc\(this\)' \
+  "$app_host" \
+  "MiPushHostApp must gate manager startup to the main process."
+require_bootstrap_contract \
+  'ManagerDependencies\.startFromAppShell\(this\)' \
+  "$app_host" \
+  "MiPushHostApp must own app-shell manager startup."
+require_bootstrap_contract \
+  'protected open fun onAppDependenciesStarted\(\)' \
+  "$framework_host" \
+  "MiPushFrameworkApp must expose the post-AppDependencies host hook."
+require_bootstrap_contract \
+  'ManagerDependencies\.startAsRemoteHost\(this, billingModule\)' \
+  "$mipush_host" \
+  ":mipush Application must own standalone remote-host startup."
+
+forbidden_entrypoint_bootstrap="$({
+  rg -n 'ManagerDependencies\.(ensureStarted|startAsRemoteHost|startFromAppShell)' \
+    "manager/src/main/java/io/github/magisk317/mipush/feature" \
+    "mipush/src/main/java/io/github/magisk317/mipush/app/ManagerLauncherActivity.kt" \
+    "mipush/src/main/java/io/github/magisk317/mipush/app/widget" || true
+})"
+if [ -n "$forbidden_entrypoint_bootstrap" ]; then
+  echo "Manager UI, launcher, and widget entrypoints must consume Application-owned bootstrap." >&2
+  echo >&2
+  printf '%s\n' "$forbidden_entrypoint_bootstrap" >&2
+  exit 1
+fi
+
+xmsf_manager_bootstrap="$({
+  rg -n 'io\.github\.magisk317\.mipush\.manager\.di|managerKoinModule|ManagerDependencies' \
+    "xmsf/src/main/java" || true
+})"
+if [ -n "$xmsf_manager_bootstrap" ]; then
+  echo "xmsf Koin/runtime sources must not own manager UI bootstrap definitions." >&2
+  echo >&2
+  printf '%s\n' "$xmsf_manager_bootstrap" >&2
   exit 1
 fi
 

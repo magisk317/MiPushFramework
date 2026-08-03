@@ -337,6 +337,7 @@ class ManagerRuntimeClient(
             val validationReason = validator(value, target.handshake)
             if (validationReason != null) {
                 discardOwnedWireResources(value)
+                Log.w(TAG, "response validation failed capability=$capability reason=$validationReason")
                 emitClientCall(result = "error", reason = "validation_failed", capability = capability, statusOk = false)
                 ManagerRuntimeResult.Failed(validationReason)
             } else if (isCurrentTarget(target)) {
@@ -392,8 +393,20 @@ class ManagerRuntimeClient(
         } catch (error: CancellationException) {
             if (!currentCoroutineContext().isActive) throw error
             ManagerRuntimeResult.Unavailable(availability.value)
-        } catch (_: RuntimeException) {
+        } catch (error: RuntimeException) {
             // A method-level malformed/unsupported response must not tear down unrelated features.
+            Log.w(
+                TAG,
+                "runtime operation failed capability=$capability " +
+                    "type=${error.javaClass.simpleName.ifBlank { "RuntimeException" }} " +
+                    "reason=${runtimeExceptionDiagnosticReason(error)}",
+            )
+            emitClientCall(
+                result = "error",
+                reason = "runtime_operation_failed",
+                capability = capability,
+                statusOk = false,
+            )
             ManagerRuntimeResult.Failed("runtime_operation_failed")
         }
     }
@@ -863,3 +876,11 @@ class ManagerRuntimeClient(
         const val MAX_IN_FLIGHT_REMOTE_CALLS = 6
     }
 }
+
+private val SAFE_RUNTIME_EXCEPTION_REASON = Regex("[a-z][a-z0-9_]{0,95}")
+
+internal fun runtimeExceptionDiagnosticReason(error: RuntimeException): String =
+    error.message
+        ?.trim()
+        ?.takeIf(SAFE_RUNTIME_EXCEPTION_REASON::matches)
+        ?: "redacted"

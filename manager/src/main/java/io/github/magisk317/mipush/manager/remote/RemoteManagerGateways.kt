@@ -1,13 +1,10 @@
 package io.github.magisk317.mipush.manager.remote
 
-import android.app.NotificationChannel
-import android.app.NotificationChannelGroup
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.Process
 import androidx.core.content.FileProvider
 import io.github.magisk317.mipush.common.fakedevice.ZygiskConfig
@@ -28,7 +25,6 @@ import io.github.magisk317.mipush.common.manager.ManagerEventGateway
 import io.github.magisk317.mipush.common.manager.ManagerLogClearResult
 import io.github.magisk317.mipush.common.manager.ManagerLogExportResult
 import io.github.magisk317.mipush.common.manager.ManagerLogGateway
-import io.github.magisk317.mipush.common.manager.ManagerNotificationGateway
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 import io.github.magisk317.mipush.common.manager.ManagerRootAccessSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerRootAccessState
@@ -56,8 +52,6 @@ import io.github.magisk317.mipush.manager.events.EventReadResult
 import io.github.magisk317.mipush.manager.events.RemoteEventListSource
 import io.github.magisk317.mipush.manager.logs.LogExportReadResult
 import io.github.magisk317.mipush.manager.logs.RemoteLogExportSource
-import io.github.magisk317.mipush.manager.notification.NotificationChannelReadResult
-import io.github.magisk317.mipush.manager.notification.RemoteNotificationChannelSource
 import io.github.magisk317.mipush.utils.LocalConfigSummary
 import java.io.File
 import java.util.zip.ZipOutputStream
@@ -419,68 +413,6 @@ class RemoteManagerEventGateway(
         } else {
             0
         }
-    }
-}
-
-class RemoteManagerNotificationGateway(
-    private val client: ManagerRuntimeClient,
-) : ManagerNotificationGateway {
-    private val channelSource = RemoteNotificationChannelSource(client)
-
-    @Volatile
-    private var lastIsHooked: Boolean = false
-
-    override val isHooked: Boolean
-        get() = lastIsHooked
-
-    override fun getNotificationChannels(packageName: String): List<NotificationChannel> = runBlocking {
-        when (val result = channelSource.load(packageName)) {
-            is NotificationChannelReadResult.Available -> {
-                lastIsHooked = result.value.isHooked
-                result.value.channels.map { summary ->
-                    NotificationChannel(summary.id, summary.name, summary.importance).apply {
-                        description = summary.description
-                        if (!summary.groupId.isNullOrBlank()) {
-                            group = summary.groupId
-                        }
-                    }
-                }
-            }
-            is NotificationChannelReadResult.Unavailable -> emptyList()
-        }
-    }
-
-    override fun getNotificationChannelGroups(packageName: String): List<NotificationChannelGroup> =
-        runBlocking {
-            when (val result = channelSource.load(packageName)) {
-                is NotificationChannelReadResult.Available -> {
-                    lastIsHooked = result.value.isHooked
-                    result.value.groups.map { summary ->
-                        NotificationChannelGroup(summary.id, summary.name)
-                    }
-                }
-                is NotificationChannelReadResult.Unavailable -> emptyList()
-            }
-        }
-
-    override fun deleteNotificationChannel(packageName: String, channelId: String) {
-        RemoteWriteSupport.executeBlocking(
-            client = client,
-            operation = ManagerProtocol.WRITE_OP_DELETE_NOTIFICATION_CHANNEL,
-            packageName = packageName,
-            argument = channelId,
-        )
-    }
-
-    override fun isNotificationChannelEnabled(channel: NotificationChannel): Boolean =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            channel.importance != NotificationManagerImportanceNone
-        } else {
-            true
-        }
-
-    private companion object {
-        const val NotificationManagerImportanceNone = 0
     }
 }
 

@@ -153,6 +153,26 @@ class ManagerProtocolTest {
     }
 
     @Test
+    fun `notification channel protocol rejects empty groups but accepts ungrouped channels`() {
+        assertEquals(
+            "invalid_notification_channel_group_id",
+            ManagerProtocol.validateNotificationChannelGroupSummary(
+                ManagerNotificationChannelGroupSummaryDto(id = "", name = "Synthetic"),
+            ),
+        )
+        assertNull(
+            ManagerProtocol.validateNotificationChannelSummary(
+                ManagerNotificationChannelSummaryDto(
+                    id = "ungrouped",
+                    name = "Ungrouped",
+                    importance = 3,
+                    groupId = null,
+                ),
+            ),
+        )
+    }
+
+    @Test
     fun `application request package names and registration types are bounded`() {
         assertEquals(
             "invalid_application_package_name",

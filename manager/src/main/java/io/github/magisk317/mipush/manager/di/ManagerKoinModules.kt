@@ -33,6 +33,7 @@ import io.github.magisk317.mipush.manager.configuration.RemoteConfigurationCatal
 import io.github.magisk317.mipush.manager.events.RemoteEventListSource
 import io.github.magisk317.mipush.manager.logs.RemoteLogExportSource
 import io.github.magisk317.mipush.manager.notification.RemoteNotificationChannelSource
+import io.github.magisk317.mipush.manager.notification.RemoteNotificationChannelCommand
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.connection.ConnectionSnapshotSource
 import io.github.magisk317.mipush.manager.connection.ConnectionReconnectRequester
@@ -81,6 +82,7 @@ val managerKoinModule = module {
     single { RemoteApplicationDetailSource(get<ManagerRuntimeClient>()) }
     single { RemoteEventListSource(get<ManagerRuntimeClient>()) }
     single { RemoteNotificationChannelSource(get<ManagerRuntimeClient>()) }
+    single { RemoteNotificationChannelCommand(get<ManagerRuntimeClient>()) }
     single { RemoteConfigurationCatalogSource(get<ManagerRuntimeClient>()) }
     single { RemoteLogExportSource(get<ManagerRuntimeClient>()) }
 
@@ -108,7 +110,7 @@ val managerKoinModule = module {
     viewModel { ZygiskConfigViewModel(get<SettingsManager>(), get<RemoteApplicationListSource>(), get()) }
     viewModel { ConfigManagerViewModel(get(), get(), get(), androidContext(), get()) }
     viewModel { ConfigEditorViewModel(get<PreferenceRepository>(), get<ManagerConfigSyncGateway>(), get<ManagerConfigGateway>(), androidContext()) }
-    viewModel { ApplicationInfoViewModel(get(), get(), get(), get(), get(), androidContext()) }
+    viewModel { ApplicationInfoViewModel(get(), get(), get(), get(), get(), get(), androidContext()) }
     viewModel { OverviewViewModel(get<RemoteApplicationListSource>(), get<ManagerRuntimeClient>(), get<PreferenceRepository>()) }
     viewModel {
         ConnectionStatusViewModel(

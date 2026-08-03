@@ -7,7 +7,6 @@ import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
 import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
 import io.github.magisk317.mipush.common.manager.ManagerEventGateway
 import io.github.magisk317.mipush.common.manager.ManagerLogGateway
-import io.github.magisk317.mipush.common.manager.ManagerNotificationGateway
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
 import io.github.magisk317.mipush.common.manager.ZygiskConfigGateway
@@ -22,7 +21,6 @@ import io.github.magisk317.mipush.manager.remote.RemoteManagerApplicationGateway
 import io.github.magisk317.mipush.manager.remote.RemoteManagerConfigGateway
 import io.github.magisk317.mipush.manager.remote.RemoteManagerEventGateway
 import io.github.magisk317.mipush.manager.remote.RemoteManagerLogGateway
-import io.github.magisk317.mipush.manager.remote.RemoteManagerNotificationGateway
 import io.github.magisk317.mipush.manager.remote.RemoteManagerPermissionGateway
 import io.github.magisk317.mipush.manager.remote.RemoteManagerRuntimeActions
 import io.github.magisk317.mipush.manager.remote.RemoteZygiskConfigGateway
@@ -55,7 +53,6 @@ val managerRemoteHostModule = module {
 
     single<ManagerApplicationGateway> { RemoteManagerApplicationGateway(get()) }
     single<ManagerEventGateway> { RemoteManagerEventGateway(androidContext(), get()) }
-    single<ManagerNotificationGateway> { RemoteManagerNotificationGateway(get()) }
     single<ManagerLogGateway> { RemoteManagerLogGateway(client = get(), appContext = androidContext()) }
     single<ManagerConfigGateway> {
         RemoteManagerConfigGateway(

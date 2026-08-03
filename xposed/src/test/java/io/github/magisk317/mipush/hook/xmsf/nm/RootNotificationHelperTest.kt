@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.hook.xmsf.nm
 
+import io.github.magisk317.mipush.common.notification.NotificationDumpCommandContract
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -10,6 +11,91 @@ import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 @ExtendWith(RobolectricExtension::class)
 @Config(sdk = [33])
 class RootNotificationHelperTest {
+    @Test
+    fun `root dump reader does not execute plain after valid noredact`() {
+        val commands = mutableListOf<String>()
+        val expected = validDump("noredact")
+
+        val actual = RootNotificationHelper.readNotificationServiceDump { command ->
+            commands += command
+            expected
+        }
+
+        assertEquals(expected, actual)
+        assertEquals(listOf(NotificationDumpCommandContract.NOREDACT_COMMAND), commands)
+    }
+
+    @Test
+    fun `root dump reader falls back after failed noredact`() {
+        val commands = mutableListOf<String>()
+        val expected = validDump("plain")
+
+        val actual = RootNotificationHelper.readNotificationServiceDump { command ->
+            commands += command
+            if (command == NotificationDumpCommandContract.NOREDACT_COMMAND) null else expected
+        }
+
+        assertEquals(expected, actual)
+        assertEquals(expectedCommandOrder(), commands)
+    }
+
+    @Test
+    fun `root dump reader falls back after invalid noredact output`() {
+        val commands = mutableListOf<String>()
+        val expected = validDump("plain")
+
+        val actual = RootNotificationHelper.readNotificationServiceDump { command ->
+            commands += command
+            if (command == NotificationDumpCommandContract.NOREDACT_COMMAND) {
+                "notification service unavailable"
+            } else {
+                expected
+            }
+        }
+
+        assertEquals(expected, actual)
+        assertEquals(expectedCommandOrder(), commands)
+    }
+
+    @Test
+    fun `root dump reader accepts and parses simple noredact format`() {
+        val commands = mutableListOf<String>()
+        val expected = "channelId=legacy_messages importance=2"
+
+        val actual = RootNotificationHelper.readNotificationServiceDump { command ->
+            commands += command
+            expected
+        }
+        val channels = RootNotificationHelper.parseChannels(
+            requireNotNull(actual),
+            "com.example.app",
+        ).filterNotNull()
+
+        assertEquals(listOf(NotificationDumpCommandContract.NOREDACT_COMMAND), commands)
+        assertEquals(1, channels.size)
+        assertEquals("legacy_messages", channels.single().id)
+        assertEquals(2, channels.single().importance)
+    }
+
+    @Test
+    fun `root dump reader accepts and parses group-only noredact format`() {
+        val commands = mutableListOf<String>()
+        val expected = "NotificationChannelGroup{id=social name=Social}"
+
+        val actual = RootNotificationHelper.readNotificationServiceDump { command ->
+            commands += command
+            expected
+        }
+        val groups = RootNotificationHelper.parseGroups(
+            requireNotNull(actual),
+            "com.example.app",
+        ).filterNotNull()
+
+        assertEquals(listOf(NotificationDumpCommandContract.NOREDACT_COMMAND), commands)
+        assertEquals(1, groups.size)
+        assertEquals("social", groups.single().id)
+    }
+
     @Test
     fun `parse channels skips zen mode policy records`() {
         val output = """
@@ -78,4 +164,103 @@ class RootNotificationHelperTest {
 
         assertTrue(channels.isEmpty())
     }
+
+    @Test
+    fun `parse channels keeps full name when vibration effect nests braces`() {
+        val output = """
+            NotificationChannel{mId='message_channel_new_id', mName=新消息通知, mDescription=hasDescription , mImportance=4, mBypassDnd=false, mVibrationPattern=[300, 200, 300, 200], mVibrationEffect=Composed{segments=[Step{amplitude=0.0, frequencyHz=0.0, duration=300}, Step{amplitude=-1.0, frequencyHz=0.0, duration=200}], repeat=-1}, mGroup='null'}
+        """.trimIndent()
+
+        val channels = RootNotificationHelper.parseChannels(output, "com.example.app")
+            .filterNotNull()
+
+        assertEquals(1, channels.size)
+        assertEquals("message_channel_new_id", channels.single().id)
+        assertEquals("新消息通知", channels.single().name.toString())
+        assertEquals(4, channels.single().importance)
+    }
+
+    @Test
+    fun `parse channels keeps long chinese and english names from app settings dump`() {
+        val output = """
+            AppSettings: com.ruanmei.ithome (10357) importance=NONE userSet=false
+              NotificationChannel{mId='ch_com.ruanmei.ithome_118557', mName=订阅今日要闻, mDescription=hasDescription , mImportance=4, mBypassDnd=false, mGroup='gp_com.ruanmei.ithome'}
+              NotificationChannel{mId='mipush_mock_replay_receipt', mName=MiPush replay, mDescription=, mImportance=4, mBypassDnd=false, mGroup='null'}
+        """.trimIndent()
+
+        val channels = RootNotificationHelper.parseChannels(output, "com.ruanmei.ithome")
+            .filterNotNull()
+            .associateBy { it.id }
+
+        assertEquals("订阅今日要闻", channels.getValue("ch_com.ruanmei.ithome_118557").name.toString())
+        assertEquals("MiPush replay", channels.getValue("mipush_mock_replay_receipt").name.toString())
+    }
+
+    @Test
+    fun `scoped parser selects target uid after an empty package namespace`() {
+        assertCoolapkUidScope(coolapkDuplicateDump(targetFirst = false))
+    }
+
+    @Test
+    fun `scoped parser selects target uid before an empty package namespace`() {
+        assertCoolapkUidScope(coolapkDuplicateDump(targetFirst = true))
+    }
+
+    @Test
+    fun `scoped parser skips an empty namespace when uid is unavailable`() {
+        val scoped = RootNotificationHelper.selectAppSettingsBlock(
+            output = coolapkDuplicateDump(targetFirst = false),
+            packageName = "com.coolapk.market",
+            packageUid = null,
+        )
+
+        val channels = RootNotificationHelper.parseChannels(scoped, "com.coolapk.market")
+            .filterNotNull()
+
+        assertEquals(listOf("messages", "mipush|com.coolapk.market|105272"), channels.map { it.id })
+    }
+
+    private fun assertCoolapkUidScope(output: String) {
+        val scoped = RootNotificationHelper.selectAppSettingsBlock(
+            output = output,
+            packageName = "com.coolapk.market",
+            packageUid = 10329,
+        )
+        val channels = RootNotificationHelper.parseChannels(scoped, "com.coolapk.market")
+            .filterNotNull()
+        val groups = RootNotificationHelper.parseGroups(scoped, "com.coolapk.market")
+            .filterNotNull()
+
+        assertEquals(listOf("messages", "mipush|com.coolapk.market|105272"), channels.map { it.id })
+        assertEquals(listOf("gp_com.coolapk.market"), groups.map { it.id })
+    }
+
+    private fun coolapkDuplicateDump(targetFirst: Boolean): String {
+        val emptyBlock = "AppSettings: com.coolapk.market (1000)"
+        val targetBlock = """
+            AppSettings: com.coolapk.market (10329) importance=DEFAULT userSet=true
+              NotificationChannel{mId='messages', mName=Messages, mImportance=3, mGroup='null'}
+              NotificationChannel{mId='mipush|com.coolapk.market|105272', mName=Community, mImportance=3, mGroup='gp_com.coolapk.market'}
+              NotificationChannelGroup{mId='gp_com.coolapk.market', mName=Mi Push}
+        """.trimIndent()
+        val packageBlocks = if (targetFirst) {
+            "$targetBlock\n$emptyBlock"
+        } else {
+            "$emptyBlock\n$targetBlock"
+        }
+        return """
+            $packageBlocks
+            AppSettings: com.example.other (10400) importance=DEFAULT userSet=true
+              NotificationChannel{mId='other', mName=Other, mImportance=3}
+              NotificationChannelGroup{mId='other_group', mName=Other}
+        """.trimIndent()
+    }
+
+    private fun expectedCommandOrder(): List<String> = listOf(
+        NotificationDumpCommandContract.NOREDACT_COMMAND,
+        NotificationDumpCommandContract.PLAIN_COMMAND,
+    )
+
+    private fun validDump(name: String): String =
+        "NotificationChannel{id=messages name=$name importance=3}"
 }

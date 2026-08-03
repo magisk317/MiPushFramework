@@ -31,7 +31,7 @@ import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 import io.github.magisk317.mipush.common.manager.ManagerXSpaceRepairStage
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
 import io.github.magisk317.mipush.common.manager.ManagerLogGateway
-import io.github.magisk317.mipush.common.manager.ManagerNotificationGateway
+import io.github.magisk317.mipush.common.manager.ManagerNotificationChannelCommandGateway
 import io.github.magisk317.mipush.common.manager.ZygiskConfigGateway
 import io.github.magisk317.mipush.common.fakedevice.ZygiskConfig
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
@@ -51,7 +51,7 @@ class ManagerWriteRuntimeExecutor(
     private val runtimeActions: ManagerRuntimeActions,
     private val permissionGateway: ManagerPermissionGateway,
     private val logGateway: ManagerLogGateway,
-    private val notificationGateway: ManagerNotificationGateway,
+    private val notificationGateway: ManagerNotificationChannelCommandGateway,
     private val zygiskConfigGateway: ZygiskConfigGateway,
     private val idempotencyStore: ManagerWriteIdempotencyStore = ManagerWriteIdempotencyStore(),
 ) {

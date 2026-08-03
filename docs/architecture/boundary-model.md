@@ -188,6 +188,15 @@ graph.
   UI entrypoints call `ensureStarted()`; host Application keeps `startAsRemoteHost()`.
 - Manager data plane **is** remote-primary (`Remote*Source` → ViewModel). `Comparing*` /
   fake `InProcess*` wrappers are migration scaffolding and should not be re-expanded.
+- Notification-channel reads cross Binder as wire DTOs and are mapped once into manager-owned
+  `NotificationChannelSnapshot` domain state. Manager UI code must not rebuild Android
+  `NotificationChannel` / `NotificationChannelGroup` objects; channel deletion is an explicit
+  `(packageName, channelId)` command, while framework objects stay inside the xmsf platform reader.
+- Full notification-service dumps use the shared `NotificationDumpCommandContract`: try
+  `dumpsys notification --noredact` first and run plain `dumpsys notification` only when the
+  first result is unusable for that caller. Xmsf keeps strict channel-block validation; the
+  Xposed reader also preserves legacy simple-channel and group-only formats. The optional silent
+  post/cancel name probe remains explicit and is disabled by default.
 - Manager main chrome collapse/expand is intentionally shared across `EventList`, `ApplicationList`,
   `Configurations`, and `Settings`, while `Overview` keeps its own always-visible treatment. A June
   2026 regression showed that route switches during half-expanded animation can leak a negative

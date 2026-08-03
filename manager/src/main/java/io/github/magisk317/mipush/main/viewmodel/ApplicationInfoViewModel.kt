@@ -10,7 +10,11 @@ import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.application.RemoteApplicationDetailSource
+import io.github.magisk317.mipush.manager.notification.NotificationChannelReadResult
+import io.github.magisk317.mipush.manager.notification.NotificationChannelReadStatus
+import io.github.magisk317.mipush.manager.notification.NotificationChannelSnapshot
 import io.github.magisk317.mipush.manager.notification.RemoteNotificationChannelSource
+import io.github.magisk317.mipush.manager.notification.RemoteNotificationChannelCommand
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -62,10 +66,57 @@ internal object ApplicationInfoStatePolicy {
     }
 }
 
+internal data class NotificationChannelUiState(
+    val packageName: String? = null,
+    val snapshot: NotificationChannelSnapshot? = null,
+    val isLoading: Boolean = false,
+    val unavailableStatus: NotificationChannelReadStatus? = null,
+)
+
+internal object NotificationChannelUiStatePolicy {
+    fun start(
+        current: NotificationChannelUiState,
+        packageName: String,
+    ): NotificationChannelUiState = if (current.packageName == packageName) {
+        current.copy(isLoading = true, unavailableStatus = null)
+    } else {
+        NotificationChannelUiState(packageName = packageName, isLoading = true)
+    }
+
+    fun complete(
+        current: NotificationChannelUiState,
+        packageName: String,
+        result: NotificationChannelReadResult<NotificationChannelSnapshot>,
+    ): NotificationChannelUiState {
+        if (current.packageName != packageName) return current
+        return when (result) {
+            is NotificationChannelReadResult.Available -> {
+                if (result.value.packageName == packageName) {
+                    current.copy(
+                        snapshot = result.value,
+                        isLoading = false,
+                        unavailableStatus = null,
+                    )
+                } else {
+                    current.copy(
+                        isLoading = false,
+                        unavailableStatus = NotificationChannelReadStatus.FAILED,
+                    )
+                }
+            }
+            is NotificationChannelReadResult.Unavailable -> current.copy(
+                isLoading = false,
+                unavailableStatus = result.status,
+            )
+        }
+    }
+}
+
 class ApplicationInfoViewModel constructor(
     private val applicationGateway: ManagerApplicationGateway,
     private val applicationSource: RemoteApplicationDetailSource,
     private val notificationChannelSource: RemoteNotificationChannelSource,
+    private val notificationChannelCommand: RemoteNotificationChannelCommand,
     private val settingsManager: SettingsManager,
     private val permissionGateway: ManagerPermissionGateway,
     private val context: Context,
@@ -83,6 +134,10 @@ class ApplicationInfoViewModel constructor(
     private val _diagnostics = MutableStateFlow<ManagerApplicationDiagnostics?>(null)
     val diagnostics: StateFlow<ManagerApplicationDiagnostics?> = _diagnostics.asStateFlow()
 
+    private val _notificationChannels = MutableStateFlow(NotificationChannelUiState())
+    internal val notificationChannels: StateFlow<NotificationChannelUiState> =
+        _notificationChannels.asStateFlow()
+    private var notificationChannelsJob: Job? = null
 
     fun setApplicationInfo(
         info: ManagerApplication,
@@ -92,6 +147,7 @@ class ApplicationInfoViewModel constructor(
         refreshZygiskConfigurable(info)
         loadZygiskState(info.packageName, blocked = info.blocked)
         loadDiagnostics(info.packageName, info.registeredType)
+        loadNotificationChannels(info.packageName)
     }
 
     private fun refreshZygiskConfigurable(info: ManagerApplication) {
@@ -190,9 +246,36 @@ class ApplicationInfoViewModel constructor(
     }
 
 
-    fun scheduleNotificationComparison(packageName: String) {
-        // Remote-only path: no dual-source comparison.
+    fun deleteNotificationChannel(channelId: String) {
+        val packageName = _applicationInfo.value?.packageName ?: return
+        viewModelScope.launch {
+            val deleted = withContext(Dispatchers.IO) {
+                notificationChannelCommand.delete(packageName, channelId)
+            }
+            if (deleted && _applicationInfo.value?.packageName == packageName) {
+                refreshNotificationChannels()
+            }
+        }
     }
 
+    fun refreshNotificationChannels() {
+        val packageName = _applicationInfo.value?.packageName ?: return
+        loadNotificationChannels(packageName)
+    }
+
+    private fun loadNotificationChannels(packageName: String) {
+        notificationChannelsJob?.cancel()
+        _notificationChannels.update { current ->
+            NotificationChannelUiStatePolicy.start(current, packageName)
+        }
+        notificationChannelsJob = viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                notificationChannelSource.load(packageName)
+            }
+            _notificationChannels.update { current ->
+                NotificationChannelUiStatePolicy.complete(current, packageName, result)
+            }
+        }
+    }
 
 }
