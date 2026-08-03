@@ -70,10 +70,14 @@ val versionNameProvider = versionNameOverride
 val versionNameStr = try { versionNameProvider.get() } catch (e: Exception) { libs.versions.versionName.get() }
 version = versionNameStr
 
-val gitVersionCode = providers.exec {
-    commandLine("git", "rev-list", "--first-parent", "--count", "HEAD")
-    isIgnoreExitValue = true
-}.standardOutput.asText.map { it.trim().toIntOrNull() ?: -1 }.orElse(-1)
+val gitVersionCode = providers.gradleProperty("versionCode")
+    .map { requireNotNull(it.toIntOrNull()) { "Invalid -PversionCode=$it" } }
+    .orElse(
+        providers.exec {
+            commandLine("git", "rev-list", "--first-parent", "--count", "HEAD")
+            isIgnoreExitValue = true
+        }.standardOutput.asText.map { it.trim().toIntOrNull() ?: -1 }.orElse(-1),
+    )
 
 val gitCommit = providers.exec {
     commandLine("git", "rev-parse", "--short", "HEAD")
