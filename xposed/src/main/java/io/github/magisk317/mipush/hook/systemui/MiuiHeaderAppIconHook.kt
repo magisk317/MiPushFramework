@@ -2,15 +2,15 @@ package io.github.magisk317.mipush.hook.systemui
 
 import android.app.Notification
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.Icon
-import android.os.Build
 import android.os.Bundle
 import android.os.UserHandle
 import android.widget.ImageView
 import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
+import io.github.magisk317.mipush.common.notification.iconpack.ICON_PACK_SOURCE_IDENTITY_EXTRA
+import io.github.magisk317.mipush.common.notification.iconpack.digestIdentity
+import io.github.magisk317.mipush.common.notification.iconpack.thirdPartyPackSourceIdentity
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.island.IslandDispatchContract
 import io.github.magisk317.mipush.hook.island.IslandPreferences
@@ -59,28 +59,41 @@ class MiuiHeaderAppIconHook {
         val userId = resolveUserId(expandedNotification)
         val isMockReplayReceipt = extras.getBoolean(EXTRA_MOCK_REPLAY_RECEIPT, false)
         val colorStatusBarIcon = IslandPreferences.current().colorStatusBarIcon
-        val drawable = resolveReplacementDrawable(
-            context = context,
-            notification = notification,
-            extras = extras,
-            targetPackage = targetPackage,
-            isMockReplayReceipt = isMockReplayReceipt,
-        )
+        // Evaluate the existing identity/scope gate before touching any replacement source. This
+        // keeps non-MiPush, unresolved, non-XSpace, and XMSF notifications query-free.
         if (
             !MiuiHeaderAppIconPolicy.shouldReplace(
                 userId = userId,
                 targetPackage = targetPackage,
                 postingPackage = postingPackage,
-                hasReplacementIcon = drawable != null,
+                hasReplacementIcon = true,
                 isMockReplayReceipt = isMockReplayReceipt,
             )
         ) {
             return
         }
 
-        imageView.setImageDrawable(drawable)
+        val replacement = resolveReplacementDrawable(
+            context = context,
+            notification = notification,
+            extras = extras,
+            targetPackage = targetPackage,
+        )
+        if (
+            !MiuiHeaderAppIconPolicy.shouldReplace(
+                userId = userId,
+                targetPackage = targetPackage,
+                postingPackage = postingPackage,
+                hasReplacementIcon = replacement.drawable != null,
+                isMockReplayReceipt = isMockReplayReceipt,
+            )
+        ) {
+            return
+        }
+
+        imageView.setImageDrawable(replacement.drawable)
         imageView.invalidate()
-        logReplacement(targetPackage, userId, isMockReplayReceipt, colorStatusBarIcon)
+        logReplacement(targetPackage, userId, isMockReplayReceipt, colorStatusBarIcon, replacement.source)
     }
 
     private fun resolvePostingPackage(expandedNotification: Any): String? {
@@ -113,65 +126,48 @@ class MiuiHeaderAppIconHook {
         notification: Notification,
         extras: Bundle,
         targetPackage: String,
-        isMockReplayReceipt: Boolean,
-    ): Drawable? {
-        if (isMockReplayReceipt) {
-            val targetAppIcon = resolveTargetAppIconDrawable(context, targetPackage)
-            val largeIcon = if (targetAppIcon == null) {
-                resolveLargeIconDrawable(context, notification, extras)
-            } else {
-                null
-            }
-            val smallIcon = if (targetAppIcon == null && largeIcon == null) {
-                runCatching { notification.smallIcon?.loadDrawable(context) }.getOrNull()
-            } else {
-                null
-            }
-            return when (
-                MiuiHeaderAppIconPolicy.mockReplayReplacementSource(
-                    hasTargetAppIcon = targetAppIcon != null,
-                    hasLargeIcon = largeIcon != null,
-                    hasSmallIcon = smallIcon != null,
-                )
-            ) {
-                MiuiHeaderAppIconSource.TARGET_APP -> targetAppIcon
-                MiuiHeaderAppIconSource.LARGE_ICON -> largeIcon
-                MiuiHeaderAppIconSource.SMALL_ICON -> smallIcon
-                null -> null
-            }
+    ): HeaderReplacement {
+        // Notification.smallIcon is the only permitted header transport for a third-party pack.
+        // The explicit identity marker prevents an ordinary/original smallIcon from being
+        // mistaken for a successful third-party result.
+        val passedSmallIcon = if (
+            notification.smallIcon?.type == Icon.TYPE_BITMAP &&
+            MiuiHeaderAppIconPolicy.isPassedThirdPartySmallIcon(
+                sourceIdentity = extras.getString(ICON_PACK_SOURCE_IDENTITY_EXTRA),
+                targetPackage = targetPackage,
+            )
+        ) {
+            runCatching { notification.smallIcon?.loadDrawable(context) }.getOrNull()
+        } else {
+            null
         }
-        return resolveLargeIconDrawable(context, notification, extras)
+        if (passedSmallIcon != null) {
+            return HeaderReplacement(MiuiHeaderAppIconSource.THIRD_PARTY_PACK, passedSmallIcon)
+        }
+
+        val targetAppIcon = resolveTargetAppIconDrawable(context, targetPackage)
+        val source = MiuiHeaderAppIconPolicy.selectReplacementSource(
+            hasPassedThirdPartySmallIcon = false,
+            hasTargetAppIcon = targetAppIcon != null,
+        )
+        return when (source) {
+            MiuiHeaderAppIconSource.THIRD_PARTY_PACK ->
+                HeaderReplacement(source, passedSmallIcon)
+            MiuiHeaderAppIconSource.APP -> HeaderReplacement(source, targetAppIcon)
+            MiuiHeaderAppIconSource.UNAVAILABLE -> HeaderReplacement(source, null)
+        }
     }
 
     private fun resolveTargetAppIconDrawable(context: Context, packageName: String): Drawable? {
         return runCatching {
             context.packageManager.getApplicationIcon(packageName)
         }.onFailure {
-            XLog.e(TAG, "failed to resolve target app icon pkg=$packageName", it)
+            XLog.e(
+                TAG,
+                "failed to resolve target app icon pkgDigest=${digestIdentity(packageName)}",
+                it,
+            )
         }.getOrNull()
-    }
-
-    private fun resolveLargeIconDrawable(
-        context: Context,
-        notification: Notification,
-        extras: Bundle,
-    ): Drawable? {
-        runCatching { notification.getLargeIcon()?.loadDrawable(context) }
-            .getOrNull()
-            ?.let { return it }
-        @Suppress("DEPRECATION")
-        notification.largeIcon?.let { return BitmapDrawable(context.resources, it) }
-        val extraValue = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            extras.getParcelable(EXTRA_LARGE_ICON, Any::class.java)
-        } else {
-            @Suppress("DEPRECATION")
-            extras.getParcelable(EXTRA_LARGE_ICON)
-        }
-        return when (extraValue) {
-            is Icon -> runCatching { extraValue.loadDrawable(context) }.getOrNull()
-            is Bitmap -> BitmapDrawable(context.resources, extraValue)
-            else -> null
-        }
     }
 
     private fun logReplacement(
@@ -179,29 +175,41 @@ class MiuiHeaderAppIconHook {
         userId: Int?,
         isMockReplayReceipt: Boolean,
         colorStatusBarIcon: Boolean,
+        source: MiuiHeaderAppIconSource,
     ) {
         val mode = if (isMockReplayReceipt) {
             "mock-replay:${if (colorStatusBarIcon) "color" else "monochrome"}"
         } else {
             "xspace"
         }
-        if (!loggedPackages.add("$mode#$targetPackage#${userId ?: -1}")) return
-        XLog.i(TAG, "replaced MIUI header app icon mode=$mode pkg=$targetPackage userId=${userId ?: -1}")
+        val packageDigest = digestIdentity(targetPackage)
+        val userDigest = digestIdentity("user:${userId ?: -1}")
+        val sourceDigest = digestIdentity(source.name)
+        if (!loggedPackages.add("$mode#$packageDigest#$userDigest#$sourceDigest")) return
+        XLog.i(
+            TAG,
+            "replaced MIUI header app icon mode=$mode sourceDigest=$sourceDigest " +
+                "pkgDigest=$packageDigest userDigest=$userDigest",
+        )
     }
 
     private companion object {
         private const val TAG = "MiuiHeaderAppIconHook"
-        private const val EXTRA_LARGE_ICON = "android.largeIcon"
         private const val EXTRA_MOCK_REPLAY_RECEIPT = "mipush_mock_replay_receipt"
         private const val EXTRA_MOCK_REPLAY_SOURCE_PACKAGE = "mipush_mock_replay_source_package"
         private val loggedPackages: MutableSet<String> = Collections.synchronizedSet(HashSet())
     }
 }
 
+private data class HeaderReplacement(
+    val source: MiuiHeaderAppIconSource,
+    val drawable: Drawable?,
+)
+
 internal enum class MiuiHeaderAppIconSource {
-    TARGET_APP,
-    LARGE_ICON,
-    SMALL_ICON,
+    THIRD_PARTY_PACK,
+    APP,
+    UNAVAILABLE,
 }
 
 internal object MiuiHeaderAppIconPolicy {
@@ -226,14 +234,15 @@ internal object MiuiHeaderAppIconPolicy {
             postingPackage != targetPackage
     }
 
-    fun mockReplayReplacementSource(
+    fun isPassedThirdPartySmallIcon(sourceIdentity: String?, targetPackage: String): Boolean =
+        sourceIdentity == thirdPartyPackSourceIdentity(targetPackage)
+
+    fun selectReplacementSource(
+        hasPassedThirdPartySmallIcon: Boolean,
         hasTargetAppIcon: Boolean,
-        hasLargeIcon: Boolean,
-        hasSmallIcon: Boolean,
-    ): MiuiHeaderAppIconSource? {
-        if (hasTargetAppIcon) return MiuiHeaderAppIconSource.TARGET_APP
-        if (hasLargeIcon) return MiuiHeaderAppIconSource.LARGE_ICON
-        if (hasSmallIcon) return MiuiHeaderAppIconSource.SMALL_ICON
-        return null
+    ): MiuiHeaderAppIconSource = when {
+        hasPassedThirdPartySmallIcon -> MiuiHeaderAppIconSource.THIRD_PARTY_PACK
+        hasTargetAppIcon -> MiuiHeaderAppIconSource.APP
+        else -> MiuiHeaderAppIconSource.UNAVAILABLE
     }
 }

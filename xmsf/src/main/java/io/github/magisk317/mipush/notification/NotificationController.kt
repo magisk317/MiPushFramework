@@ -7,6 +7,7 @@ import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
 
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -24,6 +25,10 @@ import android.text.TextUtils
 import androidx.core.app.NotificationCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.drawable.IconCompat
+import io.github.magisk317.mipush.common.notification.iconpack.ICON_PACK_SOURCE_IDENTITY_EXTRA
+import io.github.magisk317.mipush.common.notification.iconpack.IconPackResolver
+import io.github.magisk317.mipush.common.notification.iconpack.ResolveFailure
+import io.github.magisk317.mipush.common.notification.iconpack.ResolveResult
 import io.github.aakira.napier.Napier
 import io.github.magisk317.xposed.logging.MagiskOtel
 import io.github.aakira.napier.DebugAntilog
@@ -53,6 +58,7 @@ import io.github.magisk317.mipush.runtime.PushRuntime
 
 object NotificationController {
     private const val TAG = "NotificationController"
+    private val iconPackResolver = IconPackResolver()
     private const val FOCUS_PARAM = "miui.focus.param"
     private const val FOCUS_PICS = "miui.focus.pics"
     private const val PIC_ICON = "miui.focus.pic_mipush_icon"
@@ -214,6 +220,15 @@ object NotificationController {
             packageName,
             notificationBuilder,
             islandOptions.colorStatusBarIcon,
+        )
+        // This is the single final smallIcon seam for all MiPush target builders. It runs after
+        // the existing status-bar policy so a resolver failure leaves the app-icon fallback
+        // untouched, while an available pack becomes the framework smallIcon source.
+        applyIconPackSmallIcon(
+            context = context,
+            targetPackage = packageName,
+            notificationBuilder = notificationBuilder,
+            colorStatusBarIcon = islandOptions.colorStatusBarIcon,
         )
 
         val configuration = XMPushUtils.getConfiguration(metaInfo)
@@ -932,6 +947,54 @@ object NotificationController {
         }
         notificationBuilder.setColor(Notification.COLOR_DEFAULT)
         return Notification.COLOR_DEFAULT
+    }
+
+    @SuppressLint("RestrictedApi")
+    internal fun applyIconPackSmallIcon(
+        context: Context,
+        targetPackage: String,
+        notificationBuilder: NotificationCompat.Builder,
+        colorStatusBarIcon: Boolean,
+        userId: Int? = null,
+        resolver: IconPackResolver = iconPackResolver,
+    ): ResolveResult? {
+        if (targetPackage.isBlank()) return null
+        val result = runCatching {
+            resolver.resolve(targetPackage, userId, context)
+        }.getOrNull() ?: return null
+        // Do not let a reused builder carry a prior notification's source identity into a
+        // blocked/failed resolution.
+        notificationBuilder.addExtras(Bundle().apply { putString(ICON_PACK_SOURCE_IDENTITY_EXTRA, null) })
+        if (result is ResolveResult.Available) {
+            // NotificationCompat carries this as IconCompat, but the framework Notification gets
+            // the exact platform Icon.createWithBitmap source. No second bitmap is synthesized.
+            val applied = runCatching {
+                notificationBuilder.setSmallIcon(
+                    IconCompat.createFromIcon(Icon.createWithBitmap(result.value.bitmap)),
+                )
+                // The marker audits the source identity; the bitmap remains on the framework
+                // Notification.smallIcon and is the only header transport used by SystemUI.
+                notificationBuilder.addExtras(
+                    Bundle().apply {
+                        putString(ICON_PACK_SOURCE_IDENTITY_EXTRA, result.value.sourceIdentity)
+                    },
+                )
+                // iconColor is only the existing notification color metadata. Its absence never
+                // invalidates the bitmap, and monochrome mode keeps its established default color.
+                val iconColor = result.value.iconColor
+                if (colorStatusBarIcon && iconColor != null) {
+                    notificationBuilder.setColor(iconColor)
+                }
+                true
+            }.getOrDefault(false)
+            if (!applied) {
+                notificationBuilder.addExtras(Bundle().apply {
+                    putString(ICON_PACK_SOURCE_IDENTITY_EXTRA, null)
+                })
+                return ResolveResult.Unavailable(ResolveFailure.LOAD_FAILED)
+            }
+        }
+        return result
     }
 
     /**

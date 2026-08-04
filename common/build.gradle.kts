@@ -118,6 +118,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.napier)
     testImplementation(libs.junit.jupiter)
+    testImplementation(libs.jqwik)
     testImplementation(libs.mockk)
     testImplementation(libs.robolectric)
     testImplementation(libs.robolectric.junit5.extension)

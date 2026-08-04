@@ -1,8 +1,9 @@
 package io.github.magisk317.mipush.hook.systemui
 
+import net.jqwik.api.ForAll
+import net.jqwik.api.Property
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -67,36 +68,57 @@ class MiuiHeaderAppIconPolicyTest {
     }
 
     @Test
-    fun `mock replay header prefers colored target app icon before small icon fallback`() {
+    fun `only exact target package marker authorizes passed third-party small icon`() {
+        assertTrue(
+            MiuiHeaderAppIconPolicy.isPassedThirdPartySmallIcon(
+                "THIRD_PARTY_PACK(com.example.target)",
+                "com.example.target",
+            ),
+        )
+        assertFalse(
+            MiuiHeaderAppIconPolicy.isPassedThirdPartySmallIcon(
+                "THIRD_PARTY_PACK(com.example.other)",
+                "com.example.target",
+            ),
+        )
+        assertFalse(
+            MiuiHeaderAppIconPolicy.isPassedThirdPartySmallIcon(null, "com.example.target"),
+        )
+    }
+
+    @Property(tries = 40)
+    fun `header selector is strictly third-party then app then unavailable`(
+        @ForAll hasPassedThirdPartySmallIcon: Boolean,
+        @ForAll hasTargetAppIcon: Boolean,
+    ) {
+        val expected = when {
+            hasPassedThirdPartySmallIcon -> MiuiHeaderAppIconSource.THIRD_PARTY_PACK
+            hasTargetAppIcon -> MiuiHeaderAppIconSource.APP
+            else -> MiuiHeaderAppIconSource.UNAVAILABLE
+        }
         assertEquals(
-            MiuiHeaderAppIconSource.TARGET_APP,
-            MiuiHeaderAppIconPolicy.mockReplayReplacementSource(
+            expected,
+            MiuiHeaderAppIconPolicy.selectReplacementSource(
+                hasPassedThirdPartySmallIcon = hasPassedThirdPartySmallIcon,
+                hasTargetAppIcon = hasTargetAppIcon,
+            ),
+        )
+    }
+
+    @Test
+    fun `header selector never treats large or original small icon as third-party`() {
+        assertEquals(
+            MiuiHeaderAppIconSource.APP,
+            MiuiHeaderAppIconPolicy.selectReplacementSource(
+                hasPassedThirdPartySmallIcon = false,
                 hasTargetAppIcon = true,
-                hasLargeIcon = true,
-                hasSmallIcon = true,
             ),
         )
         assertEquals(
-            MiuiHeaderAppIconSource.LARGE_ICON,
-            MiuiHeaderAppIconPolicy.mockReplayReplacementSource(
+            MiuiHeaderAppIconSource.UNAVAILABLE,
+            MiuiHeaderAppIconPolicy.selectReplacementSource(
+                hasPassedThirdPartySmallIcon = false,
                 hasTargetAppIcon = false,
-                hasLargeIcon = true,
-                hasSmallIcon = true,
-            ),
-        )
-        assertEquals(
-            MiuiHeaderAppIconSource.SMALL_ICON,
-            MiuiHeaderAppIconPolicy.mockReplayReplacementSource(
-                hasTargetAppIcon = false,
-                hasLargeIcon = false,
-                hasSmallIcon = true,
-            ),
-        )
-        assertNull(
-            MiuiHeaderAppIconPolicy.mockReplayReplacementSource(
-                hasTargetAppIcon = false,
-                hasLargeIcon = false,
-                hasSmallIcon = false,
             ),
         )
     }

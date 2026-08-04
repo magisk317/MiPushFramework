@@ -1,5 +1,6 @@
 package io.github.magisk317.mipush.hook.systemui
 
+import android.graphics.drawable.Icon
 import android.os.Bundle
 import io.github.magisk317.mipush.hook.island.IslandDispatchContract
 
@@ -243,6 +244,43 @@ internal object SystemUiNotificationPolicy {
         // keep the posted glyph and tint it instead of declining to MIUI's colored fallback.
         if (iconType == ICON_TYPE_RESOURCE && hasMonochromeResource) return true
         return isResourceSmallIconLoadable(iconType, resId, resPackage)
+    }
+
+    enum class StatusBarSmallIconSource {
+        FRAMEWORK_NOTIFICATION_SMALL_ICON,
+        NATIVE_SYSTEMUI,
+    }
+
+    /**
+     * Describes the only SystemUI transport used by the icon-pack integration.
+     *
+     * The publishing side puts the validated bitmap in [android.app.Notification.smallIcon].
+     * SystemUI must consume that framework-carried Icon as-is; all existing getSmallIcon guards,
+     * substitution decisions and tint/native rendering remain separate policy steps.
+     */
+    data class StatusBarSmallIconTransport(
+        val source: StatusBarSmallIconSource,
+        val icon: Icon?,
+    ) {
+        val entersExistingStatusBarTintPipeline: Boolean
+            get() = source == StatusBarSmallIconSource.FRAMEWORK_NOTIFICATION_SMALL_ICON
+    }
+
+    fun statusBarSmallIconTransport(
+        notificationSmallIcon: Icon?,
+        shouldIntercept: Boolean,
+    ): StatusBarSmallIconTransport {
+        return if (shouldIntercept) {
+            StatusBarSmallIconTransport(
+                source = StatusBarSmallIconSource.FRAMEWORK_NOTIFICATION_SMALL_ICON,
+                icon = notificationSmallIcon,
+            )
+        } else {
+            StatusBarSmallIconTransport(
+                source = StatusBarSmallIconSource.NATIVE_SYSTEMUI,
+                icon = null,
+            )
+        }
     }
 
     fun statusBarIconPreLTagOverride(

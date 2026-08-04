@@ -132,7 +132,8 @@ class HookSystemUI : BaseHook() {
                                 return@doBefore
                             }
                         }
-                        if (SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
+                        val shouldIntercept =
+                            SystemUiNotificationPolicy.shouldInterceptSmallIconWithIconGuard(
                                 colorStatusBarIcon = options.colorStatusBarIcon,
                                 forceGlobalStatusBarIcons = options.colorStatusBarIconGlobal,
                                 isMiPushManaged = isMiPushManaged,
@@ -145,8 +146,15 @@ class HookSystemUI : BaseHook() {
                                 canColorize = canColorize,
                                 hasMonochromeResource = isGrayscaleIcon,
                             )
+                        val transport = SystemUiNotificationPolicy.statusBarSmallIconTransport(
+                            notificationSmallIcon = smallIcon,
+                            shouldIntercept = shouldIntercept,
+                        )
+                        if (
+                            transport.source ==
+                                SystemUiNotificationPolicy.StatusBarSmallIconSource.FRAMEWORK_NOTIFICATION_SMALL_ICON
                         ) {
-                            result = smallIcon
+                            result = transport.icon
                             return@doBefore
                         }
                     }

@@ -436,6 +436,214 @@ class PreservationPropertyTest {
         )
     }
 
+    /**
+     * Header source observed before any icon-pack resolver exists. The non-mock path only
+     * replaces an in-scope XSpace header when the existing large-icon lookup succeeds; the mock
+     * replay path keeps its existing target-app -> large-icon -> small-icon order.
+     */
+    private enum class BaselineHeaderSource {
+        NATIVE,
+        TARGET_APP,
+        LARGE_ICON,
+        SMALL_ICON,
+    }
+
+    data class HeaderPreservationInput(
+        val targetPackage: String?,
+        val postingPackage: String?,
+        val userId: Int?,
+        val isMockReplayReceipt: Boolean,
+        val hasTargetAppIcon: Boolean,
+        val hasLargeIcon: Boolean,
+        val hasSmallIcon: Boolean,
+    )
+
+    private class IconPackQueryProbe {
+        var queryCount: Int = 0
+    }
+
+    @Provide
+    fun headerPreservationInputs(): Arbitrary<HeaderPreservationInput> {
+        return Combinators.combine(
+            Arbitraries.of(null, "", "com.example.target", "com.xiaomi.xmsf"),
+            Arbitraries.of(null, "", "com.xiaomi.xmsf", "com.example.target", "com.other.sender"),
+            Arbitraries.of(null, 0, 999),
+            Arbitraries.of(true, false),
+            Arbitraries.of(true, false),
+            Arbitraries.of(true, false),
+            Arbitraries.of(true, false),
+        ).`as` { target, posting, user, mock, targetIcon, largeIcon, smallIcon ->
+            HeaderPreservationInput(
+                targetPackage = target,
+                postingPackage = posting,
+                userId = user,
+                isMockReplayReceipt = mock,
+                hasTargetAppIcon = targetIcon,
+                hasLargeIcon = largeIcon,
+                hasSmallIcon = smallIcon,
+            )
+        }
+    }
+
+    private fun baselineHeaderSource(
+        input: HeaderPreservationInput,
+        queryProbe: IconPackQueryProbe,
+    ): BaselineHeaderSource {
+        // Observation-first guard: the pre-fix implementation has no icon-pack resolver seam.
+        // Keeping this probe explicit makes an accidental third-party lookup visible in this
+        // preservation harness without reading any HMSPush-private storage.
+        val replacement: BaselineHeaderSource? = if (input.isMockReplayReceipt) {
+            when {
+                input.hasTargetAppIcon -> BaselineHeaderSource.TARGET_APP
+                input.hasLargeIcon -> BaselineHeaderSource.LARGE_ICON
+                input.hasSmallIcon -> BaselineHeaderSource.SMALL_ICON
+                else -> null
+            }
+        } else {
+            if (input.hasLargeIcon) BaselineHeaderSource.LARGE_ICON else null
+        }
+        val shouldReplace = MiuiHeaderAppIconPolicy.shouldReplace(
+            userId = input.userId,
+            targetPackage = input.targetPackage,
+            postingPackage = input.postingPackage,
+            hasReplacementIcon = replacement != null,
+            isMockReplayReceipt = input.isMockReplayReceipt,
+        )
+        check(queryProbe.queryCount == 0) { "baseline unexpectedly queried an icon-pack source" }
+        if (!shouldReplace) return BaselineHeaderSource.NATIVE
+        return replacement ?: BaselineHeaderSource.NATIVE
+    }
+
+    /**
+     * Preservation: unresolved identity and out-of-scope header inputs remain native and do not
+     * query a third-party icon source.
+     *
+     * **Validates: Requirements 3.1, 3.4, 3.6**
+     */
+    @Property(tries = 200)
+    fun `header identity and scope gates preserve native behavior without icon-pack queries`(
+        @ForAll("headerPreservationInputs") input: HeaderPreservationInput,
+    ) {
+        val probe = IconPackQueryProbe()
+        val observed = baselineHeaderSource(input, probe)
+        val identityUnconfirmed = input.targetPackage.isNullOrBlank()
+        val excludedTarget = input.targetPackage == "com.xiaomi.xmsf"
+        val outsideXSpaceScope = !input.isMockReplayReceipt && (
+            input.userId != 999 ||
+                input.postingPackage.isNullOrBlank() ||
+                input.postingPackage == input.targetPackage
+            )
+        if (identityUnconfirmed || excludedTarget || outsideXSpaceScope) {
+            assertEquals(
+                BaselineHeaderSource.NATIVE,
+                observed,
+                "header must preserve native behavior outside target/ MiPush scope: $input",
+            )
+        }
+        assertEquals(0, probe.queryCount, "preservation path must not query an icon-pack source")
+    }
+
+    /**
+     * Preservation: with no usable third-party pack, the existing header fallback order is
+     * unchanged. This records the actual pre-fix behavior rather than inventing an APP fallback
+     * for the non-mock path, which currently delegates to native SystemUI when no large icon is
+     * available.
+     *
+     * **Validates: Requirements 3.2, 3.4, 3.5, 3.6**
+     */
+    @Property(tries = 120)
+    fun `unavailable pack preserves existing header fallback order`(
+        @ForAll("headerPreservationInputs") input: HeaderPreservationInput,
+    ) {
+        val probe = IconPackQueryProbe()
+        val observed = baselineHeaderSource(input, probe)
+        val expected = when {
+            input.targetPackage.isNullOrBlank() -> BaselineHeaderSource.NATIVE
+            input.targetPackage == "com.xiaomi.xmsf" -> BaselineHeaderSource.NATIVE
+            input.isMockReplayReceipt && input.hasTargetAppIcon -> BaselineHeaderSource.TARGET_APP
+            input.isMockReplayReceipt && input.hasLargeIcon -> BaselineHeaderSource.LARGE_ICON
+            input.isMockReplayReceipt && input.hasSmallIcon -> BaselineHeaderSource.SMALL_ICON
+            input.isMockReplayReceipt -> BaselineHeaderSource.NATIVE
+            input.userId == 999 &&
+                !input.postingPackage.isNullOrBlank() &&
+                input.postingPackage != input.targetPackage &&
+                input.hasLargeIcon -> BaselineHeaderSource.LARGE_ICON
+            else -> BaselineHeaderSource.NATIVE
+        }
+        assertEquals(expected, observed, "pre-fix header source changed for $input")
+        assertEquals(0, probe.queryCount, "no usable pack must not trigger a third-party query")
+    }
+
+    /**
+     * Preservation: icon-policy observation changes no notification semantics. The snapshot
+     * includes the non-icon fields called out by the bugfix contract and is intentionally kept
+     * independent of bitmap/resource identity.
+     *
+     * **Validates: Requirements 3.2, 3.3, 3.5, 3.6**
+     */
+    data class NotificationSemantics(
+        val content: String,
+        val clickAction: String,
+        val group: String?,
+        val channel: String,
+        val ongoing: Boolean,
+        val autoCancel: Boolean,
+        val whenMillis: Long,
+        val color: Int?,
+    )
+
+    @Provide
+    fun notificationSemantics(): Arbitrary<NotificationSemantics> {
+        return Combinators.combine(
+            Arbitraries.of("title", "body", "summary", ""),
+            Arbitraries.of("open", "reply", "dismiss", ""),
+            Arbitraries.of(null, "messages", "updates"),
+            Arbitraries.of("default", "messages", "silent"),
+            Arbitraries.of(true, false),
+            Arbitraries.of(true, false),
+            Arbitraries.longs().between(0L, 4_000_000_000_000L),
+            Arbitraries.of(null, 0xFFFFFFFF.toInt(), 0xFF808080.toInt()),
+        ).`as` { content, click, group, channel, ongoing, autoCancel, whenMillis, color ->
+            NotificationSemantics(
+                content = content,
+                clickAction = click,
+                group = group,
+                channel = channel,
+                ongoing = ongoing,
+                autoCancel = autoCancel,
+                whenMillis = whenMillis,
+                color = color,
+            )
+        }
+    }
+
+    @Property(tries = 150)
+    fun `unusable pack and existing fallback preserve notification semantics`(
+        @ForAll("notificationSemantics") before: NotificationSemantics,
+        @ForAll("nonMiPushNotifications") notification: NonMiPushNotificationInput,
+        @ForAll("islandOptions") options: IslandOptions,
+    ) {
+        IslandPreferences.resetForTest(options)
+        val extras = notification.toExtras()
+        val beforeManaged = isMiPushManagedNotification(extras)
+        val beforeIntercept = getSmallIconHookIntercepts(
+            colorStatusBarIcon = options.colorStatusBarIcon,
+            forceGlobalStatusBarIcons = options.colorStatusBarIconGlobal,
+            extras = extras,
+        )
+        val after = before.copy()
+        val afterManaged = isMiPushManagedNotification(extras)
+        val afterIntercept = getSmallIconHookIntercepts(
+            colorStatusBarIcon = options.colorStatusBarIcon,
+            forceGlobalStatusBarIcons = options.colorStatusBarIconGlobal,
+            extras = extras,
+        )
+        assertEquals(before, after, "icon fallback must not change notification semantics")
+        assertEquals(beforeManaged, afterManaged, "icon fallback must not change MiPush scope")
+        assertEquals(beforeIntercept, afterIntercept, "icon fallback must not change status-bar policy")
+        assertFalse(beforeManaged, "generator must produce a non-MiPush baseline input")
+    }
+
     private fun expectedPreLTagOverride(
         colorStatusBarIcon: Boolean,
         forceGlobalStatusBarIcons: Boolean,
