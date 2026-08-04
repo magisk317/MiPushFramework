@@ -134,8 +134,13 @@ val managerKoinModule = module {
 }
 
 object ManagerDependencies {
+    private enum class BootstrapMode {
+        APP_SHELL,
+        REMOTE_HOST,
+    }
+
     @Volatile
-    private var modulesLoaded = false
+    private var bootstrapMode: BootstrapMode? = null
 
     @Volatile
     private var hostModulesLoaded = false
@@ -152,13 +157,19 @@ object ManagerDependencies {
     @Volatile
     private var analyticsSyncStarted = false
 
-    /**
-     * Preferred entry for manager UI surfaces. Always boots the remote-host Koin graph.
-     * Safe to call repeatedly from activities after [startAsRemoteHost] in Application.
-     */
+    /** Load manager definitions into the Koin host already created by MiPushFrameworkApp. */
     @Synchronized
-    fun ensureStarted(context: Context) {
-        startAsRemoteHost(context)
+    fun startFromAppShell(context: Context) {
+        ManagerRuntimeFileLog.init(context)
+        when (bootstrapMode) {
+            BootstrapMode.APP_SHELL -> return
+            BootstrapMode.REMOTE_HOST -> error("Manager dependencies already use the remote host")
+            null -> Unit
+        }
+
+        requireAppShellKoin(context)
+        loadKoinModules(managerKoinModule)
+        bootstrapMode = BootstrapMode.APP_SHELL
     }
 
     /**
@@ -170,20 +181,24 @@ object ManagerDependencies {
         ManagerRuntimeFileLog.init(context)
 
         val appContext = context.applicationContext ?: context
-        // Idempotent: activity/widget re-entry after App.onCreate must not restart Koin or re-connect.
-        if (!modulesLoaded) {
-            val initialModules = listOf(managerRemoteHostModule, managerKoinModule) + hostModules
-            if (GlobalContext.getOrNull() == null) {
-                startKoin {
-                    androidContext(appContext)
-                    modules(initialModules)
+        when (bootstrapMode) {
+            BootstrapMode.APP_SHELL -> error("Manager dependencies already use the app-shell host")
+            BootstrapMode.REMOTE_HOST -> Unit
+            null -> {
+                val initialModules = listOf(managerRemoteHostModule, managerKoinModule) + hostModules
+                if (GlobalContext.getOrNull() == null) {
+                    startKoin {
+                        androidContext(appContext)
+                        modules(initialModules)
+                    }
+                } else {
+                    loadKoinModules(initialModules)
                 }
-            } else {
-                loadKoinModules(initialModules)
+                hostModulesLoaded = hostModules.isNotEmpty()
+                bootstrapMode = BootstrapMode.REMOTE_HOST
             }
-            hostModulesLoaded = hostModules.isNotEmpty()
-            modulesLoaded = true
-        } else if (!hostModulesLoaded && hostModules.isNotEmpty()) {
+        }
+        if (!hostModulesLoaded && hostModules.isNotEmpty()) {
             loadKoinModules(hostModules.toList())
             hostModulesLoaded = true
         }
@@ -232,6 +247,18 @@ object ManagerDependencies {
     }
 
     inline fun <reified T : Any> get(): T = GlobalContext.get().get()
+
+    private fun requireAppShellKoin(context: Context) {
+        if (GlobalContext.getOrNull() != null) {
+            return
+        }
+        val process = runCatching { Application.getProcessName() }.getOrNull() ?: "unknown"
+        error(
+            "Koin host is not ready for app-shell manager startup " +
+                "(process=$process, package=${context.packageName}). " +
+                "MiPushFrameworkApp must start AppDependencies before invoking the host hook.",
+        )
+    }
 
     private fun configureAnalytics(context: Context, enabled: Boolean) {
         val systemOtelEnabled =

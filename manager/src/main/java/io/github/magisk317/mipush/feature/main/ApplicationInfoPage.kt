@@ -97,7 +97,6 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import io.github.magisk317.mipush.manager.di.ManagerDependencies
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
@@ -118,7 +117,6 @@ open class ApplicationInfoPage : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        ManagerDependencies.ensureStarted(this)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val app = getRegisteredApplication()

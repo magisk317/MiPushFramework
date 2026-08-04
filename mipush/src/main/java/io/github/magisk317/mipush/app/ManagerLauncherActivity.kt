@@ -5,7 +5,6 @@ import android.content.Intent
 import android.os.Bundle
 import io.github.magisk317.mipush.feature.main.MainActivity
 import io.github.magisk317.mipush.feature.wizard.WelcomeActivity
-import io.github.magisk317.mipush.manager.di.ManagerDependencies
 import io.github.magisk317.mipush.platform.support.LegacyComponentNames
 
 /**
@@ -18,7 +17,6 @@ import io.github.magisk317.mipush.platform.support.LegacyComponentNames
 class ManagerLauncherActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        ManagerDependencies.startAsRemoteHost(applicationContext)
         startActivity(resolveTargetIntent())
         finish()
     }

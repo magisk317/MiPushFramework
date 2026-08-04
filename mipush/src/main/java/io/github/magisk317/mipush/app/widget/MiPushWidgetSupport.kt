@@ -50,20 +50,9 @@ internal object MiPushWidgetRunner {
 }
 
 internal object MiPushWidgetDependencies {
-    fun ensureStarted(context: Context) {
-        val appContext = context.applicationContext ?: context
-        ManagerDependencies.startAsRemoteHost(appContext)
-    }
+    fun settingsManager(): SettingsManager = get()
 
-    fun settingsManager(context: Context): SettingsManager {
-        ensureStarted(context)
-        return get()
-    }
-
-    fun eventGateway(context: Context): ManagerEventGateway {
-        ensureStarted(context)
-        return get()
-    }
+    fun eventGateway(): ManagerEventGateway = get()
 
     private inline fun <reified T : Any> get(): T = ManagerDependencies.get()
 }
@@ -118,7 +107,7 @@ internal object ConnectionStatusWidgetRenderer {
     fun update(context: Context, manager: AppWidgetManager, widgetIds: IntArray) {
         val appContext = context.applicationContext ?: context
         val snapshot = runCatching {
-            MiPushWidgetDependencies.settingsManager(appContext).getConnectionSnapshot()
+            MiPushWidgetDependencies.settingsManager().getConnectionSnapshot()
         }.getOrNull()
         widgetIds.forEach { widgetId ->
             val views = buildViews(appContext, snapshot, compact = true)
@@ -216,7 +205,7 @@ internal object RecentEventsWidgetRenderer {
     fun update(context: Context, manager: AppWidgetManager, widgetIds: IntArray) {
         val appContext = context.applicationContext ?: context
         val events = runCatching {
-            MiPushWidgetDependencies.eventGateway(appContext)
+            MiPushWidgetDependencies.eventGateway()
                 .getEventsById(lastId = null, size = QUERY_COUNT, packageName = "", query = "")
                 .filterNot { it.isRegistrationInfo() }
         }.getOrElse { emptyList() }

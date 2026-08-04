@@ -6,13 +6,17 @@ It is the reference for future stock-XMSF ports: new compatibility features shou
 
 ## 1. App Init (dual package)
 
-Shipping shape is **two APKs**. Do not bootstrap manager UI from the XMSF host.
+Shipping shape is **two APKs**. Bootstrap belongs to each package's `Application`, never to an
+Activity, launcher trampoline, or widget.
 
 ### 1a. XMSF runtime package (`com.xiaomi.xmsf`)
 
 - Entry point: packaged host `MiPushHostApp` → `MiPushFrameworkApp`
-- `MiPushHostApp` is an **empty shell** on purpose: no manager Koin, no `ManagerDependencies`
-- Main work (in `MiPushFrameworkApp` / xmsf modules only):
+- `MiPushFrameworkApp` starts `AppDependencies` first, then invokes
+  `onAppDependenciesStarted()`.
+- `MiPushHostApp` overrides that hook, verifies the main process, and calls
+  `ManagerDependencies.startFromAppShell()` to load `managerKoinModule` into the existing host.
+- Main runtime work remains in `MiPushFrameworkApp` / xmsf modules:
   - initialize DB and app context
   - install logger and crash logger
   - install hook layer / notification compatibility
@@ -21,6 +25,8 @@ Shipping shape is **two APKs**. Do not bootstrap manager UI from the XMSF host.
   - expose `ManagerRuntimeService` (Binder) for the manager package
 - Process-sensitive runtime work may use `PushControllerUtils.isAppMainProc(...)` with stable
   current-process-name APIs (avoid `runningAppProcesses`)
+- `xmsfCoreKoinModule` owns runtime gateway implementations only. It does not import manager UI or
+  manager Koin definitions.
 
 Key source:
 
@@ -29,10 +35,12 @@ Key source:
 
 ### 1b. Manager package (`io.github.magisk317.mipush`)
 
-- Entry point: `:mipush` `App` / `ManagerLauncherActivity` / widgets
-- Bootstrap: **`ManagerDependencies.startAsRemoteHost()`** (also via `ensureStarted()`)
+- Bootstrap owner: `:mipush` `App.onCreate()`
+- Bootstrap: **`ManagerDependencies.startAsRemoteHost(...)`**
 - Loads manager Koin with **remote-primary** data plane (`Remote*Source` / `ManagerRuntimeClient`)
 - Talks to XMSF only through signature-permission Binder (`ManagerRuntimeService`)
+- `ManagerLauncherActivity`, manager Activities, and widgets consume the Application-owned Koin
+  host; they do not create or repair it.
 - Xposed module is packaged with `:mipush`, not with `:app`
 - Connection status uses `ConnectionStatusViewModel` -> `RemoteConnectionSnapshotSource` ->
   `ManagerRuntimeClient`; the XMSF service assembles counters, timing, heartbeat, host and socket
@@ -46,13 +54,14 @@ Key source:
 Key source:
 
 - `mipush/src/main/java/io/github/magisk317/mipush/app/App.kt`
-- `manager/.../di/ManagerDependencies.kt`
+- `manager/.../di/ManagerKoinModules.kt`
 - `common/.../LegacyComponentNames.kt` (cross-package component names / redirects)
 
 ### 1c. Explicit non-goals / regressions to avoid
 
-- Do **not** register manager Koin from `MiPushHostApp`
-- Do **not** call bare in-process `ManagerDependencies.start()` as the production path
+- Do **not** remove the app-shell hook or move it into an `xmsf` Koin module
+- Do **not** start manager dependencies from UI/launcher/widget entrypoints
+- Do **not** mix app-shell and remote-host modes within one process
 - Legacy XMSF activity names resolve through thin aliases → `ManagerUiRedirectActivity` → manager package
 
 ## 2. Bridge Entry

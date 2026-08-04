@@ -60,7 +60,6 @@ import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.uikit.surface.AppIconImage
 import io.github.magisk317.uikit.surface.chromeTopAppBarColors
 import kotlinx.coroutines.launch
-import io.github.magisk317.mipush.manager.di.ManagerDependencies
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
 class ZygiskConfigPage : ComponentActivity() {
@@ -68,7 +67,6 @@ class ZygiskConfigPage : ComponentActivity() {
     private val viewModel: ZygiskConfigViewModel by viewModel()
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        ManagerDependencies.ensureStarted(this)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {

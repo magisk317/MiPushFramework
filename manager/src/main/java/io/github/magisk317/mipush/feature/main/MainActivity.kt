@@ -97,7 +97,6 @@ import io.github.magisk317.mipush.main.viewmodel.SettingsViewModel
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
 import kotlinx.coroutines.launch
-import io.github.magisk317.mipush.manager.di.ManagerDependencies
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import kotlin.math.hypot
@@ -118,7 +117,6 @@ open class MainActivity : ComponentActivity() {
     private val mainActivityUtils by lazy { MainActivityUtils(settingsManager) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        ManagerDependencies.ensureStarted(this)
         super.onCreate(savedInstanceState)
         WelcomeIslandNotifier.notifyAfterInstallOrUpdate(this)
         enableEdgeToEdge()

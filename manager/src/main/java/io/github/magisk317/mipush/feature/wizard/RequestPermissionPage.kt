@@ -92,7 +92,6 @@ import io.github.magisk317.mipush.manager.R
 import androidx.compose.foundation.clickable
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.mutableIntStateOf
-import io.github.magisk317.mipush.manager.di.ManagerDependencies
 import io.github.magisk317.mipush.feature.main.MainActivity
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -105,7 +104,6 @@ open class RequestPermissionPage : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        ManagerDependencies.ensureStarted(this)
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val recheckOnly = intent?.getBooleanExtra(EXTRA_RECHECK_ONLY, false) ?: false

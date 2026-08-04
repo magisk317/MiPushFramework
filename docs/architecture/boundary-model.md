@@ -57,14 +57,17 @@ MiPushFramework is a system-package-compatible app split into explicit Gradle mo
 
 6. **app / manager / mipush**
    - `app` is the thin application shell that produces the device-installable `com.xiaomi.xmsf`
-     runtime APK. `MiPushHostApp` must stay a no-manager shell: no `ManagerDependencies` bootstrap
-     and no `:manager` dependency.
-   - `mipush` is the standalone manager host package. It owns manager UI process startup via
-     `ManagerDependencies.startAsRemoteHost()` / `ensureStarted()` (ensure always means remote host).
+     runtime APK. It deliberately depends on `:manager`: after `MiPushFrameworkApp` starts runtime
+     Koin, `MiPushHostApp.onAppDependenciesStarted()` loads manager definitions in the main process.
+   - `mipush` is the standalone manager host package. Its `Application` owns manager UI process
+     startup via `ManagerDependencies.startAsRemoteHost(...)`.
      Manager reaches XMSF only through signature-authenticated Binder (`manager-api` /
      `ManagerRuntimeClient`).
-   - `manager` is a UI/library surface packaged by `:mipush`, not by `:app`. Do not move manager
-     bootstrap into `xmsf` Koin modules or back into `MiPushHostApp`.
+   - `manager` is a UI/library surface available to both hosts. Real manager Activities remain
+     declared by `:mipush`; `:app` keeps only legacy redirects. Activity/launcher/widget entrypoints
+     never own bootstrap.
+   - Do not move manager bindings into `xmsf` Koin modules. `xmsf` exposes runtime gateways and the
+     post-dependency hook; the app shell chooses what to load through that hook.
    - `xmsf` remains an Android library module. Prefer `:app:assembleNormalDebug` when validating the
      installable runtime; `:xmsf:assembleNormalDebug` only packages the library surface.
 
@@ -176,16 +179,14 @@ graph.
   and then apply it to an `XmPushActionContainer`.
 - `ConfigCenter.loadConfigurations()` remains asynchronous for UI callers. Code paths that need a
   deterministic reload can use `loadConfigurationsNow(...)`.
-- Manager UI is package-hosted by `:mipush`, not by `:app`/`xmsf`. XMSF still owns runtime
-  gateways and Binder service implementations inside the `com.xiaomi.xmsf` process; manager-side
-  code consumes them through `manager-api` / `ManagerRuntimeClient` rather than sharing an in-process
-  Koin container with XMSF. Runtime environment diagnostics flow through
+- Real manager Activities are package-hosted by `:mipush`. XMSF still owns runtime gateways and
+  Binder service implementations inside the `com.xiaomi.xmsf` process; the standalone manager data
+  plane consumes them through `manager-api` / `ManagerRuntimeClient`. Runtime environment diagnostics flow through
   `ManagerRuntimeEnvironmentSnapshot` instead of reflective `com.xiaomi.*` lookups.
-- Production manager bootstrap is remote-host only: `:mipush` Application / launcher / widget call
-  `ManagerDependencies.startAsRemoteHost(...)` / `ensureStarted(...)`. Manager UI
-  entrypoints must not own a second bootstrap world, must not start the XMSF Koin host, and must
-  not reintroduce bundled-era host-Koin `ManagerDependencies.start()` as a second bootstrap world.
-  UI entrypoints call `ensureStarted()`; host Application keeps `startAsRemoteHost()`.
+- Bootstrap has exactly two Application-owned modes. `MiPushHostApp` calls
+  `startFromAppShell()` after XMSF Koin exists; standalone `:mipush` `App` calls
+  `startAsRemoteHost(...)`. The modes reject same-process mixing. Manager Activities, launcher
+  trampoline, and widgets only consume their package host and do not contain fallback startup.
 - Manager data plane **is** remote-primary (`Remote*Source` → ViewModel). `Comparing*` /
   fake `InProcess*` wrappers are migration scaffolding and should not be re-expanded.
 - Notification-channel reads cross Binder as wire DTOs and are mapped once into manager-owned
@@ -208,8 +209,8 @@ graph.
   - do not copy manager bindings (`SettingsManager`, manager ViewModels, manager Koin module
     contents) into `xmsfCoreKoinModule`; `xmsf` must not depend on `manager`
   - do not make `MainActivity` or other manager UI entrypoints create a second Koin host or own
-    manager bootstrap; production startup belongs to `:mipush` remote-host bootstrap only
-  - do not reintroduce manager UI bootstrap into `MiPushHostApp` / `:app`
+    manager bootstrap; startup belongs to the package `Application`
+  - do not remove or bypass the `MiPushHostApp` post-runtime startup hook
   - do not load manager UI modules from the XMSF `:services` subprocess
   - do not use reflective `com.xiaomi.*` lookups in manager/settings as a substitute for runtime
     adapter contracts
@@ -251,4 +252,5 @@ Chosen production shape after the app split:
 | Legacy façade | `Manager*Gateway` → `RemoteManager*Gateway` | Same Binder underneath; prefer Source/Client in new code |
 | Test harness | `Comparing*` + `Gateway*` | **Test source set only**; not registered in production Koin |
 
-Do not reintroduce in-process primary reads in `:mipush`. Do not bootstrap manager from `:app`.
+Do not reintroduce in-process primary reads in `:mipush`. Do not bootstrap manager from UI,
+launcher, widget, or `xmsfCoreKoinModule`; keep the app-shell call in `MiPushHostApp`.
