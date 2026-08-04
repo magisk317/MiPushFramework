@@ -52,10 +52,17 @@ else
   git -C "$ZYGISK_DIR" remote add origin "$ZYGISK_REPOSITORY"
 fi
 
-if ! git -C "$ZYGISK_DIR" fetch --depth 1 origin "$ZYGISK_REF"; then
-  echo "ERROR: configured MiPushZygisk ref '$ZYGISK_REF' is not fetchable" >&2
-  exit 1
-fi
+fetch_attempts="${MIPUSH_ZYGISK_FETCH_ATTEMPTS:-3}"
+fetch_attempt=1
+while ! git -C "$ZYGISK_DIR" fetch --depth 1 origin "$ZYGISK_REF"; do
+  if (( fetch_attempt >= fetch_attempts )); then
+    echo "ERROR: configured MiPushZygisk ref '$ZYGISK_REF' is not fetchable after ${fetch_attempts} attempts" >&2
+    exit 1
+  fi
+  echo "WARN: MiPushZygisk fetch attempt ${fetch_attempt}/${fetch_attempts} failed; retrying in 5s..." >&2
+  sleep 5
+  fetch_attempt=$((fetch_attempt + 1))
+done
 git -C "$ZYGISK_DIR" checkout --detach --force FETCH_HEAD
 
 if [[ "$ZYGISK_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then

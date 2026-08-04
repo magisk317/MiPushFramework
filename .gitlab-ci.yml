@@ -1,15 +1,15 @@
 include:
   - project: magisk3171/magisk-ci-toolkit
-    ref: f7f01cd8b4bfb7c541dbab9b17cf84e10930ab79
+    ref: 6fb71ca8b46dd86c943224c5aa17b852ad1c53e0
     file: /.gitlab/ci/android.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: f7f01cd8b4bfb7c541dbab9b17cf84e10930ab79
+    ref: 6fb71ca8b46dd86c943224c5aa17b852ad1c53e0
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: f7f01cd8b4bfb7c541dbab9b17cf84e10930ab79
+    ref: 6fb71ca8b46dd86c943224c5aa17b852ad1c53e0
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: f7f01cd8b4bfb7c541dbab9b17cf84e10930ab79
+    ref: 6fb71ca8b46dd86c943224c5aa17b852ad1c53e0
     file: /.gitlab/ci/renovate.yml
 
 workflow:
@@ -39,7 +39,7 @@ stages:
   - maintenance
 
 variables:
-  MAGISK_CI_TOOLKIT_REF: "f7f01cd8b4bfb7c541dbab9b17cf84e10930ab79"
+  MAGISK_CI_TOOLKIT_REF: "6fb71ca8b46dd86c943224c5aa17b852ad1c53e0"
   GIT_DEPTH: "0"
   GIT_SUBMODULE_STRATEGY: recursive
   GIT_SUBMODULE_DEPTH: "0"
@@ -327,7 +327,7 @@ zygisk:package:universal:
 telegram:ci:
   extends:
     - .magisk_telegram_ci
-    - .mipush_android_rules
+    - .mipush_signed_android_rules
   stage: notify
   allow_failure: true
   tags:
@@ -341,6 +341,12 @@ telegram:ci:
       arm64-v8a_*.zip
   needs:
     - job: android:build
+      artifacts: true
+      optional: false
+    - job: android:test
+      artifacts: false
+      optional: false
+    - job: zygisk:package:universal
       artifacts: true
       optional: false
     - job: zygisk:build:arm
@@ -373,6 +379,8 @@ android:test:
   extends:
     - .magisk_android_base
     - .mipush_android_rules
+  # Robolectric 4.16 native SQLite teardown is unstable on JDK 26.
+  image: "eclipse-temurin:25-jdk"
   stage: quality
   needs: []
   script:
@@ -402,6 +410,8 @@ android:shared-compat:
   extends:
     - .magisk_android_base
     - .mipush_android_rules
+  # This job also executes the xmsf Robolectric suite.
+  image: "eclipse-temurin:25-jdk"
   stage: quality
   needs: []
   script:

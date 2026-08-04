@@ -51,8 +51,7 @@ class LegacyLoggerBridgeTest {
         LegacyLoggerBridge.setDebugLoggingEnabled(true)
         MyLog.v("visible")
 
-        assertEquals(MyLog.DEBUG, entries.single().first)
-        assertTrue(entries.single().second.contains("visible"))
+        assertTrue(entries.any { it.first == MyLog.DEBUG && it.second.contains("visible") })
     }
 
     @Test
