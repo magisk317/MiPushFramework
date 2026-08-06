@@ -18,7 +18,6 @@ import io.github.magisk317.mipush.common.manager.ManagerEventGateway
 import io.github.magisk317.mipush.manager.events.RemoteEventListSource
 import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
-import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
 import io.github.magisk317.mipush.manager.preferences.RuntimePreferenceGateway
 import io.github.magisk317.mipush.common.utils.logW
 import io.github.magisk317.mipush.manager.events.EventListRequest
@@ -29,6 +28,7 @@ import io.github.magisk317.mipush.feature.main.subpage.EventInfoForDisplay
 import java.util.Date
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.events.EventListCacheStore
+import kotlinx.coroutines.CancellationException
 
 class EventListViewModel constructor(
     private val eventSource: RemoteEventListSource,
@@ -40,6 +40,24 @@ class EventListViewModel constructor(
     private val runtimePreferenceGateway: RuntimePreferenceGateway,
     private val cacheStore: EventListCacheStore,
 ) : ViewModel() {
+    companion object {
+        internal const val MAX_EVENT_LIST_SNAPSHOT_EVENTS = 200
+
+        internal fun buildEventListSnapshot(
+            events: List<EventInfoForDisplay>,
+            lastId: Long?,
+            hasMore: Boolean,
+        ): EventListSnapshot {
+            val snapshotEvents = events.take(MAX_EVENT_LIST_SNAPSHOT_EVENTS).toList()
+            return EventListSnapshot(
+                events = snapshotEvents,
+                // The next page must start after the last item that can be restored.
+                lastId = snapshotEvents.lastOrNull()?.id ?: lastId,
+                hasMore = hasMore || events.size > snapshotEvents.size,
+            )
+        }
+    }
+
     private val _events = MutableStateFlow<List<EventInfoForDisplay>>(emptyList())
     val events: StateFlow<List<EventInfoForDisplay>> = _events.asStateFlow()
 
@@ -50,22 +68,22 @@ class EventListViewModel constructor(
 
     init {
         viewModelScope.launch {
-            var sawUnavailable = false
-            runtimeClient.availability.collect { availability ->
-                if (availability is ManagerRuntimeAvailability.Available) {
-                    if (sawUnavailable) {
-                        sawUnavailable = false
-                        // Runtime came back: do NOT force a cold reload. Warm the
-                        // cache in the background so the next page open is instant,
-                        // and still bump the signal for pages that want a refresh.
-                        triggerSilentRefresh("", "", snapshotRefreshSignal)
-                        _runtimeReadySignal.value = _runtimeReadySignal.value + 1
-                    }
-                } else {
-                    sawUnavailable = true
-                }
+            collectAvailableRuntimeReloads(
+                availability = runtimeClient.availability,
+                shouldReloadWhenAvailable = { false },
+            ) {
+                // Runtime came back: do NOT force a cold reload. Warm the
+                // cache before signaling pages that want a refresh.
+                refreshEventsSilently("", "", snapshotRefreshSignal)
+                _runtimeReadySignal.value = _runtimeReadySignal.value + 1
             }
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        // Clear memory-heavy snapshots when ViewModel is destroyed
+        invalidateEventListSnapshot()
     }
 
     /**
@@ -104,7 +122,8 @@ class EventListViewModel constructor(
         snapshotQuery = query
         snapshotPackageName = packageName
         snapshotRefreshSignal = refreshSignal
-        listSnapshot = EventListSnapshot(events = events.toList(), lastId = lastId, hasMore = hasMore)
+        // Full list is persisted to disk cache; this is just for instant UI restore.
+        listSnapshot = buildEventListSnapshot(events, lastId, hasMore)
         snapshotValid = true
     }
 
@@ -138,23 +157,29 @@ class EventListViewModel constructor(
      */
     fun triggerSilentRefresh(query: String, packageName: String, refreshSignal: Int) {
         viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val fresh = loadEventsRemote(
-                    EventListRequest(lastId = null, pageSize = Constants.PAGE_SIZE, packageName = packageName, query = query),
-                ).map { toEventInfoForDisplay(it) }
-                if (fresh.isEmpty()) return@launch
-                cacheStore.putCached(queryKey(query, packageName, refreshSignal), fresh)
-                // Silent refresh warms the disk cache only; it must NOT write the
-                // in-memory snapshot, otherwise the page's cache-first seed would
-                // see a snapshot and skip reading the persistent store.
-                if (_events.value.isEmpty()) {
-                    _events.value = fresh
-                }
-            } catch (error: RuntimeReadUnavailableException) {
-                logW("silent refresh unavailable: ${error.operation}")
-            } catch (error: Exception) {
-                logW("silent refresh failed: ${error.message}")
+            refreshEventsSilently(query, packageName, refreshSignal)
+        }
+    }
+
+    private suspend fun refreshEventsSilently(query: String, packageName: String, refreshSignal: Int) {
+        try {
+            val fresh = loadEventsRemote(
+                EventListRequest(lastId = null, pageSize = Constants.PAGE_SIZE, packageName = packageName, query = query),
+            ).map { toEventInfoForDisplay(it) }
+            if (fresh.isEmpty()) return
+            cacheStore.putCached(queryKey(query, packageName, refreshSignal), fresh)
+            // Silent refresh warms the disk cache only; it must NOT write the
+            // in-memory snapshot, otherwise the page's cache-first seed would
+            // see a snapshot and skip reading the persistent store.
+            if (_events.value.isEmpty()) {
+                _events.value = fresh
             }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: RuntimeReadUnavailableException) {
+            logW("silent refresh unavailable: ${error.operation}")
+        } catch (error: Exception) {
+            logW("silent refresh failed: ${error.message}")
         }
     }
 
@@ -199,6 +224,8 @@ class EventListViewModel constructor(
                 }
                 // Persist the refreshed first page so cold starts are instant.
                 cacheStore.putCached(queryKey(query, packageName, 0), _events.value.take(Constants.PAGE_SIZE))
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: RuntimeReadUnavailableException) {
                 logW("loadEvents unavailable op=${error.operation} status=${error.status}")
                 // Keep previous events; do not replace with empty.

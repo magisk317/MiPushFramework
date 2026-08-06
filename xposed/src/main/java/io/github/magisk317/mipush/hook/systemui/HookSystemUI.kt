@@ -16,6 +16,7 @@ import android.widget.ImageView
 import io.github.magisk317.mipush.common.notification.NotificationOwnerResolver
 import io.github.magisk317.mipush.common.notification.StatusBarMonochromeIconPolicy
 import io.github.magisk317.mipush.hook.XLog
+import io.github.magisk317.mipush.hook.island.IslandDispatcher
 import io.github.magisk317.mipush.hook.island.IslandPreferences
 import io.github.magisk317.xposed.callMethod
 import io.github.magisk317.xposed.currentApplication
@@ -38,6 +39,12 @@ class HookSystemUI : BaseHook() {
     private val ID_ICON_IS_PRE_L: Int by lazy {
         val app = currentApplication() ?: return@lazy 0
         app.resources.getIdentifier("icon_is_pre_L", "id", app.packageName)
+    }
+
+    override fun onHotReloading() {
+        // SystemUI owns the island dispatcher receiver. Drop it before hot reload so the old
+        // module ClassLoader (and its DEX mappings) is not pinned by the registered receiver.
+        IslandDispatcher.unregister()
     }
 
     override fun onLoadPackage(param: LoadParam) {

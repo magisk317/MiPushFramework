@@ -23,6 +23,12 @@ internal object KeepAliveEnvironment {
     private const val TWO_GIBIBYTES = 2L * 1024L * 1024L * 1024L
     private const val MIUI_BOOSTER_JAR = "/system/framework/MiuiBooster.jar"
     private const val DEVICE_LEVEL_CLASS = "com.miui.performance.DeviceLevelUtils"
+    private val deviceLevelUtilsClass = lazy(LazyThreadSafetyMode.PUBLICATION) {
+        runCatching { Class.forName(DEVICE_LEVEL_CLASS) }.getOrElse {
+            PathClassLoader(MIUI_BOOSTER_JAR, ClassLoader.getSystemClassLoader())
+                .loadClass(DEVICE_LEVEL_CLASS)
+        }
+    }
 
     enum class BlockReason {
         DEVICE_MEMORY_CLASS,
@@ -192,10 +198,7 @@ internal object KeepAliveEnvironment {
     }
 
     private fun loadDeviceLevelUtils(): Class<*> {
-        return runCatching { Class.forName(DEVICE_LEVEL_CLASS) }.getOrElse {
-            PathClassLoader(MIUI_BOOSTER_JAR, ClassLoader.getSystemClassLoader())
-                .loadClass(DEVICE_LEVEL_CLASS)
-        }
+        return deviceLevelUtilsClass.value
     }
 
     @Suppress("DEPRECATION")

@@ -28,6 +28,7 @@ import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.xposed.logging.LogSanitizerConfig
 import io.github.magisk317.xposed.currentApplication
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
 
@@ -56,9 +57,15 @@ object IslandPreferences {
     private val packageOptions = ConcurrentHashMap<String, IslandOptions>()
     private val packageRefreshes = ConcurrentHashMap.newKeySet<String>()
     private val refreshGeneration = AtomicLong()
-    private val refreshExecutor = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, "MiPushIslandPrefs").apply { isDaemon = true }
-    }
+    private val loopGeneration = AtomicLong()
+    private val refreshLock = Any()
+
+    @Volatile
+    private var refreshExecutor: ExecutorService? = null
+    private var preferenceReceiverThread: Thread? = null
+    private var preferencePollThread: Thread? = null
+    private var preferenceReceiverContext: Context? = null
+    private var preferenceReceiver: BroadcastReceiver? = null
 
     fun current(): IslandOptions = options
 
@@ -67,13 +74,22 @@ object IslandPreferences {
         val cached = packageOptions[pkg]
         if (cached == null && packageRefreshes.add(pkg)) {
             val generation = refreshGeneration.get()
-            refreshExecutor.execute {
-                readOptions(pkg).onSuccess {
-                    if (refreshGeneration.get() == generation) {
-                        packageOptions[pkg] = it
-                    }
-                }
+            val executor = refreshExecutor
+            if (executor == null || executor.isShutdown) {
                 packageRefreshes.remove(pkg)
+            } else {
+                runCatching {
+                    executor.execute {
+                        readOptions(pkg).onSuccess {
+                            if (refreshGeneration.get() == generation) {
+                                packageOptions[pkg] = it
+                            }
+                        }
+                        packageRefreshes.remove(pkg)
+                    }
+                }.onFailure {
+                    packageRefreshes.remove(pkg)
+                }
             }
         }
         // A package-specific opt-out must not inherit a globally enabled focus mode
@@ -83,12 +99,16 @@ object IslandPreferences {
 
     fun refreshNow() {
         val refresh = prepareRefresh()
-        refreshExecutor.execute {
-            refreshBlocking(refresh.generation)
-            refresh.packageNames.forEach { packageName ->
-                readOptions(packageName).onSuccess {
-                    if (refreshGeneration.get() == refresh.generation) {
-                        packageOptions[packageName] = it
+        val executor = refreshExecutor ?: return
+        if (executor.isShutdown) return
+        runCatching {
+            executor.execute {
+                refreshBlocking(refresh.generation)
+                refresh.packageNames.forEach { packageName ->
+                    readOptions(packageName).onSuccess {
+                        if (refreshGeneration.get() == refresh.generation) {
+                            packageOptions[packageName] = it
+                        }
                     }
                 }
             }
@@ -125,61 +145,32 @@ object IslandPreferences {
 
     fun startRefreshLoop() {
         if (refreshLoopStarted) return
-        synchronized(IslandPreferences::class.java) {
+        synchronized(refreshLock) {
             if (refreshLoopStarted) return
+            refreshExecutor = Executors.newSingleThreadExecutor { runnable ->
+                Thread(runnable, "MiPushIslandPrefs").apply { isDaemon = true }
+            }
             refreshLoopStarted = true
+            val generation = loopGeneration.incrementAndGet()
             refreshNow()
             // Listen for immediate preference change broadcasts
             // Delay registration until Application is available
-            Thread({
-                var registered = false
-                while (!registered) {
-                    runCatching {
-                        val app = currentApplication() ?: return@runCatching
-                        val receiver = object : BroadcastReceiver() {
-                            override fun onReceive(context: Context?, intent: Intent?) {
-                                refreshNow()
-                            }
-                        }
-                        val filter = IntentFilter(ACTION_PREF_CHANGED)
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            app.registerReceiver(
-                                receiver,
-                                filter,
-                                ISLAND_PREF_READ_PERMISSION,
-                                null,
-                                Context.RECEIVER_EXPORTED,
-                            )
-                        } else {
-                            @Suppress("DEPRECATION")
-                            app.registerReceiver(receiver, filter, ISLAND_PREF_READ_PERMISSION, null)
-                        }
-                        registered = true
-                        // The initial refresh can run before ActivityThread exposes Application,
-                        // which otherwise leaves SystemUI on defaults until the 60-second poll.
-                        // Application is known-good here, so immediately retry the provider read.
-                        refreshNow()
-                    }
-                    if (!registered) {
-                        try {
-                            Thread.sleep(1000)
-                        } catch (_: InterruptedException) {
-                            return@Thread
-                        }
-                    }
-                }
+            preferenceReceiverThread = Thread({
+                registerPreferenceReceiverWhenReady(generation)
             }, "MiPushPrefReceiver").apply {
                 isDaemon = true
                 start()
             }
-            Thread({
-                while (true) {
+            preferencePollThread = Thread({
+                while (isRefreshActive(generation)) {
                     try {
                         Thread.sleep(PREF_REFRESH_INTERVAL_MS)
                     } catch (_: InterruptedException) {
                         return@Thread
                     }
-                    refreshNow()
+                    if (isRefreshActive(generation)) {
+                        refreshNow()
+                    }
                 }
             }, "MiPushIslandPrefs").apply {
                 isDaemon = true
@@ -188,13 +179,98 @@ object IslandPreferences {
         }
     }
 
+    /** Stop resources owned by the current module ClassLoader before libxposed hot reload. */
+    fun stopRefreshLoop() {
+        val receiverContext: Context?
+        val receiver: BroadcastReceiver?
+        val receiverThread: Thread?
+        val pollThread: Thread?
+        val executor: ExecutorService?
+        synchronized(refreshLock) {
+            refreshGeneration.incrementAndGet()
+            loopGeneration.incrementAndGet()
+            refreshLoopStarted = false
+            receiverContext = preferenceReceiverContext
+            receiver = preferenceReceiver
+            receiverThread = preferenceReceiverThread
+            pollThread = preferencePollThread
+            executor = refreshExecutor
+            preferenceReceiverContext = null
+            preferenceReceiver = null
+            preferenceReceiverThread = null
+            preferencePollThread = null
+            refreshExecutor = null
+            packageRefreshes.clear()
+        }
+        receiverThread?.interrupt()
+        pollThread?.interrupt()
+        executor?.shutdownNow()
+        if (receiverContext != null && receiver != null) {
+            runCatching { receiverContext.unregisterReceiver(receiver) }
+        }
+    }
+
+    private fun registerPreferenceReceiverWhenReady(generation: Long) {
+        while (isRefreshActive(generation)) {
+            val app = currentApplication()
+            if (app != null) {
+                val receiver = object : BroadcastReceiver() {
+                    override fun onReceive(context: Context?, intent: Intent?) {
+                        refreshNow()
+                    }
+                }
+                val registered = runCatching {
+                    val filter = IntentFilter(ACTION_PREF_CHANGED)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        app.registerReceiver(
+                            receiver,
+                            filter,
+                            ISLAND_PREF_READ_PERMISSION,
+                            null,
+                            Context.RECEIVER_EXPORTED,
+                        )
+                    } else {
+                        @Suppress("DEPRECATION")
+                        app.registerReceiver(receiver, filter, ISLAND_PREF_READ_PERMISSION, null)
+                    }
+                }.isSuccess
+                if (registered) {
+                    val keepRegistration = synchronized(refreshLock) {
+                        if (isRefreshActive(generation)) {
+                            preferenceReceiverContext = app
+                            preferenceReceiver = receiver
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    if (keepRegistration) {
+                        // The initial refresh can run before ActivityThread exposes Application,
+                        // which otherwise leaves SystemUI on defaults until the 60-second poll.
+                        refreshNow()
+                        return
+                    }
+                    runCatching { app.unregisterReceiver(receiver) }
+                    return
+                }
+            }
+            try {
+                Thread.sleep(1000)
+            } catch (_: InterruptedException) {
+                return
+            }
+        }
+    }
+
+    private fun isRefreshActive(generation: Long): Boolean =
+        refreshLoopStarted && loopGeneration.get() == generation
+
 
     internal fun resetForTest(options: IslandOptions = IslandOptions()) {
+        stopRefreshLoop()
         this.options = options
         packageOptions.clear()
         packageRefreshes.clear()
-        refreshGeneration.incrementAndGet()
-        refreshLoopStarted = false
     }
 
     internal fun cachePackageOptionsForTest(packageName: String, options: IslandOptions) {

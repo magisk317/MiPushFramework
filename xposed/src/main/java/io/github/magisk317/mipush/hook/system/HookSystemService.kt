@@ -219,6 +219,12 @@ class HookSystemService : BaseHook() {
         }
     }
 
+    override fun onHotReloading() {
+        // system_server owns the XSpace package-sync receiver and its executor. Release them
+        // while the old module ClassLoader is still reachable so hot reload can collect its DEX.
+        XSpacePackageSyncHook.stop()
+    }
+
     override fun onLoadPackage(param: LoadParam) {
         if (param.packageName != ANDROID_PACKAGE_NAME) return
         if (param.processName != ANDROID_PACKAGE_NAME) return // only run in system_server

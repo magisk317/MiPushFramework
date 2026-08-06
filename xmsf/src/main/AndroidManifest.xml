@@ -49,6 +49,7 @@
     <uses-permission android:name="com.xiaomi.xmsf.permission.MIPUSH_RECEIVE" />
     <uses-permission android:name="com.xiaomi.xmsf.permission.NOTIFICATION_ACTIVE" />
     <uses-permission android:name="com.xiaomi.xmsf.permission.USE_XMSF_UPLOAD" />
+    <uses-permission android:name="com.xiaomi.xmsf.permission.READ_KEEPALIVE_PREFS" />
     <uses-permission android:name="com.xiaomi.xmsf.permission.READ_ISLAND_PREFS" />
     <uses-permission android:name="com.xiaomi.xmsf.permission.INTELLIGENT_HB" />
     <uses-permission android:name="com.xiaomi.permission.SEND_PUSH" />

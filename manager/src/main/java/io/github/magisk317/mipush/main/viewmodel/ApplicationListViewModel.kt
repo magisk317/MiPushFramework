@@ -17,7 +17,6 @@ import io.github.magisk317.mipush.manager.application.RemoteApplicationListSourc
 import io.github.magisk317.mipush.manager.application.ApplicationReadStatus
 import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
-import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
 import io.github.magisk317.mipush.common.utils.logW
 import java.util.Date
 import kotlinx.coroutines.CancellationException
@@ -63,18 +62,20 @@ class ApplicationListViewModel constructor(
     private var listLoaded: Boolean = false
     init {
         viewModelScope.launch {
-            var sawUnavailable = false
-            runtimeClient.availability.collect { availability ->
-                if (availability is ManagerRuntimeAvailability.Available) {
-                    if (sawUnavailable || !listLoaded) {
-                        sawUnavailable = false
-                        loadApplications(query = lastQuery, filterMode = lastFilterMode)
-                    }
-                } else {
-                    sawUnavailable = true
-                }
+            collectAvailableRuntimeReloads(
+                availability = runtimeClient.availability,
+                shouldReloadWhenAvailable = { !listLoaded },
+            ) {
+                reloadApplications(query = lastQuery, filterMode = lastFilterMode)
             }
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        // Clear state when ViewModel is destroyed to prevent memory leaks
+        _items.value = ApplicationPageOperation.MiPushApplications()
+        _itemsInfo.value = emptyMap()
     }
 
     /** True when [items] matches the given query/filter and was loaded this process. */
@@ -105,28 +106,7 @@ class ApplicationListViewModel constructor(
         lastQuery = query
         lastFilterMode = filterMode
         viewModelScope.launch {
-            try {
-                val outcome = withContext(Dispatchers.IO) {
-                    applicationPageOperation.getMiPushApplicationsThatQueryMatched(
-                        query = query,
-                        filterMode = filterMode,
-                        includeSystemApps = includeSystemApps,
-                    )
-                }
-                applyLoadOutcome(outcome)
-                onRefreshed?.invoke()
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: RuntimeReadUnavailableException) {
-                // Transport failure must not stick as a successful empty list cache.
-                listLoaded = false
-                logW("loadApplications unavailable op=${error.operation} status=${error.status}")
-                onRefreshed?.invoke()
-            } catch (error: Exception) {
-                listLoaded = false
-                logW("loadApplications failed: ${error.message}")
-                onRefreshed?.invoke()
-            }
+            reloadApplications(query, filterMode, includeSystemApps, onRefreshed)
         }
     }
 
@@ -136,24 +116,37 @@ class ApplicationListViewModel constructor(
         includeSystemApps: Boolean = showSystemApps.value,
     ) {
         viewModelScope.launch {
-            try {
-                val outcome = withContext(Dispatchers.IO) {
-                    applicationPageOperation.getMiPushApplicationsThatQueryMatched(
-                        query = query,
-                        filterMode = filterMode,
-                        includeSystemApps = includeSystemApps,
-                    )
-                }
-                applyLoadOutcome(outcome)
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: RuntimeReadUnavailableException) {
-                listLoaded = false
-                logW("refreshApplications unavailable op=${error.operation} status=${error.status}")
-            } catch (error: Exception) {
-                listLoaded = false
-                logW("refreshApplications failed: ${error.message}")
+            reloadApplications(query, filterMode, includeSystemApps)
+        }
+    }
+
+    private suspend fun reloadApplications(
+        query: String,
+        filterMode: Int,
+        includeSystemApps: Boolean = showSystemApps.value,
+        onRefreshed: (() -> Unit)? = null,
+    ) {
+        try {
+            val outcome = withContext(Dispatchers.IO) {
+                applicationPageOperation.getMiPushApplicationsThatQueryMatched(
+                    query = query,
+                    filterMode = filterMode,
+                    includeSystemApps = includeSystemApps,
+                )
             }
+            applyLoadOutcome(outcome)
+            onRefreshed?.invoke()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: RuntimeReadUnavailableException) {
+            // Transport failure must not stick as a successful empty list cache.
+            listLoaded = false
+            logW("loadApplications unavailable op=${error.operation} status=${error.status}")
+            onRefreshed?.invoke()
+        } catch (error: Exception) {
+            listLoaded = false
+            logW("loadApplications failed: ${error.message}")
+            onRefreshed?.invoke()
         }
     }
 

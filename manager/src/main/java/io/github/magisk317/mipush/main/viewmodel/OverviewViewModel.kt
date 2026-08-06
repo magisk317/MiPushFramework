@@ -9,9 +9,9 @@ import io.github.magisk317.mipush.feature.main.subpage.ApplicationStats
 import io.github.magisk317.mipush.feature.main.subpage.toApplicationStats
 import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
 import io.github.magisk317.mipush.data.PreferenceRepository
-import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,42 +34,49 @@ class OverviewViewModel constructor(
 
     init {
         viewModelScope.launch {
-            var sawUnavailable = false
-            runtimeClient.availability.collect { availability ->
-                if (availability is ManagerRuntimeAvailability.Available) {
-                    if (sawUnavailable || !statsLoaded) {
-                        sawUnavailable = false
-                        loadStats()
-                    }
-                } else {
-                    sawUnavailable = true
-                }
+            collectAvailableRuntimeReloads(
+                availability = runtimeClient.availability,
+                shouldReloadWhenAvailable = { !statsLoaded },
+            ) {
+                reloadStats()
             }
         }
     }
 
+    override fun onCleared() {
+        super.onCleared()
+        // Clear state when ViewModel is destroyed
+        _stats.value = ApplicationStats()
+    }
+
     fun loadStats() {
         viewModelScope.launch {
-            try {
-                val showSystem = withContext(Dispatchers.IO) { preferenceRepository.showSystemApps.first() }
-                val result = withContext(Dispatchers.IO) {
-                    loadOverviewApplications(applicationPageOperation, showSystem)
-                }
-                when (result) {
-                    is ApplicationListLoadOutcome.Ready -> {
-                        _stats.value = result.applications.toApplicationStats()
-                        statsLoaded = true
-                    }
-                    is ApplicationListLoadOutcome.Unavailable -> {
-                        statsLoaded = false
-                        logW("loadStats unavailable status=${result.status}")
-                    }
-                }
-            } catch (error: RuntimeReadUnavailableException) {
-                logW("loadStats unavailable op=${error.operation} status=${error.status}")
-            } catch (error: Exception) {
-                logW("loadStats failed: ${error.message}")
+            reloadStats()
+        }
+    }
+
+    private suspend fun reloadStats() {
+        try {
+            val showSystem = withContext(Dispatchers.IO) { preferenceRepository.showSystemApps.first() }
+            val result = withContext(Dispatchers.IO) {
+                loadOverviewApplications(applicationPageOperation, showSystem)
             }
+            when (result) {
+                is ApplicationListLoadOutcome.Ready -> {
+                    _stats.value = result.applications.toApplicationStats()
+                    statsLoaded = true
+                }
+                is ApplicationListLoadOutcome.Unavailable -> {
+                    statsLoaded = false
+                    logW("loadStats unavailable status=${result.status}")
+                }
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: RuntimeReadUnavailableException) {
+            logW("loadStats unavailable op=${error.operation} status=${error.status}")
+        } catch (error: Exception) {
+            logW("loadStats failed: ${error.message}")
         }
     }
 }

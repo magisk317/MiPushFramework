@@ -19,7 +19,6 @@ import io.github.magisk317.mipush.common.KEEPALIVE_PREF_READ_PERMISSION
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.dataStore
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
 class KeepAlivePreferenceProvider : ContentProvider() {
@@ -50,14 +49,13 @@ class KeepAlivePreferenceProvider : ContentProvider() {
         val requestedKeys = selectionArgs?.filter { it in keys }?.takeIf { it.isNotEmpty() } ?: keys
 
         return MatrixCursor(arrayOf(KEEPALIVE_PREF_COLUMN_KEY, KEEPALIVE_PREF_COLUMN_ENABLED)).apply {
-            val flags = runBlocking {
-                mapOf(
-                    KEEPALIVE_PREF_OOM_ADJ to repository.keepAliveOomAdj.first(),
-                    KEEPALIVE_PREF_ANTI_KILL to repository.keepAliveAntiKill.first(),
-                    KEEPALIVE_PREF_STANDBY_BYPASS to repository.keepAliveStandbyBypass.first(),
-                    KEEPALIVE_PREF_DOZE_BYPASS to repository.keepAliveDozeBypass.first(),
-                )
-            }
+            val snapshot = runBlocking { repository.keepAliveSettingsSnapshot() }
+            val flags = mapOf(
+                KEEPALIVE_PREF_OOM_ADJ to snapshot.oomAdj,
+                KEEPALIVE_PREF_ANTI_KILL to snapshot.antiKill,
+                KEEPALIVE_PREF_STANDBY_BYPASS to snapshot.standbyBypass,
+                KEEPALIVE_PREF_DOZE_BYPASS to snapshot.dozeBypass,
+            )
             requestedKeys.forEach { key ->
                 addRow(arrayOf<Any>(key, if (flags[key] == true) 1 else 0))
             }

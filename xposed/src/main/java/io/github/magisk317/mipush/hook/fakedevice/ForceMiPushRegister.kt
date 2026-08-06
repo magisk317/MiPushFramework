@@ -31,6 +31,25 @@ object ForceMiPushRegister {
     private val retryCounts: MutableMap<String, Int> = Collections.synchronizedMap(HashMap())
     private val regIdRetryCounts: MutableMap<String, Int> = Collections.synchronizedMap(HashMap())
     private val cloudPushRetryElapsedMs: MutableMap<String, Long> = Collections.synchronizedMap(HashMap())
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val scheduledTasks: MutableSet<Runnable> = Collections.synchronizedSet(HashSet())
+
+    @Volatile
+    private var lifecycleGeneration = 0L
+
+    /** Release delayed callbacks and per-loader state before libxposed swaps the module loader. */
+    fun resetForHotReload() {
+        lifecycleGeneration += 1
+        synchronized(scheduledTasks) {
+            scheduledTasks.forEach(mainHandler::removeCallbacks)
+            scheduledTasks.clear()
+        }
+        triedPackages.clear()
+        tracedPackages.clear()
+        retryCounts.clear()
+        regIdRetryCounts.clear()
+        cloudPushRetryElapsedMs.clear()
+    }
 
     fun hook(lpparam: LoadParam, profile: ModuleCompatProfile) {
         val packageName = lpparam.packageName
@@ -475,16 +494,17 @@ object ForceMiPushRegister {
             return
         }
         retryCounts[processKey] = next
-        Handler(Looper.getMainLooper()).postDelayed({
+        val generation = lifecycleGeneration
+        postTracked(RETRY_DELAY_MS, generation) {
             if (!triedPackages.contains(processKey)) {
                 hookFromRuntime(
                     packageName = packageName,
                     processName = processName,
-                    classLoader = app.classLoader ?: return@postDelayed,
+                    classLoader = app.classLoader ?: return@postTracked,
                     application = app
                 )
             }
-        }, RETRY_DELAY_MS)
+        }
         XLog.d(TAG, "scheduled retry#$next for $packageName in process=$processName")
     }
 
@@ -504,9 +524,10 @@ object ForceMiPushRegister {
         }
         val delay = REGID_RETRY_DELAYS_MS[nextIndex]
         regIdRetryCounts[processKey] = nextIndex + 1
-        Handler(Looper.getMainLooper()).postDelayed({
+        val generation = lifecycleGeneration
+        postTracked(delay, generation) {
             if (triedPackages.contains(processKey)) {
-                return@postDelayed
+                return@postTracked
             }
             val regId = readRegId(classMiPushClient, appContext)
             if (regId.isNotBlank()) {
@@ -518,8 +539,21 @@ object ForceMiPushRegister {
             } else {
                 scheduleRegIdCheck(app, packageName, processName, classMiPushClient, appContext)
             }
-        }, delay)
+        }
         XLog.d(TAG, "scheduled regId check#${nextIndex + 1} for $packageName in process=$processName after ${delay}ms")
+    }
+
+    private fun postTracked(delayMs: Long, generation: Long, action: () -> Unit) {
+        lateinit var task: Runnable
+        task = Runnable {
+            scheduledTasks.remove(task)
+            if (generation != lifecycleGeneration) return@Runnable
+            action()
+        }
+        scheduledTasks.add(task)
+        if (!mainHandler.postDelayed(task, delayMs)) {
+            scheduledTasks.remove(task)
+        }
     }
 
     private fun readRegId(classMiPushClient: Class<*>, appContext: Context): String {

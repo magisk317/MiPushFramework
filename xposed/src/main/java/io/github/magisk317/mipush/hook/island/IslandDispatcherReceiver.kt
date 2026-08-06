@@ -78,7 +78,11 @@ internal object IslandDispatcherReceiver {
         }
     }
 
+    @Volatile
+    private var registeredContext: Context? = null
+
     fun register(context: Context) {
+        if (registeredContext != null) return
         val filter = IntentFilter(IslandDispatchContract.ACTION_SHOW).apply {
             addAction(IslandDispatchContract.ACTION_CANCEL)
         }
@@ -94,6 +98,14 @@ internal object IslandDispatcherReceiver {
             @Suppress("DEPRECATION")
             context.registerReceiver(receiver, filter, REQUIRED_SENDER_PERMISSION, null)
         }
+        registeredContext = context
+    }
+
+    /** Drop the receiver registered by the old module ClassLoader before hot reload. */
+    fun unregister() {
+        val context = registeredContext ?: return
+        registeredContext = null
+        runCatching { context.unregisterReceiver(receiver) }
     }
 
     internal const val REQUIRED_SENDER_PERMISSION = ISLAND_PREF_READ_PERMISSION

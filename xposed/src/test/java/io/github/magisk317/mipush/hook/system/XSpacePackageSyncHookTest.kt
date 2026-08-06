@@ -27,4 +27,36 @@ class XSpacePackageSyncHookTest {
         assertEquals(true, XSpacePackageSyncHook.installXmsfAction().expectedInstalled)
         assertEquals(false, XSpacePackageSyncHook.uninstallXmsfAction().expectedInstalled)
     }
+
+    @Test
+    fun `rejects registration from a stopped generation`() {
+        assertEquals(
+            false,
+            XSpacePackageSyncHook.acceptsRegistration(
+                expectedGeneration = 7L,
+                currentGeneration = 8L,
+                installed = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `accepts registration only for the current installed generation`() {
+        assertEquals(
+            true,
+            XSpacePackageSyncHook.acceptsRegistration(
+                expectedGeneration = 7L,
+                currentGeneration = 7L,
+                installed = true,
+            ),
+        )
+        assertEquals(
+            false,
+            XSpacePackageSyncHook.acceptsRegistration(
+                expectedGeneration = 7L,
+                currentGeneration = 7L,
+                installed = false,
+            ),
+        )
+    }
 }

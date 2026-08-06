@@ -38,6 +38,7 @@ import io.github.magisk317.xposed.hook
 import io.github.magisk317.xposed.hookAllMethods
 import io.github.magisk317.xposed.hookMethod
 import io.github.libxposed.api.XposedModule
+import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.magisk317.xposed.logging.MagiskOtel
 
@@ -60,9 +61,14 @@ class LibXposedEntry : BaseLibXposedEntry {
 
     override val logTag: String = TAG
 
+    override val hookIdPrefix: String = "mipush"
+
     override fun installModuleRuntime(module: XposedModule, hookApi: LibXposedHookApi) {
-        XposedRuntime.install(module, "mipush")
+        XposedRuntime.install(module, hookApi)
         XLog.configure()
+        // These hooks are outside the BaseHook dispatch list. Install them for every runtime
+        // generation so hot reload can replace their old handles instead of leaving them stale.
+        installTaxAttachFallbackHook()
         // Pull sensitive-debug pref into LogSanitizerConfig for hook processes.
         IslandPreferences.startRefreshLoop()
         MagiskOtel.event(
@@ -79,9 +85,23 @@ class LibXposedEntry : BaseLibXposedEntry {
         )
     }
 
+    override fun onHotReloading(param: HotReloadingParam): Boolean {
+        // IslandPreferences is also started from installModuleRuntime, outside the BaseHook list.
+        // Stop its threads, executor and registered receiver while this old module ClassLoader is
+        // still reachable; otherwise autoHotReload retains every loaded module DEX generation.
+        IslandPreferences.stopRefreshLoop()
+        ForceMiPushRegister.resetForHotReload()
+        synchronized(LibXposedEntry::class.java) {
+            // These fallback hooks are installed outside the BaseHook list. Allow the next
+            // runtime generation to install them again, even if the framework reuses this loader.
+            taxAttachFallbackInstalled = false
+            taxBindFallbackInstalled = false
+        }
+        return super.onHotReloading(param)
+    }
+
     override fun onModuleLoaded(param: ModuleLoadedParam) {
         super.onModuleLoaded(param)
-        installTaxAttachFallbackHook()
         MagiskOtel.event(
             name = "hook.load",
             attributes = mapOf(

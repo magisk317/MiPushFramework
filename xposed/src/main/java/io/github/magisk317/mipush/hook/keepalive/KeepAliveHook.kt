@@ -1,8 +1,12 @@
 package io.github.magisk317.mipush.hook.keepalive
-import io.github.magisk317.xposed.BaseHook
-import io.github.magisk317.xposed.LoadParam
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
+import android.os.Build
+import io.github.magisk317.mipush.common.ACTION_PREF_CHANGED
 import io.github.magisk317.mipush.common.ANDROID_PACKAGE_NAME
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_AUTHORITY
@@ -11,27 +15,26 @@ import io.github.magisk317.mipush.common.KEEPALIVE_PREF_COLUMN_KEY
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_PATH_FLAGS
+import io.github.magisk317.mipush.common.KEEPALIVE_PREF_READ_PERMISSION
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_STANDBY_BYPASS
-import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.hook.XLog
-import io.github.magisk317.xposed.MethodHookParam
+import io.github.magisk317.xposed.BaseHook
+import io.github.magisk317.xposed.HookCallback
+import io.github.magisk317.xposed.LoadParam
 import io.github.magisk317.xposed.currentApplication
 import io.github.magisk317.xposed.findHookClass
-import io.github.magisk317.xposed.getHookIntField
-import io.github.magisk317.xposed.getHookObjectField
-import io.github.magisk317.xposed.hookAllMethods
-import io.github.magisk317.xposed.setHookIntField
-import java.lang.reflect.Method
-import io.github.magisk317.xposed.logging.MagiskOtel
+import io.github.magisk317.xposed.hook
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicLong
 
 class KeepAliveHook : BaseHook() {
     companion object {
         private const val TAG = "KeepAliveHook"
-        private const val FOREGROUND_APP_ADJ = 0
-        private const val STANDBY_BUCKET_ACTIVE = 10
         private const val PREF_REFRESH_INTERVAL_MS = 60_000L
+        private const val LOG_INTERVAL_MS = 60_000L
         private val PREF_URI = Uri.parse("content://$KEEPALIVE_PREF_AUTHORITY/$KEEPALIVE_PREF_PATH_FLAGS")
-        private val STANDBY_RESTRICTED_BUCKETS = setOf(20, 30, 40, 45, 50)
         private val PREF_KEYS = arrayOf(
             KEEPALIVE_PREF_OOM_ADJ,
             KEEPALIVE_PREF_ANTI_KILL,
@@ -42,313 +45,317 @@ class KeepAliveHook : BaseHook() {
         @Volatile
         private var flags = KeepAliveFlags()
 
-        @Volatile
-        private var refreshLoopStarted = false
-
-        @Volatile
-        private var refreshDisabledDueToPermission = false
+        private val lastLogAt = ConcurrentHashMap<String, Long>()
     }
 
+    private val platform = KeepAlivePlatformAdapter()
+    private val refreshLock = Any()
+    private val refreshGeneration = AtomicLong()
+
+    @Volatile
+    private var refreshLoopStarted = false
+    private var refreshExecutor: ExecutorService? = null
+    private var refreshPollThread: Thread? = null
+    private var refreshReceiverThread: Thread? = null
+    private var preferenceReceiverContext: Context? = null
+    private var preferenceReceiver: BroadcastReceiver? = null
+
     override fun onLoadPackage(param: LoadParam) {
-        if (param.packageName != ANDROID_PACKAGE_NAME) return
-        if (param.processName != ANDROID_PACKAGE_NAME) return // only run in system_server
-        val classLoader = param.classLoader
+        if (param.packageName != ANDROID_PACKAGE_NAME || param.processName != ANDROID_PACKAGE_NAME) return
+
         XLog.i(TAG, "loading in system_server")
-        refreshFlags()
         startPreferenceRefreshLoop()
-        hookOomAdjuster(classLoader)
-        hookKillProcess(classLoader)
-        hookAppStandbyController(classLoader)
-        hookDeviceIdleController(classLoader)
-        MagiskOtel.event(
-            name = "push.keepalive",
-            attributes = mapOf(
-                "result" to "ok",
-                "duration_ms" to "0",
-                "process" to "system_server",
-                "stage" to "hook_install",
-                "reason" to "installed",
-            ),
-            statusOk = true,
+        hookOomAdjuster(param.classLoader)
+        hookKillProcess(param.classLoader)
+        hookAppStandbyController(param.classLoader)
+        XLog.i(
+            TAG,
+            "doze bypass requires the real DeviceIdle whitelist; no DeviceIdle query result is overridden",
         )
     }
 
     private fun startPreferenceRefreshLoop() {
         if (refreshLoopStarted) return
-        synchronized(KeepAliveHook::class.java) {
+        synchronized(refreshLock) {
             if (refreshLoopStarted) return
+            refreshExecutor = Executors.newSingleThreadExecutor { runnable ->
+                Thread(runnable, "MiPushKeepAlivePrefs").apply { isDaemon = true }
+            }
             refreshLoopStarted = true
-            Thread({
-                while (true) {
-                    refreshFlags()
+            val generation = refreshGeneration.incrementAndGet()
+            refreshFlagsAsync()
+            refreshReceiverThread = Thread({
+                registerPreferenceReceiverWhenReady(generation)
+            }, "MiPushKeepAlivePrefReceiver").apply {
+                isDaemon = true
+                start()
+            }
+            refreshPollThread = Thread({
+                while (isRefreshActive(generation)) {
                     try {
                         Thread.sleep(PREF_REFRESH_INTERVAL_MS)
                     } catch (_: InterruptedException) {
                         return@Thread
                     }
+                    if (isRefreshActive(generation)) {
+                        refreshFlagsAsync()
+                    }
                 }
-            }, "MiPushKeepAlivePrefs").apply {
+            }, "MiPushKeepAlivePrefPoll").apply {
                 isDaemon = true
                 start()
             }
         }
     }
 
+    private fun registerPreferenceReceiverWhenReady(generation: Long) {
+        while (isRefreshActive(generation)) {
+            val app = currentApplication()
+            if (app != null) {
+                val receiver = object : BroadcastReceiver() {
+                    override fun onReceive(context: Context?, intent: Intent?) {
+                        refreshFlagsAsync()
+                    }
+                }
+                val registered = runCatching {
+                    val filter = IntentFilter(ACTION_PREF_CHANGED).apply {
+                        addAction(Intent.ACTION_USER_UNLOCKED)
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        app.registerReceiver(
+                            receiver,
+                            filter,
+                            KEEPALIVE_PREF_READ_PERMISSION,
+                            null,
+                            Context.RECEIVER_EXPORTED,
+                        )
+                    } else {
+                        @Suppress("DEPRECATION")
+                        app.registerReceiver(receiver, filter, KEEPALIVE_PREF_READ_PERMISSION, null)
+                    }
+                }.onFailure {
+                    logRateLimited("pref_receiver", "failed to register keepalive preference receiver: ${it.message}")
+                }.isSuccess
+                if (registered) {
+                    val keepRegistration = synchronized(refreshLock) {
+                        if (isRefreshActive(generation)) {
+                            preferenceReceiverContext = app
+                            preferenceReceiver = receiver
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    if (keepRegistration) {
+                        refreshFlagsAsync()
+                        return
+                    }
+                    runCatching { app.unregisterReceiver(receiver) }
+                    return
+                }
+            }
+            try {
+                Thread.sleep(1_000L)
+            } catch (_: InterruptedException) {
+                return
+            }
+        }
+    }
+
+    private fun refreshFlagsAsync() {
+        val executor = refreshExecutor ?: return
+        if (executor.isShutdown) return
+        runCatching { executor.execute(::refreshFlags) }
+    }
+
+    override fun onHotReloading() {
+        stopPreferenceRefreshLoop()
+    }
+
+    private fun stopPreferenceRefreshLoop() {
+        val receiverContext: Context?
+        val receiver: BroadcastReceiver?
+        val receiverThread: Thread?
+        val pollThread: Thread?
+        val executor: ExecutorService?
+        synchronized(refreshLock) {
+            refreshGeneration.incrementAndGet()
+            refreshLoopStarted = false
+            receiverContext = preferenceReceiverContext
+            receiver = preferenceReceiver
+            receiverThread = refreshReceiverThread
+            pollThread = refreshPollThread
+            executor = refreshExecutor
+            preferenceReceiverContext = null
+            preferenceReceiver = null
+            refreshReceiverThread = null
+            refreshPollThread = null
+            refreshExecutor = null
+        }
+        receiverThread?.interrupt()
+        pollThread?.interrupt()
+        executor?.shutdownNow()
+        if (receiverContext != null && receiver != null) {
+            runCatching { receiverContext.unregisterReceiver(receiver) }
+        }
+    }
+
+    private fun isRefreshActive(generation: Long): Boolean =
+        refreshLoopStarted && refreshGeneration.get() == generation
+
     private fun refreshFlags() {
-        if (refreshDisabledDueToPermission) return
+        val app = currentApplication() ?: return
         runCatching {
-            val app = currentApplication() ?: return
             val values = app.contentResolver.query(PREF_URI, null, null, PREF_KEYS, null)?.use { cursor ->
                 val keyIndex = cursor.getColumnIndex(KEEPALIVE_PREF_COLUMN_KEY)
                 val enabledIndex = cursor.getColumnIndex(KEEPALIVE_PREF_COLUMN_ENABLED)
-                if (keyIndex < 0 || enabledIndex < 0) {
-                    emptyMap()
-                } else {
-                    buildMap<String, Boolean> {
-                        while (cursor.moveToNext()) {
-                            put(cursor.getString(keyIndex), cursor.getInt(enabledIndex) != 0)
-                        }
+                check(keyIndex >= 0 && enabledIndex >= 0) { "keepalive preference columns missing" }
+                buildMap<String, Boolean> {
+                    while (cursor.moveToNext()) {
+                        put(cursor.getString(keyIndex), cursor.getInt(enabledIndex) != 0)
                     }
                 }
-            }.orEmpty()
-
-            flags = KeepAliveFlags(
-                oomAdj = values[KEEPALIVE_PREF_OOM_ADJ] == true,
-                antiKill = values[KEEPALIVE_PREF_ANTI_KILL] == true,
-                standbyBypass = values[KEEPALIVE_PREF_STANDBY_BYPASS] == true,
-                dozeBypass = values[KEEPALIVE_PREF_DOZE_BYPASS] == true,
+            } ?: error("keepalive preference provider returned no cursor")
+            check(PREF_KEYS.all(values::containsKey)) { "keepalive preference snapshot is incomplete" }
+            KeepAliveFlags(
+                ready = true,
+                oomAdj = values.getValue(KEEPALIVE_PREF_OOM_ADJ),
+                antiKill = values.getValue(KEEPALIVE_PREF_ANTI_KILL),
+                standbyBypass = values.getValue(KEEPALIVE_PREF_STANDBY_BYPASS),
+                dozeBypass = values.getValue(KEEPALIVE_PREF_DOZE_BYPASS),
             )
-        }.onFailure {
-            if (it is SecurityException) {
-                refreshDisabledDueToPermission = true
-                XLog.w(TAG, "keepalive prefs not accessible (permission denied), disabling refresh")
-            } else {
-                XLog.w(TAG, "failed to refresh keepalive prefs: ${it.message}")
+        }.onSuccess { updated ->
+            val previous = flags
+            flags = updated
+            if (previous != updated) {
+                XLog.i(
+                    TAG,
+                    "keepalive preferences ready=true oom=${updated.oomAdj} antiKill=${updated.antiKill} " +
+                        "standby=${updated.standbyBypass} doze=${updated.dozeBypass}",
+                )
             }
+        }.onFailure {
+            logRateLimited("pref_refresh", "failed to refresh keepalive prefs: ${it.message}")
         }
     }
 
     private fun hookOomAdjuster(classLoader: ClassLoader) {
-        try {
-            val oomAdjusterClass = findHookClass("com.android.server.am.OomAdjuster", classLoader)
-            var targetMethodName: String? = null
-            for (method in oomAdjusterClass.declaredMethods) {
-                if (method.name == "computeOomAdjLSP" || method.name == "computeOomAdjLocked") {
-                    targetMethodName = method.name
-                    break
-                }
-            }
-
-            if (targetMethodName == null) {
-                XLog.w(TAG, "no computeOomAdj method found")
-                return
-            }
-
-            val hooks = oomAdjusterClass.hookAllMethods(targetMethodName) {
-                doAfter {
-                    if (!flags.oomAdj) return@doAfter
-                    adjustOomAdjForTarget(this)
-                }
-            }
-            if (hooks.isEmpty()) {
-                XLog.w(TAG, "no OomAdjuster hooks installed for $targetMethodName")
-            } else {
-                XLog.w(TAG, "successfully hooked OomAdjuster method=$targetMethodName count=${hooks.size}")
-            }
-        } catch (t: Throwable) {
-            XLog.e(TAG, "failed to hook OomAdjuster", t)
-        }
-    }
-
-    private fun adjustOomAdjForTarget(param: MethodHookParam) {
-        for (arg in param.args) {
-            if (arg == null) continue
-            val processName = try {
-                getHookObjectField(arg, "processName") as? String
-            } catch (_: Throwable) { null } ?: continue
-
-            if (processName != XMSF_PACKAGE_NAME) continue
-
-            val adjFields = listOf("curAdj", "mCurAdj", "setAdj")
-            for (field in adjFields) {
-                try {
-                    val currentAdj = getHookIntField(arg, field)
-                    if (currentAdj > FOREGROUND_APP_ADJ) {
-                        setHookIntField(arg, field, FOREGROUND_APP_ADJ)
-                        XLog.d(TAG, "set adj=$FOREGROUND_APP_ADJ for $processName (field=$field, was=$currentAdj)")
+        runCatching {
+            val owner = findHookClass("com.android.server.am.OomAdjuster", classLoader)
+            val resolved = resolveTarget("oom_apply", owner, KeepAliveHookTargets.oomApply) ?: return
+            resolved.method.hook {
+                doBefore {
+                    val record = args.getOrNull(0) ?: return@doBefore
+                    if (platform.adjustOomAdj(record, flags)) {
+                        logRateLimited("oom_adjust", "updated ProcessStateRecord.mCurAdj for XMSF")
                     }
-                    return
-                } catch (_: Throwable) { }
+                }
             }
-            break
+        }.onFailure {
+            XLog.e(TAG, "failed to hook OomAdjuster", it)
         }
     }
 
     private fun hookKillProcess(classLoader: ClassLoader) {
-        try {
-            val amsClass = findHookClass("com.android.server.am.ActivityManagerService", classLoader)
-            val methodName = "killProcessLocked"
-            val hooks = amsClass.hookAllMethods(methodName) {
+        runCatching {
+            val owner = findHookClass("com.android.server.am.ProcessRecord", classLoader)
+            val resolved = resolveTarget("kill_guard", owner, KeepAliveHookTargets.killLocked) ?: return
+            val reasonIndex = requireNotNull(resolved.target.valueIndex)
+            val subReasonIndex = requireNotNull(resolved.target.secondaryValueIndex)
+            resolved.method.hook {
                 doBefore {
-                    if (!flags.antiKill) return@doBefore
-                    if (shouldSkipKill(this)) {
-                        result = defaultResultFor(method)
-                        XLog.w(TAG, "intercepted kill for $XMSF_PACKAGE_NAME in $methodName")
+                    val record = thisObject ?: return@doBefore
+                    val mappings = platform.activeRecordMappings(record)
+                    val reason = args.getOrNull(reasonIndex) as? Int
+                    val subReason = args.getOrNull(subReasonIndex) as? Int
+                    if (
+                        KeepAlivePolicy.shouldSuppressKill(
+                            flags = flags,
+                            processName = mappings.processName,
+                            reason = reason,
+                            subReason = subReason,
+                            currentNameMapping = mappings.nameCurrent,
+                            currentPidMapping = mappings.pidCurrent,
+                        )
+                    ) {
+                        result = null
+                        logRateLimited("kill_guard", "suppressed current XMSF automatic kill reason=$reason subReason=$subReason")
                     }
                 }
             }
-            if (hooks.isEmpty()) {
-                XLog.w(TAG, "no AMS kill hooks installed for $methodName")
-            } else {
-                XLog.w(TAG, "successfully hooked AMS kill method: $methodName count=${hooks.size}")
-            }
-        } catch (t: Throwable) {
-            XLog.e(TAG, "failed to hook AMS kill", t)
+        }.onFailure {
+            XLog.e(TAG, "failed to hook ProcessRecord.killLocked", it)
         }
-    }
-
-    private fun defaultResultFor(method: Any?): Any? {
-        val returnType = (method as? Method)?.returnType ?: return null
-        return when (returnType) {
-            java.lang.Boolean.TYPE -> false
-            java.lang.Byte.TYPE -> 0.toByte()
-            java.lang.Short.TYPE -> 0.toShort()
-            java.lang.Integer.TYPE -> 0
-            java.lang.Long.TYPE -> 0L
-            java.lang.Float.TYPE -> 0f
-            java.lang.Double.TYPE -> 0.0
-            java.lang.Character.TYPE -> 0.toChar()
-            else -> null
-        }
-    }
-
-    private fun shouldSkipKill(param: MethodHookParam): Boolean {
-        var skip = false
-        for (arg in param.args) {
-            if (arg == null) continue
-            if (arg is String && arg == XMSF_PACKAGE_NAME) {
-                skip = true
-                break
-            }
-            try {
-                val processName = getHookObjectField(arg, "processName") as? String
-                if (processName == XMSF_PACKAGE_NAME) {
-                    skip = true
-                    break
-                }
-            } catch (_: Throwable) { }
-
-            try {
-                val info = getHookObjectField(arg, "info")
-                if (info != null) {
-                    val pkgName = getHookObjectField(info, "packageName") as? String
-                    if (pkgName == XMSF_PACKAGE_NAME) {
-                        skip = true
-                        break
-                    }
-                }
-            } catch (_: Throwable) { }
-        }
-        // Only emit when protecting target to avoid kill-path spam.
-        if (skip) {
-            MagiskOtel.event(
-                name = "push.keepalive",
-                attributes = mapOf(
-                    "result" to "skip",
-                    "duration_ms" to "0",
-                    "process" to "system_server",
-                    "stage" to "kill_guard",
-                    "reason" to "target_protected",
-                    "target_package" to XMSF_PACKAGE_NAME,
-                ),
-                statusOk = true,
-            )
-        }
-        return skip
     }
 
     private fun hookAppStandbyController(classLoader: ClassLoader) {
-        try {
-            val standbyClass = findHookClass("com.android.server.usage.AppStandbyController", classLoader)
-            val methods = listOf("setActiveBucket", "setAppStandbyBucket")
-            var installed = 0
-            for (methodName in methods) {
-                try {
-                    installed += standbyClass.hookAllMethods(methodName) {
-                        doBefore {
-                            if (!flags.standbyBypass) return@doBefore
-                            overrideStandbyBucket(this)
-                        }
-                    }.size
-                } catch (_: Throwable) {}
-            }
-            if (installed == 0) {
-                XLog.w(TAG, "no AppStandbyController hooks installed")
-            } else {
-                XLog.w(TAG, "successfully hooked AppStandbyController count=$installed")
-            }
-        } catch (t: Throwable) {
-            XLog.e(TAG, "failed to hook AppStandbyController", t)
+        runCatching {
+            val owner = findHookClass("com.android.server.usage.AppStandbyController", classLoader)
+            hookStandbyBucket(owner)
+            hookIdleEntry(owner, KeepAliveHookTargets.appIdle)
+            hookIdleEntry(owner, KeepAliveHookTargets.forceIdle)
+        }.onFailure {
+            XLog.e(TAG, "failed to hook AppStandbyController", it)
         }
     }
 
-    private fun overrideStandbyBucket(param: MethodHookParam) {
-        if (!hasTargetPackageArg(param)) return
-
-        for (i in param.args.indices) {
-            val currentBucket = param.args[i] as? Int ?: continue
-            if (currentBucket in STANDBY_RESTRICTED_BUCKETS) {
-                param.args[i] = STANDBY_BUCKET_ACTIVE
-                XLog.d(TAG, "forced standby bucket ACTIVE for $XMSF_PACKAGE_NAME (was $currentBucket)")
-                return
+    private fun hookStandbyBucket(owner: Class<*>) {
+        val resolved = resolveTarget("standby_bucket", owner, KeepAliveHookTargets.standbyBucket) ?: return
+        val packageIndex = requireNotNull(resolved.target.packageIndex)
+        val bucketIndex = requireNotNull(resolved.target.valueIndex)
+        resolved.method.hook {
+            doBefore {
+                val packageName = args.getOrNull(packageIndex) as? String ?: return@doBefore
+                val currentBucket = args.getOrNull(bucketIndex) as? Int ?: return@doBefore
+                val targetBucket = KeepAlivePolicy.desiredStandbyBucket(flags, packageName, currentBucket) ?: return@doBefore
+                args[bucketIndex] = targetBucket
+                logRateLimited("standby_bucket", "forced XMSF standby bucket ACTIVE from $currentBucket")
             }
         }
     }
 
-    private fun hookDeviceIdleController(classLoader: ClassLoader) {
-        try {
-            val idleClass = findHookClass("com.android.server.DeviceIdleController", classLoader)
-            val methodName = "setAppIdleAsync"
-            val hooks = idleClass.hookAllMethods(methodName) {
-                doBefore {
-                    if (!flags.dozeBypass) return@doBefore
-                    keepTargetActive(this)
-                }
+    private fun hookIdleEntry(owner: Class<*>, targets: List<IndexedHookTarget>) {
+        val resolved = resolveTarget(targets.single().capability, owner, targets) ?: return
+        val packageIndex = requireNotNull(resolved.target.packageIndex)
+        val idleIndex = requireNotNull(resolved.target.valueIndex)
+        resolved.method.hook {
+            doBefore {
+                val packageName = args.getOrNull(packageIndex) as? String ?: return@doBefore
+                val idle = args.getOrNull(idleIndex) as? Boolean ?: return@doBefore
+                val targetIdle = KeepAlivePolicy.desiredIdleState(flags, packageName, idle) ?: return@doBefore
+                args[idleIndex] = targetIdle
+                logRateLimited("${resolved.target.capability}_idle", "kept XMSF out of forced app idle")
             }
-            if (hooks.isEmpty()) {
-                XLog.w(TAG, "no DeviceIdleController hooks installed for $methodName")
-            } else {
-                XLog.w(TAG, "successfully hooked DeviceIdleController count=${hooks.size}")
-            }
-        } catch (t: Throwable) {
-            XLog.e(TAG, "failed to hook DeviceIdleController", t)
         }
     }
 
-    private fun keepTargetActive(param: MethodHookParam) {
-        if (!hasTargetPackageArg(param)) return
-
-        for (i in param.args.indices) {
-            val idle = param.args[i] as? Boolean ?: continue
-            if (idle) {
-                param.args[i] = false
-                XLog.d(TAG, "kept $XMSF_PACKAGE_NAME active in DeviceIdleController")
+    private fun resolveTarget(
+        capability: String,
+        owner: Class<*>,
+        targets: List<IndexedHookTarget>,
+    ): MethodResolution.Resolved? {
+        return when (val resolution = KeepAliveHookTargets.resolve(owner, targets)) {
+            is MethodResolution.Resolved -> {
+                resolution.method.isAccessible = true
+                XLog.i(TAG, "hook $capability installed ${KeepAliveHookTargets.describe(resolution.target)}")
+                resolution
             }
-            return
+            MethodResolution.Missing -> {
+                XLog.w(TAG, "hook $capability unavailable: exact descriptor missing")
+                null
+            }
+            is MethodResolution.Ambiguous -> {
+                XLog.w(TAG, "hook $capability unavailable: ${resolution.candidates.size} exact descriptors matched")
+                null
+            }
         }
     }
 
-    private fun hasTargetPackageArg(param: MethodHookParam): Boolean {
-        for (arg in param.args) {
-            if (arg is String && arg == XMSF_PACKAGE_NAME) return true
+    private fun logRateLimited(key: String, message: String) {
+        val now = System.currentTimeMillis()
+        val previous = lastLogAt.put(key, now)
+        if (previous == null || now - previous >= LOG_INTERVAL_MS) {
+            XLog.i(TAG, message)
         }
-        return false
     }
-
-    private data class KeepAliveFlags(
-        val oomAdj: Boolean = false,
-        val antiKill: Boolean = false,
-        val standbyBypass: Boolean = false,
-        val dozeBypass: Boolean = false,
-    )
 }

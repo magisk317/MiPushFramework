@@ -20,6 +20,12 @@ object IslandDispatcher {
         }
     }
 
+    /** Release the receiver registered by the old module ClassLoader before hot reload. */
+    fun unregister() {
+        IslandDispatcherReceiver.unregister()
+        IslandDispatchState.registered = false
+    }
+
     fun post(context: Context, request: IslandRequest) {
         val startedAt = System.nanoTime()
         // showNotification belongs to the focus payload and controls shade visibility. The

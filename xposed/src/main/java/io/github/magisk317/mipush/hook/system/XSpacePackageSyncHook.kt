@@ -9,9 +9,11 @@ import android.content.IntentSender
 import android.os.UserHandle
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.mipush.hook.XLog
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 object XSpacePackageSyncHook {
@@ -26,14 +28,37 @@ object XSpacePackageSyncHook {
     private const val EXTRA_USER_HANDLE = "android.intent.extra.user_handle"
 
     private val installed = AtomicBoolean(false)
-    private val executor = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, "mipush-xspace-sync").apply { isDaemon = true }
-    }
+    private val installGeneration = AtomicLong()
+    private val installLock = Any()
+
+    @Volatile
+    private var executor: ExecutorService? = null
+
+    @Volatile
+    private var registeredReceiver: BroadcastReceiver? = null
+
+    @Volatile
+    private var registeredContext: Context? = null
 
     private const val RETRY_DELAY_MS = 3000L
 
     fun install(context: Context) {
-        if (!installed.compareAndSet(false, true)) return
+        install(context, expectedGeneration = null)
+    }
+
+    private fun install(context: Context, expectedGeneration: Long?) {
+        val generation: Long
+        synchronized(installLock) {
+            if (expectedGeneration != null && installGeneration.get() != expectedGeneration) return
+            if (installed.get()) return
+            generation = installGeneration.incrementAndGet()
+            installed.set(true)
+            if (executor == null || executor!!.isShutdown) {
+                executor = Executors.newSingleThreadExecutor { runnable ->
+                    Thread(runnable, "mipush-xspace-sync").apply { isDaemon = true }
+                }
+            }
+        }
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED)
             addAction(Intent.ACTION_PACKAGE_REMOVED)
@@ -46,6 +71,26 @@ object XSpacePackageSyncHook {
         }
         runCatching {
             registerReceiverForAllUsers(context, receiver, filter)
+            val accepted = synchronized(installLock) {
+                if (!acceptsRegistration(
+                        expectedGeneration = generation,
+                        currentGeneration = installGeneration.get(),
+                        installed = installed.get(),
+                    )
+                ) {
+                    false
+                } else {
+                    registeredContext = context
+                    registeredReceiver = receiver
+                    true
+                }
+            }
+            if (!accepted) {
+                // stop() may have completed while registerReceiverAsUser was in flight.
+                // The old receiver was never published to stop(), so release it here.
+                runCatching { context.unregisterReceiver(receiver) }
+                return@runCatching
+            }
             XLog.i(TAG, "installed XSpace package sync receiver")
             MagiskOtel.event(
                 name = "push.xspace",
@@ -58,24 +103,73 @@ object XSpacePackageSyncHook {
                 statusOk = true,
             )
         }.onFailure { throwable ->
-            installed.set(false)
+            val currentGeneration = synchronized(installLock) {
+                if (installGeneration.get() != generation) {
+                    false
+                } else {
+                    installed.set(false)
+                    if (registeredReceiver === receiver) {
+                        registeredReceiver = null
+                        registeredContext = null
+                    }
+                    true
+                }
+            }
+            // A reflective register call can fail after the framework has accepted the
+            // receiver. The unregister is harmless when registration never completed.
+            runCatching { context.unregisterReceiver(receiver) }
+            if (!currentGeneration) return@onFailure
             val isEarlyBootNpe = throwable is java.lang.reflect.InvocationTargetException &&
                 throwable.cause is NullPointerException
             if (isEarlyBootNpe) {
                 XLog.w(TAG, "receiver registration failed (early boot), scheduling retry")
-                executor.execute {
-                    try {
-                        Thread.sleep(RETRY_DELAY_MS)
-                    } catch (_: InterruptedException) {
-                        return@execute
+                val retryExecutor = synchronized(installLock) {
+                    executor?.takeUnless { it.isShutdown }
+                } ?: return@onFailure
+                runCatching {
+                    retryExecutor.execute {
+                        try {
+                            Thread.sleep(RETRY_DELAY_MS)
+                        } catch (_: InterruptedException) {
+                            return@execute
+                        }
+                        if (installGeneration.get() == generation) {
+                            install(context, expectedGeneration = generation)
+                        }
                     }
-                    install(context)
                 }
             } else {
                 XLog.e(TAG, "install XSpace package sync receiver failed", throwable)
             }
         }
     }
+
+    /** Release receiver and executor owned by the old module ClassLoader before hot reload. */
+    fun stop() {
+        val receiver: BroadcastReceiver?
+        val receiverContext: Context?
+        val shutdownExecutor: ExecutorService?
+        synchronized(installLock) {
+            installGeneration.incrementAndGet()
+            installed.set(false)
+            receiver = registeredReceiver
+            receiverContext = registeredContext
+            shutdownExecutor = executor
+            registeredReceiver = null
+            registeredContext = null
+            executor = null
+        }
+        if (receiverContext != null && receiver != null) {
+            runCatching { receiverContext.unregisterReceiver(receiver) }
+        }
+        shutdownExecutor?.shutdownNow()
+    }
+
+    internal fun acceptsRegistration(
+        expectedGeneration: Long,
+        currentGeneration: Long,
+        installed: Boolean,
+    ): Boolean = expectedGeneration == currentGeneration && installed
 
     internal fun handlePackageChange(context: Context, intent: Intent) {
         val packageName = intent.data?.encodedSchemeSpecificPart ?: return
@@ -141,7 +235,14 @@ object XSpacePackageSyncHook {
             targetPackage = packageName,
             packageAction = action.name,
         )
-        executor.execute { runPackageSync(context, action, intent.action.orEmpty()) }
+        val syncExecutor = executor ?: return
+        if (syncExecutor.isShutdown) return
+        runCatching {
+            syncExecutor.execute { runPackageSync(context, action, intent.action.orEmpty()) }
+        }.onFailure {
+            // stop() may shut the executor down between the state check and execute().
+            XLog.w(TAG, "skip XSpace package sync because the executor is stopping")
+        }
     }
 
     private fun emitXspace(

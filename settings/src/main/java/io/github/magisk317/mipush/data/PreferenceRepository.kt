@@ -46,6 +46,13 @@ data class IslandSettingsSnapshot(
     val logSanitizationEnabled: Boolean,
 )
 
+data class KeepAliveSettingsSnapshot(
+    val oomAdj: Boolean,
+    val antiKill: Boolean,
+    val standbyBypass: Boolean,
+    val dozeBypass: Boolean,
+)
+
 data class OwnedPreferenceValue(
     val key: String,
     val type: String,
@@ -126,6 +133,16 @@ class PreferenceRepository constructor(
     val colorStatusBarIcon: Flow<Boolean> = dataStore.data.map { it[COLOR_STATUS_BAR_ICON] ?: false }
     val colorStatusBarIconGlobal: Flow<Boolean> = dataStore.data.map { it[COLOR_STATUS_BAR_ICON_GLOBAL] ?: false }
     val dualAppEnabled: Flow<Boolean> = dataStore.data.map { it[DUAL_APP_ENABLED] ?: false }
+
+    suspend fun keepAliveSettingsSnapshot(): KeepAliveSettingsSnapshot {
+        val preferences = dataStore.data.first()
+        return KeepAliveSettingsSnapshot(
+            oomAdj = preferences[KEEPALIVE_OOM_ADJ] ?: false,
+            antiKill = preferences[KEEPALIVE_ANTI_KILL] ?: false,
+            standbyBypass = preferences[KEEPALIVE_STANDBY_BYPASS] ?: false,
+            dozeBypass = preferences[KEEPALIVE_DOZE_BYPASS] ?: false,
+        )
+    }
 
     val showWizard: Flow<Boolean> = dataStore.data.map { it[SHOW_WIZARD] ?: true }
     val usageStatsRequested: Flow<Boolean> = dataStore.data.map { it[USAGE_STATS_REQUESTED] ?: false }
