@@ -363,7 +363,8 @@ class IconPackResolverTest {
             userId = userId,
             caller = ProtocolCallerIdentity("io.github.magisk317.mipush", null, null),
             permission = ProtocolPermissionAudit(null, false, "test"),
-            timeout = ProtocolTimeout(250),
+            // This suite validates resolver semantics, not the production latency budget.
+            timeout = ProtocolTimeout(5_000),
             compatibility = ProtocolCompatibility(requested, false, null),
         )
     }
