@@ -6,6 +6,10 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ZYGISK_DIR="${1:-${MIPUSH_ZYGISK_SOURCE_DIR:-${ROOT_DIR}/MiPushZygisk}}"
 ZYGISK_REPOSITORY="${MIPUSH_ZYGISK_REPOSITORY:-https://gitlab.com/magisk3171/MiPushZygisk.git}"
 ZYGISK_REF="${MIPUSH_ZYGISK_REF:-3085c59d43c4e328369eadbcf6c1c079479b0d8f}"
+ZYGISK_REPOSITORY_AUTH="$ZYGISK_REPOSITORY"
+if [[ -n "${CI_JOB_TOKEN:-}" && "$ZYGISK_REPOSITORY" == https://gitlab.com/* ]]; then
+  ZYGISK_REPOSITORY_AUTH="${ZYGISK_REPOSITORY/https:\/\//https:\/\/gitlab-ci-token:${CI_JOB_TOKEN}@}"
+fi
 
 if [[ -z "$ZYGISK_REF" ]]; then
   echo "ERROR: MIPUSH_ZYGISK_REF must be a branch, tag, or commit SHA" >&2
@@ -21,7 +25,7 @@ if [[ -n "${MIPUSH_ZYGISK_SOURCE_DIR:-}" && "$ZYGISK_DIR" == "$MIPUSH_ZYGISK_SOU
   exit 0
 fi
 
-if ! git ls-remote --exit-code "$ZYGISK_REPOSITORY" HEAD >/dev/null 2>&1; then
+if ! git ls-remote --exit-code "$ZYGISK_REPOSITORY_AUTH" HEAD >/dev/null 2>&1; then
   echo "ERROR: MiPushZygisk source repository is unavailable" >&2
   exit 2
 fi
@@ -45,11 +49,11 @@ if [[ ! -d "$ZYGISK_DIR/.git" ]]; then
   rm -rf -- "$ZYGISK_DIR"
   mkdir -p "$(dirname "$ZYGISK_DIR")"
   git init --quiet "$ZYGISK_DIR"
-  git -C "$ZYGISK_DIR" remote add origin "$ZYGISK_REPOSITORY"
+  git -C "$ZYGISK_DIR" remote add origin "$ZYGISK_REPOSITORY_AUTH"
 elif git -C "$ZYGISK_DIR" remote get-url origin >/dev/null 2>&1; then
-  git -C "$ZYGISK_DIR" remote set-url origin "$ZYGISK_REPOSITORY"
+  git -C "$ZYGISK_DIR" remote set-url origin "$ZYGISK_REPOSITORY_AUTH"
 else
-  git -C "$ZYGISK_DIR" remote add origin "$ZYGISK_REPOSITORY"
+  git -C "$ZYGISK_DIR" remote add origin "$ZYGISK_REPOSITORY_AUTH"
 fi
 
 fetch_attempts="${MIPUSH_ZYGISK_FETCH_ATTEMPTS:-3}"
