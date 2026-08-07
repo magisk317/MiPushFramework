@@ -152,7 +152,7 @@ require_bootstrap_contract() {
 }
 
 require_bootstrap_contract \
-  'implementation\(project\(\":manager\"\)\)' \
+  'implementation\(project\(":manager"\)\)' \
   "app/build.gradle.kts" \
   ":app must package the manager bootstrap implementation."
 require_bootstrap_contract \
