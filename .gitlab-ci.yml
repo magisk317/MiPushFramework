@@ -380,7 +380,7 @@ android:test:
     - .magisk_android_base
     - .mipush_android_rules
   # Robolectric 4.16 native SQLite teardown is unstable on JDK 26.
-  image: "eclipse-temurin:25-jdk"
+  image: "eclipse-temurin:25.0.3_9-jdk"
   stage: quality
   needs: []
   script:
@@ -411,7 +411,7 @@ android:shared-compat:
     - .magisk_android_base
     - .mipush_android_rules
   # This job also executes the xmsf Robolectric suite.
-  image: "eclipse-temurin:25-jdk"
+  image: "eclipse-temurin:25.0.3_9-jdk"
   stage: quality
   needs: []
   script:
