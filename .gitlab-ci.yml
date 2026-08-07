@@ -380,7 +380,7 @@ android:test:
     - .magisk_android_base
     - .mipush_android_rules
   # Robolectric 4.16 native SQLite teardown is unstable on JDK 26.
-  image: "eclipse-temurin:25.0.3_9-jdk"
+  image: "eclipse-temurin:25-jdk"
   stage: quality
   needs: []
   script:
@@ -392,12 +392,14 @@ android:test:
         :common:check \
         :xmsf:testNormalDebugUnitTest \
         :xmsf:testVc105DebugUnitTest \
-        testDebugUnitTest \
+        :core:testDebugUnitTest \
+        :xposed:testDebugUnitTest \
         qualityGateKoverVerify \
         -PminifyDebug \
         -Pkotlin.incremental=false \
         -x detekt \
-        -x qualityGateDetekt
+        -x qualityGateDetekt \
+        -x verifyModuleBoundaries
   artifacts:
     name: "MiPushFramework-test-$CI_COMMIT_REF_SLUG"
     when: always
@@ -406,13 +408,63 @@ android:test:
       junit:
         - "**/build/test-results/test*/TEST-*.xml"
 
+android:test:arm-probe:
+  extends:
+    - .magisk_android_base
+    - .mipush_android_rules
+  # Temporary ARM validation; the AMD64 test gate remains authoritative until this passes.
+  image: "eclipse-temurin:25-jdk"
+  stage: quality
+  tags:
+    - magisk-arm64-linux
+  allow_failure: true
+  needs: []
+  script:
+    - |
+      set -euo pipefail
+      : "${MAGISK_GRADLE_ARGS:=--warning-mode all}"
+      bash "$MAGISK_CI_TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" $MAGISK_GRADLE_ARGS \
+        --no-parallel \
+        :common:testDebugUnitTest \
+        :core:testDebugUnitTest \
+        :xposed:testDebugUnitTest \
+        :xmsf:testNormalDebugUnitTest \
+        :xmsf:testVc105DebugUnitTest \
+        -PminifyDebug \
+        -Pkotlin.incremental=false \
+        -x detekt \
+        -x qualityGateDetekt \
+        -x verifyModuleBoundaries
+  artifacts:
+    name: "MiPushFramework-test-arm-$CI_COMMIT_REF_SLUG"
+    when: always
+    expire_in: 14 days
+    reports:
+      junit:
+        - "**/build/test-results/test*/TEST-*.xml"
+
+android:module-boundaries:
+  extends:
+    - .magisk_linux_base
+    - .mipush_android_rules
+  stage: quality
+  tags:
+    - magisk-arm64-linux
+  needs: []
+  variables:
+    MAGISK_LINUX_APT_PACKAGES: "ripgrep"
+  script:
+    - bash scripts/verify_module_boundaries.sh
+
 android:shared-compat:
   extends:
     - .magisk_android_base
     - .mipush_android_rules
-  # This job also executes the xmsf Robolectric suite.
-  image: "eclipse-temurin:25.0.3_9-jdk"
+  # Keep compatibility checks and host compilation separate from the test gate.
+  image: "eclipse-temurin:25-jdk"
   stage: quality
+  tags:
+    - magisk-amd64-linux
   needs: []
   script:
     - bash scripts/checks/verify_shared_submodule_compat.sh
@@ -420,9 +472,6 @@ android:shared-compat:
     name: "MiPushFramework-shared-compat-$CI_COMMIT_REF_SLUG"
     when: always
     expire_in: 14 days
-    reports:
-      junit:
-        - "**/build/test-results/test*/TEST-*.xml"
 
 android:release:guard:
   extends:

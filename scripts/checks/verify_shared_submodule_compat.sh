@@ -8,14 +8,8 @@ TOOLKIT_DIR="$("$ROOT_DIR/scripts/resolve_ci_toolkit.sh")"
 
 bash "$TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" \
   --no-configuration-cache \
-  verifyModuleBoundaries \
   :magisk-ui-kit:compileDebugKotlin \
   :magisk-xposed-kit:compileDebugKotlin \
-  :common:check \
-  :core:testDebugUnitTest \
-  :xposed:testDebugUnitTest \
-  :xmsf:testNormalDebugUnitTest \
-  :xmsf:testVc105DebugUnitTest \
   :manager:compileDebugKotlin \
   :app:compileNormalDebugKotlin \
   :mipush:compileGithubDebugKotlin
