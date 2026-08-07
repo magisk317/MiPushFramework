@@ -1,15 +1,15 @@
 include:
   - project: magisk3171/magisk-ci-toolkit
-    ref: 1d564d6896ee01484ba78f75587c6ab3efa178aa
+    ref: 60989c7c1a03b2bc0e86299ee1709f842ac3fb12
     file: /.gitlab/ci/android.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: 1d564d6896ee01484ba78f75587c6ab3efa178aa
+    ref: 60989c7c1a03b2bc0e86299ee1709f842ac3fb12
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: 1d564d6896ee01484ba78f75587c6ab3efa178aa
+    ref: 60989c7c1a03b2bc0e86299ee1709f842ac3fb12
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: 1d564d6896ee01484ba78f75587c6ab3efa178aa
+    ref: 60989c7c1a03b2bc0e86299ee1709f842ac3fb12
     file: /.gitlab/ci/renovate.yml
 
 workflow:
@@ -39,7 +39,7 @@ stages:
   - maintenance
 
 variables:
-  MAGISK_CI_TOOLKIT_REF: "1d564d6896ee01484ba78f75587c6ab3efa178aa"
+  MAGISK_CI_TOOLKIT_REF: "60989c7c1a03b2bc0e86299ee1709f842ac3fb12"
   GIT_DEPTH: "0"
   GIT_SUBMODULE_STRATEGY: recursive
   GIT_SUBMODULE_DEPTH: "0"
@@ -402,41 +402,6 @@ android:test:
         -x verifyModuleBoundaries
   artifacts:
     name: "MiPushFramework-test-$CI_COMMIT_REF_SLUG"
-    when: always
-    expire_in: 14 days
-    reports:
-      junit:
-        - "**/build/test-results/test*/TEST-*.xml"
-
-android:test:arm-probe:
-  extends:
-    - .magisk_android_base
-    - .mipush_android_rules
-  # Temporary ARM validation; the AMD64 test gate remains authoritative until this passes.
-  image: "eclipse-temurin:25.0.3_9-jdk"
-  stage: quality
-  tags:
-    - magisk-arm64-linux
-  allow_failure: true
-  needs: []
-  script:
-    - |
-      set -euo pipefail
-      : "${MAGISK_GRADLE_ARGS:=--warning-mode all}"
-      bash "$MAGISK_CI_TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" $MAGISK_GRADLE_ARGS \
-        --no-parallel \
-        :common:testDebugUnitTest \
-        :core:testDebugUnitTest \
-        :xposed:testDebugUnitTest \
-        :xmsf:testNormalDebugUnitTest \
-        :xmsf:testVc105DebugUnitTest \
-        -PminifyDebug \
-        -Pkotlin.incremental=false \
-        -x detekt \
-        -x qualityGateDetekt \
-        -x verifyModuleBoundaries
-  artifacts:
-    name: "MiPushFramework-test-arm-$CI_COMMIT_REF_SLUG"
     when: always
     expire_in: 14 days
     reports:
