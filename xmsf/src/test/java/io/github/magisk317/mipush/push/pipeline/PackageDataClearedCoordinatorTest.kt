@@ -10,8 +10,12 @@ import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
 import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
 import com.xiaomi.xmsf.stock.StockProfileIdStore
+import io.github.magisk317.mipush.runtime.PushChannelState
+import io.github.magisk317.mipush.runtime.PushRegistrationState
+import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.PushRuntimePendingPacketStore
 import io.github.magisk317.mipush.runtime.PushRuntimeRegistrationTaskStore
+import java.io.File
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -39,8 +43,9 @@ class PackageDataClearedCoordinatorTest {
         ).forEach { name ->
             context.getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear().commit()
         }
-        PushRuntimeRegistrationTaskStore.clear()
+        PushRuntimeRegistrationTaskStore.clearForTests()
         PushRuntimePendingPacketStore.clearForTests()
+        PushRuntime.clearStateForTests()
     }
 
     @Test
@@ -60,6 +65,15 @@ class PackageDataClearedCoordinatorTest {
         )
         PushRuntimePendingPacketStore.cacheRegistrationRequest(packageName, byteArrayOf(1))
         PushRuntimePendingPacketStore.addPendingMessage(packageName, byteArrayOf(2))
+        PushRuntime.observeRegistrationResult(packageName, success = true, source = "test")
+        PushRuntime.observeChannelState(
+            packageName = packageName,
+            channelId = "5",
+            userId = "user",
+            session = "session",
+            state = PushChannelState.Bound,
+            source = "test",
+        )
 
         var dispatchedPayload: ByteArray? = null
         val result = PackageDataClearedCoordinator.handle(
@@ -81,6 +95,8 @@ class PackageDataClearedCoordinatorTest {
         assertTrue(PushRuntimeRegistrationTaskStore.pendingTasks().isEmpty())
         assertEquals(0, PushRuntimePendingPacketStore.pendingRegistrationCount())
         assertEquals(0, PushRuntimePendingPacketStore.pendingMessageCount())
+        assertEquals(PushRegistrationState.Unregistered, PushRuntime.getRegistrationRecord(packageName)?.state)
+        assertTrue(PushRuntime.getChannelRecords().none { it.packageName == packageName })
 
         val container = XmPushActionContainer()
         XmPushThriftSerializeUtils.convertByteArrayToThriftObject(container, requireNotNull(dispatchedPayload))
@@ -116,5 +132,32 @@ class PackageDataClearedCoordinatorTest {
         assertEquals(0, result.cleanupFailureCount)
         assertEquals(0, dispatchCount)
         assertNull(MIPushAppAbsentManager.getPendingRegistrationAppId(context, packageName))
+    }
+
+    @Test
+    fun `data clear forwards the resolved user to registration cleanup`() {
+        val coordinator = readSource(
+            "io/github/magisk317/mipush/push/pipeline/PackageDataClearedCoordinator.kt",
+        )
+        val staleGuard = readSource(
+            "io/github/magisk317/mipush/push/pipeline/StalePackagePushGuard.kt",
+        )
+        val database = readSource(
+            "io/github/magisk317/mipush/runtime/store/db/RegisteredApplicationDb.kt",
+        )
+
+        assertTrue(coordinator.contains("RegisteredApplicationDb.markUnregistered(packageName, userId)"))
+        assertTrue(staleGuard.contains("RegisteredApplicationDb.markUnregistered(packageName, normalizedUserId)"))
+        assertTrue(database.contains("fun markUnregistered(pkg: String, requestedUserId: Int? = null)"))
+        assertTrue(database.contains("getByPackageName(pkg, userId)"))
+    }
+
+    private fun readSource(relativePath: String): String {
+        val candidates = listOf(
+            File("src/main/java/$relativePath"),
+            File("xmsf/src/main/java/$relativePath"),
+        )
+        return candidates.firstOrNull(File::isFile)?.readText()
+            ?: error("Source not found: $relativePath from ${File(".").absolutePath}")
     }
 }

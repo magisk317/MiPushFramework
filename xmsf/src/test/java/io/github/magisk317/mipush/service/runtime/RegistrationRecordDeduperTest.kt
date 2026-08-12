@@ -47,4 +47,29 @@ class RegistrationRecordDeduperTest {
         assertFalse(RegistrationRecordDeduper.shouldSkip("com.example.app", nowMs = 1_500L))
         assertTrue(RegistrationRecordDeduper.shouldSkip("com.example.other", nowMs = 1_500L))
     }
+
+    @Test
+    fun `same package is independent across users`() {
+        assertFalse(
+            RegistrationRecordDeduper.shouldSkip(
+                "com.example.app",
+                nowMs = 1_000L,
+                userId = 0,
+            ),
+        )
+        assertFalse(
+            RegistrationRecordDeduper.shouldSkip(
+                "com.example.app",
+                nowMs = 1_500L,
+                userId = 999,
+            ),
+        )
+        assertTrue(
+            RegistrationRecordDeduper.shouldSkip(
+                "com.example.app",
+                nowMs = 2_000L,
+                userId = 0,
+            ),
+        )
+    }
 }

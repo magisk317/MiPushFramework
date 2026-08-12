@@ -4,6 +4,7 @@ import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
 import android.app.NotificationManager
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
@@ -11,6 +12,8 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.robolectric.annotation.Config
 import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
+// Keep Robolectric: this test relies on Android framework implementations indirectly;
+// android.jar unit-test stubs throw "Method ... not mocked" without the extension.
 @ExtendWith(RobolectricExtension::class)
 @Config(sdk = [28])
 class ManagerNotificationChannelRuntimeReaderTest {
@@ -53,5 +56,21 @@ class ManagerNotificationChannelRuntimeReaderTest {
         assertFalse(page.groups.any { it.id.isBlank() })
         assertNull(channelsById.getValue("ungrouped").groupId)
         assertEquals("real", channelsById.getValue("grouped").groupId)
+    }
+
+    @Test
+    fun `rejects a query for another runtime user`() {
+        val reader = ManagerNotificationChannelRuntimeReader(
+            userIdProvider = { 0 },
+        )
+
+        assertThrows(IllegalArgumentException::class.java) {
+            reader.readPage(
+                ManagerNotificationChannelReadQuery(
+                    packageName = "com.example",
+                    userId = 999,
+                ),
+            )
+        }
     }
 }

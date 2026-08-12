@@ -54,4 +54,19 @@ class MockMessageRegistryTest {
 
         assertTrue(MockMessageRegistry.isMarked(container.deepCopy()))
     }
+
+    @Test
+    fun `container marks are scoped by package`() {
+        val first = XmPushActionContainer().apply {
+            packageName = "com.example.first"
+            action = ActionType.SendMessage
+            metaInfo = com.xiaomi.xmpush.thrift.PushMetaInfo().apply { id = "shared-id" }
+        }
+        val second = first.deepCopy().apply { packageName = "com.example.second" }
+
+        MockMessageRegistry.mark(first)
+
+        assertTrue(MockMessageRegistry.isMarked(first))
+        assertFalse(MockMessageRegistry.isMarked(second))
+    }
 }

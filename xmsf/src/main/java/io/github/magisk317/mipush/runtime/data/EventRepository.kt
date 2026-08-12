@@ -19,8 +19,8 @@ import com.xiaomi.xmpush.thrift.XmPushActionCommandResult
 import com.xiaomi.xmpush.thrift.XmPushActionContainer
 import com.xiaomi.xmpush.thrift.XmPushActionNotification
 import com.xiaomi.xmsf.R
-import io.github.magisk317.mipush.notification.NotificationChannelManager
-import io.github.magisk317.mipush.notification.NotificationController
+import io.github.magisk317.mipush.common.notification.NotificationAvailabilityReader
+import io.github.magisk317.mipush.common.notification.NotificationAvailabilityRequest
 import io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.utils.Configurations
@@ -49,6 +49,7 @@ class EventRepository constructor(
     private val configCenter: ConfigCenter,
     private val configurations: Configurations,
     private val configNavigationHelper: ConfigNavigationHelper,
+    private val notificationAvailabilityReader: NotificationAvailabilityReader,
 ) {
     fun getStatus(container: XmPushActionContainer?): MutableSet<String> {
         if (container == null) {
@@ -62,23 +63,32 @@ class EventRepository constructor(
     }
 
     protected fun isNotificationDisabled(container: XmPushActionContainer): Boolean {
-        return !Utils.isAppInstalled(container.packageName) || !NotificationChannelManager.isNotificationChannelEnabled(
-            container.packageName,
-            NotificationController.getExistsChannelId(context, container.metaInfo, container.packageName)
+        return notificationAvailabilityReader.isNotificationDisabled(
+            NotificationAvailabilityRequest(
+                packageName = container.packageName,
+                metaInfoExtra = container.metaInfo?.extra.orEmpty(),
+            ),
         )
     }
 
-    fun getStatusDescription(item: Event): String {
+    fun getStatusDescription(item: Event): String =
+        getStatusDescription(item, RegSecUtils.getContainerWithRegSec(item))
+
+    /**
+     * Reuses a container that the caller already decoded for the same event. Event-list
+     * projection needs both the decorated summary and the channel/status label; decoding the
+     * payload again for the latter made each row repeat the most expensive part of the read.
+     */
+    fun getStatusDescription(item: Event, container: XmPushActionContainer?): String {
         return when (item.result) {
-            Event.ResultType.OK -> getStatusDescriptionByEvent(item)
+            Event.ResultType.OK -> getStatusDescriptionByEvent(container)
             Event.ResultType.DENY_DISABLED -> context.getString(R.string.status_deny_disable)
             Event.ResultType.DENY_USER -> context.getString(R.string.status_deny_user)
             else -> ""
         }
     }
 
-    private fun getStatusDescriptionByEvent(item: Event): String {
-        val container = RegSecUtils.getContainerWithRegSec(item)
+    private fun getStatusDescriptionByEvent(container: XmPushActionContainer?): String {
         if (container != null) {
             if (container.metaInfo.passThrough == 1) {
                 return context.getString(R.string.message_type_pass_through)
@@ -120,7 +130,8 @@ class EventRepository constructor(
 
     suspend fun deleteEvent(event: Event): Boolean {
         val id = event.id ?: return false
-        return EventDb.deleteByIdAsync(id)
+        if (event.pkg.isBlank()) return false
+        return EventDb.deleteByIdWithUndoSnapshotAsync(id, event.pkg, event.userId)
     }
 
     /** 按本地日历日聚合可清理事件的条数(排除注册态),供日历清理界面高亮与计数。 */
@@ -140,31 +151,10 @@ class EventRepository constructor(
 
     suspend fun restoreEvent(event: Event): Long {
         val preferredId = event.id
-        if (preferredId != null && preferredId > 0L) {
-            EventDb.getByIdAsync(preferredId)?.let { return preferredId }
-            val restored = Event(
-                id = preferredId,
-                pkg = event.pkg,
-                type = event.type,
-                date = event.date,
-                result = event.result,
-                info = event.info,
-                payload = event.payload,
-                regSec = event.regSec,
-            )
-            return EventDb.insertOrReplaceEventAsync(restored)
+        if (preferredId != null && preferredId > 0L && event.pkg.isNotBlank()) {
+            return EventDb.restoreDeletedEventAsync(preferredId, event.pkg, event.userId) ?: 0L
         }
-        val restored = Event(
-            id = null,
-            pkg = event.pkg,
-            type = event.type,
-            date = event.date,
-            result = event.result,
-            info = event.info,
-            payload = event.payload,
-            regSec = event.regSec,
-        )
-        return EventDb.insertEventAsync(restored)
+        return 0L
     }
 
     fun copyToClipboard(info: CharSequence) {

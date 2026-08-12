@@ -1,12 +1,13 @@
 package io.github.magisk317.mipush.manager.runtime.write
 
 import java.io.File
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class RuntimePreferenceWriteContractTest {
     @Test
-    fun `retention writes persist runtime state before applying side effects`() {
+    fun `retention writes use the injected runtime preference repository before side effects`() {
         val source = readSource(
             "io/github/magisk317/mipush/manager/runtime/write/ManagerWriteRuntimeExecutor.kt",
         )
@@ -19,8 +20,22 @@ class RuntimePreferenceWriteContractTest {
             "ManagerProtocol.WRITE_OP_COUNT_EVENTS_BY_DAY ->",
         )
 
-        assertTrue(logRetention.contains("PreferenceRepository().setRuntimeLogRetentionDays(days)"))
-        assertTrue(eventRetention.contains("PreferenceRepository().setEventRetentionDays(days)"))
+        assertTrue(logRetention.contains("preferenceRepository.setRuntimeLogRetentionDays(days)"))
+        assertTrue(eventRetention.contains("preferenceRepository.setEventRetentionDays(days)"))
+        assertFalse(source.contains("PreferenceRepository().setRuntimeLogRetentionDays"))
+        assertFalse(source.contains("PreferenceRepository().setEventRetentionDays"))
+    }
+
+    @Test
+    fun `executor constructor resolves the same repository from runtime dependencies`() {
+        val source = readSource(
+            "io/github/magisk317/mipush/manager/runtime/write/ManagerWriteRuntimeExecutor.kt",
+        )
+
+        assertTrue(source.contains("private val preferenceRepository: PreferenceRepository"))
+        assertTrue(source.contains("preferenceRepository = AppDependencies.get(context)"))
+        assertFalse(source.contains("val repo = PreferenceRepository()"))
+        assertFalse(source.contains("PreferenceRepository().setIslandRendererMode"))
     }
 
     @Test
@@ -41,14 +56,27 @@ class RuntimePreferenceWriteContractTest {
             "io/github/magisk317/mipush/manager/runtime/write/ManagerWriteRuntimeExecutor.kt",
         )
         val setBoolean = source.section(
-            "private fun setRuntimeBoolean",
-            "private fun setRuntimeInt",
+            "private suspend fun setRuntimeBoolean",
+            "private suspend fun setRuntimeInt",
         )
 
         assertTrue(setBoolean.contains("repo.setIsStartForeground(enabled)"))
         assertTrue(setBoolean.contains("applyForegroundServicePolicy(enabled)"))
         assertTrue(setBoolean.contains("ForegroundHelper(service).stopForegroundNotification()"))
         assertTrue(setBoolean.contains("runtimeActions.startMiPushServiceAsForegroundService(context)"))
+    }
+
+    @Test
+    fun `runtime dispatch does not nest blocking coroutine bridges`() {
+        val source = readSource(
+            "io/github/magisk317/mipush/manager/runtime/write/ManagerWriteRuntimeExecutor.kt",
+        )
+        val dispatch = source.section(
+            "private suspend fun dispatch",
+            "private suspend fun zygiskIsEnabled",
+        )
+
+        assertFalse(dispatch.contains("runBlocking"))
     }
 
     private fun readSource(relativePath: String): String {

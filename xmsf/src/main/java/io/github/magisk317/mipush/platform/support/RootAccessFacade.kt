@@ -22,16 +22,13 @@ class RootAccessFacade(
 
     fun refreshRootAccessIfGranted(): Boolean {
         val granted = rootGrantState()
-        if (granted == false) {
-            rootAccessCache.set(false)
-            return false
-        }
-        if (granted != true && rootAccessCache.get() != true) {
-            return false
-        }
         // TTL 内直接复用上次探测结果，跳过 `id -u` 往返。
         val cached = rootAccessCache.get()
-        if (cached != null && System.currentTimeMillis() - lastProbeAt.get() < PROBE_TTL_MS) {
+        // libsu 的授权查询在部分 KSU 设备上可能返回 false/null，即使 su 实际可用。
+        // 明确 false 时也要重新探测，避免旧缓存掩盖撤权。
+        if (granted != false && cached != null &&
+            System.currentTimeMillis() - lastProbeAt.get() < PROBE_TTL_MS
+        ) {
             return cached
         }
         return probeRootAccess(source = "refresh")

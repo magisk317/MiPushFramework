@@ -14,14 +14,17 @@ class ManagerApplicationPageTokenTest {
             pageSize = 25,
         )
 
-        val token = ManagerApplicationPageToken.encode(query, "com.example.client")
+        val token = ManagerApplicationPageToken.encode(query, "com.example.client", 0)
 
-        assertEquals("com.example.client", ManagerApplicationPageToken.decode(query, token))
+        assertEquals("com.example.client", ManagerApplicationPageToken.decode(query, token, 0))
         assertThrows(IllegalArgumentException::class.java) {
-            ManagerApplicationPageToken.decode(query.copy(pageSize = 10), token)
+            ManagerApplicationPageToken.decode(query.copy(pageSize = 10), token, 0)
         }
         assertThrows(IllegalArgumentException::class.java) {
-            ManagerApplicationPageToken.decode(query.copy(schemaVersion = 2), token)
+            ManagerApplicationPageToken.decode(query.copy(schemaVersion = 2), token, 0)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            ManagerApplicationPageToken.decode(query, token, 999)
         }
     }
 
@@ -30,10 +33,10 @@ class ManagerApplicationPageTokenTest {
         val query = ManagerApplicationReadQuery()
 
         assertThrows(IllegalArgumentException::class.java) {
-            ManagerApplicationPageToken.decode(query, "not-base64!")
+            ManagerApplicationPageToken.decode(query, "not-base64!", 0)
         }
         assertThrows(IllegalArgumentException::class.java) {
-            ManagerApplicationPageToken.decode(query, "AQ")
+            ManagerApplicationPageToken.decode(query, "AQ", 0)
         }
     }
 }

@@ -7,8 +7,10 @@ import org.junit.jupiter.api.Test
 
 class RootAccessFacadeTest {
     @Test
-    fun `root command is skipped when grant state is unknown and no cached grant exists`() {
-        val runner = RecordingRunner()
+    fun `root command trusts the probe when grant state is unknown`() {
+        val runner = RecordingRunner(
+            "id -u" to BoundedShellResult(exitCode = 1, stderr = listOf("denied")),
+        )
         val facade = RootAccessFacade(
             runner = runner,
             rootGrantState = { null },
@@ -18,7 +20,23 @@ class RootAccessFacadeTest {
         val result = facade.runRootCommand("id")
 
         assertTrue(result.skipped)
-        assertEquals(emptyList<String>(), runner.commands)
+        assertEquals(listOf("id -u"), runner.commands)
+    }
+
+    @Test
+    fun `refresh trusts root probe when libsu reports denied`() {
+        val runner = RecordingRunner(
+            "id -u" to BoundedShellResult(0, stdout = listOf("0")),
+        )
+        val facade = RootAccessFacade(
+            runner = runner,
+            rootGrantState = { false },
+            requestRootGrant = {},
+        )
+
+        assertTrue(facade.refreshRootAccessIfGranted())
+        assertTrue(facade.hasCachedRootAccess())
+        assertEquals(listOf("id -u"), runner.commands)
     }
 
     @Test
@@ -60,7 +78,7 @@ class RootAccessFacadeTest {
     }
 
     @Test
-    fun `refresh revokes cached root access when grant becomes denied`() {
+    fun `refresh keeps access when grant state is denied but probe succeeds`() {
         var grantState: Boolean? = true
         val runner = RecordingRunner(
             "id -u" to BoundedShellResult(0, stdout = listOf("0")),
@@ -76,9 +94,28 @@ class RootAccessFacadeTest {
 
         grantState = false
 
+        assertTrue(facade.refreshRootAccessIfGranted())
+        assertTrue(facade.hasCachedRootAccess())
+        assertEquals(listOf("id -u", "id -u"), runner.commands)
+    }
+
+    @Test
+    fun `refresh revokes cached root access when probe fails`() {
+        val runner = RecordingRunner(
+            "id -u" to BoundedShellResult(0, stdout = listOf("0")),
+        )
+        val facade = RootAccessFacade(
+            runner = runner,
+            rootGrantState = { false },
+            requestRootGrant = {},
+        )
+
+        assertTrue(facade.refreshRootAccessIfGranted())
+        runner.setResponse("id -u", BoundedShellResult(exitCode = 1, stderr = listOf("denied")))
+
         assertFalse(facade.refreshRootAccessIfGranted())
         assertFalse(facade.hasCachedRootAccess())
-        assertEquals(listOf("id -u"), runner.commands)
+        assertEquals(listOf("id -u", "id -u"), runner.commands)
     }
 
     @Test
@@ -105,8 +142,12 @@ class RootAccessFacadeTest {
     private class RecordingRunner(
         vararg responses: Pair<String, BoundedShellResult>,
     ) : BoundedShellRunner {
-        private val responses = responses.toMap()
+        private val responses = responses.toMap().toMutableMap()
         val commands = mutableListOf<String>()
+
+        fun setResponse(command: String, response: BoundedShellResult) {
+            responses[command] = response
+        }
 
         override fun run(command: String, mode: ShellCommandMode, timeoutMs: Long): BoundedShellResult {
             commands += command

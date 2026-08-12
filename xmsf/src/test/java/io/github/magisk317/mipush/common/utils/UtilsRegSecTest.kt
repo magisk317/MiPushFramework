@@ -63,6 +63,47 @@ class UtilsRegSecTest {
     }
 
     @Test
+    fun getRegSecs_doesNotReadPrimaryLegacyKeyForAnotherUser() {
+        Utils.context = mockContext(
+            "pref_registered_pkg_names_sec" to mapOf("com.example.app" to "sec-primary"),
+        )
+
+        assertEquals(emptyList<String>(), Utils.getRegSecs("com.example.app", userId = 999))
+    }
+
+    @Test
+    fun getRegSecs_migratesPrimaryLegacyKeyIntoScopedKey() {
+        val context = mockContext(
+            "pref_registered_pkg_names_sec" to mapOf("com.example.app" to "sec-primary"),
+        )
+        Utils.context = context
+
+        assertEquals(listOf("sec-primary"), Utils.getRegSecs("com.example.app", userId = 0))
+        assertEquals(
+            "sec-primary",
+            context.getSharedPreferences("pref_registered_pkg_names_sec", 0)
+                .getString("0:com.example.app", null),
+        )
+    }
+
+    @Test
+    fun lastReceiveTime_staysIsolatedBetweenUsers() {
+        Utils.context = mockContext()
+
+        Utils.setLastReceiveTime("com.example.app", 11L, userId = 999)
+        assertEquals(11L, Utils.getLastReceiveTime("com.example.app", userId = 999))
+        assertNull(Utils.getLastReceiveTime("com.example.app", userId = 0))
+
+        Utils.setLastReceiveTime("com.example.app", 22L, userId = 0)
+        assertEquals(11L, Utils.getLastReceiveTime("com.example.app", userId = 999))
+        assertEquals(22L, Utils.getLastReceiveTime("com.example.app", userId = 0))
+
+        Utils.removeLastReceiveTime("com.example.app", userId = 999)
+        assertNull(Utils.getLastReceiveTime("com.example.app", userId = 999))
+        assertEquals(22L, Utils.getLastReceiveTime("com.example.app", userId = 0))
+    }
+
+    @Test
     fun removePackagePushState_clearsSecretsAndLastReceiveTime() {
         Utils.context = mockContext(
             "pref_registered_pkg_names_sec" to mapOf("com.example.app" to "sec-primary"),
@@ -77,5 +118,5 @@ class UtilsRegSecTest {
         assertNull(Utils.getRegSec("com.example.app"))
         assertNull(Utils.getLastReceiveTime("com.example.app"))
     }
-}
 
+}

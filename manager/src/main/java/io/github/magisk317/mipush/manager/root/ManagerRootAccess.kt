@@ -20,10 +20,6 @@ class ManagerRootAccess {
     fun cachedGrantState(): Boolean? = cached
 
     fun refreshRootAccessIfGranted(): Boolean {
-        if (Shell.isAppGrantedRoot() != true) {
-            cached = false
-            return false
-        }
         return probeRootAccess(source = "refresh")
     }
 

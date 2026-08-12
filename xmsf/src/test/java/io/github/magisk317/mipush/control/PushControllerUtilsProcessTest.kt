@@ -40,4 +40,14 @@ class PushControllerUtilsProcessTest {
 
         assertFalse(PushControllerUtils.isAppMainProc(context))
     }
+
+    @Test
+    fun `startup policy keeps a disabled service stopped`() {
+        assertFalse(PushControllerUtils.shouldStartServiceFromPersistedPreference(false))
+    }
+
+    @Test
+    fun `startup policy restores an enabled service`() {
+        assertTrue(PushControllerUtils.shouldStartServiceFromPersistedPreference(true))
+    }
 }

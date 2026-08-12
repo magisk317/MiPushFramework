@@ -10,7 +10,9 @@ class ManagerApplicationReadOnlyContractTest {
     fun `binder application source contains only read dependencies`() {
         val source = resolveSource().readText()
 
-        assertTrue(source.contains("registeredApplicationDao.getAll()"))
+        assertTrue(source.contains("registeredApplicationDao.getAll("))
+        assertTrue(source.contains("override suspend fun readStoredApplications"))
+        assertFalse(source.contains("runBlocking"))
         assertFalse(source.contains("RegisteredApplicationDb"))
         assertFalse(source.contains("RegistrationStateStore"))
         assertFalse(Regex("""\.(insert|insertOrReplace|update|delete)\(""").containsMatchIn(source))

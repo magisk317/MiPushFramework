@@ -4,10 +4,11 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import kotlinx.coroutines.runBlocking
 
 class RootAccessRequestPolicyTest {
     @Test
-    fun `refresh only query never requests authorization`() {
+    fun `refresh only query never requests authorization`() = runBlocking {
         var requestCount = 0
 
         val granted = resolveRootAccess(
@@ -24,7 +25,7 @@ class RootAccessRequestPolicyTest {
     }
 
     @Test
-    fun `interactive query requests authorization when refresh fails`() {
+    fun `interactive query requests authorization when refresh fails`() = runBlocking {
         var requestCount = 0
 
         val granted = resolveRootAccess(
@@ -41,7 +42,7 @@ class RootAccessRequestPolicyTest {
     }
 
     @Test
-    fun `interactive query skips authorization when refresh succeeds`() {
+    fun `interactive query skips authorization when refresh succeeds`() = runBlocking {
         var requestCount = 0
 
         val granted = resolveRootAccess(

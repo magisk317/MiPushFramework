@@ -116,4 +116,21 @@ class ManagerWriteIdempotencyStoreTest {
         store.abort("req-fail")
     }
 
+    @Test
+    fun `rejects reuse of a successful request id for different request content`() {
+        val store = ManagerWriteIdempotencyStore()
+        store.put(
+            ManagerWriteResultDto(
+                requestId = "req-reused",
+                status = ManagerProtocol.WRITE_STATUS_SUCCESS,
+            ),
+            requestFingerprint = "first",
+        )
+
+        val result = store.begin("req-reused", requestFingerprint = "different")
+        check(result is ManagerWriteIdempotencyStore.BeginResult.Rejected)
+        assertEquals(ManagerProtocol.WRITE_STATUS_FAILED, result.result.status)
+        assertEquals("request_id_reused", result.result.details)
+    }
+
 }

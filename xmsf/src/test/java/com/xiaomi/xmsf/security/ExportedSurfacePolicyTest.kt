@@ -1,16 +1,9 @@
 package com.xiaomi.xmsf.security
 
-import android.app.Application
 import android.os.Process
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
-import org.robolectric.annotation.Config
-import tech.apter.junit.jupiter.robolectric.RobolectricExtension
-
-@ExtendWith(RobolectricExtension::class)
-@Config(sdk = [28], application = Application::class)
 class ExportedSurfacePolicyTest {
     @Test
     fun `profile package is bound to caller uid`() {

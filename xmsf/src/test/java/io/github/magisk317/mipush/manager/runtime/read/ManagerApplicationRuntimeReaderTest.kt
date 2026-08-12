@@ -8,6 +8,20 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import kotlinx.coroutines.runBlocking
+
+private fun ManagerApplicationRuntimeReader.readPageBlocking(query: ManagerApplicationReadQuery) =
+    runBlocking { readPage(query) }
+
+private fun ManagerApplicationRuntimeReader.readDetailBlocking(
+    packageName: String,
+    ignoreNotRegistered: Boolean,
+) = runBlocking { readDetail(packageName, ignoreNotRegistered) }
+
+private fun ManagerApplicationRuntimeReader.readDiagnosticsBlocking(
+    packageName: String,
+    registeredType: Int,
+) = runBlocking { readDiagnostics(packageName, registeredType) }
 
 class ManagerApplicationRuntimeReaderTest {
     @Test
@@ -29,7 +43,7 @@ class ManagerApplicationRuntimeReaderTest {
         val reader = ManagerApplicationRuntimeReader(source, maxPageSize = 2)
         val query = ManagerApplicationReadQuery(pageSize = 2)
 
-        val first = reader.readPage(query)
+        val first = reader.readPageBlocking(query)
         assertEquals(listOf("registered", "observed"), first.items.map { it.packageName })
         assertEquals(4, first.stats.total)
         assertEquals(4, first.stats.usingMiPush)
@@ -37,7 +51,7 @@ class ManagerApplicationRuntimeReaderTest {
         assertNotNull(first.nextPageToken)
         assertFalse(first.nextPageToken!!.contains("observed"))
 
-        val second = reader.readPage(query.copy(pageToken = first.nextPageToken))
+        val second = reader.readPageBlocking(query.copy(pageToken = first.nextPageToken))
         assertEquals(listOf("unregistered", "transient"), second.items.map { it.packageName })
         assertNull(second.nextPageToken)
     }
@@ -51,7 +65,7 @@ class ManagerApplicationRuntimeReaderTest {
             locallyRegistered = setOf("target"),
         )
 
-        val result = ManagerApplicationRuntimeReader(source).readPage(ManagerApplicationReadQuery())
+        val result = ManagerApplicationRuntimeReader(source).readPageBlocking(ManagerApplicationReadQuery())
 
         assertEquals(ManagerApplication.RegisteredType.REGISTERED, result.items.single().registeredType)
         assertEquals(ManagerApplication.RegisteredType.NOT_REGISTERED, row.registeredType)
@@ -75,10 +89,10 @@ class ManagerApplicationRuntimeReaderTest {
         )
         val reader = ManagerApplicationRuntimeReader(source)
 
-        val notRegistered = reader.readPage(
+        val notRegistered = reader.readPageBlocking(
             ManagerApplicationReadQuery(filterMode = ManagerApplicationReadQuery.FILTER_NOT_REGISTERED),
         )
-        val unregistered = reader.readPage(
+        val unregistered = reader.readPageBlocking(
             ManagerApplicationReadQuery(filterMode = ManagerApplicationReadQuery.FILTER_UNREGISTERED),
         )
 
@@ -93,10 +107,19 @@ class ManagerApplicationRuntimeReaderTest {
         )
         val reader = ManagerApplicationRuntimeReader(source, maxPageSize = 1)
         val firstQuery = ManagerApplicationReadQuery(pageSize = 1)
-        val token = reader.readPage(firstQuery).nextPageToken
+        val token = reader.readPageBlocking(firstQuery).nextPageToken
 
         assertThrows(IllegalArgumentException::class.java) {
-            reader.readPage(firstQuery.copy(query = "two", pageToken = token))
+            reader.readPageBlocking(firstQuery.copy(query = "two", pageToken = token))
+        }
+    }
+
+    @Test
+    fun `rejects a query for another runtime user`() {
+        val reader = ManagerApplicationRuntimeReader(FakeSource(userId = 0))
+
+        assertThrows(IllegalArgumentException::class.java) {
+            reader.readPageBlocking(ManagerApplicationReadQuery(userId = 999))
         }
     }
 
@@ -108,7 +131,7 @@ class ManagerApplicationRuntimeReaderTest {
                 installed("package$index", longLabel)
             },
         )
-        val page = ManagerApplicationRuntimeReader(source).readPage(
+        val page = ManagerApplicationRuntimeReader(source).readPageBlocking(
             ManagerApplicationReadQuery(pageSize = 100),
         )
 
@@ -125,8 +148,8 @@ class ManagerApplicationRuntimeReaderTest {
         )
         val reader = ManagerApplicationRuntimeReader(source)
 
-        assertNull(reader.readDetail("target", ignoreNotRegistered = false))
-        val detail = reader.readDetail("target", ignoreNotRegistered = true)
+        assertNull(reader.readDetailBlocking("target", ignoreNotRegistered = false))
+        val detail = reader.readDetailBlocking("target", ignoreNotRegistered = true)
 
         assertEquals("target", detail?.packageName)
         assertEquals("Target", detail?.appName)
@@ -134,6 +157,42 @@ class ManagerApplicationRuntimeReaderTest {
         assertFalse(detail!!.notificationOnRegister)
         assertEquals("", detail.appNamePinYin)
         assertTrue(source.stored.isEmpty())
+    }
+
+    @Test
+    fun `transient list and detail rows use the captured runtime user`() {
+        val source = FakeSource(
+            installed = listOf(installed("target", "Target")),
+            userId = 999,
+        )
+        val reader = ManagerApplicationRuntimeReader(source)
+
+        val listItem = reader.readPageBlocking(ManagerApplicationReadQuery(userId = 999)).items.single()
+        val detail = reader.readDetailBlocking("target", ignoreNotRegistered = true)
+        val diagnostics = reader.readDiagnosticsBlocking(
+            packageName = "target",
+            registeredType = ManagerApplication.RegisteredType.NOT_REGISTERED,
+        )
+
+        assertEquals(999, listItem.userId)
+        assertEquals(999, detail?.userId)
+        assertEquals(999, diagnostics.userId)
+    }
+
+    @Test
+    fun `stored rows from another user do not leak into list or detail`() {
+        val source = FakeSource(
+            stored = listOf(stored("target", ManagerApplication.RegisteredType.REGISTERED, userId = 999)),
+            installed = listOf(installed("target", "Target")),
+        )
+        val reader = ManagerApplicationRuntimeReader(source)
+
+        val listItem = reader.readPageBlocking(ManagerApplicationReadQuery()).items.single()
+        val detail = reader.readDetailBlocking("target", ignoreNotRegistered = false)
+
+        assertEquals(ManagerApplication.RegisteredType.NOT_REGISTERED, listItem.registeredType)
+        assertEquals(0, listItem.userId)
+        assertNull(detail)
     }
 
     @Test
@@ -146,8 +205,8 @@ class ManagerApplicationRuntimeReaderTest {
         )
         val reader = ManagerApplicationRuntimeReader(source)
 
-        val listItem = reader.readPage(ManagerApplicationReadQuery()).items.single()
-        val detail = reader.readDetail("target", ignoreNotRegistered = false)
+        val listItem = reader.readPageBlocking(ManagerApplicationReadQuery()).items.single()
+        val detail = reader.readDetailBlocking("target", ignoreNotRegistered = false)
 
         assertEquals("Target", listItem.appName)
         assertEquals("target", listItem.appNamePinYin)
@@ -173,7 +232,7 @@ class ManagerApplicationRuntimeReaderTest {
             ),
         )
 
-        ManagerApplicationRuntimeReader(source).readPage(ManagerApplicationReadQuery())
+        ManagerApplicationRuntimeReader(source).readPageBlocking(ManagerApplicationReadQuery())
 
         assertEquals(setOf("pending", "transient"), source.lastLocalProbePackages)
     }
@@ -185,7 +244,7 @@ class ManagerApplicationRuntimeReaderTest {
             regSecCount = 2,
             latestEvent = RegistrationEventSnapshot(type = 21, result = 1),
         )
-        val diagnostics = ManagerApplicationRuntimeReader(source).readDiagnostics(
+        val diagnostics = ManagerApplicationRuntimeReader(source).readDiagnosticsBlocking(
             packageName = "target",
             registeredType = ManagerApplication.RegisteredType.NOT_REGISTERED,
         )
@@ -206,44 +265,47 @@ class ManagerApplicationRuntimeReaderTest {
         private val localRegistration: Boolean = false,
         private val regSecCount: Int = 0,
         private val latestEvent: RegistrationEventSnapshot? = null,
+        private val userId: Int = 0,
     ) : ManagerApplicationReadSource {
         var storedReadCount = 0
         var regSecReadCount = 0
         var lastLocalProbePackages: Set<String> = emptySet()
 
-        override fun readStoredApplications(): List<StoredApplicationSnapshot> {
+        override suspend fun currentUserId(): Int = userId
+
+        override suspend fun readStoredApplications(): List<StoredApplicationSnapshot> {
             storedReadCount++
             return stored
         }
 
-        override fun readInstalledApplications(includeSystemApps: Boolean) =
+        override suspend fun readInstalledApplications(includeSystemApps: Boolean) =
             ApplicationCatalogSnapshot(
                 totalCandidatePackages = installed.size,
                 applications = installed.filter(InstalledApplicationSnapshot::hasMiPushServices),
             )
 
-        override fun readInstalledApplication(packageName: String): InstalledApplicationSnapshot? =
+        override suspend fun readInstalledApplication(packageName: String): InstalledApplicationSnapshot? =
             installed.firstOrNull { it.packageName == packageName }
 
-        override fun readLastReceiveTime(packageName: String): Long = detailReceiveTimes[packageName] ?: 0L
+        override suspend fun readLastReceiveTime(packageName: String): Long = detailReceiveTimes[packageName] ?: 0L
 
-        override fun readLastReceiveTimes(packageNames: Collection<String>): Map<String, Long> =
+        override suspend fun readLastReceiveTimes(packageNames: Collection<String>): Map<String, Long> =
             packageNames.associateWith { receiveTimes[it] ?: 0L }
 
-        override fun readLocallyRegisteredPackages(packageNames: Collection<String>): Set<String> {
+        override suspend fun readLocallyRegisteredPackages(packageNames: Collection<String>): Set<String> {
             lastLocalProbePackages = packageNames.toSet()
             return locallyRegistered.intersect(lastLocalProbePackages)
         }
 
-        override fun hasLocalRegistration(packageName: String): Boolean =
+        override suspend fun hasLocalRegistration(packageName: String): Boolean =
             localRegistration || packageName in locallyRegistered
 
-        override fun readRegSecCount(packageName: String): Int {
+        override suspend fun readRegSecCount(packageName: String): Int {
             regSecReadCount++
             return regSecCount
         }
 
-        override fun readLatestRegistrationEvent(packageName: String): RegistrationEventSnapshot? = latestEvent
+        override suspend fun readLatestRegistrationEvent(packageName: String): RegistrationEventSnapshot? = latestEvent
     }
 
     companion object {
@@ -251,9 +313,11 @@ class ManagerApplicationRuntimeReaderTest {
             packageName: String,
             registeredType: Int,
             appName: String = packageName,
+            userId: Int = 0,
         ) =
             StoredApplicationSnapshot(
                 id = packageName.hashCode().toLong(),
+                userId = userId,
                 packageName = packageName,
                 type = ManagerApplication.Type.ASK,
                 notificationOnRegister = true,
