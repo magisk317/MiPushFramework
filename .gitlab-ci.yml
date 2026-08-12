@@ -1,18 +1,18 @@
 include:
   - project: magisk3171/magisk-ci-toolkit
-    ref: b840b7a27a97e4f5d66f5bd696c49bd2a46a66af
+    ref: 89c8666b150a4c780efb519daf7d44c06da26513
     file: /.gitlab/ci/android.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: b840b7a27a97e4f5d66f5bd696c49bd2a46a66af
+    ref: 89c8666b150a4c780efb519daf7d44c06da26513
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: b840b7a27a97e4f5d66f5bd696c49bd2a46a66af
+    ref: 89c8666b150a4c780efb519daf7d44c06da26513
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: b840b7a27a97e4f5d66f5bd696c49bd2a46a66af
+    ref: 89c8666b150a4c780efb519daf7d44c06da26513
     file: /.gitlab/ci/renovate.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: b840b7a27a97e4f5d66f5bd696c49bd2a46a66af
+    ref: 89c8666b150a4c780efb519daf7d44c06da26513
     file: /.gitlab/ci/cancel-mr-pipelines.yml
 
 workflow:
@@ -42,7 +42,7 @@ stages:
   - maintenance
 
 variables:
-  MAGISK_CI_TOOLKIT_REF: "b840b7a27a97e4f5d66f5bd696c49bd2a46a66af"
+  MAGISK_CI_TOOLKIT_REF: "89c8666b150a4c780efb519daf7d44c06da26513"
   MAGISK_CANCEL_OLDER_MR_PIPELINES: "true"
   GIT_DEPTH: "0"
   GIT_SUBMODULE_STRATEGY: recursive
@@ -457,7 +457,6 @@ android:shared-compat:
   cache: []
   before_script:
     - !reference [.magisk_android_base, before_script]
-    - bash scripts/checks/install_arm_android_tools.sh
   script:
     - bash scripts/checks/verify_shared_submodule_compat.sh
   artifacts:
@@ -655,10 +654,12 @@ android:ci:play-alpha:
   script:
     - |
       set -euo pipefail
+      set -a
       source play-release.env
+      set +a
       export MAGISK_PLAY_AAB_FILE="$(find mipush/build/outputs/bundle -type f -name '*.aab' | sort | head -n 1)"
       export MAGISK_PLAY_MAPPING_FILE="$(find mipush/build/outputs/mapping -type f -name mapping.txt | sort | head -n 1 || true)"
-      export MAGISK_PLAY_SYMBOLS_FILE="$(find mipush/build/outputs/native-debug-symbols -type f -name native-debug-symbols.zip | sort | head -n 1 || true)"
+      export MAGISK_PLAY_SYMBOLS_FILE="$(find mipush/build/outputs/native-debug-symbols -type f -name native-debug-symbols.zip 2>/dev/null | sort | head -n 1 || true)"
       export MAGISK_RELEASE_ENV_FILE=play-release-status.env
       bash "$MAGISK_CI_TOOLKIT_DIR/release/publish_play.sh"
   artifacts:
