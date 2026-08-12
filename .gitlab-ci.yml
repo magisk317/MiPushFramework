@@ -393,32 +393,86 @@ android:detekt:
       - merged-sarif/detekt.sarif
       - "**/build/reports/detekt/**"
 
-android:test:
+.mipush_robolectric_tests:
   extends:
     - .magisk_android_base
     - .mipush_android_rules
-  # Robolectric 4.16 has a known native-runtime cleanup race on JDK 26.
+  # Robolectric's native runtime is not supported on Linux/AArch64. Run the
+  # complete Robolectric set once on the AMD64/JDK 26 environment;
+  # splitting these jobs only queues them on the single AMD runner.
   image: "eclipse-temurin:26.0.1_8-jdk"
   stage: quality
+  tags:
+    - magisk-amd64-linux
   needs: []
   script:
     - |
       set -euo pipefail
+      : "${MAGISK_ANDROID_TEST_TASKS:?MAGISK_ANDROID_TEST_TASKS is required}"
       : "${MAGISK_GRADLE_ARGS:=--warning-mode all}"
-      mapfile -t selected_tasks < <(bash scripts/ci/select_android_test_tasks.sh "$MAGISK_CI_TOOLKIT_DIR")
-      if ((${#selected_tasks[@]} == 0)); then
-        echo "No Android test tasks selected for this change."
-        exit 0
-      fi
       bash "$MAGISK_CI_TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" $MAGISK_GRADLE_ARGS \
-        "${selected_tasks[@]}" \
+        $MAGISK_ANDROID_TEST_TASKS \
         -PminifyDebug \
         -Pkotlin.incremental=false \
         -x detekt \
         -x qualityGateDetekt \
         -x verifyModuleBoundaries
   artifacts:
-    name: "MiPushFramework-test-$CI_COMMIT_REF_SLUG"
+    name: "MiPushFramework-robolectric-$CI_JOB_NAME_SLUG-$CI_COMMIT_REF_SLUG"
+    when: always
+    expire_in: 14 days
+    paths:
+      - common/build/kover/**
+      - core/build/kover/**
+      - xposed/build/kover/**
+      - xmsf/build/kover/**
+    reports:
+      junit:
+        - "**/build/test-results/test*/TEST-*.xml"
+
+android:test:robolectric:
+  extends: .mipush_robolectric_tests
+  variables:
+    MAGISK_ANDROID_TEST_TASKS: >-
+      :common:testDebugUnitTest :common:koverGenerateArtifactDebug
+      :core:testDebugUnitTest :core:koverGenerateArtifactDebug
+      :xposed:testDebugUnitTest :xposed:koverGenerateArtifactDebug
+      :xmsf:testNormalDebugUnitTest :xmsf:koverGenerateArtifactNormalDebug
+      :xmsf:testVc105DebugUnitTest :xmsf:koverGenerateArtifactVc105Debug
+
+android:test:
+  extends:
+    - .magisk_android_base
+    - .mipush_android_rules
+  # The coverage gate consumes the AMD Robolectric job's artifacts but does
+  # not execute Robolectric. Run it on ARM to use the second runner.
+  image: "eclipse-temurin:26.0.1_8-jdk"
+  stage: quality
+  tags:
+    - magisk-arm64-linux
+  needs:
+    - job: android:test:robolectric
+      artifacts: true
+  script:
+    - |
+      set -euo pipefail
+      : "${MAGISK_GRADLE_ARGS:=--warning-mode all}"
+      # Test execution is completed by the AMD Robolectric job. Keep the final job as
+      # an ARM-side coverage gate and exclude those tasks to avoid rerunning them.
+      bash "$MAGISK_CI_TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" $MAGISK_GRADLE_ARGS \
+        qualityGateKoverVerify \
+        -PminifyDebug \
+        -Pkotlin.incremental=false \
+        -x :common:testDebugUnitTest \
+        -x :core:testDebugUnitTest \
+        -x :xposed:testDebugUnitTest \
+        -x :xmsf:testNormalDebugUnitTest \
+        -x :xmsf:testVc105DebugUnitTest \
+        -x detekt \
+        -x qualityGateDetekt \
+        -x verifyModuleBoundaries
+  artifacts:
+    name: "MiPushFramework-test-merged-$CI_COMMIT_REF_SLUG"
     when: always
     expire_in: 14 days
     reports:
@@ -442,11 +496,12 @@ android:shared-compat:
   extends:
     - .magisk_android_base
     - .mipush_android_rules
-  # Keep compatibility checks and host compilation separate from the test gate.
+  # This is compile-only and does not load Robolectric; use ARM while AMD runs
+  # the complete Robolectric job.
   image: "eclipse-temurin:26.0.1_8-jdk"
   stage: quality
   tags:
-    - magisk-amd64-linux
+    - magisk-arm64-linux
   needs: []
   script:
     - bash scripts/checks/verify_shared_submodule_compat.sh
