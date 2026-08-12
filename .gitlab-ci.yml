@@ -1,18 +1,18 @@
 include:
   - project: magisk3171/magisk-ci-toolkit
-    ref: aff405605f0b2763815c8a3c1d57d08875ac1f19
+    ref: 5bf71b0d43bb0a95149e73e68be0cd95838c18b5
     file: /.gitlab/ci/android.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: aff405605f0b2763815c8a3c1d57d08875ac1f19
+    ref: 5bf71b0d43bb0a95149e73e68be0cd95838c18b5
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: aff405605f0b2763815c8a3c1d57d08875ac1f19
+    ref: 5bf71b0d43bb0a95149e73e68be0cd95838c18b5
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: aff405605f0b2763815c8a3c1d57d08875ac1f19
+    ref: 5bf71b0d43bb0a95149e73e68be0cd95838c18b5
     file: /.gitlab/ci/renovate.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: aff405605f0b2763815c8a3c1d57d08875ac1f19
+    ref: 5bf71b0d43bb0a95149e73e68be0cd95838c18b5
     file: /.gitlab/ci/cancel-mr-pipelines.yml
 
 workflow:
@@ -42,7 +42,7 @@ stages:
   - maintenance
 
 variables:
-  MAGISK_CI_TOOLKIT_REF: "aff405605f0b2763815c8a3c1d57d08875ac1f19"
+  MAGISK_CI_TOOLKIT_REF: "5bf71b0d43bb0a95149e73e68be0cd95838c18b5"
   MAGISK_CANCEL_OLDER_MR_PIPELINES: "true"
   GIT_DEPTH: "0"
   GIT_SUBMODULE_STRATEGY: recursive
@@ -659,6 +659,8 @@ android:ci:play-alpha:
       set +a
       export MAGISK_PLAY_AAB_FILE="$(find mipush/build/outputs/bundle -type f -name '*.aab' | sort | head -n 1)"
       export MAGISK_PLAY_TITLE="MiPush Manager"
+      export MAGISK_PLAY_SHORT_DESCRIPTION="System-level Xiaomi push service for non-MIUI Android devices."
+      export MAGISK_PLAY_FULL_DESCRIPTION="MiPush Manager provides a system-level Xiaomi push service for non-MIUI Android devices. It centralizes Xiaomi push connections, improves notification compatibility, and offers runtime diagnostics and configuration controls."
       export MAGISK_PLAY_MAPPING_FILE="$(find mipush/build/outputs/mapping -type f -name mapping.txt | sort | head -n 1 || true)"
       export MAGISK_PLAY_SYMBOLS_FILE="$(find mipush/build/outputs/native-debug-symbols -type f -name native-debug-symbols.zip 2>/dev/null | sort | head -n 1 || true)"
       export MAGISK_RELEASE_ENV_FILE=play-release-status.env
