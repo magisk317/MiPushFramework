@@ -127,6 +127,61 @@ interface IPushRuntimeObserver {
     
     fun planConnectionEvent(event: PushConnectionListenerEvent): PushConnectionStatusPlan
     fun buildGslbRequest(baseUrl: String, sdkVersion: Int, droidVersion: Int, model: String, incremental: String, miuiType: Int): PushGslbRequest
+
+    // --- Batch 2: event-driven plan methods (vendor notifies, xmsf decides) ---
+
+    fun resolveNetworkChangedPlan(
+        hasNetwork: Boolean,
+        isNetworkDeferred: Boolean,
+        isConnected: Boolean,
+        isConnecting: Boolean,
+        shouldResetOnWifi: Boolean,
+        shouldCheckAlive: Boolean
+    ): PushNetworkChangedPlan =
+        PushConnectionPlanFactory.planNetworkChanged(hasNetwork, isNetworkDeferred, isConnected, isConnecting, shouldResetOnWifi, shouldCheckAlive)
+
+    fun resolveScreenStatePlan(
+        isScreenOn: Boolean,
+        shouldFalldown: Boolean,
+        alarmAlive: Boolean,
+        isConnected: Boolean,
+        isConnecting: Boolean
+    ): PushScreenStatePlan =
+        PushConnectionPlanFactory.planScreenState(isScreenOn, shouldFalldown, alarmAlive, isConnected, isConnecting)
+
+    fun resolveTimerPlan(
+        shouldFalldown: Boolean,
+        alarmAlive: Boolean,
+        isConnected: Boolean,
+        isConnecting: Boolean,
+        shouldCheckAlive: Boolean
+    ): PushTimerPlan =
+        PushConnectionPlanFactory.planTimer(shouldFalldown, alarmAlive, isConnected, isConnecting, shouldCheckAlive)
+
+    fun resolveClientChangePlan(
+        activeClientCount: Int,
+        shouldUpdateAlarm: Boolean
+    ): PushClientChangePlan =
+        PushConnectionPlanFactory.planClientChange(activeClientCount, shouldUpdateAlarm)
+
+    fun resolvePowerModePlan(
+        isExtremePowerMode: Boolean,
+        isSuperPowerMode: Boolean,
+        isConnected: Boolean
+    ): PushPowerModePlan =
+        PushConnectionPlanFactory.planPowerModeChanged(isExtremePowerMode, isSuperPowerMode, isConnected)
+
+    fun resolveShouldReconnectPlan(
+        hasNetwork: Boolean,
+        activeClientCount: Int,
+        pushDisabled: Boolean,
+        pushEnabled: Boolean,
+        superPowerMode: Boolean,
+        extremePowerMode: Boolean
+    ): PushShouldReconnectPlan =
+        PushConnectionPlanFactory.planShouldReconnect(
+            hasNetwork, activeClientCount, pushDisabled, pushEnabled, superPowerMode, extremePowerMode,
+        )
     fun decideBucketFetch(fetchBucketRequested: Boolean, lastFetchTimeMs: Long, nowMs: Long, minBucketFetchDurationMs: Long): PushBucketFetchPlan
     fun decideBucketReconnect(hasConnection: Boolean, currentHost: String?, candidateHosts: List<String>): PushBucketReconnectPlan
     

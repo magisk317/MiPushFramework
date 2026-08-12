@@ -59,13 +59,13 @@ class XMPushServiceLifecycleInfrastructure(
             val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
                 override fun onChange(selfChange: Boolean) {
                     super.onChange(selfChange)
-                    val enabled = service.isExtremePowerSaveMode()
-                    MyLog.w("ExtremePowerMode:$enabled")
-                    if (!enabled) {
-                        service.scheduleConnect(true)
-                    } else {
-                        service.executeJob(DisconnectJob(service, 23, null))
-                    }
+                    val isExtreme = service.isExtremePowerSaveMode()
+                    val isSuper = service.isSuperPowerModeEnable()
+                    MyLog.w("ExtremePowerMode:$isExtreme SuperPowerMode:$isSuper")
+                    val plan = service.runtimeObserver.resolvePowerModePlan(isExtreme, isSuper, service.isConnected)
+                    if (plan.shouldDisconnect) service.executeJob(DisconnectJob(service, plan.disconnectReason, null))
+                    if (plan.shouldConnect) service.scheduleConnect(true)
+                    if (plan.shouldUpdateAlarm) service.updateAlarmTimer()
                 }
             }
             service.extremePowerModeObserver = observer
@@ -80,14 +80,13 @@ class XMPushServiceLifecycleInfrastructure(
             val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
                 override fun onChange(selfChange: Boolean) {
                     super.onChange(selfChange)
-                    val enabled = service.isSuperPowerModeEnable()
-                    MyLog.w("SuperPowerMode:$enabled")
-                    service.updateAlarmTimer()
-                    if (!enabled) {
-                        service.scheduleConnect(true)
-                    } else {
-                        service.executeJob(DisconnectJob(service, 24, null))
-                    }
+                    val isExtreme = service.isExtremePowerSaveMode()
+                    val isSuper = service.isSuperPowerModeEnable()
+                    MyLog.w("SuperPowerMode:$isSuper ExtremePowerMode:$isExtreme")
+                    val plan = service.runtimeObserver.resolvePowerModePlan(isExtreme, isSuper, service.isConnected)
+                    if (plan.shouldDisconnect) service.executeJob(DisconnectJob(service, plan.disconnectReason, null))
+                    if (plan.shouldConnect) service.scheduleConnect(true)
+                    if (plan.shouldUpdateAlarm) service.updateAlarmTimer()
                 }
             }
             service.superPowerModeObserver = observer

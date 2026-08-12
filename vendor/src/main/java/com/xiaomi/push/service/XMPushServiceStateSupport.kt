@@ -1,7 +1,5 @@
 package com.xiaomi.push.service
 
-import com.xiaomi.channel.commonutils.network.Network
-
 class XMPushServiceStateSupport private constructor() {
     companion object {
         @JvmStatic
@@ -21,12 +19,14 @@ class XMPushServiceStateSupport private constructor() {
 
         @JvmStatic
         fun shouldReconnect(service: XMPushServiceCore): Boolean {
-            return Network.hasNetwork(service) &&
-                PushClientsManager.getInstance().getActiveClientCount() > 0 &&
-                !service.isPushDisabled() &&
-                service.isPushEnabled() &&
-                !service.isSuperPowerModeEnable() &&
-                !service.isExtremePowerSaveMode()
+            return service.runtimeObserver.resolveShouldReconnectPlan(
+                hasNetwork = com.xiaomi.channel.commonutils.network.Network.hasNetwork(service),
+                activeClientCount = PushClientsManager.getInstance().getActiveClientCount(),
+                pushDisabled = service.isPushDisabled(),
+                pushEnabled = service.isPushEnabled(),
+                superPowerMode = service.isSuperPowerModeEnable(),
+                extremePowerMode = service.isExtremePowerSaveMode(),
+            ).shouldReconnect
         }
     }
 }

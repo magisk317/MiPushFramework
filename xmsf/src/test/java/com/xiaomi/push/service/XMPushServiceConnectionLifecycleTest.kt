@@ -38,34 +38,38 @@ class XMPushServiceConnectionLifecycleTest {
         XMPushServiceLifecycleDelegate(service).reconnectionSuccessful(connection)
 
         verify(exactly = 1) { observer.reconnectionSuccessful(connection) }
-        verify(exactly = 1) { service.broadcastNetworkAvailable(true) }
-        verify(exactly = 1) { reconnectManager.onConnectSucceeded() }
-        assertEquals(listOf(true), alarm.registrations)
+        verify(exactly = 0) { service.broadcastNetworkAvailable(any()) }
+        verify(exactly = 0) { reconnectManager.onConnectSucceeded() }
+        assertEquals(emptyList<Boolean>(), alarm.registrations)
     }
 
     @Test
     fun `connection failure publishes unavailable then reconnects outside fall down`() {
         val service = mockk<XMPushServiceCore>(relaxed = true)
-        every { service.runtimeObserver } returns mockk(relaxed = true)
+        val observer = mockk<IPushRuntimeObserver>(relaxed = true)
+        every { service.runtimeObserver } returns observer
         every { service.shouldFalldown() } returns false
         val connection = mockk<Connection>(relaxed = true)
         val error = IllegalStateException("handshake failed")
 
         XMPushServiceLifecycleDelegate(service).reconnectionFailed(connection, error)
 
-        verify(exactly = 1) { service.broadcastNetworkAvailable(false) }
-        verify(exactly = 1) { service.scheduleConnect(false) }
+        verify(exactly = 1) { observer.reconnectionFailed(connection, error) }
+        verify(exactly = 0) { service.broadcastNetworkAvailable(any()) }
+        verify(exactly = 0) { service.scheduleConnect(any()) }
     }
 
     @Test
     fun `closed connection respects stock fall down reconnect suppression`() {
         val service = mockk<XMPushServiceCore>(relaxed = true)
-        every { service.runtimeObserver } returns mockk(relaxed = true)
+        val observer = mockk<IPushRuntimeObserver>(relaxed = true)
+        every { service.runtimeObserver } returns observer
         every { service.shouldFalldown() } returns true
         val connection = mockk<Connection>(relaxed = true)
 
         XMPushServiceLifecycleDelegate(service).connectionClosed(connection, 22, null)
 
+        verify(exactly = 1) { observer.connectionClosed(connection, 22, null) }
         verify(exactly = 0) { service.scheduleConnect(any()) }
     }
 

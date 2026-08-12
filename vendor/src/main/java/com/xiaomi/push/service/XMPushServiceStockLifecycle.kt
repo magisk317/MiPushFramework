@@ -59,11 +59,13 @@ class XMPushServiceStockLifecycle(
     fun configureClientChangeListener(manager: PushClientsManager) {
         manager.removeAllClientChangeListeners()
         manager.addClientChangeListener {
-            service.updateAlarmTimer()
-            if (manager.getActiveClientCount() <= 0) {
-                service.executeJob(
-                    DisconnectJob(service, CLIENTS_EMPTY_DISCONNECT_REASON, null),
-                )
+            val plan = service.runtimeObserver.resolveClientChangePlan(
+                activeClientCount = manager.getActiveClientCount(),
+                shouldUpdateAlarm = true
+            )
+            if (plan.shouldUpdateAlarm) service.updateAlarmTimer()
+            if (plan.shouldDisconnect) {
+                service.executeJob(DisconnectJob(service, CLIENTS_EMPTY_DISCONNECT_REASON, null))
             }
         }
     }
@@ -77,32 +79,32 @@ class XMPushServiceStockLifecycle(
         }
 
         // SDK 3.7.9 returns before cache, reconnect, upload, and alarm work while NetworkInfo is
-        // SUSPENDED or UNKNOWN. The previous product observer reduced this to hasNetwork(), which
-        // could enqueue a connect or disconnect during a transient handover.
+        // SUSPENDED or UNKNOWN.
         if (dependencies.isNetworkStateDeferred(service)) return
 
         service.slimConnection.clearCachedStatus()
-        if (dependencies.hasNetwork(service)) {
-            // Stock XMSF 7.4.67-C za.f(149): on API 35+, when ResetConnectionSwitch is on and the
-            // device has just moved onto WiFi while the live long connection was opened over a
-            // non-WiFi point, reset that connection so it re-establishes on WiFi.
-            if (shouldResetConnectionOnWifi()) {
-                MyLog.w("network changed to wifi with stale non-wifi connection; resetting (cfg 149)")
-                service.jobController.removeJobs(XMPushServiceJob.TYPE_CONNECT)
-                service.executeJob(ResetConnectionJob(service))
-            } else if (service.isConnected && service.shouldCheckAlive()) {
-                service.checkAlive(false)
-            }
-            if (!service.isConnected && !service.isConnecting) {
-                service.jobController.removeJobs(XMPushServiceJob.TYPE_CONNECT)
-                service.executeJob(ConnectJob(service))
-            }
-        } else {
-            service.executeJob(
-                DisconnectJob(service, NETWORK_UNAVAILABLE_DISCONNECT_REASON, null),
-            )
+        val plan = service.runtimeObserver.resolveNetworkChangedPlan(
+            hasNetwork = dependencies.hasNetwork(service),
+            isNetworkDeferred = false,
+            isConnected = service.isConnected,
+            isConnecting = service.isConnecting,
+            shouldResetOnWifi = shouldResetConnectionOnWifi(),
+            shouldCheckAlive = service.isConnected && service.shouldCheckAlive()
+        )
+        service.runtimeObserver.onChannelEvent(null, plan.eventAction, "XMPushServiceStockLifecycle.networkChanged")
+        if (plan.shouldResetConnection) {
+            service.jobController.removeJobs(XMPushServiceJob.TYPE_CONNECT)
+            service.executeJob(ResetConnectionJob(service))
         }
-        service.updateAlarmTimer()
+        if (plan.shouldCheckAlive) { service.checkAlive(false) }
+        if (plan.shouldConnect) {
+            service.jobController.removeJobs(XMPushServiceJob.TYPE_CONNECT)
+            service.executeJob(ConnectJob(service))
+        }
+        if (plan.shouldDisconnect) {
+            service.executeJob(DisconnectJob(service, NETWORK_UNAVAILABLE_DISCONNECT_REASON, null))
+        }
+        if (plan.shouldUpdateAlarm) { service.updateAlarmTimer() }
     }
 
     /**

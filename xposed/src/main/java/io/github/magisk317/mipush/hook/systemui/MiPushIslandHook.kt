@@ -14,6 +14,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import io.github.magisk317.mipush.common.notification.NotificationContentSupport
 import io.github.magisk317.mipush.common.notification.NotificationClickFallbackContract
+import io.github.magisk317.mipush.common.XMSF_PACKAGE_NAME
 import io.github.magisk317.mipush.common.utils.ImgUtils
 import io.github.magisk317.mipush.hook.XLog
 import io.github.magisk317.mipush.hook.island.IslandDispatchContract
@@ -285,7 +286,6 @@ class MiPushIslandHook : BaseHook() {
 
     private companion object {
         private const val TAG = "MiPushIslandHook"
-        private const val XMSF_PACKAGE_NAME = "com.xiaomi.xmsf"
         private const val EXTRA_ALLOW_PROXY = "mipush_island_allow_proxy"
         private const val EXTRA_LARGE_ICON_KEY = "android.largeIcon"
         private const val PROXY_POST_DEDUPE_MS = 2_000L

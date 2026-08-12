@@ -49,6 +49,7 @@ import com.xiaomi.push.service.PushServiceRegisterAppAction
 import com.xiaomi.push.service.PushServiceResetConnectionPlan
 import com.xiaomi.push.service.PushRegistrationPayloadRepairResult
 import com.xiaomi.push.service.PushShortConnectionPlan
+import com.xiaomi.push.service.PushShouldReconnectPlan
 import com.xiaomi.push.service.PushSlimHandshakePlan
 import com.xiaomi.push.service.PushSlimInboundPlan
 import com.xiaomi.push.service.PushSlimPingPlan
@@ -230,10 +231,13 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun reconnectionFailed(connection: Connection, error: Exception) {
-        if (activeServiceFor(connection) == null) {
+        val service = activeServiceFor(connection)
+        if (service == null) {
             logW("ignore reconnection failure from stale connection")
             return
         }
+        val wasFalldown = service.shouldFalldown()
+        val failPlan = PushServiceConnectionRuntime.planReconnectionFailure(wasFalldown)
         releaseConnection(connection)
         publishConnectionStatus(ConnectionStatus.disconnected)
         PushRuntime.observeChannelEvent(null, "reconnect_failed", "MiPushRuntimeObserverBridge.reconnectionFailed")
@@ -243,13 +247,25 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
             host = connection.host,
             reason = error.message
         )
+        if (failPlan.shouldBroadcastUnavailable) {
+            service.broadcastNetworkAvailable(false)
+        }
+        if (failPlan.shouldScheduleReconnect) {
+            service.scheduleConnect(false)
+        }
     }
 
     override fun reconnectionSuccessful(connection: Connection) {
-        if (activeServiceFor(connection) == null) {
+        val service = activeServiceFor(connection)
+        if (service == null) {
             logW("ignore reconnect success from stale connection")
             return
         }
+        val wasFalldown = service.shouldFalldown()
+        val successPlan = PushServiceConnectionRuntime.planReconnectionSuccess(
+            alarmAlive = com.xiaomi.push.service.timers.Alarm.isAlive(),
+            shouldFalldown = wasFalldown,
+        )
         synchronized(this) { activeConnection = connection }
         publishConnectionStatus(ConnectionStatus.connected)
         PushRuntime.observeChannelEvent(
@@ -260,6 +276,20 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
         MyMIPushNotificationHelper.markNotificationSessionStarted(
             "MiPushRuntimeObserverBridge.reconnectionSuccessful",
         )
+        if (successPlan.shouldBroadcastAvailable) {
+            service.broadcastNetworkAvailable(true)
+        }
+        if (successPlan.shouldResetReconnectState) {
+            service.reconnectionManager.onConnectSucceeded()
+        }
+        if (successPlan.shouldRegisterAlarm) {
+            com.xiaomi.push.service.timers.Alarm.registerPing(true)
+        }
+        if (successPlan.shouldBindAllClients) {
+            com.xiaomi.push.service.PushClientsManager.getInstance().getAllClients().forEach { client ->
+                service.executeJob(com.xiaomi.push.service.BindJob(service, client))
+            }
+        }
         PushRuntime.observeConnectionState(
             state = PushConnectionState.Connected,
             source = "MiPushRuntimeObserverBridge.reconnectionSuccessful",
@@ -285,8 +315,10 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
             host = connection.host,
             reason = error?.message ?: reason.toString()
         )
-        if (wasFalldown && closePlan.shouldScheduleReconnect) {
-            service.scheduleConnect(true)
+        // Bridge owns all reconnect decisions. planConnectionClosed returns shouldScheduleReconnect=true
+        // when not in falldown, OR when in falldown but connection failed (reason=22, read error, exception).
+        if (closePlan.shouldScheduleReconnect) {
+            service.scheduleConnect(!wasFalldown)
         }
     }
 
@@ -774,6 +806,24 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
 
     override fun resolveCheckAlivePlan(isConnected: Boolean, hasNetwork: Boolean): PushCheckAlivePlan {
         return PushServiceConnectionRuntime.planCheckAlive(isConnected, hasNetwork)
+    }
+
+    override fun resolveShouldReconnectPlan(
+        hasNetwork: Boolean,
+        activeClientCount: Int,
+        pushDisabled: Boolean,
+        pushEnabled: Boolean,
+        superPowerMode: Boolean,
+        extremePowerMode: Boolean,
+    ): PushShouldReconnectPlan {
+        return PushServiceConnectionRuntime.planShouldReconnect(
+            hasNetwork,
+            activeClientCount,
+            pushDisabled,
+            pushEnabled,
+            superPowerMode,
+            extremePowerMode,
+        )
     }
 
     override fun resolveReconnectAttemptPlan(

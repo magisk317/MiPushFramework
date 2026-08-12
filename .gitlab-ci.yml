@@ -411,7 +411,6 @@ android:test:
         exit 0
       fi
       bash "$MAGISK_CI_TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" $MAGISK_GRADLE_ARGS \
-        --no-parallel \
         "${selected_tasks[@]}" \
         -PminifyDebug \
         -Pkotlin.incremental=false \

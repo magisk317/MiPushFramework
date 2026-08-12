@@ -228,6 +228,7 @@ class XMPushServiceStockLifecycleTest {
         connectionPoint: String? = null,
     ): Fixture {
         val service = mockk<XMPushServiceCore>(relaxed = true)
+        val observer = mockk<IPushRuntimeObserver>(relaxed = true)
         val slimConnection = mockk<SlimConnection>(relaxed = true)
         val jobScheduler = mockk<JobScheduler>(relaxed = true)
         val connectionConfiguration = mockk<ConnectionConfiguration>(relaxed = true)
@@ -240,6 +241,7 @@ class XMPushServiceStockLifecycleTest {
         )
         val jobs = mutableListOf<XMPushServiceJob>()
         every { service.slimConnection } returns slimConnection
+        every { service.runtimeObserver } returns observer
         every { service.jobController } returns jobScheduler
         every { service.isPushEnabled() } returns pushEnabled
         every { service.isConnected } returns connected
@@ -248,6 +250,23 @@ class XMPushServiceStockLifecycleTest {
         every { service.connectionConfiguration } returns connectionConfiguration
         every { connectionConfiguration.connectionPoint } returns connectionPoint
         every { service.executeJob(capture(jobs)) } just Runs
+        every {
+            observer.resolveNetworkChangedPlan(any(), any(), any(), any(), any(), any())
+        } answers {
+            PushConnectionPlanFactory.planNetworkChanged(
+                args[0] as Boolean,
+                args[1] as Boolean,
+                args[2] as Boolean,
+                args[3] as Boolean,
+                args[4] as Boolean,
+                args[5] as Boolean,
+            )
+        }
+        every {
+            observer.resolveClientChangePlan(any(), any())
+        } answers {
+            PushConnectionPlanFactory.planClientChange(firstArg(), secondArg())
+        }
         return Fixture(
             service = service,
             slimConnection = slimConnection,

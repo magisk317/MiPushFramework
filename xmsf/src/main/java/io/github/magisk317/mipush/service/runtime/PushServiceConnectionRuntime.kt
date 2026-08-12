@@ -1,24 +1,8 @@
 package io.github.magisk317.mipush.service.runtime
 import com.xiaomi.push.service.*
 
-data class PushReconnectionFailurePlan(
-    val shouldBroadcastUnavailable: Boolean,
-    val shouldScheduleReconnect: Boolean,
-    val eventAction: String
-)
-
-data class PushReconnectionSuccessPlan(
-    val shouldBroadcastAvailable: Boolean,
-    val shouldResetReconnectState: Boolean,
-    val shouldRegisterAlarm: Boolean,
-    val shouldBindAllClients: Boolean,
-    val eventAction: String
-)
-
-data class PushConnectionClosedPlan(
-    val shouldScheduleReconnect: Boolean,
-    val eventAction: String
-)
+// Plan data classes are in vendor PushRuntimeModels.kt.
+// This object provides xmsf-specific plan methods and delegates stock behavior to vendor.
 
 object PushServiceConnectionRuntime {
     @JvmStatic
@@ -63,54 +47,57 @@ object PushServiceConnectionRuntime {
         }
     }
 
-    @JvmStatic
-    fun planReconnectionFailure(shouldFalldown: Boolean): PushReconnectionFailurePlan {
-        return PushReconnectionFailurePlan(
-            shouldBroadcastUnavailable = true,
-            shouldScheduleReconnect = !shouldFalldown,
-            eventAction = if (shouldFalldown) {
-                "reconnect_failed_falldown"
-            } else {
-                "reconnect_failed_schedule"
-            }
-        )
-    }
+    // Delegates to vendor PushConnectionPlanFactory for stock behavior.
+    // xmsf can override these by implementing IPushRuntimeObserver methods.
 
     @JvmStatic
-    fun planReconnectionSuccess(
-        alarmAlive: Boolean,
-        shouldFalldown: Boolean
-    ): PushReconnectionSuccessPlan {
-        val shouldRegisterAlarm = !alarmAlive && !shouldFalldown
-        return PushReconnectionSuccessPlan(
-            shouldBroadcastAvailable = true,
-            shouldResetReconnectState = true,
-            shouldRegisterAlarm = shouldRegisterAlarm,
-            shouldBindAllClients = true,
-            eventAction = if (shouldRegisterAlarm) {
-                "reconnect_success_alarm_reactivated"
-            } else {
-                "reconnect_success"
-            }
-        )
-    }
+    fun planReconnectionFailure(shouldFalldown: Boolean): PushReconnectionFailurePlan =
+        PushConnectionPlanFactory.planReconnectionFailure(shouldFalldown)
 
     @JvmStatic
-    fun planConnectionClosed(
-        shouldFalldown: Boolean,
-        reason: Int = 0,
-        error: Exception? = null
-    ): PushConnectionClosedPlan {
-        val failedConnection = error != null ||
-            reason == PushConstants.ERROR_READ_ERROR ||
-            reason == PushConstants.ERROR_PING_TIMEOUT
-        return PushConnectionClosedPlan(
-            shouldScheduleReconnect = !shouldFalldown || failedConnection,
-            eventAction = if (shouldFalldown && !failedConnection) {
-                "connection_closed_falldown"
-            } else {
-                "connection_closed_schedule_reconnect"
-            }
-        )
-    }
+    fun planReconnectionSuccess(alarmAlive: Boolean, shouldFalldown: Boolean): PushReconnectionSuccessPlan =
+        PushConnectionPlanFactory.planReconnectionSuccess(alarmAlive, shouldFalldown)
+
+    @JvmStatic
+    fun planConnectionClosed(shouldFalldown: Boolean, reason: Int = 0, error: Exception? = null): PushConnectionClosedPlan =
+        PushConnectionPlanFactory.planConnectionClosed(shouldFalldown, reason, error)
+
+    @JvmStatic
+    fun planNetworkChanged(
+        hasNetwork: Boolean,
+        isNetworkDeferred: Boolean,
+        isConnected: Boolean,
+        isConnecting: Boolean,
+        shouldResetOnWifi: Boolean,
+        shouldCheckAlive: Boolean,
+    ): PushNetworkChangedPlan =
+        PushConnectionPlanFactory.planNetworkChanged(hasNetwork, isNetworkDeferred, isConnected, isConnecting, shouldResetOnWifi, shouldCheckAlive)
+
+    @JvmStatic
+    fun planScreenState(isScreenOn: Boolean, shouldFalldown: Boolean, alarmAlive: Boolean, isConnected: Boolean, isConnecting: Boolean): PushScreenStatePlan =
+        PushConnectionPlanFactory.planScreenState(isScreenOn, shouldFalldown, alarmAlive, isConnected, isConnecting)
+
+    @JvmStatic
+    fun planTimer(shouldFalldown: Boolean, alarmAlive: Boolean, isConnected: Boolean, isConnecting: Boolean, shouldCheckAlive: Boolean): PushTimerPlan =
+        PushConnectionPlanFactory.planTimer(shouldFalldown, alarmAlive, isConnected, isConnecting, shouldCheckAlive)
+
+    @JvmStatic
+    fun planClientChange(activeClientCount: Int, shouldUpdateAlarm: Boolean): PushClientChangePlan =
+        PushConnectionPlanFactory.planClientChange(activeClientCount, shouldUpdateAlarm)
+
+    @JvmStatic
+    fun planPowerModeChanged(isExtremePowerMode: Boolean, isSuperPowerMode: Boolean, isConnected: Boolean): PushPowerModePlan =
+        PushConnectionPlanFactory.planPowerModeChanged(isExtremePowerMode, isSuperPowerMode, isConnected)
+
+    @JvmStatic
+    fun planShouldReconnect(
+        hasNetwork: Boolean,
+        activeClientCount: Int,
+        pushDisabled: Boolean,
+        pushEnabled: Boolean,
+        superPowerMode: Boolean,
+        extremePowerMode: Boolean,
+    ): PushShouldReconnectPlan = PushConnectionPlanFactory.planShouldReconnect(
+        hasNetwork, activeClientCount, pushDisabled, pushEnabled, superPowerMode, extremePowerMode,
+    )
 }

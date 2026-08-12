@@ -318,3 +318,208 @@ data class HostRequestThrottlePlan(
     val shouldRequest: Boolean,
     val nextTimestampMs: Long
 )
+
+// --- Batch 2: Event-driven plans (vendor detects, xmsf decides) ---
+
+data class PushNetworkChangedPlan(
+    val shouldResetConnection: Boolean,
+    val shouldConnect: Boolean,
+    val shouldDisconnect: Boolean,
+    val shouldCheckAlive: Boolean,
+    val shouldUpdateAlarm: Boolean,
+    val eventAction: String
+)
+
+data class PushScreenStatePlan(
+    val shouldStopAlarm: Boolean,
+    val shouldUpdateAlarm: Boolean,
+    val shouldConnect: Boolean,
+    val eventAction: String
+)
+
+data class PushTimerPlan(
+    val shouldStopAlarm: Boolean,
+    val shouldRegisterPing: Boolean,
+    val shouldConnect: Boolean,
+    val shouldCheckAlive: Boolean,
+    val eventAction: String
+)
+
+data class PushClientChangePlan(
+    val shouldUpdateAlarm: Boolean,
+    val shouldDisconnect: Boolean,
+    val eventAction: String
+)
+
+data class PushPowerModePlan(
+    val shouldDisconnect: Boolean,
+    val shouldConnect: Boolean,
+    val shouldUpdateAlarm: Boolean,
+    val disconnectReason: Int,
+    val eventAction: String
+)
+
+data class PushShouldReconnectPlan(
+    val shouldReconnect: Boolean,
+    val eventAction: String,
+)
+
+data class PushReconnectionFailurePlan(
+    val shouldBroadcastUnavailable: Boolean,
+    val shouldScheduleReconnect: Boolean,
+    val eventAction: String
+)
+
+data class PushReconnectionSuccessPlan(
+    val shouldBroadcastAvailable: Boolean,
+    val shouldResetReconnectState: Boolean,
+    val shouldRegisterAlarm: Boolean,
+    val shouldBindAllClients: Boolean,
+    val eventAction: String
+)
+
+data class PushConnectionClosedPlan(
+    val shouldScheduleReconnect: Boolean,
+    val eventAction: String
+)
+
+// --- Batch 2: Stock plan factory methods (default behavior, xmsf can override) ---
+
+object PushConnectionPlanFactory {
+    @JvmStatic
+    fun planShouldReconnect(
+        hasNetwork: Boolean,
+        activeClientCount: Int,
+        pushDisabled: Boolean,
+        pushEnabled: Boolean,
+        superPowerMode: Boolean,
+        extremePowerMode: Boolean,
+    ): PushShouldReconnectPlan {
+        val shouldReconnect = hasNetwork && activeClientCount > 0 &&
+            !pushDisabled && pushEnabled && !superPowerMode && !extremePowerMode
+        return PushShouldReconnectPlan(
+            shouldReconnect = shouldReconnect,
+            eventAction = if (shouldReconnect) "should_reconnect" else "should_not_reconnect",
+        )
+    }
+
+    @JvmStatic
+    fun planNetworkChanged(
+        hasNetwork: Boolean,
+        isNetworkDeferred: Boolean,
+        isConnected: Boolean,
+        isConnecting: Boolean,
+        shouldResetOnWifi: Boolean,
+        shouldCheckAlive: Boolean
+    ): PushNetworkChangedPlan {
+        if (isNetworkDeferred) {
+            return PushNetworkChangedPlan(
+                shouldResetConnection = false, shouldConnect = false, shouldDisconnect = false,
+                shouldCheckAlive = false, shouldUpdateAlarm = false,
+                eventAction = "network_changed_deferred"
+            )
+        }
+        if (hasNetwork) {
+            val doReset = shouldResetOnWifi
+            val doCheckAlive = !doReset && isConnected && shouldCheckAlive
+            val doConnect = !isConnected && !isConnecting
+            return PushNetworkChangedPlan(
+                shouldResetConnection = doReset, shouldConnect = doConnect, shouldDisconnect = false,
+                shouldCheckAlive = doCheckAlive, shouldUpdateAlarm = true,
+                eventAction = when {
+                    doReset -> "network_changed_wifi_reset"
+                    doCheckAlive -> "network_changed_check_alive"
+                    doConnect -> "network_changed_connect"
+                    else -> "network_changed_noop"
+                }
+            )
+        }
+        return PushNetworkChangedPlan(
+            shouldResetConnection = false, shouldConnect = false, shouldDisconnect = true,
+            shouldCheckAlive = false, shouldUpdateAlarm = true,
+            eventAction = "network_changed_disconnect"
+        )
+    }
+
+    @JvmStatic
+    fun planScreenState(isScreenOn: Boolean, shouldFalldown: Boolean, alarmAlive: Boolean, isConnected: Boolean, isConnecting: Boolean): PushScreenStatePlan {
+        if (!isScreenOn) {
+            return PushScreenStatePlan(
+                shouldStopAlarm = shouldFalldown && alarmAlive, shouldUpdateAlarm = false,
+                shouldConnect = false,
+                eventAction = if (shouldFalldown && alarmAlive) "screen_off_falldown_stop" else "screen_off_noop"
+            )
+        }
+        if (shouldFalldown) {
+            return PushScreenStatePlan(shouldStopAlarm = false, shouldUpdateAlarm = false, shouldConnect = false, eventAction = "screen_on_falldown_skip")
+        }
+        return PushScreenStatePlan(
+            shouldStopAlarm = false, shouldUpdateAlarm = true,
+            shouldConnect = !isConnected && !isConnecting,
+            eventAction = if (!isConnected && !isConnecting) "screen_on_connect" else "screen_on_update_alarm"
+        )
+    }
+
+    @JvmStatic
+    fun planTimer(shouldFalldown: Boolean, alarmAlive: Boolean, isConnected: Boolean, isConnecting: Boolean, shouldCheckAlive: Boolean): PushTimerPlan {
+        if (shouldFalldown) {
+            return PushTimerPlan(
+                shouldStopAlarm = alarmAlive, shouldRegisterPing = false,
+                shouldConnect = false, shouldCheckAlive = false,
+                eventAction = if (alarmAlive) "timer_falldown_stop" else "timer_falldown_noop"
+            )
+        }
+        val doConnect = !isConnected && !isConnecting
+        return PushTimerPlan(
+            shouldStopAlarm = false, shouldRegisterPing = true,
+            shouldConnect = doConnect, shouldCheckAlive = !doConnect && shouldCheckAlive,
+            eventAction = when { doConnect -> "timer_connect"; shouldCheckAlive -> "timer_check_alive"; else -> "timer_ping" }
+        )
+    }
+
+    @JvmStatic
+    fun planClientChange(activeClientCount: Int, shouldUpdateAlarm: Boolean): PushClientChangePlan {
+        return PushClientChangePlan(
+            shouldUpdateAlarm = shouldUpdateAlarm,
+            shouldDisconnect = activeClientCount <= 0,
+            eventAction = if (activeClientCount <= 0) "client_change_disconnect" else "client_change_update_alarm"
+        )
+    }
+
+    @JvmStatic
+    fun planPowerModeChanged(isExtremePowerMode: Boolean, isSuperPowerMode: Boolean, isConnected: Boolean): PushPowerModePlan {
+        return when {
+            isExtremePowerMode -> PushPowerModePlan(true, false, false, 23, "power_mode_extreme_disconnect")
+            isSuperPowerMode -> PushPowerModePlan(true, false, true, 24, "power_mode_super_disconnect")
+            else -> PushPowerModePlan(false, true, false, 0, "power_mode_off_connect")
+        }
+    }
+
+    @JvmStatic
+    fun planReconnectionFailure(shouldFalldown: Boolean): PushReconnectionFailurePlan {
+        return PushReconnectionFailurePlan(
+            shouldBroadcastUnavailable = true,
+            shouldScheduleReconnect = !shouldFalldown,
+            eventAction = if (shouldFalldown) "reconnect_failed_falldown" else "reconnect_failed_schedule"
+        )
+    }
+
+    @JvmStatic
+    fun planReconnectionSuccess(alarmAlive: Boolean, shouldFalldown: Boolean): PushReconnectionSuccessPlan {
+        val shouldRegisterAlarm = !alarmAlive && !shouldFalldown
+        return PushReconnectionSuccessPlan(
+            shouldBroadcastAvailable = true, shouldResetReconnectState = true,
+            shouldRegisterAlarm = shouldRegisterAlarm, shouldBindAllClients = true,
+            eventAction = if (shouldRegisterAlarm) "reconnect_success_alarm_reactivated" else "reconnect_success"
+        )
+    }
+
+    @JvmStatic
+    fun planConnectionClosed(shouldFalldown: Boolean, reason: Int = 0, error: Exception? = null): PushConnectionClosedPlan {
+        val failedConnection = error != null || reason == PushConstants.ERROR_READ_ERROR || reason == PushConstants.ERROR_PING_TIMEOUT
+        return PushConnectionClosedPlan(
+            shouldScheduleReconnect = !shouldFalldown || failedConnection,
+            eventAction = if (shouldFalldown && !failedConnection) "connection_closed_falldown" else "connection_closed_schedule_reconnect"
+        )
+    }
+}

@@ -204,39 +204,48 @@ internal class XMPushServiceIntentDelegate(
     }
 
     private fun handleScreenState(action: String?) {
-        if (ACTION_SCREEN_OFF == action) {
-            if (service.shouldFalldown() && Alarm.isAlive()) {
-                MyLog.w("enter falldown mode, stop alarm.")
-                Alarm.stop()
-            }
-            return
+        val isScreenOn = action == ACTION_SCREEN_ON
+        val plan = service.runtimeObserver.resolveScreenStatePlan(
+            isScreenOn = isScreenOn,
+            shouldFalldown = service.shouldFalldown(),
+            alarmAlive = Alarm.isAlive(),
+            isConnected = service.isConnected,
+            isConnecting = service.isConnecting
+        )
+        if (plan.shouldStopAlarm) {
+            MyLog.w("enter falldown mode, stop alarm.")
+            Alarm.stop()
         }
-        if (service.shouldFalldown()) {
-            return
+        if (plan.shouldUpdateAlarm) {
+            MyLog.w("exit falldown mode, activate alarm.")
+            service.updateAlarmTimer()
         }
-        MyLog.w("exit falldown mode, activate alarm.")
-        service.updateAlarmTimer()
-        if (!service.isConnected && !service.isConnecting) {
+        if (plan.shouldConnect) {
             service.scheduleConnect(true)
         }
     }
 
     private fun handleTimer() {
         MyLog.w("Service called on timer")
-        if (service.shouldFalldown()) {
-            if (Alarm.isAlive()) {
-                MyLog.w("enter falldown mode, stop alarm")
-                Alarm.stop()
-            }
-            return
+        val plan = service.runtimeObserver.resolveTimerPlan(
+            shouldFalldown = service.shouldFalldown(),
+            alarmAlive = Alarm.isAlive(),
+            isConnected = service.isConnected,
+            isConnecting = service.isConnecting,
+            shouldCheckAlive = service.shouldCheckAlive()
+        )
+        if (plan.shouldStopAlarm) {
+            MyLog.w("enter falldown mode, stop alarm")
+            Alarm.stop()
         }
-        Alarm.registerPing(false)
-        if (!service.isConnected && !service.isConnecting) {
+        if (plan.shouldRegisterPing) {
+            Alarm.registerPing(false)
+        }
+        if (plan.shouldConnect) {
             MyLog.w("timer found disconnected channel, schedule reconnect.")
             service.scheduleConnect(true)
-            return
         }
-        if (service.shouldCheckAlive()) {
+        if (plan.shouldCheckAlive) {
             service.checkAlive(false)
         }
     }
