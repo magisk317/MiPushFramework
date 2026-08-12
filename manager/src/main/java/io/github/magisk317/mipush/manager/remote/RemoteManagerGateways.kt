@@ -8,11 +8,11 @@ import android.net.Uri
 import android.os.Process
 import androidx.core.content.FileProvider
 import io.github.magisk317.mipush.common.fakedevice.ZygiskConfig
-import io.github.magisk317.mipush.feature.main.MainActivity
 import io.github.magisk317.mipush.common.manager.ManagerApplication
 import io.github.magisk317.mipush.common.manager.ManagerApplicationDiagnostics
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
 import io.github.magisk317.mipush.common.manager.ManagerApplications
+import io.github.magisk317.mipush.common.manager.ManagerDualAppInstallationResult
 import io.github.magisk317.mipush.common.manager.ManagerConfigEditorSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
 import io.github.magisk317.mipush.common.manager.ManagerConfigListSnapshot
@@ -20,6 +20,7 @@ import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
 import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerDayCount
 import io.github.magisk317.mipush.common.manager.ManagerEvent
+import io.github.magisk317.mipush.common.manager.ManagerForceRegisterResult
 import io.github.magisk317.mipush.common.manager.EventDebugJson
 import io.github.magisk317.mipush.common.manager.ManagerEventGateway
 import io.github.magisk317.mipush.common.manager.ManagerLogClearResult
@@ -35,6 +36,9 @@ import io.github.magisk317.mipush.common.manager.ManagerRuntimeEnvironmentSnapsh
 import io.github.magisk317.mipush.common.manager.ManagerXSpaceRepairResult
 import io.github.magisk317.mipush.common.manager.ManagerXSpaceRepairStage
 import io.github.magisk317.mipush.common.manager.ZygiskConfigGateway
+import io.github.magisk317.mipush.common.manager.ZygiskConfigReadResult
+import io.github.magisk317.mipush.common.manager.ZygiskModuleReadResult
+import io.github.magisk317.mipush.common.manager.ZygiskPackageScanResult
 import io.github.magisk317.mipush.common.notification.MockReplayOutcome
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
@@ -68,7 +72,6 @@ import java.util.UUID
 import kotlinx.coroutines.flow.first
 import io.github.magisk317.mipush.common.utils.logD
 import io.github.magisk317.mipush.common.utils.logW
-import kotlinx.coroutines.runBlocking
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 /**
@@ -107,13 +110,13 @@ class RemoteManagerApplicationGateway(
     private val listSource = RemoteApplicationListSource(client)
     private val detailSource = RemoteApplicationDetailSource(client)
 
-    override fun loadApplications(
+    override suspend fun loadApplications(
         context: Context,
         query: String,
         filterMode: Int,
         includeSystemApps: Boolean,
-    ): ManagerApplications = runBlocking {
-        when (
+    ): ManagerApplications {
+        return when (
             val result = listSource.load(
                 ApplicationListRequest(
                     query = query,
@@ -133,45 +136,54 @@ class RemoteManagerApplicationGateway(
         }
     }
 
-    override fun getApplication(
+    override suspend fun getApplication(
         context: Context,
         packageName: String,
         ignoreNotRegistered: Boolean,
-    ): ManagerApplication? = runBlocking {
-        when (val result = detailSource.load(packageName, ignoreNotRegistered)) {
+    ): ManagerApplication? {
+        return when (val result = detailSource.load(packageName, ignoreNotRegistered)) {
             is ApplicationReadResult.Available -> result.value
-            is ApplicationReadResult.Unavailable -> null
+            is ApplicationReadResult.Unavailable -> {
+                RemoteRuntimeLog.unavailable("getApplication", result.status)
+                throw RuntimeReadUnavailableException(
+                    status = result.status.name,
+                    operation = "getApplication",
+                )
+            }
         }
     }
 
-    override fun updateApplication(application: ManagerApplication) {
-        RemoteWriteSupport.executeBlocking(
-            client = client,
+    override suspend fun updateApplication(application: ManagerApplication) {
+        RemoteWriteSupport.requireSuccess(
+            result = RemoteWriteSupport.execute(
+                client = client,
+                operation = ManagerProtocol.WRITE_OP_UPDATE_APPLICATION,
+                packageName = application.packageName,
+                argument = listOf(
+                    application.type,
+                    application.blocked,
+                    application.islandEnabled,
+                    application.islandFocusNotification,
+                    application.notificationOnRegister,
+                ).joinToString(","),
+            ),
             operation = ManagerProtocol.WRITE_OP_UPDATE_APPLICATION,
-            packageName = application.packageName,
-            argument = listOf(
-                application.type,
-                application.blocked,
-                application.islandEnabled,
-                application.islandFocusNotification,
-                application.notificationOnRegister,
-            ).joinToString(","),
         )
     }
 
-    override fun getDiagnostics(
+    override suspend fun getDiagnostics(
         packageName: String,
         registeredType: Int,
-    ): ManagerApplicationDiagnostics = runBlocking {
-        when (val result = detailSource.loadDiagnostics(packageName, registeredType)) {
+    ): ManagerApplicationDiagnostics {
+        return when (val result = detailSource.loadDiagnostics(packageName, registeredType)) {
             is ApplicationReadResult.Available -> result.value
-            is ApplicationReadResult.Unavailable -> ManagerApplicationDiagnostics(
-                hasLocalRegistration = false,
-                regSecCount = 0,
-                latestRegistrationEventResult = null,
-                registeredType = registeredType,
-                inferenceReason = "runtime_unavailable",
-            )
+            is ApplicationReadResult.Unavailable -> {
+                RemoteRuntimeLog.unavailable("getDiagnostics", result.status)
+                throw RuntimeReadUnavailableException(
+                    status = result.status.name,
+                    operation = "getDiagnostics",
+                )
+            }
         }
     }
 
@@ -179,44 +191,37 @@ class RemoteManagerApplicationGateway(
         context: Context,
         packageName: String,
         registeredType: Int,
-    ): String {
-        val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
-        if (launchIntent == null) {
-            emitManager(
-                stage = "manager_force_register",
-                result = "skip",
-                reason = "launch_unavailable",
-                targetPackage = packageName,
-            )
-            return "launch_unavailable"
-        }
-        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        val launched = runCatching { context.startActivity(launchIntent) }.isSuccess
-        val reason = if (launched) "launched_without_force_register" else "launch_failed"
-        emitManager(
-            stage = "manager_force_register",
-            result = if (launched) "ok" else "error",
-            reason = reason,
-            statusOk = launched,
-            targetPackage = packageName,
+    ): ManagerForceRegisterResult {
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_LAUNCH_TARGET_FORCE_REGISTER,
+            packageName = packageName,
+            intArgument = registeredType,
         )
-        return reason
+        if (result == null) {
+            throw IllegalStateException("${ManagerProtocol.WRITE_OP_LAUNCH_TARGET_FORCE_REGISTER}:null_response")
+        }
+        return ManagerForceRegisterResult(
+            succeeded = RemoteWriteSupport.isSuccess(result),
+            message = result.details.ifBlank { "force_register_completed" },
+        )
     }
 }
 
 class RemoteManagerEventGateway(
     private val context: Context,
     private val client: ManagerRuntimeClient,
+    private val configSyncGateway: ManagerConfigSyncGateway,
 ) : ManagerEventGateway {
     private val eventSource = RemoteEventListSource(client)
 
-    override fun getEventsById(
+    override suspend fun getEventsById(
         lastId: Long?,
         size: Int,
         packageName: String,
         query: String,
-    ): List<ManagerEvent> = runBlocking {
-        when (
+    ): List<ManagerEvent> {
+        return when (
             val result = eventSource.load(
                 EventListRequest(
                     lastId = lastId,
@@ -246,20 +251,7 @@ class RemoteManagerEventGateway(
     }
 
     override suspend fun startConfigPreview(packageName: String) {
-        val sync = runCatching {
-            org.koin.core.context.GlobalContext.get()
-                .get<io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway>()
-        }.getOrNull()
-        if (sync != null) {
-            sync.openForPackage(packageName)
-            return
-        }
-        val encoded = java.net.URLEncoder.encode(packageName, java.nio.charset.StandardCharsets.UTF_8.name())
-        val route = "configs_search/$encoded"
-        val intent = Intent(context, MainActivity::class.java)
-            .putExtra(MainActivity.EXTRA_START_ROUTE, route)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        runCatching { context.startActivity(intent) }
+        configSyncGateway.openForPackage(packageName)
     }
 
     override fun copyToClipboard(content: String) {
@@ -268,7 +260,7 @@ class RemoteManagerEventGateway(
     }
 
     override suspend fun mockMessage(event: ManagerEvent): MockReplayOutcome {
-        val result = RemoteWriteSupport.executeBlocking(
+        val result = RemoteWriteSupport.execute(
             client = client,
             operation = ManagerProtocol.WRITE_OP_MOCK_MESSAGE,
             packageName = event.packageName,
@@ -317,33 +309,48 @@ class RemoteManagerEventGateway(
         return outcome
     }
 
-    override fun getJson(event: ManagerEvent): String? = runCatching { EventDebugJson.format(event) }.getOrNull()
-
-    override fun getContent(event: ManagerEvent): String {
-        val remote = RemoteWriteSupport.executeBlocking(
+    override suspend fun getJson(event: ManagerEvent): String? {
+        val remote = RemoteWriteSupport.execute(
             client = client,
-            operation = ManagerProtocol.WRITE_OP_GET_EVENT_CONTENT,
+            operation = ManagerProtocol.WRITE_OP_GET_EVENT_JSON,
             packageName = event.packageName,
+            userId = event.userId,
             eventId = event.id,
             intArgument = event.type,
             longArgument = event.receiveDateMs,
             argument = event.content,
         )
-        val details = remote?.details
-        if (RemoteWriteSupport.isSuccess(remote) && !details.isNullOrBlank()) {
-            return details
+        remote?.let { result ->
+            if (RemoteWriteSupport.isSuccess(result) && result.details.isNotBlank()) {
+                return result.details
+            }
         }
-        return event.content.ifBlank {
-            runCatching { EventDebugJson.format(event) }.getOrDefault(event.content)
+        return runCatching { EventDebugJson.format(event) }.getOrNull()
+    }
+
+    override suspend fun getContent(event: ManagerEvent): String? {
+        val remote = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_GET_EVENT_CONTENT,
+            packageName = event.packageName,
+            userId = event.userId,
+            eventId = event.id,
+            intArgument = event.type,
+            longArgument = event.receiveDateMs,
+            argument = event.content,
+        )
+        return remote?.details?.takeIf {
+            RemoteWriteSupport.isSuccess(remote) && it.isNotBlank()
         }
     }
 
     override suspend fun deleteEvent(event: ManagerEvent): Boolean {
         val ok = RemoteWriteSupport.isSuccess(
-            RemoteWriteSupport.executeBlocking(
+            RemoteWriteSupport.execute(
                 client = client,
                 operation = ManagerProtocol.WRITE_OP_DELETE_EVENT,
                 packageName = event.packageName,
+                userId = event.userId,
                 eventId = event.id,
             ),
         )
@@ -358,10 +365,11 @@ class RemoteManagerEventGateway(
     }
 
     override suspend fun restoreEvent(event: ManagerEvent): ManagerEvent? {
-        val result = RemoteWriteSupport.executeBlocking(
+        val result = RemoteWriteSupport.execute(
             client = client,
             operation = ManagerProtocol.WRITE_OP_RESTORE_EVENT,
             packageName = event.packageName,
+            userId = event.userId,
             eventId = event.id,
             intArgument = event.type,
             longArgument = event.receiveDateMs,
@@ -371,11 +379,23 @@ class RemoteManagerEventGateway(
     }
 
     override suspend fun countEventsByDay(): List<ManagerDayCount> {
-        val result = RemoteWriteSupport.executeBlocking(
+        val result = RemoteWriteSupport.execute(
             client = client,
             operation = ManagerProtocol.WRITE_OP_COUNT_EVENTS_BY_DAY,
-        ) ?: return emptyList()
-        if (!RemoteWriteSupport.isSuccess(result)) return emptyList()
+        ) ?: run {
+            logW("countEventsByDay unavailable status=runtime_unavailable")
+            throw RuntimeReadUnavailableException(
+                status = "runtime_unavailable",
+                operation = "countEventsByDay",
+            )
+        }
+        if (!RemoteWriteSupport.isSuccess(result)) {
+            logW("countEventsByDay unavailable status=${result.status}")
+            throw RuntimeReadUnavailableException(
+                status = result.status,
+                operation = "countEventsByDay",
+            )
+        }
         return result.details.lineSequence()
             .map { it.trim() }
             .filter { it.isNotEmpty() && ':' in it }
@@ -389,30 +409,28 @@ class RemoteManagerEventGateway(
     }
 
     override suspend fun clearHistoryBefore(cutoffMillis: Long): Int {
-        val result = RemoteWriteSupport.executeBlocking(
+        val result = RemoteWriteSupport.execute(
             client = client,
             operation = ManagerProtocol.WRITE_OP_CLEAR_HISTORY,
             longArgument = cutoffMillis,
         )
-        return if (RemoteWriteSupport.isSuccess(result)) {
-            result?.resultLong?.toInt() ?: 0
-        } else {
-            0
-        }
+        return RemoteWriteSupport.requireSuccess(
+            result = result,
+            operation = ManagerProtocol.WRITE_OP_CLEAR_HISTORY,
+        ).resultLong.toInt()
     }
 
     override suspend fun clearHistoryInRange(startMillis: Long, endMillis: Long): Int {
-        val result = RemoteWriteSupport.executeBlocking(
+        val result = RemoteWriteSupport.execute(
             client = client,
             operation = ManagerProtocol.WRITE_OP_CLEAR_HISTORY,
             longArgument = startMillis,
             argument = endMillis.toString(),
         )
-        return if (RemoteWriteSupport.isSuccess(result)) {
-            result?.resultLong?.toInt() ?: 0
-        } else {
-            0
-        }
+        return RemoteWriteSupport.requireSuccess(
+            result = result,
+            operation = ManagerProtocol.WRITE_OP_CLEAR_HISTORY,
+        ).resultLong.toInt()
     }
 }
 
@@ -422,15 +440,12 @@ class RemoteManagerLogGateway(
 ) : ManagerLogGateway {
     private val exportSource = RemoteLogExportSource(client)
 
-    override fun setRetentionDays(days: Int) {
+    override suspend fun setRetentionDays(days: Int) {
         val keepDays = days.coerceAtLeast(1)
         ManagerRuntimeFileLog.setRetentionDays(keepDays)
         pruneLocalManagerLogArtifacts(keepDays)
-        RemoteWriteSupport.executeBlocking(
-            client = client,
-            operation = ManagerProtocol.WRITE_OP_SET_RUNTIME_LOG_RETENTION,
-            intArgument = keepDays,
-        )
+        // Runtime retention is written once by RemoteManagerRuntimeActions before
+        // this local manager-log maintenance step.
     }
 
     /**
@@ -473,13 +488,13 @@ class RemoteManagerLogGateway(
         }
     }
 
-    override fun buildLogBundle(context: Context): ManagerLogExportResult = runBlocking {
+    override suspend fun buildLogBundle(context: Context): ManagerLogExportResult = run {
         val export = when (val result = exportSource.export()) {
             is LogExportReadResult.Available -> {
                 val dto = result.value
                 val descriptor = dto.parcelFileDescriptor
                 if (!dto.success || descriptor == null) {
-                    return@runBlocking ManagerLogExportResult(file = null, details = dto.details).also {
+                    return@run ManagerLogExportResult(file = null, details = dto.details).also {
                         emitManager(
                             stage = "manager_log_export",
                             result = "error",
@@ -594,7 +609,7 @@ class RemoteManagerLogGateway(
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
 
-    override fun clearLogFolders(context: Context): ManagerLogClearResult {
+    override suspend fun clearLogFolders(context: Context): ManagerLogClearResult {
         // Clear manager-local diagnostic dirs best-effort.
         runCatching {
             ManagerRuntimeFileLog.clear(context)
@@ -607,7 +622,7 @@ class RemoteManagerLogGateway(
                 ?.filter { it.isFile && (it.name.startsWith("runtime-log-") || it.name.startsWith("mipush_logs_") || it.name.startsWith(".runtime-export-")) }
                 ?.forEach { runCatching { it.delete() } }
         }
-        val result = RemoteWriteSupport.executeBlocking(
+        val result = RemoteWriteSupport.execute(
             client = client,
             operation = ManagerProtocol.WRITE_OP_CLEAR_LOG_FOLDERS,
         )
@@ -637,7 +652,7 @@ class RemoteManagerConfigGateway(
     private val configSyncGateway: io.github.magisk317.mipush.manager.configuration.sync.LocalManagerConfigSyncGateway,
     private val runtimePreferenceGateway: RuntimePreferenceGateway,
 ) : ManagerConfigGateway {
-    override suspend fun getXmppServer(): String? = preferenceRepository.xmppServer.first()
+    override suspend fun getXmppServer(): String? = runtimePreferenceGateway.getXmppServer()
 
     override suspend fun setXmppServer(host: String): Boolean {
         return runtimePreferenceGateway.setXmppServer(host)
@@ -651,14 +666,9 @@ class RemoteManagerConfigGateway(
         return true
     }
 
-    override fun loadConfigurations(context: Context) {
-        // Push local SAF configs into the runtime active snapshot set.
-        Thread {
-            runBlocking {
-                val tree = preferenceRepository.configDirectory.first()?.let(Uri::parse)
-                configSyncGateway.activateAllLocalConfigs(tree)
-            }
-        }.start()
+    override suspend fun loadConfigurations(context: Context) {
+        val tree = preferenceRepository.configDirectory.first()?.let(Uri::parse)
+        configSyncGateway.activateAllLocalConfigs(tree)
     }
 }
 
@@ -669,125 +679,130 @@ class RemoteManagerRuntimeActions(
     private val connectionSource = RemoteConnectionSnapshotSource(client)
 
     override suspend fun clearHistory() {
-        RemoteWriteSupport.executeBlocking(
-            client = client,
+        RemoteWriteSupport.requireSuccess(
+            result = RemoteWriteSupport.execute(
+                client = client,
+                operation = ManagerProtocol.WRITE_OP_CLEAR_HISTORY,
+            ),
             operation = ManagerProtocol.WRITE_OP_CLEAR_HISTORY,
         )
     }
 
-    override fun startMiPushServiceAsForegroundService(context: Context) {
-        RemoteWriteSupport.executeBlocking(
-            client = client,
+    override suspend fun startMiPushServiceAsForegroundService(context: Context) {
+        RemoteWriteSupport.requireSuccess(
+            result = RemoteWriteSupport.execute(
+                client = client,
+                operation = ManagerProtocol.WRITE_OP_START_FOREGROUND,
+            ),
             operation = ManagerProtocol.WRITE_OP_START_FOREGROUND,
         )
     }
 
-    override fun resetTopActivityCache() {
-        RemoteWriteSupport.executeBlocking(
-            client = client,
+    override suspend fun resetTopActivityCache() {
+        RemoteWriteSupport.requireSuccess(
+            result = RemoteWriteSupport.execute(
+                client = client,
+                operation = ManagerProtocol.WRITE_OP_RESET_TOP_ACTIVITY_CACHE,
+            ),
             operation = ManagerProtocol.WRITE_OP_RESET_TOP_ACTIVITY_CACHE,
         )
     }
 
-    override fun sendXmppReconnectRequest(context: Context): Boolean =
+    override suspend fun sendXmppReconnectRequest(context: Context): Boolean =
         RemoteWriteSupport.isSuccess(
-            RemoteWriteSupport.executeBlocking(
+            RemoteWriteSupport.execute(
                 client = client,
                 operation = ManagerProtocol.WRITE_OP_XMPP_RECONNECT,
             ),
         )
 
-    override fun setXmppServer(context: Context, newHost: String) {
-        RemoteWriteSupport.executeBlocking(
-            client = client,
+    override suspend fun setXmppServer(context: Context, newHost: String) {
+        RemoteWriteSupport.requireSuccess(
+            result = RemoteWriteSupport.execute(
+                client = client,
+                operation = ManagerProtocol.WRITE_OP_SET_XMPP_SERVER,
+                argument = newHost,
+            ),
             operation = ManagerProtocol.WRITE_OP_SET_XMPP_SERVER,
-            argument = newHost,
         )
     }
 
-    private fun getXmppServerHint(): String = runBlocking {
-        when (val result = connectionSource.load()) {
-            is ConnectionSnapshotSourceResult.Available -> {
-                val host = result.snapshot.serverHost.orEmpty()
-                val ip = result.snapshot.serverIp.orEmpty()
-                when {
-                    host.isNotBlank() && ip.isNotBlank() -> "$host ($ip)"
-                    host.isNotBlank() -> host
-                    ip.isNotBlank() -> ip
-                    else -> ""
-                }
+    override suspend fun getRuntimeEnvironmentSnapshot(context: Context): ManagerRuntimeEnvironmentSnapshot {
+        return when (val result = client.getRuntimeEnvironmentSnapshot()) {
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeResult.Success ->
+                ManagerRuntimeEnvironmentSnapshot(
+                    isMiui = result.value.isMiui,
+                    imei = result.value.imei,
+                    macAddress = result.value.macAddress,
+                    xmppServerHost = result.value.xmppServerHost,
+                )
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeResult.Unsupported -> {
+                logW("getRuntimeEnvironmentSnapshot unavailable status=unsupported")
+                throw RuntimeReadUnavailableException("unsupported", "getRuntimeEnvironmentSnapshot")
             }
-            is ConnectionSnapshotSourceResult.Unavailable -> ""
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeResult.Unavailable -> {
+                logW("getRuntimeEnvironmentSnapshot unavailable status=${result.availability}")
+                throw RuntimeReadUnavailableException(
+                    result.availability.toString(),
+                    "getRuntimeEnvironmentSnapshot",
+                )
+            }
+            is io.github.magisk317.mipush.manager.client.ManagerRuntimeResult.Failed -> {
+                logW("getRuntimeEnvironmentSnapshot unavailable status=${result.reason}")
+                throw RuntimeReadUnavailableException(result.reason, "getRuntimeEnvironmentSnapshot")
+            }
         }
     }
 
-    override fun getRuntimeEnvironmentSnapshot(context: Context): ManagerRuntimeEnvironmentSnapshot =
-        runBlocking {
-            val host = getXmppServerHint()
-            ManagerRuntimeEnvironmentSnapshot(
-                isMiui = 0,
-                imei = null,
-                macAddress = null,
-                xmppServerHost = host,
-            )
-        }
-
-    override fun getConnectionSnapshot(): ManagerConnectionSnapshot = runBlocking {
-        when (val result = connectionSource.load()) {
+    override suspend fun getConnectionSnapshot(): ManagerConnectionSnapshot {
+        return when (val result = connectionSource.load()) {
             is ConnectionSnapshotSourceResult.Available -> result.snapshot
             is ConnectionSnapshotSourceResult.Unavailable -> {
                 RemoteRuntimeLog.unavailable("getConnectionSnapshot", result.status)
-                emptyConnectionSnapshot()
+                throw RuntimeReadUnavailableException(
+                    status = result.status.name,
+                    operation = "getConnectionSnapshot",
+                )
             }
         }
     }
 
     override fun observeNotificationEvent(packageName: String, action: String, source: String) = Unit
 
-    override fun setRuntimeLogRetentionDays(days: Int) {
-        RemoteWriteSupport.executeBlocking(
-            client = client,
+    override suspend fun setRuntimeLogRetentionDays(days: Int) {
+        RemoteWriteSupport.requireSuccess(
+            result = RemoteWriteSupport.execute(
+                client = client,
+                operation = ManagerProtocol.WRITE_OP_SET_RUNTIME_LOG_RETENTION,
+                intArgument = days.coerceAtLeast(1),
+            ),
             operation = ManagerProtocol.WRITE_OP_SET_RUNTIME_LOG_RETENTION,
-            intArgument = days.coerceAtLeast(1),
         )
     }
 
-    override fun applyEventRetentionDays(days: Int) {
-        RemoteWriteSupport.executeBlocking(
-            client = client,
+    override suspend fun applyEventRetentionDays(days: Int) {
+        RemoteWriteSupport.requireSuccess(
+            result = RemoteWriteSupport.execute(
+                client = client,
+                operation = ManagerProtocol.WRITE_OP_APPLY_EVENT_RETENTION,
+                intArgument = days.coerceAtLeast(1),
+            ),
             operation = ManagerProtocol.WRITE_OP_APPLY_EVENT_RETENTION,
-            intArgument = days.coerceAtLeast(1),
         )
     }
 
-    private fun emptyConnectionSnapshot() = ManagerConnectionSnapshot(
-        connectionState = "unavailable",
-        connectedAtMs = 0L,
-        lastDisconnectedAtMs = 0L,
-        connectionSessionCount = 0L,
-        serverHost = null,
-        serverIp = null,
-        keepAliveIntervalMs = 0,
-        pingIntervalMs = 0,
-        downstreamMessageCount = 0L,
-        deliveredToAppCount = 0L,
-        duplicateMessageCount = 0L,
-        ackMessageCount = 0L,
-        registeredPackageCount = 0,
-        trackedChannelCount = 0,
-        boundChannelCount = 0,
-    )
 }
 
 class RemoteManagerPermissionGateway(
     private val context: Context,
     private val client: ManagerRuntimeClient,
     private val managerRootAccess: ManagerRootAccess,
+    private val preferenceRepository: PreferenceRepository,
 ) : ManagerPermissionGateway {
     @Volatile
     private var runtimeRootState: ManagerRootAccessState = ManagerRootAccessState.UNAVAILABLE
 
-    override fun getRootAccessSnapshot(refresh: Boolean): ManagerRootAccessSnapshot {
+    override suspend fun getRootAccessSnapshot(refresh: Boolean): ManagerRootAccessSnapshot {
         val managerGranted = if (refresh) {
             managerRootAccess.refreshRootAccessIfGranted()
         } else {
@@ -800,7 +815,7 @@ class RemoteManagerPermissionGateway(
         )
     }
 
-    override fun requestRootAccess(target: ManagerRootTarget): ManagerRootAccessSnapshot {
+    override suspend fun requestRootAccess(target: ManagerRootTarget): ManagerRootAccessSnapshot {
         val managerState = when (target) {
             ManagerRootTarget.MANAGER -> managerRootAccess.requestRootAccess()
             ManagerRootTarget.RUNTIME -> managerRootAccess.refreshRootAccessIfGranted()
@@ -811,18 +826,18 @@ class RemoteManagerPermissionGateway(
         return rootSnapshot(managerState = managerState, runtimeState = runtimeState)
     }
 
-    override fun hasCachedRootAccess(): Boolean = runtimeRootState == ManagerRootAccessState.GRANTED
+    override suspend fun hasCachedRootAccess(): Boolean = runtimeRootState == ManagerRootAccessState.GRANTED
 
-    override fun refreshRootAccessIfGranted(): Boolean {
+    override suspend fun refreshRootAccessIfGranted(): Boolean {
         return queryRootState(requestAuthorization = false) == ManagerRootAccessState.GRANTED
     }
 
-    override fun requestRootAccess(): Boolean {
+    override suspend fun requestRootAccess(): Boolean {
         return queryRootState(requestAuthorization = true) == ManagerRootAccessState.GRANTED
     }
 
-    override fun repairXSpaceUserSupport(): ManagerXSpaceRepairResult {
-        val result = RemoteWriteSupport.executeBlocking(
+    override suspend fun repairXSpaceUserSupport(): ManagerXSpaceRepairResult {
+        val result = RemoteWriteSupport.execute(
             client = client,
             operation = ManagerProtocol.WRITE_OP_REPAIR_XSPACE,
         ) ?: return ManagerXSpaceRepairResult(
@@ -849,8 +864,8 @@ class RemoteManagerPermissionGateway(
         )
     }
 
-    override fun setDualAppEnabled(enabled: Boolean): ManagerXSpaceRepairResult {
-        val result = RemoteWriteSupport.executeBlocking(
+    override suspend fun setDualAppEnabled(enabled: Boolean): ManagerXSpaceRepairResult {
+        val result = RemoteWriteSupport.execute(
             client = client,
             operation = ManagerProtocol.WRITE_OP_SET_DUAL_APP,
             booleanArgument = enabled,
@@ -875,53 +890,61 @@ class RemoteManagerPermissionGateway(
         if (stage == ManagerXSpaceRepairStage.COMPLETED && enabled) {
             grantSilentPermissions(userId = -1, packageName = "", op = "all")
             // New dual-space clone starts at manifest defaults (Default alias); push current icon.
-            runCatching {
-                val iconId = org.koin.core.context.GlobalContext.get()
-                    .get<io.github.magisk317.mipush.data.PreferenceRepository>()
-                    .let { repo ->
-                        kotlinx.coroutines.runBlocking {
-                            repo.selectedLauncherIcon.first()
-                        }
-                    }
-                RemoteWriteSupport.executeBlocking(
+            try {
+                val iconId = preferenceRepository.selectedLauncherIcon.first()
+                RemoteWriteSupport.execute(
                     client = client,
                     operation = ManagerProtocol.WRITE_OP_SYNC_LAUNCHER_ICON,
                     argument = iconId,
                 )
+            } catch (_: RuntimeException) {
+                // Dual-app setup is already complete; icon synchronization is best effort.
             }
         }
         return ManagerXSpaceRepairResult(stage = stage, details = result.details)
     }
 
-    override fun isDualAppInstalled(): Boolean {
-        val result = RemoteWriteSupport.executeBlocking(
+    override suspend fun getDualAppInstallation(): ManagerDualAppInstallationResult {
+        val result = RemoteWriteSupport.execute(
             client = client,
             operation = ManagerProtocol.WRITE_OP_QUERY_DUAL_APP,
-        ) ?: return false
-        return result.details == ManagerProtocol.WRITE_DETAIL_DUAL_APP_INSTALLED || result.resultLong == 1L
+        ) ?: return ManagerDualAppInstallationResult.Unavailable("runtime_unavailable")
+        if (!RemoteWriteSupport.isSuccess(result)) {
+            return ManagerDualAppInstallationResult.Unavailable(
+                result.details.ifBlank { result.status },
+            )
+        }
+        return if (result.details == ManagerProtocol.WRITE_DETAIL_DUAL_APP_INSTALLED || result.resultLong == 1L) {
+            ManagerDualAppInstallationResult.Installed
+        } else {
+            ManagerDualAppInstallationResult.NotInstalled
+        }
     }
 
-    override fun launchAppOps(context: Context, permission: String, tips: CharSequence): Boolean {
+    override suspend fun launchAppOps(context: Context, permission: String, tips: CharSequence): Boolean {
         // Grant the requested appop for both packages, primary + dual-space.
         return grantSilentPermissions(userId = -1, packageName = "", op = permission)
     }
 
-    override fun isUsageStatsAllowedByRoot(packageName: String): Boolean {
-        // Best-effort: if root is available assume grant path works; UI re-checks AppOps.
-        return refreshRootAccessIfGranted()
+    override suspend fun isUsageStatsAllowedByRoot(packageName: String): Boolean {
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_QUERY_USAGE_STATS,
+            packageName = packageName,
+        )
+        return resolveUsageStatsAllowed(result)
     }
 
-    override fun requestIgnoreBatteryOptimizations(context: Context): Boolean {
-        // Full silent suite includes deviceidle whitelist for both packages.
-        return grantSilentPermissions(userId = 0, packageName = "", op = "all")
+    override suspend fun requestIgnoreBatteryOptimizations(context: Context): Boolean {
+        return grantSilentPermissions(userId = 0, packageName = "", op = "deviceidle")
     }
 
-    override fun grantNotificationPermission(context: Context): Boolean {
+    override suspend fun grantNotificationPermission(context: Context): Boolean {
         return grantSilentPermissions(userId = -1, packageName = "", op = "all")
     }
 
-    private fun queryRootState(requestAuthorization: Boolean): ManagerRootAccessState {
-        val result = RemoteWriteSupport.executeBlocking(
+    private suspend fun queryRootState(requestAuthorization: Boolean): ManagerRootAccessState {
+        val result = RemoteWriteSupport.execute(
             client = client,
             operation = ManagerProtocol.WRITE_OP_QUERY_ROOT,
             booleanArgument = requestAuthorization,
@@ -953,8 +976,8 @@ class RemoteManagerPermissionGateway(
         )
     }
 
-    private fun grantSilentPermissions(userId: Int, packageName: String, op: String): Boolean {
-        val result = RemoteWriteSupport.executeBlocking(
+    private suspend fun grantSilentPermissions(userId: Int, packageName: String, op: String): Boolean {
+        val result = RemoteWriteSupport.execute(
             client = client,
             operation = ManagerProtocol.WRITE_OP_GRANT_SILENT_PERMISSIONS,
             packageName = packageName,
@@ -977,6 +1000,9 @@ internal fun resolveRuntimeRootAccessState(result: ManagerWriteResultDto?): Mana
     return ManagerRootAccessState.UNAVAILABLE
 }
 
+internal fun resolveUsageStatsAllowed(result: ManagerWriteResultDto?): Boolean =
+    RemoteWriteSupport.isSuccess(result) && result?.resultLong == 1L
+
 private fun Boolean?.toRootAccessState(): ManagerRootAccessState = when (this) {
     true -> ManagerRootAccessState.GRANTED
     false -> ManagerRootAccessState.NOT_GRANTED
@@ -992,28 +1018,33 @@ private const val PER_USER_RANGE = 100_000
 class RemoteZygiskConfigGateway(
     private val client: ManagerRuntimeClient,
 ) : ZygiskConfigGateway {
-    override fun isZygiskModuleEnabled(): Boolean {
-        val result = RemoteWriteSupport.executeBlocking(
+    override suspend fun isZygiskModuleEnabled(): ZygiskModuleReadResult {
+        val result = RemoteWriteSupport.execute(
             client = client,
             operation = ManagerProtocol.WRITE_OP_ZYGISK_IS_ENABLED,
-        ) ?: return false
-        return RemoteWriteSupport.isSuccess(result) && result.resultLong == 1L
+        ) ?: return ZygiskModuleReadResult.Unavailable("runtime_unavailable")
+        if (!RemoteWriteSupport.isSuccess(result)) {
+            return ZygiskModuleReadResult.Unavailable(result.details.ifBlank { "zygisk_status_unavailable" })
+        }
+        return ZygiskModuleReadResult.Available(result.resultLong == 1L)
     }
 
     override fun getZygiskConfigPath(): String = "/data/adb/mipush_zygisk/app.conf"
 
-    override fun getZygiskConfig(): ZygiskConfig {
-        val result = RemoteWriteSupport.executeBlocking(
+    override suspend fun getZygiskConfig(): ZygiskConfigReadResult {
+        val result = RemoteWriteSupport.execute(
             client = client,
             operation = ManagerProtocol.WRITE_OP_ZYGISK_GET_CONFIG,
-        ) ?: return ZygiskConfig()
-        if (!RemoteWriteSupport.isSuccess(result)) return ZygiskConfig()
-        return ZygiskConfig.parse(result.details)
+        ) ?: return ZygiskConfigReadResult.Unavailable("runtime_unavailable")
+        if (!RemoteWriteSupport.isSuccess(result)) {
+            return ZygiskConfigReadResult.Unavailable(result.details.ifBlank { "zygisk_config_unavailable" })
+        }
+        return ZygiskConfigReadResult.Available(ZygiskConfig.parse(result.details))
     }
 
-    override fun saveZygiskConfig(config: ZygiskConfig): Boolean {
+    override suspend fun saveZygiskConfig(config: ZygiskConfig): Boolean {
         val content = config.toFileContent()
-        val result = RemoteWriteSupport.executeBlocking(
+        val result = RemoteWriteSupport.execute(
             client = client,
             operation = ManagerProtocol.WRITE_OP_ZYGISK_SAVE_CONFIG,
             argument = content,
@@ -1021,12 +1052,24 @@ class RemoteZygiskConfigGateway(
         return RemoteWriteSupport.isSuccess(result)
     }
 
-    override fun forceStopApp(packageName: String) {
-        RemoteWriteSupport.executeBlocking(
+    override suspend fun forceStopApp(packageName: String): Boolean {
+        return RemoteWriteSupport.isSuccess(RemoteWriteSupport.execute(
             client = client,
             operation = ManagerProtocol.WRITE_OP_ZYGISK_FORCE_STOP,
             packageName = packageName,
-        )
+        ))
+    }
+
+    override suspend fun scanZygiskPackages(): ZygiskPackageScanResult {
+        val result = RemoteWriteSupport.execute(
+            client = client,
+            operation = ManagerProtocol.WRITE_OP_ZYGISK_SCAN,
+        ) ?: return ZygiskPackageScanResult.Unavailable("runtime_unavailable")
+        return if (RemoteWriteSupport.isSuccess(result)) {
+            ZygiskPackageScanResult.Available(result.details)
+        } else {
+            ZygiskPackageScanResult.Unavailable(result.details.ifBlank { "zygisk_scan_unavailable" })
+        }
     }
 }
 

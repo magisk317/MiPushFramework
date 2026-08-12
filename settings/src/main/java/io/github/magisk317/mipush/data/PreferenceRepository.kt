@@ -26,6 +26,13 @@ import io.github.magisk317.mipush.common.DUAL_APP_ENABLED_KEY
 import io.github.magisk317.mipush.common.LOG_SANITIZATION_ENABLED_KEY
 import io.github.magisk317.mipush.common.ENABLE_ANALYTICS_KEY
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
+import io.github.magisk317.mipush.common.ISLAND_PREF_RENDERER_MODE
+import io.github.magisk317.mipush.common.ISLAND_PREF_VISUAL_ENABLED
+import io.github.magisk317.mipush.common.ISLAND_PREF_DYNAMIC_COLOR
+import io.github.magisk317.mipush.common.ISLAND_PREF_BLUR_ENABLED
+import io.github.magisk317.mipush.common.ISLAND_PREF_GLASS_ENABLED
+import io.github.magisk317.mipush.common.ISLAND_PREF_OUTER_GLOW_ENABLED
+import io.github.magisk317.mipush.common.ISLAND_PREF_ANIMATION_ENABLED
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.utils.ConfigDefaults
 import kotlinx.coroutines.flow.Flow
@@ -44,6 +51,13 @@ data class IslandSettingsSnapshot(
     val colorStatusBarIconGlobal: Boolean,
     val dualAppEnabled: Boolean,
     val logSanitizationEnabled: Boolean,
+    val rendererMode: String = "auto",
+    val visualEnabled: Boolean = true,
+    val dynamicColor: Boolean = true,
+    val blurEnabled: Boolean = true,
+    val glassEnabled: Boolean = true,
+    val outerGlowEnabled: Boolean = true,
+    val animationEnabled: Boolean = true,
 )
 
 data class KeepAliveSettingsSnapshot(
@@ -88,6 +102,13 @@ class PreferenceRepository constructor(
     private val ISLAND_SHOW_NOTIFICATION = booleanPreferencesKey(ISLAND_PREF_SHOW_NOTIFICATION)
     private val ISLAND_SHOW_ORIGINAL_NOTIFICATION = booleanPreferencesKey(ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION)
     private val ISLAND_FOCUS_NOTIF = booleanPreferencesKey(ISLAND_PREF_FOCUS_NOTIF)
+    private val ISLAND_RENDERER_MODE = stringPreferencesKey(ISLAND_PREF_RENDERER_MODE)
+    private val ISLAND_VISUAL_ENABLED = booleanPreferencesKey(ISLAND_PREF_VISUAL_ENABLED)
+    private val ISLAND_DYNAMIC_COLOR = booleanPreferencesKey(ISLAND_PREF_DYNAMIC_COLOR)
+    private val ISLAND_BLUR_ENABLED = booleanPreferencesKey(ISLAND_PREF_BLUR_ENABLED)
+    private val ISLAND_GLASS_ENABLED = booleanPreferencesKey(ISLAND_PREF_GLASS_ENABLED)
+    private val ISLAND_OUTER_GLOW_ENABLED = booleanPreferencesKey(ISLAND_PREF_OUTER_GLOW_ENABLED)
+    private val ISLAND_ANIMATION_ENABLED = booleanPreferencesKey(ISLAND_PREF_ANIMATION_ENABLED)
 
     private val SHOW_WIZARD = booleanPreferencesKey("show_wizard")
     private val USAGE_STATS_REQUESTED = booleanPreferencesKey("usage_stats_requested")
@@ -130,6 +151,13 @@ class PreferenceRepository constructor(
     val islandShowNotification: Flow<Boolean> = dataStore.data.map { it[ISLAND_SHOW_NOTIFICATION] ?: true }
     val islandShowOriginalNotification: Flow<Boolean> = dataStore.data.map { it[ISLAND_SHOW_ORIGINAL_NOTIFICATION] ?: true }
     val islandFocusNotification: Flow<Boolean> = dataStore.data.map { it[ISLAND_FOCUS_NOTIF] ?: false }
+    val islandRendererMode: Flow<String> = dataStore.data.map { it[ISLAND_RENDERER_MODE] ?: "auto" }
+    val islandVisualEnabled: Flow<Boolean> = dataStore.data.map { it[ISLAND_VISUAL_ENABLED] ?: true }
+    val islandDynamicColor: Flow<Boolean> = dataStore.data.map { it[ISLAND_DYNAMIC_COLOR] ?: true }
+    val islandBlurEnabled: Flow<Boolean> = dataStore.data.map { it[ISLAND_BLUR_ENABLED] ?: true }
+    val islandGlassEnabled: Flow<Boolean> = dataStore.data.map { it[ISLAND_GLASS_ENABLED] ?: true }
+    val islandOuterGlowEnabled: Flow<Boolean> = dataStore.data.map { it[ISLAND_OUTER_GLOW_ENABLED] ?: true }
+    val islandAnimationEnabled: Flow<Boolean> = dataStore.data.map { it[ISLAND_ANIMATION_ENABLED] ?: true }
     val colorStatusBarIcon: Flow<Boolean> = dataStore.data.map { it[COLOR_STATUS_BAR_ICON] ?: false }
     val colorStatusBarIconGlobal: Flow<Boolean> = dataStore.data.map { it[COLOR_STATUS_BAR_ICON_GLOBAL] ?: false }
     val dualAppEnabled: Flow<Boolean> = dataStore.data.map { it[DUAL_APP_ENABLED] ?: false }
@@ -196,6 +224,13 @@ class PreferenceRepository constructor(
             colorStatusBarIconGlobal = preferences[COLOR_STATUS_BAR_ICON_GLOBAL] ?: false,
             dualAppEnabled = preferences[DUAL_APP_ENABLED] ?: false,
             logSanitizationEnabled = preferences[LOG_SANITIZATION_ENABLED] ?: false,
+            rendererMode = preferences[ISLAND_RENDERER_MODE] ?: "auto",
+            visualEnabled = preferences[ISLAND_VISUAL_ENABLED] ?: true,
+            dynamicColor = preferences[ISLAND_DYNAMIC_COLOR] ?: true,
+            blurEnabled = preferences[ISLAND_BLUR_ENABLED] ?: true,
+            glassEnabled = preferences[ISLAND_GLASS_ENABLED] ?: true,
+            outerGlowEnabled = preferences[ISLAND_OUTER_GLOW_ENABLED] ?: true,
+            animationEnabled = preferences[ISLAND_ANIMATION_ENABLED] ?: true,
         )
     }
 
@@ -270,6 +305,34 @@ class PreferenceRepository constructor(
 
     suspend fun setIslandFocusNotification(enable: Boolean) {
         dataStore.edit { it[ISLAND_FOCUS_NOTIF] = enable }
+    }
+
+    suspend fun setIslandRendererMode(mode: String) {
+        dataStore.edit { it[ISLAND_RENDERER_MODE] = mode.lowercase().takeIf { it in setOf("auto", "mipush", "hyperisland") } ?: "auto" }
+    }
+
+    suspend fun setIslandVisualEnabled(enable: Boolean) {
+        dataStore.edit { it[ISLAND_VISUAL_ENABLED] = enable }
+    }
+
+    suspend fun setIslandDynamicColor(enable: Boolean) {
+        dataStore.edit { it[ISLAND_DYNAMIC_COLOR] = enable }
+    }
+
+    suspend fun setIslandBlurEnabled(enable: Boolean) {
+        dataStore.edit { it[ISLAND_BLUR_ENABLED] = enable }
+    }
+
+    suspend fun setIslandGlassEnabled(enable: Boolean) {
+        dataStore.edit { it[ISLAND_GLASS_ENABLED] = enable }
+    }
+
+    suspend fun setIslandOuterGlowEnabled(enable: Boolean) {
+        dataStore.edit { it[ISLAND_OUTER_GLOW_ENABLED] = enable }
+    }
+
+    suspend fun setIslandAnimationEnabled(enable: Boolean) {
+        dataStore.edit { it[ISLAND_ANIMATION_ENABLED] = enable }
     }
 
     suspend fun setColorStatusBarIcon(enable: Boolean) {

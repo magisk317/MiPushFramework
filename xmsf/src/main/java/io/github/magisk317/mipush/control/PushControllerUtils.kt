@@ -147,6 +147,17 @@ object PushControllerUtils {
         setBootReceiverEnable(enable, context)
     }
 
+    @JvmStatic
+    fun startServiceFromPrefs(context: Context) {
+        if (!shouldStartServiceFromPersistedPreference(isPrefsEnable(context))) {
+            logI("Push service remains disabled by persisted preference")
+            return
+        }
+        setServiceEnable(true, context)
+    }
+
+    internal fun shouldStartServiceFromPersistedPreference(pushEnabled: Boolean): Boolean = pushEnabled
+
     @SuppressLint("WrongConstant")
     private fun setBootReceiverEnable(enable: Boolean, context: Context) {
         try {

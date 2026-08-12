@@ -87,6 +87,7 @@ class PkgUninstallReceiver : BroadcastReceiver() {
                 context,
                 packageName,
                 "PkgUninstallReceiver",
+                userId = resolveUserId(intent),
             )
             val serviceIntent = Intent(context, com.xiaomi.push.service.XMPushServiceCore::class.java)
             serviceIntent.action = PushServiceConstants.ACTION_UNINSTALL
@@ -106,4 +107,10 @@ class PkgUninstallReceiver : BroadcastReceiver() {
         action == Intent.ACTION_PACKAGE_ADDED ||
             action == Intent.ACTION_PACKAGE_REMOVED ||
             action == Intent.ACTION_PACKAGE_DATA_CLEARED
+
+    private fun resolveUserId(intent: Intent): Int {
+        val uid = intent.getIntExtra(Intent.EXTRA_UID, -1)
+        return if (uid >= 0) (uid.toLong() / 100_000L).toInt().coerceAtLeast(0)
+        else io.github.magisk317.mipush.common.utils.Utils.myUserId().coerceAtLeast(0)
+    }
 }

@@ -53,6 +53,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -81,7 +82,8 @@ import io.github.magisk317.mipush.manager.notification.NotificationChannelReadSt
 import io.github.magisk317.mipush.manager.notification.NotificationChannelSnapshot
 import io.github.magisk317.mipush.manager.R
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.common.Constants
 import io.github.magisk317.uikit.surface.AppIconImage
@@ -119,32 +121,30 @@ open class ApplicationInfoPage : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val app = getRegisteredApplication()
-        if (app == null) {
+        val packageName = intent.getStringExtra(EXTRA_PACKAGE_NAME)
+        if (packageName.isNullOrBlank()) {
             finish()
             return
         }
-        init(app)
-        infoViewModel.setApplicationInfo(
-            info = app,
-            ignoreNotRegistered = intent.getBooleanExtra(EXTRA_IGNORE_NOT_REGISTERED, false),
-        )
-        appConfigurationUtils = AppConfigurationUtils(this, app)
-        setContent {
-            Theme {
-                SettingsApp()
-            }
-        }
-    }
-
-    private fun getRegisteredApplication(): ManagerApplication? {
-        if (!intent.hasExtra(EXTRA_PACKAGE_NAME)) return null
-        val pkg = intent.getStringExtra(EXTRA_PACKAGE_NAME) ?: return null
         val ignoreNotRegistered = intent.getBooleanExtra(EXTRA_IGNORE_NOT_REGISTERED, false)
-        return runBlocking {
-            when (val result = applicationSource.load(pkg, ignoreNotRegistered)) {
-                is ApplicationReadResult.Available -> result.value
-                is ApplicationReadResult.Unavailable -> null
+        lifecycleScope.launch {
+            val app = withContext(Dispatchers.IO) {
+                when (val result = applicationSource.load(packageName, ignoreNotRegistered)) {
+                    is ApplicationReadResult.Available -> result.value
+                    is ApplicationReadResult.Unavailable -> null
+                }
+            }
+            if (app == null || isFinishing || isDestroyed) {
+                finish()
+                return@launch
+            }
+            init(app)
+            infoViewModel.setApplicationInfo(info = app, ignoreNotRegistered = ignoreNotRegistered)
+            appConfigurationUtils = AppConfigurationUtils(this@ApplicationInfoPage, app)
+            setContent {
+                Theme {
+                    SettingsApp()
+                }
             }
         }
     }
@@ -190,7 +190,7 @@ open class ApplicationInfoPage : ComponentActivity() {
         TipsCard()
         ActivitySectionCard(snackbarHostState)
         IslandDisplaySection(snackbarHostState)
-        NotificationSection()
+        NotificationSection(snackbarHostState)
     }
 
     @Composable
@@ -217,7 +217,11 @@ open class ApplicationInfoPage : ComponentActivity() {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         val isZygiskEnabledForApp by infoViewModel.isZygiskEnabledForApp.collectAsStateWithLifecycle()
-        val zygiskStateLabel = if (isZygiskEnabledForApp) stringResource(R.string.zygisk_enabled) else stringResource(R.string.zygisk_disabled)
+        val zygiskStateLabel = when (isZygiskEnabledForApp) {
+            true -> stringResource(R.string.zygisk_enabled)
+            false -> stringResource(R.string.zygisk_disabled)
+            null -> stringResource(R.string.zygisk_unavailable)
+        }
         val serviceState = if (applicationInfo.existServices) {
             stringResource(R.string.app_detail_service_ready)
         } else {
@@ -307,7 +311,7 @@ open class ApplicationInfoPage : ComponentActivity() {
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight(),
-                            accent = if (isZygiskEnabledForApp) {
+                            accent = if (isZygiskEnabledForApp == true) {
                                 RegistrationStateStyle.GreenColor
                             } else {
                                 MaterialTheme.colorScheme.secondary
@@ -455,8 +459,8 @@ open class ApplicationInfoPage : ComponentActivity() {
             SettingSwitchRow(
                 title = zygiskTitle,
                 summary = stringResource(R.string.zygisk_spoof_switch_summary),
-                checked = isZygiskEnabledForApp && !blocked,
-                enabled = isZygiskConfigurableForApp && !blocked,
+                checked = isZygiskEnabledForApp == true && !blocked,
+                enabled = isZygiskConfigurableForApp && !blocked && isZygiskEnabledForApp != null,
                 showDivider = true,
             ) { enabled ->
                 infoViewModel.updateZygiskEnabledForApp(enabled)
@@ -546,7 +550,9 @@ open class ApplicationInfoPage : ComponentActivity() {
 
     @SuppressLint("LocalContextGetResourceValueCall")
     @Composable
-    private fun NotificationSection() {
+    private fun NotificationSection(snackbarHostState: SnackbarHostState) {
+        val scope = rememberCoroutineScope()
+        val deleteFailedMessage = stringResource(R.string.notification_channels_delete_failed)
         val isPreview = LocalInspectionMode.current
         val channelState by infoViewModel.notificationChannels.collectAsStateWithLifecycle()
         val snapshot = channelState.snapshot
@@ -714,7 +720,16 @@ open class ApplicationInfoPage : ComponentActivity() {
                                         DialogAction(
                                             label = stringResource(R.string.notification_channels_delete),
                                             onClick = {
-                                                infoViewModel.deleteNotificationChannel(channel.id)
+                                                infoViewModel.deleteNotificationChannel(channel.id) { deleted ->
+                                                    if (!deleted) {
+                                                        scope.launch {
+                                                            snackbarHostState.showSnackbar(
+                                                                deleteFailedMessage,
+                                                                duration = SnackbarDuration.Short,
+                                                            )
+                                                        }
+                                                    }
+                                                }
                                                 shouldShowDialog = false
                                             },
                                             style = io.github.magisk317.uikit.surface.DialogActionStyle.Danger,

@@ -9,11 +9,11 @@ import io.github.magisk317.mipush.platform.activity.impl.ActivityAccessibilityIm
 class AccessibilityPermissionOperator(private val context: Context) : PermissionOperator {
     private val delegate = ActivityAccessibilityImpl()
 
-    override fun isPermissionGranted(permissionGateway: ManagerPermissionGateway?): Boolean = delegate.isEnabled(context)
+    override suspend fun isPermissionGranted(permissionGateway: ManagerPermissionGateway?): Boolean = delegate.isEnabled(context)
 
-    override fun requestPermissionSilently(permissionGateway: ManagerPermissionGateway?): Boolean = false
+    override suspend fun requestPermissionSilently(permissionGateway: ManagerPermissionGateway?): Boolean = false
 
-    override fun requestPermission(permissionGateway: ManagerPermissionGateway?) {
+    override suspend fun requestPermission(permissionGateway: ManagerPermissionGateway?) {
         context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
     }
 }

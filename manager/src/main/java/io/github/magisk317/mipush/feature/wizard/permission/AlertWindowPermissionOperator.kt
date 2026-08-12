@@ -9,11 +9,11 @@ import io.github.magisk317.mipush.manager.R
 import io.github.magisk317.mipush.platform.override.AppOpsManagerOverride
 
 class AlertWindowPermissionOperator(private val context: Context) : PermissionOperator {
-    override fun isPermissionGranted(permissionGateway: ManagerPermissionGateway?): Boolean {
+    override suspend fun isPermissionGranted(permissionGateway: ManagerPermissionGateway?): Boolean {
         return Settings.canDrawOverlays(context)
     }
 
-    override fun requestPermissionSilently(permissionGateway: ManagerPermissionGateway?): Boolean {
+    override suspend fun requestPermissionSilently(permissionGateway: ManagerPermissionGateway?): Boolean {
         val gateway = permissionGateway ?: return false
         return gateway.launchAppOps(
             context,
@@ -22,7 +22,7 @@ class AlertWindowPermissionOperator(private val context: Context) : PermissionOp
         )
     }
 
-    override fun requestPermission(permissionGateway: ManagerPermissionGateway?) {
+    override suspend fun requestPermission(permissionGateway: ManagerPermissionGateway?) {
         val intent = Intent(
             Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
             Uri.parse("package:${context.packageName}")

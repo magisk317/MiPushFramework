@@ -4,6 +4,7 @@ data class ManagerNotificationChannelReadQuery(
     val packageName: String,
     val pageSize: Int = 100,
     val pageToken: String? = null,
+    val userId: Int = 0,
 )
 
 data class ManagerNotificationChannelReadSummary(
@@ -25,6 +26,7 @@ data class ManagerNotificationChannelGroupReadSummary(
 data class ManagerNotificationChannelReadPage(
     val packageName: String,
     val isHooked: Boolean,
+    val userId: Int,
     val items: List<ManagerNotificationChannelReadSummary>,
     val groups: List<ManagerNotificationChannelGroupReadSummary>,
     val nextPageToken: String?,

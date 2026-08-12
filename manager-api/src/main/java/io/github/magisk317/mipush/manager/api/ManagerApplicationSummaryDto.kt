@@ -18,6 +18,7 @@ data class ManagerApplicationSummaryDto(
     val appName: String = "",
     val appNamePinYin: String = "",
     val lastReceiveTimeMs: Long = 0L,
+    val userId: Int = 0,
 ) : Parcelable {
     override fun writeToParcel(destination: Parcel, flags: Int) {
         destination.writeWireFrame {
@@ -34,6 +35,7 @@ data class ManagerApplicationSummaryDto(
             writeString(appName)
             writeString(appNamePinYin)
             writeLong(lastReceiveTimeMs)
+            writeInt(userId)
         }
     }
 
@@ -58,6 +60,7 @@ data class ManagerApplicationSummaryDto(
                         appName = readString().orEmpty(),
                         appNamePinYin = readString().orEmpty(),
                         lastReceiveTimeMs = readLong(),
+                        userId = readInt(-1),
                     )
                 }
 

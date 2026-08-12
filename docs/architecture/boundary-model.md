@@ -86,6 +86,13 @@ graph.
   code type, persistence effects, Binder transaction/flags, and the real runtime consumer. Matching
   a component or method name is not compatibility proof; contract tests and installed-device
   evidence must exercise the real ingress and downstream effect.
+- The two public MiPush service facades have different caller-identity guarantees. The bound
+  Messenger route must validate `Message.sendingUid` against the target package (or the package
+  list supplied by the runtime); an unknown UID or mismatch fails closed. Android does not retain
+  the originating UID for a `Service.onStartCommand` callback, so the legacy exported
+  `startService` route can only apply action, package-installation, payload/container, size, and
+  sanitized-extra validation. Do not describe that route as caller-authenticated or add a
+  signature permission without first migrating and proving all stock SDK callers.
 
 ## Layering Rules
 
@@ -94,6 +101,11 @@ graph.
 - `xmsf/src/main/java/io/github/magisk317/mipush/service/runtime` and
   `xmsf/src/main/java/io/github/magisk317/mipush/bridge` are the allowed adapter areas for direct
   vendor/pinned interaction.
+- `vendor` is frozen compatibility/runtime source. Existing product-owned imports under
+  `vendor/src/main` are retained as migration debt and must not be expanded with new product
+  behavior. New MiPush policy, notification handling, user configuration, and HyperIsland-related
+  behavior belong in `xmsf`, `app`, `xposed`, or an explicit adapter/bridge layer; the boundary
+  verifier records the existing vendor imports and rejects additions.
 - Stock ABI and Provider adaptation belongs in product-owned `xmsf` surfaces such as
   `com.xiaomi.xmsf.stock` and named Binder facades. Keep raw dump sources out of the build graph,
   and do not move product behavior into `vendor` solely to mimic a stock package name.
@@ -150,9 +162,10 @@ graph.
 
 ## Current Architecture Debts
 
-- Android 17 rejects reflective writes to `static final` fields. `Hooker.hookField(...)` still
-  writes `SmackConfiguration.pingInterval`; this path needs an API 37 replacement or an explicit
-  non-final-field guard before Android 17 compatibility can be claimed.
+- `SmackConfiguration.pingInterval` is configured through its generated public setter in the
+  product-owned vendor surface. Keep this direct assignment; do not reintroduce reflective field
+  mutation, which is brittle across Android hidden-field restrictions and vendor implementation
+  changes.
 - Android 17 memory limiting still needs a device baseline. Diagnose limiter exits through
   `ApplicationExitInfo` and validate the runtime under the platform memory limiter before making
   stability claims.
@@ -163,12 +176,53 @@ graph.
   ServiceBox resolves `KASwitch=142`; `OnetrackSwitch=140` and `need_stat` are observed/persisted but
   intentionally do not re-enable stock OneTrack behavior. Installed-device evidence is still
   required before claiming observer permission/registration and a real third-party service bind.
+- KeepAlive's standby hook uses exact descriptors for all captured
+  `AppStandbyController.setAppStandbyBucket` overloads and applies the bucket index belonging to
+  each descriptor. Anti-kill also has a conservative package-level pre-cleanup guard for the exact
+  captured `ProcessList.killPackageProcessesLSP` long descriptor; the captured MIUI cleaner's
+  short reason-13/subreason-0 path remains deliberately outside the final-sink fallback.
+- DeviceIdle whitelist authorization is verified from the framework's `PowerManager` state for
+  every requested framework package. Root availability and AppOps success are not substitutes for
+  that state, and disabling the feature does not remove whitelist entries without ownership
+  metadata.
+- KeepAlive treats the persisted enabled preference as inert until ServiceBox resolves `KASwitch`;
+  both reconciliation and the polling fallback require `onlineConfigKnown` so startup ordering
+  cannot activate third-party service binding early.
+- Runtime event writes and replay reads verify the stored event package against the requested
+  package inside the runtime user scope before using an event ID; manager-provided metadata is not
+  treated as ownership proof.
+- Self-update notification revival is restricted to untagged notifications owned by XMSF in the
+  current Android user. Notifications delegated to a target package are excluded by the
+  `xmsf_target_package` marker; the vendor revival implementation remains unchanged.
 - System-only permissions and notification/XSpace behavior are similarly bounded by platform
   policy. Unit/build evidence proves our adapters; installed-device `dumpsys` and hook evidence are
   required for final visible-UI claims.
-- Full cloned/999-user support remains a data-model migration: application, registration,
-  notification preference, diagnostics, event, and UI identities are still package-name based.
-  Do not describe static LSPosed scope support as independent per-user registration/configuration.
+- SystemUI package-scoped island policy requires a valid notification user ID. An absent or invalid
+  ID must not normalize to user 0 or reuse a primary-user cache entry; the package policy fails
+  closed until the identity is known.
+- SystemUI island proxy IDs and deduplication keys require the source notification user explicitly;
+  helper defaults must not turn an omitted user into user 0.
+- SystemUI island ownership fallback keys also include that user, even when the platform
+  status-bar key is missing; cancellation ownership is therefore scoped consistently with proxy
+  IDs and deduplication.
+- SystemUI island visual-state fallback keys also include that user, even when the platform
+  status-bar key is missing; visual recording and removal remain scoped consistently with the
+  notification lifecycle.
+- Runtime-generated island proxy IDs also include the current Android user, so the broadcast
+  posting/cancellation path cannot reuse one package's proxy identity across users.
+- Island proxy request Bundles carry the source notification user through SystemUI; package-scoped
+  focus and visual payload options are resolved for that user rather than the process default.
+- Island proxy notification posting and cancellation also use the request user's SystemUI context;
+  the cancellation broadcast retains the same user identity.
+- Template payload construction may pass its already-resolved option snapshot explicitly; the
+  builder must not replace that authorization with an unscoped package read.
+- SystemUI island preference provider reads also fail closed on a missing, empty, or malformed
+  cursor; default options are only used before the refresh loop has a provider result.
+- Full cloned/999-user support remains a data-model migration: notification preference,
+  diagnostics, and parts of the UI identity are still package-name based. Top/Sweet notification
+  lifecycle jobs and their local state keys now include the owning notification user, while the
+  application, registration, and event data paths already carry user-scoped identities. Do not
+  describe static LSPosed scope support as independent per-user registration/configuration.
 
 - The configuration stack lives only in `xmsf/.../utils` (`Configurations`, `ConfigurationsLoader`,
   `ConfigValueConverter`, `IconConfigurations`, `PackageConfig`). The duplicate, unused copies that
@@ -177,8 +231,9 @@ graph.
   `RegSecUtils`, `XMPushUtils`); do not reintroduce a second copy of the runtime config stack there.
   Runtime behavior must be covered by contract tests that load JSON through the active xmsf parser
   and then apply it to an `XmPushActionContainer`.
-- `ConfigCenter.loadConfigurations()` remains asynchronous for UI callers. Code paths that need a
-  deterministic reload can use `loadConfigurationsNow(...)`.
+- Configuration activation is a suspend gateway operation for UI callers; runtime-owned code uses
+  `ConfigCenter.loadConfigurationsNow(...)` when it needs deterministic activation without creating
+  an unowned coroutine scope.
 - Real manager Activities are package-hosted by `:mipush`. XMSF still owns runtime gateways and
   Binder service implementations inside the `com.xiaomi.xmsf` process; the standalone manager data
   plane consumes them through `manager-api` / `ManagerRuntimeClient`. Runtime environment diagnostics flow through
@@ -248,7 +303,7 @@ Chosen production shape after the app split:
 | --- | --- | --- |
 | Read | `Remote*Source` + `ManagerRuntimeClient` | Suspend; map missing/binding/denied to typed statuses |
 | Write | `RemoteWriteSupport.execute` (suspend) | Preferred from ViewModels / coroutines; allowlisted keys |
-| Write bridge | `RemoteWriteSupport.executeBlocking` | Only for remaining sync `Manager*Gateway` façades |
+| Write bridge | None | All production manager writes use suspend `RemoteWriteSupport.execute`; do not reintroduce a blocking Binder bridge |
 | Legacy façade | `Manager*Gateway` → `RemoteManager*Gateway` | Same Binder underneath; prefer Source/Client in new code |
 | Test harness | `Comparing*` + `Gateway*` | **Test source set only**; not registered in production Koin |
 

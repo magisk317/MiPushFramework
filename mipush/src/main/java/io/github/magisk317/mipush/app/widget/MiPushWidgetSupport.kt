@@ -94,7 +94,7 @@ internal object MiPushWidgetIntents {
 }
 
 internal object ConnectionStatusWidgetRenderer {
-    fun updateAll(context: Context) {
+    suspend fun updateAll(context: Context) {
         val appContext = context.applicationContext ?: context
         val manager = AppWidgetManager.getInstance(appContext)
         val component = ComponentName(appContext, ConnectionStatusWidgetProvider::class.java)
@@ -104,7 +104,7 @@ internal object ConnectionStatusWidgetRenderer {
         }
     }
 
-    fun update(context: Context, manager: AppWidgetManager, widgetIds: IntArray) {
+    suspend fun update(context: Context, manager: AppWidgetManager, widgetIds: IntArray) {
         val appContext = context.applicationContext ?: context
         val snapshot = runCatching {
             MiPushWidgetDependencies.settingsManager().getConnectionSnapshot()
@@ -192,7 +192,7 @@ internal object ConnectionStatusWidgetRenderer {
 internal object RecentEventsWidgetRenderer {
     private const val QUERY_COUNT = 48
 
-    fun updateAll(context: Context) {
+    suspend fun updateAll(context: Context) {
         val appContext = context.applicationContext ?: context
         val manager = AppWidgetManager.getInstance(appContext)
         val component = ComponentName(appContext, RecentEventsWidgetProvider::class.java)
@@ -202,7 +202,7 @@ internal object RecentEventsWidgetRenderer {
         }
     }
 
-    fun update(context: Context, manager: AppWidgetManager, widgetIds: IntArray) {
+    suspend fun update(context: Context, manager: AppWidgetManager, widgetIds: IntArray) {
         val appContext = context.applicationContext ?: context
         val events = runCatching {
             MiPushWidgetDependencies.eventGateway()

@@ -5,8 +5,13 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 BASELINE="scripts/module_boundary_baseline.txt"
+VENDOR_BASELINE="scripts/vendor_boundary_baseline.txt"
 if [ ! -f "$BASELINE" ]; then
   echo "Missing module boundary baseline: $BASELINE" >&2
+  exit 1
+fi
+if [ ! -f "$VENDOR_BASELINE" ]; then
+  echo "Missing vendor boundary baseline: $VENDOR_BASELINE" >&2
   exit 1
 fi
 
@@ -15,7 +20,12 @@ tmp_baseline="$(mktemp)"
 tmp_new="$(mktemp)"
 tmp_stale="$(mktemp)"
 tmp_forbidden_deps="$(mktemp)"
-trap 'rm -f "$tmp_current" "$tmp_baseline" "$tmp_new" "$tmp_stale" "$tmp_forbidden_deps"' EXIT
+tmp_forbidden_xmsf_edges="$(mktemp)"
+tmp_vendor_current="$(mktemp)"
+tmp_vendor_baseline="$(mktemp)"
+tmp_vendor_new="$(mktemp)"
+tmp_vendor_stale="$(mktemp)"
+trap 'rm -f "$tmp_current" "$tmp_baseline" "$tmp_new" "$tmp_stale" "$tmp_forbidden_deps" "$tmp_forbidden_xmsf_edges" "$tmp_vendor_current" "$tmp_vendor_baseline" "$tmp_vendor_new" "$tmp_vendor_stale"' EXIT
 
 required_deep_xiaomi_scan_roots=(
   "manager-api/src/main/aidl"
@@ -99,6 +109,36 @@ if [ -s "$tmp_stale" ]; then
   exit 1
 fi
 
+# vendor is retained stock/runtime code. Existing product imports are recorded as migration debt,
+# but new imports must be routed through xmsf adapters instead of growing product behavior in the
+# vendored source tree.
+vendor_product_import_pattern='^import io\.github\.magisk317\.'
+rg -n "$vendor_product_import_pattern" "vendor/src/main" \
+  | while IFS=: read -r path _line import_line; do
+    [ -n "${path:-}" ] || continue
+    printf '%s|%s\n' "$path" "$import_line"
+  done | sort -u > "$tmp_vendor_current" || true
+
+sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$VENDOR_BASELINE" | sort -u > "$tmp_vendor_baseline"
+comm -13 "$tmp_vendor_baseline" "$tmp_vendor_current" > "$tmp_vendor_new"
+comm -23 "$tmp_vendor_baseline" "$tmp_vendor_current" > "$tmp_vendor_stale"
+
+if [ -s "$tmp_vendor_new" ]; then
+  echo "Vendor boundary check failed: new product-layer imports were added under vendor/." >&2
+  echo "Move the behavior behind an xmsf runtime/bridge adapter, or document an explicit compatibility exception." >&2
+  echo >&2
+  cat "$tmp_vendor_new" >&2
+  exit 1
+fi
+
+if [ -s "$tmp_vendor_stale" ]; then
+  echo "Vendor boundary baseline contains stale entries." >&2
+  echo "Remove entries that no longer appear under vendor/src/main." >&2
+  echo >&2
+  cat "$tmp_vendor_stale" >&2
+  exit 1
+fi
+
 for build_file in "manager/build.gradle.kts" "settings/build.gradle.kts"; do
   if [ -f "$build_file" ]; then
     rg -n 'project\(":(vendor|xmsf|pinned)"\)' "$build_file" \
@@ -125,6 +165,44 @@ if [ -s "$tmp_forbidden_deps" ]; then
   echo >&2
   cat "$tmp_forbidden_deps" >&2
     exit 1
+fi
+
+# common is a shared contract/model layer. Protocol serialization and Thrift
+# types belong to the xmsf runtime adapter and must not leak back into it.
+common_protocol_leaks="$({
+  rg -n 'com\.xiaomi\.xmpush\.thrift|org\.apache\.thrift|project\(":pinned"\)' \
+    "common/src" "common/build.gradle.kts" || true
+})"
+if [ -n "$common_protocol_leaks" ]; then
+  echo "common must not depend on pinned or expose Thrift protocol types." >&2
+  echo >&2
+  printf '%s\n' "$common_protocol_leaks" >&2
+  exit 1
+fi
+
+# Keep the first package-level xmsf layering rule mechanical. Runtime data owns
+# persistence and replay orchestration; notification policy is supplied through
+# a common contract and implemented by an xmsf adapter. This prevents a data
+# repository from reaching back into Android notification construction APIs.
+xmsf_layer_edges=(
+  "xmsf/src/main/java/io/github/magisk317/mipush/runtime/data|io.github.magisk317.mipush.notification."
+)
+for edge in "${xmsf_layer_edges[@]}"; do
+  source_root="${edge%%|*}"
+  forbidden_import="${edge#*|}"
+  rg -n "^import ${forbidden_import}" "$source_root" \
+    | while IFS=: read -r path _line import_line; do
+      [ -n "${path:-}" ] || continue
+      printf '%s|%s\n' "$path" "$import_line"
+    done >> "$tmp_forbidden_xmsf_edges" || true
+done
+
+if [ -s "$tmp_forbidden_xmsf_edges" ]; then
+  echo "xmsf package layering check failed: runtime data reaches notification implementation." >&2
+  echo "Expose a common contract and bind the platform adapter in xmsf Koin instead." >&2
+  echo >&2
+  cat "$tmp_forbidden_xmsf_edges" >&2
+  exit 1
 fi
 
 manager_notification_framework="$({

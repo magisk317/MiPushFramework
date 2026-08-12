@@ -109,7 +109,6 @@ android {
 
 dependencies {
     implementation(project(":diagnostics"))
-    implementation(project(":pinned"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.collection)
     implementation(libs.androidx.annotation)
@@ -139,5 +138,10 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).conf
 }
 
 tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
-    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    jvmArgs(
+        "-Xshare:off",
+        "--enable-native-access=ALL-UNNAMED",
+        "--sun-misc-unsafe-memory-access=allow",
+        "-XX:+EnableDynamicAgentLoading",
+    )
 }

@@ -11,14 +11,14 @@ abstract class DisplayOnlyPhonyPermissionInfo(
     override val permissionOperator: PermissionOperator
         get() = this
 
-    override fun isPermissionGranted(permissionGateway: ManagerPermissionGateway?): Boolean {
+    override suspend fun isPermissionGranted(permissionGateway: ManagerPermissionGateway?): Boolean {
         return true
     }
 
-    override fun requestPermissionSilently(permissionGateway: ManagerPermissionGateway?): Boolean {
+    override suspend fun requestPermissionSilently(permissionGateway: ManagerPermissionGateway?): Boolean {
         return false
     }
 
-    override fun requestPermission(permissionGateway: ManagerPermissionGateway?) {
+    override suspend fun requestPermission(permissionGateway: ManagerPermissionGateway?) {
     }
 }

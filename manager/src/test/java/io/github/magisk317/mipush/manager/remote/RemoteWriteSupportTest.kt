@@ -60,4 +60,56 @@ class RemoteWriteSupportTest {
 
         assertEquals(requestId, RemoteWriteSupport.resolveRequestId(requestId))
     }
+
+    @Test
+    fun `require success rejects unavailable and failed writes`() {
+        val unavailable = runCatching {
+            RemoteWriteSupport.requireSuccess(null, "update_application")
+        }.exceptionOrNull()
+        assertTrue(unavailable is RuntimeWriteUnavailableException)
+        assertEquals("update_application", (unavailable as RuntimeWriteUnavailableException).operation)
+
+        val rejected = runCatching {
+            RemoteWriteSupport.requireSuccess(
+                ManagerWriteResultDto(
+                    requestId = "1",
+                    status = ManagerProtocol.WRITE_STATUS_FAILED,
+                    details = "permission_denied",
+                ),
+                "update_application",
+            )
+        }.exceptionOrNull()
+        assertTrue(rejected is RuntimeWriteRejectedException)
+        assertEquals("permission_denied", (rejected as RuntimeWriteRejectedException).details)
+    }
+
+    @Test
+    fun `transport classification preserves failed and unsupported write semantics`() {
+        val failed = RemoteWriteSupport.fromRuntimeResult(
+            requestId = "failed-request",
+            result = io.github.magisk317.mipush.manager.client.ManagerRuntimeResult.Failed(
+                "invalid_request",
+            ),
+        )
+        assertEquals(ManagerProtocol.WRITE_STATUS_FAILED, failed?.status)
+        assertEquals("invalid_request", failed?.details)
+        assertEquals("failed-request", failed?.requestId)
+
+        val unsupported = RemoteWriteSupport.fromRuntimeResult(
+            requestId = "unsupported-request",
+            result = io.github.magisk317.mipush.manager.client.ManagerRuntimeResult.Unsupported(
+                "write_commands",
+            ),
+        )
+        assertEquals(ManagerProtocol.WRITE_STATUS_UNSUPPORTED, unsupported?.status)
+        assertEquals("write_commands", unsupported?.details)
+
+        val unavailable = RemoteWriteSupport.fromRuntimeResult(
+            requestId = "unavailable-request",
+            result = io.github.magisk317.mipush.manager.client.ManagerRuntimeResult.Unavailable(
+                io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability.Disconnected,
+            ),
+        )
+        assertEquals(null, unavailable)
+    }
 }

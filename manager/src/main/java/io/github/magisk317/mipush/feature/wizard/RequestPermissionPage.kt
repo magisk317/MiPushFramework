@@ -67,11 +67,14 @@ import io.github.magisk317.mipush.feature.wizard.permission.RootPermissionOperat
 import io.github.magisk317.mipush.feature.wizard.permission.UsageStatsPermissionInfo
 import io.github.magisk317.mipush.feature.wizard.permission.requirementGroupKey
 import io.github.magisk317.mipush.feature.ui.theme.Theme
+import io.github.magisk317.mipush.feature.ui.theme.ThemeMode
 import io.github.magisk317.mipush.common.manager.ManagerRootAccessSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerRootAccessState
 import io.github.magisk317.mipush.common.manager.ManagerRootSubjectStatus
 import io.github.magisk317.mipush.common.manager.ManagerRootTarget
+import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.main.viewmodel.RequestPermissionViewModel
+import io.github.magisk317.uikit.theme.UiKitStyle
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -94,6 +97,8 @@ import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.mutableIntStateOf
 import io.github.magisk317.mipush.feature.main.MainActivity
 import org.koin.compose.viewmodel.koinViewModel
+import org.koin.android.ext.android.inject
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 private val TAG = "WizardPermission"
 
@@ -103,13 +108,29 @@ open class RequestPermissionPage : ComponentActivity() {
         private val COLOR_GRANTED = Color(0xFF4CAF50) // Green 500
     }
 
+    private val preferenceRepository: PreferenceRepository by inject()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val recheckOnly = intent?.getBooleanExtra(EXTRA_RECHECK_ONLY, false) ?: false
         setContent {
-            Theme {
-                PermissionMainActivity(recheckOnly = recheckOnly)
+            val themeMode by preferenceRepository.themeMode.collectAsStateWithLifecycle(
+                initialValue = ThemeMode.System.value,
+            )
+            val uiKitStyle by preferenceRepository.uiKitStyle.collectAsStateWithLifecycle(
+                initialValue = UiKitStyle.Expressive.value,
+            )
+            Theme(
+                themeMode = ThemeMode.fromValue(themeMode),
+                uiKitStyle = uiKitStyle,
+            ) {
+                PermissionMainActivity(
+                    recheckOnly = recheckOnly,
+                    onFinishWizard = {
+                        WizardSPUtils.finishWizard(this, preferenceRepository)
+                    },
+                )
             }
         }
     }
@@ -121,7 +142,8 @@ open class RequestPermissionPage : ComponentActivity() {
 @Composable
 fun PermissionMainActivity(
     modifier: Modifier = Modifier,
-    recheckOnly: Boolean = false
+    recheckOnly: Boolean = false,
+    onFinishWizard: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val permissionViewModel: RequestPermissionViewModel = koinViewModel()
@@ -240,7 +262,7 @@ fun PermissionMainActivity(
                     if (recheckOnly) {
                         (context as? ComponentActivity)?.finish()
                     } else {
-                        WizardSPUtils.finishWizard(context as ComponentActivity)
+                        onFinishWizard()
                         context.startActivity(Intent(context, MainActivity::class.java))
                     }
                 },

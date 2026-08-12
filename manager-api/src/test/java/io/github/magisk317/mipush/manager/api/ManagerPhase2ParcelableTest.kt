@@ -16,6 +16,7 @@ class ManagerPhase2ParcelableTest {
     @Test
     fun `event protocol parcelables round trip`() {
         val summary = ManagerEventSummaryDto(
+            userId = 999,
             id = 42L,
             packageName = "com.example.app",
             configOptions = listOf("disable", "sound"),
@@ -37,6 +38,7 @@ class ManagerPhase2ParcelableTest {
                 pageSize = 20,
                 packageName = "com.example.app",
                 query = "hello",
+                userId = 999,
             ),
             roundTrip(
                 ManagerEventQueryDto(
@@ -44,6 +46,7 @@ class ManagerPhase2ParcelableTest {
                     pageSize = 20,
                     packageName = "com.example.app",
                     query = "hello",
+                    userId = 999,
                 ),
                 ManagerEventQueryDto.CREATOR,
             ),
@@ -118,6 +121,7 @@ class ManagerPhase2ParcelableTest {
         val page = ManagerEventPageDto(
             items = listOf(
                 ManagerEventSummaryDto(
+                    userId = 999,
                     id = 1L,
                     packageName = "com.example",
                     title = "t",
@@ -134,7 +138,7 @@ class ManagerPhase2ParcelableTest {
             ManagerProtocol.validateEventPage(
                 ManagerEventPageDto(
                     items = List(3) {
-                        ManagerEventSummaryDto(id = it.toLong(), packageName = "com.example")
+                        ManagerEventSummaryDto(userId = 999, id = it.toLong(), packageName = "com.example")
                     },
                 ),
                 negotiatedMaxPageSize = 2,

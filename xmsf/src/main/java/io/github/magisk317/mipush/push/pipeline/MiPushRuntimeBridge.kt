@@ -118,6 +118,7 @@ object MiPushRuntimeBridge {
         val actionName = resolvedContainer?.action?.name ?: "Unknown"
         val messageId = MessageIdentity.fromContainer(resolvedContainer)
         val isMockReplay = MockMessageRegistry.isMarked(resolvedContainer)
+        val userId = Utils.myUserId().coerceAtLeast(0)
         if (resolvedContainer != null &&
             StalePackagePushGuard.shouldDropNotification(
                 context,
@@ -139,7 +140,8 @@ object MiPushRuntimeBridge {
             val allowed = consumeNotificationDispatchAllowance(
                 packageName = resolvedContainer.packageName,
                 actionName = actionName,
-                messageId = messageId
+                messageId = messageId,
+                userId = userId,
             )
             if (!allowed) {
                 logD(
@@ -207,6 +209,7 @@ object MiPushRuntimeBridge {
         val isMockReplay = MockMessageRegistry.isMarked(container)
         val actionName = container.action?.name ?: "Unknown"
         val messageId = MessageIdentity.fromContainer(container)
+        val userId = Utils.myUserId().coerceAtLeast(0)
         val shouldProcess = shouldProcessPayloadIdentity(
             packageName = container.packageName,
             actionName = actionName,
@@ -224,7 +227,8 @@ object MiPushRuntimeBridge {
             markNotificationDispatchAllowance(
                 packageName = container.packageName,
                 actionName = actionName,
-                messageId = messageId
+                messageId = messageId,
+                userId = userId,
             )
         }
         runCatching {
@@ -328,15 +332,25 @@ object MiPushRuntimeBridge {
         return shouldProcess
     }
 
+    /** Drops notification dispatch grants that were issued for a package whose data was cleared. */
+    internal fun clearPackageTransientState(packageName: String, userId: Int) {
+        if (packageName.isBlank()) return
+        val prefix = "${userId.coerceAtLeast(0)}|$packageName|"
+        synchronized(notificationDispatchLock) {
+            notificationDispatchAllowances.keys.removeIf { it.startsWith(prefix) }
+        }
+    }
+
     private fun buildNotificationDispatchKey(
         packageName: String?,
         actionName: String,
-        messageId: String?
+        messageId: String?,
+        userId: Int,
     ): String? {
         if (packageName.isNullOrBlank() || messageId.isNullOrBlank()) {
             return null
         }
-        return "$packageName|$actionName|$messageId"
+        return "$userId|$packageName|$actionName|$messageId"
     }
 
     private fun pruneNotificationDispatchAllowancesLocked(nowMs: Long) {
@@ -353,9 +367,10 @@ object MiPushRuntimeBridge {
         packageName: String?,
         actionName: String,
         messageId: String?,
+        userId: Int,
         nowMs: Long = System.currentTimeMillis()
     ) {
-        val key = buildNotificationDispatchKey(packageName, actionName, messageId) ?: return
+        val key = buildNotificationDispatchKey(packageName, actionName, messageId, userId) ?: return
         synchronized(notificationDispatchLock) {
             pruneNotificationDispatchAllowancesLocked(nowMs)
             val allowance = notificationDispatchAllowances[key]
@@ -380,9 +395,10 @@ object MiPushRuntimeBridge {
         packageName: String?,
         actionName: String,
         messageId: String?,
+        userId: Int,
         nowMs: Long = System.currentTimeMillis()
     ): Boolean {
-        val key = buildNotificationDispatchKey(packageName, actionName, messageId) ?: return true
+        val key = buildNotificationDispatchKey(packageName, actionName, messageId, userId) ?: return true
         synchronized(notificationDispatchLock) {
             pruneNotificationDispatchAllowancesLocked(nowMs)
             val allowance = notificationDispatchAllowances[key] ?: return false

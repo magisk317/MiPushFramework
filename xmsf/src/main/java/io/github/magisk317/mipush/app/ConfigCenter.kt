@@ -9,7 +9,6 @@ import io.github.magisk317.mipush.runtime.PushRuntimeComponents
 import io.github.magisk317.mipush.service.PushServiceStarter
 import io.github.magisk317.mipush.utils.Configurations
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import io.github.magisk317.mipush.common.Constants
 
@@ -19,8 +18,6 @@ import io.github.magisk317.mipush.common.Constants
 class ConfigCenter constructor(
     private val preferenceRepository: PreferenceRepository
 ) {
-    constructor() : this(PreferenceRepository())
-
     suspend fun getConfigurationDirectoryAsync(): Uri? {
         val uri = preferenceRepository.configDirectory.first()
         return if (uri.isNullOrBlank()) null else Uri.parse(uri)
@@ -46,14 +43,6 @@ class ConfigCenter constructor(
 
     suspend fun shouldStartPushAsForegroundServiceAsync(): Boolean =
         preferenceRepository.startPushAsForegroundService.first()
-
-    fun loadConfigurations(context: Context) {
-        // Use a cached directory value to avoid blocking the calling thread.
-        // The configuration directory rarely changes and is set explicitly by the user.
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-            loadConfigurationsNow(context)
-        }
-    }
 
     suspend fun loadConfigurationsNow(context: Context): Boolean =
         withContext(kotlinx.coroutines.Dispatchers.IO) {

@@ -23,16 +23,20 @@ object MockMessageRegistry {
     @JvmStatic
     fun mark(container: XmPushActionContainer?) {
         val id = identityOf(container) ?: return
-        markMessageId(id)
+        markKey(key(container?.packageName, id))
     }
 
     @JvmStatic
     fun markMessageId(messageId: String?) {
         if (messageId.isNullOrBlank()) return
+        markKey(messageId)
+    }
+
+    private fun markKey(key: String) {
         val now = System.currentTimeMillis()
         synchronized(lock) {
             pruneExpiredLocked(now)
-            if (!markedMessageIds.containsKey(messageId) && markedMessageIds.size >= MAX_MARKED_MESSAGES) {
+            if (!markedMessageIds.containsKey(key) && markedMessageIds.size >= MAX_MARKED_MESSAGES) {
                 markedMessageIds.entries.iterator().run {
                     if (hasNext()) {
                         next()
@@ -40,26 +44,36 @@ object MockMessageRegistry {
                     }
                 }
             }
-            markedMessageIds[messageId] = now
+            markedMessageIds[key] = now
         }
-        logD("marked mock message id=$messageId ttlMs=$MARK_TTL_MS")
+        logD("marked mock message key=$key ttlMs=$MARK_TTL_MS")
     }
 
     @JvmStatic
     fun isMarked(container: XmPushActionContainer?): Boolean {
         val id = identityOf(container) ?: return false
-        return isMarked(id)
+        return isMarked(container?.packageName, id)
     }
 
     @JvmStatic
     fun isMarked(messageId: String?): Boolean {
         if (messageId.isNullOrBlank()) return false
+        return isMarkedKey(messageId)
+    }
+
+    @JvmStatic
+    fun isMarked(packageName: String?, messageId: String?): Boolean {
+        if (messageId.isNullOrBlank()) return false
+        return isMarkedKey(key(packageName, messageId))
+    }
+
+    private fun isMarkedKey(key: String): Boolean {
         val now = System.currentTimeMillis()
         synchronized(lock) {
             pruneExpiredLocked(now)
-            val ts = markedMessageIds[messageId] ?: return false
+            val ts = markedMessageIds[key] ?: return false
             if ((now - ts) > MARK_TTL_MS) {
-                markedMessageIds.remove(messageId)
+                markedMessageIds.remove(key)
                 return false
             }
             return true
@@ -92,6 +106,9 @@ object MockMessageRegistry {
             }
         }
     }
+
+    private fun key(packageName: String?, messageId: String): String =
+        "${packageName.orEmpty()}\u0000$messageId"
 
     private fun identityOf(container: XmPushActionContainer?): String? {
         if (container == null) return null

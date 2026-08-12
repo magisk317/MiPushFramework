@@ -93,6 +93,38 @@ class RuntimePreferenceGatewayTest {
         syncJob.cancel()
     }
 
+    @Test
+    fun `xmpp server reads from runtime snapshot`() = runBlocking {
+        val gateway = gateway(
+            readRemote = {
+                ManagerRuntimeResult.Success(
+                    ManagerRuntimePreferencesDto(
+                        entries = listOf(
+                            ManagerPreferenceEntryDto(
+                                key = "xmpp_server",
+                                type = "string",
+                                value = "runtime.example.test",
+                                owner = "runtime",
+                            ),
+                        ),
+                    ),
+                )
+            },
+        )
+
+        assertEquals("runtime.example.test", gateway.getXmppServer())
+    }
+
+    @Test
+    fun `xmpp server read does not become empty when runtime is unavailable`() = runBlocking {
+        val gateway = gateway(
+            readRemote = { ManagerRuntimeResult.Failed("disconnected") },
+        )
+
+        val error = runCatching { gateway.getXmppServer() }.exceptionOrNull()
+        assertTrue(error is io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException)
+    }
+
     private fun gateway(
         runtimeAvailable: MutableStateFlow<Boolean>? = null,
         executeRemote: suspend (RuntimePreferenceWrite) -> ManagerWriteResultDto? = { successResult() },

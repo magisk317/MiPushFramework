@@ -47,6 +47,20 @@ Key source:
   state from `RuntimeSettingsAdapter` / `PushRuntime.connectionSnapshot()`.
 - Remote read failures are failures, not successful empty snapshots. UI callers keep the last
   successful value and retry after runtime availability returns.
+- Notification-time island settings are read through a synchronous SDK boundary today. Until
+  that boundary is converted end-to-end, a settings read failure must fail closed for island
+  proxy/focus generation while preserving the original notification path; it must not use the
+  enabled default as an implicit fallback. The main XMSF application owns a process-local global
+  snapshot cache and refreshes it asynchronously after `ACTION_PREF_CHANGED`; package-scoped
+  registration flags remain database-owned and may use a `(userId, packageName)` cache only when
+  successful database insert/update operations update that cache synchronously. SystemUI carries
+  `StatusBarNotification.userId` through the provider query so its package cache uses the same
+  identity instead of a package-only key.
+- Zygisk configuration reads use the same rule: a missing root, unavailable Binder, or failed
+  file read is an unavailable result, never an empty `ZygiskConfig`. The manager must not save
+  while the current configuration cannot be read; an actually empty file remains a valid empty
+  configuration. Module status and package scans follow the same rule: unavailable is distinct
+  from disabled and from a successful scan with no candidates.
 - Notification-channel pages remain Binder DTOs until `RemoteNotificationChannelSource` maps them
   into manager domain summaries. The UI consumes that snapshot directly, and deletion sends only
   the package/channel identity command; no manager path reconstructs framework channel objects.
@@ -87,6 +101,24 @@ declared the facade base and an unused `CompatXMPushService` as private componen
 the sole direct facade caller. It now starts the private `XMPushServiceCore` directly because its
 empty internal intent is not valid external SDK ingress; both redundant component registrations
 were therefore removed while the two stock public entry names remain unchanged.
+
+### External SDK ingress boundary
+
+The public facades support both stock transport forms:
+
+- A bound Messenger request carries `Message.sendingUid`. `ExternalPushIngress` resolves that UID
+  to installed packages and requires it to match the package declared by the MiPush payload.
+- A legacy `startService` request arrives through `onStartCommand`, where Android does not retain
+  the originating UID. `ExternalPushIntentPolicy` therefore validates the public action, target
+  package, serialized container/action, payload size, local-control signature, and sanitized
+  extras, but cannot authenticate the process that sent the request.
+
+The second limitation is a deliberate stock-SDK compatibility boundary, not an authorization
+grant. An arbitrary app that can reach the exported legacy service may forge a payload for another
+installed package if it can satisfy those payload checks. Adding a manifest signature permission or
+requiring a pre-existing registration would break stock first-registration and legacy SDK flows;
+any future hardening must introduce a separate authenticated transport and prove SDK compatibility
+before changing the exported route.
 
 ## 3. Runtime Spine
 
@@ -200,6 +232,12 @@ Supporting layers:
 - `NotificationIdentityBridge`
 - `IslandPreferenceProvider` in the xmsf process, which exposes HyperIsland display flags through caller validation: self/system/root, callers holding the read permission, or the system-installed `com.android.systemui` package.
 - `MiPushIslandHook` in the Xposed `com.android.systemui` process, which posts a separate HyperIsland proxy notification for eligible MiPush notifications before MIUI builds its inner notification bean.
+- Proxy notification IDs are derived from `(userId, sourcePackage)`, and source ownership still
+  uses the full status-bar key, so same-package notifications in owner and cloned users do not
+  replace or cancel each other's proxy.
+- The known broken-click launcher fallback resolves and creates its `PendingIntent` in the
+  notification user's context. If SystemUI cannot obtain that context, it preserves the original
+  PendingIntent instead of silently launching the package in the wrong user.
 - `UnlockFocusAuthHook` in the Xposed `com.xiaomi.xmsf` process, which relaxes XMSF focus authorization for generated focus payloads.
 - `IslandPreferences` in the Xposed module, which periodically reads the xmsf provider so SystemUI injection and XMSF authorization share the same runtime flags.
 

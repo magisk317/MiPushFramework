@@ -14,7 +14,7 @@ class ComparingLogExportSource(
     private val remoteSource: RemoteLogExportSource,
     private val enableRemoteCompare: Boolean = false,
 ) {
-    fun exportPrimary(context: Context): ManagerLogExportResult = primarySource.export(context)
+    suspend fun exportPrimary(context: Context): ManagerLogExportResult = primarySource.export(context)
 
     suspend fun compareRemote(primary: LogExportSnapshot): LogExportComparison {
         if (!enableRemoteCompare) return LogExportComparison.Matched
@@ -35,4 +35,3 @@ private fun compare(primary: LogExportSnapshot, remote: LogExportSnapshot): LogE
         LogExportComparison.Mismatched(fields.distinct().sorted())
     }
 }
-

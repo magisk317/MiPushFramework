@@ -1,3 +1,5 @@
+import org.gradle.api.tasks.testing.Test
+
 plugins {
     id("magisk.android.library")
     id("magisk.android.room")
@@ -65,16 +67,23 @@ android {
     }
 }
 
-tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+tasks.withType<Test>().configureEach {
     jvmArgs(
         "-Xshare:off",
         "--enable-native-access=ALL-UNNAMED",
         "--sun-misc-unsafe-memory-access=allow",
+        "-XX:+EnableDynamicAgentLoading",
         "-Xmx4g",
     )
     useJUnitPlatform()
-    // Isolate each test class; Robolectric's native runtime is not safe to
-    // tear down and recreate between flavor test workers on the CI JDK.
+    // The Robolectric JUnit 5 extension creates SDK-specific sandboxes. Running
+    // those sandboxes concurrently can make ZipFS reopen the same Android font
+    // archive and fail with FileSystemAlreadyExistsException.
+    systemProperty("junit.jupiter.execution.parallel.enabled", "false")
+    systemProperty("junit.jupiter.execution.parallel.mode.default", "same_thread")
+    systemProperty("junit.jupiter.execution.parallel.mode.classes.default", "same_thread")
+    // Isolate each test class; Robolectric's native runtime is not safe to tear
+    // down and recreate between SDK sandboxes on the CI JDK.
     maxParallelForks = 1
     forkEvery = 1
 }

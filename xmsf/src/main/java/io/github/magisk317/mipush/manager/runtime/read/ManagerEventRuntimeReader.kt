@@ -9,7 +9,6 @@ import io.github.magisk317.mipush.runtime.data.EventRepository
 import io.github.magisk317.mipush.runtime.store.entities.Event
 import io.github.magisk317.mipush.runtime.store.event.type.TypeFactory
 import io.github.magisk317.mipush.utils.RegSecUtils
-import kotlinx.coroutines.runBlocking
 
 /**
  * Projects stored events into display DTOs without mutating history. Payload and regSec are copied
@@ -32,9 +31,9 @@ class ManagerEventRuntimeReader(
         configCenter = AppDependencies.get(context),
     )
 
-    fun readPage(query: ManagerEventReadQuery): ManagerEventReadPage {
+    suspend fun readPage(query: ManagerEventReadQuery): ManagerEventReadPage {
         val pageSize = query.pageSize.coerceIn(1, maxPageSize)
-        val types: Set<Int>? = if (!runBlocking { configCenter.isShowAllEventsAsync() }) {
+        val types: Set<Int>? = if (!configCenter.isShowAllEventsAsync()) {
             setOf(
                 Event.Type.SendMessage,
                 Event.Type.Registration,
@@ -44,15 +43,14 @@ class ManagerEventRuntimeReader(
         } else {
             null
         }
-        val events = runBlocking {
-            io.github.magisk317.mipush.runtime.store.db.EventDb.queryByIdAsync(
-                lastId = query.lastId,
-                size = pageSize,
-                types = types,
-                pkg = query.packageName.ifBlank { null },
-                text = query.query.ifBlank { null },
-            )
-        }
+        val events = io.github.magisk317.mipush.runtime.store.db.EventDb.queryByIdAsync(
+            lastId = query.lastId,
+            size = pageSize,
+            types = types,
+            pkg = query.packageName.ifBlank { null },
+            text = query.query.ifBlank { null },
+            userId = query.userId,
+        )
         return ManagerEventReadPage(items = takeBoundedSummaries(events))
     }
 
@@ -96,9 +94,10 @@ class ManagerEventRuntimeReader(
         }
         return ManagerEventReadSummary(
             id = id ?: 0L,
+            userId = userId,
             packageName = pkg,
             configOptions = eventRepository.getStatus(container).toList().sorted(),
-            channel = eventRepository.getStatusDescription(this),
+            channel = eventRepository.getStatusDescription(this, container),
             receiveDateMs = date,
             title = eventType.getTitle(context).toString(),
             content = content,

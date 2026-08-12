@@ -46,6 +46,7 @@ import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadRequestD
 import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadResultDto
 import io.github.magisk317.mipush.manager.api.ManagerMigrationSnapshotDto
 import io.github.magisk317.mipush.manager.api.ManagerRuntimePreferencesDto
+import io.github.magisk317.mipush.manager.api.ManagerRuntimeEnvironmentSnapshotDto
 import io.github.magisk317.mipush.manager.runtime.read.ManagerConfigurationUploadRuntimeWriter
 import io.github.magisk317.mipush.manager.runtime.read.ManagerPreferenceRuntimeReader
 import io.github.magisk317.mipush.manager.api.ManagerWriteRequestDto
@@ -56,6 +57,7 @@ import io.github.magisk317.mipush.manager.runtime.read.ManagerNotificationChanne
 import io.github.magisk317.mipush.manager.runtime.read.ManagerNotificationChannelReadQuery
 import io.github.magisk317.mipush.manager.runtime.read.ManagerNotificationChannelRuntimeReader
 import io.github.magisk317.mipush.service.runtime.RuntimeSettingsAdapter
+import kotlinx.coroutines.runBlocking
 
 class ManagerRuntimeService : Service() {
     private val runtimeSettingsAdapter: RuntimeSettingsAdapter by lazy {
@@ -137,6 +139,13 @@ class ManagerRuntimeService : Service() {
             }
         }
 
+        override fun getRuntimeEnvironmentSnapshot(): ManagerRuntimeEnvironmentSnapshotDto {
+            enforceTrustedCaller()
+            return withRuntimeIdentity {
+                runtimeSettingsAdapter.getRuntimeEnvironmentSnapshot().toWireDto()
+            }
+        }
+
         override fun getApplicationPage(query: ManagerApplicationQueryDto): ManagerApplicationPageDto {
             enforceTrustedCaller()
             ManagerProtocol.validateApplicationQuery(
@@ -145,7 +154,7 @@ class ManagerRuntimeService : Service() {
             )?.let(::invalidArgument)
             val started = android.os.SystemClock.elapsedRealtime()
             return withRuntimeIdentity {
-                applicationReader.readPage(query.toReadQuery()).toWireDto().also { page ->
+                runBlocking { applicationReader.readPage(query.toReadQuery()) }.toWireDto().also { page ->
                     ManagerProtocol.validateApplicationPage(
                         page = page,
                         negotiatedMaxPageSize = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
@@ -167,7 +176,8 @@ class ManagerRuntimeService : Service() {
             enforceTrustedCaller()
             requireValidPackageName(packageName)
             return withRuntimeIdentity {
-                applicationReader.readDetail(packageName, ignoreNotRegistered)?.toDetailDto()?.also { detail ->
+                runBlocking { applicationReader.readDetail(packageName, ignoreNotRegistered) }
+                    ?.toDetailDto()?.also { detail ->
                     ManagerProtocol.validateApplicationDetail(detail)?.let(::invalidArgument)
                 }
             }
@@ -182,7 +192,8 @@ class ManagerRuntimeService : Service() {
             ManagerProtocol.validateApplicationDiagnosticsRequest(packageName, registeredType)
                 ?.let(::invalidArgument)
             return withRuntimeIdentity {
-                applicationReader.readDiagnostics(packageName, registeredType).toWireDto().also { diagnostics ->
+                runBlocking { applicationReader.readDiagnostics(packageName, registeredType) }
+                    .toWireDto().also { diagnostics ->
                     ManagerProtocol.validateApplicationDiagnostics(diagnostics)?.let(::invalidArgument)
                 }
             }
@@ -196,7 +207,7 @@ class ManagerRuntimeService : Service() {
             )?.let(::invalidArgument)
             val started = android.os.SystemClock.elapsedRealtime()
             return withRuntimeIdentity {
-                eventReader.readPage(query.toReadQuery()).toWireDto().also { page ->
+                runBlocking { eventReader.readPage(query.toReadQuery()) }.toWireDto().also { page ->
                     ManagerProtocol.validateEventPage(
                         page = page,
                         negotiatedMaxPageSize = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
@@ -231,7 +242,7 @@ class ManagerRuntimeService : Service() {
         override fun getConfigurationCatalog(): ManagerConfigurationCatalogDto {
             enforceTrustedCaller()
             return withRuntimeIdentity {
-                configurationCatalogReader.readCatalog().also { catalog ->
+                runBlocking { configurationCatalogReader.readCatalog() }.also { catalog ->
                     ManagerProtocol.validateConfigurationCatalog(catalog)?.let(::invalidArgument)
                 }
             }
@@ -260,7 +271,7 @@ class ManagerRuntimeService : Service() {
         override fun getRuntimePreferences(): ManagerRuntimePreferencesDto {
             enforceTrustedCaller()
             return withRuntimeIdentity {
-                preferenceReader.readRuntimePreferences().also {
+                runBlocking { preferenceReader.readRuntimePreferences() }.also {
                     ManagerProtocol.validateRuntimePreferences(it)?.let(::invalidArgument)
                 }
             }
@@ -269,7 +280,7 @@ class ManagerRuntimeService : Service() {
         override fun getManagerMigrationSnapshot(): ManagerMigrationSnapshotDto {
             enforceTrustedCaller()
             return withRuntimeIdentity {
-                preferenceReader.readManagerMigrationSnapshot().also {
+                runBlocking { preferenceReader.readManagerMigrationSnapshot() }.also {
                     ManagerProtocol.validateManagerMigrationSnapshot(it)?.let(::invalidArgument)
                 }
             }
@@ -394,6 +405,14 @@ internal fun ManagerConnectionSnapshot.toWireDto(): ManagerConnectionSnapshotDto
         frameworkRegistered = frameworkRegistered,
     )
 
+private fun io.github.magisk317.mipush.common.manager.ManagerRuntimeEnvironmentSnapshot.toWireDto():
+    ManagerRuntimeEnvironmentSnapshotDto = ManagerRuntimeEnvironmentSnapshotDto(
+        isMiui = isMiui,
+        imei = imei,
+        macAddress = macAddress,
+        xmppServerHost = xmppServerHost,
+    )
+
 private fun ManagerApplicationQueryDto.toReadQuery(): ManagerApplicationReadQuery =
     ManagerApplicationReadQuery(
         schemaVersion = schemaVersion,
@@ -402,10 +421,12 @@ private fun ManagerApplicationQueryDto.toReadQuery(): ManagerApplicationReadQuer
         includeSystemApps = includeSystemApps,
         pageSize = pageSize,
         pageToken = pageToken,
+        userId = userId,
     )
 
 private fun ManagerApplicationReadPage.toWireDto(): ManagerApplicationPageDto =
     ManagerApplicationPageDto(
+        userId = userId,
         items = items.map { it.toSummaryDto() },
         stats = stats.toWireDto(),
         nextPageToken = nextPageToken,
@@ -423,6 +444,7 @@ private fun ManagerApplicationReadStats.toWireDto(): ManagerApplicationStatsDto 
 private fun io.github.magisk317.mipush.common.manager.ManagerApplication.toSummaryDto(): ManagerApplicationSummaryDto =
     ManagerApplicationSummaryDto(
         id = id,
+        userId = userId,
         packageName = packageName,
         type = type,
         notificationOnRegister = notificationOnRegister,
@@ -439,6 +461,7 @@ private fun io.github.magisk317.mipush.common.manager.ManagerApplication.toSumma
 private fun io.github.magisk317.mipush.common.manager.ManagerApplication.toDetailDto(): ManagerApplicationDetailDto =
     ManagerApplicationDetailDto(
         id = id,
+        userId = userId,
         packageName = packageName,
         type = type,
         notificationOnRegister = notificationOnRegister,
@@ -459,6 +482,7 @@ private fun ManagerApplicationReadDiagnostics.toWireDto(): ManagerApplicationDia
         latestRegistrationEventResult = latestRegistrationEventResult,
         registeredType = registeredType,
         inferenceReason = inferenceReason,
+        userId = userId,
     )
 
 
@@ -469,6 +493,7 @@ private fun ManagerEventQueryDto.toReadQuery(): ManagerEventReadQuery =
         pageSize = pageSize,
         packageName = packageName,
         query = query,
+        userId = userId,
     )
 
 private fun ManagerEventReadPage.toWireDto(): ManagerEventPageDto =
@@ -477,6 +502,7 @@ private fun ManagerEventReadPage.toWireDto(): ManagerEventPageDto =
 private fun ManagerEventReadSummary.toWireDto(): ManagerEventSummaryDto =
     ManagerEventSummaryDto(
         id = id,
+        userId = userId,
         packageName = packageName,
         configOptions = configOptions,
         channel = channel,
@@ -496,12 +522,14 @@ private fun ManagerNotificationChannelQueryDto.toReadQuery(): ManagerNotificatio
         packageName = packageName,
         pageSize = pageSize,
         pageToken = pageToken,
+        userId = userId,
     )
 
 private fun ManagerNotificationChannelReadPage.toWireDto(): ManagerNotificationChannelPageDto =
     ManagerNotificationChannelPageDto(
         packageName = packageName,
         isHooked = isHooked,
+        userId = userId,
         items = items.map {
             ManagerNotificationChannelSummaryDto(
                 id = it.id,

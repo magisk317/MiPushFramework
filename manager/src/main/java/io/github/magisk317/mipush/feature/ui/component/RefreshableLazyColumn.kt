@@ -17,7 +17,6 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,6 +49,7 @@ fun RefreshableLazyColumn(
 ) {
     val currentIsNeedMore by rememberUpdatedState(isNeedMore)
     val currentDoLoadMore by rememberUpdatedState(doLoadMore)
+    val currentDoRefresh by rememberUpdatedState(doRefresh)
 
     var isRefreshing by remember { mutableStateOf(false) }
     var refreshStartedAt by remember { mutableStateOf(0L) }
@@ -72,12 +72,11 @@ fun RefreshableLazyColumn(
         }
     }
 
-    if (isNeedRefresh) {
+    LaunchedEffect(isNeedRefresh) {
+        if (!isNeedRefresh) return@LaunchedEffect
         isRefreshing = true
         refreshStartedAt = SystemClock.elapsedRealtime()
-        SideEffect {
-            doRefresh(onRefreshedWithMinDuration)
-        }
+        currentDoRefresh(onRefreshedWithMinDuration)
     }
 
     val state = rememberPullToRefreshState()

@@ -40,6 +40,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDuration
@@ -54,7 +55,6 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -330,6 +330,7 @@ fun EventList(
                 val cleanupScope = rememberCoroutineScope()
                 val cleanupDoneTemplate = stringResource(R.string.event_cleanup_done)
                 val cleanupNoneMessage = stringResource(R.string.event_cleanup_none)
+                val cleanupFailedMessage = stringResource(R.string.event_cleanup_failed)
                 EventCleanupCalendarDialog(
                     viewModel = viewModel,
                     onDismiss = { showCleanupDialog = false },
@@ -343,6 +344,11 @@ fun EventList(
                                     cleanupNoneMessage
                                 },
                             )
+                        }
+                    },
+                    onCleanupFailed = {
+                        cleanupScope.launch {
+                            snackbarHostState.showSnackbar(cleanupFailedMessage)
                         }
                     },
                 )
@@ -575,6 +581,7 @@ private fun EventGroupList(
     var hasMore by remember { mutableStateOf(false) }
     var isNeedRefresh by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
+    var initialLoadFailed by remember { mutableStateOf(false) }
 
     fun rebuildGroups() {
         val grouped = allEvents
@@ -596,10 +603,8 @@ private fun EventGroupList(
     }
 
     // Cache-first: on open / tab re-enter, restore from the persistent cache
-    // (or in-memory snapshot) and paint immediately. We do NOT proactively hit
-    // the runtime on open; remote is only used on cache miss, user pull-to-refresh,
-    // or a background silent refresh.
-    val runtimeReady by viewModel.runtimeReadySignal.collectAsStateWithLifecycle()
+    // (or in-memory snapshot) and paint immediately. Older pages are loaded only
+    // when the user scrolls.
     LaunchedEffect(query, refreshSignal) {
         // Cache-first: serve from the persistent store (or in-memory snapshot)
         // immediately so the page paints without a 3s+ remote round-trip.
@@ -612,6 +617,7 @@ private fun EventGroupList(
                 allEvents.addAll(cached.events)
                 lastId = cached.lastId
                 hasMore = cached.hasMore
+                initialLoadFailed = false
                 isNeedRefresh = false
                 rebuildGroups()
                 return@LaunchedEffect
@@ -623,6 +629,7 @@ private fun EventGroupList(
             allEvents.addAll(snap.events)
             lastId = snap.lastId
             hasMore = snap.hasMore
+            initialLoadFailed = false
             isNeedRefresh = false
             rebuildGroups()
         } else {
@@ -630,18 +637,11 @@ private fun EventGroupList(
             allEvents.clear()
             lastId = null
             hasMore = true
+            initialLoadFailed = false
             isNeedRefresh = true
             rebuildGroups()
         }
     }
-    // Idle silent refresh: after the page is painted from cache, warm the cache
-    // in the background without disturbing the visible list.
-    LaunchedEffect(query, refreshSignal, runtimeReady) {
-        if (runtimeReady > 0) {
-            viewModel.triggerSilentRefresh(query, "", refreshSignal)
-        }
-    }
-
     androidx.compose.runtime.LaunchedEffect(selectedTypeFilters, selectedStatusFilters) {
         rebuildGroups()
     }
@@ -652,12 +652,11 @@ private fun EventGroupList(
         try {
             val events = viewModel.fetchEventsSuspend(isRefresh, lastId, "", query)
             
-            if (isRefresh) {
-                allEvents.clear()
-            }
-            allEvents.addAll(events)
-            events.lastOrNull()?.let { lastId = it.id }
-            hasMore = events.size >= Constants.PAGE_SIZE
+            val mergedEvents = EventListViewModel.mergeEventItems(allEvents, events)
+            allEvents.clear()
+            allEvents.addAll(mergedEvents)
+            allEvents.lastOrNull()?.let { lastId = it.id }
+            hasMore = hasMore || events.size >= Constants.PAGE_SIZE
             rebuildGroups()
             viewModel.putEventListSnapshot(
                 query = query,
@@ -672,6 +671,7 @@ private fun EventGroupList(
             // Do not snapshot empty transport failures; keep previous UI if any.
             if (isRefresh && allEvents.isEmpty()) {
                 viewModel.invalidateEventListSnapshot()
+                initialLoadFailed = true
             }
         } finally {
             isLoading = false
@@ -715,13 +715,21 @@ private fun EventGroupList(
         modifier = Modifier,
         listState = listState,
     ) {
-        if (groupedItems.isEmpty() && !isLoading) {
+        if (groupedItems.isEmpty() && isLoading) {
             item {
-                EmptyEventState(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 300.dp)
-                )
+                InitialEventLoadState(modifier = Modifier.fillMaxWidth())
+            }
+        } else if (groupedItems.isEmpty() && !isLoading) {
+            item {
+                if (initialLoadFailed) {
+                    EventLoadFailedState(
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    EmptyEventState(
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
         } else {
             items(groupedItems, key = { it.packageName }) { group ->
@@ -790,12 +798,15 @@ private fun EventDetailsDialog(
     viewModel: EventListViewModel,
     onDismiss: () -> Unit
 ) {
-    var json by remember {
+    var json by remember(clickedEvent.id, content) {
         mutableStateOf(
-            content
-                ?: viewModel.getJson(clickedEvent.event)
-                ?: buildEventDebugInfo(clickedEvent)
+            content ?: buildEventDebugInfo(clickedEvent)
         )
+    }
+    LaunchedEffect(clickedEvent.id, content) {
+        if (content == null) {
+            json = viewModel.getJson(clickedEvent.event) ?: buildEventDebugInfo(clickedEvent)
+        }
     }
     var softWrap by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
@@ -972,6 +983,8 @@ private fun EventList(
     val isPreview = LocalInspectionMode.current
     val context = LocalContext.current
     val recentActivityDeletedMessage = stringResource(R.string.recent_activity_deleted)
+    val recentActivityDeleteFailedMessage = stringResource(R.string.recent_activity_delete_failed)
+    val recentActivityRestoreFailedMessage = stringResource(R.string.recent_activity_restore_failed)
     val actionUndoLabel = stringResource(R.string.action_undo)
     val items = remember {
         mutableStateListOf<EventInfoForDisplay>()
@@ -982,8 +995,7 @@ private fun EventList(
     var isLoading by remember { mutableStateOf(false) }
     var hasMore by remember { mutableStateOf(false) }
     var isNeedRefresh by remember { mutableStateOf(false) }
-    val runtimeReady by viewModel.runtimeReadySignal.collectAsStateWithLifecycle()
-
+    var initialLoadFailed by remember { mutableStateOf(false) }
     fun persistSnapshot() {
         viewModel.putEventListSnapshot(
             query = query,
@@ -996,9 +1008,8 @@ private fun EventList(
     }
 
     // Cache-first: on open / tab re-enter, restore from the persistent store
-    // (or in-memory snapshot) and paint immediately so we skip the 3s+ remote
-    // round-trip on cold start. Remote is only hit on a genuine cache miss,
-    // user pull-to-refresh, or a background silent refresh.
+    // (or in-memory snapshot) and paint immediately. Older pages are loaded only
+    // when the user scrolls.
     LaunchedEffect(query, packageName, refreshSignal) {
         if (viewModel.loadFromCacheIfPresent(query, packageName, refreshSignal)) {
             val cached = viewModel.getEventListSnapshot(
@@ -1010,6 +1021,7 @@ private fun EventList(
                 items.clear()
                 items.appendDistinct(cached.events)
                 hasMore = cached.hasMore
+                initialLoadFailed = false
                 isNeedRefresh = false
                 return@LaunchedEffect
             }
@@ -1023,19 +1035,13 @@ private fun EventList(
             items.clear()
             items.appendDistinct(snap.events)
             hasMore = snap.hasMore
+            initialLoadFailed = false
             isNeedRefresh = false
         } else {
             items.clear()
             hasMore = true
+            initialLoadFailed = false
             isNeedRefresh = true
-        }
-    }
-
-    // Idle silent refresh: after the page is painted from cache, warm the cache
-    // in the background without disturbing the visible list.
-    LaunchedEffect(query, packageName, refreshSignal, runtimeReady) {
-        if (runtimeReady > 0) {
-            viewModel.triggerSilentRefresh(query, packageName, refreshSignal)
         }
     }
 
@@ -1074,9 +1080,10 @@ private fun EventList(
             try {
                 val elements = getEvents(true)
                 withContext(Dispatchers.Main) {
+                    val mergedItems = EventListViewModel.mergeEventItems(items, elements)
                     items.clear()
-                    items.appendDistinct(elements)
-                    hasMore = elements.size >= Constants.PAGE_SIZE
+                    items.addAll(mergedItems)
+                    hasMore = hasMore || elements.size >= Constants.PAGE_SIZE
                     persistSnapshot()
                     isLoading = false
                     isNeedRefresh = false
@@ -1087,6 +1094,7 @@ private fun EventList(
                 withContext(Dispatchers.Main) {
                     if (items.isEmpty()) {
                         viewModel.invalidateEventListSnapshot()
+                        initialLoadFailed = true
                     }
                     isLoading = false
                     isNeedRefresh = false
@@ -1106,7 +1114,14 @@ private fun EventList(
         persistSnapshot()
 
         actionScope.launch {
-            viewModel.deleteEvent(item)
+            if (!viewModel.deleteEvent(item)) {
+                val idx = insertAt.coerceIn(0, items.size)
+                items.add(idx, item)
+                persistSnapshot()
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(recentActivityDeleteFailedMessage)
+                return@launch
+            }
             snackbarHostState.currentSnackbarData?.dismiss()
             val result = snackbarHostState.showSnackbar(
                 message = recentActivityDeletedMessage,
@@ -1114,10 +1129,13 @@ private fun EventList(
                 duration = SnackbarDuration.Indefinite,
             )
             if (result == SnackbarResult.ActionPerformed) {
-                viewModel.restoreEvent(item)?.let {
+                val restored = viewModel.restoreEvent(item)
+                if (restored != null) {
                     val idx = insertAt.coerceIn(0, items.size)
-                    items.add(idx, it)
+                    items.add(idx, restored)
                     persistSnapshot()
+                } else {
+                    snackbarHostState.showSnackbar(recentActivityRestoreFailedMessage)
                 }
             }
         }
@@ -1134,13 +1152,17 @@ private fun EventList(
         modifier = Modifier,
         listState = listState,
     ) {
-        if (filteredItems.isEmpty() && !isLoading) {
+        if (filteredItems.isEmpty() && isLoading) {
             item {
-                EmptyEventState(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 300.dp)
-                )
+                InitialEventLoadState(modifier = Modifier.fillMaxWidth())
+            }
+        } else if (filteredItems.isEmpty() && !isLoading) {
+            item {
+                if (initialLoadFailed) {
+                    EventLoadFailedState(modifier = Modifier.fillMaxWidth())
+                } else {
+                    EmptyEventState(modifier = Modifier.fillMaxWidth())
+                }
             }
         } else {
             items(filteredItems, key = { it.composeKey() }) {
@@ -1160,23 +1182,24 @@ private fun SwipeToDeleteEventItem(
     onDelete: (EventInfoForDisplay) -> Unit,
     onClick: (EventInfoForDisplay) -> Unit,
 ) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value != SwipeToDismissBoxValue.Settled) {
-                onDelete(item)
-            }
-            true
-        },
-    )
+    val dismissState = rememberSwipeToDismissBoxState()
+    var observedInitialValue by remember { mutableStateOf(false) }
+    var deleteTriggered by remember { mutableStateOf(false) }
 
-    // When an item is restored (re-added after undo), this composable may be
-    // reused by LazyColumn with dismissState still at EndToStart.  Reset it
-    // once on first composition so the foreground content is visible again.
-    var autoReset by remember { mutableStateOf(true) }
+    // A restored item can keep a non-settled dismiss state when LazyColumn
+    // reuses its keyed composition. Reset that initial state without treating
+    // it as a new user gesture.
     LaunchedEffect(dismissState.currentValue) {
-        if (autoReset && dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
-            autoReset = false
-            dismissState.snapTo(SwipeToDismissBoxValue.Settled)
+        if (!observedInitialValue) {
+            observedInitialValue = true
+            if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
+                dismissState.snapTo(SwipeToDismissBoxValue.Settled)
+            }
+            return@LaunchedEffect
+        }
+        if (!deleteTriggered && dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
+            deleteTriggered = true
+            onDelete(item)
         }
     }
 
@@ -1335,6 +1358,47 @@ fun EmptyEventState(modifier: Modifier = Modifier) {
                 contentDescription = null,
                 modifier = Modifier.size(80.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+            )
+        },
+    )
+}
+
+@Composable
+private fun InitialEventLoadState(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .heightIn(min = 300.dp)
+            .padding(horizontal = 32.dp, vertical = 72.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.event_initial_load_title),
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center,
+        )
+        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        Text(
+            text = stringResource(R.string.event_initial_load_summary),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+private fun EventLoadFailedState(modifier: Modifier = Modifier) {
+    WorkspaceEmptyState(
+        title = stringResource(R.string.event_load_failed_title),
+        summary = stringResource(R.string.event_load_failed_summary),
+        modifier = modifier.heightIn(min = 300.dp),
+        icon = {
+            Icon(
+                painter = painterResource(id = CommonR.drawable.ic_event_note_black_24dp),
+                contentDescription = null,
+                modifier = Modifier.size(80.dp),
+                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f),
             )
         },
     )

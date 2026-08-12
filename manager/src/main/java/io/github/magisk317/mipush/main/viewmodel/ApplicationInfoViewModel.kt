@@ -15,8 +15,12 @@ import io.github.magisk317.mipush.manager.notification.NotificationChannelReadSt
 import io.github.magisk317.mipush.manager.notification.NotificationChannelSnapshot
 import io.github.magisk317.mipush.manager.notification.RemoteNotificationChannelSource
 import io.github.magisk317.mipush.manager.notification.RemoteNotificationChannelCommand
+import io.github.magisk317.mipush.manager.remote.RuntimeWriteRejectedException
+import io.github.magisk317.mipush.manager.remote.RuntimeWriteUnavailableException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -125,8 +129,8 @@ class ApplicationInfoViewModel constructor(
     private val _applicationInfo = MutableStateFlow<ManagerApplication?>(null)
     val applicationInfo: StateFlow<ManagerApplication?> = _applicationInfo.asStateFlow()
 
-    private val _isZygiskEnabledForApp = MutableStateFlow(false)
-    val isZygiskEnabledForApp: StateFlow<Boolean> = _isZygiskEnabledForApp.asStateFlow()
+    private val _isZygiskEnabledForApp = MutableStateFlow<Boolean?>(null)
+    val isZygiskEnabledForApp: StateFlow<Boolean?> = _isZygiskEnabledForApp.asStateFlow()
 
     private val _isZygiskConfigurableForApp = MutableStateFlow(false)
     val isZygiskConfigurableForApp: StateFlow<Boolean> = _isZygiskConfigurableForApp.asStateFlow()
@@ -138,6 +142,27 @@ class ApplicationInfoViewModel constructor(
     internal val notificationChannels: StateFlow<NotificationChannelUiState> =
         _notificationChannels.asStateFlow()
     private var notificationChannelsJob: Job? = null
+    private val applicationWriteMutex = Mutex()
+
+    private fun persistApplication(previous: ManagerApplication, updated: ManagerApplication) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                applicationWriteMutex.withLock {
+                    applicationGateway.updateApplication(updated)
+                }
+            } catch (_: RuntimeWriteUnavailableException) {
+                if (_applicationInfo.value == updated) {
+                    _applicationInfo.value = previous
+                    refreshZygiskConfigurable(previous)
+                }
+            } catch (_: RuntimeWriteRejectedException) {
+                if (_applicationInfo.value == updated) {
+                    _applicationInfo.value = previous
+                    refreshZygiskConfigurable(previous)
+                }
+            }
+        }
+    }
 
     fun setApplicationInfo(
         info: ManagerApplication,
@@ -164,7 +189,7 @@ class ApplicationInfoViewModel constructor(
             val enabled = withContext(Dispatchers.IO) {
                 val hasRoot = permissionGateway.hasCachedRootAccess() ||
                     permissionGateway.refreshRootAccessIfGranted()
-                hasRoot && settingsManager.isZygiskSpoofEnabled(packageName)
+                if (hasRoot) settingsManager.isZygiskSpoofEnabled(packageName) else null
             }
             _isZygiskEnabledForApp.value = enabled
         }
@@ -201,7 +226,7 @@ class ApplicationInfoViewModel constructor(
         val current = _applicationInfo.value ?: return
         val updated = ApplicationInfoStatePolicy.withBlocked(current, blocked)
         _applicationInfo.value = updated
-        applicationGateway.updateApplication(updated)
+        persistApplication(current, updated)
         refreshZygiskConfigurable(updated)
         if (blocked) {
             _isZygiskEnabledForApp.value = false
@@ -223,14 +248,14 @@ class ApplicationInfoViewModel constructor(
         val current = _applicationInfo.value ?: return
         val updated = ApplicationInfoStatePolicy.withIslandEnabled(current, enabled) ?: return
         _applicationInfo.value = updated
-        applicationGateway.updateApplication(updated)
+        persistApplication(current, updated)
     }
 
     fun updateIslandFocusEnabled(enabled: Boolean) {
         val current = _applicationInfo.value ?: return
         val updated = ApplicationInfoStatePolicy.withIslandFocusEnabled(current, enabled) ?: return
         _applicationInfo.value = updated
-        applicationGateway.updateApplication(updated)
+        persistApplication(current, updated)
     }
     suspend fun launchTargetAppAndForceRegister(
         packageName: String,
@@ -241,13 +266,16 @@ class ApplicationInfoViewModel constructor(
                 context = context,
                 packageName = packageName,
                 registeredType = registeredType,
-            )
+            ).message
         }
     }
 
 
-    fun deleteNotificationChannel(channelId: String) {
-        val packageName = _applicationInfo.value?.packageName ?: return
+    fun deleteNotificationChannel(channelId: String, onResult: (Boolean) -> Unit = {}) {
+        val packageName = _applicationInfo.value?.packageName ?: run {
+            onResult(false)
+            return
+        }
         viewModelScope.launch {
             val deleted = withContext(Dispatchers.IO) {
                 notificationChannelCommand.delete(packageName, channelId)
@@ -255,6 +283,7 @@ class ApplicationInfoViewModel constructor(
             if (deleted && _applicationInfo.value?.packageName == packageName) {
                 refreshNotificationChannels()
             }
+            onResult(deleted)
         }
     }
 

@@ -7,6 +7,7 @@ data class ManagerNotificationChannelPageDto(
     val schemaVersion: Int = ManagerProtocol.NOTIFICATION_CHANNEL_PAGE_SCHEMA_VERSION,
     val packageName: String = "",
     val isHooked: Boolean = false,
+    val userId: Int = 0,
     val items: List<ManagerNotificationChannelSummaryDto> = emptyList(),
     val groups: List<ManagerNotificationChannelGroupSummaryDto> = emptyList(),
     val nextPageToken: String? = null,
@@ -21,6 +22,7 @@ data class ManagerNotificationChannelPageDto(
             writeInt(groups.size)
             groups.forEach { it.writeToParcel(this, flags) }
             writeString(nextPageToken)
+            writeInt(userId)
         }
     }
 
@@ -46,6 +48,7 @@ data class ManagerNotificationChannelPageDto(
                                 maxItems = ManagerProtocol.MAX_NOTIFICATION_CHANNEL_GROUP_COUNT,
                             ),
                             nextPageToken = readString(maxLength = ManagerProtocol.MAX_PAGE_TOKEN_LENGTH),
+                            userId = readInt(-1),
                         )
                     }
 

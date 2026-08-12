@@ -3,9 +3,9 @@ package io.github.magisk317.mipush.utils
 import java.util.LinkedHashMap
 
 /**
- * Message duplicate policy based on messageId + time window.
+ * Message duplicate policy based on scope + messageId + time window.
  *
- * checkAndMark(messageId):
+ * checkAndMark(scope, messageId):
  * - false -> first seen in window
  * - true  -> duplicated within window
  */
@@ -13,14 +13,30 @@ object DuplicateMessagePolicy {
     private const val DEDUP_WINDOW_MS = 60_000L
     internal const val MAX_TRACKED_MESSAGES = 2_048
     private val lock = Any()
-    private val seen = LinkedHashMap<String, Long>()
+    private const val LEGACY_SCOPE = "__legacy__"
+    private val seen = LinkedHashMap<ScopedMessageId, Long>()
+
+    private data class ScopedMessageId(
+        val scope: String,
+        val messageId: String,
+    )
 
     @JvmStatic
     fun checkAndMark(messageId: String?, nowMs: Long = System.currentTimeMillis()): Boolean {
+        return checkAndMark(LEGACY_SCOPE, messageId, nowMs)
+    }
+
+    @JvmStatic
+    fun checkAndMark(
+        scope: String?,
+        messageId: String?,
+        nowMs: Long = System.currentTimeMillis(),
+    ): Boolean {
         if (messageId.isNullOrBlank()) return false
+        val scopedId = ScopedMessageId(scope.orEmpty(), messageId)
         synchronized(lock) {
             pruneExpiredLocked(nowMs)
-            val previous = seen[messageId]
+            val previous = seen[scopedId]
             val duplicated = previous != null && (nowMs - previous) <= DEDUP_WINDOW_MS
             if (previous == null && seen.size >= MAX_TRACKED_MESSAGES) {
                 seen.entries.iterator().run {
@@ -30,7 +46,7 @@ object DuplicateMessagePolicy {
                     }
                 }
             }
-            seen[messageId] = nowMs
+            seen[scopedId] = nowMs
             return duplicated
         }
     }

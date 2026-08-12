@@ -32,4 +32,12 @@ class PreferenceOwnershipTest {
         assertEquals("2", PreferenceOwnership.byKey.getValue("runtime_log_retention_days").defaultValue?.value)
         assertEquals("7", PreferenceOwnership.byKey.getValue("event_retention_days").defaultValue?.value)
     }
+
+    @Test
+    fun `ownership entries use each key exactly once`() {
+        assertEquals(
+            PreferenceOwnership.entries.map { it.key }.toSet().size,
+            PreferenceOwnership.entries.size,
+        )
+    }
 }

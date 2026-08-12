@@ -3,6 +3,7 @@ package io.github.magisk317.mipush.runtime.android
 import android.content.Context
 import java.util.LinkedHashMap
 import io.github.magisk317.xposed.logging.MagiskOtel
+import io.github.magisk317.mipush.common.utils.Utils
 
 object PushRuntimeDuplicateStore {
     private const val PREF_NAME = "push_message_ids"
@@ -17,7 +18,13 @@ object PushRuntimeDuplicateStore {
         packageName: String,
         messageId: String?,
     ): Boolean {
-        return isDuplicateMessage(context, packageName, messageId, System.currentTimeMillis())
+        return isDuplicateMessage(
+            context = context,
+            packageName = packageName,
+            messageId = messageId,
+            nowMs = System.currentTimeMillis(),
+            userId = currentUserId(),
+        )
     }
 
     @JvmStatic
@@ -26,14 +33,17 @@ object PushRuntimeDuplicateStore {
         packageName: String,
         messageId: String?,
         nowMs: Long = System.currentTimeMillis(),
+        userId: Int = currentUserId(),
     ): Boolean {
         if (messageId.isNullOrBlank()) {
             return false
         }
         synchronized(lock) {
             val sharedPreferences = context.getSharedPreferences(PREF_NAME, 0)
-            val entries = cachedIds.getOrPut(packageName) {
-                parseStoredEntries(sharedPreferences.getString(packageName, null), nowMs)
+            val normalizedUserId = userId.coerceAtLeast(0)
+            val storageKey = storageKey(packageName, normalizedUserId)
+            val entries = cachedIds.getOrPut(storageKey) {
+                parseStoredEntries(sharedPreferences.getString(storageKey, null), nowMs)
             }
             val duplicated = checkAndMark(entries, messageId, nowMs)
             if (duplicated) {
@@ -56,7 +66,7 @@ object PushRuntimeDuplicateStore {
                 statusOk = true,
             )
             sharedPreferences.edit()
-                .putString(packageName, serializeStoredEntries(entries))
+                .putString(storageKey, serializeStoredEntries(entries))
                 .apply()
             return duplicated
         }
@@ -129,4 +139,9 @@ object PushRuntimeDuplicateStore {
             entries.remove(oldest.key)
         }
     }
+
+    internal fun storageKey(packageName: String, userId: Int): String =
+        if (userId == 0) packageName else "$userId:$packageName"
+
+    private fun currentUserId(): Int = runCatching { Utils.myUserId() }.getOrDefault(0)
 }

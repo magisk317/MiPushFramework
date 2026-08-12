@@ -20,6 +20,8 @@ import io.github.magisk317.mipush.config.ConfigNavigationHelper
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.data.dataStore
 import io.github.magisk317.mipush.runtime.data.EventRepository
+import io.github.magisk317.mipush.common.notification.NotificationAvailabilityReader
+import io.github.magisk317.mipush.notification.XmsfNotificationAvailabilityReader
 import io.github.magisk317.mipush.runtime.store.DatabaseUtils
 import io.github.magisk317.mipush.runtime.store.db.AppDatabase
 import io.github.magisk317.mipush.service.runtime.RuntimeProcessorBindings
@@ -83,7 +85,8 @@ val xmsfCoreKoinModule = module {
     single { ConfigCatalogService(get()) }
     single { ConfigSyncRepository(get(), get(), get(), get()) }
     single { ConfigNavigationHelper(androidContext(), get(), get()) }
-    single { EventRepository(androidContext(), get(), get(), get()) }
+    single<NotificationAvailabilityReader> { XmsfNotificationAvailabilityReader(androidContext()) }
+    single { EventRepository(androidContext(), get(), get(), get(), get()) }
 }
 
 object AppDependencies {

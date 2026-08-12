@@ -28,6 +28,7 @@ import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadRequestD
 import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadResultDto
 import io.github.magisk317.mipush.manager.api.ManagerMigrationSnapshotDto
 import io.github.magisk317.mipush.manager.api.ManagerRuntimePreferencesDto
+import io.github.magisk317.mipush.manager.api.ManagerRuntimeEnvironmentSnapshotDto
 import io.github.magisk317.mipush.manager.api.ManagerWriteRequestDto
 import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
@@ -58,6 +59,7 @@ class ManagerRuntimeClient(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val callTimeoutMillis: Long = DEFAULT_CALL_TIMEOUT_MS,
     private val reconnectDelayProvider: (Int) -> Long = ManagerRuntimeClientPolicy::reconnectDelayMillis,
+    private val eventPageCallTimeoutMillis: Long? = null,
 ) : Closeable {
     private val appContext = context.applicationContext ?: context
     private val clientJob = SupervisorJob(scope.coroutineContext[Job])
@@ -191,6 +193,12 @@ class ManagerRuntimeClient(
         ) { it.connectionSnapshot }
     }
 
+    suspend fun getRuntimeEnvironmentSnapshot(): ManagerRuntimeResult<ManagerRuntimeEnvironmentSnapshotDto> =
+        callCapability(
+            capability = ManagerProtocol.CAPABILITY_RUNTIME_ENVIRONMENT,
+            validator = { snapshot, _ -> ManagerProtocol.validateRuntimeEnvironmentSnapshot(snapshot) },
+        ) { it.getRuntimeEnvironmentSnapshot() }
+
     suspend fun getApplicationPage(
         query: ManagerApplicationQueryDto,
     ): ManagerRuntimeResult<ManagerApplicationPageDto> {
@@ -233,6 +241,8 @@ class ManagerRuntimeClient(
         query: ManagerEventQueryDto,
     ): ManagerRuntimeResult<ManagerEventPageDto> = callCapability(
         capability = ManagerProtocol.CAPABILITY_EVENT_LIST,
+        callTimeoutMillis = eventPageCallTimeoutMillis,
+        releaseSessionOnTimeout = false,
         requestValidator = { handshake ->
             ManagerProtocol.validateEventQuery(query, handshake.maxPageSize)
         },
@@ -307,7 +317,8 @@ class ManagerRuntimeClient(
     private suspend fun <T> callCapability(
         capability: String,
         requestValidator: (ManagerHandshake) -> String? = { null },
-        callTimeoutMillis: Long = this.callTimeoutMillis,
+        callTimeoutMillis: Long? = this.callTimeoutMillis,
+        releaseSessionOnTimeout: Boolean = true,
         validator: (T, ManagerHandshake) -> String?,
         block: (IManagerRuntimeService) -> T,
     ): ManagerRuntimeResult<T> {
@@ -328,7 +339,7 @@ class ManagerRuntimeClient(
 
         return try {
             val startedAt = android.os.SystemClock.elapsedRealtime()
-            Log.i(TAG, "call start capability=$capability timeoutMs=$callTimeoutMillis")
+            Log.i(TAG, "call start capability=$capability timeoutMs=${callTimeoutMillis ?: "none"}")
             val value = callRemote(target.session, callTimeoutMillis) { block(target.service) }
             Log.i(
                 TAG,
@@ -364,6 +375,17 @@ class ManagerRuntimeClient(
                 )
             }
             Log.w(TAG, "remote timed out capability=$capability")
+            if (!releaseSessionOnTimeout) {
+                // A slow feature read is not evidence that the Binder session is dead. Keep the
+                // shared runtime available and surface the timeout only to this caller.
+                emitClientCall(
+                    result = "error",
+                    reason = "request_timeout",
+                    capability = capability,
+                    statusOk = false,
+                )
+                return@callCapability ManagerRuntimeResult.Failed("runtime_request_timeout")
+            }
             val timeoutState = ManagerRuntimeAvailability.TimedOut
             val current = releaseSession(target.session, timeoutState)
             if (current) scheduleReconnect()
@@ -790,17 +812,22 @@ class ManagerRuntimeClient(
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     private suspend fun <T> callRemote(
         session: BindSession,
-        callTimeoutMillis: Long = this.callTimeoutMillis,
+        callTimeoutMillis: Long? = this.callTimeoutMillis,
         block: () -> T,
     ): T {
         val acquired = if (remoteCallPermits.tryAcquire()) {
             true
         } else {
-            Log.w(TAG, "waiting for remote permit timeoutMs=$callTimeoutMillis")
-            withTimeoutOrNull(callTimeoutMillis) {
+            Log.w(TAG, "waiting for remote permit timeoutMs=${callTimeoutMillis ?: "none"}")
+            if (callTimeoutMillis == null) {
                 remoteCallPermits.acquire()
                 true
-            } == true
+            } else {
+                withTimeoutOrNull(callTimeoutMillis) {
+                    remoteCallPermits.acquire()
+                    true
+                } == true
+            }
         }
         if (!acquired) {
             throw RemoteCallTimeoutException(permitsExhausted = true)
@@ -824,8 +851,12 @@ class ManagerRuntimeClient(
             throw CancellationException("manager runtime client is no longer active")
         }
         return try {
-            val completed = withTimeoutOrNull(callTimeoutMillis) {
+            val completed = if (callTimeoutMillis == null) {
                 RemoteCallValue(deferred.await())
+            } else {
+                withTimeoutOrNull(callTimeoutMillis) {
+                    RemoteCallValue(deferred.await())
+                }
             }
             if (completed == null) {
                 // If the remote finished after the client timed out, drop any transferred FDs.
@@ -871,6 +902,8 @@ class ManagerRuntimeClient(
         private const val TAG = "ManagerRuntime"
         // Application list paging + concurrent overview/event loads need headroom on mid-range devices.
         const val DEFAULT_CALL_TIMEOUT_MS = 8_000L
+        // Event projection includes payload decoding and notification/configuration metadata.
+        // Keep its slow path feature-local instead of turning a delayed page into a session reset.
         // Observed live export ~137s with ~30MB runtime logs + root lsposed/logcat collection.
         const val LOG_EXPORT_CALL_TIMEOUT_MS = 180_000L
         const val MAX_IN_FLIGHT_REMOTE_CALLS = 6

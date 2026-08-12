@@ -95,16 +95,20 @@ object LauncherIconController {
      *   root `am start`). Preferred primary relaunch path on rooted devices.
      * @param crossUserSync optional dual-space alias sync; runs before kill.
      */
-    fun applyAndRelaunch(
+    suspend fun applyAndRelaunch(
         context: Context,
         iconId: String,
         resumeRoute: String? = AppDestinations.Settings.ROUTE,
-        crossUserSync: ((normalizedIconId: String) -> Unit)? = null,
-        scheduleExternalRelaunch: ((route: String) -> Unit)? = null,
+        crossUserSync: (suspend (normalizedIconId: String) -> Unit)? = null,
+        scheduleExternalRelaunch: (suspend (route: String) -> Unit)? = null,
     ) {
         val selected = normalize(iconId)
         apply(context, selected)
-        runCatching { crossUserSync?.invoke(selected) }
+        try {
+            crossUserSync?.invoke(selected)
+        } catch (_: Throwable) {
+            // Cross-user sync is best effort; keep the primary alias change usable.
+        }
         relaunchTo(
             context = context,
             resumeRoute = resumeRoute,
@@ -115,16 +119,20 @@ object LauncherIconController {
     /**
      * Exit then auto-return to [resumeRoute] (default Settings).
      */
-    fun relaunchTo(
+    suspend fun relaunchTo(
         context: Context,
         resumeRoute: String? = AppDestinations.Settings.ROUTE,
-        scheduleExternalRelaunch: ((route: String) -> Unit)? = null,
+        scheduleExternalRelaunch: (suspend (route: String) -> Unit)? = null,
     ) {
         val appContext = context.applicationContext
         val route = resumeRoute?.takeIf { it.isNotBlank() } ?: AppDestinations.Settings.ROUTE
         persistPendingResume(appContext, route)
         val launchIntent = buildResumeIntent(appContext, route)
-        runCatching { scheduleExternalRelaunch?.invoke(route) }
+        try {
+            scheduleExternalRelaunch?.invoke(route)
+        } catch (_: Throwable) {
+            // The local alarm remains the fallback when the runtime is unavailable.
+        }
         scheduleRelaunchAlarm(appContext, launchIntent)
 
         runCatching {

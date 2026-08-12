@@ -1,7 +1,6 @@
 package io.github.magisk317.mipush.common.manager
 
 import android.util.Base64
-import io.github.magisk317.mipush.common.configurations.XMPushUtils
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -13,20 +12,16 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import org.apache.thrift.TBase
 
 /**
  * Pretty-printed debug JSON for manager event detail UI.
  *
- * Works in both the in-process xmsf host and the standalone manager process
- * (where thrift decrypt helpers are unavailable). When [ManagerEvent.payload]
- * is present, top-level container fields are decoded via [XMPushUtils].
+ * The shared formatter is safe in both the in-process XMSF host and the standalone manager
+ * process. Protocol-specific container details are added by the XMSF runtime gateway when it can
+ * decode the payload; the standalone manager intentionally keeps only transport-safe fields.
  */
 object EventDebugJson {
     private const val PAYLOAD_BASE64_PREVIEW_BYTES = 96
-    private const val BYTE_ARRAY_BASE64_PREVIEW_BYTES = 48
-    private const val COLLECTION_PREVIEW_LIMIT = 64
-    private const val THRIFT_JSON_MAX_DEPTH = 3
 
     private val prettyJson = Json {
         prettyPrint = true
@@ -82,87 +77,13 @@ object EventDebugJson {
                     Base64.NO_WRAP,
                 ) + if (payload.size > PAYLOAD_BASE64_PREVIEW_BYTES) "…" else "",
             )
-            put("container", containerSummary(payload))
+            put(
+                "container",
+                buildJsonObject {
+                    put("decode", "runtime_only")
+                    put("note", "Protocol details are available from the XMSF runtime gateway")
+                },
+            )
         }
-    }
-
-    private fun containerSummary(payload: ByteArray): JsonElement {
-        val container = XMPushUtils.packToContainer(payload) ?: return buildJsonObject {
-            put("decode", "failed")
-        }
-        return thriftToJson(container)
-    }
-
-    private fun thriftToJson(base: TBase<*, *>, depth: Int = 0): JsonElement {
-        if (depth > THRIFT_JSON_MAX_DEPTH) {
-            return JsonPrimitive(base.toString())
-        }
-        return buildJsonObject {
-            put("_type", base.javaClass.simpleName)
-            val methods = base.javaClass.methods
-                .asSequence()
-                .filter { method ->
-                    method.parameterCount == 0 &&
-                        method.name.startsWith("get") &&
-                        method.name != "getClass" &&
-                        method.name != "getFieldValue" &&
-                        !method.name.startsWith("getSet") &&
-                        java.lang.reflect.Modifier.isPublic(method.modifiers)
-                }
-                .sortedBy { it.name }
-            for (method in methods) {
-                val key = method.name.removePrefix("get").replaceFirstChar { it.lowercase() }
-                if (key.isBlank() || key == "metaDataMap" || key == "fieldValue") continue
-                val value = runCatching { method.invoke(base) }.getOrNull() ?: continue
-                if (value === base) continue
-                put(key, valueToJson(value, depth + 1))
-            }
-            // Boolean isX / isY style thrift accessors
-            base.javaClass.methods
-                .asSequence()
-                .filter { method ->
-                    method.parameterCount == 0 &&
-                        method.name.startsWith("is") &&
-                        method.returnType == java.lang.Boolean.TYPE &&
-                        java.lang.reflect.Modifier.isPublic(method.modifiers)
-                }
-                .sortedBy { it.name }
-                .forEach { method ->
-                    val key = method.name
-                    val value = runCatching { method.invoke(base) as? Boolean }.getOrNull()
-                    if (value != null) {
-                        put(key, value)
-                    }
-                }
-        }
-    }
-
-    private fun valueToJson(value: Any?, depth: Int): JsonElement = when (value) {
-        null -> JsonNull
-        is String -> JsonPrimitive(value)
-        is Boolean -> JsonPrimitive(value)
-        is Number -> JsonPrimitive(value)
-        is Enum<*> -> JsonPrimitive(value.name)
-        is ByteArray -> JsonPrimitive(
-            "byte[${value.size}]:" + Base64.encodeToString(
-                value,
-                0,
-                minOf(value.size, BYTE_ARRAY_BASE64_PREVIEW_BYTES),
-                Base64.NO_WRAP,
-            ) + if (value.size > BYTE_ARRAY_BASE64_PREVIEW_BYTES) "…" else "",
-        )
-        is TBase<*, *> -> thriftToJson(value, depth)
-        is Map<*, *> -> buildJsonObject {
-            value.entries.take(COLLECTION_PREVIEW_LIMIT).forEach { (k, v) ->
-                put(k?.toString() ?: "null", valueToJson(v, depth + 1))
-            }
-        }
-        is Iterable<*> -> buildJsonArray {
-            value.take(COLLECTION_PREVIEW_LIMIT).forEach { add(valueToJson(it, depth + 1)) }
-        }
-        is Array<*> -> buildJsonArray {
-            value.take(COLLECTION_PREVIEW_LIMIT).forEach { add(valueToJson(it, depth + 1)) }
-        }
-        else -> JsonPrimitive(value.toString())
     }
 }

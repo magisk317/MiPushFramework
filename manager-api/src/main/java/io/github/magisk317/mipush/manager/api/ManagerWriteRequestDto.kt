@@ -12,6 +12,7 @@ data class ManagerWriteRequestDto(
     val requestId: String = "",
     val operation: String = "",
     val packageName: String = "",
+    val userId: Int = 0,
     val eventId: Long? = null,
     val intArgument: Int = 0,
     val longArgument: Long = 0L,
@@ -24,6 +25,7 @@ data class ManagerWriteRequestDto(
             writeString(requestId)
             writeString(operation)
             writeString(packageName)
+            writeInt(userId)
             writeWireNullableLong(eventId)
             writeInt(intArgument)
             writeLong(longArgument)
@@ -51,6 +53,7 @@ data class ManagerWriteRequestDto(
                             packageName = readString(
                                 maxLength = ManagerProtocol.MAX_PACKAGE_NAME_LENGTH,
                             ).orEmpty(),
+                            userId = readInt(-1),
                             eventId = readNullableLong(),
                             intArgument = readInt(),
                             longArgument = readLong(),

@@ -7,7 +7,6 @@ import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.manager.api.ManagerMigrationSnapshotDto
 import io.github.magisk317.mipush.manager.api.ManagerPreferenceEntryDto
 import io.github.magisk317.mipush.manager.api.ManagerRuntimePreferencesDto
-import kotlinx.coroutines.runBlocking
 
 class ManagerPreferenceRuntimeReader(
     private val preferenceRepository: PreferenceRepository,
@@ -16,18 +15,16 @@ class ManagerPreferenceRuntimeReader(
         preferenceRepository = AppDependencies.get(context),
     )
 
-    fun readRuntimePreferences(): ManagerRuntimePreferencesDto =
+    suspend fun readRuntimePreferences(): ManagerRuntimePreferencesDto =
         ManagerRuntimePreferencesDto(
-            entries = runBlocking {
-                preferenceRepository.exportOwnedPreferences(PreferenceOwner.RUNTIME)
-            }.map { it.toWire("runtime") },
+            entries = preferenceRepository.exportOwnedPreferences(PreferenceOwner.RUNTIME)
+                .map { it.toWire("runtime") },
         )
 
-    fun readManagerMigrationSnapshot(): ManagerMigrationSnapshotDto =
+    suspend fun readManagerMigrationSnapshot(): ManagerMigrationSnapshotDto =
         ManagerMigrationSnapshotDto(
-            entries = runBlocking {
-                preferenceRepository.exportOwnedPreferences(PreferenceOwner.MANAGER)
-            }.map { it.toWire("manager") },
+            entries = preferenceRepository.exportOwnedPreferences(PreferenceOwner.MANAGER)
+                .map { it.toWire("manager") },
         )
 
     private fun OwnedPreferenceValue.toWire(ownerName: String): ManagerPreferenceEntryDto =

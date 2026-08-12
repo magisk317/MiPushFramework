@@ -11,6 +11,7 @@ import kotlinx.serialization.json.Json
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import android.content.Context
+import io.github.magisk317.mipush.common.utils.Utils
 
 /**
  * Persistent (on-disk) cache for event-list pages, complementing the existing
@@ -26,6 +27,7 @@ import android.content.Context
  */
 class EventListCacheStore(
     private val context: Context,
+    private val currentUserIdProvider: () -> Int = { Utils.myUserId() },
 ) {
     private val dataStore by lazy { context.eventListCacheDataStore }
 
@@ -33,10 +35,24 @@ class EventListCacheStore(
 
     /** Read cached events for a query key, or null when absent/stale/undecodable. */
     suspend fun getCached(queryKey: String): List<EventInfoForDisplay>? = withContext(Dispatchers.IO) {
-        val raw = dataStore.data.first()[stringPreferencesKey(queryKey)] ?: return@withContext null
-        runCatching {
+        val currentKey = stringPreferencesKey(scopedKey(queryKey))
+        val legacyKey = stringPreferencesKey(queryKey)
+        val preferences = dataStore.data.first()
+        val raw = preferences[currentKey] ?: preferences[legacyKey]
+            ?: return@withContext null
+        val cached = runCatching {
             json.decodeFromString<List<ManagerEvent>>(raw).map { it.toEventInfoForDisplay() }
-        }.getOrNull()
+        }.getOrNull() ?: return@withContext null
+        // Migrate the pre-user-scoped bucket so existing records remain cache-first.
+        if (preferences[currentKey] == null) {
+            runCatching {
+                dataStore.edit { values ->
+                    values[currentKey] = raw
+                    values.remove(legacyKey)
+                }
+            }
+        }
+        cached
     }
 
     /** Persist events for a query key. Only serializable fields are stored. */
@@ -44,7 +60,7 @@ class EventListCacheStore(
         val payload = events.map { it.event }
         runCatching {
             val raw = json.encodeToString(payload)
-            dataStore.edit { prefs -> prefs[stringPreferencesKey(queryKey)] = raw }
+            dataStore.edit { prefs -> prefs[stringPreferencesKey(scopedKey(queryKey))] = raw }
         }
     }
 
@@ -52,7 +68,13 @@ class EventListCacheStore(
     suspend fun clearAll() = withContext(Dispatchers.IO) {
         runCatching { dataStore.edit { it.clear() } }
     }
+
+    internal fun scopedKey(queryKey: String): String =
+        buildEventListCacheKey(currentUserIdProvider(), queryKey)
 }
+
+internal fun buildEventListCacheKey(userId: Int, queryKey: String): String =
+    "user=${userId.coerceAtLeast(0)};$queryKey"
 
 private val Context.eventListCacheDataStore by preferencesDataStore(name = "event_list_cache")
 

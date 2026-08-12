@@ -1,10 +1,12 @@
 package io.github.magisk317.mipush.runtime.android
 
 import io.github.magisk317.xposed.logging.MagiskOtel
+import io.github.magisk317.mipush.common.utils.Utils
 
 data class PendingPacketEntry(
     val packageName: String,
-    val payload: ByteArray
+    val payload: ByteArray,
+    val userId: Int = 0,
 )
 
 data class DiscardedPendingPackets(
@@ -28,12 +30,15 @@ object PushRuntimePendingPacketStore {
 
     @JvmStatic
     fun addPendingMessage(packageName: String, payload: ByteArray) {
+        val userId = currentUserId()
         val pendingCount = synchronized(lock) {
-            pendingMessages.add(PendingPacketEntry(packageName, payload.copyOf()))
-            if (pendingMessages.size > MAX_PENDING_MESSAGES) {
-                pendingMessages.removeAt(0)
+            pendingMessages.add(PendingPacketEntry(packageName, payload.copyOf(), userId))
+            val userMessages = pendingMessages.count { it.userId == userId }
+            if (userMessages > MAX_PENDING_MESSAGES) {
+                val oldestForUser = pendingMessages.indexOfFirst { it.userId == userId }
+                if (oldestForUser >= 0) pendingMessages.removeAt(oldestForUser)
             }
-            pendingMessages.size
+            pendingMessages.count { it.userId == userId }
         }
         MagiskOtel.event(
             name = "push.receive",
@@ -53,9 +58,10 @@ object PushRuntimePendingPacketStore {
 
     @JvmStatic
     fun cacheRegistrationRequest(packageName: String, payload: ByteArray) {
+        val userId = currentUserId()
         val pendingCount = synchronized(lock) {
-            pendingRegistrationRequests[packageName] = payload.copyOf()
-            pendingRegistrationRequests.size
+            pendingRegistrationRequests[registrationKey(userId, packageName)] = payload.copyOf()
+            pendingRegistrationRequests.keys.count { it.startsWith("$userId:") }
         }
         AndroidPushRuntime.observeRegistrationRequest(
             packageName = packageName,
@@ -83,8 +89,11 @@ object PushRuntimePendingPacketStore {
         source: String,
         sender: PendingPacketSender
     ): Int {
+        val userId = currentUserId()
         val queued = synchronized(lock) {
-            pendingMessages.also { pendingMessages = ArrayList() }
+            pendingMessages.filter { it.userId == userId }.also {
+                pendingMessages = ArrayList(pendingMessages.filterNot { it.userId == userId })
+            }
         }
         if (queued.isEmpty()) {
             return 0
@@ -126,9 +135,12 @@ object PushRuntimePendingPacketStore {
         source: String,
         sender: PendingPacketSender
     ): Int {
+        val userId = currentUserId()
         val queued = synchronized(lock) {
-            pendingRegistrationRequests.map { PendingPacketEntry(it.key, it.value.copyOf()) }
-                .also { pendingRegistrationRequests.clear() }
+            pendingRegistrationRequests
+                .filterKeys { it.startsWith("$userId:") }
+                .map { PendingPacketEntry(it.key.removePrefix("$userId:"), it.value.copyOf(), userId) }
+                .also { pendingRegistrationRequests.keys.removeIf { it.startsWith("$userId:") } }
         }
         if (queued.isEmpty()) {
             return 0
@@ -171,9 +183,12 @@ object PushRuntimePendingPacketStore {
         errorMessage: String,
         notifier: PendingPacketErrorNotifier
     ): Int {
+        val userId = currentUserId()
         val queued = synchronized(lock) {
-            pendingRegistrationRequests.map { PendingPacketEntry(it.key, it.value.copyOf()) }
-                .also { pendingRegistrationRequests.clear() }
+            pendingRegistrationRequests
+                .filterKeys { it.startsWith("$userId:") }
+                .map { PendingPacketEntry(it.key.removePrefix("$userId:"), it.value.copyOf(), userId) }
+                .also { pendingRegistrationRequests.keys.removeIf { it.startsWith("$userId:") } }
         }
         var notified = 0
         try {
@@ -207,20 +222,34 @@ object PushRuntimePendingPacketStore {
     }
 
     @JvmStatic
-    fun pendingMessageCount(): Int = synchronized(lock) { pendingMessages.size }
+    fun pendingMessageCount(): Int {
+        val userId = currentUserId()
+        return synchronized(lock) { pendingMessages.count { it.userId == userId } }
+    }
 
     @JvmStatic
-    fun pendingRegistrationCount(): Int = synchronized(lock) { pendingRegistrationRequests.size }
+    fun pendingRegistrationCount(): Int {
+        val userId = currentUserId()
+        return synchronized(lock) { pendingRegistrationRequests.keys.count { it.startsWith("$userId:") } }
+    }
 
     @JvmStatic
-    fun discardPackage(packageName: String): DiscardedPendingPackets = synchronized(lock) {
-        val registrationRequests = if (pendingRegistrationRequests.remove(packageName) != null) 1 else 0
-        val previousMessageCount = pendingMessages.size
-        pendingMessages = ArrayList(pendingMessages.filterNot { it.packageName == packageName })
-        DiscardedPendingPackets(
-            registrationRequests = registrationRequests,
-            messages = previousMessageCount - pendingMessages.size,
-        )
+    fun discardPackage(packageName: String): DiscardedPendingPackets {
+        return discardPackage(packageName, currentUserId())
+    }
+
+    @JvmStatic
+    fun discardPackage(packageName: String, userId: Int): DiscardedPendingPackets {
+        val normalizedUserId = userId.coerceAtLeast(0)
+        return synchronized(lock) {
+            val registrationRequests = if (pendingRegistrationRequests.remove(registrationKey(normalizedUserId, packageName)) != null) 1 else 0
+            val previousMessageCount = pendingMessages.count { it.userId == normalizedUserId && it.packageName == packageName }
+            pendingMessages = ArrayList(pendingMessages.filterNot { it.userId == normalizedUserId && it.packageName == packageName })
+            DiscardedPendingPackets(
+                registrationRequests = registrationRequests,
+                messages = previousMessageCount,
+            )
+        }
     }
 
     @JvmStatic
@@ -237,7 +266,13 @@ object PushRuntimePendingPacketStore {
             val merged = ArrayList<PendingPacketEntry>(entries.size + pendingMessages.size)
             entries.forEach { merged += it.copy(payload = it.payload.copyOf()) }
             merged += pendingMessages
-            pendingMessages = ArrayList(merged.takeLast(MAX_PENDING_MESSAGES))
+            val userId = entries.first().userId
+            while (merged.count { it.userId == userId } > MAX_PENDING_MESSAGES) {
+                val oldestForUser = merged.indexOfFirst { it.userId == userId }
+                if (oldestForUser < 0) break
+                merged.removeAt(oldestForUser)
+            }
+            pendingMessages = ArrayList(merged)
         }
     }
 
@@ -248,8 +283,15 @@ object PushRuntimePendingPacketStore {
                 // Stock XMSF 7.4.67-C h0.f holds the registration-map lock while flushing. A
                 // newer same-package put therefore runs after the failed flush and wins. Our
                 // snapshot-based flush must preserve that ordering when it restores the old tail.
-                pendingRegistrationRequests.putIfAbsent(entry.packageName, entry.payload.copyOf())
+                pendingRegistrationRequests.putIfAbsent(
+                    registrationKey(entry.userId, entry.packageName),
+                    entry.payload.copyOf(),
+                )
             }
         }
     }
+
+    private fun currentUserId(): Int = runCatching { Utils.myUserId() }.getOrDefault(0).coerceAtLeast(0)
+
+    private fun registrationKey(userId: Int, packageName: String): String = "$userId:$packageName"
 }

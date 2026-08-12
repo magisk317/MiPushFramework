@@ -43,4 +43,17 @@ class RemoteNotificationChannelCommandTest {
         assertFalse(command.delete("com.example", " "))
         assertEquals(0, calls)
     }
+
+    @Test
+    fun `delete reports a rejected runtime write`() = runBlocking {
+        val command = RemoteNotificationChannelCommand { _, _, _ ->
+            ManagerWriteResultDto(
+                requestId = "request",
+                status = ManagerProtocol.WRITE_STATUS_FAILED,
+                details = "delete_failed",
+            )
+        }
+
+        assertFalse(command.delete("com.example", "channel-id"))
+    }
 }

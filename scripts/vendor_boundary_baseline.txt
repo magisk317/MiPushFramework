@@ -1,0 +1,18 @@
+# Existing product-layer imports retained in vendor for compatibility migration.
+# New io.github.magisk317.* imports under vendor/src/main are forbidden.
+vendor/src/main/java/com/xiaomi/mipush/sdk/MiPushClient.kt|import io.github.magisk317.xposed.logging.MagiskOtel
+vendor/src/main/java/com/xiaomi/mipush/sdk/MiTinyDataClient.kt|import io.github.magisk317.xposed.logging.MagiskOtel
+vendor/src/main/java/com/xiaomi/mipush/sdk/PushMessageHandler.kt|import io.github.magisk317.xposed.logging.MagiskOtel
+vendor/src/main/java/com/xiaomi/mipush/sdk/PushServiceClient.kt|import io.github.magisk317.xposed.logging.MagiskOtel
+vendor/src/main/java/com/xiaomi/push/service/ClientEventDispatcher.kt|import io.github.magisk317.xposed.logging.MagiskOtel
+vendor/src/main/java/com/xiaomi/push/service/MIPushAckDispatcher.kt|import io.github.magisk317.xposed.logging.MagiskOtel
+vendor/src/main/java/com/xiaomi/push/service/MIPushEventProcessor.kt|import io.github.magisk317.xposed.logging.MagiskOtel
+vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.mipush.common.utils.logD
+vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.mipush.common.utils.logE
+vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.mipush.common.utils.logI
+vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.mipush.common.utils.logV
+vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.mipush.common.utils.logW
+vendor/src/main/java/com/xiaomi/push/service/NotificationIdentityBridge.kt|import io.github.magisk317.xposed.logging.MagiskOtel
+vendor/src/main/java/com/xiaomi/push/service/PacketSync.kt|import io.github.magisk317.xposed.logging.MagiskOtel
+vendor/src/main/java/com/xiaomi/push/service/XMPushServiceMessenger.kt|import io.github.magisk317.mipush.platform.support.PushServiceBroadcastActions
+vendor/src/main/java/com/xiaomi/push/service/XMPushServicePacketDelegate.kt|import io.github.magisk317.xposed.logging.MagiskOtel

@@ -129,6 +129,14 @@ object PushRuntime {
         AndroidPushRuntime.observeRegistrationState(packageName, state, source, reason, nowMs)
 
     @JvmStatic
+    fun getRegistrationRecord(packageName: String): PushRegistrationRecord? =
+        AndroidPushRuntime.getRegistrationRecord(packageName)
+
+    @JvmStatic
+    fun getChannelRecords(): List<PushChannelRecord> =
+        AndroidPushRuntime.getChannelRecords()
+
+    @JvmStatic
     fun observeInboundMessage(
         packageName: String?,
         action: String,
@@ -211,6 +219,14 @@ object PushRuntime {
     @JvmStatic
     fun forceTriggerRegistration(packageName: String, source: String, reason: String? = null): Boolean =
         AndroidPushRuntime.forceTriggerRegistration(packageName, source, reason)
+
+    @JvmStatic
+    fun clearPackageTransientState(packageName: String) =
+        AndroidPushRuntime.clearPackageTransientState(packageName)
+
+    @JvmStatic
+    fun clearPackageTransientState(packageName: String, userId: Int) =
+        AndroidPushRuntime.clearPackageTransientState(packageName, userId)
 
     @JvmStatic
     fun clearStateForTests() =

@@ -69,7 +69,7 @@ object Hooker {
 
     private fun hookMiPushSDK(context: Context) {
         try {
-            hookField(SmackConfiguration::class.java, "pingInterval", 3 * 60 * 1000)
+            SmackConfiguration.pingInterval = 3 * 60 * 1000
             hookMiPushServerHost()
             NetworkPolicyCompat.applyAll(context.applicationContext)
         } catch (e: Throwable) {
@@ -112,20 +112,6 @@ object Hooker {
     private fun addReservedHost(host: String, hosts: Array<String>) {
         for (h in hosts) {
             HostManager.addReservedHost(host, h)
-        }
-    }
-
-    private fun hookField(klass: Class<*>, field: String, value: Any) {
-        try {
-            val target = klass.getDeclaredField(field)
-            target.isAccessible = true
-            // Android 17+ restricts static final field modification
-            // This will throw IllegalAccessException for static final fields
-            target.set(null, value)
-        } catch (e: IllegalAccessException) {
-            logE("Android 17+ restriction: Cannot modify static final field $field in ${klass.name}", e)
-        } catch (e: Throwable) {
-            logE(e.message ?: "error", e)
         }
     }
 

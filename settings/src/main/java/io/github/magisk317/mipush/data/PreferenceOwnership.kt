@@ -10,6 +10,7 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION
 import io.github.magisk317.mipush.common.ISLAND_PREF_TIMEOUT
+import io.github.magisk317.mipush.common.ISLAND_PREF_RENDERER_MODE
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_ANTI_KILL
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_DOZE_BYPASS
 import io.github.magisk317.mipush.common.KEEPALIVE_PREF_OOM_ADJ
@@ -90,6 +91,13 @@ object PreferenceOwnership {
             "Island focus notification",
             false,
         ),
+        runtimeString(ISLAND_PREF_RENDERER_MODE, "Island renderer mode", "auto"),
+        runtimeBoolean("pref_island_visual_enabled", "Island visual effects", true),
+        runtimeBoolean("pref_island_dynamic_color", "Island dynamic color", true),
+        runtimeBoolean("pref_island_blur_enabled", "Island blur", true),
+        runtimeBoolean("pref_island_glass_enabled", "Island glass", true),
+        runtimeBoolean("pref_island_outer_glow_enabled", "Island outer glow", true),
+        runtimeBoolean("pref_island_animation_enabled", "Island animation", true),
         runtimeBoolean(
             COLOR_STATUS_BAR_ICON_KEY,
             "Status bar icon color",
@@ -141,11 +149,6 @@ object PreferenceOwnership {
         PreferenceOwnershipEntry("icon_remote_branch", PreferenceOwner.MANAGER, "Remote icon branch"),
         PreferenceOwnershipEntry("manager_migration_applied", PreferenceOwner.MANAGER, "Manager preference migration marker"),
         PreferenceOwnershipEntry("selected_launcher_icon", PreferenceOwner.MANAGER, "Selected launcher icon alias"),
-        PreferenceOwnershipEntry(
-            "icon_remote_accelerator",
-            PreferenceOwner.MANAGER,
-            "Remote icon accelerator",
-        ),
     )
 
     val byKey: Map<String, PreferenceOwnershipEntry> = entries.associateBy { it.key }

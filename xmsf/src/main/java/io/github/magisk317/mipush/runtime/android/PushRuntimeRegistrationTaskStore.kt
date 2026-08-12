@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.runtime.android
 
 import android.content.Intent
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.runtime.core.PushRegistrationState
 import io.github.magisk317.xposed.logging.MagiskOtel
 
@@ -16,7 +17,8 @@ object PushRuntimeRegistrationTaskStore {
         val intent: Intent,
         val queuedAtMs: Long,
         val source: String,
-        val reason: String?
+        val reason: String?,
+        val userId: Int = 0,
     )
 
     private val lock = Any()
@@ -30,21 +32,24 @@ object PushRuntimeRegistrationTaskStore {
         reason: String? = null,
         nowMs: Long = System.currentTimeMillis()
     ): PendingRegisterTask {
+        val userId = currentUserId()
         val task = PendingRegisterTask(
             packageName = packageName,
             intent = Intent(intent),
             queuedAtMs = nowMs,
             source = source,
-            reason = reason
+            reason = reason,
+            userId = userId,
         )
         synchronized(lock) {
-            if (!pendingTasks.containsKey(packageName) && pendingTasks.size >= MAX_PENDING_REGISTER_TASKS) {
-                val oldestKey = pendingTasks.entries.firstOrNull()?.key
+            val key = taskKey(userId, packageName)
+            if (!pendingTasks.containsKey(key) && pendingTasks.keys.count { it.startsWith("$userId:") } >= MAX_PENDING_REGISTER_TASKS) {
+                val oldestKey = pendingTasks.entries.firstOrNull { it.value.userId == userId }?.key
                 if (oldestKey != null) {
                     pendingTasks.remove(oldestKey)
                 }
             }
-            pendingTasks[packageName] = task
+            pendingTasks[key] = task
         }
         AndroidPushRuntime.observeRegistrationRequest(
             packageName = packageName,
@@ -73,10 +78,11 @@ object PushRuntimeRegistrationTaskStore {
         source: String,
         dispatcher: RegistrationIntentDispatcher
     ): Int {
+        val userId = currentUserId()
         val snapshot = synchronized(lock) {
-            pendingTasks.values.map {
+            pendingTasks.filterKeys { it.startsWith("$userId:") }.values.map {
                 it.copy(intent = Intent(it.intent))
-            }.also { pendingTasks.clear() }
+            }.also { pendingTasks.keys.removeIf { it.startsWith("$userId:") } }
         }
         if (snapshot.isEmpty()) {
             MagiskOtel.event(
@@ -116,13 +122,16 @@ object PushRuntimeRegistrationTaskStore {
         if (failed.isNotEmpty()) {
             synchronized(lock) {
                 failed.forEach { task ->
-                    if (!pendingTasks.containsKey(task.packageName) && pendingTasks.size >= MAX_PENDING_REGISTER_TASKS) {
-                        val oldestKey = pendingTasks.entries.firstOrNull()?.key
+                    val key = taskKey(task.userId, task.packageName)
+                    if (!pendingTasks.containsKey(key) &&
+                        pendingTasks.keys.count { it.startsWith("${task.userId}:") } >= MAX_PENDING_REGISTER_TASKS
+                    ) {
+                        val oldestKey = pendingTasks.entries.firstOrNull { it.value.userId == task.userId }?.key
                         if (oldestKey != null) {
                             pendingTasks.remove(oldestKey)
                         }
                     }
-                    pendingTasks[task.packageName] = task
+                    pendingTasks[key] = task
                 }
             }
         }
@@ -143,21 +152,37 @@ object PushRuntimeRegistrationTaskStore {
     }
 
     @JvmStatic
-    fun clear(packageName: String? = null) {
+    fun clear(packageName: String) {
+        clear(packageName, currentUserId())
+    }
+
+    @JvmStatic
+    fun clear(packageName: String, userId: Int) {
         synchronized(lock) {
-            if (packageName == null) {
-                pendingTasks.clear()
-            } else {
-                pendingTasks.remove(packageName)
-            }
+            pendingTasks.remove(taskKey(userId.coerceAtLeast(0), packageName))
         }
     }
 
     @JvmStatic
-    fun pendingTasks(): List<PendingRegisterTask> = synchronized(lock) {
-        pendingTasks.values.map { it.copy(intent = Intent(it.intent)) }
+    fun clearForTests() {
+        synchronized(lock) { pendingTasks.clear() }
     }
 
     @JvmStatic
-    fun pendingCount(): Int = synchronized(lock) { pendingTasks.size }
+    fun pendingTasks(): List<PendingRegisterTask> {
+        val userId = currentUserId()
+        return synchronized(lock) {
+            pendingTasks.filterKeys { it.startsWith("$userId:") }.values.map { it.copy(intent = Intent(it.intent)) }
+        }
+    }
+
+    @JvmStatic
+    fun pendingCount(): Int {
+        val userId = currentUserId()
+        return synchronized(lock) { pendingTasks.keys.count { it.startsWith("$userId:") } }
+    }
+
+    private fun currentUserId(): Int = runCatching { Utils.myUserId() }.getOrDefault(0).coerceAtLeast(0)
+
+    private fun taskKey(userId: Int, packageName: String): String = "$userId:$packageName"
 }

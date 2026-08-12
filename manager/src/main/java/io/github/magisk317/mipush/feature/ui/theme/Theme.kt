@@ -1,9 +1,6 @@
 package io.github.magisk317.mipush.feature.ui.theme
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.remember
-import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.uikit.theme.MagiskUiKitTheme
 import io.github.magisk317.uikit.theme.UiKitStyle
 
@@ -28,15 +25,8 @@ fun Theme(
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    val preferenceRepository = remember { PreferenceRepository() }
-    val storedThemeMode = preferenceRepository.themeMode
-        .collectAsState(initial = ThemeMode.System.value)
-        .value
-    val storedUiKitStyle = preferenceRepository.uiKitStyle
-        .collectAsState(initial = UiKitStyle.Expressive.value)
-        .value
-    val resolvedMode = themeMode ?: ThemeMode.fromValue(storedThemeMode)
-    val resolvedUiKitStyle = uiKitStyle ?: storedUiKitStyle
+    val resolvedMode = themeMode ?: ThemeMode.System
+    val resolvedUiKitStyle = uiKitStyle ?: UiKitStyle.Expressive.value
 
     MagiskUiKitTheme(
         themeMode = resolvedMode.value,

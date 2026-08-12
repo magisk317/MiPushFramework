@@ -6,6 +6,7 @@ import io.github.magisk317.mipush.runtime.store.entities.RegisteredApplication
 /** A persisted row copied into a read-only value object. */
 data class StoredApplicationSnapshot(
     val id: Long?,
+    val userId: Int = 0,
     val packageName: String,
     val type: Int,
     val notificationOnRegister: Boolean,
@@ -34,26 +35,28 @@ data class RegistrationEventSnapshot(
 )
 
 interface ManagerApplicationReadSource {
-    fun readStoredApplications(): List<StoredApplicationSnapshot>
+    suspend fun currentUserId(): Int = 0
 
-    fun readInstalledApplications(includeSystemApps: Boolean): ApplicationCatalogSnapshot
+    suspend fun readStoredApplications(): List<StoredApplicationSnapshot>
 
-    fun readInstalledApplication(packageName: String): InstalledApplicationSnapshot?
+    suspend fun readInstalledApplications(includeSystemApps: Boolean): ApplicationCatalogSnapshot
 
-    fun readLastReceiveTime(packageName: String): Long
+    suspend fun readInstalledApplication(packageName: String): InstalledApplicationSnapshot?
 
-    fun readLastReceiveTimes(packageNames: Collection<String>): Map<String, Long> =
+    suspend fun readLastReceiveTime(packageName: String): Long
+
+    suspend fun readLastReceiveTimes(packageNames: Collection<String>): Map<String, Long> =
         packageNames.associateWith { readLastReceiveTime(it) }
 
     /** Reads registration artifacts only; implementations must not persist a reconciliation result. */
-    fun readLocallyRegisteredPackages(packageNames: Collection<String>): Set<String> = emptySet()
+    suspend fun readLocallyRegisteredPackages(packageNames: Collection<String>): Set<String> = emptySet()
 
-    fun hasLocalRegistration(packageName: String): Boolean =
+    suspend fun hasLocalRegistration(packageName: String): Boolean =
         packageName in readLocallyRegisteredPackages(listOf(packageName))
 
-    fun readRegSecCount(packageName: String): Int = 0
+    suspend fun readRegSecCount(packageName: String): Int = 0
 
-    fun readLatestRegistrationEvent(packageName: String): RegistrationEventSnapshot? = null
+    suspend fun readLatestRegistrationEvent(packageName: String): RegistrationEventSnapshot? = null
 }
 
 data class ManagerApplicationReadQuery(
@@ -63,6 +66,7 @@ data class ManagerApplicationReadQuery(
     val includeSystemApps: Boolean = false,
     val pageSize: Int = DEFAULT_PAGE_SIZE,
     val pageToken: String? = null,
+    val userId: Int = 0,
 ) {
     companion object {
         const val FILTER_ALL = 0
@@ -82,6 +86,7 @@ data class ManagerApplicationReadStats(
 )
 
 data class ManagerApplicationReadPage(
+    val userId: Int,
     val items: List<ManagerApplication>,
     val stats: ManagerApplicationReadStats,
     val nextPageToken: String?,
@@ -108,6 +113,7 @@ fun StoredApplicationSnapshot.toManagerApplication(
     }
     return ManagerApplication(
         id = id,
+        userId = userId,
         packageName = packageName,
         type = type,
         notificationOnRegister = notificationOnRegister,
@@ -125,11 +131,13 @@ fun StoredApplicationSnapshot.toManagerApplication(
 fun InstalledApplicationSnapshot.toTransientManagerApplication(
     locallyRegistered: Boolean,
     lastReceiveTimeMs: Long,
+    userId: Int = 0,
     notificationOnRegister: Boolean = true,
     deriveAppNamePinYin: Boolean = true,
 ): ManagerApplication {
     val displayName = appName.take(MAX_APPLICATION_LABEL_LENGTH)
     return ManagerApplication(
+        userId = userId.coerceAtLeast(0),
         packageName = packageName,
         notificationOnRegister = notificationOnRegister,
         registeredType = if (locallyRegistered) {
@@ -147,6 +155,7 @@ fun InstalledApplicationSnapshot.toTransientManagerApplication(
 internal fun RegisteredApplication.toStoredApplicationSnapshot(): StoredApplicationSnapshot =
     StoredApplicationSnapshot(
         id = id,
+        userId = userId,
         packageName = packageName,
         type = type,
         notificationOnRegister = notificationOnRegister,

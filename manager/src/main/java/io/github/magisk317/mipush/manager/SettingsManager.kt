@@ -13,11 +13,15 @@ import io.github.magisk317.mipush.common.manager.ManagerLogGateway
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
 import io.github.magisk317.mipush.common.manager.ManagerConnectionSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeEnvironmentSnapshot
+import io.github.magisk317.mipush.common.manager.ZygiskConfigReadResult
+import io.github.magisk317.mipush.common.manager.ZygiskModuleReadResult
+import io.github.magisk317.mipush.common.manager.ZygiskPackageScanResult
 import io.github.magisk317.mipush.common.utils.Utils
 
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -35,30 +39,39 @@ class SettingsManager constructor(
                 withContext(Dispatchers.Main) {
                     Utils.makeText(context, context.getString(R.string.settings_clear_history) + " " + context.getString(R.string.start), Toast.LENGTH_SHORT)
                 }
-                runtimeActions.clearHistory()
-                withContext(Dispatchers.Main) {
-                    Utils.makeText(context, context.getString(R.string.settings_clear_history) + " " + context.getString(R.string.end), Toast.LENGTH_SHORT)
+                try {
+                    runtimeActions.clearHistory()
+                    withContext(Dispatchers.Main) {
+                        Utils.makeText(context, context.getString(R.string.settings_clear_history) + " " + context.getString(R.string.end), Toast.LENGTH_SHORT)
+                    }
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    withContext(Dispatchers.Main) {
+                        Utils.makeText(context, context.getString(R.string.settings_clear_history) + " " + context.getString(R.string.fail), Toast.LENGTH_SHORT)
+                    }
+                } finally {
+                    mClearingHistory.set(false)
                 }
-                mClearingHistory.set(false)
             }
         }
     }
 
-    fun startMiPushServiceAsForegroundService(context: Context) {
+    suspend fun startMiPushServiceAsForegroundService(context: Context) {
         runtimeActions.startMiPushServiceAsForegroundService(context)
     }
 
-    fun setRuntimeLogRetentionDays(days: Int) {
+    suspend fun setRuntimeLogRetentionDays(days: Int) {
         runtimeActions.setRuntimeLogRetentionDays(days)
         logGateway.setRetentionDays(days)
     }
 
     /** 应用事件记录保留天数(触发一次即时清理);天数持久化由 ViewModel 写入 DataStore。 */
-    fun applyEventRetentionDays(days: Int) {
+    suspend fun applyEventRetentionDays(days: Int) {
         runtimeActions.applyEventRetentionDays(days)
     }
 
-    fun buildRuntimeLogBundle(context: Context): ManagerLogExportResult {
+    suspend fun buildRuntimeLogBundle(context: Context): ManagerLogExportResult {
         return logGateway.buildLogBundle(context)
     }
 
@@ -66,22 +79,22 @@ class SettingsManager constructor(
         return logGateway.buildShareIntent(context, file)
     }
 
-    fun clearRuntimeLogFolders(context: Context): ManagerLogClearResult {
+    suspend fun clearRuntimeLogFolders(context: Context): ManagerLogClearResult {
         return logGateway.clearLogFolders(context)
     }
 
-    fun sendXMPPReconnectRequest(context: Context): Boolean =
+    suspend fun sendXMPPReconnectRequest(context: Context): Boolean =
         runtimeActions.sendXmppReconnectRequest(context)
 
-    fun getRuntimeEnvironmentSnapshot(context: Context): ManagerRuntimeEnvironmentSnapshot {
+    suspend fun getRuntimeEnvironmentSnapshot(context: Context): ManagerRuntimeEnvironmentSnapshot {
         return runtimeActions.getRuntimeEnvironmentSnapshot(context)
     }
 
-    fun getConnectionSnapshot(): ManagerConnectionSnapshot {
+    suspend fun getConnectionSnapshot(): ManagerConnectionSnapshot {
         return runtimeActions.getConnectionSnapshot()
     }
 
-    fun resetTopActivityCache() {
+    suspend fun resetTopActivityCache() {
         runtimeActions.resetTopActivityCache()
     }
 
@@ -93,20 +106,25 @@ class SettingsManager constructor(
         )
     }
 
-    fun isZygiskModuleEnabled(): Boolean = zygiskConfigGateway.isZygiskModuleEnabled()
+    suspend fun isZygiskModuleEnabled(): ZygiskModuleReadResult = zygiskConfigGateway.isZygiskModuleEnabled()
 
     fun getZygiskConfigPath(): String = zygiskConfigGateway.getZygiskConfigPath()
 
-    fun getZygiskConfig(): ZygiskConfig = zygiskConfigGateway.getZygiskConfig()
+    suspend fun getZygiskConfig(): ZygiskConfigReadResult = zygiskConfigGateway.getZygiskConfig()
 
-    fun getZygiskSpoofPackages(): Set<String> = getZygiskConfig().enabledPackages()
+    suspend fun getZygiskSpoofPackages(): Set<String>? =
+        zygiskSpoofPackagesOrNull(getZygiskConfig())
 
-    fun isZygiskSpoofEnabled(packageName: String): Boolean = getZygiskConfig().isEnabledForPackage(packageName)
+    suspend fun isZygiskSpoofEnabled(packageName: String): Boolean? =
+        zygiskSpoofEnabledOrNull(getZygiskConfig(), packageName)
 
-    fun saveZygiskConfig(config: ZygiskConfig): Boolean = zygiskConfigGateway.saveZygiskConfig(config)
+    suspend fun saveZygiskConfig(config: ZygiskConfig): Boolean = zygiskConfigGateway.saveZygiskConfig(config)
 
-    fun setZygiskSpoofEnabled(packageName: String, enabled: Boolean): Boolean {
-        val updated = getZygiskConfig().withPackageEnabled(packageName, enabled)
+    suspend fun scanZygiskPackages(): ZygiskPackageScanResult = zygiskConfigGateway.scanZygiskPackages()
+
+    suspend fun setZygiskSpoofEnabled(packageName: String, enabled: Boolean): Boolean {
+        val current = getZygiskConfig() as? ZygiskConfigReadResult.Available ?: return false
+        val updated = current.config.withPackageEnabled(packageName, enabled)
         val saved = saveZygiskConfig(updated)
         if (saved) {
             zygiskConfigGateway.forceStopApp(packageName)
@@ -114,3 +132,13 @@ class SettingsManager constructor(
         return saved
     }
 }
+
+internal fun zygiskSpoofPackagesOrNull(result: ZygiskConfigReadResult): Set<String>? =
+    (result as? ZygiskConfigReadResult.Available)?.config?.enabledPackages()
+
+internal fun zygiskSpoofEnabledOrNull(
+    result: ZygiskConfigReadResult,
+    packageName: String,
+): Boolean? = (result as? ZygiskConfigReadResult.Available)
+    ?.config
+    ?.isEnabledForPackage(packageName)

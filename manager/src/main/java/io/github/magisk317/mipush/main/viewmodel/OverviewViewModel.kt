@@ -81,7 +81,7 @@ class OverviewViewModel constructor(
     }
 }
 
-internal fun loadOverviewApplications(
+internal suspend fun loadOverviewApplications(
     applicationPageOperation: ApplicationPageOperation,
     includeSystemApps: Boolean,
 ): ApplicationListLoadOutcome {

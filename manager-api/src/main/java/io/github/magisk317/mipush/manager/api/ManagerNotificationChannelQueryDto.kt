@@ -8,6 +8,7 @@ data class ManagerNotificationChannelQueryDto(
     val packageName: String = "",
     val pageSize: Int = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
     val pageToken: String? = null,
+    val userId: Int = 0,
 ) : Parcelable {
     override fun writeToParcel(destination: Parcel, flags: Int) {
         destination.writeWireFrame {
@@ -15,6 +16,7 @@ data class ManagerNotificationChannelQueryDto(
             writeString(packageName)
             writeInt(pageSize)
             writeString(pageToken)
+            writeInt(userId)
         }
     }
 
@@ -31,6 +33,7 @@ data class ManagerNotificationChannelQueryDto(
                             packageName = readString(maxLength = ManagerProtocol.MAX_PACKAGE_NAME_LENGTH).orEmpty(),
                             pageSize = readInt(ManagerProtocol.DEFAULT_MAX_PAGE_SIZE),
                             pageToken = readString(maxLength = ManagerProtocol.MAX_PAGE_TOKEN_LENGTH),
+                            userId = readInt(-1),
                         )
                     }
 

@@ -9,24 +9,25 @@ import java.security.MessageDigest
 import java.util.Base64
 
 internal object ManagerNotificationChannelPageToken {
-    private const val FORMAT_VERSION = 1
+    private const val FORMAT_VERSION = 2
     private const val FINGERPRINT_SIZE = 16
     private const val MAX_CHANNEL_ID_LENGTH = 512
 
-    fun encode(packageName: String, lastChannelId: String): String {
-        val packageBytes = packageName.toByteArray(StandardCharsets.UTF_8)
+    fun encode(packageName: String, lastChannelId: String, userId: Int): String {
+        require(userId >= 0) { "Invalid notification channel cursor user" }
         val channelBytes = lastChannelId.toByteArray(StandardCharsets.UTF_8)
         val output = ByteArrayOutputStream()
         DataOutputStream(output).use { stream ->
             stream.writeByte(FORMAT_VERSION)
-            stream.write(fingerprint(packageName))
+            stream.write(fingerprint(packageName, userId))
             stream.writeShort(channelBytes.size)
             stream.write(channelBytes)
         }
         return Base64.getUrlEncoder().withoutPadding().encodeToString(output.toByteArray())
     }
 
-    fun decode(packageName: String, token: String): String {
+    fun decode(packageName: String, token: String, userId: Int): String {
+        require(userId >= 0) { "Invalid notification channel cursor user" }
         val decoded = runCatching { Base64.getUrlDecoder().decode(token) }
             .getOrElse { throw IllegalArgumentException("Invalid notification channel page token") }
         try {
@@ -34,7 +35,7 @@ internal object ManagerNotificationChannelPageToken {
                 if (stream.readUnsignedByte() != FORMAT_VERSION) {
                     throw IllegalArgumentException("Unsupported notification channel page token version")
                 }
-                val expected = fingerprint(packageName)
+                val expected = fingerprint(packageName, userId)
                 val actual = ByteArray(FINGERPRINT_SIZE).also(stream::readFully)
                 if (!MessageDigest.isEqual(expected, actual)) {
                     throw IllegalArgumentException("Notification channel page token does not match package")
@@ -52,8 +53,13 @@ internal object ManagerNotificationChannelPageToken {
         }
     }
 
-    private fun fingerprint(packageName: String): ByteArray =
-        MessageDigest.getInstance("SHA-256")
-            .digest(packageName.toByteArray(StandardCharsets.UTF_8))
-            .copyOf(FINGERPRINT_SIZE)
+    private fun fingerprint(packageName: String, userId: Int): ByteArray =
+        ByteArrayOutputStream().also { output ->
+            DataOutputStream(output).use { it.writeInt(userId) }
+            output.write(packageName.toByteArray(StandardCharsets.UTF_8))
+        }.let { bytes ->
+            MessageDigest.getInstance("SHA-256")
+                .digest(bytes.toByteArray())
+                .copyOf(FINGERPRINT_SIZE)
+        }
 }

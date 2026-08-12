@@ -87,6 +87,7 @@ class ManagerApplicationParcelableTest {
 
         assertEquals(ManagerProtocol.DEFAULT_MAX_PAGE_SIZE, query.pageSize)
         assertNull(query.pageToken)
+        assertEquals(-1, query.userId)
         parcel.recycle()
     }
 
@@ -170,6 +171,7 @@ class ManagerApplicationParcelableTest {
 
     private fun applicationSummary() = ManagerApplicationSummaryDto(
         id = 42L,
+        userId = 999,
         packageName = "com.example.app",
         type = 2,
         notificationOnRegister = true,
@@ -184,6 +186,7 @@ class ManagerApplicationParcelableTest {
 
     private fun applicationDetail() = ManagerApplicationDetailDto(
         id = 42L,
+        userId = 999,
         packageName = "com.example.app",
         type = 2,
         notificationOnRegister = true,
@@ -197,6 +200,7 @@ class ManagerApplicationParcelableTest {
     )
 
     private fun applicationDiagnostics() = ManagerApplicationDiagnosticsDto(
+        userId = 999,
         hasLocalRegistration = true,
         regSecCount = 2,
         latestRegistrationEventResult = 0,

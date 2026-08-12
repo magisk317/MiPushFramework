@@ -58,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
@@ -120,7 +121,12 @@ open class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         WelcomeIslandNotifier.notifyAfterInstallOrUpdate(this)
         enableEdgeToEdge()
-        mainActivityUtils.initOnCreate(applicationContext, configGateway::loadConfigurations) { placeholder = it.toString() }
+        mainActivityUtils.initOnCreate(
+            context = applicationContext,
+            loadConfigurations = configGateway::loadConfigurations,
+            connectionStatusChanged = { placeholder = it.toString() },
+            scope = lifecycleScope,
+        )
         val pendingResumeRoute = io.github.magisk317.mipush.manager.launcher.LauncherIconController
             .consumePendingResumeRoute(this)
         val explicitRoute = intent?.getStringExtra(EXTRA_START_ROUTE)

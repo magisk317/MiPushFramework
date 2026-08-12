@@ -12,15 +12,24 @@ import io.github.magisk317.mipush.common.notification.MockReplayOutcome
 import java.io.File
 
 interface ManagerApplicationGateway {
-    fun loadApplications(context: Context, query: String = "", filterMode: Int = 0, includeSystemApps: Boolean = false): ManagerApplications
-    fun getApplication(context: Context, packageName: String, ignoreNotRegistered: Boolean = false): ManagerApplication?
-    fun updateApplication(application: ManagerApplication)
-    fun getDiagnostics(packageName: String, registeredType: Int): ManagerApplicationDiagnostics
-    suspend fun launchTargetAppAndForceRegister(context: Context, packageName: String, registeredType: Int): String
+    suspend fun loadApplications(context: Context, query: String = "", filterMode: Int = 0, includeSystemApps: Boolean = false): ManagerApplications
+    suspend fun getApplication(context: Context, packageName: String, ignoreNotRegistered: Boolean = false): ManagerApplication?
+    suspend fun updateApplication(application: ManagerApplication)
+    suspend fun getDiagnostics(packageName: String, registeredType: Int): ManagerApplicationDiagnostics
+    suspend fun launchTargetAppAndForceRegister(
+        context: Context,
+        packageName: String,
+        registeredType: Int,
+    ): ManagerForceRegisterResult
 }
 
+data class ManagerForceRegisterResult(
+    val succeeded: Boolean,
+    val message: String,
+)
+
 interface ManagerNotificationChannelCommandGateway {
-    fun deleteNotificationChannel(packageName: String, channelId: String)
+    fun deleteNotificationChannel(packageName: String, channelId: String): Boolean
 }
 
 data class ManagerConfigListSnapshot(
@@ -50,13 +59,13 @@ interface ManagerConfigSyncGateway {
 }
 
 interface ManagerEventGateway {
-    fun getEventsById(lastId: Long?, size: Int, packageName: String, query: String): List<ManagerEvent>
+    suspend fun getEventsById(lastId: Long?, size: Int, packageName: String, query: String): List<ManagerEvent>
     fun startManagePermissions(packageName: String, ignoreNotRegistered: Boolean = false)
     suspend fun startConfigPreview(packageName: String)
     fun copyToClipboard(content: String)
     suspend fun mockMessage(event: ManagerEvent): MockReplayOutcome
-    fun getJson(event: ManagerEvent): String?
-    fun getContent(event: ManagerEvent): String
+    suspend fun getJson(event: ManagerEvent): String?
+    suspend fun getContent(event: ManagerEvent): String?
     suspend fun deleteEvent(event: ManagerEvent): Boolean
     suspend fun restoreEvent(event: ManagerEvent): ManagerEvent?
 
@@ -77,25 +86,31 @@ data class ManagerDayCount(
 )
 
 interface ManagerLogGateway {
-    fun setRetentionDays(days: Int)
-    fun buildLogBundle(context: Context): ManagerLogExportResult
+    suspend fun setRetentionDays(days: Int)
+    suspend fun buildLogBundle(context: Context): ManagerLogExportResult
     fun buildShareIntent(context: Context, file: File): Intent
-    fun clearLogFolders(context: Context): ManagerLogClearResult
+    suspend fun clearLogFolders(context: Context): ManagerLogClearResult
 }
 
 interface ManagerPermissionGateway {
-    fun getRootAccessSnapshot(refresh: Boolean = false): ManagerRootAccessSnapshot
-    fun requestRootAccess(target: ManagerRootTarget): ManagerRootAccessSnapshot
-    fun hasCachedRootAccess(): Boolean
-    fun refreshRootAccessIfGranted(): Boolean
-    fun requestRootAccess(): Boolean
-    fun repairXSpaceUserSupport(): ManagerXSpaceRepairResult
-    fun setDualAppEnabled(enabled: Boolean): ManagerXSpaceRepairResult
-    fun isDualAppInstalled(): Boolean
-    fun launchAppOps(context: Context, permission: String, tips: CharSequence): Boolean
-    fun isUsageStatsAllowedByRoot(packageName: String): Boolean
-    fun requestIgnoreBatteryOptimizations(context: Context): Boolean
-    fun grantNotificationPermission(context: Context): Boolean
+    suspend fun getRootAccessSnapshot(refresh: Boolean = false): ManagerRootAccessSnapshot
+    suspend fun requestRootAccess(target: ManagerRootTarget): ManagerRootAccessSnapshot
+    suspend fun hasCachedRootAccess(): Boolean
+    suspend fun refreshRootAccessIfGranted(): Boolean
+    suspend fun requestRootAccess(): Boolean
+    suspend fun repairXSpaceUserSupport(): ManagerXSpaceRepairResult
+    suspend fun setDualAppEnabled(enabled: Boolean): ManagerXSpaceRepairResult
+    suspend fun getDualAppInstallation(): ManagerDualAppInstallationResult
+    suspend fun launchAppOps(context: Context, permission: String, tips: CharSequence): Boolean
+    suspend fun isUsageStatsAllowedByRoot(packageName: String): Boolean
+    suspend fun requestIgnoreBatteryOptimizations(context: Context): Boolean
+    suspend fun grantNotificationPermission(context: Context): Boolean
+}
+
+sealed interface ManagerDualAppInstallationResult {
+    data object Installed : ManagerDualAppInstallationResult
+    data object NotInstalled : ManagerDualAppInstallationResult
+    data class Unavailable(val reason: String) : ManagerDualAppInstallationResult
 }
 
 enum class ManagerRootTarget {
@@ -146,10 +161,29 @@ data class ManagerXSpaceRepairResult(
     val details: String = "",
 )
 
+sealed interface ZygiskConfigReadResult {
+    data class Available(val config: io.github.magisk317.mipush.common.fakedevice.ZygiskConfig) : ZygiskConfigReadResult
+
+    data class Unavailable(val reason: String) : ZygiskConfigReadResult
+}
+
+sealed interface ZygiskModuleReadResult {
+    data class Available(val enabled: Boolean) : ZygiskModuleReadResult
+
+    data class Unavailable(val reason: String) : ZygiskModuleReadResult
+}
+
+sealed interface ZygiskPackageScanResult {
+    data class Available(val output: String) : ZygiskPackageScanResult
+
+    data class Unavailable(val reason: String) : ZygiskPackageScanResult
+}
+
 interface ZygiskConfigGateway {
-    fun isZygiskModuleEnabled(): Boolean
+    suspend fun isZygiskModuleEnabled(): ZygiskModuleReadResult
     fun getZygiskConfigPath(): String
-    fun getZygiskConfig(): ZygiskConfig
-    fun saveZygiskConfig(config: ZygiskConfig): Boolean
-    fun forceStopApp(packageName: String)
+    suspend fun getZygiskConfig(): ZygiskConfigReadResult
+    suspend fun saveZygiskConfig(config: ZygiskConfig): Boolean
+    suspend fun forceStopApp(packageName: String): Boolean
+    suspend fun scanZygiskPackages(): ZygiskPackageScanResult
 }

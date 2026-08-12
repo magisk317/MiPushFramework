@@ -10,10 +10,11 @@ import io.github.magisk317.mipush.manager.client.ManagerRuntimeResult
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import kotlinx.coroutines.runBlocking
 
 class OverviewViewModelTest {
     @Test
-    fun `overview forwards the system application preference to the runtime query`() {
+    fun `overview forwards the system application preference to the runtime query`() = runBlocking {
         val requests = mutableListOf<ManagerApplicationQueryDto>()
         val source = RemoteApplicationListSource(
             pageLoader = { query ->

@@ -1,6 +1,9 @@
 package io.github.magisk317.mipush.main.viewmodel
 
 import io.github.magisk317.mipush.feature.main.subpage.EventInfoForDisplay
+import io.github.magisk317.mipush.manager.events.EventReadResult
+import io.github.magisk317.mipush.manager.events.EventReadStatus
+import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
 import java.util.Date
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -8,6 +11,18 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class EventListViewModelTest {
+    @Test
+    fun `unavailable event reads remain failures instead of becoming empty data`() {
+        val error = runCatching {
+            EventReadResult.Unavailable(EventReadStatus.DISCONNECTED)
+                .requireAvailableEvents("loadEvents")
+        }.exceptionOrNull()
+
+        assertTrue(error is RuntimeReadUnavailableException)
+        assertEquals("DISCONNECTED", (error as RuntimeReadUnavailableException).status)
+        assertEquals("loadEvents", error.operation)
+    }
+
     @Test
     fun `snapshot cursor follows the last retained event when the list is truncated`() {
         val events = (1L..250L).map(::event)

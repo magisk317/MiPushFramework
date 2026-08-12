@@ -26,6 +26,7 @@ import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadRequestD
 import io.github.magisk317.mipush.manager.api.ManagerConfigurationUploadResultDto
 import io.github.magisk317.mipush.manager.api.ManagerMigrationSnapshotDto
 import io.github.magisk317.mipush.manager.api.ManagerRuntimePreferencesDto
+import io.github.magisk317.mipush.manager.api.ManagerRuntimeEnvironmentSnapshotDto
 import io.github.magisk317.mipush.manager.api.ManagerWriteRequestDto
 import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
@@ -519,6 +520,48 @@ class ManagerRuntimeClientLifecycleTest {
     }
 
     @Test
+    fun `event page timeout stays local and preserves the runtime session`() = runBlocking {
+        val eventStarted = CountDownLatch(1)
+        val releaseEvent = CountDownLatch(1)
+        val service = FakeRuntimeService(
+            capabilities = listOf(ManagerProtocol.CAPABILITY_EVENT_LIST),
+            eventPageStarted = eventStarted,
+            eventPageRelease = releaseEvent,
+        )
+        val context = FakeServiceContext(service)
+        val dispatcher = Executors.newFixedThreadPool(2).asCoroutineDispatcher()
+        val client = client(
+            context = context,
+            ioDispatcher = dispatcher,
+            callTimeoutMillis = 1_000L,
+            eventPageCallTimeoutMillis = 20L,
+        )
+
+        try {
+            client.connect()
+            withTimeout(1_000L) {
+                client.availability.first { it is ManagerRuntimeAvailability.Available }
+            }
+
+            val result = async(dispatcher) {
+                client.getEventPage(ManagerEventQueryDto())
+            }
+            assertTrue(eventStarted.await(1, TimeUnit.SECONDS))
+
+            assertEquals(
+                ManagerRuntimeResult.Failed("runtime_request_timeout"),
+                withTimeout(1_000L) { result.await() },
+            )
+            assertTrue(client.availability.value is ManagerRuntimeAvailability.Available)
+            assertEquals(0, context.unbindCount)
+        } finally {
+            releaseEvent.countDown()
+            client.close()
+            dispatcher.close()
+        }
+    }
+
+    @Test
     fun `exhausted remote call permits still produce a typed handshake timeout`() = runBlocking {
         val permitLimit = ManagerRuntimeClient.MAX_IN_FLIGHT_REMOTE_CALLS
         val serviceCount = permitLimit + 1
@@ -686,12 +729,14 @@ class ManagerRuntimeClientLifecycleTest {
         ioDispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.Unconfined,
         callTimeoutMillis: Long = 3_000L,
         reconnectDelayProvider: (Int) -> Long = { 0L },
+        eventPageCallTimeoutMillis: Long? = null,
     ) = ManagerRuntimeClient(
         context = context,
         scope = scope,
         ioDispatcher = ioDispatcher,
         callTimeoutMillis = callTimeoutMillis,
         reconnectDelayProvider = reconnectDelayProvider,
+        eventPageCallTimeoutMillis = eventPageCallTimeoutMillis,
     )
 
     private class FakeServiceContext(
@@ -787,6 +832,8 @@ class ManagerRuntimeClientLifecycleTest {
         private val handshakeFailure: RuntimeException? = null,
         private val snapshotStarted: CountDownLatch? = null,
         private val snapshotRelease: CountDownLatch? = null,
+        private val eventPageStarted: CountDownLatch? = null,
+        private val eventPageRelease: CountDownLatch? = null,
         private val applicationPageResult: ManagerApplicationPageDto = ManagerApplicationPageDto(
             stats = ManagerApplicationStatsDto(),
         ),
@@ -849,6 +896,14 @@ class ManagerRuntimeClientLifecycleTest {
             )
         }
 
+        override fun getRuntimeEnvironmentSnapshot(): ManagerRuntimeEnvironmentSnapshotDto =
+            ManagerRuntimeEnvironmentSnapshotDto(
+                isMiui = 0,
+                imei = null,
+                macAddress = null,
+                xmppServerHost = "",
+            )
+
         override fun getApplicationPage(query: ManagerApplicationQueryDto): ManagerApplicationPageDto {
             applicationPageCount += 1
             return applicationPageResult
@@ -871,7 +926,11 @@ class ManagerRuntimeClientLifecycleTest {
             return ManagerApplicationDiagnosticsDto(registeredType = registeredType)
         }
 
-        override fun getEventPage(query: ManagerEventQueryDto): ManagerEventPageDto = ManagerEventPageDto()
+        override fun getEventPage(query: ManagerEventQueryDto): ManagerEventPageDto {
+            eventPageStarted?.countDown()
+            eventPageRelease?.await(1, TimeUnit.SECONDS)
+            return ManagerEventPageDto()
+        }
 
         override fun getNotificationChannelPage(
             query: ManagerNotificationChannelQueryDto,

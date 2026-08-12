@@ -71,6 +71,7 @@ fun EventCleanupCalendarDialog(
     viewModel: EventListViewModel,
     onDismiss: () -> Unit,
     onCleaned: (Int) -> Unit,
+    onCleanupFailed: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val today = remember { LocalDate.now() }
@@ -90,13 +91,20 @@ fun EventCleanupCalendarDialog(
 
     fun perform(action: PendingCleanup) {
         scope.launch {
-            val deleted = when (action) {
-                is PendingCleanup.DayOnly -> viewModel.clearHistoryInRange(action.start, action.end)
-                is PendingCleanup.Before -> viewModel.clearHistoryBefore(action.cutoff)
-                is PendingCleanup.All -> viewModel.clearHistoryBefore(action.cutoff)
+            try {
+                val deleted = when (action) {
+                    is PendingCleanup.DayOnly -> viewModel.clearHistoryInRange(action.start, action.end)
+                    is PendingCleanup.Before -> viewModel.clearHistoryBefore(action.cutoff)
+                    is PendingCleanup.All -> viewModel.clearHistoryBefore(action.cutoff)
+                }
+                onCleaned(deleted)
+                onDismiss()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                Napier.e("Failed to clean event history", error, tag = "EventCleanupCalendar")
+                onCleanupFailed()
             }
-            onCleaned(deleted)
-            onDismiss()
         }
     }
 

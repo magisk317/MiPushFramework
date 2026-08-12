@@ -13,24 +13,26 @@ import java.util.Base64
  * must treat the value as an uninspectable token and may use it only with the same query.
  */
 internal object ManagerApplicationPageToken {
-    private const val FORMAT_VERSION = 1
+    private const val FORMAT_VERSION = 2
     private const val FINGERPRINT_SIZE = 16
     private const val MAX_PACKAGE_NAME_LENGTH = 255
 
-    fun encode(query: ManagerApplicationReadQuery, lastPackageName: String): String {
+    fun encode(query: ManagerApplicationReadQuery, lastPackageName: String, userId: Int): String {
+        require(userId >= 0) { "Invalid application page cursor user" }
         require(isValidPackageName(lastPackageName)) { "Invalid application page cursor package" }
         val packageBytes = lastPackageName.toByteArray(StandardCharsets.UTF_8)
         val output = ByteArrayOutputStream()
         DataOutputStream(output).use { stream ->
             stream.writeByte(FORMAT_VERSION)
-            stream.write(fingerprint(query))
+            stream.write(fingerprint(query, userId))
             stream.writeShort(packageBytes.size)
             stream.write(packageBytes)
         }
         return Base64.getUrlEncoder().withoutPadding().encodeToString(output.toByteArray())
     }
 
-    fun decode(query: ManagerApplicationReadQuery, token: String): String {
+    fun decode(query: ManagerApplicationReadQuery, token: String, userId: Int): String {
+        require(userId >= 0) { "Invalid application page cursor user" }
         val decoded = runCatching { Base64.getUrlDecoder().decode(token) }
             .getOrElse { throw IllegalArgumentException("Invalid application page token") }
         try {
@@ -38,7 +40,7 @@ internal object ManagerApplicationPageToken {
                 if (stream.readUnsignedByte() != FORMAT_VERSION) {
                     throw IllegalArgumentException("Unsupported application page token version")
                 }
-                val expected = fingerprint(query)
+                val expected = fingerprint(query, userId)
                 val actual = ByteArray(FINGERPRINT_SIZE).also(stream::readFully)
                 if (!MessageDigest.isEqual(expected, actual)) {
                     throw IllegalArgumentException("Application page token does not match query")
@@ -61,10 +63,11 @@ internal object ManagerApplicationPageToken {
         }
     }
 
-    private fun fingerprint(query: ManagerApplicationReadQuery): ByteArray {
+    private fun fingerprint(query: ManagerApplicationReadQuery, userId: Int): ByteArray {
         val bytes = ByteArrayOutputStream()
         DataOutputStream(bytes).use { stream ->
             stream.writeInt(query.schemaVersion)
+            stream.writeInt(userId)
             stream.writeUTF(query.query)
             stream.writeInt(query.filterMode)
             stream.writeBoolean(query.includeSystemApps)

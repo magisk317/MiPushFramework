@@ -145,6 +145,67 @@ class ApplicationReadSourcesTest {
     }
 
     @Test
+    fun `remote list rejects a page from another user`() = runBlocking {
+        val source = RemoteApplicationListSource(
+            pageLoader = {
+                ManagerRuntimeResult.Success(
+                    ManagerApplicationPageDto(
+                        userId = 999,
+                        stats = stats(total = 0, using = 0, registered = 0),
+                    ),
+                )
+            },
+            pageSizeProvider = { 1 },
+            userIdProvider = { 0 },
+        )
+
+        assertEquals(
+            ApplicationReadResult.Unavailable(ApplicationReadStatus.FAILED),
+            source.load(ApplicationListRequest()),
+        )
+    }
+
+    @Test
+    fun `remote list rejects an item from another user`() = runBlocking {
+        val source = RemoteApplicationListSource(
+            pageLoader = {
+                ManagerRuntimeResult.Success(
+                    ManagerApplicationPageDto(
+                        items = listOf(summary("foreign").copy(userId = 999)),
+                        stats = stats(total = 1, using = 1, registered = 0),
+                        userId = 0,
+                    ),
+                )
+            },
+            pageSizeProvider = { 1 },
+            userIdProvider = { 0 },
+        )
+
+        assertEquals(
+            ApplicationReadResult.Unavailable(ApplicationReadStatus.FAILED),
+            source.load(ApplicationListRequest()),
+        )
+    }
+
+    @Test
+    fun `remote diagnostics rejects a response from another user`() = runBlocking {
+        val source = RemoteApplicationDetailSource(
+            detailLoader = { _, _ -> ManagerRuntimeResult.Success(null) },
+            diagnosticsLoader = { _, _ ->
+                ManagerRuntimeResult.Success(
+                    io.github.magisk317.mipush.manager.api.ManagerApplicationDiagnosticsDto(userId = 999),
+                )
+            },
+            userIdProvider = { 0 },
+        )
+
+        assertEquals(
+            ApplicationReadResult.Unavailable(ApplicationReadStatus.FAILED),
+            source.loadDiagnostics("example.app", 0),
+        )
+    }
+
+    @Test
     fun `duplicate page token is skipped without looping`() = runBlocking {
         val source = RemoteApplicationListSource(
             pageLoader = {
@@ -186,6 +247,7 @@ class ApplicationReadSourcesTest {
     fun `remote detail maps every domain field and preserves not found`() = runBlocking {
         val detail = ManagerApplicationDetailDto(
             id = 7L,
+            userId = 999,
             packageName = "example.app",
             type = 2,
             notificationOnRegister = true,
@@ -201,6 +263,7 @@ class ApplicationReadSourcesTest {
         val source = RemoteApplicationDetailSource(
             detailLoader = { _, _ -> ManagerRuntimeResult.Success(detail) },
             diagnosticsLoader = { _, _ -> ManagerRuntimeResult.Success(io.github.magisk317.mipush.manager.api.ManagerApplicationDiagnosticsDto()) },
+            userIdProvider = { 999 },
         )
 
         val result = source.load("example.app", ignoreNotRegistered = false)
@@ -208,6 +271,7 @@ class ApplicationReadSourcesTest {
         assertTrue(result is ApplicationReadResult.Available)
         assertEquals(app("example.app", registered = true).copy(
             id = 7L,
+            userId = 999,
             type = 2,
             notificationOnRegister = true,
             blocked = true,

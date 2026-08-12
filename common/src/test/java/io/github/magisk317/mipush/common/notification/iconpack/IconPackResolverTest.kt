@@ -352,6 +352,9 @@ class IconPackResolverTest {
             adapter = object : IconPackProtocolAdapter {
                 override fun query(query: IconPackQuery): ProtocolResult = resultFactory(query)
             },
+            queryFactory = IconPackQueryFactory { _, packageName, userId ->
+                testQuery(packageName, userId)
+            },
             bitmapScaler = scaler,
         )
     }

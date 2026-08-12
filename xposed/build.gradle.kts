@@ -157,7 +157,12 @@ dependencies {
 }
 
 tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
-    jvmArgs("-Xshare:off", "--enable-native-access=ALL-UNNAMED")
+    jvmArgs(
+        "-Xshare:off",
+        "--enable-native-access=ALL-UNNAMED",
+        "--sun-misc-unsafe-memory-access=allow",
+        "-XX:+EnableDynamicAgentLoading",
+    )
     useJUnitPlatform()
 }
 

@@ -10,6 +10,7 @@ import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeResult
 import io.github.magisk317.mipush.common.utils.logW
+import io.github.magisk317.mipush.common.utils.Utils
 import kotlinx.coroutines.CancellationException
 
 data class EventListRequest(
@@ -39,7 +40,7 @@ enum class EventReadStatus {
 class GatewayEventListSource(
     private val eventGateway: ManagerEventGateway,
 ) {
-    fun load(request: EventListRequest): List<ManagerEvent> =
+    suspend fun load(request: EventListRequest): List<ManagerEvent> =
         eventGateway.getEventsById(
             lastId = request.lastId,
             size = request.pageSize,
@@ -50,10 +51,12 @@ class GatewayEventListSource(
 
 class RemoteEventListSource internal constructor(
     private val pageLoader: suspend (ManagerEventQueryDto) -> ManagerRuntimeResult<ManagerEventPageDto>,
+    private val userIdProvider: () -> Int = { Utils.myUserId() },
 ) {
     constructor(client: ManagerRuntimeClient) : this(client::getEventPage)
 
     suspend fun load(request: EventListRequest): EventReadResult<List<ManagerEvent>> = try {
+        val userId = userIdProvider().coerceAtLeast(0)
         when (
             val result = pageLoader(
                 ManagerEventQueryDto(
@@ -61,12 +64,17 @@ class RemoteEventListSource internal constructor(
                     pageSize = request.pageSize,
                     packageName = request.packageName,
                     query = request.query,
+                    userId = userId,
                 ),
             )
         ) {
-            is ManagerRuntimeResult.Success -> EventReadResult.Available(
-                result.value.items.map { it.toManagerEvent() },
-            )
+            is ManagerRuntimeResult.Success -> {
+                if (result.value.items.any { it.userId != userId }) {
+                    EventReadResult.Unavailable(EventReadStatus.FAILED)
+                } else {
+                    EventReadResult.Available(result.value.items.map { it.toManagerEvent() })
+                }
+            }
             is ManagerRuntimeResult.Unsupported -> EventReadResult.Unavailable(EventReadStatus.UNSUPPORTED)
             is ManagerRuntimeResult.Unavailable -> {
                 logW("RemoteEventListSource unavailable availability=${result.availability}")
@@ -84,6 +92,7 @@ class RemoteEventListSource internal constructor(
 private fun ManagerEventSummaryDto.toManagerEvent(): ManagerEvent =
     ManagerEvent(
         id = id,
+        userId = userId,
         packageName = packageName,
         configOptions = configOptions.toSet(),
         channel = channel,

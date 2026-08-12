@@ -280,26 +280,27 @@ object RegistrationStateCompat {
     }
 
     @JvmStatic
-    fun recoverLocalRegSec(packageName: String): String? {
+    fun recoverLocalRegSec(packageName: String, userId: Int = Utils.myUserId()): String? {
         if (!packageName.matches(SAFE_PACKAGE_NAME)) return null
-        Utils.getRegSec(packageName)?.let { return it }
+        val normalizedUserId = userId.coerceAtLeast(0)
+        val cacheKey = "$normalizedUserId:$packageName"
+        Utils.getRegSec(packageName, normalizedUserId)?.let { return it }
         if (!getRootCapability().available) return null
 
         val now = SystemClock.elapsedRealtime()
-        val lastMiss = regSecRecoveryMisses[packageName]
+        val lastMiss = regSecRecoveryMisses[cacheKey]
         if (lastMiss != null && now - lastMiss in 0 until REG_SEC_RECOVERY_MISS_TTL_MS) {
             return null
         }
 
         synchronized(regSecRecoveryLock) {
-            Utils.getRegSec(packageName)?.let { return it }
-            val currentMiss = regSecRecoveryMisses[packageName]
+            Utils.getRegSec(packageName, normalizedUserId)?.let { return it }
+            val currentMiss = regSecRecoveryMisses[cacheKey]
             if (currentMiss != null && now - currentMiss in 0 until REG_SEC_RECOVERY_MISS_TTL_MS) {
                 return null
             }
 
-            val userId = Utils.myUserId()
-            val secret = registrationArtifactPathsForUser(packageName, userId)
+            val secret = registrationArtifactPathsForUser(packageName, normalizedUserId)
                 .asSequence()
                 .filter { it.endsWith("/shared_prefs/mipush.xml") }
                 .mapNotNull { path ->
@@ -314,14 +315,14 @@ object RegistrationStateCompat {
                 .firstOrNull()
 
             if (secret != null) {
-                Utils.setRegSec(packageName, secret)
-                regSecRecoveryMisses.remove(packageName)
-                logI("recovered local regSec pkg=$packageName userId=$userId")
+                Utils.setRegSec(packageName, secret, normalizedUserId)
+                regSecRecoveryMisses.remove(cacheKey)
+                logI("recovered local regSec pkg=$packageName userId=$normalizedUserId")
                 return secret
             }
 
-            regSecRecoveryMisses[packageName] = now
-            logD("local regSec unavailable pkg=$packageName userId=$userId")
+            regSecRecoveryMisses[cacheKey] = now
+            logD("local regSec unavailable pkg=$packageName userId=$normalizedUserId")
             return null
         }
     }

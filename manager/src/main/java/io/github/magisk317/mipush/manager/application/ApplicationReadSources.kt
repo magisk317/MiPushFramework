@@ -16,6 +16,7 @@ import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeResult
 import io.github.magisk317.mipush.common.utils.logW
+import io.github.magisk317.mipush.common.utils.Utils
 import kotlinx.coroutines.CancellationException
 
 data class ApplicationListRequest(
@@ -61,7 +62,7 @@ class GatewayApplicationListSource(
 ) {
     private val appContext = context.applicationContext ?: context
 
-    fun load(request: ApplicationListRequest): ApplicationListSnapshot {
+    suspend fun load(request: ApplicationListRequest): ApplicationListSnapshot {
         val applications = applicationGateway.loadApplications(
             context = appContext,
             query = request.query,
@@ -78,6 +79,7 @@ class GatewayApplicationListSource(
 class RemoteApplicationListSource internal constructor(
     private val pageLoader: suspend (ManagerApplicationQueryDto) -> ManagerRuntimeResult<ManagerApplicationPageDto>,
     private val pageSizeProvider: () -> Int,
+    private val userIdProvider: () -> Int = { Utils.myUserId() },
 ) {
     constructor(client: ManagerRuntimeClient) : this(
         pageLoader = client::getApplicationPage,
@@ -102,6 +104,7 @@ class RemoteApplicationListSource internal constructor(
         request: ApplicationListRequest,
     ): ApplicationReadResult<ApplicationListSnapshot> {
         val pageSize = pageSizeProvider().coerceAtLeast(1)
+        val userId = userIdProvider().coerceAtLeast(0)
         val items = mutableListOf<ManagerApplication>()
         val seenPackages = mutableSetOf<String>()
         val seenTokens = mutableSetOf<String>()
@@ -120,6 +123,7 @@ class RemoteApplicationListSource internal constructor(
                     includeSystemApps = request.includeSystemApps,
                     pageSize = pageSize,
                     pageToken = token,
+                    userId = userId,
                 ),
             )
             val page = when (result) {
@@ -141,6 +145,9 @@ class RemoteApplicationListSource internal constructor(
                 is ManagerRuntimeResult.Failed -> return ApplicationReadResult.Unavailable(
                     ApplicationReadStatus.FAILED,
                 )
+            }
+            if (page.userId != userId || page.items.any { it.userId != userId }) {
+                return ApplicationReadResult.Unavailable(ApplicationReadStatus.FAILED)
             }
             val stats = expectedStats ?: page.stats.also { expectedStats = it }
             if (page.stats != stats || page.items.any { !seenPackages.add(it.packageName) }) {
@@ -182,16 +189,17 @@ class GatewayApplicationDetailSource(
 ) {
     private val appContext = context.applicationContext ?: context
 
-    fun load(packageName: String, ignoreNotRegistered: Boolean): ManagerApplication? =
+    suspend fun load(packageName: String, ignoreNotRegistered: Boolean): ManagerApplication? =
         applicationGateway.getApplication(appContext, packageName, ignoreNotRegistered)
 
-    fun loadDiagnostics(packageName: String, registeredType: Int): ManagerApplicationDiagnostics =
+    suspend fun loadDiagnostics(packageName: String, registeredType: Int): ManagerApplicationDiagnostics =
         applicationGateway.getDiagnostics(packageName, registeredType)
 }
 
 class RemoteApplicationDetailSource internal constructor(
     private val detailLoader: suspend (String, Boolean) -> ManagerRuntimeResult<ManagerApplicationDetailDto?>,
     private val diagnosticsLoader: suspend (String, Int) -> ManagerRuntimeResult<ManagerApplicationDiagnosticsDto>,
+    private val userIdProvider: () -> Int = { Utils.myUserId() },
 ) {
     constructor(client: ManagerRuntimeClient) : this(
         detailLoader = client::getApplicationDetail,
@@ -202,9 +210,13 @@ class RemoteApplicationDetailSource internal constructor(
         packageName: String,
         ignoreNotRegistered: Boolean,
     ): ApplicationReadResult<ManagerApplication?> = safelyLoadRemote {
+        val userId = userIdProvider().coerceAtLeast(0)
         mapRemoteResult(
             result = detailLoader(packageName, ignoreNotRegistered),
-            mapper = { it?.toManagerApplication() },
+            mapper = { detail ->
+                detail?.takeIf { it.userId == userId }?.toManagerApplication()
+                    ?: detail?.let { throw IllegalStateException("Application detail user mismatch") }
+            },
         )
     }
 
@@ -212,9 +224,15 @@ class RemoteApplicationDetailSource internal constructor(
         packageName: String,
         registeredType: Int,
     ): ApplicationReadResult<ManagerApplicationDiagnostics> = safelyLoadRemote {
+        val userId = userIdProvider().coerceAtLeast(0)
         mapRemoteResult(
             result = diagnosticsLoader(packageName, registeredType),
-            mapper = ManagerApplicationDiagnosticsDto::toManagerApplicationDiagnostics,
+            mapper = { diagnostics ->
+                if (diagnostics.userId != userId) {
+                    throw IllegalStateException("Application diagnostics user mismatch")
+                }
+                diagnostics.toManagerApplicationDiagnostics()
+            },
         )
     }
 }
@@ -242,6 +260,7 @@ private fun ManagerApplicationStatsDto.toApplicationListStats(): ApplicationList
 
 private fun ManagerApplicationSummaryDto.toManagerApplication(): ManagerApplication = ManagerApplication(
     id = id,
+    userId = userId,
     packageName = packageName,
     type = type,
     notificationOnRegister = notificationOnRegister,
@@ -257,6 +276,7 @@ private fun ManagerApplicationSummaryDto.toManagerApplication(): ManagerApplicat
 
 private fun ManagerApplicationDetailDto.toManagerApplication(): ManagerApplication = ManagerApplication(
     id = id,
+    userId = userId,
     packageName = packageName,
     type = type,
     notificationOnRegister = notificationOnRegister,
@@ -277,6 +297,7 @@ private fun ManagerApplicationDiagnosticsDto.toManagerApplicationDiagnostics(): 
         latestRegistrationEventResult = latestRegistrationEventResult,
         registeredType = registeredType,
         inferenceReason = inferenceReason,
+        userId = userId,
     )
 
 private inline fun <T, R> mapRemoteResult(

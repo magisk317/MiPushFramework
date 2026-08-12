@@ -10,7 +10,7 @@ import androidx.core.content.ContextCompat
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 
 class NotificationPermissionOperator(private val context: Context) : PermissionOperator {
-    override fun isPermissionGranted(permissionGateway: ManagerPermissionGateway?): Boolean {
+    override suspend fun isPermissionGranted(permissionGateway: ManagerPermissionGateway?): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             ContextCompat.checkSelfPermission(
                 context,
@@ -21,12 +21,12 @@ class NotificationPermissionOperator(private val context: Context) : PermissionO
         }
     }
 
-    override fun requestPermissionSilently(permissionGateway: ManagerPermissionGateway?): Boolean {
+    override suspend fun requestPermissionSilently(permissionGateway: ManagerPermissionGateway?): Boolean {
         val gateway = permissionGateway ?: return false
         return gateway.grantNotificationPermission(context)
     }
 
-    override fun requestPermission(permissionGateway: ManagerPermissionGateway?) {
+    override suspend fun requestPermission(permissionGateway: ManagerPermissionGateway?) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
                 putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)

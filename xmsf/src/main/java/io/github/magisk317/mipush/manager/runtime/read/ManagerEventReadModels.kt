@@ -6,10 +6,12 @@ data class ManagerEventReadQuery(
     val pageSize: Int = 100,
     val packageName: String = "",
     val query: String = "",
+    val userId: Int = 0,
 )
 
 data class ManagerEventReadSummary(
     val id: Long,
+    val userId: Int,
     val packageName: String,
     val configOptions: List<String>,
     val channel: String,

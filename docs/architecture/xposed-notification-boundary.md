@@ -54,8 +54,31 @@ selection, and app/runtime logging.
    failure makes the app process run fallback code with misleading state.
 8. Removal tracking must hook the real `MiuiNotificationListener.onNotificationRemoved(...)`
    override and retain ownership per proxy notification ID. Removing an old source must not cancel
-   a newer proxy that reused that ID.
+   a newer proxy that reused that ID; the proxy ID must include the notification user as well as the
+   source package so owner and cloned users cannot reuse one lifecycle slot.
 9. Validate visible notification behavior with `dumpsys notification --noredact`, not only app logs.
+10. Package-scoped island policy is asynchronous in SystemUI. Until that package snapshot is
+    loaded, `IslandPreferences.current(packageName)` must fail closed for both focus injection and
+    visual rendering; inheriting the global visual switch can leak a package opt-out on its first
+    notification.
+11. A known broken-click launcher fallback must resolve and create its `PendingIntent` for the
+    notification user. If a user context cannot be obtained, preserve the original click route
+    rather than creating a user-0 launcher intent.
+12. Centralized XMSF message deduplication must retain the target package in its key. The stock
+    cache is app-scoped; a bare global `messageId` key can discard valid messages when different
+    applications reuse an ID. User identity must also remain part of the boundary when one
+    process can observe more than one Android user.
+13. Island proxy post deduplication must include user and tag identity even when the platform
+    status-bar key is blank; a package/id-only fallback can suppress a cloned-user notification.
+14. SDK click intent URIs must reject explicit components outside the target package, including
+    selector components; `Intent.setPackage` alone does not constrain an explicit component.
+15. Legacy XMSF direct island broadcasts must carry the target package user ID and use that same
+    user when deriving proxy IDs; missing user identity is not equivalent to primary user `0`.
+16. External MiPush ingress authentication is transport-specific: Messenger requests must bind the
+    declared target package to `Message.sendingUid`, while legacy `startService` requests cannot
+    recover a caller UID from `onStartCommand` and therefore remain payload-gated. Do not describe
+    the legacy route as caller-authenticated; its package-scoped control actions remain a residual
+    risk until a compatible authenticated transport exists.
 
 ## XSpace Identity Boundary
 
@@ -67,12 +90,16 @@ selection, and app/runtime logging.
   SecurityCore caller, required manifest-query flags, and query users `0` or `999`. It rejects all
   other users.
 - Header large-icon correction is limited to a real XSpace fallback-identity mismatch. It must not
-  overwrite correct delegated notification identity.
+  overwrite correct delegated notification identity. When resolving the target app icon, the hook
+  uses the notification's user context; if that context cannot be created for a non-primary user,
+  it fails closed instead of looking up a primary-user icon.
 - `SecurityCoreAdd.apk` has not been re-captured in the curated archive. Its behavior is historical
   live-device evidence, not a reproducible raw-artifact claim.
 - Static scope reachability is not full multi-user ownership. Current registration, event and UI
-  models do not consistently carry `userId`; package-name-only state can therefore conflate owner
-  and cloned instances until a dedicated identity migration lands.
+  models do not consistently carry `userId`; package-name-only registration, event, and UI state
+  can therefore still conflate owner and cloned instances until a dedicated identity migration
+  lands. Island package policy is the current exception: SystemUI passes the notification user ID
+  to the provider and keys its package cache by `(userId, packageName)`.
 
 ## Verification
 

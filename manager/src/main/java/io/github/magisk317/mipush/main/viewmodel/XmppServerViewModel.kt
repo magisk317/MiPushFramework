@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 data class XmppServerUiState(
     val configuredServer: String? = null,
     val isLoaded: Boolean = false,
+    val loadFailed: Boolean = false,
     val isSaving: Boolean = false,
     val saveResult: XmppServerSaveResult? = null,
 )
@@ -29,11 +30,12 @@ class XmppServerViewModel(
 
     init {
         viewModelScope.launch {
-            val configuredServer = runCatching { configGateway.getXmppServer() }.getOrNull()
+            val result = runCatching { configGateway.getXmppServer() }
             _uiState.update {
                 it.copy(
-                    configuredServer = configuredServer,
-                    isLoaded = true,
+                    configuredServer = result.getOrNull(),
+                    isLoaded = result.isSuccess,
+                    loadFailed = result.isFailure,
                 )
             }
         }

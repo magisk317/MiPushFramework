@@ -25,10 +25,20 @@ import io.github.magisk317.mipush.manager.events.EventReadResult
 import io.github.magisk317.mipush.common.notification.MockReplayOutcome
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.feature.main.subpage.EventInfoForDisplay
+import io.github.magisk317.mipush.feature.main.subpage.composeKey
 import java.util.Date
 import io.github.magisk317.mipush.manager.SettingsManager
 import io.github.magisk317.mipush.manager.events.EventListCacheStore
 import kotlinx.coroutines.CancellationException
+
+internal fun EventReadResult<List<ManagerEvent>>.requireAvailableEvents(operation: String): List<ManagerEvent> =
+    when (this) {
+        is EventReadResult.Available -> value
+        is EventReadResult.Unavailable -> throw RuntimeReadUnavailableException(
+            status = status.name,
+            operation = operation,
+        )
+    }
 
 class EventListViewModel constructor(
     private val eventSource: RemoteEventListSource,
@@ -42,6 +52,13 @@ class EventListViewModel constructor(
 ) : ViewModel() {
     companion object {
         internal const val MAX_EVENT_LIST_SNAPSHOT_EVENTS = 200
+
+        internal fun mergeEventItems(
+            existing: List<EventInfoForDisplay>,
+            incoming: List<EventInfoForDisplay>,
+        ): List<EventInfoForDisplay> = (incoming + existing)
+            .distinctBy { it.composeKey() }
+            .sortedByDescending { it.receiveDate.time }
 
         internal fun buildEventListSnapshot(
             events: List<EventInfoForDisplay>,
@@ -72,9 +89,8 @@ class EventListViewModel constructor(
                 availability = runtimeClient.availability,
                 shouldReloadWhenAvailable = { false },
             ) {
-                // Runtime came back: do NOT force a cold reload. Warm the
-                // cache before signaling pages that want a refresh.
-                refreshEventsSilently("", "", snapshotRefreshSignal)
+                // Runtime came back: keep the current/cache-backed list stable.
+                // The page will request the next page when the user scrolls.
                 _runtimeReadySignal.value = _runtimeReadySignal.value + 1
             }
         }
@@ -166,8 +182,13 @@ class EventListViewModel constructor(
             val fresh = loadEventsRemote(
                 EventListRequest(lastId = null, pageSize = Constants.PAGE_SIZE, packageName = packageName, query = query),
             ).map { toEventInfoForDisplay(it) }
-            if (fresh.isEmpty()) return
-            cacheStore.putCached(queryKey(query, packageName, refreshSignal), fresh)
+            // A refresh returns only the newest page. Merge it with older cached pages
+            // so a later cache-first open does not lose history.
+            val cached = cacheStore.getCached(queryKey(query, packageName, refreshSignal)).orEmpty()
+            cacheStore.putCached(
+                queryKey(query, packageName, refreshSignal),
+                mergeEventItems(cached, fresh).take(MAX_EVENT_LIST_SNAPSHOT_EVENTS),
+            )
             // Silent refresh warms the disk cache only; it must NOT write the
             // in-memory snapshot, otherwise the page's cache-first seed would
             // see a snapshot and skip reading the persistent store.
@@ -239,10 +260,7 @@ class EventListViewModel constructor(
 
 
     private suspend fun loadEventsRemote(request: EventListRequest): List<ManagerEvent> {
-        return when (val result = eventSource.load(request)) {
-            is EventReadResult.Available -> result.value
-            is EventReadResult.Unavailable -> emptyList()
-        }
+        return eventSource.load(request).requireAvailableEvents(operation = "loadEvents")
     }
 
     private fun toEventInfoForDisplay(it: ManagerEvent): EventInfoForDisplay {
@@ -277,12 +295,12 @@ class EventListViewModel constructor(
         eventGateway.mockMessage(event)
     }
     
-    fun getContent(event: ManagerEvent): String {
-        return eventGateway.getContent(event)
+    suspend fun getContent(event: ManagerEvent): String? = withContext(Dispatchers.IO) {
+        eventGateway.getContent(event)
     }
 
-    fun getJson(event: ManagerEvent): String? {
-        return eventGateway.getJson(event)
+    suspend fun getJson(event: ManagerEvent): String? = withContext(Dispatchers.IO) {
+        eventGateway.getJson(event)
     }
     
     suspend fun fetchEventsSuspend(isRefresh: Boolean, lastId: Long?, packageName: String, query: String): List<EventInfoForDisplay> {
@@ -295,9 +313,13 @@ class EventListViewModel constructor(
             )
             try {
                 val events = loadEventsRemote(request).map { toEventInfoForDisplay(it) }
-                // Persist the first page (refresh or open) so cold starts are instant.
+                // Keep pages already loaded locally when this request returns only one page.
                 if (events.isNotEmpty()) {
-                    cacheStore.putCached(queryKey(query, packageName), events.take(Constants.PAGE_SIZE))
+                    val cached = cacheStore.getCached(queryKey(query, packageName)).orEmpty()
+                    cacheStore.putCached(
+                        queryKey(query, packageName),
+                        mergeEventItems(cached, events).take(MAX_EVENT_LIST_SNAPSHOT_EVENTS),
+                    )
                 }
                 events
             } catch (error: RuntimeReadUnavailableException) {

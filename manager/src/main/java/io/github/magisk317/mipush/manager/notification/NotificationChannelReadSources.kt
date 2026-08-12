@@ -6,6 +6,7 @@ import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeResult
+import io.github.magisk317.mipush.common.utils.Utils
 import kotlinx.coroutines.CancellationException
 
 data class NotificationChannelSnapshot(
@@ -52,6 +53,7 @@ class RemoteNotificationChannelSource internal constructor(
     private val pageLoader: suspend (ManagerNotificationChannelQueryDto) ->
     ManagerRuntimeResult<ManagerNotificationChannelPageDto>,
     private val pageSizeProvider: () -> Int,
+    private val userIdProvider: () -> Int = { Utils.myUserId() },
 ) {
     constructor(client: ManagerRuntimeClient) : this(
         pageLoader = client::getNotificationChannelPage,
@@ -66,6 +68,7 @@ class RemoteNotificationChannelSource internal constructor(
 
     suspend fun load(packageName: String): NotificationChannelReadResult<NotificationChannelSnapshot> = try {
         val pageSize = pageSizeProvider().coerceAtLeast(1)
+        val userId = userIdProvider().coerceAtLeast(0)
         val items = mutableListOf<NotificationChannelSummary>()
         val seenTokens = mutableSetOf<String>()
         var token: String? = null
@@ -82,11 +85,15 @@ class RemoteNotificationChannelSource internal constructor(
                         packageName = packageName,
                         pageSize = pageSize,
                         pageToken = token,
+                        userId = userId,
                     ),
                 )
             ) {
                 is ManagerRuntimeResult.Success -> {
                     val page = result.value
+                    if (page.userId != userId) {
+                        return NotificationChannelReadResult.Unavailable(NotificationChannelReadStatus.FAILED)
+                    }
                     isHooked = page.isHooked
                     groups = page.groups.map {
                         NotificationChannelGroupSummary(

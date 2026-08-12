@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.push.hook
 
 import android.content.Intent
 import io.github.magisk317.mipush.push.pipeline.MockMessageRegistry
+import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.utils.DuplicateMessagePolicy
 import com.xiaomi.push.service.XMPushServiceCore
 import com.xiaomi.push.service.clientReport.ReportConstants
@@ -49,13 +50,14 @@ object ExplicitHookBridge {
         messageId: String
     ): Boolean {
         HookTrace.mark("MiPushMessageDuplicate.isDuplicateMessage")
-        val isMockReplay = MockMessageRegistry.isMarked(messageId)
+        val isMockReplay = MockMessageRegistry.isMarked(packageName, messageId)
         if (isMockReplay) {
             // Mock replay should not be treated as duplicate; let message flow continue.
             AspectLogCompat.logDuplicateCheck(packageName, messageId, false)
             return false
         }
-        val duplicated = DuplicateMessagePolicy.checkAndMark(messageId)
+        val scope = "${Utils.myUserId()}:$packageName"
+        val duplicated = DuplicateMessagePolicy.checkAndMark(scope, messageId)
         AspectLogCompat.logDuplicateCheck(packageName, messageId, duplicated)
         return duplicated
     }

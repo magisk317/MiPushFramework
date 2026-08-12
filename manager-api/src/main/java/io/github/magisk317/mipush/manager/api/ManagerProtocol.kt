@@ -2,7 +2,7 @@ package io.github.magisk317.mipush.manager.api
 
 object ManagerProtocol {
     const val MAJOR = 1
-    const val MINOR = 6
+    const val MINOR = 7
 
     const val RUNTIME_PACKAGE = "com.xiaomi.xmsf"
     const val MANAGER_PACKAGE = "io.github.magisk317.mipush"
@@ -22,16 +22,18 @@ object ManagerProtocol {
     const val CAPABILITY_MANAGER_MIGRATION_SNAPSHOT = "manager_migration_snapshot"
     const val CAPABILITY_CONFIGURATION_UPLOAD = "configuration_upload"
     const val CAPABILITY_WRITE_COMMANDS = "write_commands"
+    const val CAPABILITY_RUNTIME_ENVIRONMENT = "runtime_environment"
     const val CONNECTION_SNAPSHOT_SCHEMA_VERSION = 1
+    const val RUNTIME_ENVIRONMENT_SCHEMA_VERSION = 1
     const val APPLICATION_QUERY_SCHEMA_VERSION = 1
     const val APPLICATION_PAGE_SCHEMA_VERSION = 1
-    const val APPLICATION_SUMMARY_SCHEMA_VERSION = 1
+    const val APPLICATION_SUMMARY_SCHEMA_VERSION = 2
     const val APPLICATION_STATS_SCHEMA_VERSION = 1
-    const val APPLICATION_DETAIL_SCHEMA_VERSION = 1
-    const val APPLICATION_DIAGNOSTICS_SCHEMA_VERSION = 1
-    const val EVENT_QUERY_SCHEMA_VERSION = 1
+    const val APPLICATION_DETAIL_SCHEMA_VERSION = 2
+    const val APPLICATION_DIAGNOSTICS_SCHEMA_VERSION = 2
+    const val EVENT_QUERY_SCHEMA_VERSION = 2
     const val EVENT_PAGE_SCHEMA_VERSION = 1
-    const val EVENT_SUMMARY_SCHEMA_VERSION = 1
+    const val EVENT_SUMMARY_SCHEMA_VERSION = 2
     const val NOTIFICATION_CHANNEL_QUERY_SCHEMA_VERSION = 1
     const val NOTIFICATION_CHANNEL_PAGE_SCHEMA_VERSION = 1
     const val NOTIFICATION_CHANNEL_SUMMARY_SCHEMA_VERSION = 1
@@ -69,6 +71,7 @@ object ManagerProtocol {
     const val WRITE_DETAIL_DUAL_APP_INSTALLED = "dual_app_installed"
     const val WRITE_DETAIL_DUAL_APP_NOT_INSTALLED = "dual_app_not_installed"
     const val WRITE_OP_UPDATE_APPLICATION = "update_application"
+    const val WRITE_OP_LAUNCH_TARGET_FORCE_REGISTER = "launch_target_force_register"
     const val WRITE_OP_DELETE_EVENT = "delete_event"
     const val WRITE_OP_RESTORE_EVENT = "restore_event"
     const val WRITE_OP_SET_XMPP_SERVER = "set_xmpp_server"
@@ -81,10 +84,12 @@ object ManagerProtocol {
     const val WRITE_OP_SET_DUAL_APP = "set_dual_app"
     const val WRITE_OP_QUERY_DUAL_APP = "query_dual_app"
     const val WRITE_OP_GRANT_SILENT_PERMISSIONS = "grant_silent_permissions"
+    const val WRITE_OP_QUERY_USAGE_STATS = "query_usage_stats"
     const val WRITE_OP_QUERY_ROOT = "query_root"
     const val WRITE_OP_SYNC_LAUNCHER_ICON = "sync_launcher_icon"
     const val WRITE_OP_SET_RUNTIME_BOOLEAN = "set_runtime_boolean"
     const val WRITE_OP_SET_RUNTIME_INT = "set_runtime_int"
+    const val WRITE_OP_SET_RUNTIME_STRING = "set_runtime_string"
     const val WRITE_OP_RESTART_RUNTIME = "restart_runtime"
     const val WRITE_OP_REBOOT_DEVICE = "reboot_device"
     const val WRITE_OP_RELAUNCH_MANAGER = "relaunch_manager"
@@ -95,20 +100,24 @@ object ManagerProtocol {
     const val WRITE_OP_ZYGISK_GET_CONFIG = "zygisk_get_config"
     const val WRITE_OP_ZYGISK_SAVE_CONFIG = "zygisk_save_config"
     const val WRITE_OP_ZYGISK_FORCE_STOP = "zygisk_force_stop"
+    const val WRITE_OP_ZYGISK_SCAN = "zygisk_scan"
     const val WRITE_OP_REPAIR_XSPACE = "repair_xspace"
     const val WRITE_OP_RESET_TOP_ACTIVITY_CACHE = "reset_top_activity_cache"
     const val WRITE_OP_GET_EVENT_CONTENT = "get_event_content"
+    const val WRITE_OP_GET_EVENT_JSON = "get_event_json"
     const val WRITE_DETAIL_RELAUNCH_MANAGER_OK = "relaunch_manager_ok"
     const val WRITE_DETAIL_COUNT_EVENTS_BY_DAY_OK = "count_events_by_day_ok"
     const val WRITE_DETAIL_CLEAR_LOG_FOLDERS_OK = "clear_log_folders_ok"
     const val WRITE_DETAIL_CLEAR_LOG_FOLDERS_FAILED = "clear_log_folders_failed"
     const val WRITE_DETAIL_DELETE_NOTIFICATION_CHANNEL_OK = "delete_notification_channel_ok"
+    const val WRITE_DETAIL_DELETE_NOTIFICATION_CHANNEL_FAILED = "delete_notification_channel_failed"
     const val WRITE_DETAIL_ZYGISK_OK = "zygisk_ok"
     const val WRITE_DETAIL_ZYGISK_ROOT_MISSING = "zygisk_root_missing"
     const val WRITE_DETAIL_ZYGISK_FAILED = "zygisk_failed"
     const val WRITE_DETAIL_REPAIR_XSPACE_OK = "repair_xspace_ok"
     const val WRITE_DETAIL_RESET_TOP_ACTIVITY_CACHE_OK = "reset_top_activity_cache_ok"
     const val WRITE_DETAIL_GET_EVENT_CONTENT_OK = "get_event_content_ok"
+    const val WRITE_DETAIL_GET_EVENT_JSON_OK = "get_event_json_ok"
     const val WRITE_DETAIL_RELAUNCH_MANAGER_FAILED = "relaunch_manager_failed"
     const val WRITE_DETAIL_REBOOT_DEVICE_OK = "reboot_device_ok"
     const val WRITE_DETAIL_REBOOT_DEVICE_ROOT_MISSING = "reboot_device_root_missing"
@@ -116,6 +125,8 @@ object ManagerProtocol {
     const val WRITE_DETAIL_SET_RUNTIME_INT_OK = "runtime_int_set"
     const val WRITE_DETAIL_SET_RUNTIME_INT_UNKNOWN_KEY = "runtime_int_unknown_key"
     const val WRITE_DETAIL_SET_RUNTIME_BOOLEAN_UNKNOWN_KEY = "set_runtime_boolean_unknown_key"
+    const val WRITE_DETAIL_SET_RUNTIME_STRING_OK = "runtime_string_set"
+    const val WRITE_DETAIL_SET_RUNTIME_STRING_UNKNOWN_KEY = "runtime_string_unknown_key"
     const val WRITE_DETAIL_RESTART_RUNTIME_OK = "restart_runtime_ok"
     const val WRITE_DETAIL_SYNC_LAUNCHER_ICON_OK = "sync_launcher_icon_ok"
     const val WRITE_DETAIL_SYNC_LAUNCHER_ICON_ROOT_MISSING = "sync_launcher_icon_root_missing"
@@ -175,6 +186,7 @@ object ManagerProtocol {
         CAPABILITY_MANAGER_MIGRATION_SNAPSHOT,
         CAPABILITY_CONFIGURATION_UPLOAD,
         CAPABILITY_WRITE_COMMANDS,
+        CAPABILITY_RUNTIME_ENVIRONMENT,
     )
 
     fun evaluateCompatibility(
@@ -228,6 +240,14 @@ object ManagerProtocol {
         else -> null
     }
 
+    fun validateRuntimeEnvironmentSnapshot(snapshot: ManagerRuntimeEnvironmentSnapshotDto): String? = when {
+        snapshot.schemaVersion < 1 -> "invalid_runtime_environment_schema"
+        snapshot.imei?.length?.let { it > MAX_WIRE_STRING_LENGTH } == true -> "imei_too_long"
+        snapshot.macAddress?.length?.let { it > MAX_WIRE_STRING_LENGTH } == true -> "mac_address_too_long"
+        snapshot.xmppServerHost.length > MAX_WIRE_STRING_LENGTH -> "xmpp_server_host_too_long"
+        else -> null
+    }
+
     fun validateApplicationQuery(
         query: ManagerApplicationQueryDto,
         negotiatedMaxPageSize: Int,
@@ -238,6 +258,7 @@ object ManagerProtocol {
         query.filterMode !in APPLICATION_FILTER_ALL..APPLICATION_FILTER_UNREGISTERED ->
             "invalid_application_filter_mode"
         query.pageSize !in 1..negotiatedMaxPageSize -> "invalid_application_page_size"
+        query.userId < 0 -> "invalid_application_user_id"
         query.pageToken?.length?.let { it > MAX_PAGE_TOKEN_LENGTH } == true -> "application_page_token_too_long"
         else -> null
     }
@@ -248,6 +269,8 @@ object ManagerProtocol {
         negotiatedMaxPayloadBytes: Int = DEFAULT_MAX_PAYLOAD_BYTES,
     ): String? {
         if (page.schemaVersion < 1) return "invalid_application_page_schema"
+        if (page.userId < 0) return "invalid_application_user_id"
+        if (page.items.any { it.userId != page.userId }) return "invalid_application_user_id"
         if (negotiatedMaxPageSize !in 1..MAX_NEGOTIATED_PAGE_SIZE) return "invalid_negotiated_page_size"
         if (negotiatedMaxPayloadBytes !in 1..MAX_NEGOTIATED_PAYLOAD_BYTES) {
             return "invalid_negotiated_payload_bytes"
@@ -281,7 +304,9 @@ object ManagerProtocol {
     }
 
     fun validateApplicationSummary(summary: ManagerApplicationSummaryDto): String? =
-        validateApplicationFields(
+        if (summary.userId < 0) {
+            "invalid_application_user_id"
+        } else validateApplicationFields(
             schemaVersion = summary.schemaVersion,
             packageName = summary.packageName,
             appName = summary.appName,
@@ -301,7 +326,9 @@ object ManagerProtocol {
     }
 
     fun validateApplicationDetail(detail: ManagerApplicationDetailDto): String? =
-        validateApplicationFields(
+        if (detail.userId < 0) {
+            "invalid_application_user_id"
+        } else validateApplicationFields(
             schemaVersion = detail.schemaVersion,
             packageName = detail.packageName,
             appName = detail.appName,
@@ -311,6 +338,7 @@ object ManagerProtocol {
 
     fun validateApplicationDiagnostics(diagnostics: ManagerApplicationDiagnosticsDto): String? = when {
         diagnostics.schemaVersion < 1 -> "invalid_application_diagnostics_schema"
+        diagnostics.userId < 0 -> "invalid_application_user_id"
         diagnostics.regSecCount < 0 -> "invalid_application_diagnostics_reg_sec_count"
         diagnostics.inferenceReason.length > MAX_WIRE_STRING_LENGTH ->
             "application_diagnostics_inference_reason_too_long"
@@ -337,6 +365,7 @@ object ManagerProtocol {
         negotiatedMaxPageSize: Int,
     ): String? = when {
         query.schemaVersion < 1 -> "invalid_event_query_schema"
+        query.userId < 0 -> "invalid_event_user_id"
         query.pageSize !in 1..negotiatedMaxPageSize -> "invalid_event_page_size"
         query.query.length > MAX_APPLICATION_QUERY_LENGTH -> "event_query_too_long"
         query.packageName.isNotEmpty() && validateApplicationPackageName(query.packageName) != null ->
@@ -347,6 +376,7 @@ object ManagerProtocol {
 
     fun validateEventSummary(summary: ManagerEventSummaryDto): String? = when {
         summary.schemaVersion < 1 -> "invalid_event_summary_schema"
+        summary.userId < 0 -> "invalid_event_user_id"
         summary.id < 0L -> "invalid_event_id"
         validateApplicationPackageName(summary.packageName) != null && summary.packageName.isNotEmpty() ->
             "invalid_event_package_name"
@@ -409,6 +439,7 @@ object ManagerProtocol {
         query.schemaVersion < 1 -> "invalid_notification_channel_query_schema"
         validateApplicationPackageName(query.packageName) != null -> "invalid_notification_channel_package_name"
         query.pageSize !in 1..negotiatedMaxPageSize -> "invalid_notification_channel_page_size"
+        query.userId < 0 -> "invalid_notification_channel_user_id"
         query.pageToken?.length?.let { it > MAX_PAGE_TOKEN_LENGTH } == true ->
             "notification_channel_page_token_too_long"
         else -> null
@@ -441,6 +472,7 @@ object ManagerProtocol {
         negotiatedMaxPayloadBytes: Int = DEFAULT_MAX_PAYLOAD_BYTES,
     ): String? {
         if (page.schemaVersion < 1) return "invalid_notification_channel_page_schema"
+        if (page.userId < 0) return "invalid_notification_channel_user_id"
         if (negotiatedMaxPageSize !in 1..MAX_NEGOTIATED_PAGE_SIZE) return "invalid_negotiated_page_size"
         if (page.items.size > negotiatedMaxPageSize) return "too_many_notification_channel_page_items"
         if (page.groups.size > MAX_NOTIFICATION_CHANNEL_GROUP_COUNT) {
@@ -565,9 +597,46 @@ object ManagerProtocol {
         request.argument.length > MAX_WRITE_ARGUMENT_LENGTH -> "write_argument_too_long"
         request.packageName.isNotEmpty() && validateApplicationPackageName(request.packageName) != null ->
             "invalid_write_package_name"
+        request.operation in WRITE_OPERATIONS_REQUIRING_PACKAGE &&
+            validateApplicationPackageName(request.packageName) != null ->
+            "write_package_name_required"
+        request.operation in WRITE_OPERATIONS_REQUIRING_EVENT_ID &&
+            (request.eventId == null || request.eventId <= 0L) ->
+            "invalid_write_event_id"
+        request.operation in WRITE_OPERATIONS_REQUIRING_USER && request.userId < 0 ->
+            "invalid_write_user_id"
         request.eventId != null && request.eventId < 0L -> "invalid_write_event_id"
         else -> null
     }
+
+    private val WRITE_OPERATIONS_REQUIRING_PACKAGE = setOf(
+        WRITE_OP_UPDATE_APPLICATION,
+        WRITE_OP_LAUNCH_TARGET_FORCE_REGISTER,
+        WRITE_OP_DELETE_EVENT,
+        WRITE_OP_RESTORE_EVENT,
+        WRITE_OP_MOCK_MESSAGE,
+        WRITE_OP_QUERY_USAGE_STATS,
+        WRITE_OP_DELETE_NOTIFICATION_CHANNEL,
+        WRITE_OP_ZYGISK_FORCE_STOP,
+        WRITE_OP_GET_EVENT_CONTENT,
+        WRITE_OP_GET_EVENT_JSON,
+    )
+
+    private val WRITE_OPERATIONS_REQUIRING_EVENT_ID = setOf(
+        WRITE_OP_DELETE_EVENT,
+        WRITE_OP_RESTORE_EVENT,
+        WRITE_OP_MOCK_MESSAGE,
+        WRITE_OP_GET_EVENT_CONTENT,
+        WRITE_OP_GET_EVENT_JSON,
+    )
+
+    private val WRITE_OPERATIONS_REQUIRING_USER = setOf(
+        WRITE_OP_DELETE_EVENT,
+        WRITE_OP_RESTORE_EVENT,
+        WRITE_OP_MOCK_MESSAGE,
+        WRITE_OP_GET_EVENT_CONTENT,
+        WRITE_OP_GET_EVENT_JSON,
+    )
 
     fun validateWriteResult(result: ManagerWriteResultDto): String? = when {
         result.schemaVersion < 1 -> "invalid_write_result_schema"
@@ -604,12 +673,12 @@ object ManagerProtocol {
         return ((bytes + 3L) / 4L) * 4L
     }
 
-    private const val APPLICATION_PAGE_FIXED_BYTES = 4L + 4L + 4L
+    private const val APPLICATION_PAGE_FIXED_BYTES = 4L + 4L + 4L + 4L
     private const val APPLICATION_SUMMARY_FRAME_BYTES = 4L + 4L + 4L + 28L + 8L
     private const val APPLICATION_STATS_FRAME_BYTES = 4L + 6L * 4L
     private const val EVENT_PAGE_FIXED_BYTES = 4L + 4L
     private const val EVENT_SUMMARY_FRAME_BYTES = 4L + 8L + 8L + 8L + 8L + 8L
-    private const val NOTIFICATION_CHANNEL_PAGE_FIXED_BYTES = 4L + 4L + 4L + 4L
+    private const val NOTIFICATION_CHANNEL_PAGE_FIXED_BYTES = 4L + 4L + 4L + 4L + 4L
     private const val NOTIFICATION_CHANNEL_SUMMARY_FRAME_BYTES = 4L + 4L + 12L
     private const val NOTIFICATION_CHANNEL_GROUP_FRAME_BYTES = 4L + 4L
 

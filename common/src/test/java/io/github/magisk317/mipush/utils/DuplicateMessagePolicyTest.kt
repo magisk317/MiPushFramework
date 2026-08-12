@@ -25,4 +25,11 @@ class DuplicateMessagePolicyTest {
         assertTrue(DuplicateMessagePolicy.checkAndMark("msg-1", nowMs = 31_000L))
         assertFalse(DuplicateMessagePolicy.checkAndMark("msg-1", nowMs = 92_000L))
     }
+
+    @Test
+    fun `same message id is independent across scopes`() {
+        assertFalse(DuplicateMessagePolicy.checkAndMark("package.one", "shared-id", nowMs = 1_000L))
+        assertFalse(DuplicateMessagePolicy.checkAndMark("package.two", "shared-id", nowMs = 1_001L))
+        assertTrue(DuplicateMessagePolicy.checkAndMark("package.one", "shared-id", nowMs = 1_002L))
+    }
 }

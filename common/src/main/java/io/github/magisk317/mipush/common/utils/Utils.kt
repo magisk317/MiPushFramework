@@ -40,7 +40,9 @@ object Utils {
 
     @JvmStatic
     fun myUserId(): Int {
-        return Process.myUserHandle().hashCode()
+        return runCatching { Process.myUid() / PER_USER_RANGE }
+            .getOrDefault(0)
+            .coerceAtLeast(0)
     }
 
     @JvmStatic
@@ -51,6 +53,8 @@ object Utils {
     fun getApplication(): Context? {
         return context
     }
+
+    private const val PER_USER_RANGE = 100_000
 
     @JvmStatic
     fun getPackageManager(): PackageManager? {
@@ -180,24 +184,32 @@ object Utils {
     }
 
     @JvmStatic
-    fun getRegSec(packageName: String): String? {
-        return getRegSecs(packageName).firstOrNull()
+    fun getRegSec(packageName: String, userId: Int = myUserId()): String? {
+        return getRegSecs(packageName, userId).firstOrNull()
     }
 
     @JvmStatic
-    fun getRegSecs(packageName: String): List<String> {
+    fun getRegSecs(packageName: String, userId: Int = myUserId()): List<String> {
         val app = getApplication() ?: return emptyList()
+        val normalizedUserId = userId.coerceAtLeast(0)
         val secrets = linkedSetOf<String>()
         var targetPackageMissing = false
         for (prefName in REG_SEC_PREFS) {
-            val sec = app.getSharedPreferences(prefName, 0)?.getString(packageName, null)
+            val preferences = app.getSharedPreferences(prefName, 0)
+            val sec = preferences?.getString(regSecPreferenceKey(packageName, normalizedUserId), null)
             if (!sec.isNullOrEmpty()) {
                 secrets += sec
                 Napier.d("getRegSecs: found regSec in pref=$prefName pkg=$packageName", tag = "Utils")
+            } else if (normalizedUserId == 0 && preferences?.contains(packageName) == true) {
+                // Migrate the historical primary-user key without exposing it to other users.
+                preferences.getString(packageName, null)?.takeIf { it.isNotEmpty() }?.let { legacySec ->
+                    secrets += legacySec
+                    preferences.edit { putString(regSecPreferenceKey(packageName, normalizedUserId), legacySec) }
+                }
             }
         }
         // Fallback: read regSec from the target app's own mipush SharedPreferences
-        if (secrets.isEmpty()) {
+        if (secrets.isEmpty() && normalizedUserId == myUserId().coerceAtLeast(0)) {
             try {
                 Napier.d("getRegSecs: trying fallback createPackageContext pkg=$packageName", tag = "Utils")
                 val pkgContext = app.createPackageContext(packageName, 0)
@@ -225,55 +237,82 @@ object Utils {
     }
 
     @JvmStatic
-    fun setRegSec(pkgName: String, regSec: String?) {
+    fun setRegSec(pkgName: String, regSec: String?, userId: Int = myUserId()) {
         val app = getApplication() ?: return
-        setRegSec(app, pkgName, regSec)
+        setRegSec(app, pkgName, regSec, userId)
     }
 
     @JvmStatic
-    fun setRegSec(context: Context, pkgName: String, regSec: String?) {
+    fun setRegSec(
+        context: Context,
+        pkgName: String,
+        regSec: String?,
+        userId: Int = myUserId(),
+    ) {
         if (regSec.isNullOrEmpty()) {
             return
         }
+        val normalizedUserId = userId.coerceAtLeast(0)
         for (prefName in listOf(PREF_REGISTERED_PKG_NAMES_SEC, PREF_MIPUSH_APPS_SECRET)) {
             context.getSharedPreferences(prefName, 0).edit {
-                putString(pkgName, regSec)
+                putString(regSecPreferenceKey(pkgName, normalizedUserId), regSec)
+                if (normalizedUserId == 0) putString(pkgName, regSec)
             }
         }
     }
 
     @JvmStatic
-    fun removeRegSec(pkgName: String) {
+    fun removeRegSec(pkgName: String, userId: Int = myUserId()) {
         val app = getApplication() ?: return
+        val normalizedUserId = userId.coerceAtLeast(0)
         for (prefName in REG_SEC_PREFS) {
             app.getSharedPreferences(prefName, 0).edit {
-                remove(pkgName)
+                remove(regSecPreferenceKey(pkgName, normalizedUserId))
+                if (normalizedUserId == 0) remove(pkgName)
             }
         }
     }
 
+    internal fun regSecPreferenceKey(packageName: String, userId: Int): String =
+        "${userId.coerceAtLeast(0)}:$packageName"
+
     @JvmStatic
-    fun getLastReceiveTime(packageName: String): Long? {
+    fun getLastReceiveTime(packageName: String, userId: Int = myUserId()): Long? {
         val secSp = getApplication()?.getSharedPreferences("last_receive_time", 0)
-        if (secSp?.contains(packageName) == false) {
-            return null
+        if (secSp == null) return null
+        val normalizedUserId = userId.coerceAtLeast(0)
+        val scopedKey = lastReceiveTimePreferenceKey(packageName, normalizedUserId)
+        if (secSp.contains(scopedKey)) {
+            return secSp.getLong(scopedKey, 0)
         }
-        return secSp?.getLong(packageName, 0)
+        // Migrate the legacy primary-user value without exposing it to cloned users.
+        if (normalizedUserId != 0 || !secSp.contains(packageName)) return null
+        return secSp.getLong(packageName, 0).also { legacyValue ->
+            secSp.edit { putLong(scopedKey, legacyValue) }
+        }
     }
 
     @JvmStatic
-    fun setLastReceiveTime(pkgName: String, time: Long) {
+    fun setLastReceiveTime(pkgName: String, time: Long, userId: Int = myUserId()) {
         val secSp = getApplication()?.getSharedPreferences("last_receive_time", 0)
+        val normalizedUserId = userId.coerceAtLeast(0)
+        val scopedKey = lastReceiveTimePreferenceKey(pkgName, normalizedUserId)
         secSp?.edit {
-            putLong(pkgName, time)
+            putLong(scopedKey, time)
+            if (normalizedUserId == 0) putLong(pkgName, time)
         }
     }
 
     @JvmStatic
-    fun removeLastReceiveTime(pkgName: String) {
+    fun removeLastReceiveTime(pkgName: String, userId: Int = myUserId()) {
         val secSp = getApplication()?.getSharedPreferences("last_receive_time", 0)
+        val normalizedUserId = userId.coerceAtLeast(0)
         secSp?.edit {
-            remove(pkgName)
+            remove(lastReceiveTimePreferenceKey(pkgName, normalizedUserId))
+            if (normalizedUserId == 0) remove(pkgName)
         }
     }
+
+    internal fun lastReceiveTimePreferenceKey(packageName: String, userId: Int): String =
+        "$userId:$packageName"
 }

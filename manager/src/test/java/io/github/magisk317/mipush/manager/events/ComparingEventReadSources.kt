@@ -13,7 +13,7 @@ class ComparingEventListSource(
     private val remoteSource: RemoteEventListSource,
     private val enableRemoteCompare: Boolean = false,
 ) {
-    fun loadPrimary(request: EventListRequest): List<ManagerEvent> = primarySource.load(request)
+    suspend fun loadPrimary(request: EventListRequest): List<ManagerEvent> = primarySource.load(request)
 
     suspend fun compareRemote(
         request: EventListRequest,
@@ -38,6 +38,7 @@ private fun compareEventLists(
     if (primaryById.keys != remoteById.keys) fields += "ids"
     primaryById.forEach { (id, left) ->
         val right = remoteById[id] ?: return@forEach
+        if (left.userId != right.userId) fields += "userId"
         if (left.packageName != right.packageName) fields += "packageName"
         if (left.type != right.type) fields += "type"
         if (left.result != right.result) fields += "result"
@@ -57,4 +58,3 @@ private fun compareEventLists(
         EventListComparison.Mismatched(fields.distinct().sorted())
     }
 }
-

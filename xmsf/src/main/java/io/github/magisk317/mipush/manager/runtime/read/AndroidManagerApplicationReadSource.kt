@@ -14,7 +14,6 @@ import io.github.magisk317.mipush.runtime.store.DatabaseUtils
 import io.github.magisk317.mipush.runtime.store.db.EventDb
 import io.github.magisk317.mipush.runtime.store.entities.Event
 import io.github.magisk317.mipush.utils.RegistrationHelper
-import kotlinx.coroutines.runBlocking
 
 /** Android-backed source whose methods are reads only. */
 class AndroidManagerApplicationReadSource(context: Context) : ManagerApplicationReadSource {
@@ -24,11 +23,12 @@ class AndroidManagerApplicationReadSource(context: Context) : ManagerApplication
     private val registeredApplicationDao by lazy { database.registeredApplicationDao() }
     private val eventDao by lazy { database.eventDao() }
 
-    override fun readStoredApplications(): List<StoredApplicationSnapshot> = runBlocking {
-        registeredApplicationDao.getAll().map { it.toStoredApplicationSnapshot() }
-    }
+    override suspend fun currentUserId(): Int = Utils.myUserId().coerceAtLeast(0)
 
-    override fun readInstalledApplications(includeSystemApps: Boolean): ApplicationCatalogSnapshot {
+    override suspend fun readStoredApplications(): List<StoredApplicationSnapshot> =
+        registeredApplicationDao.getAll(Utils.myUserId().coerceAtLeast(0)).map { it.toStoredApplicationSnapshot() }
+
+    override suspend fun readInstalledApplications(includeSystemApps: Boolean): ApplicationCatalogSnapshot {
         val candidates = loadPackagesOnDevice()
             .filter { isListCandidate(it, includeSystemApps) }
         val checker = createManifestChecker()
@@ -42,7 +42,7 @@ class AndroidManagerApplicationReadSource(context: Context) : ManagerApplication
         )
     }
 
-    override fun readInstalledApplication(packageName: String): InstalledApplicationSnapshot? {
+    override suspend fun readInstalledApplication(packageName: String): InstalledApplicationSnapshot? {
         val packageInfo = runCatching {
             PackageManagerCompatBridge.getPackageInfo(packageManager, packageName, PACKAGE_INFO_FLAGS)
         }.getOrNull() ?: return null
@@ -52,30 +52,29 @@ class AndroidManagerApplicationReadSource(context: Context) : ManagerApplication
         )
     }
 
-    override fun readLastReceiveTime(packageName: String): Long =
-        Utils.getLastReceiveTime(packageName) ?: 0L
+    override suspend fun readLastReceiveTime(packageName: String): Long =
+        Utils.getLastReceiveTime(packageName, currentUserId()) ?: 0L
 
-    override fun readLastReceiveTimes(packageNames: Collection<String>): Map<String, Long> {
-        val databaseTimes = runBlocking {
-            eventDao.getAllLastReceiveTimes().associate { it.pkg to it.date }
-        }
+    override suspend fun readLastReceiveTimes(packageNames: Collection<String>): Map<String, Long> {
+        val databaseTimes = eventDao.getAllLastReceiveTimes(Utils.myUserId().coerceAtLeast(0))
+            .associate { it.pkg to it.date }
         return packageNames.associateWith { packageName ->
             maxOf(
                 databaseTimes[packageName] ?: 0L,
-                Utils.getLastReceiveTime(packageName) ?: 0L,
+                Utils.getLastReceiveTime(packageName, currentUserId()) ?: 0L,
             )
         }
     }
 
-    override fun readLocallyRegisteredPackages(packageNames: Collection<String>): Set<String> =
+    override suspend fun readLocallyRegisteredPackages(packageNames: Collection<String>): Set<String> =
         RegistrationStateCompat.findPackagesWithValidLocalRegistration(packageNames)
 
-    override fun hasLocalRegistration(packageName: String): Boolean =
+    override suspend fun hasLocalRegistration(packageName: String): Boolean =
         RegistrationStateCompat.hasValidLocalRegistration(packageName)
 
-    override fun readRegSecCount(packageName: String): Int = Utils.getRegSecs(packageName).size
+    override suspend fun readRegSecCount(packageName: String): Int = Utils.getRegSecs(packageName).size
 
-    override fun readLatestRegistrationEvent(packageName: String): RegistrationEventSnapshot? = runBlocking {
+    override suspend fun readLatestRegistrationEvent(packageName: String): RegistrationEventSnapshot? =
         EventDb.queryAsync(
             skip = 0,
             limit = 1,
@@ -84,7 +83,6 @@ class AndroidManagerApplicationReadSource(context: Context) : ManagerApplication
             text = null,
         ).firstOrNull()
             ?.let { RegistrationEventSnapshot(type = it.type, result = it.result) }
-    }
 
     private fun loadPackagesOnDevice(): List<PackageInfo> = try {
         PackageManagerCompatBridge.getInstalledPackages(packageManager, 0).map { info ->

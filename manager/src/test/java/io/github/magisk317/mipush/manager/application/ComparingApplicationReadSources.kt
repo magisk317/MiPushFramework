@@ -4,7 +4,7 @@ import io.github.magisk317.mipush.common.manager.ManagerApplication
 import io.github.magisk317.mipush.common.manager.ManagerApplicationDiagnostics
 
 class ComparingApplicationListSource internal constructor(
-    private val primaryLoader: (ApplicationListRequest) -> ApplicationListSnapshot,
+    private val primaryLoader: suspend (ApplicationListRequest) -> ApplicationListSnapshot,
     private val remoteLoader: suspend (ApplicationListRequest) -> ApplicationReadResult<ApplicationListSnapshot>,
     private val enableRemoteCompare: Boolean = false,
 ) {
@@ -18,7 +18,7 @@ class ComparingApplicationListSource internal constructor(
         enableRemoteCompare = enableRemoteCompare,
     )
 
-    fun loadPrimary(request: ApplicationListRequest): ApplicationListSnapshot = primaryLoader(request)
+    suspend fun loadPrimary(request: ApplicationListRequest): ApplicationListSnapshot = primaryLoader(request)
 
     suspend fun compareRemote(
         request: ApplicationListRequest,
@@ -33,8 +33,8 @@ class ComparingApplicationListSource internal constructor(
 }
 
 class ComparingApplicationDetailSource internal constructor(
-    private val primaryLoader: (String, Boolean) -> ManagerApplication?,
-    private val primaryDiagnosticsLoader: (String, Int) -> ManagerApplicationDiagnostics,
+    private val primaryLoader: suspend (String, Boolean) -> ManagerApplication?,
+    private val primaryDiagnosticsLoader: suspend (String, Int) -> ManagerApplicationDiagnostics,
     private val remoteLoader: suspend (String, Boolean) -> ApplicationReadResult<ManagerApplication?>,
     private val remoteDiagnosticsLoader: suspend (String, Int) -> ApplicationReadResult<ManagerApplicationDiagnostics>,
     private val enableRemoteCompare: Boolean = false,
@@ -51,10 +51,10 @@ class ComparingApplicationDetailSource internal constructor(
         enableRemoteCompare = enableRemoteCompare,
     )
 
-    fun loadPrimary(packageName: String, ignoreNotRegistered: Boolean): ManagerApplication? =
+    suspend fun loadPrimary(packageName: String, ignoreNotRegistered: Boolean): ManagerApplication? =
         primaryLoader(packageName, ignoreNotRegistered)
 
-    fun loadPrimaryDiagnostics(packageName: String, registeredType: Int): ManagerApplicationDiagnostics =
+    suspend fun loadPrimaryDiagnostics(packageName: String, registeredType: Int): ManagerApplicationDiagnostics =
         primaryDiagnosticsLoader(packageName, registeredType)
 
     suspend fun compareRemote(
@@ -224,4 +224,3 @@ private fun compareApplicationDiagnostics(
         ApplicationDiagnosticsComparison.Different(fields)
     }
 }
-

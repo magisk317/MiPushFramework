@@ -7,6 +7,7 @@ import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.notification.NotificationChannelManager
 import io.github.magisk317.mipush.notification.NotificationManagerEx
 import io.github.magisk317.mipush.notification.RuntimeNotificationChannelNameEnricher
+import io.github.magisk317.mipush.common.utils.Utils
 
 class ManagerNotificationChannelRuntimeReader(
     private val maxPageSize: Int = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
@@ -17,9 +18,12 @@ class ManagerNotificationChannelRuntimeReader(
         NotificationManagerEx::getNotificationChannelGroups,
     private val channelEnricher: (String, List<NotificationChannel>) -> List<NotificationChannel> =
         RuntimeNotificationChannelNameEnricher::enrich,
+    private val userIdProvider: () -> Int = { Utils.myUserId().coerceAtLeast(0) },
 ) {
     fun readPage(query: ManagerNotificationChannelReadQuery): ManagerNotificationChannelReadPage {
         val pageSize = query.pageSize.coerceIn(1, maxPageSize)
+        val userId = userIdProvider().also { require(it >= 0) }
+        require(query.userId == userId) { "Notification channel user mismatch" }
         val packageName = query.packageName
         val isHooked = isHookedProvider()
         val rawChannels = channelEnricher(
@@ -39,7 +43,7 @@ class ManagerNotificationChannelRuntimeReader(
 
         val startAfter = query.pageToken
             ?.takeIf { it.isNotBlank() }
-            ?.let { ManagerNotificationChannelPageToken.decode(packageName, it) }
+            ?.let { ManagerNotificationChannelPageToken.decode(packageName, it, userId) }
 
         val remaining = if (startAfter == null) {
             rawChannels
@@ -50,7 +54,7 @@ class ManagerNotificationChannelRuntimeReader(
         val nextToken = if (remaining.size > pageSize) {
             val lastId = pageItems.lastOrNull()?.id.orEmpty()
             if (lastId.isNotEmpty()) {
-                ManagerNotificationChannelPageToken.encode(packageName, lastId)
+                ManagerNotificationChannelPageToken.encode(packageName, lastId, userId)
             } else {
                 null
             }
@@ -63,6 +67,7 @@ class ManagerNotificationChannelRuntimeReader(
         return ManagerNotificationChannelReadPage(
             packageName = packageName,
             isHooked = isHooked,
+            userId = userId,
             items = pageItems.map { it.toReadSummary(packageName) },
             groups = rawGroups.map { (group, groupId) ->
                 group.toGroupSummary(packageName, groupId)

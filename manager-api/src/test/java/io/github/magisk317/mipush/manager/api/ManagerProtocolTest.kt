@@ -82,6 +82,17 @@ class ManagerProtocolTest {
     }
 
     @Test
+    fun `event query requires an explicit nonnegative user`() {
+        assertEquals(
+            "invalid_event_user_id",
+            ManagerProtocol.validateEventQuery(
+                ManagerEventQueryDto(userId = -1),
+                negotiatedMaxPageSize = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
+            ),
+        )
+    }
+
+    @Test
     fun `application query rejects unknown filter modes`() {
         assertEquals(
             "invalid_application_filter_mode",
@@ -114,6 +125,20 @@ class ManagerProtocolTest {
                 ),
                 negotiatedMaxPageSize = 2,
             ),
+        )
+    }
+
+    @Test
+    fun `application page rejects items from another user`() {
+        val page = ManagerApplicationPageDto(
+            userId = 0,
+            items = listOf(applicationSummary(1L).copy(userId = 999)),
+            stats = ManagerApplicationStatsDto(total = 1, usingMiPush = 1),
+        )
+
+        assertEquals(
+            "invalid_application_user_id",
+            ManagerProtocol.validateApplicationPage(page, negotiatedMaxPageSize = 1),
         )
     }
 

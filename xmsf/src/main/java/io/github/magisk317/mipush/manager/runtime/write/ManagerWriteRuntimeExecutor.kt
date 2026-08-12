@@ -22,12 +22,21 @@ import io.github.magisk317.mipush.common.ISLAND_PREF_FOCUS_NOTIF
 import io.github.magisk317.mipush.common.ISLAND_PREF_FIRST_FLOAT
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLED
 import io.github.magisk317.mipush.common.ISLAND_PREF_ENABLE_FLOAT
+import io.github.magisk317.mipush.common.ISLAND_PREF_RENDERER_MODE
+import io.github.magisk317.mipush.common.ISLAND_PREF_VISUAL_ENABLED
+import io.github.magisk317.mipush.common.ISLAND_PREF_DYNAMIC_COLOR
+import io.github.magisk317.mipush.common.ISLAND_PREF_BLUR_ENABLED
+import io.github.magisk317.mipush.common.ISLAND_PREF_GLASS_ENABLED
+import io.github.magisk317.mipush.common.ISLAND_PREF_OUTER_GLOW_ENABLED
+import io.github.magisk317.mipush.common.ISLAND_PREF_ANIMATION_ENABLED
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
+import io.github.magisk317.mipush.common.manager.ManagerForceRegisterResult
 import io.github.magisk317.mipush.common.manager.ManagerEvent
 import io.github.magisk317.mipush.common.notification.MockReplayOutcome
 import io.github.magisk317.mipush.common.manager.ManagerEventGateway
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
+import io.github.magisk317.mipush.common.manager.ManagerDualAppInstallationResult
 import io.github.magisk317.mipush.common.manager.ManagerXSpaceRepairStage
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeActions
 import io.github.magisk317.mipush.common.manager.ManagerLogGateway
@@ -43,9 +52,11 @@ import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.utils.LogUtils
 import kotlinx.coroutines.runBlocking
 import io.github.magisk317.xposed.logging.MagiskOtel
+import java.security.MessageDigest
 
 class ManagerWriteRuntimeExecutor(
     private val context: Context,
+    private val preferenceRepository: PreferenceRepository,
     private val applicationGateway: ManagerApplicationGateway,
     private val eventGateway: ManagerEventGateway,
     private val runtimeActions: ManagerRuntimeActions,
@@ -57,6 +68,7 @@ class ManagerWriteRuntimeExecutor(
 ) {
     constructor(context: Context) : this(
         context = context,
+        preferenceRepository = AppDependencies.get(context),
         applicationGateway = AppDependencies.get(context),
         eventGateway = AppDependencies.get(context),
         runtimeActions = AppDependencies.get(context),
@@ -67,19 +79,24 @@ class ManagerWriteRuntimeExecutor(
     )
 
     fun execute(request: ManagerWriteRequestDto): ManagerWriteResultDto {
-        when (val begin = idempotencyStore.begin(request.requestId)) {
+        val requestFingerprint = requestFingerprint(request)
+        when (val begin = idempotencyStore.begin(request.requestId, requestFingerprint)) {
             is ManagerWriteIdempotencyStore.BeginResult.Duplicate -> {
                 emitWrite(request, begin.result, duplicate = true)
+                return begin.result
+            }
+            is ManagerWriteIdempotencyStore.BeginResult.Rejected -> {
+                emitWrite(request, begin.result, duplicate = false)
                 return begin.result
             }
             ManagerWriteIdempotencyStore.BeginResult.Execute -> Unit
         }
         return try {
             val startedAt = System.nanoTime()
-            val result = runCatching { dispatch(request) }.getOrElse {
+            val result = runCatching { runBlocking { dispatch(request) } }.getOrElse {
                 failed(request.requestId, "runtime_operation_failed")
             }
-            idempotencyStore.complete(result)
+            idempotencyStore.complete(result, requestFingerprint)
             emitWrite(request, result, duplicate = false, startedAt = startedAt)
             result
         } catch (@Suppress("TooGenericExceptionCaught") error: Throwable) {
@@ -99,6 +116,23 @@ class ManagerWriteRuntimeExecutor(
             )
             throw error
         }
+    }
+
+    private fun requestFingerprint(request: ManagerWriteRequestDto): String {
+        val canonical = buildString {
+            append(request.schemaVersion).append('|')
+            append(request.operation).append('|')
+            append(request.packageName).append('|')
+            append(request.userId).append('|')
+            append(request.eventId).append('|')
+            append(request.intArgument).append('|')
+            append(request.longArgument).append('|')
+            append(request.booleanArgument).append('|')
+            append(request.argument)
+        }
+        return MessageDigest.getInstance("SHA-256")
+            .digest(canonical.toByteArray(Charsets.UTF_8))
+            .joinToString("") { byte -> "%02x".format(byte) }
     }
 
     private fun emitWrite(
@@ -130,19 +164,22 @@ class ManagerWriteRuntimeExecutor(
         )
     }
 
-    private fun dispatch(request: ManagerWriteRequestDto): ManagerWriteResultDto =
+    private suspend fun dispatch(request: ManagerWriteRequestDto): ManagerWriteResultDto =
         when (request.operation) {
             ManagerProtocol.WRITE_OP_UPDATE_APPLICATION -> updateApplication(request)
+            ManagerProtocol.WRITE_OP_LAUNCH_TARGET_FORCE_REGISTER -> launchTargetAppAndForceRegister(request)
             ManagerProtocol.WRITE_OP_DELETE_EVENT -> deleteEvent(request)
             ManagerProtocol.WRITE_OP_RESTORE_EVENT -> restoreEvent(request)
             ManagerProtocol.WRITE_OP_MOCK_MESSAGE -> mockMessage(request)
             ManagerProtocol.WRITE_OP_SET_DUAL_APP -> setDualApp(request)
             ManagerProtocol.WRITE_OP_QUERY_DUAL_APP -> queryDualApp(request)
             ManagerProtocol.WRITE_OP_GRANT_SILENT_PERMISSIONS -> grantSilentPermissions(request)
+            ManagerProtocol.WRITE_OP_QUERY_USAGE_STATS -> queryUsageStats(request)
             ManagerProtocol.WRITE_OP_QUERY_ROOT -> queryRoot(request)
             ManagerProtocol.WRITE_OP_SYNC_LAUNCHER_ICON -> syncLauncherIcon(request)
             ManagerProtocol.WRITE_OP_SET_RUNTIME_BOOLEAN -> setRuntimeBoolean(request)
             ManagerProtocol.WRITE_OP_SET_RUNTIME_INT -> setRuntimeInt(request)
+            ManagerProtocol.WRITE_OP_SET_RUNTIME_STRING -> setRuntimeString(request)
             ManagerProtocol.WRITE_OP_RESTART_RUNTIME -> restartRuntime(request)
             ManagerProtocol.WRITE_OP_REBOOT_DEVICE -> rebootDevice(request)
             ManagerProtocol.WRITE_OP_RELAUNCH_MANAGER -> relaunchManager(request)
@@ -150,7 +187,7 @@ class ManagerWriteRuntimeExecutor(
             ManagerProtocol.WRITE_OP_CLEAR_HISTORY -> clearHistory(request)
             ManagerProtocol.WRITE_OP_SET_RUNTIME_LOG_RETENTION -> {
                 val days = request.intArgument.coerceAtLeast(1)
-                runBlocking { PreferenceRepository().setRuntimeLogRetentionDays(days) }
+                preferenceRepository.setRuntimeLogRetentionDays(days)
                 runtimeActions.setRuntimeLogRetentionDays(days)
                 LogUtils.setRetentionDays(days)
                 success(request.requestId, "runtime_log_retention:$days")
@@ -168,7 +205,7 @@ class ManagerWriteRuntimeExecutor(
             }
             ManagerProtocol.WRITE_OP_APPLY_EVENT_RETENTION -> {
                 val days = request.intArgument.coerceAtLeast(1)
-                runBlocking { PreferenceRepository().setEventRetentionDays(days) }
+                preferenceRepository.setEventRetentionDays(days)
                 runtimeActions.applyEventRetentionDays(days)
                 success(request.requestId, "event_retention:$days")
             }
@@ -179,9 +216,11 @@ class ManagerWriteRuntimeExecutor(
             ManagerProtocol.WRITE_OP_ZYGISK_GET_CONFIG -> zygiskGetConfig(request)
             ManagerProtocol.WRITE_OP_ZYGISK_SAVE_CONFIG -> zygiskSaveConfig(request)
             ManagerProtocol.WRITE_OP_ZYGISK_FORCE_STOP -> zygiskForceStop(request)
+            ManagerProtocol.WRITE_OP_ZYGISK_SCAN -> zygiskScan(request)
             ManagerProtocol.WRITE_OP_REPAIR_XSPACE -> repairXSpace(request)
             ManagerProtocol.WRITE_OP_RESET_TOP_ACTIVITY_CACHE -> resetTopActivityCache(request)
             ManagerProtocol.WRITE_OP_GET_EVENT_CONTENT -> getEventContent(request)
+            ManagerProtocol.WRITE_OP_GET_EVENT_JSON -> getEventJson(request)
             else -> ManagerWriteResultDto(
                 requestId = request.requestId,
                 status = ManagerProtocol.WRITE_STATUS_UNSUPPORTED,
@@ -189,7 +228,7 @@ class ManagerWriteRuntimeExecutor(
             )
         }
 
-    private fun updateApplication(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+    private suspend fun updateApplication(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         val packageName = request.packageName
         if (packageName.isBlank()) return failed(request.requestId, "missing_package_name")
         val current = applicationGateway.getApplication(context, packageName, ignoreNotRegistered = true)
@@ -208,21 +247,39 @@ class ManagerWriteRuntimeExecutor(
         return success(request.requestId, "application_updated")
     }
 
-    private fun deleteEvent(request: ManagerWriteRequestDto): ManagerWriteResultDto {
-        val eventId = request.eventId ?: return failed(request.requestId, "missing_event_id")
-        val deleted = runBlocking {
-            eventGateway.deleteEvent(
-                ManagerEvent(
-                    id = eventId,
-                    packageName = request.packageName,
-                    configOptions = emptySet(),
-                    channel = "",
-                    receiveDateMs = 0L,
-                    title = "",
-                    content = "",
-                ),
-            )
+    private suspend fun launchTargetAppAndForceRegister(
+        request: ManagerWriteRequestDto,
+    ): ManagerWriteResultDto {
+        val packageName = request.packageName.trim()
+        if (packageName.isBlank()) return failed(request.requestId, "missing_package_name")
+        val result = applicationGateway.launchTargetAppAndForceRegister(
+            context = context,
+            packageName = packageName,
+            registeredType = request.intArgument,
+        )
+        val details = result.message.ifBlank { "force_register_completed" }
+            .take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH)
+        return if (result.succeeded) {
+            success(request.requestId, details)
+        } else {
+            failed(request.requestId, details)
         }
+    }
+
+    private suspend fun deleteEvent(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        val eventId = request.eventId ?: return failed(request.requestId, "missing_event_id")
+        val deleted = eventGateway.deleteEvent(
+            ManagerEvent(
+                id = eventId,
+                userId = request.userId,
+                packageName = request.packageName,
+                configOptions = emptySet(),
+                channel = "",
+                receiveDateMs = 0L,
+                title = "",
+                content = "",
+            ),
+        )
         return if (deleted) {
             success(request.requestId, "event_deleted", resultLong = eventId)
         } else {
@@ -233,7 +290,7 @@ class ManagerWriteRuntimeExecutor(
 
 
 
-    private fun setDualApp(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+    private suspend fun setDualApp(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         val result = permissionGateway.setDualAppEnabled(request.booleanArgument)
         val details = when (result.stage) {
             ManagerXSpaceRepairStage.COMPLETED -> ManagerProtocol.WRITE_DETAIL_DUAL_APP_COMPLETED
@@ -254,20 +311,26 @@ class ManagerWriteRuntimeExecutor(
         }
     }
 
-    private fun queryDualApp(request: ManagerWriteRequestDto): ManagerWriteResultDto {
-        val installed = permissionGateway.isDualAppInstalled()
-        return success(
-            requestId = request.requestId,
-            details = if (installed) {
-                ManagerProtocol.WRITE_DETAIL_DUAL_APP_INSTALLED
-            } else {
-                ManagerProtocol.WRITE_DETAIL_DUAL_APP_NOT_INSTALLED
-            },
-            resultLong = if (installed) 1L else 0L,
-        )
+    private suspend fun queryDualApp(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        return when (val result = permissionGateway.getDualAppInstallation()) {
+            ManagerDualAppInstallationResult.Installed -> success(
+                requestId = request.requestId,
+                details = ManagerProtocol.WRITE_DETAIL_DUAL_APP_INSTALLED,
+                resultLong = 1L,
+            )
+            ManagerDualAppInstallationResult.NotInstalled -> success(
+                requestId = request.requestId,
+                details = ManagerProtocol.WRITE_DETAIL_DUAL_APP_NOT_INSTALLED,
+                resultLong = 0L,
+            )
+            is ManagerDualAppInstallationResult.Unavailable -> failed(
+                request.requestId,
+                result.reason,
+            )
+        }
     }
 
-    private fun grantSilentPermissions(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+    private suspend fun grantSilentPermissions(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         // intArgument: userId (0 primary, 999 dual, -1 auto).
         // packageName empty => both framework packages.
         // argument empty/"all" => full silent suite; otherwise a single appop string.
@@ -284,7 +347,12 @@ class ManagerWriteRuntimeExecutor(
             return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_GRANT_SILENT_ROOT_MISSING)
         }
         val op = request.argument.trim()
-        val ok = if (op.isEmpty() || op.equals("all", ignoreCase = true)) {
+        val ok = if (op.equals("deviceidle", ignoreCase = true)) {
+            io.github.magisk317.mipush.platform.support.PermissionUtils.grantDeviceIdleWhitelistForFramework(
+                userId = userArg,
+                packages = packages,
+            )
+        } else if (op.isEmpty() || op.equals("all", ignoreCase = true)) {
             io.github.magisk317.mipush.platform.support.PermissionUtils.grantSilentPermissionsForFramework(
                 userId = userArg,
                 packages = packages,
@@ -316,7 +384,7 @@ class ManagerWriteRuntimeExecutor(
         }
     }
 
-    private fun queryRoot(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+    private suspend fun queryRoot(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         val available = resolveRootAccess(
             requestAuthorization = request.booleanArgument,
             refreshAccess = {
@@ -337,6 +405,19 @@ class ManagerWriteRuntimeExecutor(
         )
     }
 
+    private suspend fun queryUsageStats(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        val packageName = request.packageName.trim()
+        if (packageName.isBlank()) {
+            return failed(request.requestId, "missing_package_name")
+        }
+        val allowed = permissionGateway.isUsageStatsAllowedByRoot(packageName)
+        return success(
+            requestId = request.requestId,
+            details = if (allowed) "usage_stats_allowed" else "usage_stats_denied",
+            resultLong = if (allowed) 1L else 0L,
+        )
+    }
+
     private fun syncLauncherIcon(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         val iconId = request.argument.ifBlank { "default" }
         if (!io.github.magisk317.mipush.platform.support.PermissionUtils.refreshRootAccessIfGranted()) {
@@ -352,23 +433,22 @@ class ManagerWriteRuntimeExecutor(
     }
 
 
-    private fun mockMessage(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+    private suspend fun mockMessage(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         val eventId = request.eventId ?: return failed(request.requestId, "missing_event_id")
-        val outcome = runBlocking {
-            eventGateway.mockMessage(
-                ManagerEvent(
-                    id = eventId,
-                    packageName = request.packageName,
-                    configOptions = emptySet(),
-                    channel = "",
-                    receiveDateMs = request.longArgument,
-                    title = "",
-                    content = "",
-                    type = request.intArgument,
-                    // payload/regSec intentionally empty: runtime loads authoritative row by id.
-                ),
-            )
-        }
+        val outcome = eventGateway.mockMessage(
+            ManagerEvent(
+                id = eventId,
+                userId = request.userId,
+                packageName = request.packageName,
+                configOptions = emptySet(),
+                channel = "",
+                receiveDateMs = request.longArgument,
+                title = "",
+                content = "",
+                type = request.intArgument,
+                // payload/regSec intentionally empty: runtime loads authoritative row by id.
+            ),
+        )
         return when (outcome) {
             MockReplayOutcome.Posted -> success(
                 request.requestId,
@@ -391,22 +471,21 @@ class ManagerWriteRuntimeExecutor(
         }
     }
 
-    private fun restoreEvent(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+    private suspend fun restoreEvent(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         val eventId = request.eventId ?: return failed(request.requestId, "missing_event_id")
-        val restored = runBlocking {
-            eventGateway.restoreEvent(
-                ManagerEvent(
-                    id = eventId,
-                    packageName = request.packageName,
-                    configOptions = emptySet(),
-                    channel = "",
-                    receiveDateMs = request.longArgument,
-                    title = "",
-                    content = request.argument,
-                    type = request.intArgument,
-                ),
-            )
-        }
+        val restored = eventGateway.restoreEvent(
+            ManagerEvent(
+                id = eventId,
+                userId = request.userId,
+                packageName = request.packageName,
+                configOptions = emptySet(),
+                channel = "",
+                receiveDateMs = request.longArgument,
+                title = "",
+                content = request.argument,
+                type = request.intArgument,
+            ),
+        )
         return if (restored != null) {
             success(request.requestId, "event_restored", resultLong = restored.id)
         } else {
@@ -414,18 +493,16 @@ class ManagerWriteRuntimeExecutor(
         }
     }
 
-    private fun clearHistory(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+    private suspend fun clearHistory(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         val endExclusive = request.argument.toLongOrNull()
-        val deleted = runBlocking {
-            when {
-                request.longArgument > 0L && endExclusive != null && endExclusive > request.longArgument ->
-                    eventGateway.clearHistoryInRange(request.longArgument, endExclusive)
-                request.longArgument > 0L && request.argument.isBlank() ->
-                    eventGateway.clearHistoryBefore(request.longArgument)
-                else -> {
-                    runtimeActions.clearHistory()
-                    0
-                }
+        val deleted = when {
+            request.longArgument > 0L && endExclusive != null && endExclusive > request.longArgument ->
+                eventGateway.clearHistoryInRange(request.longArgument, endExclusive)
+            request.longArgument > 0L && request.argument.isBlank() ->
+                eventGateway.clearHistoryBefore(request.longArgument)
+            else -> {
+                runtimeActions.clearHistory()
+                0
             }
         }
         return success(
@@ -435,7 +512,7 @@ class ManagerWriteRuntimeExecutor(
         )
     }
 
-    private fun setXmppServer(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+    private suspend fun setXmppServer(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         val host = request.argument.trim()
         runtimeActions.setXmppServer(context, host)
         return success(
@@ -445,38 +522,42 @@ class ManagerWriteRuntimeExecutor(
     }
 
 
-    private fun setRuntimeBoolean(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+    private suspend fun setRuntimeBoolean(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         val key = request.argument.trim()
         if (key !in ALLOWED_RUNTIME_BOOLEAN_KEYS) {
             return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_BOOLEAN_UNKNOWN_KEY)
         }
         val enabled = request.booleanArgument
-        runBlocking {
-            val repo = PreferenceRepository()
-            when (key) {
-                COLOR_STATUS_BAR_ICON_KEY -> repo.setColorStatusBarIcon(enabled)
-                COLOR_STATUS_BAR_ICON_GLOBAL_KEY -> repo.setColorStatusBarIconGlobal(enabled)
-                "debug_mode" -> repo.setDebugMode(enabled)
-                LOG_SANITIZATION_ENABLED_KEY -> repo.setLogSanitizationEnabled(enabled)
-                ENABLE_ANALYTICS_KEY -> repo.setAnalyticsEnabled(enabled)
-                "show_all_events" -> repo.setShowAllEvents(enabled)
-                "start_foreground" -> {
-                    repo.setIsStartForeground(enabled)
-                    applyForegroundServicePolicy(enabled)
-                }
-                "start_push_as_foreground_service" -> repo.setStartPushAsForegroundService(enabled)
-                KEEPALIVE_PREF_OOM_ADJ -> repo.setKeepAliveOomAdj(enabled)
-                KEEPALIVE_PREF_ANTI_KILL -> repo.setKeepAliveAntiKill(enabled)
-                KEEPALIVE_PREF_STANDBY_BYPASS -> repo.setKeepAliveStandbyBypass(enabled)
-                KEEPALIVE_PREF_DOZE_BYPASS -> repo.setKeepAliveDozeBypass(enabled)
-                ISLAND_PREF_ENABLED -> repo.setIslandEnabled(enabled)
-                ISLAND_PREF_FIRST_FLOAT -> repo.setIslandFirstFloat(enabled)
-                ISLAND_PREF_ENABLE_FLOAT -> repo.setIslandEnableFloat(enabled)
-                ISLAND_PREF_SHOW_NOTIFICATION -> repo.setIslandShowNotification(enabled)
-                ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION -> repo.setIslandShowOriginalNotification(enabled)
-                ISLAND_PREF_FOCUS_NOTIF -> repo.setIslandFocusNotification(enabled)
-                else -> error("unreachable runtime boolean key=$key")
+        val repo = preferenceRepository
+        when (key) {
+            COLOR_STATUS_BAR_ICON_KEY -> repo.setColorStatusBarIcon(enabled)
+            COLOR_STATUS_BAR_ICON_GLOBAL_KEY -> repo.setColorStatusBarIconGlobal(enabled)
+            "debug_mode" -> repo.setDebugMode(enabled)
+            LOG_SANITIZATION_ENABLED_KEY -> repo.setLogSanitizationEnabled(enabled)
+            ENABLE_ANALYTICS_KEY -> repo.setAnalyticsEnabled(enabled)
+            "show_all_events" -> repo.setShowAllEvents(enabled)
+            "start_foreground" -> {
+                repo.setIsStartForeground(enabled)
+                applyForegroundServicePolicy(enabled)
             }
+            "start_push_as_foreground_service" -> repo.setStartPushAsForegroundService(enabled)
+            KEEPALIVE_PREF_OOM_ADJ -> repo.setKeepAliveOomAdj(enabled)
+            KEEPALIVE_PREF_ANTI_KILL -> repo.setKeepAliveAntiKill(enabled)
+            KEEPALIVE_PREF_STANDBY_BYPASS -> repo.setKeepAliveStandbyBypass(enabled)
+            KEEPALIVE_PREF_DOZE_BYPASS -> repo.setKeepAliveDozeBypass(enabled)
+            ISLAND_PREF_ENABLED -> repo.setIslandEnabled(enabled)
+            ISLAND_PREF_FIRST_FLOAT -> repo.setIslandFirstFloat(enabled)
+            ISLAND_PREF_ENABLE_FLOAT -> repo.setIslandEnableFloat(enabled)
+            ISLAND_PREF_SHOW_NOTIFICATION -> repo.setIslandShowNotification(enabled)
+            ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION -> repo.setIslandShowOriginalNotification(enabled)
+            ISLAND_PREF_FOCUS_NOTIF -> repo.setIslandFocusNotification(enabled)
+            ISLAND_PREF_VISUAL_ENABLED -> repo.setIslandVisualEnabled(enabled)
+            ISLAND_PREF_DYNAMIC_COLOR -> repo.setIslandDynamicColor(enabled)
+            ISLAND_PREF_BLUR_ENABLED -> repo.setIslandBlurEnabled(enabled)
+            ISLAND_PREF_GLASS_ENABLED -> repo.setIslandGlassEnabled(enabled)
+            ISLAND_PREF_OUTER_GLOW_ENABLED -> repo.setIslandOuterGlowEnabled(enabled)
+            ISLAND_PREF_ANIMATION_ENABLED -> repo.setIslandAnimationEnabled(enabled)
+            else -> error("unreachable runtime boolean key=$key")
         }
         runCatching {
             context.sendBroadcast(Intent(ACTION_PREF_CHANGED))
@@ -485,7 +566,7 @@ class ManagerWriteRuntimeExecutor(
         return success(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_BOOLEAN_OK)
     }
 
-    private fun applyForegroundServicePolicy(enabled: Boolean) {
+    private suspend fun applyForegroundServicePolicy(enabled: Boolean) {
         if (enabled) {
             runtimeActions.startMiPushServiceAsForegroundService(context)
         } else {
@@ -495,22 +576,40 @@ class ManagerWriteRuntimeExecutor(
         }
     }
 
-    private fun setRuntimeInt(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+    private suspend fun setRuntimeInt(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         val key = request.argument.trim()
         if (key !in ALLOWED_RUNTIME_INT_KEYS) {
             return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_INT_UNKNOWN_KEY)
         }
         val value = request.intArgument
-        runBlocking {
-            val repo = PreferenceRepository()
-            when (key) {
-                ISLAND_PREF_TIMEOUT -> repo.setIslandTimeout(value)
-                else -> error("unreachable runtime int key=$key")
-            }
+        val repo = preferenceRepository
+        when (key) {
+            ISLAND_PREF_TIMEOUT -> repo.setIslandTimeout(value)
+            else -> error("unreachable runtime int key=$key")
         }
         runCatching { context.sendBroadcast(Intent(ACTION_PREF_CHANGED)) }
         logI("set_runtime_int key=$key value=$value")
         return success(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_INT_OK)
+    }
+
+    private suspend fun setRuntimeString(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        val encoded = request.argument.trim()
+        val separator = encoded.indexOf('=')
+        if (separator <= 0) {
+            return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_STRING_UNKNOWN_KEY)
+        }
+        val key = encoded.substring(0, separator).trim()
+        if (key !in ALLOWED_RUNTIME_STRING_KEYS) {
+            return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_STRING_UNKNOWN_KEY)
+        }
+        val value = encoded.substring(separator + 1).trim().lowercase()
+        if (value !in setOf("auto", "mipush", "hyperisland")) {
+            return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_STRING_UNKNOWN_KEY)
+        }
+        preferenceRepository.setIslandRendererMode(value)
+        runCatching { context.sendBroadcast(Intent(ACTION_PREF_CHANGED)) }
+        logI("set_runtime_string key=$key value=$value")
+        return success(request.requestId, ManagerProtocol.WRITE_DETAIL_SET_RUNTIME_STRING_OK)
     }
 
 
@@ -583,8 +682,8 @@ class ManagerWriteRuntimeExecutor(
     }
 
 
-    private fun countEventsByDay(request: ManagerWriteRequestDto): ManagerWriteResultDto {
-        val counts = runBlocking { eventGateway.countEventsByDay() }
+    private suspend fun countEventsByDay(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        val counts = eventGateway.countEventsByDay()
         val encoded = counts.joinToString("\n") { "${it.day}:${it.count}" }
         val details = encoded.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH)
         return success(
@@ -594,7 +693,7 @@ class ManagerWriteRuntimeExecutor(
         )
     }
 
-    private fun clearLogFolders(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+    private suspend fun clearLogFolders(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         val result = logGateway.clearLogFolders(context)
         return if (result.success) {
             success(
@@ -617,29 +716,41 @@ class ManagerWriteRuntimeExecutor(
         if (packageName.isEmpty() || channelId.isEmpty()) {
             return failed(request.requestId, "missing_package_or_channel")
         }
-        notificationGateway.deleteNotificationChannel(packageName, channelId)
-        return success(request.requestId, ManagerProtocol.WRITE_DETAIL_DELETE_NOTIFICATION_CHANNEL_OK)
+        return if (notificationGateway.deleteNotificationChannel(packageName, channelId)) {
+            success(request.requestId, ManagerProtocol.WRITE_DETAIL_DELETE_NOTIFICATION_CHANNEL_OK)
+        } else {
+            failed(request.requestId, ManagerProtocol.WRITE_DETAIL_DELETE_NOTIFICATION_CHANNEL_FAILED)
+        }
     }
 
-    private fun zygiskIsEnabled(request: ManagerWriteRequestDto): ManagerWriteResultDto {
-        val enabled = zygiskConfigGateway.isZygiskModuleEnabled()
-        return success(
-            requestId = request.requestId,
-            details = ManagerProtocol.WRITE_DETAIL_ZYGISK_OK,
-            resultLong = if (enabled) 1L else 0L,
-        )
+    private suspend fun zygiskIsEnabled(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        return when (val result = zygiskConfigGateway.isZygiskModuleEnabled()) {
+            is io.github.magisk317.mipush.common.manager.ZygiskModuleReadResult.Available -> success(
+                requestId = request.requestId,
+                details = ManagerProtocol.WRITE_DETAIL_ZYGISK_OK,
+                resultLong = if (result.enabled) 1L else 0L,
+            )
+            is io.github.magisk317.mipush.common.manager.ZygiskModuleReadResult.Unavailable ->
+                failed(request.requestId, result.reason.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH))
+        }
     }
 
-    private fun zygiskGetConfig(request: ManagerWriteRequestDto): ManagerWriteResultDto {
-        val content = zygiskConfigGateway.getZygiskConfig().toFileContent()
-        return success(
-            requestId = request.requestId,
-            details = content.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH),
-            resultLong = content.length.toLong(),
-        )
+    private suspend fun zygiskGetConfig(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        return when (val result = zygiskConfigGateway.getZygiskConfig()) {
+            is io.github.magisk317.mipush.common.manager.ZygiskConfigReadResult.Available -> {
+                val content = result.config.toFileContent()
+                success(
+                    requestId = request.requestId,
+                    details = content.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH),
+                    resultLong = content.length.toLong(),
+                )
+            }
+            is io.github.magisk317.mipush.common.manager.ZygiskConfigReadResult.Unavailable ->
+                failed(request.requestId, result.reason.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH))
+        }
     }
 
-    private fun zygiskSaveConfig(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+    private suspend fun zygiskSaveConfig(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         if (!io.github.magisk317.mipush.platform.support.PermissionUtils.refreshRootAccessIfGranted()) {
             return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_ZYGISK_ROOT_MISSING)
         }
@@ -652,16 +763,34 @@ class ManagerWriteRuntimeExecutor(
         }
     }
 
-    private fun zygiskForceStop(request: ManagerWriteRequestDto): ManagerWriteResultDto {
-        val packageName = request.packageName.trim().ifBlank { request.argument.trim() }
-        if (packageName.isEmpty()) {
-            return failed(request.requestId, "missing_package")
+    private suspend fun zygiskForceStop(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        val packageName = request.packageName.trim()
+        if (io.github.magisk317.mipush.manager.api.ManagerProtocol.validateApplicationPackageName(packageName) != null) {
+            return failed(request.requestId, "invalid_package")
         }
-        zygiskConfigGateway.forceStopApp(packageName)
-        return success(request.requestId, ManagerProtocol.WRITE_DETAIL_ZYGISK_OK)
+        return if (zygiskConfigGateway.forceStopApp(packageName)) {
+            success(request.requestId, ManagerProtocol.WRITE_DETAIL_ZYGISK_OK)
+        } else {
+            failed(request.requestId, ManagerProtocol.WRITE_DETAIL_ZYGISK_FAILED)
+        }
     }
 
-    private fun repairXSpace(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+    private suspend fun zygiskScan(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        if (!io.github.magisk317.mipush.platform.support.PermissionUtils.refreshRootAccessIfGranted()) {
+            return failed(request.requestId, ManagerProtocol.WRITE_DETAIL_ZYGISK_ROOT_MISSING)
+        }
+        return when (val result = zygiskConfigGateway.scanZygiskPackages()) {
+            is io.github.magisk317.mipush.common.manager.ZygiskPackageScanResult.Available -> success(
+                request.requestId,
+                result.output.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH),
+                resultLong = result.output.length.toLong(),
+            )
+            is io.github.magisk317.mipush.common.manager.ZygiskPackageScanResult.Unavailable ->
+                failed(request.requestId, result.reason.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH))
+        }
+    }
+
+    private suspend fun repairXSpace(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         val result = permissionGateway.repairXSpaceUserSupport()
         val details = when (result.stage) {
             ManagerXSpaceRepairStage.ROOT_MISSING -> ManagerProtocol.WRITE_DETAIL_DUAL_APP_ROOT_MISSING
@@ -684,16 +813,17 @@ class ManagerWriteRuntimeExecutor(
         )
     }
 
-    private fun resetTopActivityCache(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+    private suspend fun resetTopActivityCache(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         runtimeActions.resetTopActivityCache()
         return success(request.requestId, ManagerProtocol.WRITE_DETAIL_RESET_TOP_ACTIVITY_CACHE_OK)
     }
 
-    private fun getEventContent(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+    private suspend fun getEventContent(request: ManagerWriteRequestDto): ManagerWriteResultDto {
         val eventId = request.eventId ?: return failed(request.requestId, "missing_event_id")
         val content = eventGateway.getContent(
             ManagerEvent(
                 id = eventId,
+                userId = request.userId,
                 packageName = request.packageName,
                 configOptions = emptySet(),
                 channel = "",
@@ -702,11 +832,33 @@ class ManagerWriteRuntimeExecutor(
                 content = request.argument,
                 type = request.intArgument,
             ),
-        )
+        ) ?: return failed(request.requestId, "event_content_unavailable")
         return success(
             requestId = request.requestId,
             details = content.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH),
             resultLong = content.length.toLong(),
+        )
+    }
+
+    private suspend fun getEventJson(request: ManagerWriteRequestDto): ManagerWriteResultDto {
+        val eventId = request.eventId ?: return failed(request.requestId, "missing_event_id")
+        val json = eventGateway.getJson(
+            ManagerEvent(
+                id = eventId,
+                userId = request.userId,
+                packageName = request.packageName,
+                configOptions = emptySet(),
+                channel = "",
+                receiveDateMs = request.longArgument,
+                title = "",
+                content = request.argument,
+                type = request.intArgument,
+            ),
+        ) ?: return failed(request.requestId, "event_json_unavailable")
+        return success(
+            requestId = request.requestId,
+            details = json.take(ManagerProtocol.MAX_LOG_EXPORT_DETAILS_LENGTH),
+            resultLong = json.length.toLong(),
         )
     }
 
@@ -730,11 +882,19 @@ class ManagerWriteRuntimeExecutor(
             ISLAND_PREF_SHOW_NOTIFICATION,
             ISLAND_PREF_SHOW_ORIGINAL_NOTIFICATION,
             ISLAND_PREF_FOCUS_NOTIF,
+            ISLAND_PREF_VISUAL_ENABLED,
+            ISLAND_PREF_DYNAMIC_COLOR,
+            ISLAND_PREF_BLUR_ENABLED,
+            ISLAND_PREF_GLASS_ENABLED,
+            ISLAND_PREF_OUTER_GLOW_ENABLED,
+            ISLAND_PREF_ANIMATION_ENABLED,
         )
 
         val ALLOWED_RUNTIME_INT_KEYS = setOf(
             ISLAND_PREF_TIMEOUT,
         )
+
+        val ALLOWED_RUNTIME_STRING_KEYS = setOf(ISLAND_PREF_RENDERER_MODE)
     }
 
     private fun success(
@@ -755,8 +915,8 @@ class ManagerWriteRuntimeExecutor(
     )
 }
 
-internal fun resolveRootAccess(
+internal suspend fun resolveRootAccess(
     requestAuthorization: Boolean,
-    refreshAccess: () -> Boolean,
-    requestAccess: () -> Boolean,
+    refreshAccess: suspend () -> Boolean,
+    requestAccess: suspend () -> Boolean,
 ): Boolean = refreshAccess() || (requestAuthorization && requestAccess())

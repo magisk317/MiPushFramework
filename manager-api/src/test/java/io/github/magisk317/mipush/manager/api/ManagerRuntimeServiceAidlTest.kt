@@ -55,12 +55,22 @@ class ManagerRuntimeServiceAidlTest {
             IBinder.FIRST_CALL_TRANSACTION + 12,
             IManagerRuntimeService.Stub.TRANSACTION_executeWrite,
         )
+        assertEquals(
+            IBinder.FIRST_CALL_TRANSACTION + 13,
+            IManagerRuntimeService.Stub.TRANSACTION_getRuntimeEnvironmentSnapshot,
+        )
     }
 
     @Test
     fun `remote proxy transacts handshake and connection snapshot`() {
         val handshake = handshake()
         val snapshot = snapshot()
+        val environment = ManagerRuntimeEnvironmentSnapshotDto(
+            isMiui = 1,
+            imei = "imei",
+            macAddress = "mac",
+            xmppServerHost = "push.example.test",
+        )
         val page = applicationPage()
         val detail = applicationDetail()
         val diagnostics = applicationDiagnostics()
@@ -68,6 +78,8 @@ class ManagerRuntimeServiceAidlTest {
             override fun handshake(clientMajor: Int, clientMinor: Int): ManagerHandshake = handshake
 
             override fun getConnectionSnapshot(): ManagerConnectionSnapshotDto = snapshot
+
+            override fun getRuntimeEnvironmentSnapshot(): ManagerRuntimeEnvironmentSnapshotDto = environment
 
             override fun getApplicationPage(query: ManagerApplicationQueryDto): ManagerApplicationPageDto = page
 
@@ -114,6 +126,7 @@ class ManagerRuntimeServiceAidlTest {
         assertNotSame(stub, remote)
         assertEquals(handshake, remote.handshake(ManagerProtocol.MAJOR, ManagerProtocol.MINOR))
         assertEquals(snapshot, remote.connectionSnapshot)
+        assertEquals(environment, remote.runtimeEnvironmentSnapshot)
         assertEquals(page, remote.getApplicationPage(ManagerApplicationQueryDto()))
         assertEquals(detail, remote.getApplicationDetail(detail.packageName, false))
         assertEquals(diagnostics, remote.getApplicationDiagnostics(detail.packageName, detail.registeredType))
@@ -226,6 +239,7 @@ class ManagerRuntimeServiceAidlTest {
 
     private fun applicationSummary() = ManagerApplicationSummaryDto(
         id = 11L,
+        userId = 999,
         packageName = "com.example.app",
         type = 2,
         notificationOnRegister = true,
@@ -253,6 +267,7 @@ class ManagerRuntimeServiceAidlTest {
 
     private fun applicationDetail() = ManagerApplicationDetailDto(
         id = 11L,
+        userId = 999,
         packageName = "com.example.app",
         type = 2,
         notificationOnRegister = true,
@@ -265,6 +280,7 @@ class ManagerRuntimeServiceAidlTest {
     )
 
     private fun applicationDiagnostics() = ManagerApplicationDiagnosticsDto(
+        userId = 999,
         hasLocalRegistration = true,
         regSecCount = 2,
         latestRegistrationEventResult = 0,

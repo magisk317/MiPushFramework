@@ -570,8 +570,16 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
     val islandShowNotification by viewModel.islandShowNotification.collectAsStateWithLifecycle()
     val islandShowOriginalNotification by viewModel.islandShowOriginalNotification.collectAsStateWithLifecycle()
     val islandFocusNotification by viewModel.islandFocusNotification.collectAsStateWithLifecycle()
+    val islandRendererMode by viewModel.islandRendererMode.collectAsStateWithLifecycle()
+    val islandVisualEnabled by viewModel.islandVisualEnabled.collectAsStateWithLifecycle()
+    val islandDynamicColor by viewModel.islandDynamicColor.collectAsStateWithLifecycle()
+    val islandBlurEnabled by viewModel.islandBlurEnabled.collectAsStateWithLifecycle()
+    val islandGlassEnabled by viewModel.islandGlassEnabled.collectAsStateWithLifecycle()
+    val islandOuterGlowEnabled by viewModel.islandOuterGlowEnabled.collectAsStateWithLifecycle()
+    val islandAnimationEnabled by viewModel.islandAnimationEnabled.collectAsStateWithLifecycle()
     val showSwitchFeedback = rememberSwitchFeedback(snackbarHostState)
     var showIslandTimeoutDialog by remember { mutableStateOf(false) }
+    var showIslandRendererDialog by remember { mutableStateOf(false) }
     var islandTimeoutInput by remember(islandTimeout) { mutableStateOf(islandTimeout.toString()) }
     val islandTimeoutError = stringResource(R.string.pref_island_timeout_error)
 
@@ -659,6 +667,140 @@ private fun NotificationsBlock(viewModel: SettingsViewModel, snackbarHostState: 
             if (success) notifyPrefChanged(context)
             showSwitchFeedback(islandFocusNotificationTitle, enabled, success)
         }
+    }
+
+    val rendererModeTitle = stringResource(R.string.pref_island_renderer_mode_title)
+    val rendererModeLabel = when (islandRendererMode) {
+        "mipush" -> stringResource(R.string.pref_island_renderer_mode_mipush)
+        "hyperisland" -> stringResource(R.string.pref_island_renderer_mode_hyperisland)
+        else -> stringResource(R.string.pref_island_renderer_mode_auto)
+    }
+    SettingsItem(
+        title = rendererModeTitle,
+        summary = "$rendererModeLabel - ${stringResource(R.string.pref_island_renderer_mode_summary)}",
+        enabled = islandEnabled,
+    ) {
+        showIslandRendererDialog = true
+    }
+
+    val visualTitle = stringResource(R.string.pref_island_visual_title)
+    SettingsSwitchItem(
+        title = visualTitle,
+        summary = stringResource(R.string.pref_island_visual_summary),
+        checked = islandVisualEnabled,
+        enabled = islandEnabled,
+    ) { enabled ->
+        viewModel.setIslandVisualEnabled(enabled) { success ->
+            if (success) notifyPrefChanged(context)
+            showSwitchFeedback(visualTitle, enabled, success)
+        }
+    }
+
+    val dynamicColorTitle = stringResource(R.string.pref_island_dynamic_color_title)
+    SettingsSwitchItem(
+        title = dynamicColorTitle,
+        summary = stringResource(R.string.pref_island_dynamic_color_summary),
+        checked = islandDynamicColor,
+        enabled = islandEnabled && islandVisualEnabled,
+    ) { enabled ->
+        viewModel.setIslandDynamicColor(enabled) { success ->
+            if (success) notifyPrefChanged(context)
+            showSwitchFeedback(dynamicColorTitle, enabled, success)
+        }
+    }
+
+    val blurTitle = stringResource(R.string.pref_island_blur_title)
+    SettingsSwitchItem(
+        title = blurTitle,
+        summary = stringResource(R.string.pref_island_blur_summary),
+        checked = islandBlurEnabled,
+        enabled = islandEnabled && islandVisualEnabled,
+    ) { enabled ->
+        viewModel.setIslandBlurEnabled(enabled) { success ->
+            if (success) notifyPrefChanged(context)
+            showSwitchFeedback(blurTitle, enabled, success)
+        }
+    }
+
+    val glassTitle = stringResource(R.string.pref_island_glass_title)
+    SettingsSwitchItem(
+        title = glassTitle,
+        summary = stringResource(R.string.pref_island_glass_summary),
+        checked = islandGlassEnabled,
+        enabled = islandEnabled && islandVisualEnabled,
+    ) { enabled ->
+        viewModel.setIslandGlassEnabled(enabled) { success ->
+            if (success) notifyPrefChanged(context)
+            showSwitchFeedback(glassTitle, enabled, success)
+        }
+    }
+
+    val outerGlowTitle = stringResource(R.string.pref_island_outer_glow_title)
+    SettingsSwitchItem(
+        title = outerGlowTitle,
+        summary = stringResource(R.string.pref_island_outer_glow_summary),
+        checked = islandOuterGlowEnabled,
+        enabled = islandEnabled && islandVisualEnabled,
+    ) { enabled ->
+        viewModel.setIslandOuterGlowEnabled(enabled) { success ->
+            if (success) notifyPrefChanged(context)
+            showSwitchFeedback(outerGlowTitle, enabled, success)
+        }
+    }
+
+    val animationTitle = stringResource(R.string.pref_island_animation_title)
+    SettingsSwitchItem(
+        title = animationTitle,
+        summary = stringResource(R.string.pref_island_animation_summary),
+        checked = islandAnimationEnabled,
+        enabled = islandEnabled && islandVisualEnabled,
+    ) { enabled ->
+        viewModel.setIslandAnimationEnabled(enabled) { success ->
+            if (success) notifyPrefChanged(context)
+            showSwitchFeedback(animationTitle, enabled, success)
+        }
+    }
+
+    if (showIslandRendererDialog) {
+        val rendererOptions = listOf(
+            "auto" to stringResource(R.string.pref_island_renderer_mode_auto),
+            "mipush" to stringResource(R.string.pref_island_renderer_mode_mipush),
+            "hyperisland" to stringResource(R.string.pref_island_renderer_mode_hyperisland),
+        )
+        AlertDialog(
+            onDismissRequest = { showIslandRendererDialog = false },
+            title = { Text(rendererModeTitle) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    rendererOptions.forEach { (mode, label) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.setIslandRendererMode(mode) { success ->
+                                        if (success) notifyPrefChanged(context)
+                                        showSwitchFeedback(rendererModeTitle, true, success)
+                                    }
+                                    showIslandRendererDialog = false
+                                }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = islandRendererMode == mode,
+                                onClick = null,
+                            )
+                            Text(label, modifier = Modifier.padding(start = 8.dp))
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showIslandRendererDialog = false }) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            },
+        )
     }
 
     if (showIslandTimeoutDialog) {
@@ -917,8 +1059,11 @@ private fun SetXMPPServer() {
     XmppServerEditor { uiState, onEdit ->
         SettingsItem(
             title = stringResource(R.string.settings_XMPP_server),
-            summary = uiState.configuredServer?.takeIf(String::isNotBlank)
-                ?: stringResource(R.string.settings_XMPP_server_summary),
+            summary = when {
+                uiState.loadFailed -> stringResource(R.string.settings_XMPP_server_load_failed)
+                else -> uiState.configuredServer?.takeIf(String::isNotBlank)
+                    ?: stringResource(R.string.settings_XMPP_server_summary)
+            },
             enabled = uiState.isLoaded && !uiState.isSaving,
             onClick = onEdit,
         )

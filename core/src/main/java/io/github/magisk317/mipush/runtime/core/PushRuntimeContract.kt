@@ -43,7 +43,8 @@ data class PushRegistrationRecord(
     val state: PushRegistrationState,
     val updatedAtMs: Long,
     val source: String,
-    val reason: String? = null
+    val reason: String? = null,
+    val androidUserId: Int = 0,
 )
 
 object PushRuntimeCapability {
@@ -87,7 +88,8 @@ data class PushChannelRecord(
     val updatedAtMs: Long,
     val source: String,
     val reasonCode: Int? = null,
-    val reasonMessage: String? = null
+    val reasonMessage: String? = null,
+    val androidUserId: Int = 0,
 )
 
 interface PushRuntimeExecutionHost {

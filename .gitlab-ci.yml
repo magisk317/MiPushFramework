@@ -57,7 +57,7 @@ variables:
   MAGISK_RENOVATE_REPOSITORY: "magisk3171/MiPushFramework"
   MIPUSH_ZYGISK_REPOSITORY: "https://gitlab.com/magisk3171/MiPushZygisk.git"
   # Pin the external source so an old tag cannot change when MiPushZygisk/main advances.
-  MIPUSH_ZYGISK_REF: "3085c59d43c4e328369eadbcf6c1c079479b0d8f"
+  MIPUSH_ZYGISK_REF: "7b57adbc0f7078885169d18b0705d621dfc36462"
   MIPUSH_ZYGISK_NDK_VERSION: "r27d"
   MIPUSH_ZYGISK_NDK_HOME: "$CI_PROJECT_DIR/.android/android-ndk-r27d"
   # Public SHA-256 fingerprint of the production APK signing certificate.
@@ -386,8 +386,8 @@ android:test:
   extends:
     - .magisk_android_base
     - .mipush_android_rules
-  # Robolectric 4.16 native SQLite teardown is unstable on JDK 26.
-  image: "eclipse-temurin:25.0.3_9-jdk"
+  # Robolectric 4.16 has a known native-runtime cleanup race on JDK 26.
+  image: "eclipse-temurin:26.0.1_8-jdk"
   stage: quality
   needs: []
   script:
@@ -433,7 +433,7 @@ android:shared-compat:
     - .magisk_android_base
     - .mipush_android_rules
   # Keep compatibility checks and host compilation separate from the test gate.
-  image: "eclipse-temurin:25.0.3_9-jdk"
+  image: "eclipse-temurin:26.0.1_8-jdk"
   stage: quality
   tags:
     - magisk-amd64-linux

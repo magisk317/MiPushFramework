@@ -10,6 +10,7 @@ data class ManagerEventQueryDto(
     val pageSize: Int = ManagerProtocol.DEFAULT_MAX_PAGE_SIZE,
     val packageName: String = "",
     val query: String = "",
+    val userId: Int = 0,
 ) : Parcelable {
     override fun writeToParcel(destination: Parcel, flags: Int) {
         destination.writeWireFrame {
@@ -18,6 +19,7 @@ data class ManagerEventQueryDto(
             writeInt(pageSize)
             writeString(packageName)
             writeString(query)
+            writeInt(userId)
         }
     }
 
@@ -34,6 +36,7 @@ data class ManagerEventQueryDto(
                         pageSize = readInt(ManagerProtocol.DEFAULT_MAX_PAGE_SIZE),
                         packageName = readString(maxLength = ManagerProtocol.MAX_PACKAGE_NAME_LENGTH).orEmpty(),
                         query = readString(maxLength = ManagerProtocol.MAX_APPLICATION_QUERY_LENGTH).orEmpty(),
+                        userId = readInt(-1),
                     )
                 }
 

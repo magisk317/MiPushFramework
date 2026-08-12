@@ -7,6 +7,7 @@ import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeResult
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class RemoteNotificationChannelSourceTest {
@@ -84,5 +85,25 @@ class RemoteNotificationChannelSourceTest {
         val result = source.load("com.example") as NotificationChannelReadResult.Unavailable
 
         assertEquals(NotificationChannelReadStatus.PERMISSION_DENIED, result.status)
+    }
+
+    @Test
+    fun `mismatched runtime user remains unavailable`() = runBlocking {
+        val source = RemoteNotificationChannelSource(
+            pageLoader = {
+                ManagerRuntimeResult.Success(
+                    ManagerNotificationChannelPageDto(
+                        packageName = "com.example",
+                        userId = 999,
+                    ),
+                )
+            },
+            pageSizeProvider = { 20 },
+            userIdProvider = { 0 },
+        )
+
+        val result = source.load("com.example") as NotificationChannelReadResult.Unavailable
+
+        assertTrue(result.status == NotificationChannelReadStatus.FAILED)
     }
 }

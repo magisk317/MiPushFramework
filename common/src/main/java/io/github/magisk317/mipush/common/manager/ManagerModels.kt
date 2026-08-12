@@ -8,6 +8,7 @@ import kotlinx.serialization.Transient
 @Serializable
 data class ManagerApplication(
     val id: Long? = null,
+    val userId: Int = 0,
     val packageName: String = "",
     val type: Int = Type.ASK,
     val notificationOnRegister: Boolean = false,
@@ -46,6 +47,7 @@ data class ManagerApplicationDiagnostics(
     val latestRegistrationEventResult: Int?,
     val registeredType: Int,
     val inferenceReason: String,
+    val userId: Int = 0,
 )
 
 object ManagerEventType {
@@ -65,6 +67,7 @@ object ManagerEventResult {
 @Serializable
 data class ManagerEvent(
     val id: Long,
+    val userId: Int = 0,
     val packageName: String,
     val configOptions: Set<String>,
     val channel: String,
@@ -82,6 +85,7 @@ data class ManagerEvent(
         if (this === other) return true
         if (other !is ManagerEvent) return false
         return id == other.id &&
+            userId == other.userId &&
             packageName == other.packageName &&
             configOptions == other.configOptions &&
             channel == other.channel &&
@@ -98,6 +102,7 @@ data class ManagerEvent(
 
     override fun hashCode(): Int {
         var resultHash = id.hashCode()
+        resultHash = 31 * resultHash + userId
         resultHash = 31 * resultHash + packageName.hashCode()
         resultHash = 31 * resultHash + configOptions.hashCode()
         resultHash = 31 * resultHash + channel.hashCode()

@@ -11,6 +11,7 @@ import io.github.magisk317.mipush.manager.api.ManagerWriteResultDto
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeAvailability
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeClient
 import io.github.magisk317.mipush.manager.client.ManagerRuntimeResult
+import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
 import io.github.magisk317.mipush.manager.remote.RemoteWriteSupport
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -85,6 +86,16 @@ class RuntimePreferenceGateway internal constructor(
         ),
     )
 
+    suspend fun setString(key: String, value: String): Boolean = write(
+        RuntimePreferenceWrite(
+            operation = ManagerProtocol.WRITE_OP_SET_RUNTIME_STRING,
+            key = key,
+            type = TYPE_STRING,
+            value = value,
+            argument = "$key=$value",
+        ),
+    )
+
     suspend fun setXmppServer(host: String): Boolean {
         val normalizedHost = host.trim()
         return write(
@@ -124,6 +135,22 @@ class RuntimePreferenceGateway internal constructor(
                 argument = "",
             ),
         )
+    }
+
+    suspend fun getXmppServer(): String? = operationMutex.withLock {
+        val snapshot = when (val result = readRemote()) {
+            is ManagerRuntimeResult.Success -> result.value
+            is ManagerRuntimeResult.Unsupported -> throw RuntimeReadUnavailableException(
+                status = "unsupported:${result.capability}", operation = "getXmppServer",
+            )
+            is ManagerRuntimeResult.Unavailable -> throw RuntimeReadUnavailableException(
+                status = result.availability.toString(), operation = "getXmppServer",
+            )
+            is ManagerRuntimeResult.Failed -> throw RuntimeReadUnavailableException(
+                status = result.reason, operation = "getXmppServer",
+            )
+        }
+        snapshot.entries.firstOrNull { it.key == XMPP_SERVER_KEY }?.value?.takeIf(String::isNotBlank)
     }
 
     fun startReconnectSync(scope: CoroutineScope): Job = scope.launch {

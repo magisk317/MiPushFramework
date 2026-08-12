@@ -8,6 +8,8 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.robolectric.annotation.Config
 import tech.apter.junit.jupiter.robolectric.RobolectricExtension
 
+// Keep Robolectric: this test relies on Android framework implementations indirectly;
+// android.jar unit-test stubs throw "Method ... not mocked" without the extension.
 @ExtendWith(RobolectricExtension::class)
 @Config(sdk = [28])
 class ChannelNameEnricherTest {
@@ -114,6 +116,35 @@ class ChannelNameEnricherTest {
         )
 
         assertEquals("Coolapk messages", enriched.single().name.toString())
+    }
+
+    @Test
+    fun `effective channel names stay within the target notification user`() {
+        val packageName = "com.example.clone"
+        val channel = NotificationChannel(
+            "messages",
+            "消息...",
+            NotificationManager.IMPORTANCE_DEFAULT,
+        )
+        val dump = """
+            AppSettings: $packageName (10001) importance=DEFAULT userSet=true
+              NotificationChannel{mId='messages', mName=主用户消息..., mImportance=3}
+            AppSettings: $packageName (100001) importance=DEFAULT userSet=true
+              NotificationChannel{mId='messages', mName=克隆用户消息..., mImportance=3}
+            NotificationRecord(0x1: pkg=$packageName user=UserHandle{0} id=1)
+              effectiveNotificationChannel=NotificationChannel{mId='messages', mName=主用户完整消息通知, mImportance=3}
+            NotificationRecord(0x2: pkg=$packageName user=UserHandle{1} id=2)
+              effectiveNotificationChannel=NotificationChannel{mId='messages', mName=克隆用户完整消息通知, mImportance=3}
+        """.trimIndent()
+
+        val enriched = ChannelNameEnricher.enrich(
+            packageName = packageName,
+            channels = listOf(channel),
+            notificationDump = dump,
+            packageUid = 100001,
+        )
+
+        assertEquals("克隆用户完整消息通知", enriched.single().name.toString())
     }
 
     @Test

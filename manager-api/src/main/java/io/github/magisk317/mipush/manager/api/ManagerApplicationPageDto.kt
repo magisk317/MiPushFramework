@@ -6,6 +6,7 @@ import android.os.Parcelable
 /** A bounded application page. [nextPageToken] is opaque to clients. */
 data class ManagerApplicationPageDto(
     val schemaVersion: Int = ManagerProtocol.APPLICATION_PAGE_SCHEMA_VERSION,
+    val userId: Int = 0,
     val items: List<ManagerApplicationSummaryDto> = emptyList(),
     val stats: ManagerApplicationStatsDto = ManagerApplicationStatsDto(),
     val nextPageToken: String? = null,
@@ -17,6 +18,7 @@ data class ManagerApplicationPageDto(
             items.forEach { it.writeToParcel(this, flags) }
             stats.writeToParcel(this, flags)
             writeString(nextPageToken)
+            writeInt(userId)
         }
     }
 
@@ -38,6 +40,7 @@ data class ManagerApplicationPageDto(
                             defaultValue = ManagerApplicationStatsDto(),
                         ),
                         nextPageToken = readString(maxLength = ManagerProtocol.MAX_PAGE_TOKEN_LENGTH),
+                        userId = readInt(-1),
                     )
                 }
 

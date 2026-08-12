@@ -7,6 +7,7 @@ import io.github.magisk317.mipush.common.utils.logI
 import io.github.magisk317.mipush.common.utils.logV
 import io.github.magisk317.mipush.common.utils.logW
 
+import android.app.ActivityManager
 import android.app.Application
 import android.app.Notification
 import android.app.NotificationManager
@@ -34,6 +35,7 @@ import io.github.magisk317.mipush.push.hook.HookTrace
 import io.github.magisk317.mipush.bridge.LegacyLoggerBridge
 import io.github.magisk317.mipush.bridge.MiPushRuntimeObserverBridge
 import io.github.magisk317.mipush.notification.NotificationManagerEx
+import io.github.magisk317.mipush.notification.IslandOptionsSnapshotReader
 import io.github.magisk317.mipush.notification.SweetNotificationCoordinator
 import io.github.magisk317.mipush.notification.LegacyNotificationIdentityMigration
 import io.github.magisk317.mipush.utils.Hooker
@@ -103,6 +105,7 @@ open class MiPushFrameworkApp : Application() {
         Hooker.setLogger(PushControllerUtils.wrapContext(this))
         Hooker.hook(this)
         NotificationManagerEx.init(applicationContext)
+        IslandOptionsSnapshotReader.initialize(applicationContext, applicationScope)
         // Stock XMSF 7.4.67-C installs a process-lifetime screen receiver for style-5 reminder
         // cleanup. The older 3.7.9 runtime has no equivalent, so initialize the product coordinator
         // only from the main app shell after notification identity is ready.
@@ -118,7 +121,7 @@ open class MiPushFrameworkApp : Application() {
         MiPushRuntimeObserverBridge.ensureInstalled(this)
         PushRuntimeExecutionBridge.attach(this)
         PushRuntimeChannelTracker.attach(this)
-        PushControllerUtils.setAllEnable(true, this)
+        PushControllerUtils.startServiceFromPrefs(this)
         StockSurfaceBootstrap.bootstrap(this)
         requestDozeWhiteList()
         // Android 17: Check for memory limit warnings
@@ -175,6 +178,7 @@ open class MiPushFrameworkApp : Application() {
                 this,
                 object : android.content.BroadcastReceiver() {
                     override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
+                        IslandOptionsSnapshotReader.refreshAsync(this@MiPushFrameworkApp, applicationScope)
                         io.github.magisk317.mipush.notification.NotificationManagerEx.triggerStatusBarRefresh()
                     }
                 },
@@ -205,6 +209,7 @@ open class MiPushFrameworkApp : Application() {
     private fun checkMemoryLimit() {
         if (Build.VERSION.SDK_INT < 35) return // Android 15+
         try {
+            logRecentProcessExit()
             val runtime = Runtime.getRuntime()
             val maxMemory = runtime.maxMemory()
             val totalMemory = runtime.totalMemory()
@@ -214,12 +219,22 @@ open class MiPushFrameworkApp : Application() {
             logI("Memory usage: ${usedMemory / 1024 / 1024}MB / ${maxMemory / 1024 / 1024}MB")
 
             // Warn if using more than 80% of available memory
-            if (usedMemory > maxMemory * 0.8) {
+            if (MemoryLimitDiagnostics.isHighMemoryUsage(usedMemory, maxMemory)) {
                 logW("High memory usage detected: ${usedMemory * 100 / maxMemory}%")
             }
         } catch (e: Exception) {
             logD("Memory check failed: ${e.message}")
         }
+    }
+
+    private fun logRecentProcessExit() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
+        val activityManager = getSystemService(ActivityManager::class.java) ?: return
+        val latestExit = activityManager
+            .getHistoricalProcessExitReasons(packageName, 4, 0)
+            .firstOrNull { MemoryLimitDiagnostics.isMemoryRelatedExitReason(it.reason) }
+            ?: return
+        logW("Recent memory-related process exit: ${MemoryLimitDiagnostics.describeExit(latestExit)}")
     }
 
     private fun initBasicLogger() {

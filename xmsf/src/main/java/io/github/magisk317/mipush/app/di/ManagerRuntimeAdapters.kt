@@ -13,11 +13,13 @@ import io.github.magisk317.mipush.common.fakedevice.ZygiskConfig
 import io.github.magisk317.mipush.common.manager.ManagerApplication
 import io.github.magisk317.mipush.common.manager.ManagerApplicationDiagnostics
 import io.github.magisk317.mipush.common.manager.ManagerApplicationGateway
+import io.github.magisk317.mipush.common.manager.ManagerForceRegisterResult
 import io.github.magisk317.mipush.common.manager.ManagerApplications
 import io.github.magisk317.mipush.common.manager.ManagerConfigEditorSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerConfigGateway
 import io.github.magisk317.mipush.common.manager.ManagerConfigListSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerConfigSyncGateway
+import io.github.magisk317.mipush.common.manager.ManagerDualAppInstallationResult
 import io.github.magisk317.mipush.common.manager.ManagerEvent
 import io.github.magisk317.mipush.common.manager.EventDebugJson
 import io.github.magisk317.mipush.common.manager.ManagerEventGateway
@@ -93,8 +95,8 @@ class XmsfManagerConfigGateway(
     override suspend fun setConfigurationDirectory(uri: Uri): Boolean =
         configCenter.setConfigurationDirectoryAsync(uri)
 
-    override fun loadConfigurations(context: Context) {
-        configCenter.loadConfigurations(context)
+    override suspend fun loadConfigurations(context: Context) {
+        configCenter.loadConfigurationsNow(context)
     }
 }
 
@@ -158,16 +160,15 @@ class XmsfManagerConfigSyncGateway(
 }
 
 class XmsfManagerNotificationChannelCommandGateway : ManagerNotificationChannelCommandGateway {
-    override fun deleteNotificationChannel(packageName: String, channelId: String) {
+    override fun deleteNotificationChannel(packageName: String, channelId: String): Boolean =
         NotificationManagerEx.deleteNotificationChannel(packageName, channelId)
-    }
 }
 
 class XmsfManagerEventGateway(
     private val context: Context,
     private val eventRepository: EventRepository,
 ) : ManagerEventGateway {
-    override fun getEventsById(lastId: Long?, size: Int, packageName: String, query: String): List<ManagerEvent> =
+    override suspend fun getEventsById(lastId: Long?, size: Int, packageName: String, query: String): List<ManagerEvent> =
         eventRepository.getEventsById(lastId, size, packageName, query).map { it.toManagerEvent() }
 
     override fun startManagePermissions(packageName: String, ignoreNotRegistered: Boolean) {
@@ -184,36 +185,28 @@ class XmsfManagerEventGateway(
 
     override suspend fun mockMessage(event: ManagerEvent): MockReplayOutcome {
         val resolved = resolveEventForMock(event) ?: return MockReplayOutcome.Failed
-        val container = io.github.magisk317.mipush.common.configurations.RegSecUtils
-            .getContainerWithRegSec(resolved.payload, resolved.regSec)
+        val container = RegSecUtils.getContainerWithRegSec(resolved.payload, resolved.regSec)
             ?: return MockReplayOutcome.Failed
         return eventRepository.mockMessage(container)
     }
 
     private suspend fun resolveEventForMock(event: ManagerEvent): ManagerEvent? {
-        val payload = event.payload
-        if (payload != null && payload.isNotEmpty()) {
-            return event
-        }
-        if (event.id <= 0L) return null
-        val stored = EventDb.getByIdAsync(event.id) ?: return null
+        if (event.id <= 0L || event.packageName.isBlank()) return null
+        val stored = EventDb.getByIdAsync(event.id, event.userId) ?: return null
+        if (stored.pkg != event.packageName) return null
         return stored.toManagerEvent()
     }
 
-    override fun getJson(event: ManagerEvent): String? =
-        eventRepository.getJson(event.toEvent())?.toString()
-            ?: runCatching { EventDebugJson.format(event) }.getOrNull()
+    override suspend fun getJson(event: ManagerEvent): String? {
+        val owned = if (event.id > 0L) resolveEventForMock(event) ?: return null else event
+        return eventRepository.getJson(owned.toEvent())?.toString()
+            ?: runCatching { EventDebugJson.format(owned) }.getOrNull()
+    }
 
-    override fun getContent(event: ManagerEvent): String {
-        val payload = event.payload
-        val resolved = if ((payload == null || payload.isEmpty()) && event.id > 0L) {
-            runBlocking { resolveEventForMock(event) } ?: event
-        } else {
-            event
-        }
-        val container = io.github.magisk317.mipush.common.configurations.RegSecUtils
-            .getContainerWithRegSec(resolved.payload, resolved.regSec)
-            ?: return resolved.content.ifBlank { event.content }
+    override suspend fun getContent(event: ManagerEvent): String? {
+        val resolved = if (event.id > 0L) resolveEventForMock(event) ?: return null else event
+        val container = RegSecUtils.getContainerWithRegSec(resolved.payload, resolved.regSec)
+            ?: return null
         return eventRepository.getContent(resolved.toEvent(), container)
     }
 
@@ -222,7 +215,7 @@ class XmsfManagerEventGateway(
 
     override suspend fun restoreEvent(event: ManagerEvent): ManagerEvent? {
         val restoredId = eventRepository.restoreEvent(event.toEvent())
-        return event.copy(id = restoredId)
+        return restoredId.takeIf { it > 0L }?.let { event.copy(id = it) }
     }
 
     override suspend fun countEventsByDay(): List<io.github.magisk317.mipush.common.manager.ManagerDayCount> =
@@ -247,6 +240,7 @@ class XmsfManagerEventGateway(
         }
         return ManagerEvent(
             id = id ?: 0L,
+            userId = userId,
             packageName = pkg,
             configOptions = eventRepository.getStatus(container),
             channel = eventRepository.getStatusDescription(this),
@@ -265,6 +259,7 @@ class XmsfManagerEventGateway(
     private fun ManagerEvent.toEvent(): Event =
         Event(
             id = id.takeIf { it > 0L },
+            userId = userId,
             pkg = packageName,
             type = type,
             date = receiveDateMs,
@@ -276,11 +271,11 @@ class XmsfManagerEventGateway(
 }
 
 class XmsfManagerLogGateway : ManagerLogGateway {
-    override fun setRetentionDays(days: Int) {
+    override suspend fun setRetentionDays(days: Int) {
         LogUtils.setRetentionDays(days)
     }
 
-    override fun buildLogBundle(context: Context): ManagerLogExportResult {
+    override suspend fun buildLogBundle(context: Context): ManagerLogExportResult {
         val result = LogBundleExporter.buildLogBundle(context)
         return ManagerLogExportResult(file = result.file, details = result.details)
     }
@@ -288,7 +283,7 @@ class XmsfManagerLogGateway : ManagerLogGateway {
     override fun buildShareIntent(context: Context, file: File): Intent =
         LogBundleExporter.buildShareIntent(context, file)
 
-    override fun clearLogFolders(context: Context): ManagerLogClearResult {
+    override suspend fun clearLogFolders(context: Context): ManagerLogClearResult {
         val result = LogBundleExporter.clearLogFolders(context)
         return ManagerLogClearResult(success = result.success, details = result.details)
     }
@@ -308,7 +303,7 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
         )
     }
 
-    override fun getRootAccessSnapshot(refresh: Boolean): ManagerRootAccessSnapshot {
+    override suspend fun getRootAccessSnapshot(refresh: Boolean): ManagerRootAccessSnapshot {
         val granted = if (refresh) {
             PermissionUtils.refreshRootAccessIfGranted()
         } else {
@@ -323,7 +318,7 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
         )
     }
 
-    override fun requestRootAccess(target: ManagerRootTarget): ManagerRootAccessSnapshot {
+    override suspend fun requestRootAccess(target: ManagerRootTarget): ManagerRootAccessSnapshot {
         val runtimeState = if (target == ManagerRootTarget.RUNTIME && PermissionUtils.requestRootAccess()) {
             ManagerRootAccessState.GRANTED
         } else if (PermissionUtils.refreshRootAccessIfGranted()) {
@@ -334,13 +329,13 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
         return rootSnapshot(runtimeState)
     }
 
-    override fun hasCachedRootAccess(): Boolean = PermissionUtils.hasCachedRootAccess()
+    override suspend fun hasCachedRootAccess(): Boolean = PermissionUtils.hasCachedRootAccess()
 
-    override fun refreshRootAccessIfGranted(): Boolean = PermissionUtils.refreshRootAccessIfGranted()
+    override suspend fun refreshRootAccessIfGranted(): Boolean = PermissionUtils.refreshRootAccessIfGranted()
 
-    override fun requestRootAccess(): Boolean = PermissionUtils.requestRootAccess()
+    override suspend fun requestRootAccess(): Boolean = PermissionUtils.requestRootAccess()
 
-    override fun repairXSpaceUserSupport(): ManagerXSpaceRepairResult {
+    override suspend fun repairXSpaceUserSupport(): ManagerXSpaceRepairResult {
         if (!canManageDualAppFromUser(Utils.myUserId())) {
             return ManagerXSpaceRepairResult(
                 stage = ManagerXSpaceRepairStage.PRIMARY_USER_REQUIRED,
@@ -401,7 +396,7 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
         )
     }
 
-    override fun setDualAppEnabled(enabled: Boolean): ManagerXSpaceRepairResult {
+    override suspend fun setDualAppEnabled(enabled: Boolean): ManagerXSpaceRepairResult {
         if (!canManageDualAppFromUser(Utils.myUserId())) {
             return ManagerXSpaceRepairResult(
                 stage = ManagerXSpaceRepairStage.PRIMARY_USER_REQUIRED,
@@ -435,13 +430,16 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
         val succeeded = xmsfInstalled == expectedInstalled && managerInstalled == expectedInstalled
         if (succeeded) {
             // Persist runtime-owned dual_app_enabled so XSpaceXmsfInstallKeeper can keep packages in sync.
-            runCatching {
-                val context = Utils.context?.applicationContext ?: return@runCatching
-                runBlocking {
-                    PreferenceRepository(context.dataStore).setDualAppEnabled(enabled)
-                }
+            try {
+                val context = Utils.context?.applicationContext ?: return ManagerXSpaceRepairResult(
+                    stage = ManagerXSpaceRepairStage.PARTIAL_FAILED,
+                    details = "application_context_unavailable",
+                )
+                PreferenceRepository(context.dataStore).setDualAppEnabled(enabled)
                 // Notify SystemUI / system_server IslandPreferences caches immediately.
                 context.sendBroadcast(android.content.Intent(ACTION_PREF_CHANGED))
+            } catch (_: RuntimeException) {
+                // Package state remains authoritative even if the local mirror cannot update.
             }
             if (enabled) {
                 // Root-grant silent permissions for primary + dual-space (xmsf + manager).
@@ -467,23 +465,35 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
         )
     }
 
-    override fun isDualAppInstalled(): Boolean {
-        if (!canManageDualAppFromUser(Utils.myUserId())) return false
+    override suspend fun getDualAppInstallation(): ManagerDualAppInstallationResult {
+        if (!canManageDualAppFromUser(Utils.myUserId())) {
+            return ManagerDualAppInstallationResult.Unavailable("primary_user_required")
+        }
         if (!PermissionUtils.hasCachedRootAccess() &&
             !PermissionUtils.refreshRootAccessIfGranted()
         ) {
-            return false
+            return ManagerDualAppInstallationResult.Unavailable("root_unavailable")
         }
         val users = runRootCommand("cmd user list", timeoutMs = 5_000L)
-        if (!users.isSuccess || !users.output.contains("{${XSPACE_USER_ID}:")) return false
-        return isPackageInstalledForUser(Constants.SERVICE_APP_NAME) &&
+        if (!users.isSuccess) {
+            return ManagerDualAppInstallationResult.Unavailable("user_list_unavailable")
+        }
+        if (!users.output.contains("{${XSPACE_USER_ID}:")) {
+            return ManagerDualAppInstallationResult.NotInstalled
+        }
+        return if (isPackageInstalledForUser(Constants.SERVICE_APP_NAME) &&
             isPackageInstalledForUser(Constants.MANAGER_APP_NAME)
+        ) {
+            ManagerDualAppInstallationResult.Installed
+        } else {
+            ManagerDualAppInstallationResult.NotInstalled
+        }
     }
 
-    override fun launchAppOps(context: Context, permission: String, tips: CharSequence): Boolean =
+    override suspend fun launchAppOps(context: Context, permission: String, tips: CharSequence): Boolean =
         PermissionUtils.lunchAppOps(context, permission, tips)
 
-    override fun isUsageStatsAllowedByRoot(packageName: String): Boolean {
+    override suspend fun isUsageStatsAllowedByRoot(packageName: String): Boolean {
         if (!PermissionUtils.hasCachedRootAccess()) return false
         val commands = listOf(
             "appops get $packageName GET_USAGE_STATS",
@@ -497,15 +507,14 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
                 append('\n')
                 append(result.errorMsg.orEmpty())
             }
-            output.contains("GET_USAGE_STATS: allow", ignoreCase = true) ||
-                output.contains("android:get_usage_stats: allow", ignoreCase = true)
+            isUsageStatsAppOpAllowed(output)
         }
     }
 
-    override fun requestIgnoreBatteryOptimizations(context: Context): Boolean =
+    override suspend fun requestIgnoreBatteryOptimizations(context: Context): Boolean =
         PermissionUtils.requestIgnoreBatteryOptimizations(context)
 
-    override fun grantNotificationPermission(context: Context): Boolean =
+    override suspend fun grantNotificationPermission(context: Context): Boolean =
         PermissionUtils.grantNotificationPermission(context)
 
     private fun rootSnapshot(runtimeState: ManagerRootAccessState): ManagerRootAccessSnapshot {
@@ -579,11 +588,20 @@ class XmsfManagerPermissionGateway : ManagerPermissionGateway {
         }
 }
 
+internal fun isUsageStatsAppOpAllowed(output: String): Boolean = output.lineSequence().any { line ->
+    val normalized = line.trim().lowercase()
+    val isUsageStatsLine = normalized.contains("get_usage_stats:") ||
+        normalized.contains("android:get_usage_stats:")
+    isUsageStatsLine && listOf("allow", "foreground", "default").any { mode ->
+        normalized.contains(": $mode")
+    }
+}
+
 internal fun canManageDualAppFromUser(userId: Int): Boolean = userId == PermissionUtils.USER_PRIMARY
 
 class XmsfManagerApplicationGateway : ManagerApplicationGateway {
 
-    override fun loadApplications(
+    override suspend fun loadApplications(
         context: Context,
         query: String,
         filterMode: Int,
@@ -652,7 +670,7 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
         }
     }
 
-    override fun getApplication(context: Context, packageName: String, ignoreNotRegistered: Boolean): ManagerApplication? {
+    override suspend fun getApplication(context: Context, packageName: String, ignoreNotRegistered: Boolean): ManagerApplication? {
         var application = RegisteredApplicationDb.getRegisteredApplication(packageName)
         if (application == null && ignoreNotRegistered) {
             application = RegisteredApplication().apply {
@@ -676,24 +694,22 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
         return application.toManagerApplication()
     }
 
-    override fun updateApplication(application: ManagerApplication) {
+    override suspend fun updateApplication(application: ManagerApplication) {
         RegisteredApplicationDb.update(application.toRegisteredApplication())
     }
 
-    override fun getDiagnostics(packageName: String, registeredType: Int): ManagerApplicationDiagnostics {
-        val latestRegistrationEvent = runBlocking {
-            EventDb.queryAsync(
-                skip = 0,
-                limit = 1,
-                types = setOf(
-                    Event.Type.Registration,
-                    Event.Type.RegistrationResult,
-                    Event.Type.UnRegistration,
-                ),
-                pkg = packageName,
-                text = null,
-            ).firstOrNull()
-        }
+    override suspend fun getDiagnostics(packageName: String, registeredType: Int): ManagerApplicationDiagnostics {
+        val latestRegistrationEvent = EventDb.queryAsync(
+            skip = 0,
+            limit = 1,
+            types = setOf(
+                Event.Type.Registration,
+                Event.Type.RegistrationResult,
+                Event.Type.UnRegistration,
+            ),
+            pkg = packageName,
+            text = null,
+        ).firstOrNull()
         val hasLocalRegistration = RegistrationStateCompat.hasValidLocalRegistration(packageName)
         val regSecCount = Utils.getRegSecs(packageName).size
         return ManagerApplicationDiagnostics(
@@ -712,7 +728,11 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
         )
     }
 
-    override suspend fun launchTargetAppAndForceRegister(context: Context, packageName: String, registeredType: Int): String {
+    override suspend fun launchTargetAppAndForceRegister(
+        context: Context,
+        packageName: String,
+        registeredType: Int,
+    ): ManagerForceRegisterResult {
         // Force-register must actively request elevation (KSU/Magisk prompt).
         // refreshRootAccessIfGranted() returns false when grant state is still unknown.
         if (!PermissionUtils.requestRootAccess()) {
@@ -720,26 +740,42 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
                 "force-register aborted: root not granted pkg=$packageName",
                 tag = "XmsfManagerApplicationGateway",
             )
-            return context.getString(com.xiaomi.xmsf.R.string.force_register_requires_root)
+            return ManagerForceRegisterResult(
+                succeeded = false,
+                message = context.getString(com.xiaomi.xmsf.R.string.force_register_requires_root),
+            )
         }
         val plan = RegistrationHelper.inspectForceRegisterPlan(packageName)
         if (!plan.supportsServiceDispatch && !plan.supportsReceiverFallback && plan.bridgeCandidates.isEmpty()) {
-            return context.getString(com.xiaomi.xmsf.R.string.force_register_unavailable)
+            return ManagerForceRegisterResult(
+                succeeded = false,
+                message = context.getString(com.xiaomi.xmsf.R.string.force_register_unavailable),
+            )
         }
         runCatching {
             io.github.magisk317.mipush.platform.support.AppRootAccessFacade.runRootCommand("am force-stop $packageName")
         }
         val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
-            ?: return context.getString(com.xiaomi.xmsf.R.string.force_register_failed)
+            ?: return ManagerForceRegisterResult(
+                succeeded = false,
+                message = context.getString(com.xiaomi.xmsf.R.string.force_register_failed),
+            )
         launchIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
         if (runCatching { context.startActivity(launchIntent) }.isFailure) {
-            return context.getString(com.xiaomi.xmsf.R.string.force_register_failed)
+            return ManagerForceRegisterResult(
+                succeeded = false,
+                message = context.getString(com.xiaomi.xmsf.R.string.force_register_failed),
+            )
         }
         kotlinx.coroutines.delay(500)
         return forceRegisterWithFeedback(context, packageName, registeredType)
     }
 
-    private fun forceRegisterWithFeedback(context: Context, packageName: String, registeredType: Int): String {
+    private fun forceRegisterWithFeedback(
+        context: Context,
+        packageName: String,
+        registeredType: Int,
+    ): ManagerForceRegisterResult {
         // launchTargetAppAndForceRegister already requested and verified root for this operation.
         // Do not trigger a second Magisk/KernelSU authorization request after launching the app.
         if (
@@ -750,20 +786,32 @@ class XmsfManagerApplicationGateway : ManagerApplicationGateway {
         }
         val result = runCatching { RegistrationHelper.tryForceRegister(packageName) }
         if (result.getOrDefault(false)) {
-            return context.getString(com.xiaomi.xmsf.R.string.force_register_sent)
+            return ManagerForceRegisterResult(
+                succeeded = true,
+                message = context.getString(com.xiaomi.xmsf.R.string.force_register_sent),
+            )
         }
         val cause = result.exceptionOrNull()
         if (cause is NoClassDefFoundError || cause is ClassNotFoundException) {
-            return context.getString(com.xiaomi.xmsf.R.string.force_register_unavailable)
+            return ManagerForceRegisterResult(
+                succeeded = false,
+                message = context.getString(com.xiaomi.xmsf.R.string.force_register_unavailable),
+            )
         }
         return if (runCatching { RegistrationHelper.tryForceRegisterFallback(packageName) }.getOrDefault(false)) {
-            context.getString(com.xiaomi.xmsf.R.string.force_register_sent)
+            ManagerForceRegisterResult(
+                succeeded = true,
+                message = context.getString(com.xiaomi.xmsf.R.string.force_register_sent),
+            )
         } else {
-            context.getString(com.xiaomi.xmsf.R.string.force_register_failed)
+            ManagerForceRegisterResult(
+                succeeded = false,
+                message = context.getString(com.xiaomi.xmsf.R.string.force_register_failed),
+            )
         }
     }
 
-    private fun refreshTransientState(context: Context, application: RegisteredApplication) {
+    private suspend fun refreshTransientState(context: Context, application: RegisteredApplication) {
         val readSource = AndroidManagerApplicationReadSource(context)
         application.lastReceiveTime = Date(readSource.readLastReceiveTime(application.packageName))
         application.existServices = readSource.readInstalledApplication(application.packageName)
@@ -779,36 +827,36 @@ class XmsfManagerRuntimeActions(
         EventRetentionManager.pruneNow()
     }
 
-    override fun startMiPushServiceAsForegroundService(context: Context) {
+    override suspend fun startMiPushServiceAsForegroundService(context: Context) {
         runtimeSettingsAdapter.startMiPushServiceAsForegroundService(context)
     }
 
-    override fun resetTopActivityCache() {
+    override suspend fun resetTopActivityCache() {
         runtimeSettingsAdapter.resetTopActivityCache()
     }
 
-    override fun sendXmppReconnectRequest(context: Context): Boolean =
+    override suspend fun sendXmppReconnectRequest(context: Context): Boolean =
         runtimeSettingsAdapter.sendXmppReconnectRequest()
 
-    override fun setXmppServer(context: Context, newHost: String) {
+    override suspend fun setXmppServer(context: Context, newHost: String) {
         runtimeSettingsAdapter.setXmppServer(context, newHost)
     }
 
-    override fun getRuntimeEnvironmentSnapshot(context: Context): ManagerRuntimeEnvironmentSnapshot {
+    override suspend fun getRuntimeEnvironmentSnapshot(context: Context): ManagerRuntimeEnvironmentSnapshot {
         return runtimeSettingsAdapter.getRuntimeEnvironmentSnapshot(context)
     }
 
-    override fun getConnectionSnapshot() = runtimeSettingsAdapter.getConnectionSnapshot()
+    override suspend fun getConnectionSnapshot() = runtimeSettingsAdapter.getConnectionSnapshot()
 
     override fun observeNotificationEvent(packageName: String, action: String, source: String) {
         PushRuntime.observeNotificationEvent(packageName, action, source)
     }
 
-    override fun setRuntimeLogRetentionDays(days: Int) {
+    override suspend fun setRuntimeLogRetentionDays(days: Int) {
         LogUtils.setRetentionDays(days)
     }
 
-    override fun applyEventRetentionDays(days: Int) {
+    override suspend fun applyEventRetentionDays(days: Int) {
         // 保留天数已由上层写入 DataStore;App 层的 collect 会更新 EventRetentionManager 的
         // provider 缓存。这里立即跑一次清理,让改小后的保留窗口即时生效。
         MiPushFrameworkApp.applicationScope.launch {
@@ -848,6 +896,7 @@ private fun ManagerApplication.toRegisteredApplication(): RegisteredApplication 
         islandEnabled = islandEnabled,
         islandFocusNotification = islandFocusNotification,
     ).also {
+        it.userId = userId
         it.existServices = existServices
         it.appNamePinYin = appNamePinYin
         it.lastReceiveTime = Date(lastReceiveTimeMs)
@@ -862,31 +911,41 @@ class XmsfZygiskConfigGateway : io.github.magisk317.mipush.common.manager.Zygisk
         io.github.magisk317.mipush.platform.support.PermissionUtils.hasCachedRootAccess() ||
             io.github.magisk317.mipush.platform.support.PermissionUtils.refreshRootAccessIfGranted()
 
-    override fun isZygiskModuleEnabled(): Boolean {
-        if (!hasExistingRootForZygisk()) return false
+    override suspend fun isZygiskModuleEnabled(): io.github.magisk317.mipush.common.manager.ZygiskModuleReadResult {
+        if (!hasExistingRootForZygisk()) {
+            return io.github.magisk317.mipush.common.manager.ZygiskModuleReadResult.Unavailable("zygisk_root_missing")
+        }
         return try {
             val getPropMethod = Class.forName("android.os.SystemProperties")
                 .getMethod("get", String::class.java, String::class.java)
             val result = getPropMethod.invoke(null, "mipush.zygisk.enabled", "false") as String
-            result == "true"
+            io.github.magisk317.mipush.common.manager.ZygiskModuleReadResult.Available(result == "true")
         } catch (_: Exception) {
-            false
+            io.github.magisk317.mipush.common.manager.ZygiskModuleReadResult.Unavailable("zygisk_status_read_failed")
         }
     }
 
     override fun getZygiskConfigPath(): String = ZYGISK_CONFIG_PATH
 
-    override fun getZygiskConfig(): ZygiskConfig {
-        if (!hasExistingRootForZygisk()) return ZygiskConfig()
+    override suspend fun getZygiskConfig(): io.github.magisk317.mipush.common.manager.ZygiskConfigReadResult {
+        if (!hasExistingRootForZygisk()) {
+            return io.github.magisk317.mipush.common.manager.ZygiskConfigReadResult.Unavailable("zygisk_root_missing")
+        }
         val result = io.github.magisk317.mipush.platform.support.AppRootAccessFacade.runRootCommand(
             "cat $ZYGISK_CONFIG_PATH",
             timeoutMs = 5_000L,
         )
-        if (!result.isSuccess) return ZygiskConfig()
-        return ZygiskConfig.parse(result.stdout.joinToString("\n"))
+        if (!result.isSuccess) {
+            return io.github.magisk317.mipush.common.manager.ZygiskConfigReadResult.Unavailable(
+                result.stderr.joinToString(" ").ifBlank { "zygisk_config_read_failed" },
+            )
+        }
+        return io.github.magisk317.mipush.common.manager.ZygiskConfigReadResult.Available(
+            ZygiskConfig.parse(result.stdout.joinToString("\n")),
+        )
     }
 
-    override fun saveZygiskConfig(config: ZygiskConfig): Boolean {
+    override suspend fun saveZygiskConfig(config: ZygiskConfig): Boolean {
         if (!hasExistingRootForZygisk()) return false
         val content = config.toFileContent()
         val command = listOf(
@@ -902,12 +961,31 @@ class XmsfZygiskConfigGateway : io.github.magisk317.mipush.common.manager.Zygisk
         return result.isSuccess
     }
 
-    override fun forceStopApp(packageName: String) {
-        if (!hasExistingRootForZygisk()) return
-        io.github.magisk317.mipush.platform.support.AppRootAccessFacade.runRootCommand(
-            "am force-stop $packageName",
+    override suspend fun forceStopApp(packageName: String): Boolean {
+        if (!hasExistingRootForZygisk()) return false
+        return io.github.magisk317.mipush.platform.support.AppRootAccessFacade.runRootCommand(
+            "am force-stop ${shellQuote(packageName)}",
             timeoutMs = 5_000L,
+        ).isSuccess
+    }
+
+    override suspend fun scanZygiskPackages(): io.github.magisk317.mipush.common.manager.ZygiskPackageScanResult {
+        if (!hasExistingRootForZygisk()) {
+            return io.github.magisk317.mipush.common.manager.ZygiskPackageScanResult.Unavailable("zygisk_root_missing")
+        }
+        val result = io.github.magisk317.mipush.platform.support.AppRootAccessFacade.runRootCommand(
+            "/data/adb/modules/mipush_zygisk/bin/mipushctl scan",
+            timeoutMs = 30_000L,
         )
+        return if (result.isSuccess) {
+            io.github.magisk317.mipush.common.manager.ZygiskPackageScanResult.Available(
+                result.stdout.joinToString("\n"),
+            )
+        } else {
+            io.github.magisk317.mipush.common.manager.ZygiskPackageScanResult.Unavailable(
+                result.stderr.joinToString(" ").ifBlank { "zygisk_scan_failed" },
+            )
+        }
     }
 
     private fun shellQuote(value: String): String = "'" + value.replace("'", "'\"'\"'") + "'"

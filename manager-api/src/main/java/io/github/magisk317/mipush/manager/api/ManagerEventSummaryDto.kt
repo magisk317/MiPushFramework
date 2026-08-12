@@ -19,6 +19,7 @@ data class ManagerEventSummaryDto(
     val info: String? = null,
     val payload: ByteArray? = null,
     val regSec: String? = null,
+    val userId: Int = 0,
 ) : Parcelable {
     override fun writeToParcel(destination: Parcel, flags: Int) {
         destination.writeWireFrame {
@@ -37,6 +38,7 @@ data class ManagerEventSummaryDto(
             writeString(info)
             writeWireByteArray(payload)
             writeString(regSec)
+            writeInt(userId)
         }
     }
 
@@ -59,6 +61,7 @@ data class ManagerEventSummaryDto(
             info == other.info &&
             payload.contentEquals(other.payload) &&
             regSec == other.regSec
+            && userId == other.userId
     }
 
     override fun hashCode(): Int {
@@ -76,6 +79,7 @@ data class ManagerEventSummaryDto(
         resultHash = 31 * resultHash + (info?.hashCode() ?: 0)
         resultHash = 31 * resultHash + (payload?.contentHashCode() ?: 0)
         resultHash = 31 * resultHash + (regSec?.hashCode() ?: 0)
+        resultHash = 31 * resultHash + userId
         return resultHash
     }
 
@@ -102,6 +106,7 @@ data class ManagerEventSummaryDto(
                         info = readString(),
                         payload = readByteArray(),
                         regSec = readString(),
+                        userId = readInt(-1),
                     )
                 }
 

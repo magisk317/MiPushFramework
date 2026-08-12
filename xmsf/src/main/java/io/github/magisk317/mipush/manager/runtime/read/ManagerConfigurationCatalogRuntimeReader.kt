@@ -7,7 +7,6 @@ import io.github.magisk317.mipush.manager.api.ManagerConfigurationCatalogDto
 import io.github.magisk317.mipush.manager.api.ManagerConfigurationCatalogEntryDto
 import io.github.magisk317.mipush.manager.api.ManagerProtocol
 import io.github.magisk317.mipush.utils.RemoteConfigCatalog
-import kotlinx.coroutines.runBlocking
 
 /**
  * Returns cached remote configuration catalog metadata only. Local SAF trees and document content
@@ -22,19 +21,10 @@ class ManagerConfigurationCatalogRuntimeReader(
         syncStateStore = AppDependencies.get(context),
     )
 
-    fun readCatalog(): ManagerConfigurationCatalogDto {
-        val catalog = runBlocking {
-            val source = catalogService.getRemoteSource()
-            syncStateStore.getCachedCatalog(source)
-                ?: runCatching { catalogService.fetchCatalog(source) }
-                    .onSuccess { fetched -> syncStateStore.cacheCatalog(source, fetched) }
-                    .getOrNull()
-                ?: RemoteConfigCatalog(
-                    sourceRepo = source.repository,
-                    branch = source.branch,
-                    generatedAt = "",
-                    files = emptyList(),
-                )
+    suspend fun readCatalog(): ManagerConfigurationCatalogDto {
+        val source = catalogService.getRemoteSource()
+        val catalog = syncStateStore.getCachedCatalog(source) ?: catalogService.fetchCatalog(source).also {
+            syncStateStore.cacheCatalog(source, it)
         }
         return catalog.toWireDto()
     }

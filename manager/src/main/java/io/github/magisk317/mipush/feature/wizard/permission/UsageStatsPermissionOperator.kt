@@ -11,7 +11,7 @@ import io.github.magisk317.mipush.platform.activity.impl.ActivityAccessibilityIm
 import io.github.magisk317.mipush.platform.override.AppOpsManagerOverride
 
 class UsageStatsPermissionOperator(private val context: Context) : PermissionOperator {
-    override fun isPermissionGranted(permissionGateway: ManagerPermissionGateway?): Boolean {
+    override suspend fun isPermissionGranted(permissionGateway: ManagerPermissionGateway?): Boolean {
         val uid = context.applicationInfo.uid
         val packageName = context.packageName
         val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager ?: return false
@@ -41,7 +41,7 @@ class UsageStatsPermissionOperator(private val context: Context) : PermissionOpe
         ).isNotEmpty() || isGrantedByShell(packageName, permissionGateway)
     }
 
-    private fun isGrantedByShell(packageName: String, permissionGateway: ManagerPermissionGateway?): Boolean {
+    private suspend fun isGrantedByShell(packageName: String, permissionGateway: ManagerPermissionGateway?): Boolean {
         return permissionGateway?.isUsageStatsAllowedByRoot(packageName) == true
     }
 
@@ -51,7 +51,7 @@ class UsageStatsPermissionOperator(private val context: Context) : PermissionOpe
             mode == AppOpsManagerOverride.MODE_DEFAULT
     }
 
-    override fun requestPermissionSilently(permissionGateway: ManagerPermissionGateway?): Boolean {
+    override suspend fun requestPermissionSilently(permissionGateway: ManagerPermissionGateway?): Boolean {
         val gateway = permissionGateway ?: return false
         return gateway.launchAppOps(
             context,
@@ -60,7 +60,7 @@ class UsageStatsPermissionOperator(private val context: Context) : PermissionOpe
         )
     }
 
-    override fun requestPermission(permissionGateway: ManagerPermissionGateway?) {
+    override suspend fun requestPermission(permissionGateway: ManagerPermissionGateway?) {
         context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
     }
 }

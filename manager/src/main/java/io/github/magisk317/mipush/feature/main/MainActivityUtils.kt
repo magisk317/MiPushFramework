@@ -13,8 +13,12 @@ import io.github.magisk317.mipush.runtime.core.ConnectionStatus
 import io.github.magisk317.mipush.common.manager.ManagerRuntimeEnvironmentSnapshot
 import io.github.magisk317.mipush.common.utils.Utils
 import io.github.magisk317.mipush.manager.SettingsManager
+import io.github.magisk317.mipush.manager.remote.RuntimeReadUnavailableException
 import io.github.magisk317.mipush.platform.support.InternalMessenger
 import io.github.magisk317.mipush.platform.support.PushServiceBroadcastActions
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MainActivityUtils(
     private val settingsManager: SettingsManager,
@@ -28,8 +32,9 @@ class MainActivityUtils(
 
     fun initOnCreate(
         context: Context,
-        loadConfigurations: (Context) -> Unit,
+        loadConfigurations: suspend (Context) -> Unit,
         connectionStatusChanged: ConnectionStatusChanged,
+        scope: CoroutineScope,
     ) {
         val appContext = context.applicationContext
         close()
@@ -41,12 +46,26 @@ class MainActivityUtils(
             }
         }
 
-        printHookResultForCheck()
-        loadConfigurations(appContext)
+        scope.launch(Dispatchers.IO) {
+            try {
+                printHookResultForCheck()
+            } catch (error: RuntimeReadUnavailableException) {
+                logW(
+                    "runtime snapshot unavailable during startup " +
+                        "op=${error.operation} status=${error.status}",
+                    error,
+                )
+            } catch (error: Throwable) {
+                logE("runtime snapshot check failed during startup", error)
+            }
+        }
+        scope.launch(Dispatchers.IO) {
+            loadConfigurations(appContext)
+        }
         messenger?.send(Intent(PushServiceBroadcastActions.GET_CONNECTION_STATUS))
     }
 
-    fun printHookResultForCheck() {
+    suspend fun printHookResultForCheck() {
         val snapshot = settingsManager.getRuntimeEnvironmentSnapshot(Utils.getApplication() ?: return)
         safeRuntimeSnapshotLines(snapshot).forEach(::logI)
     }

@@ -9,16 +9,15 @@ import io.github.magisk317.mipush.manager.application.ApplicationReadResult
 import io.github.magisk317.mipush.manager.application.ApplicationReadStatus
 import io.github.magisk317.mipush.manager.application.RemoteApplicationListSource
 import io.github.magisk317.mipush.common.manager.ManagerApplications
-import kotlinx.coroutines.runBlocking
 
 class ApplicationPageOperation(
     private val applicationSource: RemoteApplicationListSource,
 ) {
-    fun getMiPushApplications(includeSystemApps: Boolean = false): ApplicationListLoadOutcome {
+    suspend fun getMiPushApplications(includeSystemApps: Boolean = false): ApplicationListLoadOutcome {
         return getMiPushApplications(query = "", filterMode = 0, includeSystemApps = includeSystemApps)
     }
 
-    fun getMiPushApplicationsThatQueryMatched(
+    suspend fun getMiPushApplicationsThatQueryMatched(
         query: String,
         filterMode: Int = 0,
         includeSystemApps: Boolean = false,
@@ -29,14 +28,12 @@ class ApplicationPageOperation(
     fun getNotSupportHint(context: android.content.Context, notUseMiPushCount: Int): String =
         context.getString(R.string.footer_app_ignored_not_registered, notUseMiPushCount.toString())
 
-    private fun getMiPushApplications(
+    private suspend fun getMiPushApplications(
         query: String,
         filterMode: Int,
         includeSystemApps: Boolean = false,
     ): ApplicationListLoadOutcome {
-        val result = runBlocking {
-            applicationSource.load(ApplicationListRequest(query, filterMode, includeSystemApps))
-        }
+        val result = applicationSource.load(ApplicationListRequest(query, filterMode, includeSystemApps))
         return when (result) {
             is ApplicationReadResult.Available -> {
                 val snapshot = result.value

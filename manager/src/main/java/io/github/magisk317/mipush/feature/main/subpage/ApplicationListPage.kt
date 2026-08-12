@@ -93,7 +93,7 @@ import org.koin.compose.viewmodel.koinViewModel
 data class AppInfoForDisplay(
     val registrationState: Pair<Int, Color>,
     val lastReceiveTime: String,
-    val isZygiskEnabled: Boolean = false,
+    val isZygiskEnabled: Boolean? = null,
 )
 
 private val TAG = "ApplicationListPage"
@@ -443,7 +443,7 @@ private fun ApplicationItem(item: ManagerApplication, onAppClick: (String) -> Un
                 containerColor = statusColor.copy(alpha = 0.14f),
                 contentColor = statusColor,
             )
-            if (info.isZygiskEnabled) {
+            if (info.isZygiskEnabled == true) {
                 AppListBadge(
                     text = "Zygisk",
                     containerColor = MaterialTheme.colorScheme.tertiaryContainer,

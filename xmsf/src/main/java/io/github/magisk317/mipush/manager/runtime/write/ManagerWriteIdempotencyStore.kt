@@ -16,28 +16,37 @@ class ManagerWriteIdempotencyStore(
 ) {
     private val lock = ReentrantLock()
     private val condition = lock.newCondition()
-    private val results = object : LinkedHashMap<String, ManagerWriteResultDto>(maxEntries, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ManagerWriteResultDto>?): Boolean =
+    private val results = object : LinkedHashMap<String, Entry>(maxEntries, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Entry>?): Boolean =
             size > maxEntries
     }
     private val inFlight = linkedSetOf<String>()
 
     fun get(requestId: String): ManagerWriteResultDto? = lock.withLock {
-        results[requestId]
+        results[requestId]?.result
     }
 
     /**
      * Returns a previous result (as [WRITE_STATUS_DUPLICATE]), waits for an in-flight peer, or
      * reserves [requestId] for the caller to execute.
      */
-    fun begin(requestId: String): BeginResult {
+    fun begin(requestId: String, requestFingerprint: String = ""): BeginResult {
         if (requestId.isBlank()) return BeginResult.Execute
         lock.lock()
         try {
             while (true) {
                 results[requestId]?.let { previous ->
+                    if (previous.requestFingerprint != requestFingerprint) {
+                        return BeginResult.Rejected(
+                            ManagerWriteResultDto(
+                                requestId = requestId,
+                                status = ManagerProtocol.WRITE_STATUS_FAILED,
+                                details = "request_id_reused",
+                            ),
+                        )
+                    }
                     return BeginResult.Duplicate(
-                        previous.copy(status = ManagerProtocol.WRITE_STATUS_DUPLICATE),
+                        previous.result.copy(status = ManagerProtocol.WRITE_STATUS_DUPLICATE),
                     )
                 }
                 if (requestId !in inFlight) {
@@ -51,7 +60,7 @@ class ManagerWriteIdempotencyStore(
         }
     }
 
-    fun complete(result: ManagerWriteResultDto) = lock.withLock {
+    fun complete(result: ManagerWriteResultDto, requestFingerprint: String = "") = lock.withLock {
         inFlight -= result.requestId
         // Only cache completed successes. Caching FAILED (e.g. temporary ROOT_MISSING)
         // would permanently block later retries with the same stable requestId after the
@@ -60,7 +69,7 @@ class ManagerWriteIdempotencyStore(
             (result.status == ManagerProtocol.WRITE_STATUS_SUCCESS ||
                 result.status == ManagerProtocol.WRITE_STATUS_DUPLICATE)
         ) {
-            results[result.requestId] = result
+            results[result.requestId] = Entry(result, requestFingerprint)
         }
         condition.signalAll()
     }
@@ -70,10 +79,17 @@ class ManagerWriteIdempotencyStore(
         condition.signalAll()
     }
 
-    fun put(result: ManagerWriteResultDto) = complete(result)
+    fun put(result: ManagerWriteResultDto, requestFingerprint: String = "") =
+        complete(result, requestFingerprint)
+
+    private data class Entry(
+        val result: ManagerWriteResultDto,
+        val requestFingerprint: String,
+    )
 
     sealed interface BeginResult {
         data object Execute : BeginResult
         data class Duplicate(val result: ManagerWriteResultDto) : BeginResult
+        data class Rejected(val result: ManagerWriteResultDto) : BeginResult
     }
 }

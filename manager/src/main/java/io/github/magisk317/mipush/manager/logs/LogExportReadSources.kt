@@ -38,9 +38,9 @@ enum class LogExportReadStatus {
 class GatewayLogExportSource(
     private val logGateway: ManagerLogGateway,
 ) {
-    fun export(context: Context): ManagerLogExportResult = logGateway.buildLogBundle(context)
+    suspend fun export(context: Context): ManagerLogExportResult = logGateway.buildLogBundle(context)
 
-    fun snapshot(context: Context): LogExportSnapshot {
+    suspend fun snapshot(context: Context): LogExportSnapshot {
         val result = export(context)
         return LogExportSnapshot(
             success = result.file != null,

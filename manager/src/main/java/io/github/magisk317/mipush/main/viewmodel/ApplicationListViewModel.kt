@@ -169,7 +169,7 @@ class ApplicationListViewModel constructor(
 
     private suspend fun updateInfos(applications: ApplicationPageOperation.MiPushApplications) {
         val zygiskPackages = withContext(Dispatchers.IO) {
-            runCatching { settingsManager.getZygiskSpoofPackages() }.getOrDefault(emptySet())
+            runCatching { settingsManager.getZygiskSpoofPackages() }.getOrNull()
         }
         val infoMap = emptyMap<String, AppInfoForDisplay>().toMutableMap()
         applications.res.forEach {
@@ -181,7 +181,7 @@ class ApplicationListViewModel constructor(
                     Date(),
                     context
                 ),
-                isZygiskEnabled = zygiskPackages.contains(it.packageName),
+                isZygiskEnabled = zygiskPackages?.contains(it.packageName),
             )
         }
         _itemsInfo.value = infoMap

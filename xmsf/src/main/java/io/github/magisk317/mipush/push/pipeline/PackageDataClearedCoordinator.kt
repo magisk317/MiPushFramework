@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.push.pipeline
 
 import android.content.Context
+import android.content.pm.PackageManager
 import com.xiaomi.push.service.MIPushAppAbsentManager
 import com.xiaomi.push.service.MIPushHelper
 import com.xiaomi.push.service.MIPushNotificationHelper
@@ -11,12 +12,21 @@ import com.xiaomi.xmpush.thrift.XmPushThriftSerializeUtils
 import com.xiaomi.xmsf.stock.StockProfileIdStore
 import io.github.aakira.napier.Napier
 import io.github.magisk317.mipush.common.utils.Utils
+import io.github.magisk317.mipush.notification.NativeNotificationFeatureBuilder
+import io.github.magisk317.mipush.notification.SweetNotificationCoordinator
+import io.github.magisk317.mipush.notification.TopNotificationCoordinator
+import io.github.magisk317.mipush.notification.VoipNotificationHelper
 import io.github.magisk317.mipush.runtime.PushRuntime
 import io.github.magisk317.mipush.runtime.PushRuntimePendingPacketStore
 import io.github.magisk317.mipush.runtime.PushRuntimeRegistrationTaskStore
 import io.github.magisk317.mipush.runtime.store.db.RegisteredApplicationDb
 import io.github.magisk317.mipush.service.XMPushServiceLifecycleBridge
 import io.github.magisk317.mipush.service.runtime.RegistrationRecordDeduper
+import io.github.magisk317.mipush.service.runtime.ExtensionNotificationCoordinator
+import io.github.magisk317.mipush.service.runtime.KeepAliveRuntimeAdapter
+import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationStyleSupport
+import io.github.magisk317.mipush.service.runtime.MyMIPushNotificationHelper
+import io.github.magisk317.mipush.service.runtime.StockMiPushPayloadDeduper
 import io.github.magisk317.xposed.logging.MagiskOtel
 
 internal fun interface AppDataClearedPacketDispatcher {
@@ -50,6 +60,7 @@ internal object PackageDataClearedCoordinator {
         dispatcher: AppDataClearedPacketDispatcher = runtimeDispatcher,
     ): PackageDataClearedResult {
         val appContext = context.applicationContext ?: context
+        val userId = resolveTargetUserId(appContext, packageName)
         val appId = MIPushAppAbsentManager.getRememberedAppId(appContext, packageName)
         val payload = appId?.let { buildPayload(packageName, it) }
         var cleanupFailureCount = 0
@@ -76,18 +87,47 @@ internal object PackageDataClearedCoordinator {
             }
         }
         cleanup("profile_ids") { StockProfileIdStore.clear(appContext, packageName) }
-        cleanup("application_db") { RegisteredApplicationDb.markUnregistered(packageName) }
-        cleanup("registration_secret") { Utils.removeRegSec(packageName) }
-        cleanup("last_receive_time") { Utils.removeLastReceiveTime(packageName) }
-        cleanup("registration_record_deduper") { RegistrationRecordDeduper.reset(packageName) }
-        cleanup("registration_tasks") { PushRuntimeRegistrationTaskStore.clear(packageName) }
-        cleanup("pending_packets") { PushRuntimePendingPacketStore.discardPackage(packageName) }
+        cleanup("application_db") { RegisteredApplicationDb.markUnregistered(packageName, userId) }
+        cleanup("registration_secret") { Utils.removeRegSec(packageName, userId) }
+        cleanup("last_receive_time") { Utils.removeLastReceiveTime(packageName, userId) }
+        cleanup("registration_record_deduper") { RegistrationRecordDeduper.reset(packageName, userId) }
+        cleanup("registration_tasks") { PushRuntimeRegistrationTaskStore.clear(packageName, userId) }
+        cleanup("pending_packets") { PushRuntimePendingPacketStore.discardPackage(packageName, userId) }
         cleanup("runtime_state") {
+            PushRuntime.clearPackageTransientState(packageName, userId)
             PushRuntime.observeUnregistration(
                 packageName = packageName,
                 source = "PackageDataClearedCoordinator",
                 reason = "package_data_cleared",
             )
+        }
+        cleanup("payload_deduplication") {
+            StockMiPushPayloadDeduper.clearPackageState(packageName, userId)
+            MyMIPushNotificationHelper.clearPackageTransientState(packageName, userId)
+        }
+        cleanup("notification_dispatch_allowance") {
+            MiPushRuntimeBridge.clearPackageTransientState(packageName, userId)
+        }
+        cleanup("top_notification_state") {
+            TopNotificationCoordinator.clearPackageState(appContext, packageName, userId)
+        }
+        cleanup("sweet_notification_state") {
+            SweetNotificationCoordinator.clearPackageState(appContext, packageName, userId)
+        }
+        cleanup("voip_notification_state") {
+            VoipNotificationHelper.clearPackageState(packageName, userId)
+        }
+        cleanup("conversation_history") {
+            MyMIPushNotificationStyleSupport.clearConversationHistories(packageName, userId)
+        }
+        cleanup("media_sessions") {
+            NativeNotificationFeatureBuilder.clearPackageState(packageName, userId)
+        }
+        cleanup("extension_notification_state") {
+            ExtensionNotificationCoordinator.clearPackageState(packageName, userId)
+        }
+        cleanup("keep_alive_state") {
+            KeepAliveRuntimeAdapter.clearPackageState(appContext, packageName, userId)
         }
 
         val packetAccepted = payload?.let {
@@ -121,6 +161,23 @@ internal object PackageDataClearedCoordinator {
             packetAccepted = packetAccepted,
             cleanupFailureCount = cleanupFailureCount,
         )
+    }
+
+    private fun resolveTargetUserId(context: Context, packageName: String): Int {
+        return runCatching {
+            val uid = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getApplicationInfo(
+                    packageName,
+                    PackageManager.ApplicationInfoFlags.of(0),
+                ).uid
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getApplicationInfo(packageName, 0).uid
+            }
+            (uid.toLong() / 100_000L).toInt().coerceAtLeast(0)
+        }.getOrElse {
+            Utils.myUserId().coerceAtLeast(0)
+        }
     }
 
     internal fun buildPayload(packageName: String, appId: String): ByteArray {

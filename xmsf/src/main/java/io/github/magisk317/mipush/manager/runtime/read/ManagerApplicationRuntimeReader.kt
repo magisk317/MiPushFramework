@@ -8,9 +8,13 @@ class ManagerApplicationRuntimeReader(
     private val maxPageSize: Int = ManagerApplicationReadQuery.DEFAULT_PAGE_SIZE,
     private val maxPayloadBytes: Int = DEFAULT_MAX_PAYLOAD_BYTES,
 ) {
-    fun readPage(query: ManagerApplicationReadQuery): ManagerApplicationReadPage {
+    suspend fun readPage(query: ManagerApplicationReadQuery): ManagerApplicationReadPage {
         validateQuery(query)
-        val stored = source.readStoredApplications().associateBy(StoredApplicationSnapshot::packageName)
+        val userId = source.currentUserId().coerceAtLeast(0)
+        require(query.userId == userId) { "Application query user mismatch" }
+        val stored = source.readStoredApplications()
+            .asCurrentUser(userId)
+            .associateBy(StoredApplicationSnapshot::packageName)
         val catalog = source.readInstalledApplications(query.includeSystemApps)
         val packageNames = catalog.applications.map(InstalledApplicationSnapshot::packageName)
         val receiveTimes = source.readLastReceiveTimes(packageNames)
@@ -28,6 +32,7 @@ class ManagerApplicationRuntimeReader(
             ) ?: installed.toTransientManagerApplication(
                 locallyRegistered = installed.packageName in locallyRegistered,
                 lastReceiveTimeMs = receiveTimes[installed.packageName] ?: 0L,
+                userId = userId,
             )
         }
         val filtered = all
@@ -38,7 +43,7 @@ class ManagerApplicationRuntimeReader(
             .toList()
         val stats = statsFor(filtered, catalog.totalCandidatePackages)
         val startIndex = query.pageToken?.let { token ->
-            val cursorPackage = ManagerApplicationPageToken.decode(query, token)
+            val cursorPackage = ManagerApplicationPageToken.decode(query, token, userId)
             filtered.indexOfFirst { it.packageName == cursorPackage }
                 .takeIf { it >= 0 }
                 ?.plus(1)
@@ -46,20 +51,23 @@ class ManagerApplicationRuntimeReader(
         } ?: 0
         val pageItems = takeBoundedPage(filtered.drop(startIndex), query.pageSize)
         val nextToken = if (startIndex + pageItems.size < filtered.size) {
-            ManagerApplicationPageToken.encode(query, pageItems.last().packageName)
+            ManagerApplicationPageToken.encode(query, pageItems.last().packageName, userId)
         } else {
             null
         }
         return ManagerApplicationReadPage(
+            userId = userId,
             items = pageItems,
             stats = stats,
             nextPageToken = nextToken,
         )
     }
 
-    fun readDetail(packageName: String, ignoreNotRegistered: Boolean): ManagerApplication? {
+    suspend fun readDetail(packageName: String, ignoreNotRegistered: Boolean): ManagerApplication? {
         require(isValidPackageName(packageName)) { "Invalid application package name" }
+        val userId = source.currentUserId().coerceAtLeast(0)
         val stored = source.readStoredApplications()
+            .asCurrentUser(userId)
             .firstOrNull { it.packageName == packageName }
         val installed = source.readInstalledApplication(packageName)
         if (stored == null && !ignoreNotRegistered) return null
@@ -81,16 +89,18 @@ class ManagerApplicationRuntimeReader(
             .toTransientManagerApplication(
                 locallyRegistered = locallyRegistered,
                 lastReceiveTimeMs = lastReceiveTime,
+                userId = userId,
                 notificationOnRegister = false,
                 deriveAppNamePinYin = false,
             )
     }
 
-    fun readDiagnostics(packageName: String, registeredType: Int): ManagerApplicationReadDiagnostics {
+    suspend fun readDiagnostics(packageName: String, registeredType: Int): ManagerApplicationReadDiagnostics {
         require(isValidPackageName(packageName)) { "Invalid application package name" }
         require(registeredType in ManagerApplication.RegisteredType.NOT_REGISTERED..ManagerApplication.RegisteredType.UNREGISTERED) {
             "Invalid registered type"
         }
+        val userId = source.currentUserId().coerceAtLeast(0)
         val latestEvent = source.readLatestRegistrationEvent(packageName)
         val hasLocalRegistration = source.hasLocalRegistration(packageName)
         val regSecCount = source.readRegSecCount(packageName)
@@ -100,6 +110,7 @@ class ManagerApplicationRuntimeReader(
             regSecCount = regSecCount,
             latestRegistrationEventResult = latestEvent?.result,
             registeredType = registeredType,
+            userId = userId,
             inferenceReason = ManagerApplicationReadPolicy.inferReason(
                 registeredType = registeredType,
                 latestEvent = latestEvent,
@@ -176,10 +187,14 @@ class ManagerApplicationRuntimeReader(
     }
 }
 
+private fun List<StoredApplicationSnapshot>.asCurrentUser(userId: Int): List<StoredApplicationSnapshot> =
+    filter { it.userId.coerceAtLeast(0) == userId }
+
 data class ManagerApplicationReadDiagnostics(
     val hasLocalRegistration: Boolean,
     val regSecCount: Int,
     val latestRegistrationEventResult: Int?,
     val registeredType: Int,
     val inferenceReason: String,
+    val userId: Int = 0,
 )

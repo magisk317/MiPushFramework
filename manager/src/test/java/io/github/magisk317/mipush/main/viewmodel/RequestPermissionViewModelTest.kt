@@ -2,6 +2,7 @@ package io.github.magisk317.mipush.main.viewmodel
 
 import android.content.Context
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
+import io.github.magisk317.mipush.common.manager.ManagerDualAppInstallationResult
 import io.github.magisk317.mipush.common.manager.ManagerRootAccessSnapshot
 import io.github.magisk317.mipush.common.manager.ManagerRootAccessState
 import io.github.magisk317.mipush.common.manager.ManagerRootSubjectStatus
@@ -19,7 +20,7 @@ import org.junit.jupiter.api.Test
 
 class RequestPermissionViewModelTest {
     @Test
-    fun `root silent check refreshes without requesting authorization`() {
+    fun `root silent check refreshes without requesting authorization`() = runBlocking {
         val gateway = FakePermissionGateway()
 
         val granted = RootPermissionOperator().requestPermissionSilently(gateway)
@@ -45,7 +46,7 @@ class RequestPermissionViewModelTest {
     }
 
     @Test
-    fun `manager and runtime root requests stay independent`() {
+    fun `manager and runtime root requests stay independent`() = runBlocking {
         val gateway = FakePermissionGateway()
 
         val managerSnapshot = gateway.requestRootAccess(ManagerRootTarget.MANAGER)
@@ -71,9 +72,9 @@ class RequestPermissionViewModelTest {
         private var rootGranted = false
         private var managerRootGranted = false
 
-        override fun getRootAccessSnapshot(refresh: Boolean): ManagerRootAccessSnapshot = snapshot()
+        override suspend fun getRootAccessSnapshot(refresh: Boolean): ManagerRootAccessSnapshot = snapshot()
 
-        override fun requestRootAccess(target: ManagerRootTarget): ManagerRootAccessSnapshot {
+        override suspend fun requestRootAccess(target: ManagerRootTarget): ManagerRootAccessSnapshot {
             when (target) {
                 ManagerRootTarget.MANAGER -> managerRootGranted = true
                 ManagerRootTarget.RUNTIME -> rootGranted = true
@@ -81,32 +82,33 @@ class RequestPermissionViewModelTest {
             return snapshot()
         }
 
-        override fun hasCachedRootAccess(): Boolean = rootGranted
+        override suspend fun hasCachedRootAccess(): Boolean = rootGranted
 
-        override fun refreshRootAccessIfGranted(): Boolean {
+        override suspend fun refreshRootAccessIfGranted(): Boolean {
             rootRefreshCount += 1
             return rootGranted
         }
 
-        override fun requestRootAccess(): Boolean {
+        override suspend fun requestRootAccess(): Boolean {
             rootRequestCount += 1
             rootGranted = true
             return true
         }
 
-        override fun repairXSpaceUserSupport(): ManagerXSpaceRepairResult = unsupportedRepair()
+        override suspend fun repairXSpaceUserSupport(): ManagerXSpaceRepairResult = unsupportedRepair()
 
-        override fun setDualAppEnabled(enabled: Boolean): ManagerXSpaceRepairResult = unsupportedRepair()
+        override suspend fun setDualAppEnabled(enabled: Boolean): ManagerXSpaceRepairResult = unsupportedRepair()
 
-        override fun isDualAppInstalled(): Boolean = false
+        override suspend fun getDualAppInstallation(): ManagerDualAppInstallationResult =
+            ManagerDualAppInstallationResult.NotInstalled
 
-        override fun launchAppOps(context: Context, permission: String, tips: CharSequence): Boolean = false
+        override suspend fun launchAppOps(context: Context, permission: String, tips: CharSequence): Boolean = false
 
-        override fun isUsageStatsAllowedByRoot(packageName: String): Boolean = false
+        override suspend fun isUsageStatsAllowedByRoot(packageName: String): Boolean = false
 
-        override fun requestIgnoreBatteryOptimizations(context: Context): Boolean = false
+        override suspend fun requestIgnoreBatteryOptimizations(context: Context): Boolean = false
 
-        override fun grantNotificationPermission(context: Context): Boolean = false
+        override suspend fun grantNotificationPermission(context: Context): Boolean = false
 
         private fun unsupportedRepair() = ManagerXSpaceRepairResult(ManagerXSpaceRepairStage.ROOT_MISSING)
 

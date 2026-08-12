@@ -10,6 +10,7 @@ data class ManagerApplicationDiagnosticsDto(
     val latestRegistrationEventResult: Int? = null,
     val registeredType: Int = 0,
     val inferenceReason: String = "",
+    val userId: Int = 0,
 ) : Parcelable {
     override fun writeToParcel(destination: Parcel, flags: Int) {
         destination.writeWireFrame {
@@ -19,6 +20,7 @@ data class ManagerApplicationDiagnosticsDto(
             writeWireNullableInt(latestRegistrationEventResult)
             writeInt(registeredType)
             writeString(inferenceReason)
+            writeInt(userId)
         }
     }
 
@@ -37,6 +39,7 @@ data class ManagerApplicationDiagnosticsDto(
                             latestRegistrationEventResult = readNullableInt(),
                             registeredType = readInt(),
                             inferenceReason = readString().orEmpty(),
+                            userId = readInt(-1),
                         )
                     }
 

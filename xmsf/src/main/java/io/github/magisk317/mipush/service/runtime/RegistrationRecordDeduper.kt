@@ -1,6 +1,7 @@
 package io.github.magisk317.mipush.service.runtime
 
 import io.github.magisk317.xposed.logging.MagiskOtel
+import io.github.magisk317.mipush.common.utils.Utils
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -10,12 +11,21 @@ import java.util.concurrent.ConcurrentHashMap
 object RegistrationRecordDeduper {
     const val DEDUP_WINDOW_MS = 30_000L
 
-    private val lastRecordedAtMs = ConcurrentHashMap<String, Long>()
+    private data class RegistrationKey(
+        val userId: Int,
+        val packageName: String,
+    )
+
+    private val lastRecordedAtMs = ConcurrentHashMap<RegistrationKey, Long>()
 
     @JvmStatic
-    fun shouldSkip(packageName: String?, nowMs: Long = System.currentTimeMillis()): Boolean {
+    fun shouldSkip(
+        packageName: String?,
+        nowMs: Long = System.currentTimeMillis(),
+        userId: Int = currentUserId(),
+    ): Boolean {
         if (packageName.isNullOrBlank()) return false
-        val previous = lastRecordedAtMs.put(packageName, nowMs)
+        val previous = lastRecordedAtMs.put(RegistrationKey(userId, packageName), nowMs)
         val skip = previous != null && nowMs - previous < DEDUP_WINDOW_MS
         MagiskOtel.event(
             name = "push.register",
@@ -26,6 +36,7 @@ object RegistrationRecordDeduper {
                 "stage" to "record_dedupe",
                 "reason" to if (skip) "duplicate_window" else "unique",
                 "target_package" to packageName,
+                "user_id" to userId.toString(),
                 "source" to "register_recorder",
             ),
             statusOk = true,
@@ -34,9 +45,13 @@ object RegistrationRecordDeduper {
     }
 
     @JvmStatic
-    fun markRecorded(packageName: String?, nowMs: Long = System.currentTimeMillis()) {
+    fun markRecorded(
+        packageName: String?,
+        nowMs: Long = System.currentTimeMillis(),
+        userId: Int = currentUserId(),
+    ) {
         if (packageName.isNullOrBlank()) return
-        lastRecordedAtMs[packageName] = nowMs
+        lastRecordedAtMs[RegistrationKey(userId, packageName)] = nowMs
     }
 
     @JvmStatic
@@ -45,7 +60,9 @@ object RegistrationRecordDeduper {
     }
 
     @JvmStatic
-    fun reset(packageName: String) {
-        lastRecordedAtMs.remove(packageName)
+    fun reset(packageName: String, userId: Int = currentUserId()) {
+        lastRecordedAtMs.remove(RegistrationKey(userId, packageName))
     }
+
+    private fun currentUserId(): Int = runCatching { Utils.myUserId() }.getOrDefault(0)
 }

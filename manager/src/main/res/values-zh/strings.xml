@@ -243,6 +243,7 @@
     <string name="settings_configuration_directory">设置配置目录</string>
     <string name="settings_XMPP_server">设置 XMPP 服务器</string>
     <string name="settings_XMPP_server_summary">设置 发送/接收 消息的服务器</string>
+    <string name="settings_XMPP_server_load_failed">XMSF 运行时不可用，连接恢复前无法读取或修改服务器设置。</string>
     <string name="settings_XMPP_server_hint">主机名或主机名:端口</string>
     <string name="settings_XMPP_server_saved">XMPP 服务器已更新</string>
     <string name="settings_XMPP_server_save_failed">XMPP 服务器更新失败</string>
@@ -345,6 +346,11 @@
     <string name="event_cleanup_confirm_all">将删除全部 %1$d 条记录，注册状态记录会保留。此操作不可撤销。</string>
     <string name="event_cleanup_done">已清理 %1$d 条记录</string>
     <string name="event_cleanup_none">没有可清理的记录</string>
+    <string name="event_cleanup_failed">清理失败，请检查 MiPush 运行时连接。</string>
+    <string name="event_initial_load_title">正在准备记录</string>
+    <string name="event_initial_load_summary">首次加载会处理历史记录，可能需要一些时间，请不要关闭页面。</string>
+    <string name="event_load_failed_title">记录加载失败</string>
+    <string name="event_load_failed_summary">运行时仍在处理或暂时不可用，请稍后下拉重试。</string>
     <string name="event_cleanup_prev_month">上个月</string>
     <string name="event_cleanup_next_month">下个月</string>
     <string name="recent_activity_group_count">%1$d 条记录</string>
@@ -364,6 +370,7 @@
     <string name="recent_activity_filter_status_denied">已拒绝</string>
     <string name="recent_activity_deleted">记录已删除</string>
     <string name="recent_activity_delete_failed">删除记录失败</string>
+    <string name="recent_activity_restore_failed">撤销删除失败</string>
 
 
     <!-- Recent Activity -->
@@ -414,11 +421,13 @@
     <string name="notification_channels_delete">删除</string>
     <string name="notification_channels_setting">设置</string>
     <string name="notification_channels_copy_id">复制通知渠道ID</string>
+    <string name="notification_channels_delete_failed">删除通知渠道失败</string>
 
     <string name="zygisk_status">Zygisk配置</string>
     <string name="zygisk_status_summary">管理模块状态与应用伪装</string>
     <string name="zygisk_enabled">已开启</string>
     <string name="zygisk_disabled">未开启或未授权 Root</string>
+    <string name="zygisk_unavailable">暂时无法读取</string>
     <string name="zygisk_spoof_switch">启用 Zygisk 机型伪装</string>
     <string name="zygisk_spoof_switch_summary">开启后，Zygisk 模块将在该应用内伪装设备属性，促使其主动注册 MiPush。</string>
 
@@ -596,6 +605,23 @@
     <string name="pref_island_show_original_notification_summary">展示超级岛时仍保留源应用通知。</string>
     <string name="pref_island_focus_notif_title">焦点认证绕过</string>
     <string name="pref_island_focus_notif_summary">允许所有应用的焦点通知绕过 SystemUI 和 XMSF 认证。</string>
+    <string name="pref_island_renderer_mode_title">小岛渲染器</string>
+    <string name="pref_island_renderer_mode_summary">自动模式在安装 HyperIsland 时交给它渲染，否则使用 MiPush 内置渲染。</string>
+    <string name="pref_island_renderer_mode_auto">自动</string>
+    <string name="pref_island_renderer_mode_mipush">MiPush 内置</string>
+    <string name="pref_island_renderer_mode_hyperisland">HyperIsland</string>
+    <string name="pref_island_visual_title">视觉效果</string>
+    <string name="pref_island_visual_summary">启用 MiPush 小岛背景和视觉层。</string>
+    <string name="pref_island_dynamic_color_title">动态主题色</string>
+    <string name="pref_island_dynamic_color_summary">从通知图标提取小岛主题色。</string>
+    <string name="pref_island_blur_title">背景模糊</string>
+    <string name="pref_island_blur_summary">系统支持时使用 MIUI 背景模糊层。</string>
+    <string name="pref_island_glass_title">玻璃边缘</string>
+    <string name="pref_island_glass_summary">绘制半透明玻璃高光和边缘。</string>
+    <string name="pref_island_outer_glow_title">外圈光效</string>
+    <string name="pref_island_outer_glow_summary">在小岛外绘制彩色轮廓光。</string>
+    <string name="pref_island_animation_title">边缘动画</string>
+    <string name="pref_island_animation_summary">小岛显示时动态移动主题高光。</string>
 
     <string name="mock_target_package">目标包名</string>
     <string name="mock_group_notification_shade">通知栏</string>

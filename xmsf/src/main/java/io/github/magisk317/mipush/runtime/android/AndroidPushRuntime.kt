@@ -22,6 +22,7 @@ import io.github.magisk317.mipush.runtime.core.PushRuntimeCapability
 import io.github.magisk317.mipush.runtime.core.PushRuntimeComponents
 import io.github.magisk317.mipush.runtime.core.PushRuntimeExecutionHost
 import io.github.magisk317.mipush.runtime.core.PushRuntimeRegistrationDispatchResult
+import io.github.magisk317.mipush.common.utils.Utils
 
 data class PushRuntimeSnapshot(
     val bridgeReady: Boolean,
@@ -550,7 +551,8 @@ object AndroidPushRuntime {
 
     @JvmStatic
     fun getRegistrationRecord(packageName: String): PushRegistrationRecord? = synchronized(lock) {
-        registrationRecords[packageName]
+        val userId = currentUserId()
+        registrationRecords[packageScope(packageName, userId)]
     }
 
     @JvmStatic
@@ -676,6 +678,7 @@ object AndroidPushRuntime {
         reasonMessage: String? = null,
         nowMs: Long = System.currentTimeMillis()
     ): PushChannelRecord {
+        val androidUserId = currentUserId()
         val record = PushChannelRecord(
             packageName = packageName,
             channelId = channelId,
@@ -685,10 +688,11 @@ object AndroidPushRuntime {
             updatedAtMs = nowMs,
             source = source,
             reasonCode = reasonCode,
-            reasonMessage = reasonMessage
+            reasonMessage = reasonMessage,
+            androidUserId = androidUserId,
         )
         synchronized(lock) {
-            channelRecords[channelIdentity(record)] = record
+            channelRecords[channelIdentity(record, androidUserId)] = record
             evictOldestIfNeeded(channelRecords, MAX_CHANNEL_RECORDS)
             lastChannelPackage = packageName
             lastChannelState = state
@@ -705,7 +709,9 @@ object AndroidPushRuntime {
         source: String,
         nowMs: Long = System.currentTimeMillis()
     ) {
-        val incomingKeys = channels.mapTo(linkedSetOf()) { channelIdentity(it) }
+        val androidUserId = currentUserId()
+        val scopedChannels = channels.map { it.copy(androidUserId = androidUserId, updatedAtMs = nowMs, source = source) }
+        val incomingKeys = scopedChannels.mapTo(linkedSetOf()) { channelIdentity(it, androidUserId) }
         synchronized(lock) {
             val previousState = connectionRecord.state
             connectionRecord = PushConnectionRecord(
@@ -736,7 +742,7 @@ object AndroidPushRuntime {
                     )
                 }
             }
-            channels.forEach { channelRecords[channelIdentity(it)] = it.copy(updatedAtMs = nowMs, source = source) }
+            scopedChannels.forEach { channelRecords[channelIdentity(it, androidUserId)] = it }
         }
         observeChannelEvent(null, "channel_sync", source)
     }
@@ -777,7 +783,8 @@ object AndroidPushRuntime {
     @JvmStatic
     fun forceTriggerRegistration(packageName: String, source: String, reason: String? = null): Boolean {
         synchronized(lock) {
-            if (activeRegistrationDispatches.contains(packageName)) {
+            val packageKey = packageScope(packageName)
+            if (activeRegistrationDispatches.contains(packageKey)) {
                 logD("skip reentrant application registration package=$packageName source=$source reason=$reason")
                 MagiskOtel.event(
                     name = "push.register",
@@ -794,8 +801,8 @@ object AndroidPushRuntime {
                 )
                 return false
             }
-            recentRegistrationReplays.remove(packageName)
-            recentPackageActions.remove("$packageName:registration:Registering")
+            recentRegistrationReplays.remove(packageKey)
+            recentPackageActions.remove(actionScope(packageName, "registration:Registering"))
         }
         val triggered = requestApplicationRegistration(packageName, source, reason)
         MagiskOtel.event(
@@ -812,6 +819,29 @@ object AndroidPushRuntime {
             statusOk = true,
         )
         return triggered
+    }
+
+    @JvmStatic
+    fun clearPackageTransientState(packageName: String) {
+        clearPackageTransientState(packageName, currentUserId())
+    }
+
+    @JvmStatic
+    fun clearPackageTransientState(packageName: String, userId: Int) {
+        val normalizedUserId = userId.coerceAtLeast(0)
+        val packageKey = "$normalizedUserId:$packageName"
+        synchronized(lock) {
+            val packagePrefix = "$packageKey:"
+            recentMessageIds.keys.removeIf { it.startsWith(packagePrefix) }
+            recentPackageActions.keys.removeIf { it.startsWith(packagePrefix) }
+            recentRegistrationReplays.remove(packageKey)
+            activeRegistrationDispatches.remove(packageKey)
+            registrationRecords.remove(packageKey)
+            val userPrefix = "$normalizedUserId:"
+            channelRecords.entries.removeIf { (key, record) ->
+                key.startsWith(userPrefix) && record.packageName == packageName
+            }
+        }
     }
 
     @JvmStatic
@@ -868,15 +898,17 @@ object AndroidPushRuntime {
         reason: String?,
         nowMs: Long
     ): PushRegistrationRecord {
+        val androidUserId = currentUserId()
         val record = PushRegistrationRecord(
             packageName = packageName,
             state = state,
             updatedAtMs = nowMs,
             source = source,
-            reason = reason
+            reason = reason,
+            androidUserId = androidUserId,
         )
         synchronized(lock) {
-            registrationRecords[packageName] = record
+            registrationRecords[packageScope(packageName, androidUserId)] = record
             evictOldestIfNeeded(registrationRecords, MAX_REGISTRATION_RECORDS)
             lastRegistrationPackage = packageName
             lastRegistrationState = state
@@ -914,12 +946,13 @@ object AndroidPushRuntime {
     ): Boolean {
         var duplicated = false
         if (!messageId.isNullOrBlank()) {
-            val previous = recentMessageIds[messageId]
+            val messageKey = messageScope(packageName, messageId)
+            val previous = recentMessageIds[messageKey]
             duplicated = previous != null && (nowMs - previous) <= MESSAGE_DEDUP_WINDOW_MS
-            recentMessageIds[messageId] = nowMs
+            recentMessageIds[messageKey] = nowMs
         }
         if (!duplicated && !packageName.isNullOrBlank()) {
-            val appActionKey = "$packageName:$action"
+            val appActionKey = actionScope(packageName, action)
             val previous = recentPackageActions[appActionKey]
             duplicated = previous != null && (nowMs - previous) <= APP_ACTION_BURST_WINDOW_MS
             recentPackageActions[appActionKey] = nowMs
@@ -934,10 +967,10 @@ object AndroidPushRuntime {
         nowMs: Long
     ) {
         if (!messageId.isNullOrBlank()) {
-            recentMessageIds[messageId] = nowMs
+            recentMessageIds[messageScope(packageName, messageId)] = nowMs
         }
         if (!packageName.isNullOrBlank()) {
-            recentPackageActions["$packageName:$action"] = nowMs
+            recentPackageActions[actionScope(packageName, action)] = nowMs
         }
     }
 
@@ -955,7 +988,7 @@ object AndroidPushRuntime {
                 .asSequence()
                 .filter { it.packageName != PushRuntimeComponents.SERVICE_PACKAGE }
                 .filter { it.state == PushRegistrationState.Registering || it.state == PushRegistrationState.Failed || it.state == PushRegistrationState.NotRegistered }
-                .filterNot { activeRegistrationDispatches.contains(it.packageName) }
+                .filterNot { activeRegistrationDispatches.contains(packageScope(it.packageName)) }
                 .filter { shouldReplayRegistrationLocked(it.packageName, nowMs) }
                 .take(limit)
                 .map { it.packageName }
@@ -979,13 +1012,14 @@ object AndroidPushRuntime {
 
     private fun dispatchApplicationRegistration(packageName: String, source: String, reason: String?): Boolean {
         val host = synchronized(lock) {
-            if (activeRegistrationDispatches.contains(packageName)) {
+            val packageKey = packageScope(packageName)
+            if (activeRegistrationDispatches.contains(packageKey)) {
                 logD("skip active application registration package=$packageName source=$source reason=$reason")
                 return false
             }
             val activeHost = executionHost ?: return false
-            recentRegistrationReplays[packageName] = System.currentTimeMillis()
-            activeRegistrationDispatches += packageName
+            recentRegistrationReplays[packageKey] = System.currentTimeMillis()
+            activeRegistrationDispatches += packageKey
             activeHost
         }
         return runCatching {
@@ -995,22 +1029,42 @@ object AndroidPushRuntime {
             false
         }.also {
             synchronized(lock) {
-                activeRegistrationDispatches -= packageName
+                activeRegistrationDispatches -= packageScope(packageName)
             }
         }
     }
 
     private fun shouldReplayRegistrationLocked(packageName: String, nowMs: Long): Boolean {
-        val previous = recentRegistrationReplays[packageName] ?: return true
+        val previous = recentRegistrationReplays[packageScope(packageName)] ?: return true
         return (nowMs - previous) > REGISTRATION_REPLAY_WINDOW_MS
     }
+
+    private fun packageScope(packageName: String): String = packageScope(packageName, currentUserId())
+
+    private fun packageScope(packageName: String, androidUserId: Int): String =
+        "${androidUserId.coerceAtLeast(0)}:$packageName"
+
+    private fun messageScope(packageName: String?, messageId: String): String =
+        "${currentUserId()}:${packageName.orEmpty()}:$messageId"
+
+    private fun actionScope(packageName: String, action: String): String =
+        "${currentUserId()}:$packageName:$action"
+
+    private fun currentUserId(): Int = runCatching { Utils.myUserId() }
+        .getOrDefault(0)
+        .coerceAtLeast(0)
 
     private fun buildReason(source: String, reason: String?): String {
         return if (reason.isNullOrBlank()) source else "$source:$reason"
     }
 
-    private fun channelIdentity(record: PushChannelRecord): String {
+    private fun channelIdentity(record: PushChannelRecord): String =
+        channelIdentity(record, record.androidUserId)
+
+    internal fun channelIdentity(record: PushChannelRecord, androidUserId: Int): String {
         return buildString {
+            append(androidUserId.coerceAtLeast(0))
+            append(':')
             append(record.channelId)
             append(':')
             append(record.packageName ?: "")

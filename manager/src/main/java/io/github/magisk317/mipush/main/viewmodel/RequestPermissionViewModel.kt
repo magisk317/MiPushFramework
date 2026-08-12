@@ -4,7 +4,9 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
+import io.github.magisk317.mipush.common.manager.ManagerRootAccessState
 import io.github.magisk317.mipush.common.manager.ManagerRootAccessSnapshot
+import io.github.magisk317.mipush.common.manager.ManagerRootSubjectStatus
 import io.github.magisk317.mipush.common.manager.ManagerRootTarget
 import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.feature.wizard.permission.PermissionInfo
@@ -28,12 +30,18 @@ class RequestPermissionViewModel constructor(
     val permissionStates: StateFlow<Map<Int, Boolean>> = _permissionStates.asStateFlow()
 
     private val _rootAccessSnapshot = MutableStateFlow(
-        permissionGateway.getRootAccessSnapshot(refresh = false),
+        unavailableRootAccessSnapshot(),
     )
     val rootAccessSnapshot: StateFlow<ManagerRootAccessSnapshot> = _rootAccessSnapshot.asStateFlow()
 
     private val _autoRequestCompleted = MutableStateFlow(false)
     val autoRequestCompleted: StateFlow<Boolean> = _autoRequestCompleted.asStateFlow()
+
+    init {
+        viewModelScope.launch(Dispatchers.IO) {
+            _rootAccessSnapshot.value = permissionGateway.getRootAccessSnapshot(refresh = false)
+        }
+    }
 
     fun evaluatePermissions(permissionInfos: List<PermissionInfo>) {
         viewModelScope.launch {
@@ -170,14 +178,32 @@ class RequestPermissionViewModel constructor(
     }
 }
 
-internal fun evaluatePermissionStatesNow(
+private fun unavailableRootAccessSnapshot() = ManagerRootAccessSnapshot(
+    userId = -1,
+    manager = ManagerRootSubjectStatus(
+        target = ManagerRootTarget.MANAGER,
+        packageName = "",
+        userId = -1,
+        state = ManagerRootAccessState.UNAVAILABLE,
+    ),
+    runtime = ManagerRootSubjectStatus(
+        target = ManagerRootTarget.RUNTIME,
+        packageName = "",
+        userId = -1,
+        state = ManagerRootAccessState.UNAVAILABLE,
+    ),
+)
+
+internal suspend fun evaluatePermissionStatesNow(
     permissionInfos: List<PermissionInfo>,
     permissionGateway: ManagerPermissionGateway,
 ): Map<Int, Boolean> {
     return permissionInfos.mapIndexed { index, info ->
-        index to runCatching {
+        index to try {
             info.permissionOperator.isPermissionGranted(permissionGateway)
-        }.getOrDefault(false)
+        } catch (_: RuntimeException) {
+            false
+        }
     }.toMap()
 }
 

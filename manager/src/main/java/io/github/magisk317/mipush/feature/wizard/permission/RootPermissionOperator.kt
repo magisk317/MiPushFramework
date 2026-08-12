@@ -3,15 +3,15 @@ package io.github.magisk317.mipush.feature.wizard.permission
 import io.github.magisk317.mipush.common.manager.ManagerPermissionGateway
 
 class RootPermissionOperator : PermissionOperator {
-    override fun isPermissionGranted(permissionGateway: ManagerPermissionGateway?): Boolean {
+    override suspend fun isPermissionGranted(permissionGateway: ManagerPermissionGateway?): Boolean {
         return permissionGateway?.hasCachedRootAccess() == true
     }
 
-    override fun requestPermissionSilently(permissionGateway: ManagerPermissionGateway?): Boolean {
+    override suspend fun requestPermissionSilently(permissionGateway: ManagerPermissionGateway?): Boolean {
         return permissionGateway?.refreshRootAccessIfGranted() == true
     }
 
-    override fun requestPermission(permissionGateway: ManagerPermissionGateway?) {
+    override suspend fun requestPermission(permissionGateway: ManagerPermissionGateway?) {
         permissionGateway?.requestRootAccess()
     }
 }

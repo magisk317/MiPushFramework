@@ -66,7 +66,7 @@ object ChannelNameEnricher {
             preferredUid = packageUid,
         ) ?: return emptyMap()
         val resolved = parseNames(scoped).toMutableMap()
-        val effective = parseEffectiveChannelNames(notificationDump, packageName)
+        val effective = parseEffectiveChannelNames(notificationDump, packageName, packageUid)
 
         effective.forEach { (effectiveId, effectiveName) ->
             val matchingIds = resolved.keys.filter { listedId ->
@@ -116,6 +116,7 @@ object ChannelNameEnricher {
     internal fun parseEffectiveChannelNames(
         output: String,
         packageName: String,
+        packageUid: Int? = null,
     ): Map<String, String> {
         val names = linkedMapOf<String, String>()
         extractEffectiveChannelBlocks(output).forEach { located ->
@@ -124,7 +125,7 @@ object ChannelNameEnricher {
                 Regex("""\bmId='([^']*)'"""),
                 Regex("""\bid=([^\s,}]+)"""),
             ) ?: return@forEach
-            if (!effectiveEntryBelongsToPackage(output, located.start, packageName, id)) {
+            if (!effectiveEntryBelongsToPackage(output, located.start, packageName, id, packageUid)) {
                 return@forEach
             }
             val name = firstFieldValue(
@@ -173,6 +174,7 @@ object ChannelNameEnricher {
         effectiveStart: Int,
         packageName: String,
         channelId: String,
+        packageUid: Int?,
     ): Boolean {
         if (managedChannelSource(packageName, channelId) != null ||
             channelId == "ch_" + packageName
@@ -184,7 +186,16 @@ object ChannelNameEnricher {
         if (recordStart < 0) return false
         val context = output.substring(recordStart, effectiveStart)
         val packagePattern = Regex("""\bpkg=""" + Regex.escape(packageName) + """(?=[\s,}:])""")
-        return packagePattern.containsMatchIn(context)
+        if (!packagePattern.containsMatchIn(context)) return false
+        val expectedUserId = packageUid?.div(PER_USER_RANGE)
+        if (expectedUserId == null) return true
+        val userId = Regex("""\buser=UserHandle\{(\d+)\}""")
+            .find(context)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.toIntOrNull()
+            ?: return false
+        return userId == expectedUserId
     }
 
     private fun shouldPrefer(current: String, candidate: String): Boolean {
@@ -206,6 +217,8 @@ object ChannelNameEnricher {
         val start: Int,
         val value: String,
     )
+
+    private const val PER_USER_RANGE = 100_000
 
     private fun extractEffectiveChannelBlocks(output: String): List<LocatedBlock> {
         val marker = "effectiveNotificationChannel=NotificationChannel{"

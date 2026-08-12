@@ -250,11 +250,13 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="notification_channels_delete">Delete</string>
     <string name="notification_channels_setting">Setting</string>
     <string name="notification_channels_copy_id">Copy channel ID</string>
+    <string name="notification_channels_delete_failed">Failed to delete notification channel</string>
 
     <string name="zygisk_status">Zygisk configuration</string>
     <string name="zygisk_status_summary">Manage module status and app spoofing</string>
     <string name="zygisk_enabled">Enabled</string>
     <string name="zygisk_disabled">Disabled</string>
+    <string name="zygisk_unavailable">Unavailable</string>
     <string name="zygisk_spoof_switch">Zygisk device spoofing</string>
     <string name="zygisk_spoof_switch_summary">When enabled, the app will think it is running on a Xiaomi device, prompting it to register with MiPush.</string>
 
@@ -266,6 +268,7 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="settings_configuration_directory">Change configuration directory</string>
     <string name="settings_XMPP_server">Set XMPP server</string>
     <string name="settings_XMPP_server_summary">Set send/receive message server</string>
+    <string name="settings_XMPP_server_load_failed">XMSF runtime unavailable; server settings are read-only until it reconnects.</string>
     <string name="settings_XMPP_server_hint">Host or host:port</string>
     <string name="settings_XMPP_server_saved">XMPP server updated</string>
     <string name="settings_XMPP_server_save_failed">Could not update XMPP server</string>
@@ -370,6 +373,11 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="event_cleanup_confirm_all">Delete all %1$d records? Registration-state records are always kept. This cannot be undone.</string>
     <string name="event_cleanup_done">Cleaned up %1$d records</string>
     <string name="event_cleanup_none">No records to clean</string>
+    <string name="event_cleanup_failed">Could not clean records. Check the MiPush runtime connection.</string>
+    <string name="event_initial_load_title">Preparing event history</string>
+    <string name="event_initial_load_summary">The first load processes historical records and may take a while. Keep this page open.</string>
+    <string name="event_load_failed_title">Could not load events</string>
+    <string name="event_load_failed_summary">The runtime is still processing or temporarily unavailable. Pull to retry later.</string>
     <string name="event_cleanup_prev_month">Previous month</string>
     <string name="event_cleanup_next_month">Next month</string>
     <string name="recent_activity_group_count">%1$d records</string>
@@ -389,6 +397,7 @@ Please grant the <b>Run in the background or wake up</b> permissions.
     <string name="recent_activity_filter_status_denied">Denied</string>
     <string name="recent_activity_deleted">Event deleted</string>
     <string name="recent_activity_delete_failed">Failed to delete event</string>
+    <string name="recent_activity_restore_failed">Failed to undo event deletion</string>
 
     <!-- Update -->
 
@@ -604,6 +613,23 @@ This could be the application doing a reverse registration, or the registration 
     <string name="pref_island_show_original_notification_summary">Keep the source app\'s notification in the shade alongside the focus notification.</string>
     <string name="pref_island_focus_notif_title">Focus authorization bypass</string>
     <string name="pref_island_focus_notif_summary">Allow focus notifications from all apps to bypass SystemUI and XMSF authorization.</string>
+    <string name="pref_island_renderer_mode_title">Island renderer</string>
+    <string name="pref_island_renderer_mode_summary">Auto delegates to HyperIsland when it is installed; MiPush renders when it is absent.</string>
+    <string name="pref_island_renderer_mode_auto">Auto</string>
+    <string name="pref_island_renderer_mode_mipush">MiPush built-in</string>
+    <string name="pref_island_renderer_mode_hyperisland">HyperIsland</string>
+    <string name="pref_island_visual_title">Visual effects</string>
+    <string name="pref_island_visual_summary">Enable the MiPush island background and visual layer.</string>
+    <string name="pref_island_dynamic_color_title">Dynamic accent color</string>
+    <string name="pref_island_dynamic_color_summary">Derive the island accent from the notification icon.</string>
+    <string name="pref_island_blur_title">Background blur</string>
+    <string name="pref_island_blur_summary">Use the MIUI background blur layer when available.</string>
+    <string name="pref_island_glass_title">Glass edge</string>
+    <string name="pref_island_glass_summary">Draw the translucent glass highlight and edge.</string>
+    <string name="pref_island_outer_glow_title">Outer glow</string>
+    <string name="pref_island_outer_glow_summary">Draw a colored outline around the island.</string>
+    <string name="pref_island_animation_title">Animated edge</string>
+    <string name="pref_island_animation_summary">Animate the accent highlight while the island is visible.</string>
 
     <string name="mock_target_package">Target Package</string>
     <string name="mock_group_notification_shade">Notification shade</string>

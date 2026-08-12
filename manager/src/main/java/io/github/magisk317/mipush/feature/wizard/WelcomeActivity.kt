@@ -4,20 +4,24 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
+import io.github.magisk317.mipush.data.PreferenceRepository
 import io.github.magisk317.mipush.feature.main.MainActivity
 import io.github.magisk317.mipush.feature.main.WelcomeIslandNotifier
 import io.github.magisk317.mipush.feature.wizard.support.WizardSPUtils
 import kotlinx.coroutines.launch
+import org.koin.android.ext.android.inject
 
 /**
  * Wizard welcome page
  */
 open class WelcomeActivity : ComponentActivity() {
+    private val preferenceRepository: PreferenceRepository by inject()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WelcomeIslandNotifier.notifyAfterInstallOrUpdate(this)
         lifecycleScope.launch {
-            if (WizardSPUtils.shouldShowWizard()) {
+            if (WizardSPUtils.shouldShowWizard(preferenceRepository)) {
                 jumpToRequestPermissionPage()
             } else {
                 jumpToMainActivity()
