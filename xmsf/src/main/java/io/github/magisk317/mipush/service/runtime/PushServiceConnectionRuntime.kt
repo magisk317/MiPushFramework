@@ -96,10 +96,17 @@ object PushServiceConnectionRuntime {
     }
 
     @JvmStatic
-    fun planConnectionClosed(shouldFalldown: Boolean): PushConnectionClosedPlan {
+    fun planConnectionClosed(
+        shouldFalldown: Boolean,
+        reason: Int = 0,
+        error: Exception? = null
+    ): PushConnectionClosedPlan {
+        val failedConnection = error != null ||
+            reason == PushConstants.ERROR_READ_ERROR ||
+            reason == PushConstants.ERROR_PING_TIMEOUT
         return PushConnectionClosedPlan(
-            shouldScheduleReconnect = !shouldFalldown,
-            eventAction = if (shouldFalldown) {
+            shouldScheduleReconnect = !shouldFalldown || failedConnection,
+            eventAction = if (shouldFalldown && !failedConnection) {
                 "connection_closed_falldown"
             } else {
                 "connection_closed_schedule_reconnect"

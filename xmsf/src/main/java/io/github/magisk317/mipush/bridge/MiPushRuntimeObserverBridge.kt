@@ -269,10 +269,13 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
     }
 
     override fun connectionClosed(connection: Connection, reason: Int, error: Exception?) {
-        if (activeServiceFor(connection) == null) {
+        val service = activeServiceFor(connection)
+        if (service == null) {
             logW("ignore close from stale connection reason=$reason")
             return
         }
+        val wasFalldown = service.shouldFalldown()
+        val closePlan = PushServiceConnectionRuntime.planConnectionClosed(wasFalldown, reason, error)
         releaseConnection(connection)
         publishConnectionStatus(ConnectionStatus.disconnected)
         PushRuntime.observeChannelEvent(null, "connection_closed", "MiPushRuntimeObserverBridge.connectionClosed")
@@ -282,6 +285,9 @@ class MiPushRuntimeObserverBridge(private val context: Context) : IPushRuntimeOb
             host = connection.host,
             reason = error?.message ?: reason.toString()
         )
+        if (wasFalldown && closePlan.shouldScheduleReconnect) {
+            service.scheduleConnect(true)
+        }
     }
 
     override fun connectionStarted(connection: Connection) {

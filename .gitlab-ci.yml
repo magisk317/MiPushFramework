@@ -1,18 +1,18 @@
 include:
   - project: magisk3171/magisk-ci-toolkit
-    ref: f52f56a2bd14ecd9c3130fa3d7e424039440dadd
+    ref: 1aa5556bb0ab9447a4501b89799a0d2c2dfd179e
     file: /.gitlab/ci/android.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: f52f56a2bd14ecd9c3130fa3d7e424039440dadd
+    ref: 1aa5556bb0ab9447a4501b89799a0d2c2dfd179e
     file: /.gitlab/ci/android-release.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: f52f56a2bd14ecd9c3130fa3d7e424039440dadd
+    ref: 1aa5556bb0ab9447a4501b89799a0d2c2dfd179e
     file: /.gitlab/ci/telegram.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: f52f56a2bd14ecd9c3130fa3d7e424039440dadd
+    ref: 1aa5556bb0ab9447a4501b89799a0d2c2dfd179e
     file: /.gitlab/ci/renovate.yml
   - project: magisk3171/magisk-ci-toolkit
-    ref: f52f56a2bd14ecd9c3130fa3d7e424039440dadd
+    ref: 1aa5556bb0ab9447a4501b89799a0d2c2dfd179e
     file: /.gitlab/ci/cancel-mr-pipelines.yml
 
 workflow:
@@ -42,7 +42,7 @@ stages:
   - maintenance
 
 variables:
-  MAGISK_CI_TOOLKIT_REF: "f52f56a2bd14ecd9c3130fa3d7e424039440dadd"
+  MAGISK_CI_TOOLKIT_REF: "1aa5556bb0ab9447a4501b89799a0d2c2dfd179e"
   MAGISK_CANCEL_OLDER_MR_PIPELINES: "true"
   GIT_DEPTH: "0"
   GIT_SUBMODULE_STRATEGY: recursive
@@ -127,6 +127,17 @@ android:build:
 
 cancel:older:mr:pipelines:
   extends: .magisk_cancel_older_mr_pipelines
+  before_script:
+    - apk add --no-cache bash curl jq
+    - |
+      set -euo pipefail
+      raw_base="${MAGISK_CI_TOOLKIT_RAW_BASE_URL:-https://gitlab.com/magisk3171/magisk-ci-toolkit/-/raw}"
+      toolkit_ref="${MAGISK_CI_TOOLKIT_REF:-main}"
+      curl --fail --silent --show-error --location \
+        --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+        "${raw_base}/${toolkit_ref}/ci/cancel_older_mr_pipelines.sh" \
+        --output /tmp/cancel_older_mr_pipelines.sh
+      chmod +x /tmp/cancel_older_mr_pipelines.sh
 
 .mipush_zygisk_build:
   extends: .mipush_package_rules
@@ -394,14 +405,14 @@ android:test:
     - |
       set -euo pipefail
       : "${MAGISK_GRADLE_ARGS:=--warning-mode all}"
+      mapfile -t selected_tasks < <(bash scripts/ci/select_android_test_tasks.sh "$MAGISK_CI_TOOLKIT_DIR")
+      if ((${#selected_tasks[@]} == 0)); then
+        echo "No Android test tasks selected for this change."
+        exit 0
+      fi
       bash "$MAGISK_CI_TOOLKIT_DIR/gradle/run_gradle_with_retry.sh" $MAGISK_GRADLE_ARGS \
         --no-parallel \
-        :common:check \
-        :xmsf:testNormalDebugUnitTest \
-        :xmsf:testVc105DebugUnitTest \
-        :core:testDebugUnitTest \
-        :xposed:testDebugUnitTest \
-        qualityGateKoverVerify \
+        "${selected_tasks[@]}" \
         -PminifyDebug \
         -Pkotlin.incremental=false \
         -x detekt \

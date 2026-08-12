@@ -34,6 +34,8 @@ class KeepAliveHook : BaseHook() {
         private const val TAG = "KeepAliveHook"
         private const val PREF_REFRESH_INTERVAL_MS = 60_000L
         private const val LOG_INTERVAL_MS = 60_000L
+        private const val PACKAGE_KILL_EVEN_PERSISTENT_ARG_INDEX = 7
+        private const val PACKAGE_KILL_UNINSTALLING_ARG_INDEX = 9
         private val PREF_URI = Uri.parse("content://$KEEPALIVE_PREF_AUTHORITY/$KEEPALIVE_PREF_PATH_FLAGS")
         private val PREF_KEYS = arrayOf(
             KEEPALIVE_PREF_OOM_ADJ,
@@ -320,9 +322,9 @@ class KeepAliveHook : BaseHook() {
                             subReason = subReason,
                             callerWillRestart = args.getOrNull(4) as? Boolean,
                             doit = args.getOrNull(6) as? Boolean,
-                            evenPersistent = args.getOrNull(7) as? Boolean,
+                            evenPersistent = args.getOrNull(PACKAGE_KILL_EVEN_PERSISTENT_ARG_INDEX) as? Boolean,
                             setRemoved = args.getOrNull(8) as? Boolean,
-                            uninstalling = args.getOrNull(9) as? Boolean,
+                            uninstalling = args.getOrNull(PACKAGE_KILL_UNINSTALLING_ARG_INDEX) as? Boolean,
                         )
                     ) {
                         result = false

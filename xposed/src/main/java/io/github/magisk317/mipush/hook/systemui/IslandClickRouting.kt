@@ -7,11 +7,12 @@ import android.os.UserHandle
 /** User-aware helpers for the launcher fallback used by known broken notification click routes. */
 internal object IslandClickRouting {
     private const val PER_USER_RANGE = 100_000
+    private const val REQUEST_HASH_MULTIPLIER = 31
 
     fun requestCode(packageName: String, notificationId: Int, userId: Int): Int {
         var result = packageName.hashCode()
-        result = 31 * result + userId.coerceAtLeast(0)
-        return 31 * result + notificationId
+        result = REQUEST_HASH_MULTIPLIER * result + userId.coerceAtLeast(0)
+        return REQUEST_HASH_MULTIPLIER * result + notificationId
     }
 
     fun contextForUser(context: Context, userId: Int): Context? {

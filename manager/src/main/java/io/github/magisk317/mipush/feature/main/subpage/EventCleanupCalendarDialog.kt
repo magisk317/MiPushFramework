@@ -67,6 +67,7 @@ private sealed class PendingCleanup(val count: Int) {
  * - 所有清理动作执行前都会二次确认;注册状态记录始终保留(由 DAO SQL 保证)。
  */
 @Composable
+@Suppress("TooGenericExceptionCaught")
 fun EventCleanupCalendarDialog(
     viewModel: EventListViewModel,
     onDismiss: () -> Unit,

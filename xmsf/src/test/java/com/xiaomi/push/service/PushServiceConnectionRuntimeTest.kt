@@ -82,9 +82,23 @@ class PushServiceConnectionRuntimeTest {
 
     @Test
     fun `connection closed skips reconnect during falldown`() {
-        val plan = PushServiceConnectionRuntime.planConnectionClosed(shouldFalldown = true)
+        val plan = PushServiceConnectionRuntime.planConnectionClosed(
+            shouldFalldown = true,
+            reason = PushConstants.ERROR_USER_BLOCKED,
+        )
 
         assertFalse(plan.shouldScheduleReconnect)
         assertEquals("connection_closed_falldown", plan.eventAction)
+    }
+
+    @Test
+    fun `failed connection closed forces reconnect during falldown`() {
+        val plan = PushServiceConnectionRuntime.planConnectionClosed(
+            shouldFalldown = true,
+            reason = PushConstants.ERROR_PING_TIMEOUT,
+        )
+
+        assertTrue(plan.shouldScheduleReconnect)
+        assertEquals("connection_closed_schedule_reconnect", plan.eventAction)
     }
 }

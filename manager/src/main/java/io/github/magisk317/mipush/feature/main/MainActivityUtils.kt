@@ -30,6 +30,7 @@ class MainActivityUtils(
         fun onChange(status: ConnectionStatus)
     }
 
+    @Suppress("TooGenericExceptionCaught")
     fun initOnCreate(
         context: Context,
         loadConfigurations: suspend (Context) -> Unit,
